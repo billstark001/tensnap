@@ -1,0 +1,10 @@
+{
+  "name": "tensnap-sciter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Sciter development not yet implemented'",
+    "build": "echo 'Sciter build not yet implemented'",
+    "clean": "rm -rf dist"
+  }
+}

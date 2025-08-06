@@ -1,0 +1,25 @@
+{
+  "name": "tensnap",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "pnpm --filter tensnap-web dev",
+    "build:web": "pnpm --filter tensnap-web build",
+    "test:web": "pnpm --filter tensnap-web test",
+    "dev:python": "pnpm --filter tensnap-python dev",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

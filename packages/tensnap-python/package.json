@@ -1,0 +1,12 @@
+{
+  "name": "tensnap-python",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "python -m tensnap.examples.basic",
+    "test": "pytest",
+    "lint": "mypy tensnap && ruff check tensnap",
+    "format": "ruff format tensnap",
+    "clean": "rm -rf build dist *.egg-info __pycache__"
+  }
+}
