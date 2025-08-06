@@ -1,4 +1,3 @@
-import React from 'react';
 import { useScenarioStore } from '../store/scenario';
 import { useTheme } from '../contexts/ThemeContext';
 import { GridEnvironmentView } from './GridEnvironment';
@@ -8,16 +7,16 @@ import { ChartView } from './ChartView';
 import * as styles from '../styles/app.css';
 
 export function MainLayout() {
-  const { 
-    connected, 
-    currentTime, 
-    environments, 
-    parameters, 
-    charts 
+  const {
+    connected,
+    currentTime,
+    environments,
+    parameters,
+    charts
   } = useScenarioStore();
-  
+
   const { theme, toggleTheme } = useTheme();
-  
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -28,21 +27,21 @@ export function MainLayout() {
           </span>
           <span style={{ marginLeft: '16px' }}>Time Step: {currentTime}</span>
         </div>
-        <button 
-          onClick={toggleTheme} 
+        <button
+          onClick={toggleTheme}
           className={styles.button}
           aria-label="Toggle theme"
         >
           {theme === 'light' ? '🌙' : '☀️'}
         </button>
       </header>
-      
+
       <main className={styles.main}>
         <aside className={styles.sidebar}>
           <h3>Parameters</h3>
           <ParameterControls parameters={parameters} />
         </aside>
-        
+
         <div className={styles.content}>
           <section>
             <h3>Environments</h3>
@@ -59,7 +58,7 @@ export function MainLayout() {
               ))}
             </div>
           </section>
-          
+
           {charts.length > 0 && (
             <section>
               <h3>Data Visualization</h3>

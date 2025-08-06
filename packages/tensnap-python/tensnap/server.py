@@ -4,7 +4,8 @@ import asyncio
 import json
 import logging
 import websockets
-from websockets.server import WebSocketServerProtocol
+from websockets.server import WebSocketServerProtocol, serve
+from websockets.exceptions import ConnectionClosed
 import msgpack
 import numpy as np
 from dataclasses import dataclass, asdict
@@ -77,14 +78,14 @@ class TenSnapServer:
         """Handle a client connection"""
         self.clients.add(websocket)
         logger.info(f"Client connected from {websocket.remote_address}")
-        
         try:
             async for message in websocket:
                 await self.handle_message(websocket, message)
-        except websockets.exceptions.ConnectionClosed:
+        except ConnectionClosed:
             pass
         finally:
             self.clients.remove(websocket)
+            logger.info(f"Client disconnected from {websocket.remote_address}")
             logger.info(f"Client disconnected from {websocket.remote_address}")
             
     async def handle_message(self, websocket: WebSocketServerProtocol, message: Union[str, bytes]) -> None:
@@ -158,7 +159,6 @@ class TenSnapServer:
     async def handle_button_click(self, payload: Dict[str, Any]) -> None:
         """Handle button click from client"""
         action = payload.get("action")
-        
         if action in self.button_handlers:
             try:
                 self.button_handlers[action]()
@@ -229,7 +229,7 @@ class TenSnapServer:
         self._running = True
         logger.info(f"Starting TenSnap server on {self.host}:{self.port}")
         
-        async with websockets.serve(self.handle_client, self.host, self.port):
+        async with serve(self.handle_client, self.host, self.port):
             while self._running:
                 await asyncio.sleep(0.1)
                 

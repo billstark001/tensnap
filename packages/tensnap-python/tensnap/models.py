@@ -13,9 +13,9 @@ import networkx as nx
 class Agent:
     """Agent in the simulation"""
     id: Union[str, int]
-    x: Optional[float] = None
-    y: Optional[float] = None
-    heading: Optional[float] = None
+    x: float = 0
+    y: float = 0
+    heading: float = 0
     color: Optional[str] = None
     icon: Literal["arrow", "circle", "square", "triangle"] = "circle"
     size: float = 10

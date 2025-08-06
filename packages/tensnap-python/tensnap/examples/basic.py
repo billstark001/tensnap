@@ -135,6 +135,10 @@ class BasicSimulation:
         time_step = 0
         try:
             while True:
+                if not self.running:
+                    await asyncio.sleep(0.1)
+                    continue
+                
                 await self.server.start_time_step(time_step)
                 await self.step()
                 await self.server.end_time_step()

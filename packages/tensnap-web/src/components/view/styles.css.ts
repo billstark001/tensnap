@@ -1,4 +1,5 @@
 import { style, styleVariants, keyframes } from '@vanilla-extract/css';
+import { TOP_DELTA } from './constants';
 
 const fadeIn = keyframes({
   from: { opacity: 0 },
@@ -46,6 +47,7 @@ export const dragHandle = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+    zIndex: 10,
   ':hover': {
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
@@ -139,63 +141,44 @@ export const buttonView = style({
   },
 });
 
-export const anchoredView = style({
+export const windowView = style({
   backgroundColor: 'white',
   border: '2px solid #e5e7eb',
   borderRadius: '8px',
-  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+  boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
   height: '100%',
+  position: 'relative',
   display: 'flex',
   flexDirection: 'column',
 });
 
-export const anchoredViewHeader = style({
+export const windowViewHeader = style({
   backgroundColor: '#f9fafb',
   padding: '8px 12px',
   borderBottom: '1px solid #e5e7eb',
   borderTopLeftRadius: '6px',
   borderTopRightRadius: '6px',
+  height: `${TOP_DELTA}px`,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
 });
 
-export const anchoredViewContent = style({
-  padding: '12px',
+export const windowViewContent = style({
+  position: 'relative',
   flex: 1,
+  overflow: 'hidden',
+  selectors: {
+    [`${canvas} &`]: {
+      height: '100%',
+    }
+  }
 });
 
-export const containerView = style({
-  backgroundColor: '#f9fafb',
-  border: '2px solid #d1d5db',
-  borderRadius: '8px',
-  height: '100%',
-  position: 'relative',
-  display: 'flex',
-  flexDirection: 'column',
-});
 
 export const containerViewDragOver = style({
   borderColor: '#3b82f6',
   backgroundColor: '#eff6ff',
-});
-
-export const containerViewHeader = style({
-  backgroundColor: '#e5e7eb',
-  padding: '8px 12px',
-  borderBottom: '1px solid #d1d5db',
-  borderTopLeftRadius: '6px',
-  borderTopRightRadius: '6px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  cursor: 'move',
-});
-
-export const containerViewContent = style({
-  position: 'relative',
-  flex: 1,
-  overflow: 'hidden',
 });
 
 export const expandButton = style({

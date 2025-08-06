@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useCallback } from 'react';
 import { WebSocketManager } from '../utils/websocket-manager';
 import { useScenarioStore } from '../store/scenario';
-import { WSMessage } from '../types';
+import { GridEnvironment, WSMessage } from '../types';
 
 interface WebSocketContextType {
   wsManager: WebSocketManager | null;
@@ -19,15 +19,15 @@ interface WebSocketProviderProps {
 export function WebSocketProvider({ url, children }: WebSocketProviderProps) {
   const wsManager = useRef<WebSocketManager | null>(null);
   const store = useScenarioStore();
-  
+
   useEffect(() => {
     wsManager.current = new WebSocketManager(url);
-    
+
     // Set up message handlers
     wsManager.current.on('time_step_start', (payload) => {
       store.setCurrentTime(payload.time);
     });
-    
+
     wsManager.current.on('time_step_end', (payload) => {
       // Could trigger snapshot save here
       const snapshot = {
@@ -39,57 +39,60 @@ export function WebSocketProvider({ url, children }: WebSocketProviderProps) {
       };
       store.addSnapshot(snapshot);
     });
-    
+
     wsManager.current.on('environment_update', (payload) => {
       store.updateEnvironment(payload.id, payload.data);
     });
-    
+
     wsManager.current.on('agent_update', (payload) => {
-      const environments = store.environments;
-      const env = environments.find(e => e.id === payload.environment_id);
-      
-      if (env && env.type === 'grid') {
-        const updatedAgents = env.agents.map(agent =>
-          agent.id === payload.agent_id
-            ? { ...agent, ...payload.data }
-            : agent
-        );
-        store.updateEnvironment(env.id, { agents: updatedAgents });
-      }
+
+      store.updateEnvironment(
+        payload.environment_id,
+        env => ({
+          ...env,
+          agents: (env as GridEnvironment).agents.map(agent =>
+            agent.id === payload.agent_id
+              ? { ...agent, ...payload.data }
+              : agent
+          ),
+        }),
+      );
     });
-    
+
     wsManager.current.on('agent_batch_update', (payload) => {
-      const environments = store.environments;
-      const env = environments.find(e => e.id === payload.environment_id);
-      
-      if (env && env.type === 'grid') {
-        let updatedAgents = [...env.agents];
-        
-        payload.updates.forEach((update: any) => {
-          const index = updatedAgents.findIndex(a => a.id === update.id);
-          if (index >= 0) {
-            updatedAgents[index] = { ...updatedAgents[index], ...update.data };
-          }
-        });
-        
-        store.updateEnvironment(env.id, { agents: updatedAgents });
-      }
+
+      const updateMap: Record<string, any> = Object.fromEntries(
+        payload.updates.map((a: any) => [a.id, a.data]),
+      );
+
+      store.updateEnvironment(
+        payload.environment_id,
+        env => ({
+          ...env,
+          agents: (env as GridEnvironment).agents.map(agent =>
+            agent.id in updateMap
+              ? { ...agent, ...updateMap[agent.id] }
+              : agent
+          ),
+        }),
+      );
+
     });
-    
+
     wsManager.current.on('parameters', (payload) => {
       store.setParameters(payload);
     });
-    
+
     wsManager.current.on('environments_list', (payload) => {
       store.setEnvironments(payload);
     });
-    
+
     wsManager.current.on('chart_data', (payload) => {
       payload.forEach((chartUpdate: any) => {
         store.addChartData(chartUpdate.id, chartUpdate.time, chartUpdate.value);
       });
     });
-    
+
     // Connect
     wsManager.current.connect()
       .then(() => {
@@ -100,21 +103,21 @@ export function WebSocketProvider({ url, children }: WebSocketProviderProps) {
         }
       })
       .catch(console.error);
-    
+
     return () => {
       wsManager.current?.disconnect();
       store.setConnected(false);
     };
   }, [url]);
-  
+
   const sendMessage = useCallback((message: WSMessage) => {
     wsManager.current?.send(message);
   }, []);
-  
+
   const requestState = useCallback(() => {
     sendMessage({ type: 'get_state', payload: {} });
   }, [sendMessage]);
-  
+
   return (
     <WebSocketContext.Provider
       value={{

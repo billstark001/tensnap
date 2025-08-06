@@ -2,29 +2,33 @@ import { useState, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragEndEvent,
   DragStartEvent,
-  DragMoveEvent,
 } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
-import { findAlignmentPoints, findSnapPosition } from './utils';
+import { findAlignmentPoints, findSnapPosition, useCallbackRef } from './utils';
 import * as styles from './styles.css';
 import { ContainerView, AnyView } from '@/types/ui';
 import { AlignmentGuides } from './AlignmentGuides';
 import { DraggableView } from './DraggableView';
-import { DroppableContainer } from './DroppableContainer';
+import { ContainerViewComponent } from './ContainerViewComponent';
 import { useViewOperations } from './useViewOperations';
+import { nestedOverlapCollisionDetection } from './collision';
+import { ViewContext, ViewContextScheme } from './useViewContext';
 
-interface ViewRendererProps {
+export type ViewRendererProps = {
   initialView?: ContainerView;
-}
+} & Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
 
-export default function ViewRenderer({ initialView }: ViewRendererProps) {
+export default function ViewRenderer({ 
+  initialView,
+  onButtonAction: _onButtonAction,
+  renderAnchoredView: _renderAnchoredView,
+}: ViewRendererProps) {
   const [rootView, setRootView] = useState<ContainerView>(initialView || {
     id: 'root',
     type: 'container',
@@ -39,10 +43,13 @@ export default function ViewRenderer({ initialView }: ViewRendererProps) {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedView, setDraggedView] = useState<AnyView | null>(null);
-  const [dragDelta, setDragDelta] = useState({ x: 0, y: 0 });
 
-  const { findAndUpdateView, findAndDeleteView, findAndAddView, getAllViews } = useViewOperations();
+  const { getViewContext, findAndUpdateView, findAndDeleteView, findAndAddView, getAllViews } = useViewOperations();
+  const vc = getViewContext();
 
+  const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
+  const renderAnchoredView = useCallbackRef(_renderAnchoredView ?? (() => undefined));
+  
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -66,54 +73,53 @@ export default function ViewRenderer({ initialView }: ViewRendererProps) {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    const {
+      view: draggedView,
+      siblings: draggedSiblings, 
+    } = event.active.data.current ?? {};
+    const guides = findAlignmentPoints(draggedSiblings, draggedView.id);
+    vc.setGuides(guides);
     const view = event.active.data.current?.view;
     if (view) {
       setDraggedView(view);
     }
   };
 
-  const handleDragMove = (event: DragMoveEvent) => {
-    if (!draggedView) return;
-    
-    const allViews = getAllViews(rootView);
-    const guides = findAlignmentPoints(allViews, draggedView.id);
-    const snapped = findSnapPosition(
-      {
-        x: draggedView.left + event.delta.x,
-        y: draggedView.top + event.delta.y,
-        width: draggedView.width,
-        height: draggedView.height,
-      },
-      guides
-    );
-    
-    setDragDelta({ x: snapped.x - draggedView.left, y: snapped.y - draggedView.top });
-  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     if (!over || !active.data.current?.view) {
+      vc.setGuides({
+        horizontal: [],
+        vertical: [],
+      });
       setActiveId(null);
       setDraggedView(null);
-      setDragDelta({ x: 0, y: 0 });
       return;
     }
 
-    const draggedView = active.data.current.view;
-    const sourceParentId = active.data.current.parentId;
-    const targetContainerId = over.data.current?.containerId;
+    const {
+      view: draggedView,
+      parentId: sourceParentId,
+      relativeLeft: sourceLeft,
+      relativeTop: sourceTop,
+    } = active.data.current ?? {};
 
-    const allViews = getAllViews(rootView);
-    const guides = findAlignmentPoints(allViews, draggedView.id);
+    const {
+      containerId: targetContainerId,
+      relativeLeft: targetLeft,
+      relativeTop: targetTop,
+    } = over.data.current ?? {};
+
     const snapped = findSnapPosition(
       {
-        x: draggedView.left + (event.delta.x || 0),
-        y: draggedView.top + (event.delta.y || 0),
+        x: draggedView.left + sourceLeft - targetLeft + (event.delta.x || 0),
+        y: draggedView.top + sourceTop - targetTop + (event.delta.y || 0),
         width: draggedView.width,
         height: draggedView.height,
       },
-      guides
+      vc.guides
     );
 
     if (targetContainerId && sourceParentId !== targetContainerId) {
@@ -158,54 +164,64 @@ export default function ViewRenderer({ initialView }: ViewRendererProps) {
       });
     }
 
+    vc.setGuides({
+      horizontal: [],
+      vertical: [],
+    });
     setActiveId(null);
     setDraggedView(null);
-    setDragDelta({ x: 0, y: 0 });
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragEnd={handleDragEnd}
-      modifiers={[restrictToWindowEdges]}
-    >
-      <div className={styles.container}>
-        <div className={styles.canvas} style={{ width: rootView.width, height: rootView.height }}>
-          <DroppableContainer
-            view={rootView}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            onAddView={handleAddView}
-            onToggleExpand={(e) => {
-              e.stopPropagation();
-              handleUpdate(rootView.id, { expanded: !rootView.expanded });
-            }}
-          />
-          {activeId && <AlignmentGuides guides={findAlignmentPoints(getAllViews(rootView), activeId)} active={{}} />}
-        </div>
-      </div>
-      
-      <DragOverlay>
-        {activeId && draggedView ? (
-          <div className={styles.dragOverlay}>
-            <DraggableView
-              view={{
-                ...draggedView,
-                left: 0,
-                top: 0,
+    <ViewContext.Provider value={{
+      ...vc,
+      onButtonAction,
+      renderAnchoredView,
+    }}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={nestedOverlapCollisionDetection}
+        onDragStart={handleDragStart}
+        // onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
+        modifiers={[restrictToWindowEdges]}
+      >
+        <div className={styles.container}>
+          <div className={styles.canvas} style={{ width: rootView.width, height: rootView.height }}>
+            <ContainerViewComponent
+              view={rootView}
+              isRootView
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+              onAddView={handleAddView}
+              onToggleExpand={(e) => {
+                e.stopPropagation();
+                handleUpdate(rootView.id, { expanded: !rootView.expanded });
               }}
-              onUpdate={() => {}}
-              onDelete={() => {}}
-              onAddView={() => {}}
-              siblings={[]}
-              isOverlay
             />
+            {activeId && <AlignmentGuides guides={findAlignmentPoints(getAllViews(rootView), activeId)} active={{}} />}
           </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        </div>
+
+        <DragOverlay>
+          {activeId && draggedView ? (
+            <div className={styles.dragOverlay}>
+              <DraggableView
+                view={{
+                  ...draggedView,
+                  left: 0,
+                  top: 0,
+                }}
+                onUpdate={() => { }}
+                onDelete={() => { }}
+                onAddView={() => { }}
+                siblings={[]}
+                isOverlay
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </ViewContext.Provider>
   );
 }

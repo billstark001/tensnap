@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Environment, Parameter, ChartData, Snapshot } from '../types';
+import { SetStateAction } from 'react';
 
 interface ScenarioStore {
   // State
@@ -10,12 +11,12 @@ interface ScenarioStore {
   charts: ChartData[];
   snapshots: Snapshot[];
   maxSnapshots: number;
-  
+
   // Actions
   setConnected: (connected: boolean) => void;
   setCurrentTime: (time: number) => void;
   setEnvironments: (environments: Environment[]) => void;
-  updateEnvironment: (id: string | number, data: Partial<Environment>) => void;
+  updateEnvironment: (id: string | number, data: SetStateAction<Environment>) => void;
   setParameters: (parameters: Parameter[]) => void;
   updateParameter: (id: string, value: any) => void;
   setCharts: (charts: ChartData[]) => void;
@@ -34,32 +35,40 @@ export const useScenarioStore = create<ScenarioStore>((set) => ({
   charts: [],
   snapshots: [],
   maxSnapshots: 100,
-  
+
   // Actions
   setConnected: (connected) => set({ connected }),
-  
+
   setCurrentTime: (time) => set({ currentTime: time }),
-  
+
   setEnvironments: (environments) => set({ environments }),
-  
-  updateEnvironment: (id, data) =>
+
+  updateEnvironment: (id, data) => {
+    if (typeof data === 'function') {
+      set((state) => ({
+        environments: state.environments.map((env) =>
+          env.id === id ? data(env) : env
+        )
+      }))
+    }
     set((state) => ({
       environments: state.environments.map((env) =>
         env.id === id ? { ...env, ...data } : env
       ),
-    })),
-  
+    }));
+  },
+
   setParameters: (parameters) => set({ parameters }),
-  
+
   updateParameter: (id, value) =>
     set((state) => ({
       parameters: state.parameters.map((param) =>
         param.id === id ? { ...param, value } : param
       ),
     })),
-  
+
   setCharts: (charts) => set({ charts }),
-  
+
   addChartData: (chartId, time, value) =>
     set((state) => ({
       charts: state.charts.map((chart) =>
@@ -68,7 +77,7 @@ export const useScenarioStore = create<ScenarioStore>((set) => ({
           : chart
       ),
     })),
-  
+
   addSnapshot: (snapshot) =>
     set((state) => {
       const newSnapshots = [...state.snapshots, snapshot];
@@ -77,8 +86,8 @@ export const useScenarioStore = create<ScenarioStore>((set) => ({
       }
       return { snapshots: newSnapshots };
     }),
-  
+
   clearSnapshots: () => set({ snapshots: [] }),
-  
+
   setMaxSnapshots: (max) => set({ maxSnapshots: max }),
 }));

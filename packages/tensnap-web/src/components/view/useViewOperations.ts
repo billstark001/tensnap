@@ -1,7 +1,13 @@
-import { useCallback } from 'react';
-import { ContainerView, AnyView } from '@/types/ui';
+import { useCallback, useState } from 'react';
+import { ContainerView, AnyView, AlignmentGuides } from '@/types/ui';
+import { ViewContextScheme } from './useViewContext';
 
 export const useViewOperations = () => {
+
+  const [guides, setGuides] = useState<AlignmentGuides>({
+    vertical: [], horizontal: []
+  });
+
   const findAndUpdateView = useCallback((
     root: ContainerView,
     viewId: string,
@@ -76,7 +82,13 @@ export const useViewOperations = () => {
     return views;
   }, []);
 
+  const getViewContext = (): Pick<ViewContextScheme, 'guides' | 'setGuides'> => ({
+    guides,
+    setGuides,
+  });
+
   return {
+    getViewContext,
     findAndUpdateView,
     findAndDeleteView,
     findAndAddView,

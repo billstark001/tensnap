@@ -11,16 +11,16 @@ interface ParameterControlsProps {
 export function ParameterControls({ parameters }: ParameterControlsProps) {
   const { sendMessage } = useWebSocket();
   const updateParameter = useScenarioStore((state) => state.updateParameter);
-  
+
   const handleParameterChange = useCallback(
     (parameterId: string, value: any) => {
       const parameter = parameters.find((p) => p.id === parameterId);
       if (!parameter) return;
-      
+
       if (parameter.type === 'button') {
         sendMessage({
           type: 'button_click',
-          payload: { action: value },
+          payload: { action: parameterId },
         });
       } else {
         sendMessage({
@@ -32,7 +32,7 @@ export function ParameterControls({ parameters }: ParameterControlsProps) {
     },
     [parameters, sendMessage, updateParameter]
   );
-  
+
   return (
     <div>
       {parameters.map((param) => (
@@ -77,7 +77,7 @@ function ParameterControl({ parameter, onChange }: ParameterControlProps) {
           </div>
         </div>
       );
-    
+
     case 'enum':
       return (
         <div>
@@ -104,7 +104,7 @@ function ParameterControl({ parameter, onChange }: ParameterControlProps) {
           </select>
         </div>
       );
-    
+
     case 'button':
       return (
         <button
@@ -115,7 +115,7 @@ function ParameterControl({ parameter, onChange }: ParameterControlProps) {
           {parameter.label}
         </button>
       );
-    
+
     default:
       return null;
   }
