@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { useSimulationStore } from '../store/simulation';
+import { useScenarioStore } from '../store/scenario';
 import { Snapshot } from '../types';
 
 interface SnapshotDB extends DBSchema {
@@ -12,7 +12,7 @@ interface SnapshotDB extends DBSchema {
 }
 
 export function useSnapshots() {
-  const { snapshots, addSnapshot, clearSnapshots } = useSimulationStore();
+  const { snapshots, addSnapshot, clearSnapshots } = useScenarioStore();
   let db: IDBPDatabase<SnapshotDB> | null = null;
   
   useEffect(() => {

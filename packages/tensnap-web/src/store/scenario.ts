@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Environment, Parameter, ChartData, Snapshot } from '../types';
 
-interface SimulationStore {
+interface ScenarioStore {
   // State
   connected: boolean;
   currentTime: number;
@@ -25,7 +25,7 @@ interface SimulationStore {
   setMaxSnapshots: (max: number) => void;
 }
 
-export const useSimulationStore = create<SimulationStore>((set) => ({
+export const useScenarioStore = create<ScenarioStore>((set) => ({
   // Initial state
   connected: false,
   currentTime: 0,

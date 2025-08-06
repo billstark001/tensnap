@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSimulationStore } from '../store/simulation';
+import { useScenarioStore } from '../store/scenario';
 import { useTheme } from '../contexts/ThemeContext';
 import { GridEnvironmentView } from './GridEnvironment';
 import { GraphEnvironmentView } from './GraphEnvironment';
@@ -14,7 +14,7 @@ export function MainLayout() {
     environments, 
     parameters, 
     charts 
-  } = useSimulationStore();
+  } = useScenarioStore();
   
   const { theme, toggleTheme } = useTheme();
   

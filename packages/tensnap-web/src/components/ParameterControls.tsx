@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Parameter } from '../types';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import { useSimulationStore } from '../store/simulation';
+import { useScenarioStore } from '../store/scenario';
 import * as styles from '../styles/app.css';
 
 interface ParameterControlsProps {
@@ -10,7 +10,7 @@ interface ParameterControlsProps {
 
 export function ParameterControls({ parameters }: ParameterControlsProps) {
   const { sendMessage } = useWebSocket();
-  const updateParameter = useSimulationStore((state) => state.updateParameter);
+  const updateParameter = useScenarioStore((state) => state.updateParameter);
   
   const handleParameterChange = useCallback(
     (parameterId: string, value: any) => {

@@ -1,0 +1,274 @@
+import { style, styleVariants, keyframes } from '@vanilla-extract/css';
+
+const fadeIn = keyframes({
+  from: { opacity: 0 },
+  to: { opacity: 1 },
+});
+
+export const container = style({
+  width: '100%',
+  height: '100vh',
+  backgroundColor: '#f3f4f6',
+  padding: '16px',
+});
+
+export const canvas = style({
+  position: 'relative',
+  backgroundColor: 'white',
+  borderRadius: '8px',
+  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+  overflow: 'hidden',
+});
+
+export const draggableView = style({
+  position: 'absolute',
+  userSelect: 'none',
+  transition: 'box-shadow 0.2s',
+  ':hover': {
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+  },
+});
+
+export const draggingView = style({
+  opacity: 0.5,
+  zIndex: 999,
+});
+
+export const dragHandle = style({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  height: '24px',
+  cursor: 'move',
+  backgroundColor: 'transparent',
+  transition: 'background-color 0.2s',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  ':hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+});
+
+export const dragIcon = style({
+  width: '16px',
+  height: '16px',
+  color: '#6b7280',
+  opacity: 0,
+  transition: 'opacity 0.2s',
+  selectors: {
+    [`${dragHandle}:hover &`]: {
+      opacity: 1,
+    },
+  },
+});
+
+export const resizeHandle = styleVariants({
+  se: {
+    position: 'absolute',
+    bottom: '-4px',
+    right: '-4px',
+    width: '12px',
+    height: '12px',
+    cursor: 'se-resize',
+    backgroundColor: '#3b82f6',
+    borderRadius: '2px',
+    opacity: 0,
+    transition: 'opacity 0.2s',
+    zIndex: 10,
+    selectors: {
+      [`${draggableView}:hover &`]: {
+        opacity: 1,
+      },
+    },
+  },
+  e: {
+    position: 'absolute',
+    top: '50%',
+    right: '-4px',
+    width: '8px',
+    height: '40px',
+    transform: 'translateY(-50%)',
+    cursor: 'e-resize',
+    backgroundColor: '#3b82f6',
+    borderRadius: '2px',
+    opacity: 0,
+    transition: 'opacity 0.2s',
+    zIndex: 10,
+    selectors: {
+      [`${draggableView}:hover &`]: {
+        opacity: 0.7,
+      },
+    },
+  },
+  s: {
+    position: 'absolute',
+    bottom: '-4px',
+    left: '50%',
+    width: '40px',
+    height: '8px',
+    transform: 'translateX(-50%)',
+    cursor: 's-resize',
+    backgroundColor: '#3b82f6',
+    borderRadius: '2px',
+    opacity: 0,
+    transition: 'opacity 0.2s',
+    zIndex: 10,
+    selectors: {
+      [`${draggableView}:hover &`]: {
+        opacity: 0.7,
+      },
+    },
+  },
+});
+
+export const buttonView = style({
+  backgroundColor: '#3b82f6',
+  color: 'white',
+  borderRadius: '6px',
+  padding: '8px',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  transition: 'background-color 0.2s',
+  ':hover': {
+    backgroundColor: '#2563eb',
+  },
+});
+
+export const anchoredView = style({
+  backgroundColor: 'white',
+  border: '2px solid #e5e7eb',
+  borderRadius: '8px',
+  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+});
+
+export const anchoredViewHeader = style({
+  backgroundColor: '#f9fafb',
+  padding: '8px 12px',
+  borderBottom: '1px solid #e5e7eb',
+  borderTopLeftRadius: '6px',
+  borderTopRightRadius: '6px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+});
+
+export const anchoredViewContent = style({
+  padding: '12px',
+  flex: 1,
+});
+
+export const containerView = style({
+  backgroundColor: '#f9fafb',
+  border: '2px solid #d1d5db',
+  borderRadius: '8px',
+  height: '100%',
+  position: 'relative',
+  display: 'flex',
+  flexDirection: 'column',
+});
+
+export const containerViewDragOver = style({
+  borderColor: '#3b82f6',
+  backgroundColor: '#eff6ff',
+});
+
+export const containerViewHeader = style({
+  backgroundColor: '#e5e7eb',
+  padding: '8px 12px',
+  borderBottom: '1px solid #d1d5db',
+  borderTopLeftRadius: '6px',
+  borderTopRightRadius: '6px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  cursor: 'move',
+});
+
+export const containerViewContent = style({
+  position: 'relative',
+  flex: 1,
+  overflow: 'hidden',
+});
+
+export const expandButton = style({
+  background: 'none',
+  border: 'none',
+  padding: '0',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  color: '#4b5563',
+});
+
+export const alignmentGuide = style({
+  position: 'absolute',
+  backgroundColor: '#ef4444',
+  zIndex: 1000,
+  pointerEvents: 'none',
+  animation: `${fadeIn} 0.1s ease-in`,
+});
+
+export const horizontalGuide = style([
+  alignmentGuide,
+  {
+    height: '1px',
+    left: 0,
+    right: 0,
+  },
+]);
+
+export const verticalGuide = style([
+  alignmentGuide,
+  {
+    width: '1px',
+    top: 0,
+    bottom: 0,
+  },
+]);
+
+export const contextMenu = style({
+  backgroundColor: 'white',
+  borderRadius: '6px',
+  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+  padding: '4px',
+  minWidth: '160px',
+  border: '1px solid #e5e7eb',
+});
+
+export const contextMenuItem = style({
+  display: 'flex',
+  alignItems: 'center',
+  padding: '8px 12px',
+  fontSize: '14px',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  transition: 'background-color 0.1s',
+  ':hover': {
+    backgroundColor: '#f3f4f6',
+  },
+});
+
+export const contextMenuItemDanger = style([
+  contextMenuItem,
+  {
+    color: '#dc2626',
+  },
+]);
+
+export const contextMenuLabel = style({
+  padding: '8px 12px',
+  fontSize: '12px',
+  color: '#6b7280',
+});
+
+export const dragOverlay = style({
+  opacity: 0.8,
+});

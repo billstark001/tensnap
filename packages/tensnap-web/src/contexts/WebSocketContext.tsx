@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useCallback } from 'react';
 import { WebSocketManager } from '../utils/websocket-manager';
-import { useSimulationStore } from '../store/simulation';
+import { useScenarioStore } from '../store/scenario';
 import { WSMessage } from '../types';
 
 interface WebSocketContextType {
@@ -18,7 +18,7 @@ interface WebSocketProviderProps {
 
 export function WebSocketProvider({ url, children }: WebSocketProviderProps) {
   const wsManager = useRef<WebSocketManager | null>(null);
-  const store = useSimulationStore();
+  const store = useScenarioStore();
   
   useEffect(() => {
     wsManager.current = new WebSocketManager(url);
