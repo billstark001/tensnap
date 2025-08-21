@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { Rect, Ellipse, Polygon, Line, Group, Leafer, ILeafer } from 'leafer-ui';
+import { Rect, Ellipse, Polygon, Line, Group, Leafer, ILeafer, PointerEvent } from 'leafer-ui';
+import * as Dialog from '@radix-ui/react-dialog';
 import { GridEnvironment, Agent } from '@/types';
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
@@ -156,8 +157,8 @@ const createAgents = (environment: GridEnvironment, displayWidth: number, displa
       agentsGroup.add(agentShapeGroup);
     }
     if (agentShape) {
-      agentShape.on('pointer.click', (e: any) => onAgentClick(agent, e));
-      agentShape.on('pointer.menu', (e: any) => onAgentClick(agent, e));
+      agentShape.on(PointerEvent.CLICK, (e: any) => onAgentClick(agent, e));
+      agentShape.on(PointerEvent.MENU, (e: any) => onAgentClick(agent, e));
     }
   });
 
@@ -174,9 +175,9 @@ export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
   const displayHeight = 600;
 
   const handleAgentClick = useCallback((agent: Agent, e: any) => {
-    if (e.detail === 2) {
+    if (e.type === PointerEvent.CLICK) {
       setSelectedAgent(agent);
-    } else if (e.type === 'pointer.menu') {
+    } else if (e.type === PointerEvent.MENU) {
       setContextMenu({ x: e.x, y: e.y });
     }
   }, []);
@@ -226,10 +227,6 @@ export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
     appTree.add(createAgents(environment, displayWidth, displayHeight, handleAgentClick));
   })(), [environment, displayWidth, displayHeight, handleAgentClick]);
 
-  const handleCloseModal = useCallback(() => {
-    setSelectedAgent(null);
-  }, []);
-
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
@@ -243,28 +240,42 @@ export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
       />
 
       {selectedAgent && (
-        <div className={styles.modal}>
-          <h3 className={styles.modalTitle}>Agent Details</h3>
-          <p className={styles.modalText}>ID: {selectedAgent.id}</p>
-          <p className={styles.modalText}>Position: ({selectedAgent.x}, {selectedAgent.y})</p>
-          {selectedAgent.heading !== undefined && (
-            <p className={styles.modalText}>
-              Heading: {(selectedAgent.heading * 180 / Math.PI).toFixed(1)}°
-            </p>
-          )}
-          <p className={styles.modalText}>Color: {selectedAgent.color || 'default'}</p>
-          {selectedAgent.data && (
-            <div>
-              <h4>Custom Data:</h4>
-              <pre className={styles.modalPre}>
-                {JSON.stringify(selectedAgent.data, null, 2)}
-              </pre>
-            </div>
-          )}
-          <button className={styles.modalButton} onClick={handleCloseModal}>
-            Close
-          </button>
-        </div>
+        <Dialog.Root open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)}>
+          <Dialog.Portal>
+            <Dialog.Overlay className={styles.dialogOverlay} />
+            <Dialog.Content className={styles.dialogContent}>
+              <Dialog.Title className={styles.dialogTitle}>Agent Details</Dialog.Title>
+              <Dialog.Description className={styles.dialogDescription}>
+                View detailed information about the selected agent
+              </Dialog.Description>
+              
+              <div>
+                <p className={styles.dialogText}>ID: {selectedAgent.id}</p>
+                <p className={styles.dialogText}>Position: ({selectedAgent.x}, {selectedAgent.y})</p>
+                {selectedAgent.heading !== undefined && (
+                  <p className={styles.dialogText}>
+                    Heading: {(selectedAgent.heading * 180 / Math.PI).toFixed(1)}°
+                  </p>
+                )}
+                <p className={styles.dialogText}>Color: {selectedAgent.color || 'default'}</p>
+                {selectedAgent.data && (
+                  <div>
+                    <h4>Custom Data:</h4>
+                    <pre className={styles.dialogPre}>
+                      {JSON.stringify(selectedAgent.data, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              <Dialog.Close asChild>
+                <button className={styles.dialogCloseButton}>
+                  Close
+                </button>
+              </Dialog.Close>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       )}
 
       {contextMenu && (
