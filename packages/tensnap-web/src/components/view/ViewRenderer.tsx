@@ -10,21 +10,20 @@ import {
   DragStartEvent,
 } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
-import { findAlignmentPoints, findSnapPosition, useCallbackRef } from './utils';
 import * as styles from './styles.css';
 import { ContainerView, AnyView } from '@/types/ui';
-import { AlignmentGuides } from './AlignmentGuides';
 import { DraggableView } from './DraggableView';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import { useViewOperations } from './useViewOperations';
 import { nestedOverlapCollisionDetection } from './collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
+import { useCallbackRef } from '@/utils/react';
 
 export type ViewRendererProps = {
   initialView?: ContainerView;
 } & Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
 
-export default function ViewRenderer({ 
+export default function ViewRenderer({
   initialView,
   onButtonAction: _onButtonAction,
   renderAnchoredView: _renderAnchoredView,
@@ -49,7 +48,7 @@ export default function ViewRenderer({
 
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
   const renderAnchoredView = useCallbackRef(_renderAnchoredView ?? (() => undefined));
-  
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -73,18 +72,17 @@ export default function ViewRenderer({
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-    const {
-      view: draggedView,
-      siblings: draggedSiblings, 
-    } = event.active.data.current ?? {};
-    const guides = findAlignmentPoints(draggedSiblings, draggedView.id);
-    vc.setGuides(guides);
+    // const {
+    //   view: draggedView,
+    //   siblings: draggedSiblings,
+    // } = event.active.data.current ?? {};
+    // const guides = findAlignmentGuides(draggedSiblings, draggedView.id);
+    // vc.setGuides(guides);
     const view = event.active.data.current?.view;
     if (view) {
       setDraggedView(view);
     }
   };
-
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -112,15 +110,12 @@ export default function ViewRenderer({
       relativeTop: targetTop,
     } = over.data.current ?? {};
 
-    const snapped = findSnapPosition(
-      {
-        x: draggedView.left + sourceLeft - targetLeft + (event.delta.x || 0),
-        y: draggedView.top + sourceTop - targetTop + (event.delta.y || 0),
-        width: draggedView.width,
-        height: draggedView.height,
-      },
-      vc.guides
-    );
+    const newState = {
+      x: draggedView.left + sourceLeft - targetLeft + (event.delta.x || 0),
+      y: draggedView.top + sourceTop - targetTop + (event.delta.y || 0),
+      width: draggedView.width,
+      height: draggedView.height,
+    }
 
     if (targetContainerId && sourceParentId !== targetContainerId) {
       // Move view to new container
@@ -138,8 +133,8 @@ export default function ViewRenderer({
         // Add to target with snapped position
         updated = findAndAddView(updated, targetContainerId, {
           ...draggedView,
-          left: Math.max(0, snapped.x),
-          top: Math.max(0, snapped.y),
+          left: Math.max(0, newState.x),
+          top: Math.max(0, newState.y),
         });
         return updated;
       });
@@ -151,16 +146,16 @@ export default function ViewRenderer({
           ...updated,
           views: [...updated.views, {
             ...draggedView,
-            left: Math.max(0, snapped.x),
-            top: Math.max(0, snapped.y),
+            left: Math.max(0, newState.x),
+            top: Math.max(0, newState.y),
           }]
         };
       });
     } else {
       // Just update position with snapping
       handleUpdate(draggedView.id, {
-        left: Math.max(0, snapped.x),
-        top: Math.max(0, snapped.y),
+        left: Math.max(0, newState.x),
+        top: Math.max(0, newState.y),
       });
     }
 
@@ -199,7 +194,7 @@ export default function ViewRenderer({
                 handleUpdate(rootView.id, { expanded: !rootView.expanded });
               }}
             />
-            {activeId && <AlignmentGuides guides={findAlignmentPoints(getAllViews(rootView), activeId)} active={{}} />}
+            {/* {activeId && <AlignmentGuides guides={findAlignmentGuides(getAllViews(rootView), activeId)} active={{}} />} */}
           </div>
         </div>
 

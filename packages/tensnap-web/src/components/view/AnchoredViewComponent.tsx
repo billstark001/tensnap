@@ -19,9 +19,7 @@ export const AnchoredViewComponent = ({ view }: AnchoredViewComponentProps) => {
         </span>
       </div>
       <div className={styles.windowViewContent}>
-        <p style={{ color: '#6b7280', fontSize: '14px' }}>
-          <Renderer type={view.type} id={view.data.id} />
-        </p>
+        <Renderer type={view.type} id={view.data.id} />
       </div>
     </div>
   );

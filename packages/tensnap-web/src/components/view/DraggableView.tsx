@@ -3,7 +3,6 @@ import { useDraggable } from '@dnd-kit/core';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { Move, Edit, Trash2 } from 'lucide-react';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@/types/ui';
-import { snapToGrid } from './utils';
 import { ResizeHandles } from './ResizeHandles';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import * as styles from './styles.css';
@@ -66,8 +65,8 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     const newHeight = Math.max(50, h + deltaHeight);
 
     onUpdate(view.id, {
-      width: snapToGrid(newWidth),
-      height: snapToGrid(newHeight),
+      width: newWidth,
+      height: newHeight,
     });
     
   }, [view, onUpdate, viewSizeOnResizeStart]);

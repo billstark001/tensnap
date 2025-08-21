@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { ChevronDown, ChevronRight, Square, Link, Container } from 'lucide-react';
 import { ContainerView, AnyView, ButtonView, AnchoredView } from '@/types/ui';
-import { generateUniqueId, snapToGrid } from './utils';
+import { generateUniqueId } from './utils/common';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
 import { LEFT_DELTA, TOP_DELTA } from './constants';
@@ -50,16 +50,16 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     const relativeY = containerRect ? e.clientY - containerRect.top : 50;
 
     // Snap to grid
-    const snappedX = snapToGrid(Math.max(0, relativeX - 75));
-    const snappedY = snapToGrid(Math.max(0, relativeY - 50));
+    const snappedX = Math.max(0, relativeX - 75);
+    const snappedY = Math.max(0, relativeY - 50);
 
     let newView: AnyView;
     const baseProps = {
       id: generateUniqueId(),
       left: snappedX,
       top: snappedY,
-      width: snapToGrid(150),
-      height: snapToGrid(100),
+      width: 150,
+      height: 100,
       expanded: true,
     };
 

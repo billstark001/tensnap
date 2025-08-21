@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { Environment, Parameter, ChartData, Snapshot } from '../types';
+import { ContainerView } from '../types/ui';
+import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
 
 interface ScenarioStore {
@@ -11,6 +13,7 @@ interface ScenarioStore {
   charts: ChartData[];
   snapshots: Snapshot[];
   maxSnapshots: number;
+  mainView: ContainerView;
 
   // Actions
   setConnected: (connected: boolean) => void;
@@ -24,9 +27,11 @@ interface ScenarioStore {
   addSnapshot: (snapshot: Snapshot) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
+  setMainView: (view: ContainerView) => void;
+  updateMainViewLayout: () => void;
 }
 
-export const useScenarioStore = create<ScenarioStore>((set) => ({
+export const useScenarioStore = create<ScenarioStore>((set, get) => ({
   // Initial state
   connected: false,
   currentTime: 0,
@@ -35,13 +40,19 @@ export const useScenarioStore = create<ScenarioStore>((set) => ({
   charts: [],
   snapshots: [],
   maxSnapshots: 100,
+  mainView: createAutoLayout([], [], []),
 
   // Actions
   setConnected: (connected) => set({ connected }),
 
   setCurrentTime: (time) => set({ currentTime: time }),
 
-  setEnvironments: (environments) => set({ environments }),
+  setEnvironments: (environments) => {
+    set({ environments });
+    // Auto-update layout when environments change
+    const { parameters, charts } = get();
+    set({ mainView: createAutoLayout(environments, parameters, charts) });
+  },
 
   updateEnvironment: (id, data) => {
     if (typeof data === 'function') {
@@ -50,24 +61,39 @@ export const useScenarioStore = create<ScenarioStore>((set) => ({
           env.id === id ? data(env) : env
         )
       }))
+    } else {
+      set((state) => ({
+        environments: state.environments.map((env) =>
+          env.id === id ? { ...env, ...data } : env
+        ),
+      }));
     }
-    set((state) => ({
-      environments: state.environments.map((env) =>
-        env.id === id ? { ...env, ...data } : env
-      ),
-    }));
+    // Auto-update layout when environments change
+    const { environments, parameters, charts } = get();
+    set({ mainView: createAutoLayout(environments, parameters, charts) });
   },
 
-  setParameters: (parameters) => set({ parameters }),
+  setParameters: (parameters) => {
+    set({ parameters });
+    // Auto-update layout when parameters change
+    const { environments, charts } = get();
+    set({ mainView: createAutoLayout(environments, parameters, charts) });
+  },
 
-  updateParameter: (id, value) =>
+  updateParameter: (id, value) => {
     set((state) => ({
       parameters: state.parameters.map((param) =>
         param.id === id ? { ...param, value } : param
       ),
-    })),
+    }));
+  },
 
-  setCharts: (charts) => set({ charts }),
+  setCharts: (charts) => {
+    set({ charts });
+    // Auto-update layout when charts change
+    const { environments, parameters } = get();
+    set({ mainView: createAutoLayout(environments, parameters, charts) });
+  },
 
   addChartData: (chartId, time, value) =>
     set((state) => ({
@@ -90,4 +116,11 @@ export const useScenarioStore = create<ScenarioStore>((set) => ({
   clearSnapshots: () => set({ snapshots: [] }),
 
   setMaxSnapshots: (max) => set({ maxSnapshots: max }),
+
+  setMainView: (view) => set({ mainView: view }),
+
+  updateMainViewLayout: () => {
+    const { environments, parameters, charts } = get();
+    set({ mainView: createAutoLayout(environments, parameters, charts) });
+  },
 }));

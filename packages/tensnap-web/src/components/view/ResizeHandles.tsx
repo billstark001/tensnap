@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import * as styles from './styles.css';
-import { useCallbackRef } from './utils';
+import { useCallbackRef } from '@/utils/react';
 
 interface ResizeHandlesProps {
   onResizeStart: (direction: string) => void;

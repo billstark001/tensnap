@@ -1,21 +1,27 @@
+import { useEffect } from 'react';
 import { useScenarioStore } from '../store/scenario';
 import { useTheme } from '../contexts/ThemeContext';
-import { GridEnvironmentView } from './GridEnvironmentView';
-import { GraphEnvironmentView } from './GraphEnvironment';
-import { ParameterControls } from './ParameterControls';
-import { ChartView } from './ChartView';
+import ViewRenderer from './view/ViewRenderer';
+import { AnchoredViewRenderer } from './AnchoredViewRenderer';
 import * as styles from '../styles/app.css';
 
 export function MainLayout() {
   const {
     connected,
     currentTime,
+    mainView,
     environments,
     parameters,
-    charts
+    charts,
+    updateMainViewLayout
   } = useScenarioStore();
 
   const { theme, toggleTheme } = useTheme();
+
+  // Update layout when data changes
+  useEffect(() => {
+    updateMainViewLayout();
+  }, [environments, parameters, charts, updateMainViewLayout]);
 
   return (
     <div className={styles.container}>
@@ -36,36 +42,12 @@ export function MainLayout() {
         </button>
       </header>
 
-      <main className={styles.main}>
-        <aside className={styles.sidebar}>
-          <h3>Parameters</h3>
-          <ParameterControls parameters={parameters} />
-        </aside>
-
-        <div className={styles.content}>
-          <section>
-            <h3>Environments</h3>
-            <div className={styles.environmentGrid}>
-              {environments.map((env) => (
-                <div key={env.id.toString()} className={styles.environmentCard}>
-                  <h4>Environment: {env.id}</h4>
-                  {env.type === 'grid' ? (
-                    <GridEnvironmentView environment={env} />
-                  ) : (
-                    <GraphEnvironmentView environment={env} />
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {charts.length > 0 && (
-            <section>
-              <h3>Data Visualization</h3>
-              <ChartView charts={charts} />
-            </section>
-          )}
-        </div>
+      <main className={styles.main} style={{ padding: 0, overflow: 'hidden' }}>
+        <ViewRenderer
+          key={`${environments.length}-${parameters.length}-${charts.length}`}
+          initialView={mainView}
+          renderAnchoredView={AnchoredViewRenderer}
+        />
       </main>
     </div>
   );
