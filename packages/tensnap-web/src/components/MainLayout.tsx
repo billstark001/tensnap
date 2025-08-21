@@ -1,6 +1,6 @@
 import { useScenarioStore } from '../store/scenario';
 import { useTheme } from '../contexts/ThemeContext';
-import { GridEnvironmentView } from './GridEnvironment';
+import { GridEnvironmentView } from './GridEnvironmentView';
 import { GraphEnvironmentView } from './GraphEnvironment';
 import { ParameterControls } from './ParameterControls';
 import { ChartView } from './ChartView';
