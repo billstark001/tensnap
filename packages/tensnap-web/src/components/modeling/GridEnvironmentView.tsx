@@ -5,6 +5,7 @@ import { GridEnvironment, Agent } from '@/types';
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
+import * as dialogStyles from '@/styles/dialog.css';
 
 interface GridEnvironmentViewProps {
   environment: GridEnvironment;
@@ -242,37 +243,46 @@ export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
       {selectedAgent && (
         <Dialog.Root open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)}>
           <Dialog.Portal>
-            <Dialog.Overlay className={styles.dialogOverlay} />
-            <Dialog.Content className={styles.dialogContent}>
-              <Dialog.Title className={styles.dialogTitle}>Agent Details</Dialog.Title>
-              <Dialog.Description className={styles.dialogDescription}>
+            <Dialog.Overlay className={dialogStyles.dialogOverlay} />
+            <Dialog.Content className={dialogStyles.dialogContent}>
+              <Dialog.Title className={dialogStyles.dialogTitle}>Agent Details</Dialog.Title>
+              <Dialog.Description className={dialogStyles.dialogDescription}>
                 View detailed information about the selected agent
               </Dialog.Description>
               
               <div>
-                <p className={styles.dialogText}>ID: {selectedAgent.id}</p>
-                <p className={styles.dialogText}>Position: ({selectedAgent.x}, {selectedAgent.y})</p>
+                <p style={{ margin: '8px 0', fontSize: '14px' }}>ID: {selectedAgent.id}</p>
+                <p style={{ margin: '8px 0', fontSize: '14px' }}>Position: ({selectedAgent.x}, {selectedAgent.y})</p>
                 {selectedAgent.heading !== undefined && (
-                  <p className={styles.dialogText}>
+                  <p style={{ margin: '8px 0', fontSize: '14px' }}>
                     Heading: {(selectedAgent.heading * 180 / Math.PI).toFixed(1)}°
                   </p>
                 )}
-                <p className={styles.dialogText}>Color: {selectedAgent.color || 'default'}</p>
+                <p style={{ margin: '8px 0', fontSize: '14px' }}>Color: {selectedAgent.color || 'default'}</p>
                 {selectedAgent.data && (
                   <div>
-                    <h4>Custom Data:</h4>
-                    <pre className={styles.dialogPre}>
+                    <h4 style={{ margin: '16px 0 8px 0' }}>Custom Data:</h4>
+                    <pre style={{
+                      background: '#f5f5f5',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      overflow: 'auto',
+                      maxHeight: '200px'
+                    }}>
                       {JSON.stringify(selectedAgent.data, null, 2)}
                     </pre>
                   </div>
                 )}
               </div>
 
-              <Dialog.Close asChild>
-                <button className={styles.dialogCloseButton}>
-                  Close
-                </button>
-              </Dialog.Close>
+              <div className={dialogStyles.dialogFooter}>
+                <Dialog.Close asChild>
+                  <button className={dialogStyles.dialogButton}>
+                    Close
+                  </button>
+                </Dialog.Close>
+              </div>
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>
