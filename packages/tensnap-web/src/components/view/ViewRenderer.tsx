@@ -14,10 +14,11 @@ import * as styles from './styles.css';
 import { ContainerView, AnyView } from '@/types/ui';
 import { DraggableView } from './DraggableView';
 import { ContainerViewComponent } from './ContainerViewComponent';
-import { useViewOperations } from './useViewOperations';
 import { nestedOverlapCollisionDetection } from './collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
 import { useCallbackRef } from '@/utils/react';
+import { findAndAddView, findAndDeleteView, findAndUpdateView, getViewSizeByChildren } from './utils/container';
+import { GuidePointSet } from './utils/snap-module';
 
 export type ViewRendererProps = {
   initialView?: ContainerView;
@@ -42,9 +43,9 @@ export default function ViewRenderer({
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedView, setDraggedView] = useState<AnyView | null>(null);
-
-  const { getViewContext, findAndUpdateView, findAndDeleteView, findAndAddView, getAllViews } = useViewOperations();
-  const vc = getViewContext();
+  const [guides, setGuides] = useState<GuidePointSet>({
+    vertical: [], horizontal: []
+  });
 
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
   const renderAnchoredView = useCallbackRef(_renderAnchoredView ?? (() => undefined));
@@ -59,16 +60,28 @@ export default function ViewRenderer({
   );
 
   const handleUpdate = useCallback((viewId: string, updates: Partial<AnyView>) => {
-    setRootView((prev) => findAndUpdateView(prev, viewId, updates));
-  }, [findAndUpdateView]);
+    setRootView((prev) => {
+      const cur = findAndUpdateView(prev, viewId, updates);
+      Object.assign(cur, getViewSizeByChildren(cur, 64, 600));
+      return cur;
+    });
+  }, []);
 
   const handleDelete = useCallback((viewId: string) => {
-    setRootView((prev) => findAndDeleteView(prev, viewId));
-  }, [findAndDeleteView]);
+    setRootView((prev) => {
+      const cur = findAndDeleteView(prev, viewId);
+      Object.assign(cur, getViewSizeByChildren(cur, 64, 600));
+      return cur;
+    });
+  }, []);
 
   const handleAddView = useCallback((parentId: string, newView: AnyView) => {
-    setRootView((prev) => findAndAddView(prev, parentId, newView));
-  }, [findAndAddView]);
+    setRootView((prev) => {
+      const cur = findAndAddView(prev, parentId, newView);
+      Object.assign(cur, getViewSizeByChildren(cur, 64, 600));
+      return cur;
+    });
+  }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -88,7 +101,7 @@ export default function ViewRenderer({
     const { active, over } = event;
 
     if (!over || !active.data.current?.view) {
-      vc.setGuides({
+      setGuides({
         horizontal: [],
         vertical: [],
       });
@@ -159,7 +172,7 @@ export default function ViewRenderer({
       });
     }
 
-    vc.setGuides({
+    setGuides({
       horizontal: [],
       vertical: [],
     });
@@ -169,7 +182,8 @@ export default function ViewRenderer({
 
   return (
     <ViewContext.Provider value={{
-      ...vc,
+      guides,
+      setGuides,
       onButtonAction,
       renderAnchoredView,
     }}>

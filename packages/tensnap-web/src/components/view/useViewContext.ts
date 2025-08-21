@@ -1,10 +1,11 @@
-import { AlignmentGuides, AnchoredView } from "@/types/ui"
+import { AnchoredView } from "@/types/ui"
 import React, { createContext, Dispatch, SetStateAction, useContext } from "react"
+import { GuidePointSet } from "./utils/snap-module";
 
 
 export type ViewContextScheme = {
-  guides: AlignmentGuides,
-  setGuides: Dispatch<SetStateAction<AlignmentGuides>>,
+  guides: GuidePointSet,
+  setGuides: Dispatch<SetStateAction<GuidePointSet>>,
   onButtonAction: (id: string) => void,
   renderAnchoredView: React.FC<{
     type: AnchoredView['type'],

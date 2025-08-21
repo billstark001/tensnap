@@ -2,7 +2,8 @@ import { style } from '@vanilla-extract/css';
 import { vars } from './global.css';
 
 export const container = style({
-  minHeight: '100vh',
+  height: '100vh',
+  width: '100%',
   display: 'flex',
   flexDirection: 'column',
 });

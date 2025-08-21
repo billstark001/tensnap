@@ -7,10 +7,10 @@ const fadeIn = keyframes({
 });
 
 export const container = style({
-  width: '100%',
-  height: '100vh',
+  minWidth: '100%',
+  minHeight: '100%',
   backgroundColor: '#f3f4f6',
-  padding: '16px',
+  overflow: 'auto',
 });
 
 export const canvas = style({

@@ -1,10 +1,5 @@
 export type JsonSerializable = any;
 
-export type AlignmentGuides = {
-  horizontal: number[];
-  vertical: number[];
-};
-
 export type BaseView<TType extends string, TData extends JsonSerializable> = {
   id: string;
   type: TType;
