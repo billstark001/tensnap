@@ -1,20 +1,22 @@
-import { create } from 'zustand';
+import { create, StoreApi, UseBoundStore } from 'zustand';
 import { WebSocketManager } from '../utils/websocket-manager';
-import { useScenarioStore } from './scenario';
-import { GridEnvironment, WSMessage } from '../types';
+import { ScenarioStore } from './scenario';
+import { GridEnvironment } from '@/types/modeling';
 import { generateUniqueId } from '@/components/view/utils/common';
+import { createStoreContext } from '@/utils/zustand';
+import { AgentBatchUpdatePayload, AgentUpdatePayload, ChartDataPayload, EnvironmentsListPayload, EnvironmentUpdatePayload, GetStatePayload, ParametersPayload, TimeStepPayload, WSMessage } from '@/types/api';
 
-interface WebSocketStore {
+export interface WebSocketStore {
   id: string;
   wsManager: WebSocketManager | null;
   url: string | null;
   isConnecting: boolean;
   connectionError: string | null;
   abortController: AbortController | null;
-  
+
   // Actions
   initialize: (url: string) => Promise<void>;
-  sendMessage: (message: WSMessage) => void;
+  sendMessage: <T = any>(message: WSMessage<T>) => void;
   requestState: () => void;
   disconnect: () => void;
   reconnect: () => Promise<void>;
@@ -22,7 +24,9 @@ interface WebSocketStore {
   abortConnection: () => void;
 }
 
-export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
+export const createWebSocketStore = (
+  useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>
+) => create<WebSocketStore>((set, get) => ({
   id: generateUniqueId(),
   wsManager: null,
   url: null,
@@ -32,12 +36,12 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
 
   initialize: async (url: string) => {
     const { wsManager: currentManager, abortController: currentAbort } = get();
-    
+
     // 中断当前正在进行的连接
     if (currentAbort) {
       currentAbort.abort();
     }
-    
+
     // 如果已经有连接，先断开
     if (currentManager) {
       currentManager.disconnect();
@@ -52,11 +56,11 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       const store = useScenarioStore.getState();
 
       // 设置消息处理器
-      wsManager.on('time_step_start', (payload) => {
+      wsManager.on('time_step_start', (payload: TimeStepPayload) => {
         store.setCurrentTime(payload.time);
       });
 
-      wsManager.on('time_step_end', (payload) => {
+      wsManager.on('time_step_end', (payload: TimeStepPayload) => {
         // 创建快照
         const snapshot = {
           id: `snapshot-${Date.now()}`,
@@ -68,11 +72,11 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         store.addSnapshot(snapshot);
       });
 
-      wsManager.on('environment_update', (payload) => {
+      wsManager.on('environment_update', (payload: EnvironmentUpdatePayload) => {
         store.updateEnvironment(payload.id, payload.data);
       });
 
-      wsManager.on('agent_update', (payload) => {
+      wsManager.on('agent_update', (payload: AgentUpdatePayload) => {
         store.updateEnvironment(
           payload.environment_id,
           env => ({
@@ -86,7 +90,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         );
       });
 
-      wsManager.on('agent_batch_update', (payload) => {
+      wsManager.on('agent_batch_update', (payload: AgentBatchUpdatePayload) => {
         const updateMap: Record<string, any> = Object.fromEntries(
           payload.updates.map((a: any) => [a.id, a.data]),
         );
@@ -104,15 +108,15 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         );
       });
 
-      wsManager.on('parameters', (payload) => {
+      wsManager.on('parameters', (payload: ParametersPayload) => {
         store.setParameters(payload);
       });
 
-      wsManager.on('environments_list', (payload) => {
+      wsManager.on('environments_list', (payload: EnvironmentsListPayload) => {
         store.setEnvironments(payload);
       });
 
-      wsManager.on('chart_data', (payload) => {
+      wsManager.on('chart_data', (payload: ChartDataPayload) => {
         payload.forEach((chartUpdate: any) => {
           store.addChartData(chartUpdate.id, chartUpdate.time, chartUpdate.value);
         });
@@ -126,21 +130,21 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         throw new Error('Connection was aborted');
       }
 
-      set({ 
+      set({
         wsManager,
-        isConnecting: false, 
+        isConnecting: false,
         connectionError: null,
         abortController: null // 连接成功后清理 AbortController
       });
 
       // 设置连接状态并请求初始状态
       store.setConnected(true);
-      wsManager.send({ type: 'get_state', payload: {} });
+      wsManager.send({ type: 'get_state', payload: {} as GetStatePayload });
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
-      set({ 
-        isConnecting: false, 
+      set({
+        isConnecting: false,
         connectionError: errorMessage,
         wsManager: null,
         abortController: null
@@ -150,7 +154,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     }
   },
 
-  sendMessage: (message: WSMessage) => {
+  sendMessage: <T>(message: WSMessage<T>) => {
     const { wsManager } = get();
     if (wsManager) {
       wsManager.send(message);
@@ -161,17 +165,17 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
 
   requestState: () => {
     const { sendMessage } = get();
-    sendMessage({ type: 'get_state', payload: {} });
+    sendMessage<GetStatePayload>({ type: 'get_state', payload: {} });
   },
 
   disconnect: () => {
     const { wsManager, abortController } = get();
-    
+
     // 中断正在进行的连接
     if (abortController) {
       abortController.abort();
     }
-    
+
     if (wsManager) {
       wsManager.disconnect();
       set({ wsManager: null, abortController: null });
@@ -191,17 +195,17 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
    */
   destroy: () => {
     const { wsManager, abortController } = get();
-    
+
     // 中断正在进行的连接
     if (abortController) {
       abortController.abort();
     }
-    
+
     // 销毁 WebSocket 管理器
     if (wsManager) {
       wsManager.destroy();
     }
-    
+
     // 重置所有状态
     set({
       wsManager: null,
@@ -210,7 +214,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       connectionError: null,
       abortController: null,
     });
-    
+
     useScenarioStore.getState().setConnected(false);
   },
 
@@ -221,11 +225,16 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     const { abortController } = get();
     if (abortController) {
       abortController.abort();
-      set({ 
-        isConnecting: false, 
+      set({
+        isConnecting: false,
         connectionError: 'Connection aborted by user',
-        abortController: null 
+        abortController: null
       });
     }
   },
 }));
+
+export const {
+  Provider: WebSocketStoreProvider,
+  useStore: useWebSocketStore,
+} = createStoreContext<WebSocketStore>();

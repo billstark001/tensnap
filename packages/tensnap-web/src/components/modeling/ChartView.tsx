@@ -9,7 +9,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { ChartData } from '../../types';
+import { ChartData } from '../../types/modeling';
 
 interface ChartViewProps {
   charts: ChartData[];

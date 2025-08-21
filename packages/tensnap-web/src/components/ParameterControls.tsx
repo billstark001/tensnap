@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
-import { Parameter } from '../types';
+import { Parameter } from '../types/modeling';
 import { useScenarioStore } from '../store/scenario';
 import * as styles from '../styles/app.css';
 import { useWebSocketStore } from '@/store/websocket';
+import { ButtonClickPayload, ParameterChangePayload } from '@/types/api';
 
 interface ParameterControlsProps {
   parameters: Parameter[];
@@ -18,16 +19,16 @@ export function ParameterControls({ parameters }: ParameterControlsProps) {
       if (!parameter) return;
 
       if (parameter.type === 'button') {
-        sendMessage({
+        sendMessage?.<ButtonClickPayload>({
           type: 'button_click',
           payload: { action: parameterId },
         });
       } else {
-        sendMessage({
+        sendMessage?.<ParameterChangePayload>({
           type: 'parameter_change',
-          payload: { id: parameterId, value, setter: parameter.setter },
+          payload: { id: parameterId, value },
         });
-        updateParameter(parameterId, value);
+        updateParameter?.(parameterId, value);
       }
     },
     [parameters, sendMessage, updateParameter]

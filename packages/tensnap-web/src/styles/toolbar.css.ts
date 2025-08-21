@@ -102,7 +102,7 @@ export const separator = style({
 export const tabsContainer = style({
   display: 'flex',
   alignItems: 'center',
-  padding: `${vars.space.xs} ${vars.space.sm}`,
+  padding: `${vars.space.xs} ${vars.space.sm} 0 ${vars.space.sm}`,
   backgroundColor: vars.color.background,
   gap: vars.space.xs,
 });

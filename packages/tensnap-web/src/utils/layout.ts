@@ -1,5 +1,5 @@
 import { ContainerView, AnchoredView, AnyView } from '../types/ui';
-import { Environment, Parameter, ChartData } from '../types';
+import { Environment, Parameter, ChartData } from '../types/modeling';
 
 const SIDEBAR_WIDTH = 300;
 const HEADER_HEIGHT = 60;

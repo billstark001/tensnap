@@ -4,7 +4,7 @@ import * as styles from '../../styles/toolbar.css';
 
 export interface Tab {
   id: string;
-  title: string;
+  name: string;
   content?: React.ReactNode;
 }
 
@@ -25,6 +25,8 @@ export const TabBar: React.FC<TabBarProps> = ({
   onNewTab,
   className
 }) => {
+
+  
   const [localActiveTab, setLocalActiveTab] = useState(tabs[0]?.id || '');
   const currentActiveTab = activeTabId || localActiveTab;
 
@@ -57,12 +59,12 @@ export const TabBar: React.FC<TabBarProps> = ({
               value={tab.id}
               className={currentActiveTab === tab.id ? styles.activeTab : styles.tab}
             >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>{tab.title}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>{tab.name}</span>
               {tabs.length > 1 && (
                 <span
                   className={styles.tabCloseButton}
                   onClick={(e) => handleTabClose(e, tab.id)}
-                  aria-label={`Close ${tab.title}`}
+                  aria-label={`Close ${tab.name}`}
                 >
                   ×
                 </span>
@@ -88,11 +90,7 @@ export const TabBar: React.FC<TabBarProps> = ({
           value={tab.id}
           style={{ flex: 1 }}
         >
-          {tab.content || (
-            <div style={{ padding: '16px', color: '#666' }}>
-              Content for {tab.title}
-            </div>
-          )}
+          {tab.content}
         </Tabs.Content>
       ))}
     </Tabs.Root>

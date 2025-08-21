@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { Environment, Parameter, ChartData, Snapshot } from '../types';
+import { Environment, Parameter, ChartData, Snapshot } from '../types/modeling';
 import { ContainerView } from '../types/ui';
 import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
+import { createStoreContext } from '@/utils/zustand';
 
-interface ScenarioStore {
+export interface ScenarioStore {
   // State
   connected: boolean;
   currentTime: number;
@@ -31,7 +32,7 @@ interface ScenarioStore {
   updateMainViewLayout: () => void;
 }
 
-export const useScenarioStore = create<ScenarioStore>((set, get) => ({
+export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   // Initial state
   connected: false,
   currentTime: 0,
@@ -39,7 +40,7 @@ export const useScenarioStore = create<ScenarioStore>((set, get) => ({
   parameters: [],
   charts: [],
   snapshots: [],
-  maxSnapshots: 100,
+  maxSnapshots: 32,
   mainView: createAutoLayout([], [], []),
 
   // Actions
@@ -78,6 +79,7 @@ export const useScenarioStore = create<ScenarioStore>((set, get) => ({
     // Auto-update layout when parameters change
     const { environments, charts } = get();
     set({ mainView: createAutoLayout(environments, parameters, charts) });
+    console.log(get());
   },
 
   updateParameter: (id, value) => {
@@ -124,3 +126,8 @@ export const useScenarioStore = create<ScenarioStore>((set, get) => ({
     set({ mainView: createAutoLayout(environments, parameters, charts) });
   },
 }));
+
+export const {
+  Provider: ScenarioStoreProvider,
+  useStore: useScenarioStore,
+} = createStoreContext<ScenarioStore>();

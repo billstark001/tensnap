@@ -15,7 +15,7 @@ export interface GridEnvironment {
   type: 'grid';
   width: number;
   height: number;
-  background?: ArrayBuffer | string;
+  background?: Uint8Array | string;
   agents: Agent[];
   colormap?: string;
 }
@@ -48,19 +48,34 @@ export interface GraphEnvironment {
 
 export type Environment = GridEnvironment | GraphEnvironment;
 
-export interface Parameter {
+export type ParameterType = 'slider' | 'enum' | 'button';
+
+export interface ParameterBase {
   id: string;
-  type: 'slider' | 'enum' | 'button';
+  type: ParameterType;
   label: string;
-  value?: number | string;
-  min?: number;
-  max?: number;
-  step?: number;
-  options?: string[];
-  getter?: string;
-  setter?: string;
-  action?: string;
 }
+
+export interface SliderParameter extends ParameterBase {
+  type: 'slider';
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+}
+
+export interface EnumParameter extends ParameterBase {
+  type: 'enum';
+  value: string;
+  options: string[]; // | {label: string; value: any}[];
+}
+
+export interface ButtonParameter extends ParameterBase {
+  type: 'button';
+  action: string;
+}
+
+export type Parameter = SliderParameter | EnumParameter | ButtonParameter;
 
 export interface ChartData {
   id: string;
@@ -68,12 +83,6 @@ export interface ChartData {
   getter: string;
   color?: string;
   data: { time: number; value: number }[];
-}
-
-export interface WSMessage {
-  type: string;
-  payload: any;
-  timestamp?: number;
 }
 
 export interface SimulationState {
@@ -92,3 +101,12 @@ export interface Snapshot {
   environments: Environment[];
   parameters: Parameter[];
 }
+
+export const defaultSimulationState = (): SimulationState => ({
+  connected: false,
+  currentTime: 0,
+  environments: [],
+  parameters: [],
+  charts: [],
+  snapshots: [],
+});

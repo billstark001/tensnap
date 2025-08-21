@@ -1,36 +1,36 @@
-import { useState } from "react";
 import { useSettingsStore } from "@/store/settings";
 import { MenuBar } from './toolbar/MenuBar';
 import { ToolBar } from './toolbar/ToolBar';
-import { TabBar, Tab } from './toolbar/TabBar';
+import { TabBar } from './toolbar/TabBar';
+import { useProjectStore } from "@/store/project";
+
 import * as styles from '../styles/toolbar.css';
 
 export const ToolBarLayout = () => {
   const { theme, toggleTheme } = useSettingsStore();
-  
+
+  const { 
+    setActive,
+    activeIndex,
+    getDisplayNames,
+    new: createNewProject,
+    close,
+  } = useProjectStore();
+
   // 管理标签页状态
-  const [tabs, setTabs] = useState<Tab[]>([
-    { id: '1', title: 'Welcome', content: <div className="p-4">Welcome to TenSnap!</div> },
-    { id: '2', title: 'Model 1', content: <div className="p-4">Model 1 content</div> },
-  ]);
-  const [activeTabId, setActiveTabId] = useState('1');
+  const tabs = getDisplayNames();
+  const activeTabId = activeIndex != null ? tabs[activeIndex].id : undefined;
 
   const handleNewTab = () => {
-    const newTab: Tab = {
-      id: `tab-${Date.now()}`,
-      title: `New Tab ${tabs.length + 1}`,
-      content: <div className="p-4">New tab content</div>
-    };
-    setTabs([...tabs, newTab]);
-    setActiveTabId(newTab.id);
+    createNewProject('http://localhost:8765');
   };
 
   const handleTabClose = (tabId: string) => {
-    setTabs(tabs.filter(tab => tab.id !== tabId));
+    close(tabs.findIndex(tab => tab.id === tabId));
   };
 
   const handleTabChange = (tabId: string) => {
-    setActiveTabId(tabId);
+    setActive(tabs.findIndex(tab => tab.id === tabId));
   };
 
   return (

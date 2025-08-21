@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
-import { GraphEnvironment, GraphNode } from '../../types';
+import { GraphEnvironment, GraphNode } from '../../types/modeling';
 
 interface GraphEnvironmentViewProps {
   environment: GraphEnvironment;

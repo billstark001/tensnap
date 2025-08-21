@@ -5,6 +5,7 @@ import { ParameterControls } from './ParameterControls';
 import { ChartView } from './modeling/ChartView';
 import { useScenarioStore } from '../store/scenario';
 import { AnchoredView } from '../types/ui';
+import { defaultSimulationState } from '@/types/modeling';
 
 export interface AnchoredViewRendererProps {
   type: AnchoredView['type'];
@@ -12,7 +13,7 @@ export interface AnchoredViewRendererProps {
 }
 
 export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type, id }) => {
-  const { environments, parameters, charts } = useScenarioStore();
+  const { environments, parameters, charts } = useScenarioStore() ?? defaultSimulationState();
 
   switch (type) {
     case 'environment': {

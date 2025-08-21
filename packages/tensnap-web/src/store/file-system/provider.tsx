@@ -1,7 +1,8 @@
-import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
+import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useState } from 'react';
 import { FileSystemAdapter, FileSystemAdapterFactory } from './adapter';
 import { IndexedDBFileSystemAdapter } from './indexeddb-adapter';
 import { createFileSystemStore } from './store';
+import { useProjectStore } from '../project';
 
 type FileSystemStore = ReturnType<typeof createFileSystemStore>;
 
@@ -39,7 +40,10 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
   const [currentAdapterName, setCurrentAdapterName] = useState<string>('none');
   const [fileSystemStore, setFileSystemStore] = useState<FileSystemStore | null>(null);
 
-  const switchAdapter = async (adapterName: string) => {
+  const fileSystemStoreProject = useProjectStore((state) => state.fileSystemStore);
+  const setFileSystemStoreProject = useProjectStore((state) => state.setFileSystemStore);
+
+  const switchAdapter = useCallback(async (adapterName: string) => {
     // Cleanup current adapter if any
     if (currentAdapter) {
       await currentAdapter.cleanup();
@@ -62,10 +66,13 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
     // Create new store with the adapter
     const newStore = createFileSystemStore(newAdapter, adapterName);
     setFileSystemStore(() => newStore);
+    if (!fileSystemStoreProject) {
+      setFileSystemStoreProject(newStore);
+    }
 
     // Initialize the adapter
     await newStore.getState().initialize();
-  };
+  }, [currentAdapter, fileSystemStoreProject, setFileSystemStoreProject]);
 
   // Initialize with preferred adapter on mount
   useEffect(() => {

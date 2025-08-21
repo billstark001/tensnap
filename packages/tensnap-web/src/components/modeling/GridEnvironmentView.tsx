@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Rect, Ellipse, Polygon, Line, Group, Leafer, ILeafer, PointerEvent } from 'leafer-ui';
 import * as Dialog from '@radix-ui/react-dialog';
-import { GridEnvironment, Agent } from '@/types';
+import { GridEnvironment, Agent } from '@/types/modeling';
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
@@ -98,8 +98,9 @@ const createBackground = (environment: GridEnvironment, displayWidth: number, di
     });
   }
 
-  if (background instanceof ArrayBuffer) {
-    const parsedNumpyData = NPYParser.parse(background);
+  if (background instanceof Uint8Array) {
+    // do not consider shared buffer
+    const parsedNumpyData = NPYParser.parse(background.buffer as ArrayBuffer);
     const backgroundImg = createNumpyBackground(parsedNumpyData);
     if (backgroundImg) {
       return new Promise<Rect>((resolve) => {

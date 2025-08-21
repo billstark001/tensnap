@@ -1,6 +1,6 @@
 import { encode, decode } from '@msgpack/msgpack';
-import { WSMessage } from '../types';
 import { generateUniqueId } from '@/components/view/utils/common';
+import { WSMessage } from '@/types/api';
 
 export class WebSocketManager {
 
@@ -127,7 +127,7 @@ export class WebSocketManager {
     }
   }
 
-  on(type: string, handler: (payload: any) => void) {
+  on<T = any>(type: string, handler: (payload: T) => void) {
     this.messageHandlers.set(type, handler);
   }
 
