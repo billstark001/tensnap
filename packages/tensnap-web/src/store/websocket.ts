@@ -2,12 +2,15 @@ import { create } from 'zustand';
 import { WebSocketManager } from '../utils/websocket-manager';
 import { useScenarioStore } from './scenario';
 import { GridEnvironment, WSMessage } from '../types';
+import { generateUniqueId } from '@/components/view/utils/common';
 
 interface WebSocketStore {
+  id: string;
   wsManager: WebSocketManager | null;
   url: string | null;
   isConnecting: boolean;
   connectionError: string | null;
+  abortController: AbortController | null;
   
   // Actions
   initialize: (url: string) => Promise<void>;
@@ -15,26 +18,37 @@ interface WebSocketStore {
   requestState: () => void;
   disconnect: () => void;
   reconnect: () => Promise<void>;
+  destroy: () => void;
+  abortConnection: () => void;
 }
 
 export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
+  id: generateUniqueId(),
   wsManager: null,
   url: null,
   isConnecting: false,
   connectionError: null,
+  abortController: null,
 
   initialize: async (url: string) => {
-    const { wsManager: currentManager } = get();
+    const { wsManager: currentManager, abortController: currentAbort } = get();
+    
+    // 中断当前正在进行的连接
+    if (currentAbort) {
+      currentAbort.abort();
+    }
     
     // 如果已经有连接，先断开
     if (currentManager) {
       currentManager.disconnect();
     }
 
-    set({ url, isConnecting: true, connectionError: null });
+    // 创建新的 AbortController 用于这次连接
+    const abortController = new AbortController();
+    set({ url, isConnecting: true, connectionError: null, abortController });
 
     try {
-      const wsManager = new WebSocketManager(url);
+      const wsManager = new WebSocketManager(null, url);
       const store = useScenarioStore.getState();
 
       // 设置消息处理器
@@ -104,13 +118,19 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         });
       });
 
-      // 连接 WebSocket
-      await wsManager.connect();
-      
+      // 连接 WebSocket，传入 AbortController 的信号
+      await wsManager.connect(abortController.signal);
+      // 检查在连接过程中是否被中断
+      if (abortController.signal.aborted) {
+        wsManager.destroy();
+        throw new Error('Connection was aborted');
+      }
+
       set({ 
-        wsManager, 
+        wsManager,
         isConnecting: false, 
-        connectionError: null 
+        connectionError: null,
+        abortController: null // 连接成功后清理 AbortController
       });
 
       // 设置连接状态并请求初始状态
@@ -122,7 +142,8 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       set({ 
         isConnecting: false, 
         connectionError: errorMessage,
-        wsManager: null 
+        wsManager: null,
+        abortController: null
       });
       useScenarioStore.getState().setConnected(false);
       throw error;
@@ -144,10 +165,16 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   },
 
   disconnect: () => {
-    const { wsManager } = get();
+    const { wsManager, abortController } = get();
+    
+    // 中断正在进行的连接
+    if (abortController) {
+      abortController.abort();
+    }
+    
     if (wsManager) {
       wsManager.disconnect();
-      set({ wsManager: null });
+      set({ wsManager: null, abortController: null });
       useScenarioStore.getState().setConnected(false);
     }
   },
@@ -156,6 +183,49 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     const { url } = get();
     if (url) {
       await get().initialize(url);
+    }
+  },
+
+  /**
+   * 销毁 WebSocket store，清理所有资源
+   */
+  destroy: () => {
+    const { wsManager, abortController } = get();
+    
+    // 中断正在进行的连接
+    if (abortController) {
+      abortController.abort();
+    }
+    
+    // 销毁 WebSocket 管理器
+    if (wsManager) {
+      wsManager.destroy();
+    }
+    
+    // 重置所有状态
+    set({
+      wsManager: null,
+      url: null,
+      isConnecting: false,
+      connectionError: null,
+      abortController: null,
+    });
+    
+    useScenarioStore.getState().setConnected(false);
+  },
+
+  /**
+   * 中断当前的连接过程
+   */
+  abortConnection: () => {
+    const { abortController } = get();
+    if (abortController) {
+      abortController.abort();
+      set({ 
+        isConnecting: false, 
+        connectionError: 'Connection aborted by user',
+        abortController: null 
+      });
     }
   },
 }));

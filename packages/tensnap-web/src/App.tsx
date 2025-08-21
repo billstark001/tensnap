@@ -4,12 +4,15 @@ import { useWebSocketStore } from './store/websocket';
 import { container } from './styles/app.css';
 
 function App() {
-  const initialize = useWebSocketStore((state) => state.initialize);
+  const { initialize, destroy } = useWebSocketStore();
 
   useEffect(() => {
     // 初始化 WebSocket 连接
     initialize('ws://localhost:8765').catch(console.error);
-  }, [initialize]);
+    return () => {
+      destroy();
+    }
+  }, [initialize, destroy]);
 
   return (
     <div className={container}>

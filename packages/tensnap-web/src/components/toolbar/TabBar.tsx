@@ -59,13 +59,13 @@ export const TabBar: React.FC<TabBarProps> = ({
             >
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>{tab.title}</span>
               {tabs.length > 1 && (
-                <button
+                <span
                   className={styles.tabCloseButton}
                   onClick={(e) => handleTabClose(e, tab.id)}
                   aria-label={`Close ${tab.title}`}
                 >
                   ×
-                </button>
+                </span>
               )}
             </Tabs.Trigger>
           ))}
