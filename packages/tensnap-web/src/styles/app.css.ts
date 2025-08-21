@@ -20,6 +20,7 @@ export const header = style({
 export const main = style({
   flex: 1,
   display: 'flex',
+  flexDirection: 'column',
   padding: vars.space.md,
   gap: vars.space.md,
 });

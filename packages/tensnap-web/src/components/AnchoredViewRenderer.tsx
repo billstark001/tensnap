@@ -1,8 +1,8 @@
 import React from 'react';
-import { GridEnvironmentView } from './GridEnvironmentView';
-import { GraphEnvironmentView } from './GraphEnvironment';
+import { GridEnvironmentView } from './modeling/GridEnvironmentView';
+import { GraphEnvironmentView } from './modeling/GraphEnvironment';
 import { ParameterControls } from './ParameterControls';
-import { ChartView } from './ChartView';
+import { ChartView } from './modeling/ChartView';
 import { useScenarioStore } from '../store/scenario';
 import { AnchoredView } from '../types/ui';
 
