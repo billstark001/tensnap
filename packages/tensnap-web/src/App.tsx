@@ -1,17 +1,20 @@
+import { useEffect } from 'react';
 import { MainLayout } from './components/MainLayout';
-import { WebSocketProvider } from './contexts/WebSocketContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { useWebSocketStore } from './store/websocket';
 import { container } from './styles/app.css';
 
 function App() {
+  const initialize = useWebSocketStore((state) => state.initialize);
+
+  useEffect(() => {
+    // 初始化 WebSocket 连接
+    initialize('ws://localhost:8765').catch(console.error);
+  }, [initialize]);
+
   return (
-    <ThemeProvider>
-      <WebSocketProvider url="ws://localhost:8765">
-        <div className={container}>
-          <MainLayout />
-        </div>
-      </WebSocketProvider>
-    </ThemeProvider>
+    <div className={container}>
+      <MainLayout />
+    </div>
   );
 }
 

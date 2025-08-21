@@ -1,15 +1,15 @@
 import { useCallback } from 'react';
 import { Parameter } from '../types';
-import { useWebSocket } from '../contexts/WebSocketContext';
 import { useScenarioStore } from '../store/scenario';
 import * as styles from '../styles/app.css';
+import { useWebSocketStore } from '@/store/websocket';
 
 interface ParameterControlsProps {
   parameters: Parameter[];
 }
 
 export function ParameterControls({ parameters }: ParameterControlsProps) {
-  const { sendMessage } = useWebSocket();
+  const sendMessage = useWebSocketStore((state) => state.sendMessage);
   const updateParameter = useScenarioStore((state) => state.updateParameter);
 
   const handleParameterChange = useCallback(
