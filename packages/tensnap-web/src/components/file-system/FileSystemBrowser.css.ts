@@ -267,3 +267,42 @@ export const uploadHint = style({
 export const hiddenFileInput = style({
   display: 'none'
 });
+
+// Dropdown menu styles
+export const dropdownContent = style({
+  backgroundColor: '#ffffff',
+  border: '1px solid #e0e0e0',
+  borderRadius: '8px',
+  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+  padding: '4px',
+  minWidth: '150px',
+  zIndex: 1000
+});
+
+export const dropdownContentSmall = style([dropdownContent, {
+  minWidth: '120px'
+}]);
+
+export const dropdownItem = style({
+  padding: '12px',
+  fontSize: '14px',
+  cursor: 'pointer',
+  borderRadius: '4px',
+  transition: 'background-color 0.2s',
+  
+  selectors: {
+    '&:hover': {
+      backgroundColor: '#f5f5f5'
+    }
+  }
+});
+
+export const dropdownItemDanger = style([dropdownItem, {
+  color: '#d32f2f',
+  
+  selectors: {
+    '&:hover': {
+      backgroundColor: '#ffebee'
+    }
+  }
+}]);

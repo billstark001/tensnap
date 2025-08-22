@@ -2,15 +2,47 @@ import { encode, decode } from '@msgpack/msgpack';
 import { generateUniqueId } from '@/components/view/utils/common';
 import { WSMessage } from '@/types/api';
 
+// Custom exception classes for better error handling
+export class WebSocketError extends Error {
+  constructor(message: string, public readonly code?: string) {
+    super(message);
+    this.name = 'WebSocketError';
+  }
+}
+
+export class WebSocketConnectionError extends WebSocketError {
+  constructor(message: string) {
+    super(message, 'CONNECTION_ERROR');
+    this.name = 'WebSocketConnectionError';
+  }
+}
+
+export class WebSocketDestroyedError extends WebSocketError {
+  constructor() {
+    super('WebSocketManager has been destroyed', 'DESTROYED');
+    this.name = 'WebSocketDestroyedError';
+  }
+}
+
+export class WebSocketAbortedError extends WebSocketError {
+  constructor() {
+    super('Connection aborted', 'ABORTED');
+    this.name = 'WebSocketAbortedError';
+  }
+}
+
 export class WebSocketManager {
 
   readonly id: string;
 
   private ws: WebSocket | null = null;
-  private noReconnect = false;
-  
-  private messageHandlers: Map<string, (payload: any) => void> = new Map();
+  private manualDisconnect = false; // Indicates if disconnect was intentional
+
+  private messageHandlers: Map<string | symbol, (payload: any) => void> = new Map();
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 10;
+  private reconnectDelays = [1000, 2000, 5000, 10000, 15000]; // Progressive delays in ms
   private url: string;
   private useMsgPack: boolean;
   private abortController: AbortController | null = null;
@@ -22,63 +54,80 @@ export class WebSocketManager {
     this.useMsgPack = useMsgPack;
   }
 
+  static readonly Connected = Symbol('WebSocketManager:Connected');
+  static readonly Disconnected = Symbol('WebSocketManager:Disconnected');
+
   connect(signal?: AbortSignal): Promise<void> {
-    this.noReconnect = false;
+    this.manualDisconnect = false;
     return new Promise((resolve, reject) => {
+      let promiseFinished = false;
       try {
-        // 检查是否已被销毁
+        // Check if already destroyed
         if (this.isDestroyed) {
-          reject(new Error('WebSocketManager has been destroyed'));
+          promiseFinished = true;
+          reject(new WebSocketDestroyedError());
           return;
         }
 
-        // 创建内部的 AbortController 用于管理连接过程
+        // Create internal AbortController for connection management
         this.abortController = new AbortController();
 
-        // 如果传入了外部信号，监听它的中断
+        // Listen to external abort signal if provided
         if (signal) {
           signal.addEventListener('abort', () => {
             this.abortController?.abort();
           });
         }
 
-        // 监听中断信号
+        // Listen to abort signal
         this.abortController.signal.addEventListener('abort', () => {
           if (this.ws) {
             console.log(`${this.id}: Connection aborted by external signal`);
-            this.noReconnect = true;
+            this.manualDisconnect = true;
             this.ws.close();
             this.ws = null;
           }
-          reject(new Error('Connection aborted'));
+          promiseFinished = true;
+          reject(new WebSocketAbortedError());
         });
 
-        // 检查是否在开始连接前就被中断了
+        // Check if already aborted before starting connection
         if (this.abortController.signal.aborted) {
-          reject(new Error('Connection aborted'));
+          promiseFinished = true;
+          reject(new WebSocketAbortedError());
           return;
         }
 
         this.ws = new WebSocket(this.url);
         this.ws.binaryType = 'arraybuffer';
 
-        this.ws.onopen = () => {
-          // 检查是否在连接建立期间被中断
+        this.ws.onopen = (event) => {
+          // Check if aborted or destroyed during connection establishment
           if (this.abortController?.signal.aborted || this.isDestroyed) {
-            this.noReconnect = true;
+            this.manualDisconnect = true;
             this.ws?.close();
             this.ws = null;
-            reject(new Error('Connection aborted'));
+            promiseFinished = true;
+            reject(new WebSocketAbortedError());
             return;
           }
           console.log(`${this.id}: WebSocket connected`);
+
+          // Reset reconnection state on successful connection
+          this.reconnectAttempts = 0;
           if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
           }
-          // 连接成功后清理 AbortController
+
+          // Clean up AbortController after successful connection
           this.abortController = null;
-          resolve();
+          if (!promiseFinished) {
+            promiseFinished = true;
+            resolve();
+          } else if (!this.isDestroyed) {
+            this.messageHandlers.get(WebSocketManager.Connected)?.(event);
+          }
         };
 
         this.ws.onmessage = (event) => {
@@ -88,23 +137,44 @@ export class WebSocketManager {
         };
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
           this.abortController = null;
-          reject(error);
+          if (!promiseFinished) {
+            promiseFinished = true;
+            reject(new WebSocketConnectionError(`Failed to connect: ${error}`));
+          }
         };
 
-        this.ws.onclose = () => {
-          console.log(`${this.id}: WebSocket disconnected`);
+        this.ws.onclose = (event) => {
+          console.log(`${this.id}: WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
           this.abortController = null;
-          if (!this.isDestroyed && !this.noReconnect) {
+
+          // Only attempt reconnection if not manually disconnected, not destroyed, and within retry limits
+          if (!this.isDestroyed && !this.manualDisconnect && this.shouldReconnect(event.code)) {
             this.scheduleReconnect();
+          }
+          if (!this.isDestroyed) {
+            this.messageHandlers.get(WebSocketManager.Disconnected)?.(event);
           }
         };
       } catch (error) {
         this.abortController = null;
-        reject(error);
+        promiseFinished = true;
+        reject(new WebSocketConnectionError(`Connection failed: ${error}`));
       }
     });
+  }
+
+  private shouldReconnect(closeCode: number): boolean {
+    // Don't reconnect on normal closure or policy violation
+    if (closeCode === 1000 || closeCode === 1008) return false;
+
+    // Don't reconnect if max attempts reached
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.warn(`${this.id}: Max reconnection attempts (${this.maxReconnectAttempts}) reached`);
+      return false;
+    }
+
+    return true;
   }
 
   private async handleMessage(data: ArrayBuffer | string) {
@@ -123,15 +193,15 @@ export class WebSocketManager {
         handler(message.payload);
       }
     } catch (error) {
-      console.error('Error handling message:', error);
+      console.error(`${this.id}: Error handling message:`, error);
     }
   }
 
-  on<T = any>(type: string, handler: (payload: T) => void) {
+  on<T = any>(type: string | symbol, handler: (payload: T) => void) {
     this.messageHandlers.set(type, handler);
   }
 
-  off(type: string) {
+  off(type: string | symbol) {
     this.messageHandlers.delete(type);
   }
 
@@ -149,51 +219,104 @@ export class WebSocketManager {
   }
 
   private scheduleReconnect() {
-    if (this.reconnectTimer || this.isDestroyed) return;
+    if (this.reconnectTimer || this.isDestroyed || this.manualDisconnect) return;
+
+    this.reconnectAttempts++;
+
+    // Calculate delay using progressive backoff
+    const delayIndex = Math.min(this.reconnectAttempts - 1, this.reconnectDelays.length - 1);
+    const delay = this.reconnectDelays[delayIndex];
+
+    console.log(`${this.id}: Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      if (!this.isDestroyed) {
-        this.connect().catch(console.error);
+      if (!this.isDestroyed && !this.manualDisconnect) {
+        this.connect().catch(error => {
+          console.error(`${this.id}: Reconnection attempt ${this.reconnectAttempts} failed:`, error);
+        });
       }
-    }, 5000);
+    }, delay);
   }
 
   disconnect() {
-    // 中断正在进行的连接
+    this.manualDisconnect = true;
+
+    // Abort ongoing connection attempts
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
 
+    // Clear reconnection timer
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+
+    // Close WebSocket connection
     if (this.ws) {
-      this.noReconnect = true;
-      this.ws.close();
+      this.ws.close(1000, 'Manual disconnect'); // Normal closure
       this.ws = null;
     }
+
+    console.log(`${this.id}: WebSocket manually disconnected`);
   }
 
   /**
-   * 销毁 WebSocketManager 实例，清理所有资源
-   * 调用此方法后，实例将不能再使用
+   * Destroy the WebSocketManager instance and clean up all resources
+   * The instance cannot be used after calling this method
    */
   destroy() {
     this.isDestroyed = true;
+    this.manualDisconnect = true;
 
-    // 断开连接
+    // Disconnect and clean up
     this.disconnect();
 
-    // 清理所有消息处理器
+    // Clear all message handlers
     this.messageHandlers.clear();
+
+    // Reset reconnection state
+    this.reconnectAttempts = 0;
+    this.ws = null;
+    this.abortController = null;
+    this.reconnectTimer = null;
 
     console.log(`${this.id}: WebSocketManager destroyed`);
   }
 
+  /**
+   * Reset reconnection attempts counter
+   * Useful when you want to give the connection more retry chances
+   */
+  resetReconnectionAttempts() {
+    this.reconnectAttempts = 0;
+  }
+
   get isConnected(): boolean {
     return !this.isDestroyed && this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  get connectionState(): 'connecting' | 'open' | 'closing' | 'closed' | 'destroyed' {
+    if (this.isDestroyed) return 'destroyed';
+    if (!this.ws) return 'closed';
+
+    switch (this.ws.readyState) {
+      case WebSocket.CONNECTING: return 'connecting';
+      case WebSocket.OPEN: return 'open';
+      case WebSocket.CLOSING: return 'closing';
+      case WebSocket.CLOSED: return 'closed';
+      default: return 'closed';
+    }
+  }
+
+  get reconnectionInfo() {
+    return {
+      attempts: this.reconnectAttempts,
+      maxAttempts: this.maxReconnectAttempts,
+      isReconnecting: !!this.reconnectTimer,
+      manualDisconnect: this.manualDisconnect
+    };
   }
 }

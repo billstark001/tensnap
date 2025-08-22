@@ -39,7 +39,7 @@ export const dialogOverlay = style({
   backgroundColor: 'rgba(0, 0, 0, 0.5)',
   position: 'fixed',
   inset: 0,
-  zIndex: 1000,
+  zIndex: 30,
   animation: `${overlayShow} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
   
   selectors: {
@@ -62,7 +62,7 @@ export const dialogContent = style({
   maxWidth: '450px',
   maxHeight: '85vh',
   padding: vars.space.lg,
-  zIndex: 1001,
+  zIndex: 31,
   overflow: 'auto',
   animation: `${contentShow} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
   

@@ -1,5 +1,4 @@
 export interface FileMetadata {
-  id: string;
   name: string;
   path: string;
   parentPath: string;
@@ -7,20 +6,17 @@ export interface FileMetadata {
   mimeType: string;
   createdAt: Date;
   modifiedAt: Date;
-  version: number;
   tags?: string[];
   description?: string;
 }
 
 export interface FileContent {
-  id: string;
   metadata: FileMetadata;
   content: ArrayBuffer | string;
   checksum: string;
 }
 
 export interface DirectoryMetadata {
-  id: string;
   name: string;
   path: string;
   parentPath: string;
@@ -44,27 +40,8 @@ export interface FileSystemStats {
   storageUsed?: number;
 }
 
-export interface FileOperation {
-  type: 'create' | 'update' | 'delete' | 'rename' | 'move';
-  fileId: string;
-  timestamp: Date;
-  metadata?: Partial<FileMetadata>;
-  oldPath?: string;
-  newPath?: string;
-}
-
-export interface DirectoryOperation {
-  type: 'create' | 'delete' | 'rename' | 'move';
-  directoryId: string;
-  timestamp: Date;
-  metadata?: Partial<DirectoryMetadata>;
-  oldPath?: string;
-  newPath?: string;
-}
-
 export interface FileSystemError extends Error {
   code: 'NOT_FOUND' | 'PERMISSION_DENIED' | 'QUOTA_EXCEEDED' | 'INVALID_OPERATION' | 'STORAGE_ERROR' | 'PATH_EXISTS';
-  fileId?: string;
   path?: string;
   operation?: string;
 }

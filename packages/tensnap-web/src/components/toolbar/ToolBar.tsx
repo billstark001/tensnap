@@ -7,7 +7,6 @@ import {
   Undo,
   Redo,
   Play,
-  Pause,
   Square,
   SkipForward,
   ZoomIn,

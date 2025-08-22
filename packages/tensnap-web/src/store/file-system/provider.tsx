@@ -149,11 +149,11 @@ export const useFileSystem = () => {
   if (!fileSystemStore) {
     throw new Error('File system store not initialized');
   }
-  const fileSystem = fileSystemStore.getState();
+  const fileSystem = fileSystemStore();
   useEffect(() => {
     if (!fileSystem.initialized) {
       fileSystem.initialize().catch(console.error);
     }
-  }, [fileSystem]);
+  }, []);
   return fileSystem;
 };

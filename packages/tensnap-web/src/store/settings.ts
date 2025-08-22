@@ -5,8 +5,10 @@ type Theme = 'light' | 'dark';
 
 interface SettingsStore {
   theme: Theme;
+  saveFormat: 'json' | 'msgpack';
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
+  setSaveFormat: (format: 'json' | 'msgpack') => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -15,6 +17,11 @@ export const useSettingsStore = create<SettingsStore>()(
     theme: (() => {
       const saved = localStorage.getItem('theme');
       return (saved as Theme) || 'light';
+    })(),
+
+    saveFormat: (() => {
+      const saved = localStorage.getItem('saveFormat');
+      return (saved as 'json' | 'msgpack') || 'msgpack';
     })(),
 
     toggleTheme: () => {
@@ -26,14 +33,24 @@ export const useSettingsStore = create<SettingsStore>()(
     setTheme: (theme: Theme) => {
       set({ theme });
     },
+
+    setSaveFormat: (format: 'json' | 'msgpack') => {
+      set({ saveFormat: format });
+    },
   }))
 );
 
-// 订阅主题变化，自动更新 DOM 和 localStorage
 useSettingsStore.subscribe(
   (state) => state.theme,
   (theme) => {
     document.body.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
+  }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.saveFormat,
+  (format) => {
+    localStorage.setItem('saveFormat', format);
   }
 );

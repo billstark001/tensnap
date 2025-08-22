@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Dialog from '@radix-ui/react-dialog';
-import { FilePickerFactory, FilePickerResult } from '../../utils/file-picker';
+import { useFilePicker } from '../file-system/FilePickerProvider';
+import { ExportDialog } from '../file-system/ExportDialog';
 import { FileSystemBrowser } from '../file-system/FileSystemBrowser';
-import { useAdapter, UseFileSystemGuard } from '../../store/file-system/provider';
+import { UseFileSystemGuard } from '../../store/file-system/provider';
 import * as styles from '../../styles/toolbar.css';
 import * as dialogStyles from '../../styles/dialog.css';
 
@@ -14,66 +15,36 @@ export interface MenuBarProps {
   onExport?: () => void;
 }
 
-export const MenuBar: React.FC<MenuBarProps> = ({ 
-  className, 
+export const MenuBar: React.FC<MenuBarProps> = ({
+  className,
   onFileOpen,
   onFileSave,
-  onExport 
+  onExport
 }) => {
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const { fileSystemStore } = useAdapter();
-
-  // 注册 React 文件选择器
-  React.useEffect(() => {
-    FilePickerFactory.registerReactPicker(async (): Promise<FilePickerResult> => {
-      return new Promise((resolve) => {
-        // 这里可以打开文件浏览器对话框
-        setShowFileBrowser(true);
-        
-        // 临时解决方案：返回空结果
-        // 实际应该等待用户在浏览器中选择文件
-        setTimeout(() => {
-          resolve({ files: [], directories: [], cancelled: true });
-        }, 100);
-      });
-    });
-  }, []);
+  const filePicker = useFilePicker();
 
   const handleFileOpen = useCallback(async () => {
-    const picker = FilePickerFactory.getDefaultPicker();
-    if (!picker) {
-      console.error('No file picker available');
-      return;
-    }
-
     try {
-      const result = await picker.pickFiles({
-        multiple: true,
-        filters: [
-          { name: 'All Files', extensions: ['*'] },
-          { name: 'Text Files', extensions: ['txt', 'md', 'json'] },
-          { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg'] }
-        ]
+      const files = await filePicker.pickFiles({
+        title: '选择文件',
+        multiSelect: true,
+        mode: 'files'
       });
 
-      if (!result.cancelled && result.files.length > 0) {
-        onFileOpen?.(result.files);
+      if (!files.cancelled && files.files.length > 0) {
+        onFileOpen?.(files.files);
       }
     } catch (error) {
       console.error('Failed to open files:', error);
     }
-  }, [onFileOpen]);
+  }, [filePicker, onFileOpen]);
 
   const handleDirectoryOpen = useCallback(async () => {
-    const picker = FilePickerFactory.getDefaultPicker();
-    if (!picker) {
-      console.error('No file picker available');
-      return;
-    }
-
     try {
-      const result = await picker.pickFiles({
+      const result = await filePicker.pickFiles({
+        title: '选择文件夹',
         mode: 'directories'
       });
 
@@ -84,28 +55,23 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     } catch (error) {
       console.error('Failed to open directory:', error);
     }
-  }, []);
+  }, [filePicker]);
 
-  const handleExportCurrentDirectory = useCallback(async () => {
-    if (!fileSystemStore) return;
-
+  const handleSaveAs = useCallback(async () => {
     try {
-      const currentDir = fileSystemStore((state) => state.currentDirectory);
-      const exportDir = fileSystemStore((state) => state.exportDirectory);
-      
-      const blob = await exportDir(currentDir, 'zip');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `export-${currentDir.replace(/\//g, '-')}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const file = await filePicker.pickFile({
+        title: '另存为',
+        mode: 'files'
+      });
+
+      if (file) {
+        console.log('Save as:', file);
+        // 这里可以处理保存逻辑
+      }
     } catch (error) {
-      console.error('Failed to export directory:', error);
+      console.error('Failed to save file:', error);
     }
-  }, [fileSystemStore]);
+  }, [filePicker]);
 
   return (
     <>
@@ -120,38 +86,38 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               className={styles.dropdownContent}
               sideOffset={5}
             >
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={() => setShowFileBrowser(true)}
               >
                 新建
               </DropdownMenu.Item>
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={handleFileOpen}
               >
                 打开文件
               </DropdownMenu.Item>
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={handleDirectoryOpen}
               >
                 打开文件夹
               </DropdownMenu.Item>
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={onFileSave}
               >
                 保存
               </DropdownMenu.Item>
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
-                onClick={() => setShowFileBrowser(true)}
+                onClick={handleSaveAs}
               >
                 另存为...
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={() => setShowExportDialog(true)}
               >
@@ -225,7 +191,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <DropdownMenu.Item className={styles.dropdownItem}>
                 显示工具栏
               </DropdownMenu.Item>
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={() => setShowFileBrowser(true)}
               >
@@ -248,7 +214,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               className={styles.dropdownContent}
               sideOffset={5}
             >
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={() => setShowFileBrowser(true)}
               >
@@ -258,9 +224,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 设置
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 className={styles.dropdownItem}
-                onClick={handleExportCurrentDirectory}
+                onClick={() => setShowExportDialog(true)}
               >
                 导出当前目录
               </DropdownMenu.Item>
@@ -302,28 +268,28 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <Dialog.Title className={dialogStyles.dialogTitle}>
                 文件浏览器
               </Dialog.Title>
+              <Dialog.Description></Dialog.Description>
             </div>
-            
+
             <div className={dialogStyles.dialogBody}>
               <UseFileSystemGuard>
-              <FileSystemBrowser
-                onFileSelect={(file) => {
-                  console.log('Selected file:', file);
-                  onFileOpen?.([file]);
-                  setShowFileBrowser(false);
-                }}
-                onDirectorySelect={(directory) => {
-                  console.log('Selected directory:', directory);
-                }}
-                allowUpload={true}
-                multiSelect={false}
-              />
-
+                <FileSystemBrowser
+                  onFileSelect={(file) => {
+                    console.log('Selected file:', file);
+                    onFileOpen?.([file]);
+                    setShowFileBrowser(false);
+                  }}
+                  onDirectorySelect={(directory) => {
+                    console.log('Selected directory:', directory);
+                  }}
+                  allowUpload={true}
+                  multiSelect={false}
+                />
               </UseFileSystemGuard>
             </div>
 
             <Dialog.Close asChild>
-              <button 
+              <button
                 className={dialogStyles.dialogClose}
                 aria-label="关闭"
               >
@@ -335,71 +301,22 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       </Dialog.Root>
 
       {/* 导出对话框 */}
-      <Dialog.Root open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-          <Dialog.Content className={dialogStyles.dialogContent}>
-            <Dialog.Title className={dialogStyles.dialogTitle}>
-              导出选项
-            </Dialog.Title>
-            
-            <div>
-              <fieldset className={dialogStyles.dialogFieldset}>
-                <label className={dialogStyles.dialogLabel}>
-                  导出格式
-                </label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button 
-                    className={dialogStyles.dialogButton}
-                    style={{ 
-                      padding: '12px', 
-                      textAlign: 'left',
-                      justifyContent: 'flex-start',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: '4px'
-                    }}
-                    onClick={() => {
-                      handleExportCurrentDirectory();
-                      setShowExportDialog(false);
-                    }}
-                  >
-                    <div style={{ fontWeight: '500' }}>ZIP 压缩包</div>
-                    <div style={{ fontSize: '12px', color: '#666666' }}>包含所有文件的压缩包</div>
-                  </button>
-                  
-                  <button 
-                    className={dialogStyles.dialogButton}
-                    style={{ 
-                      padding: '12px', 
-                      textAlign: 'left',
-                      justifyContent: 'flex-start',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: '4px'
-                    }}
-                    onClick={() => {
-                      onExport?.();
-                      setShowExportDialog(false);
-                    }}
-                  >
-                    <div style={{ fontWeight: '500' }}>JSON 数据</div>
-                    <div style={{ fontSize: '12px', color: '#666666' }}>结构化数据格式</div>
-                  </button>
-                </div>
-              </fieldset>
-            </div>
-
-            <div className={dialogStyles.dialogFooter}>
-              <Dialog.Close asChild>
-                <button className={dialogStyles.dialogButton}>
-                  取消
-                </button>
-              </Dialog.Close>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <ExportDialog
+        isOpen={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        customOptions={[
+          {
+            key: 'custom',
+            title: '自定义导出',
+            description: '自定义格式导出',
+            format: 'other',
+            handler: () => {
+              onExport?.();
+            }
+          }
+        ]}
+        showDefaultOptions={true}
+      />
     </>
   );
 };

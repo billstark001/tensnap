@@ -5,9 +5,7 @@ import {
   FileContent,
   DirectoryMetadata,
   DirectoryEntry,
-  FileSystemStats,
-  FileOperation,
-  DirectoryOperation
+  FileSystemStats
 } from '../../types/file';
 
 export interface FileSystemState {
@@ -33,25 +31,19 @@ export interface FileSystemState {
   setCurrentDirectory: (path: string) => Promise<void>;
 
   // File operations
-  createFile: (metadata: Omit<FileMetadata, 'id' | 'createdAt' | 'modifiedAt' | 'version'>, content: ArrayBuffer | string) => Promise<FileContent>;
-  loadFile: (id: string) => Promise<FileContent | null>;
-  loadFileByPath: (path: string) => Promise<FileContent | null>;
-  updateFile: (id: string, content: ArrayBuffer | string, metadata?: Partial<FileMetadata>) => Promise<FileContent>;
-  deleteFile: (id: string) => Promise<void>;
-  moveFile: (id: string, newPath: string) => Promise<FileContent>;
-  copyFile: (id: string, newPath: string) => Promise<FileContent>;
+  writeFile: (path: string, content: ArrayBuffer | string, metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>) => Promise<FileContent>;
+  loadFile: (path: string) => Promise<FileContent | null>;
+  deleteFile: (path: string) => Promise<void>;
+  moveFile: (oldPath: string, newPath: string) => Promise<FileContent>;
+  copyFile: (sourcePath: string, targetPath: string) => Promise<FileContent>;
   searchFiles: (query: string, searchPath?: string, includeContent?: boolean) => Promise<(FileMetadata | DirectoryMetadata)[]>;
-  getFileHistory: (fileId: string) => Promise<FileOperation[]>;
 
   // Directory operations
-  createDirectory: (metadata: Omit<DirectoryMetadata, 'id' | 'createdAt' | 'modifiedAt'>) => Promise<DirectoryMetadata>;
-  loadDirectory: (id: string) => Promise<DirectoryMetadata | null>;
-  loadDirectoryByPath: (path: string) => Promise<DirectoryMetadata | null>;
-  updateDirectory: (id: string, metadata: Partial<DirectoryMetadata>) => Promise<DirectoryMetadata>;
-  deleteDirectory: (id: string, recursive?: boolean) => Promise<void>;
-  moveDirectory: (id: string, newPath: string) => Promise<DirectoryMetadata>;
-  copyDirectory: (id: string, newPath: string) => Promise<DirectoryMetadata>;
-  getDirectoryHistory: (directoryId: string) => Promise<DirectoryOperation[]>;
+  createDirectory: (path: string, allowExist?: boolean) => Promise<DirectoryMetadata>;
+  loadDirectory: (path: string) => Promise<DirectoryMetadata | null>;
+  deleteDirectory: (path: string, recursive?: boolean) => Promise<void>;
+  moveDirectory: (oldPath: string, newPath: string) => Promise<DirectoryMetadata>;
+  copyDirectory: (sourcePath: string, targetPath: string) => Promise<DirectoryMetadata>;
   exportDirectory: (path: string, format?: 'zip' | 'tar' | 'json') => Promise<Blob>;
   importDirectory: (data: Blob, targetPath: string) => Promise<DirectoryMetadata>;
 
@@ -60,425 +52,187 @@ export interface FileSystemState {
   refreshStats: () => Promise<void>;
 }
 
-export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: string) => create<FileSystemState>((set, get) => ({
-  // Initial state
-  adapter,
-  adapterName,
-  initialized: false,
-  loading: false,
-  error: null,
-  currentDirectory: '/',
-  files: [],
-  directories: [],
-  directoryContents: [],
-  stats: null,
+export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: string) => create<FileSystemState>((set, get) => {
+  // 统一的错误处理辅助函数
+  const handleError = (error: unknown) => {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    set({ error: errorMessage });
+    return errorMessage;
+  };
 
-  // Actions
-  initialize: async () => {
-    if (get().initialized) return;
-
-    set({ loading: true, error: null });
-
-    try {
-
-      set({
-        initialized: true,
-        loading: false
-      });
-
-      // Load initial data
-      await get().refreshCurrentDirectory();
-      await get().refreshStats();
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Unknown error',
-        loading: false
-      });
-    }
-  },
-
-  cleanup: async () => {
-    const { adapter } = get();
-    if (adapter) {
-      await adapter.cleanup();
-    }
-    set({
-      adapter: null,
-      adapterName: 'none',
-      initialized: false,
-      currentDirectory: '/',
-      files: [],
-      directories: [],
-      directoryContents: [],
-      stats: null
-    });
-  },
-
-  setError: (error: string | null) => set({ error }),
-  clearError: () => set({ error: null }),
-
-  setCurrentDirectory: async (path: string) => {
+  // 包装异步操作，统一处理加载状态和错误
+  const withLoading = async <T>(
+    operation: () => Promise<T>,
+    shouldRefresh = false
+  ): Promise<T> => {
     const { adapter } = get();
     if (!adapter) throw new Error('File system not initialized');
 
     set({ loading: true, error: null });
     try {
-      const normalizedPath = adapter.resolvePath(path);
-
-      if (!await adapter.directoryExists(normalizedPath)) {
-        throw new Error(`Directory ${normalizedPath} does not exist`);
+      const result = await operation();
+      if (shouldRefresh) {
+        await get().refreshCurrentDirectory();
       }
-
-      set({ currentDirectory: normalizedPath });
-      await get().refreshCurrentDirectory();
       set({ loading: false });
+      return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  // File operations
-  createFile: async (metadata, content) => {
-    const { adapter, currentDirectory } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      // If no path specified, create in current directory
-      const filePath = metadata.path || adapter.joinPaths(currentDirectory, metadata.name);
-
-      const file = await adapter.createFile({
-        ...metadata,
-        path: filePath,
-        parentPath: adapter.getParentPath(filePath)
-      }, content);
-
-      await get().refreshCurrentDirectory();
+      const errorMessage = handleError(error);
       set({ loading: false });
-      return file;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
+      throw new Error(errorMessage);
     }
-  },
+  };
 
-  loadFile: async (id: string) => {
+  // 包装只读操作，只处理错误不处理加载状态
+  const withErrorHandling = async <T>(operation: () => Promise<T>): Promise<T> => {
     const { adapter } = get();
     if (!adapter) throw new Error('File system not initialized');
 
     try {
-      return await adapter.getFile(id);
+      return await operation();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
+      handleError(error);
       throw error;
     }
-  },
+  };
 
-  loadFileByPath: async (path: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
+  return {
+    // Initial state
+    adapter,
+    adapterName,
+    initialized: false,
+    loading: false,
+    error: null,
+    currentDirectory: '/',
+    files: [],
+    directories: [],
+    directoryContents: [],
+    stats: null,
 
-    try {
-      return await adapter.getFileByPath(path);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-      throw error;
-    }
-  },
+    // Actions
+    initialize: async () => {
+      if (get().initialized) return;
 
-  updateFile: async (id: string, content: ArrayBuffer | string, metadata?: Partial<FileMetadata>) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
+      set({ loading: true, error: null });
+      try {
+        await adapter.initialize();
+        set({ initialized: true, loading: false });
+        await Promise.all([
+          get().refreshCurrentDirectory(),
+          get().refreshStats()
+        ]);
+      } catch (error) {
+        handleError(error);
+        set({ loading: false });
+      }
+    },
 
-    set({ loading: true, error: null });
-    try {
-      const file = await adapter.updateFile(id, content, metadata);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return file;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  deleteFile: async (id: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      await adapter.deleteFile(id);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  moveFile: async (id: string, newPath: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      const file = await adapter.moveFile(id, newPath);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return file;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  copyFile: async (id: string, newPath: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      const file = await adapter.copyFile(id, newPath);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return file;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  searchFiles: async (query: string, searchPath?: string, includeContent = false) => {
-    const { adapter, currentDirectory } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    try {
-      const searchDir = searchPath || currentDirectory;
-      return await adapter.search(query, searchDir, includeContent);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-      throw error;
-    }
-  },
-
-  getFileHistory: async (fileId: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    try {
-      return await adapter.getFileHistory(fileId);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-      throw error;
-    }
-  },
-
-  // Directory operations
-  createDirectory: async (metadata) => {
-    const { adapter, currentDirectory } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      // If no path specified, create in current directory
-      const dirPath = metadata.path || adapter.joinPaths(currentDirectory, metadata.name);
-
-      const directory = await adapter.createDirectory({
-        ...metadata,
-        path: dirPath,
-        parentPath: adapter.getParentPath(dirPath)
+    cleanup: async () => {
+      const { adapter } = get();
+      if (adapter) {
+        await adapter.cleanup();
+      }
+      set({
+        adapter: null,
+        adapterName: 'none',
+        initialized: false,
+        currentDirectory: '/',
+        files: [],
+        directories: [],
+        directoryContents: [],
+        stats: null
       });
+    },
 
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return directory;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
+    setError: (error: string | null) => set({ error }),
+    clearError: () => set({ error: null }),
+
+    setCurrentDirectory: async (path: string) => {
+      await withLoading(async () => {
+        const { adapter } = get();
+
+        if (!await adapter!.directoryExists(path)) {
+          throw new Error(`Directory ${path} does not exist`);
+        }
+
+        set({ currentDirectory: path });
+        await get().refreshCurrentDirectory();
+      });
+    },
+
+    // File operations
+    writeFile: async (path, content, metadata) => withLoading(async () => {
+      const { adapter } = get();
+      return await adapter!.writeFile(path, content, metadata);
+    }, true),
+
+    loadFile: (path: string) => withErrorHandling(() => get().adapter!.getFile(path)),
+
+    deleteFile: (path: string) => withLoading(async () => {
+      await get().adapter!.deleteFile(path);
+    }, true),
+
+    moveFile: (oldPath: string, newPath: string) =>
+      withLoading(() => get().adapter!.moveFile(oldPath, newPath), true),
+
+    copyFile: (sourcePath: string, targetPath: string) =>
+      withLoading(() => get().adapter!.copyFile(sourcePath, targetPath), true),
+
+    searchFiles: (query: string, searchPath?: string, includeContent?: boolean) =>
+      withErrorHandling(() => get().adapter!.search(query, searchPath, includeContent)),
+
+    // Directory operations
+    createDirectory: async (path, allowExist) => withLoading(async () => {
+      const { adapter } = get();
+      return await adapter!.createDirectory(path, allowExist);
+    }, true),
+
+    loadDirectory: (path: string) => withErrorHandling(() => get().adapter!.getDirectory(path)),
+
+    deleteDirectory: (path: string, recursive?: boolean) => withLoading(async () => {
+      await get().adapter!.deleteDirectory(path, recursive);
+    }, true),
+
+    moveDirectory: (oldPath: string, newPath: string) =>
+      withLoading(() => get().adapter!.moveDirectory(oldPath, newPath), true),
+
+    copyDirectory: (sourcePath: string, targetPath: string) =>
+      withLoading(() => get().adapter!.copyDirectory(sourcePath, targetPath), true),
+
+    exportDirectory: (path: string, format?: 'zip' | 'tar' | 'json') =>
+      withErrorHandling(() => get().adapter!.exportDirectory(path, format)),
+
+    importDirectory: (data: Blob, targetPath: string) =>
+      withLoading(() => get().adapter!.importDirectory(data, targetPath), true),
+
+    // Utility operations
+    refreshCurrentDirectory: async () => {
+      const { adapter, currentDirectory } = get();
+      if (!adapter) return;
+
+      try {
+        const [files, directories, contents] = await Promise.all([
+          adapter.listFiles(currentDirectory),
+          adapter.listDirectories(currentDirectory),
+          adapter.listDirectoryContents(currentDirectory)
+        ]);
+
+        set({ files, directories, directoryContents: contents });
+      } catch (error) {
+        handleError(error);
+      }
+    },
+
+    refreshStats: async () => {
+      const { adapter } = get();
+      if (!adapter) return;
+
+      try {
+        const stats = await adapter.getStats();
+        set({ stats });
+      } catch (error) {
+        handleError(error);
+      }
     }
-  },
-
-  loadDirectory: async (id: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    try {
-      return await adapter.getDirectory(id);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-      throw error;
-    }
-  },
-
-  loadDirectoryByPath: async (path: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    try {
-      return await adapter.getDirectoryByPath(path);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-      throw error;
-    }
-  },
-
-  updateDirectory: async (id: string, metadata: Partial<DirectoryMetadata>) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      const directory = await adapter.updateDirectory(id, metadata);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return directory;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  deleteDirectory: async (id: string, recursive = false) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      await adapter.deleteDirectory(id, recursive);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  moveDirectory: async (id: string, newPath: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      const directory = await adapter.moveDirectory(id, newPath);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return directory;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  copyDirectory: async (id: string, newPath: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      const directory = await adapter.copyDirectory(id, newPath);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return directory;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  getDirectoryHistory: async (directoryId: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    try {
-      return await adapter.getDirectoryHistory(directoryId);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-      throw error;
-    }
-  },
-
-  exportDirectory: async (path: string, format = 'json' as 'zip' | 'tar' | 'json') => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      const blob = await adapter.exportDirectory(path, format);
-      set({ loading: false });
-      return blob;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  importDirectory: async (data: Blob, targetPath: string) => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    set({ loading: true, error: null });
-    try {
-      const directory = await adapter.importDirectory(data, targetPath);
-      await get().refreshCurrentDirectory();
-      set({ loading: false });
-      return directory;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, loading: false });
-      throw error;
-    }
-  },
-
-  // Utility operations
-  refreshCurrentDirectory: async () => {
-    const { adapter, currentDirectory } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    try {
-      const [files, directories, directoryContents] = await Promise.all([
-        adapter.listFiles(currentDirectory),
-        adapter.listDirectories(currentDirectory),
-        adapter.listDirectoryContents(currentDirectory)
-      ]);
-
-      set({ files, directories, directoryContents });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-    }
-  },
-
-  refreshStats: async () => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-
-    try {
-      const stats = await adapter.getStats();
-      set({ stats });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage });
-    }
-  },
-}));
+  };
+});

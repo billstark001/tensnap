@@ -1,9 +1,10 @@
 import { PropsWithChildren } from 'react';
-import { ScenarioStoreProvider } from '../store/scenario';
+import { ScenarioStoreProvider } from '@/store/scenario';
 import { AdapterProvider } from '@/store/file-system/provider';
 import { useProjectStore } from '@/store/project';
 import { WebSocketStoreProvider } from '@/store/websocket';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
+import { FilePickerProvider } from './components/file-system';
 
 
 export function Providers({ children }: PropsWithChildren<object>) {
@@ -14,19 +15,23 @@ export function Providers({ children }: PropsWithChildren<object>) {
 
   if (!activeProject) {
     return <AdapterProvider preferredAdapter="indexeddb">
-      {children}
+      <FilePickerProvider>
+        {children}
+      </FilePickerProvider>
     </AdapterProvider>
   }
 
   return (
     <AdapterProvider preferredAdapter="indexeddb">
-      <ScenarioStoreProvider value={activeProject.useScenarioStore}>
-        <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
-          <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
-            {children}
-          </ScenarioUndoRedoStoreProvider>
-        </WebSocketStoreProvider>
-      </ScenarioStoreProvider>
+      <FilePickerProvider>
+        <ScenarioStoreProvider value={activeProject.useScenarioStore}>
+          <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
+            <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
+              {children}
+            </ScenarioUndoRedoStoreProvider>
+          </WebSocketStoreProvider>
+        </ScenarioStoreProvider>
+      </FilePickerProvider>
     </AdapterProvider>
   );
 

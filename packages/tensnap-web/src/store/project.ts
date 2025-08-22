@@ -7,6 +7,7 @@ import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
 import { SimulationState } from "@/types/modeling";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
+import { useSettingsStore } from "./settings";
 
 export interface ProjectContextScheme {
   id: string;
@@ -191,15 +192,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       url,
     };
 
-    const buffer = encode(projectFile);
+    // determine path
 
-    // i/o
+    const { saveFormat: saveFormatSetting } = useSettingsStore.getState();
+    const saveFormatFromFile = project.filepath?.endsWith('json') ? 'json'
+      : project.filepath?.endsWith('msgpack') ? 'msgpack'
+      : undefined;
 
-    try {
-      await fileSystemState.updateFile(project.filepath!, buffer.buffer as ArrayBuffer);
-    } catch (error) {
-      // TODO re-design api
-      // await fileSystemState.createFile(project.filepath!, buffer.buffer as ArrayBuffer);
+    const projectFilepath = saveFormatFromFile == null
+      ? `${project.filepath}.${saveFormatSetting}`
+      : project.filepath!;
+
+    const saveFormat = saveFormatFromFile ?? saveFormatSetting;
+
+    // save
+
+    if (saveFormat === 'msgpack') {
+      const buffer = encode(projectFile);
+      await fileSystemState.writeFile(projectFilepath, buffer.buffer as ArrayBuffer);
+    } else {
+      await fileSystemState.writeFile(projectFilepath, JSON.stringify(projectFile));
     }
   },
 
