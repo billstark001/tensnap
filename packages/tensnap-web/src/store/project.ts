@@ -6,6 +6,7 @@ import { generateUniqueId } from "@/components/view/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
 import { SimulationState } from "@/types/modeling";
+import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 
 export interface ProjectContextScheme {
   id: string;
@@ -14,6 +15,7 @@ export interface ProjectContextScheme {
 
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useWebSocketStore: UseBoundStore<StoreApi<WebSocketStore>>;
+  useUndoRedoStore: UseBoundStore<StoreApi<UndoRedoState<ScenarioStore>>>;
 }
 
 const insertProject = (projects: readonly Readonly<ProjectContextScheme>[], newProject: ProjectContextScheme, indexHint?: number) => {
@@ -88,6 +90,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { projects } = get();
     const useScenarioStore = createScenarioStore();
     const useWebSocketStore = createWebSocketStore(useScenarioStore);
+    const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
     const newProject: ProjectContextScheme = {
       id: generateUniqueId(),
@@ -95,6 +98,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       url,
       useScenarioStore,
       useWebSocketStore,
+      useUndoRedoStore,
     };
 
     const { newProjects, activeIndex } = insertProject(projects, newProject, indexHint);
@@ -125,6 +129,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const useScenarioStore = createScenarioStore();
     const useWebSocketStore = createWebSocketStore(useScenarioStore);
+    const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
     useScenarioStore.setState({
       mainView: parsedContent.mainView,
@@ -139,6 +144,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       url,
       useScenarioStore,
       useWebSocketStore,
+      useUndoRedoStore,
     };
 
     const { newProjects, activeIndex } = insertProject(projects, newProject, indexHint);

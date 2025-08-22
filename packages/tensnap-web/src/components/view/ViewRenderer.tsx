@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Dispatch, SetStateAction } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -21,25 +21,18 @@ import { findAndAddView, findAndDeleteView, findAndUpdateView, getViewSizeByChil
 import { GuidePointSet } from './utils/snap-module';
 
 export type ViewRendererProps = {
-  initialView?: ContainerView;
+  view: ContainerView;
+  setView: Dispatch<SetStateAction<ContainerView>>;
 } & Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
 
 export default function ViewRenderer({
-  initialView,
+  view: rootView,
+  setView: _setRootView,
   onButtonAction: _onButtonAction,
   renderAnchoredView: _renderAnchoredView,
 }: ViewRendererProps) {
-  const [rootView, setRootView] = useState<ContainerView>(initialView || {
-    id: 'root',
-    type: 'container',
-    left: 0,
-    top: 0,
-    width: 800,
-    height: 600,
-    expanded: true,
-    data: { title: 'Root Container' },
-    views: [],
-  });
+
+  const setRootView = useCallbackRef(_setRootView ?? (() => void 0));
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedView, setDraggedView] = useState<AnyView | null>(null);

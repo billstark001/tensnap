@@ -1,4 +1,4 @@
-import { ContainerView, AnchoredView, AnyView } from '../types/ui';
+import { ContainerView, AnchoredView, AnyView, ButtonView } from '../types/ui';
 import { Environment, Parameter, ChartData } from '../types/modeling';
 
 const SIDEBAR_WIDTH = 300;
@@ -6,7 +6,7 @@ const HEADER_HEIGHT = 60;
 const ENVIRONMENT_CARD_WIDTH = 400;
 const ENVIRONMENT_CARD_HEIGHT = 300;
 const PARAMETER_CARD_WIDTH = 280;
-const PARAMETER_CARD_HEIGHT = 200;
+const PARAMETER_CARD_HEIGHT = 100;
 const CHART_CARD_WIDTH = 500;
 const CHART_CARD_HEIGHT = 300;
 const MARGIN = 20;
@@ -19,20 +19,40 @@ export function createAutoLayout(
   const views: AnyView[] = [];
   
   // Create parameter container on the left sidebar
-  if (parameters.length > 0) {
-    const parameterViews: AnchoredView[] = parameters.map((param, index) => ({
-      id: `parameter-${param.id}`,
-      type: 'parameter',
-      left: MARGIN,
-      top: MARGIN + index * (PARAMETER_CARD_HEIGHT + MARGIN),
-      width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
-      height: PARAMETER_CARD_HEIGHT,
-      expanded: true,
-      data: {
-        id: param.id,
-        title: param.label,
-      },
-    }));
+  const buttonParameters = parameters.filter(param => param.type === 'button');
+  const otherParameters = parameters.filter(param => param.type !== 'button');
+
+
+
+  const buttonViews: ButtonView[] = buttonParameters.map((param, index) => ({
+    id: `button-${param.id}`,
+    type: 'button',
+    left: MARGIN,
+    top: MARGIN + (index) * (PARAMETER_CARD_HEIGHT + MARGIN),
+    width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
+    height: PARAMETER_CARD_HEIGHT,
+    expanded: true,
+    data: {
+      operation: param.action ?? param.id,
+      text: param.label,
+    },
+  }));
+  
+  const parameterViews: AnchoredView[] = otherParameters.map((param, index) => ({
+    id: `parameter-${param.id}`,
+    type: 'parameter',
+    left: MARGIN,
+    top: MARGIN + (index + buttonViews.length) * (PARAMETER_CARD_HEIGHT + MARGIN),
+    width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
+    height: PARAMETER_CARD_HEIGHT,
+    expanded: true,
+    data: {
+      id: param.id,
+      title: param.label,
+    },
+  }));
+
+  if (parameterViews.length + buttonViews.length > 0) {
 
     views.push({
       id: 'parameters-container',
@@ -40,12 +60,12 @@ export function createAutoLayout(
       left: 0,
       top: HEADER_HEIGHT,
       width: SIDEBAR_WIDTH,
-      height: Math.max(600, parameterViews.length * (PARAMETER_CARD_HEIGHT + MARGIN) + MARGIN),
+      height: Math.max(600, (buttonViews.length + parameterViews.length) * (PARAMETER_CARD_HEIGHT + MARGIN) + MARGIN),
       expanded: true,
       data: {
         title: 'Parameters',
       },
-      views: parameterViews,
+      views: [...buttonViews, ...parameterViews],
     });
   }
 

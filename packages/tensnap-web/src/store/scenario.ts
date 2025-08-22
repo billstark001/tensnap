@@ -28,7 +28,7 @@ export interface ScenarioStore {
   addSnapshot: (snapshot: Snapshot) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
-  setMainView: (view: ContainerView) => void;
+  setMainView: (view: SetStateAction<ContainerView>) => void;
   updateMainViewLayout: () => void;
 }
 
@@ -69,17 +69,13 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
         ),
       }));
     }
-    // Auto-update layout when environments change
-    const { environments, parameters, charts } = get();
-    set({ mainView: createAutoLayout(environments, parameters, charts) });
   },
 
   setParameters: (parameters) => {
     set({ parameters });
     // Auto-update layout when parameters change
-    const { environments, charts } = get();
-    set({ mainView: createAutoLayout(environments, parameters, charts) });
-    console.log(get());
+    // const { environments, charts } = get();
+    // set({ mainView: createAutoLayout(environments, parameters, charts) });
   },
 
   updateParameter: (id, value) => {
@@ -119,7 +115,13 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   setMaxSnapshots: (max) => set({ maxSnapshots: max }),
 
-  setMainView: (view) => set({ mainView: view }),
+  setMainView: (view) => {
+    if (typeof view === 'function') {
+      set((state) => ({ mainView: view(state.mainView) }));
+    } else {
+      set({ mainView: view });
+    }
+  },
 
   updateMainViewLayout: () => {
     const { environments, parameters, charts } = get();

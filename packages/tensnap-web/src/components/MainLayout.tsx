@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
 import { useScenarioStore } from '../store/scenario';
 import ViewRenderer from './view/ViewRenderer';
 import { AnchoredViewRenderer } from './AnchoredViewRenderer';
 import * as styles from '../styles/app.css';
 import { ToolBarLayout } from './ToolBarLayout';
 import { defaultSimulationState } from '@/types/modeling';
+import { useButtonControls } from './useButtonControls';
 
 
 export function MainLayout() {
@@ -12,16 +12,10 @@ export function MainLayout() {
     connected,
     currentTime,
     mainView,
-    environments,
-    parameters,
-    charts,
-    updateMainViewLayout = (() => { })
-  } = useScenarioStore() ?? { ...defaultSimulationState(), mainView: undefined, updateMainViewLayout: undefined };
+    setMainView = (() => { }),
+  } = useScenarioStore() ?? { ...defaultSimulationState(), mainView: undefined, updateMainViewLayout: undefined, setMainView: undefined };
 
-  // Update layout when data changes
-  useEffect(() => {
-    updateMainViewLayout();
-  }, [environments, parameters, charts, updateMainViewLayout]);
+  const { handleButtonAction } = useButtonControls();
 
   return (
     <div className={styles.container}>
@@ -35,9 +29,10 @@ export function MainLayout() {
           <span style={{ marginLeft: '16px' }}>Time Step: {currentTime}</span>
         </div>
         {mainView && <ViewRenderer
-          key={`${environments.length}-${parameters.length}-${charts.length}`}
-          initialView={mainView}
+          view={mainView}
+          setView={setMainView}
           renderAnchoredView={AnchoredViewRenderer}
+          onButtonAction={handleButtonAction}
         />}
       </main>
     </div>

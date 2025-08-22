@@ -94,6 +94,9 @@ importers:
       leafer-ui:
         specifier: ^1.9.4
         version: 1.9.4
+      lucide-react:
+        specifier: ^0.536.0
+        version: 0.536.0(react@18.3.1)
       react:
         specifier: ^18.2.0
         version: 18.3.1

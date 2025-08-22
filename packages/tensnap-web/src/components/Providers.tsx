@@ -3,6 +3,7 @@ import { ScenarioStoreProvider } from '../store/scenario';
 import { AdapterProvider } from '@/store/file-system/provider';
 import { useProjectStore } from '@/store/project';
 import { WebSocketStoreProvider } from '@/store/websocket';
+import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
 
 
 export function Providers({ children }: PropsWithChildren<object>) {
@@ -21,7 +22,9 @@ export function Providers({ children }: PropsWithChildren<object>) {
     <AdapterProvider preferredAdapter="indexeddb">
       <ScenarioStoreProvider value={activeProject.useScenarioStore}>
         <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
-          {children}
+          <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
+            {children}
+          </ScenarioUndoRedoStoreProvider>
         </WebSocketStoreProvider>
       </ScenarioStoreProvider>
     </AdapterProvider>
