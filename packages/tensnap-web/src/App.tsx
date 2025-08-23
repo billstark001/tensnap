@@ -26,7 +26,7 @@ export function App() {
       <ToolBarLayout />
 
       <main className={styles.main} style={{ padding: 0, overflow: 'hidden' }}>
-        <div>
+        <div className={styles.statusBar}>
           <span className={connected ? styles.statusConnected : styles.statusDisconnected}>
             {connected ? 'Connected' : 'Disconnected'}
           </span>

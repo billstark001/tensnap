@@ -7,7 +7,14 @@ export const browserContainer = style({
   backgroundColor: '#fafafa',
   border: '1px solid #e0e0e0',
   borderRadius: '8px',
-  overflow: 'hidden'
+  overflow: 'hidden',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: '#1a1a1a',
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+    },
+  },
 });
 
 export const browserHeader = style({
@@ -17,7 +24,14 @@ export const browserHeader = style({
   padding: '12px 16px',
   backgroundColor: '#ffffff',
   borderBottom: '1px solid #e0e0e0',
-  minHeight: '48px'
+  minHeight: '48px',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: '#2a2a2a',
+      borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    },
+  },
 });
 
 export const breadcrumbs = style({
@@ -25,12 +39,24 @@ export const breadcrumbs = style({
   alignItems: 'center',
   gap: '4px',
   fontSize: '14px',
-  color: '#666666'
+  color: '#666666',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: '#cccccc',
+    },
+  },
 });
 
 export const breadcrumbSeparator = style({
   margin: '0 4px',
-  color: '#999999'
+  color: '#999999',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: '#666666',
+    },
+  },
 });
 
 export const breadcrumbItem = style({

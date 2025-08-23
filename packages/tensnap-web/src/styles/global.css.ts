@@ -14,10 +14,14 @@ export const vars = createGlobalTheme(':root', {
     // Dark mode colors
     darkBackground: '#1a1a1a',
     darkForeground: '#ffffff',
+    darkSecondary: '#2a2a2a',
+    darkTertiary: '#3a3a3a',
     
     // Grid colors
     gridLine: '#dddddd',
     gridBackground: '#f0f0f0',
+    darkGridLine: 'rgba(255, 255, 255, 0.2)',
+    darkGridBackground: '#2a2a2a',
   },
   space: {
     xs: '4px',

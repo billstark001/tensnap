@@ -11,6 +11,12 @@ export const container = style({
   minHeight: '100%',
   backgroundColor: '#f3f4f6',
   overflow: 'auto',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: '#1a1a1a',
+    },
+  },
 });
 
 export const canvas = style({
@@ -19,6 +25,13 @@ export const canvas = style({
   borderRadius: '8px',
   boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
   overflow: 'hidden',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: '#2a2a2a',
+      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+    },
+  },
 });
 
 export const draggableView = style({
@@ -150,6 +163,14 @@ export const windowView = style({
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: '#2a2a2a',
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+      boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.3)',
+    },
+  },
 });
 
 export const windowViewHeader = style({
@@ -162,6 +183,13 @@ export const windowViewHeader = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: '#3a3a3a',
+      borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    },
+  },
 });
 
 export const windowViewContent = style({

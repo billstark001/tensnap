@@ -7,6 +7,13 @@ export const toolbar = style({
   flexDirection: 'column',
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.background,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkBackground,
+      borderBottomColor: vars.color.darkGridLine,
+    },
+  },
 });
 
 // 菜单栏样式
@@ -16,6 +23,13 @@ export const menuBar = style({
   padding: `${vars.space.xs} ${vars.space.sm}`,
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.background,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkBackground,
+      borderBottomColor: vars.color.darkGridLine,
+    },
+  },
 });
 
 export const menuItem = style({
@@ -26,6 +40,7 @@ export const menuItem = style({
   cursor: 'pointer',
   borderRadius: vars.radius.sm,
   transition: 'background-color 0.2s',
+  color: vars.color.foreground,
   
   ':hover': {
     backgroundColor: vars.color.gridBackground,
@@ -34,6 +49,15 @@ export const menuItem = style({
   ':focus': {
     outline: `2px solid ${vars.color.primary}`,
     outlineOffset: '2px',
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
   },
 });
 
@@ -45,6 +69,18 @@ export const toolBarRow = style({
   gap: vars.space.xs,
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.gridBackground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkGridBackground,
+      borderBottomColor: vars.color.darkGridLine,
+    },
+  },
+});
+
+export const toolGroupOuter = style({
+  display: 'flex',
+  alignItems: 'center',
 });
 
 export const toolGroup = style({
@@ -65,6 +101,7 @@ export const toolButton = style({
   borderRadius: vars.radius.sm,
   cursor: 'pointer',
   transition: 'all 0.2s',
+  color: vars.color.foreground,
   
   ':hover': {
     backgroundColor: vars.color.background,
@@ -79,6 +116,17 @@ export const toolButton = style({
   ':disabled': {
     opacity: 0.5,
     cursor: 'not-allowed',
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+      borderColor: vars.color.darkGridLine,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkBackground,
+      borderColor: vars.color.primary,
+    },
   },
 });
 
@@ -96,15 +144,27 @@ export const separator = style({
   height: '24px',
   backgroundColor: vars.color.gridLine,
   margin: `0 ${vars.space.xs}`,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkGridLine,
+    },
+  },
 });
 
 // 标签页样式
 export const tabsContainer = style({
   display: 'flex',
   alignItems: 'center',
-  padding: `${vars.space.xs} ${vars.space.sm} 0 ${vars.space.sm}`,
+  padding: `${vars.space.sm} ${vars.space.md} 0 ${vars.space.md}`,
   backgroundColor: vars.color.background,
   gap: vars.space.xs,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkBackground,
+    },
+  },
 });
 
 export const tab = style({
@@ -119,9 +179,21 @@ export const tab = style({
   cursor: 'pointer',
   transition: 'all 0.2s',
   maxWidth: '200px',
+  color: vars.color.foreground,
   
   ':hover': {
     backgroundColor: vars.color.background,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkGridBackground,
+      borderColor: vars.color.darkGridLine,
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkBackground,
+    },
   },
 });
 
@@ -129,6 +201,14 @@ export const activeTab = style([tab, {
   backgroundColor: vars.color.background,
   borderColor: vars.color.primary,
   color: vars.color.primary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkBackground,
+      borderColor: vars.color.primary,
+      color: vars.color.primary,
+    },
+  },
 }]);
 
 export const tabCloseButton = style({
@@ -152,19 +232,28 @@ export const newTabButton = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: '28px',
-  height: '28px',
+  width: '24px',
+  height: '24px',
   backgroundColor: 'transparent',
   border: `1px solid ${vars.color.gridLine}`,
   borderRadius: vars.radius.sm,
   cursor: 'pointer',
   fontSize: '16px',
   transition: 'all 0.2s',
+  marginBottom: '4px',
+  color: vars.color.foreground,
   
   ':hover': {
     backgroundColor: vars.color.primary,
     color: '#ffffff',
     borderColor: vars.color.primary,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+      borderColor: vars.color.darkGridLine,
+    },
   },
 });
 
@@ -178,9 +267,19 @@ export const themeToggle = style({
   cursor: 'pointer',
   fontSize: '16px',
   transition: 'background-color 0.2s',
+  color: vars.color.foreground,
   
   ':hover': {
     backgroundColor: vars.color.gridBackground,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
   },
 });
 
@@ -192,6 +291,14 @@ export const dropdownContent = style({
   boxShadow: vars.shadow.sm,
   padding: vars.space.xs,
   minWidth: '160px',
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkBackground,
+      borderColor: vars.color.darkGridLine,
+      boxShadow: vars.shadow.sm,
+    }
+  }
 });
 
 export const dropdownItem = style({

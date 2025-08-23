@@ -15,6 +15,13 @@ export const header = style({
   padding: vars.space.md,
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.background,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkBackground,
+      borderBottomColor: vars.color.darkGridLine,
+    },
+  },
 });
 
 export const main = style({
@@ -22,7 +29,6 @@ export const main = style({
   display: 'flex',
   flexDirection: 'column',
   padding: vars.space.md,
-  gap: vars.space.md,
 });
 
 export const sidebar = style({
@@ -31,7 +37,19 @@ export const sidebar = style({
   borderRadius: vars.radius.md,
   padding: vars.space.md,
   height: 'fit-content',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkGridBackground,
+    },
+  },
 });
+
+export const statusBar = style({
+  padding: vars.space.sm,
+  display: 'flex',
+  alignItems: 'center',
+})
 
 export const content = style({
   flex: 1,
@@ -52,6 +70,13 @@ export const environmentCard = style({
   borderRadius: vars.radius.md,
   padding: vars.space.md,
   boxShadow: vars.shadow.sm,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkBackground,
+      borderColor: vars.color.darkGridLine,
+    },
+  },
 });
 
 export const parameterControl = style({
@@ -107,6 +132,9 @@ export const slider = style({
       cursor: 'pointer',
       border: 'none',
     },
+    'body[data-theme="dark"] &': {
+      background: vars.color.darkGridLine,
+    },
   },
 });
 
@@ -140,6 +168,12 @@ export const spinnerOverlay = style({
   alignItems: 'center',
   justifyContent: 'center',
   zIndex: 9999, // 确保在所有dialogs之上
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    },
+  },
 });
 
 const spin = keyframes({
@@ -154,4 +188,11 @@ export const spinner = style({
   borderTop: `4px solid ${vars.color.primary}`,
   borderRadius: vars.radius.full,
   animation: `${spin} 1s linear infinite`,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkGridLine,
+      borderTopColor: vars.color.primary,
+    },
+  },
 });

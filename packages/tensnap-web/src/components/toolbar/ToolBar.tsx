@@ -70,7 +70,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className }) => {
 
   return (
     <Tooltip.Provider>
-      <div className={`${styles.toolGroup} ${className || ''}`}>
+      <div className={`${styles.toolGroupOuter} ${className || ''}`}>
         {/* 文件操作工具组 */}
         <div className={styles.toolGroup}>
           <ToolButton
