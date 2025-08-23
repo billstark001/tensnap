@@ -6,6 +6,7 @@ import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
 import * as dialogStyles from '@/styles/dialog.css';
+import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
 
 interface GridEnvironmentViewProps {
   environment: GridEnvironment;
@@ -100,7 +101,7 @@ const createBackground = (environment: GridEnvironment, displayWidth: number, di
 
   if (background instanceof Uint8Array) {
     // do not consider shared buffer
-    const parsedNumpyData = NPYParser.parse(background.buffer as ArrayBuffer);
+    const parsedNumpyData = NPYParser.parse(uint8ArrayToArrayBuffer(background));
     const backgroundImg = createNumpyBackground(parsedNumpyData);
     if (backgroundImg) {
       return new Promise<Rect>((resolve) => {

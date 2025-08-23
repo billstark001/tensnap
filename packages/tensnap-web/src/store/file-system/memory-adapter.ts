@@ -1,8 +1,8 @@
 import { FileSystemAdapter } from './adapter';
 import * as PathUtils from './utils/path';
-import { 
-  FileMetadata, 
-  FileContent, 
+import {
+  FileMetadata,
+  FileContent,
   DirectoryMetadata,
   DirectoryEntry,
   FileSystemStats,
@@ -15,7 +15,7 @@ class FileSystemError extends Error {
   public operation?: string;
 
   constructor(
-    message: string, 
+    message: string,
     code: FileSystemErrorType['code'],
     path?: string,
     operation?: string
@@ -35,7 +35,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    
+
     // Create root directory
     const rootDir: DirectoryMetadata = {
       name: '',
@@ -44,7 +44,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       createdAt: new Date(),
       modifiedAt: new Date()
     };
-    
+
     this.directories.set('/', rootDir);
     this.initialized = true;
   }
@@ -57,8 +57,8 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
   // File operations
   async writeFile(
-    path: string, 
-    content: ArrayBuffer | string, 
+    path: string,
+    content: ArrayBuffer | string,
     metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>
   ): Promise<FileContent> {
     if (!PathUtils.validatePath(path)) {
@@ -77,10 +77,10 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     const now = new Date();
     const checksum = PathUtils.calculateChecksum(content);
     const size = typeof content === 'string' ? new Blob([content]).size : content.byteLength;
-    
+
     // Check if file exists (for updating)
     const existingFile = this.files.get(normalizedPath);
-    
+
     const fileMetadata: FileMetadata = {
       name: fileName,
       path: normalizedPath,
@@ -121,7 +121,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async moveFile(oldPath: string, newPath: string): Promise<FileContent> {
     const normalizedOldPath = PathUtils.normalizePath(oldPath);
     const normalizedNewPath = PathUtils.normalizePath(newPath);
-    
+
     const file = this.files.get(normalizedOldPath);
     if (!file) {
       throw new FileSystemError(`File not found at ${normalizedOldPath}`, 'NOT_FOUND', oldPath);
@@ -152,7 +152,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async copyFile(sourcePath: string, targetPath: string): Promise<FileContent> {
     const normalizedSourcePath = PathUtils.normalizePath(sourcePath);
     const normalizedTargetPath = PathUtils.normalizePath(targetPath);
-    
+
     const file = this.files.get(normalizedSourcePath);
     if (!file) {
       throw new FileSystemError(`File not found at ${normalizedSourcePath}`, 'NOT_FOUND', sourcePath);
@@ -172,7 +172,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
   async listFiles(directoryPath?: string): Promise<FileMetadata[]> {
     const targetPath = directoryPath ? PathUtils.normalizePath(directoryPath) : '/';
-    
+
     return Array.from(this.files.values())
       .filter(file => file.metadata.parentPath === targetPath)
       .map(file => file.metadata);
@@ -190,7 +190,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     }
 
     const normalizedPath = PathUtils.normalizePath(path);
-    
+
     if (await this.directoryExists(normalizedPath)) {
       if (allowExist) {
         return this.directories.get(normalizedPath)!;
@@ -206,7 +206,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     const now = new Date();
     const dirName = normalizedPath.split('/').pop() || '';
-    
+
     const directory: DirectoryMetadata = {
       name: dirName,
       path: normalizedPath,
@@ -227,7 +227,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async deleteDirectory(path: string, recursive = false): Promise<void> {
     const normalizedPath = PathUtils.normalizePath(path);
     const directory = this.directories.get(normalizedPath);
-    
+
     if (!directory) {
       throw new FileSystemError(`Directory not found at ${normalizedPath}`, 'NOT_FOUND', path);
     }
@@ -245,9 +245,9 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       const contents = await this.listDirectoryContents(normalizedPath);
       for (const entry of contents) {
         if (entry.type === 'file') {
-          await this.deleteFile(entry.metadata.path);
+          await this.deleteFile(entry.path);
         } else {
-          await this.deleteDirectory(entry.metadata.path, true);
+          await this.deleteDirectory(entry.path, true);
         }
       }
     }
@@ -258,7 +258,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async moveDirectory(oldPath: string, newPath: string): Promise<DirectoryMetadata> {
     const normalizedOldPath = PathUtils.normalizePath(oldPath);
     const normalizedNewPath = PathUtils.normalizePath(newPath);
-    
+
     const directory = this.directories.get(normalizedOldPath);
     if (!directory) {
       throw new FileSystemError(`Directory not found at ${normalizedOldPath}`, 'NOT_FOUND', oldPath);
@@ -270,7 +270,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     // Create new directory
     const newDirectory = await this.createDirectory(normalizedNewPath);
-    
+
     // Move all contents recursively
     await this.updatePathsRecursively(normalizedOldPath, normalizedNewPath);
 
@@ -283,7 +283,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async copyDirectory(sourcePath: string, targetPath: string): Promise<DirectoryMetadata> {
     const normalizedSourcePath = PathUtils.normalizePath(sourcePath);
     const normalizedTargetPath = PathUtils.normalizePath(targetPath);
-    
+
     const directory = this.directories.get(normalizedSourcePath);
     if (!directory) {
       throw new FileSystemError(`Directory not found at ${normalizedSourcePath}`, 'NOT_FOUND', sourcePath);
@@ -299,12 +299,12 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     // Copy all contents recursively
     const contents = await this.listDirectoryContents(normalizedSourcePath);
     for (const entry of contents) {
-      const newEntryPath = PathUtils.joinPaths(normalizedTargetPath, entry.metadata.name);
-      
+      const newEntryPath = PathUtils.joinPaths(normalizedTargetPath, entry.name);
+
       if (entry.type === 'file') {
-        await this.copyFile(entry.metadata.path, newEntryPath);
+        await this.copyFile(entry.path, newEntryPath);
       } else {
-        await this.copyDirectory(entry.metadata.path, newEntryPath);
+        await this.copyDirectory(entry.path, newEntryPath);
       }
     }
 
@@ -313,7 +313,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
   async listDirectories(parentPath?: string): Promise<DirectoryMetadata[]> {
     const targetPath = parentPath ? PathUtils.normalizePath(parentPath) : '/';
-    
+
     return Array.from(this.directories.values())
       .filter(dir => dir.parentPath === targetPath)
       .filter(dir => dir.path !== '/'); // Exclude root
@@ -321,13 +321,13 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
   async listDirectoryContents(path: string): Promise<DirectoryEntry[]> {
     const normalizedPath = PathUtils.normalizePath(path);
-    
+
     const files = await this.listFiles(normalizedPath);
     const directories = await this.listDirectories(normalizedPath);
-    
+
     const entries: DirectoryEntry[] = [
-      ...files.map(file => ({ type: 'file' as const, metadata: file })),
-      ...directories.map(dir => ({ type: 'directory' as const, metadata: dir }))
+      ...directories.map(dir => ({ type: 'directory' as const, ...dir, })),
+      ...files.map(file => ({ type: 'file' as const, ...file, })),
     ];
 
     return entries;
@@ -347,10 +347,10 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async getStats(): Promise<FileSystemStats> {
     const files = Array.from(this.files.values());
     const directories = Array.from(this.directories.values());
-    
+
     const totalSize = files.reduce((sum, file) => {
-      const size = typeof file.content === 'string' 
-        ? new Blob([file.content]).size 
+      const size = typeof file.content === 'string'
+        ? new Blob([file.content]).size
         : file.content.byteLength;
       return sum + size;
     }, 0);
@@ -367,17 +367,17 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async search(query: string, searchPath?: string, includeContent = false): Promise<(FileMetadata | DirectoryMetadata)[]> {
     const lowerQuery = query.toLowerCase();
     const targetPath = searchPath ? PathUtils.normalizePath(searchPath) : undefined;
-    
+
     const results: (FileMetadata | DirectoryMetadata)[] = [];
-    
+
     // Search files
     for (const file of this.files.values()) {
       if (targetPath && !file.metadata.path.startsWith(targetPath)) continue;
-      
+
       if (file.metadata.name.toLowerCase().includes(lowerQuery) ||
-          file.metadata.path.toLowerCase().includes(lowerQuery) ||
-          file.metadata.description?.toLowerCase().includes(lowerQuery) ||
-          file.metadata.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
+        file.metadata.path.toLowerCase().includes(lowerQuery) ||
+        file.metadata.description?.toLowerCase().includes(lowerQuery) ||
+        file.metadata.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
         results.push(file.metadata);
       } else if (includeContent && typeof file.content === 'string') {
         if (file.content.toLowerCase().includes(lowerQuery)) {
@@ -385,56 +385,56 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
         }
       }
     }
-    
+
     // Search directories
     for (const directory of this.directories.values()) {
       if (directory.path === '/') continue; // Skip root
       if (targetPath && !directory.path.startsWith(targetPath)) continue;
-      
+
       if (directory.name.toLowerCase().includes(lowerQuery) ||
-          directory.path.toLowerCase().includes(lowerQuery) ||
-          directory.description?.toLowerCase().includes(lowerQuery) ||
-          directory.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
+        directory.path.toLowerCase().includes(lowerQuery) ||
+        directory.description?.toLowerCase().includes(lowerQuery) ||
+        directory.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
         results.push(directory);
       }
     }
-    
+
     return results;
   }
 
   async exportDirectory(path: string, format = 'json' as 'zip' | 'tar' | 'json'): Promise<Blob> {
     const normalizedPath = PathUtils.normalizePath(path);
-    
+
     if (!await this.directoryExists(normalizedPath)) {
       throw new FileSystemError(`Directory ${normalizedPath} not found`, 'NOT_FOUND', path);
     }
 
     const exportData = await this.buildDirectoryTree(normalizedPath);
-    
+
     if (format === 'json') {
-      return new Blob([JSON.stringify(exportData, null, 2)], { 
-        type: 'application/json' 
+      return new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
       });
     }
-    
+
     // TODO: Implement zip/tar formats
     throw new FileSystemError(`Export format ${format} not implemented`, 'INVALID_OPERATION', path);
   }
 
   async importDirectory(data: Blob, targetPath: string): Promise<DirectoryMetadata> {
     const normalizedTargetPath = PathUtils.normalizePath(targetPath);
-    
+
     if (await this.directoryExists(normalizedTargetPath)) {
       throw new FileSystemError(`Directory already exists at ${normalizedTargetPath}`, 'PATH_EXISTS', targetPath);
     }
 
     const text = await data.text();
     const importData = JSON.parse(text);
-    
+
     // Create directory structure recursively
     const rootDirectory = await this.createDirectory(normalizedTargetPath);
     await this.importDirectoryRecursively(importData, normalizedTargetPath);
-    
+
     return rootDirectory;
   }
 
@@ -445,11 +445,11 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     for (const [path, file] of this.files.entries()) {
       if (path.startsWith(oldBasePath + '/')) {
         const newPath = path.replace(oldBasePath, newBasePath);
-        filesToUpdate.push([newPath, { ...file, metadata: { ...file.metadata, path: newPath, parentPath: PathUtils.getParentPath(newPath) }}]);
+        filesToUpdate.push([newPath, { ...file, metadata: { ...file.metadata, path: newPath, parentPath: PathUtils.getParentPath(newPath) } }]);
         this.files.delete(path);
       }
     }
-    
+
     for (const [newPath, file] of filesToUpdate) {
       this.files.set(newPath, file);
     }
@@ -463,7 +463,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
         this.directories.delete(path);
       }
     }
-    
+
     for (const [newPath, directory] of directoriesToUpdate) {
       this.directories.set(newPath, directory);
     }
@@ -482,12 +482,12 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     for (const entry of contents) {
       if (entry.type === 'file') {
-        const file = await this.getFile(entry.metadata.path);
+        const file = await this.getFile(entry.path);
         if (file) {
           tree.files.push(file);
         }
       } else {
-        const subTree = await this.buildDirectoryTree(entry.metadata.path);
+        const subTree = await this.buildDirectoryTree(entry.path);
         if (subTree) {
           tree.subdirectories.push(subTree);
         }

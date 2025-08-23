@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useFileSystem } from '../../store/file-system/provider';
-import { DirectoryEntry, FileMetadata, DirectoryMetadata } from '../../types/file';
+import { DirectoryEntry } from '../../types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
@@ -9,8 +9,8 @@ import { CreateDialog } from './CreateDialog';
 import * as styles from './FileSystemBrowser.css';
 
 export interface FileSystemBrowserProps {
-  onFileSelect?: (file: FileMetadata) => void;
-  onDirectorySelect?: (directory: DirectoryMetadata) => void;
+  onFileSelect?: (file: DirectoryEntry) => void;
+  onDirectorySelect?: (directory: DirectoryEntry) => void;
   allowUpload?: boolean;
   multiSelect?: boolean;
   className?: string;
@@ -53,15 +53,15 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
   const handleItemClick = useCallback((entry: DirectoryEntry) => {
     if (entry.type === 'directory') {
-      onDirectorySelect?.(entry.metadata as DirectoryMetadata) ?? setCurrentDirectory(entry.metadata.path);
+      onDirectorySelect?.(entry) ?? setCurrentDirectory(entry.path);
     } else {
-      onFileSelect?.(entry.metadata as FileMetadata);
+      onFileSelect?.(entry);
     }
 
     if (multiSelect) {
-      toggleItemSelection(entry.metadata.path);
+      toggleItemSelection(entry.path);
     } else {
-      setSelectedItems(new Set([entry.metadata.path]));
+      setSelectedItems(new Set([entry.path]));
     }
   }, [onFileSelect, onDirectorySelect, multiSelect, setCurrentDirectory, toggleItemSelection]);
 
@@ -119,9 +119,9 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   const handleDeleteItem = useCallback(async (entry: DirectoryEntry) => {
     try {
       if (entry.type === 'file') {
-        await deleteFile(entry.metadata.path);
+        await deleteFile(entry.path);
       } else {
-        await deleteDirectory(entry.metadata.path, true);
+        await deleteDirectory(entry.path, true);
       }
       await refreshCurrentDirectory();
     } catch (error) {
@@ -219,9 +219,9 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
           <div className={styles.contentList}>
             {directoryContents.map((entry) => (
               <FileItem 
-                key={entry.metadata.path} 
+                key={entry.path} 
                 entry={entry}
-                isSelected={selectedItems.has(entry.metadata.path)}
+                isSelected={selectedItems.has(entry.path)}
                 onItemClick={handleItemClick}
                 onDelete={handleDeleteItem}
                 formatFileSize={formatFileSize}

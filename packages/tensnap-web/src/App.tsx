@@ -5,6 +5,7 @@ import * as styles from './styles/app.css';
 import { ToolBarLayout } from './components/ToolBarLayout';
 import { useButtonControls } from './components/useButtonControls';
 import { useFileSystem } from './store/file-system/provider';
+import { useLoadingStore } from './store/loading';
 
 
 export function App() {
@@ -15,7 +16,8 @@ export function App() {
     setMainView,
   } = useScenarioStore() ?? {};
   
-  const { loading } = useFileSystem();
+  const { loading: fileSystemLoading } = useFileSystem();
+  const { loading: counterLoading } = useLoadingStore();
 
   const { handleButtonAction } = useButtonControls();
 
@@ -39,7 +41,7 @@ export function App() {
       </main>
 
       {/* Loading Spinner Overlay */}
-      {loading && (
+      {(fileSystemLoading || counterLoading) && (
         <div className={styles.spinnerOverlay}>
           <div className={styles.spinner} />
         </div>

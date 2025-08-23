@@ -216,7 +216,7 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     return this.safeExecute(async () => {
       const normalizedPath = PathUtils.normalizePath(path);
       const file = await this.getFile(normalizedPath);
-      
+
       if (!file) {
         throw new FileSystemError(`File not found at ${normalizedPath}`, 'NOT_FOUND', path);
       }
@@ -359,9 +359,9 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
         const contents = await this.listDirectoryContents(normalizedPath);
         for (const entry of contents) {
           if (entry.type === 'file') {
-            await this.deleteFile(entry.metadata.path);
+            await this.deleteFile(entry.path);
           } else {
-            await this.deleteDirectory(entry.metadata.path, true);
+            await this.deleteDirectory(entry.path, true);
           }
         }
       }
@@ -414,12 +414,12 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     // Copy all contents recursively
     const contents = await this.listDirectoryContents(normalizedSourcePath);
     for (const entry of contents) {
-      const newEntryPath = PathUtils.joinPaths(normalizedTargetPath, entry.metadata.name);
+      const newEntryPath = PathUtils.joinPaths(normalizedTargetPath, entry.name);
 
       if (entry.type === 'file') {
-        await this.copyFile(entry.metadata.path, newEntryPath);
+        await this.copyFile(entry.path, newEntryPath);
       } else {
-        await this.copyDirectory(entry.metadata.path, newEntryPath);
+        await this.copyDirectory(entry.path, newEntryPath);
       }
     }
 
@@ -441,8 +441,8 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     const directories = await this.listDirectories(normalizedPath);
 
     const entries: DirectoryEntry[] = [
-      ...files.map(file => ({ type: 'file' as const, metadata: file })),
-      ...directories.map(dir => ({ type: 'directory' as const, metadata: dir }))
+      ...directories.map(dir => ({ type: 'directory' as const, ...dir })),
+      ...files.map(file => ({ type: 'file' as const, ...file })),
     ];
 
     return entries;
@@ -509,9 +509,9 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
         if (targetPath && !file.metadata.path.startsWith(targetPath)) continue;
 
         if (file.metadata.name.toLowerCase().includes(lowerQuery) ||
-            file.metadata.path.toLowerCase().includes(lowerQuery) ||
-            file.metadata.description?.toLowerCase().includes(lowerQuery) ||
-            file.metadata.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
+          file.metadata.path.toLowerCase().includes(lowerQuery) ||
+          file.metadata.description?.toLowerCase().includes(lowerQuery) ||
+          file.metadata.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
           results.push(file.metadata);
         } else if (includeContent && typeof file.content === 'string') {
           if (file.content.toLowerCase().includes(lowerQuery)) {
@@ -527,9 +527,9 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
         if (targetPath && !directory.path.startsWith(targetPath)) continue;
 
         if (directory.name.toLowerCase().includes(lowerQuery) ||
-            directory.path.toLowerCase().includes(lowerQuery) ||
-            directory.description?.toLowerCase().includes(lowerQuery) ||
-            directory.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
+          directory.path.toLowerCase().includes(lowerQuery) ||
+          directory.description?.toLowerCase().includes(lowerQuery) ||
+          directory.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) {
           results.push(directory);
         }
       }
@@ -576,11 +576,11 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
 
     const text = await data.text();
     const importData = JSON.parse(text);
-    
+
     // Create directory structure recursively
     const rootDirectory = await this.createDirectory(normalizedTargetPath);
     await this.importDirectoryRecursively(importData, normalizedTargetPath);
-    
+
     return rootDirectory;
   }
 
@@ -617,7 +617,7 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       if (file.metadata.path.startsWith(oldBasePath + '/')) {
         const newPath = file.metadata.path.replace(oldBasePath, newBasePath);
         await tx.objectStore('files').delete(file.metadata.path);
-        
+
         const updatedFile: FileContent = {
           ...file,
           metadata: {
@@ -636,7 +636,7 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       if (directory.path.startsWith(oldBasePath + '/')) {
         const newPath = directory.path.replace(oldBasePath, newBasePath);
         await tx.objectStore('directories').delete(directory.path);
-        
+
         const updatedDirectory: DirectoryMetadata = {
           ...directory,
           path: newPath,

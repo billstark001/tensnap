@@ -57,7 +57,7 @@ export function getPathComponents(path: string): string[] {
 /**
  * Calculate simple checksum for content
  */
-export function calculateChecksum(content: ArrayBuffer | string): string {
+export function calculateChecksum(content: ArrayBuffer | Uint8Array | string): string {
   const str = typeof content === 'string' ? content : new TextDecoder().decode(content);
   let hash = 0;
   for (let i = 0; i < str.length; i++) {

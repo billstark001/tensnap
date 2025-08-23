@@ -1,13 +1,16 @@
-export interface FileMetadata {
+export interface BaseMetadata {
   name: string;
   path: string;
-  parentPath: string;
-  size: number;
-  mimeType: string;
   createdAt: Date;
   modifiedAt: Date;
-  tags?: string[];
+  parentPath: string;
   description?: string;
+  tags?: string[];
+}
+
+export interface FileMetadata extends BaseMetadata {
+  size: number;
+  mimeType: string;
 }
 
 export interface FileContent {
@@ -16,21 +19,10 @@ export interface FileContent {
   checksum: string;
 }
 
-export interface DirectoryMetadata {
-  name: string;
-  path: string;
-  parentPath: string;
-  createdAt: Date;
-  modifiedAt: Date;
-  description?: string;
-  tags?: string[];
+export interface DirectoryMetadata extends BaseMetadata {
 }
 
-export interface DirectoryEntry {
-  type: 'file' | 'directory';
-  name: string;
-  path: string;
-}
+export type DirectoryEntry = ({ type: 'file' } & FileMetadata) | ({ type: 'directory' } & DirectoryMetadata);
 
 export interface FileSystemStats {
   totalFiles: number;

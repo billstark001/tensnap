@@ -7,23 +7,32 @@ import { FileSystemBrowser } from '../file-system/FileSystemBrowser';
 import { UseFileSystemGuard } from '../../store/file-system/provider';
 import * as styles from '../../styles/toolbar.css';
 import * as dialogStyles from '../../styles/dialog.css';
+import { useCallbackRef } from '@/utils/react';
+import { FileMetadata } from '@/types/file';
 
 export interface MenuBarProps {
   className?: string;
-  onFileOpen?: (files: any[]) => void;
-  onFileSave?: () => void;
+  onNewFile?: () => void;
+  onFileOpen?: (files: FileMetadata[]) => void;
+  onFileSave?: (path: string | null) => void;
   onExport?: () => void;
 }
 
 export const MenuBar: React.FC<MenuBarProps> = ({
   className,
-  onFileOpen,
-  onFileSave,
-  onExport
+  onNewFile: _onNewFile,
+  onFileOpen: _onFileOpen,
+  onFileSave: _onFileSave,
+  onExport: _onExport
 }) => {
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const filePicker = useFilePicker();
+
+  const onNewFile = useCallbackRef(_onNewFile);
+  const onFileOpen = useCallbackRef(_onFileOpen);
+  const onFileSave = useCallbackRef(_onFileSave);
+  const onExport = useCallbackRef(_onExport);
 
   const handleFileOpen = useCallback(async () => {
     try {
@@ -65,8 +74,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       });
 
       if (file) {
-        console.log('Save as:', file);
-        // 这里可以处理保存逻辑
+        onFileSave(file.path);
       }
     } catch (error) {
       console.error('Failed to save file:', error);
@@ -88,7 +96,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             >
               <DropdownMenu.Item
                 className={styles.dropdownItem}
-                onClick={() => setShowFileBrowser(true)}
+                onClick={onNewFile}
               >
                 新建
               </DropdownMenu.Item>
@@ -106,7 +114,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
-                onClick={onFileSave}
+                onClick={() => onFileSave(null)}
               >
                 保存
               </DropdownMenu.Item>
@@ -276,7 +284,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 <FileSystemBrowser
                   onFileSelect={(file) => {
                     console.log('Selected file:', file);
-                    onFileOpen?.([file]);
+                    onFileOpen?.([file as FileMetadata]);
                     setShowFileBrowser(false);
                   }}
                   onDirectorySelect={(directory) => {

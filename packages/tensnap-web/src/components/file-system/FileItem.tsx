@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { DirectoryEntry, FileMetadata } from '../../types/file';
+import { DirectoryEntry, DirectoryMetadata, FileMetadata } from '../../types/file';
 import * as styles from './FileSystemBrowser.css';
 
 export interface FileItemProps {
   entry: DirectoryEntry;
+  metadata?: FileMetadata | DirectoryMetadata;
   isSelected: boolean;
   onItemClick: (entry: DirectoryEntry) => void;
   onDelete: (entry: DirectoryEntry) => void;
@@ -20,7 +21,6 @@ export const FileItem: React.FC<FileItemProps> = ({
   formatFileSize,
   formatDate
 }) => {
-  const metadata = entry.metadata as FileMetadata;
   
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,11 +40,11 @@ export const FileItem: React.FC<FileItemProps> = ({
         {entry.type === 'directory' ? '📁' : '📄'}
       </div>
       <div className={styles.itemContent}>
-        <div className={styles.itemName}>{metadata.name}</div>
+        <div className={styles.itemName}>{entry.name}</div>
         <div className={styles.itemDetails}>
           {entry.type === 'file' 
-            ? `${formatFileSize(metadata.size)} • ${formatDate(metadata.modifiedAt)}`
-            : `目录 • ${formatDate(metadata.modifiedAt)}`
+            ? `${formatFileSize(entry.size)} • ${formatDate(entry.modifiedAt)}`
+            : `目录 • ${formatDate(entry.modifiedAt)}`
           }
         </div>
       </div>

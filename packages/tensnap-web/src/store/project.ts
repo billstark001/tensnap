@@ -8,6 +8,7 @@ import { decode, encode } from "@msgpack/msgpack";
 import { SimulationState } from "@/types/modeling";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
+import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
 
 export interface ProjectContextScheme {
   id: string;
@@ -49,7 +50,7 @@ export interface ProjectStore {
 
   new: (url: string, indexHint?: number) => void;
   open: (filepath: string, indexHint?: number) => Promise<void>;
-  save: (index?: number) => Promise<void>;
+  save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
 
 }
@@ -126,7 +127,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const parsedContent: ProjectFileContent = typeof content === 'string'
       ? JSON.parse(content)
-      : decode(content);
+      : decode(new Uint8Array(content));
 
     const useScenarioStore = createScenarioStore();
     const useWebSocketStore = createWebSocketStore(useScenarioStore);
@@ -158,7 +159,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     useWebSocketStore.getState().initialize(url);
   },
 
-  async save(index) {
+  async save(index, saveAsPath) {
     const { projects, activeIndex } = get();
     index ??= activeIndex ?? undefined;
     if (index == null || index < 0 || index >= projects.length) {
@@ -194,25 +195,28 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     // determine path
 
+    saveAsPath ??= project.filepath ?? undefined;
+
     const { saveFormat: saveFormatSetting } = useSettingsStore.getState();
-    const saveFormatFromFile = project.filepath?.endsWith('json') ? 'json'
-      : project.filepath?.endsWith('msgpack') ? 'msgpack'
+    const saveFormatFromFile = saveAsPath?.endsWith('json') ? 'json'
+      : saveAsPath?.endsWith('msgpack') ? 'msgpack'
       : undefined;
 
     const projectFilepath = saveFormatFromFile == null
-      ? `${project.filepath}.${saveFormatSetting}`
-      : project.filepath!;
+      ? `${saveAsPath}.${saveFormatSetting}`
+      : saveAsPath!;
 
     const saveFormat = saveFormatFromFile ?? saveFormatSetting;
-
     // save
 
     if (saveFormat === 'msgpack') {
+      checkMsgpackCompatibility(projectFile);
       const buffer = encode(projectFile);
-      await fileSystemState.writeFile(projectFilepath, buffer.buffer as ArrayBuffer);
+      await fileSystemState.writeFile(projectFilepath, uint8ArrayToArrayBuffer(buffer));
     } else {
       await fileSystemState.writeFile(projectFilepath, JSON.stringify(projectFile));
     }
+    console.log('Project saved to', projectFilepath);
   },
 
   close(index) {

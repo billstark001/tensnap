@@ -13,7 +13,7 @@ interface ProvidersProps extends PropsWithChildren<object> {
 
 export function Providers({ 
   children, 
-  adapterProviderProps = {},
+  adapterProviderProps,
   filePickerProvider: CustomFilePickerProvider = FilePickerProvider
 }: ProvidersProps) {
 

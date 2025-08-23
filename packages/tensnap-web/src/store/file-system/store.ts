@@ -18,8 +18,6 @@ export interface FileSystemState {
 
   // Current state
   currentDirectory: string;
-  files: FileMetadata[];
-  directories: DirectoryMetadata[];
   directoryContents: DirectoryEntry[];
   stats: FileSystemStats | null;
 
@@ -137,8 +135,6 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
         adapterName: 'none',
         initialized: false,
         currentDirectory: '/',
-        files: [],
-        directories: [],
         directoryContents: [],
         stats: null
       });
@@ -211,13 +207,8 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       if (!adapter) return;
 
       try {
-        const [files, directories, contents] = await Promise.all([
-          adapter.listFiles(currentDirectory),
-          adapter.listDirectories(currentDirectory),
-          adapter.listDirectoryContents(currentDirectory)
-        ]);
-
-        set({ files, directories, directoryContents: contents });
+        const directoryContents = await adapter.listDirectoryContents(currentDirectory);
+        set({ directoryContents });
       } catch (error) {
         handleError(error);
       }

@@ -75,19 +75,19 @@ export class FileSystemExporter {
     for (const entry of contents) {
       const exportEntry: ExportEntry = {
         type: entry.type,
-        path: entry.metadata.path,
-        metadata: entry.metadata
+        path: entry.path,
+        metadata: entry
       };
 
       if (entry.type === 'file') {
-        const fileContent = await getFileContent(entry.metadata.path);
+        const fileContent = await getFileContent(entry.path);
         if (fileContent) {
           exportEntry.content = fileContent.content;
         }
       } else if (entry.type === 'directory') {
         // Recursively collect subdirectory contents
         const subEntries = await this.collectAllContents(
-          entry.metadata.path,
+          entry.path,
           getAllContents,
           getFileContent,
           visited
@@ -116,12 +116,12 @@ export class FileSystemExporter {
     const contents = await getAllContents(directoryPath);
 
     for (const entry of contents) {
-      const relativePath = entry.metadata.path.startsWith('/')
-        ? entry.metadata.path.slice(1)
-        : entry.metadata.path;
+      const relativePath = entry.path.startsWith('/')
+        ? entry.path.slice(1)
+        : entry.path;
 
       if (entry.type === 'file') {
-        const fileContent = await getFileContent(entry.metadata.path);
+        const fileContent = await getFileContent(entry.path);
         if (fileContent) {
           if (typeof fileContent.content === 'string') {
             zip.file(relativePath, fileContent.content);
@@ -134,7 +134,7 @@ export class FileSystemExporter {
         zip.folder(relativePath);
         await this.addContentsToZip(
           zip,
-          entry.metadata.path,
+          entry.path,
           getAllContents,
           getFileContent,
           visited

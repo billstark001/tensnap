@@ -3,6 +3,7 @@ import { FileSystemAdapter, FileSystemAdapterFactory } from './adapter';
 import { IndexedDBFileSystemAdapter } from './indexeddb-adapter';
 import { createFileSystemStore } from './store';
 import { useProjectStore } from '../project';
+import { useCallbackRef } from '@/utils/react';
 
 type FileSystemStore = ReturnType<typeof createFileSystemStore>;
 
@@ -48,11 +49,15 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
   // Use provided adapters or default ones
   const adapters = availableAdapters || AVAILABLE_ADAPTERS;
 
-  const switchAdapter = useCallback(async (adapterName: string) => {
-    // Cleanup current adapter if any
+  const cleanupCurrentAdapter = useCallbackRef(async () => {
     if (currentAdapter) {
       await currentAdapter.cleanup();
     }
+  });
+
+  const switchAdapter = useCallback(async (adapterName: string) => {
+    // Cleanup current adapter if any
+    await cleanupCurrentAdapter();
 
     // Find and create new adapter
     const adapterFactory = adapters.find(factory => factory.name === adapterName);
@@ -77,7 +82,7 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
 
     // Initialize the adapter
     await newStore.getState().initialize();
-  }, [adapters, currentAdapter, fileSystemStoreProject, setFileSystemStoreProject]);
+  }, [adapters, cleanupCurrentAdapter, fileSystemStoreProject, setFileSystemStoreProject]);
 
   // Initialize with preferred adapter on mount
   useEffect(() => {
