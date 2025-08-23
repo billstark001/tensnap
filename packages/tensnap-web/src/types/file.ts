@@ -28,7 +28,8 @@ export interface DirectoryMetadata {
 
 export interface DirectoryEntry {
   type: 'file' | 'directory';
-  metadata: FileMetadata | DirectoryMetadata;
+  name: string;
+  path: string;
 }
 
 export interface FileSystemStats {

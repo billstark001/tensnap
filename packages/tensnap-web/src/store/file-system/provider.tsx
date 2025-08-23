@@ -9,6 +9,7 @@ type FileSystemStore = ReturnType<typeof createFileSystemStore>;
 export interface AdapterProviderProps {
   children: React.ReactNode;
   preferredAdapter?: string;
+  availableAdapters?: FileSystemAdapterFactory[];
 }
 
 export interface AdapterContextValue {
@@ -34,7 +35,8 @@ const AVAILABLE_ADAPTERS: FileSystemAdapterFactory[] = [
 
 export const AdapterProvider: React.FC<AdapterProviderProps> = ({
   children,
-  preferredAdapter = 'indexeddb'
+  preferredAdapter = 'indexeddb',
+  availableAdapters
 }) => {
   const [currentAdapter, setCurrentAdapter] = useState<FileSystemAdapter | null>(null);
   const [currentAdapterName, setCurrentAdapterName] = useState<string>('none');
@@ -43,6 +45,9 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
   const fileSystemStoreProject = useProjectStore((state) => state.fileSystemStore);
   const setFileSystemStoreProject = useProjectStore((state) => state.setFileSystemStore);
 
+  // Use provided adapters or default ones
+  const adapters = availableAdapters || AVAILABLE_ADAPTERS;
+
   const switchAdapter = useCallback(async (adapterName: string) => {
     // Cleanup current adapter if any
     if (currentAdapter) {
@@ -50,7 +55,7 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
     }
 
     // Find and create new adapter
-    const adapterFactory = AVAILABLE_ADAPTERS.find(factory => factory.name === adapterName);
+    const adapterFactory = adapters.find(factory => factory.name === adapterName);
     if (!adapterFactory) {
       throw new Error(`Adapter '${adapterName}' not found`);
     }
@@ -72,7 +77,7 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
 
     // Initialize the adapter
     await newStore.getState().initialize();
-  }, [currentAdapter, fileSystemStoreProject, setFileSystemStoreProject]);
+  }, [adapters, currentAdapter, fileSystemStoreProject, setFileSystemStoreProject]);
 
   // Initialize with preferred adapter on mount
   useEffect(() => {
@@ -80,13 +85,13 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
       try {
         // Find a supported adapter, preferring the specified one
         let adapterToUse = preferredAdapter;
-        const preferredFactory = AVAILABLE_ADAPTERS.find(factory =>
+        const preferredFactory = adapters.find(factory =>
           factory.name === preferredAdapter && factory.supported
         );
 
         if (!preferredFactory) {
           // Fall back to first supported adapter
-          const supportedFactory = AVAILABLE_ADAPTERS.find(factory => factory.supported);
+          const supportedFactory = adapters.find(factory => factory.supported);
           if (supportedFactory) {
             adapterToUse = supportedFactory.name;
           } else {
@@ -102,7 +107,7 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
     };
 
     initializeAdapter();
-  }, [preferredAdapter]);
+  }, [adapters, preferredAdapter, switchAdapter]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -114,7 +119,7 @@ export const AdapterProvider: React.FC<AdapterProviderProps> = ({
   }, [currentAdapter]);
 
   const contextValue: AdapterContextValue = {
-    availableAdapters: AVAILABLE_ADAPTERS,
+    availableAdapters: adapters,
     currentAdapter,
     currentAdapterName,
     switchAdapter,

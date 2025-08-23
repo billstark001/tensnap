@@ -9,6 +9,8 @@
     "dev:web": "pnpm --filter tensnap-web dev",
     "build:web": "pnpm --filter tensnap-web build",
     "test:web": "pnpm --filter tensnap-web test",
+    "dev:tauri": "pnpm --filter tensnap-tauri dev",
+    "build:tauri": "pnpm --filter tensnap-tauri build",
     "dev:python": "pnpm --filter tensnap-python dev",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",

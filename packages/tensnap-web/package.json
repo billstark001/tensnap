@@ -57,5 +57,15 @@
     "ts-jest": "^29.1.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.11"
+  },
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./App": "./src/App.tsx",
+    "./Providers": "./src/Providers.tsx",
+    "./types/file": "./src/types/file.ts",
+    "./store/file-system/adapter": "./src/store/file-system/adapter.ts",
+    "./store/file-system/provider": "./src/store/file-system/provider.tsx"
   }
 }
