@@ -209,6 +209,13 @@ export const dropdownItem = style({
     outline: 'none',
     backgroundColor: vars.color.gridBackground,
   },
+
+  selectors: {
+    '&[data-disabled]': {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+  },
 });
 
 export const dropdownSeparator = style({

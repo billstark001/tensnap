@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useCallback, useState, ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import { FileMetadata, DirectoryMetadata } from '../../types/file';
+import { FileMetadata, DirectoryMetadata, DirectoryEntry } from '../../types/file';
 import { UseFileSystemGuard } from '../../store/file-system/provider';
 import * as dialogStyles from '../../styles/dialog.css';
 
@@ -86,11 +86,11 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     });
   }, [closePicker]);
 
-  const handleFileSelect = useCallback((file: FileMetadata) => {
+  const handleFileSelect = useCallback((file: DirectoryEntry) => {
     if (pickerState.options.mode === 'directories') return;
-    
+
     closePicker({
-      files: [file],
+      files: [file as FileMetadata],
       directories: [],
       cancelled: false
     });
@@ -98,7 +98,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
 
   const handleDirectorySelect = useCallback((directory: DirectoryMetadata) => {
     if (pickerState.options.mode === 'files') return;
-    
+
     closePicker({
       files: [],
       directories: [directory],
@@ -141,7 +141,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
   return (
     <FilePickerContext.Provider value={contextValue}>
       {children}
-      
+
       {/* 文件选择器对话框 */}
       <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()}>
         <Dialog.Portal>

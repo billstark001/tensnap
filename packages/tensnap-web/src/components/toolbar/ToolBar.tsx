@@ -20,6 +20,7 @@ import {
 import * as styles from '../../styles/toolbar.css';
 import { useButtonControls } from '../useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
+import { useFileOperations } from './FileOperationsProvider';
 
 export interface ToolBarProps {
   className?: string;
@@ -34,14 +35,14 @@ interface ToolButtonProps {
   onClick?: () => void;
 }
 
-const ToolButton: React.FC<ToolButtonProps> = ({ 
-  icon, 
-  tooltip, 
-  isActive = false, 
+const ToolButton: React.FC<ToolButtonProps> = ({
+  icon,
+  tooltip,
+  isActive = false,
   disabled,
-  onClick 
+  onClick
 }) => {
-  const buttonClass = isActive 
+  const buttonClass = isActive
     ? styles.toolButtonVariants?.active || styles.toolButton
     : styles.toolButton;
 
@@ -65,6 +66,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className }) => {
 
   const { handleButtonAction } = useButtonControls();
   const undoRedoStore = useScenarioUndoRedoStore();
+  const { canSaveFile, onNewFile, onFileOpen, onFileSave } = useFileOperations();
 
   return (
     <Tooltip.Provider>
@@ -74,14 +76,18 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className }) => {
           <ToolButton
             icon={<FileText size={16} />}
             tooltip="New File"
+            onClick={onNewFile}
           />
           <ToolButton
             icon={<FolderOpen size={16} />}
             tooltip="Open File"
+            onClick={onFileOpen}
           />
           <ToolButton
             icon={<Save size={16} />}
             tooltip="Save"
+            onClick={onFileSave}
+            disabled={!canSaveFile}
           />
         </div>
 

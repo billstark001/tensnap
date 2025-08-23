@@ -3,15 +3,20 @@ import { MenuBar } from './toolbar/MenuBar';
 import { ToolBar } from './toolbar/ToolBar';
 import { TabBar } from './toolbar/TabBar';
 import { useProjectStore } from "@/store/project";
+import { FileOperationsProvider } from './toolbar/FileOperationsProvider';
 
 import * as styles from '../styles/toolbar.css';
 import { useCallback, useState } from "react";
 import { CreateNewDialog } from "./CreateNewDialog";
 import { FileMetadata } from "@/types/file";
 import { useWithLoading } from "@/store/loading";
+import { SettingsDialog } from "./SettingsDialog";
 
 export const ToolBarLayout = () => {
-  const { theme, toggleTheme } = useSettingsStore();
+  const { 
+    settingsDialogOpen, setSettingsDialogOpen,
+    theme, toggleTheme,
+  } = useSettingsStore();
   const withLoading = useWithLoading();
 
   const {
@@ -27,6 +32,7 @@ export const ToolBarLayout = () => {
   // 管理标签页状态
   const tabs = getDisplayNames();
   const activeTabId = activeIndex != null ? tabs[activeIndex].id : undefined;
+  const canSaveFile = activeTabId != null;
 
   const handleNewTab = () => {
     createNewProject('http://localhost:8765');
@@ -58,43 +64,48 @@ export const ToolBarLayout = () => {
     withLoading(() => open(files[0].path));
   }, [withLoading, open]);
 
-  const onFileSave = useCallback((asPath: string | null) => {
+  const onFileSave = useCallback((asPath?: string | null) => {
     withLoading(() => save(undefined, asPath ?? undefined));
   }, [withLoading, save]);
 
   return (
-    <div className={styles.toolbar}>
-      {/* 菜单栏 */}
-      <MenuBar
-        onNewFile={onNewFile}
-        onFileOpen={onFileOpen}
-        onFileSave={onFileSave}
-      />
+    <FileOperationsProvider
+      onNewFile={onNewFile}
+      onFileOpen={onFileOpen}
+      onFileSave={onFileSave}
+      canSaveFile={canSaveFile}
+    >
+      <div className={styles.toolbar}>
+        {/* 菜单栏 */}
+        <MenuBar />
 
-      <CreateNewDialog isOpen={isOpen} onOpenChange={setOpen} onCreateItem={onCreateItem} />
+        <CreateNewDialog open={isOpen} onOpenChange={setOpen} onCreateItem={onCreateItem} />
 
-      {/* 工具栏 */}
-      <div className={styles.toolBarRow}>
-        <ToolBar />
+        {/* 工具栏 */}
+        <div className={styles.toolBarRow}>
+          <ToolBar />
 
-        {/* 主题切换按钮 */}
-        <button
-          onClick={toggleTheme}
-          className={styles.themeToggle}
-          aria-label="Toggle theme"
-        >
-          {theme === 'light' ? '🌙' : '☀️'}
-        </button>
+          {/* 主题切换按钮 */}
+          <button
+            onClick={toggleTheme}
+            className={styles.themeToggle}
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+        </div>
+
+        {/* 标签页 */}
+        <TabBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onTabChange={handleTabChange}
+          onTabClose={handleTabClose}
+          onNewTab={handleNewTab}
+        />
       </div>
 
-      {/* 标签页 */}
-      <TabBar
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onTabChange={handleTabChange}
-        onTabClose={handleTabClose}
-        onNewTab={handleNewTab}
-      />
-    </div>
+      <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
+    </FileOperationsProvider>
   );
 };

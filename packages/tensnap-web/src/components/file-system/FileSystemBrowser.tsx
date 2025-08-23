@@ -233,7 +233,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       </div>
 
       <CreateDialog 
-        isOpen={showCreateDialog}
+        open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onCreateItem={handleCreateItem}
       />

@@ -1,20 +1,21 @@
 import React, { useState, useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as dialogStyles from '../../styles/dialog.css';
+import { DialogOpenProps, useCallbackRef } from '@/utils/react';
 
-export interface CreateDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface CreateDialogProps extends DialogOpenProps {
   onCreateItem: (name: string, type: 'file' | 'directory') => Promise<void>;
 }
 
 export const CreateDialog: React.FC<CreateDialogProps> = ({
-  isOpen,
-  onOpenChange,
+  open: isOpen,
+  onOpenChange: _onOpenChange,
   onCreateItem
 }) => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemType, setNewItemType] = useState<'file' | 'directory'>('file');
+
+  const onOpenChange = useCallbackRef(_onOpenChange);
 
   const handleCreateItem = useCallback(async () => {
     if (!newItemName.trim()) return;

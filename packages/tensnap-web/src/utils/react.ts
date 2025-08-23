@@ -1,3 +1,4 @@
+import { DialogProps } from "@radix-ui/react-dialog";
 import { useCallback, useRef } from "react";
 
 /**
@@ -48,3 +49,6 @@ export function useCallbackRef<T extends (...args: any[]) => any>(
     deps
   );
 }
+
+
+export type DialogOpenProps = Pick<DialogProps, 'open' | 'onOpenChange'>;

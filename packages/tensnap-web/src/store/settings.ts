@@ -4,6 +4,10 @@ import { subscribeWithSelector } from 'zustand/middleware';
 type Theme = 'light' | 'dark';
 
 interface SettingsStore {
+
+  settingsDialogOpen: boolean;
+  setSettingsDialogOpen: (open: boolean) => void;
+
   theme: Theme;
   saveFormat: 'json' | 'msgpack';
   toggleTheme: () => void;
@@ -13,6 +17,13 @@ interface SettingsStore {
 
 export const useSettingsStore = create<SettingsStore>()(
   subscribeWithSelector((set, get) => ({
+
+    settingsDialogOpen: false,
+
+    setSettingsDialogOpen: (open: boolean) => {
+      set({ settingsDialogOpen: open });
+    },
+
     // 从 localStorage 初始化主题
     theme: (() => {
       const saved = localStorage.getItem('theme');

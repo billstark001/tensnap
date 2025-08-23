@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useFileSystem } from '../../store/file-system/provider';
 import * as dialogStyles from '../../styles/dialog.css';
+import { DialogOpenProps, useCallbackRef } from '@/utils/react';
 
 export interface ExportOption {
   key: string;
@@ -11,23 +12,23 @@ export interface ExportOption {
   handler: () => Promise<void> | void;
 }
 
-export interface ExportDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface ExportDialogProps extends DialogOpenProps {
   title?: string;
   customOptions?: ExportOption[];
   showDefaultOptions?: boolean;
 }
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
-  isOpen,
-  onOpenChange,
+  open: isOpen,
+  onOpenChange: _onOpenChange,
   title = "导出选项",
   customOptions = [],
   showDefaultOptions = true
 }) => {
   const fileSystem = useFileSystem();
   const { currentDirectory, exportDirectory } = fileSystem;
+
+  const onOpenChange = useCallbackRef(_onOpenChange);
 
   const handleExportDirectory = useCallback(async (format: 'json' | 'zip') => {
     try {

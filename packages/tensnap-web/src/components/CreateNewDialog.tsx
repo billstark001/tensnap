@@ -1,26 +1,25 @@
 import React, { useState, useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as dialogStyles from '@/styles/dialog.css';
+import { DialogOpenProps } from '@/utils/react';
 
-export interface CreateNewDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface CreateNewDialogProps extends DialogOpenProps {
   onCreateItem: (name: string) => void;
 }
 
 export const CreateNewDialog: React.FC<CreateNewDialogProps> = ({
-  isOpen,
+  open: isOpen,
   onOpenChange,
   onCreateItem
 }) => {
   const [newItemName, setNewItemName] = useState('http://localhost:5678');
 
-  const handleCreateItem = useCallback(async () => {
+  const handleCreateItem = useCallback(() => {
     if (!newItemName.trim()) return;
 
     try {
-      await onCreateItem(newItemName);
-      onOpenChange(false);
+      onCreateItem(newItemName);
+      onOpenChange?.(false);
       setNewItemName('');
     } catch (error) {
       console.error('Failed to create item:', error);

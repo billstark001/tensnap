@@ -10,10 +10,13 @@ import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
 
-export interface ProjectContextScheme {
+export interface ProjectSettings {
+  url: string;
+}
+
+export interface ProjectContextScheme extends ProjectSettings{
   id: string;
   filepath: string | null;
-  url: string;
 
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useWebSocketStore: UseBoundStore<StoreApi<WebSocketStore>>;
@@ -196,6 +199,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // determine path
 
     saveAsPath ??= project.filepath ?? undefined;
+    if (!saveAsPath) {
+      throw new Error("No file path specified for saving the project");
+    }
 
     const { saveFormat: saveFormatSetting } = useSettingsStore.getState();
     const saveFormatFromFile = saveAsPath?.endsWith('json') ? 'json'
@@ -204,7 +210,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const projectFilepath = saveFormatFromFile == null
       ? `${saveAsPath}.${saveFormatSetting}`
-      : saveAsPath!;
+      : saveAsPath;
 
     const saveFormat = saveFormatFromFile ?? saveFormatSetting;
     // save
@@ -217,6 +223,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await fileSystemState.writeFile(projectFilepath, JSON.stringify(projectFile));
     }
     console.log('Project saved to', projectFilepath);
+
+    // update project file path
+    const newProject = {
+      ...project,
+      filepath: projectFilepath,
+    };
+    set({
+      projects: [...projects.slice(0, index), newProject, ...projects.slice(index + 1)],
+    });
   },
 
   close(index) {
