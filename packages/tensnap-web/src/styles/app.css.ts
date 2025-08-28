@@ -108,36 +108,6 @@ export const button = style({
   },
 });
 
-export const slider = style({
-  width: '100%',
-  height: '4px',
-  borderRadius: vars.radius.full,
-  background: vars.color.gridLine,
-  outline: 'none',
-  
-  selectors: {
-    '&::-webkit-slider-thumb': {
-      appearance: 'none',
-      width: '16px',
-      height: '16px',
-      borderRadius: vars.radius.full,
-      background: vars.color.primary,
-      cursor: 'pointer',
-    },
-    '&::-moz-range-thumb': {
-      width: '16px',
-      height: '16px',
-      borderRadius: vars.radius.full,
-      background: vars.color.primary,
-      cursor: 'pointer',
-      border: 'none',
-    },
-    'body[data-theme="dark"] &': {
-      background: vars.color.darkGridLine,
-    },
-  },
-});
-
 export const statusBadge = style({
   display: 'inline-block',
   padding: `2px ${vars.space.sm}`,

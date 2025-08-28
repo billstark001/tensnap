@@ -4,7 +4,7 @@ import { ScenarioStore } from './scenario';
 import { GridEnvironment } from '@/types/modeling';
 import { generateUniqueId } from '@/components/view/utils/common';
 import { createStoreContext } from '@/utils/zustand';
-import { AgentBatchUpdatePayload, AgentUpdatePayload, ChartDataPayload, EnvironmentsListPayload, EnvironmentUpdatePayload, GetStatePayload, ParametersPayload, TimeStepPayload, WSMessage } from '@/types/api';
+import { AgentBatchUpdatePayload, AgentUpdatePayload, ChartDataPayload, EnvironmentsListPayload, EnvironmentUpdatePayload, StateSyncRequest, StateSyncResponse, ParametersPayload, TimeStepPayload, WSMessage } from '@/types/api';
 
 export interface WebSocketStore {
   id: string;
@@ -18,6 +18,7 @@ export interface WebSocketStore {
   initialize: (url: string) => Promise<void>;
   sendMessage: <T = any>(message: WSMessage<T>) => void;
   requestState: () => void;
+  requestStateSync: (currentState: StateSyncRequest) => void;  // 统一的状态同步请求
   disconnect: () => void;
   reconnect: () => Promise<void>;
   destroy: () => void;
@@ -111,6 +112,59 @@ export const createWebSocketStore = (
       store.setParameters(payload);
     });
 
+    wsManager.on('state_sync', (payload: StateSyncResponse) => {
+      // 处理统一的状态同步响应
+      console.log('Received state sync:', payload);
+      
+      // 处理参数更新 - 使用现有的 setParameters 方法
+      const allParameters = [
+        ...payload.added_parameters,
+        ...payload.updated_parameters
+      ];
+      if (allParameters.length > 0) {
+        store.setParameters(allParameters);
+      }
+      
+      // 处理环境更新
+      const allEnvironments = [
+        ...payload.added_environments,
+        ...payload.updated_environments
+      ];
+      if (allEnvironments.length > 0) {
+        store.setEnvironments(allEnvironments);
+      }
+      
+      // 处理图表更新 - 转换ChartState到ChartData格式
+      const allCharts = [
+        ...payload.added_charts,
+        ...payload.updated_charts
+      ];
+      if (allCharts.length > 0) {
+        // 转换ChartState到ChartData格式
+        const chartData = allCharts.map(chart => ({
+          id: chart.id,
+          label: chart.label,
+          getter: chart.id, // 使用id作为getter标识
+          color: chart.color,
+          data: chart.data
+        }));
+        store.setCharts(chartData);
+      }
+      
+      // 处理删除的项目 - 暂时不删除，而是标记为禁用以提供更好的用户体验
+      // 这样用户可以看到之前存在但现在不可用的项目
+      if (payload.removed_parameters.length > 0 || 
+          payload.removed_environments.length > 0 || 
+          payload.removed_charts.length > 0) {
+        console.log('Items removed from server:', {
+          parameters: payload.removed_parameters,
+          environments: payload.removed_environments,
+          charts: payload.removed_charts
+        });
+        // 可以在此处实现禁用逻辑，而不是直接删除
+      }
+    });
+
     wsManager.on('environments_list', (payload: EnvironmentsListPayload) => {
       store.setEnvironments(payload);
     });
@@ -129,7 +183,13 @@ export const createWebSocketStore = (
       });
       // 设置连接状态并请求初始状态
       store.setConnected(true);
-      wsManager.send({ type: 'get_state', payload: {} as GetStatePayload });
+      const emptyState: StateSyncRequest = {
+        parameters: [],
+        environments: [],
+        charts: [],
+        parameter_cache: {}
+      };
+      wsManager.send({ type: 'state_sync', payload: emptyState });
     };
 
     wsManager.on(WebSocketManager.Connected, onConnected);
@@ -159,7 +219,13 @@ export const createWebSocketStore = (
       });
       // 设置连接状态并请求初始状态
       store.setConnected(true);
-      wsManager.send({ type: 'get_state', payload: {} as GetStatePayload });
+      const emptyState: StateSyncRequest = {
+        parameters: [],
+        environments: [],
+        charts: [],
+        parameter_cache: {}
+      };
+      wsManager.send({ type: 'state_sync', payload: emptyState });
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
@@ -188,7 +254,19 @@ export const createWebSocketStore = (
 
   requestState: () => {
     const { sendMessage } = get();
-    sendMessage<GetStatePayload>({ type: 'get_state', payload: {} });
+    // 发送空的客户端状态以获取完整状态
+    const emptyState: StateSyncRequest = {
+      parameters: [],
+      environments: [],
+      charts: [],
+      parameter_cache: {}
+    };
+    sendMessage<StateSyncRequest>({ type: 'state_sync', payload: emptyState });
+  },
+
+  requestStateSync: (currentState: StateSyncRequest) => {
+    const { sendMessage } = get();
+    sendMessage<StateSyncRequest>({ type: 'state_sync', payload: currentState });
   },
 
   disconnect: () => {

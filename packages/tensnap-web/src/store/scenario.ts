@@ -50,9 +50,14 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   setEnvironments: (environments) => {
     set({ environments });
-    // Auto-update layout when environments change
-    const { parameters, charts } = get();
-    set({ mainView: createAutoLayout(environments, parameters, charts) });
+    // Auto-update layout when environments change with incremental updates
+    const { parameters, charts, mainView } = get();
+    set({ 
+      mainView: createAutoLayout(environments, parameters, charts, { 
+        currentView: mainView, 
+        preserveExisting: true 
+      }) 
+    });
   },
 
   updateEnvironment: (id, data) => {
@@ -73,9 +78,14 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   setParameters: (parameters) => {
     set({ parameters });
-    // Auto-update layout when parameters change
-    // const { environments, charts } = get();
-    // set({ mainView: createAutoLayout(environments, parameters, charts) });
+    // Auto-update layout when parameters change with incremental updates
+    const { environments, charts, mainView } = get();
+    set({ 
+      mainView: createAutoLayout(environments, parameters, charts, { 
+        currentView: mainView, 
+        preserveExisting: true 
+      }) 
+    });
   },
 
   updateParameter: (id, value) => {
@@ -88,9 +98,14 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   setCharts: (charts) => {
     set({ charts });
-    // Auto-update layout when charts change
-    const { environments, parameters } = get();
-    set({ mainView: createAutoLayout(environments, parameters, charts) });
+    // Auto-update layout when charts change with incremental updates
+    const { environments, parameters, mainView } = get();
+    set({ 
+      mainView: createAutoLayout(environments, parameters, charts, { 
+        currentView: mainView, 
+        preserveExisting: true 
+      }) 
+    });
   },
 
   addChartData: (chartId, time, value) =>
@@ -124,8 +139,13 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateMainViewLayout: () => {
-    const { environments, parameters, charts } = get();
-    set({ mainView: createAutoLayout(environments, parameters, charts) });
+    const { environments, parameters, charts, mainView } = get();
+    set({ 
+      mainView: createAutoLayout(environments, parameters, charts, { 
+        currentView: mainView, 
+        preserveExisting: true 
+      }) 
+    });
   },
 }));
 

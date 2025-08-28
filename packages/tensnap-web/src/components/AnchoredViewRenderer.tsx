@@ -1,7 +1,7 @@
 import React from 'react';
 import { GridEnvironmentView } from './modeling/GridEnvironmentView';
 import { GraphEnvironmentView } from './modeling/GraphEnvironment';
-import { ParameterControls } from './ParameterControls';
+import { ParameterControl } from './ParameterControl';
 import { ChartView } from './modeling/ChartView';
 import { useScenarioStore } from '../store/scenario';
 import { AnchoredView } from '../types/ui';
@@ -31,7 +31,7 @@ export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type
       const parameter = parameters.find(param => param.id === id);
       if (!parameter) return <div>Parameter not found: {id}</div>;
       
-      return <ParameterControls parameters={[parameter]} />;
+      return <ParameterControl parameter={parameter} />;
     }
     
     case 'chart': {
