@@ -63,39 +63,41 @@ export function registerEventHandlers(
     // 处理统一的状态同步响应
     console.log('Received state sync:', payload);
 
-    // 处理参数更新 - 使用现有的 setParameters 方法
+    // 处理参数更新 - 使用现有的 setData 方法
     const allParameters = [
       ...payload.added_parameters,
       ...payload.updated_parameters
     ];
-    if (allParameters.length > 0) {
-      store.setParameters(allParameters);
-    }
 
     // 处理环境更新
     const allEnvironments = [
       ...payload.added_environments,
       ...payload.updated_environments
     ];
-    if (allEnvironments.length > 0) {
-      store.setEnvironments(allEnvironments);
-    }
 
     // 处理图表更新 - 转换ChartState到ChartData格式
     const allCharts = [
       ...payload.added_charts,
       ...payload.updated_charts
     ];
-    if (allCharts.length > 0) {
-      // 转换ChartState到ChartData格式
-      const chartData = allCharts.map(chart => ({
-        id: chart.id,
-        label: chart.label,
-        getter: chart.id, // 使用id作为getter标识
-        color: chart.color,
-        data: chart.data
-      }));
-      store.setCharts(chartData, true);
+
+    // 统一更新数据
+    const hasUpdates = allParameters.length > 0 || allEnvironments.length > 0 || allCharts.length > 0;
+    if (hasUpdates) {
+      const updateData: any = {};
+      if (allParameters.length > 0) updateData.parameters = allParameters;
+      if (allEnvironments.length > 0) updateData.environments = allEnvironments;
+      if (allCharts.length > 0) {
+        // 转换ChartState到ChartData格式
+        updateData.charts = allCharts.map(chart => ({
+          id: chart.id,
+          label: chart.label,
+          getter: chart.id, // 使用id作为getter标识
+          color: chart.color,
+          data: chart.data
+        }));
+      }
+      store.setData(updateData, true);
     } else {
       store.updateMainViewLayout();
     }
