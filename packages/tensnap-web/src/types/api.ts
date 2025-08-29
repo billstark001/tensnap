@@ -7,8 +7,6 @@ export type WSMessageType =
   | 'environment_update'
   | 'agent_update'
   | 'agent_batch_update'
-  | 'parameters'
-  | 'environments_list'
   | 'chart_data'
   | 'state_sync'  // 统一的状态同步消息
   | 'parameter_change'
@@ -74,11 +72,6 @@ export interface EnumParameter extends ParameterBase {
   options: string[] | {label: string; value: any}[];
 }
 
-// 返回参数列表
-export type ParametersPayload = Parameter[];
-
-// environments_list
-export type EnvironmentsListPayload = Environment[];
 
 // chart_data
 export interface ChartDataUpdate {
@@ -139,8 +132,6 @@ export type IncomingPayload =
   | EnvironmentUpdatePayload
   | AgentUpdatePayload
   | AgentBatchUpdatePayload
-  | ParametersPayload
-  | EnvironmentsListPayload
   | ChartDataPayload
   | StateSyncRequest
   | StateSyncResponse

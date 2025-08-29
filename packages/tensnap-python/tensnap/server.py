@@ -29,8 +29,6 @@ class MessageType(Enum):
     ENVIRONMENT_UPDATE = "environment_update"
     AGENT_UPDATE = "agent_update"
     AGENT_BATCH_UPDATE = "agent_batch_update"
-    PARAMETERS = "parameters"
-    ENVIRONMENTS_LIST = "environments_list"
     CHART_DATA = "chart_data"
     STATE_SYNC = "state_sync"  # 合并后的状态同步消息
     PARAMETER_CHANGE = "parameter_change"

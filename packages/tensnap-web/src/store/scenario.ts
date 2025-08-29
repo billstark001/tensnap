@@ -4,6 +4,7 @@ import { ContainerView } from '../types/ui';
 import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
+import { createDefaultRootLayout } from '@/utils/layout/pack-layout';
 
 export interface ScenarioStore {
   // State
@@ -19,11 +20,11 @@ export interface ScenarioStore {
   // Actions
   setConnected: (connected: boolean) => void;
   setCurrentTime: (time: number) => void;
-  setEnvironments: (environments: Environment[]) => void;
+  setEnvironments: (environments: Environment[], updateLayout?: boolean) => void;
   updateEnvironment: (id: string | number, data: SetStateAction<Environment>) => void;
-  setParameters: (parameters: Parameter[]) => void;
+  setParameters: (parameters: Parameter[], updateLayout?: boolean) => void;
   updateParameter: (id: string, value: any) => void;
-  setCharts: (charts: ChartData[]) => void;
+  setCharts: (charts: ChartData[], updateLayout?: boolean) => void;
   addChartData: (chartId: string, time: number, value: number) => void;
   addSnapshot: (snapshot: Snapshot) => void;
   clearSnapshots: () => void;
@@ -41,16 +42,19 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   charts: [],
   snapshots: [],
   maxSnapshots: 32,
-  mainView: createAutoLayout([], [], []),
+  mainView: createDefaultRootLayout(),
 
   // Actions
   setConnected: (connected) => set({ connected }),
 
   setCurrentTime: (time) => set({ currentTime: time }),
 
-  setEnvironments: (environments) => {
+  setEnvironments: (environments, updateLayout) => {
     set({ environments });
     // Auto-update layout when environments change with incremental updates
+    if (!updateLayout) {
+      return;
+    }
     const { parameters, charts, mainView } = get();
     set({ 
       mainView: createAutoLayout(environments, parameters, charts, { 
@@ -76,9 +80,12 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     }
   },
 
-  setParameters: (parameters) => {
+  setParameters: (parameters, updateLayout) => {
     set({ parameters });
     // Auto-update layout when parameters change with incremental updates
+    if (!updateLayout) {
+      return;
+    }
     const { environments, charts, mainView } = get();
     set({ 
       mainView: createAutoLayout(environments, parameters, charts, { 
@@ -96,9 +103,12 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     }));
   },
 
-  setCharts: (charts) => {
+  setCharts: (charts, updateLayout) => {
     set({ charts });
     // Auto-update layout when charts change with incremental updates
+    if (!updateLayout) {
+      return;
+    }
     const { environments, parameters, mainView } = get();
     set({ 
       mainView: createAutoLayout(environments, parameters, charts, { 
