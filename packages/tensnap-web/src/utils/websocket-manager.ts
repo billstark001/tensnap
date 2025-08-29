@@ -1,5 +1,5 @@
 import { encode, decode } from '@msgpack/msgpack';
-import { generateUniqueId } from '@/components/view/utils/common';
+import { generateUniqueId } from '@/utils/common';
 import { WSMessage } from '@/types/api';
 
 // Custom exception classes for better error handling

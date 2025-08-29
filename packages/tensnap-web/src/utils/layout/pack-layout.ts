@@ -1,5 +1,5 @@
-import { ContainerView, AnchoredView, AnyView, ButtonView } from '../types/ui';
-import { Environment, Parameter, ChartData } from '../types/modeling';
+import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
+import { Environment, Parameter, ChartData } from '@/types/modeling';
 
 const SIDEBAR_WIDTH = 300;
 const HEADER_HEIGHT = 60;
@@ -12,10 +12,41 @@ const CHART_CARD_WIDTH = 500;
 const CHART_CARD_HEIGHT = 300;
 const MARGIN = 20;
 
-interface LayoutOptions {
+export const preservedViewIds = Object.freeze({
+  buttonsContainer: 'buttons-container',
+  parametersContainer: 'parameters-container',
+  mainContainer: 'main-container',
+});
+
+export interface LayoutOptions {
   currentView?: ContainerView;
   preserveExisting?: boolean;
 }
+
+// #region utility functions
+
+export function createDefaultRootLayout(
+  views?: AnyView[],
+  contentHeight = 800,
+): ContainerView {
+  views ??= [];
+  return {
+    id: preservedViewIds.mainContainer,
+    type: 'container',
+    left: 0,
+    top: 0,
+    width: Math.max(1200, SIDEBAR_WIDTH + 2 * (ENVIRONMENT_CARD_WIDTH + MARGIN) + MARGIN),
+    height: Math.max(800, contentHeight),
+    expanded: true,
+    data: {
+      title: 'TenSnap Visualization',
+    },
+    views,
+  };
+}
+
+// #endregion
+
 
 export function createAutoLayout(
   environments: Environment[],
@@ -85,7 +116,7 @@ export function createAutoLayout(
     const containerHeight = Math.max(600, parameterYOffset + MARGIN);
     
     // Check if container already exists
-    const existingContainer = existingViews.find(view => view.id === 'parameters-container') as ContainerView;
+    const existingContainer = existingViews.find(view => view.id === preservedViewIds.parametersContainer) as ContainerView;
     
     if (existingContainer && preserveExisting) {
       // Update existing container with new views
@@ -100,7 +131,7 @@ export function createAutoLayout(
     } else {
       // Create new container
       newViews.push({
-        id: 'parameters-container',
+        id: preservedViewIds.parametersContainer,
         type: 'container',
         left: 0,
         top: HEADER_HEIGHT,
@@ -211,17 +242,5 @@ export function createAutoLayout(
     };
   }
 
-  return {
-    id: 'main-container',
-    type: 'container',
-    left: 0,
-    top: 0,
-    width: Math.max(1200, SIDEBAR_WIDTH + 2 * (ENVIRONMENT_CARD_WIDTH + MARGIN) + MARGIN),
-    height: Math.max(800, contentHeight),
-    expanded: true,
-    data: {
-      title: 'TenSnap Visualization',
-    },
-    views: allViews,
-  };
+  return createDefaultRootLayout(allViews, contentHeight);
 }

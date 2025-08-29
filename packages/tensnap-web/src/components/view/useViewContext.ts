@@ -1,6 +1,6 @@
 import { AnchoredView } from "@/types/ui"
 import React, { createContext, Dispatch, SetStateAction, useContext } from "react"
-import { GuidePointSet } from "./utils/snap-module";
+import { GuidePointSet } from "@/utils/layout/snap";
 
 
 export type ViewContextScheme = {

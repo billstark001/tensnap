@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import * as styles from '../../styles/toolbar.css';
+import * as styles from '@/styles/toolbar.css';
 
 export interface Tab {
   id: string;

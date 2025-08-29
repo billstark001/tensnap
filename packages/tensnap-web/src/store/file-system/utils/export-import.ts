@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { FileContent, DirectoryMetadata, DirectoryEntry } from '../../../types/file';
+import { FileContent, DirectoryMetadata, DirectoryEntry } from '@/types/file';
 
 export interface ExportData {
   version: string;

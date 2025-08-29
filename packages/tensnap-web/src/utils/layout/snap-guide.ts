@@ -1,5 +1,5 @@
 import { AnyView } from "@/types/ui";
-import { GuidePointSet } from "./snap-module";
+import { GuidePointSet } from "./snap";
 
 
 export const findAlignmentGuides = (

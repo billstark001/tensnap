@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from '../../styles/dialog.css';
+import * as dialogStyles from '@/styles/dialog.css';
 import { DialogOpenProps, useCallbackRef } from '@/utils/react';
 
 export interface CreateDialogProps extends DialogOpenProps {

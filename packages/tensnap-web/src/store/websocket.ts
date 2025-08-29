@@ -2,7 +2,7 @@ import { create, StoreApi, UseBoundStore } from 'zustand';
 import { WebSocketConnectionError, WebSocketManager } from '../utils/websocket-manager';
 import { ScenarioStore } from './scenario';
 import { GridEnvironment } from '@/types/modeling';
-import { generateUniqueId } from '@/components/view/utils/common';
+import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import { AgentBatchUpdatePayload, AgentUpdatePayload, ChartDataPayload, EnvironmentsListPayload, EnvironmentUpdatePayload, StateSyncRequest, StateSyncResponse, ParametersPayload, TimeStepPayload, WSMessage } from '@/types/api';
 

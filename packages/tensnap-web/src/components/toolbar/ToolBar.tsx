@@ -17,7 +17,7 @@ import {
   Wrench,
   TimerReset
 } from 'lucide-react';
-import * as styles from '../../styles/toolbar.css';
+import * as styles from '@/styles/toolbar.css';
 import { useButtonControls } from '../useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
 import { useFileOperations } from './FileOperationsProvider';

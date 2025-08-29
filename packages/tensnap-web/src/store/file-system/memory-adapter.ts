@@ -7,7 +7,7 @@ import {
   DirectoryEntry,
   FileSystemStats,
   FileSystemError as FileSystemErrorType
-} from '../../types/file';
+} from '@/types/file';
 
 class FileSystemError extends Error {
   public code: FileSystemErrorType['code'];

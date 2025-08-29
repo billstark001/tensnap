@@ -4,8 +4,8 @@ import { ExportDialog, useFilePicker } from '../file-system';
 import { useCallbackRef } from '@/utils/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { FileSystemBrowser } from '../file-system/FileSystemBrowser';
-import { UseFileSystemGuard } from '../../store/file-system/provider';
-import * as dialogStyles from '../../styles/dialog.css';
+import { UseFileSystemGuard } from '@/store/file-system/provider';
+import * as dialogStyles from '@/styles/dialog.css';
 
 export interface FileOperationsContextValue {
   canSaveFile: boolean;

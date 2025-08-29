@@ -28,50 +28,46 @@ _num_agents = 50
 def get_separation_distance() -> float:
     return _separation_distance
 
+@get_separation_distance.setter
 def set_separation_distance(value: float) -> None:
     global _separation_distance
     _separation_distance = value
-
-get_separation_distance = get_separation_distance.setter(set_separation_distance)
 
 
 @parameter("alignment_distance", "Alignment Distance", min=1.0, max=10.0, step=0.5, default=5.0)
 def get_alignment_distance() -> float:
     return _alignment_distance
 
+@get_alignment_distance.setter
 def set_alignment_distance(value: float) -> None:
     global _alignment_distance
     _alignment_distance = value
-
-get_alignment_distance = get_alignment_distance.setter(set_alignment_distance)
 
 
 @parameter("cohesion_distance", "Cohesion Distance", min=2.0, max=15.0, step=0.5, default=8.0)
 def get_cohesion_distance() -> float:
     return _cohesion_distance
 
+@get_cohesion_distance.setter
 def set_cohesion_distance(value: float) -> None:
     global _cohesion_distance
     _cohesion_distance = value
-
-get_cohesion_distance = get_cohesion_distance.setter(set_cohesion_distance)
 
 
 @parameter("max_speed", "Max Speed", min=0.1, max=2.0, step=0.1, default=0.8)
 def get_max_speed() -> float:
     return _max_speed
 
+@get_max_speed.setter
 def set_max_speed(value: float) -> None:
     global _max_speed
     _max_speed = value
-
-get_max_speed = get_max_speed.setter(set_max_speed)
-
 
 @parameter("num_agents", "Number of Agents", min=10, max=200, step=10, default=50)
 def get_num_agents() -> int:
     return _num_agents
 
+@get_num_agents.setter
 def set_num_agents(value: int) -> None:
     global _num_agents, agents
     diff = value - _num_agents
@@ -100,8 +96,6 @@ def set_num_agents(value: int) -> None:
                 removed_agent = agents.pop()
                 grid.remove_agent(removed_agent.id)
     _num_agents = value
-
-get_num_agents = get_num_agents.setter(set_num_agents)
 
 
 # Button controls

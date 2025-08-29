@@ -6,7 +6,7 @@ import {
   DirectoryMetadata,
   DirectoryEntry,
   FileSystemStats
-} from '../../types/file';
+} from '@/types/file';
 
 export interface FileSystemState {
   // Adapter management

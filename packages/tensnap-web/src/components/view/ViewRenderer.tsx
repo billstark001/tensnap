@@ -18,7 +18,7 @@ import { nestedOverlapCollisionDetection } from './collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
 import { useCallbackRef } from '@/utils/react';
 import { findAndAddView, findAndDeleteView, findAndUpdateView, getViewSizeByChildren } from './utils/container';
-import { GuidePointSet } from './utils/snap-module';
+import { GuidePointSet } from '@/utils/layout/snap';
 
 export type ViewRendererProps = {
   view: ContainerView;

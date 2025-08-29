@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { useFileSystem } from '../../store/file-system/provider';
-import { DirectoryEntry } from '../../types/file';
+import { useFileSystem } from '@/store/file-system/provider';
+import { DirectoryEntry } from '@/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';

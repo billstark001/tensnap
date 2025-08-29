@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { ChevronDown, ChevronRight, Square, Link, Container } from 'lucide-react';
 import { ContainerView, AnyView, ButtonView, AnchoredView } from '@/types/ui';
-import { generateUniqueId } from './utils/common';
+import { generateUniqueId } from '@/utils/common';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
 import { LEFT_DELTA, TOP_DELTA } from './constants';

@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useCallback, useState, ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import { FileMetadata, DirectoryMetadata, DirectoryEntry } from '../../types/file';
-import { UseFileSystemGuard } from '../../store/file-system/provider';
-import * as dialogStyles from '../../styles/dialog.css';
+import { FileMetadata, DirectoryMetadata, DirectoryEntry } from '@/types/file';
+import { UseFileSystemGuard } from '@/store/file-system/provider';
+import * as dialogStyles from '@/styles/dialog.css';
 
 export interface FilePickerOptions {
   title?: string;

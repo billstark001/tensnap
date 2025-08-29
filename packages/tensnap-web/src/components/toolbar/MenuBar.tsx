@@ -1,7 +1,7 @@
 import React from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useFileOperations } from './FileOperationsProvider';
-import * as styles from '../../styles/toolbar.css';
+import * as styles from '@/styles/toolbar.css';
 import { useSettingsStore } from '@/store/settings';
 
 export interface MenuBarProps {

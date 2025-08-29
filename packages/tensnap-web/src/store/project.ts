@@ -2,7 +2,7 @@ import { create, StoreApi, UseBoundStore } from "zustand";
 import { createScenarioStore, ScenarioStore } from "./scenario";
 import { createWebSocketStore, WebSocketStore } from "./websocket";
 import { FileSystemState } from "./file-system/store";
-import { generateUniqueId } from "@/components/view/utils/common";
+import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
 import { SimulationState } from "@/types/modeling";
