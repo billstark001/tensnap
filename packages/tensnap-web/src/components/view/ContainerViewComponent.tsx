@@ -68,7 +68,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
         newView = {
           ...baseProps,
           type: 'button',
-          data: { operation: 'click', text: 'New Button' },
+          data: { id: 'click', text: 'New Button' },
         } as ButtonView;
         break;
       case 'environment':

@@ -1,5 +1,6 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
-import { Environment, Parameter, ChartData } from '@/types/modeling';
+import { Environment, Parameter, ChartData, ButtonParameter, SliderParameter, EnumParameter } from '@/types/modeling';
+import { adjustLayout, initialPack } from './pack';
 
 const SIDEBAR_WIDTH = 300;
 const HEADER_HEIGHT = 60;
@@ -18,67 +19,12 @@ export const preservedViewIds = Object.freeze({
   mainContainer: 'main-container',
 });
 
-// Helper function for simple vertical layout within containers
-function layoutVertically(views: AnyView[], padding: number): AnyView[] {
-  let currentY = 0;
-  return views.map(view => {
-    const layoutedView = {
-      ...view,
-      left: 0,
-      top: currentY,
-    };
-    currentY += view.height + padding;
-    return layoutedView;
-  });
-}
-
-// Helper function to check if a view matches a data item by type and properties
-
-// Helper function to check if a view matches a data item by type and properties
-function viewMatchesItem(view: AnyView, item: Environment | Parameter | ChartData, type: string): boolean {
-  if (view.type !== type) return false;
-  
-  switch (type) {
-    case 'environment':
-      return 'id' in view.data && view.data.id === (item as Environment).id.toString();
-    case 'parameter':
-      return 'id' in view.data && view.data.id === (item as Parameter).id;
-    case 'button':
-      return 'operation' in view.data && view.data.operation === (item as Parameter & { action?: string }).action;
-    case 'chart':
-      return 'id' in view.data && view.data.id === (item as ChartData).id;
-    default:
-      return false;
-  }
-}
-
-// Helper function to find existing views that match data items
-function findExistingViews(
-  currentViews: AnyView[],
-  items: (Environment | Parameter | ChartData)[],
-  type: string
-): { existing: AnyView[]; itemsToAdd: (Environment | Parameter | ChartData)[] } {
-  const existing: AnyView[] = [];
-  const itemsToAdd: (Environment | Parameter | ChartData)[] = [];
-  
-  for (const item of items) {
-    const existingView = currentViews.find(view => viewMatchesItem(view, item, type));
-    if (existingView) {
-      existing.push(existingView);
-    } else {
-      itemsToAdd.push(item);
-    }
-  }
-  
-  return { existing, itemsToAdd };
-}
-
 export interface LayoutOptions {
   currentView?: ContainerView;
   preserveExisting?: boolean;
 }
 
-// #region utility functions
+// #region object creation functions
 
 export function createDefaultRootLayout(
   views?: AnyView[],
@@ -100,8 +46,183 @@ export function createDefaultRootLayout(
   };
 }
 
+/**
+ * Creates a generic container with vertically packed views
+ */
+function createVerticalContainer(
+  id: string,
+  title: string,
+  containerLeft: number,
+  containerTop: number,
+  containerWidth: number,
+): ContainerView {
+  return {
+    id,
+    type: 'container',
+    left: containerLeft,
+    top: containerTop,
+    width: containerWidth,
+    height: 100,
+    expanded: true,
+    data: { title },
+    views: [],
+  };
+}
+
+/**
+ * Creates views for buttons from parameters
+ */
+function createButtonViews(parameters: Parameter[]): ButtonView[] {
+  return parameters.map((param) => ({
+    id: `button-${param.id}`,
+    type: 'button',
+    left: 0,
+    top: 0,
+    width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
+    height: BUTTON_HEIGHT,
+    expanded: true,
+    data: {
+      id: param.id,
+      text: param.label,
+    },
+  }));
+}
+
+/**
+ * Creates views for parameters
+ */
+function createParameterViews(parameters: Parameter[]): AnchoredView[] {
+  return parameters.map((param) => ({
+    id: `parameter-${param.id}`,
+    type: 'parameter',
+    left: 0,
+    top: 0,
+    width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
+    height: PARAMETER_CARD_HEIGHT,
+    expanded: true,
+    data: {
+      id: param.id,
+      title: param.label,
+      type: param.type,
+    },
+  }));
+}
+
+/**
+ * Creates views for environments
+ */
+function createEnvironmentViews(environments: Environment[]): AnchoredView[] {
+  return environments.map((env) => ({
+    id: `environment-${env.id}`,
+    type: 'environment',
+    left: 0,
+    top: 0,
+    width: ENVIRONMENT_CARD_WIDTH,
+    height: ENVIRONMENT_CARD_HEIGHT,
+    expanded: true,
+    data: {
+      id: env.id.toString(),
+      title: `Environment ${env.id}`,
+    },
+  }));
+}
+
+/**
+ * Creates views for charts
+ */
+function createChartViews(charts: ChartData[]): AnchoredView[] {
+  return charts.map((chart) => ({
+    id: `chart-${chart.id}`,
+    type: 'chart',
+    left: 0,
+    top: 0,
+    width: CHART_CARD_WIDTH,
+    height: CHART_CARD_HEIGHT,
+    expanded: true,
+    data: {
+      id: chart.id,
+      title: chart.label,
+    },
+  }));
+}
+
 // #endregion
 
+
+// #region other utility functions
+
+const _walkHalt = Symbol();
+
+function _walk(
+  view: AnyView,
+  condition: (view: AnyView) => boolean,
+  haltOnFirstTrue: boolean,
+  found: WeakMap<AnyView | Symbol, boolean>,
+  result: AnyView[],
+): AnyView[] {
+
+  if (found.has(view) || found.has(_walkHalt)) {
+    return result;
+  }
+
+  if (condition(view)) {
+    result.push(view);
+    found.set(view, true);
+    if (haltOnFirstTrue) {
+      found.set(_walkHalt, true);
+      return result;
+    }
+  }
+
+  if (view.type === 'container' && view.views) {
+    for (const child of view.views) {
+      _walk(child, condition, haltOnFirstTrue, found, result);
+    }
+  }
+
+  return result;
+}
+
+
+function walkAndFilter(view: AnyView | null | undefined, condition: (view: AnyView) => boolean): AnyView[] {
+  if (!view) {
+    return [];
+  }
+  const found = new WeakMap<AnyView, boolean>();
+  const result: AnyView[] = [];
+  _walk(view, condition, false, found, result);
+  return result;
+}
+
+function walkAndFind(view: AnyView | null | undefined, condition: (view: AnyView) => boolean): AnyView | undefined {
+  if (!view) {
+    return undefined;
+  }
+  const found = new WeakMap<AnyView, boolean>();
+  let result: AnyView[] = [];
+  _walk(view, condition, true, found, result);
+  return result[0];
+}
+
+function getParameterSignature(param: { id: string, type?: string }): string {
+  return `param:${param.type}:${param.id}`;
+}
+
+function getEnvironmentSignature(env: Pick<Environment, 'id'>): string {
+  return `env:${env.id}`;
+}
+
+function getChartSignature(chart: Pick<ChartData, 'id'>): string {
+  return `chart:${chart.id}`;
+}
+
+// #endregion
+
+// #region module entry
+
+if (!window.structuredClone) {
+  window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
+}
 
 export function createAutoLayout(
   environments: Environment[],
@@ -109,347 +230,142 @@ export function createAutoLayout(
   charts: ChartData[],
   options: LayoutOptions = {}
 ): ContainerView {
-  const { currentView, preserveExisting = false } = options;
-  
-  // Start with existing view if provided and preserveExisting is true
-  const existingViews = preserveExisting && currentView ? [...currentView.views] : [];
-  const newViews: AnyView[] = [];
-  
-  // Separate parameters into buttons and other types
-  const buttonParameters = parameters.filter(param => param.type === 'button');
-  const otherParameters = parameters.filter(param => param.type !== 'button');
+  const { currentView: _currentView, preserveExisting = false } = options;
+  const currentView = _currentView
+    ? structuredClone(_currentView)
+    : createDefaultRootLayout();
+
+  const statesFound = new Map<string, boolean>();
+
+  parameters.forEach(p => statesFound.set(getParameterSignature(p), false));
+  environments.forEach(e => statesFound.set(getEnvironmentSignature(e), false));
+  charts.forEach(c => statesFound.set(getChartSignature(c), false));
+
+  // this maintains statesFound and viewsShouldDisable
+  const viewsShouldDisable = walkAndFilter(currentView, (view) => {
+    if (view.type === 'container' || !view.type) {
+      return false;
+    }
+    const sign = view.type === 'parameter' ? getParameterSignature(view.data) :
+      view.type === 'environment' ? getEnvironmentSignature(view.data) :
+        view.type === 'chart' ? getChartSignature(view.data) :
+          view.type === 'button' ? getParameterSignature({ id: view.data.id, type: 'button' }) : undefined;
+    if (!sign) {
+      return false;
+    }
+    if (statesFound.has(sign)) {
+      statesFound.set(sign, true);
+      delete view.data.disabled;
+      return false;
+    } else {
+      return true;
+    }
+  });
 
   // Find existing containers
-  const existingButtonsContainer = existingViews.find(view => view.id === preservedViewIds.buttonsContainer) as ContainerView;
-  const existingParametersContainer = existingViews.find(view => view.id === preservedViewIds.parametersContainer) as ContainerView;
-  
-  // Process buttons container
-  let buttonsContainer: ContainerView | null = null;
-  if (buttonParameters.length > 0) {
-    const buttonContainerViews = existingButtonsContainer?.views || [];
-    const { existing: existingButtonViews, itemsToAdd: buttonsToAdd } = findExistingViews(
-      buttonContainerViews,
-      buttonParameters,
-      'button'
-    );
-    
-    // Create new button views
-    const newButtonViews: ButtonView[] = (buttonsToAdd as Parameter[]).map((param, index) => ({
-      id: `button-${param.id}`,
-      type: 'button',
-      left: 0,
-      top: index * (BUTTON_HEIGHT + MARGIN / 2),
-      width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
-      height: BUTTON_HEIGHT,
-      expanded: true,
-      data: {
-        operation: (param as any).action ?? param.id,
-        text: param.label,
-      },
-    }));
+  let buttonsContainer = walkAndFind(currentView, view => view.id === preservedViewIds.buttonsContainer) as ContainerView | undefined;
+  let parametersContainer = walkAndFind(currentView, view => view.id === preservedViewIds.parametersContainer) as ContainerView | undefined;
 
-    // Combine existing and new button views
-    const allButtonViews = [...existingButtonViews, ...newButtonViews];
-    
-    if (allButtonViews.length > 0) {
-      // Use simple vertical layout for buttons
-      const layoutedButtonViews = layoutVertically(allButtonViews, MARGIN / 2).map(view => ({
-        ...view,
-        left: view.left + MARGIN,
-        top: view.top + MARGIN,
-      }));
-      
-      // Calculate correct container height
-      const totalHeight = allButtonViews.length > 0 ? 
-        allButtonViews.reduce((acc, _, index) => acc + BUTTON_HEIGHT + (index > 0 ? MARGIN / 2 : 0), 0) + 2 * MARGIN :
-        100;
-      
-      buttonsContainer = {
-        id: preservedViewIds.buttonsContainer,
-        type: 'container',
-        left: 0,
-        top: HEADER_HEIGHT,
-        width: SIDEBAR_WIDTH,
-        height: Math.max(totalHeight, 100),
-        expanded: true,
-        data: {
-          title: 'Buttons',
-        },
-        views: layoutedButtonViews,
-      };
-    }
+  if (!buttonsContainer) {
+    buttonsContainer = createVerticalContainer(
+      preservedViewIds.buttonsContainer,
+      'Buttons',
+      0,
+      HEADER_HEIGHT,
+      SIDEBAR_WIDTH,
+    );
+    currentView.views.push(buttonsContainer);
+  }
+  if (!parametersContainer) {
+    parametersContainer = createVerticalContainer(
+      preservedViewIds.parametersContainer,
+      'Parameters',
+      0,
+      HEADER_HEIGHT + 100, // for layout hint
+      SIDEBAR_WIDTH,
+    );
+    currentView.views.push(parametersContainer);
+  }
+
+  // Separate parameters into buttons and other types
+  const [newButtonParameters, newOtherParameters] = parameters.reduce(
+    ([buttons, others], param) => {
+      if (!statesFound.get(getParameterSignature(param))) {
+        (param.type === 'button' ? buttons : others).push(param as any);
+      }
+      return [buttons, others];
+    }, [[], []] as [ButtonParameter[], (SliderParameter | EnumParameter)[]]
+  );
+
+  let rootViewNeedsAdjust = false;
+
+  // Process buttons container
+  if (newButtonParameters.length > 0) {
+    // Create new button views and combine with existing
+    const newButtonViews = createButtonViews(newButtonParameters);
+    buttonsContainer.views.push(...newButtonViews);
+    const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(buttonsContainer.views, {
+      inPlace: true,
+      targetAspectRatio: 0.1,
+    });
+    buttonsContainer.width = suggestedContainerWidth;
+    buttonsContainer.height = suggestedContainerHeight;
+    rootViewNeedsAdjust = true;
   }
 
   // Process parameters container
-  let parametersContainer: ContainerView | null = null;
-  if (otherParameters.length > 0) {
-    const paramContainerViews = existingParametersContainer?.views || [];
-    const { existing: existingParamViews, itemsToAdd: paramsToAdd } = findExistingViews(
-      paramContainerViews,
-      otherParameters,
-      'parameter'
-    );
-    
-    // Create new parameter views
-    const newParameterViews: AnchoredView[] = (paramsToAdd as Parameter[]).map((param, index) => ({
-      id: `parameter-${param.id}`,
-      type: 'parameter',
-      left: 0,
-      top: index * (PARAMETER_CARD_HEIGHT + MARGIN),
-      width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
-      height: PARAMETER_CARD_HEIGHT,
-      expanded: true,
-      data: {
-        id: param.id,
-        title: param.label,
-      },
-    }));
-
-    // Combine existing and new parameter views
-    const allParameterViews = [...existingParamViews, ...newParameterViews];
-    
-    if (allParameterViews.length > 0) {
-      // Use simple vertical layout for parameters
-      const layoutedParameterViews = layoutVertically(allParameterViews, MARGIN).map(view => ({
-        ...view,
-        left: view.left + MARGIN,
-        top: view.top + MARGIN,
-      }));
-      
-      // Calculate correct container height
-      const totalHeight = allParameterViews.length > 0 ? 
-        allParameterViews.reduce((acc, _, index) => acc + PARAMETER_CARD_HEIGHT + (index > 0 ? MARGIN : 0), 0) + 2 * MARGIN :
-        100;
-      
-      const containerTop = buttonsContainer ? 
-        buttonsContainer.top + buttonsContainer.height + MARGIN : 
-        HEADER_HEIGHT;
-      
-      parametersContainer = {
-        id: preservedViewIds.parametersContainer,
-        type: 'container',
-        left: 0,
-        top: containerTop,
-        width: SIDEBAR_WIDTH,
-        height: Math.max(totalHeight, 100),
-        expanded: true,
-        data: {
-          title: 'Parameters',
-        },
-        views: layoutedParameterViews,
-      };
-    }
+  if (newOtherParameters.length > 0) {
+    // Create new parameter views and combine with existing
+    const newParameterViews = createParameterViews(newOtherParameters);
+    parametersContainer.views.push(...newParameterViews);
+    const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(parametersContainer.views, {
+      inPlace: true,
+      targetAspectRatio: 0.1,
+    });
+    parametersContainer.width = suggestedContainerWidth;
+    parametersContainer.height = suggestedContainerHeight;
+    rootViewNeedsAdjust = true;
   }
 
-  // Add container views to new views
-  if (buttonsContainer) newViews.push(buttonsContainer);
-  if (parametersContainer) newViews.push(parametersContainer);
-
-  // Create environment and chart views for main content area
-  const mainContentViews: AnchoredView[] = [];
-  
-  // Find existing main content views
-  const { existing: existingEnvViews, itemsToAdd: envsToAdd } = findExistingViews(
-    existingViews,
-    environments,
-    'environment'
-  );
-  
-  const { existing: existingChartViews, itemsToAdd: chartsToAdd } = findExistingViews(
-    existingViews,
-    charts,
-    'chart'
-  );
-
-  // Create new environment views
-  const newEnvViews: AnchoredView[] = (envsToAdd as Environment[]).map((env, index) => {
-    // Place new environments starting from where existing ones end
-    const existingEnvCount = existingEnvViews.length;
-    const totalIndex = existingEnvCount + index;
-    const col = totalIndex % 2;
-    const row = Math.floor(totalIndex / 2);
-    return {
-      id: `environment-${env.id}`,
-      type: 'environment',
-      left: col * (ENVIRONMENT_CARD_WIDTH + MARGIN),
-      top: row * (ENVIRONMENT_CARD_HEIGHT + MARGIN),
-      width: ENVIRONMENT_CARD_WIDTH,
-      height: ENVIRONMENT_CARD_HEIGHT,
-      expanded: true,
-      data: {
-        id: env.id.toString(),
-        title: `Environment ${env.id}`,
-      },
-    };
-  });
-
-  // Create new chart views
-  const newChartViews: AnchoredView[] = (chartsToAdd as ChartData[]).map((chart, index) => {
-    // Place charts below all environments
-    const totalEnvCount = existingEnvViews.length + newEnvViews.length;
-    const envRows = Math.ceil(totalEnvCount / 2);
-    const existingChartCount = existingChartViews.length;
-    const totalIndex = existingChartCount + index;
-    const col = totalIndex % 2;
-    const row = envRows + Math.floor(totalIndex / 2);
-    return {
-      id: `chart-${chart.id}`,
-      type: 'chart',
-      left: col * (CHART_CARD_WIDTH + MARGIN),
-      top: row * (CHART_CARD_HEIGHT + MARGIN),
-      width: CHART_CARD_WIDTH,
-      height: CHART_CARD_HEIGHT,
-      expanded: true,
-      data: {
-        id: chart.id,
-        title: chart.label,
-      },
-    };
-  });
-
-  // Combine all main content views
-  const allMainViews = [...existingEnvViews, ...existingChartViews, ...newEnvViews, ...newChartViews] as AnchoredView[];
-  
-  if (allMainViews.length > 0) {
-    const sidebarWidth = Math.max(
-      buttonsContainer?.width || 0,
-      parametersContainer?.width || 0,
-      SIDEBAR_WIDTH
-    );
-    
-    let packedMainViews: AnchoredView[];
-    
-    if (preserveExisting && allMainViews.some(view => (view.left || 0) > 0 || (view.top || 0) > 0)) {
-      // For existing layouts, try to preserve positions but fix overlaps
-      const environments = allMainViews.filter(view => view.type === 'environment');
-      const charts = allMainViews.filter(view => view.type === 'chart');
-      
-      // Re-layout environments in a grid
-      const layoutedEnvironments = environments.map((env, index) => {
-        const col = index % 2;
-        const row = Math.floor(index / 2);
-        return {
-          ...env,
-          left: col * (ENVIRONMENT_CARD_WIDTH + MARGIN),
-          top: row * (ENVIRONMENT_CARD_HEIGHT + MARGIN),
-        };
-      });
-      
-      // Layout charts below environments
-      const envRows = Math.ceil(environments.length / 2);
-      const layoutedCharts = charts.map((chart, index) => {
-        const col = index % 2;
-        const row = envRows + Math.floor(index / 2);
-        return {
-          ...chart,
-          left: col * (CHART_CARD_WIDTH + MARGIN),
-          top: row * (CHART_CARD_HEIGHT + MARGIN),
-        };
-      });
-      
-      packedMainViews = [...layoutedEnvironments, ...layoutedCharts] as AnchoredView[];
-    } else {
-      // For new layouts, separate environments and charts
-      const environments = allMainViews.filter(view => view.type === 'environment');
-      const charts = allMainViews.filter(view => view.type === 'chart');
-      
-      // Layout environments in a grid
-      const layoutedEnvironments = environments.map((env, index) => {
-        const col = index % 2;
-        const row = Math.floor(index / 2);
-        return {
-          ...env,
-          left: col * (ENVIRONMENT_CARD_WIDTH + MARGIN),
-          top: row * (ENVIRONMENT_CARD_HEIGHT + MARGIN),
-        };
-      });
-      
-      // Layout charts below environments
-      const envRows = Math.ceil(environments.length / 2);
-      const layoutedCharts = charts.map((chart, index) => {
-        const col = index % 2;
-        const row = envRows + Math.floor(index / 2);
-        return {
-          ...chart,
-          left: col * (CHART_CARD_WIDTH + MARGIN),
-          top: row * (CHART_CARD_HEIGHT + MARGIN),
-        };
-      });
-      
-      packedMainViews = [...layoutedEnvironments, ...layoutedCharts] as AnchoredView[];
-    }
-
-    // Apply offset by sidebar width and header height
-    const offsetMainViews = packedMainViews.map(view => ({
-      ...view,
-      left: view.left + sidebarWidth + MARGIN,
-      top: view.top + HEADER_HEIGHT + MARGIN,
-    }));
-    
-    mainContentViews.push(...offsetMainViews);
+  // Process environments
+  const newEnvironments = environments.filter(env => !statesFound.get(getEnvironmentSignature(env)));
+  if (newEnvironments.length > 0) {
+    const newEnvironmentViews = createEnvironmentViews(newEnvironments);
+    currentView.views.push(...newEnvironmentViews);
+    rootViewNeedsAdjust = true;
   }
 
-  newViews.push(...mainContentViews);
+  // Process charts
+  const newCharts = charts.filter(chart => !statesFound.get(getChartSignature(chart)));
+  if (newCharts.length > 0) {
+    const newChartViews = createChartViews(newCharts);
+    currentView.views.push(...newChartViews);
+    rootViewNeedsAdjust = true;
+  }
+  // Adjust root layout
+  if (!_currentView) {
+    initialPack(currentView.views, {
+      inPlace: true,
+      targetAspectRatio: 4 / 3,
+    });
+  } else if (rootViewNeedsAdjust) {
+    const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(currentView.views, {
+      inPlace: true,
+      targetAspectRatio: 4 / 3,
+    });
+    currentView.width = suggestedContainerWidth;
+    currentView.height = suggestedContainerHeight;
+  }
 
-  // Filter out existing views that don't match current data
-  const filteredExistingViews = preserveExisting ? 
-    existingViews.filter(view => {
-      // Keep containers and main content views that we've already processed
-      if (view.id === preservedViewIds.buttonsContainer || 
-          view.id === preservedViewIds.parametersContainer) {
-        return false; // We've replaced these
+  if (preserveExisting) {
+    viewsShouldDisable.forEach(view => {
+      if (view.type !== 'container' && view.type) {
+        view.data.disabled = true;
       }
-      
-      // Keep other views that still have matching data
-      const isEnvironment = environments.some(env => viewMatchesItem(view, env, 'environment'));
-      const isParameter = parameters.some(param => viewMatchesItem(view, param, 'parameter'));
-      const isButton = buttonParameters.some(param => viewMatchesItem(view, param, 'button'));
-      const isChart = charts.some(chart => viewMatchesItem(view, chart, 'chart'));
-      
-      return isEnvironment || isParameter || isButton || isChart;
-    }) : [];
-
-  // Combine all views
-  const allViews = [...filteredExistingViews, ...newViews];
-
-  // Calculate total container size
-  const sidebarWidth = Math.max(
-    buttonsContainer?.width || 0,
-    parametersContainer?.width || 0,
-    SIDEBAR_WIDTH
-  );
-  
-  // Calculate main content area dimensions
-  const totalEnvCount = environments.length;
-  const totalChartCount = charts.length;
-  const envRows = Math.ceil(totalEnvCount / 2);
-  const chartRows = Math.ceil(totalChartCount / 2);
-  const totalRows = envRows + chartRows;
-  
-  const mainContentWidth = Math.max(
-    2 * Math.max(ENVIRONMENT_CARD_WIDTH, CHART_CARD_WIDTH) + 3 * MARGIN,
-    800
-  );
-  const mainContentHeight = totalRows > 0 ? 
-    (totalRows * Math.max(ENVIRONMENT_CARD_HEIGHT, CHART_CARD_HEIGHT) + (totalRows + 1) * MARGIN) : 
-    400;
-  
-  const totalWidth = sidebarWidth + mainContentWidth + MARGIN;
-  const totalHeight = Math.max(
-    HEADER_HEIGHT + mainContentHeight + MARGIN,
-    HEADER_HEIGHT + (buttonsContainer?.height || 0) + (parametersContainer?.height || 0) + 2 * MARGIN,
-    600
-  );
-
-  // Return updated or new container
-  if (preserveExisting && currentView) {
-    return {
-      ...currentView,
-      views: allViews,
-      width: Math.max(currentView.width, totalWidth),
-      height: Math.max(currentView.height, totalHeight),
-    };
+    });
+  } else {
+    // TODO delete all views in-place
   }
 
-  return createDefaultRootLayout(allViews, totalHeight);
+  return currentView;
 }

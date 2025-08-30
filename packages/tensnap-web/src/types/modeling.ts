@@ -72,7 +72,6 @@ export interface EnumParameter extends ParameterBase {
 
 export interface ButtonParameter extends ParameterBase {
   type: 'button';
-  action: string;
 }
 
 export type Parameter = SliderParameter | EnumParameter | ButtonParameter;

@@ -49,29 +49,6 @@ export interface AgentBatchUpdatePayload {
   }>;
 }
 
-// Parameter 类型定义
-export type ParameterType = 'slider' | 'enum' | 'other'; // 可扩展
-
-export interface ParameterBase {
-  id: string;
-  type: ParameterType;
-  label: string;
-  value: any;
-  allow_runtime_change: boolean;  // 新增：是否允许模型正在迭代时更改
-}
-
-export interface SliderParameter extends ParameterBase {
-  type: 'slider';
-  min: number;
-  max: number;
-  step: number;
-}
-
-export interface EnumParameter extends ParameterBase {
-  type: 'enum';
-  options: string[] | {label: string; value: any}[];
-}
-
 
 // chart_data
 export interface ChartDataUpdate {

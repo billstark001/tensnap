@@ -182,7 +182,6 @@ class Parameter:
     options: Optional[List[str]] = None
     setter: Optional[Callable] = None
     getter: Optional[Callable] = None
-    action: Optional[str] = None
     allow_runtime_change: bool = True  # 是否允许模型正在迭代时更改
 
 

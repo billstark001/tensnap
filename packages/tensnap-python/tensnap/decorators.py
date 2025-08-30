@@ -111,7 +111,6 @@ def button(id: str, label: str, allow_runtime_change: bool = True) -> Callable[[
             id=id,
             type="button",
             label=label,
-            action=id,
             allow_runtime_change=allow_runtime_change
         )
         

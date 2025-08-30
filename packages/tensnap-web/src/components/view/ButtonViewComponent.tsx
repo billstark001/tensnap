@@ -11,7 +11,7 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
   const { onButtonAction } = useViewContext();
 
   return (
-    <div className={styles.buttonView} onClick={() => onButtonAction(view.data.operation)}>
+    <div className={styles.buttonView} onClick={() => onButtonAction(view.data.id)}>
       {(view as ButtonView).data.text}
     </div>
   );
