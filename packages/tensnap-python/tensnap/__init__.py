@@ -1,13 +1,15 @@
 # tensnap/__init__.py
 """TenSnap - Agent-based model visualization toolkit"""
 
-from .server import TenSnapServer
+from .server import TenSnapServer, SimulationManager, add_simulation_manager_to_server
 from .models import Agent, GridEnvironment, GraphEnvironment, Parameter
-from .decorators import parameter, button, chart
+from .decorators import parameter, button, chart, bind_parameter, bind_parameters_batch, ParameterBinding
 
 __version__ = "0.1.0"
 __all__ = [
     "TenSnapServer",
+    "SimulationManager", 
+    "add_simulation_manager_to_server",
     "Agent",
     "GridEnvironment",
     "GraphEnvironment",
@@ -15,6 +17,9 @@ __all__ = [
     "parameter",
     "button",
     "chart",
+    "bind_parameter",
+    "bind_parameters_batch",
+    "ParameterBinding",
 ]
 
 

@@ -2,12 +2,28 @@
 # tensnap/decorators.py
 """Decorators for easy parameter and chart definition"""
 
-from typing import Any, Callable, Optional, List, TypeVar, overload, Union, Literal, Tuple
+from typing import Any, Callable, Optional, List, TypeVar, overload, Union, Literal, Tuple, Dict, TypedDict
+from typing_extensions import NotRequired
 from functools import wraps
+import types
 from .models import Parameter, Chart
 
 F = TypeVar('F', bound=Callable[..., Any])
 T = TypeVar('T')
+
+
+class ParameterBinding(TypedDict):
+    """Type definition for parameter binding configuration"""
+    key: str
+    id: str
+    label: str
+    type: NotRequired[Literal["slider", "enum", "button"]]
+    min: NotRequired[float]
+    max: NotRequired[float]
+    step: NotRequired[float]
+    options: NotRequired[List[str]]
+    default: NotRequired[Any]
+    allow_runtime_change: NotRequired[bool]
 
 
 class ParameterProperty:
@@ -206,3 +222,108 @@ def clear_global_registry() -> None:
     _global_parameters.clear()
     _global_charts.clear()
     _global_buttons.clear()
+
+
+def bind_parameter(
+    target: Union[Dict[str, Any], object, types.ModuleType],
+    key: str,
+    id: str,
+    label: str,
+    *,
+    type: Literal["slider", "enum", "button"] = "slider",
+    min: Optional[float] = None,
+    max: Optional[float] = None,
+    step: Optional[float] = None,
+    options: Optional[List[str]] = None,
+    default: Optional[Any] = None,
+    allow_runtime_change: bool = True
+) -> Parameter:
+    """
+    Bind a parameter to a dictionary key, object attribute, or module attribute
+    
+    Args:
+        target: Dictionary, object, or module to bind to
+        key: Key/attribute name to bind
+        id: Parameter ID for the UI
+        label: Display label for the parameter
+        type: Parameter type (slider, enum, button)
+        min, max, step: For slider parameters
+        options: For enum parameters
+        default: Default value (if key doesn't exist)
+        allow_runtime_change: Whether parameter can be changed during runtime
+        
+    Returns:
+        Parameter object that can be registered with TenSnapServer
+    """
+    
+    def getter() -> Any:
+        if isinstance(target, dict):
+            return target.get(key, default)
+        else:
+            return getattr(target, key, default)
+    
+    def setter(value: Any) -> None:
+        if isinstance(target, dict):
+            target[key] = value
+        else:
+            setattr(target, key, value)
+    
+    # Get initial value
+    initial_value = getter()
+    if initial_value is None:
+        initial_value = default
+        setter(initial_value)  # Set default if not exists
+    
+    param = Parameter(
+        id=id,
+        type=type,
+        label=label,
+        value=initial_value,
+        min=min,
+        max=max,
+        step=step,
+        options=options,
+        allow_runtime_change=allow_runtime_change,
+        getter=getter,
+        setter=setter
+    )
+    
+    return param
+
+
+def bind_parameters_batch(
+    target: Union[Dict[str, Any], object, types.ModuleType],
+    bindings: List[ParameterBinding]
+) -> List[Parameter]:
+    """
+    Batch bind multiple parameters to a target
+    
+    Args:
+        target: Dictionary, object, or module to bind to
+        bindings: List of parameter binding configurations
+            
+    Returns:
+        List of Parameter objects
+    """
+    parameters = []
+    
+    for binding in bindings:
+        # Extract key and create a copy without it for unpacking
+        key = binding['key']
+        # Type-safe parameter extraction
+        param = bind_parameter(
+            target=target,
+            key=key,
+            id=binding['id'],
+            label=binding['label'],
+            type=binding.get('type', 'slider'),
+            min=binding.get('min'),
+            max=binding.get('max'),
+            step=binding.get('step'),
+            options=binding.get('options'),
+            default=binding.get('default'),
+            allow_runtime_change=binding.get('allow_runtime_change', True)
+        )
+        parameters.append(param)
+        
+    return parameters

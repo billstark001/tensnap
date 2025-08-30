@@ -258,7 +258,13 @@ class TenSnapServer:
         action = payload.get("action")
         if action in self.button_handlers:
             try:
-                self.button_handlers[action]()
+                handler = self.button_handlers[action]
+                # Check if handler is a coroutine function (async)
+                if asyncio.iscoroutinefunction(handler):
+                    await handler()
+                else:
+                    # Call sync function
+                    handler()
             except Exception as e:
                 logger.error(f"Error handling button {action}: {e}")
                 
@@ -401,3 +407,143 @@ class TenSnapServer:
                 return
                 
         self.auto_register_from_namespace(global_dict)
+
+
+class SimulationManager:
+    """
+    Manages simulation lifecycle with thread/task management
+    Provides easy start/stop functionality and automatic step execution
+    """
+    
+    def __init__(self, 
+                 init_func: Optional[Callable] = None,
+                 step_func: Optional[Callable] = None,
+                 cleanup_func: Optional[Callable] = None,
+                 step_interval: float = 0.05):
+        """
+        Args:
+            init_func: Function to call once when simulation starts
+            step_func: Function to call for each simulation step  
+            cleanup_func: Function to call when simulation stops
+            step_interval: Time between steps in seconds (default 20 FPS)
+        """
+        self.init_func = init_func
+        self.step_func = step_func
+        self.cleanup_func = cleanup_func
+        self.step_interval = step_interval
+        
+        self.running = False
+        self.time_step = 0
+        self.simulation_task: Optional[asyncio.Task] = None
+        
+    async def start(self, from_time_step = 0) -> None:
+        """Start the simulation"""
+        if self.running:
+            return
+            
+        self.running = True
+        self.time_step = from_time_step
+        
+        # Call initialization function
+        if self.init_func:
+            if asyncio.iscoroutinefunction(self.init_func):
+                await self.init_func()
+            else:
+                self.init_func()
+        
+        # Start simulation loop
+        if self.step_func:
+            self.simulation_task = asyncio.create_task(self._simulation_loop())
+    
+    async def stop(self) -> None:
+        """Stop the simulation"""
+        if not self.running:
+            return
+            
+        self.running = False
+        
+        # Cancel simulation task
+        if self.simulation_task:
+            self.simulation_task.cancel()
+            try:
+                await self.simulation_task
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self.simulation_task = None
+        
+        # Call cleanup function
+        if self.cleanup_func:
+            if asyncio.iscoroutinefunction(self.cleanup_func):
+                await self.cleanup_func()
+            else:
+                self.cleanup_func()
+    
+    async def toggle(self, from_time_step = 0) -> None:
+        """Toggle simulation running state"""
+        if self.running:
+            await self.stop()
+        else:
+            await self.start(from_time_step=from_time_step)
+    
+    async def step_once(self) -> None:
+        """Execute a single simulation step"""
+        if self.step_func:
+            if asyncio.iscoroutinefunction(self.step_func):
+                await self.step_func()
+            else:
+                self.step_func()
+            self.time_step += 1
+    
+    async def reset(self, reset_func: Optional[Callable] = None) -> None:
+        """Reset simulation to initial state"""
+        await self.stop()
+        self.time_step = 0
+        
+        if reset_func:
+            if asyncio.iscoroutinefunction(reset_func):
+                await reset_func()
+            else:
+                reset_func()
+        elif self.init_func:
+            # Use init function as reset if no specific reset function provided
+            if asyncio.iscoroutinefunction(self.init_func):
+                await self.init_func()
+            else:
+                self.init_func()
+    
+    async def _simulation_loop(self) -> None:
+        """Internal simulation loop"""
+        try:
+            while self.running and self.step_func:
+                if asyncio.iscoroutinefunction(self.step_func):
+                    await self.step_func()
+                else:
+                    self.step_func()
+                
+                self.time_step += 1
+                await asyncio.sleep(self.step_interval)
+                
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self.simulation_task = None
+
+
+# Add simulation manager to TenSnapServer
+def add_simulation_manager_to_server(server: TenSnapServer) -> SimulationManager:
+    """
+    Add a simulation manager to a TenSnapServer with default button controls
+    
+    Returns the created SimulationManager for further customization
+    """
+    manager = SimulationManager()
+    
+    # Add default control buttons
+    server.register_button("start_simulation", manager.start)
+    server.register_button("stop_simulation", manager.stop) 
+    server.register_button("toggle_simulation", manager.toggle)
+    server.register_button("step_once", manager.step_once)
+    server.register_button("reset_simulation", manager.reset)
+    
+    return manager

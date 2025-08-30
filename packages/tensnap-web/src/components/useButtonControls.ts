@@ -8,10 +8,12 @@ export function useButtonControls() {
   const sendMessage = useWebSocketStore((state) => state.sendMessage);
 
   const handleButtonAction = useCallback(
-    (action: string) => sendMessage?.<ButtonClickPayload>({
-      type: 'button_click',
-      payload: { action: action },
-    }),
+    (action: string) => {
+      sendMessage?.<ButtonClickPayload>({
+        type: 'button_click',
+        payload: { action: action },
+      });
+    },
     [sendMessage]
   );
 
