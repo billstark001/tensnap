@@ -1,0 +1,199 @@
+# tensnap/examples/flock.py
+"""Pure flocking simulation without any visualization dependencies"""
+
+import random
+import math
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
+
+
+@dataclass
+class FlockConfig:
+    """Configuration for flocking simulation"""
+    separation_distance: float = 2.0
+    alignment_distance: float = 5.0
+    cohesion_distance: float = 8.0
+    max_speed: float = 0.8
+    num_agents: int = 50
+    world_width: float = 40.0
+    world_height: float = 40.0
+
+
+class Bird:
+    """A single bird agent in the flock"""
+    
+    def __init__(self, bird_id: str, x: float, y: float, heading: Optional[float] = None):
+        self.id = bird_id
+        self.x = x
+        self.y = y
+        self.heading = heading if heading is not None else random.uniform(0, 2 * math.pi)
+        self.vx = math.cos(self.heading) * random.uniform(0.2, 0.6)
+        self.vy = math.sin(self.heading) * random.uniform(0.2, 0.6)
+    
+    def get_speed(self) -> float:
+        """Get current speed of the bird"""
+        return math.sqrt(self.vx * self.vx + self.vy * self.vy)
+    
+    def update_position(self, world_width: float, world_height: float):
+        """Update bird position with boundary wrapping"""
+        self.x = (self.x + self.vx) % world_width
+        self.y = (self.y + self.vy) % world_height
+        
+        # Update heading based on velocity
+        speed = self.get_speed()
+        if speed > 0.01:
+            self.heading = math.atan2(self.vy, self.vx)
+
+
+class FlockSimulation:
+    """Main flocking simulation class"""
+    
+    def __init__(self, config: Optional[FlockConfig] = None):
+        self.config = config or FlockConfig()
+        self.birds: List[Bird] = []
+        self.time_step = 0
+    
+    def initialize(self) -> None:
+        """Initialize the simulation with birds"""
+        self.birds.clear()
+        self.time_step = 0
+        
+        # Create birds in the center area
+        center_x = self.config.world_width / 2
+        center_y = self.config.world_height / 2
+        spawn_radius = 5.0
+        
+        for i in range(self.config.num_agents):
+            x = center_x + random.uniform(-spawn_radius, spawn_radius)
+            y = center_y + random.uniform(-spawn_radius, spawn_radius)
+            bird = Bird(f"bird_{i}", x, y)
+            self.birds.append(bird)
+    
+    def update_bird(self, bird: Bird) -> None:
+        """Update a single bird using flocking rules"""
+        sep_x = sep_y = align_x = align_y = coh_x = coh_y = 0.0
+        neighbors = 0
+        
+        for other in self.birds:
+            if other.id == bird.id:
+                continue
+            
+            dx = bird.x - other.x
+            dy = bird.y - other.y
+            dist = math.sqrt(dx * dx + dy * dy)
+            
+            if 0 < dist < self.config.cohesion_distance:
+                neighbors += 1
+                
+                # Separation: avoid crowding
+                if dist < self.config.separation_distance:
+                    sep_x += dx / dist
+                    sep_y += dy / dist
+                
+                # Alignment: match neighbors
+                if dist < self.config.alignment_distance:
+                    align_x += other.vx
+                    align_y += other.vy
+                
+                # Cohesion: move toward center
+                coh_x += other.x
+                coh_y += other.y
+        
+        if neighbors > 0:
+            # Combine forces
+            sep_x /= neighbors
+            sep_y /= neighbors
+            align_x /= neighbors
+            align_y /= neighbors
+            coh_x = (coh_x / neighbors) - bird.x
+            coh_y = (coh_y / neighbors) - bird.y
+            
+            # Update velocity
+            force_x = sep_x * 1.5 + align_x + coh_x
+            force_y = sep_y * 1.5 + align_y + coh_y
+            
+            bird.vx += force_x * 0.1
+            bird.vy += force_y * 0.1
+            
+            # Speed limit
+            speed = math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy)
+            if speed > self.config.max_speed:
+                bird.vx = (bird.vx / speed) * self.config.max_speed
+                bird.vy = (bird.vy / speed) * self.config.max_speed
+    
+    def step(self) -> None:
+        """Perform one simulation step"""
+        # Update all birds
+        for bird in self.birds:
+            self.update_bird(bird)
+        
+        # Update positions
+        for bird in self.birds:
+            bird.update_position(self.config.world_width, self.config.world_height)
+        
+        self.time_step += 1
+    
+    def get_average_speed(self) -> float:
+        """Calculate average speed of all birds"""
+        if not self.birds:
+            return 0.0
+        
+        speeds = [bird.get_speed() for bird in self.birds]
+        return sum(speeds) / len(speeds)
+    
+    def get_order_parameter(self) -> float:
+        """Measure flock alignment (0=random, 1=aligned)"""
+        if not self.birds:
+            return 0.0
+        
+        # Average velocity
+        avg_vx = sum(bird.vx for bird in self.birds) / len(self.birds)
+        avg_vy = sum(bird.vy for bird in self.birds) / len(self.birds)
+        avg_speed = math.sqrt(avg_vx**2 + avg_vy**2)
+        
+        # Average individual speed
+        individual_avg = self.get_average_speed()
+        
+        return avg_speed / individual_avg if individual_avg > 0 else 0.0
+    
+    def get_bird_data(self) -> List[Dict[str, Any]]:
+        """Get current data for all birds"""
+        return [
+            {
+                "id": bird.id,
+                "x": bird.x,
+                "y": bird.y,
+                "heading": bird.heading,
+                "vx": bird.vx,
+                "vy": bird.vy,
+                "speed": bird.get_speed()
+            }
+            for bird in self.birds
+        ]
+
+
+# Example usage for standalone simulation
+if __name__ == "__main__":
+    import time
+    
+    # Create and run simulation
+    config = FlockConfig(num_agents=30)
+    simulation = FlockSimulation(config)
+    simulation.initialize()
+    
+    print(f"Running flock simulation with {config.num_agents} birds...")
+    print("Press Ctrl+C to stop")
+    
+    try:
+        while True:
+            simulation.step()
+            
+            if simulation.time_step % 10 == 0:
+                avg_speed = simulation.get_average_speed()
+                order = simulation.get_order_parameter()
+                print(f"Step {simulation.time_step}: Avg Speed: {avg_speed:.3f}, Order: {order:.3f}")
+            
+            time.sleep(0.1)
+    
+    except KeyboardInterrupt:
+        print("Simulation stopped.")
