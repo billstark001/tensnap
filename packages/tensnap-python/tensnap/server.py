@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from .models import Parameter, Chart, Environment, ClientStateRequest, StateSyncResponse
-    from .decorators import ParameterProperty, ChartProperty
-
+    from .models import EnvironmentModel, ClientStateRequest, StateSyncResponse
+    from .bindings.basic import Parameter, Chart
 
 
 class MessageType(Enum):
     """WebSocket message types"""
+
     TIME_STEP_START = "time_step_start"
     TIME_STEP_END = "time_step_end"
     ENVIRONMENT_UPDATE = "environment_update"
@@ -38,44 +38,46 @@ class MessageType(Enum):
 
 class TenSnapServer:
     """Main server class for TenSnap visualization"""
-    
+
     def __init__(self, host: str = "localhost", port: int = 8765):
         self.host = host
         self.port = port
         self.clients: set[WebSocketServerProtocol] = set()
         self.current_time: int = 0
-        self.environments: Dict[Union[str, int], 'Environment'] = {}
-        self.parameters: Dict[str, 'Parameter'] = {}
-        self.charts: Dict[str, 'Chart'] = {}
+        self.environments: Dict[Union[str, int], "EnvironmentModel"] = {}
+        self.parameters: Dict[str, "Parameter"] = {}
+        self.charts: Dict[str, "Chart"] = {}
         self.button_handlers: Dict[str, Callable] = {}
         self.parameter_setters: Dict[str, Callable] = {}
         self.parameter_getters: Dict[str, Callable] = {}
         self.chart_getters: Dict[str, Callable] = {}
         self._running = False
-        
-    def add_environment(self, environment: 'Environment') -> None:
+
+    def add_environment(self, environment: "EnvironmentModel") -> None:
         """Add an environment to the server"""
         self.environments[environment.id] = environment
-        
-    def add_parameter(self, param: 'Parameter') -> None:
+
+    def add_parameter(self, param: "Parameter") -> None:
         """Add a parameter to the server"""
         self.parameters[param.id] = param
         if param.setter:
             self.parameter_setters[param.id] = param.setter
         if param.getter:
             self.parameter_getters[param.id] = param.getter
-            
-    def add_chart(self, chart: 'Chart') -> None:
+
+    def add_chart(self, chart: "Chart") -> None:
         """Add a chart to the server"""
         self.charts[chart.id] = chart
         if chart.getter:
             self.chart_getters[chart.id] = chart.getter
-            
+
     def register_button(self, action: str, handler: Callable) -> None:
         """Register a button action handler"""
         self.button_handlers[action] = handler
-        
-    async def handle_client(self, websocket: WebSocketServerProtocol, path: str) -> None:
+
+    async def handle_client(
+        self, websocket: WebSocketServerProtocol, path: str
+    ) -> None:
         """Handle a client connection"""
         self.clients.add(websocket)
         logger.info(f"Client connected from {websocket.remote_address}")
@@ -88,18 +90,20 @@ class TenSnapServer:
             self.clients.remove(websocket)
             logger.info(f"Client disconnected from {websocket.remote_address}")
             logger.info(f"Client disconnected from {websocket.remote_address}")
-            
-    async def handle_message(self, websocket: WebSocketServerProtocol, message: Union[str, bytes]) -> None:
+
+    async def handle_message(
+        self, websocket: WebSocketServerProtocol, message: Union[str, bytes]
+    ) -> None:
         """Handle incoming message from client"""
         try:
             if isinstance(message, bytes):
                 data = msgpack.unpackb(message, raw=False)
             else:
                 data = json.loads(message)
-                
+
             msg_type = data.get("type")
             payload = data.get("payload", {})
-            
+
             if msg_type == MessageType.STATE_SYNC.value:
                 await self.handle_state_sync(websocket, payload)
             elif msg_type == MessageType.PARAMETER_CHANGE.value:
@@ -108,27 +112,34 @@ class TenSnapServer:
                 await self.handle_button_click(payload)
             else:
                 logger.warning(f"Unknown message type: {msg_type}")
-                
+
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             await self.send_error(websocket, str(e))
-            
-    async def handle_state_sync(self, websocket: WebSocketServerProtocol, client_request: 'ClientStateRequest') -> None:
+
+    async def handle_state_sync(
+        self, websocket: WebSocketServerProtocol, client_request: "ClientStateRequest"
+    ) -> None:
         """Handle unified state sync request and send response"""
-        from .models import StateSyncResponse, ParameterState, EnvironmentState, ChartState
-        
+        from .models import (
+            StateSyncResponse,
+            ParameterState,
+            EnvironmentState,
+            ChartState,
+        )
+
         # 计算参数的增量
-        client_parameter_ids = set(client_request.get('parameters', []))
+        client_parameter_ids = set(client_request.get("parameters", []))
         server_parameter_ids = set(self.parameters.keys())
-        
+
         added_parameter_ids = server_parameter_ids - client_parameter_ids
         removed_parameter_ids = client_parameter_ids - server_parameter_ids
-        
+
         # 检查更新的参数（服务器端有，客户端也有的参数）
         common_parameter_ids = server_parameter_ids & client_parameter_ids
         updated_parameter_ids = set()
-        
-        parameter_cache = client_request.get('parameter_cache', {})
+
+        parameter_cache = client_request.get("parameter_cache", {})
         for param_id in common_parameter_ids:
             param = self.parameters[param_id]
             # 获取当前参数值
@@ -138,7 +149,7 @@ class TenSnapServer:
                     current_value = param.getter()
                 except Exception as e:
                     logger.error(f"Error getting parameter {param_id}: {e}")
-            
+
             # 检查是否接受客户端缓存的值
             cached_value = parameter_cache.get(param_id)
             if cached_value is not None and param.setter:
@@ -148,14 +159,14 @@ class TenSnapServer:
                     current_value = cached_value
                 except Exception as e:
                     logger.error(f"Error setting cached parameter {param_id}: {e}")
-            
+
             # 如果值发生变化，标记为需要更新
             if current_value != param.value:
                 updated_parameter_ids.add(param_id)
                 param.value = current_value
-        
+
         # 构建参数状态
-        def build_parameter_state(param: 'Parameter') -> ParameterState:
+        def build_parameter_state(param: "Parameter") -> ParameterState:
             return ParameterState(
                 id=param.id,
                 type=param.type,
@@ -166,85 +177,100 @@ class TenSnapServer:
                 step=param.step,
                 options=param.options,
                 allow_runtime_change=param.allow_runtime_change,
-                last_cached_value=parameter_cache.get(param.id)
+                last_cached_value=parameter_cache.get(param.id),
             )
-        
+
         # 构建环境状态
-        def build_environment_state(env: 'Environment') -> EnvironmentState:
+        def build_environment_state(env: "EnvironmentModel") -> EnvironmentState:
             env_dict = env.to_dict()
             return EnvironmentState(
-                id=env_dict['id'],
-                type=env_dict['type'],
-                width=env_dict.get('width'),
-                height=env_dict.get('height'),
-                agents=env_dict.get('agents', []),
-                nodes=env_dict.get('nodes'),
-                edges=env_dict.get('edges'),
-                background=env_dict.get('background')
+                id=env_dict["id"],
+                type=env_dict["type"],
+                width=env_dict.get("width"),
+                height=env_dict.get("height"),
+                agents=env_dict.get("agents", []),
+                nodes=env_dict.get("nodes"),
+                edges=env_dict.get("edges"),
+                background=env_dict.get("background"),
             )
-        
+
         # 构建图表状态
-        def build_chart_state(chart: 'Chart') -> ChartState:
+        def build_chart_state(chart: "Chart") -> ChartState:
             return ChartState(
-                id=chart.id,
-                label=chart.label,
-                color=chart.color,
-                data=chart.data
+                id=chart.id, label=chart.label, color=chart.color, data=chart.data
             )
-        
+
         # 计算环境的增量
-        client_environment_ids = set(client_request.get('environments', []))
+        client_environment_ids = set(client_request.get("environments", []))
         server_environment_ids = set(self.environments.keys())
-        
+
         added_environment_ids = server_environment_ids - client_environment_ids
         removed_environment_ids = client_environment_ids - server_environment_ids
-        
+
         # 检查环境更新逻辑 - 简单起见，假设所有已存在的环境都可能更新
         common_environment_ids = server_environment_ids & client_environment_ids
-        updated_environment_ids = common_environment_ids  # 可以优化为只更新实际变化的环境
-        
+        updated_environment_ids = (
+            common_environment_ids  # 可以优化为只更新实际变化的环境
+        )
+
         # 计算图表的增量
-        client_chart_ids = set(client_request.get('charts', []))
+        client_chart_ids = set(client_request.get("charts", []))
         server_chart_ids = set(self.charts.keys())
-        
+
         added_chart_ids = server_chart_ids - client_chart_ids
         removed_chart_ids = client_chart_ids - server_chart_ids
-        
+
         # 检查图表更新逻辑 - 简单起见，假设所有已存在的图表都可能更新
         common_chart_ids = server_chart_ids & client_chart_ids
         updated_chart_ids = common_chart_ids  # 可以优化为只更新实际变化的图表
-        
+
         # 构建统一的状态同步响应
         response: StateSyncResponse = StateSyncResponse(
-            added_parameters=[build_parameter_state(self.parameters[pid]) for pid in added_parameter_ids],
+            added_parameters=[
+                build_parameter_state(self.parameters[pid])
+                for pid in added_parameter_ids
+            ],
             removed_parameters=list(removed_parameter_ids),
-            updated_parameters=[build_parameter_state(self.parameters[pid]) for pid in updated_parameter_ids],
-            added_environments=[build_environment_state(self.environments[eid]) for eid in added_environment_ids],
+            updated_parameters=[
+                build_parameter_state(self.parameters[pid])
+                for pid in updated_parameter_ids
+            ],
+            added_environments=[
+                build_environment_state(self.environments[eid])
+                for eid in added_environment_ids
+            ],
             removed_environments=list(removed_environment_ids),
-            updated_environments=[build_environment_state(self.environments[eid]) for eid in updated_environment_ids],
-            added_charts=[build_chart_state(self.charts[cid]) for cid in added_chart_ids],
+            updated_environments=[
+                build_environment_state(self.environments[eid])
+                for eid in updated_environment_ids
+            ],
+            added_charts=[
+                build_chart_state(self.charts[cid]) for cid in added_chart_ids
+            ],
             removed_charts=list(removed_chart_ids),
-            updated_charts=[build_chart_state(self.charts[cid]) for cid in updated_chart_ids]
+            updated_charts=[
+                build_chart_state(self.charts[cid]) for cid in updated_chart_ids
+            ],
         )
-        
+
         await self.send_to_client(websocket, MessageType.STATE_SYNC, response)
-        
+
     async def send_state(self, websocket: WebSocketServerProtocol) -> None:
         """Send current state to a client (deprecated, kept for compatibility)"""
         # 发送空的客户端请求来触发完整状态同步
-        empty_request: 'ClientStateRequest' = {
-            'parameters': [],
-            'environments': [],
-            'charts': [],
-            'parameter_cache': {}
+        empty_request: "ClientStateRequest" = {
+            "parameters": [],
+            "environments": [],
+            "charts": [],
+            "parameter_cache": {},
         }
         await self.handle_state_sync(websocket, empty_request)
-        
+
     async def handle_parameter_change(self, payload: Dict[str, Any]) -> None:
         """Handle parameter change from client"""
         param_id = payload.get("id")
         value = payload.get("value")
-        
+
         if param_id in self.parameter_setters:
             try:
                 self.parameter_setters[param_id](value)
@@ -252,7 +278,7 @@ class TenSnapServer:
                     self.parameters[param_id].value = value
             except Exception as e:
                 logger.error(f"Error setting parameter {param_id}: {e}")
-                
+
     async def handle_button_click(self, payload: Dict[str, Any]) -> None:
         """Handle button click from client"""
         action = payload.get("action")
@@ -267,40 +293,38 @@ class TenSnapServer:
                     handler()
             except Exception as e:
                 logger.error(f"Error handling button {action}: {e}")
-                
+
     async def broadcast(self, msg_type: MessageType, payload: Any) -> None:
         """Broadcast message to all connected clients"""
-        message = json.dumps({
-            "type": msg_type.value,
-            "payload": payload,
-            "timestamp": self.current_time
-        })
-        
+        message = json.dumps(
+            {"type": msg_type.value, "payload": payload, "timestamp": self.current_time}
+        )
+
         if self.clients:
             await asyncio.gather(
                 *[client.send(message) for client in self.clients],
-                return_exceptions=True
+                return_exceptions=True,
             )
-            
-    async def send_to_client(self, websocket: WebSocketServerProtocol, msg_type: MessageType, payload: Any) -> None:
+
+    async def send_to_client(
+        self, websocket: WebSocketServerProtocol, msg_type: MessageType, payload: Any
+    ) -> None:
         """Send message to specific client"""
-        message = json.dumps({
-            "type": msg_type.value,
-            "payload": payload,
-            "timestamp": self.current_time
-        })
-        
+        message = json.dumps(
+            {"type": msg_type.value, "payload": payload, "timestamp": self.current_time}
+        )
+
         await websocket.send(message)
-        
+
     async def send_error(self, websocket: WebSocketServerProtocol, error: str) -> None:
         """Send error message to client"""
         await self.send_to_client(websocket, MessageType.ERROR, {"error": error})
-        
+
     async def start_time_step(self, time: int) -> None:
         """Start a new time step"""
         self.current_time = time
         await self.broadcast(MessageType.TIME_STEP_START, {"time": time})
-        
+
     async def end_time_step(self) -> None:
         """End current time step and update charts"""
         # Update all charts
@@ -309,93 +333,97 @@ class TenSnapServer:
             if chart.getter:
                 try:
                     value = chart.getter()
-                    chart_data.append({
-                        "id": chart.id,
-                        "time": self.current_time,
-                        "value": value
-                    })
+                    chart_data.append(
+                        {"id": chart.id, "time": self.current_time, "value": value}
+                    )
                 except Exception as e:
                     logger.error(f"Error getting chart data for {chart.id}: {e}")
-        
+
         # Send chart data if any
         if chart_data:
             await self.broadcast(MessageType.CHART_DATA, chart_data)
-            
+
         await self.broadcast(MessageType.TIME_STEP_END, {"time": self.current_time})
-        
-    async def update_environment(self, env_id: Union[str, int], data: Dict[str, Any]) -> None:
+
+    async def update_environment(
+        self, env_id: Union[str, int], data: Dict[str, Any]
+    ) -> None:
         """Update environment data"""
-        await self.broadcast(MessageType.ENVIRONMENT_UPDATE, {
-            "id": env_id,
-            "data": data
-        })
-        
-    async def update_agent(self, env_id: Union[str, int], agent_id: Union[str, int], data: Dict[str, Any]) -> None:
+        await self.broadcast(
+            MessageType.ENVIRONMENT_UPDATE, {"id": env_id, "data": data}
+        )
+
+    async def update_agent(
+        self, env_id: Union[str, int], agent_id: Union[str, int], data: Dict[str, Any]
+    ) -> None:
         """Update single agent"""
-        await self.broadcast(MessageType.AGENT_UPDATE, {
-            "environment_id": env_id,
-            "agent_id": agent_id,
-            "data": data
-        })
-        
-    async def update_agents_batch(self, env_id: Union[str, int], updates: List[Dict[str, Any]]) -> None:
+        await self.broadcast(
+            MessageType.AGENT_UPDATE,
+            {"environment_id": env_id, "agent_id": agent_id, "data": data},
+        )
+
+    async def update_agents_batch(
+        self, env_id: Union[str, int], updates: List[Dict[str, Any]]
+    ) -> None:
         """Update multiple agents at once"""
-        await self.broadcast(MessageType.AGENT_BATCH_UPDATE, {
-            "environment_id": env_id,
-            "updates": updates
-        })
-        
+        await self.broadcast(
+            MessageType.AGENT_BATCH_UPDATE,
+            {"environment_id": env_id, "updates": updates},
+        )
+
     async def run(self) -> None:
         """Run the WebSocket server"""
         self._running = True
         logger.info(f"Starting TenSnap server on {self.host}:{self.port}")
-        
+
         async with serve(self.handle_client, self.host, self.port):
             while self._running:
                 await asyncio.sleep(0.1)
-                
+
     def stop(self) -> None:
         """Stop the server"""
         self._running = False
-        
+
     def auto_register_from_namespace(self, namespace: Dict[str, Any]) -> None:
         """Automatically register parameters, charts, and buttons from a namespace"""
         for name, obj in namespace.items():
-            if hasattr(obj, '_tensnap_parameter'):
+            if hasattr(obj, "_tensnap_parameter"):
                 # Handle decorated parameter functions
                 param = obj._tensnap_parameter
                 self.add_parameter(param)
-                if hasattr(obj, '_tensnap_button_action'):
+                if hasattr(obj, "_tensnap_button_action"):
                     self.register_button(obj._tensnap_button_action, obj)
-            elif hasattr(obj, '_tensnap_chart'):
+            elif hasattr(obj, "_tensnap_chart"):
                 # Handle decorated chart functions
                 chart = obj._tensnap_chart
                 self.add_chart(chart)
-            elif hasattr(obj, 'param'):
+            elif hasattr(obj, "param"):
                 # Handle ParameterProperty objects
                 param = obj.param
                 self.add_parameter(param)
-                
+
     def auto_register_from_module(self, module: types.ModuleType) -> None:
         """Automatically register parameters, charts, and buttons from a module"""
         self.auto_register_from_namespace(vars(module))
-        
+
     def auto_register_from_instance(self, instance: Any) -> None:
         """Automatically register parameters, charts, and buttons from a class instance"""
         # Get all attributes of the instance
         namespace = {}
         for name in dir(instance):
-            if not name.startswith('_'):  # Skip private attributes
+            if not name.startswith("_"):  # Skip private attributes
                 try:
                     attr = getattr(instance, name)
                     namespace[name] = attr
                 except Exception:
                     # Skip attributes that can't be accessed
                     continue
-        
+
         self.auto_register_from_namespace(namespace)
-        
-    def auto_register_from_globals(self, global_dict: Optional[Dict[str, Any]] = None) -> None:
+
+    def auto_register_from_globals(
+        self, global_dict: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Automatically register from global namespace"""
         if global_dict is None:
             # Get caller's globals
@@ -405,7 +433,7 @@ class TenSnapServer:
             else:
                 logger.warning("Could not access caller's globals")
                 return
-                
+
         self.auto_register_from_namespace(global_dict)
 
 
@@ -414,16 +442,18 @@ class SimulationManager:
     Manages simulation lifecycle with thread/task management
     Provides easy start/stop functionality and automatic step execution
     """
-    
-    def __init__(self, 
-                 init_func: Optional[Callable] = None,
-                 step_func: Optional[Callable] = None,
-                 cleanup_func: Optional[Callable] = None,
-                 step_interval: float = 0.05):
+
+    def __init__(
+        self,
+        init_func: Optional[Callable] = None,
+        step_func: Optional[Callable] = None,
+        cleanup_func: Optional[Callable] = None,
+        step_interval: float = 0.05,
+    ):
         """
         Args:
             init_func: Function to call once when simulation starts
-            step_func: Function to call for each simulation step  
+            step_func: Function to call for each simulation step
             cleanup_func: Function to call when simulation stops
             step_interval: Time between steps in seconds (default 20 FPS)
         """
@@ -431,37 +461,37 @@ class SimulationManager:
         self.step_func = step_func
         self.cleanup_func = cleanup_func
         self.step_interval = step_interval
-        
+
         self.running = False
         self.time_step = 0
         self.simulation_task: Optional[asyncio.Task] = None
-        
-    async def start(self, from_time_step = 0) -> None:
+
+    async def start(self, from_time_step=0) -> None:
         """Start the simulation"""
         if self.running:
             return
-            
+
         self.running = True
         self.time_step = from_time_step
-        
+
         # Call initialization function
         if self.init_func:
             if asyncio.iscoroutinefunction(self.init_func):
                 await self.init_func()
             else:
                 self.init_func()
-        
+
         # Start simulation loop
         if self.step_func:
             self.simulation_task = asyncio.create_task(self._simulation_loop())
-    
+
     async def stop(self) -> None:
         """Stop the simulation"""
         if not self.running:
             return
-            
+
         self.running = False
-        
+
         # Cancel simulation task
         if self.simulation_task:
             self.simulation_task.cancel()
@@ -471,21 +501,21 @@ class SimulationManager:
                 pass
             finally:
                 self.simulation_task = None
-        
+
         # Call cleanup function
         if self.cleanup_func:
             if asyncio.iscoroutinefunction(self.cleanup_func):
                 await self.cleanup_func()
             else:
                 self.cleanup_func()
-    
-    async def toggle(self, from_time_step = 0) -> None:
+
+    async def toggle(self, from_time_step=0) -> None:
         """Toggle simulation running state"""
         if self.running:
             await self.stop()
         else:
             await self.start(from_time_step=from_time_step)
-    
+
     async def step_once(self) -> None:
         """Execute a single simulation step"""
         if self.step_func:
@@ -494,12 +524,12 @@ class SimulationManager:
             else:
                 self.step_func()
             self.time_step += 1
-    
+
     async def reset(self, reset_func: Optional[Callable] = None) -> None:
         """Reset simulation to initial state"""
         await self.stop()
         self.time_step = 0
-        
+
         if reset_func:
             if asyncio.iscoroutinefunction(reset_func):
                 await reset_func()
@@ -511,7 +541,7 @@ class SimulationManager:
                 await self.init_func()
             else:
                 self.init_func()
-    
+
     async def _simulation_loop(self) -> None:
         """Internal simulation loop"""
         try:
@@ -520,10 +550,10 @@ class SimulationManager:
                     await self.step_func()
                 else:
                     self.step_func()
-                
+
                 self.time_step += 1
                 await asyncio.sleep(self.step_interval)
-                
+
         except asyncio.CancelledError:
             pass
         finally:
@@ -534,16 +564,16 @@ class SimulationManager:
 def add_simulation_manager_to_server(server: TenSnapServer) -> SimulationManager:
     """
     Add a simulation manager to a TenSnapServer with default button controls
-    
+
     Returns the created SimulationManager for further customization
     """
     manager = SimulationManager()
-    
+
     # Add default control buttons
     server.register_button("start_simulation", manager.start)
-    server.register_button("stop_simulation", manager.stop) 
+    server.register_button("stop_simulation", manager.stop)
     server.register_button("toggle_simulation", manager.toggle)
     server.register_button("step_once", manager.step_once)
     server.register_button("reset_simulation", manager.reset)
-    
+
     return manager

@@ -2,75 +2,32 @@
 """TenSnap visualization for the flocking simulation"""
 
 import asyncio
+import os
 from typing import List
 from tensnap import (
     TenSnapServer,
-    Agent,
-    GridEnvironment,
+    AgentModel,
+    GridEnvironmentModel,
     SimulationManager,
-    bind_parameters_batch,
-    ParameterBinding,
 )
-from tensnap.decorators import chart, button
+from tensnap.bindings.basic import chart, button, quick_bind
 
 # Import the pure simulation logic
 from .flock import FlockSimulation, FlockConfig
 
 
 # Global state - similar to original basic.py structure
-server = TenSnapServer()
-grid = GridEnvironment(id="main", width=40, height=40)
-agents: List[Agent] = []
+server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
+server = TenSnapServer(port=server_port)
+grid = GridEnvironmentModel(id="main", width=40, height=40)
+agents: List[AgentModel] = []
 config = FlockConfig()
 simulation = FlockSimulation(config)
 sim_manager = SimulationManager(step_interval=0.05)
 time_step = 0
 
-# Bind parameters with type safety
-parameters: List[ParameterBinding] = [
-    {
-        "key": "separation_distance",
-        "id": "sep",
-        "label": "Separation",
-        "min": 0.5,
-        "max": 5.0,
-        "step": 0.1,
-    },
-    {
-        "key": "alignment_distance",
-        "id": "align",
-        "label": "Alignment",
-        "min": 1.0,
-        "max": 10.0,
-        "step": 0.5,
-    },
-    {
-        "key": "cohesion_distance",
-        "id": "cohesion",
-        "label": "Cohesion",
-        "min": 2.0,
-        "max": 15.0,
-        "step": 0.5,
-    },
-    {
-        "key": "max_speed",
-        "id": "speed",
-        "label": "Max Speed",
-        "min": 0.1,
-        "max": 2.0,
-        "step": 0.1,
-    },
-    {
-        "key": "num_agents",
-        "id": "agents",
-        "label": "Agents",
-        "min": 10,
-        "max": 100,
-        "step": 10,
-    },
-]
-
-bound_params = bind_parameters_batch(config, parameters)
+# Bind parameters automatically - exclude world dimensions as they match grid size
+bound_params = quick_bind(target=config, exclude=["world_width", "world_height"])
 
 
 # Control buttons
@@ -104,14 +61,12 @@ def init_simulation() -> None:
     time_step = 0
     agents.clear()
     grid.agents.clear()
-    
-    # Update simulation config and initialize
-    simulation.config = config
+
     simulation.initialize()
-    
-    # Create TenSnap agents from simulation birds
+
+    # Create TenSnap agents from simulation birds with custom update function
     for bird in simulation.birds:
-        agent = Agent(
+        agent = AgentModel(
             id=bird.id,
             x=bird.x,
             y=bird.y,
@@ -119,6 +74,8 @@ def init_simulation() -> None:
             color="#4A90E2",
             icon="arrow",
             size=8,
+            # Set the bird as the update source
+            update_source=bird,
         )
         agents.append(agent)
         grid.add_agent(agent)
@@ -134,38 +91,17 @@ async def simulation_step() -> None:
 
     await server.start_time_step(time_step)
 
-    # Update simulation config in case parameters changed
-    simulation.config = config
-    
-    # Step the simulation
     simulation.step()
-    
-    # Update TenSnap agents with new bird positions
-    updates = []
-    for i, bird in enumerate(simulation.birds):
-        if i < len(agents):
-            agent = agents[i]
-            agent.x = bird.x
-            agent.y = bird.y
-            agent.heading = bird.heading
-            
-            updates.append({
-                "id": agent.id,
-                "data": {
-                    "x": agent.x,
-                    "y": agent.y,
-                    "heading": agent.heading
-                }
-            })
 
-    # Send batch update
+    updates = grid.generate_agent_updates()
     await server.update_agents_batch("main", updates)
+
     await server.end_time_step()
     time_step += 1
 
 
 # Main function
-async def run_flock_visualization() -> None:
+async def main() -> None:
     """Run the flock visualization"""
     # Setup
     sim_manager.init_func = init_simulation
@@ -179,10 +115,10 @@ async def run_flock_visualization() -> None:
         server.add_parameter(param)
     server.auto_register_from_globals(globals())
 
-    print("TenSnap Flock Visualization starting on ws://localhost:8765")
+    print(f"TenSnap Flock Visualization starting on ws://localhost:{server_port}")
     print("Features: Pure simulation logic + TenSnap visualization!")
     await server.run()
 
 
 if __name__ == "__main__":
-    asyncio.run(run_flock_visualization())
+    asyncio.run(main())

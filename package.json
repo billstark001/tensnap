@@ -11,7 +11,8 @@
     "test:web": "pnpm --filter tensnap-web test",
     "dev:tauri": "pnpm --filter tensnap-tauri dev",
     "build:tauri": "pnpm --filter tensnap-tauri build",
-    "dev:python": "pnpm --filter tensnap-python dev",
+    "dev:py:flock": "pnpm --filter tensnap-python dev:flock",
+    "dev:py:hk": "pnpm --filter tensnap-python dev:hk",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "clean": "pnpm -r clean && rm -rf node_modules"
