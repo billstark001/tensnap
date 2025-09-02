@@ -4,13 +4,13 @@ import { adjustLayout, initialPack } from './pack';
 
 const SIDEBAR_WIDTH = 300;
 const HEADER_HEIGHT = 60;
-const ENVIRONMENT_CARD_WIDTH = 400;
-const ENVIRONMENT_CARD_HEIGHT = 300;
+const ENVIRONMENT_CARD_WIDTH = 600;
+const ENVIRONMENT_CARD_HEIGHT = 600;
 const PARAMETER_CARD_WIDTH = 280;
 const PARAMETER_CARD_HEIGHT = 80;
 const BUTTON_HEIGHT = 40;
 const CHART_CARD_WIDTH = 500;
-const CHART_CARD_HEIGHT = 300;
+const CHART_CARD_HEIGHT = 400;
 const MARGIN = 20;
 
 export const preservedViewIds = Object.freeze({
