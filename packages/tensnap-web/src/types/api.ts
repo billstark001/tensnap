@@ -15,7 +15,8 @@ export type ServerToClientMessageType =
 export type ClientToServerMessageType =
   | 'state_sync'
   | 'parameter_change'
-  | 'button_click';
+  | 'button_click'
+  | 'error';
 
 // 全部消息类型（向后兼容）
 export type WSMessageType = ServerToClientMessageType | ClientToServerMessageType;
@@ -79,7 +80,7 @@ export interface AgentBatchUpdatePayload {
 // chart_data
 export interface ChartDataUpdate {
   id: string;
-  time: number;
+  time?: number;
   value: any;
 }
 export type ChartDataPayload = ChartDataUpdate[];

@@ -15,18 +15,17 @@ from websockets.server import WebSocketServerProtocol, serve
 from websockets.exceptions import ConnectionClosed
 import msgpack
 from enum import Enum
-from dataclasses import asdict
-import weakref
 from collections import defaultdict
+
+from .bindings.basic import Parameter, Chart, button
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .models import EnvironmentModel, ClientStateRequest, StateSyncResponse
-    from .bindings.basic import Parameter, Chart
 
 
-class MessageType(Enum):
+class ServerToClientMessageType(Enum):
     """WebSocket message types"""
 
     TIME_STEP_START = "time_step_start"
@@ -35,6 +34,13 @@ class MessageType(Enum):
     AGENT_UPDATE = "agent_update"
     AGENT_BATCH_UPDATE = "agent_batch_update"
     CHART_DATA = "chart_data"
+    STATE_SYNC = "state_sync"
+    ERROR = "error"
+
+
+class ClientToServerMessageType(Enum):
+    """ClientToServerMessageType message types"""
+
     STATE_SYNC = "state_sync"
     PARAMETER_CHANGE = "parameter_change"
     BUTTON_CLICK = "button_click"
@@ -48,7 +54,7 @@ class MessageEncoder:
         self._type_cache = {}
         # Removed unused _payload_cache that could cause weak reference errors
 
-    def encode_message(self, msg_type: MessageType, payload: Any) -> str:
+    def encode_message(self, msg_type: ServerToClientMessageType, payload: Any) -> str:
         """Encode message with caching for repeated payloads"""
         type_str = self._get_cached_type(msg_type)
 
@@ -64,7 +70,7 @@ class MessageEncoder:
         # For complex payloads, serialize normally but cache type
         return json.dumps({"type": type_str, "payload": payload}, separators=(",", ":"))
 
-    def _get_cached_type(self, msg_type: MessageType) -> str:
+    def _get_cached_type(self, msg_type: ServerToClientMessageType) -> str:
         """Cache message type strings"""
         if msg_type not in self._type_cache:
             self._type_cache[msg_type] = msg_type.value
@@ -212,8 +218,23 @@ class TenSnapServer:
         if chart.getter:
             self.chart_getters[chart.id] = chart.getter
 
-    def register_button(self, action: str, handler: Callable) -> None:
+    def register_button(
+        self,
+        action: str,
+        handler: Callable,
+        register_parameter: bool = True,
+        suggested_label: Optional[str] = None,
+        suggested_allow_runtime_change: bool = True,
+    ) -> None:
         """Register a button action handler"""
+        if not hasattr(handler, "_tensnap_parameter"):
+            handler = button(
+                action,
+                label=suggested_label,
+                allow_runtime_change=suggested_allow_runtime_change,
+            )(handler)
+        if register_parameter:
+            self.add_parameter(handler._tensnap_parameter)
         self.button_handlers[action] = handler
 
     async def handle_client(
@@ -245,12 +266,14 @@ class TenSnapServer:
             msg_type = data.get("type")
             payload = data.get("payload", {})
 
-            if msg_type == MessageType.STATE_SYNC.value:
+            if msg_type == ClientToServerMessageType.STATE_SYNC.value:
                 await self.handle_state_sync(websocket, payload)
-            elif msg_type == MessageType.PARAMETER_CHANGE.value:
+            elif msg_type == ClientToServerMessageType.PARAMETER_CHANGE.value:
                 await self.handle_parameter_change(payload)
-            elif msg_type == MessageType.BUTTON_CLICK.value:
+            elif msg_type == ClientToServerMessageType.BUTTON_CLICK.value:
                 await self.handle_button_click(payload)
+            elif msg_type == ClientToServerMessageType.ERROR.value:
+                logger.error(f"Client error: {payload.get('error')}")
             else:
                 logger.warning(f"Unknown message type: {msg_type}")
 
@@ -258,11 +281,7 @@ class TenSnapServer:
             logger.error(f"Error handling message: {e}")
             await self.send_error(websocket, str(e))
 
-    async def handle_state_sync(
-        self, websocket: WebSocketServerProtocol, client_request: "ClientStateRequest"
-    ) -> None:
-        """Handle unified state sync request and send response"""
-        # Process in parallel for better performance
+    async def _build_state_sync_response(self, client_request: "ClientStateRequest"):
         parameter_task = asyncio.create_task(
             self._compute_parameter_deltas_async(client_request)
         )
@@ -292,7 +311,34 @@ class TenSnapServer:
             updated_charts=chart_deltas["updated"],
         )
 
-        await self.send_to_client(websocket, MessageType.STATE_SYNC, response)
+        return response
+
+    async def send_state_sync(self):
+        """Send state sync to all connected clients"""
+        if not self.clients:
+            return
+
+        # Build a generic client request with empty lists
+        client_request: "ClientStateRequest" = {
+            "parameters": [],
+            "environments": [],
+            "charts": [],
+            "parameter_cache": {},
+        }
+
+        response = await self._build_state_sync_response(client_request)
+
+        await self.broadcast(ServerToClientMessageType.STATE_SYNC, response)
+
+    async def handle_state_sync(
+        self, websocket: WebSocketServerProtocol, client_request: "ClientStateRequest"
+    ) -> None:
+        """Handle unified state sync request and send response"""
+        response = await self._build_state_sync_response(client_request)
+
+        await self.send_to_client(
+            websocket, ServerToClientMessageType.STATE_SYNC, response
+        )
 
     async def _compute_parameter_deltas_async(
         self, client_request: "ClientStateRequest"
@@ -443,7 +489,9 @@ class TenSnapServer:
             except Exception as e:
                 logger.error(f"Error handling button {action}: {e}")
 
-    async def broadcast(self, msg_type: MessageType, payload: Any) -> None:
+    async def broadcast(
+        self, msg_type: ServerToClientMessageType, payload: Any
+    ) -> None:
         """Broadcast message to all connected clients using optimized queue"""
         if not self.clients:
             return
@@ -452,7 +500,10 @@ class TenSnapServer:
         await self._message_queue.add_message(self.clients, message)
 
     async def send_to_client(
-        self, websocket: WebSocketServerProtocol, msg_type: MessageType, payload: Any
+        self,
+        websocket: WebSocketServerProtocol,
+        msg_type: ServerToClientMessageType,
+        payload: Any,
     ) -> None:
         """Send message to specific client"""
         message = self._encoder.encode_message(msg_type, payload)
@@ -464,26 +515,23 @@ class TenSnapServer:
 
     async def send_error(self, websocket: WebSocketServerProtocol, error: str) -> None:
         """Send error message to client"""
-        await self.send_to_client(websocket, MessageType.ERROR, {"error": error})
+        await self.send_to_client(
+            websocket, ServerToClientMessageType.ERROR, {"error": error}
+        )
 
     async def start_time_step(self, time: int) -> None:
         """Start a new time step"""
-        await self.broadcast(MessageType.TIME_STEP_START, {"time": time})
+        await self.broadcast(ServerToClientMessageType.TIME_STEP_START, {"time": time})
 
     async def end_time_step(self, time: Optional[int] = None) -> None:
         """End current time step with optimized chart data collection"""
-        payload = {}
-        if time is not None:
-            payload["time"] = time
-
-        await self.broadcast(MessageType.TIME_STEP_END, payload)
 
         # Collect chart data in parallel
         if self.charts:
             chart_tasks = []
             for chart in self.charts.values():
                 if chart.getter:
-                    chart_tasks.append(self._get_chart_data_async(chart, time or 0))
+                    chart_tasks.append(self._get_chart_data_async(chart, time))
 
             if chart_tasks:
                 chart_results = await asyncio.gather(
@@ -496,13 +544,25 @@ class TenSnapServer:
                 ]
 
                 if chart_data:
-                    await self.broadcast(MessageType.CHART_DATA, chart_data)
+                    await self.broadcast(
+                        ServerToClientMessageType.CHART_DATA, chart_data
+                    )
 
-    async def _get_chart_data_async(self, chart: "Chart", time: int) -> Dict[str, Any]:
+        payload = {}
+        if time is not None:
+            payload["time"] = time
+        await self.broadcast(ServerToClientMessageType.TIME_STEP_END, payload)
+
+    async def _get_chart_data_async(
+        self, chart: "Chart", time: int | None
+    ) -> Dict[str, Any]:
         """Get chart data asynchronously"""
         try:
             value = await asyncio.get_event_loop().run_in_executor(None, chart.getter)
-            return {"id": chart.id, "time": time, "value": value}
+            ret = {"id": chart.id, "value": value}
+            if time is not None:
+                ret["time"] = time
+            return ret
         except Exception as e:
             logger.error(f"Error getting chart data for {chart.id}: {e}")
             raise
@@ -512,7 +572,7 @@ class TenSnapServer:
     ) -> None:
         """Update environment data"""
         await self.broadcast(
-            MessageType.ENVIRONMENT_UPDATE, {"id": env_id, "data": data}
+            ServerToClientMessageType.ENVIRONMENT_UPDATE, {"id": env_id, "data": data}
         )
 
     async def update_agent(
@@ -520,7 +580,7 @@ class TenSnapServer:
     ) -> None:
         """Update single agent"""
         await self.broadcast(
-            MessageType.AGENT_UPDATE,
+            ServerToClientMessageType.AGENT_UPDATE,
             {"environment_id": env_id, "agent_id": agent_id, "data": data},
         )
 
@@ -529,7 +589,7 @@ class TenSnapServer:
     ) -> None:
         """Update multiple agents at once"""
         await self.broadcast(
-            MessageType.AGENT_BATCH_UPDATE,
+            ServerToClientMessageType.AGENT_BATCH_UPDATE,
             {"environment_id": env_id, "updates": updates},
         )
 
@@ -591,10 +651,10 @@ class TenSnapServer:
         """Automatically register parameters, charts, and buttons from a namespace"""
         for name, obj in namespace.items():
             if hasattr(obj, "_tensnap_parameter"):
-                param = obj._tensnap_parameter
+                param: "Parameter" = obj._tensnap_parameter
                 self.add_parameter(param)
-                if hasattr(obj, "_tensnap_button_action"):
-                    self.register_button(obj._tensnap_button_action, obj)
+                if param.type == "button":
+                    self.register_button(param.id, obj, False)
             elif hasattr(obj, "_tensnap_chart"):
                 chart = obj._tensnap_chart
                 self.add_chart(chart)

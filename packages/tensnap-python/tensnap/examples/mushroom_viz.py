@@ -137,8 +137,8 @@ async def simulation_step_btn() -> None:
 
 # 主函数
 async def main() -> None:
-    sim_manager.init_func = init_simulation
-    sim_manager.step_func = simulation_step_btn
+    sim_manager.on_start = init_simulation
+    sim_manager.on_step = simulation_step_btn
     init_simulation()
     server.add_environment(grid)
     for param in bound_params:

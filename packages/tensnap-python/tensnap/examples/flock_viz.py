@@ -20,7 +20,6 @@ from .flock import FlockSimulation, FlockConfig
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 server = TenSnapServer(port=server_port)
 grid = GridEnvironmentModel(id="main", width=40, height=40)
-agents: List[AgentModel] = []
 config = FlockConfig()
 simulation = FlockSimulation(config)
 sim_manager = SimulationManager(step_interval=0.05)
@@ -29,39 +28,14 @@ sim_manager = SimulationManager(step_interval=0.05)
 bound_params = quick_bind(target=config, exclude=["world_width", "world_height"])
 
 
-# Control buttons
-@button("start_stop", "Start/Stop")
-async def toggle() -> None:
-    await sim_manager.toggle(sim_manager.time_step)
-
-
-@button("reset", "Reset")
-async def reset() -> None:
-    await sim_manager.reset(init_simulation)
-
-
-# Chart functions
-@chart("average_speed", "Average Speed", color="#2ECC71")
-def calculate_average_speed() -> float:
-    """Calculate average speed of all agents"""
-    return simulation.get_average_speed()
-
-
-@chart("order_parameter", "Flock Order Parameter", color="#E74C3C")
-def order_parameter() -> float:
-    """Measure flock alignment (0=random, 1=aligned)"""
-    return simulation.get_order_parameter()
-
 
 # Initialize simulation
-def init_simulation() -> None:
+async def init_simulation():
     """Create initial agents"""
-    global agents
-    agents.clear()
     grid.agents.clear()
 
-    sim_manager.time_step = 0
     simulation.initialize()
+    await sim_manager.stop()
 
     # Create TenSnap agents from simulation birds with custom update function
     for bird in simulation.birds:
@@ -76,41 +50,65 @@ def init_simulation() -> None:
             # Set the bird as the update source
             update_source=bird,
         )
-        agents.append(agent)
         grid.add_agent(agent)
+    
+    sim_manager.time_step = 0
+    await server.start_time_step(0)
 
+    updates = grid.generate_agent_updates()
+    await server.update_agents_batch("main", updates)
+
+    await server.end_time_step(0)
 
 # Simulation step
-@button("step", "Evolve 1 Step")
-async def simulation_step() -> None:
+async def on_step(step: int) -> None:
     """Run one simulation step"""
     if not simulation.birds:
         return
-
-    await server.start_time_step(sim_manager.time_step)
+    
+    await server.start_time_step(step)
 
     simulation.step()
 
     updates = grid.generate_agent_updates()
     await server.update_agents_batch("main", updates)
+    
+    await server.end_time_step(step)
 
-    await server.end_time_step()
+
+
+@button("reset", "Reset")
+async def reset() -> None:
+    await init_simulation()
+
+
+# Chart functions
+@chart("average_speed", "Average Speed", color="#2ECC71")
+def calculate_average_speed() -> float:
+    """Calculate average speed of all agents"""
+    return simulation.get_average_speed()
+
+
+@chart("order_parameter", "Flock Order Parameter", color="#E74C3C")
+def calculate_order_parameter() -> float:
+    """Measure flock alignment (0=random, 1=aligned)"""
+    return simulation.get_order_parameter()
 
 
 # Main function
 async def main() -> None:
     """Run the flock visualization"""
     # Setup
-    sim_manager.init_func = init_simulation
-    sim_manager.step_func = simulation_step
+    sim_manager.on_step = on_step
 
-    init_simulation()
+    await init_simulation()
 
     # Register with server
     server.add_environment(grid)
     for param in bound_params:
         server.add_parameter(param)
     server.auto_register_from_globals(globals())
+    sim_manager.register_to(server)
 
     print(f"TenSnap Flock Visualization starting on ws://localhost:{server_port}")
     print("Features: Pure simulation logic + TenSnap visualization!")

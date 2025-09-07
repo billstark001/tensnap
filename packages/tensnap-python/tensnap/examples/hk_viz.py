@@ -24,11 +24,17 @@ def update_hk_visualization(env: GraphEnvironmentModel, hk_model) -> None:
     """Update graph visualization with opinion colors and sizes"""
     for node_id in hk_model.graph.nodes():
         opinion = hk_model.opinions[node_id]
-        hk_model.graph.nodes[node_id].update({
-            'opinion': opinion,
-            'color': "#E74C3C" if opinion < -0.33 else "#3498DB" if opinion > 0.33 else "#F39C12",
-            'size': 8 + abs(opinion) * 5
-        })
+        hk_model.graph.nodes[node_id].update(
+            {
+                "opinion": opinion,
+                "color": (
+                    "#E74C3C"
+                    if opinion < -0.33
+                    else "#3498DB" if opinion > 0.33 else "#F39C12"
+                ),
+                "size": 8 + abs(opinion) * 5,
+            }
+        )
     env.update_from_networkx(hk_model.graph)
 
 
@@ -40,37 +46,49 @@ graph_env.update_func = update_hk_visualization
 bound_params = quick_bind(model, exclude=["opinion_history"])
 
 
-# Control buttons
-@button("start_stop", "Start/Stop")
-async def toggle() -> None:
-    await sim_manager.toggle()
+async def init_simulation() -> None:
+    await sim_manager.stop()
+    model.__init__(
+        model.n_agents,
+        model.confidence_bound,
+        model.influence_strength,
+        model.k_random,
+        model.rewire_prob,
+    )
+
+    sim_manager.time_step = 0
+    await server.start_time_step(0)
+
+    graph_env.update()
+    await server.update_environment("opinion_network", dict(graph_env.to_dict()))
+
+    await server.end_time_step()
+
+
+async def on_step(step: int) -> None:
+    await server.start_time_step(step)
+
+    model.step()
+    graph_env.update()
+    await server.update_environment("opinion_network", dict(graph_env.to_dict()))
+
+    await server.end_time_step()
 
 
 @button("reset", "Reset")
 async def reset() -> None:
-    def reset_model():
-        model.__init__(model.n_agents, model.confidence_bound, model.influence_strength, 
-                      model.k_random, model.rewire_prob)
-        graph_env.update()
-    await sim_manager.reset(reset_model)
+    await init_simulation()
 
 
-@button("step", "Step")
-async def step() -> None:
-    await server.start_time_step(sim_manager.time_step)
-    model.step()
-    graph_env.update()
-    await server.update_environment("opinion_network", dict(graph_env.to_dict()))
-    await server.end_time_step()
-    sim_manager.time_step += 1
-
-
-# Charts
 @chart("opinion_variance", "Opinion Variance", color="#E74C3C")
-def opinion_variance() -> float: return float(np.var(model.opinions))
+def opinion_variance() -> float:
+    return float(np.var(model.opinions))
 
-@chart("mean_opinion", "Mean Opinion", color="#3498DB") 
-def mean_opinion() -> float: return float(np.mean(model.opinions))
+
+@chart("mean_opinion", "Mean Opinion", color="#3498DB")
+def mean_opinion() -> float:
+    return float(np.mean(model.opinions))
+
 
 @chart("network_density", "Network Density", color="#2ECC71")
 def network_density() -> float:
@@ -82,17 +100,19 @@ def network_density() -> float:
 async def main() -> None:
     """Run the HK opinion dynamics visualization"""
     # Setup simulation manager
-    sim_manager.step_func = step
-    
+    sim_manager.on_step = on_step
+
     # Initialize
     graph_env.update()
-    
+
     # Register components
     server.add_environment(graph_env)
     for param in bound_params:
         server.add_parameter(param)
+
     server.auto_register_from_globals(globals())
-    
+    sim_manager.register_to(server)
+
     print(f"TenSnap HK Opinion Dynamics starting on ws://localhost:{server_port}")
     await server.run()
 

@@ -119,9 +119,9 @@ export function registerEventHandlers(
   });
 
   wsManager.on('chart_data', (payload: ChartDataPayload) => {
-    const { addChartData } = useStore.getState();
+    const { addChartData, currentTime } = useStore.getState();
     payload.forEach((chartUpdate) => {
-      addChartData(chartUpdate.id, chartUpdate.time, chartUpdate.value);
+      addChartData(chartUpdate.id, chartUpdate.time ?? currentTime, chartUpdate.value);
     });
   });
 }

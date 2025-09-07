@@ -2,7 +2,7 @@
 """TenSnap - Agent-based model visualization toolkit"""
 
 from .server import TenSnapServer
-from .simulation import SimulationManager, add_simulation_manager_to_server
+from .simulation import SimulationManager
 from .models import AgentModel, GridEnvironmentModel, GraphEnvironmentModel
 from .bindings.basic import (
     parameter,
@@ -21,7 +21,6 @@ __version__ = "0.1.0"
 __all__ = [
     "TenSnapServer",
     "SimulationManager",
-    "add_simulation_manager_to_server",
     "AgentModel",
     "GridEnvironmentModel",
     "GraphEnvironmentModel",
