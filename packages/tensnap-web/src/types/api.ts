@@ -1,17 +1,24 @@
 import { Agent, Environment, Parameter } from "./modeling";
 
-// 消息类型枚举
-export type WSMessageType =
+// 服务器到客户端的消息类型
+export type ServerToClientMessageType =
   | 'time_step_start'
   | 'time_step_end'
   | 'environment_update'
   | 'agent_update'
   | 'agent_batch_update'
   | 'chart_data'
-  | 'state_sync'  // 统一的状态同步消息
-  | 'parameter_change'
-  | 'button_click'
+  | 'state_sync'
   | 'error';
+
+// 客户端到服务器的消息类型
+export type ClientToServerMessageType =
+  | 'state_sync'
+  | 'parameter_change'
+  | 'button_click';
+
+// 全部消息类型（向后兼容）
+export type WSMessageType = ServerToClientMessageType | ClientToServerMessageType;
 
 // 通用消息结构
 export interface WSMessage<T = any> {
@@ -20,11 +27,30 @@ export interface WSMessage<T = any> {
   timestamp?: number;
 }
 
+// 服务器到客户端的消息结构
+export interface ServerToClientMessage<T = any> {
+  type: ServerToClientMessageType;
+  payload: T;
+  timestamp?: number;
+}
+
+// 客户端到服务器的消息结构
+export interface ClientToServerMessage<T = any> {
+  type: ClientToServerMessageType;
+  payload: T;
+  timestamp?: number;
+}
+
 // ---------- 消息体定义 ----------
 
-// time_step_start, time_step_end
-export interface TimeStepPayload {
+// time_step_start - time 参数必须
+export interface TimeStepStartPayload {
   time: number;
+}
+
+// time_step_end - time 参数可选，用于前端验证
+export interface TimeStepEndPayload {
+  time?: number;
 }
 
 // environment_update
@@ -78,12 +104,11 @@ export interface StateSyncResponse {
   updated_charts: ChartState[];
 }
 
-// Chart state definition for communication
+// Chart state definition for communication (without data field)
 export interface ChartState {
   id: string;
   label: string;
   color?: string;
-  data: Array<{ time: number; value: number }>;
 }
 
 // parameter_change
@@ -102,18 +127,31 @@ export interface ErrorPayload {
   error: string;
 }
 
-// ---------- 综合消息类型 ----------
+// ---------- 服务器到客户端的消息类型 ----------
 
-export type IncomingPayload =
-  | TimeStepPayload
+export type ServerToClientPayload =
+  | TimeStepStartPayload
+  | TimeStepEndPayload
   | EnvironmentUpdatePayload
   | AgentUpdatePayload
   | AgentBatchUpdatePayload
   | ChartDataPayload
-  | StateSyncRequest
   | StateSyncResponse
-  | ParameterChangePayload
-  | ButtonClickPayload
   | ErrorPayload;
+
+export type ServerToClientWSMessage = ServerToClientMessage<ServerToClientPayload>;
+
+// ---------- 客户端到服务器的消息类型 ----------
+
+export type ClientToServerPayload =
+  | StateSyncRequest
+  | ParameterChangePayload
+  | ButtonClickPayload;
+
+export type ClientToServerWSMessage = ClientToServerMessage<ClientToServerPayload>;
+
+// ---------- 综合消息类型（向后兼容）----------
+
+export type IncomingPayload = ServerToClientPayload | ClientToServerPayload;
 
 export type IncomingWSMessage = WSMessage<IncomingPayload>;

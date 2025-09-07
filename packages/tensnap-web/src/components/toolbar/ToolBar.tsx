@@ -120,6 +120,11 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className }) => {
             onClick={() => handleButtonAction('start_stop')}
           />
           <ToolButton
+            icon={<Play size={16} />}
+            tooltip="Start"
+            onClick={() => handleButtonAction('start')}
+          />
+          <ToolButton
             icon={<Square size={16} />}
             tooltip="Stop"
             onClick={() => handleButtonAction('stop')}

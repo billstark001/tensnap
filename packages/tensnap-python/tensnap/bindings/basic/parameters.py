@@ -2,9 +2,8 @@
 """Enhanced parameter decorators and bindings with automatic detection"""
 
 from typing import Any, Callable, Optional, List, TypeVar, overload, Union, Literal, Dict, Set
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import types
-import ast
 import inspect
 from pathlib import Path
 

@@ -1,22 +1,24 @@
 import { WebSocketManager } from "@/utils/websocket-manager";
-import { ScenarioStore } from "./scenario";
-import { TimeStepPayload, EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartDataPayload } from "@/types/api";
+import { ScenarioStore, SetDataPayload } from "./scenario";
+import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartDataPayload, TimeStepStartPayload, TimeStepEndPayload } from "@/types/api";
 import { GridEnvironment } from "@/types/modeling";
+import { StoreApi, UseBoundStore } from "zustand";
 
 export function registerEventHandlers(
   wsManager: WebSocketManager,
-  store: ScenarioStore,
+  useStore: UseBoundStore<StoreApi<ScenarioStore>>,
 ) {
-  wsManager.on('time_step_start', (payload: TimeStepPayload) => {
-    store.setCurrentTime(payload.time);
+  wsManager.on('time_step_start', (payload: TimeStepStartPayload) => {
+    useStore.getState().setCurrentTime(payload.time);
   });
 
-  wsManager.on('time_step_end', (payload: TimeStepPayload) => {
+  wsManager.on('time_step_end', (payload: TimeStepEndPayload) => {
     // 创建快照
+    const store = useStore.getState();
     const snapshot = {
       id: `snapshot-${Date.now()}`,
       timestamp: Date.now(),
-      timeStep: payload.time,
+      timeStep: payload.time ?? store.currentTime,
       environments: store.environments,
       parameters: store.parameters,
     };
@@ -24,11 +26,11 @@ export function registerEventHandlers(
   });
 
   wsManager.on('environment_update', (payload: EnvironmentUpdatePayload) => {
-    store.updateEnvironment(payload.id, payload.data);
+    useStore.getState().updateEnvironment(payload.id, payload.data);
   });
 
   wsManager.on('agent_update', (payload: AgentUpdatePayload) => {
-    store.updateEnvironment(
+    useStore.getState().updateEnvironment(
       payload.environment_id,
       env => ({
         ...env,
@@ -46,7 +48,7 @@ export function registerEventHandlers(
       payload.updates.map((a: any) => [a.id, a.data]),
     );
 
-    store.updateEnvironment(
+    useStore.getState().updateEnvironment(
       payload.environment_id,
       env => ({
         ...env,
@@ -60,8 +62,8 @@ export function registerEventHandlers(
   });
 
   wsManager.on('state_sync', (payload: StateSyncResponse) => {
-    // 处理统一的状态同步响应
-    console.log('Received state sync:', payload);
+
+    const store = useStore.getState();
 
     // 处理参数更新 - 使用现有的 setData 方法
     const allParameters = [
@@ -84,7 +86,7 @@ export function registerEventHandlers(
     // 统一更新数据
     const hasUpdates = allParameters.length > 0 || allEnvironments.length > 0 || allCharts.length > 0;
     if (hasUpdates) {
-      const updateData: any = {};
+      const updateData: SetDataPayload = {};
       if (allParameters.length > 0) updateData.parameters = allParameters;
       if (allEnvironments.length > 0) updateData.environments = allEnvironments;
       if (allCharts.length > 0) {
@@ -94,7 +96,7 @@ export function registerEventHandlers(
           label: chart.label,
           getter: chart.id, // 使用id作为getter标识
           color: chart.color,
-          data: chart.data
+          data: [], // 初始数据为空，等待后续的chart_data消息填充
         }));
       }
       store.setData(updateData, true);
@@ -117,8 +119,9 @@ export function registerEventHandlers(
   });
 
   wsManager.on('chart_data', (payload: ChartDataPayload) => {
-    payload.forEach((chartUpdate: any) => {
-      store.addChartData(chartUpdate.id, chartUpdate.time, chartUpdate.value);
+    const { addChartData } = useStore.getState();
+    payload.forEach((chartUpdate) => {
+      addChartData(chartUpdate.id, chartUpdate.time, chartUpdate.value);
     });
   });
 }

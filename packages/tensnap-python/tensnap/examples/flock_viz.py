@@ -8,8 +8,8 @@ from tensnap import (
     TenSnapServer,
     AgentModel,
     GridEnvironmentModel,
-    SimulationManager,
 )
+from tensnap.simulation import SimulationManager
 from tensnap.bindings.basic import chart, button, quick_bind
 
 # Import the pure simulation logic
@@ -24,7 +24,6 @@ agents: List[AgentModel] = []
 config = FlockConfig()
 simulation = FlockSimulation(config)
 sim_manager = SimulationManager(step_interval=0.05)
-time_step = 0
 
 # Bind parameters automatically - exclude world dimensions as they match grid size
 bound_params = quick_bind(target=config, exclude=["world_width", "world_height"])
@@ -33,7 +32,7 @@ bound_params = quick_bind(target=config, exclude=["world_width", "world_height"]
 # Control buttons
 @button("start_stop", "Start/Stop")
 async def toggle() -> None:
-    await sim_manager.toggle(time_step)
+    await sim_manager.toggle(sim_manager.time_step)
 
 
 @button("reset", "Reset")
@@ -57,11 +56,11 @@ def order_parameter() -> float:
 # Initialize simulation
 def init_simulation() -> None:
     """Create initial agents"""
-    global agents, time_step
-    time_step = 0
+    global agents
     agents.clear()
     grid.agents.clear()
 
+    sim_manager.time_step = 0
     simulation.initialize()
 
     # Create TenSnap agents from simulation birds with custom update function
@@ -85,11 +84,10 @@ def init_simulation() -> None:
 @button("step", "Evolve 1 Step")
 async def simulation_step() -> None:
     """Run one simulation step"""
-    global time_step
     if not simulation.birds:
         return
 
-    await server.start_time_step(time_step)
+    await server.start_time_step(sim_manager.time_step)
 
     simulation.step()
 
@@ -97,7 +95,6 @@ async def simulation_step() -> None:
     await server.update_agents_batch("main", updates)
 
     await server.end_time_step()
-    time_step += 1
 
 
 # Main function

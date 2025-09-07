@@ -1,7 +1,8 @@
 # tensnap/__init__.py
 """TenSnap - Agent-based model visualization toolkit"""
 
-from .server import TenSnapServer, SimulationManager, add_simulation_manager_to_server
+from .server import TenSnapServer
+from .simulation import SimulationManager, add_simulation_manager_to_server
 from .models import AgentModel, GridEnvironmentModel, GraphEnvironmentModel
 from .bindings.basic import (
     parameter,

@@ -5,7 +5,8 @@ import asyncio
 import os
 import numpy as np
 from typing import Dict, Any
-from tensnap import TenSnapServer, GraphEnvironmentModel, SimulationManager
+from tensnap import TenSnapServer, GraphEnvironmentModel
+from tensnap.simulation import SimulationManager
 from tensnap.bindings.basic import chart, button, quick_bind
 from .hk import DiscreteHKModel
 

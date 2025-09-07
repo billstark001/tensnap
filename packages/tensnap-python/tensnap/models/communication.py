@@ -37,12 +37,11 @@ class EnvironmentState(TypedDict):
 
 
 class ChartState(TypedDict):
-    """Chart state for communication"""
+    """Chart state for communication - data field removed, managed entirely by client"""
 
     id: str
     label: str
     color: Optional[str]
-    data: List[Dict[str, float]]  # List of {time: float, value: float} entries
 
 
 class ClientStateRequest(TypedDict):

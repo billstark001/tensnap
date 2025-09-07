@@ -53,10 +53,9 @@ export const createWebSocketStore = (
     set({ url, isConnecting: true, connectionError: null, abortController });
 
     const wsManager = new WebSocketManager(null, url);
-    const store = useScenarioStore.getState();
 
     // 设置消息处理器
-    registerEventHandlers(wsManager, store);
+    registerEventHandlers(wsManager, useScenarioStore);
 
     const onConnected = () => {
       set({
@@ -65,7 +64,7 @@ export const createWebSocketStore = (
         abortController: null // 连接成功后清理 AbortController
       });
       // 设置连接状态并请求初始状态
-      store.setConnected(true);
+      useScenarioStore.getState().setConnected(true);
       const emptyState: StateSyncRequest = {
         parameters: [],
         environments: [],
@@ -78,7 +77,7 @@ export const createWebSocketStore = (
     wsManager.on(WebSocketManager.Connected, onConnected);
 
     wsManager.on(WebSocketManager.Disconnected, () => {
-      store.setConnected(false);
+      useScenarioStore.getState().setConnected(false);
     });
 
     set({

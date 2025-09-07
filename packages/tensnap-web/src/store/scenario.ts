@@ -6,6 +6,12 @@ import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
 import { createDefaultRootLayout } from '@/utils/layout/pack-layout';
 
+export interface SetDataPayload {
+  environments?: Environment[];
+  parameters?: Parameter[];
+  charts?: ChartData[];
+}
+
 export interface ScenarioStore {
   // State
   connected: boolean;
@@ -20,11 +26,7 @@ export interface ScenarioStore {
   // Actions
   setConnected: (connected: boolean) => void;
   setCurrentTime: (time: number) => void;
-  setData: (data: {
-    environments?: Environment[];
-    parameters?: Parameter[];
-    charts?: ChartData[];
-  }, updateLayout?: boolean) => void;
+  setData: (data: SetDataPayload, updateLayout?: boolean) => void;
   updateEnvironment: (id: string | number, data: SetStateAction<Environment>) => void;
   updateParameter: (id: string, value: any) => void;
   addChartData: (chartId: string, time: number, value: number) => void;
