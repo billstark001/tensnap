@@ -1,21 +1,21 @@
 import { create, StoreApi, UseBoundStore } from 'zustand';
-import { WebSocketConnectionError, WebSocketManager } from '../utils/websocket-manager';
 import { ScenarioStore } from './scenario';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import { StateSyncRequest, WSMessage } from '@/types/api';
 import { registerEventHandlers } from './websocket-scenario';
+import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, FakeWebSocketOptions, WebSocketManagerFake } from '@/websocket';
 
 export interface WebSocketStore {
   id: string;
   wsManager: WebSocketManager | null;
-  url: string | null;
+  url: string | FakeWebSocketOptions | null;
   isConnecting: boolean;
   connectionError: string | null;
   abortController: AbortController | null;
 
   // Actions
-  initialize: (url: string) => Promise<void>;
+  initialize: (url: string | FakeWebSocketOptions) => Promise<void>;
   sendMessage: <T = any>(message: WSMessage<T>) => void;
   requestState: () => void;
   requestStateSync: (currentState: StateSyncRequest) => void;  // 统一的状态同步请求
@@ -35,7 +35,7 @@ export const createWebSocketStore = (
   connectionError: null,
   abortController: null,
 
-  initialize: async (url: string) => {
+  initialize: async (url: string | FakeWebSocketOptions) => {
     const { wsManager: currentManager, abortController: currentAbort } = get();
 
     // 中断当前正在进行的连接
@@ -52,7 +52,9 @@ export const createWebSocketStore = (
     const abortController = new AbortController();
     set({ url, isConnecting: true, connectionError: null, abortController });
 
-    const wsManager = new WebSocketManager(null, url);
+    const wsManager: WebSocketManager = typeof url === 'string'
+      ? new WebSocketManagerImpl(null, url)
+      : new WebSocketManagerFake(null, url);
 
     // 设置消息处理器
     registerEventHandlers(wsManager, useScenarioStore);
@@ -74,9 +76,9 @@ export const createWebSocketStore = (
       wsManager.send({ type: 'state_sync', payload: emptyState });
     };
 
-    wsManager.on(WebSocketManager.Connected, onConnected);
+    wsManager.on(wsConnected, onConnected);
 
-    wsManager.on(WebSocketManager.Disconnected, () => {
+    wsManager.on(wsDisconnected, () => {
       useScenarioStore.getState().setConnected(false);
     });
 

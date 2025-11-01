@@ -1,4 +1,4 @@
-import { WebSocketManager } from "@/utils/websocket-manager";
+import { WebSocketManager } from "@/websocket";
 import { ScenarioStore, SetDataPayload } from "./scenario";
 import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartDataPayload, TimeStepStartPayload, TimeStepEndPayload } from "@/types/api";
 import { GridEnvironment } from "@/types/modeling";

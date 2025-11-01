@@ -193,7 +193,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const projectFile: ProjectFileContent = {
       mainView,
       scenario: scenarioDump,
-      url,
+      url: typeof url === 'string' ? url : 'ws://fake-url',
     };
 
     // determine path

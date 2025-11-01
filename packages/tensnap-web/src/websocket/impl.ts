@@ -1,37 +1,12 @@
 import { encode, decode } from '@msgpack/msgpack';
 import { generateUniqueId } from '@/utils/common';
 import { WSMessage } from '@/types/api';
+import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
+import { wsConnected, wsDisconnected } from './constants';
+import { WebSocketManager } from './types';
 
-// Custom exception classes for better error handling
-export class WebSocketError extends Error {
-  constructor(message: string, public readonly code?: string) {
-    super(message);
-    this.name = 'WebSocketError';
-  }
-}
 
-export class WebSocketConnectionError extends WebSocketError {
-  constructor(message: string) {
-    super(message, 'CONNECTION_ERROR');
-    this.name = 'WebSocketConnectionError';
-  }
-}
-
-export class WebSocketDestroyedError extends WebSocketError {
-  constructor() {
-    super('WebSocketManager has been destroyed', 'DESTROYED');
-    this.name = 'WebSocketDestroyedError';
-  }
-}
-
-export class WebSocketAbortedError extends WebSocketError {
-  constructor() {
-    super('Connection aborted', 'ABORTED');
-    this.name = 'WebSocketAbortedError';
-  }
-}
-
-export class WebSocketManager {
+export class WebSocketManagerImpl implements WebSocketManager {
 
   readonly id: string;
 
@@ -53,9 +28,6 @@ export class WebSocketManager {
     this.url = url;
     this.useMsgPack = useMsgPack;
   }
-
-  static readonly Connected = Symbol('WebSocketManager:Connected');
-  static readonly Disconnected = Symbol('WebSocketManager:Disconnected');
 
   connect(signal?: AbortSignal): Promise<void> {
     this.manualDisconnect = false;
@@ -126,7 +98,7 @@ export class WebSocketManager {
             promiseFinished = true;
             resolve();
           } else if (!this.isDestroyed) {
-            this.messageHandlers.get(WebSocketManager.Connected)?.(event);
+            this.messageHandlers.get(wsConnected)?.(event);
           }
         };
 
@@ -153,7 +125,7 @@ export class WebSocketManager {
             this.scheduleReconnect();
           }
           if (!this.isDestroyed) {
-            this.messageHandlers.get(WebSocketManager.Disconnected)?.(event);
+            this.messageHandlers.get(wsDisconnected)?.(event);
           }
         };
       } catch (error) {
