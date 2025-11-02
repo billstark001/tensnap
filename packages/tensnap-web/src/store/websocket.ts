@@ -11,9 +11,7 @@ const createEmptyStateSyncRequest = (): StateSyncRequest => ({
   parameters: [],
   environments: [],
   charts: [],
-  parameter_cache: {}
 });
-
 
 export interface WebSocketStore {
   id: string;
@@ -24,11 +22,11 @@ export interface WebSocketStore {
   abortController: AbortController | null;
 
   // Actions
-  initialize: (url: string) => Promise<void>;
+  initialize: (url: string, state?: StateSyncRequest) => Promise<void>;
   sendMessage: <T = any>(message: WSMessage<T>) => void;
   requestStateSync: (currentState?: StateSyncRequest) => void;
   disconnect: () => void;
-  reconnect: () => Promise<void>;
+  reconnect: (state?: StateSyncRequest) => Promise<void>;
   destroy: () => void;
   abortConnection: () => void;
 }
@@ -43,7 +41,7 @@ export const createWebSocketStore = (
   connectionError: null,
   abortController: null,
 
-  initialize: async (url: string) => {
+  initialize: async (url: string, state?: StateSyncRequest) => {
     const { wsManager: currentManager, abortController: currentAbort } = get();
 
     // 中断当前正在进行的连接
@@ -75,7 +73,7 @@ export const createWebSocketStore = (
       });
       // 设置连接状态并请求初始状态
       useScenarioStore.getState().setConnected(true);
-      wsManager.send({ type: 'state_sync', payload: createEmptyStateSyncRequest() });
+      wsManager.send({ type: 'state_sync', payload: state ?? createEmptyStateSyncRequest()});
     };
 
     wsManager.on(wsConnected, onConnected);
@@ -146,10 +144,10 @@ export const createWebSocketStore = (
     }
   },
 
-  reconnect: async () => {
+  reconnect: async (state?: StateSyncRequest) => {
     const { url } = get();
     if (url) {
-      await get().initialize(url);
+      await get().initialize(url, state);
     }
   },
 

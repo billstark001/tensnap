@@ -5,17 +5,18 @@ import { FileSystemState } from "./file-system/store";
 import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
-import { EnvironmentId, SimulationState } from "@/types/model";
+import { ChartGroup, ChartMetadata, Environment, EnvironmentId, PureEnvironment, SimulationState } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
 import { InstantiatedChartDataStorage, InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from "@/store/scenario-inst";
+import { StateSyncRequest } from "@/types/api";
 
 export interface ProjectSettings {
   url: string;
 }
 
-export interface ProjectContextScheme extends ProjectSettings{
+export interface ProjectContextScheme extends ProjectSettings {
   id: string;
   filepath: string | null;
 
@@ -36,6 +37,34 @@ const insertProject = (projects: readonly Readonly<ProjectContextScheme>[], newP
   }
   return { newProjects, activeIndex };
 };
+
+
+const getPureEnvironment = ({ agents, ...rest }: Environment) => (rest as PureEnvironment);
+
+
+const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
+  const allMetadata: ChartMetadata[] = [];
+  const metadataIdSet = new Set<string>();
+  for (const { metadataDict: metadataList } of chartGroups) {
+    for (const metadata of Object.values(metadataList)) {
+      if (!metadataIdSet.has(metadata.id)) {
+        allMetadata.push(metadata);
+        metadataIdSet.add(metadata.id);
+      }
+    }
+  }
+  return allMetadata;
+};
+
+export const createStateSyncRequestFromStore = (store?: SimulationState): StateSyncRequest => {
+  const { parameters = [], environments = [], charts = [] } = store || {};
+  return {
+    parameters,
+    environments: environments.map(getPureEnvironment),
+    charts: getAllChartMetadata(charts),
+  };
+};
+
 
 export interface ProjectStore {
 
@@ -138,6 +167,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
     const { environments, charts, ...rest } = parsedContent.scenario;
+
     const instantiatedEnvironments: Map<EnvironmentId, InstantiatedEnvironment> = new Map();
     for (const env of environments) {
       instantiatedEnvironments.set(env.id, instantiateEnvironment(env));
@@ -168,7 +198,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       activeIndex: activeIndex,
     });
 
-    useWebSocketStore.getState().initialize(url);
+    useWebSocketStore.getState().initialize(url, createStateSyncRequestFromStore(parsedContent.scenario));
   },
 
   async save(index, saveAsPath) {
@@ -215,7 +245,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { saveFormat: saveFormatSetting } = useSettingsStore.getState();
     const saveFormatFromFile = saveAsPath?.endsWith('json') ? 'json'
       : saveAsPath?.endsWith('msgpack') ? 'msgpack'
-      : undefined;
+        : undefined;
 
     const projectFilepath = saveFormatFromFile == null
       ? `${saveAsPath}.${saveFormatSetting}`

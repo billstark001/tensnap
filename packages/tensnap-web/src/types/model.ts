@@ -154,6 +154,11 @@ export interface ChartMetadata {
   label: string;
   color?: string;
 }
+
+export interface ChartMetadataWithList extends ChartMetadata {
+  dataList: any[];
+}
+
 export interface ChartDataUpdate {
   id: string;
   time?: number;
@@ -168,7 +173,7 @@ export interface NativeDataPoint {
 export interface ChartGroup {
   id: string;
   label: string;
-  metadataList: Record<string, ChartMetadata>;
+  metadataDict: Record<string, ChartMetadata>;
   data: NativeDataPoint[];
 }
 

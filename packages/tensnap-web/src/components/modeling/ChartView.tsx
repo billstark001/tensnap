@@ -147,7 +147,7 @@ export function ChartView(props: ChartViewProps) {
             <YAxis />
             <Tooltip />
             <Legend />
-            {Object.values(chartGroup.metadataList).map((chart) => <Line
+            {Object.values(chartGroup.metadataDict).map((chart) => <Line
               key={chart.id}
               type="monotone"
               dataKey={chart.id}

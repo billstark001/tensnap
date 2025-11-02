@@ -99,20 +99,22 @@ export interface LogPayload {
 
 // state_sync - Unified state synchronization (request and response)
 export interface StateSyncRequest {
-  parameters: string[];  // Parameter ID list
-  environments: EnvironmentId[];  // Environment ID list
-  charts: string[];  // Chart ID list
-  parameter_cache: Record<string, any>;  // Cached parameter values
+  parameters: Parameter[];  // Parameter ID list
+  environments: PureEnvironment[];  // Environment ID list
+  charts: ChartMetadata[];  // Chart ID list
 }
 
 export interface StateSyncResponse {
   mode?: 'full' | 'incremental'; // Default is 'full'
+  
   added_parameters: Parameter[];
   removed_parameters: string[];
   updated_parameters: Parameter[];
+
   added_environments: Environment[];
   removed_environments: EnvironmentId[];
   updated_environments: Environment[];
+
   added_charts: ChartMetadata[];
   removed_charts: string[];
   updated_charts: ChartMetadata[];
