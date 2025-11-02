@@ -5,7 +5,7 @@ import * as styles from './GraphEnvironmentView.css';
 import * as Dialog from '@radix-ui/react-dialog';
 import { dialogOverlay, dialogContent, dialogTitle, dialogClose } from '@/styles/dialog.css';
 import { X } from 'lucide-react';
-import { InstantiatedGraphEnvironment } from '@/types/model-inst';
+import { InstantiatedGraphEnvironment } from '@/store/scenario-inst';
 
 interface GraphEnvironmentViewProps {
   environment: InstantiatedGraphEnvironment;

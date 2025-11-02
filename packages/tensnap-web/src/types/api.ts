@@ -1,4 +1,4 @@
-import { Agent, Environment, Parameter, PureEnvironment } from "./model";
+import { Agent, ChartDataUpdate, ChartMetadata, Environment, Parameter, PureEnvironment } from "./model";
 
 //#region Message Types
 
@@ -86,11 +86,6 @@ export interface AgentBatchUpdatePayload {
 }
 
 // chart_data
-export interface ChartDataUpdate {
-  id: string;
-  time?: number;
-  value: any;
-}
 export type ChartDataPayload = ChartDataUpdate[];
 
 // log
@@ -111,23 +106,16 @@ export interface StateSyncRequest {
 }
 
 export interface StateSyncResponse {
-  mode?: 'full' | 'incremental'; // Default is 'incremental'
+  mode?: 'full' | 'incremental'; // Default is 'full'
   added_parameters: Parameter[];
   removed_parameters: string[];
   updated_parameters: Parameter[];
   added_environments: Environment[];
   removed_environments: (string | number)[];
   updated_environments: Environment[];
-  added_charts: ChartState[];
+  added_charts: ChartMetadata[];
   removed_charts: string[];
-  updated_charts: ChartState[];
-}
-
-// Chart state definition for communication (without data field)
-export interface ChartState {
-  id: string;
-  label: string;
-  color?: string;
+  updated_charts: ChartMetadata[];
 }
 
 // parameter_change

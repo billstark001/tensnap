@@ -1,5 +1,5 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
-import { Parameter, ChartData, ButtonParameter, SliderParameter, EnumParameter, EnvironmentId, EnvironmentType } from '@/types/model';
+import { Parameter, ButtonParameter, SliderParameter, EnumParameter, EnvironmentId, EnvironmentType } from '@/types/model';
 import { adjustLayout, initialPack } from './pack';
 
 const SIDEBAR_WIDTH = 300;
@@ -27,6 +27,11 @@ export interface LayoutOptions {
 type ObjectWithEnvironmentMetadata = { 
   id: EnvironmentId;
   type: EnvironmentType;
+};
+
+type ObjectWithChartMetadata = {
+  id: string;
+  label: string;
 };
 
 // #region object creation functions
@@ -135,7 +140,7 @@ function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): 
 /**
  * Creates views for charts
  */
-function createChartViews(charts: ChartData[]): AnchoredView[] {
+function createChartViews(charts: ObjectWithChartMetadata[]): AnchoredView[] {
   return charts.map((chart) => ({
     id: `chart-${chart.id}`,
     type: 'chart',
@@ -217,7 +222,7 @@ function getEnvironmentSignature(env: ObjectWithEnvironmentMetadata): string {
   return `env:${env.id}`;
 }
 
-function getChartSignature(chart: Pick<ChartData, 'id'>): string {
+function getChartSignature(chart: ObjectWithChartMetadata): string {
   return `chart:${chart.id}`;
 }
 
@@ -232,7 +237,7 @@ if (!window.structuredClone) {
 export function createAutoLayout(
   environments: ObjectWithEnvironmentMetadata[],
   parameters: Parameter[],
-  charts: ChartData[],
+  charts: ObjectWithChartMetadata[],
   options: LayoutOptions = {}
 ): ContainerView {
   const { currentView: _currentView, preserveExisting = false } = options;
@@ -253,7 +258,7 @@ export function createAutoLayout(
     }
     const sign = view.type === 'parameter' ? getParameterSignature(view.data) :
       view.type === 'environment' ? getEnvironmentSignature(view.data as ObjectWithEnvironmentMetadata) :
-        view.type === 'chart' ? getChartSignature(view.data) :
+        view.type === 'chart' ? getChartSignature(view.data as ObjectWithChartMetadata) :
           view.type === 'button' ? getParameterSignature({ id: view.data.id, type: 'button' }) : undefined;
     if (!sign) {
       return false;

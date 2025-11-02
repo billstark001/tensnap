@@ -8,12 +8,13 @@ export function registerEventHandlers(
   useStore: UseBoundStore<StoreApi<ScenarioStore>>,
 ) {
   wsManager.on('time_step_start', (payload: TimeStepStartPayload) => {
-    useStore.getState().setCurrentTime(payload.time);
+    useStore.getState().setCurrentTime(payload.time, true);
   });
 
   wsManager.on('time_step_end', (payload: TimeStepEndPayload) => {
     // 创建快照
     const store = useStore.getState();
+    store.setCurrentTime(payload.time ?? store.currentTime, false);
     const snapshot = {
       id: `snapshot-${Date.now()}`,
       timestamp: Date.now(),
@@ -46,6 +47,7 @@ export function registerEventHandlers(
   wsManager.on('state_sync', (payload: StateSyncResponse) => {
 
     const store = useStore.getState();
+    const mode = payload.mode || 'full';
 
     // 处理参数更新 - 使用现有的 setData 方法
     const allParameters = [
@@ -81,7 +83,7 @@ export function registerEventHandlers(
           data: [], // 初始数据为空，等待后续的chart_data消息填充
         }));
       }
-      store.setData(updateData, true);
+      store.setData(updateData, { updateLayout: true, preserveExisting: mode === 'incremental' });
     } else {
       store.updateMainViewLayout();
     }
@@ -101,9 +103,7 @@ export function registerEventHandlers(
   });
 
   wsManager.on('chart_data', (payload: ChartDataPayload) => {
-    const { addChartData, currentTime } = useStore.getState();
-    payload.forEach((chartUpdate) => {
-      addChartData(chartUpdate.id, chartUpdate.time ?? currentTime, chartUpdate.value);
-    });
+    const { addChartData } = useStore.getState();
+    addChartData(payload);
   });
 }

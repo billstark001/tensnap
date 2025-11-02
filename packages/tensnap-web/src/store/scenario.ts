@@ -1,37 +1,43 @@
 import { create } from 'zustand';
-import { Environment, Parameter, ChartData, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId } from '../types/model';
+import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartMetadata, ChartDataUpdate } from '../types/model';
 import { ContainerView } from '../types/ui';
 import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
 import { createDefaultRootLayout } from '@/utils/layout/pack-layout';
-import { InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from '@/types/model-inst';
+import { instantiateChartMetadata, InstantiatedChartDataStorage, InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from '@/store/scenario-inst';
 
 export interface SetDataPayload {
   environments?: Environment[];
   parameters?: Parameter[];
-  charts?: ChartData[];
+  charts?: ChartMetadata[];
+}
+
+export interface SetDataOptions {
+  updateLayout?: boolean;
+  preserveExisting?: boolean;
 }
 
 export interface ScenarioStore {
   // State
   connected: boolean;
   currentTime: number;
+  isInTimeStep: boolean;
   environments: Map<EnvironmentId, InstantiatedEnvironment>;
   parameters: Parameter[];
-  charts: ChartData[];
+  charts: InstantiatedChartDataStorage;
   snapshots: Snapshot[];
   maxSnapshots: number;
   mainView: ContainerView;
 
   // Actions
   setConnected: (connected: boolean) => void;
-  setCurrentTime: (time: number) => void;
-  setData: (data: SetDataPayload, updateLayout?: boolean) => void;
+  setCurrentTime: (time: number | null | undefined, isInTimeStep: boolean) => void;
+  setData: (data: SetDataPayload, options?: SetDataOptions) => void;
   updateEnvironment: (id: EnvironmentId, data: PureEnvironment) => void;
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
   updateParameter: (id: string, value: any) => void;
-  addChartData: (chartId: string, time: number, value: number) => void;
+  addChartData: (updates: ChartDataUpdate[]) => void;
   addSnapshot: (snapshot: SnapshotMetadata) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
@@ -43,9 +49,10 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   // Initial state
   connected: false,
   currentTime: 0,
+  isInTimeStep: false,
   environments: new Map(),
   parameters: [],
-  charts: [],
+  charts: new InstantiatedChartDataStorage([]),
   snapshots: [],
   maxSnapshots: 32,
   mainView: createDefaultRootLayout(),
@@ -53,19 +60,48 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   // Actions
   setConnected: (connected) => set({ connected }),
 
-  setCurrentTime: (time) => set({ currentTime: time }),
+  setCurrentTime: (time, isInTimeStep) => {
+    // TODO add verification
+    if (time == null) {
+      set({ isInTimeStep });
+    } else {
+      set({ currentTime: time, isInTimeStep });
+    }
+  },
 
-  setData: (data, updateLayout = true) => {
+  setData: (data, options) => {
+    const { 
+      updateLayout = true,
+      preserveExisting = false,
+    } = options || {};
+
+    const { environments, parameters, charts } = get();
+
     const updates: Partial<Pick<ScenarioStore, 'environments' | 'parameters' | 'charts'>> = {};
-    
+
     if (data.environments !== undefined) {
-      updates.environments = new Map(data.environments.map(env => [env.id, instantiateEnvironment(env)]));
+      if (preserveExisting) {
+        const newEnvironments = new Map(environments);
+        for (const env of data.environments) {
+          newEnvironments.set(env.id, instantiateEnvironment(env));
+        }
+        updates.environments = newEnvironments;
+      }
+      else {
+        updates.environments = new Map(data.environments.map(env => [env.id, instantiateEnvironment(env)]));
+      }
     }
     if (data.parameters !== undefined) {
       updates.parameters = data.parameters;
     }
     if (data.charts !== undefined) {
-      updates.charts = data.charts;
+      const newCharts = preserveExisting ? charts.shallowCopy() : new InstantiatedChartDataStorage([]);
+      for (const chartMeta of data.charts) {
+        if (!newCharts.chartDataMapById.has(chartMeta.id)) {
+          newCharts.addChartDataGroup(instantiateChartMetadata(chartMeta));
+        }
+      }
+      updates.charts = newCharts;
     }
     
     set(updates);
@@ -75,7 +111,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       const { environments, parameters, charts, mainView } = get();
       const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type })); 
       set({
-        mainView: createAutoLayout(environmentsArray, parameters, charts, {
+        mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
           currentView: mainView,
           preserveExisting: true
         })
@@ -91,7 +127,6 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       return;
     }
     environments.set(id, { ...env, props: { ...env.props, ...propsUpdate } });
-    set({ environments });
   },
 
   updateAgents: (envId, updates) => {
@@ -111,7 +146,6 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       Object.assign(agents[id], data);
     }
     environments.set(envId, { ...env, agents });
-    set({ environments });
   },
 
 
@@ -123,14 +157,10 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     }));
   },
 
-  addChartData: (chartId, time, value) =>
-    set((state) => ({
-      charts: state.charts.map((chart) =>
-        chart.id === chartId
-          ? { ...chart, data: [...chart.data, { time, value }] }
-          : chart
-      ),
-    })),
+  addChartData: (updates) => {
+    const { charts, currentTime } = get();
+    charts.push(currentTime, updates);
+  },
 
   addSnapshot: (snapshotMetadata: SnapshotMetadata) => {
     return; // TODO optimize performance
@@ -165,7 +195,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     const { environments, parameters, charts, mainView } = get();
       const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type })); 
     set({
-      mainView: createAutoLayout(environmentsArray, parameters, charts, {
+      mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
         currentView: mainView,
         preserveExisting: true
       })

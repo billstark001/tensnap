@@ -148,20 +148,34 @@ export type Parameter = SliderParameter | EnumParameter | ButtonParameter | Chec
 // #endregion
 
 
-export interface ChartData {
+export interface ChartMetadata {
   id: string;
   label: string;
-  getter: string;
   color?: string;
-  data: { time: number; value: number }[];
+}
+export interface ChartDataUpdate {
+  id: string;
+  time?: number;
+  value: any;
 }
 
+export interface NativeDataPoint {
+  time: number;
+  [key: string]: any;
+}
+
+export interface ChartGroup {
+  id: string;
+  label: string;
+  metadataList: Record<string, ChartMetadata>;
+  data: NativeDataPoint[];
+}
 export interface SimulationState {
   connected: boolean;
   currentTime: number;
   environments: Environment[];
   parameters: Parameter[];
-  charts: ChartData[];
+  charts: ChartGroup[];
   snapshots: Snapshot[];
 }
 

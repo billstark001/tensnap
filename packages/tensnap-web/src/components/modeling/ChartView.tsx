@@ -9,8 +9,9 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { ChartData } from '@/types/model';
 import * as styles from './ChartView.css';
+import { ChartGroup, NativeDataPoint } from '@/types/model';
+import { createCsvContent } from '@/store/scenario-inst';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -50,75 +51,27 @@ const getColorForId = (id: string): string => {
 };
 
 interface ChartViewProps {
-  chart: ChartData;
+  chart: ChartGroup;
   updateInterval?: number; // 最小更新间隔，单位毫秒，默认500ms
 }
 
-export function ChartView({ chart, updateInterval = 500 }: ChartViewProps) {
+export function ChartView({ chart: chartGroup, updateInterval = 500 }: ChartViewProps) {
   // 缓存处理后的数据和相关状态
-  const processedDataRef = useRef<Array<{ time: number; [key: string]: any }>>([]);
-  const timeMapRef = useRef<Map<number, any>>(new Map());
-  const lastProcessedLengthRef = useRef<number>(0);
-  const currentChartIdRef = useRef<string | null>(null);
-  
+  const {
+    data: rawData,
+  } = chartGroup;
+
   // 节流相关状态
-  const [displayData, setDisplayData] = useState<Array<{ time: number; [key: string]: any }>>([]);
-  const pendingDataRef = useRef<ChartData | null>(null);
+  const [displayData, setDisplayData] = useState<Array<NativeDataPoint>>([]);
+  const rawDataRef = useRef<Array<NativeDataPoint>>(rawData);
   const lastUpdateTimeRef = useRef<number>(0);
   const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 处理数据的核心逻辑（从useMemo中提取出来）
-  const processChartData = useCallback((chartData: ChartData) => {
-    if (!chartData) return [];
-
-    // 如果 chart.id 发生变化，清空缓存（新的图表）
-    if (currentChartIdRef.current !== chartData.id) {
-      processedDataRef.current = [];
-      timeMapRef.current = new Map();
-      lastProcessedLengthRef.current = 0;
-      currentChartIdRef.current = chartData.id;
-    }
-
-    const dataPoints = chartData.data;
-    const lastProcessedLength = lastProcessedLengthRef.current;
-    
-    // 如果数据长度变小，说明可能是重置，重新处理所有数据
-    if (dataPoints.length < lastProcessedLength) {
-      timeMapRef.current.clear();
-      processedDataRef.current = [];
-      lastProcessedLengthRef.current = 0;
-    }
-
-    // 只处理新增的数据点
-    const newDataPoints = dataPoints.slice(lastProcessedLength);
-    
-    if (newDataPoints.length === 0) {
-      return processedDataRef.current;
-    }
-
-    // 增量更新时间映射
-    newDataPoints.forEach((point) => {
-      if (!timeMapRef.current.has(point.time)) {
-        timeMapRef.current.set(point.time, { time: point.time });
-      }
-      const entry = timeMapRef.current.get(point.time)!;
-      entry[chartData.id] = point.value;
-    });
-
-    // 重新构建排序后的数组（只在有新数据时）
-    if (newDataPoints.length > 0) {
-      processedDataRef.current = Array.from(timeMapRef.current.values())
-        .sort((a, b) => a.time - b.time);
-    }
-
-    lastProcessedLengthRef.current = dataPoints.length;
-    return processedDataRef.current;
-  }, []);
 
   // 节流更新函数
   const scheduleUpdate = useCallback(() => {
     if (updateTimerRef.current) {
-      clearTimeout(updateTimerRef.current);
+      return; // 已经有一个更新计划在进行中
     }
 
     const now = Date.now();
@@ -126,67 +79,50 @@ export function ChartView({ chart, updateInterval = 500 }: ChartViewProps) {
 
     if (timeSinceLastUpdate >= updateInterval) {
       // 可以立即更新
-      if (pendingDataRef.current) {
-        const newData = processChartData(pendingDataRef.current);
-        setDisplayData([...newData]);
-        lastUpdateTimeRef.current = now;
-        pendingDataRef.current = null;
-      }
+      setDisplayData([...rawDataRef.current]);
+      lastUpdateTimeRef.current = now;
+      updateTimerRef.current = null;
     } else {
       // 需要等待
       const remainingTime = updateInterval - timeSinceLastUpdate;
       updateTimerRef.current = setTimeout(() => {
-        if (pendingDataRef.current) {
-          const newData = processChartData(pendingDataRef.current);
-          setDisplayData([...newData]);
-          lastUpdateTimeRef.current = Date.now();
-          pendingDataRef.current = null;
-        }
+        setDisplayData([...rawDataRef.current]);
+        lastUpdateTimeRef.current = Date.now();
+        updateTimerRef.current = null;
       }, remainingTime);
     }
-  }, [updateInterval, processChartData]);
+  }, [updateInterval]);
 
-  // 当chart数据变化时，触发节流更新
+  // 持续更新原始数据引用
   useEffect(() => {
-    if (chart) {
-      pendingDataRef.current = chart;
-      scheduleUpdate();
-    }
+    rawDataRef.current = rawData;
+    scheduleUpdate();
+  }, [rawData, rawData.length, scheduleUpdate]);
 
-    // 清理定时器
+  useEffect(() => {
     return () => {
+      // 清理定时器
       if (updateTimerRef.current) {
         clearTimeout(updateTimerRef.current);
       }
     };
-  }, [chart, scheduleUpdate]);
+  }, []);
 
-  const data = useMemo(() => displayData, [displayData]);
+  const data = displayData;
 
   const exportToCSV = useCallback(() => {
-    if (data.length === 0) return;
-
-    const headers = ['time', chart.label];
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row => {
-        const values = [row.time];
-        values.push(row[chart.id] || '');
-        return values.join(',');
-      })
-    ].join('\n');
-
+    const csvContent = createCsvContent(chartGroup);
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `chart_${chart.id}_${Date.now()}.csv`;
+    a.download = `chart_${chartGroup.id}_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [data, chart.id, chart.label]);
+  }, [data, chartGroup.id, chartGroup.label]);
 
   // 获取当前图表的颜色
-  const chartColor = useMemo(() => getColorForId(chart.id), [chart.id]);
+  const chartColor = useMemo(() => getColorForId(chartGroup.id), [chartGroup.id]);
 
   return (
     <div className={styles.chartContainer}>
@@ -207,7 +143,7 @@ export function ChartView({ chart, updateInterval = 500 }: ChartViewProps) {
             <YAxis />
             <Tooltip />
             <Legend />
-            <Line
+            {Object.values(chartGroup.metadataList).map((chart) => <Line
               key={chart.id}
               type="monotone"
               dataKey={chart.id}
@@ -216,7 +152,8 @@ export function ChartView({ chart, updateInterval = 500 }: ChartViewProps) {
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 5 }}
-            />
+              isAnimationActive={false}
+            />)}
           </LineChart>
         </ResponsiveContainer>
       </div>

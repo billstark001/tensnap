@@ -7,14 +7,23 @@ import { useButtonControls } from './components/useButtonControls';
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 
+function StatusBar() {
+  const connected = useScenarioStore((store) => store.connected);
+  const currentTime = useScenarioStore((store) => store.currentTime);
+
+  return (
+    <div className={styles.statusBar}>
+      <span className={connected ? styles.statusConnected : styles.statusDisconnected}>
+        {connected ? 'Connected' : 'Disconnected'}
+      </span>
+      <span style={{ marginLeft: '16px' }}>Time Step: {currentTime}</span>
+    </div>
+  )
+}
 
 export function App() {
-  const {
-    connected = false,
-    currentTime = 0,
-    mainView,
-    setMainView,
-  } = useScenarioStore() ?? {};
+  const mainView = useScenarioStore((store) => store.mainView);
+  const setMainView = useScenarioStore((store) => store.setMainView);
   
   const { loading: fileSystemLoading } = useFileSystem();
   const { loading: counterLoading } = useLoadingStore();
@@ -26,12 +35,7 @@ export function App() {
       <ToolBarLayout />
 
       <main className={styles.main} style={{ padding: 0, overflow: 'hidden' }}>
-        <div className={styles.statusBar}>
-          <span className={connected ? styles.statusConnected : styles.statusDisconnected}>
-            {connected ? 'Connected' : 'Disconnected'}
-          </span>
-          <span style={{ marginLeft: '16px' }}>Time Step: {currentTime}</span>
-        </div>
+        <StatusBar />
         {mainView && <ViewRenderer
           view={mainView}
           setView={setMainView!}

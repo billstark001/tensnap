@@ -3,7 +3,7 @@ import { ScenarioStore } from './scenario';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import { StateSyncRequest, WSMessage } from '@/types/api';
-import { registerEventHandlers } from './websocket-scenario';
+import { registerEventHandlers } from './scenario-ws';
 import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, FakeWebSocketOptions, WebSocketManagerFake } from '@/websocket';
 
 export interface WebSocketStore {

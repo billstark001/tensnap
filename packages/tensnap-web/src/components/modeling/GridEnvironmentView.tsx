@@ -7,7 +7,7 @@ import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
 import * as dialogStyles from '@/styles/dialog.css';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
-import { InstantiatedGridEnvironment } from '@/types/model-inst';
+import { InstantiatedGridEnvironment } from '@/store/scenario-inst';
 
 interface GridEnvironmentViewProps {
   environment: InstantiatedGridEnvironment;
