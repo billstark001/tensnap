@@ -19,6 +19,32 @@ export interface FakeWebSocketOptions {
 }
 
 export class WebSocketManagerFake implements WebSocketManager {
+  
+  static readonly WEBSOCKET_FAKE_PROTOCOL = 'fake:';
+  static readonly globalOptions: Map<string, FakeWebSocketOptions> = new Map();
+
+  static setGlobalOptions(url: string, options: FakeWebSocketOptions) {
+    if (url.startsWith(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL)) {
+      url = url.slice(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL.length);
+    }
+    WebSocketManagerFake.globalOptions.set(url, options);
+  }
+
+  static getGlobalOptions(url: string): FakeWebSocketOptions | undefined {
+    if (url.startsWith(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL)) {
+      url = url.slice(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL.length);
+    }
+    return WebSocketManagerFake.globalOptions.get(url);
+  }
+
+  static createFromGlobalOptions(id: string | null, url: string): WebSocketManagerFake {
+    const options = WebSocketManagerFake.getGlobalOptions(url);
+    if (!options) {
+      throw new Error(`No global FakeWebSocketOptions found for url: ${url}`);
+    }
+    return new WebSocketManagerFake(id, options);
+  }
+
   readonly id: string;
 
   private _connectionState: WebSocketConnectionState = 'closed';

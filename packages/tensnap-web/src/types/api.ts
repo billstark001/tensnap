@@ -1,4 +1,4 @@
-import { Agent, ChartDataUpdate, ChartMetadata, Environment, Parameter, PureEnvironment } from "./model";
+import { Agent, AgentId, ChartDataUpdate, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment } from "./model";
 
 //#region Message Types
 
@@ -65,22 +65,22 @@ export interface TimeStepEndPayload {
 
 // environment_update
 export interface EnvironmentUpdatePayload {
-  id: string | number;
+  id: EnvironmentId;
   data: PureEnvironment;
 }
 
 // agent_update
 export interface AgentUpdatePayload {
-  environment_id: string | number;
-  agent_id: string | number;
+  environment_id: EnvironmentId;
+  agent_id: AgentId;
   data: Agent; // Recommend to specify as Agent data structure
 }
 
 // agent_batch_update
 export interface AgentBatchUpdatePayload {
-  environment_id: string | number;
+  environment_id: EnvironmentId;
   updates: Array<{
-    id: string | number;
+    id: AgentId;
     data: Agent;
   }>;
 }
@@ -100,7 +100,7 @@ export interface LogPayload {
 // state_sync - Unified state synchronization (request and response)
 export interface StateSyncRequest {
   parameters: string[];  // Parameter ID list
-  environments: (string | number)[];  // Environment ID list
+  environments: EnvironmentId[];  // Environment ID list
   charts: string[];  // Chart ID list
   parameter_cache: Record<string, any>;  // Cached parameter values
 }
@@ -111,7 +111,7 @@ export interface StateSyncResponse {
   removed_parameters: string[];
   updated_parameters: Parameter[];
   added_environments: Environment[];
-  removed_environments: (string | number)[];
+  removed_environments: EnvironmentId[];
   updated_environments: Environment[];
   added_charts: ChartMetadata[];
   removed_charts: string[];

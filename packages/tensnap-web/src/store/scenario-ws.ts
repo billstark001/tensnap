@@ -1,6 +1,6 @@
 import { WebSocketManager } from "@/websocket";
 import { ScenarioStore, SetDataPayload } from "./scenario";
-import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartDataPayload, TimeStepStartPayload, TimeStepEndPayload } from "@/types/api";
+import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartDataPayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload } from "@/types/api";
 import { StoreApi, UseBoundStore } from "zustand";
 
 export function registerEventHandlers(
@@ -105,5 +105,14 @@ export function registerEventHandlers(
   wsManager.on('chart_data', (payload: ChartDataPayload) => {
     const { addChartData } = useStore.getState();
     addChartData(payload);
+  });
+
+  wsManager.on('log', (payload: LogPayload) => {
+    // TODO 处理日志消息
+    if (payload.target) {
+      console.log(`[${payload.level.toUpperCase()}][${payload.target}] ${payload.message}`);
+    } else {
+      console.log(`[${payload.level.toUpperCase()}] ${payload.message}`);
+    }
   });
 }

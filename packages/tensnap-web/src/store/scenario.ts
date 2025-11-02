@@ -17,7 +17,6 @@ export interface SetDataOptions {
   updateLayout?: boolean;
   preserveExisting?: boolean;
 }
-
 export interface ScenarioStore {
   // State
   connected: boolean;
@@ -70,7 +69,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   setData: (data, options) => {
-    const { 
+    const {
       updateLayout = true,
       preserveExisting = false,
     } = options || {};
@@ -103,13 +102,13 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       }
       updates.charts = newCharts;
     }
-    
+
     set(updates);
-    
+
     // Auto-update layout when data changes with incremental updates
     if (updateLayout) {
       const { environments, parameters, charts, mainView } = get();
-      const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type })); 
+      const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type }));
       set({
         mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
           currentView: mainView,
@@ -120,7 +119,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateEnvironment: (id, propsUpdate) => {
-    const { environments } = get(); 
+    const { environments } = get();
     const env = environments.get(id);
     if (!env) {
       console.warn(`Environment with id ${id} not found.`);
@@ -193,7 +192,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   updateMainViewLayout: () => {
     const { environments, parameters, charts, mainView } = get();
-      const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type })); 
+    const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type }));
     set({
       mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
         currentView: mainView,

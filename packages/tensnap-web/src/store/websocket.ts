@@ -4,21 +4,29 @@ import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import { StateSyncRequest, WSMessage } from '@/types/api';
 import { registerEventHandlers } from './scenario-ws';
-import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, FakeWebSocketOptions, WebSocketManagerFake } from '@/websocket';
+import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, WebSocketManagerFake } from '@/websocket';
+
+
+const createEmptyStateSyncRequest = (): StateSyncRequest => ({
+  parameters: [],
+  environments: [],
+  charts: [],
+  parameter_cache: {}
+});
+
 
 export interface WebSocketStore {
   id: string;
   wsManager: WebSocketManager | null;
-  url: string | FakeWebSocketOptions | null;
+  url: string | null;
   isConnecting: boolean;
   connectionError: string | null;
   abortController: AbortController | null;
 
   // Actions
-  initialize: (url: string | FakeWebSocketOptions) => Promise<void>;
+  initialize: (url: string) => Promise<void>;
   sendMessage: <T = any>(message: WSMessage<T>) => void;
-  requestState: () => void;
-  requestStateSync: (currentState: StateSyncRequest) => void;  // 统一的状态同步请求
+  requestStateSync: (currentState?: StateSyncRequest) => void;
   disconnect: () => void;
   reconnect: () => Promise<void>;
   destroy: () => void;
@@ -35,7 +43,7 @@ export const createWebSocketStore = (
   connectionError: null,
   abortController: null,
 
-  initialize: async (url: string | FakeWebSocketOptions) => {
+  initialize: async (url: string) => {
     const { wsManager: currentManager, abortController: currentAbort } = get();
 
     // 中断当前正在进行的连接
@@ -52,9 +60,9 @@ export const createWebSocketStore = (
     const abortController = new AbortController();
     set({ url, isConnecting: true, connectionError: null, abortController });
 
-    const wsManager: WebSocketManager = typeof url === 'string'
-      ? new WebSocketManagerImpl(null, url)
-      : new WebSocketManagerFake(null, url);
+    const wsManager: WebSocketManager = url.startsWith(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL)
+      ? WebSocketManagerFake.createFromGlobalOptions(null, url)
+      : new WebSocketManagerImpl(null, url)
 
     // 设置消息处理器
     registerEventHandlers(wsManager, useScenarioStore);
@@ -67,13 +75,7 @@ export const createWebSocketStore = (
       });
       // 设置连接状态并请求初始状态
       useScenarioStore.getState().setConnected(true);
-      const emptyState: StateSyncRequest = {
-        parameters: [],
-        environments: [],
-        charts: [],
-        parameter_cache: {}
-      };
-      wsManager.send({ type: 'state_sync', payload: emptyState });
+      wsManager.send({ type: 'state_sync', payload: createEmptyStateSyncRequest() });
     };
 
     wsManager.on(wsConnected, onConnected);
@@ -123,21 +125,9 @@ export const createWebSocketStore = (
     }
   },
 
-  requestState: () => {
+  requestStateSync: (currentState?: StateSyncRequest) => {
     const { sendMessage } = get();
-    // 发送空的客户端状态以获取完整状态
-    const emptyState: StateSyncRequest = {
-      parameters: [],
-      environments: [],
-      charts: [],
-      parameter_cache: {}
-    };
-    sendMessage<StateSyncRequest>({ type: 'state_sync', payload: emptyState });
-  },
-
-  requestStateSync: (currentState: StateSyncRequest) => {
-    const { sendMessage } = get();
-    sendMessage<StateSyncRequest>({ type: 'state_sync', payload: currentState });
+    sendMessage<StateSyncRequest>({ type: 'state_sync', payload: currentState ?? createEmptyStateSyncRequest() });
   },
 
   disconnect: () => {
