@@ -147,6 +147,7 @@ export type Parameter = SliderParameter | EnumParameter | ButtonParameter | Chec
 
 // #endregion
 
+// #region Charts
 
 export interface ChartMetadata {
   id: string;
@@ -170,6 +171,17 @@ export interface ChartGroup {
   metadataList: Record<string, ChartMetadata>;
   data: NativeDataPoint[];
 }
+
+// #endregion
+
+// #region Logs
+
+// TODO
+
+// #endregion
+
+// #region Snapshots
+
 export interface SimulationState {
   connected: boolean;
   currentTime: number;
@@ -198,3 +210,5 @@ export const defaultSimulationState = (): SimulationState => ({
   charts: [],
   snapshots: [],
 });
+
+// #endregion

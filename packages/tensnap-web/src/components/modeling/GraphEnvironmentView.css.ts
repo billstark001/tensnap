@@ -67,3 +67,16 @@ export const nodeText = style({
   pointerEvents: 'none',
   userSelect: 'none',
 });
+
+export const resetButton = style({
+  position: 'absolute',
+  top: '10px',
+  right: '10px',
+  padding: '8px 12px',
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  border: '1px solid #ccc',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontSize: '12px',
+  zIndex: 10
+});

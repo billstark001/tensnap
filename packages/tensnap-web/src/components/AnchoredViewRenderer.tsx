@@ -1,11 +1,12 @@
 import React from 'react';
 import { GridEnvironmentView } from './modeling/GridEnvironmentView';
 import { GraphEnvironmentView } from './modeling/GraphEnvironmentView';
+import { UniformEnvironmentView } from './modeling/UniformEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from './modeling/ChartView';
 import { ScenarioStore, useScenarioStore } from '../store/scenario';
 import { AnchoredView } from '../types/ui';
-import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment } from '@/store/scenario-inst';
+import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment } from '@/store/scenario-inst';
 import { EnvironmentId } from '@/types/model';
 
 export interface AnchoredViewRendererProps {
@@ -24,8 +25,9 @@ const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
     return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} />;
   } else if (environment.type === 'graph') {
     return <GraphEnvironmentView environment={environment as InstantiatedGraphEnvironment} />;
+  } else if (environment.type === 'uniform') {
+    return <UniformEnvironmentView environment={environment as InstantiatedUniformEnvironment} />;
   } else {
-    // TODO add uniform environment view
     return <div>Unsupported environment type: {environment.type}</div>;
   }
 };

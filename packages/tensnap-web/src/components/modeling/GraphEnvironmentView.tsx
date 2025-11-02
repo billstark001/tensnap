@@ -2,9 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { GraphAgent, AgentId } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
-import * as Dialog from '@radix-ui/react-dialog';
-import { dialogOverlay, dialogContent, dialogTitle, dialogClose } from '@/styles/dialog.css';
-import { X } from 'lucide-react';
+import { AgentDetailsDialog } from './AgentDetailsDialog';
 import { InstantiatedGraphEnvironment } from '@/store/scenario-inst';
 
 interface GraphEnvironmentViewProps {
@@ -457,67 +455,18 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
           className={styles.svg}
         />
         <button
+          className={styles.resetButton}
           onClick={resetView}
-          style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            padding: '8px 12px',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px',
-            zIndex: 10
-          }}
         >
           重置视图
         </button>
       </div>
 
-      <Dialog.Root open={!!selectedNode} onOpenChange={(open) => !open && setSelectedNode(null)}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogOverlay} />
-          <Dialog.Content className={dialogContent}>
-            <Dialog.Title className={dialogTitle}>Node Details</Dialog.Title>
-
-            {selectedNode && (
-              <div>
-                <p style={{ marginBottom: '8px' }}>
-                  <strong>ID:</strong> {selectedNode.id}
-                </p>
-                <p style={{ marginBottom: '8px' }}>
-                  <strong>Color:</strong> {selectedNode.color || 'default'}
-                </p>
-                <p style={{ marginBottom: '8px' }}>
-                  <strong>Size:</strong> {selectedNode.size || 10}
-                </p>
-                {selectedNode.data && (
-                  <div>
-                    <h4 style={{ marginBottom: '8px', marginTop: '16px' }}>Custom Data:</h4>
-                    <pre style={{
-                      backgroundColor: '#f5f5f5',
-                      padding: '8px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      overflow: 'auto',
-                      maxHeight: '200px'
-                    }}>
-                      {JSON.stringify(selectedNode.data, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <Dialog.Close asChild>
-              <button className={dialogClose} aria-label="Close">
-                <X size={16} />
-              </button>
-            </Dialog.Close>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <AgentDetailsDialog
+        agentType='graph'
+        agent={selectedNode}
+        onClose={() => setSelectedNode(null)}
+      />
     </div>
   );
 }

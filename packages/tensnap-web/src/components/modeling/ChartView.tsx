@@ -31,7 +31,7 @@ const CHART_COLORS = [
   '#dda0dd',
   '#98d8c8',
   '#6c5ce7'
-];
+] as const;
 
 // 简单的字符串哈希函数
 const hashString = (str: string): number => {

@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartDataUpdate, ChartGroup, ChartMetadata, Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent, NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, UniformAgent } from "../types/model";
+import { Agent, AgentId, ChartDataUpdate, ChartGroup, ChartMetadata, Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent, NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment, UniformAgent } from "../types/model";
 
 // #region Instantiated Environment
 
@@ -23,7 +23,7 @@ export interface InstantiatedGraphEnvironment extends InstantiatedEnvironment {
 
 export interface InstantiatedUniformEnvironment extends InstantiatedEnvironment {
   type: 'uniform';
-  props: Omit<PureEnvironment, 'type' | 'id'>;
+  props: Omit<PureUniformEnvironment, 'type' | 'id'>;
   agents: Record<AgentId, UniformAgent>;
 }
 
