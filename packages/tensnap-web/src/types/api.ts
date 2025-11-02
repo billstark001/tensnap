@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartDataUpdate, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment } from "./model";
+import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment } from "./model";
 
 //#region Message Types
 
@@ -9,7 +9,7 @@ export type ServerToClientMessageType =
   | 'environment_update'
   | 'agent_update'
   | 'agent_batch_update'
-  | 'chart_data'
+  | 'chart_update'
   | 'state_sync'
   | 'log'
   | 'error';
@@ -85,8 +85,8 @@ export interface AgentBatchUpdatePayload {
   }>;
 }
 
-// chart_data
-export type ChartDataPayload = ChartDataUpdate[];
+// chart_update
+export type ChartUpdatePayload = ChartUpdateData[];
 
 // log
 export interface LogPayload {
@@ -146,7 +146,7 @@ export type ServerToClientPayload =
   | EnvironmentUpdatePayload
   | AgentUpdatePayload
   | AgentBatchUpdatePayload
-  | ChartDataPayload
+  | ChartUpdatePayload
   | StateSyncResponse
   | LogPayload
   | ErrorPayload;

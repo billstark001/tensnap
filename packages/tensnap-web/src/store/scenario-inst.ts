@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartDataUpdate, ChartGroup, ChartMetadata, Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent, NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment, UniformAgent } from "../types/model";
+import { Agent, AgentId, ChartUpdateData, ChartGroup, ChartMetadata, Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent, NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment, UniformAgent } from "../types/model";
 
 // #region Environment
 
@@ -165,7 +165,7 @@ export class InstantiatedChartDataStorage {
     return allMetadata;
   }
 
-  push(currentTime: number, dataPoints: ChartDataUpdate[]) {
+  push(currentTime: number, dataPoints: ChartUpdateData[]) {
     for (const m of this._pushMap.values()) {
       m.clear();
     }

@@ -159,10 +159,15 @@ export interface ChartMetadataWithList extends ChartMetadata {
   dataList: any[];
 }
 
-export interface ChartDataUpdate {
+export interface ChartUpdateData {
   id: string;
   time?: number;
   value: any;
+}
+
+export interface ChartUpdateOperation {
+  id: string;
+  operation: 'reset';
 }
 
 export interface NativeDataPoint {

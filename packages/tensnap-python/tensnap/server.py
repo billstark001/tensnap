@@ -33,7 +33,7 @@ class ServerToClientMessageType(Enum):
     ENVIRONMENT_UPDATE = "environment_update"
     AGENT_UPDATE = "agent_update"
     AGENT_BATCH_UPDATE = "agent_batch_update"
-    CHART_DATA = "chart_data"
+    CHART_UPDATE = "chart_update"
     STATE_SYNC = "state_sync"
     ERROR = "error"
 
@@ -531,21 +531,21 @@ class TenSnapServer:
             chart_tasks = []
             for chart in self.charts.values():
                 if chart.getter:
-                    chart_tasks.append(self._get_chart_data_async(chart, time))
+                    chart_tasks.append(self._get_chart_update_async(chart, time))
 
             if chart_tasks:
                 chart_results = await asyncio.gather(
                     *chart_tasks, return_exceptions=True
                 )
-                chart_data = [
+                chart_update = [
                     result
                     for result in chart_results
                     if not isinstance(result, Exception)
                 ]
 
-                if chart_data:
+                if chart_update:
                     await self.broadcast(
-                        ServerToClientMessageType.CHART_DATA, chart_data
+                        ServerToClientMessageType.CHART_UPDATE, chart_update
                     )
 
         payload = {}
@@ -553,7 +553,7 @@ class TenSnapServer:
             payload["time"] = time
         await self.broadcast(ServerToClientMessageType.TIME_STEP_END, payload)
 
-    async def _get_chart_data_async(
+    async def _get_chart_update_async(
         self, chart: "Chart", time: int | None
     ) -> Dict[str, Any]:
         """Get chart data asynchronously"""

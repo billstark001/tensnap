@@ -77,7 +77,7 @@ Client                                     Server
   |<-----------------------------------------|
   |  agent_batch_update                     |
   |<-----------------------------------------|
-  |  chart_data                             |
+  |  chart_update                             |
   |<-----------------------------------------|
   |  time_step_end                          |
   |<-----------------------------------------|
@@ -246,13 +246,13 @@ Updates entire environment state (rare, usually only on init).
 }
 ```
 
-#### 5. `chart_data`
+#### 5. `chart_update`
 
 Sends a data point for a chart.
 
 ```typescript
 {
-  type: "chart_data",
+  type: "chart_update",
   payload: {
     chart_id: string,
     step: number,
@@ -264,7 +264,7 @@ Sends a data point for a chart.
 **Example**:
 ```json
 {
-  "type": "chart_data",
+  "type": "chart_update",
   "payload": {
     "chart_id": "population",
     "step": 42,
@@ -630,7 +630,7 @@ class TenSnapClient {
       case 'agent_batch_update':
         this.updateAgents(payload);
         break;
-      case 'chart_data':
+      case 'chart_update':
         this.addChartData(payload);
         break;
       // ... more handlers

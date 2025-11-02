@@ -393,7 +393,7 @@ type ServerMessage =
   | { type: "time_step_end", payload: { step: number } }
   | { type: "agent_batch_update", payload: AgentUpdate[] }
   | { type: "environment_update", payload: EnvironmentState }
-  | { type: "chart_data", payload: ChartDataPoint }
+  | { type: "chart_update", payload: ChartDataPoint }
   | { type: "state_sync", payload: StateSyncResponse }
   | { type: "error", payload: { message: string } }
 ```
@@ -458,7 +458,7 @@ TenSnap uses a differential state sync protocol:
    ├─→ Agents update positions
    ├─→ Server sends agent_batch_update
    ├─→ Charts collect data points
-   ├─→ Server sends chart_data
+   ├─→ Server sends chart_update
    └─→ Server sends time_step_end
    
 4. Client receives updates

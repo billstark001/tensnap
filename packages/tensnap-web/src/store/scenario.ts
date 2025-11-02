@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartMetadata, ChartDataUpdate } from '../types/model';
+import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartMetadata, ChartUpdateData } from '../types/model';
 import { ContainerView } from '../types/ui';
 import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
@@ -36,7 +36,7 @@ export interface ScenarioStore {
   updateEnvironment: (id: EnvironmentId, data: PureEnvironment) => void;
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
   updateParameter: (id: string, value: any) => void;
-  addChartData: (updates: ChartDataUpdate[]) => void;
+  addChartData: (updates: ChartUpdateData[]) => void;
   addSnapshot: (snapshot: SnapshotMetadata) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;

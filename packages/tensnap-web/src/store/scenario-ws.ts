@@ -1,6 +1,6 @@
 import { WebSocketManager } from "@/websocket";
 import { ScenarioStore, SetDataPayload } from "./scenario";
-import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartDataPayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload } from "@/types/api";
+import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartUpdatePayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload } from "@/types/api";
 import { StoreApi, UseBoundStore } from "zustand";
 
 export function registerEventHandlers(
@@ -80,7 +80,7 @@ export function registerEventHandlers(
           label: chart.label,
           getter: chart.id, // 使用id作为getter标识
           color: chart.color,
-          data: [], // 初始数据为空，等待后续的chart_data消息填充
+          data: [], // 初始数据为空，等待后续的chart_update消息填充
         }));
       }
       store.setData(updateData, { updateLayout: true, preserveExisting: mode === 'incremental' });
@@ -102,7 +102,7 @@ export function registerEventHandlers(
     }
   });
 
-  wsManager.on('chart_data', (payload: ChartDataPayload) => {
+  wsManager.on('chart_update', (payload: ChartUpdatePayload) => {
     const { addChartData } = useStore.getState();
     addChartData(payload);
   });
