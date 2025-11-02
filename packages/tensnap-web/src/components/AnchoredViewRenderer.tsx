@@ -44,7 +44,7 @@ const AnchoredChartView = ({ id }: { id: string }) => {
   const chartGroup = charts?.chartDataMapByGroup.get(id);
   if (!chartGroup) return <div>Chart not found: {id}</div>;
 
-  return <ChartView chart={chartGroup} />;
+  return <ChartView chartGroup={chartGroup} />;
 }
 
 export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type, id }) => {

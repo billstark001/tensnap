@@ -51,12 +51,18 @@ const getColorForId = (id: string): string => {
 };
 
 interface ChartViewProps {
-  chart: ChartGroup;
+  chartGroup: ChartGroup;
   updateInterval?: number; // 最小更新间隔，单位毫秒，默认500ms
+  maxDataPoints?: number; // 最大数据点数，默认无限制
 }
 
-export function ChartView({ chart: chartGroup, updateInterval = 500 }: ChartViewProps) {
+export function ChartView(props: ChartViewProps) {
   // 缓存处理后的数据和相关状态
+  const { 
+    chartGroup, 
+    updateInterval = 500, 
+    maxDataPoints = undefined,
+  } = props;
   const {
     data: rawData,
   } = chartGroup;
@@ -79,14 +85,14 @@ export function ChartView({ chart: chartGroup, updateInterval = 500 }: ChartView
 
     if (timeSinceLastUpdate >= updateInterval) {
       // 可以立即更新
-      setDisplayData([...rawDataRef.current]);
+      setDisplayData(rawDataRef.current.slice(- (maxDataPoints ?? rawDataRef.current.length)));
       lastUpdateTimeRef.current = now;
       updateTimerRef.current = null;
     } else {
       // 需要等待
       const remainingTime = updateInterval - timeSinceLastUpdate;
       updateTimerRef.current = setTimeout(() => {
-        setDisplayData([...rawDataRef.current]);
+        setDisplayData(rawDataRef.current.slice(- (maxDataPoints ?? rawDataRef.current.length)));
         lastUpdateTimeRef.current = Date.now();
         updateTimerRef.current = null;
       }, remainingTime);
@@ -108,8 +114,6 @@ export function ChartView({ chart: chartGroup, updateInterval = 500 }: ChartView
     };
   }, []);
 
-  const data = displayData;
-
   const exportToCSV = useCallback(() => {
     const csvContent = createCsvContent(chartGroup);
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -119,7 +123,7 @@ export function ChartView({ chart: chartGroup, updateInterval = 500 }: ChartView
     a.download = `chart_${chartGroup.id}_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [data, chartGroup.id, chartGroup.label]);
+  }, [rawDataRef.current, chartGroup.id, chartGroup.label]);
 
   // 获取当前图表的颜色
   const chartColor = useMemo(() => getColorForId(chartGroup.id), [chartGroup.id]);
@@ -137,7 +141,7 @@ export function ChartView({ chart: chartGroup, updateInterval = 500 }: ChartView
 
       <div className={styles.chartViewContainer}>
         <ResponsiveContainer>
-          <LineChart data={data}>
+          <LineChart data={displayData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="time" />
             <YAxis />
