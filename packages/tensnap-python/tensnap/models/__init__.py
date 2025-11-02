@@ -14,7 +14,7 @@ from .environment import (
     GraphEnvironmentModelDict,
     EnvironmentModel,
 )
-from .communication import (
+from .types import (
     ParameterState,
     EnvironmentState,
     ChartState,

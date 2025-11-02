@@ -12,7 +12,7 @@ class ParameterState(TypedDict):
     """Parameter state for communication"""
 
     id: str
-    type: Literal["slider", "enum", "button"]
+    type: Literal["number", "enum", "button"]
     label: str
     value: Any
     min: Optional[float]

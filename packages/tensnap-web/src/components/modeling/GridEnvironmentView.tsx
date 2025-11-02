@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Rect, Ellipse, Polygon, Line, Group, Leafer, ILeafer, PointerEvent } from 'leafer-ui';
 import * as Dialog from '@radix-ui/react-dialog';
-import { GridEnvironment, Agent } from '@/types/modeling';
+import { GridEnvironment, TrajectoryPoint, GridAgent, AgentIcon } from '@/types/modeling';
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
@@ -12,7 +12,7 @@ interface GridEnvironmentViewProps {
   environment: GridEnvironment;
 }
 
-const createShapeByIcon = (icon: Agent['icon'], size: number, color: string) => {
+const createShapeByIcon = (icon: AgentIcon | undefined | null, size: number, color: string) => {
   switch (icon) {
     case 'arrow':
       return new Polygon({
@@ -41,7 +41,7 @@ const createShapeByIcon = (icon: Agent['icon'], size: number, color: string) => 
   }
 };
 
-const createTrajectoryLine = (trajectory: Agent['trajectory'], cellWidth: number, cellHeight: number, x: number, y: number, color: string) => {
+const createTrajectoryLine = (trajectory: TrajectoryPoint[] | null | undefined, cellWidth: number, cellHeight: number, x: number, y: number, color: string) => {
   if (!trajectory || trajectory.length <= 1) return null;
 
   const trajectoryPoints = trajectory.flatMap(point => [
@@ -57,7 +57,7 @@ const createTrajectoryLine = (trajectory: Agent['trajectory'], cellWidth: number
   });
 };
 
-const createAgentShape = (agent: Agent, cellWidth: number, cellHeight: number) => {
+const createAgentShape = (agent: GridAgent, cellWidth: number, cellHeight: number) => {
   if (agent.x === undefined || agent.y === undefined) return { group: null, shape: null };
 
   const x = agent.x * cellWidth + cellWidth / 2;
@@ -149,7 +149,7 @@ const createGrid = (environment: GridEnvironment, displayWidth: number, displayH
   return gridGroup;
 };
 
-const createAgents = (environment: GridEnvironment, displayWidth: number, displayHeight: number, onAgentClick: (agent: Agent, event: any) => void) => {
+const createAgents = (environment: GridEnvironment, displayWidth: number, displayHeight: number, onAgentClick: (agent: GridAgent, event: any) => void) => {
   const cellWidth = displayWidth / environment.width;
   const cellHeight = displayHeight / environment.height;
   const agentsGroup = new Group();
@@ -171,13 +171,13 @@ const createAgents = (environment: GridEnvironment, displayWidth: number, displa
 export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leaferAppRef = useRef<ILeafer | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<GridAgent | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const displayWidth = 600;
   const displayHeight = 600;
 
-  const handleAgentClick = useCallback((agent: Agent, e: any) => {
+  const handleAgentClick = useCallback((agent: GridAgent, e: any) => {
     if (e.type === PointerEvent.CLICK) {
       setSelectedAgent(agent);
     } else if (e.type === PointerEvent.MENU) {
@@ -251,7 +251,7 @@ export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
               <Dialog.Description className={dialogStyles.dialogDescription}>
                 View detailed information about the selected agent
               </Dialog.Description>
-              
+
               <div>
                 <p style={{ margin: '8px 0', fontSize: '14px' }}>ID: {selectedAgent.id}</p>
                 <p style={{ margin: '8px 0', fontSize: '14px' }}>Position: ({selectedAgent.x}, {selectedAgent.y})</p>

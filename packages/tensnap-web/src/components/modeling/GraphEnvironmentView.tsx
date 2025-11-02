@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
-import { GraphEnvironment, GraphNode } from '@/types/modeling';
-import * as styles from './GraphEnvironment.css';
+import { GraphEnvironment, GraphAgent } from '@/types/modeling';
+import * as styles from './GraphEnvironmentView.css';
 import * as Dialog from '@radix-ui/react-dialog';
 import { dialogOverlay, dialogContent, dialogTitle, dialogClose } from '@/styles/dialog.css';
 import { X } from 'lucide-react';
@@ -11,7 +11,7 @@ interface GraphEnvironmentViewProps {
 }
 
 // Extend GraphNode with D3 simulation properties
-interface SimulationNode extends GraphNode {
+interface VisualizedGraphAgent extends GraphAgent {
   x?: number;
   y?: number;
   vx?: number;
@@ -22,18 +22,18 @@ interface SimulationNode extends GraphNode {
 
 export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
-  const simulationRef = useRef<d3.Simulation<SimulationNode, undefined> | null>(null);
-  const nodesDataRef = useRef<SimulationNode[]>([]);
+  const [selectedNode, setSelectedNode] = useState<GraphAgent | null>(null);
+  const simulationRef = useRef<d3.Simulation<VisualizedGraphAgent, undefined> | null>(null);
+  const nodesDataRef = useRef<VisualizedGraphAgent[]>([]);
   const edgesDataRef = useRef<any[]>([]);
   const lastEnvironmentIdRef = useRef<string | number | null>(null);
 
   // 检测连通分量的函数
-  const findConnectedComponents = useCallback((nodes: SimulationNode[], edges: any[]) => {
-    const components: SimulationNode[][] = [];
+  const findConnectedComponents = useCallback((nodes: VisualizedGraphAgent[], edges: any[]) => {
+    const components: VisualizedGraphAgent[][] = [];
     const visited = new Set<string | number>();
 
-    const dfs = (nodeId: string | number, component: SimulationNode[]) => {
+    const dfs = (nodeId: string | number, component: VisualizedGraphAgent[]) => {
       if (visited.has(nodeId)) return;
       visited.add(nodeId);
 
@@ -57,7 +57,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
 
     nodes.forEach(node => {
       if (!visited.has(node.id)) {
-        const component: SimulationNode[] = [];
+        const component: VisualizedGraphAgent[] = [];
         dfs(node.id, component);
         if (component.length > 0) {
           components.push(component);
@@ -69,7 +69,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
   }, []);
 
   // 为连通分量分配初始位置的函数
-  const arrangeComponentPositions = useCallback((components: SimulationNode[][], width: number, height: number) => {
+  const arrangeComponentPositions = useCallback((components: VisualizedGraphAgent[][], width: number, height: number) => {
     if (components.length === 1) return;
 
     // 计算每个分量需要的大概空间
@@ -101,7 +101,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
   }, []);
 
   // 为连通分量创建约束力的函数
-  const createComponentConstraintForce = useCallback((components: SimulationNode[][], maxDistance: number = 200) => {
+  const createComponentConstraintForce = useCallback((components: VisualizedGraphAgent[][], maxDistance: number = 200) => {
     return (alpha: number) => {
       if (components.length <= 1) return;
 
@@ -145,7 +145,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
   }, []);
 
   // 自适应视图的函数
-  const fitViewToGraph = useCallback((svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, nodes: SimulationNode[]) => {
+  const fitViewToGraph = useCallback((svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, nodes: VisualizedGraphAgent[]) => {
     if (nodes.length === 0) return;
 
     const padding = 50;
@@ -228,8 +228,8 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
       }
 
       // 创建新的仿真
-      simulationRef.current = d3.forceSimulation<SimulationNode>()
-        .force('link', d3.forceLink<SimulationNode, any>()
+      simulationRef.current = d3.forceSimulation<VisualizedGraphAgent>()
+        .force('link', d3.forceLink<VisualizedGraphAgent, any>()
           .id(d => String(d.id))
           .distance(80))
         .force('charge', d3.forceManyBody().strength(-300))
@@ -238,7 +238,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
     }
 
     // 创建或更新节点数据
-    const simulationNodes: SimulationNode[] = environment.nodes.map(node => {
+    const simulationNodes: VisualizedGraphAgent[] = environment.nodes.map(node => {
       // 如果是增量更新，保留现有节点的位置
       const existingNode = nodesDataRef.current.find(n => n.id === node.id);
       return {
@@ -251,7 +251,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
     });
 
     // 创建节点映射
-    const nodeMap = new Map<string | number, SimulationNode>();
+    const nodeMap = new Map<string | number, VisualizedGraphAgent>();
     simulationNodes.forEach(node => {
       nodeMap.set(node.id, node);
     });
@@ -288,7 +288,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
     // 更新仿真数据
     if (simulationRef.current) {
       simulationRef.current.nodes(simulationNodes);
-      const linkForce = simulationRef.current.force('link') as d3.ForceLink<SimulationNode, any>;
+      const linkForce = simulationRef.current.force('link') as d3.ForceLink<VisualizedGraphAgent, any>;
       if (linkForce) {
         linkForce.links(simulationEdges);
       }
@@ -334,7 +334,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
 
     const nodeEnter = nodeSelection.enter()
       .append('g')
-      .call(d3.drag<SVGGElement, SimulationNode>()
+      .call(d3.drag<SVGGElement, VisualizedGraphAgent>()
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended))
@@ -410,7 +410,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
       }, 1000);
     }
 
-    function dragstarted(event: d3.D3DragEvent<SVGGElement, SimulationNode, SimulationNode>, d: SimulationNode) {
+    function dragstarted(event: d3.D3DragEvent<SVGGElement, VisualizedGraphAgent, VisualizedGraphAgent>, d: VisualizedGraphAgent) {
       if (!event.active && simulationRef.current) {
         simulationRef.current.alphaTarget(0.3).restart();
       }
@@ -418,12 +418,12 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
       d.fy = d.y;
     }
 
-    function dragged(event: d3.D3DragEvent<SVGGElement, SimulationNode, SimulationNode>, d: SimulationNode) {
+    function dragged(event: d3.D3DragEvent<SVGGElement, VisualizedGraphAgent, VisualizedGraphAgent>, d: VisualizedGraphAgent) {
       d.fx = event.x;
       d.fy = event.y;
     }
 
-    function dragended(event: d3.D3DragEvent<SVGGElement, SimulationNode, SimulationNode>, d: SimulationNode) {
+    function dragended(event: d3.D3DragEvent<SVGGElement, VisualizedGraphAgent, VisualizedGraphAgent>, d: VisualizedGraphAgent) {
       if (!event.active && simulationRef.current) {
         simulationRef.current.alphaTarget(0);
       }

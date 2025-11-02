@@ -1,14 +1,28 @@
+export interface TrajectoryPoint { 
+  x: number; 
+  y: number; 
+  time: number;
+}
+
 export interface Agent {
   id: string | number;
-  x?: number;
-  y?: number;
-  heading?: number;
   color?: string;
-  icon?: 'arrow' | 'circle' | 'square' | 'triangle';
+  icon?: AgentIcon;
   size?: number;
   data?: Record<string, any>;
-  trajectory?: { x: number; y: number; time: number }[];
 }
+
+export type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
+
+// #region Grid Environment
+
+export interface GridAgent extends Agent {
+  x: number;
+  y: number;
+  heading: number;
+  trajectory?: TrajectoryPoint[];
+}
+
 
 export interface GridEnvironment {
   id: string | number;
@@ -16,18 +30,17 @@ export interface GridEnvironment {
   width: number;
   height: number;
   background?: Uint8Array | string;
-  agents: Agent[];
+  agents: GridAgent[];
   colormap?: string;
 }
 
-export interface GraphNode {
-  id: string | number;
+// #endregion
+
+// #region Graph Environment
+
+export interface GraphAgent extends Agent {
   x?: number;
   y?: number;
-  color?: string;
-  icon?: 'circle' | 'square' | 'triangle';
-  size?: number;
-  data?: Record<string, any>;
 }
 
 export interface GraphEdge {
@@ -42,13 +55,35 @@ export interface GraphEdge {
 export interface GraphEnvironment {
   id: string | number;
   type: 'graph';
-  nodes: GraphNode[];
+  nodes: GraphAgent[];
   edges: GraphEdge[];
 }
 
-export type Environment = GridEnvironment | GraphEnvironment;
+// #endregion
 
-export type ParameterType = 'slider' | 'enum' | 'button';
+// #region Uniform Environment
+
+export interface UniformAgent extends Agent {
+  // no additional properties for now
+}
+
+export interface UniformEnvironment {
+  id: string | number;
+  type: 'uniform';
+  agents: UniformAgent[];
+}
+
+
+// #endregion
+
+
+
+export type Environment = GridEnvironment | GraphEnvironment | UniformEnvironment;
+
+// #region Parameters
+
+
+export type ParameterType = 'number' | 'enum' | 'button' | 'checkbox' | 'string';
 
 export interface ParameterBase {
   id: string;
@@ -57,7 +92,7 @@ export interface ParameterBase {
 }
 
 export interface SliderParameter extends ParameterBase {
-  type: 'slider';
+  type: 'number';
   value: number;
   min: number;
   max: number;
@@ -74,7 +109,21 @@ export interface ButtonParameter extends ParameterBase {
   type: 'button';
 }
 
-export type Parameter = SliderParameter | EnumParameter | ButtonParameter;
+export interface CheckboxParameter extends ParameterBase {
+  type: 'checkbox';
+  value: boolean;
+}
+
+export interface StringParameter extends ParameterBase {
+  type: 'string';
+  value: string;
+}
+
+export type Parameter = SliderParameter | EnumParameter | ButtonParameter | CheckboxParameter | StringParameter;
+
+
+// #endregion
+
 
 export interface ChartData {
   id: string;

@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass, field
 from typing import (
+    cast,
     Any,
     Dict,
     List,
@@ -97,7 +98,7 @@ class GridEnvironmentModel:
 
         return result
 
-    def update(self, source: Optional[Any] = None) -> None:
+    def update_env_params(self, source: Optional[Any] = None) -> None:
         """Update this model from a real environment instance"""
         actual_source = source if source is not None else self.update_source
 
@@ -112,7 +113,7 @@ class GridEnvironmentModel:
             if hasattr(actual_source, "background"):
                 self.background = actual_source.background
 
-    def generate_agent_updates(self) -> List[Dict[str, Any]]:
+    def update(self) -> List[Dict[str, Any]]:
         """Generate batch updates for all agents in this environment"""
         updates = []
         for agent in self.agents:
@@ -208,7 +209,7 @@ class GraphEnvironmentModel:
             "edges": [edge.to_dict() for edge in self.edges],
         }
 
-    def update(self, source: Optional[Any] = None) -> None:
+    def update(self, source: Optional[Any] = None) -> Dict[str, Any]:
         """Update this model from a real environment instance"""
         actual_source = source if source is not None else self.update_source
 
@@ -223,6 +224,8 @@ class GraphEnvironmentModel:
                 # Update from another GraphEnvironmentModel
                 self.nodes = actual_source.nodes.copy() if hasattr(actual_source.nodes, 'copy') else list(actual_source.nodes)
                 self.edges = actual_source.edges.copy() if hasattr(actual_source.edges, 'copy') else list(actual_source.edges)
+
+        return cast(Dict[str, Any], self.to_dict())
 
     def from_networkx(self, graph: nx.Graph) -> None:
         """Import from NetworkX graph"""

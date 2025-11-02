@@ -14,7 +14,7 @@ T = TypeVar('T')
 class Parameter:
     """Simulation parameter"""
     id: str
-    type: Literal["slider", "enum", "button"]
+    type: Literal["number", "enum", "button"]
     label: str
     value: Optional[Union[float, str]] = None
     min: Optional[float] = None
@@ -32,7 +32,7 @@ class ParameterBinding:
     key: str
     id: str
     label: str
-    type: Literal["slider", "enum", "button"] = "slider"
+    type: Literal["number", "enum", "button"] = "number"
     min: Optional[float] = None
     max: Optional[float] = None
     step: Optional[float] = None
@@ -115,7 +115,7 @@ def parameter(
     id: str,
     label: str,
     *,
-    type: Literal["slider", "enum", "button"] = "slider",
+    type: Literal["number", "enum", "button"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,
@@ -129,7 +129,7 @@ def parameter(
     id: str,
     label: str,
     *,
-    type: Literal["slider", "enum", "button"] = "slider",
+    type: Literal["number", "enum", "button"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,
@@ -143,7 +143,7 @@ def parameter(
     id: str,
     label: str,
     *,
-    type: Literal["slider", "enum", "button"] = "slider",
+    type: Literal["number", "enum", "button"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,
@@ -177,7 +177,7 @@ def bind_parameter(
     id: str,
     label: str,
     *,
-    type: Literal["slider", "enum", "button"] = "slider",
+    type: Literal["number", "enum", "button"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,
@@ -435,7 +435,7 @@ class ParameterBindingGenerator:
             lines.append(f'        id="{binding.id}",')
             lines.append(f'        label="{binding.label}",')
             
-            if binding.type != "slider":
+            if binding.type != "number":
                 lines.append(f'        type="{binding.type}",')
             if binding.min is not None:
                 lines.append(f"        min={binding.min},")

@@ -1,6 +1,6 @@
 import React from 'react';
 import { GridEnvironmentView } from './modeling/GridEnvironmentView';
-import { GraphEnvironmentView } from './modeling/GraphEnvironment';
+import { GraphEnvironmentView } from './modeling/GraphEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from './modeling/ChartView';
 import { useScenarioStore } from '../store/scenario';
@@ -22,8 +22,11 @@ export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type
 
       if (environment.type === 'grid') {
         return <GridEnvironmentView environment={environment} />;
-      } else {
+      } else if (environment.type === 'graph') {
         return <GraphEnvironmentView environment={environment} />;
+      } else {
+        // TODO add uniform environment view
+        return <div>Unsupported environment type: {environment.type}</div>;
       }
     }
 

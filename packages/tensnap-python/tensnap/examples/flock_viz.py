@@ -21,7 +21,7 @@ server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 server = TenSnapServer(port=server_port)
 grid = GridEnvironmentModel(id="main", width=40, height=40)
 config = FlockConfig()
-simulation = FlockSimulation(config)
+model = FlockSimulation(config)
 sim_manager = SimulationManager(step_interval=0.05)
 
 # Bind parameters automatically - exclude world dimensions as they match grid size
@@ -34,11 +34,11 @@ async def init_simulation():
     """Create initial agents"""
     grid.agents.clear()
 
-    simulation.initialize()
+    model.initialize()
     await sim_manager.stop()
 
     # Create TenSnap agents from simulation birds with custom update function
-    for bird in simulation.birds:
+    for bird in model.birds:
         agent = AgentModel(
             id=bird.id,
             x=bird.x,
@@ -55,7 +55,7 @@ async def init_simulation():
     sim_manager.time_step = 0
     await server.start_time_step(0)
 
-    updates = grid.generate_agent_updates()
+    updates = grid.update()
     await server.update_agents_batch("main", updates)
 
     await server.end_time_step(0)
@@ -63,14 +63,13 @@ async def init_simulation():
 # Simulation step
 async def on_step(step: int) -> None:
     """Run one simulation step"""
-    if not simulation.birds:
+    if not model.birds:
         return
     
     await server.start_time_step(step)
 
-    simulation.step()
-
-    updates = grid.generate_agent_updates()
+    model.step()
+    updates = grid.update()
     await server.update_agents_batch("main", updates)
     
     await server.end_time_step(step)
@@ -86,13 +85,13 @@ async def reset() -> None:
 @chart("average_speed", "Average Speed", color="#2ECC71")
 def calculate_average_speed() -> float:
     """Calculate average speed of all agents"""
-    return simulation.get_average_speed()
+    return model.get_average_speed()
 
 
 @chart("order_parameter", "Flock Order Parameter", color="#E74C3C")
 def calculate_order_parameter() -> float:
     """Measure flock alignment (0=random, 1=aligned)"""
-    return simulation.get_order_parameter()
+    return model.get_order_parameter()
 
 
 # Main function

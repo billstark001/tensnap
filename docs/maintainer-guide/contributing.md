@@ -544,7 +544,7 @@ describe('ParameterSlider', () => {
       />
     );
     
-    const slider = screen.getByRole('slider');
+    const slider = screen.getByRole('number');
     fireEvent.change(slider, { target: { value: '75' } });
     
     expect(mockOnChange).toHaveBeenCalledWith(75);

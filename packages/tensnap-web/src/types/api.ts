@@ -1,6 +1,8 @@
 import { Agent, Environment, Parameter } from "./modeling";
 
-// 服务器到客户端的消息类型
+//#region Message Types
+
+// Server to client message types
 export type ServerToClientMessageType =
   | 'time_step_start'
   | 'time_step_end'
@@ -9,47 +11,54 @@ export type ServerToClientMessageType =
   | 'agent_batch_update'
   | 'chart_data'
   | 'state_sync'
+  | 'log'
   | 'error';
 
-// 客户端到服务器的消息类型
+// Client to server message types
 export type ClientToServerMessageType =
   | 'state_sync'
   | 'parameter_change'
   | 'button_click'
   | 'error';
 
-// 全部消息类型（向后兼容）
+// All message types
 export type WSMessageType = ServerToClientMessageType | ClientToServerMessageType;
 
-// 通用消息结构
+//#endregion
+
+//#region Base Message Structures
+
+// Generic message structure
 export interface WSMessage<T = any> {
   type: WSMessageType;
   payload: T;
   timestamp?: number;
 }
 
-// 服务器到客户端的消息结构
+// Server to client message structure
 export interface ServerToClientMessage<T = any> {
   type: ServerToClientMessageType;
   payload: T;
   timestamp?: number;
 }
 
-// 客户端到服务器的消息结构
+// Client to server message structure
 export interface ClientToServerMessage<T = any> {
   type: ClientToServerMessageType;
   payload: T;
   timestamp?: number;
 }
 
-// ---------- 消息体定义 ----------
+//#endregion
 
-// time_step_start - time 参数必须
+//#region Payload Definitions
+
+// time_step_start - time parameter is required
 export interface TimeStepStartPayload {
   time: number;
 }
 
-// time_step_end - time 参数可选，用于前端验证
+// time_step_end - time parameter is optional, used for frontend validation
 export interface TimeStepEndPayload {
   time?: number;
 }
@@ -64,7 +73,7 @@ export interface EnvironmentUpdatePayload {
 export interface AgentUpdatePayload {
   environment_id: string | number;
   agent_id: string | number;
-  data: Agent; // 建议具体化为 Agent 数据结构
+  data: Agent; // Recommend to specify as Agent data structure
 }
 
 // agent_batch_update
@@ -76,7 +85,6 @@ export interface AgentBatchUpdatePayload {
   }>;
 }
 
-
 // chart_data
 export interface ChartDataUpdate {
   id: string;
@@ -85,12 +93,21 @@ export interface ChartDataUpdate {
 }
 export type ChartDataPayload = ChartDataUpdate[];
 
-// state_sync - 统一的状态同步（请求和响应）
+// log
+export interface LogPayload {
+  level: 'debug' | 'info' | 'warning' | 'error';
+  target?: string;
+  timestamp?: number;
+  message: string;
+}
+
+
+// state_sync - Unified state synchronization (request and response)
 export interface StateSyncRequest {
-  parameters: string[];  // 参数ID列表
-  environments: (string | number)[];  // 环境ID列表
-  charts: string[];  // 图表ID列表
-  parameter_cache: Record<string, any>;  // 参数的缓存值
+  parameters: string[];  // Parameter ID list
+  environments: (string | number)[];  // Environment ID list
+  charts: string[];  // Chart ID list
+  parameter_cache: Record<string, any>;  // Cached parameter values
 }
 
 export interface StateSyncResponse {
@@ -128,7 +145,9 @@ export interface ErrorPayload {
   error: string;
 }
 
-// ---------- 服务器到客户端的消息类型 ----------
+//#endregion
+
+//#region Server to Client Message Types
 
 export type ServerToClientPayload =
   | TimeStepStartPayload
@@ -138,11 +157,14 @@ export type ServerToClientPayload =
   | AgentBatchUpdatePayload
   | ChartDataPayload
   | StateSyncResponse
+  | LogPayload
   | ErrorPayload;
 
 export type ServerToClientWSMessage = ServerToClientMessage<ServerToClientPayload>;
 
-// ---------- 客户端到服务器的消息类型 ----------
+//#endregion
+
+//#region Client to Server Message Types
 
 export type ClientToServerPayload =
   | StateSyncRequest
@@ -151,8 +173,5 @@ export type ClientToServerPayload =
 
 export type ClientToServerWSMessage = ClientToServerMessage<ClientToServerPayload>;
 
-// ---------- 综合消息类型（向后兼容）----------
+//#endregion
 
-export type IncomingPayload = ServerToClientPayload | ClientToServerPayload;
-
-export type IncomingWSMessage = WSMessage<IncomingPayload>;

@@ -449,7 +449,7 @@ parameter_cache: {
 ```typescript
 interface ParameterState {
   id: string;
-  type: "slider" | "enum" | "button";
+  type: "number" | "enum" | "button";
   label: string;
   value: any;
   min?: number;              // For slider
