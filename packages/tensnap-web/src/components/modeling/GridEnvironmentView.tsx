@@ -1,15 +1,16 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Rect, Ellipse, Polygon, Line, Group, Leafer, ILeafer, PointerEvent } from 'leafer-ui';
 import * as Dialog from '@radix-ui/react-dialog';
-import { GridEnvironment, TrajectoryPoint, GridAgent, AgentIcon } from '@/types/modeling';
+import { TrajectoryPoint, GridAgent, AgentIcon, PureGridEnvironment, AgentId } from '@/types/model';
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
 import * as dialogStyles from '@/styles/dialog.css';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
+import { InstantiatedGridEnvironment } from '@/types/model-inst';
 
 interface GridEnvironmentViewProps {
-  environment: GridEnvironment;
+  environment: InstantiatedGridEnvironment;
 }
 
 const createShapeByIcon = (icon: AgentIcon | undefined | null, size: number, color: string) => {
@@ -82,7 +83,7 @@ const createAgentShape = (agent: GridAgent, cellWidth: number, cellHeight: numbe
   return { group, shape };
 };
 
-const createBackground = (environment: GridEnvironment, displayWidth: number, displayHeight: number) => {
+const createBackground = (environment: PureGridEnvironment, displayWidth: number, displayHeight: number) => {
   const { background } = environment;
 
   if (typeof background === 'string') {
@@ -124,7 +125,7 @@ const createBackground = (environment: GridEnvironment, displayWidth: number, di
   }));
 };
 
-const createGrid = (environment: GridEnvironment, displayWidth: number, displayHeight: number) => {
+const createGrid = (environment: PureGridEnvironment, displayWidth: number, displayHeight: number) => {
   const cellWidth = displayWidth / environment.width;
   const cellHeight = displayHeight / environment.height;
   const gridGroup = new Group();
@@ -149,12 +150,12 @@ const createGrid = (environment: GridEnvironment, displayWidth: number, displayH
   return gridGroup;
 };
 
-const createAgents = (environment: GridEnvironment, displayWidth: number, displayHeight: number, onAgentClick: (agent: GridAgent, event: any) => void) => {
+const createAgents = (environment: PureGridEnvironment, agents: Record<AgentId, GridAgent>, displayWidth: number, displayHeight: number, onAgentClick: (agent: GridAgent, event: any) => void) => {
   const cellWidth = displayWidth / environment.width;
   const cellHeight = displayHeight / environment.height;
   const agentsGroup = new Group();
 
-  environment.agents.forEach(agent => {
+  Object.values(agents).forEach(agent => {
     const { group: agentShapeGroup, shape: agentShape } = createAgentShape(agent, cellWidth, cellHeight);
     if (agentShapeGroup) {
       agentsGroup.add(agentShapeGroup);
@@ -169,6 +170,7 @@ const createAgents = (environment: GridEnvironment, displayWidth: number, displa
 };
 
 export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
+  const { props: envProps, agents } = environment;
   const containerRef = useRef<HTMLDivElement>(null);
   const leaferAppRef = useRef<ILeafer | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<GridAgent | null>(null);
@@ -220,15 +222,15 @@ export function GridEnvironmentView({ environment }: GridEnvironmentViewProps) {
     appTree.clear();
 
     // // Add background
-    const bgRect = await createBackground(environment, displayWidth, displayHeight);
+    const bgRect = await createBackground(envProps, displayWidth, displayHeight);
     appTree.add(bgRect);
 
     // Add grid
-    appTree.add(createGrid(environment, displayWidth, displayHeight));
+    appTree.add(createGrid(envProps, displayWidth, displayHeight));
 
     // Add agents
-    appTree.add(createAgents(environment, displayWidth, displayHeight, handleAgentClick));
-  })(), [environment, displayWidth, displayHeight, handleAgentClick]);
+    appTree.add(createAgents(envProps, agents, displayWidth, displayHeight, handleAgentClick));
+  })(), [envProps, agents, displayWidth, displayHeight, handleAgentClick]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);

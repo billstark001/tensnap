@@ -1,3 +1,12 @@
+
+export type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
+
+export type EnvironmentType = 'grid' | 'graph' | 'uniform';
+
+export type AgentId = string | number;
+
+export type EnvironmentId = string | number;
+
 export interface TrajectoryPoint { 
   x: number; 
   y: number; 
@@ -5,14 +14,18 @@ export interface TrajectoryPoint {
 }
 
 export interface Agent {
-  id: string | number;
+  id: AgentId;
   color?: string;
   icon?: AgentIcon;
   size?: number;
   data?: Record<string, any>;
 }
 
-export type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
+export interface EnvironmentBase {
+  id: EnvironmentId;
+  type: EnvironmentType;
+  agents: Agent[];
+}
 
 // #region Grid Environment
 
@@ -24,14 +37,17 @@ export interface GridAgent extends Agent {
 }
 
 
-export interface GridEnvironment {
-  id: string | number;
-  type: 'grid';
+export interface PureGridEnvironment {
   width: number;
   height: number;
   background?: Uint8Array | string;
-  agents: GridAgent[];
   colormap?: string;
+}
+
+export interface GridEnvironment extends PureGridEnvironment, EnvironmentBase {
+  id: EnvironmentId;
+  type: 'grid';
+  agents: GridAgent[];
 }
 
 // #endregion
@@ -44,19 +60,22 @@ export interface GraphAgent extends Agent {
 }
 
 export interface GraphEdge {
-  source: string | number;
-  target: string | number;
+  source: AgentId;
+  target: AgentId;
   directed?: boolean;
   style?: 'solid' | 'dashed' | 'dotted';
   width?: number;
   color?: string;
 }
 
-export interface GraphEnvironment {
-  id: string | number;
-  type: 'graph';
-  nodes: GraphAgent[];
+export interface PureGraphEnvironment {
   edges: GraphEdge[];
+}
+
+export interface GraphEnvironment extends PureGraphEnvironment, EnvironmentBase {
+  id: EnvironmentId;
+  type: 'graph';
+  agents: GraphAgent[];
 }
 
 // #endregion
@@ -67,8 +86,12 @@ export interface UniformAgent extends Agent {
   // no additional properties for now
 }
 
-export interface UniformEnvironment {
-  id: string | number;
+export interface PureUniformEnvironment {
+  // no additional properties for now
+}
+
+export interface UniformEnvironment extends PureUniformEnvironment, EnvironmentBase {
+  id: EnvironmentId;
   type: 'uniform';
   agents: UniformAgent[];
 }
@@ -76,7 +99,7 @@ export interface UniformEnvironment {
 
 // #endregion
 
-
+export type PureEnvironment = PureGridEnvironment | PureGraphEnvironment | PureUniformEnvironment;
 
 export type Environment = GridEnvironment | GraphEnvironment | UniformEnvironment;
 
@@ -142,10 +165,13 @@ export interface SimulationState {
   snapshots: Snapshot[];
 }
 
-export interface Snapshot {
+export interface SnapshotMetadata {
   id: string;
   timestamp: number;
   timeStep: number;
+}
+
+export interface Snapshot extends SnapshotMetadata {
   environments: Environment[];
   parameters: Parameter[];
 }

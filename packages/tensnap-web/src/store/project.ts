@@ -5,10 +5,11 @@ import { FileSystemState } from "./file-system/store";
 import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
-import { SimulationState } from "@/types/modeling";
+import { EnvironmentId, SimulationState } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
+import { InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from "@/types/model-inst";
 
 export interface ProjectSettings {
   url: string;
@@ -136,9 +137,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const useWebSocketStore = createWebSocketStore(useScenarioStore);
     const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
+    const { environments, ...rest } = parsedContent.scenario;
+    const instantiatedEnvironments: Map<EnvironmentId, InstantiatedEnvironment> = new Map();
+    for (const env of environments) {
+      instantiatedEnvironments.set(env.id, instantiateEnvironment(env));
+    }
+
     useScenarioStore.setState({
       mainView: parsedContent.mainView,
-      ...parsedContent.scenario,
+      ...rest,
+      environments: instantiatedEnvironments,
     });
 
     const { url } = parsedContent || null;
@@ -182,7 +190,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const scenarioDump: SimulationState = {
       connected: false,
       currentTime: scenarioStore.currentTime,
-      environments: scenarioStore.environments,
+      environments: Array.from(scenarioStore.environments.values()).map(env => serializeEnvironment(env)),
       parameters: scenarioStore.parameters,
       charts: scenarioStore.charts,
       snapshots: scenarioStore.snapshots,

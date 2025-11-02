@@ -1,4 +1,4 @@
-import { Agent, Environment, Parameter } from "./modeling";
+import { Agent, Environment, Parameter, PureEnvironment } from "./model";
 
 //#region Message Types
 
@@ -66,7 +66,7 @@ export interface TimeStepEndPayload {
 // environment_update
 export interface EnvironmentUpdatePayload {
   id: string | number;
-  data: Environment;
+  data: PureEnvironment;
 }
 
 // agent_update
@@ -111,6 +111,7 @@ export interface StateSyncRequest {
 }
 
 export interface StateSyncResponse {
+  mode?: 'full' | 'incremental'; // Default is 'incremental'
   added_parameters: Parameter[];
   removed_parameters: string[];
   updated_parameters: Parameter[];

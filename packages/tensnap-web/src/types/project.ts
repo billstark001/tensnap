@@ -1,4 +1,4 @@
-import { SimulationState } from "./modeling";
+import { SimulationState } from "./model";
 import { ContainerView } from "./ui";
 
 export interface ProjectSettings {

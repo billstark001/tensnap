@@ -3,9 +3,9 @@ import { GridEnvironmentView } from './modeling/GridEnvironmentView';
 import { GraphEnvironmentView } from './modeling/GraphEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from './modeling/ChartView';
-import { useScenarioStore } from '../store/scenario';
+import { ScenarioStore, useScenarioStore } from '../store/scenario';
 import { AnchoredView } from '../types/ui';
-import { defaultSimulationState } from '@/types/modeling';
+import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment } from '@/types/model-inst';
 
 export interface AnchoredViewRendererProps {
   type: AnchoredView['type'];
@@ -13,17 +13,21 @@ export interface AnchoredViewRendererProps {
 }
 
 export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type, id }) => {
-  const { environments, parameters, charts } = useScenarioStore() ?? defaultSimulationState();
+  const { 
+    environments = new Map() as ScenarioStore['environments'], 
+    parameters = [], 
+    charts = [] 
+  } = useScenarioStore() ?? {};
 
   switch (type) {
     case 'environment': {
-      const environment = environments.find(env => env.id.toString() === id);
+      const environment = environments.get(id);
       if (!environment) return <div>Environment not found: {id}</div>;
 
       if (environment.type === 'grid') {
-        return <GridEnvironmentView environment={environment} />;
+        return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} />;
       } else if (environment.type === 'graph') {
-        return <GraphEnvironmentView environment={environment} />;
+        return <GraphEnvironmentView environment={environment as InstantiatedGraphEnvironment} />;
       } else {
         // TODO add uniform environment view
         return <div>Unsupported environment type: {environment.type}</div>;

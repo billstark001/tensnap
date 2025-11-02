@@ -1,7 +1,6 @@
 import { WebSocketManager } from "@/websocket";
 import { ScenarioStore, SetDataPayload } from "./scenario";
 import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartDataPayload, TimeStepStartPayload, TimeStepEndPayload } from "@/types/api";
-import { GridEnvironment } from "@/types/modeling";
 import { StoreApi, UseBoundStore } from "zustand";
 
 export function registerEventHandlers(
@@ -19,45 +18,28 @@ export function registerEventHandlers(
       id: `snapshot-${Date.now()}`,
       timestamp: Date.now(),
       timeStep: payload.time ?? store.currentTime,
-      environments: store.environments,
-      parameters: store.parameters,
     };
     store.addSnapshot(snapshot);
   });
 
   wsManager.on('environment_update', (payload: EnvironmentUpdatePayload) => {
-    useStore.getState().updateEnvironment(payload.id, payload.data);
+    const { id, data } = payload;
+    useStore.getState().updateEnvironment(id, data);
   });
 
   wsManager.on('agent_update', (payload: AgentUpdatePayload) => {
-    useStore.getState().updateEnvironment(
-      payload.environment_id,
-      env => ({
-        ...env,
-        agents: (env as GridEnvironment).agents.map(agent =>
-          agent.id === payload.agent_id
-            ? { ...agent, ...payload.data }
-            : agent
-        ),
-      }),
+    const { environment_id, agent_id, data } = payload;
+    useStore.getState().updateAgents(
+      environment_id,
+      [{ id: agent_id, data }]
     );
   });
 
   wsManager.on('agent_batch_update', (payload: AgentBatchUpdatePayload) => {
-    const updateMap: Record<string, any> = Object.fromEntries(
-      payload.updates.map((a: any) => [a.id, a.data]),
-    );
-
-    useStore.getState().updateEnvironment(
-      payload.environment_id,
-      env => ({
-        ...env,
-        agents: (env as GridEnvironment).agents.map(agent =>
-          agent.id in updateMap
-            ? { ...agent, ...updateMap[agent.id] }
-            : agent
-        ),
-      }),
+    const { environment_id, updates } = payload;
+    useStore.getState().updateAgents(
+      environment_id,
+      updates.map(({ id, data }) => ({ id, data }))
     );
   });
 

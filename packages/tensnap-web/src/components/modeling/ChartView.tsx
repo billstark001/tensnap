@@ -9,7 +9,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { ChartData } from '@/types/modeling';
+import { ChartData } from '@/types/model';
 import * as styles from './ChartView.css';
 
 // 预定义颜色数组作为模块顶层常量

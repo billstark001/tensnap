@@ -6,6 +6,7 @@ from typing import (
     cast,
     Any,
     Dict,
+    Tuple, 
     List,
     Optional,
     Union,
@@ -29,7 +30,6 @@ class GridEnvironmentModelDict(TypedDict):
     type: Literal["grid"]
     width: int
     height: int
-    agents: List[AgentModelDict]
     background: Optional[str]  # base64 encoded
 
 
@@ -61,7 +61,6 @@ class GraphEnvironmentModelDict(TypedDict):
 
     id: Union[str, int]
     type: Literal["graph"]
-    nodes: List[GraphNodeDict]
     edges: List[GraphEdgeDict]
 
 
@@ -79,14 +78,13 @@ class GridEnvironmentModel:
     )
     update_source: Optional[Any] = field(default=None, repr=False)
 
-    def to_dict(self) -> GridEnvironmentModelDict:
+    def get_model_dict(self) -> GridEnvironmentModelDict:
         """Convert to dictionary for serialization"""
         result: GridEnvironmentModelDict = {
             "id": self.id,
             "type": "grid",
             "width": self.width,
             "height": self.height,
-            "agents": [agent.to_dict() for agent in self.agents],
             "background": None,
         }
 
@@ -97,6 +95,9 @@ class GridEnvironmentModel:
             result["background"] = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
         return result
+
+    def get_agent_list(self) -> List[Dict[str, Any]]:
+        return [cast(Dict[str, Any], agent.to_dict()) for agent in self.agents]
 
     def update_env_params(self, source: Optional[Any] = None) -> None:
         """Update this model from a real environment instance"""
@@ -113,7 +114,7 @@ class GridEnvironmentModel:
             if hasattr(actual_source, "background"):
                 self.background = actual_source.background
 
-    def update(self) -> List[Dict[str, Any]]:
+    def update(self) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Generate batch updates for all agents in this environment"""
         updates = []
         for agent in self.agents:
@@ -124,7 +125,7 @@ class GridEnvironmentModel:
                     "data": {"x": agent.x, "y": agent.y, "heading": agent.heading},
                 }
             )
-        return updates
+        return {}, updates
 
     def add_agent(self, agent: AgentModel) -> None:
         """Add an agent to the environment"""
@@ -200,16 +201,19 @@ class GraphEnvironmentModel:
     )
     update_source: Optional[Any] = field(default=None, repr=False)
 
-    def to_dict(self) -> GraphEnvironmentModelDict:
+    def get_model_dict(self) -> GraphEnvironmentModelDict:
         """Convert to dictionary for serialization"""
         return {
             "id": self.id,
             "type": "graph",
-            "nodes": [node.to_dict() for node in self.nodes],
             "edges": [edge.to_dict() for edge in self.edges],
         }
+    
+    def get_agent_list(self) -> List[Dict[str, Any]]:
+        """Convert nodes to agent list for visualization"""
+        return [cast(Dict[str, Any], node.to_dict()) for node in self.nodes]
 
-    def update(self, source: Optional[Any] = None) -> Dict[str, Any]:
+    def update(self, source: Optional[Any] = None) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Update this model from a real environment instance"""
         actual_source = source if source is not None else self.update_source
 
@@ -225,7 +229,8 @@ class GraphEnvironmentModel:
                 self.nodes = actual_source.nodes.copy() if hasattr(actual_source.nodes, 'copy') else list(actual_source.nodes)
                 self.edges = actual_source.edges.copy() if hasattr(actual_source.edges, 'copy') else list(actual_source.edges)
 
-        return cast(Dict[str, Any], self.to_dict())
+        model_updates = cast(Dict[str, Any], self.get_model_dict())
+        return model_updates, self.get_agent_list()
 
     def from_networkx(self, graph: nx.Graph) -> None:
         """Import from NetworkX graph"""

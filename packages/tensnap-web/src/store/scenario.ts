@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { Environment, Parameter, ChartData, Snapshot } from '../types/modeling';
+import { Environment, Parameter, ChartData, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId } from '../types/model';
 import { ContainerView } from '../types/ui';
 import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
 import { createDefaultRootLayout } from '@/utils/layout/pack-layout';
+import { InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from '@/types/model-inst';
 
 export interface SetDataPayload {
   environments?: Environment[];
@@ -16,7 +17,7 @@ export interface ScenarioStore {
   // State
   connected: boolean;
   currentTime: number;
-  environments: Environment[];
+  environments: Map<EnvironmentId, InstantiatedEnvironment>;
   parameters: Parameter[];
   charts: ChartData[];
   snapshots: Snapshot[];
@@ -27,10 +28,11 @@ export interface ScenarioStore {
   setConnected: (connected: boolean) => void;
   setCurrentTime: (time: number) => void;
   setData: (data: SetDataPayload, updateLayout?: boolean) => void;
-  updateEnvironment: (id: string | number, data: SetStateAction<Environment>) => void;
+  updateEnvironment: (id: EnvironmentId, data: PureEnvironment) => void;
+  updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
   updateParameter: (id: string, value: any) => void;
   addChartData: (chartId: string, time: number, value: number) => void;
-  addSnapshot: (snapshot: Snapshot) => void;
+  addSnapshot: (snapshot: SnapshotMetadata) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
   setMainView: (view: SetStateAction<ContainerView>) => void;
@@ -41,7 +43,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   // Initial state
   connected: false,
   currentTime: 0,
-  environments: [],
+  environments: new Map(),
   parameters: [],
   charts: [],
   snapshots: [],
@@ -57,7 +59,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     const updates: Partial<Pick<ScenarioStore, 'environments' | 'parameters' | 'charts'>> = {};
     
     if (data.environments !== undefined) {
-      updates.environments = data.environments;
+      updates.environments = new Map(data.environments.map(env => [env.id, instantiateEnvironment(env)]));
     }
     if (data.parameters !== undefined) {
       updates.parameters = data.parameters;
@@ -71,30 +73,47 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     // Auto-update layout when data changes with incremental updates
     if (updateLayout) {
       const { environments, parameters, charts, mainView } = get();
-      set({ 
-        mainView: createAutoLayout(environments, parameters, charts, { 
-          currentView: mainView, 
-          preserveExisting: true 
-        }) 
+      const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type })); 
+      set({
+        mainView: createAutoLayout(environmentsArray, parameters, charts, {
+          currentView: mainView,
+          preserveExisting: true
+        })
       });
     }
   },
 
-  updateEnvironment: (id, data) => {
-    if (typeof data === 'function') {
-      set((state) => ({
-        environments: state.environments.map((env) =>
-          env.id === id ? data(env) : env
-        )
-      }))
-    } else {
-      set((state) => ({
-        environments: state.environments.map((env) =>
-          env.id === id ? { ...env, ...data } : env
-        ),
-      }));
+  updateEnvironment: (id, propsUpdate) => {
+    const { environments } = get(); 
+    const env = environments.get(id);
+    if (!env) {
+      console.warn(`Environment with id ${id} not found.`);
+      return;
     }
+    environments.set(id, { ...env, props: { ...env.props, ...propsUpdate } });
+    set({ environments });
   },
+
+  updateAgents: (envId, updates) => {
+    const { environments } = get();
+    const env = environments.get(envId);
+    if (!env) {
+      console.warn(`Environment with id ${envId} not found.`);
+      return;
+    }
+    const { agents } = env;
+    for (const update of updates) {
+      const { id, data } = update;
+      if (!agents[id]) {
+        console.warn(`Agent with id ${id} not found in ${env.type} environment ${envId}.`);
+        continue;
+      }
+      Object.assign(agents[id], data);
+    }
+    environments.set(envId, { ...env, agents });
+    set({ environments });
+  },
+
 
   updateParameter: (id, value) => {
     set((state) => ({
@@ -113,14 +132,22 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       ),
     })),
 
-  addSnapshot: (snapshot) =>
+  addSnapshot: (snapshotMetadata: SnapshotMetadata) => {
+    return; // TODO optimize performance
+    const { environments, parameters } = get();
+    const snapshot: Snapshot = {
+      ...snapshotMetadata,
+      environments: Array.from(environments.values()).map(env => serializeEnvironment(env)),
+      parameters: parameters,
+    };
     set((state) => {
       const newSnapshots = [...state.snapshots, snapshot];
       if (newSnapshots.length > state.maxSnapshots && state.maxSnapshots !== -1) {
         newSnapshots.shift();
       }
       return { snapshots: newSnapshots };
-    }),
+    })
+  },
 
   clearSnapshots: () => set({ snapshots: [] }),
 
@@ -136,11 +163,12 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   updateMainViewLayout: () => {
     const { environments, parameters, charts, mainView } = get();
-    set({ 
-      mainView: createAutoLayout(environments, parameters, charts, { 
-        currentView: mainView, 
-        preserveExisting: true 
-      }) 
+      const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type })); 
+    set({
+      mainView: createAutoLayout(environmentsArray, parameters, charts, {
+        currentView: mainView,
+        preserveExisting: true
+      })
     });
   },
 }));

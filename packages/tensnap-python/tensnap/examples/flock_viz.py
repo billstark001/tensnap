@@ -55,8 +55,9 @@ async def init_simulation():
     sim_manager.time_step = 0
     await server.start_time_step(0)
 
-    updates = grid.update()
-    await server.update_agents_batch("main", updates)
+    model_updates, agent_updates = grid.update()
+    await server.update_environment("main", model_updates)
+    await server.update_agents_batch("main", agent_updates)
 
     await server.end_time_step(0)
 
@@ -69,9 +70,10 @@ async def on_step(step: int) -> None:
     await server.start_time_step(step)
 
     model.step()
-    updates = grid.update()
-    await server.update_agents_batch("main", updates)
-    
+    model_updates, agent_updates = grid.update()
+    await server.update_environment("main", model_updates)
+    await server.update_agents_batch("main", agent_updates)
+
     await server.end_time_step(step)
 
 

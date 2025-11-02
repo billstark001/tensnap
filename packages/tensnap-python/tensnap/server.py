@@ -154,14 +154,14 @@ def convert_parameter_state(param: "Parameter") -> Dict[str, Any]:
 def convert_environment_state(env: "EnvironmentModel") -> Dict[str, Any]:
     """Convert environment to state dict"""
     # For environments, we typically don't cache since they change frequently
-    env_dict = env.to_dict()
+    env_dict = env.get_model_dict()
+    agent_list = env.get_agent_list()
     return {
         "id": env_dict["id"],
         "type": env_dict["type"],
         "width": env_dict.get("width"),
         "height": env_dict.get("height"),
-        "agents": env_dict.get("agents", []),
-        "nodes": env_dict.get("nodes"),
+        "agents": agent_list,
         "edges": env_dict.get("edges"),
         "background": env_dict.get("background"),
     }

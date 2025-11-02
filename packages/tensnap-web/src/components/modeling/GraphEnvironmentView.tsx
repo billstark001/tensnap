@@ -1,13 +1,14 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
-import { GraphEnvironment, GraphAgent } from '@/types/modeling';
+import { GraphAgent, AgentId } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
 import * as Dialog from '@radix-ui/react-dialog';
 import { dialogOverlay, dialogContent, dialogTitle, dialogClose } from '@/styles/dialog.css';
 import { X } from 'lucide-react';
+import { InstantiatedGraphEnvironment } from '@/types/model-inst';
 
 interface GraphEnvironmentViewProps {
-  environment: GraphEnvironment;
+  environment: InstantiatedGraphEnvironment;
 }
 
 // Extend GraphNode with D3 simulation properties
@@ -238,7 +239,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
     }
 
     // 创建或更新节点数据
-    const simulationNodes: VisualizedGraphAgent[] = environment.nodes.map(node => {
+    const simulationNodes: VisualizedGraphAgent[] = Object.values(environment.agents).map(node => {
       // 如果是增量更新，保留现有节点的位置
       const existingNode = nodesDataRef.current.find(n => n.id === node.id);
       return {
@@ -251,16 +252,16 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
     });
 
     // 创建节点映射
-    const nodeMap = new Map<string | number, VisualizedGraphAgent>();
+    const nodeMap = new Map<AgentId, VisualizedGraphAgent>();
     simulationNodes.forEach(node => {
       nodeMap.set(node.id, node);
     });
 
     // 创建边数据
-    const simulationEdges = environment.edges.map(edge => ({
+    const simulationEdges = environment.props.edges.map(edge => ({
       ...edge,
-      source: nodeMap.get(edge.source) || edge.source,
-      target: nodeMap.get(edge.target) || edge.target,
+      source: nodeMap.get(edge.source),
+      target: nodeMap.get(edge.target),
     }));
 
     // 检测连通分量

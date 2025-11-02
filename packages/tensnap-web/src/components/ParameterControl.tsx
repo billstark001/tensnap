@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { CheckboxParameter, EnumParameter, Parameter, ParameterType, SliderParameter, StringParameter } from '../types/modeling';
+import { CheckboxParameter, EnumParameter, Parameter, ParameterType, SliderParameter, StringParameter } from '../types/model';
 import { useScenarioStore } from '../store/scenario';
 import { useWebSocketStore } from '@/store/websocket';
 import { ParameterChangePayload } from '@/types/api';

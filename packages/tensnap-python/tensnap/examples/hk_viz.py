@@ -59,8 +59,9 @@ async def init_simulation() -> None:
     sim_manager.time_step = 0
     await server.start_time_step(0)
 
-    updates = graph_env.update()
-    await server.update_environment("opinion_network", updates)
+    model_updates, agent_updates = graph_env.update()
+    await server.update_environment("opinion_network", model_updates)
+    await server.update_agents_batch("opinion_network", agent_updates)
 
     await server.end_time_step()
 
@@ -69,8 +70,10 @@ async def on_step(step: int) -> None:
     await server.start_time_step(step)
 
     model.step()
-    updates = graph_env.update()
-    await server.update_environment("opinion_network", updates)
+
+    model_updates, agent_updates = graph_env.update()
+    await server.update_environment("opinion_network", model_updates)
+    await server.update_agents_batch("opinion_network", agent_updates)
 
     await server.end_time_step(step)
 

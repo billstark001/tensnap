@@ -1,5 +1,5 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
-import { Environment, Parameter, ChartData, ButtonParameter, SliderParameter, EnumParameter } from '@/types/modeling';
+import { Parameter, ChartData, ButtonParameter, SliderParameter, EnumParameter, EnvironmentId, EnvironmentType } from '@/types/model';
 import { adjustLayout, initialPack } from './pack';
 
 const SIDEBAR_WIDTH = 300;
@@ -23,6 +23,11 @@ export interface LayoutOptions {
   currentView?: ContainerView;
   preserveExisting?: boolean;
 }
+
+type ObjectWithEnvironmentMetadata = { 
+  id: EnvironmentId;
+  type: EnvironmentType;
+};
 
 // #region object creation functions
 
@@ -111,7 +116,7 @@ function createParameterViews(parameters: Parameter[]): AnchoredView[] {
 /**
  * Creates views for environments
  */
-function createEnvironmentViews(environments: Environment[]): AnchoredView[] {
+function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): AnchoredView[] {
   return environments.map((env) => ({
     id: `environment-${env.id}`,
     type: 'environment',
@@ -208,7 +213,7 @@ function getParameterSignature(param: { id: string, type?: string }): string {
   return `param:${param.type}:${param.id}`;
 }
 
-function getEnvironmentSignature(env: Pick<Environment, 'id'>): string {
+function getEnvironmentSignature(env: ObjectWithEnvironmentMetadata): string {
   return `env:${env.id}`;
 }
 
@@ -225,7 +230,7 @@ if (!window.structuredClone) {
 }
 
 export function createAutoLayout(
-  environments: Environment[],
+  environments: ObjectWithEnvironmentMetadata[],
   parameters: Parameter[],
   charts: ChartData[],
   options: LayoutOptions = {}
@@ -247,7 +252,7 @@ export function createAutoLayout(
       return false;
     }
     const sign = view.type === 'parameter' ? getParameterSignature(view.data) :
-      view.type === 'environment' ? getEnvironmentSignature(view.data) :
+      view.type === 'environment' ? getEnvironmentSignature(view.data as ObjectWithEnvironmentMetadata) :
         view.type === 'chart' ? getChartSignature(view.data) :
           view.type === 'button' ? getParameterSignature({ id: view.data.id, type: 'button' }) : undefined;
     if (!sign) {
