@@ -21,6 +21,12 @@ export interface ChartConfig {
   showLegend?: boolean;
   showTooltip?: boolean;
   smartAxisBounds?: boolean; // Enable smart endpoint selection
+  xAxisLabel?: string;
+  yAxisLabel?: string;
+  xAxisUnit?: string;
+  yAxisUnit?: string;
+  showXAxisLabel?: boolean;
+  showYAxisLabel?: boolean;
   padding?: {
     top?: number;
     right?: number;

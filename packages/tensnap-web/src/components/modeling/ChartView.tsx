@@ -154,6 +154,10 @@ export function ChartView(props: ChartViewProps) {
       showLegend: true,
       showTooltip: true,
       smartAxisBounds: false, // Can be enabled via props if needed
+      xAxisLabel: 'Time',
+      yAxisLabel: 'Value',
+      showXAxisLabel: false,
+      showYAxisLabel: false,
     };
   }, [chartGroup.metadataDict]);
 

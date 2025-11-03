@@ -280,7 +280,7 @@ export class LeaferLineChart {
 
     // Render legend
     if (this.config.showLegend !== false) {
-      this.renderLegend(pad, chartWidth);
+      this.renderLegend(pad, chartWidth, chartHeight);
     }
   }
 
@@ -390,6 +390,7 @@ export class LeaferLineChart {
   ): void {
     const textColor = '#666666';
     const fontSize = 10;
+    const labelFontSize = 12;
     const xRange = xMax - xMin || 1;
     const yRange = yMax - yMin || 1;
 
@@ -418,6 +419,21 @@ export class LeaferLineChart {
           this.axisGroup?.add(label);
         }
       });
+
+      // X-axis label and unit
+      if (this.config.showXAxisLabel !== false && this.config.xAxisLabel) {
+        const labelText = this.config.xAxisUnit 
+          ? `${this.config.xAxisLabel} (${this.config.xAxisUnit})`
+          : this.config.xAxisLabel;
+        const xLabel = new Text({
+          text: labelText,
+          x: pad.left + chartWidth / 2 - 30,
+          y: pad.top + chartHeight + 25,
+          fontSize: labelFontSize,
+          fill: '#333',
+        });
+        this.axisGroup?.add(xLabel);
+      }
     }
 
     // Y-axis
@@ -445,6 +461,22 @@ export class LeaferLineChart {
           this.axisGroup?.add(label);
         }
       });
+
+      // Y-axis label and unit (rotated)
+      if (this.config.showYAxisLabel !== false && this.config.yAxisLabel) {
+        const labelText = this.config.yAxisUnit 
+          ? `${this.config.yAxisLabel} (${this.config.yAxisUnit})`
+          : this.config.yAxisLabel;
+        const yLabel = new Text({
+          text: labelText,
+          x: 10,
+          y: pad.top + chartHeight / 2,
+          fontSize: labelFontSize,
+          fill: '#333',
+          rotation: -90,
+        });
+        this.axisGroup?.add(yLabel);
+      }
     }
   }
 
@@ -494,20 +526,24 @@ export class LeaferLineChart {
   // Render legend
   private renderLegend(
     pad: { top: number; right: number; bottom: number; left: number },
-    chartWidth: number
+    chartWidth: number,
+    chartHeight: number
   ): void {
     if (!this.legendGroup) return;
 
-    const legendX = pad.left;
-    const legendY = pad.top - 10;
-    const itemWidth = 120;
+    const itemWidth = 100;
     const itemHeight = 16;
+    const itemSpacing = 8;
+    
+    // Position legend at top-right corner, inside the chart area
+    const legendStartX = pad.left + chartWidth - (this.config.lines.length * itemWidth);
+    const legendY = pad.top + 5;
     let offsetX = 0;
 
     this.config.lines.forEach((lineConfig, index) => {
       // Legend color box
       const colorBox = new Rect({
-        x: legendX + offsetX,
+        x: legendStartX + offsetX,
         y: legendY,
         width: 12,
         height: 12,
@@ -518,7 +554,7 @@ export class LeaferLineChart {
       // Legend text
       const text = new Text({
         text: lineConfig.name,
-        x: legendX + offsetX + 16,
+        x: legendStartX + offsetX + 16,
         y: legendY,
         fontSize: 11,
         fill: '#333',
@@ -526,11 +562,6 @@ export class LeaferLineChart {
       this.legendGroup!.add(text);
 
       offsetX += itemWidth;
-      
-      // Wrap to next line if needed
-      if (offsetX + itemWidth > chartWidth) {
-        offsetX = 0;
-      }
     });
   }
 
