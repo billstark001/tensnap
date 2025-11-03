@@ -5,7 +5,7 @@ import { FileSystemState } from "./file-system/store";
 import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
-import { ChartGroup, ChartMetadata, Environment, EnvironmentId, PureEnvironment, SimulationState } from "@/types/model";
+import { ChartGroup, ChartMetadata, Environment, EnvironmentId, SimulationState } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
@@ -39,7 +39,7 @@ const insertProject = (projects: readonly Readonly<ProjectContextScheme>[], newP
 };
 
 
-const getPureEnvironment = ({ agents, ...rest }: Environment) => (rest as PureEnvironment);
+const stripAgents = ({ agents, ...rest }: Environment) => (rest as Omit<Environment, 'agents'>) ;
 
 
 const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
@@ -60,7 +60,7 @@ export const createStateSyncRequestFromStore = (store?: SimulationState): StateS
   const { parameters = [], environments = [], charts = [] } = store || {};
   return {
     parameters,
-    environments: environments.map(getPureEnvironment),
+    environments: environments.map(stripAgents),
     charts: getAllChartMetadata(charts),
   };
 };

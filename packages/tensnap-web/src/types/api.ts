@@ -103,7 +103,7 @@ export interface LogPayload {
 // state_sync - Unified state synchronization (request and response)
 export interface StateSyncRequest {
   parameters: Parameter[];  // Parameter ID list
-  environments: PureEnvironment[];  // Environment ID list
+  environments: Omit<Environment, 'agents'>[];  // Environment ID list
   charts: ChartMetadata[];  // Chart ID list, only for telling if the chart exists, with group structure excluded
 }
 
@@ -122,7 +122,7 @@ export interface StateSyncResponse {
   removed_charts: string[];
   updated_charts: ChartMetadataWithList[];
 
-  clear_charts: boolean | string[]; // true means clear all charts, string[] means clear specific charts by IDs
+  clear_charts?: boolean | string[]; // true means clear all charts, string[] means clear specific charts by IDs
 }
 
 // parameter_change

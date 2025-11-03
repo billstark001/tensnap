@@ -5,7 +5,12 @@ import asyncio
 import os
 import numpy as np
 from typing import Dict, Any
-from tensnap import TenSnapServer, GraphEnvironmentModel
+from tensnap import (
+    TenSnapServer,
+    NXGraphEnvironmentBinder,
+    make_graph_agent_accessor_nx,
+    make_graph_edge_accessor_nx,
+)
 from tensnap.simulation import SimulationManager
 from tensnap.bindings.basic import chart, button, quick_bind
 from .hk import DiscreteHKModel
@@ -15,12 +20,20 @@ from .hk import DiscreteHKModel
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 server = TenSnapServer(port=server_port)
 model = DiscreteHKModel(n_agents=50, confidence_bound=0.3, k_random=3)
-graph_env = GraphEnvironmentModel(id="opinion_network")
 sim_manager = SimulationManager(step_interval=0.1)
 
 
+graph_env = NXGraphEnvironmentBinder(
+    id="opinion_network",
+    graph=model.graph,
+    agent_accessor=make_graph_agent_accessor_nx(
+        color=True, size=True, auto_collect_data=True
+    ),
+)
+
+
 # Custom update function for automatic visualization updates
-def update_hk_visualization(env: GraphEnvironmentModel, hk_model) -> None:
+def update_hk_visualization(hk_model: DiscreteHKModel) -> None:
     """Update graph visualization with opinion colors and sizes"""
     for node_id in hk_model.graph.nodes():
         opinion = hk_model.opinions[node_id]
@@ -32,15 +45,19 @@ def update_hk_visualization(env: GraphEnvironmentModel, hk_model) -> None:
                     if opinion < -0.33
                     else "#3498DB" if opinion > 0.33 else "#F39C12"
                 ),
-                "size": 8 + abs(opinion) * 5,
+                "size": 16 + abs(opinion) * 10,
             }
         )
-    env.update_from_networkx(hk_model.graph)
 
 
-# Configure automatic updates
-graph_env.update_source = model
-graph_env.update_func = update_hk_visualization
+async def send_updates():
+    """Send environment and agent updates to the server"""
+    update_hk_visualization(model)
+    model_updates = graph_env.get_model_dict()
+    agent_updates = graph_env.get_agent_list()
+    await server.update_environment("opinion_network", model_updates)
+    await server.update_agents_batch("opinion_network", agent_updates)
+
 
 # Auto-bind parameters
 bound_params = quick_bind(model, exclude=["opinion_history"])
@@ -48,21 +65,12 @@ bound_params = quick_bind(model, exclude=["opinion_history"])
 
 async def init_simulation() -> None:
     await sim_manager.stop()
-    model.__init__(
-        model.n_agents,
-        model.confidence_bound,
-        model.influence_strength,
-        model.k_random,
-        model.rewire_prob,
-    )
+    model.init()
+    graph_env.graph = model.graph
 
     sim_manager.time_step = 0
     await server.start_time_step(0)
-
-    model_updates, agent_updates = graph_env.update()
-    await server.update_environment("opinion_network", model_updates)
-    await server.update_agents_batch("opinion_network", agent_updates)
-
+    await send_updates()
     await server.end_time_step()
 
 
@@ -71,10 +79,7 @@ async def on_step(step: int) -> None:
 
     model.step()
 
-    model_updates, agent_updates = graph_env.update()
-    await server.update_environment("opinion_network", model_updates)
-    await server.update_agents_batch("opinion_network", agent_updates)
-
+    await send_updates()
     await server.end_time_step(step)
 
 
@@ -105,8 +110,7 @@ async def main() -> None:
     # Setup simulation manager
     sim_manager.on_step = on_step
 
-    # Initialize
-    graph_env.update()
+    update_hk_visualization(model)
 
     # Register components
     server.add_environment(graph_env)

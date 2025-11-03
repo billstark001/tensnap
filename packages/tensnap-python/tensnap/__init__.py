@@ -3,7 +3,7 @@
 
 from .server import TenSnapServer
 from .simulation import SimulationManager
-from .models import AgentModel, GridEnvironmentModel, GraphEnvironmentModel
+from .models import *
 from .bindings.basic import (
     parameter,
     button,
@@ -21,9 +21,28 @@ __version__ = "0.1.0"
 __all__ = [
     "TenSnapServer",
     "SimulationManager",
-    "AgentModel",
-    "GridEnvironmentModel",
-    "GraphEnvironmentModel",
+    
+    "AgentModelDict",
+    "UniformAgentModelDict",
+    "GridAgentModelDict",
+    "GraphAgentModelDict",
+    "make_uniform_agent_accessor",
+    "make_grid_agent_accessor",
+    "make_graph_agent_accessor",
+    "make_graph_agent_accessor_nx",
+    
+    "GraphEdgeDict",
+    "make_graph_edge_accessor_nx",
+    "PureUniformEnvironmentModel",
+    "PureGridEnvironmentModel",
+    "PureGraphEnvironmentModel",
+    "make_uniform_environment_accessor",
+    "make_grid_environment_accessor",
+    "make_graph_edge_accessor_nx",
+    "UniformEnvironmentBinder",
+    "GridEnvironmentBinder",
+    "NXGraphEnvironmentBinder",
+    
     "Parameter",
     "parameter",
     "button",

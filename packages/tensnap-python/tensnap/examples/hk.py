@@ -32,15 +32,23 @@ class DiscreteHKModel:
         self.influence_strength = influence_strength
         self.k_random = k_random
         self.rewire_prob = rewire_prob
+        self.edge_prob = edge_prob
+        self.initial_opinions = initial_opinions
+        self.graph: nx.DiGraph = nx.DiGraph()
+        self.opinions: np.ndarray = np.zeros(n_agents)
+        self.opinion_history: List[np.ndarray] = []
 
+        self.init()
+
+    def init(self):
         # 初始化意见
-        if initial_opinions is None:
-            self.opinions = np.random.uniform(-1, 1, n_agents)
+        if self.initial_opinions is None:
+            self.opinions = np.random.uniform(-1, 1, self.n_agents)
         else:
-            self.opinions = np.array(initial_opinions)
+            self.opinions = np.array(self.initial_opinions)
 
         # 创建有向E-R图
-        self.graph = nx.erdos_renyi_graph(n_agents, edge_prob, directed=True)
+        self.graph = nx.erdos_renyi_graph(self.n_agents, self.edge_prob, directed=True)
 
         # 记录历史
         self.opinion_history = [self.opinions.copy()]

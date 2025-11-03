@@ -33,7 +33,7 @@ export interface GridAgent extends Agent {
   x: number;
   y: number;
   heading: number;
-  trajectory?: TrajectoryPoint[];
+  trajectory?: TrajectoryPoint[]; // this is to be maintained by the frontend only
 }
 
 
@@ -41,7 +41,6 @@ export interface PureGridEnvironment {
   width: number;
   height: number;
   background?: Uint8Array | string;
-  colormap?: string;
 }
 
 export interface GridEnvironment extends PureGridEnvironment, EnvironmentBase {

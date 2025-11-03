@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
-import { GraphAgent, AgentId } from '@/types/model';
+import { GraphAgent } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
 import { AgentDetailsDialog } from './AgentDetailsDialog';
 import { InstantiatedGraphEnvironment } from '@/store/scenario-inst';
@@ -9,7 +9,6 @@ interface GraphEnvironmentViewProps {
   environment: InstantiatedGraphEnvironment;
 }
 
-// Extend GraphNode with D3 simulation properties
 interface VisualizedGraphAgent extends GraphAgent {
   x?: number;
   y?: number;
@@ -27,7 +26,6 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
   const edgesDataRef = useRef<any[]>([]);
   const lastEnvironmentIdRef = useRef<string | number | null>(null);
 
-  // 检测连通分量的函数
   const findConnectedComponents = useCallback((nodes: VisualizedGraphAgent[], edges: any[]) => {
     const components: VisualizedGraphAgent[][] = [];
     const visited = new Set<string | number>();
@@ -35,107 +33,81 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
     const dfs = (nodeId: string | number, component: VisualizedGraphAgent[]) => {
       if (visited.has(nodeId)) return;
       visited.add(nodeId);
-
       const node = nodes.find(n => n.id === nodeId);
-      if (node) {
-        component.push(node);
+      if (!node) return;
 
-        // 找到所有连接的节点
-        edges.forEach(edge => {
-          const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
-          const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
-
-          if (sourceId === nodeId && !visited.has(targetId)) {
-            dfs(targetId, component);
-          } else if (targetId === nodeId && !visited.has(sourceId)) {
-            dfs(sourceId, component);
-          }
-        });
-      }
+      component.push(node);
+      edges.forEach(edge => {
+        const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+        const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+        const nextId = sourceId === nodeId ? targetId : (targetId === nodeId ? sourceId : null);
+        if (nextId && !visited.has(nextId)) dfs(nextId, component);
+      });
     };
 
     nodes.forEach(node => {
       if (!visited.has(node.id)) {
         const component: VisualizedGraphAgent[] = [];
         dfs(node.id, component);
-        if (component.length > 0) {
-          components.push(component);
-        }
+        if (component.length > 0) components.push(component);
       }
     });
 
     return components;
   }, []);
 
-  // 为连通分量分配初始位置的函数
   const arrangeComponentPositions = useCallback((components: VisualizedGraphAgent[][], width: number, height: number) => {
     if (components.length === 1) return;
 
-    // 计算每个分量需要的大概空间
-    const componentSpacing = 120;
+    const spacing = 120;
     const cols = Math.ceil(Math.sqrt(components.length));
-    const rows = Math.ceil(components.length / cols);
-
-    const cellWidth = (width - componentSpacing) / cols;
-    const cellHeight = (height - componentSpacing) / rows;
+    const cellWidth = (width - spacing) / cols;
+    const cellHeight = (height - spacing) / Math.ceil(components.length / cols);
 
     components.forEach((component, index) => {
-      const col = index % cols;
-      const row = Math.floor(index / cols);
-
-      const centerX = componentSpacing / 2 + col * cellWidth + cellWidth / 2;
-      const centerY = componentSpacing / 2 + row * cellHeight + cellHeight / 2;
-
-      // 在分量中心周围随机分布节点
+      const centerX = spacing / 2 + (index % cols) * cellWidth + cellWidth / 2;
+      const centerY = spacing / 2 + Math.floor(index / cols) * cellHeight + cellHeight / 2;
       const radius = Math.min(cellWidth, cellHeight) / 4;
+
       component.forEach(node => {
         if (node.x === undefined || node.y === undefined) {
           const angle = Math.random() * 2 * Math.PI;
-          const distance = Math.random() * radius;
-          node.x = centerX + Math.cos(angle) * distance;
-          node.y = centerY + Math.sin(angle) * distance;
+          node.x = centerX + Math.cos(angle) * Math.random() * radius;
+          node.y = centerY + Math.sin(angle) * Math.random() * radius;
         }
       });
     });
   }, []);
 
-  // 为连通分量创建约束力的函数
   const createComponentConstraintForce = useCallback((components: VisualizedGraphAgent[][], maxDistance: number = 200) => {
     return (alpha: number) => {
       if (components.length <= 1) return;
 
-      // 计算每个分量的中心
-      const componentCenters = components.map(component => {
-        const centerX = d3.mean(component, d => d.x || 0) || 0;
-        const centerY = d3.mean(component, d => d.y || 0) || 0;
-        return { x: centerX, y: centerY, component };
-      });
+      const centers = components.map(comp => ({
+        x: d3.mean(comp, d => d.x || 0) || 0,
+        y: d3.mean(comp, d => d.y || 0) || 0,
+        component: comp
+      }));
 
-      // 对于每对分量，如果距离太远则施加吸引力
-      for (let i = 0; i < componentCenters.length; i++) {
-        for (let j = i + 1; j < componentCenters.length; j++) {
-          const center1 = componentCenters[i];
-          const center2 = componentCenters[j];
-
-          const dx = center2.x - center1.x;
-          const dy = center2.y - center1.y;
+      for (let i = 0; i < centers.length; i++) {
+        for (let j = i + 1; j < centers.length; j++) {
+          const dx = centers[j].x - centers[i].x;
+          const dy = centers[j].y - centers[i].y;
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance > maxDistance) {
-            const force = (distance - maxDistance) * alpha * 0.2; // 增加力的强度
+            const force = (distance - maxDistance) * alpha * 0.2;
             const fx = (dx / distance) * force;
             const fy = (dy / distance) * force;
 
-            // 对分量1中的节点施加向右的力
-            center1.component.forEach(node => {
-              node.vx = (node.vx || 0) + fx / center1.component.length;
-              node.vy = (node.vy || 0) + fy / center1.component.length;
+            centers[i].component.forEach(node => {
+              node.vx = (node.vx || 0) + fx / centers[i].component.length;
+              node.vy = (node.vy || 0) + fy / centers[i].component.length;
             });
 
-            // 对分量2中的节点施加向左的力
-            center2.component.forEach(node => {
-              node.vx = (node.vx || 0) - fx / center2.component.length;
-              node.vy = (node.vy || 0) - fy / center2.component.length;
+            centers[j].component.forEach(node => {
+              node.vx = (node.vx || 0) - fx / centers[j].component.length;
+              node.vy = (node.vy || 0) - fy / centers[j].component.length;
             });
           }
         }
@@ -143,72 +115,51 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
     };
   }, []);
 
-  // 自适应视图的函数
   const fitViewToGraph = useCallback((svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, nodes: VisualizedGraphAgent[]) => {
     if (nodes.length === 0) return;
 
     const padding = 50;
-    const minX = d3.min(nodes, d => d.x || 0) || 0;
-    const maxX = d3.max(nodes, d => d.x || 0) || 0;
-    const minY = d3.min(nodes, d => d.y || 0) || 0;
-    const maxY = d3.max(nodes, d => d.y || 0) || 0;
+    const bounds = {
+      minX: d3.min(nodes, d => d.x || 0) || 0,
+      maxX: d3.max(nodes, d => d.x || 0) || 0,
+      minY: d3.min(nodes, d => d.y || 0) || 0,
+      maxY: d3.max(nodes, d => d.y || 0) || 0
+    };
 
-    const graphWidth = maxX - minX + 2 * padding;
-    const graphHeight = maxY - minY + 2 * padding;
+    const graphWidth = bounds.maxX - bounds.minX + 2 * padding;
+    const graphHeight = bounds.maxY - bounds.minY + 2 * padding;
+    const scale = Math.min(600 / graphWidth, 600 / graphHeight, 1);
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
 
-    const svgWidth = 600;
-    const svgHeight = 600;
-
-    const scale = Math.min(svgWidth / graphWidth, svgHeight / graphHeight, 1);
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const translateX = svgWidth / 2 - centerX * scale;
-    const translateY = svgHeight / 2 - centerY * scale;
-
-    const g = svg.select('.graph-container');
-    if (!g.empty()) {
-      g.transition()
-        .duration(750)
-        .attr('transform', `translate(${translateX},${translateY}) scale(${scale})`);
-    }
+    svg.select('.graph-container')
+      .transition()
+      .duration(750)
+      .attr('transform', `translate(${300 - centerX * scale},${300 - centerY * scale}) scale(${scale})`);
   }, []);
 
   useEffect(() => {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
-    const width = 600;
-    const height = 600;
-
-    // 检查是否需要完全重新初始化（ID改变或首次渲染）
     const shouldReinitialize = lastEnvironmentIdRef.current !== environment.id;
 
     if (shouldReinitialize) {
-      // 完全重新初始化
       svg.selectAll('*').remove();
       lastEnvironmentIdRef.current = environment.id;
 
-      // 设置缩放行为
-      const zoom = d3.zoom<SVGSVGElement, unknown>()
+      svg.call(d3.zoom<SVGSVGElement, unknown>()
         .scaleExtent([0.1, 4])
-        .on('zoom', (event) => {
-          svg.select('.graph-container')
-            .attr('transform', event.transform);
-        });
+        .on('zoom', (event) => svg.select('.graph-container').attr('transform', event.transform)));
 
-      svg.call(zoom);
-
-      // 创建主容器
       const container = svg.append('g').attr('class', 'graph-container');
 
-      // 创建箭头标记
-      const defs = svg.append('defs');
-      defs.selectAll('marker')
-        .data(['arrow'])
-        .enter().append('marker')
-        .attr('id', d => d)
+      // Arrow marker with offset to prevent overlap
+      svg.append('defs')
+        .append('marker')
+        .attr('id', 'arrow')
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 15)
+        .attr('refX', 20) // Increased offset to clear node
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
@@ -217,157 +168,123 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', '#999');
 
-      // 创建边和节点容器
       container.append('g').attr('class', 'edges');
       container.append('g').attr('class', 'nodes');
 
-      // 停止之前的仿真
-      if (simulationRef.current) {
-        simulationRef.current.stop();
-      }
+      if (simulationRef.current) simulationRef.current.stop();
 
-      // 创建新的仿真
       simulationRef.current = d3.forceSimulation<VisualizedGraphAgent>()
-        .force('link', d3.forceLink<VisualizedGraphAgent, any>()
-          .id(d => String(d.id))
-          .distance(80))
+        .force('link', d3.forceLink<VisualizedGraphAgent, any>().id(d => String(d.id)).distance(80))
         .force('charge', d3.forceManyBody().strength(-300))
-        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('center', d3.forceCenter(300, 300))
         .force('collision', d3.forceCollide().radius(25));
     }
 
-    // 创建或更新节点数据
     const simulationNodes: VisualizedGraphAgent[] = Object.values(environment.agents).map(node => {
-      // 如果是增量更新，保留现有节点的位置
-      const existingNode = nodesDataRef.current.find(n => n.id === node.id);
+      const existing = nodesDataRef.current.find(n => n.id === node.id);
       return {
         ...node,
-        x: existingNode?.x ?? node.x,
-        y: existingNode?.y ?? node.y,
-        vx: existingNode?.vx ?? 0,
-        vy: existingNode?.vy ?? 0,
+        x: existing?.x ?? node.x,
+        y: existing?.y ?? node.y,
+        vx: existing?.vx ?? 0,
+        vy: existing?.vy ?? 0,
+        fx: existing?.fx ?? null,
+        fy: existing?.fy ?? null,
       };
     });
 
-    // 创建节点映射
-    const nodeMap = new Map<AgentId, VisualizedGraphAgent>();
-    simulationNodes.forEach(node => {
-      nodeMap.set(node.id, node);
-    });
-
-    // 创建边数据
+    const nodeMap = new Map(simulationNodes.map(n => [n.id, n]));
     const simulationEdges = environment.props.edges.map(edge => ({
       ...edge,
       source: nodeMap.get(edge.source),
       target: nodeMap.get(edge.target),
     }));
 
-    // 检测连通分量
     const components = findConnectedComponents(simulationNodes, simulationEdges);
 
-    // 为没有初始位置的节点分配位置
     if (shouldReinitialize || simulationNodes.some(n => n.x === undefined || n.y === undefined)) {
       if (components.length > 1) {
-        arrangeComponentPositions(components, width, height);
+        arrangeComponentPositions(components, 600, 600);
       } else {
-        // 单个连通分量，在中心周围随机分布
         simulationNodes.forEach(node => {
           if (node.x === undefined || node.y === undefined) {
-            node.x = width / 2 + (Math.random() - 0.5) * 200;
-            node.y = height / 2 + (Math.random() - 0.5) * 200;
+            node.x = 300 + (Math.random() - 0.5) * 200;
+            node.y = 300 + (Math.random() - 0.5) * 200;
           }
         });
       }
     }
 
-    // 更新引用
     nodesDataRef.current = simulationNodes;
     edgesDataRef.current = simulationEdges;
 
-    // 更新仿真数据
     if (simulationRef.current) {
       simulationRef.current.nodes(simulationNodes);
-      const linkForce = simulationRef.current.force('link') as d3.ForceLink<VisualizedGraphAgent, any>;
-      if (linkForce) {
-        linkForce.links(simulationEdges);
-      }
-
-      // 添加连通分量约束力
-      if (components.length > 1) {
-        const constraintForce = createComponentConstraintForce(components, 120); // 减小最大距离
-        simulationRef.current.force('componentConstraint', constraintForce);
-      } else {
-        // 如果只有一个连通分量，移除约束力
-        simulationRef.current.force('componentConstraint', null);
-      }
+      (simulationRef.current.force('link') as d3.ForceLink<VisualizedGraphAgent, any>)?.links(simulationEdges);
+      simulationRef.current.force('componentConstraint',
+        components.length > 1 ? createComponentConstraintForce(components, 120) : null);
     }
 
-    // 获取容器
     const container = svg.select('.graph-container');
 
-    // 更新边
+    // Update edges - calculate edge endpoints to stop at node boundaries
     const linkSelection = container.select('.edges')
       .selectAll('line')
       .data(simulationEdges, (d: any) => `${d.source.id || d.source}-${d.target.id || d.target}`);
 
     linkSelection.exit().remove();
 
-    linkSelection.enter()
-      .append('line')
-      .merge(linkSelection as any)
+    const linkMerged = linkSelection.enter().append('line').merge(linkSelection as any);
+
+    linkMerged
       .attr('stroke', d => d.color || '#999999')
       .attr('stroke-width', d => d.width || 1)
-      .attr('stroke-dasharray', d => {
-        if (d.style === 'dashed') return '5,5';
-        if (d.style === 'dotted') return '2,2';
-        return null;
-      })
+      .attr('stroke-dasharray', d => d.style === 'dashed' ? '5,5' : (d.style === 'dotted' ? '2,2' : null))
       .attr('marker-end', d => d.directed ? 'url(#arrow)' : null);
 
-    // 更新节点
-    const nodeSelection = container.select('.nodes')
-      .selectAll('g')
-      .data(simulationNodes, (d: any) => d.id);
-
+    // Update nodes
+    const nodeSelection = container.select('.nodes').selectAll('g').data(simulationNodes, (d: any) => d.id);
     nodeSelection.exit().remove();
+
+    const dragBehavior = d3.drag<SVGGElement, VisualizedGraphAgent>()
+      .on('start', (event, d) => {
+        if (!event.active && simulationRef.current) simulationRef.current.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on('end', (event, d) => {
+        if (!event.active && simulationRef.current) simulationRef.current.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      });
 
     const nodeEnter = nodeSelection.enter()
       .append('g')
-      .call(d3.drag<SVGGElement, VisualizedGraphAgent>()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended))
+      .call(dragBehavior)
       .on('dblclick', (event, d) => {
         event.stopPropagation();
         setSelectedNode(d);
       });
 
-    // 添加节点形状
-    nodeEnter.each(function (d) {
-      const g = d3.select(this);
+    const addNodeShape = (g: d3.Selection<SVGGElement, any, any, any>, d: VisualizedGraphAgent) => {
       const size = d.size || 10;
-
       switch (d.icon) {
         case 'square':
-          g.append('rect')
-            .attr('x', -size / 2)
-            .attr('y', -size / 2)
-            .attr('width', size)
-            .attr('height', size);
+          g.append('rect').attr('x', -size / 2).attr('y', -size / 2).attr('width', size).attr('height', size);
           break;
-
         case 'triangle':
-          g.append('polygon')
-            .attr('points', `0,${-size / 2} ${-size / 2},${size / 2} ${size / 2},${size / 2}`);
+          g.append('polygon').attr('points', `0,${-size / 2} ${-size / 2},${size / 2} ${size / 2},${size / 2}`);
           break;
-
-        default: // circle
-          g.append('circle')
-            .attr('r', size / 2);
+        default:
+          g.append('circle').attr('r', size / 2);
       }
-    });
+    };
 
-    // 添加标签
+    nodeEnter.each(function (d) { addNodeShape(d3.select(this), d); });
     nodeEnter.append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', '.35em')
@@ -375,98 +292,100 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
       .style('fill', 'white')
       .style('pointer-events', 'none');
 
-    // 更新现有节点
     const nodeMerged = nodeEnter.merge(nodeSelection as any);
 
-    // 更新节点颜色和大小
-    nodeMerged.selectAll('rect, circle, polygon')
-      .attr('fill', (d: any) => d.color || '#69b3a2');
+    // Update shapes if icon changed
+    const getShapeType = (icon?: string) => icon === 'square' ? 'rect' : (icon === 'triangle' ? 'polygon' : 'circle');
+    nodeMerged.each(function (d: any) {
+      const g = d3.select(this);
+      const current = g.select('rect, circle, polygon').node() as Element;
+      if (current && current.tagName.toLowerCase() !== getShapeType(d.icon)) {
+        g.selectAll('rect, circle, polygon').remove();
+        addNodeShape(g, d);
+      }
+    });
+
+    nodeMerged.selectAll('rect')
+      .attr('fill', (d: any) => d.color || '#69b3a2')
+      .attr('width', (d: any) => d.size || 10)
+      .attr('height', (d: any) => d.size || 10)
+      .attr('x', (d: any) => -(d.size || 10) / 2)
+      .attr('y', (d: any) => -(d.size || 10) / 2);
+
+    nodeMerged.selectAll('circle')
+      .attr('fill', (d: any) => d.color || '#69b3a2')
+      .attr('r', (d: any) => (d.size || 10) / 2);
+
+    nodeMerged.selectAll('polygon')
+      .attr('fill', (d: any) => d.color || '#69b3a2')
+      .attr('points', (d: any) => {
+        const size = d.size || 10;
+        return `0,${-size / 2} ${-size / 2},${size / 2} ${size / 2},${size / 2}`;
+      });
 
     nodeMerged.selectAll('text')
-      .text((d: any) => String(d.id));
+      .text((d: any) => String(d.id))
+      .style('font-size', (d: any) => `${Math.max(8, (d.size || 10) * 0.6)}px`);
 
-    // 仿真tick事件处理
     if (simulationRef.current) {
       simulationRef.current.on('tick', () => {
+        // Calculate edge endpoints to stop at node edge
         container.selectAll('.edges line')
-          .attr('x1', (d: any) => d.source.x)
-          .attr('y1', (d: any) => d.source.y)
-          .attr('x2', (d: any) => d.target.x)
-          .attr('y2', (d: any) => d.target.y);
+          .attr('x1', (d: any) => {
+            const dx = d.target.x - d.source.x;
+            const dy = d.target.y - d.source.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const nodeRadius = (d.source.size || 10) / 2;
+            return d.source.x + (dx / dist) * nodeRadius;
+          })
+          .attr('y1', (d: any) => {
+            const dx = d.target.x - d.source.x;
+            const dy = d.target.y - d.source.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const nodeRadius = (d.source.size || 10) / 2;
+            return d.source.y + (dy / dist) * nodeRadius;
+          })
+          .attr('x2', (d: any) => {
+            const dx = d.target.x - d.source.x;
+            const dy = d.target.y - d.source.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const nodeRadius = (d.target.size || 10) / 2;
+            return d.target.x - (dx / dist) * nodeRadius;
+          })
+          .attr('y2', (d: any) => {
+            const dx = d.target.x - d.source.x;
+            const dy = d.target.y - d.source.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const nodeRadius = (d.target.size || 10) / 2;
+            return d.target.y - (dy / dist) * nodeRadius;
+          });
 
         container.selectAll('.nodes g')
           .attr('transform', (d: any) => `translate(${d.x},${d.y})`);
       });
 
-      // 重新启动仿真
       simulationRef.current.alpha(0.3).restart();
-
-      // 在仿真稳定后自适应视图
-      setTimeout(() => {
-        if (simulationNodes.length > 0) {
-          fitViewToGraph(svg, simulationNodes);
-        }
-      }, 1000);
-    }
-
-    function dragstarted(event: d3.D3DragEvent<SVGGElement, VisualizedGraphAgent, VisualizedGraphAgent>, d: VisualizedGraphAgent) {
-      if (!event.active && simulationRef.current) {
-        simulationRef.current.alphaTarget(0.3).restart();
-      }
-      d.fx = d.x;
-      d.fy = d.y;
-    }
-
-    function dragged(event: d3.D3DragEvent<SVGGElement, VisualizedGraphAgent, VisualizedGraphAgent>, d: VisualizedGraphAgent) {
-      d.fx = event.x;
-      d.fy = event.y;
-    }
-
-    function dragended(event: d3.D3DragEvent<SVGGElement, VisualizedGraphAgent, VisualizedGraphAgent>, d: VisualizedGraphAgent) {
-      if (!event.active && simulationRef.current) {
-        simulationRef.current.alphaTarget(0);
-      }
-      d.fx = null;
-      d.fy = null;
+      setTimeout(() => simulationNodes.length > 0 && fitViewToGraph(svg, simulationNodes), 1000);
     }
 
     return () => {
-      if (simulationRef.current) {
-        simulationRef.current.stop();
-      }
+      simulationRef.current?.stop();
     };
-  }, [environment, fitViewToGraph]);
+  }, [environment, findConnectedComponents, arrangeComponentPositions, createComponentConstraintForce, fitViewToGraph]);
 
-  // 重置视图到适合图形的缩放
   const resetView = useCallback(() => {
-    if (!svgRef.current || nodesDataRef.current.length === 0) return;
-
-    const svg = d3.select(svgRef.current);
-    fitViewToGraph(svg, nodesDataRef.current);
+    if (svgRef.current && nodesDataRef.current.length > 0) {
+      fitViewToGraph(d3.select(svgRef.current), nodesDataRef.current);
+    }
   }, [fitViewToGraph]);
 
   return (
     <div className={styles.container}>
       <div style={{ position: 'relative' }}>
-        <svg
-          ref={svgRef}
-          width={600}
-          height={600}
-          className={styles.svg}
-        />
-        <button
-          className={styles.resetButton}
-          onClick={resetView}
-        >
-          重置视图
-        </button>
+        <svg ref={svgRef} width={600} height={600} className={styles.svg} />
+        <button className={styles.resetButton} onClick={resetView}>重置视图</button>
       </div>
-
-      <AgentDetailsDialog
-        agentType='graph'
-        agent={selectedNode}
-        onClose={() => setSelectedNode(null)}
-      />
+      <AgentDetailsDialog agentType='graph' agent={selectedNode} onClose={() => setSelectedNode(null)} />
     </div>
   );
 }

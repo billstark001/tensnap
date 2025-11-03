@@ -402,7 +402,7 @@ type ServerMessage =
 
 ```typescript
 type ClientMessage =
-  | { type: "state_sync", payload: ClientStateRequest }
+  | { type: "state_sync", payload: StateSyncRequest }
   | { type: "parameter_change", payload: { id: string, value: any } }
   | { type: "button_click", payload: { id: string } }
 ```

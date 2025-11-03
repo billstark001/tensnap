@@ -22,7 +22,7 @@ from .bindings.basic import Parameter, Chart, button
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from .models import EnvironmentModel, ClientStateRequest, StateSyncResponse
+    from .models import EnvironmentModel, StateSyncRequest, StateSyncResponse
 
 
 class ServerToClientMessageType(Enum):
@@ -35,6 +35,7 @@ class ServerToClientMessageType(Enum):
     AGENT_BATCH_UPDATE = "agent_batch_update"
     CHART_UPDATE = "chart_update"
     STATE_SYNC = "state_sync"
+    LOG = "log"
     ERROR = "error"
 
 
@@ -155,16 +156,9 @@ def convert_environment_state(env: "EnvironmentModel") -> Dict[str, Any]:
     """Convert environment to state dict"""
     # For environments, we typically don't cache since they change frequently
     env_dict = env.get_model_dict()
-    agent_list = env.get_agent_list()
-    return {
-        "id": env_dict["id"],
-        "type": env_dict["type"],
-        "width": env_dict.get("width"),
-        "height": env_dict.get("height"),
-        "agents": agent_list,
-        "edges": env_dict.get("edges"),
-        "background": env_dict.get("background"),
-    }
+    agent_list = env.get_agent_list(is_update=False)
+    env_dict["agents"] = agent_list
+    return env_dict
 
 
 def convert_chart_state(chart: "Chart") -> Dict[str, Any]:
@@ -281,7 +275,7 @@ class TenSnapServer:
             logger.error(f"Error handling message: {e}")
             await self.send_error(websocket, str(e))
 
-    async def _build_state_sync_response(self, client_request: "ClientStateRequest"):
+    async def _build_state_sync_response(self, client_request: "StateSyncRequest"):
         parameter_task = asyncio.create_task(
             self._compute_parameter_deltas_async(client_request)
         )
@@ -300,6 +294,7 @@ class TenSnapServer:
         from .models import StateSyncResponse
 
         response = StateSyncResponse(
+            mode="incremental",
             added_parameters=parameter_deltas["added"],
             removed_parameters=parameter_deltas["removed"],
             updated_parameters=parameter_deltas["updated"],
@@ -319,11 +314,10 @@ class TenSnapServer:
             return
 
         # Build a generic client request with empty lists
-        client_request: "ClientStateRequest" = {
+        client_request: "StateSyncRequest" = {
             "parameters": [],
             "environments": [],
             "charts": [],
-            "parameter_cache": {},
         }
 
         response = await self._build_state_sync_response(client_request)
@@ -331,7 +325,7 @@ class TenSnapServer:
         await self.broadcast(ServerToClientMessageType.STATE_SYNC, response)
 
     async def handle_state_sync(
-        self, websocket: WebSocketServerProtocol, client_request: "ClientStateRequest"
+        self, websocket: WebSocketServerProtocol, client_request: "StateSyncRequest"
     ) -> None:
         """Handle unified state sync request and send response"""
         response = await self._build_state_sync_response(client_request)
@@ -341,7 +335,7 @@ class TenSnapServer:
         )
 
     async def _compute_parameter_deltas_async(
-        self, client_request: "ClientStateRequest"
+        self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Async version of parameter delta computation"""
         return await asyncio.get_event_loop().run_in_executor(
@@ -349,7 +343,7 @@ class TenSnapServer:
         )
 
     async def _compute_environment_deltas_async(
-        self, client_request: "ClientStateRequest"
+        self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Async version of environment delta computation"""
         return await asyncio.get_event_loop().run_in_executor(
@@ -357,7 +351,7 @@ class TenSnapServer:
         )
 
     async def _compute_chart_deltas_async(
-        self, client_request: "ClientStateRequest"
+        self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Async version of chart delta computation"""
         return await asyncio.get_event_loop().run_in_executor(
@@ -365,10 +359,10 @@ class TenSnapServer:
         )
 
     def _compute_parameter_deltas(
-        self, client_request: "ClientStateRequest"
+        self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Compute parameter deltas between client and server state"""
-        client_parameter_ids = set(client_request.get("parameters", []))
+        client_parameter_ids = set(x['id'] for x in client_request.get("parameters", []))
         server_parameter_ids = set(self.parameters.keys())
         parameter_cache = client_request.get("parameter_cache", {})
 
@@ -404,10 +398,10 @@ class TenSnapServer:
         }
 
     def _compute_environment_deltas(
-        self, client_request: "ClientStateRequest"
+        self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Compute environment deltas between client and server state"""
-        client_environment_ids = set(client_request.get("environments", []))
+        client_environment_ids = set(x['id'] for x in client_request.get("environments", []))
         server_environment_ids = set(self.environments.keys())
 
         added_ids = server_environment_ids - client_environment_ids
@@ -425,10 +419,10 @@ class TenSnapServer:
         }
 
     def _compute_chart_deltas(
-        self, client_request: "ClientStateRequest"
+        self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Compute chart deltas between client and server state"""
-        client_chart_ids = set(client_request.get("charts", []))
+        client_chart_ids = set(x['id'] for x in client_request.get("charts", []))
         server_chart_ids = set(self.charts.keys())
 
         added_ids = server_chart_ids - client_chart_ids
