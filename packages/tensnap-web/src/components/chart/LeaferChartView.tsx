@@ -29,7 +29,8 @@ export function LeaferChartView(props: LeaferChartViewProps) {
         chartRef.current = null;
       }
     };
-  }, [config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Update data when it changes
   useEffect(() => {

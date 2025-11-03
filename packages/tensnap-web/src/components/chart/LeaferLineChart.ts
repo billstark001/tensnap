@@ -250,7 +250,7 @@ export class LeaferLineChart {
     const xRange = xMax - xMin || 1;
     const yRange = yMax - yMin || 1;
 
-    this.config.lines.forEach((lineConfig: LineConfig) => {
+    this.config.lines.forEach((lineConfig) => {
       const lineGroup = this.lineGroups.get(lineConfig.key);
       if (!lineGroup) return;
 
