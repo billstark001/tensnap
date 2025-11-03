@@ -153,7 +153,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
     try {
       let message: WSMessage;
 
-      if (this.useMsgPack && data instanceof ArrayBuffer) {
+      if (data instanceof ArrayBuffer) {
         message = decode(data) as WSMessage;
       } else {
         const text = typeof data === 'string' ? data : new TextDecoder().decode(data);

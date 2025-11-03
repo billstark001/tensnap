@@ -13,6 +13,9 @@
     "build:tauri": "pnpm --filter tensnap-tauri build",
     "dev:py:flock": "pnpm --filter tensnap-python dev:flock",
     "dev:py:hk": "pnpm --filter tensnap-python dev:hk",
+    "dev:py:sirs:grid": "pnpm --filter tensnap-python dev:sirs:grid",
+    "dev:py:sirs:graph": "pnpm --filter tensnap-python dev:sirs:graph",
+    "dev:py:sirs:uniform": "pnpm --filter tensnap-python dev:sirs:uniform",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "clean": "pnpm -r clean && rm -rf node_modules"

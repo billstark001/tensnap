@@ -51,25 +51,36 @@ class ClientToServerMessageType(Enum):
 class MessageEncoder:
     """Optimized message encoder with caching and pre-serialization"""
 
-    def __init__(self):
+    def __init__(self, use_msgpack: bool = False):
+        self.use_msgpack = use_msgpack
         self._type_cache = {}
-        # Removed unused _payload_cache that could cause weak reference errors
 
-    def encode_message(self, msg_type: ServerToClientMessageType, payload: Any) -> str:
+    def encode_message(
+        self, msg_type: ServerToClientMessageType, payload: Any
+    ) -> str | bytes:
         """Encode message with caching for repeated payloads"""
         type_str = self._get_cached_type(msg_type)
 
         # For simple payloads, cache the entire message
+        ret = {"type": type_str, "payload": payload}
+
         if isinstance(payload, (str, int, float, bool)) or payload is None:
             cache_key = (msg_type, payload)
             if cache_key not in self._type_cache:
-                self._type_cache[cache_key] = json.dumps(
-                    {"type": type_str, "payload": payload}, separators=(",", ":")
+                self._type_cache[cache_key] = (
+                    msgpack.packb(ret, use_bin_type=True)
+                    if self.use_msgpack
+                    else json.dumps(ret, separators=(",", ":"))
                 )
             return self._type_cache[cache_key]
 
         # For complex payloads, serialize normally but cache type
-        return json.dumps({"type": type_str, "payload": payload}, separators=(",", ":"))
+
+        return (
+            msgpack.packb(ret, use_bin_type=True)
+            if self.use_msgpack
+            else json.dumps(ret, separators=(",", ":"))
+        )  # type: ignore
 
     def _get_cached_type(self, msg_type: ServerToClientMessageType) -> str:
         """Cache message type strings"""
@@ -88,7 +99,7 @@ class BatchedMessageQueue:
         self._last_flush = 0
         self._task = None
 
-    async def add_message(self, clients: set, message: str) -> None:
+    async def add_message(self, clients: set, message: str | bytes) -> None:
         """Add message to batch queue"""
         self._queue.append((clients.copy(), message))
 
@@ -174,7 +185,7 @@ def convert_chart_state(chart: "Chart") -> Dict[str, Any]:
 class TenSnapServer:
     """Main server class for TenSnap visualization"""
 
-    def __init__(self, host: str = "localhost", port: int = 8765):
+    def __init__(self, host: str = "localhost", port: int = 8765, use_msgpack: bool = False):
         self.host = host
         self.port = port
         self.clients: set[WebSocketServerProtocol] = set()
@@ -188,7 +199,7 @@ class TenSnapServer:
         self._running = False
 
         # Performance optimization components
-        self._encoder = MessageEncoder()
+        self._encoder = MessageEncoder(use_msgpack=use_msgpack)
         self._message_queue = BatchedMessageQueue()
 
         # Background task for periodic operations
@@ -362,7 +373,9 @@ class TenSnapServer:
         self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Compute parameter deltas between client and server state"""
-        client_parameter_ids = set(x['id'] for x in client_request.get("parameters", []))
+        client_parameter_ids = set(
+            x["id"] for x in client_request.get("parameters", [])
+        )
         server_parameter_ids = set(self.parameters.keys())
         parameter_cache = client_request.get("parameter_cache", {})
 
@@ -401,7 +414,9 @@ class TenSnapServer:
         self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Compute environment deltas between client and server state"""
-        client_environment_ids = set(x['id'] for x in client_request.get("environments", []))
+        client_environment_ids = set(
+            x["id"] for x in client_request.get("environments", [])
+        )
         server_environment_ids = set(self.environments.keys())
 
         added_ids = server_environment_ids - client_environment_ids
@@ -422,7 +437,7 @@ class TenSnapServer:
         self, client_request: "StateSyncRequest"
     ) -> Dict[str, List]:
         """Compute chart deltas between client and server state"""
-        client_chart_ids = set(x['id'] for x in client_request.get("charts", []))
+        client_chart_ids = set(x["id"] for x in client_request.get("charts", []))
         server_chart_ids = set(self.charts.keys())
 
         added_ids = server_chart_ids - client_chart_ids
@@ -536,10 +551,8 @@ class TenSnapServer:
                     for result in chart_results
                     if not isinstance(result, Exception)
                 ]
-                
-                chart_update = {
-                    "updates": chart_update_array
-                }
+
+                chart_update = {"updates": chart_update_array}
 
                 if chart_update_array:
                     await self.broadcast(

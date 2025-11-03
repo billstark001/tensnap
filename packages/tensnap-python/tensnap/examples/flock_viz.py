@@ -59,8 +59,6 @@ async def init_simulation():
 # Simulation step
 async def on_step(step: int) -> None:
     """Run one simulation step"""
-    if not model.birds:
-        return
     
     await server.start_time_step(step)
 
