@@ -3,7 +3,7 @@ import * as styles from './ChartView.css';
 import { ChartGroup, NativeDataPoint } from '@/types/model';
 import { createCsvContent } from '@/store/scenario-inst';
 import { LeaferChartView } from '@/components/chart';
-import type { ChartDataPoint, ChartConfig } from '@/components/chart';
+import type { ChartDataPoint, ChartConfig, LeaferChartViewRef } from '@/components/chart';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -64,6 +64,7 @@ export function ChartView(props: ChartViewProps) {
   const rawDataRef = useRef<Array<NativeDataPoint>>(rawData);
   const lastUpdateTimeRef = useRef<number>(0);
   const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const chartViewRef = useRef<LeaferChartViewRef>(null);
 
 
   // 节流更新函数
@@ -117,6 +118,23 @@ export function ChartView(props: ChartViewProps) {
     URL.revokeObjectURL(url);
   }, [chartGroup]);
 
+  const copyToClipboard = useCallback(async () => {
+    if (!chartViewRef.current) return;
+
+    try {
+      const blob = await chartViewRef.current.getCanvasBlob();
+      if (blob) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ]);
+        alert('Chart copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      alert('Failed to copy to clipboard');
+    }
+  }, []);
+
   // Build chart configuration from metadata
   const chartConfig: ChartConfig = useMemo(() => {
     const lines = Object.values(chartGroup.metadataDict).map((chart) => ({
@@ -133,6 +151,9 @@ export function ChartView(props: ChartViewProps) {
       showGrid: true,
       showXAxis: true,
       showYAxis: true,
+      showLegend: true,
+      showTooltip: true,
+      smartAxisBounds: false, // Can be enabled via props if needed
     };
   }, [chartGroup.metadataDict]);
 
@@ -150,10 +171,18 @@ export function ChartView(props: ChartViewProps) {
         >
           Export CSV
         </button>
+        <button
+          onClick={copyToClipboard}
+          className={styles.exportButton}
+          style={{ marginLeft: '8px' }}
+        >
+          Copy Chart
+        </button>
       </div>
 
       <div className={styles.chartViewContainer}>
         <LeaferChartView 
+          ref={chartViewRef}
           data={chartData}
           config={chartConfig}
           style={{ width: '100%', height: '100%' }}

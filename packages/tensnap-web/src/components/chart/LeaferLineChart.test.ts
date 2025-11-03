@@ -7,6 +7,7 @@ jest.mock('leafer-ui', () => ({
     add: jest.fn(),
     resize: jest.fn(),
     destroy: jest.fn(),
+    on: jest.fn(),
   })),
   Group: jest.fn().mockImplementation(() => ({
     add: jest.fn(),
@@ -16,12 +17,7 @@ jest.mock('leafer-ui', () => ({
   Line: jest.fn(),
   Text: jest.fn(),
   Rect: jest.fn(),
-  // also provide a default export in case the module is imported as default
-  default: jest.fn().mockImplementation(() => ({
-    add: jest.fn(),
-    resize: jest.fn(),
-    destroy: jest.fn(),
-  })),
+  Ellipse: jest.fn(),
 }));
 
 describe('LeaferLineChart', () => {

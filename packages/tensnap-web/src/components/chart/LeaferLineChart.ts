@@ -1,4 +1,4 @@
-import { Line, Text, Group, Leafer } from 'leafer-ui';
+import { Line, Text, Group, Leafer, Rect, Ellipse } from 'leafer-ui';
 import { ChartDataPoint, ChartConfig } from './types';
 
 // Chart rendering class optimized for high-frequency updates
@@ -10,7 +10,10 @@ export class LeaferLineChart {
   private chartGroup: Group | null = null;
   private gridGroup: Group | null = null;
   private axisGroup: Group | null = null;
+  private legendGroup: Group | null = null;
+  private tooltipGroup: Group | null = null;
   private lineGroups: Map<string, Group> = new Map();
+  private dataPointPositions: Map<string, Array<{ x: number; y: number; value: number; time: number }>> = new Map();
   
   constructor(container: HTMLElement, config: ChartConfig) {
     this.container = container;
@@ -30,10 +33,14 @@ export class LeaferLineChart {
     this.gridGroup = new Group();
     this.axisGroup = new Group();
     this.chartGroup = new Group();
+    this.legendGroup = new Group();
+    this.tooltipGroup = new Group();
     
     this.app.add(this.gridGroup);
     this.app.add(this.axisGroup);
     this.app.add(this.chartGroup);
+    this.app.add(this.legendGroup);
+    this.app.add(this.tooltipGroup);
 
     // Initialize line groups for each configured line
     this.config.lines.forEach(line => {
@@ -41,12 +48,174 @@ export class LeaferLineChart {
       this.chartGroup!.add(lineGroup);
       this.lineGroups.set(line.key, lineGroup);
     });
+
+    // Setup mouse event handlers for tooltip
+    if (this.config.showTooltip !== false) {
+      this.setupTooltipHandlers();
+    }
   }
 
   // Update chart data (optimized for high-frequency calls)
   public updateData(newData: ChartDataPoint[]): void {
     this.data = newData;
     this.render();
+  }
+
+  // Smart tick generation (matplotlib-style)
+  private generateSmartTicks(min: number, max: number, maxTicks: number = 6): number[] {
+    if (min === max) {
+      return [min];
+    }
+
+    const range = max - min;
+    
+    // Calculate nice step size
+    const roughStep = range / (maxTicks - 1);
+    const magnitude = Math.floor(Math.log10(roughStep));
+    const magnitudePower = Math.pow(10, magnitude);
+    
+    // Choose nice step from [1, 2, 5, 10] * 10^magnitude
+    const possibleSteps = [1, 2, 5, 10].map(s => s * magnitudePower);
+    const niceStep = possibleSteps.find(s => range / s <= maxTicks) || possibleSteps[possibleSteps.length - 1];
+    
+    // Generate ticks starting from a nice number
+    const niceMin = Math.floor(min / niceStep) * niceStep;
+    const niceMax = Math.ceil(max / niceStep) * niceStep;
+    
+    const ticks: number[] = [];
+    for (let tick = niceMin; tick <= niceMax; tick += niceStep) {
+      ticks.push(tick);
+    }
+    
+    return ticks;
+  }
+
+  // Get smart bounds for axis
+  private getSmartBounds(min: number, max: number): { min: number; max: number } {
+    if (!this.config.smartAxisBounds) {
+      return { min, max };
+    }
+
+    const ticks = this.generateSmartTicks(min, max);
+    if (ticks.length > 0) {
+      return { min: ticks[0], max: ticks[ticks.length - 1] };
+    }
+    
+    return { min, max };
+  }
+
+  // Setup tooltip event handlers
+  private setupTooltipHandlers(): void {
+    if (!this.app) return;
+
+    this.app.on('pointer.move', (e: any) => {
+      this.handleMouseMove(e.x, e.y);
+    });
+
+    this.app.on('pointer.leave', () => {
+      this.hideTooltip();
+    });
+  }
+
+  // Handle mouse move for tooltip
+  private handleMouseMove(mouseX: number, mouseY: number): void {
+    if (!this.config.showTooltip) return;
+
+    let closestPoint: { key: string; name: string; x: number; y: number; value: number; time: number; distance: number } | null = null;
+    const threshold = 10; // pixels
+
+    this.dataPointPositions.forEach((points, key) => {
+      const lineConfig = this.config.lines.find(l => l.key === key);
+      if (!lineConfig) return;
+
+      points.forEach(point => {
+        const distance = Math.sqrt(Math.pow(point.x - mouseX, 2) + Math.pow(point.y - mouseY, 2));
+        if (distance < threshold && (!closestPoint || distance < closestPoint.distance)) {
+          closestPoint = {
+            key,
+            name: lineConfig.name,
+            x: point.x,
+            y: point.y,
+            value: point.value,
+            time: point.time,
+            distance,
+          };
+        }
+      });
+    });
+
+    if (closestPoint) {
+      this.showTooltip(closestPoint);
+    } else {
+      this.hideTooltip();
+    }
+  }
+
+  // Show tooltip
+  private showTooltip(point: { name: string; x: number; y: number; value: number; time: number }): void {
+    if (!this.tooltipGroup) return;
+
+    this.tooltipGroup.clear();
+
+    const text = `${point.name}\nTime: ${point.time.toFixed(2)}\nValue: ${point.value.toFixed(3)}`;
+    const padding = 8;
+    const lineHeight = 14;
+    const lines = text.split('\n');
+
+    // Position tooltip (avoid edges)
+    let tooltipX = point.x + 15;
+    let tooltipY = point.y - 10;
+    
+    if (tooltipX + 150 > this.config.width) {
+      tooltipX = point.x - 165;
+    }
+    if (tooltipY < 0) {
+      tooltipY = point.y + 10;
+    }
+
+    // Tooltip background
+    const background = new Rect({
+      x: tooltipX,
+      y: tooltipY,
+      width: 150,
+      height: padding * 2 + lineHeight * lines.length,
+      fill: 'rgba(255, 255, 255, 0.95)',
+      stroke: '#666',
+      strokeWidth: 1,
+      cornerRadius: 4,
+    });
+    this.tooltipGroup.add(background);
+
+    // Tooltip text
+    lines.forEach((line, i) => {
+      const label = new Text({
+        text: line,
+        x: tooltipX + padding,
+        y: tooltipY + padding + i * lineHeight,
+        fontSize: 11,
+        fill: '#333',
+      });
+      this.tooltipGroup.add(label);
+    });
+
+    // Highlight point
+    const highlight = new Ellipse({
+      x: point.x,
+      y: point.y,
+      width: 8,
+      height: 8,
+      fill: '#ff6b6b',
+      stroke: '#fff',
+      strokeWidth: 2,
+    });
+    this.tooltipGroup.add(highlight);
+  }
+
+  // Hide tooltip
+  private hideTooltip(): void {
+    if (this.tooltipGroup) {
+      this.tooltipGroup.clear();
+    }
   }
 
   // Update chart configuration
@@ -92,24 +261,35 @@ export class LeaferLineChart {
     // Calculate data bounds
     const { xMin, xMax, yMin, yMax } = this.calculateBounds();
 
+    // Generate smart ticks for grid and axes
+    const xTicks = this.generateSmartTicks(xMin, xMax);
+    const yTicks = this.generateSmartTicks(yMin, yMax);
+
     // Render grid
     if (this.config.showGrid !== false) {
-      this.renderGrid(pad, chartWidth, chartHeight);
+      this.renderGrid(pad, chartWidth, chartHeight, xMin, xMax, yMin, yMax, xTicks, yTicks);
     }
 
     // Render axes
     if (this.config.showXAxis !== false || this.config.showYAxis !== false) {
-      this.renderAxes(pad, chartWidth, chartHeight, xMin, xMax, yMin, yMax);
+      this.renderAxes(pad, chartWidth, chartHeight, xMin, xMax, yMin, yMax, xTicks, yTicks);
     }
 
     // Render lines
     this.renderLines(pad, chartWidth, chartHeight, xMin, xMax, yMin, yMax);
+
+    // Render legend
+    if (this.config.showLegend !== false) {
+      this.renderLegend(pad, chartWidth);
+    }
   }
 
   private clearGroups(): void {
     this.gridGroup?.clear();
     this.axisGroup?.clear();
+    this.legendGroup?.clear();
     this.lineGroups.forEach(group => group.clear());
+    this.dataPointPositions.clear();
   }
 
   private calculateBounds(): { xMin: number; xMax: number; yMin: number; yMax: number } {
@@ -135,11 +315,22 @@ export class LeaferLineChart {
       });
     });
 
-    // Add padding to y-axis bounds
-    const yRange = yMax - yMin;
-    const yPadding = yRange * 0.1 || 1;
-    yMin -= yPadding;
-    yMax += yPadding;
+    // Use smart bounds for endpoints if enabled
+    if (this.config.smartAxisBounds) {
+      const smartY = this.getSmartBounds(yMin, yMax);
+      yMin = smartY.min;
+      yMax = smartY.max;
+      
+      const smartX = this.getSmartBounds(xMin, xMax);
+      xMin = smartX.min;
+      xMax = smartX.max;
+    } else {
+      // Add padding to y-axis bounds
+      const yRange = yMax - yMin;
+      const yPadding = yRange * 0.1 || 1;
+      yMin -= yPadding;
+      yMax += yPadding;
+    }
 
     return { xMin, xMax, yMin, yMax };
   }
@@ -147,32 +338,43 @@ export class LeaferLineChart {
   private renderGrid(
     pad: { top: number; right: number; bottom: number; left: number },
     chartWidth: number,
-    chartHeight: number
+    chartHeight: number,
+    xMin: number,
+    xMax: number,
+    yMin: number,
+    yMax: number,
+    xTicks: number[],
+    yTicks: number[]
   ): void {
-    const gridLines = 5;
     const gridColor = '#e0e0e0';
+    const xRange = xMax - xMin || 1;
+    const yRange = yMax - yMin || 1;
 
-    // Vertical grid lines
-    for (let i = 0; i <= gridLines; i++) {
-      const x = pad.left + (chartWidth / gridLines) * i;
-      const line = new Line({
-        points: [x, pad.top, x, pad.top + chartHeight],
-        stroke: gridColor,
-        strokeWidth: 1,
-      });
-      this.gridGroup?.add(line);
-    }
+    // Vertical grid lines at x tick positions
+    xTicks.forEach(tickValue => {
+      if (tickValue >= xMin && tickValue <= xMax) {
+        const x = pad.left + ((tickValue - xMin) / xRange) * chartWidth;
+        const line = new Line({
+          points: [x, pad.top, x, pad.top + chartHeight],
+          stroke: gridColor,
+          strokeWidth: 1,
+        });
+        this.gridGroup?.add(line);
+      }
+    });
 
-    // Horizontal grid lines
-    for (let i = 0; i <= gridLines; i++) {
-      const y = pad.top + (chartHeight / gridLines) * i;
-      const line = new Line({
-        points: [pad.left, y, pad.left + chartWidth, y],
-        stroke: gridColor,
-        strokeWidth: 1,
-      });
-      this.gridGroup?.add(line);
-    }
+    // Horizontal grid lines at y tick positions
+    yTicks.forEach(tickValue => {
+      if (tickValue >= yMin && tickValue <= yMax) {
+        const y = pad.top + chartHeight - ((tickValue - yMin) / yRange) * chartHeight;
+        const line = new Line({
+          points: [pad.left, y, pad.left + chartWidth, y],
+          stroke: gridColor,
+          strokeWidth: 1,
+        });
+        this.gridGroup?.add(line);
+      }
+    });
   }
 
   private renderAxes(
@@ -182,10 +384,14 @@ export class LeaferLineChart {
     xMin: number,
     xMax: number,
     yMin: number,
-    yMax: number
+    yMax: number,
+    xTicks: number[],
+    yTicks: number[]
   ): void {
     const textColor = '#666666';
     const fontSize = 10;
+    const xRange = xMax - xMin || 1;
+    const yRange = yMax - yMin || 1;
 
     // X-axis
     if (this.config.showXAxis !== false) {
@@ -196,20 +402,22 @@ export class LeaferLineChart {
       });
       this.axisGroup?.add(xAxisLine);
 
-      // X-axis labels
-      const xLabels = 5;
-      for (let i = 0; i <= xLabels; i++) {
-        const value = xMin + ((xMax - xMin) / xLabels) * i;
-        const x = pad.left + (chartWidth / xLabels) * i;
-        const label = new Text({
-          text: value.toFixed(1),
-          x: x,
-          y: pad.top + chartHeight + 5,
-          fontSize: fontSize,
-          fill: textColor,
-        });
-        this.axisGroup?.add(label);
-      }
+      // X-axis labels using smart ticks
+      xTicks.forEach(tickValue => {
+        if (tickValue >= xMin && tickValue <= xMax) {
+          const x = pad.left + ((tickValue - xMin) / xRange) * chartWidth;
+          // Format based on magnitude
+          const decimals = tickValue === 0 ? 0 : Math.max(0, -Math.floor(Math.log10(Math.abs(tickValue))) + 1);
+          const label = new Text({
+            text: tickValue.toFixed(Math.min(decimals, 2)),
+            x: x - 15,
+            y: pad.top + chartHeight + 5,
+            fontSize: fontSize,
+            fill: textColor,
+          });
+          this.axisGroup?.add(label);
+        }
+      });
     }
 
     // Y-axis
@@ -221,20 +429,22 @@ export class LeaferLineChart {
       });
       this.axisGroup?.add(yAxisLine);
 
-      // Y-axis labels
-      const yLabels = 5;
-      for (let i = 0; i <= yLabels; i++) {
-        const value = yMax - ((yMax - yMin) / yLabels) * i;
-        const y = pad.top + (chartHeight / yLabels) * i;
-        const label = new Text({
-          text: value.toFixed(2),
-          x: pad.left - 45,
-          y: y - 5,
-          fontSize: fontSize,
-          fill: textColor,
-        });
-        this.axisGroup?.add(label);
-      }
+      // Y-axis labels using smart ticks
+      yTicks.forEach(tickValue => {
+        if (tickValue >= yMin && tickValue <= yMax) {
+          const y = pad.top + chartHeight - ((tickValue - yMin) / yRange) * chartHeight;
+          // Format based on magnitude
+          const decimals = tickValue === 0 ? 0 : Math.max(0, -Math.floor(Math.log10(Math.abs(tickValue))) + 1);
+          const label = new Text({
+            text: tickValue.toFixed(Math.min(decimals, 2)),
+            x: pad.left - 45,
+            y: y - 5,
+            fontSize: fontSize,
+            fill: textColor,
+          });
+          this.axisGroup?.add(label);
+        }
+      });
     }
   }
 
@@ -255,6 +465,7 @@ export class LeaferLineChart {
       if (!lineGroup) return;
 
       const points: number[] = [];
+      const dataPoints: Array<{ x: number; y: number; value: number; time: number }> = [];
       
       this.data.forEach(point => {
         const value = point[lineConfig.key];
@@ -262,8 +473,12 @@ export class LeaferLineChart {
           const x = pad.left + ((point.time - xMin) / xRange) * chartWidth;
           const y = pad.top + chartHeight - ((value - yMin) / yRange) * chartHeight;
           points.push(x, y);
+          dataPoints.push({ x, y, value, time: point.time });
         }
       });
+
+      // Store data point positions for tooltip
+      this.dataPointPositions.set(lineConfig.key, dataPoints);
 
       if (points.length >= 4) { // At least 2 points (4 coordinates)
         const line = new Line({
@@ -276,6 +491,49 @@ export class LeaferLineChart {
     });
   }
 
+  // Render legend
+  private renderLegend(
+    pad: { top: number; right: number; bottom: number; left: number },
+    chartWidth: number
+  ): void {
+    if (!this.legendGroup) return;
+
+    const legendX = pad.left;
+    const legendY = pad.top - 10;
+    const itemWidth = 120;
+    const itemHeight = 16;
+    let offsetX = 0;
+
+    this.config.lines.forEach((lineConfig, index) => {
+      // Legend color box
+      const colorBox = new Rect({
+        x: legendX + offsetX,
+        y: legendY,
+        width: 12,
+        height: 12,
+        fill: lineConfig.color ?? '#8884d8',
+      });
+      this.legendGroup!.add(colorBox);
+
+      // Legend text
+      const text = new Text({
+        text: lineConfig.name,
+        x: legendX + offsetX + 16,
+        y: legendY,
+        fontSize: 11,
+        fill: '#333',
+      });
+      this.legendGroup!.add(text);
+
+      offsetX += itemWidth;
+      
+      // Wrap to next line if needed
+      if (offsetX + itemWidth > chartWidth) {
+        offsetX = 0;
+      }
+    });
+  }
+
   // Resize chart
   public resize(width: number, height: number): void {
     if (this.app) {
@@ -283,6 +541,25 @@ export class LeaferLineChart {
       this.config.height = height;
       this.app.resize({ width, height });
       this.render();
+    }
+  }
+
+  // Get canvas as blob for clipboard
+  public async getCanvasBlob(): Promise<Blob | null> {
+    if (!this.app || !this.container) return null;
+
+    try {
+      const canvas = this.container.querySelector('canvas');
+      if (!canvas) return null;
+
+      return new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        });
+      });
+    } catch (error) {
+      console.error('Failed to get canvas blob:', error);
+      return null;
     }
   }
 

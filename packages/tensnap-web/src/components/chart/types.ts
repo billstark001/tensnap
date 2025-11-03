@@ -18,6 +18,9 @@ export interface ChartConfig {
   showGrid?: boolean;
   showXAxis?: boolean;
   showYAxis?: boolean;
+  showLegend?: boolean;
+  showTooltip?: boolean;
+  smartAxisBounds?: boolean; // Enable smart endpoint selection
   padding?: {
     top?: number;
     right?: number;

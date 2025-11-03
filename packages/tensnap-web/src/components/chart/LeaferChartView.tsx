@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { LeaferLineChart } from './LeaferLineChart';
 import { ChartDataPoint, ChartConfig } from './types';
 
@@ -9,12 +9,26 @@ export interface LeaferChartViewProps {
   style?: React.CSSProperties;
 }
 
+export interface LeaferChartViewRef {
+  getCanvasBlob: () => Promise<Blob | null>;
+}
+
 // React binding for LeaferLineChart
-export function LeaferChartView(props: LeaferChartViewProps) {
+export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewProps>((props, ref) => {
   const { data, config, className, style } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<LeaferLineChart | null>(null);
   const [isReady, setIsReady] = useState(false);
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    getCanvasBlob: async () => {
+      if (chartRef.current) {
+        return chartRef.current.getCanvasBlob();
+      }
+      return null;
+    },
+  }));
 
   // Initialize chart on mount
   useEffect(() => {
@@ -77,4 +91,4 @@ export function LeaferChartView(props: LeaferChartViewProps) {
       }}
     />
   );
-}
+});
