@@ -1,17 +1,9 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
 import * as styles from './ChartView.css';
 import { ChartGroup, NativeDataPoint } from '@/types/model';
 import { createCsvContent } from '@/store/scenario-inst';
+import { LeaferChartView } from '@/components/chart';
+import type { ChartDataPoint, ChartConfig } from '@/components/chart';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -97,7 +89,7 @@ export function ChartView(props: ChartViewProps) {
         updateTimerRef.current = null;
       }, remainingTime);
     }
-  }, [updateInterval]);
+  }, [updateInterval, maxDataPoints]);
 
   // 持续更新原始数据引用
   useEffect(() => {
@@ -123,10 +115,31 @@ export function ChartView(props: ChartViewProps) {
     a.download = `chart_${chartGroup.id}_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [rawDataRef.current, chartGroup.id, chartGroup.label]);
+  }, [chartGroup]);
 
-  // 获取当前图表的颜色
-  const chartColor = useMemo(() => getColorForId(chartGroup.id), [chartGroup.id]);
+  // Build chart configuration from metadata
+  const chartConfig: ChartConfig = useMemo(() => {
+    const lines = Object.values(chartGroup.metadataDict).map((chart) => ({
+      key: chart.id,
+      name: chart.label,
+      color: chart.color || getColorForId(chart.id),
+      strokeWidth: 2,
+    }));
+
+    return {
+      width: 800,
+      height: 300,
+      lines,
+      showGrid: true,
+      showXAxis: true,
+      showYAxis: true,
+    };
+  }, [chartGroup.metadataDict]);
+
+  // Convert display data to chart format
+  const chartData: ChartDataPoint[] = useMemo(() => {
+    return displayData.map(point => ({ ...point }));
+  }, [displayData]);
 
   return (
     <div className={styles.chartContainer}>
@@ -140,26 +153,11 @@ export function ChartView(props: ChartViewProps) {
       </div>
 
       <div className={styles.chartViewContainer}>
-        <ResponsiveContainer>
-          <LineChart data={displayData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            {Object.values(chartGroup.metadataDict).map((chart) => <Line
-              key={chart.id}
-              type="monotone"
-              dataKey={chart.id}
-              name={chart.label}
-              stroke={chart.color || chartColor}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 5 }}
-              isAnimationActive={false}
-            />)}
-          </LineChart>
-        </ResponsiveContainer>
+        <LeaferChartView 
+          data={chartData}
+          config={chartConfig}
+          style={{ width: '100%', height: '100%' }}
+        />
       </div>
     </div>
   );
