@@ -47,39 +47,52 @@ export function registerEventHandlers(
   wsManager.on('state_sync', (payload: StateSyncResponse) => {
 
     const store = useStore.getState();
-    const mode = payload.mode || 'full';
+
+    const {
+      mode = 'full',
+      added_parameters,
+      removed_parameters,
+      updated_parameters,
+
+      added_environments,
+      removed_environments,
+      updated_environments,
+
+      added_charts,
+      removed_charts,
+      updated_charts,
+
+      clear_charts,
+    } = payload ?? {};
+    
 
     const allParameters = [
-      ...payload.added_parameters,
-      ...payload.updated_parameters
+      ...added_parameters,
+      ...updated_parameters
     ];
 
     const allEnvironments = [
-      ...payload.added_environments,
-      ...payload.updated_environments
+      ...added_environments,
+      ...updated_environments
     ];
 
     const allCharts = [
-      ...payload.added_charts,
-      ...payload.updated_charts
+      ...added_charts,
+      ...updated_charts
     ];
 
     // 统一更新数据
     const hasUpdates = allParameters.length > 0 || allEnvironments.length > 0 || allCharts.length > 0;
     if (hasUpdates) {
-      const updateData: SetDataPayload = {};
-      if (allParameters.length > 0) updateData.parameters = allParameters;
-      if (allEnvironments.length > 0) updateData.environments = allEnvironments;
-      if (allCharts.length > 0) {
-        // 转换ChartState到ChartData格式
-        updateData.charts = allCharts.map(chart => ({
-          id: chart.id,
-          label: chart.label,
-          getter: chart.id, // 使用id作为getter标识
-          color: chart.color,
-          data: [], // 初始数据为空，等待后续的chart_update消息填充
-        }));
-      }
+      const updateData: SetDataPayload = {
+        cleanCharts: clear_charts,
+        removedChartIds: removed_charts,
+        removedEnvironmentIds: removed_environments,
+        removedParameterIds: removed_parameters,
+        parameters: allParameters,
+        environments: allEnvironments,
+        charts: allCharts,
+      };
       store.setData(updateData, { updateLayout: true, preserveExisting: mode === 'incremental' });
     } else {
       store.updateMainViewLayout();

@@ -118,6 +118,8 @@ export interface StateSyncResponse {
   added_charts: ChartMetadataWithList[];
   removed_charts: string[];
   updated_charts: ChartMetadataWithList[];
+
+  clear_charts: boolean | string[]; // true means clear all charts, string[] means clear specific charts by IDs
 }
 
 // parameter_change

@@ -9,7 +9,7 @@ import { ChartGroup, ChartMetadata, Environment, EnvironmentId, PureEnvironment,
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { InstantiatedChartDataStorage, InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from "@/store/scenario-inst";
+import { InstantiatedChartStorage, InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from "@/store/scenario-inst";
 import { StateSyncRequest } from "@/types/api";
 
 export interface ProjectSettings {
@@ -177,7 +177,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       mainView: parsedContent.mainView,
       ...rest,
       environments: instantiatedEnvironments,
-      charts: new InstantiatedChartDataStorage(charts),
+      charts: new InstantiatedChartStorage(charts),
     });
 
     const { url } = parsedContent || null;
