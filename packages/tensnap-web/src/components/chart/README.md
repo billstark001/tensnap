@@ -72,6 +72,7 @@ chart.destroy();
 ## Testing
 
 Tests are located in `LeaferLineChart.test.ts` and cover:
+
 - Initialization and configuration
 - Data updates (including high-frequency scenarios)
 - Bounds calculation

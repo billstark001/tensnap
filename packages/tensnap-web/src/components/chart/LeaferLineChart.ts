@@ -14,7 +14,7 @@ export class LeaferLineChart {
   private tooltipGroup: Group | null = null;
   private lineGroups: Map<string, Group> = new Map();
   private dataPointPositions: Map<string, Array<{ x: number; y: number; value: number; time: number }>> = new Map();
-  
+
   constructor(container: HTMLElement, config: ChartConfig) {
     this.container = container;
     this.config = config;
@@ -35,7 +35,7 @@ export class LeaferLineChart {
     this.chartGroup = new Group();
     this.legendGroup = new Group();
     this.tooltipGroup = new Group();
-    
+
     this.app.add(this.gridGroup);
     this.app.add(this.axisGroup);
     this.app.add(this.chartGroup);
@@ -68,25 +68,25 @@ export class LeaferLineChart {
     }
 
     const range = max - min;
-    
+
     // Calculate nice step size
     const roughStep = range / (maxTicks - 1);
     const magnitude = Math.floor(Math.log10(roughStep));
     const magnitudePower = Math.pow(10, magnitude);
-    
+
     // Choose nice step from [1, 2, 5, 10] * 10^magnitude
     const possibleSteps = [1, 2, 5, 10].map(s => s * magnitudePower);
     const niceStep = possibleSteps.find(s => range / s <= maxTicks) || possibleSteps[possibleSteps.length - 1];
-    
+
     // Generate ticks starting from a nice number
     const niceMin = Math.floor(min / niceStep) * niceStep;
     const niceMax = Math.ceil(max / niceStep) * niceStep;
-    
+
     const ticks: number[] = [];
     for (let tick = niceMin; tick <= niceMax; tick += niceStep) {
       ticks.push(tick);
     }
-    
+
     return ticks;
   }
 
@@ -100,7 +100,7 @@ export class LeaferLineChart {
     if (ticks.length > 0) {
       return { min: ticks[0], max: ticks[ticks.length - 1] };
     }
-    
+
     return { min, max };
   }
 
@@ -165,7 +165,7 @@ export class LeaferLineChart {
     // Position tooltip (avoid edges)
     let tooltipX = point.x + 15;
     let tooltipY = point.y - 10;
-    
+
     if (tooltipX + 150 > this.config.width) {
       tooltipX = point.x - 165;
     }
@@ -195,7 +195,7 @@ export class LeaferLineChart {
         fontSize: 11,
         fill: '#333',
       });
-      this.tooltipGroup.add(label);
+      this.tooltipGroup!.add(label);
     });
 
     // Highlight point
@@ -221,7 +221,7 @@ export class LeaferLineChart {
   // Update chart configuration
   public updateConfig(newConfig: Partial<ChartConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    
+
     // Handle line config changes
     if (newConfig.lines) {
       // Remove old line groups
@@ -229,7 +229,7 @@ export class LeaferLineChart {
         this.chartGroup?.remove(group);
       });
       this.lineGroups.clear();
-      
+
       // Create new line groups
       this.config.lines.forEach(line => {
         const lineGroup = new Group();
@@ -237,7 +237,7 @@ export class LeaferLineChart {
         this.lineGroups.set(line.key, lineGroup);
       });
     }
-    
+
     this.render();
   }
 
@@ -320,7 +320,7 @@ export class LeaferLineChart {
       const smartY = this.getSmartBounds(yMin, yMax);
       yMin = smartY.min;
       yMax = smartY.max;
-      
+
       const smartX = this.getSmartBounds(xMin, xMax);
       xMin = smartX.min;
       xMax = smartX.max;
@@ -422,7 +422,7 @@ export class LeaferLineChart {
 
       // X-axis label and unit
       if (this.config.showXAxisLabel !== false && this.config.xAxisLabel) {
-        const labelText = this.config.xAxisUnit 
+        const labelText = this.config.xAxisUnit
           ? `${this.config.xAxisLabel} (${this.config.xAxisUnit})`
           : this.config.xAxisLabel;
         const xLabel = new Text({
@@ -464,7 +464,7 @@ export class LeaferLineChart {
 
       // Y-axis label and unit (rotated)
       if (this.config.showYAxisLabel !== false && this.config.yAxisLabel) {
-        const labelText = this.config.yAxisUnit 
+        const labelText = this.config.yAxisUnit
           ? `${this.config.yAxisLabel} (${this.config.yAxisUnit})`
           : this.config.yAxisLabel;
         const yLabel = new Text({
@@ -498,7 +498,7 @@ export class LeaferLineChart {
 
       const points: number[] = [];
       const dataPoints: Array<{ x: number; y: number; value: number; time: number }> = [];
-      
+
       this.data.forEach(point => {
         const value = point[lineConfig.key];
         if (typeof value === 'number') {
@@ -527,20 +527,20 @@ export class LeaferLineChart {
   private renderLegend(
     pad: { top: number; right: number; bottom: number; left: number },
     chartWidth: number,
-    chartHeight: number
+    _chartHeight: number
   ): void {
     if (!this.legendGroup) return;
 
     const itemWidth = 100;
-    const itemHeight = 16;
-    const itemSpacing = 8;
-    
+    // const itemHeight = 16;
+    // const itemSpacing = 8;
+
     // Position legend at top-right corner, inside the chart area
     const legendStartX = pad.left + chartWidth - (this.config.lines.length * itemWidth);
     const legendY = pad.top + 5;
     let offsetX = 0;
 
-    this.config.lines.forEach((lineConfig, index) => {
+    this.config.lines.forEach((lineConfig) => {
       // Legend color box
       const colorBox = new Rect({
         x: legendStartX + offsetX,
