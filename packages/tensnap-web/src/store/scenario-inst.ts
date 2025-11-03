@@ -145,7 +145,7 @@ export class InstantiatedChartStorage {
     }
     this.allChartGroups.set(group.id, newGroup);
     // maintain metadata maps
-    for (const metadata in addedMetadataIds) {
+    for (const metadata of addedMetadataIds) {
       const meta = newGroup.metadataDict[metadata];
 
       const existing = this.allChartMetadata.get(meta.id) || [];
@@ -270,13 +270,13 @@ export class InstantiatedChartStorage {
     }
   }
 
-  cleanAll() {
+  clearAll() {
     for (const group of this.allChartGroups.values()) {
       group.data = [];
     }
   }
 
-  cleanByGroup(groupIds: string[]) {
+  clearByGroup(groupIds: string[]) {
     const cleanedGroupIds = new Set<string>();
     for (const groupId of groupIds) {
       const group = this.allChartGroups.get(groupId);
@@ -288,7 +288,7 @@ export class InstantiatedChartStorage {
     return cleanedGroupIds;
   }
 
-  cleanByMetadata(metadataIds: string[]) {
+  clearByMetadata(metadataIds: string[]) {
     const metadataToClean = new Map<string, Set<string>>(); // groupId -> metadataIds[]
     const cleanedMetadataIds = new Set<string>();
     for (const metadataId of metadataIds) {

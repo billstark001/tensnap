@@ -85,7 +85,7 @@ export function registerEventHandlers(
     const hasUpdates = allParameters.length > 0 || allEnvironments.length > 0 || allCharts.length > 0;
     if (hasUpdates) {
       const updateData: SetDataPayload = {
-        cleanCharts: clear_charts,
+        clearCharts: clear_charts,
         removedChartIds: removed_charts,
         removedEnvironmentIds: removed_environments,
         removedParameterIds: removed_parameters,
@@ -113,8 +113,14 @@ export function registerEventHandlers(
   });
 
   wsManager.on('chart_update', (payload: ChartUpdatePayload) => {
-    const { addChartData } = useStore.getState();
-    addChartData(payload);
+    const { updates, operations } = payload;
+    const { addChartData, executeChartOperations } = useStore.getState();
+    if (updates) {
+      addChartData(updates);
+    }
+    if (operations) {
+      executeChartOperations(operations);
+    }
   });
 
   wsManager.on('log', (payload: LogPayload) => {

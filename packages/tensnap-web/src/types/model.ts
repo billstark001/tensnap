@@ -159,6 +159,8 @@ export interface ChartMetadataWithList extends ChartMetadata {
   dataList?: ChartMetadata[];
 }
 
+export type ChartUpdateOperationType = 'clear';
+
 export interface ChartUpdateData {
   id: string;
   time?: number;
@@ -167,7 +169,7 @@ export interface ChartUpdateData {
 
 export interface ChartUpdateOperation {
   id: string;
-  operation: 'reset';
+  operation: ChartUpdateOperationType;
 }
 
 export interface NativeDataPoint {

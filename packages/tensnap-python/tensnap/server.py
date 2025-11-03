@@ -537,13 +537,17 @@ class TenSnapServer:
                 chart_results = await asyncio.gather(
                     *chart_tasks, return_exceptions=True
                 )
-                chart_update = [
+                chart_update_array = [
                     result
                     for result in chart_results
                     if not isinstance(result, Exception)
                 ]
+                
+                chart_update = {
+                    "updates": chart_update_array
+                }
 
-                if chart_update:
+                if chart_update_array:
                     await self.broadcast(
                         ServerToClientMessageType.CHART_UPDATE, chart_update
                     )

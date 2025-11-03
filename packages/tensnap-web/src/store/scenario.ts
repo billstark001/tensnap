@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartMetadataWithList, ChartMetadata } from '../types/model';
+import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartMetadataWithList, ChartMetadata, ChartUpdateOperation } from '../types/model';
 import { ContainerView } from '../types/ui';
 import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
@@ -16,7 +16,7 @@ export interface SetDataPayload {
   removedParameterIds?: string[];
   removedChartIds?: string[];
 
-  cleanCharts?: boolean | string[];
+  clearCharts?: boolean | string[];
 }
 
 export interface SetDataOptions {
@@ -43,6 +43,7 @@ export interface ScenarioStore {
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
   updateParameter: (id: string, value: any) => void;
   addChartData: (updates: ChartUpdateData[]) => void;
+  executeChartOperations: (operations: ChartUpdateOperation[]) => void;
   addSnapshot: (snapshot: SnapshotMetadata) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
@@ -126,11 +127,11 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       updates.parameters = newParameters;
     }
 
-    if (data.charts !== undefined || data.removedChartIds !== undefined || data.cleanCharts !== undefined) {
+    if (data.charts !== undefined || data.removedChartIds !== undefined || data.clearCharts !== undefined) {
       const newCharts = preserveExisting ? charts.shallowCopy() : new InstantiatedChartStorage([]);
       const removedChartIdsSet = new Set(data.removedChartIds || []);
-      const cleanChartIdsSet = new Set<string>(data.cleanCharts === true ? [] : (Array.isArray(data.cleanCharts) ? data.cleanCharts : []));
-      const cleanAllCharts = data.cleanCharts === true;
+      const clearChartIdsSet = new Set<string>(data.clearCharts === true ? [] : (Array.isArray(data.clearCharts) ? data.clearCharts : []));
+      const clearAllCharts = data.clearCharts === true;
       // 0. divide chart metadata with has / does not have groups
       const chartGroupMetadata: ChartMetadataWithList[] = [];
       const chartMetadata: ChartMetadata[] = [];
@@ -153,15 +154,15 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       for (const chartMeta of chartMetadata) {
         newCharts.upsertChartMetadata(chartMeta);
       }
-      // 3. clean chart data if needed
-      if (cleanAllCharts) {
-        newCharts.cleanAll();
-      } else if (cleanChartIdsSet.size > 0) {
-        const cleanedGroupIds = newCharts.cleanByGroup(Array.from(cleanChartIdsSet));
-        for (const groupId of cleanedGroupIds) {
-          cleanChartIdsSet.delete(groupId);
+      // 3. clear chart data if needed
+      if (clearAllCharts) {
+        newCharts.clearAll();
+      } else if (clearChartIdsSet.size > 0) {
+        const clearedGroupIds = newCharts.clearByGroup(Array.from(clearChartIdsSet));
+        for (const groupId of clearedGroupIds) {
+          clearChartIdsSet.delete(groupId);
         }
-        newCharts.cleanByMetadata(Array.from(cleanChartIdsSet));
+        newCharts.clearByMetadata(Array.from(clearChartIdsSet));
       }
       updates.charts = newCharts;
     }
@@ -222,6 +223,20 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   addChartData: (updates) => {
     const { charts, currentTime } = get();
     charts.push(currentTime, updates);
+  },
+
+  executeChartOperations: (operations) => {
+    const { charts } = get();
+    for (const operation of operations) {
+      const { id, operation: type } = operation;
+      if (type === 'clear') {
+        if (charts.allChartGroups.has(id)) {
+          charts.clearByGroup([id]);
+        } else {
+          charts.clearByMetadata([id]);
+        }
+      }
+    }
   },
 
   addSnapshot: (snapshotMetadata: SnapshotMetadata) => {

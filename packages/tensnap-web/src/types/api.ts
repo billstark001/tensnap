@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartMetadataWithList } from "./model";
+import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartMetadataWithList, ChartUpdateOperation } from "./model";
 
 //#region Message Types
 
@@ -86,7 +86,10 @@ export interface AgentBatchUpdatePayload {
 }
 
 // chart_update
-export type ChartUpdatePayload = ChartUpdateData[];
+export type ChartUpdatePayload = {
+  updates?: ChartUpdateData[];
+  operations?: ChartUpdateOperation[];
+}
 
 // log
 export interface LogPayload {
