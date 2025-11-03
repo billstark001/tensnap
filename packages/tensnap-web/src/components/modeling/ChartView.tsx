@@ -1,17 +1,9 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
 import * as styles from './ChartView.css';
 import { ChartGroup, NativeDataPoint } from '@/types/model';
 import { createCsvContent } from '@/store/scenario-inst';
+import { LeaferChartView } from '@/components/chart';
+import type { ChartDataPoint, ChartConfig, LeaferChartViewRef } from '@/components/chart';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -72,6 +64,7 @@ export function ChartView(props: ChartViewProps) {
   const rawDataRef = useRef<Array<NativeDataPoint>>(rawData);
   const lastUpdateTimeRef = useRef<number>(0);
   const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const chartViewRef = useRef<LeaferChartViewRef>(null);
 
 
   // 节流更新函数
@@ -97,7 +90,7 @@ export function ChartView(props: ChartViewProps) {
         updateTimerRef.current = null;
       }, remainingTime);
     }
-  }, [updateInterval]);
+  }, [updateInterval, maxDataPoints]);
 
   // 持续更新原始数据引用
   useEffect(() => {
@@ -123,10 +116,55 @@ export function ChartView(props: ChartViewProps) {
     a.download = `chart_${chartGroup.id}_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [rawDataRef.current, chartGroup.id, chartGroup.label]);
+  }, [chartGroup]);
 
-  // 获取当前图表的颜色
-  const chartColor = useMemo(() => getColorForId(chartGroup.id), [chartGroup.id]);
+  const copyToClipboard = useCallback(async () => {
+    if (!chartViewRef.current) return;
+
+    try {
+      const blob = await chartViewRef.current.getCanvasBlob();
+      if (blob) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ]);
+        alert('Chart copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      alert('Failed to copy to clipboard');
+    }
+  }, []);
+
+  // Build chart configuration from metadata
+  const chartConfig: ChartConfig = useMemo(() => {
+    const lines = Object.values(chartGroup.metadataDict).map((chart) => ({
+      key: chart.id,
+      name: chart.label,
+      color: chart.color || getColorForId(chart.id),
+      strokeWidth: 2,
+    }));
+
+    return {
+      width: 800,
+      height: 300,
+      lines,
+      showGrid: true,
+      showXAxis: true,
+      showYAxis: true,
+      showLegend: true,
+      showTooltip: true,
+      smartAxisBounds: false, // Can be enabled via props if needed
+      xAxisLabel: 'Time',
+      yAxisLabel: 'Value',
+      showXAxisLabel: false,
+      showYAxisLabel: false,
+    };
+  }, [chartGroup.metadataDict]);
+
+  // Convert display data to chart format
+  const chartData: ChartDataPoint[] = useMemo(() => {
+    return displayData.map(point => ({ ...point }));
+  }, [displayData]);
 
   return (
     <div className={styles.chartContainer}>
@@ -137,29 +175,22 @@ export function ChartView(props: ChartViewProps) {
         >
           Export CSV
         </button>
+        <button
+          onClick={copyToClipboard}
+          className={styles.exportButton}
+          style={{ marginLeft: '8px' }}
+        >
+          Copy Chart
+        </button>
       </div>
 
       <div className={styles.chartViewContainer}>
-        <ResponsiveContainer>
-          <LineChart data={displayData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            {Object.values(chartGroup.metadataDict).map((chart) => <Line
-              key={chart.id}
-              type="monotone"
-              dataKey={chart.id}
-              name={chart.label}
-              stroke={chart.color || chartColor}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 5 }}
-              isAnimationActive={false}
-            />)}
-          </LineChart>
-        </ResponsiveContainer>
+        <LeaferChartView 
+          ref={chartViewRef}
+          data={chartData}
+          config={chartConfig}
+          style={{ width: '100%', height: '100%' }}
+        />
       </div>
     </div>
   );
