@@ -277,38 +277,38 @@ export class InstantiatedChartStorage {
   }
 
   clearByGroup(groupIds: string[]) {
-    const cleanedGroupIds = new Set<string>();
+    const clearedGroupIds = new Set<string>();
     for (const groupId of groupIds) {
       const group = this.allChartGroups.get(groupId);
       if (group) {
         group.data = [];
-        cleanedGroupIds.add(groupId);
+        clearedGroupIds.add(groupId);
       }
     }
-    return cleanedGroupIds;
+    return clearedGroupIds;
   }
 
   clearByMetadata(metadataIds: string[]) {
-    const metadataToClean = new Map<string, Set<string>>(); // groupId -> metadataIds[]
-    const cleanedMetadataIds = new Set<string>();
+    const metadataToClear = new Map<string, Set<string>>(); // groupId -> metadataIds[]
+    const clearedMetadataIds = new Set<string>();
     for (const metadataId of metadataIds) {
       const groups = this.chartGroupsByMetadataId.get(metadataId);
       if (groups?.length) {
         for (const group of groups) {
-          if (!metadataToClean.has(group.id)) {
-            metadataToClean.set(group.id, new Set());
+          if (!metadataToClear.has(group.id)) {
+            metadataToClear.set(group.id, new Set());
           }
-          metadataToClean.get(group.id)!.add(metadataId);
+          metadataToClear.get(group.id)!.add(metadataId);
         }
-        cleanedMetadataIds.add(metadataId);
+        clearedMetadataIds.add(metadataId);
       }
     }
-    for (const [groupId, metaIds] of metadataToClean.entries()) {
+    for (const [groupId, metaIds] of metadataToClear.entries()) {
       const group = this.allChartGroups.get(groupId);
       if (group) {
         const metaIdsArray = Array.from(metaIds);
         if (metaIdsArray.length === Object.keys(group.metadataDict).length) {
-          // all metadata in this group need to be cleaned
+          // all metadata in this group need to be cleared
           group.data = [];
           continue;
         }
@@ -321,7 +321,7 @@ export class InstantiatedChartStorage {
         });
       }
     }
-    return cleanedMetadataIds;
+    return clearedMetadataIds;
   }
 
 }
