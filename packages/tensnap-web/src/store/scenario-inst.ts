@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartUpdateData, ChartGroup, ChartMetadata, Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent, NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment, UniformAgent } from "../types/model";
+import { Agent, AgentId, ChartUpdateData, ChartGroup, ChartMetadata, Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent, NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment, UniformAgent, ChartMetadataWithList, Parameter, SliderParameter, EnumParameter, CheckboxParameter, StringParameter } from "../types/model";
 
 // #region Environment
 
@@ -59,13 +59,17 @@ export function serializeEnvironment(instEnv: InstantiatedEnvironment): Environm
 
 // #region Chart Data
 
-export function instantiateChartMetadata(meta: ChartMetadata): ChartGroup {
+export function instantiateChartMetadata(meta: ChartMetadataWithList): ChartGroup {
+  const metadataDict: Record<string, ChartMetadata> = meta.dataList?.length
+    ? meta.dataList.reduce((dict, m) => {
+      dict[m.id] = m;
+      return dict;
+    }, {} as Record<string, ChartMetadata>)
+    : { [meta.id]: meta };
   return {
     id: meta.id,
     label: meta.label,
-    metadataDict: {
-      [meta.id]: meta,
-    },
+    metadataDict,
     data: [],
   };
 }
@@ -220,16 +224,16 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
   // 辅助函数：将数值转换为10的整数次幂
   function toPowerOfTen(val: number, roundUp: boolean = false): number {
     if (val === 0) return 0;
-    
+
     const absVal = Math.abs(val);
     const sign = val < 0 ? -1 : 1;
-    
+
     // 防止太小的值，直接截断为0或1
     if (absVal < 1e-10) return val < 0 ? -1 : (val === 0 ? 0 : 1);
-    
+
     const log10Val = Math.log10(absVal);
     const exponent = roundUp ? Math.ceil(log10Val) : Math.floor(log10Val);
-    
+
     return sign * Math.pow(10, exponent);
   }
 
@@ -340,6 +344,52 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
     max: estimatedMax,
     step: estimatedStep,
   };
+}
+
+export function sanitizeParameter(param: Parameter, inPlace: boolean = false): Parameter {
+  const result = inPlace ? param : { ...param };
+
+  switch (param.type) {
+    case 'number': {
+      const estimatedRange = estimateNumericRange({
+        value: param.value,
+        min: param.min,
+        max: param.max,
+        step: param.step,
+      });
+
+      (result as SliderParameter).min = estimatedRange.min;
+      (result as SliderParameter).max = estimatedRange.max;
+      (result as SliderParameter).step = estimatedRange.step;
+      break;
+    }
+
+    case 'enum': {
+      if (!param.options?.includes(param.value)) {
+        (result as EnumParameter).value = param.options?.[0] ?? '';
+      }
+      break;
+    }
+
+    case 'checkbox': {
+      const value = (param as CheckboxParameter).value;
+      if (typeof value !== 'boolean') {
+        (result as CheckboxParameter).value =
+          value === 'false' || value === 'False' ? false : Boolean(value);
+      }
+      break;
+    }
+
+    case 'string': {
+      const value = (param as StringParameter).value;
+      if (typeof value !== 'string') {
+        (result as StringParameter).value = value == null ? '' : String(value);
+      }
+      break;
+    }
+  }
+
+  return result;
 }
 
 // #endregion

@@ -156,7 +156,7 @@ export interface ChartMetadata {
 }
 
 export interface ChartMetadataWithList extends ChartMetadata {
-  dataList: any[];
+  dataList?: ChartMetadata[];
 }
 
 export interface ChartUpdateData {

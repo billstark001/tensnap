@@ -49,19 +49,16 @@ export function registerEventHandlers(
     const store = useStore.getState();
     const mode = payload.mode || 'full';
 
-    // 处理参数更新 - 使用现有的 setData 方法
     const allParameters = [
       ...payload.added_parameters,
       ...payload.updated_parameters
     ];
 
-    // 处理环境更新
     const allEnvironments = [
       ...payload.added_environments,
       ...payload.updated_environments
     ];
 
-    // 处理图表更新 - 转换ChartState到ChartData格式
     const allCharts = [
       ...payload.added_charts,
       ...payload.updated_charts

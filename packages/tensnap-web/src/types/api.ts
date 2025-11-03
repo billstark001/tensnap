@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment } from "./model";
+import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartMetadataWithList } from "./model";
 
 //#region Message Types
 
@@ -101,7 +101,7 @@ export interface LogPayload {
 export interface StateSyncRequest {
   parameters: Parameter[];  // Parameter ID list
   environments: PureEnvironment[];  // Environment ID list
-  charts: ChartMetadata[];  // Chart ID list
+  charts: ChartMetadata[];  // Chart ID list, only for telling if the chart exists, with group structure excluded
 }
 
 export interface StateSyncResponse {
@@ -115,9 +115,9 @@ export interface StateSyncResponse {
   removed_environments: EnvironmentId[];
   updated_environments: Environment[];
 
-  added_charts: ChartMetadata[];
+  added_charts: ChartMetadataWithList[];
   removed_charts: string[];
-  updated_charts: ChartMetadata[];
+  updated_charts: ChartMetadataWithList[];
 }
 
 // parameter_change

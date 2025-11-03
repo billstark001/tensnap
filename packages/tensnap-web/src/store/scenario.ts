@@ -5,7 +5,7 @@ import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
 import { createDefaultRootLayout } from '@/utils/layout/pack-layout';
-import { instantiateChartMetadata, InstantiatedChartDataStorage, InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from '@/store/scenario-inst';
+import { instantiateChartMetadata, InstantiatedChartDataStorage, InstantiatedEnvironment, instantiateEnvironment, sanitizeParameter, serializeEnvironment } from '@/store/scenario-inst';
 
 export interface SetDataPayload {
   environments?: Environment[];
@@ -60,7 +60,6 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   setConnected: (connected) => set({ connected }),
 
   setCurrentTime: (time, isInTimeStep) => {
-    // TODO add verification
     if (time == null) {
       set({ isInTimeStep });
     } else {
@@ -91,7 +90,22 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       }
     }
     if (data.parameters !== undefined) {
-      updates.parameters = data.parameters;
+      const oldParameters = preserveExisting ? parameters.slice() : [];
+      const newParameters: Parameter[] = [];
+      const newParametersMap = new Map(data.parameters.map(param => [param.id, param]));
+      for (const oldParam of oldParameters) {
+        const mightBeNew = newParametersMap.get(oldParam.id);
+        if (mightBeNew) {
+          newParameters.push(sanitizeParameter({ ...oldParam, ...mightBeNew }, true));
+          newParametersMap.delete(oldParam.id);
+        } else {
+          newParameters.push(sanitizeParameter(oldParam, false));
+        }
+      }
+      for (const [, param] of newParametersMap) {
+        newParameters.push(sanitizeParameter(param, false));
+      }
+      updates.parameters = newParameters;
     }
     if (data.charts !== undefined) {
       const newCharts = preserveExisting ? charts.shallowCopy() : new InstantiatedChartDataStorage([]);
