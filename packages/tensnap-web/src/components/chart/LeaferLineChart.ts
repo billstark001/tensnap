@@ -1,9 +1,9 @@
-import { App, Line, Text, Group } from 'leafer-ui';
-import { ChartDataPoint, ChartConfig, LineConfig } from './types';
+import { Line, Text, Group, Leafer } from 'leafer-ui';
+import { ChartDataPoint, ChartConfig } from './types';
 
 // Chart rendering class optimized for high-frequency updates
 export class LeaferLineChart {
-  private app: App | null = null;
+  private app: Leafer | null = null;
   private container: HTMLElement;
   private config: ChartConfig;
   private data: ChartDataPoint[] = [];
@@ -20,7 +20,7 @@ export class LeaferLineChart {
 
   private initialize(): void {
     // Create leafer app instance
-    this.app = new App({
+    this.app = new Leafer({
       view: this.container,
       width: this.config.width,
       height: this.config.height,
@@ -31,9 +31,9 @@ export class LeaferLineChart {
     this.axisGroup = new Group();
     this.chartGroup = new Group();
     
-    this.app.tree.add(this.gridGroup);
-    this.app.tree.add(this.axisGroup);
-    this.app.tree.add(this.chartGroup);
+    this.app.add(this.gridGroup);
+    this.app.add(this.axisGroup);
+    this.app.add(this.chartGroup);
 
     // Initialize line groups for each configured line
     this.config.lines.forEach(line => {

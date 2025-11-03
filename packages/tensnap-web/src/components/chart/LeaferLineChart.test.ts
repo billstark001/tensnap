@@ -3,10 +3,8 @@ import { ChartDataPoint, ChartConfig } from './types';
 
 // Mock leafer-ui
 jest.mock('leafer-ui', () => ({
-  App: jest.fn().mockImplementation(() => ({
-    tree: {
-      add: jest.fn(),
-    },
+  Leafer: jest.fn().mockImplementation(() => ({
+    add: jest.fn(),
     resize: jest.fn(),
     destroy: jest.fn(),
   })),
@@ -18,6 +16,12 @@ jest.mock('leafer-ui', () => ({
   Line: jest.fn(),
   Text: jest.fn(),
   Rect: jest.fn(),
+  // also provide a default export in case the module is imported as default
+  default: jest.fn().mockImplementation(() => ({
+    add: jest.fn(),
+    resize: jest.fn(),
+    destroy: jest.fn(),
+  })),
 }));
 
 describe('LeaferLineChart', () => {
