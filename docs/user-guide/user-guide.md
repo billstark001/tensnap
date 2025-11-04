@@ -85,7 +85,7 @@ class MySimulation:
 ### Step 3: Connect to TenSnap
 
 ```python
-from tensnap.simulation import SimulationManager
+from tensnap.sim_loop import SimulationManager
 
 # Create simulation manager
 sim_manager = SimulationManager(step_interval=0.05)
@@ -411,7 +411,7 @@ def track_deaths():
 Manages simulation timing and execution:
 
 ```python
-from tensnap.simulation import SimulationManager
+from tensnap.sim_loop import SimulationManager
 
 # Create manager with desired step interval
 sim_manager = SimulationManager(step_interval=0.05)  # 50ms per step

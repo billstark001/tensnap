@@ -5,9 +5,8 @@ Main server implementation for handling WebSocket connections and
 broadcasting simulation updates to connected clients.
 """
 
-import inspect
-from types import ModuleType
 from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple
+
 import asyncio
 import json
 import logging
@@ -18,11 +17,12 @@ from enum import Enum
 from collections import defaultdict
 
 from .bindings.basic import Parameter, ActionParameter, ChartMetadata
+from .models import StateSyncResponse
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from .models import EnvironmentModel, StateSyncRequest, StateSyncResponse
+    from .models import EnvironmentModel, StateSyncRequest
 
 
 class ServerToClientMessageType(Enum):
@@ -122,21 +122,44 @@ class TenSnapServer:
     def add_environment(self, env: "EnvironmentModel") -> None:
         self.environments[env.id] = env
 
-    def add_parameter(self, param: "Parameter") -> None:
-        self.parameters[param.id] = param
+    def add_parameter(self, param: "Parameter", getter: Callable | None = None, setter: Callable | None = None) -> None:
+        param_inst = param.instantiate(getter=getter, setter=setter)
+        self.parameters[param.id] = param_inst
 
     def add_chart(self, getter: Callable, chart: "ChartMetadata") -> None:
         self.charts[chart.id] = (chart, getter)
 
-    def register_action(
+    def add_action(
         self,
         action_parameter: ActionParameter,
         handler: Callable,
-        register_parameter: bool = True,
+        add_parameter: bool = True,
     ) -> None:
-        if register_parameter:
+        if add_parameter:
             self.add_parameter(action_parameter)
         self.button_handlers[action_parameter.id] = handler
+
+    def remove_environment(self, env_id: Union[str, int]) -> None:
+        if env_id in self.environments:
+            del self.environments[env_id]
+
+    def remove_parameter(self, param_id: str) -> None:
+        if param_id in self.parameters:
+            del self.parameters[param_id]
+
+    def remove_chart(self, chart_id: str) -> None:
+        if chart_id in self.charts:
+            del self.charts[chart_id]
+
+    def remove_action(
+        self,
+        action_id: str,
+        remove_parameter: bool = True,
+    ) -> None:
+        if action_id in self.button_handlers:
+            del self.button_handlers[action_id]
+        if remove_parameter:
+            self.remove_parameter(action_id)
 
     async def handle_client(
         self, websocket: WebSocketServerProtocol, path: str
@@ -400,48 +423,3 @@ class TenSnapServer:
 
     def stop(self) -> None:
         self._running = False
-
-    # ... rest of the methods remain the same for auto-registration ...
-    def auto_register_from_namespace(self, namespace: Dict[str, Any]) -> None:
-        """Automatically register parameters, charts, and buttons from a namespace"""
-        for name, obj in namespace.items():
-            if hasattr(obj, "_tensnap_action"):
-                param: "Parameter" = obj._tensnap_action
-                self.add_parameter(param)
-                if param.type == "action":
-                    self.register_action(param, obj, False)
-            elif hasattr(obj, "_tensnap_chart"):
-                chart = obj._tensnap_chart
-                self.add_chart(obj, chart)
-            elif hasattr(obj, "param"):
-                param = obj.param
-                self.add_parameter(param)
-
-    def auto_register_from_module(self, module: ModuleType) -> None:
-        """Automatically register parameters, charts, and buttons from a module"""
-        self.auto_register_from_namespace(vars(module))
-
-    def auto_register_from_instance(self, instance: Any) -> None:
-        """Automatically register parameters, charts, and buttons from a class instance"""
-        namespace = {}
-        for name in dir(instance):
-            if not name.startswith("_"):
-                try:
-                    attr = getattr(instance, name)
-                    namespace[name] = attr
-                except Exception:
-                    continue
-        self.auto_register_from_namespace(namespace)
-
-    def auto_register_from_globals(
-        self, global_dict: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Automatically register from global namespace"""
-        if global_dict is None:
-            frame = inspect.currentframe()
-            if frame and frame.f_back:
-                global_dict = frame.f_back.f_globals
-            else:
-                logger.warning("Could not access caller's globals")
-                return
-        self.auto_register_from_namespace(global_dict)

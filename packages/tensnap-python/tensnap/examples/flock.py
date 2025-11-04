@@ -22,9 +22,9 @@ class FlockConfig:
 
 class Bird:
     """A single bird agent in the flock"""
-    
-    icon = 'arrow'
-    color = '#3498DB'
+
+    icon = "arrow"
+    color = "#3498DB"
 
     def __init__(
         self, bird_id: str, x: float, y: float, heading: Optional[float] = None
@@ -186,32 +186,3 @@ class FlockSimulation:
             }
             for bird in self.birds
         ]
-
-
-# Example usage for standalone simulation
-if __name__ == "__main__":
-    import time
-
-    # Create and run simulation
-    config = FlockConfig(num_agents=30)
-    simulation = FlockSimulation(config)
-    simulation.initialize()
-
-    print(f"Running flock simulation with {config.num_agents} birds...")
-    print("Press Ctrl+C to stop")
-
-    try:
-        while True:
-            simulation.step()
-
-            if simulation.time_step % 10 == 0:
-                avg_speed = simulation.get_average_speed()
-                order = simulation.get_order_parameter()
-                print(
-                    f"Step {simulation.time_step}: Avg Speed: {avg_speed:.3f}, Order: {order:.3f}"
-                )
-
-            time.sleep(0.1)
-
-    except KeyboardInterrupt:
-        print("Simulation stopped.")

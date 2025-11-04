@@ -64,7 +64,7 @@ The flock example demonstrates TenSnap's key features:
 ```python
 # Import TenSnap components
 from tensnap import TenSnapServer, AgentModel, GridEnvironmentModel
-from tensnap.simulation import SimulationManager
+from tensnap.sim_loop import SimulationManager
 from tensnap.bindings.basic import chart, button, quick_bind
 
 # Create server and environment

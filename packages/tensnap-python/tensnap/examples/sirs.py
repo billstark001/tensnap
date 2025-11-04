@@ -9,11 +9,13 @@ epidemiological model with support for three different interaction structures:
 """
 
 import numpy as np
-import base64
 import io
 import networkx as nx
 from typing import List, Tuple, Optional
 from enum import IntEnum
+
+
+from tensnap import bind_parameters
 
 
 class State(IntEnum):
@@ -89,6 +91,9 @@ class Environment:
         self.num_agents = num_agents
         self.agents: List[Agent] = []
 
+    def init(self):
+        pass
+
     def get_neighbors(self, agent_id: int) -> List[int]:
         """
         Get the neighbors of a given agent.
@@ -129,6 +134,7 @@ color_rgb_np_array_map = {
 }
 
 
+@bind_parameters(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
     Rectangular grid environment where agents interact with their spatial neighbors.
@@ -204,9 +210,9 @@ class GridEnvironment(Environment):
         return img_bytes
         # img_b64 = base64.b64encode(img_bytes)
         # return img_b64
-        
 
 
+@bind_parameters(include=["num_agents", "connection_prob"])
 class ERNetworkEnvironment(Environment):
     """
     Erdős-Rényi random network environment.
@@ -215,9 +221,7 @@ class ERNetworkEnvironment(Environment):
     is connected with a given probability.
     """
 
-    def __init__(
-        self, num_agents: int, connection_prob: float, seed: Optional[int] = None
-    ):
+    def __init__(self, num_agents: int, connection_prob: float):
         """
         Initialize the Erdős-Rényi network.
 
@@ -227,8 +231,13 @@ class ERNetworkEnvironment(Environment):
             seed: Random seed for reproducibility (optional)
         """
         super().__init__(num_agents)
+        self.num_agents = num_agents
         self.connection_prob = connection_prob
-        self.graph = nx.erdos_renyi_graph(num_agents, connection_prob, seed=seed)
+
+    def init(self, seed: Optional[int] = None):
+        self.graph = nx.erdos_renyi_graph(
+            self.num_agents, self.connection_prob, seed=seed
+        )
 
     def get_neighbors(self, agent_id: int) -> List[int]:
         """
@@ -243,6 +252,7 @@ class ERNetworkEnvironment(Environment):
         return list(self.graph.neighbors(agent_id))
 
 
+@bind_parameters(include=["beta", "gamma", "xi", "initial_infected"])
 class SIRSSimulation:
     """
     SIRS epidemic simulation manager.
@@ -277,13 +287,12 @@ class SIRSSimulation:
         self.initial_infected = initial_infected
 
         self.init()
-        
-        
 
     def init(self):
         # Initialize agents
         self.agents = [Agent(i) for i in range(self.environment.num_agents)]
         self.environment.agents = self.agents
+        self.environment.init()
 
         # Randomly select initial infected agents
         initial_infected_ids = np.random.choice(
@@ -297,7 +306,6 @@ class SIRSSimulation:
         # Track history
         self.history = {"susceptible": [], "infected": [], "recovered": []}
         self.count_states(add_history=True)
-        
 
     def count_states(self, add_history: bool = False) -> Tuple[int, int, int]:
         """Count agents in each state."""
@@ -355,41 +363,3 @@ class SIRSSimulation:
             self.step()
 
         return self.history
-
-
-# Example usage
-if __name__ == "__main__":
-    # Simulation parameters
-    num_steps = 200
-    beta = 0.3  # Infection rate
-    gamma = 0.1  # Recovery rate
-    xi = 0.05  # Loss of immunity rate
-
-    print("SIRS Model Simulation\n" + "=" * 50)
-
-    # 1. Well-mixed environment
-    print("\n1. Well-Mixed Environment (N=100)")
-    env_mixed = WellMixedEnvironment(num_agents=100)
-    sim_mixed = SIRSSimulation(env_mixed, beta, gamma, xi, initial_infected=5)
-    history_mixed = sim_mixed.run(num_steps)
-    s, i, r = sim_mixed.count_states()
-    print(f"   Final state: S={s}, I={i}, R={r}")
-
-    # 2. Grid environment
-    print("\n2. Grid Environment (10x10)")
-    env_grid = GridEnvironment(rows=10, cols=10)
-    sim_grid = SIRSSimulation(env_grid, beta, gamma, xi, initial_infected=5)
-    history_grid = sim_grid.run(num_steps)
-    s, i, r = sim_grid.count_states()
-    print(f"   Final state: S={s}, I={i}, R={r}")
-
-    # 3. Erdős-Rényi network environment
-    print("\n3. Erdős-Rényi Network (N=100, p=0.05)")
-    env_er = ERNetworkEnvironment(num_agents=100, connection_prob=0.05, seed=42)
-    sim_er = SIRSSimulation(env_er, beta, gamma, xi, initial_infected=5)
-    history_er = sim_er.run(num_steps)
-    s, i, r = sim_er.count_states()
-    print(f"   Final state: S={s}, I={i}, R={r}")
-
-    print("\n" + "=" * 50)
-    print("Simulation completed successfully!")

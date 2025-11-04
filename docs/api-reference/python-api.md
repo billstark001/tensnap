@@ -348,7 +348,7 @@ await server.update_agents_batch("network", updates)
 Manages simulation timing and execution.
 
 ```python
-from tensnap.simulation import SimulationManager
+from tensnap.sim_loop import SimulationManager
 
 sim_manager = SimulationManager(
     step_interval=0.05
@@ -700,7 +700,7 @@ class AutoDetectConfig:
 import asyncio
 from dataclasses import dataclass
 from tensnap import TenSnapServer, GridEnvironmentModel, AgentModel
-from tensnap.simulation import SimulationManager
+from tensnap.sim_loop import SimulationManager
 from tensnap.bindings.basic import quick_bind, chart, button
 
 @dataclass

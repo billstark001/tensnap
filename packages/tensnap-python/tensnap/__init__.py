@@ -2,45 +2,10 @@
 """TenSnap - Agent-based model visualization toolkit"""
 
 from .server import TenSnapServer
-from .simulation import SimulationManager
+from .sim_loop import SimulationLoop
+from .scenario import SimulationScenario
 from .models import *
-from .bindings.basic import (
-    action,
-    chart,
-    Parameter,
-)
+from .bindings.basic import *
 
-# Also expose the property classes for advanced users
-from .bindings.basic import ChartProperty
 
 __version__ = "0.1.0"
-__all__ = [
-    "TenSnapServer",
-    "SimulationManager",
-    
-    "AgentModelDict",
-    "UniformAgentModelDict",
-    "GridAgentModelDict",
-    "GraphAgentModelDict",
-    "make_uniform_agent_accessor",
-    "make_grid_agent_accessor",
-    "make_graph_agent_accessor",
-    "make_graph_agent_accessor_nx",
-    
-    "GraphEdgeDict",
-    "make_graph_edge_accessor_nx",
-    "PureUniformEnvironmentModel",
-    "PureGridEnvironmentModel",
-    "PureGraphEnvironmentModel",
-    "make_uniform_environment_accessor",
-    "make_grid_environment_accessor",
-    "make_graph_edge_accessor_nx",
-    "UniformEnvironmentBinder",
-    "GridEnvironmentBinder",
-    "NXGraphEnvironmentBinder",
-    
-    "Parameter",
-    "action",
-    "chart",
-    "ChartProperty",
-]

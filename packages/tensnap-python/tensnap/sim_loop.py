@@ -13,30 +13,16 @@ import logging
 from collections import deque
 
 from .bindings.basic import action
+from .utils.func import call_function
 
 if TYPE_CHECKING:
     from .server import TenSnapServer
-
-P = ParamSpec("P")
-R = TypeVar("R")
-
-
-async def _call_function(
-    func: Union[Callable[P, R], Callable[P, Awaitable[R]]],
-    *args: P.args,
-    **kwargs: P.kwargs,
-) -> R:
-    """Call a function, handling both sync and async functions."""
-    if asyncio.iscoroutinefunction(func):
-        return await func(*args, **kwargs)  # type: ignore
-    else:
-        return func(*args, **kwargs)  # type: ignore
 
 
 logger = logging.getLogger(__name__)
 
 
-class SimulationManager:
+class SimulationLoop:
     """
     Manages simulation lifecycle with thread/task management.
     Provides easy start/stop functionality and automatic step execution.
@@ -121,7 +107,7 @@ class SimulationManager:
         try:
             while self.running:
                 if self.on_step:
-                    await _call_function(self.on_step, self.time_step)
+                    await call_function(self.on_step, self.time_step)
                 self.time_step += 1
                 await asyncio.sleep(self.step_interval)
 
@@ -138,11 +124,9 @@ class SimulationManager:
         self.running = True
         if from_time_step is not None:
             self.time_step = from_time_step
-
         # Call initialization function
         if self.on_start:
-            await _call_function(self.on_start, self.time_step)
-
+            await call_function(self.on_start, self.time_step)
         # Start simulation loop
         if self.on_step:
             self.simulation_task = asyncio.create_task(self._simulation_loop())
@@ -166,12 +150,12 @@ class SimulationManager:
 
         # Call cleanup function
         if self.on_stop:
-            await _call_function(self.on_stop, self.time_step)
+            await call_function(self.on_stop, self.time_step)
 
     async def _step_once_impl(self) -> None:
         """Internal step once implementation."""
         if self.on_step:
-            await _call_function(self.on_step, self.time_step)
+            await call_function(self.on_step, self.time_step)
         self.time_step += 1
 
     @action("start", "Start")
@@ -238,8 +222,8 @@ class SimulationManager:
         # Add default control buttons
         for func in [self.start, self.stop, self.toggle, self.step_once]:
             param = func._tensnap_action  # type: ignore
-            server.register_action(
+            server.add_action(
                 action_parameter=param,
                 handler=func,
-                register_parameter=True,
+                add_parameter=True,
             )

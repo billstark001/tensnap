@@ -131,7 +131,7 @@ Import TenSnap components and create the visualization layer:
 
 ```python
 from tensnap import TenSnapServer, GridEnvironmentModel, AgentModel
-from tensnap.simulation import SimulationManager
+from tensnap.sim_loop import SimulationManager
 from tensnap.bindings.basic import quick_bind, chart, button
 
 # Create TenSnap components

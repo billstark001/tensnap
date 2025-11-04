@@ -2,11 +2,15 @@
 """Enhanced parameter decorators and bindings with automatic detection"""
 
 from typing import (
+    Annotated,
     Any,
     Callable,
     Optional,
     List,
     Tuple,
+    get_args,
+    get_origin,
+    get_type_hints,
     overload,
     Union,
     Literal,
@@ -39,7 +43,7 @@ class ParameterBase:
     def refresh_label(self):
         if not self.label:
             self.label = self.id.replace("_", " ").title().strip()
-    
+
     def __post_init__(self):
         self.refresh_label()
 
@@ -55,6 +59,12 @@ class ParameterBase:
             del d["allow_runtime_change"]
             d["allowRuntimeChange"] = val
         return d
+
+    def instantiate(self, getter: Callable | None = None, setter: Callable | None = None) -> "Parameter":
+        ret = create_parameter(**asdict(self))
+        ret.getter = getter
+        ret.setter = setter
+        return ret
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
@@ -139,7 +149,7 @@ def create_parameter(
 
     common_data = {
         "id": id,
-        "label": label or '',
+        "label": label or "",
         "allow_runtime_change": allow_runtime_change,
         "setter": setter,
         "getter": getter,
@@ -295,10 +305,9 @@ class bind:
         return fset
 
 
-
 class BindParametersConfig:
     """Configuration for automatic parameter detection"""
-    
+
     def __init__(
         self,
         include: Optional[List[str] | str] = None,
@@ -318,10 +327,10 @@ class BindParametersConfig:
         else:
             self.exclude_fields = set(exclude) if exclude else None
             self.exclude_re = None
-            
+
         self.include_private = include_private
         self.custom_bindings = custom_bindings or {}
-            
+
     def is_included_raw(self, field_name: str) -> bool:
         if self.include_re:
             if not re.match(self.include_re, field_name):
@@ -339,7 +348,7 @@ class BindParametersConfig:
             if field_name in self.exclude_fields:
                 return True
         return False
-    
+
     def is_included(self, field_name: str) -> bool:
         if not self.is_included_raw(field_name):
             return False
@@ -347,15 +356,14 @@ class BindParametersConfig:
             if self.is_excluded_raw(field_name):
                 return False
         return True
-    
-    def __call__(self, cls: Any) -> "BindParametersConfig":
-        '''Decorator to apply config to a class'''
+
+    def __call__(self, cls):
+        """Decorator to apply config to a class"""
         cls._tensnap_bind_parameters_config = self  # type: ignore
-        return self
+        return cls
+
 
 bind_parameters = BindParametersConfig  # Alias
-
-# endregion
 
 def create_getter_and_setter(
     target: Union[Dict[str, Any], object, types.ModuleType],
@@ -365,12 +373,15 @@ def create_getter_and_setter(
     """Create getter and setter functions for a target key/attribute"""
 
     if isinstance(target, dict):
+
         def getter() -> Any:
             return target.get(key, default)
 
         def setter(value: Any) -> None:
             target[key] = value
+
     else:
+
         def getter() -> Any:
             return getattr(target, key, default)
 
@@ -379,106 +390,104 @@ def create_getter_and_setter(
 
     return getter, setter
 
-def get_parameter_metadata_from_namespace(namespace: Dict[str, Any]):
+
+def get_field_metadata(cls: "type"):
+    hints = get_type_hints(cls, include_extras=True)
+    result = {}
+    for name, annotated in hints.items():
+        if get_origin(annotated) is Annotated:
+            typ, *meta = get_args(annotated)
+            result[name] = {
+                "type": typ,
+                "metadata": [m.__dict__ for m in meta if isinstance(m, bind)],
+            }
+    return result
+
+
+def get_parameter_metadata_from_namespace(
+    namespace: Dict[str, Any], cfg_suggest: Optional[BindParametersConfig] = None
+):
     """Find all parameter-decorated functions in a given namespace"""
     parameters: List[Tuple[str, Parameter]] = []
-    for name, attr in namespace.items():
-        if isinstance(attr, bind):
-            parameters.append((name, attr.metadata))
-        # TODO add & check annotated data fields
-    return parameters
-
-def get_bound_parameters_from_object(
-    target: Union[Dict[str, Any], object, types.ModuleType],
-    config: Optional[BindParametersConfig] = None,
-) -> List[Parameter]:
-    """
-    Automatically detect and bind parameters from a target object
-
-    Args:
-        target: Dictionary, object, or module to analyze
-        config: Configuration for detection behavior
-
-    Returns:
-        List of automatically detected Parameter objects
-    """
-    if config is None:
-        config = BindParametersConfig()
-
-    parameters = []
-
-    # Get all attributes/keys
-    if isinstance(target, dict):
-        items = target.items()
-    elif isinstance(target, types.ModuleType):
-        items = [
-            (name, getattr(target, name))
-            for name in dir(target)
-            if not name.startswith("_") or config.include_private
-        ]
-    else:
-        items = [
-            (name, getattr(target, name))
-            for name in dir(target)
-            if not name.startswith("_") or config.include_private
-        ]
-
-    for key, value in items:
-        # Apply filters
-        if not config.is_included(key):
+    actions: List[Tuple[str, Callable | None, ActionParameter]] = []
+    for name, value in namespace.items():
+        if cfg_suggest is not None and not cfg_suggest.is_included(name):
             continue
-
-        # Skip functions, methods, and classes
-        if callable(value) or inspect.isclass(value):
-            continue
-
-        # Use custom binding if available
-        if key not in config.custom_bindings \
-            and not isinstance(value, (int, float, bool, str)) \
-                and value is not None:
-            continue
-        
-        binding = config.custom_bindings.get(key)
-        if not binding:
-            binding_type: ParameterTypeWithoutAction
-            if isinstance(value, bool):
-                binding_type = "boolean"
-            elif isinstance(value, str):
-                binding_type = "string"
+        if isinstance(value, bind):
+            if value.metadata.type == "action":
+                actions.append(
+                    (name, value.fget, value.metadata)
+                )
             else:
-                binding_type = "number"
-            binding = create_parameter(id=key, type=binding_type)
-                
-        getter, setter = create_getter_and_setter(
-            target=target,
-            key=key,
-            default=binding.value if hasattr(binding, 'value') else None, # type: ignore
+                parameters.append((name, value.metadata))
+        elif isinstance(value, (int, float, bool, str)) or value is None:
+            val_type = (
+                isinstance(value, bool)
+                and "boolean"
+                or isinstance(value, str)
+                and "string"
+                or "number"
+            )
+            parameters.append(
+                (name, create_parameter(id=name, type=val_type, value=value))
+            )
+    return parameters, actions
+
+
+def get_parameter_metadata_from_object(
+    obj: Any, cfg_suggest: Optional[BindParametersConfig] = None
+):
+    """Find all parameter-decorated functions in a given object"""
+
+    if isinstance(obj, dict):
+        return get_parameter_metadata_from_namespace(obj, cfg_suggest)
+
+    if isinstance(obj, types.ModuleType) or (
+        hasattr(obj, "__dict__") and not hasattr(obj, "__class__")
+    ):
+        return get_parameter_metadata_from_namespace(vars(obj), cfg_suggest)
+
+    if hasattr(obj, "__class__"):
+        cls = obj.__class__
+        cfg = getattr(cls, "_tensnap_bind_parameters_config", None) or cfg_suggest
+        # 1. fetch class metadata
+        # this overrides annotated config, but retains suggested config
+        parameters, actions = get_parameter_metadata_from_namespace(
+            vars(cls), cfg_suggest
         )
-        d = binding.to_dict()
-        if 'allowRuntimeChange' in d:
-            d['allow_runtime_change'] = d['allowRuntimeChange']
-            del d['allowRuntimeChange']
-        param = create_parameter(
-            **d,
-            setter=setter,
-            getter=getter,
-        )
-        parameters.append(param)
+        # 2. annotated class fields
+        # this also overrides annotated config
+        field_metadata = get_field_metadata(cls)
+        for field_name, field_info in field_metadata.items():
+            if cfg_suggest is not None and not cfg_suggest.is_included(field_name):
+                continue
+            for meta in field_info["metadata"]:
+                if meta.type == "action":
+                    continue  # this does not make sense for fields
+                parameters.append((field_name, meta.metadata))
+        # 3. fetch instance metadata
+        keys_fetched = set(name for name, *_ in parameters + actions)
+        for name in dir(obj):
+            if name in keys_fetched:
+                continue
+            if cfg is not None and not cfg.is_included(name):
+                continue
+            value = getattr(obj, name)
+            if not isinstance(value, (int, float, bool, str)) and value is not None:
+                continue
+            val_type = (
+                isinstance(value, bool)
+                and "boolean"
+                or isinstance(value, str)
+                and "string"
+                or "number"
+            )
+            parameters.append(
+                (name, create_parameter(id=name, type=val_type, value=value))
+            )
 
-    return parameters
+        return parameters, actions
 
+    raise ValueError("Unsupported object type for parameter metadata extraction")
 
-# Convenience functions
-def quick_bind(
-    target: Union[Dict[str, Any], object, types.ModuleType],
-    include: Optional[List[str]] = None,
-    exclude: Optional[List[str]] = None,
-    custom: Optional[Dict[str, Parameter]] = None,
-) -> List[Parameter]:
-    """Quick parameter binding with simple include/exclude lists"""
-    config = BindParametersConfig(
-        include=include,
-        exclude=exclude,
-        custom_bindings=custom,
-    )
-    return get_bound_parameters_from_object(target, config)
+# endregion

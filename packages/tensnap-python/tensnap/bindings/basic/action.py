@@ -7,7 +7,7 @@ from asyncio import iscoroutinefunction
 from inspect import ismethod
 from functools import wraps
 
-from .parameters import ActionParameter
+from .parameter import ActionParameter
 
 F = TypeVar("F", bound=Callable[..., Any])
 
