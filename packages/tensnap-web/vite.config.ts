@@ -11,7 +11,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'tensnap-web-utils': path.resolve(__dirname, '../tensnap-web-utils'),
+      'tensnap-web-utils/file-system': path.resolve(__dirname, '../tensnap-web-utils/src/file-system/index.ts'),
+      'tensnap-web-utils': path.resolve(__dirname, '../tensnap-web-utils/index.ts'),
     },
   },
   server: {

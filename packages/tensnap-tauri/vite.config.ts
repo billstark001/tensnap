@@ -21,10 +21,17 @@ export default defineConfig({
   },
 
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      'tensnap-web': path.resolve(__dirname, '../tensnap-web/src'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      { find: /^tensnap-web-utils\/file-system$/, replacement: path.resolve(__dirname, '../tensnap-web-utils/src/file-system/index.ts') },
+      { find: /^tensnap-web-utils$/, replacement: path.resolve(__dirname, '../tensnap-web-utils/index.ts') },
+      { find: /^tensnap-web\/Providers$/, replacement: path.resolve(__dirname, '../tensnap-web/src/Providers.tsx') },
+      { find: /^tensnap-web\/App$/, replacement: path.resolve(__dirname, '../tensnap-web/src/App.tsx') },
+      { find: /^tensnap-web\/store\/file-system\/adapter$/, replacement: path.resolve(__dirname, '../tensnap-web/src/store/file-system/adapter.ts') },
+      { find: /^tensnap-web\/store\/file-system\/provider$/, replacement: path.resolve(__dirname, '../tensnap-web/src/store/file-system/provider.tsx') },
+      { find: /^tensnap-web\/types\/file$/, replacement: path.resolve(__dirname, '../tensnap-web/src/types/file.ts') },
+      { find: /^tensnap-web/, replacement: path.resolve(__dirname, '../tensnap-web') },
+    ],
   },
 
   build: {
