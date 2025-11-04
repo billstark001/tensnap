@@ -15,14 +15,14 @@ export interface AnchoredViewRendererProps {
 }
 
 const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
-  useScenarioStore((store) => store.isInTimeStep); // subscribe to time step changes
+  const isInTimeStep = useScenarioStore((store) => store.isInTimeStep); // subscribe to time step changes
 
   const environments = useScenarioStore((store) => store.environments) ?? new Map() as ScenarioStore['environments'];
   const environment = environments.get(id);
   if (!environment) return <div>Environment not found: {id}</div>;
 
   if (environment.type === 'grid') {
-    return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} />;
+    return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} updateTrigger={isInTimeStep}/>;
   } else if (environment.type === 'graph') {
     return <GraphEnvironmentView environment={environment as InstantiatedGraphEnvironment} />;
   } else if (environment.type === 'uniform') {
