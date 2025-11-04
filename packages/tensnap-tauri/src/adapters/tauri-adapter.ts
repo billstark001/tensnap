@@ -97,14 +97,6 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     await invoke('delete_file_handler', { path });
   }
 
-  async listFiles(directoryPath?: string): Promise<FileMetadata[]> {
-    const tauriFiles: TauriFileMetadata[] = await invoke('list_files_handler', {
-      directoryPath
-    });
-
-    return tauriFiles.map(f => this.convertTauriFileMetadata(f));
-  }
-
   async fileExists(path: string): Promise<boolean> {
     return await invoke('file_exists_handler', { path });
   }
@@ -123,27 +115,39 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     await invoke('delete_directory_handler', { path, recursive });
   }
 
-  async listDirectories(parentPath?: string): Promise<DirectoryMetadata[]> {
-    const entries = await this.listDirectoryContents(parentPath || '.');
-    const directories = entries.filter(entry => entry.type === 'directory');
-
-    return directories.map(entry => ({
-      name: entry.name,
-      path: entry.path,
-      parentPath: parentPath || '.',
-      createdAt: new Date(),
-      modifiedAt: new Date()
-    }));
-  }
-
-  async listDirectoryContents(path: string): Promise<DirectoryEntry[]> {
+  async list(path: string): Promise<DirectoryEntry[]> {
     const tauriEntries: TauriDirectoryEntry[] = await invoke('read_directory_handler', { path });
 
-    return tauriEntries.map(entry => ({
-      type: entry.type,
-      name: entry.name,
-      path: entry.path
-    }));
+    // Convert entries to full DirectoryEntry with metadata
+    const entries: DirectoryEntry[] = [];
+    
+    for (const entry of tauriEntries) {
+      if (entry.type === 'file') {
+        try {
+          const fileMetadata = await this.getFileMetadata(entry.path);
+          entries.push({ type: 'file', ...fileMetadata });
+        } catch (error) {
+          console.warn(`Failed to get metadata for file: ${entry.path}`, error);
+        }
+      } else {
+        // For directories, create basic metadata since Tauri doesn't provide full metadata
+        const dirMetadata: DirectoryMetadata = {
+          name: entry.name,
+          path: entry.path,
+          parentPath: path,
+          createdAt: new Date(),
+          modifiedAt: new Date()
+        };
+        entries.push({ type: 'directory', ...dirMetadata });
+      }
+    }
+
+    return entries;
+  }
+
+  private async getFileMetadata(path: string): Promise<FileMetadata> {
+    const tauriMetadata: TauriFileMetadata = await invoke('get_file_metadata_handler', { path });
+    return this.convertTauriFileMetadata(tauriMetadata);
   }
 
   async directoryExists(path: string): Promise<boolean> {

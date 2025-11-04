@@ -62,7 +62,7 @@ async function buildDirectoryTree(
   fileSystem: FileSystemState,
   path: string
 ): Promise<any> {
-  const contents = await fileSystem.adapter!.listDirectoryContents(path);
+  const contents = await fileSystem.adapter!.list(path);
   
   const tree: any = {
     path,
@@ -100,7 +100,7 @@ async function addDirectoryToZip(
   zip: JSZip,
   zipPath: string
 ): Promise<void> {
-  const contents = await fileSystem.adapter!.listDirectoryContents(dirPath);
+  const contents = await fileSystem.adapter!.list(dirPath);
   
   for (const entry of contents) {
     const entryZipPath = zipPath ? `${zipPath}/${entry.name}` : entry.name;

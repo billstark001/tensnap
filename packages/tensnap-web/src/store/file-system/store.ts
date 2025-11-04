@@ -176,7 +176,7 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       if (!adapter) return;
 
       try {
-        const directoryContents = await adapter.listDirectoryContents(currentDirectory);
+        const directoryContents = await adapter.list(currentDirectory);
         set({ directoryContents });
       } catch (error) {
         handleError(error);

@@ -118,14 +118,6 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     this.files.delete(normalizedPath);
   }
 
-  async listFiles(directoryPath?: string): Promise<FileMetadata[]> {
-    const targetPath = directoryPath ? PathUtils.normalizePath(directoryPath) : '/';
-
-    return Array.from(this.files.values())
-      .filter(file => file.metadata.parentPath === targetPath)
-      .map(file => file.metadata);
-  }
-
   async fileExists(path: string): Promise<boolean> {
     const normalizedPath = PathUtils.normalizePath(path);
     return this.files.has(normalizedPath);
@@ -181,7 +173,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     if (recursive) {
       // Delete all subdirectories and files
-      const contents = await this.listDirectoryContents(normalizedPath);
+      const contents = await this.list(normalizedPath);
       for (const entry of contents) {
         if (entry.type === 'file') {
           await this.deleteFile(entry.path);
@@ -191,7 +183,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       }
     } else {
       // Check if directory is empty
-      const contents = await this.listDirectoryContents(normalizedPath);
+      const contents = await this.list(normalizedPath);
       if (contents.length > 0) {
         throw new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path);
       }
@@ -200,23 +192,20 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     this.directories.delete(normalizedPath);
   }
 
-  async listDirectories(parentPath?: string): Promise<DirectoryMetadata[]> {
-    const targetPath = parentPath ? PathUtils.normalizePath(parentPath) : '/';
-
-    return Array.from(this.directories.values())
-      .filter(dir => dir.parentPath === targetPath)
-      .filter(dir => dir.path !== '/'); // Exclude root
-  }
-
-  async listDirectoryContents(path: string): Promise<DirectoryEntry[]> {
+  async list(path: string): Promise<DirectoryEntry[]> {
     const normalizedPath = PathUtils.normalizePath(path);
 
-    const files = await this.listFiles(normalizedPath);
-    const directories = await this.listDirectories(normalizedPath);
+    const files = Array.from(this.files.values())
+      .filter(file => file.metadata.parentPath === normalizedPath)
+      .map(file => file.metadata);
+
+    const directories = Array.from(this.directories.values())
+      .filter(dir => dir.parentPath === normalizedPath)
+      .filter(dir => dir.path !== '/'); // Exclude root
 
     const entries: DirectoryEntry[] = [
-      ...directories.map(dir => ({ type: 'directory' as const, ...dir, })),
-      ...files.map(file => ({ type: 'file' as const, ...file, })),
+      ...directories.map(dir => ({ type: 'directory' as const, ...dir })),
+      ...files.map(file => ({ type: 'file' as const, ...file })),
     ];
 
     return entries;

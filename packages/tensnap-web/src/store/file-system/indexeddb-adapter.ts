@@ -223,14 +223,6 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     }, 'Failed to delete file', 'STORAGE_ERROR', path);
   }
 
-  async listFiles(directoryPath?: string): Promise<FileMetadata[]> {
-    return this.safeExecute(async () => {
-      const targetPath = directoryPath ? PathUtils.normalizePath(directoryPath) : '/';
-      const files = await this.db!.getAllFromIndex('files', 'by-parent', targetPath);
-      return files.map(file => file.metadata);
-    }, 'Failed to list files');
-  }
-
   async fileExists(path: string): Promise<boolean> {
     const normalizedPath = PathUtils.normalizePath(path);
     const file = await this.readFile(normalizedPath);
@@ -289,7 +281,7 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       }
 
       if (recursive) {
-        const contents = await this.listDirectoryContents(normalizedPath);
+        const contents = await this.list(normalizedPath);
         for (const entry of contents) {
           if (entry.type === 'file') {
             await this.deleteFile(entry.path);
@@ -299,7 +291,7 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
         }
       } else {
         // Check if directory is empty
-        const contents = await this.listDirectoryContents(normalizedPath);
+        const contents = await this.list(normalizedPath);
         if (contents.length > 0) {
           throw new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path);
         }
@@ -309,26 +301,23 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     }, 'Failed to delete directory', 'STORAGE_ERROR', path);
   }
 
-  async listDirectories(parentPath?: string): Promise<DirectoryMetadata[]> {
+  async list(path: string): Promise<DirectoryEntry[]> {
     return this.safeExecute(async () => {
-      const targetPath = parentPath ? PathUtils.normalizePath(parentPath) : '/';
-      const directories = await this.db!.getAllFromIndex('directories', 'by-parent', targetPath);
-      return directories.filter(dir => dir.path !== '/'); // Exclude root
-    }, 'Failed to list directories');
-  }
+      const normalizedPath = PathUtils.normalizePath(path);
 
-  async listDirectoryContents(path: string): Promise<DirectoryEntry[]> {
-    const normalizedPath = PathUtils.normalizePath(path);
+      // Get files and directories in parallel
+      const [files, directories] = await Promise.all([
+        this.db!.getAllFromIndex('files', 'by-parent', normalizedPath),
+        this.db!.getAllFromIndex('directories', 'by-parent', normalizedPath)
+      ]);
 
-    const files = await this.listFiles(normalizedPath);
-    const directories = await this.listDirectories(normalizedPath);
+      const entries: DirectoryEntry[] = [
+        ...directories.filter(dir => dir.path !== '/').map(dir => ({ type: 'directory' as const, ...dir })),
+        ...files.map(file => ({ type: 'file' as const, ...file.metadata })),
+      ];
 
-    const entries: DirectoryEntry[] = [
-      ...directories.map(dir => ({ type: 'directory' as const, ...dir })),
-      ...files.map(file => ({ type: 'file' as const, ...file })),
-    ];
-
-    return entries;
+      return entries;
+    }, 'Failed to list directory contents');
   }
 
   async directoryExists(path: string): Promise<boolean> {
