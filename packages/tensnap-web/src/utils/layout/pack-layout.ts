@@ -1,5 +1,5 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
-import { Parameter, ButtonParameter, SliderParameter, EnumParameter, EnvironmentId, EnvironmentType } from '@/types/model';
+import { Parameter, ActionParameter, NumberParameter, EnumParameter, EnvironmentId, EnvironmentType, BooleanParameter, StringParameter } from '@/types/model';
 import { adjustLayout, initialPack } from './pack';
 
 const SIDEBAR_WIDTH = 300;
@@ -299,12 +299,12 @@ export function createAutoLayout(
 
   // Separate parameters into buttons and other types
   const [newButtonParameters, newOtherParameters] = parameters.reduce(
-    ([buttons, others], param) => {
+    ([actions, others], param) => {
       if (!statesFound.get(getParameterSignature(param))) {
-        (param.type === 'action' ? buttons : others).push(param as any);
+        (param.type === 'action' ? actions : others).push(param as any);
       }
-      return [buttons, others];
-    }, [[], []] as [ButtonParameter[], (SliderParameter | EnumParameter)[]]
+      return [actions, others];
+    }, [[], []] as [ActionParameter[], (NumberParameter | EnumParameter | BooleanParameter | StringParameter)[]]
   );
 
   let rootViewNeedsAdjust = false;

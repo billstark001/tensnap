@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartMetadataWithList, ChartUpdateOperation } from "./model";
+import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartGroupMetadata, ChartUpdateOperation } from "./model";
 
 //#region Message Types
 
@@ -118,9 +118,9 @@ export interface StateSyncResponse {
   removed_environments: EnvironmentId[];
   updated_environments: Environment[];
 
-  added_charts: ChartMetadataWithList[];
+  added_charts: ChartGroupMetadata[];
   removed_charts: string[];
-  updated_charts: ChartMetadataWithList[];
+  updated_charts: ChartGroupMetadata[];
 
   clear_charts?: boolean | string[]; // true means clear all charts, string[] means clear specific charts by IDs
 }

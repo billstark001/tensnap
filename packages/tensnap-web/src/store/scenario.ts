@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartMetadataWithList, ChartMetadata, ChartUpdateOperation } from '../types/model';
+import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation } from '../types/model';
 import { ContainerView } from '../types/ui';
 import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
@@ -10,7 +10,7 @@ import { instantiateChartMetadata, InstantiatedChartStorage, InstantiatedEnviron
 export interface SetDataPayload {
   environments?: Environment[];
   parameters?: Parameter[];
-  charts?: ChartMetadataWithList[];
+  charts?: ChartGroupMetadata[];
 
   removedEnvironmentIds?: EnvironmentId[];
   removedParameterIds?: string[];
@@ -133,7 +133,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       const clearChartIdsSet = new Set<string>(data.clearCharts === true ? [] : (Array.isArray(data.clearCharts) ? data.clearCharts : []));
       const clearAllCharts = data.clearCharts === true;
       // 0. divide chart metadata with has / does not have groups
-      const chartGroupMetadata: ChartMetadataWithList[] = [];
+      const chartGroupMetadata: ChartGroupMetadata[] = [];
       const chartMetadata: ChartMetadata[] = [];
       for (const chartMeta of data.charts || []) {
         if (chartMeta.dataList?.length) {

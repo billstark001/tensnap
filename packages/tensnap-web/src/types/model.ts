@@ -111,9 +111,10 @@ export interface ParameterBase {
   id: string;
   type: ParameterType;
   label: string;
+  allowRuntimeChange?: boolean;
 }
 
-export interface SliderParameter extends ParameterBase {
+export interface NumberParameter extends ParameterBase {
   type: 'number';
   value: number;
   min: number;
@@ -124,14 +125,15 @@ export interface SliderParameter extends ParameterBase {
 export interface EnumParameter extends ParameterBase {
   type: 'enum';
   value: string;
-  options: string[]; // | {label: string; value: any}[];
+  options: string[];
+  labels?: Record<string, string>;
 }
 
-export interface ButtonParameter extends ParameterBase {
+export interface ActionParameter extends ParameterBase {
   type: 'action';
 }
 
-export interface CheckboxParameter extends ParameterBase {
+export interface BooleanParameter extends ParameterBase {
   type: 'boolean';
   value: boolean;
 }
@@ -141,7 +143,7 @@ export interface StringParameter extends ParameterBase {
   value: string;
 }
 
-export type Parameter = SliderParameter | EnumParameter | ButtonParameter | CheckboxParameter | StringParameter;
+export type Parameter = NumberParameter | EnumParameter | ActionParameter | BooleanParameter | StringParameter;
 
 
 // #endregion
@@ -154,7 +156,7 @@ export interface ChartMetadata {
   color?: string;
 }
 
-export interface ChartMetadataWithList extends ChartMetadata {
+export interface ChartGroupMetadata extends ChartMetadata {
   dataList?: ChartMetadata[];
 }
 

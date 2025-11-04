@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { CheckboxParameter, EnumParameter, Parameter, ParameterType, SliderParameter, StringParameter } from '../types/model';
+import { BooleanParameter, EnumParameter, Parameter, ParameterType, NumberParameter, StringParameter } from '../types/model';
 import { useScenarioStore } from '../store/scenario';
 import { useWebSocketStore } from '@/store/websocket';
 import { ParameterChangePayload } from '@/types/api';
@@ -11,7 +11,7 @@ interface ParameterControlProps {
   showLabel?: boolean;
 }
 
-function SliderParameterControl({ parameter, onChange }: { parameter: SliderParameter; onChange: (value: number) => void }) {
+function SliderParameterControl({ parameter, onChange }: { parameter: NumberParameter; onChange: (value: number) => void }) {
   return (
     <div className={styles.controlContainer}>
       <input
@@ -31,23 +31,24 @@ function SliderParameterControl({ parameter, onChange }: { parameter: SliderPara
 }
 
 function EnumParameterControl({ parameter, onChange }: { parameter: EnumParameter; onChange: (value: string) => void }) {
+  const { value, options, labels } = parameter;
   return (
     <select
-      value={(parameter.value as string) || ''}
+      value={(value as string) || ''}
       onChange={(e) => onChange(e.target.value)}
       className={styles.select}
     >
       <option value="">Select...</option>
-      {parameter.options?.map((opt) => (
+      {options?.map((opt) => (
         <option key={opt} value={opt} className={styles.option}>
-          {opt}
+          {labels?.[opt] || opt}
         </option>
       ))}
     </select>
   );
 }
 
-function SwitchParameterControl({ parameter, onChange }: { parameter: CheckboxParameter; onChange: (value: boolean) => void }) {
+function SwitchParameterControl({ parameter, onChange }: { parameter: BooleanParameter; onChange: (value: boolean) => void }) {
   return (
     <div className={styles.controlContainer}>
       <label

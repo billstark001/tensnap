@@ -5,17 +5,13 @@ from .server import TenSnapServer
 from .simulation import SimulationManager
 from .models import *
 from .bindings.basic import (
-    parameter,
-    button,
+    action,
     chart,
-    bind_parameter,
-    bind_parameters_batch,
-    ParameterBinding,
     Parameter,
 )
 
 # Also expose the property classes for advanced users
-from .bindings.basic import ParameterProperty, ChartProperty
+from .bindings.basic import ChartProperty
 
 __version__ = "0.1.0"
 __all__ = [
@@ -44,12 +40,7 @@ __all__ = [
     "NXGraphEnvironmentBinder",
     
     "Parameter",
-    "parameter",
     "action",
     "chart",
-    "bind_parameter",
-    "bind_parameters_batch",
-    "ParameterBinding",
-    "ParameterProperty",
     "ChartProperty",
 ]

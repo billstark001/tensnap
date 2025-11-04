@@ -12,6 +12,8 @@ import asyncio
 import logging
 from collections import deque
 
+from .bindings.basic import action
+
 if TYPE_CHECKING:
     from .server import TenSnapServer
 
@@ -172,14 +174,17 @@ class SimulationManager:
             await _call_function(self.on_step, self.time_step)
         self.time_step += 1
 
+    @action("start", "Start")
     async def start(self, from_time_step: int | None = None) -> None:
         """Start the simulation from the specified time step."""
         return await self._queue_operation(self._start_impl, from_time_step)
 
+    @action("stop", "Stop")
     async def stop(self) -> None:
         """Stop the simulation and cleanup resources."""
         return await self._queue_operation(self._stop_impl)
 
+    @action("start_stop", "Start/Stop")
     async def toggle(self, from_time_step: int | None = None) -> None:
         """Toggle simulation running state."""
         async def _toggle_impl(from_time_step: int | None = None) -> None:
@@ -192,6 +197,7 @@ class SimulationManager:
         
         return await self._queue_operation(_toggle_impl, from_time_step)
 
+    @action("step", "Step")
     async def step_once(self) -> None:
         """Execute a single simulation step."""
         return await self._queue_operation(self._step_once_impl)
@@ -221,7 +227,6 @@ class SimulationManager:
 
     def register_to(
         self, server: "TenSnapServer",
-        labels: 'Optional[dict[str, str]]' = None,
     ):
         """
         Add a simulation manager to a TenSnapServer with default button controls.
@@ -230,10 +235,11 @@ class SimulationManager:
             server: The TenSnapServer instance to add controls to
         """
         
-        labels = labels or {}
-        
         # Add default control buttons
-        server.register_button("start", self.start, suggested_label=labels.get("start", "Start"))
-        server.register_button("stop", self.stop, suggested_label=labels.get("stop", "Stop"))
-        server.register_button("start_stop", self.toggle, suggested_label=labels.get("start_stop", "Start/Stop"))
-        server.register_button("step", self.step_once, suggested_label=labels.get("step", "Step"))
+        for func in [self.start, self.stop, self.toggle, self.step_once]:
+            param = func._tensnap_action  # type: ignore
+            server.register_action(
+                action_parameter=param,
+                handler=func,
+                register_parameter=True,
+            )

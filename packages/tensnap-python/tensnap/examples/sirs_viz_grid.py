@@ -7,7 +7,7 @@ from tensnap import (
     make_grid_environment_accessor,
 )
 from tensnap.simulation import SimulationManager
-from tensnap.bindings.basic import chart, button, quick_bind
+from tensnap.bindings.basic import chart, action, quick_bind
 
 # Import the pure simulation logic
 from .sirs import SIRSSimulation, GridEnvironment
@@ -63,7 +63,7 @@ async def on_step(step: int) -> None:
     await server.end_time_step(step)
 
 
-@button("reset", "Reset")
+@action("reset", "Reset")
 async def reset() -> None:
     await init_simulation()
 

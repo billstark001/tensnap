@@ -12,7 +12,7 @@ from tensnap import (
     make_graph_edge_accessor_nx,
 )
 from tensnap.simulation import SimulationManager
-from tensnap.bindings.basic import chart, button, quick_bind
+from tensnap.bindings.basic import chart, action, quick_bind
 from .hk import DiscreteHKModel
 
 
@@ -83,7 +83,7 @@ async def on_step(step: int) -> None:
     await server.end_time_step(step)
 
 
-@button("reset", "Reset")
+@action("reset", "Reset")
 async def reset() -> None:
     await init_simulation()
 

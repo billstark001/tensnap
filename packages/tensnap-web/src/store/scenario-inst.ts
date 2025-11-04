@@ -1,4 +1,10 @@
-import { Agent, AgentId, ChartUpdateData, ChartGroup, ChartMetadata, Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent, NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment, UniformAgent, ChartMetadataWithList, Parameter, SliderParameter, EnumParameter, CheckboxParameter, StringParameter } from "../types/model";
+import {
+  Agent, AgentId, ChartUpdateData, ChartGroup, ChartMetadata,
+  Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent,
+  NativeDataPoint, PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment,
+  UniformAgent, ChartGroupMetadata,
+  Parameter, NumberParameter, EnumParameter, BooleanParameter, StringParameter
+} from "../types/model";
 
 // #region Environment
 
@@ -59,7 +65,7 @@ export function serializeEnvironment(instEnv: InstantiatedEnvironment): Environm
 
 // #region Chart Data
 
-export function instantiateChartMetadata(meta: ChartMetadataWithList): ChartGroup {
+export function instantiateChartMetadata(meta: ChartGroupMetadata): ChartGroup {
   const metadataDict: Record<string, ChartMetadata> = meta.dataList?.length
     ? meta.dataList.reduce((dict, m) => {
       dict[m.id] = m;
@@ -482,9 +488,9 @@ export function sanitizeParameter(param: Parameter, inPlace: boolean = false): P
         step: param.step,
       });
 
-      (result as SliderParameter).min = estimatedRange.min;
-      (result as SliderParameter).max = estimatedRange.max;
-      (result as SliderParameter).step = estimatedRange.step;
+      (result as NumberParameter).min = estimatedRange.min;
+      (result as NumberParameter).max = estimatedRange.max;
+      (result as NumberParameter).step = estimatedRange.step;
       break;
     }
 
@@ -496,9 +502,9 @@ export function sanitizeParameter(param: Parameter, inPlace: boolean = false): P
     }
 
     case 'boolean': {
-      const value = (param as CheckboxParameter).value;
+      const value = (param as BooleanParameter).value;
       if (typeof value !== 'boolean') {
-        (result as CheckboxParameter).value =
+        (result as BooleanParameter).value =
           value === 'false' || value === 'False' ? false : Boolean(value);
       }
       break;
