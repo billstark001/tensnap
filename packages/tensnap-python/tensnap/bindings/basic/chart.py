@@ -1,7 +1,7 @@
 # tensnap/bindings/basic/charts.py
 """Chart decorators and bindings"""
 
-from typing import Any, Callable, Optional, Union, List, Dict, Tuple
+from typing import Any, Callable, Optional, Union, List, Dict, Tuple, TypedDict, NotRequired
 
 from dataclasses import dataclass, field
 
@@ -60,14 +60,47 @@ class ChartProperty:
             return self
         return self
 
+class ChartMetadataDict(TypedDict):
+    id: str
+    label: NotRequired[str]
+    color: NotRequired[str]
+
+SimplifiedChartMetadata = Union[
+    str, # id only
+    Tuple[str, str], # id and color
+    Tuple[str, str, str], # id, color, and label
+    ChartMetadataDict,
+]
+
+def _convert_to_chart_metadata(obj: SimplifiedChartMetadata) -> ChartMetadata:
+    """Convert simplified chart metadata to ChartMetadata object"""
+    if isinstance(obj, str):
+        return ChartMetadata(id=obj)
+    elif isinstance(obj, tuple):
+        if len(obj) == 2:
+            return ChartMetadata(id=obj[0], color=obj[1])
+        elif len(obj) == 3:
+            return ChartMetadata(id=obj[0], color=obj[1], label=obj[2])
+        else:
+            raise ValueError(f"Invalid chart metadata tuple: {obj}")
+    elif isinstance(obj, dict):
+        return ChartMetadata(
+            id=obj["id"],
+            label=obj.get("label", ""),
+            color=obj.get("color"),
+        )
+    else:
+        raise ValueError(f"Invalid chart metadata type: {type(obj)}")
 
 def chart(
-    id: str, label: str, color: Optional[str] = None, unit: Optional[str] = None
-) -> Callable[[Callable[..., Union[float, int]]], ChartProperty]:
+    id: str, label: str, color: Optional[str] = None, data_list: Optional[List[SimplifiedChartMetadata]] = None
+) -> Callable[[Callable], ChartProperty]:
     """Decorator to define a chart data getter"""
 
     def decorator(func: Callable[..., Union[float, int]]) -> ChartProperty:
-        chart_obj = ChartGroupMetadata(id=id, label=label, color=color)
+        chart_obj = ChartGroupMetadata(id=id, label=label, color=color, data_list=[
+            _convert_to_chart_metadata(data) for data in data_list
+        ] if data_list else None)
         chart_property = ChartProperty(chart_obj, func)
 
         # Store chart info on the function for server registration

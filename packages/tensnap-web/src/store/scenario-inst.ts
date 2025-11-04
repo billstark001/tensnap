@@ -250,18 +250,13 @@ export class InstantiatedChartStorage {
       m.clear();
     }
     for (const { id, time = currentTime, value } of dataPoints) {
-      const group = this.allChartMetadata.get(id);
-      if (!group) {
+      const allGroups = this.chartGroupsByMetadataId.get(id);
+      if (!allGroups) {
         console.warn(`Chart with id ${id} not found.`);
         continue;
       }
-      const metadataList = this.allChartMetadata.get(id);
-      if (!metadataList?.length) {
-        console.warn(`Chart metadata with id ${id} not found.`);
-        continue;
-      }
-      for (const metadata of metadataList) {
-        const m = this._pushMap.get(metadata.id)!;
+      for (const group of allGroups) {
+        const m = this._pushMap.get(group.id)!;
         const timePoint = m.get(time) || { time };
         timePoint[id] = value;
         m.set(time, timePoint);

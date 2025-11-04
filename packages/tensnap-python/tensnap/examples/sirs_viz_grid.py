@@ -30,28 +30,28 @@ grid = GridEnvironmentBinder(
 )
 
 
-
-@chart("s", "Susceptible", color="#3498DB")
-def calculate_susceptible() -> float:
-    return model.history["susceptible"][-1]
-
-
-@chart("i", "Infected", color="#E74C3C")
-def calculate_infected() -> float:
-    return model.history["infected"][-1]
-
-
-@chart("r", "Recovered", color="#2ECC71")
-def calculate_recovered() -> float:
-    return model.history["recovered"][-1]
+@chart(
+    "sir",
+    "S/I/R",
+    color="#3498DB",
+    data_list=[
+        {"id": "susceptible", "label": "Susceptible", "color": "#3498DB"},
+        {"id": "infected", "label": "Infected", "color": "#E74C3C"},
+        {"id": "recovered", "label": "Recovered", "color": "#2ECC71"},
+    ],
+)
+def calculate_susceptible():
+    return [
+        model.history["susceptible"][-1],
+        model.history["infected"][-1],
+        model.history["recovered"][-1],
+    ]
 
 
 async def main():
-    
-    
+
     model.init()
-    
-    
+
     scenario.register_model_handler(
         model.init,
         model.step,

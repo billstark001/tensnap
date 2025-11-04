@@ -19,6 +19,7 @@ from .parameter import (
 from .chart import (
     chart,
     ChartMetadata,
+    ChartGroupMetadata,
     ChartProperty,
     get_chart_metadata_from_namespace,
 )

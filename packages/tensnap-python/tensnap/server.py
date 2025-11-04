@@ -16,7 +16,7 @@ import msgpack
 from enum import Enum
 from collections import defaultdict
 
-from .bindings.basic import Parameter, ActionParameter, ChartMetadata
+from .bindings.basic import Parameter, ActionParameter, ChartMetadata, ChartGroupMetadata
 from .models import StateSyncResponse
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ class TenSnapServer:
         self.clients: set[WebSocketServerProtocol] = set()
         self.environments: Dict[Union[str, int], "EnvironmentModel"] = {}
         self.parameters: Dict[str, "Parameter"] = {}
-        self.charts: Dict[str, Tuple["ChartMetadata", Callable]] = {}
+        self.charts: Dict[str, Tuple["ChartGroupMetadata", Callable]] = {}
         self.button_handlers: Dict[str, Callable] = {}
         self._running = False
         self._queue = BatchedMessageQueue()
@@ -126,7 +126,7 @@ class TenSnapServer:
         param_inst = param.instantiate(getter=getter, setter=setter)
         self.parameters[param.id] = param_inst
 
-    def add_chart(self, getter: Callable, chart: "ChartMetadata") -> None:
+    def add_chart(self, getter: Callable, chart: "ChartGroupMetadata") -> None:
         self.charts[chart.id] = (chart, getter)
 
     def add_action(
@@ -346,11 +346,16 @@ class TenSnapServer:
 
     async def end_time_step(self, time: Optional[int] = None) -> None:
         if self.charts:
-            results = await asyncio.gather(
+            results_raw = await asyncio.gather(
                 *[self._get_chart_update(c, g, time) for c, g in self.charts.values()],
                 return_exceptions=True,
             )
-            updates = [r for r in results if not isinstance(r, Exception)]
+            updates = []
+            for r in results_raw:
+                if isinstance(r, Exception):
+                    logger.error(f"Error getting chart update: {r}")
+                else:
+                    updates.extend(r) # type: ignore
             if updates:
                 await self._broadcast(
                     ServerToClientMessageType.CHART_UPDATE, {"updates": updates}
@@ -360,13 +365,29 @@ class TenSnapServer:
         await self._broadcast(ServerToClientMessageType.TIME_STEP_END, payload)
 
     async def _get_chart_update(
-        self, chart: "ChartMetadata", getter: Callable, time: Optional[int]
-    ) -> Dict[str, Any]:
+        self, chart: "ChartGroupMetadata", getter: Callable, time: Optional[int]
+    ) -> List[Dict[str, Any]]:
         try:
             value = await asyncio.get_event_loop().run_in_executor(None, getter)
-            ret = {"id": chart.id, "value": value}
-            if time is not None:
-                ret["time"] = time
+            ret: List[Dict[str, Any]] = []
+            if not chart.data_list:
+                ret.append({"id": chart.id, "value": value})
+            else:
+                if isinstance(value, dict):
+                    for data_meta in chart.data_list:
+                        if data_meta.id in value:
+                            ret.append(
+                                {"id": data_meta.id, "value": value[data_meta.id]}
+                            )
+                elif isinstance(value, (list, tuple)):
+                    for data_meta, val in zip(chart.data_list, value):
+                        ret.append({"id": data_meta.id, "value": val})
+                elif len(chart.data_list) == 1:
+                    ret.append({"id": chart.data_list[0].id, "value": value})
+                else:
+                    raise ValueError(
+                        f"Chart getter returned invalid type for multiple data series: {type(value)}"
+                    )
             return ret
         except Exception as e:
             logger.error(f"Error getting chart data for {chart.id}: {e}")
