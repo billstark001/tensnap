@@ -105,7 +105,7 @@ export type Environment = GridEnvironment | GraphEnvironment | UniformEnvironmen
 // #region Parameters
 
 
-export type ParameterType = 'number' | 'enum' | 'action' | 'checkbox' | 'string';
+export type ParameterType = 'number' | 'enum' | 'action' | 'boolean' | 'string';
 
 export interface ParameterBase {
   id: string;
@@ -132,7 +132,7 @@ export interface ButtonParameter extends ParameterBase {
 }
 
 export interface CheckboxParameter extends ParameterBase {
-  type: 'checkbox';
+  type: 'boolean';
   value: boolean;
 }
 

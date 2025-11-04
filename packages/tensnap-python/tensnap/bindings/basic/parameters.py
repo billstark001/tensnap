@@ -40,25 +40,6 @@ class ParameterBinding:
     default: Optional[Any] = None
     allow_runtime_change: bool = True
     
-    def __post_init__(self):
-        """Auto-infer parameter properties from default value"""
-        if self.default is not None and self.min is None and self.max is None:
-            if isinstance(self.default, (int, float)):
-                # Auto-infer reasonable ranges for numeric values
-                if isinstance(self.default, bool):
-                    self.type = "action"
-                elif self.default == 0:
-                    self.min = 0
-                    self.max = 100
-                    self.step = 1 if isinstance(self.default, int) else 0.1
-                else:
-                    # Use default as a reference point
-                    abs_val = abs(self.default)
-                    self.min = 0 if self.default >= 0 else -abs_val * 2
-                    self.max = abs_val * 2 if abs_val > 0 else 10
-                    self.step = 1 if isinstance(self.default, int) else abs_val * 0.1
-
-
 @dataclass 
 class AutoDetectConfig:
     """Configuration for automatic parameter detection"""
@@ -363,113 +344,6 @@ def auto_detect_parameters(
     return parameters
 
 
-class ParameterBindingGenerator:
-    """AST-based generator for creating explicit parameter bindings"""
-    
-    def __init__(self):
-        self.detected_bindings: List[ParameterBinding] = []
-    
-    def analyze_object(
-        self, 
-        target: Union[Dict[str, Any], object, types.ModuleType],
-        config: Optional[AutoDetectConfig] = None
-    ) -> List[ParameterBinding]:
-        """Analyze an object and generate ParameterBinding configurations"""
-        if config is None:
-            config = AutoDetectConfig()
-            
-        bindings = []
-        
-        # Get all attributes/keys
-        if isinstance(target, dict):
-            items = target.items()
-        elif isinstance(target, types.ModuleType):
-            items = [(name, getattr(target, name)) for name in dir(target) 
-                     if not name.startswith('_') or config.include_private]
-        else:
-            items = [(name, getattr(target, name)) for name in dir(target)
-                     if not name.startswith('_') or config.include_private]
-        
-        for key, value in items:
-            # Apply filters
-            if config.include_fields and key not in config.include_fields:
-                continue
-            if config.exclude_fields and key in config.exclude_fields:
-                continue
-                
-            # Skip functions, methods, and classes
-            if callable(value) or inspect.isclass(value):
-                continue
-                
-            # Use custom binding if available
-            if config.custom_bindings and key in config.custom_bindings:
-                bindings.append(config.custom_bindings[key])
-                continue
-            
-            # Auto-detect numeric parameters
-            if config.numeric_only and not isinstance(value, (int, float, bool)):
-                continue
-                
-            # Create binding configuration
-            binding = ParameterBinding(
-                key=key,
-                id=key,
-                label=key.replace('_', ' ').title(),
-                default=value
-            )
-            bindings.append(binding)
-        
-        self.detected_bindings = bindings
-        return bindings
-    
-    def generate_code(self, var_name: str = "parameters") -> str:
-        """Generate Python code for the detected parameter bindings"""
-        if not self.detected_bindings:
-            return f"{var_name} = []"
-        
-        lines = [f"{var_name} = ["]
-        
-        for binding in self.detected_bindings:
-            lines.append("    ParameterBinding(")
-            lines.append(f'        key="{binding.key}",')
-            lines.append(f'        id="{binding.id}",')
-            lines.append(f'        label="{binding.label}",')
-            
-            if binding.type != "number":
-                lines.append(f'        type="{binding.type}",')
-            if binding.min is not None:
-                lines.append(f"        min={binding.min},")
-            if binding.max is not None:
-                lines.append(f"        max={binding.max},")
-            if binding.step is not None:
-                lines.append(f"        step={binding.step},")
-            if binding.options is not None:
-                lines.append(f"        options={binding.options!r},")
-            if binding.default is not None:
-                lines.append(f"        default={binding.default!r},")
-            if not binding.allow_runtime_change:
-                lines.append(f"        allow_runtime_change={binding.allow_runtime_change},")
-                
-            lines.append("    ),")
-        
-        lines.append("]")
-        return "\n".join(lines)
-    
-    def save_to_file(self, filepath: Union[str, Path], var_name: str = "parameters") -> None:
-        """Save the generated code to a Python file"""
-        code = self.generate_code(var_name)
-        imports = [
-            "from tensnap.bindings.basic import ParameterBinding",
-            "",
-            ""
-        ]
-        
-        full_code = "\n".join(imports) + code
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(full_code)
-
-
 # Convenience functions
 def quick_bind(
     target: Union[Dict[str, Any], object, types.ModuleType],
@@ -484,21 +358,3 @@ def quick_bind(
         custom_bindings=custom
     )
     return auto_detect_parameters(target, config)
-
-
-def generate_binding_code(
-    target: Union[Dict[str, Any], object, types.ModuleType],
-    include: Optional[List[str]] = None,
-    exclude: Optional[List[str]] = None,
-    custom: Optional[Dict[str, ParameterBinding]] = None
-) -> str:
-    """Generate binding code for the target object"""
-    config = AutoDetectConfig(
-        include_fields=set(include) if include else None,
-        exclude_fields=set(exclude) if exclude else None,
-        custom_bindings=custom
-    )
-    
-    generator = ParameterBindingGenerator()
-    generator.analyze_object(target, config)
-    return generator.generate_code()

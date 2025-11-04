@@ -87,7 +87,7 @@ const renderers: Record<ParameterType, React.FC<{ parameter: Parameter; onChange
   number: SliderParameterControl as any,
   enum: EnumParameterControl as any,
   action: null,
-  checkbox: SwitchParameterControl as any,
+  boolean: SwitchParameterControl as any,
   string: StringParameterControl as any,
 };
 

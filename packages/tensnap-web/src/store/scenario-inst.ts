@@ -495,7 +495,7 @@ export function sanitizeParameter(param: Parameter, inPlace: boolean = false): P
       break;
     }
 
-    case 'checkbox': {
+    case 'boolean': {
       const value = (param as CheckboxParameter).value;
       if (typeof value !== 'boolean') {
         (result as CheckboxParameter).value =
