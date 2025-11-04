@@ -233,7 +233,7 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
 
   async fileExists(path: string): Promise<boolean> {
     const normalizedPath = PathUtils.normalizePath(path);
-    const file = await this.getFile(normalizedPath);
+    const file = await this.readFile(normalizedPath);
     return file !== null;
   }
 
@@ -248,7 +248,8 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
 
       if (await this.directoryExists(normalizedPath)) {
         if (allowExist) {
-          return (await this.getDirectory(normalizedPath))!;
+          const dir = await this.db!.get('directories', normalizedPath);
+          return dir!;
         }
         throw new FileSystemError(`Directory already exists at ${normalizedPath}`, 'PATH_EXISTS', path);
       }

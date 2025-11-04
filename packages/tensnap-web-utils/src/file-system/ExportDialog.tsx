@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useFileSystem } from 'tensnap-web/store/file-system/provider';
 import * as dialogStyles from 'tensnap-web/styles/dialog.css';
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils/react';
+import { exportDirectory as exportDirectoryUtil } from './export-utils';
 
 export interface ExportOption {
   key: string;
@@ -26,13 +27,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   showDefaultOptions = true
 }) => {
   const fileSystem = useFileSystem();
-  const { currentDirectory, exportDirectory } = fileSystem;
+  const { currentDirectory } = fileSystem;
 
   const onOpenChange = useCallbackRef(_onOpenChange);
 
   const handleExportDirectory = useCallback(async (format: 'json' | 'zip') => {
     try {
-      const blob = await exportDirectory(currentDirectory, format);
+      const blob = await exportDirectoryUtil(fileSystem, currentDirectory, { format });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -45,7 +46,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     } catch (error) {
       console.error('Failed to export directory:', error);
     }
-  }, [exportDirectory, currentDirectory, onOpenChange]);
+  }, [fileSystem, currentDirectory, onOpenChange]);
 
   const defaultOptions: ExportOption[] = [
     {

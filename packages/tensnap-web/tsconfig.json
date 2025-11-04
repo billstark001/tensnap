@@ -12,7 +12,10 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "tensnap-web-utils": ["../tensnap-web-utils/index.ts"],
+      "tensnap-web-utils/*": ["../tensnap-web-utils/*"],
+      "tensnap-web-utils/file-system": ["../tensnap-web-utils/src/file-system/index.ts"]
     }
   },
   "include": ["src"],

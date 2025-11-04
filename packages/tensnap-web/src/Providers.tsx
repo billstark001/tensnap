@@ -4,7 +4,7 @@ import { AdapterProvider, AdapterProviderProps } from '@/store/file-system/provi
 import { useProjectStore } from '@/store/project';
 import { WebSocketStoreProvider } from '@/store/websocket';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
-import { FilePickerProvider } from './components/file-system';
+import { FilePickerProvider } from 'tensnap-web-utils/file-system';
 
 interface ProvidersProps extends PropsWithChildren<object> {
   adapterProviderProps?: Partial<AdapterProviderProps>;
