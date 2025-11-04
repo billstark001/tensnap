@@ -66,6 +66,8 @@
     "./Providers": "./src/Providers.tsx",
     "./types/file": "./src/types/file.ts",
     "./store/file-system/adapter": "./src/store/file-system/adapter.ts",
-    "./store/file-system/provider": "./src/store/file-system/provider.tsx"
+    "./store/file-system/provider": "./src/store/file-system/provider.tsx",
+    "./styles/dialog.css": "./src/styles/dialog.css.ts",
+    "./utils/react": "./src/utils/react.ts"
   }
 }

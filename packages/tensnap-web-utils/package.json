@@ -1,0 +1,42 @@
+{
+  "name": "tensnap-web-utils",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Web utilities for TenSnap including filesystem UI and development tools",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./file-system": "./src/file-system/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.0.5",
+    "@radix-ui/react-context-menu": "^2.1.5",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-label": "^2.0.2",
+    "lucide-react": "^0.536.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tensnap-web": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "@vanilla-extract/css": "^1.14.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

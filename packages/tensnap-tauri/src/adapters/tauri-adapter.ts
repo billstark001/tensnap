@@ -73,7 +73,7 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     };
   }
 
-  async getFile(path: string): Promise<FileContent | null> {
+  async readFile(path: string): Promise<FileContent | null> {
     try {
       const [content, metadata]: [number[], TauriFileMetadata] = await Promise.all([
         invoke('read_file_handler', { path }) as any,
@@ -88,47 +88,13 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
         checksum: await this.calculateChecksum(contentBuffer)
       };
     } catch (error) {
-      console.error('Failed to get file:', error);
+      console.error('Failed to read file:', error);
       return null;
     }
   }
 
   async deleteFile(path: string): Promise<void> {
     await invoke('delete_file_handler', { path });
-  }
-
-  async moveFile(oldPath: string, newPath: string): Promise<FileContent> {
-    const tauriMetadata: TauriFileMetadata = await invoke('move_file_handler', {
-      oldPath,
-      newPath
-    });
-
-    // Get the content of the moved file
-    const content: number[] = await invoke('read_file_handler', { path: newPath });
-    const contentBuffer = new Uint8Array(content).buffer;
-
-    return {
-      metadata: this.convertTauriFileMetadata(tauriMetadata),
-      content: contentBuffer,
-      checksum: await this.calculateChecksum(contentBuffer)
-    };
-  }
-
-  async copyFile(sourcePath: string, targetPath: string): Promise<FileContent> {
-    const tauriMetadata: TauriFileMetadata = await invoke('copy_file_handler', {
-      sourcePath,
-      targetPath
-    });
-
-    // Get the content of the copied file
-    const content: number[] = await invoke('read_file_handler', { path: targetPath });
-    const contentBuffer = new Uint8Array(content).buffer;
-
-    return {
-      metadata: this.convertTauriFileMetadata(tauriMetadata),
-      content: contentBuffer,
-      checksum: await this.calculateChecksum(contentBuffer)
-    };
   }
 
   async listFiles(directoryPath?: string): Promise<FileMetadata[]> {
@@ -153,87 +119,21 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     return this.convertTauriDirectoryMetadata(tauriMetadata);
   }
 
-  async getDirectory(path: string): Promise<DirectoryMetadata | null> {
-    try {
-      const exists = await this.directoryExists(path);
-      if (!exists) return null;
-
-      // Since we don't have a direct get_directory_metadata command,
-      // we'll create one by reading the directory and getting its info
-      // const entries = await this.listDirectoryContents(path);
-
-      return {
-        name: path.split('/').pop() || path,
-        path,
-        parentPath: path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '.',
-        createdAt: new Date(),
-        modifiedAt: new Date()
-      };
-    } catch (error) {
-      console.error('Failed to get directory:', error);
-      return null;
-    }
-  }
-
   async deleteDirectory(path: string, recursive?: boolean): Promise<void> {
     await invoke('delete_directory_handler', { path, recursive });
-  }
-
-  async moveDirectory(oldPath: string, newPath: string): Promise<DirectoryMetadata> {
-    // Tauri doesn't have a direct move directory command, so we'll implement it
-    // by creating the new directory and moving all contents
-    await this.createDirectory(newPath, true);
-
-    const entries = await this.listDirectoryContents(oldPath);
-
-    for (const entry of entries) {
-      const oldEntryPath = entry.path;
-      const newEntryPath = entry.path.replace(oldPath, newPath);
-
-      if (entry.type === 'file') {
-        await this.moveFile(oldEntryPath, newEntryPath);
-      } else {
-        await this.moveDirectory(oldEntryPath, newEntryPath);
-      }
-    }
-
-    await this.deleteDirectory(oldPath, true);
-
-    return (await this.getDirectory(newPath))!;
-  }
-
-  async copyDirectory(sourcePath: string, targetPath: string): Promise<DirectoryMetadata> {
-    await this.createDirectory(targetPath, true);
-
-    const entries = await this.listDirectoryContents(sourcePath);
-
-    for (const entry of entries) {
-      const sourceEntryPath = entry.path;
-      const targetEntryPath = entry.path.replace(sourcePath, targetPath);
-
-      if (entry.type === 'file') {
-        await this.copyFile(sourceEntryPath, targetEntryPath);
-      } else {
-        await this.copyDirectory(sourceEntryPath, targetEntryPath);
-      }
-    }
-
-    return (await this.getDirectory(targetPath))!;
   }
 
   async listDirectories(parentPath?: string): Promise<DirectoryMetadata[]> {
     const entries = await this.listDirectoryContents(parentPath || '.');
     const directories = entries.filter(entry => entry.type === 'directory');
 
-    const results: DirectoryMetadata[] = [];
-    for (const dir of directories) {
-      const metadata = await this.getDirectory(dir.path);
-      if (metadata) {
-        results.push(metadata);
-      }
-    }
-
-    return results;
+    return directories.map(entry => ({
+      name: entry.name,
+      path: entry.path,
+      parentPath: parentPath || '.',
+      createdAt: new Date(),
+      modifiedAt: new Date()
+    }));
   }
 
   async listDirectoryContents(path: string): Promise<DirectoryEntry[]> {
@@ -250,11 +150,6 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     return await invoke('directory_exists_handler', { path });
   }
 
-  async isDirectoryEmpty(path: string): Promise<boolean> {
-    const entries = await this.listDirectoryContents(path);
-    return entries.length === 0;
-  }
-
   // File system operations
   async getStats(): Promise<FileSystemStats> {
     // This is a simplified implementation
@@ -267,49 +162,6 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
       storageQuota: undefined,
       storageUsed: undefined
     };
-  }
-
-  async search(
-    query: string,
-    searchPath?: string,
-    _includeContent?: boolean
-  ): Promise<(FileMetadata | DirectoryMetadata)[]> {
-    // This is a simplified implementation
-    // In a real implementation, you'd use more sophisticated search
-    const results: (FileMetadata | DirectoryMetadata)[] = [];
-
-    const searchIn = searchPath || '.';
-    const entries = await this.listDirectoryContents(searchIn);
-
-    for (const entry of entries) {
-      if (entry.name.toLowerCase().includes(query.toLowerCase())) {
-        if (entry.type === 'file') {
-          const file = await this.getFile(entry.path);
-          if (file) {
-            results.push(file.metadata);
-          }
-        } else {
-          const dir = await this.getDirectory(entry.path);
-          if (dir) {
-            results.push(dir);
-          }
-        }
-      }
-    }
-
-    return results;
-  }
-
-  async exportDirectory(_path: string, _format?: 'zip' | 'tar' | 'json'): Promise<Blob> {
-    // This would require implementing archive creation in Rust
-    // For now, return an empty blob
-    throw new Error('Export functionality not implemented yet');
-  }
-
-  async importDirectory(_data: Blob, _targetPath: string): Promise<DirectoryMetadata> {
-    // This would require implementing archive extraction in Rust
-    // For now, throw an error
-    throw new Error('Import functionality not implemented yet');
   }
 
   // Helper methods
