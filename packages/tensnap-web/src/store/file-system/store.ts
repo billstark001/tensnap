@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { FileSystemAdapter } from './adapter';
-import {
+import { FileSystemAdapter } from 'tensnap-web-utils/adapters';
+import type {
   FileMetadata,
   FileContent,
   DirectoryMetadata,

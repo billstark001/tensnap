@@ -1,4 +1,4 @@
-import { FileSystemAdapter } from 'tensnap-web/store/file-system/adapter';
+import { FileSystemAdapter } from 'tensnap-web-utils/adapters';
 import type {
   FileMetadata,
   FileContent,

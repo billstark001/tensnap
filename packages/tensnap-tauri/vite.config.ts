@@ -60,6 +60,7 @@ export default defineConfig({
     alias: [
       // Specific aliases for tensnap-web-utils
       { find: /^tensnap-web-utils\/file-system$/, replacement: path.resolve(__dirname, '../tensnap-web-utils/src/file-system/index.ts') },
+      { find: /^tensnap-web-utils\/adapters$/, replacement: path.resolve(__dirname, '../tensnap-web-utils/src/adapters/index.ts') },
       { find: /^tensnap-web-utils$/, replacement: path.resolve(__dirname, '../tensnap-web-utils/index.ts') },
       
       // Specific aliases for tensnap-web exports
