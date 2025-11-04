@@ -664,7 +664,7 @@ class TenSnapServer:
             if hasattr(obj, "_tensnap_parameter"):
                 param: "Parameter" = obj._tensnap_parameter
                 self.add_parameter(param)
-                if param.type == "button":
+                if param.type == "action":
                     self.register_button(param.id, obj, False)
             elif hasattr(obj, "_tensnap_chart"):
                 chart = obj._tensnap_chart

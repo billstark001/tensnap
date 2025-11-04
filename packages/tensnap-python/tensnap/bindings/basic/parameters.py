@@ -14,7 +14,7 @@ T = TypeVar('T')
 class Parameter:
     """Simulation parameter"""
     id: str
-    type: Literal["number", "enum", "button"]
+    type: Literal["number", "enum", "action"]
     label: str
     value: Optional[Union[float, str]] = None
     min: Optional[float] = None
@@ -32,7 +32,7 @@ class ParameterBinding:
     key: str
     id: str
     label: str
-    type: Literal["number", "enum", "button"] = "number"
+    type: Literal["number", "enum", "action"] = "number"
     min: Optional[float] = None
     max: Optional[float] = None
     step: Optional[float] = None
@@ -46,7 +46,7 @@ class ParameterBinding:
             if isinstance(self.default, (int, float)):
                 # Auto-infer reasonable ranges for numeric values
                 if isinstance(self.default, bool):
-                    self.type = "button"
+                    self.type = "action"
                 elif self.default == 0:
                     self.min = 0
                     self.max = 100
@@ -115,7 +115,7 @@ def parameter(
     id: str,
     label: str,
     *,
-    type: Literal["number", "enum", "button"] = "number",
+    type: Literal["number", "enum", "action"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,
@@ -129,7 +129,7 @@ def parameter(
     id: str,
     label: str,
     *,
-    type: Literal["number", "enum", "button"] = "number",
+    type: Literal["number", "enum", "action"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,
@@ -143,7 +143,7 @@ def parameter(
     id: str,
     label: str,
     *,
-    type: Literal["number", "enum", "button"] = "number",
+    type: Literal["number", "enum", "action"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,
@@ -177,7 +177,7 @@ def bind_parameter(
     id: str,
     label: str,
     *,
-    type: Literal["number", "enum", "button"] = "number",
+    type: Literal["number", "enum", "action"] = "number",
     min: Optional[float] = None,
     max: Optional[float] = None,
     step: Optional[float] = None,

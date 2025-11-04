@@ -259,7 +259,7 @@ export function createAutoLayout(
     const sign = view.type === 'parameter' ? getParameterSignature(view.data) :
       view.type === 'environment' ? getEnvironmentSignature(view.data as ObjectWithEnvironmentMetadata) :
         view.type === 'chart' ? getChartSignature(view.data as ObjectWithChartMetadata) :
-          view.type === 'button' ? getParameterSignature({ id: view.data.id, type: 'button' }) : undefined;
+          view.type === 'button' ? getParameterSignature({ id: view.data.id, type: 'action' }) : undefined;
     if (!sign) {
       return false;
     }
@@ -301,7 +301,7 @@ export function createAutoLayout(
   const [newButtonParameters, newOtherParameters] = parameters.reduce(
     ([buttons, others], param) => {
       if (!statesFound.get(getParameterSignature(param))) {
-        (param.type === 'button' ? buttons : others).push(param as any);
+        (param.type === 'action' ? buttons : others).push(param as any);
       }
       return [buttons, others];
     }, [[], []] as [ButtonParameter[], (SliderParameter | EnumParameter)[]]

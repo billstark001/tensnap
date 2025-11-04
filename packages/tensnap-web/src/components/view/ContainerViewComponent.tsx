@@ -42,7 +42,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     disabled: isOverlay,
   });
 
-  const handleCreateView = (type: 'button' | 'environment' | 'container', e: React.MouseEvent) => {
+  const handleCreateView = (type: 'action' | 'environment' | 'container', e: React.MouseEvent) => {
     e.stopPropagation();
     const containerRect = (e.currentTarget as HTMLElement).closest(`.${styles.windowViewContent}`)?.getBoundingClientRect();
 
@@ -64,7 +64,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     };
 
     switch (type) {
-      case 'button':
+      case 'action':
         newView = {
           ...baseProps,
           type: 'button',
@@ -130,7 +130,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
         </ContextMenu.Label>
         <ContextMenu.Item
           className={styles.contextMenuItem}
-          onSelect={(e) => handleCreateView('button', e as any)}
+          onSelect={(e) => handleCreateView('action', e as any)}
         >
           <Square style={{ width: '16px', height: '16px', marginRight: '8px' }} />
           按钮

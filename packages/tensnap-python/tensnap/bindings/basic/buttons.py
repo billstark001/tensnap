@@ -23,7 +23,7 @@ def button(id: str, label: str | None = None, allow_runtime_change: bool = True)
             func = func_orig
         param = Parameter(
             id=id,
-            type="button",
+            type="action",
             label=label or id,
             allow_runtime_change=allow_runtime_change
         )

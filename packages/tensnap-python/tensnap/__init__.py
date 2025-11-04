@@ -45,7 +45,7 @@ __all__ = [
     
     "Parameter",
     "parameter",
-    "button",
+    "action",
     "chart",
     "bind_parameter",
     "bind_parameters_batch",

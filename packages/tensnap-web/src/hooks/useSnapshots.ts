@@ -34,7 +34,7 @@ export function useSnapshots() {
   }, []);
   
   const saveSnapshot = useCallback(async (snapshot: Snapshot) => {
-    if (!db) return;
+    if (!db || !addSnapshot) return;
     
     try {
       await db.put('snapshots', snapshot);
@@ -45,7 +45,7 @@ export function useSnapshots() {
   }, [addSnapshot]);
   
   const loadSnapshots = useCallback(async () => {
-    if (!db) return;
+    if (!db || !clearSnapshots || !addSnapshot) return;
     
     try {
       const allSnapshots = await db.getAll('snapshots');
@@ -57,14 +57,14 @@ export function useSnapshots() {
   }, [addSnapshot, clearSnapshots]);
   
   const deleteSnapshot = useCallback(async (id: string) => {
-    if (!db) return;
+    if (!db || !clearSnapshots || !addSnapshot) return;
     
     try {
       await db.delete('snapshots', id);
       // Update store
-      const newSnapshots = snapshots.filter(s => s.id !== id);
+      const newSnapshots = snapshots?.filter(s => s.id !== id);
       clearSnapshots();
-      newSnapshots.forEach(addSnapshot);
+      newSnapshots?.forEach(addSnapshot);
     } catch (error) {
       console.error('Error deleting snapshot:', error);
     }
@@ -82,6 +82,7 @@ export function useSnapshots() {
   }, [snapshots]);
   
   const importSnapshots = useCallback(async (file: File) => {
+    if (!saveSnapshot || !clearSnapshots) return;
     try {
       const text = await file.text();
       const imported = JSON.parse(text) as Snapshot[];
