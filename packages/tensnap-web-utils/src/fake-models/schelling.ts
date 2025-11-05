@@ -391,7 +391,6 @@ export function createSchellingSimulation(config?: Partial<SchellingConfig>): Fa
     onSendMessageFuncReady: (sendFunc, wsManager) => {
       // Send initial state sync
       const sendStateSync = () => {
-        const stats = model.getStatistics();
         
         sendFunc({
           type: 'state_sync',
