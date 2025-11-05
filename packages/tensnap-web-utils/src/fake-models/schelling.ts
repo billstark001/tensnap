@@ -368,7 +368,7 @@ export function createSchellingSimulation(config?: Partial<SchellingConfig>): Fa
   const send = async (message: WSMessage) => {
     if (sendFunc) {
       sendFunc(JSON.parse(JSON.stringify(message)));
-      await new Promise(resolve => setTimeout(resolve, 1));
+      await Promise.resolve();
     } else {
       console.warn('Send function not ready yet.', message);
     }
