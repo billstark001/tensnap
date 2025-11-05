@@ -25,7 +25,7 @@ const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
   
   if (environment.type === 'grid') {
     const agentCount = Object.keys(environment?.agents ?? {}).length;
-    const updateTrigger = (isInTimeStep ? -currentTime : currentTime) + (agentCount << 20);
+    const updateTrigger = (isInTimeStep ? -currentTime - 2 : currentTime + 2) + (agentCount << 20);
     return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} updateTrigger={updateTrigger}/>;
   } else if (environment.type === 'graph') {
     return <GraphEnvironmentView environment={environment as InstantiatedGraphEnvironment} />;
