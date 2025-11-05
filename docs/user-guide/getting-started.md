@@ -63,36 +63,52 @@ The flock example demonstrates TenSnap's key features:
 
 ```python
 # Import TenSnap components
-from tensnap import TenSnapServer, AgentModel, GridEnvironmentModel
-from tensnap.sim_loop import SimulationManager
-from tensnap.bindings.basic import chart, button, quick_bind
+from tensnap import (
+    SimulationScenario,
+    GridEnvironmentBinder,
+    make_grid_agent_accessor,
+    BindParametersConfig,
+    chart,
+    action,
+)
 
-# Create server and environment
-server = TenSnapServer(port=8765)
-grid = GridEnvironmentModel(id="main", width=40, height=40)
+# Create scenario (combines server + simulation loop)
+scenario = SimulationScenario(port=8765)
 
-# Define a parameter-controlled configuration
+# Add environment with automatic agent syncing
+grid = GridEnvironmentBinder(
+    id="main",
+    environment=model,
+    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True)
+)
+scenario.add_environment(grid)
+
+# Automatically bind parameters from config object
 config = FlockConfig()
-bound_params = quick_bind(target=config)
+scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
 
 # Create chart with decorator
 @chart("average_speed", "Average Speed", color="#2ECC71")
 def calculate_average_speed() -> float:
-    return simulation.get_average_speed()
+    return model.get_average_speed()
 
-# Create button with decorator
-@button("reset", "Reset")
+# Create action button with decorator
+@action("reset", "Reset")
 async def reset() -> None:
-    await init_simulation()
+    model.initialize()
 
-# Register everything with server
-server.add_environment(grid)
-for param in bound_params:
-    server.add_parameter(param)
-server.auto_register_from_globals(globals())
+# Register charts and actions
+scenario.add_charts(globals())
+scenario.add_actions(globals())
 
-# Run the server
-await server.run()
+# Register model lifecycle handlers
+scenario.register_model_handler(
+    init_func=model.initialize,
+    step_func=model.step
+)
+
+# Run the scenario
+await scenario.run()
 ```
 
 ## What's Next?

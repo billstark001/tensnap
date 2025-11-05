@@ -74,8 +74,14 @@ TenSnap aims to:
 Here's a simple agent-based model with TenSnap:
 
 ```python
-from tensnap import TenSnapServer, GridEnvironmentModel, AgentModel
-from tensnap.bindings.basic import chart, button, quick_bind
+from tensnap import (
+    SimulationScenario,
+    GridEnvironmentBinder,
+    make_grid_agent_accessor,
+    BindParametersConfig,
+    chart,
+    action,
+)
 from dataclasses import dataclass
 import asyncio
 
@@ -86,30 +92,40 @@ class Config:
 
 # Setup
 config = Config()
-server = TenSnapServer(port=8765)
-grid = GridEnvironmentModel(id="main", width=50, height=50)
+scenario = SimulationScenario(port=8765)
 
-# Automatically bind parameters
-params = quick_bind(config)
-for param in params:
-    server.add_parameter(param)
+# Add environment with automatic agent syncing
+grid = GridEnvironmentBinder(
+    id="main",
+    environment=my_model,
+    agent_accessor=make_grid_agent_accessor(heading=True, color=True)
+)
+scenario.add_environment(grid)
+
+# Automatically bind parameters from config
+scenario.add_parameters(config)
 
 # Add a chart
 @chart("population", "Population", color="#3498db")
 def track_population():
-    return len(grid.agents)
+    return len(my_model.agents)
 
-# Add a button
-@button("reset", "Reset")
+# Add an action button
+@action("reset", "Reset")
 async def reset():
-    grid.agents.clear()
-    # ... initialize agents
+    my_model.initialize()
+
+# Register handlers and charts
+scenario.add_charts(globals())
+scenario.add_actions(globals())
+scenario.register_model_handler(
+    init_func=my_model.initialize,
+    step_func=my_model.step
+)
 
 # Run simulation
 async def main():
-    server.add_environment(grid)
-    server.auto_register_from_globals(globals())
-    await server.run()
+    await scenario.run()
 
 if __name__ == "__main__":
     asyncio.run(main())
