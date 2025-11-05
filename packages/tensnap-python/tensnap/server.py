@@ -5,19 +5,32 @@ Main server implementation for handling WebSocket connections and
 broadcasting simulation updates to connected clients.
 """
 
-from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple
+from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple, Set
 
 import asyncio
 import json
 import logging
+import datetime
 from websockets.server import WebSocketServerProtocol, serve
 from websockets.exceptions import ConnectionClosed
 import msgpack
 from enum import Enum
 from collections import defaultdict
 
-from .bindings.basic import Parameter, ActionParameter, ChartMetadata, ChartGroupMetadata
-from .models import StateSyncResponse
+from .bindings.basic import (
+    Parameter,
+    ActionParameter,
+    ChartGroupMetadata,
+    ChartMetadataDict,
+    ChartGroupMetadataDict,
+    categorize_charts,
+)
+from .models import (
+    StateSyncResponse,
+    LogPayload,
+    ParameterState,
+    EnvironmentStateWithAgentsOmitted,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +124,7 @@ class TenSnapServer:
         self.use_msgpack = use_msgpack
 
         self.clients: set[WebSocketServerProtocol] = set()
-        self.environments: Dict[Union[str, int], "EnvironmentModel"] = {}
+        self.environments: Dict[str, "EnvironmentModel"] = {}
         self.parameters: Dict[str, "Parameter"] = {}
         self.charts: Dict[str, Tuple["ChartGroupMetadata", Callable]] = {}
         self.button_handlers: Dict[str, Callable] = {}
@@ -122,7 +135,12 @@ class TenSnapServer:
     def add_environment(self, env: "EnvironmentModel") -> None:
         self.environments[env.id] = env
 
-    def add_parameter(self, param: "Parameter", getter: Callable | None = None, setter: Callable | None = None) -> None:
+    def add_parameter(
+        self,
+        param: "Parameter",
+        getter: Callable | None = None,
+        setter: Callable | None = None,
+    ) -> None:
         param_inst = param.instantiate(getter=getter, setter=setter)
         self.parameters[param.id] = param_inst
 
@@ -203,13 +221,9 @@ class TenSnapServer:
 
     async def _build_sync_response(self, req: "StateSyncRequest"):
         params, envs, charts = await asyncio.gather(
-            self._compute_deltas(
-                "parameters", req, self.parameters, lambda p: p.to_dict()
-            ),
-            self._compute_deltas(
-                "environments", req, self.environments, convert_env_state
-            ),
-            self._compute_deltas("charts", req, self.charts, lambda c: c[0].to_dict()),
+            self._compute_parameter_deltas(req.get("parameters", [])),
+            self._compute_environment_deltas(req.get("environments", [])),
+            self._compute_chart_deltas(req.get("charts", [])),
         )
 
         return StateSyncResponse(
@@ -225,38 +239,62 @@ class TenSnapServer:
             updated_charts=charts["updated"],
         )
 
-    async def _compute_deltas(
-        self, key: str, req: "StateSyncRequest", server_items: Dict, converter: Callable
+    async def _compute_parameter_deltas(self, req: List[ParameterState]):
+        client_ids = set(x["id"] for x in req)
+        server_ids = set(self.parameters.keys())
+
+        added = server_ids - client_ids
+        removed = client_ids - server_ids
+        common_ids: Set[str] = server_ids & client_ids
+
+        # Handle parameter value updates
+        req_dict = {x["id"]: x for x in req}
+        updated_set = set()
+        for pid in common_ids:
+            param = self.parameters[pid]
+            param_client = req_dict[pid]
+            # Check for type or other metadata changed
+            if param_client["type"] != param.type:
+                updated_set.add(pid)
+                continue
+            # Skip action parameters
+            if param.type == "action":
+                continue
+            # Check for value changes
+            client_value = param_client.get("value")
+            if client_value is None:
+                updated_set.add(pid)
+                continue
+            else:
+                current = self._get_param_value(param)
+                if client_value != current:
+                    self._set_param_value(param, client_value)
+                    current = client_value
+
+        return {
+            "added": [self.parameters[i].to_dict() for i in added],
+            "removed": list(removed),
+            "updated": [self.parameters[i].to_dict() for i in updated_set],
+        }
+
+    async def _compute_chart_deltas(self, req: List[ChartMetadataDict]):
+        server_charts: List[ChartGroupMetadataDict] = [c[0].to_dict() for c in self.charts.values()]  # type: ignore
+        return categorize_charts(req, server_charts)
+
+    async def _compute_environment_deltas(
+        self, req: List[EnvironmentStateWithAgentsOmitted]
     ) -> Dict[str, List]:
-        client_ids = set(x["id"] for x in req.get(key, []))
-        server_ids = set(server_items.keys())
+        client_ids = set(x["id"] for x in req)
+        server_ids = set(self.environments.keys())
 
         added = server_ids - client_ids
         removed = client_ids - server_ids
         updated = server_ids & client_ids
 
-        # Handle parameter value updates
-        if key == "parameters":
-            cache = req.get("parameter_cache", {})
-            updated_set = set()
-            for pid in updated:
-                param = server_items[pid]
-                if param.type == "action":
-                    continue
-                current = self._get_param_value(param)
-                cached = cache.get(pid)
-                if cached is not None and param.setter:
-                    self._set_param_value(param, cached)
-                    current = cached
-                if current != param.value:
-                    updated_set.add(pid)
-                    param.value = current
-            updated = updated_set
-
         return {
-            "added": [converter(server_items[i]) for i in added],
+            "added": [convert_env_state(self.environments[i]) for i in added],
             "removed": list(removed),
-            "updated": [converter(server_items[i]) for i in updated],
+            "updated": [convert_env_state(self.environments[i]) for i in updated],
         }
 
     def _get_param_value(self, param: "Parameter") -> Any:
@@ -274,14 +312,6 @@ class TenSnapServer:
                 param.value = value
             except Exception as e:
                 logger.error(f"Error setting parameter {param.id}: {e}")
-
-    async def send_state_sync(self):
-        if not self.clients:
-            return
-        response = await self._build_sync_response(
-            {"parameters": [], "environments": [], "charts": []}
-        )
-        await self._broadcast(ServerToClientMessageType.STATE_SYNC, response)
 
     async def _handle_state_sync(
         self, ws: WebSocketServerProtocol, req: "StateSyncRequest"
@@ -320,7 +350,7 @@ class TenSnapServer:
             logger.error(f"Error handling button {action}: {e}")
 
     async def _broadcast(
-        self, msg_type: ServerToClientMessageType, payload: Any
+        self, msg_type: ServerToClientMessageType, payload: dict
     ) -> None:
         if self.clients:
             await self._queue.add(
@@ -335,7 +365,8 @@ class TenSnapServer:
     ) -> None:
         try:
             await ws.send(encode_message(msg_type, payload, self.use_msgpack))
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error sending message to client: {e}")
             self.clients.discard(ws)
 
     async def _send_error(self, ws: WebSocketServerProtocol, error: str) -> None:
@@ -345,24 +376,52 @@ class TenSnapServer:
         await self._broadcast(ServerToClientMessageType.TIME_STEP_START, {"time": time})
 
     async def end_time_step(self, time: Optional[int] = None) -> None:
-        if self.charts:
-            results_raw = await asyncio.gather(
-                *[self._get_chart_update(c, g, time) for c, g in self.charts.values()],
-                return_exceptions=True,
-            )
-            updates = []
-            for r in results_raw:
-                if isinstance(r, Exception):
-                    logger.error(f"Error getting chart update: {r}")
-                else:
-                    updates.extend(r) # type: ignore
-            if updates:
-                await self._broadcast(
-                    ServerToClientMessageType.CHART_UPDATE, {"updates": updates}
-                )
-
         payload = {"time": time} if time is not None else {}
         await self._broadcast(ServerToClientMessageType.TIME_STEP_END, payload)
+
+    async def update_charts(self, time: Optional[int] = None) -> None:
+        if not self.charts:
+            return
+        results_raw = await asyncio.gather(
+            *[self._get_chart_update(c, g, time) for c, g in self.charts.values()],
+            return_exceptions=True,
+        )
+        updates = []
+        for r in results_raw:
+            if isinstance(r, Exception):
+                logger.error(f"Error getting chart update: {r}")
+            else:
+                updates.extend(r)  # type: ignore
+        if updates:
+            await self._broadcast(
+                ServerToClientMessageType.CHART_UPDATE, {"updates": updates}
+            )
+
+    async def clear_charts(self, chart_ids: Optional[List[str]] = None) -> None:
+        if not self.charts:
+            return
+        if not chart_ids:
+            chart_ids = list(self.charts.keys())
+        operations = [
+            {"id": cid, "operation": "clear"} for cid in chart_ids if cid in self.charts
+        ]
+        if operations:
+            await self._broadcast(
+                ServerToClientMessageType.CHART_UPDATE, {"operations": operations}
+            )
+
+    async def log_message(self, level: str, message: str) -> None:
+        cur_timestamp_millis = int(
+            datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
+        )
+        await self._broadcast(
+            ServerToClientMessageType.LOG,
+            LogPayload(
+                timestamp=cur_timestamp_millis,
+                level=level,  # type: ignore
+                message=message,
+            ),
+        )
 
     async def _get_chart_update(
         self, chart: "ChartGroupMetadata", getter: Callable, time: Optional[int]

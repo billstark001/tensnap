@@ -51,6 +51,7 @@ class DefaultSimulationHandler:
 
         await s.server.start_time_step(step)
         await self.send_updates()
+        await s.server.update_charts(step)
         await s.server.end_time_step(step)
 
     async def on_step(self, step: int) -> None:
@@ -62,6 +63,7 @@ class DefaultSimulationHandler:
             await call_function(self.model_step)
 
         await self.send_updates()
+        await s.server.update_charts(step)
         await s.server.end_time_step(step)
 
     async def on_reset(self) -> None:
@@ -69,6 +71,7 @@ class DefaultSimulationHandler:
         self.scenario.sim_manager.time_step = 0
         if self.model_init is not None:
             await call_function(self.model_init)
+        await self.scenario.server.clear_charts()
         await self.on_start(0)
 
 

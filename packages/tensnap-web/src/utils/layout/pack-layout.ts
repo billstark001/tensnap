@@ -27,6 +27,7 @@ export interface LayoutOptions {
 type ObjectWithEnvironmentMetadata = { 
   id: EnvironmentId;
   type: EnvironmentType;
+  label: string;
 };
 
 type ObjectWithChartMetadata = {
@@ -132,7 +133,7 @@ function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): 
     expanded: true,
     data: {
       id: env.id.toString(),
-      title: `Environment ${env.id}`,
+      title: `Environment ${env.label}`,
     },
   }));
 }

@@ -411,6 +411,10 @@ def get_parameter_metadata_from_namespace(
     parameters: List[Tuple[str, Parameter]] = []
     actions: List[Tuple[str, Callable | None, ActionParameter]] = []
     for name, value in namespace.items():
+        if name.startswith('__') and name.endswith('__'):
+            continue
+        if name.startswith('_') and (cfg_suggest is None or not cfg_suggest.include_private):
+            continue
         if cfg_suggest is not None and not cfg_suggest.is_included(name):
             continue
         if isinstance(value, bind):

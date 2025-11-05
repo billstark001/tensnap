@@ -5,7 +5,7 @@ export type EnvironmentType = 'grid' | 'graph' | 'uniform';
 
 export type AgentId = string | number;
 
-export type EnvironmentId = string | number;
+export type EnvironmentId = string;
 
 export interface TrajectoryPoint { 
   x: number; 
@@ -24,6 +24,7 @@ export interface Agent {
 export interface EnvironmentBase {
   id: EnvironmentId;
   type: EnvironmentType;
+  label?: string;
   agents: Agent[];
 }
 

@@ -1,49 +1,46 @@
 # tensnap/models/communication.py
 """Communication models for WebSocket interactions"""
 
-from typing import Any, List, Optional, Union, Literal
+from typing import Any, List, Optional, Union, Literal, NotRequired
 from typing_extensions import TypedDict, NotRequired
 
 from .environment import GraphEdgeDict
+from tensnap.bindings.basic import ChartMetadataDict, ChartGroupMetadataDict, ParameterType
 
 
 class ParameterState(TypedDict):
     """Parameter state for communication"""
 
     id: str
-    type: Literal["number", "enum", "action"]
+    type: ParameterType
     label: str
-    value: Any
-    min: Optional[float]
-    max: Optional[float]
-    step: Optional[float]
-    options: Optional[List[str]]
     allow_runtime_change: bool
-    last_cached_value: Optional[Any]  # 客户端缓存的上次值
+    
+    value: NotRequired[Any] # 客户端缓存的上次值
+    min: NotRequired[float]
+    max: NotRequired[float]
+    step: NotRequired[float]
+    options: NotRequired[List[str]]
 
 
-class EnvironmentWithAgentsOmitted(TypedDict):
+class EnvironmentStateWithAgentsOmitted(TypedDict):
     """Environment state for communication"""
 
-    id: Union[str, int]
-    type: Literal["grid", "graph", "uniform"]
-
-    width: Optional[int]  # For grid environments
-    height: Optional[int]  # For grid environments
-    edges: Optional[List[GraphEdgeDict]]  # For graph environments
-    background: Optional[str]  # Hex-encoded numpy array for grid backgrounds
-
-
-class ChartMetadata(TypedDict):
     id: str
+    type: Literal["grid", "graph", "uniform"]
     label: str
-    color: NotRequired[str]
+
+    width: NotRequired[int]  # For grid environments
+    height: NotRequired[int]  # For grid environments
+    background: NotRequired[str]  # Hex-encoded numpy array for grid backgrounds
+    
+    edges: NotRequired[List[GraphEdgeDict]]  # For graph environments
 
 
 class StateSyncRequest(TypedDict):
     parameters: List[ParameterState]
-    environments: List[EnvironmentWithAgentsOmitted]
-    charts: List[ChartMetadata]
+    environments: List[EnvironmentStateWithAgentsOmitted]
+    charts: List[ChartMetadataDict]
 
 
 class StateSyncResponse(TypedDict):
@@ -54,13 +51,13 @@ class StateSyncResponse(TypedDict):
     removed_parameters: List[str]
     updated_parameters: List[ParameterState]
 
-    added_environments: List[EnvironmentWithAgentsOmitted]
+    added_environments: List[EnvironmentStateWithAgentsOmitted]
     removed_environments: List[Union[str, int]]
-    updated_environments: List[EnvironmentWithAgentsOmitted]
+    updated_environments: List[EnvironmentStateWithAgentsOmitted]
 
-    added_charts: List[ChartMetadata]
+    added_charts: List[ChartGroupMetadataDict]
     removed_charts: List[str]
-    updated_charts: List[ChartMetadata]
+    updated_charts: List[ChartGroupMetadataDict]
 
     clear_charts: NotRequired[
         bool | List[str]

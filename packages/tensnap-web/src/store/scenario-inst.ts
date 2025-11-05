@@ -11,6 +11,7 @@ import {
 export interface InstantiatedEnvironment {
   id: EnvironmentId;
   type: EnvironmentType;
+  label: string;
   props: PureEnvironment;
   agents: Record<AgentId, Agent>;
 }
@@ -35,16 +36,19 @@ export interface InstantiatedUniformEnvironment extends InstantiatedEnvironment 
 
 export function instantiateEnvironment(env: Environment): InstantiatedEnvironment {
 
-  const { id, type, agents, ...props } = env;
+  const { id, type, label: _label, agents, ...props } = env;
 
   const agentsMap: Record<AgentId, Agent> = {};
   agents.forEach(agent => {
     agentsMap[agent.id] = agent;
   });
 
+  const label = _label || (typeof id === 'string' ? id : `env-${type}-${id}`);
+
   return {
     id,
     type,
+    label,
     props,
     agents: agentsMap,
   };

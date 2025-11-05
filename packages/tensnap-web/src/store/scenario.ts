@@ -172,7 +172,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     // Auto-update layout when data changes with incremental updates
     if (updateLayout) {
       const { environments, parameters, charts, mainView } = get();
-      const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type }));
+      const environmentsArray = Array.from(environments.values()).map(({ id, type, label }) => ({ id, type, label }));
       set({
         mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
           currentView: mainView,
@@ -270,7 +270,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   updateMainViewLayout: () => {
     const { environments, parameters, charts, mainView } = get();
-    const environmentsArray = Array.from(environments.values()).map(({ id, type }) => ({ id, type }));
+    const environmentsArray = Array.from(environments.values()).map(({ id, type, label }) => ({ id, type, label }));
     set({
       mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
         currentView: mainView,

@@ -29,8 +29,8 @@ from .environment import (
 )
 from .types import (
     ParameterState,
-    EnvironmentWithAgentsOmitted,
-    ChartMetadata,
+    EnvironmentStateWithAgentsOmitted,
     StateSyncRequest,
     StateSyncResponse,
+    LogPayload
 )

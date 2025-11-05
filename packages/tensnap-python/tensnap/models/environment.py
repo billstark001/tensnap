@@ -208,9 +208,6 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
             agent_accessor if agent_accessor else make_grid_agent_accessor()
         )
 
-def _assert_false(*args, **kwargs) -> None:
-    raise AssertionError("This function should not be called.")
-
 class NXGraphEnvironmentBinder:
     
     def __init__(

@@ -50,6 +50,8 @@ def get_action_metadata_from_namespace(namespace: Dict[str, Any]):
     """Find all action-decorated functions in a given namespace"""
     actions: List[Tuple[str, Callable, ActionParameter]] = []
     for name, attr in namespace.items():
+        if name.startswith('__') and name.endswith('__'):
+            continue
         if callable(attr) and hasattr(attr, "_tensnap_action"):
             param = getattr(attr, "_tensnap_action")
             if isinstance(param, ActionParameter):
