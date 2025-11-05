@@ -46,7 +46,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
   };
 
-  const viewSizeOnResizeStart = useRef<{ w: number, h: number}>();
+  const viewSizeOnResizeStart = useRef<{ w: number, h: number}>(undefined);
 
   const handleResizeStart = useCallback(() => {
     viewSizeOnResizeStart.current = {

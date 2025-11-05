@@ -5,6 +5,11 @@ import { App } from './App';
 
 import './styles/global.css';
 import { UseFileSystemGuard } from './store/file-system/provider';
+import { registerFakeModels } from 'tensnap-web-utils';
+import { WebSocketManagerFake } from './websocket/fake';
+
+// Register fake models for development/testing
+registerFakeModels(WebSocketManagerFake);
 
 const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
 const initialTheme = savedTheme || 'light';

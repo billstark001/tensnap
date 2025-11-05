@@ -113,6 +113,7 @@ export const FileOperationsProvider: React.FC<FileOperationsProviderProps> = ({
     onExport,
     onOpenBrowser,
   };
+  
 
   return (
     <FileOperationsContext.Provider value={contextValue}>

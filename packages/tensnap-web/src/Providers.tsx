@@ -5,6 +5,7 @@ import { useProjectStore } from '@/store/project';
 import { WebSocketStoreProvider } from '@/store/websocket';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
 import { FilePickerProvider } from 'tensnap-web-utils/file-system';
+import { FakeModelPickerProvider } from 'tensnap-web-utils';
 
 interface ProvidersProps extends PropsWithChildren<object> {
   adapterProviderProps?: Partial<AdapterProviderProps>;
@@ -29,7 +30,9 @@ export function Providers({
   if (!activeProject) {
     return <AdapterProvider {...adapterProps}>
       <CustomFilePickerProvider>
-        {children}
+        <FakeModelPickerProvider>
+          {children}
+        </FakeModelPickerProvider>
       </CustomFilePickerProvider>
     </AdapterProvider>
   }
@@ -37,13 +40,15 @@ export function Providers({
   return (
     <AdapterProvider {...adapterProps}>
       <CustomFilePickerProvider>
-        <ScenarioStoreProvider value={activeProject.useScenarioStore}>
-          <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
-            <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
-              {children}
-            </ScenarioUndoRedoStoreProvider>
-          </WebSocketStoreProvider>
-        </ScenarioStoreProvider>
+        <FakeModelPickerProvider>
+          <ScenarioStoreProvider value={activeProject.useScenarioStore}>
+            <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
+              <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
+                {children}
+              </ScenarioUndoRedoStoreProvider>
+            </WebSocketStoreProvider>
+          </ScenarioStoreProvider>
+        </FakeModelPickerProvider>
       </CustomFilePickerProvider>
     </AdapterProvider>
   );
