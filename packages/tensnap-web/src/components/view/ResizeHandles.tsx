@@ -36,8 +36,8 @@ export const ResizeHandles: React.FC<ResizeHandlesProps> = ({
   onResize: _onResize,
   onResizeEnd: _onResizeEnd,
 }) => {
-  const isResizing = useRef<string>();
-  const startPos = useRef<{ x: number, y: number }>();
+  const isResizing = useRef<string>(undefined);
+  const startPos = useRef<{ x: number, y: number }>(undefined);
 
   const onResize = useCallbackRef(_onResize);
   const onResizeEnd = useCallbackRef(_onResizeEnd);
