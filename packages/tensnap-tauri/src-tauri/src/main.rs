@@ -10,7 +10,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             create_file_handler,
             read_file_handler,
-            write_file_handler,
             delete_file_handler,
             list_files_handler,
             create_directory_handler,
@@ -18,12 +17,7 @@ fn main() {
             delete_directory_handler,
             file_exists_handler,
             directory_exists_handler,
-            get_file_metadata_handler,
-            copy_file_handler,
-            move_file_handler,
-            open_file_dialog,
-            save_file_dialog,
-            open_directory_dialog
+            get_file_metadata_handler
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

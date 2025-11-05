@@ -1,6 +1,5 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useState } from 'react';
-import { FileSystemAdapter, FileSystemAdapterFactory } from './adapter';
-import { IndexedDBFileSystemAdapter } from './indexeddb-adapter';
+import { FileSystemAdapter, FileSystemAdapterFactory, IndexedDBFileSystemAdapter } from 'tensnap-web-utils/adapters';
 import { createFileSystemStore } from './store';
 import { useProjectStore } from '../project';
 import { useCallbackRef } from '@/utils/react';

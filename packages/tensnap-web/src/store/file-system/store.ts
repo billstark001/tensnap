@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { FileSystemAdapter } from './adapter';
-import {
+import { FileSystemAdapter } from 'tensnap-web-utils/adapters';
+import type {
   FileMetadata,
   FileContent,
   DirectoryMetadata,
@@ -30,20 +30,12 @@ export interface FileSystemState {
 
   // File operations
   writeFile: (path: string, content: ArrayBuffer | string, metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>) => Promise<FileContent>;
-  loadFile: (path: string) => Promise<FileContent | null>;
+  readFile: (path: string) => Promise<FileContent | null>;
   deleteFile: (path: string) => Promise<void>;
-  moveFile: (oldPath: string, newPath: string) => Promise<FileContent>;
-  copyFile: (sourcePath: string, targetPath: string) => Promise<FileContent>;
-  searchFiles: (query: string, searchPath?: string, includeContent?: boolean) => Promise<(FileMetadata | DirectoryMetadata)[]>;
 
   // Directory operations
   createDirectory: (path: string, allowExist?: boolean) => Promise<DirectoryMetadata>;
-  loadDirectory: (path: string) => Promise<DirectoryMetadata | null>;
   deleteDirectory: (path: string, recursive?: boolean) => Promise<void>;
-  moveDirectory: (oldPath: string, newPath: string) => Promise<DirectoryMetadata>;
-  copyDirectory: (sourcePath: string, targetPath: string) => Promise<DirectoryMetadata>;
-  exportDirectory: (path: string, format?: 'zip' | 'tar' | 'json') => Promise<Blob>;
-  importDirectory: (data: Blob, targetPath: string) => Promise<DirectoryMetadata>;
 
   // Utility operations
   refreshCurrentDirectory: () => Promise<void>;
@@ -162,20 +154,11 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       return await adapter!.writeFile(path, content, metadata);
     }, true),
 
-    loadFile: (path: string) => withErrorHandling(() => get().adapter!.getFile(path)),
+    readFile: (path: string) => withErrorHandling(() => get().adapter!.readFile(path)),
 
     deleteFile: (path: string) => withLoading(async () => {
       await get().adapter!.deleteFile(path);
     }, true),
-
-    moveFile: (oldPath: string, newPath: string) =>
-      withLoading(() => get().adapter!.moveFile(oldPath, newPath), true),
-
-    copyFile: (sourcePath: string, targetPath: string) =>
-      withLoading(() => get().adapter!.copyFile(sourcePath, targetPath), true),
-
-    searchFiles: (query: string, searchPath?: string, includeContent?: boolean) =>
-      withErrorHandling(() => get().adapter!.search(query, searchPath, includeContent)),
 
     // Directory operations
     createDirectory: async (path, allowExist) => withLoading(async () => {
@@ -183,23 +166,9 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       return await adapter!.createDirectory(path, allowExist);
     }, true),
 
-    loadDirectory: (path: string) => withErrorHandling(() => get().adapter!.getDirectory(path)),
-
     deleteDirectory: (path: string, recursive?: boolean) => withLoading(async () => {
       await get().adapter!.deleteDirectory(path, recursive);
     }, true),
-
-    moveDirectory: (oldPath: string, newPath: string) =>
-      withLoading(() => get().adapter!.moveDirectory(oldPath, newPath), true),
-
-    copyDirectory: (sourcePath: string, targetPath: string) =>
-      withLoading(() => get().adapter!.copyDirectory(sourcePath, targetPath), true),
-
-    exportDirectory: (path: string, format?: 'zip' | 'tar' | 'json') =>
-      withErrorHandling(() => get().adapter!.exportDirectory(path, format)),
-
-    importDirectory: (data: Blob, targetPath: string) =>
-      withLoading(() => get().adapter!.importDirectory(data, targetPath), true),
 
     // Utility operations
     refreshCurrentDirectory: async () => {
@@ -207,7 +176,7 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       if (!adapter) return;
 
       try {
-        const directoryContents = await adapter.listDirectoryContents(currentDirectory);
+        const directoryContents = await adapter.list(currentDirectory);
         set({ directoryContents });
       } catch (error) {
         handleError(error);

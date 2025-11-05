@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { DirectoryEntry, DirectoryMetadata, FileMetadata } from '@/types/file';
+import { DirectoryEntry, DirectoryMetadata, FileMetadata } from 'tensnap-web/types/file';
 import * as styles from './FileSystemBrowser.css';
 
 export interface FileItemProps {

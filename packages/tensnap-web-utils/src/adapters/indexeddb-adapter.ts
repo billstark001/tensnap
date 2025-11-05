@@ -1,14 +1,14 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { FileSystemAdapter } from './adapter';
 import * as PathUtils from './utils/path';
-import {
+import type {
   FileMetadata,
   FileContent,
   DirectoryMetadata,
   DirectoryEntry,
   FileSystemStats,
   FileSystemError as FileSystemErrorType
-} from '@/types/file';
+} from 'tensnap-web/types/file';
 
 class FileSystemError extends Error {
   public code: FileSystemErrorType['code'];
@@ -56,8 +56,13 @@ interface FileSystemDB extends DBSchema {
 
 export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
   private db: IDBPDatabase<FileSystemDB> | null = null;
-  private readonly dbName = 'tensnap-filesystem';
+  private readonly dbName: string;
   private readonly version = 2; // Incremented for schema changes
+
+  constructor(dbName: string = 'tensnap-filesystem') {
+    super();
+    this.dbName = dbName;
+  }
 
   // 统一的错误处理装饰器
   private async safeExecute<T>(

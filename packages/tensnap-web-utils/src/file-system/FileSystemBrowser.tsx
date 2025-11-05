@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { useFileSystem } from '@/store/file-system/provider';
-import { DirectoryEntry } from '@/types/file';
+import { useFileSystem } from 'tensnap-web/store/file-system/provider';
+import { DirectoryEntry } from 'tensnap-web/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
@@ -39,7 +39,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     createDirectory,
     deleteFile,
     deleteDirectory,
-    exportDirectory,
   } = fileSystem;
 
   // 处理项目选择
@@ -132,7 +131,8 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   // 导出操作
   const handleExportDirectory = useCallback(async (format: 'json' | 'zip') => {
     try {
-      const blob = await exportDirectory(currentDirectory, format);
+      const { exportDirectory: exportDirectoryUtil } = await import('./export-utils');
+      const blob = await exportDirectoryUtil(fileSystem, currentDirectory, { format });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -144,7 +144,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     } catch (error) {
       console.error('Failed to export directory:', error);
     }
-  }, [exportDirectory, currentDirectory]);
+  }, [fileSystem, currentDirectory]);
 
   // 格式化工具函数
   const formatFileSize = useCallback((bytes: number): string => {

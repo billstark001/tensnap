@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useCallback, PropsWithChildren, useState } from 'react';
 import { FileMetadata } from '@/types/file';
-import { ExportDialog, useFilePicker } from '../file-system';
+import { ExportDialog, useFilePicker, FileSystemBrowser } from 'tensnap-web-utils/file-system';
 import { useCallbackRef } from '@/utils/react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { FileSystemBrowser } from '../file-system/FileSystemBrowser';
 import { UseFileSystemGuard } from '@/store/file-system/provider';
 import * as dialogStyles from '@/styles/dialog.css';
 

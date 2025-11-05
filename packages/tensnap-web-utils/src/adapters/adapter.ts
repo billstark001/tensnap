@@ -1,10 +1,10 @@
-import { 
+import type { 
   FileMetadata, 
   FileContent, 
   DirectoryMetadata,
   DirectoryEntry,
   FileSystemStats
-} from '@/types/file';
+} from 'tensnap-web/types/file';
 
 /**
  * Simplified FileSystem Adapter Interface

@@ -1,23 +1,7 @@
-// 辅助组件
-export { Breadcrumbs } from './Breadcrumbs';
-export { ActionButtons } from './ActionButtons';
-export { FileItem } from './FileItem';
-export { EmptyState } from './EmptyState';
-export { CreateDialog } from './CreateDialog';
-
-// 主要组件
-export { FileSystemBrowser } from './FileSystemBrowser';
-export { ExportDialog } from './ExportDialog';
-
-// Provider 和 Context
-export { FilePickerProvider, useFilePicker } from './FilePickerProvider';
-
-// 类型定义
-export type { 
-  FilePickerOptions, 
-  FilePickerResult
-} from './FilePickerProvider';
-export type { 
-  ExportDialogProps,
-  ExportOption 
-} from './ExportDialog';
+/**
+ * Re-export file system UI components from tensnap-web-utils
+ * 
+ * These components have been moved to a separate package for better modularity.
+ * This file maintains backward compatibility by re-exporting them.
+ */
+export * from 'tensnap-web-utils/file-system';

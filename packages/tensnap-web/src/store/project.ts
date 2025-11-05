@@ -153,10 +153,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     const fileSystemState = fileSystemStore.getState();
-    const { content } = await fileSystemState.loadFile(filepath) ?? {};
-    if (!content) {
+    const fileContent = await fileSystemState.readFile(filepath);
+    if (!fileContent?.content) {
       throw new Error(`File not found: ${filepath}`);
     }
+    const { content } = fileContent;
 
     const parsedContent: ProjectFileContent = typeof content === 'string'
       ? JSON.parse(content)

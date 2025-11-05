@@ -1,6 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
-use tauri::api::dialog;
+use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,12 +50,6 @@ pub async fn create_file_handler(path: String, content: Vec<u8>) -> Result<FileM
 #[tauri::command]
 pub async fn read_file_handler(path: String) -> Result<Vec<u8>, String> {
     fs::read(&path).map_err(|e| format!("Failed to read file: {}", e))
-}
-
-#[tauri::command]
-pub async fn write_file_handler(path: String, content: Vec<u8>) -> Result<FileMetadata, String> {
-    fs::write(&path, content).map_err(|e| format!("Failed to write file: {}", e))?;
-    get_file_metadata_handler(path).await
 }
 
 #[tauri::command]
@@ -184,88 +177,6 @@ pub async fn get_file_metadata_handler(path: String) -> Result<FileMetadata, Str
         tags: None,
         description: None,
     })
-}
-
-#[tauri::command]
-pub async fn copy_file_handler(source_path: String, target_path: String) -> Result<FileMetadata, String> {
-    if let Some(parent) = Path::new(&target_path).parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent directories: {}", e))?;
-    }
-    
-    fs::copy(&source_path, &target_path).map_err(|e| format!("Failed to copy file: {}", e))?;
-    get_file_metadata_handler(target_path).await
-}
-
-#[tauri::command]
-pub async fn move_file_handler(old_path: String, new_path: String) -> Result<FileMetadata, String> {
-    if let Some(parent) = Path::new(&new_path).parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent directories: {}", e))?;
-    }
-    
-    fs::rename(&old_path, &new_path).map_err(|e| format!("Failed to move file: {}", e))?;
-    get_file_metadata_handler(new_path).await
-}
-
-// Dialog operations
-#[tauri::command]
-pub async fn open_file_dialog(multiple: Option<bool>, filters: Option<Vec<(String, Vec<String>)>>) -> Result<Option<Vec<String>>, String> {
-    let multiple = multiple.unwrap_or(false);
-    
-    let dialog_builder = if multiple {
-        dialog::FileDialogBuilder::new()
-    } else {
-        dialog::FileDialogBuilder::new()
-    };
-    
-    let dialog_builder = if let Some(filters) = filters {
-        let mut builder = dialog_builder;
-        for (name, extensions) in filters {
-            builder = builder.add_filter(name, &extensions);
-        }
-        builder
-    } else {
-        dialog_builder
-    };
-    
-    if multiple {
-        dialog_builder.pick_files(|result| {
-            // This will be handled by the frontend
-        });
-    } else {
-        dialog_builder.pick_file(|result| {
-            // This will be handled by the frontend
-        });
-    }
-    
-    // Note: The actual dialog result handling needs to be implemented differently
-    // This is a simplified version - in practice, you'd use async channels or callbacks
-    Ok(None)
-}
-
-#[tauri::command]
-pub async fn save_file_dialog(default_name: Option<String>) -> Result<Option<String>, String> {
-    let mut dialog_builder = dialog::FileDialogBuilder::new();
-    
-    if let Some(name) = default_name {
-        dialog_builder = dialog_builder.set_file_name(&name);
-    }
-    
-    dialog_builder.save_file(|result| {
-        // This will be handled by the frontend
-    });
-    
-    // Note: The actual dialog result handling needs to be implemented differently
-    Ok(None)
-}
-
-#[tauri::command]
-pub async fn open_directory_dialog() -> Result<Option<String>, String> {
-    dialog::FileDialogBuilder::new().pick_folder(|result| {
-        // This will be handled by the frontend
-    });
-    
-    // Note: The actual dialog result handling needs to be implemented differently
-    Ok(None)
 }
 
 // Helper functions
