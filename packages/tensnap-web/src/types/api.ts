@@ -67,6 +67,7 @@ export interface TimeStepEndPayload {
 export interface EnvironmentUpdatePayload {
   id: EnvironmentId;
   data: PureEnvironment;
+  agents?: Agent[]; // Optional full agent list to replace existing agents
 }
 
 // agent_update

@@ -39,7 +39,7 @@ export interface ScenarioStore {
   setConnected: (connected: boolean) => void;
   setCurrentTime: (time: number | null | undefined, isInTimeStep: boolean) => void;
   setData: (data: SetDataPayload, options?: SetDataOptions) => void;
-  updateEnvironment: (id: EnvironmentId, data: PureEnvironment) => void;
+  updateEnvironment: (id: EnvironmentId, data: PureEnvironment, agents?: Agent[]) => void;
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
   updateParameter: (id: string, value: any) => void;
   addChartData: (updates: ChartUpdateData[]) => void;
@@ -182,14 +182,21 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     }
   },
 
-  updateEnvironment: (id, propsUpdate) => {
+  updateEnvironment: (id, propsUpdate, agentsUpdate) => {
     const { environments } = get();
     const env = environments.get(id);
     if (!env) {
       console.warn(`Environment with id ${id} not found.`);
       return;
     }
-    environments.set(id, { ...env, props: { ...env.props, ...propsUpdate } });
+    let newAgents = env.agents;
+    if (agentsUpdate) {
+      newAgents = {};
+      for (const agent of agentsUpdate) {
+        newAgents[agent.id] = agent;
+      }
+    }
+    environments.set(id, { ...env, props: { ...env.props, ...propsUpdate }, agents: newAgents });
   },
 
   updateAgents: (envId, updates) => {

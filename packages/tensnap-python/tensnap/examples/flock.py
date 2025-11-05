@@ -79,7 +79,7 @@ class FlockSimulation:
         center_y = self.config.world_height / 2
         spawn_radius = 5.0
 
-        for i in range(self.config.num_agents):
+        for i in range(int(self.config.num_agents + 0.5)):
             x = center_x + random.uniform(-spawn_radius, spawn_radius)
             y = center_y + random.uniform(-spawn_radius, spawn_radius)
             bird = Bird(f"bird_{i}", x, y)

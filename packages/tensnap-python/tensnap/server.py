@@ -17,6 +17,7 @@ import msgpack
 from enum import Enum
 from collections import defaultdict
 
+from .utils.ws import BatchedMessageQueue
 from .bindings.basic import (
     Parameter,
     ActionParameter,
@@ -68,46 +69,6 @@ def encode_message(
         else json.dumps(msg, separators=(",", ":"))
     )  # type: ignore
 
-
-class BatchedMessageQueue:
-    def __init__(self, batch_size: int = 50, flush_interval: float = 0.01):
-        self.batch_size = batch_size
-        self.flush_interval = flush_interval
-        self._queue = []
-        self._last_flush = 0
-
-    async def add(self, clients: set, message: str | bytes) -> None:
-        self._queue.append((clients.copy(), message))
-
-        if (
-            len(self._queue) >= self.batch_size
-            or asyncio.get_event_loop().time() - self._last_flush >= self.flush_interval
-        ):
-            await self._flush()
-
-    async def _flush(self) -> None:
-        if not self._queue:
-            return
-
-        client_msgs = defaultdict(list)
-        for clients, msg in self._queue:
-            for client in clients:
-                client_msgs[client].append(msg)
-
-        await asyncio.gather(
-            *[self._send(c, m) for c, msgs in client_msgs.items() for m in msgs],
-            return_exceptions=True,
-        )
-
-        self._queue.clear()
-        self._last_flush = asyncio.get_event_loop().time()
-
-    @staticmethod
-    async def _send(client: WebSocketServerProtocol, message: str | bytes) -> None:
-        try:
-            await client.send(message)
-        except Exception:
-            pass
 
 
 def convert_env_state(env: "EnvironmentModel") -> Dict[str, Any]:
@@ -453,10 +414,10 @@ class TenSnapServer:
             raise
 
     async def update_environment(
-        self, env_id: Union[str, int], data: Dict[str, Any]
+        self, env_id: Union[str, int], data: Dict[str, Any] | None = None, agents: List[Dict[str, Any]] | None = None
     ) -> None:
         await self._broadcast(
-            ServerToClientMessageType.ENVIRONMENT_UPDATE, {"id": env_id, "data": data}
+            ServerToClientMessageType.ENVIRONMENT_UPDATE, {"id": env_id, "data": data, "agents": agents}
         )
 
     async def update_agent(
@@ -478,7 +439,7 @@ class TenSnapServer:
     async def _background_maintenance(self) -> None:
         while self._running:
             try:
-                await self._queue._flush()
+                await self._queue.flush()
                 self.clients = {c for c in self.clients if not c.closed}
                 await asyncio.sleep(0.1)
             except Exception as e:

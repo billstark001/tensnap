@@ -24,8 +24,8 @@ export function registerEventHandlers(
   });
 
   wsManager.on('environment_update', (payload: EnvironmentUpdatePayload) => {
-    const { id, data } = payload;
-    useStore.getState().updateEnvironment(id, data);
+    const { id, data, agents } = payload;
+    useStore.getState().updateEnvironment(id, data, agents);
   });
 
   wsManager.on('agent_update', (payload: AgentUpdatePayload) => {

@@ -463,6 +463,8 @@ def get_parameter_metadata_from_object(
         # this also overrides annotated config
         field_metadata = get_field_metadata(cls)
         for field_name, field_info in field_metadata.items():
+            if field_name.startswith('__') and field_name.endswith('__'):
+                continue
             if cfg_suggest is not None and not cfg_suggest.is_included(field_name):
                 continue
             for meta in field_info["metadata"]:
@@ -472,6 +474,8 @@ def get_parameter_metadata_from_object(
         # 3. fetch instance metadata
         keys_fetched = set(name for name, *_ in parameters + actions)
         for name in dir(obj):
+            if name.startswith('__') and name.endswith('__'):
+                continue
             if name in keys_fetched:
                 continue
             if cfg is not None and not cfg.is_included(name):

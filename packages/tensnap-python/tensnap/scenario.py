@@ -38,19 +38,20 @@ class DefaultSimulationHandler:
         self.model_init = model_init
         self.model_step = model_step
 
-    async def send_updates(self) -> None:
+    async def send_updates(self, replace_agents: bool = False) -> None:
         """Send environment and agent updates to the server"""
         for name, env in self.scenario.env_binders.items():
             model_updates = env.get_model_dict()
-            agent_updates = env.get_agent_list()
-            await self.scenario.server.update_environment(name, model_updates)
-            await self.scenario.server.update_agents_batch(name, agent_updates)
+            agent_updates = env.get_agent_list(is_update=not replace_agents)
+            await self.scenario.server.update_environment(name, data=model_updates, agents=agent_updates if replace_agents else None)
+            if not replace_agents:
+                await self.scenario.server.update_agents_batch(name, agent_updates)
 
-    async def on_start(self, step: int) -> None:
+    async def on_start(self, step: int, replace_agents: bool = False) -> None:
         s = self.scenario
 
         await s.server.start_time_step(step)
-        await self.send_updates()
+        await self.send_updates(replace_agents=replace_agents)
         await s.server.update_charts(step)
         await s.server.end_time_step(step)
 
@@ -72,7 +73,7 @@ class DefaultSimulationHandler:
         if self.model_init is not None:
             await call_function(self.model_init)
         await self.scenario.server.clear_charts()
-        await self.on_start(0)
+        await self.on_start(0, replace_agents=True)
 
 
 class SimulationScenario:
