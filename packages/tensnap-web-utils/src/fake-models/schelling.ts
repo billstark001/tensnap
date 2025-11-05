@@ -396,7 +396,34 @@ export function createSchellingSimulation(config?: Partial<SchellingConfig>): Fa
           type: 'state_sync',
           payload: {
             mode: 'incremental',
-            added_parameters: model.getParameters(),
+            added_parameters: [
+              ...model.getParameters(),
+              // Add action buttons
+              {
+                id: 'play',
+                type: 'action',
+                label: 'Play',
+                allowRuntimeChange: true,
+              },
+              {
+                id: 'pause',
+                type: 'action',
+                label: 'Pause',
+                allowRuntimeChange: true,
+              },
+              {
+                id: 'step',
+                type: 'action',
+                label: 'Step',
+                allowRuntimeChange: true,
+              },
+              {
+                id: 'reset',
+                type: 'action',
+                label: 'Reset',
+                allowRuntimeChange: true,
+              },
+            ],
             removed_parameters: [],
             updated_parameters: [],
             added_environments: [model.getEnvironmentState()],

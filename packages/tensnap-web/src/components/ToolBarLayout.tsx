@@ -12,6 +12,8 @@ import { FileMetadata } from "@/types/file";
 import { useWithLoading } from "@/store/loading";
 import { SettingsDialog } from "./SettingsDialog";
 import { useFakeModelPicker } from "tensnap-web-utils";
+import { Beaker, Sun, Moon } from 'lucide-react';
+import * as Tooltip from '@radix-ui/react-tooltip';
 
 export const ToolBarLayout = () => {
   const { 
@@ -85,35 +87,58 @@ export const ToolBarLayout = () => {
       onFileSave={onFileSave}
       canSaveFile={canSaveFile}
     >
-      <div className={styles.toolbar}>
-        {/* 菜单栏 */}
-        <MenuBar />
+      <Tooltip.Provider>
+        <div className={styles.toolbar}>
+          {/* 菜单栏 */}
+          <MenuBar />
 
-        <CreateNewDialog open={isOpen} onOpenChange={setOpen} onCreateItem={onCreateItem} />
+          <CreateNewDialog open={isOpen} onOpenChange={setOpen} onCreateItem={onCreateItem} />
 
-        {/* 工具栏 */}
-        <div className={styles.toolBarRow}>
-          <ToolBar />
+          {/* 工具栏 */}
+          <div className={styles.toolBarRow}>
+            <ToolBar />
 
-          {/* Debug: Load Fake Model Button */}
-          <button
-            onClick={onLoadFakeModel}
-            className={styles.themeToggle}
-            aria-label="Load Fake Model"
-            title="Load Fake Model"
-          >
-            🧪
-          </button>
+            <div className={styles.separator} />
 
-          {/* 主题切换按钮 */}
-          <button
-            onClick={toggleTheme}
-            className={styles.themeToggle}
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? '🌙' : '☀️'}
-          </button>
-        </div>
+            {/* Debug and settings tools */}
+            <div className={styles.toolGroup}>
+              {/* Debug: Load Fake Model Button */}
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    onClick={onLoadFakeModel}
+                    className={styles.toolButton}
+                    aria-label="Load Fake Model"
+                  >
+                    <Beaker size={16} />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content className={styles.tooltipContent}>
+                    Load Fake Model
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+
+              {/* 主题切换按钮 */}
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    onClick={toggleTheme}
+                    className={styles.toolButton}
+                    aria-label="Toggle theme"
+                  >
+                    {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content className={styles.tooltipContent}>
+                    Toggle Theme
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </div>
+          </div>
 
         {/* 标签页 */}
         <TabBar
@@ -123,9 +148,10 @@ export const ToolBarLayout = () => {
           onTabClose={handleTabClose}
           onNewTab={handleNewTab}
         />
-      </div>
+        </div>
 
-      <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
+        <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
+      </Tooltip.Provider>
     </FileOperationsProvider>
   );
 };
