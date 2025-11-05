@@ -14,8 +14,8 @@
     "./adapters/indexeddb": "./src/adapters/indexeddb-adapter.ts"
   },
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --maxWorkers=1",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch --maxWorkers=1",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "clean": "rm -rf dist node_modules"
   },

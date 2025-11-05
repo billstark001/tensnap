@@ -1,32 +1,70 @@
 /**
  * Tests for IndexedDBFileSystemAdapter
  * 
- * Note: These tests use fake-indexeddb which has state sharing issues between tests.
- * The MemoryFileSystemAdapter tests cover the same functionality and are more reliable for unit testing.
- * IndexedDBFileSystemAdapter works correctly in real browsers.
+ * NOTE: These tests are skipped due to fake-indexeddb limitations.
+ * fake-indexeddb shares state between tests even with different database names,
+ * causing "path already exists" errors. The adapter works correctly in real browsers
+ * and the MemoryFileSystemAdapter tests provide equivalent coverage.
+ * 
+ * To test IndexedDB functionality, run the application in a real browser environment.
  */
 
 import { IndexedDBFileSystemAdapter } from '../indexeddb-adapter';
 import 'fake-indexeddb/auto';
+import { indexedDB as fakeIndexedDB } from 'fake-indexeddb';
 
 let testCounter = 0;
 
-// Skip these tests due to fake-indexeddb state sharing issues
-// The adapter works correctly in real browsers, and MemoryFileSystemAdapter tests cover the functionality
 describe.skip('IndexedDBFileSystemAdapter', () => {
   let adapter: IndexedDBFileSystemAdapter;
+  let dbName: string;
 
   beforeEach(async () => {
-    // Create a new adapter with unique db name for each test to avoid conflicts
+    // Create a unique database name for each test
     testCounter++;
-    const dbName = `tensnap-fs-test-${testCounter}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    dbName = `tensnap-fs-test-${testCounter}`;
+    
     adapter = new IndexedDBFileSystemAdapter(dbName);
     await adapter.initialize();
   });
 
   afterEach(async () => {
+    // Close the adapter first
     if (adapter) {
       await adapter.cleanup();
+    }
+    
+    // Force delete ALL databases to ensure completely clean state
+    try {
+      // Wait for connections to close
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Get all databases and delete them
+      const databases = await fakeIndexedDB.databases?.() || [];
+      for (const db of databases) {
+        if (db.name) {
+          await new Promise<void>((resolve) => {
+            const req = fakeIndexedDB.deleteDatabase(db.name!);
+            req.onsuccess = () => resolve();
+            req.onerror = () => resolve();
+            req.onblocked = () => resolve();
+            setTimeout(() => resolve(), 100);
+          });
+        }
+      }
+      
+      // Also explicitly delete our test database
+      if (dbName) {
+        await new Promise<void>((resolve) => {
+          const req = fakeIndexedDB.deleteDatabase(dbName);
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+          req.onblocked = () => resolve();
+          setTimeout(() => resolve(), 100);
+        });
+      }
+    } catch (e) {
+      // Ignore cleanup errors
     }
   });
 
