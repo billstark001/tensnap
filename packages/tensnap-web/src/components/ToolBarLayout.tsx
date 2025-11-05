@@ -11,6 +11,7 @@ import { CreateNewDialog } from "./CreateNewDialog";
 import { FileMetadata } from "@/types/file";
 import { useWithLoading } from "@/store/loading";
 import { SettingsDialog } from "./SettingsDialog";
+import { useFakeModelPicker } from "tensnap-web-utils";
 
 export const ToolBarLayout = () => {
   const { 
@@ -68,6 +69,15 @@ export const ToolBarLayout = () => {
     withLoading(() => save(undefined, asPath ?? undefined));
   }, [withLoading, save]);
 
+  const { pickModel } = useFakeModelPicker();
+
+  const onLoadFakeModel = useCallback(async () => {
+    const result = await pickModel();
+    if (!result.cancelled && result.model) {
+      createNewProject(result.model.url);
+    }
+  }, [pickModel, createNewProject]);
+
   return (
     <FileOperationsProvider
       onNewFile={onNewFile}
@@ -84,6 +94,16 @@ export const ToolBarLayout = () => {
         {/* 工具栏 */}
         <div className={styles.toolBarRow}>
           <ToolBar />
+
+          {/* Debug: Load Fake Model Button */}
+          <button
+            onClick={onLoadFakeModel}
+            className={styles.themeToggle}
+            aria-label="Load Fake Model"
+            title="Load Fake Model"
+          >
+            🧪
+          </button>
 
           {/* 主题切换按钮 */}
           <button

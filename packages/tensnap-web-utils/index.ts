@@ -3,9 +3,13 @@
  * 
  * Utility package for TenSnap web applications, including:
  * - File system UI components for demo and testing purposes
- * - Future: WebSocket mock server for development
- * - Future: Other development and debugging utilities
+ * - Fake models for development and testing
+ * - WebSocket mock server for development
+ * - Other development and debugging utilities
  */
 
 // Export all file system UI components
 export * from './src/file-system';
+
+// Export fake models and picker
+export * from './src/fake-models';
