@@ -181,7 +181,7 @@ export class WebSocketManagerFake implements WebSocketManager {
     if (this._destroyed || this._connectionState !== 'open') {
       return;
     }
-
+    console.log('FakeWebSocketManager received message:', message);
     this._emit(message.type, message.payload);
   }
 

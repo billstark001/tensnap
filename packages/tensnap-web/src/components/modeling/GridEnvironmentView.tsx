@@ -31,7 +31,7 @@ const SHAPE_CLASSES: Record<AgentIcon, typeof UI> = {
 
 const createShape = (icon: AgentIcon = 'circle', size: number, color: string) => {
   const ShapeClass = SHAPE_CLASSES[icon];
-  return new ShapeClass({ ...SHAPE_CONFIGS[icon](size), fill: color });
+  return new ShapeClass({ ...SHAPE_CONFIGS[icon](size), fill: color, });
 };
 
 const createTrajectory = (trajectory: TrajectoryPoint[] | null | undefined, cellWidth: number, cellHeight: number, x: number, y: number, color: string) => {
@@ -52,11 +52,11 @@ const loadImageAsync = (src: string) => new Promise<HTMLImageElement>((resolve) 
 });
 
 export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironmentViewProps) {
-  const { props: envProps, agents } = environment;
+  const { props: envProps, agents: envAgents } = environment;
   const containerRef = useRef<HTMLDivElement>(null);
   const leaferRef = useRef<ILeafer | null>(null);
   const layersRef = useRef<{ bg?: Rect; grid?: Group; agents?: Group }>({});
-  const agentShapesRef = useRef<Map<string, { group: Group; shape: UI }>>(new Map());
+  const agentShapesRef = useRef<Map<string, { group: Group; shape: UI; icon: AgentIcon, size: number, color: string }>>(new Map());
 
   const [selectedAgent, setSelectedAgent] = useState<GridAgent | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -145,7 +145,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     if (!agentsGroup) return;
 
     // Normalize all IDs to strings
-    const currentAgentIds = new Set(Object.keys(agents).map(String));
+    const currentAgentIds = new Set(Object.keys(envAgents).map(String));
     const previousAgentIds = new Set(agentShapesRef.current.keys());
 
     // Remove deleted agents
@@ -157,13 +157,15 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     });
 
     // Update or create agents
-    Object.entries(agents).forEach(([id, agent]) => {
+    Object.entries(envAgents).forEach(([id, agent]) => {
       if (agent.x === undefined || agent.y === undefined) return;
 
       const agentId = String(id);
-      const x = agent.x * cellWidth + cellWidth / 2;
-      const y = agent.y * cellHeight + cellHeight / 2;
+      const icon = agent.icon || 'circle';
       const size = agent.size || 10;
+      const posDiff = (cellWidth - size) / 2;
+      const x = agent.x * cellWidth + posDiff;
+      const y = agent.y * cellHeight + posDiff;
       const color = agent.color || '#333333';
       const rotation = agent.heading ? (agent.heading * 180 / Math.PI) : 0;
 
@@ -172,7 +174,15 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       if (cached) {
         // Update existing
         cached.group.set({ x, y, rotation });
-        cached.shape.set({ fill: color });
+        if (cached.icon !== icon || cached.size !== size) {
+          cached.shape.set(SHAPE_CONFIGS[icon]?.(size));
+          cached.icon = icon;
+          cached.size = size;
+        }
+        if (cached.color !== color) {
+          cached.shape.set({ fill: color });
+          cached.color = color;
+        }
 
         // Update trajectory
         const oldTrajectory = cached.group.children?.find(child => child instanceof Line);
@@ -183,7 +193,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       } else {
         // Create new
         const group = new Group({ x, y, rotation });
-        const shape = createShape(agent.icon || 'circle', size, color);
+        const shape = createShape(icon, size, color);
 
         shape.on(PointerEvent.CLICK, (e: any) => handleAgentClick(agent, e));
         shape.on(PointerEvent.MENU, (e: any) => handleAgentClick(agent, e));
@@ -194,10 +204,10 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
         if (trajectory) group.add(trajectory);
 
         agentsGroup.add(group);
-        agentShapesRef.current.set(agentId, { group, shape });
+        agentShapesRef.current.set(agentId, { group, shape, icon, size, color });
       }
     });
-  }, [agents, cellWidth, cellHeight, handleAgentClick, updateTrigger]);
+  }, [envAgents, cellWidth, cellHeight, handleAgentClick, updateTrigger]);
 
   return (
     <div className={styles.container}>
