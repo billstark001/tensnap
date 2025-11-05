@@ -160,35 +160,83 @@ tensnap/
 
 ### Python Backend Architecture
 
-#### Server Component (`server.py`)
+#### Scenario Component (`scenario.py`) - High-Level API
+
+**New in Major Refactoring**: `SimulationScenario` provides a unified, high-level API that combines server, simulation loop, and automatic binding detection.
+
+**Responsibilities**:
+- Orchestrate entire simulation lifecycle
+- Automatic parameter/chart/action detection
+- Environment binder management
+- Simulation timing coordination
+- Default handler implementations
+
+**Key Classes**:
+
+```python
+class SimulationScenario:
+    """High-level simulation orchestration"""
+    - server: TenSnapServer
+    - sim_manager: SimulationLoop
+    - env_binders: Dict[str, EnvironmentModel]
+    - handler: SimulationHandlerProtocol
+    
+    def add_environment(env: EnvironmentModel)
+    def add_parameters(obj: Any, config: BindParametersConfig)
+    def add_charts(namespace: dict)
+    def add_actions(namespace: dict)
+    def register_model_handler(init_func, step_func)
+    async def run()
+
+class DefaultSimulationHandler:
+    """Default handler for simulation lifecycle"""
+    async def on_start(step: int)  # First step
+    async def on_step(step: int)   # Each subsequent step
+    async def on_reset()           # Reset simulation
+    async def send_updates()       # Send env/agent updates
+```
+
+**Benefits of SimulationScenario**:
+- Single entry point for complete simulations
+- Automatic discovery of decorated functions
+- Built-in reset/start/stop handlers
+- Environment binder integration
+- Reduced boilerplate code
+
+#### Server Component (`server.py`) - Low-Level API
 
 **Responsibilities**:
 - Manage WebSocket connections
 - Broadcast state updates to clients
 - Handle parameter changes from clients
-- Coordinate simulation timing
+- Direct protocol-level control
 
 **Key Classes**:
 
 ```python
 class TenSnapServer:
-    """Main WebSocket server"""
+    """Low-level WebSocket server"""
     - environments: Dict[str|int, EnvironmentModel]
     - parameters: Dict[str, Parameter]
-    - charts: Dict[str, Chart]
-    - buttons: Dict[str, Callable]
+    - charts: Dict[str, Tuple[ChartGroupMetadata, Callable]]
+    - button_handlers: Dict[str, Callable]
     - clients: Set[WebSocketServerProtocol]
     
     async def run()
-    async def broadcast(message)
-    async def handle_client_message(message)
+    async def start_time_step(time: int)
+    async def end_time_step(time: int)
+    async def update_agents_batch(env_id, updates)
+    async def update_charts(time: int)
+    def add_parameter(param, getter, setter)
+    def add_chart(getter, chart)
+    def add_action(action_param, handler)
 ```
 
 **Optimizations**:
-- Message batching for reduced overhead
+- Batched message queue with configurable flush interval
 - Differential updates (only send changes)
-- MessagePack for efficient serialization
-- Connection pooling
+- MessagePack for efficient binary serialization
+- Async message handling with connection pooling
 
 #### Models Component (`models/`)
 
@@ -225,26 +273,39 @@ TypedDict definitions for WebSocket messages:
 
 #### Bindings Component (`bindings/`)
 
-**High-Level API Implementation**:
+**High-Level API Implementation** (After Major Refactoring):
 
 ```python
-# parameters.py
-- parameter(): Create parameter manually
-- bind_parameter(): Bind single attribute
-- quick_bind(): Auto-detect all parameters
-- ParameterBinding: Bidirectional property binding
+# bindings/basic/parameter.py
+- Parameter type hierarchy: NumberParameter, EnumParameter, BooleanParameter, StringParameter, ActionParameter
+- bind: Property descriptor for parameter binding using type hints
+- BindParametersConfig: Configuration for automatic parameter detection
+- get_parameter_metadata_from_namespace(): Auto-detect parameters from namespace
+- get_parameter_metadata_from_object(): Auto-detect parameters from objects/dataclasses
+- create_parameter(): Factory function for creating typed parameters
 
-# charts.py
+# bindings/basic/chart.py
 - @chart: Decorator for chart functions
-- Chart class: Chart data management
+- ChartMetadata: Single chart configuration
+- ChartGroupMetadata: Multi-series chart group configuration
+- ChartProperty: Property descriptor for chart data getters
+- categorize_charts(): Diff algorithm for chart state synchronization
+- get_chart_metadata_from_namespace(): Auto-discover chart decorators
 
-# buttons.py
-- @button: Decorator for button actions
-
-# registry.py
-- Global registration system
-- Auto-discovery of decorated functions
+# bindings/basic/action.py
+- @action: Decorator for button actions (renamed from @button)
+- ActionParameter: Special parameter type for actions
+- get_action_metadata_from_namespace(): Auto-discover action decorators
 ```
+
+**New Features After Refactoring**:
+
+1. **Typed Parameter System**: Strong typing with dedicated classes for each parameter type
+2. **Dataclass Support**: Automatic parameter binding from dataclasses using type hints
+3. **Property Descriptors**: `bind` decorator works as property descriptor for seamless integration
+4. **Multi-Series Charts**: Support for chart groups with multiple data series
+5. **Flexible Auto-Detection**: Regex patterns and inclusion/exclusion rules for parameter detection
+6. **Action Renaming**: `@button` renamed to `@action` for clarity
 
 **Parameter Binding Architecture**:
 

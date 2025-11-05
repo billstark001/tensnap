@@ -1,64 +1,522 @@
 # Python API Reference
 
-Complete reference documentation for the TenSnap Python bindings.
+Complete reference documentation for the TenSnap Python bindings after the major refactoring.
 
 ## Table of Contents
 
-1. [Server](#server)
-2. [Models](#models)
-3. [Simulation Management](#simulation-management)
-4. [Bindings](#bindings)
-5. [Type Definitions](#type-definitions)
+1. [Quick Start](#quick-start)
+2. [Scenario API (Recommended)](#scenario-api-recommended)
+3. [Bindings & Decorators](#bindings--decorators)
+4. [Server API (Low-level)](#server-api-low-level)
+5. [Models](#models)
+6. [Environment Binders](#environment-binders)
+7. [Type Definitions](#type-definitions)
 
-## Server
+## Quick Start
 
-### TenSnapServer
-
-Main WebSocket server for handling client connections and broadcasting updates.
+The recommended way to use TenSnap is through the `SimulationScenario` API, which provides a high-level interface for managing simulations.
 
 ```python
-from tensnap import TenSnapServer
+import asyncio
+from tensnap import (
+    SimulationScenario,
+    GridEnvironmentBinder,
+    make_grid_agent_accessor,
+    BindParametersConfig,
+    chart,
+)
+from dataclasses import dataclass
 
-server = TenSnapServer(
+# Define configuration
+@dataclass
+class Config:
+    num_agents: int = 50
+    speed: float = 1.0
+
+# Create scenario
+config = Config()
+scenario = SimulationScenario(port=8765)
+
+# Add environment
+grid = GridEnvironmentBinder(
+    id="main",
+    environment=my_model,
+    agent_accessor=make_grid_agent_accessor(heading=True, color=True)
+)
+scenario.add_environment(grid)
+
+# Add parameters from config object
+scenario.add_parameters(config, BindParametersConfig(exclude="private_.+"))
+
+# Add charts using decorators
+@chart("population", "Population Count", color="#3498db")
+def track_population():
+    return len(my_model.agents)
+
+scenario.add_charts(globals())
+
+# Register handlers
+scenario.register_model_handler(
+    init_func=my_model.initialize,
+    step_func=my_model.step
+)
+
+# Run
+async def main():
+    await scenario.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Scenario API (Recommended)
+
+### SimulationScenario
+
+High-level API for managing complete simulations. Combines server, simulation loop, and automatic binding detection. This is the recommended entry point for most users.
+
+```python
+from tensnap import SimulationScenario
+
+scenario = SimulationScenario(
+    host="localhost",
     port=8765,
-    host="localhost"
+    use_msgpack=False,
+    step_interval=0.05
 )
 ```
 
 #### Constructor Parameters
 
-- `port` (int, default=8765): WebSocket server port
 - `host` (str, default="localhost"): Server host address
+- `port` (int, default=8765): WebSocket server port
+- `use_msgpack` (bool, default=False): Use MessagePack serialization instead of JSON for better performance
+- `step_interval` (float, default=0.05): Time between simulation steps in seconds
+
+#### Properties
+
+- `server` (TenSnapServer): Access to underlying WebSocket server
+- `sim_manager` (SimulationLoop): Access to simulation loop manager
+- `env_binders` (Dict[str, EnvironmentModel]): Registered environment binders
 
 #### Methods
 
-##### `add_environment(environment: EnvironmentModel)`
+##### `add_environment(env: EnvironmentModel)`
+
+Register an environment binder with the scenario.
+
+```python
+from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+
+grid = GridEnvironmentBinder(
+    id="main",
+    environment=my_simulation,
+    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True)
+)
+scenario.add_environment(grid)
+```
+
+##### `add_parameters(obj: Any, config: BindParametersConfig = None)`
+
+Automatically detect and bind parameters from an object (dataclass, regular class, or dict).
+
+```python
+from tensnap import BindParametersConfig
+from dataclasses import dataclass
+
+@dataclass
+class Config:
+    population: int = 100
+    speed: float = 1.0
+    _internal: str = "private"  # Will be excluded
+
+config = Config()
+
+# Exclude fields matching pattern
+scenario.add_parameters(config, BindParametersConfig(exclude="^_.*"))
+
+# Or include only specific fields
+scenario.add_parameters(config, BindParametersConfig(include=["population", "speed"]))
+```
+
+##### `add_charts(namespace: dict)`
+
+Automatically register all `@chart` decorated functions from a namespace (typically `globals()`).
+
+```python
+from tensnap import chart
+
+@chart("avg_speed", "Average Speed", color="#2ecc71")
+def calculate_speed():
+    return sum(a.speed for a in agents) / len(agents)
+
+@chart("stats", "Statistics", data_list=[
+    ("mean", "#3498db", "Mean"),
+    ("median", "#e74c3c", "Median")
+])
+def calculate_stats():
+    return {"mean": calc_mean(), "median": calc_median()}
+
+scenario.add_charts(globals())
+```
+
+##### `add_actions(namespace: dict)`
+
+Automatically register all `@action` decorated functions from a namespace.
+
+```python
+from tensnap import action
+
+@action("reset", "Reset Simulation")
+async def reset_sim():
+    model.initialize()
+    # Reset logic here
+
+@action("pause", "Pause")
+def pause_sim():
+    scenario.sim_manager.stop()
+
+scenario.add_actions(globals())
+```
+
+##### `register_model_handler(init_func: Callable, step_func: Callable)`
+
+Register simulation initialization and step functions that will be called automatically.
+
+```python
+def init_simulation():
+    model.initialize()
+    for agent in model.agents:
+        grid.add_agent(agent)
+
+def step_simulation():
+    model.step()
+
+scenario.register_model_handler(
+    init_func=init_simulation,
+    step_func=step_simulation
+)
+```
+
+##### `async run()`
+
+Start the WebSocket server and run the simulation indefinitely until interrupted.
+
+```python
+import asyncio
+
+async def main():
+    await scenario.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Bindings & Decorators
+
+### Parameter Bindings
+
+TenSnap provides several ways to bind parameters to your simulation.
+
+#### Using the `bind` decorator
+
+```python
+from tensnap.bindings.basic import bind
+from dataclasses import dataclass
+
+@dataclass
+class Config:
+    @bind("number", min=10, max=500, step=10)
+    population: int = 100
+    
+    @bind("number", min=0.1, max=5.0, step=0.1)
+    speed: float = 1.0
+    
+    @bind("enum", options=["flocking", "random", "seeking"])
+    mode: str = "flocking"
+    
+    @bind("boolean")
+    debug_mode: bool = False
+```
+
+#### Using `BindParametersConfig`
+
+Automatically detect parameters from objects:
+
+```python
+from tensnap import BindParametersConfig
+
+# Exclude private fields
+config = BindParametersConfig(exclude="^_.*")
+
+# Include only specific fields
+config = BindParametersConfig(include=["population", "speed"])
+
+# Include private fields
+config = BindParametersConfig(include_private=True)
+
+# Use regex patterns
+config = BindParametersConfig(
+    include="^(num|max|min)_.*",  # Include fields starting with num_, max_, min_
+    exclude=".*_internal$"  # Exclude fields ending with _internal
+)
+```
+
+#### Manual Parameter Creation
+
+```python
+from tensnap.bindings.basic import (
+    NumberParameter,
+    EnumParameter,
+    BooleanParameter,
+    StringParameter,
+    ActionParameter
+)
+
+# Number parameter (slider)
+speed_param = NumberParameter(
+    id="speed",
+    label="Agent Speed",
+    value=1.0,
+    min=0.1,
+    max=5.0,
+    step=0.1,
+    allow_runtime_change=True
+)
+
+# Enum parameter (dropdown)
+mode_param = EnumParameter(
+    id="mode",
+    label="Behavior Mode",
+    value="flocking",
+    options=["flocking", "random", "seeking"],
+    labels={"flocking": "Flocking Behavior", "random": "Random Walk"}  # Optional custom labels
+)
+
+# Boolean parameter (checkbox)
+debug_param = BooleanParameter(
+    id="debug",
+    label="Debug Mode",
+    value=False
+)
+
+# Action parameter (button)
+reset_param = ActionParameter(
+    id="reset",
+    label="Reset Simulation"
+)
+```
+
+### Chart Decorator
+
+The `@chart` decorator creates chart definitions that automatically collect data.
+
+#### Single Chart
+
+```python
+from tensnap import chart
+
+@chart("population", "Population Count", color="#3498db")
+def track_population():
+    return len(model.agents)
+```
+
+#### Multi-Series Chart
+
+```python
+from tensnap import chart
+
+@chart("statistics", "Population Statistics", data_list=[
+    ("mean_speed", "#3498db", "Mean Speed"),
+    ("max_speed", "#e74c3c", "Max Speed"),
+    ("min_speed", "#2ecc71", "Min Speed")
+])
+def calculate_stats():
+    speeds = [a.speed for a in model.agents]
+    return {
+        "mean_speed": sum(speeds) / len(speeds),
+        "max_speed": max(speeds),
+        "min_speed": min(speeds)
+    }
+
+# Or return as tuple/list matching data_list order
+@chart("xy_data", "XY Data", data_list=[
+    ("x_values", "#3498db"),
+    ("y_values", "#e74c3c")
+])
+def calculate_xy():
+    return (calc_x(), calc_y())  # Returns tuple
+```
+
+**Parameters:**
+- `id` (str): Unique chart identifier
+- `label` (str): Display label in UI
+- `color` (str, optional): Hex color code for single charts
+- `data_list` (List[SimplifiedChartMetadata], optional): For multi-series charts. Each item can be:
+  - `str`: chart id only
+  - `(str, str)`: (id, color)
+  - `(str, str, str)`: (id, color, label)
+  - `ChartMetadataDict`: Full dictionary
+
+### Action Decorator
+
+The `@action` decorator creates button controls.
+
+```python
+from tensnap import action
+
+@action("reset", "Reset Simulation")
+async def reset_simulation():
+    model.initialize()
+    await clear_and_update()
+
+@action("step_once", "Step Once")
+def single_step():
+    model.step()
+
+# Without explicit ID (uses function name)
+@action()
+def pause():
+    scenario.sim_manager.stop()
+```
+
+**Parameters:**
+- `id` (str, optional): Button identifier (defaults to function name)
+- `label` (str, optional): Display label (defaults to formatted function name)
+- `allow_runtime_change` (bool, default=True): Whether button is enabled during runtime
+
+## Server API (Low-level)
+
+### TenSnapServer
+
+Low-level WebSocket server for handling client connections and broadcasting updates. Most users should use `SimulationScenario` instead, but this provides more control.
+
+```python
+from tensnap import TenSnapServer
+
+server = TenSnapServer(
+    host="localhost",
+    port=8765,
+    use_msgpack=False
+)
+```
+
+#### Constructor Parameters
+
+- `host` (str, default="localhost"): Server host address
+- `port` (int, default=8765): WebSocket server port
+- `use_msgpack` (bool, default=False): Use MessagePack binary serialization
+
+#### Properties
+
+- `clients` (set[WebSocketServerProtocol]): Set of connected clients
+- `environments` (Dict[str, EnvironmentModel]): Registered environments
+- `parameters` (Dict[str, Parameter]): Registered parameters
+- `charts` (Dict[str, Tuple[ChartGroupMetadata, Callable]]): Registered charts
+- `button_handlers` (Dict[str, Callable]): Registered action handlers
+
+#### Methods
+
+##### `add_environment(env: EnvironmentModel)`
 
 Register an environment with the server.
 
 ```python
+from tensnap import GridEnvironmentModel
+
 grid = GridEnvironmentModel(id="main", width=50, height=50)
 server.add_environment(grid)
 ```
 
-##### `add_parameter(parameter: Parameter)`
+##### `add_parameter(param: Parameter, getter: Callable = None, setter: Callable = None)`
 
-Register a parameter control.
+Register a parameter control with optional getter/setter functions.
 
 ```python
-from tensnap.bindings.basic import parameter
+from tensnap.bindings.basic import NumberParameter
 
-pop = parameter("population", "Population", value=100, min=10, max=500)
-server.add_parameter(pop)
+param = NumberParameter(
+    id="speed",
+    label="Agent Speed",
+    value=1.0,
+    min=0.1,
+    max=5.0
+)
+
+# With getter/setter for binding to external state
+def get_speed():
+    return config.speed
+
+def set_speed(value):
+    config.speed = value
+
+server.add_parameter(param, getter=get_speed, setter=set_speed)
 ```
 
-##### `auto_register_from_globals(globals_dict: dict)`
+##### `add_chart(getter: Callable, chart: ChartGroupMetadata)`
 
-Automatically register decorated charts and buttons from a module's globals.
+Register a chart with its data getter function.
 
 ```python
-# After defining @chart and @button decorated functions
-server.auto_register_from_globals(globals())
+from tensnap.bindings.basic import ChartGroupMetadata
+
+chart_meta = ChartGroupMetadata(
+    id="pop",
+    label="Population",
+    color="#3498db"
+)
+
+def get_population():
+    return len(model.agents)
+
+server.add_chart(get_population, chart_meta)
+```
+
+##### `add_action(action_parameter: ActionParameter, handler: Callable, add_parameter: bool = True)`
+
+Register an action button with its handler function.
+
+```python
+from tensnap.bindings.basic import ActionParameter
+
+action = ActionParameter(id="reset", label="Reset")
+
+async def reset_handler():
+    model.initialize()
+
+server.add_action(action, reset_handler, add_parameter=True)
+```
+
+##### `remove_environment(env_id: str | int)`
+
+Remove an environment from the server.
+
+```python
+server.remove_environment("main")
+```
+
+##### `remove_parameter(param_id: str)`
+
+Remove a parameter.
+
+```python
+server.remove_parameter("speed")
+```
+
+##### `remove_chart(chart_id: str)`
+
+Remove a chart.
+
+```python
+server.remove_chart("population")
+```
+
+##### `remove_action(action_id: str, remove_parameter: bool = True)`
+
+Remove an action button.
+
+```python
+server.remove_action("reset", remove_parameter=True)
 ```
 
 ##### `async run()`
@@ -69,7 +527,7 @@ Start the WebSocket server and run until interrupted.
 await server.run()
 ```
 
-##### `async start_time_step(step: int)`
+##### `async start_time_step(time: int)`
 
 Signal the start of a simulation time step.
 
@@ -77,7 +535,7 @@ Signal the start of a simulation time step.
 await server.start_time_step(step)
 ```
 
-##### `async end_time_step(step: int)`
+##### `async end_time_step(time: int = None)`
 
 Signal the end of a simulation time step.
 
@@ -85,21 +543,43 @@ Signal the end of a simulation time step.
 await server.end_time_step(step)
 ```
 
-##### `async update_agents_batch(env_id: str | int, updates: list)`
+##### `async update_agents_batch(env_id: str | int, updates: list[dict])`
 
 Send batch agent updates for an environment.
 
 ```python
-updates = grid.generate_agent_updates()
+updates = [
+    {"id": "agent1", "x": 10.5, "y": 20.3},
+    {"id": "agent2", "x": 15.1, "y": 18.7, "color": "#ff0000"}
+]
 await server.update_agents_batch("main", updates)
 ```
 
-##### `async update_environment(env_id: str | int)`
+##### `async update_charts(time: int = None)`
 
-Force a full environment state update.
+Update all registered charts by calling their getter functions.
 
 ```python
-await server.update_environment("main")
+await server.update_charts(step)
+```
+
+##### `async clear_charts(chart_ids: list[str] = None)`
+
+Clear chart data on the client side.
+
+```python
+await server.clear_charts()  # Clear all
+await server.clear_charts(["chart1", "chart2"])  # Clear specific charts
+```
+
+##### `async log_message(level: str, message: str)`
+
+Send a log message to connected clients.
+
+```python
+await server.log_message("info", "Simulation started")
+await server.log_message("warning", "Low population detected")
+await server.log_message("error", "Critical error occurred")
 ```
 
 ## Models
@@ -120,8 +600,7 @@ agent = AgentModel(
     icon="circle",
     size=10,
     label=None,
-    node_id=None,
-    update_source=None
+    node_id=None
 )
 ```
 
@@ -132,15 +611,14 @@ agent = AgentModel(
 - `y` (float): Y-coordinate position
 - `heading` (float, optional): Direction in radians (0 = right, π/2 = up)
 - `color` (str, default="#000000"): Hex color code
-- `icon` (str, default="circle"): Visual icon type
+- `icon` (str, default="circle"): Visual icon type ("circle", "arrow", "square", etc.)
 - `size` (int, default=10): Size in pixels
 - `label` (str, optional): Text label displayed near agent
 - `node_id` (str, optional): For graph environments, the node this agent is on
-- `update_source` (object, optional): Object to read properties from automatically
 
 #### Properties
 
-All constructor parameters are accessible as properties:
+All constructor parameters are accessible as properties and can be modified:
 
 ```python
 agent.x = 50.0
@@ -152,11 +630,26 @@ current_heading = agent.heading
 
 ##### `to_dict() -> dict`
 
-Convert agent to dictionary representation.
+Convert agent to dictionary representation for serialization.
 
 ```python
 agent_dict = agent.to_dict()
 # {'id': 'agent_1', 'x': 25.0, 'y': 30.0, ...}
+```
+
+##### `update_from(source: object, mapping: dict = None)`
+
+Update agent properties from another object.
+
+```python
+class Bird:
+    def __init__(self):
+        self.x = 10
+        self.y = 20
+        self.heading = 1.57
+
+bird = Bird()
+agent.update_from(bird)  # Automatically maps matching attributes
 ```
 
 ### GridEnvironmentModel
@@ -182,7 +675,7 @@ grid = GridEnvironmentModel(
 #### Properties
 
 - `agents` (list[AgentModel]): List of agents in this environment
-- `background` (np.ndarray | None): Background image data
+- `background` (np.ndarray | None): Background image data (NumPy array)
 
 #### Methods
 
@@ -205,7 +698,7 @@ grid.remove_agent("a1")
 
 ##### `set_background(array: np.ndarray)`
 
-Set background image from NumPy array.
+Set background image from NumPy array. Useful for heatmaps or terrain visualization.
 
 ```python
 import numpy as np
@@ -225,7 +718,7 @@ grid.clear_background()
 
 ##### `generate_agent_updates() -> list[dict]`
 
-Generate update dictionaries for all agents with changes.
+Generate update dictionaries for all agents that have changed since last call.
 
 ```python
 # Automatically detects changed agents
@@ -233,12 +726,20 @@ updates = grid.generate_agent_updates()
 await server.update_agents_batch("main", updates)
 ```
 
-##### `to_dict() -> dict`
+##### `get_model_dict() -> dict`
 
-Convert environment to dictionary representation.
+Get environment metadata as dictionary.
 
 ```python
-env_dict = grid.to_dict()
+env_dict = grid.get_model_dict()
+```
+
+##### `get_agent_list(is_update: bool = False) -> list[dict]`
+
+Get agent data as list of dictionaries.
+
+```python
+agents = grid.get_agent_list()
 ```
 
 ### GraphEnvironmentModel
@@ -325,10 +826,10 @@ graph.remove_edge("node_1", "node_2")
 
 ##### `add_agent(agent: AgentModel)`
 
-Add an agent to the graph.
+Add an agent to the graph. Agent should have `node_id` set.
 
 ```python
-agent = AgentModel(id="a1", node_id="node_1")
+agent = AgentModel(id="a1", node_id="node_1", x=0, y=0)
 graph.add_agent(agent)
 ```
 
@@ -341,426 +842,203 @@ updates = graph.generate_agent_updates()
 await server.update_agents_batch("network", updates)
 ```
 
-## Simulation Management
+## Environment Binders
 
-### SimulationManager
+### GridEnvironmentBinder
 
-Manages simulation timing and execution.
+Connects a grid-based simulation model to TenSnap, automatically syncing agent states.
 
 ```python
-from tensnap.sim_loop import SimulationManager
+from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
 
-sim_manager = SimulationManager(
-    step_interval=0.05
+grid = GridEnvironmentBinder(
+    id="main",
+    environment=simulation_model,
+    agent_accessor=make_grid_agent_accessor(
+        heading=True,
+        color=True,
+        icon=True,
+        size=False
+    )
 )
 ```
 
 #### Constructor Parameters
 
-- `step_interval` (float, default=0.05): Time between simulation steps in seconds
+- `id` (str | int): Environment identifier
+- `environment` (Any): Your simulation model object
+- `agent_accessor` (Callable): Function that extracts agent data from simulation objects
 
-#### Properties
+#### Helper: `make_grid_agent_accessor()`
 
-- `time_step` (int): Current simulation time step
-- `is_running` (bool): Whether simulation is currently running
-- `on_step` (Callable): Async callback function for each step
-
-#### Methods
-
-##### `async start()`
-
-Start the simulation.
+Creates an accessor function for grid agents.
 
 ```python
-await sim_manager.start()
-```
+from tensnap import make_grid_agent_accessor
 
-##### `async stop()`
-
-Stop the simulation.
-
-```python
-await sim_manager.stop()
-```
-
-##### `async step()`
-
-Execute a single simulation step.
-
-```python
-await sim_manager.step()
-```
-
-##### `register_to(server: TenSnapServer)`
-
-Register this manager with a server for automatic control binding.
-
-```python
-sim_manager.register_to(server)
-```
-
-#### Usage Example
-
-```python
-sim_manager = SimulationManager(step_interval=0.05)
-
-async def on_step(step: int):
-    await server.start_time_step(step)
-    # Your simulation logic
-    await server.end_time_step(step)
-
-sim_manager.on_step = on_step
-sim_manager.register_to(server)
-```
-
-## Bindings
-
-### Parameters
-
-#### `parameter()`
-
-Create a parameter control manually.
-
-```python
-from tensnap.bindings.basic import parameter
-
-# Slider parameter
-slider_param = parameter(
-    id="speed",
-    label="Agent Speed",
-    value=1.0,
-    min=0.1,
-    max=5.0,
-    step=0.1,
-    allow_runtime_change=True
-)
-
-# Enum parameter
-enum_param = parameter(
-    id="mode",
-    label="Behavior Mode",
-    value="flocking",
-    options=["flocking", "random", "seeking"],
-    allow_runtime_change=True
+# Create accessor that reads heading, color, and icon from simulation agents
+accessor = make_grid_agent_accessor(
+    heading=True,    # Read heading attribute
+    color=True,      # Read color attribute
+    icon=True,       # Read icon attribute
+    size=False,      # Don't read size (use default)
+    label=False      # Don't read label
 )
 ```
 
 **Parameters:**
-- `id` (str): Unique parameter identifier
-- `label` (str): Display label in UI
-- `value` (Any): Initial/current value
-- `min` (float, optional): Minimum value (for numeric parameters)
-- `max` (float, optional): Maximum value (for numeric parameters)
-- `step` (float, optional): Step size (for numeric parameters)
-- `options` (list[str], optional): Available options (for enum parameters)
-- `allow_runtime_change` (bool, default=True): Can change during simulation
+- `heading` (bool, default=False): Whether to read heading attribute
+- `color` (bool, default=False): Whether to read color attribute
+- `icon` (bool, default=False): Whether to read icon attribute
+- `size` (bool, default=False): Whether to read size attribute
+- `label` (bool, default=False): Whether to read label attribute
 
-**Returns:** `Parameter` object
+### UniformEnvironmentBinder
 
-#### `bind_parameter()`
-
-Bind a single object attribute as a parameter.
+Generic environment binder for custom environments.
 
 ```python
-from tensnap.bindings.basic import bind_parameter
+from tensnap import UniformEnvironmentBinder
 
-class Config:
-    def __init__(self):
-        self.population = 100
-
-config = Config()
-
-param = bind_parameter(
-    target=config,
-    attr_name="population",
-    label="Population Size",
-    min=10,
-    max=1000
-)
-```
-
-**Parameters:**
-- `target` (object): Object containing the attribute
-- `attr_name` (str): Name of attribute to bind
-- `label` (str): Display label
-- `min` (float, optional): Minimum value
-- `max` (float, optional): Maximum value
-- `step` (float, optional): Step size
-- `options` (list, optional): Options for enum parameters
-- `allow_runtime_change` (bool, optional): Runtime change permission
-
-**Returns:** `ParameterBinding` object
-
-#### `bind_parameters_batch()`
-
-Bind multiple attributes at once.
-
-```python
-from tensnap.bindings.basic import bind_parameters_batch
-
-params = bind_parameters_batch(
-    target=config,
-    attributes={
-        'population': {'label': 'Population', 'min': 10, 'max': 1000},
-        'speed': {'label': 'Speed', 'min': 0.1, 'max': 5.0, 'step': 0.1}
+env = UniformEnvironmentBinder(
+    id="custom",
+    environment=my_model,
+    agent_accessor=lambda agent: {
+        'id': agent.id,
+        'x': agent.position[0],
+        'y': agent.position[1],
+        'color': agent.get_color()
     }
 )
 ```
 
-**Parameters:**
-- `target` (object): Object containing attributes
-- `attributes` (dict): Dictionary mapping attribute names to configuration
-
-**Returns:** List of `ParameterBinding` objects
-
-#### `quick_bind()`
-
-Automatically detect and bind all compatible attributes.
-
-```python
-from tensnap.bindings.basic import quick_bind
-
-params = quick_bind(
-    target=config,
-    exclude=['internal_var'],
-    include_private=False
-)
-```
-
-**Parameters:**
-- `target` (object): Object to scan for parameters
-- `exclude` (list[str], optional): Attribute names to exclude
-- `include_private` (bool, default=False): Include attributes starting with `_`
-
-**Returns:** List of `ParameterBinding` objects
-
-#### `auto_detect_parameters()`
-
-Detect parameters with custom configuration.
-
-```python
-from tensnap.bindings.basic import auto_detect_parameters, AutoDetectConfig
-
-params = auto_detect_parameters(
-    target=config,
-    config=AutoDetectConfig(
-        int_min=0,
-        int_max=1000,
-        float_min=0.0,
-        float_max=10.0,
-        float_step=0.1
-    )
-)
-```
-
-**Parameters:**
-- `target` (object): Object to scan
-- `config` (AutoDetectConfig): Detection configuration
-- `exclude` (list[str], optional): Attributes to exclude
-
-**Returns:** List of `ParameterBinding` objects
-
-### Charts
-
-#### `@chart` Decorator
-
-Create a chart from a function.
-
-```python
-from tensnap.bindings.basic import chart
-
-@chart("population_count", "Population", color="#3498db")
-def track_population() -> float:
-    """This function is called each time step"""
-    return len(simulation.agents)
-
-@chart("average_energy", "Avg Energy", color="#e74c3c")
-def track_energy() -> float:
-    energies = [a.energy for a in simulation.agents]
-    return sum(energies) / len(energies) if energies else 0.0
-```
-
-**Parameters:**
-- `id` (str): Unique chart identifier
-- `label` (str): Display label in UI
-- `color` (str, optional): Hex color code for chart line
-
-**Returns:** Decorated function
-
-The decorated function should:
-- Take no arguments (or only arguments that can be provided by your code)
-- Return a numeric value (int or float)
-- Be called each time step to collect data points
-
-### Buttons
-
-#### `@button` Decorator
-
-Create a button that triggers an action.
-
-```python
-from tensnap.bindings.basic import button
-
-@button("reset", "Reset Simulation")
-async def reset_simulation():
-    """Called when user clicks the button"""
-    simulation.reset()
-    await initialize_visualization()
-
-@button("export_data", "Export Data")
-async def export_data():
-    """Export simulation data"""
-    data = simulation.get_data()
-    with open("export.json", "w") as f:
-        json.dump(data, f)
-```
-
-**Parameters:**
-- `id` (str): Unique button identifier
-- `label` (str): Button text in UI
-
-**Returns:** Decorated async function
-
-The decorated function should:
-- Be async (use `async def`)
-- Handle any necessary error cases
-- Update visualization state if needed
-
 ## Type Definitions
 
-### ParameterBinding
+### ParameterState
 
-Bidirectional binding between Python object attribute and UI parameter.
+Type definition for parameter state sent over WebSocket.
 
-```python
-class ParameterBinding:
-    target: object          # Object containing the attribute
-    attr_name: str         # Attribute name
-    param: Parameter       # Associated parameter
-    
-    @property
-    def value(self) -> Any:
-        """Get current value from target object"""
-        
-    @value.setter
-    def value(self, val: Any):
-        """Set value on target object"""
+```typescript
+interface ParameterState {
+  id: string;
+  type: "number" | "enum" | "action" | "boolean" | "string";
+  label: string;
+  value: any;
+  min?: number;              // For number type
+  max?: number;              // For number type
+  step?: number;             // For number type
+  options?: Array<string>;   // For enum type
+  labels?: Dict<string, string>;  // Optional custom labels for enum options
+  allowRuntimeChange: boolean;
+}
 ```
 
-### Parameter
+### ChartState
 
-Represents a UI parameter control.
+Type definition for chart state.
 
-```python
-class Parameter:
-    id: str
-    label: str
-    value: Any
-    min: Optional[float]
-    max: Optional[float]
-    step: Optional[float]
-    options: Optional[List[str]]
-    allow_runtime_change: bool
+```typescript
+interface ChartMetadata {
+  id: string;
+  label: string;
+  color?: string;
+}
+
+interface ChartGroupMetadata extends ChartMetadata {
+  dataList?: Array<ChartMetadata>;  // For multi-series charts
+}
 ```
 
-### Chart
+### AgentUpdate
 
-Represents a data chart.
+Type definition for agent updates.
 
-```python
-class Chart:
-    id: str
-    label: str
-    color: Optional[str]
-    collect_func: Callable[[], float]  # Function to collect data
+```typescript
+interface AgentUpdate {
+  id: string;
+  x?: number;
+  y?: number;
+  heading?: number;
+  color?: string;
+  icon?: string;
+  size?: number;
+  label?: string;
+  node_id?: string;
+  [key: string]: any;  // Custom properties
+}
 ```
 
-### AutoDetectConfig
+## Migration from Old API
 
-Configuration for automatic parameter detection.
+If you're updating from the pre-refactoring version:
 
-```python
-@dataclass
-class AutoDetectConfig:
-    int_min: int = 0
-    int_max: int = 100
-    int_step: int = 1
-    float_min: float = 0.0
-    float_max: float = 10.0
-    float_step: float = 0.1
-    detect_enums: bool = True
-    enum_threshold: int = 10  # Max unique values to treat as enum
-```
-
-## Examples
-
-### Complete Basic Example
+### Old Way (Before Refactoring)
 
 ```python
-import asyncio
-from dataclasses import dataclass
-from tensnap import TenSnapServer, GridEnvironmentModel, AgentModel
-from tensnap.sim_loop import SimulationManager
-from tensnap.bindings.basic import quick_bind, chart, button
+from tensnap import TenSnapServer
+from tensnap.bindings.basic import parameter, chart, button
 
-@dataclass
-class Config:
-    num_agents: int = 50
-    speed: float = 1.0
+server = TenSnapServer()
 
-# Setup
-config = Config()
-server = TenSnapServer(port=8765)
-grid = GridEnvironmentModel(id="main", width=50, height=50)
-sim_manager = SimulationManager(step_interval=0.05)
+# Manual parameter creation
+pop_param = parameter("population", "Population", value=100, min=10, max=500)
+server.add_parameter(pop_param)
 
-# Bind parameters
-params = quick_bind(config)
-for param in params:
-    server.add_parameter(param)
+# Manual chart registration
+@chart("pop_chart", "Population")
+def track_pop():
+    return len(agents)
+server.auto_register_from_globals(globals())
 
-# Define charts
-@chart("count", "Agent Count", color="#3498db")
-def count_agents():
-    return len(grid.agents)
-
-# Define buttons
+# Manual button registration
 @button("reset", "Reset")
 async def reset():
-    grid.agents.clear()
-    # Add new agents
-    for i in range(config.num_agents):
-        grid.add_agent(AgentModel(
-            id=f"agent_{i}",
-            x=float(i % 50),
-            y=float(i // 50)
-        ))
-
-# Simulation step
-async def on_step(step: int):
-    await server.start_time_step(step)
-    # Move agents
-    for agent in grid.agents:
-        agent.x = (agent.x + config.speed) % 50
-    updates = grid.generate_agent_updates()
-    await server.update_agents_batch("main", updates)
-    await server.end_time_step(step)
-
-# Main
-async def main():
-    sim_manager.on_step = on_step
-    sim_manager.register_to(server)
-    server.add_environment(grid)
-    server.auto_register_from_globals(globals())
-    await reset()
-    await server.run()
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    pass
+server.auto_register_from_globals(globals())
 ```
+
+### New Way (After Refactoring)
+
+```python
+from tensnap import SimulationScenario, chart, action, BindParametersConfig
+from dataclasses import dataclass
+
+scenario = SimulationScenario()
+
+# Automatic parameter binding from config
+@dataclass
+class Config:
+    population: int = 100
+
+config = Config()
+scenario.add_parameters(config)
+
+# Chart decorator remains similar
+@chart("pop_chart", "Population", color="#3498db")
+def track_pop():
+    return len(agents)
+scenario.add_charts(globals())
+
+# Button is now called 'action'
+@action("reset", "Reset")
+async def reset():
+    pass
+scenario.add_actions(globals())
+```
+
+### Key Changes
+
+1. **`button` → `action`**: Button decorator renamed to `action`
+2. **`SimulationScenario`**: New high-level API that combines server + simulation loop
+3. **Automatic parameter binding**: Use `add_parameters()` with dataclasses or objects
+4. **`BindParametersConfig`**: Fine-grained control over parameter auto-detection
+5. **Environment binders**: New `GridEnvironmentBinder` for automatic agent syncing
+6. **Chart colors**: Now specified in decorator, not just metadata
+7. **Type system**: Stronger typing with `NumberParameter`, `EnumParameter`, etc.
 
 ## See Also
 
-- **[User Guide](../user-guide/user-guide.md)** - Detailed usage guide
-- **[Tutorials](../tutorials/)** - Step-by-step examples
-- **[Examples](../../packages/tensnap-python/tensnap/examples/)** - Complete example implementations
+- [Protocol Documentation](../maintainer-guide/protocol.md) - WebSocket protocol specification
+- [Architecture Overview](../maintainer-guide/architecture.md) - System architecture
+- [Getting Started Guide](../user-guide/getting-started.md) - User guide
+- [Examples](../../packages/tensnap-python/tensnap/examples/) - Complete example simulations
