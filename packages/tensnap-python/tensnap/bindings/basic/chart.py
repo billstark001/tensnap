@@ -14,7 +14,7 @@ from typing import (
     NotRequired,
 )
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
