@@ -6,6 +6,7 @@ import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
 import { EmptyState } from './EmptyState';
 import { CreateDialog } from './CreateDialog';
+import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 
 export interface FileSystemBrowserProps {
@@ -21,7 +22,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   onDirectorySelect,
   allowUpload = true,
   multiSelect = false,
-  className = ''
+  className,
 }) => {
   const fileSystem = useFileSystem();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -106,7 +107,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       } else {
         await createDirectory(itemPath);
       }
-      
+
       await refreshCurrentDirectory();
     } catch (error) {
       console.error('Failed to create item:', error);
@@ -170,15 +171,15 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   }, []);
 
   return (
-    <div 
-      className={`${styles.browserContainer} ${className}`}
+    <div
+      className={clsx(styles.browserContainer, className)}
       onDragOver={allowUpload ? handleDragOver : undefined}
       onDragLeave={allowUpload ? handleDragLeave : undefined}
       onDrop={allowUpload ? handleDrop : undefined}
     >
       {/* 头部导航 */}
       <div className={styles.browserHeader}>
-        <Breadcrumbs 
+        <Breadcrumbs
           currentDirectory={currentDirectory}
           onNavigate={setCurrentDirectory}
         />
@@ -208,7 +209,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         )}
 
         {!loading && !error && directoryContents.length === 0 && (
-          <EmptyState 
+          <EmptyState
             allowUpload={allowUpload}
             isDragOver={isDragOver}
             onUploadClick={handleUploadClick}
@@ -218,8 +219,8 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         {!loading && !error && directoryContents.length > 0 && (
           <div className={styles.contentList}>
             {directoryContents.map((entry) => (
-              <FileItem 
-                key={entry.path} 
+              <FileItem
+                key={entry.path}
                 entry={entry}
                 isSelected={selectedItems.has(entry.path)}
                 onItemClick={handleItemClick}
@@ -232,7 +233,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         )}
       </div>
 
-      <CreateDialog 
+      <CreateDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onCreateItem={handleCreateItem}

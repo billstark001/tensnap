@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { ChevronDown, ChevronRight, Square, Link, Container } from 'lucide-react';
@@ -8,27 +8,22 @@ import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
 import { LEFT_DELTA, TOP_DELTA } from './constants';
 import cx from 'clsx';
+import { ViewProps } from './common';
+import { findAndAddView } from './utils/container';
 
-interface ContainerViewComponentProps {
-  view: ContainerView;
+interface ContainerViewComponentProps extends ViewProps<ContainerView> {
   relativeLeft?: number,
   relativeTop?: number,
-  onUpdate: (viewId: string, updates: Partial<AnyView>) => void;
-  onDelete: (viewId: string) => void;
-  onAddView: (parentId: string, newView: AnyView) => void;
-  onToggleExpand: (e: React.MouseEvent) => void;
   isOverlay?: boolean;
   isRootView?: boolean;
 }
 
 export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   view,
+  updateTrigger,
+  onViewUpdate,
   relativeLeft = 0,
   relativeTop = 0,
-  onUpdate,
-  onDelete,
-  onAddView,
-  onToggleExpand,
   isOverlay = false,
   isRootView = false,
 }) => {
@@ -90,8 +85,16 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
         return;
     }
 
-    onAddView(view.id, newView);
+    findAndAddView(view, view.id, newView);
+    onViewUpdate?.(view.id, view);
+
   };
+
+  const handleToggleExpand = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    view.expanded = !view.expanded;
+    onViewUpdate?.(view.id, view);
+  }, [view, onViewUpdate]);
 
   const className = cx(
     styles.windowView,
@@ -110,12 +113,12 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
           <DraggableView
             key={childView.id}
             view={childView}
+            parentView={view}
+            updateTrigger={updateTrigger}
+            onViewUpdate={onViewUpdate}
             relativeLeft={relativeLeft + view.left + LEFT_DELTA}
             relativeTop={relativeTop + view.top + TOP_DELTA}
             parentId={view.id}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-            onAddView={onAddView}
             siblings={view.views}
             isOverlay={isOverlay}
           />
@@ -165,7 +168,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
         className={styles.windowViewHeader}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button onClick={onToggleExpand} className={styles.expandButton}>
+          <button onClick={handleToggleExpand} className={styles.expandButton}>
             {view.expanded ? <ChevronDown style={{ width: '16px', height: '16px' }} /> : <ChevronRight style={{ width: '16px', height: '16px' }} />}
           </button>
           <span style={{ fontWeight: 500, fontSize: '14px' }}>{view.data?.title}</span>

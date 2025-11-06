@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import * as styles from '@/styles/toolbar.css';
+import clsx from 'clsx';
 
 export interface Tab {
   id: string;
@@ -26,7 +27,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   className
 }) => {
 
-  
+
   const [localActiveTab, setLocalActiveTab] = useState(tabs[0]?.id || '');
   const currentActiveTab = activeTabId || localActiveTab;
 
@@ -38,7 +39,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   const handleTabClose = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
     onTabClose?.(tabId);
-    
+
     // 如果关闭的是当前活动标签，切换到另一个标签
     if (tabId === currentActiveTab && tabs.length > 1) {
       const currentIndex = tabs.findIndex(tab => tab.id === tabId);
@@ -51,7 +52,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
   return (
     <Tabs.Root value={currentActiveTab} onValueChange={handleTabChange}>
-      <div className={`${styles.tabsContainer} ${className || ''}`}>
+      <div className={clsx(styles.tabsContainer, className)}>
         <Tabs.List style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {tabs.map((tab) => (
             <Tabs.Trigger

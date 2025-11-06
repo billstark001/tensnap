@@ -1,6 +1,7 @@
 // @/components/ui/Pagination.tsx
 import { memo } from 'react';
 import * as styles from './Pagination.css';
+import clsx from 'clsx';
 
 interface PaginationProps {
   currentPage: number;
@@ -71,9 +72,10 @@ export const Pagination = memo(function Pagination({
         return (
           <button
             key={pageNum}
-            className={`${styles.pageButton} ${
-              pageNum === currentPage ? styles.pageButtonActive : ''
-            }`}
+            className={clsx(
+              styles.pageButton,
+              pageNum === currentPage && styles.pageButtonActive
+            )}
             onClick={() => onPageChange(pageNum)}
             aria-label={`Page ${pageNum}`}
             aria-current={pageNum === currentPage ? 'page' : undefined}

@@ -6,6 +6,7 @@ import { ToolBarLayout } from './components/ToolBarLayout';
 import { useButtonControls } from './components/useButtonControls';
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
+import { createUpdateTriggerStore } from './store/update-trigger';
 
 function StatusBar() {
   const connected = useScenarioStore((store) => store.connected);
@@ -21,14 +22,35 @@ function StatusBar() {
   )
 }
 
-export function App() {
+const useUpdateTriggerStore = createUpdateTriggerStore();
+
+function MainViewWrapper() {
   const mainView = useScenarioStore((store) => store.mainView);
-  const setMainView = useScenarioStore((store) => store.setMainView);
+
+  const updateTrigger = useUpdateTriggerStore((store) => store.updateTrigger);
+  const onUpdate = useUpdateTriggerStore((store) => store.onUpdate);
+
+  const { handleButtonAction } = useButtonControls();
+
+  if (!mainView) {
+    return null;
+  }
+
+  return (
+    <ViewRenderer
+      view={mainView}
+      updateTrigger={updateTrigger}
+      onViewUpdate={onUpdate}
+      renderAnchoredView={AnchoredViewRenderer}
+      onButtonAction={handleButtonAction}
+    />
+  );
+}
+
+export function App() {
   
   const { loading: fileSystemLoading } = useFileSystem();
   const { loading: counterLoading } = useLoadingStore();
-
-  const { handleButtonAction } = useButtonControls();
 
   return (
     <div className={styles.container}>
@@ -36,12 +58,7 @@ export function App() {
 
       <main className={styles.main} style={{ padding: 0, overflow: 'hidden' }}>
         <StatusBar />
-        {mainView && <ViewRenderer
-          view={mainView}
-          setView={setMainView!}
-          renderAnchoredView={AnchoredViewRenderer}
-          onButtonAction={handleButtonAction}
-        />}
+        <MainViewWrapper />
       </main>
 
       {/* Loading Spinner Overlay */}

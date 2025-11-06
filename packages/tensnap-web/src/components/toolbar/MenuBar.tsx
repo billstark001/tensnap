@@ -3,6 +3,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useFileOperations } from './FileOperationsProvider';
 import * as styles from '@/styles/toolbar.css';
 import { useSettingsStore } from '@/store/settings';
+import clsx from 'clsx';
 
 export interface MenuBarProps {
   className?: string;
@@ -22,7 +23,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
   return (
     <>
-      <div className={`${styles.menuBar} ${className || ''}`}>
+      <div className={clsx(styles.menuBar, className)}>
         {/* File 菜单 */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

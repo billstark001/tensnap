@@ -1,4 +1,4 @@
-import { useState, useCallback, Dispatch, SetStateAction } from 'react';
+import { useCallback, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -17,22 +17,22 @@ import { ContainerViewComponent } from './ContainerViewComponent';
 import { nestedOverlapCollisionDetection } from './collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
 import { useCallbackRef } from '@/utils/react';
-import { findAndAddView, findAndDeleteView, findAndUpdateView, getViewSizeByChildren } from './utils/container';
+import { findAndAddView, findAndDeleteView } from './utils/container';
 import { GuidePointSet } from '@/utils/layout/snap';
+import { ViewProps } from './common';
 
-export type ViewRendererProps = {
-  view: ContainerView;
-  setView: Dispatch<SetStateAction<ContainerView>>;
+export type ViewRendererProps = ViewProps<ContainerView> & {
 } & Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
 
 export default function ViewRenderer({
   view: rootView,
-  setView: _setRootView,
+  updateTrigger,
+  onViewUpdate: _onViewUpdate,
   onButtonAction: _onButtonAction,
   renderAnchoredView: _renderAnchoredView,
 }: ViewRendererProps) {
 
-  const setRootView = useCallbackRef(_setRootView ?? (() => void 0));
+  const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedView, setDraggedView] = useState<AnyView | null>(null);
@@ -52,31 +52,7 @@ export default function ViewRenderer({
     useSensor(KeyboardSensor)
   );
 
-  const handleUpdate = useCallback((viewId: string, updates: Partial<AnyView>) => {
-    setRootView((prev) => {
-      const cur = findAndUpdateView(prev, viewId, updates);
-      Object.assign(cur, getViewSizeByChildren(cur, 64, 600));
-      return cur;
-    });
-  }, []);
-
-  const handleDelete = useCallback((viewId: string) => {
-    setRootView((prev) => {
-      const cur = findAndDeleteView(prev, viewId);
-      Object.assign(cur, getViewSizeByChildren(cur, 64, 600));
-      return cur;
-    });
-  }, []);
-
-  const handleAddView = useCallback((parentId: string, newView: AnyView) => {
-    setRootView((prev) => {
-      const cur = findAndAddView(prev, parentId, newView);
-      Object.assign(cur, getViewSizeByChildren(cur, 64, 600));
-      return cur;
-    });
-  }, []);
-
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     // const {
     //   view: draggedView,
@@ -88,9 +64,9 @@ export default function ViewRenderer({
     if (view) {
       setDraggedView(view);
     }
-  };
+  }, [setActiveId, setDraggedView]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over || !active.data.current?.view) {
@@ -123,46 +99,36 @@ export default function ViewRenderer({
       height: draggedView.height,
     }
 
+    // Update position with snapping
+    draggedView.left = Math.max(0, newState.x);
+    draggedView.top = Math.max(0, newState.y);
+
     if (targetContainerId && sourceParentId !== targetContainerId) {
       // Move view to new container
-      setRootView((prev) => {
-        let updated = prev;
-        // Remove from source
-        if (sourceParentId) {
-          updated = findAndDeleteView(updated, draggedView.id);
-        } else {
-          updated = {
-            ...updated,
-            views: updated.views.filter(v => v.id !== draggedView.id)
-          };
-        }
-        // Add to target with snapped position
-        updated = findAndAddView(updated, targetContainerId, {
-          ...draggedView,
-          left: Math.max(0, newState.x),
-          top: Math.max(0, newState.y),
-        });
-        return updated;
-      });
+      // Remove from source
+      // If source is root, just filter it out
+      findAndDeleteView(rootView, draggedView.id, !!sourceParentId);
+      
+      // Add to target with snapped position
+      draggedView.left = Math.max(0, newState.x);
+      draggedView.top = Math.max(0, newState.y);
+      findAndAddView(rootView, targetContainerId, draggedView);
+
+      onViewUpdate(rootView.id, rootView);
+      
     } else if (!targetContainerId && sourceParentId) {
       // Move view out of container to root
-      setRootView((prev) => {
-        const updated = findAndDeleteView(prev, draggedView.id);
-        return {
-          ...updated,
-          views: [...updated.views, {
-            ...draggedView,
-            left: Math.max(0, newState.x),
-            top: Math.max(0, newState.y),
-          }]
-        };
-      });
+      findAndDeleteView(rootView, draggedView.id, true);
+
+      // Add to root with snapped position
+      draggedView.left = Math.max(0, newState.x);
+      draggedView.top = Math.max(0, newState.y);
+      rootView.views.push(draggedView);
+
+      onViewUpdate(rootView.id, rootView);
     } else {
       // Just update position with snapping
-      handleUpdate(draggedView.id, {
-        left: Math.max(0, newState.x),
-        top: Math.max(0, newState.y),
-      });
+      onViewUpdate(draggedView.id, draggedView);
     }
 
     setGuides({
@@ -171,7 +137,7 @@ export default function ViewRenderer({
     });
     setActiveId(null);
     setDraggedView(null);
-  };
+  }, [setGuides, setActiveId, setDraggedView]);
 
   return (
     <ViewContext.Provider value={{
@@ -184,7 +150,6 @@ export default function ViewRenderer({
         sensors={sensors}
         collisionDetection={nestedOverlapCollisionDetection}
         onDragStart={handleDragStart}
-        // onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
         modifiers={[restrictToWindowEdges]}
       >
@@ -192,14 +157,9 @@ export default function ViewRenderer({
           <div className={styles.canvas} style={{ width: rootView.width, height: rootView.height }}>
             <ContainerViewComponent
               view={rootView}
+              updateTrigger={updateTrigger}
+              onViewUpdate={onViewUpdate}
               isRootView
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-              onAddView={handleAddView}
-              onToggleExpand={(e) => {
-                e.stopPropagation();
-                handleUpdate(rootView.id, { expanded: !rootView.expanded });
-              }}
             />
             {/* {activeId && <AlignmentGuides guides={findAlignmentGuides(getAllViews(rootView), activeId)} active={{}} />} */}
           </div>
@@ -214,9 +174,6 @@ export default function ViewRenderer({
                   left: 0,
                   top: 0,
                 }}
-                onUpdate={() => { }}
-                onDelete={() => { }}
-                onAddView={() => { }}
                 siblings={[]}
                 isOverlay
               />

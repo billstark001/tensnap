@@ -3,7 +3,7 @@ import * as styles from './styles.css';
 import { useViewContext } from "./useViewContext";
 
 export type ButtonViewProps = {
-  view: ButtonView
+  view: ButtonView;
 };
 
 export const ButtonViewComponent = ({ view }: ButtonViewProps) => {

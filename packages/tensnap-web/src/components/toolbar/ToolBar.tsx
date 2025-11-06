@@ -21,6 +21,7 @@ import * as styles from '@/styles/toolbar.css';
 import { useButtonControls } from '../useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
 import { useFileOperations } from './FileOperationsProvider';
+import clsx from 'clsx';
 
 export interface ToolBarProps {
   className?: string;
@@ -70,7 +71,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className }) => {
 
   return (
     <Tooltip.Provider>
-      <div className={`${styles.toolGroupOuter} ${className || ''}`}>
+      <div className={clsx(styles.toolGroupOuter, className)}>
         {/* 文件操作工具组 */}
         <div className={styles.toolGroup}>
           <ToolButton

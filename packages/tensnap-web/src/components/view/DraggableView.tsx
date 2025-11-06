@@ -8,27 +8,26 @@ import { ContainerViewComponent } from './ContainerViewComponent';
 import * as styles from './styles.css';
 import { ButtonViewComponent } from './ButtonViewComponent';
 import { AnchoredViewComponent } from './AnchoredViewComponent';
+import { ViewProps } from './common';
+import { findAndDeleteView } from './utils/container';
+import clsx from 'clsx';
 
-interface DraggableViewProps {
-  view: AnyView;
+interface DraggableViewProps extends ViewProps<AnyView> {
   relativeLeft?: number,
   relativeTop?: number,
   parentId?: string;
-  onUpdate: (viewId: string, updates: Partial<AnyView>) => void;
-  onDelete: (viewId: string) => void;
-  onAddView: (parentId: string, newView: AnyView) => void;
   siblings: AnyView[];
   isOverlay?: boolean;
 }
 
 export const DraggableView: React.FC<DraggableViewProps> = ({
   view,
+  parentView,
+  updateTrigger,
+  onViewUpdate,
   relativeLeft = 0,
   relativeTop = 0,
   parentId,
-  onUpdate,
-  onDelete,
-  onAddView,
   siblings,
   isOverlay = false,
 }) => {
@@ -46,7 +45,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
   };
 
-  const viewSizeOnResizeStart = useRef<{ w: number, h: number}>(undefined);
+  const viewSizeOnResizeStart = useRef<{ w: number, h: number }>(undefined);
 
   const handleResizeStart = useCallback(() => {
     viewSizeOnResizeStart.current = {
@@ -64,76 +63,75 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     const newWidth = Math.max(50, w + deltaWidth);
     const newHeight = Math.max(50, h + deltaHeight);
 
-    onUpdate(view.id, {
-      width: newWidth,
-      height: newHeight,
-    });
-    
-  }, [view, onUpdate, viewSizeOnResizeStart]);
+    view.width = newWidth;
+    view.height = newHeight;
+    onViewUpdate?.(view.id, view);
 
-  const handleToggleExpand = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onUpdate(view.id, { expanded: !view.expanded });
-  };
+  }, [view, onViewUpdate, viewSizeOnResizeStart]);
+
+  const handleDelete = useCallback((id: string) => {
+    if (!parentView) return;
+    findAndDeleteView(parentView, id);
+    onViewUpdate?.(parentView.id, parentView);
+  }, [parentView, onViewUpdate]);
 
   const renderViewContent = () => {
-    
-
 
     switch (view.type) {
       case 'button':
         return <ButtonViewComponent view={view as ButtonView} />;
-
-      case 'environment':
-      case 'parameter':
-      case 'chart':
-        return <AnchoredViewComponent view={view as AnchoredView} />;
 
       case 'container':
         const containerView = view as ContainerView;
         return (
           <ContainerViewComponent
             view={containerView}
+            parentView={view}
+            updateTrigger={updateTrigger}
+            onViewUpdate={onViewUpdate}
             relativeLeft={relativeLeft}
             relativeTop={relativeTop}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-            onAddView={onAddView}
-            onToggleExpand={handleToggleExpand}
             isOverlay={isOverlay || isDragging}
           />
         );
+
+      case 'environment':
+      case 'parameter':
+      case 'chart':
+        return <AnchoredViewComponent view={view as AnchoredView} />;
 
       default:
         return null;
     }
   };
 
-  const className = `${styles.draggableView} ${isDragging && !isOverlay ? styles.draggingView : ''}`;
+  const body = (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={clsx(styles.draggableView, isDragging && !isOverlay && styles.draggingView)}
+    >
+      <div
+        {...listeners}
+        {...attributes}
+        className={styles.dragHandle}
+      >
+        <Move className={styles.dragIcon} />
+      </div>
+      {!isOverlay && renderViewContent()}
+      {!isDragging && !isOverlay && <ResizeHandles
+        onResizeStart={handleResizeStart}
+        onResize={handleResize}
+        onResizeEnd={handleResize}
+      />}
+    </div>
+  );
 
   return (
     <>
       <ContextMenu.Root>
         <ContextMenu.Trigger asChild>
-          <div
-            ref={setNodeRef}
-            style={style}
-            className={className}
-          >
-            <div
-              {...listeners}
-              {...attributes}
-              className={styles.dragHandle}
-            >
-              <Move className={styles.dragIcon} />
-            </div>
-            {renderViewContent()}
-            {!isDragging && !isOverlay && <ResizeHandles 
-              onResizeStart={handleResizeStart}
-              onResize={handleResize} 
-              onResizeEnd={handleResize}
-            />}
-          </div>
+          {body}
         </ContextMenu.Trigger>
 
         <ContextMenu.Portal>
@@ -147,7 +145,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
             </ContextMenu.Item>
             <ContextMenu.Item
               className={styles.contextMenuItemDanger}
-              onSelect={() => onDelete(view.id)}
+              onSelect={() => handleDelete(view.id)}
             >
               <Trash2 style={{ width: '16px', height: '16px', marginRight: '8px' }} />
               删除
