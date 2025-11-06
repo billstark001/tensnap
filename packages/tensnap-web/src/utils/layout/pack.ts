@@ -20,6 +20,7 @@ export interface PackingOptions {
   groupByType?: boolean;
   preservePosition?: boolean;
   padding?: number;
+  paddingBorder?: number | [number, number];
   inPlace?: boolean;
 }
 
@@ -84,14 +85,14 @@ export class Shelf {
 
 // #region Helper Functions
 
-function calculateSuggestedDimensions(rectangles: Rectangle[], targetAspectRatio: number, padding: number): { width: number; height: number } {
+function calculateSuggestedDimensions(rectangles: Rectangle[], targetAspectRatio: number | undefined, padding: number): { width: number; height: number } {
   if (rectangles.length === 0) return { width: 80, height: 60 };
 
   const totalArea = rectangles.reduce((sum, rect) => sum + rect.width * rect.height, 0);
   const adjustedArea = totalArea * 1.2; // Add 20% for padding and spacing
 
-  const height = Math.sqrt(adjustedArea / targetAspectRatio);
-  const width = height * targetAspectRatio;
+  const height = targetAspectRatio ? Math.sqrt(adjustedArea / targetAspectRatio) : 60;
+  const width = targetAspectRatio ? height * targetAspectRatio : 80;
 
   const maxRectWidth = Math.max(...rectangles.map(r => r.width));
   const maxRectHeight = Math.max(...rectangles.map(r => r.height));
@@ -103,9 +104,7 @@ function calculateSuggestedDimensions(rectangles: Rectangle[], targetAspectRatio
 }
 
 function normalizeOptions(rectangles: Rectangle[], options: PackingOptions) {
-  const targetAspectRatio = options.targetAspectRatio ||
-    (options.containerWidth && options.containerHeight ?
-      options.containerWidth / options.containerHeight : 16 / 9);
+  const targetAspectRatio = options.targetAspectRatio;
 
   let containerWidth = options.containerWidth;
   let containerHeight = options.containerHeight;
@@ -116,6 +115,10 @@ function normalizeOptions(rectangles: Rectangle[], options: PackingOptions) {
     containerHeight = containerHeight || suggested.height;
   }
 
+  const [paddingBorderY, paddingBorderX] = Array.isArray(options.paddingBorder) ?
+    options.paddingBorder :
+    [options.paddingBorder || 0, options.paddingBorder || 0];
+
   return {
     containerWidth,
     containerHeight,
@@ -123,9 +126,13 @@ function normalizeOptions(rectangles: Rectangle[], options: PackingOptions) {
     groupByType: options.groupByType ?? true,
     preservePosition: options.preservePosition ?? false,
     padding: options.padding || 10,
+    paddingBorderX,
+    paddingBorderY,
     inPlace: options.inPlace ?? false
   };
 }
+
+type NormalizedPackingOptions = ReturnType<typeof normalizeOptions>;
 
 export function groupRectanglesByType(rectangles: Rectangle[]): Rectangle[] {
   const typeGroups = new Map<string, Rectangle[]>();
@@ -155,7 +162,7 @@ function getNextShelfY(shelves: Shelf[], padding: number): number {
 
 // #region Core Packing Functions
 
-function placeRectangle(rect: Rectangle, shelves: Shelf[], options: ReturnType<typeof normalizeOptions>): PlacedRectangle {
+function placeRectangle(rect: Rectangle, shelves: Shelf[], options: NormalizedPackingOptions): PlacedRectangle {
   for (const shelf of shelves) {
     if (shelf.canFit(rect.width, options.padding)) {
       return shelf.place(rect, options.padding, options.inPlace);
@@ -167,7 +174,7 @@ function placeRectangle(rect: Rectangle, shelves: Shelf[], options: ReturnType<t
   return newShelf.place(rect, options.padding, options.inPlace);
 }
 
-function placeRectangleNearOriginalPosition(rect: PlacedRectangle, shelves: Shelf[], options: ReturnType<typeof normalizeOptions>): PlacedRectangle {
+function placeRectangleNearOriginalPosition(rect: PlacedRectangle, shelves: Shelf[], options: NormalizedPackingOptions): PlacedRectangle {
   let bestShelf: Shelf | null = null;
   let minDistanceY = Infinity;
 
@@ -190,8 +197,8 @@ function placeRectangleNearOriginalPosition(rect: PlacedRectangle, shelves: Shel
   return newShelf.placeAtPreferredX(rect, rect.left, options.padding, options.inPlace);
 }
 
-export function calculateBounds(rectangles: PlacedRectangle[]): { width: number; height: number } {
-  if (rectangles.length === 0) return { width: 0, height: 0 };
+export function calculateBounds(rectangles: PlacedRectangle[], paddingBorderX: number = 0, paddingBorderY: number = 0): { width: number; height: number } {
+  if (rectangles.length === 0) return { width: paddingBorderX, height: paddingBorderY };
 
   let maxX = 0;
   let maxY = 0;
@@ -201,7 +208,7 @@ export function calculateBounds(rectangles: PlacedRectangle[]): { width: number;
     maxY = Math.max(maxY, rect.top + rect.height);
   }
 
-  return { width: maxX, height: maxY };
+  return { width: maxX + paddingBorderX, height: maxY + paddingBorderY };
 }
 
 // #endregion
@@ -226,7 +233,14 @@ export function initialPack(rectangles: Rectangle[], options: PackingOptions): P
     result.push(placeRectangle(rect, shelves, normalizedOptions));
   }
 
-  const actualBounds = calculateBounds(result);
+  if (normalizedOptions.paddingBorderX || normalizedOptions.paddingBorderY) {
+    for (const rect of result) {
+      rect.left += normalizedOptions.paddingBorderX;
+      rect.top += normalizedOptions.paddingBorderY;
+    }
+  }
+
+  const actualBounds = calculateBounds(result, normalizedOptions.paddingBorderX, normalizedOptions.paddingBorderY);
 
   return {
     rectangles: result,
@@ -268,8 +282,15 @@ export function adjustLayout(rectangles: PlacedRectangle[], options: PackingOpti
       result.push(placeRectangleNearOriginalPosition(rect, shelves, normalizedOptions));
     }
   }
+  
+  if (normalizedOptions.paddingBorderX || normalizedOptions.paddingBorderY) {
+    for (const rect of result) {
+      rect.left += normalizedOptions.paddingBorderX;
+      rect.top += normalizedOptions.paddingBorderY;
+    }
+  }
 
-  const actualBounds = calculateBounds(result);
+  const actualBounds = calculateBounds(result, normalizedOptions.paddingBorderX, normalizedOptions.paddingBorderY);
 
   return {
     rectangles: result,

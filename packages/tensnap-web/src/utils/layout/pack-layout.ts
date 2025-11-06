@@ -1,17 +1,20 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
 import { Parameter, ActionParameter, NumberParameter, EnumParameter, EnvironmentId, EnvironmentType, BooleanParameter, StringParameter } from '@/types/model';
 import { adjustLayout, initialPack } from './pack';
+import { viewConstants } from '@/components/view/constants';
 
-const SIDEBAR_WIDTH = 300;
-const HEADER_HEIGHT = 60;
+const ENVIRONMENT_GRID_WIDTH = 16;
 const ENVIRONMENT_CARD_WIDTH = 600;
 const ENVIRONMENT_CARD_HEIGHT = 600;
-const PARAMETER_CARD_WIDTH = 280;
-const PARAMETER_CARD_HEIGHT = 80;
-const BUTTON_HEIGHT = 40;
+
 const CHART_CARD_WIDTH = 500;
 const CHART_CARD_HEIGHT = 400;
-const MARGIN = 20;
+
+const PADDING = 10;
+const WINDOW_X_DELTA = viewConstants.windowBorderWidth * 2;
+const WINDOW_Y_DELTA = viewConstants.windowBorderWidth + viewConstants.windowHeaderHeight;
+
+const PARAMETER_CARD_HEIGHT = 40 + WINDOW_Y_DELTA;
 
 export const preservedViewIds = Object.freeze({
   buttonsContainer: 'buttons-container',
@@ -24,10 +27,12 @@ export interface LayoutOptions {
   preserveExisting?: boolean;
 }
 
-type ObjectWithEnvironmentMetadata = { 
+type ObjectWithEnvironmentMetadata = {
   id: EnvironmentId;
   type: EnvironmentType;
   label: string;
+  width?: number;
+  height?: number;
 };
 
 type ObjectWithChartMetadata = {
@@ -39,7 +44,6 @@ type ObjectWithChartMetadata = {
 
 export function createDefaultRootLayout(
   views?: AnyView[],
-  contentHeight = 800,
 ): ContainerView {
   views ??= [];
   return {
@@ -47,8 +51,8 @@ export function createDefaultRootLayout(
     type: 'container',
     left: 0,
     top: 0,
-    width: Math.max(1200, SIDEBAR_WIDTH + 2 * (ENVIRONMENT_CARD_WIDTH + MARGIN) + MARGIN),
-    height: Math.max(800, contentHeight),
+    width: 1200,
+    height: 800,
     expanded: true,
     data: {
       title: 'TenSnap Visualization',
@@ -89,8 +93,8 @@ function createButtonViews(parameters: Parameter[]): ButtonView[] {
     type: 'button',
     left: 0,
     top: 0,
-    width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
-    height: BUTTON_HEIGHT,
+    width: 200,
+    height: 50,
     expanded: true,
     data: {
       id: param.id,
@@ -108,7 +112,7 @@ function createParameterViews(parameters: Parameter[]): AnchoredView[] {
     type: 'parameter',
     left: 0,
     top: 0,
-    width: PARAMETER_CARD_WIDTH - 2 * MARGIN,
+    width: 240,
     height: PARAMETER_CARD_HEIGHT,
     expanded: true,
     data: {
@@ -128,8 +132,8 @@ function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): 
     type: 'environment',
     left: 0,
     top: 0,
-    width: ENVIRONMENT_CARD_WIDTH,
-    height: ENVIRONMENT_CARD_HEIGHT,
+    width: (env.width ? env.width * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_WIDTH) + WINDOW_X_DELTA,
+    height: (env.height ? env.height * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_HEIGHT) + WINDOW_Y_DELTA,
     expanded: true,
     data: {
       id: env.id.toString(),
@@ -282,8 +286,7 @@ export function createAutoLayout(
       preservedViewIds.buttonsContainer,
       'Buttons',
       0,
-      HEADER_HEIGHT,
-      SIDEBAR_WIDTH,
+      10, 10
     );
     currentView.views.push(buttonsContainer);
   }
@@ -292,8 +295,7 @@ export function createAutoLayout(
       preservedViewIds.parametersContainer,
       'Parameters',
       0,
-      HEADER_HEIGHT + 100, // for layout hint
-      SIDEBAR_WIDTH,
+      10, 10
     );
     currentView.views.push(parametersContainer);
   }
@@ -317,10 +319,11 @@ export function createAutoLayout(
     buttonsContainer.views.push(...newButtonViews);
     const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(buttonsContainer.views, {
       inPlace: true,
-      targetAspectRatio: 0.1,
+      padding: PADDING,
+      paddingBorder: PADDING,
     });
-    buttonsContainer.width = suggestedContainerWidth;
-    buttonsContainer.height = suggestedContainerHeight;
+    buttonsContainer.width = suggestedContainerWidth + WINDOW_X_DELTA;
+    buttonsContainer.height = suggestedContainerHeight + WINDOW_Y_DELTA;
     rootViewNeedsAdjust = true;
   }
 
@@ -331,10 +334,11 @@ export function createAutoLayout(
     parametersContainer.views.push(...newParameterViews);
     const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(parametersContainer.views, {
       inPlace: true,
-      targetAspectRatio: 0.1,
+      padding: PADDING,
+      paddingBorder: PADDING,
     });
-    parametersContainer.width = suggestedContainerWidth;
-    parametersContainer.height = suggestedContainerHeight;
+    parametersContainer.width = suggestedContainerWidth + WINDOW_X_DELTA;
+    parametersContainer.height = suggestedContainerHeight + WINDOW_Y_DELTA;
     rootViewNeedsAdjust = true;
   }
 
@@ -358,11 +362,15 @@ export function createAutoLayout(
     initialPack(currentView.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
+      padding: PADDING,
+      paddingBorder: PADDING,
     });
   } else if (rootViewNeedsAdjust) {
     const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(currentView.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
+      padding: PADDING,
+      paddingBorder: PADDING,
     });
     currentView.width = suggestedContainerWidth;
     currentView.height = suggestedContainerHeight;

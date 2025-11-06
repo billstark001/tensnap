@@ -51,6 +51,14 @@ export interface ScenarioStore {
   updateMainViewLayout: () => void;
 }
 
+const getEnvironmentMetadata = (env: InstantiatedEnvironment) => ({
+  id: env.id,
+  type: env.type,
+  label: env.label,
+  width: (env.props as any)?.width,
+  height: (env.props as any)?.height,
+});
+
 export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   // Initial state
   connected: false,
@@ -172,7 +180,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     // Auto-update layout when data changes with incremental updates
     if (updateLayout) {
       const { environments, parameters, charts, mainView } = get();
-      const environmentsArray = Array.from(environments.values()).map(({ id, type, label }) => ({ id, type, label }));
+      const environmentsArray = Array.from(environments.values()).map(getEnvironmentMetadata);
       set({
         mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
           currentView: mainView,
@@ -277,7 +285,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
 
   updateMainViewLayout: () => {
     const { environments, parameters, charts, mainView } = get();
-    const environmentsArray = Array.from(environments.values()).map(({ id, type, label }) => ({ id, type, label }));
+    const environmentsArray = Array.from(environments.values()).map(getEnvironmentMetadata);
     set({
       mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
         currentView: mainView,

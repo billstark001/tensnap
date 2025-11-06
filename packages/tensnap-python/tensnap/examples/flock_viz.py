@@ -23,7 +23,7 @@ model = FlockSimulation(config)
 grid = GridEnvironmentBinder(
     id="main",
     environment=model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True),
+    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True, size=True),
 )
 
 

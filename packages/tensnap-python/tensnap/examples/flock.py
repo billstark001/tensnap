@@ -23,6 +23,7 @@ class FlockConfig:
 class Bird:
     """A single bird agent in the flock"""
 
+    size = 5.0
     icon = "arrow"
     color = "#3498DB"
 
