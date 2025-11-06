@@ -107,9 +107,11 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
   const setCanvasSize = useCallback((width: number, height: number) => {
     const shapeCache = calculateShapes(envRef.current, width, height);
     shapeCacheRef.current = shapeCache;
-    const { canvasWidth, canvasHeight } = shapeCache;
+    const { canvasWidth, canvasHeight,  } = shapeCache;
     if (leaferRef.current) {
-      leaferRef.current.set({ width: canvasWidth, height: canvasHeight });
+      const x = (width - canvasWidth) / 2;
+      const y = (height - canvasHeight) / 2;
+      leaferRef.current.set({ width: canvasWidth + x, height: canvasHeight + y, x, y });
     }
     if (layersRef.current?.bg) {
       layersRef.current.bg.set({ width: canvasWidth, height: canvasHeight });
@@ -299,7 +301,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
 
   return (
     <div className={styles.container}>
-      <div ref={containerRef} className={styles.canvas} />
+      <div ref={containerRef} className={styles.canvasContainer} />
 
       <AgentDetailsDialog agentType='grid' agent={selectedAgent} onClose={() => setSelectedAgent(null)} />
 

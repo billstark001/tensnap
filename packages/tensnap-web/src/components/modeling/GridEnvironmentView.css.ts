@@ -8,7 +8,7 @@ export const container = style({
   overflow: 'auto',
 });
 
-export const canvas = style({
+export const canvasContainer = style({
   cursor: 'crosshair',
   width: '100%',
   height: '100%',
