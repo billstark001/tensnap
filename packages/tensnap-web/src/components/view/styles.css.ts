@@ -1,5 +1,5 @@
 import { style, styleVariants, keyframes } from '@vanilla-extract/css';
-import { TOP_DELTA } from './constants';
+import { viewConstants } from './constants';
 
 const fadeIn = keyframes({
   from: { opacity: 0 },
@@ -11,7 +11,7 @@ export const container = style({
   minHeight: '100%',
   backgroundColor: '#f3f4f6',
   overflow: 'auto',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: '#1a1a1a',
@@ -25,7 +25,7 @@ export const canvas = style({
   borderRadius: '8px',
   boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
   overflow: 'hidden',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: '#2a2a2a',
@@ -60,7 +60,9 @@ export const dragHandle = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-    zIndex: 10,
+  zIndex: 10,
+  borderTopLeftRadius: `${viewConstants.windowBorderRadius}px`,
+  borderTopRightRadius: `${viewConstants.windowBorderRadius}px`,
   ':hover': {
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
@@ -156,34 +158,40 @@ export const buttonView = style({
 
 export const windowView = style({
   backgroundColor: 'white',
-  border: '2px solid #e5e7eb',
-  borderRadius: '8px',
+  border: `${viewConstants.windowBorderWidth}px solid #d6d8deff`,
+  borderRadius: `${viewConstants.windowBorderRadius}px`,
+  boxSizing: 'border-box',
   boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
   height: '100%',
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: '#2a2a2a',
       borderColor: 'rgba(255, 255, 255, 0.2)',
       boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.3)',
     },
+
+    [`${draggingView} &`]: {
+      border: `${viewConstants.windowBorderWidth}px dashed #3b82f6`,
+    }
   },
 });
 
 export const windowViewHeader = style({
   backgroundColor: '#f9fafb',
-  padding: '8px 12px',
+  padding: '6px 8px',
   borderBottom: '1px solid #e5e7eb',
-  borderTopLeftRadius: '6px',
-  borderTopRightRadius: '6px',
-  height: `${TOP_DELTA}px`,
+  borderTopLeftRadius: `${viewConstants.windowBorderRadius - viewConstants.windowBorderWidth}px`,
+  borderTopRightRadius: `${viewConstants.windowBorderRadius - viewConstants.windowBorderWidth}px`,
+  height: `${viewConstants.windowHeaderHeight - viewConstants.windowBorderWidth * 2}px`,
+  boxSizing: 'border-box',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: '#3a3a3a',
@@ -280,6 +288,23 @@ export const contextMenuLabel = style({
   color: '#6b7280',
 });
 
+export const dragOverlayAnchor = style({
+  position: 'absolute',
+  backgroundColor: 'rgba(83, 206, 255, 0.34)',
+  top: 0,
+  left: 0,
+  minWidth: `${viewConstants.dragHandleMinWidth}px`,
+  minHeight: `${viewConstants.dragHandleMinHeight}px`,
+  borderRadius: `${viewConstants.windowBorderRadius}px`,
+});
+
 export const dragOverlay = style({
   opacity: 0.8,
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+  boxSizing: 'border-box',
+  border: `${viewConstants.windowBorderWidth}px dashed #3b83f694`,
+  borderRadius: `${viewConstants.windowBorderRadius}px`,
 });

@@ -12,7 +12,6 @@ import {
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import * as styles from './styles.css';
 import { ContainerView, AnyView } from '@/types/ui';
-import { DraggableView } from './DraggableView';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import { nestedOverlapCollisionDetection } from './collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
@@ -20,9 +19,17 @@ import { useCallbackRef } from '@/utils/react';
 import { findAndAddView, findAndDeleteView } from './utils/container';
 import { GuidePointSet } from '@/utils/layout/snap';
 import { ViewProps } from './common';
+import { viewConstants } from './constants';
 
 export type ViewRendererProps = ViewProps<ContainerView> & {
 } & Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
+
+type DragContent = {
+  id: string;
+  view: AnyView;
+  mouseX: number;
+  mouseY: number;
+}
 
 export default function ViewRenderer({
   view: rootView,
@@ -34,8 +41,8 @@ export default function ViewRenderer({
 
   const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
 
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [draggedView, setDraggedView] = useState<AnyView | null>(null);
+  const [dragContent, setDragContent] = useState<DragContent | null>(null);
+
   const [guides, setGuides] = useState<GuidePointSet>({
     vertical: [], horizontal: []
   });
@@ -53,18 +60,28 @@ export default function ViewRenderer({
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
     // const {
     //   view: draggedView,
     //   siblings: draggedSiblings,
     // } = event.active.data.current ?? {};
     // const guides = findAlignmentGuides(draggedSiblings, draggedView.id);
     // vc.setGuides(guides);
+    const { offsetX = 0, offsetY = 0 } = event.activatorEvent as PointerEvent;
+    const mouseX = offsetX / window.devicePixelRatio;
+    const mouseY = offsetY / window.devicePixelRatio;
     const view = event.active.data.current?.view;
-    if (view) {
-      setDraggedView(view);
+    const id = event.active.id as string;
+    if (!view || !id) {
+      return;
     }
-  }, [setActiveId, setDraggedView]);
+    setDragContent({
+      id,
+      view,
+      mouseX,
+      mouseY,
+    });
+
+  }, [setDragContent]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -74,8 +91,7 @@ export default function ViewRenderer({
         horizontal: [],
         vertical: [],
       });
-      setActiveId(null);
-      setDraggedView(null);
+      setDragContent(null);
       return;
     }
 
@@ -107,15 +123,18 @@ export default function ViewRenderer({
       // Move view to new container
       // Remove from source
       // If source is root, just filter it out
-      findAndDeleteView(rootView, draggedView.id, !!sourceParentId);
-      
+      const [container, index] = findAndDeleteView(rootView, draggedView.id, !!sourceParentId) ?? [];
+
       // Add to target with snapped position
       draggedView.left = Math.max(0, newState.x);
       draggedView.top = Math.max(0, newState.y);
-      findAndAddView(rootView, targetContainerId, draggedView);
+      const success = findAndAddView(rootView, targetContainerId, draggedView);
+      if (!success && container && index !== undefined) {
+        container.views.splice(index, 0, draggedView);
+      }
 
       onViewUpdate(rootView.id, rootView);
-      
+
     } else if (!targetContainerId && sourceParentId) {
       // Move view out of container to root
       findAndDeleteView(rootView, draggedView.id, true);
@@ -135,9 +154,8 @@ export default function ViewRenderer({
       horizontal: [],
       vertical: [],
     });
-    setActiveId(null);
-    setDraggedView(null);
-  }, [setGuides, setActiveId, setDraggedView]);
+    setDragContent(null);
+  }, [rootView, setGuides, setDragContent]);
 
   return (
     <ViewContext.Provider value={{
@@ -166,17 +184,15 @@ export default function ViewRenderer({
         </div>
 
         <DragOverlay>
-          {activeId && draggedView ? (
-            <div className={styles.dragOverlay}>
-              <DraggableView
-                view={{
-                  ...draggedView,
-                  left: 0,
-                  top: 0,
-                }}
-                siblings={[]}
-                isOverlay
-              />
+          {dragContent ? (
+            <div className={styles.dragOverlayAnchor} style={{
+              width: dragContent.mouseX + viewConstants.dragHandleContentDelta,
+              height: dragContent.mouseY + viewConstants.dragHandleContentDelta,
+            }}>
+              <div className={styles.dragOverlay} style={{
+                width: dragContent.view.width,
+                height: dragContent.view.height,
+              }} />
             </div>
           ) : null}
         </DragOverlay>

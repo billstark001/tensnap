@@ -45,6 +45,7 @@ const getColorForId = (id: string): string => {
 interface ChartViewProps {
   chartGroup: ChartGroup;
   updateInterval?: number; // 最小更新间隔，单位毫秒，默认500ms
+  updateNowLengthThreshold?: number; // 立即更新的长度阈值，默认0
   maxDataPoints?: number; // 最大数据点数，默认无限制
 }
 
@@ -52,7 +53,8 @@ export function ChartView(props: ChartViewProps) {
   // 缓存处理后的数据和相关状态
   const { 
     chartGroup, 
-    updateInterval = 500, 
+    updateInterval = 400, 
+    updateNowLengthThreshold = 4,
     maxDataPoints = undefined,
   } = props;
   const {
@@ -76,7 +78,7 @@ export function ChartView(props: ChartViewProps) {
     const now = Date.now();
     const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
 
-    if (timeSinceLastUpdate >= updateInterval) {
+    if (timeSinceLastUpdate >= updateInterval || rawDataRef.current.length <= updateNowLengthThreshold) {
       // 可以立即更新
       setDisplayData(rawDataRef.current.slice(- (maxDataPoints ?? rawDataRef.current.length)));
       lastUpdateTimeRef.current = now;

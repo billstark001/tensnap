@@ -52,3 +52,23 @@ export function useCallbackRef<T extends (...args: any[]) => any>(
 
 
 export type DialogOpenProps = Pick<DialogProps, 'open' | 'onOpenChange'>;
+
+export const throttle = <T extends (...args: any[]) => any>(fn: T, delay: number): T => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastExecTime = 0;
+  
+  return ((...args: any[]) => {
+    const currentTime = Date.now();
+    
+    if (currentTime - lastExecTime > delay) {
+      fn(...args);
+      lastExecTime = currentTime;
+    } else {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        fn(...args);
+        lastExecTime = Date.now();
+      }, delay - (currentTime - lastExecTime));
+    }
+  }) as T;
+};

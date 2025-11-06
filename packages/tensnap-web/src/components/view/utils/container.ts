@@ -34,27 +34,28 @@ export const findAndDeleteView = (
   root: ContainerView,
   viewId: string,
   recursive = true,
-): boolean => {
+): [ContainerView, number] | undefined => {
   const index = root.views.findIndex(view => view.id === viewId);
 
   if (index !== -1) {
     root.views.splice(index, 1);
-    return true;
+    return [root, index];
   }
 
   if (!recursive) {
-    return false;
+    return undefined;
   }
 
   for (const view of root.views) {
     if (view.type === 'container') {
-      if (findAndDeleteView(view as ContainerView, viewId)) {
-        return true;
+      const container = findAndDeleteView(view as ContainerView, viewId);
+      if (container) {
+        return container;
       }
     }
   }
 
-  return false;
+  return undefined;
 };
 
 export const findAndAddView = (

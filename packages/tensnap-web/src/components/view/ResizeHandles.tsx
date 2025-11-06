@@ -36,8 +36,10 @@ export const ResizeHandles: React.FC<ResizeHandlesProps> = ({
   onResize: _onResize,
   onResizeEnd: _onResizeEnd,
 }) => {
-  const isResizing = useRef<string>(undefined);
-  const startPos = useRef<{ x: number, y: number }>(undefined);
+  const isResizing = useRef<string | undefined>(undefined);
+  const startPos = useRef<{ x: number, y: number } | undefined>(undefined);
+  const rafId = useRef<number | undefined>(undefined);
+  const lastUpdateTime = useRef<number>(0);
 
   const onResize = useCallbackRef(_onResize);
   const onResizeEnd = useCallbackRef(_onResizeEnd);
@@ -50,23 +52,43 @@ export const ResizeHandles: React.FC<ResizeHandlesProps> = ({
     onResizeStart(direction);
   };
 
-
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!startPos.current || !isResizing.current) {
       return;
     }
 
-    const { x: lastX, y: lastY } = startPos.current;
-    const {
-      deltaWidth, deltaHeight
-    } = calculateDeltaWidthHeight(isResizing.current, e, lastX, lastY);
+    // 使用 requestAnimationFrame 优化性能
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+    }
 
-    onResize(deltaWidth, deltaHeight, isResizing.current);
-  }, [onResize, startPos, isResizing]);
+    rafId.current = requestAnimationFrame(() => {
+      const currentTime = Date.now();
+      // 限制更新频率，避免过于频繁的计算
+      if (currentTime - lastUpdateTime.current < 16) return;
+
+      lastUpdateTime.current = currentTime;
+
+      if (!startPos.current || !isResizing.current) return;
+
+      const { x: lastX, y: lastY } = startPos.current;
+      const {
+        deltaWidth, deltaHeight
+      } = calculateDeltaWidthHeight(isResizing.current, e, lastX, lastY);
+
+      onResize(deltaWidth, deltaHeight, isResizing.current);
+    });
+  }, [onResize]);
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (!startPos.current || !isResizing.current) {
       return;
+    }
+
+    // 清理 requestAnimationFrame
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = undefined;
     }
 
     const { x: lastX, y: lastY } = startPos.current;
@@ -78,18 +100,22 @@ export const ResizeHandles: React.FC<ResizeHandlesProps> = ({
 
     isResizing.current = undefined;
     startPos.current = undefined;
-  }, [onResizeEnd, startPos, isResizing])
+  }, [onResizeEnd]);
 
   useEffect(() => {
-
-    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
     document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+
+      // 清理 requestAnimationFrame
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+      }
     };
-  }, []);
+  }, [handleMouseMove, handleMouseUp]);
 
   return (
     <>

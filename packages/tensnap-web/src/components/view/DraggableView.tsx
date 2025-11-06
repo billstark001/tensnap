@@ -18,6 +18,7 @@ interface DraggableViewProps extends ViewProps<AnyView> {
   parentId?: string;
   siblings: AnyView[];
   isOverlay?: boolean;
+  isUnderRootView?: boolean;
 }
 
 export const DraggableView: React.FC<DraggableViewProps> = ({
@@ -27,13 +28,12 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
   onViewUpdate,
   relativeLeft = 0,
   relativeTop = 0,
-  parentId,
   siblings,
   isOverlay = false,
 }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: view.id,
-    data: { view, siblings, relativeLeft, relativeTop, parentId },
+    data: { view, siblings, relativeLeft, relativeTop, parentId: parentView?.id },
     disabled: isOverlay,
   });
 
@@ -42,7 +42,6 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     top: `${view.top}px`,
     width: `${view.width}px`,
     height: view.expanded ? `${view.height}px` : 'min-content',
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
   };
 
   const viewSizeOnResizeStart = useRef<{ w: number, h: number }>(undefined);
@@ -63,10 +62,12 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     const newWidth = Math.max(50, w + deltaWidth);
     const newHeight = Math.max(50, h + deltaHeight);
 
-    view.width = newWidth;
-    view.height = newHeight;
-    onViewUpdate?.(view.id, view);
-
+    // 批量更新，避免频繁触发重渲染
+    if (Math.abs(view.width - newWidth) > 1 || Math.abs(view.height - newHeight) > 1) {
+      view.width = newWidth;
+      view.height = newHeight;
+      onViewUpdate?.(view.id, view);
+    }
   }, [view, onViewUpdate, viewSizeOnResizeStart]);
 
   const handleDelete = useCallback((id: string) => {
@@ -118,7 +119,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       >
         <Move className={styles.dragIcon} />
       </div>
-      {!isOverlay && renderViewContent()}
+      {renderViewContent()}
       {!isDragging && !isOverlay && <ResizeHandles
         onResizeStart={handleResizeStart}
         onResize={handleResize}

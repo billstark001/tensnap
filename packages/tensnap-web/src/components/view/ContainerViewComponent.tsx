@@ -6,7 +6,7 @@ import { ContainerView, AnyView, ButtonView, AnchoredView } from '@/types/ui';
 import { generateUniqueId } from '@/utils/common';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
-import { LEFT_DELTA, TOP_DELTA } from './constants';
+import { viewConstants } from './constants';
 import cx from 'clsx';
 import { ViewProps } from './common';
 import { findAndAddView } from './utils/container';
@@ -31,8 +31,8 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     id: `container-${view.id}`,
     data: {
       containerId: view.id,
-      relativeLeft: relativeLeft + view.left + LEFT_DELTA,
-      relativeTop: relativeTop + view.top + TOP_DELTA,
+      relativeLeft: relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta),
+      relativeTop: relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta),
     },
     disabled: isOverlay,
   });
@@ -41,8 +41,8 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     e.stopPropagation();
     const containerRect = (e.currentTarget as HTMLElement).closest(`.${styles.windowViewContent}`)?.getBoundingClientRect();
 
-    const relativeX = containerRect ? e.clientX - containerRect.left : 50;
-    const relativeY = containerRect ? e.clientY - containerRect.top : 50;
+    const relativeX = containerRect ? e.clientX / window.devicePixelRatio - containerRect.left : 50;
+    const relativeY = containerRect ? e.clientY / window.devicePixelRatio - containerRect.top : 50;
 
     // Snap to grid
     const snappedX = Math.max(0, relativeX - 75);
@@ -116,11 +116,12 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
             parentView={view}
             updateTrigger={updateTrigger}
             onViewUpdate={onViewUpdate}
-            relativeLeft={relativeLeft + view.left + LEFT_DELTA}
-            relativeTop={relativeTop + view.top + TOP_DELTA}
+            relativeLeft={relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta)}
+            relativeTop={relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta)}
             parentId={view.id}
             siblings={view.views}
             isOverlay={isOverlay}
+            isUnderRootView={isRootView}
           />
         ))}
       </div>
