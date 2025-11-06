@@ -256,7 +256,7 @@ export class SchellingModel {
         y: agent.y,
         color: this.getAgentColor(agent.type),
         icon: 'circle',
-        size: agent.satisfied ? 12 : 8,
+        size: agent.satisfied ? 10 : 6,
         label: undefined,
       }
     }));
@@ -274,7 +274,7 @@ export class SchellingModel {
         y: agent.y,
         color: this.getAgentColor(agent.type),
         icon: 'circle',
-        size: agent.satisfied ? 12 : 8,
+        size: agent.satisfied ? 10 : 6,
       })),
     };
   }

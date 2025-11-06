@@ -19,7 +19,7 @@ export const container = style({
   },
 });
 
-export const canvas = style({
+export const rootView = style({
   position: 'relative',
   backgroundColor: 'white',
   borderRadius: '8px',
@@ -205,7 +205,7 @@ export const windowViewContent = style({
   flex: 1,
   overflow: 'hidden',
   selectors: {
-    [`${canvas} &`]: {
+    [`${rootView} &`]: {
       height: '100%',
     }
   }

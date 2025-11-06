@@ -2,13 +2,18 @@
 import { style } from '@vanilla-extract/css';
 
 export const container = style({
-  position: 'relative'
+  position: 'relative',
+  width: '100%',
+  height: '100%',
+  overflow: 'auto',
 });
 
 export const canvas = style({
-  border: '1px solid #cccccc',
-  borderRadius: '4px',
-  cursor: 'crosshair'
+  cursor: 'crosshair',
+  width: '100%',
+  height: '100%',
+  minWidth: '200px',
+  minHeight: '200px',
 });
 
 export const contextMenu = style({

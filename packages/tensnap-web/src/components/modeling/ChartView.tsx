@@ -53,8 +53,8 @@ export function ChartView(props: ChartViewProps) {
   // 缓存处理后的数据和相关状态
   const { 
     chartGroup, 
-    updateInterval = 400, 
-    updateNowLengthThreshold = 4,
+    updateInterval = 200, 
+    updateNowLengthThreshold = 8,
     maxDataPoints = undefined,
   } = props;
   const {

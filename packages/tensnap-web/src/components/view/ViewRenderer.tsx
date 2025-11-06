@@ -172,7 +172,7 @@ export default function ViewRenderer({
         modifiers={[restrictToWindowEdges]}
       >
         <div className={styles.container}>
-          <div className={styles.canvas} style={{ width: rootView.width, height: rootView.height }}>
+          <div className={styles.rootView} style={{ width: rootView.width, height: rootView.height }}>
             <ContainerViewComponent
               view={rootView}
               updateTrigger={updateTrigger}

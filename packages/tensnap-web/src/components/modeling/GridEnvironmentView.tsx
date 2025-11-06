@@ -7,13 +7,12 @@ import * as styles from './GridEnvironmentView.css';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
 import { InstantiatedGridEnvironment } from '@/store/scenario-inst';
 import { AgentDetailsDialog } from './AgentDetailsDialog';
+import { throttle } from '@/utils/react';
 
 interface GridEnvironmentViewProps {
   environment: InstantiatedGridEnvironment;
   updateTrigger?: any;
 }
-
-const DISPLAY_SIZE = 600;
 
 const SHAPE_CONFIGS: Record<AgentIcon, (size: number) => any> = {
   arrow: (size) => ({ points: [size, 0, -size / 2, -size / 2, -size / 2, size / 2] }),
@@ -51,36 +50,162 @@ const loadImageAsync = (src: string) => new Promise<HTMLImageElement>((resolve) 
   img.src = src;
 });
 
+type ShapeCache = {
+  envWidth: number;
+  envHeight: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  cellSize: number;
+};
+
+const calculateShapes = (env: { width: number, height: number }, width: number, height: number): ShapeCache => {
+  const cellWidth = width / env.width;
+  const cellHeight = height / env.height;
+  const cellSize = Math.max(Math.min(cellWidth, cellHeight), 4);
+  const canvasWidth = cellSize * env.width;
+  const canvasHeight = cellSize * env.height;
+
+  return {
+    envWidth: env.width,
+    envHeight: env.height,
+    canvasWidth,
+    canvasHeight,
+    cellSize,
+  };
+};
+
+const defaultShapeCache = calculateShapes({ width: 10, height: 10 }, 400, 400);
+
+type AgentShape = {
+  group: Group;
+  shape: UI;
+  icon: AgentIcon;
+  size: number;
+  color: string;
+};
+
 export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironmentViewProps) {
-  const { props: envProps, agents: envAgents } = environment;
+  const { props: envProps, agents: agentsProps } = environment;
+  const envRef = useRef(envProps);
+  useEffect(() => {
+    envRef.current = envProps;
+  }, [envProps]);
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const shapeCacheRef = useRef<ShapeCache>(defaultShapeCache);
   const leaferRef = useRef<ILeafer | null>(null);
   const layersRef = useRef<{ bg?: Rect; grid?: Group; agents?: Group }>({});
-  const agentShapesRef = useRef<Map<string, { group: Group; shape: UI; icon: AgentIcon, size: number, color: string }>>(new Map());
+  const agentShapesRef = useRef<Map<string, AgentShape>>(new Map());
 
   const [selectedAgent, setSelectedAgent] = useState<GridAgent | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-
-  const cellWidth = DISPLAY_SIZE / envProps.width;
-  const cellHeight = DISPLAY_SIZE / envProps.height;
 
   const handleAgentClick = useCallback((agent: GridAgent, e: any) => {
     e.type === PointerEvent.CLICK ? setSelectedAgent(agent) : setContextMenu({ x: e.x, y: e.y });
   }, []);
 
+  const setCanvasSize = useCallback((width: number, height: number) => {
+    const shapeCache = calculateShapes(envRef.current, width, height);
+    shapeCacheRef.current = shapeCache;
+    const { canvasWidth, canvasHeight } = shapeCache;
+    if (leaferRef.current) {
+      leaferRef.current.set({ width: canvasWidth, height: canvasHeight });
+    }
+    if (layersRef.current?.bg) {
+      layersRef.current.bg.set({ width: canvasWidth, height: canvasHeight });
+    }
+    return shapeCache;
+  }, []);
+
+  const updateGridSize = useCallback((env: { width: number; height: number }) => {
+    const gridGroup = layersRef.current.grid;
+    if (!gridGroup) {
+      return;
+    }
+
+    // Clear existing grid lines
+    gridGroup.clear();
+    const { canvasWidth, canvasHeight, cellSize } = shapeCacheRef.current;
+    for (let i = 0; i <= env.width; i++) {
+      gridGroup.add(new Line({ points: [i * cellSize, 0, i * cellSize, canvasHeight], stroke: '#dddddd', strokeWidth: 1 }));
+    }
+    for (let j = 0; j <= env.height; j++) {
+      gridGroup.add(new Line({ points: [0, j * cellSize, canvasWidth, j * cellSize], stroke: '#dddddd', strokeWidth: 1 }));
+    }
+  }, []);
+
+  const updateAgentDisplay = useCallback((agent: GridAgent) => {
+    if (agent.x === undefined || agent.y === undefined) {
+      return;
+    }
+    const { cellSize } = shapeCacheRef.current;
+
+    const agentId = String(agent.id);
+    const icon = agent.icon || 'circle';
+    const size = (agent.size || 10) * (cellSize / 10);
+    const posDiff = (cellSize - size) / 2;
+    const x = agent.x * cellSize + posDiff;
+    const y = agent.y * cellSize + posDiff;
+    const color = agent.color || '#333333';
+    const rotation = agent.heading ? (agent.heading * 180 / Math.PI) : 0;
+
+    let cached = agentShapesRef.current.get(agentId);
+
+    if (cached) {
+      // Update existing
+      cached.group.set({ x, y, rotation });
+      if (cached.icon !== icon || cached.size !== size) {
+        cached.shape.set(SHAPE_CONFIGS[icon]?.(size));
+        cached.icon = icon;
+        cached.size = size;
+      }
+      if (cached.color !== color) {
+        cached.shape.set({ fill: color });
+        cached.color = color;
+      }
+
+      // Update trajectory
+      const oldTrajectory = cached.group.children?.find(child => child instanceof Line);
+      if (oldTrajectory) oldTrajectory.remove();
+
+      const trajectory = createTrajectory(agent.trajectory, cellSize, cellSize, x, y, color);
+      if (trajectory) cached.group.add(trajectory);
+    } else {
+      // Create new
+      const group = new Group({ x, y, rotation });
+      const shape = createShape(icon, size, color);
+
+      shape.on(PointerEvent.CLICK, (e: any) => handleAgentClick(agent, e));
+      shape.on(PointerEvent.MENU, (e: any) => handleAgentClick(agent, e));
+
+      group.add(shape);
+
+      const trajectory = createTrajectory(agent.trajectory, cellSize, cellSize, x, y, color);
+      if (trajectory) {
+        group.add(trajectory);
+      }
+
+      layersRef.current.agents?.add(group);
+      agentShapesRef.current.set(agentId, { group, shape, icon, size: size, color });
+    }
+  }, [handleAgentClick]);
+
   // Initialize Leafer and create layers
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const shapeCache = setCanvasSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    const { canvasWidth, canvasHeight } = shapeCache;
+
     leaferRef.current?.destroy();
     leaferRef.current = new Leafer({
       view: containerRef.current,
-      width: DISPLAY_SIZE,
-      height: DISPLAY_SIZE,
+      width: canvasWidth,
+      height: canvasHeight,
     });
 
     // Initialize layers in correct order
-    layersRef.current.bg = new Rect({ width: DISPLAY_SIZE, height: DISPLAY_SIZE, fill: '#f0f0f0' });
+    layersRef.current.bg = new Rect({ width: canvasWidth, height: canvasHeight, fill: '#f0f0f0' });
     layersRef.current.grid = new Group();
     layersRef.current.agents = new Group();
 
@@ -88,7 +213,28 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     leaferRef.current.add(layersRef.current.grid);
     leaferRef.current.add(layersRef.current.agents);
 
+    const refresh = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setCanvasSize(rect.width, rect.height);
+        updateGridSize(envRef.current);
+        Object.values(agentsProps).forEach((agent) => {
+          updateAgentDisplay(agent);
+        });
+      }
+    };
+
+    const throttledRefresh = throttle(refresh, 100);
+
+    updateGridSize(envRef.current);
+
+    const resizeObserver = new ResizeObserver(throttledRefresh);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
     return () => {
+      resizeObserver.disconnect();
       leaferRef.current?.destroy();
       leaferRef.current = null;
       layersRef.current = {};
@@ -103,7 +249,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       const bgLayer = layersRef.current.bg;
       if (!leafer || !bgLayer) return;
 
-      const { background } = envProps;
+      const { background } = envRef.current;
 
       if (typeof background === 'string') {
         const img = await loadImageAsync(background);
@@ -121,23 +267,12 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
         bgLayer.set({ fill: '#f0f0f0' });
       }
     })();
-  }, [envProps.background]);
+  }, [envRef.current.background]);
 
   // Update grid (only when dimensions change)
   useEffect(() => {
-    const gridGroup = layersRef.current.grid;
-    if (!gridGroup) return;
-
-    // Clear existing grid lines
-    gridGroup.clear();
-
-    for (let i = 0; i <= envProps.width; i++) {
-      gridGroup.add(new Line({ points: [i * cellWidth, 0, i * cellWidth, DISPLAY_SIZE], stroke: '#dddddd', strokeWidth: 1 }));
-    }
-    for (let j = 0; j <= envProps.height; j++) {
-      gridGroup.add(new Line({ points: [0, j * cellHeight, DISPLAY_SIZE, j * cellHeight], stroke: '#dddddd', strokeWidth: 1 }));
-    }
-  }, [envProps.width, envProps.height, cellWidth, cellHeight]);
+    updateGridSize(envRef.current);
+  }, [envRef.current.width, envRef.current.height]);
 
   // Update agents (reuse existing shapes)
   useEffect(() => {
@@ -145,7 +280,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     if (!agentsGroup) return;
 
     // Normalize all IDs to strings
-    const currentAgentIds = new Set(Object.keys(envAgents).map(String));
+    const currentAgentIds = new Set(Object.keys(agentsProps).map(String));
     const previousAgentIds = new Set(agentShapesRef.current.keys());
 
     // Remove deleted agents
@@ -157,61 +292,14 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     });
 
     // Update or create agents
-    Object.entries(envAgents).forEach(([id, agent]) => {
-      if (agent.x === undefined || agent.y === undefined) return;
-
-      const agentId = String(id);
-      const icon = agent.icon || 'circle';
-      const size = agent.size || 10;
-      const posDiff = (cellWidth - size) / 2;
-      const x = agent.x * cellWidth + posDiff;
-      const y = agent.y * cellHeight + posDiff;
-      const color = agent.color || '#333333';
-      const rotation = agent.heading ? (agent.heading * 180 / Math.PI) : 0;
-
-      let cached = agentShapesRef.current.get(agentId);
-
-      if (cached) {
-        // Update existing
-        cached.group.set({ x, y, rotation });
-        if (cached.icon !== icon || cached.size !== size) {
-          cached.shape.set(SHAPE_CONFIGS[icon]?.(size));
-          cached.icon = icon;
-          cached.size = size;
-        }
-        if (cached.color !== color) {
-          cached.shape.set({ fill: color });
-          cached.color = color;
-        }
-
-        // Update trajectory
-        const oldTrajectory = cached.group.children?.find(child => child instanceof Line);
-        if (oldTrajectory) oldTrajectory.remove();
-
-        const trajectory = createTrajectory(agent.trajectory, cellWidth, cellHeight, x, y, color);
-        if (trajectory) cached.group.add(trajectory);
-      } else {
-        // Create new
-        const group = new Group({ x, y, rotation });
-        const shape = createShape(icon, size, color);
-
-        shape.on(PointerEvent.CLICK, (e: any) => handleAgentClick(agent, e));
-        shape.on(PointerEvent.MENU, (e: any) => handleAgentClick(agent, e));
-
-        group.add(shape);
-
-        const trajectory = createTrajectory(agent.trajectory, cellWidth, cellHeight, x, y, color);
-        if (trajectory) group.add(trajectory);
-
-        agentsGroup.add(group);
-        agentShapesRef.current.set(agentId, { group, shape, icon, size, color });
-      }
+    Object.entries(agentsProps).forEach(([, agent]) => {
+      updateAgentDisplay(agent);
     });
-  }, [envAgents, cellWidth, cellHeight, handleAgentClick, updateTrigger]);
+  }, [agentsProps, handleAgentClick, updateTrigger]);
 
   return (
     <div className={styles.container}>
-      <div ref={containerRef} className={styles.canvas} style={{ width: DISPLAY_SIZE, height: DISPLAY_SIZE }} />
+      <div ref={containerRef} className={styles.canvas} />
 
       <AgentDetailsDialog agentType='grid' agent={selectedAgent} onClose={() => setSelectedAgent(null)} />
 
