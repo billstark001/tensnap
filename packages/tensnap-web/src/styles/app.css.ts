@@ -1,7 +1,7 @@
 import { style, keyframes } from '@vanilla-extract/css';
 import { vars } from './global.css';
 
-export const container = style({
+export const appContainer = style({
   height: '100vh',
   width: '100%',
   display: 'flex',
@@ -23,33 +23,6 @@ export const header = style({
     },
   },
 });
-
-export const main = style({
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  padding: vars.space.md,
-});
-
-export const sidebar = style({
-  width: '300px',
-  backgroundColor: vars.color.gridBackground,
-  borderRadius: vars.radius.md,
-  padding: vars.space.md,
-  height: 'fit-content',
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkGridBackground,
-    },
-  },
-});
-
-export const statusBar = style({
-  padding: vars.space.sm,
-  display: 'flex',
-  alignItems: 'center',
-})
 
 export const content = style({
   flex: 1,
@@ -107,26 +80,6 @@ export const button = style({
     cursor: 'not-allowed',
   },
 });
-
-export const statusBadge = style({
-  display: 'inline-block',
-  padding: `2px ${vars.space.sm}`,
-  borderRadius: vars.radius.sm,
-  fontSize: vars.fontSize.xs,
-  fontWeight: 600,
-  textTransform: 'uppercase',
-});
-
-export const statusConnected = style([statusBadge, {
-  backgroundColor: vars.color.success,
-  color: '#ffffff',
-}]);
-
-export const statusDisconnected = style([statusBadge, {
-  backgroundColor: vars.color.danger,
-  color: '#ffffff',
-}]);
-
 export const spinnerOverlay = style({
   position: 'fixed',
   top: 0,

@@ -1,0 +1,31 @@
+import { vars } from "@/styles/global.css";
+import { style } from "@vanilla-extract/css";
+
+
+export const projectContainer = style({
+  width: '100%',
+  height: '100%',
+  minHeight: '50vh',
+  overflow: 'hidden',
+  padding: 0,
+});
+
+export const projectTerminal = style({
+  background: '#1e1e1e',
+  color: '#fff',
+  overflow: 'auto',
+});
+
+export const sidebar = style({
+  width: '300px',
+  backgroundColor: vars.color.gridBackground,
+  borderRadius: vars.radius.md,
+  padding: vars.space.md,
+  height: 'fit-content',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkGridBackground,
+    },
+  },
+});

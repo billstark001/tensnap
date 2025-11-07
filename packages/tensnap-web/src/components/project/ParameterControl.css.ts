@@ -1,5 +1,5 @@
 import { style } from '@vanilla-extract/css';
-import { vars } from '../styles/global.css';
+import { vars } from '../../styles/global.css';
 
 export const parameterContainer = style({
   marginBottom: vars.space.md,
