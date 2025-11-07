@@ -33,7 +33,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
 }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: view.id,
-    data: { view, siblings, relativeLeft, relativeTop, parentId: parentView?.id },
+    data: { view, siblings, relativeLeft, relativeTop, parentView: parentView, parentId: parentView?.id },
     disabled: isOverlay,
   });
 
@@ -48,8 +48,8 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
 
   const handleResizeStart = useCallback(() => {
     viewSizeOnResizeStart.current = {
-      w: view.width,
-      h: view.height,
+      w: view.width | 0,
+      h: view.height | 0,
     };
   }, [view]);
 
@@ -59,8 +59,8 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       h = 10
     } = viewSizeOnResizeStart.current ?? {};
 
-    const newWidth = Math.max(50, w + deltaWidth);
-    const newHeight = Math.max(50, h + deltaHeight);
+    const newWidth = Math.max(60, w + deltaWidth | 0);
+    const newHeight = Math.max(view.type === 'button' ? 30 : 60, h + deltaHeight | 0);
 
     // 批量更新，避免频繁触发重渲染
     if (Math.abs(view.width - newWidth) > 1 || Math.abs(view.height - newHeight) > 1) {

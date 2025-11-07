@@ -30,6 +30,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${view.id}`,
     data: {
+      view,
       containerId: view.id,
       relativeLeft: relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta),
       relativeTop: relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta),

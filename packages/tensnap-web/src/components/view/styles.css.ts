@@ -11,6 +11,7 @@ export const container = style({
   minHeight: '100%',
   backgroundColor: '#f3f4f6',
   overflow: 'auto',
+  position: 'relative',
 
   selectors: {
     'body[data-theme="dark"] &': {
