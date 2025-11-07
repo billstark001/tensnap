@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation } from '../types/model';
 import { ContainerView } from '../types/ui';
-import { createAutoLayout } from '../utils/layout';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
-import { createDefaultRootLayout } from '@/utils/layout/pack-layout';
+import { createAutoLayout, createDefaultRootLayout } from '@/components/view/utils/pack';
 import { instantiateChartMetadata, InstantiatedChartStorage, InstantiatedEnvironment, instantiateEnvironment, sanitizeParameter, serializeEnvironment } from '@/store/scenario-inst';
+import { LogLevel, LogPayload } from '@/types/api';
 
 export interface SetDataPayload {
   environments?: Environment[];
@@ -49,6 +49,7 @@ export interface ScenarioStore {
   setMaxSnapshots: (max: number) => void;
   setMainView: (view: SetStateAction<ContainerView>) => void;
   updateMainViewLayout: () => void;
+  log(payload: string | LogPayload, level?: LogLevel): void;
 }
 
 const getEnvironmentMetadata = (env: InstantiatedEnvironment) => ({
@@ -191,10 +192,10 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateEnvironment: (id, propsUpdate, agentsUpdate) => {
-    const { environments } = get();
+    const { environments, log } = get();
     const env = environments.get(id);
     if (!env) {
-      console.warn(`Environment with id ${id} not found.`);
+      log(`Environment with id ${id} not found.`, 'warning');
       return;
     }
     let newAgents = env.agents;
@@ -208,17 +209,17 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateAgents: (envId, updates) => {
-    const { environments } = get();
+    const { environments, log } = get();
     const env = environments.get(envId);
     if (!env) {
-      console.warn(`Environment with id ${envId} not found.`);
+      log(`Environment with id ${envId} not found.`, 'warning');
       return;
     }
     const { agents } = env;
     for (const update of updates) {
       const { id, data } = update;
       if (!agents[id]) {
-        console.warn(`Agent with id ${id} not found in ${env.type} environment ${envId}.`);
+        log(`Agent with id ${id} not found in ${env.type} environment ${envId}.`, 'warning');
         continue;
       }
       Object.assign(agents[id], data);
@@ -255,7 +256,6 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   addSnapshot: (snapshotMetadata: SnapshotMetadata) => {
-    return; // TODO optimize performance
     const { environments, parameters } = get();
     const snapshot: Snapshot = {
       ...snapshotMetadata,
@@ -292,6 +292,18 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
         preserveExisting: true
       })
     });
+  },
+
+  log: (payload: string | LogPayload, level: LogLevel = 'info') => {
+    if (typeof payload === 'string') {
+      payload = { level, message: payload };
+    }
+    level = payload.level || level;
+    if (payload.target) {
+      console.log(`[${level.toUpperCase()}][${payload.target}] ${payload.message}`);
+    } else {
+      console.log(`[${level.toUpperCase()}] ${payload.message}`);
+    }
   },
 }));
 

@@ -1,7 +1,7 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
 import { Parameter, ActionParameter, NumberParameter, EnumParameter, EnvironmentId, EnvironmentType, BooleanParameter, StringParameter } from '@/types/model';
-import { adjustLayout, initialPack } from './pack';
-import { viewConstants } from '@/components/view/constants';
+import { pack } from '@/utils/layout/pack';
+import { viewConstants } from '../constants';
 
 const ENVIRONMENT_GRID_WIDTH = 16;
 const ENVIRONMENT_CARD_WIDTH = 600;
@@ -317,10 +317,11 @@ export function createAutoLayout(
     // Create new button views and combine with existing
     const newButtonViews = createButtonViews(newButtonParameters);
     buttonsContainer.views.push(...newButtonViews);
-    const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(buttonsContainer.views, {
+    const { suggestedContainerWidth, suggestedContainerHeight } = pack(buttonsContainer.views, {
       inPlace: true,
       padding: PADDING,
       paddingBorder: PADDING,
+      sortBy: 'position',
     });
     buttonsContainer.width = suggestedContainerWidth + WINDOW_X_DELTA;
     buttonsContainer.height = suggestedContainerHeight + WINDOW_Y_DELTA;
@@ -332,10 +333,11 @@ export function createAutoLayout(
     // Create new parameter views and combine with existing
     const newParameterViews = createParameterViews(newOtherParameters);
     parametersContainer.views.push(...newParameterViews);
-    const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(parametersContainer.views, {
+    const { suggestedContainerWidth, suggestedContainerHeight } = pack(parametersContainer.views, {
       inPlace: true,
       padding: PADDING,
       paddingBorder: PADDING,
+      sortBy: 'position',
     });
     parametersContainer.width = suggestedContainerWidth + WINDOW_X_DELTA;
     parametersContainer.height = suggestedContainerHeight + WINDOW_Y_DELTA;
@@ -359,18 +361,20 @@ export function createAutoLayout(
   }
   // Adjust root layout
   if (!_currentView) {
-    initialPack(currentView.views, {
+    pack(currentView.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
       padding: PADDING,
       paddingBorder: PADDING,
+      sortBy: 'area',
     });
   } else if (rootViewNeedsAdjust) {
-    const { suggestedContainerWidth, suggestedContainerHeight } = adjustLayout(currentView.views, {
+    const { suggestedContainerWidth, suggestedContainerHeight } = pack(currentView.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
       padding: PADDING,
       paddingBorder: PADDING,
+      sortBy: 'position',
     });
     currentView.width = suggestedContainerWidth;
     currentView.height = suggestedContainerHeight;

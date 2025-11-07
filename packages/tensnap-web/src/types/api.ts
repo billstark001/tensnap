@@ -93,11 +93,14 @@ export type ChartUpdatePayload = {
 }
 
 // log
+
+export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'critical';
 export interface LogPayload {
-  level: 'debug' | 'info' | 'warning' | 'error';
+  message: string;
+  level?: LogLevel; // default is 'info'
   target?: string;
   timestamp?: number;
-  message: string;
+  data?: any;
 }
 
 

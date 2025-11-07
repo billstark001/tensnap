@@ -16,12 +16,13 @@ export interface PlacedRectangle extends Rectangle {
 export interface PackingOptions {
   containerWidth?: number;
   containerHeight?: number;
-  targetAspectRatio?: number; // default is 16/9
+  targetAspectRatio?: number;
   groupByType?: boolean;
   preservePosition?: boolean;
   padding?: number;
   paddingBorder?: number | [number, number];
   inPlace?: boolean;
+  sortBy?: 'area' | 'position';
 }
 
 export interface PackingResult {
@@ -31,33 +32,37 @@ export interface PackingResult {
   actualBounds: { width: number; height: number };
 }
 
+interface NormalizedOptions {
+  containerWidth: number;
+  containerHeight: number;
+  targetAspectRatio?: number;
+  groupByType: boolean;
+  preservePosition: boolean;
+  padding: number;
+  paddingBorderX: number;
+  paddingBorderY: number;
+  inPlace: boolean;
+  sortBy: 'area' | 'position';
+}
+
 // #endregion
 
 // #region Shelf Class
 
 export class Shelf {
-  public x: number = 0;
-  public height: number = 0;
-  private maxWidth: number;
+  public x = 0;
+  public height = 0;
 
-  constructor(maxWidth: number, public y: number) {
-    this.maxWidth = maxWidth;
-  }
+  constructor(private maxWidth: number, public y: number) { }
 
   canFit(width: number, padding: number): boolean {
     return this.x + width + padding <= this.maxWidth;
   }
 
   place(rect: Rectangle, padding: number, inPlace: boolean): PlacedRectangle {
-    const placed: PlacedRectangle = inPlace ?
-      (rect as PlacedRectangle) : { ...rect, left: 0, top: 0 };
-
-    placed.left = this.x;
-    placed.top = this.y;
-
+    const placed = this.createPlaced(rect, this.x, this.y, inPlace);
     this.x += rect.width + padding;
     this.height = Math.max(this.height, rect.height);
-
     return placed;
   }
 
@@ -65,19 +70,23 @@ export class Shelf {
     const targetX = Math.max(this.x, preferredX);
 
     if (targetX + rect.width <= this.maxWidth) {
-      const placed: PlacedRectangle = inPlace ?
-        (rect as PlacedRectangle) : { ...rect, left: 0, top: 0 };
-
-      placed.left = targetX;
-      placed.top = this.y;
-
+      const placed = this.createPlaced(rect, targetX, this.y, inPlace);
       this.x = Math.max(this.x, targetX + rect.width + padding);
       this.height = Math.max(this.height, rect.height);
-
       return placed;
     }
 
     return this.place(rect, padding, inPlace);
+  }
+
+  private createPlaced(rect: Rectangle, left: number, top: number, inPlace: boolean): PlacedRectangle {
+    if (inPlace) {
+      const placed = rect as PlacedRectangle;
+      placed.left = left;
+      placed.top = top;
+      return placed;
+    }
+    return { ...rect, left, top };
   }
 }
 
@@ -85,88 +94,97 @@ export class Shelf {
 
 // #region Helper Functions
 
-function calculateSuggestedDimensions(rectangles: Rectangle[], targetAspectRatio: number | undefined, padding: number): { width: number; height: number } {
+function calculateSuggestedDimensions(
+  rectangles: Rectangle[],
+  targetAspectRatio: number | undefined,
+  padding: number
+): { width: number; height: number } {
   if (rectangles.length === 0) return { width: 80, height: 60 };
 
-  const totalArea = rectangles.reduce((sum, rect) => sum + rect.width * rect.height, 0);
-  const adjustedArea = totalArea * 1.2; // Add 20% for padding and spacing
-
-  const height = targetAspectRatio ? Math.sqrt(adjustedArea / targetAspectRatio) : 60;
+  const totalArea = rectangles.reduce((sum, r) => sum + r.width * r.height, 0) * 1.2;
+  const height = targetAspectRatio ? Math.sqrt(totalArea / targetAspectRatio) : 60;
   const width = targetAspectRatio ? height * targetAspectRatio : 80;
 
-  const maxRectWidth = Math.max(...rectangles.map(r => r.width));
-  const maxRectHeight = Math.max(...rectangles.map(r => r.height));
+  const maxWidth = Math.max(...rectangles.map(r => r.width));
+  const maxHeight = Math.max(...rectangles.map(r => r.height));
 
   return {
-    width: Math.max(width, maxRectWidth + padding * 2),
-    height: Math.max(height, maxRectHeight + padding * 2)
+    width: Math.max(width, maxWidth + padding * 2),
+    height: Math.max(height, maxHeight + padding * 2)
   };
 }
 
-function normalizeOptions(rectangles: Rectangle[], options: PackingOptions) {
-  const targetAspectRatio = options.targetAspectRatio;
+function normalizeOptions(rectangles: Rectangle[], options: PackingOptions): NormalizedOptions {
+  const suggested = calculateSuggestedDimensions(
+    rectangles,
+    options.targetAspectRatio,
+    options.padding || 10
+  );
 
-  let containerWidth = options.containerWidth;
-  let containerHeight = options.containerHeight;
-
-  if (!containerWidth || !containerHeight) {
-    const suggested = calculateSuggestedDimensions(rectangles, targetAspectRatio, options.padding || 10);
-    containerWidth = containerWidth || suggested.width;
-    containerHeight = containerHeight || suggested.height;
-  }
-
-  const [paddingBorderY, paddingBorderX] = Array.isArray(options.paddingBorder) ?
-    options.paddingBorder :
-    [options.paddingBorder || 0, options.paddingBorder || 0];
+  const [paddingBorderY = 0, paddingBorderX = 0] = Array.isArray(options.paddingBorder)
+    ? options.paddingBorder
+    : [options.paddingBorder || 0, options.paddingBorder || 0];
 
   return {
-    containerWidth,
-    containerHeight,
-    targetAspectRatio,
+    containerWidth: options.containerWidth || suggested.width,
+    containerHeight: options.containerHeight || suggested.height,
+    targetAspectRatio: options.targetAspectRatio,
     groupByType: options.groupByType ?? true,
     preservePosition: options.preservePosition ?? false,
     padding: options.padding || 10,
     paddingBorderX,
     paddingBorderY,
-    inPlace: options.inPlace ?? false
+    inPlace: options.inPlace ?? false,
+    sortBy: options.sortBy || 'area',
   };
 }
 
-type NormalizedPackingOptions = ReturnType<typeof normalizeOptions>;
-
 export function groupRectanglesByType(rectangles: Rectangle[]): Rectangle[] {
-  const typeGroups = new Map<string, Rectangle[]>();
+  const groups = new Map<string, Rectangle[]>();
 
   for (const rect of rectangles) {
-    if (!typeGroups.has(rect.type)) {
-      typeGroups.set(rect.type, []);
+    const group = groups.get(rect.type);
+    if (group) {
+      group.push(rect);
+    } else {
+      groups.set(rect.type, [rect]);
     }
-    typeGroups.get(rect.type)!.push(rect);
   }
 
-  return Array.from(typeGroups.values()).flat();
+  return Array.from(groups.values()).flat();
 }
 
 function getNextShelfY(shelves: Shelf[], padding: number): number {
   if (shelves.length === 0) return 0;
+  return Math.max(...shelves.map(s => s.y + s.height)) + padding;
+}
 
-  let maxY = 0;
-  for (const shelf of shelves) {
-    maxY = Math.max(maxY, shelf.y + shelf.height);
-  }
+export function calculateBounds(
+  rectangles: PlacedRectangle[],
+  paddingBorderX = 0,
+  paddingBorderY = 0
+): { width: number; height: number } {
+  if (rectangles.length === 0) return { width: paddingBorderX, height: paddingBorderY };
 
-  return maxY + padding;
+  const maxX = Math.max(...rectangles.map(r => r.left + r.width));
+  const maxY = Math.max(...rectangles.map(r => r.top + r.height));
+
+  return { width: maxX + paddingBorderX, height: maxY + paddingBorderY };
 }
 
 // #endregion
 
 // #region Core Packing Functions
 
-function placeRectangle(rect: Rectangle, shelves: Shelf[], options: NormalizedPackingOptions): PlacedRectangle {
-  for (const shelf of shelves) {
-    if (shelf.canFit(rect.width, options.padding)) {
-      return shelf.place(rect, options.padding, options.inPlace);
-    }
+function placeRectangle(
+  rect: Rectangle,
+  shelves: Shelf[],
+  options: NormalizedOptions
+): PlacedRectangle {
+  const shelf = shelves.find(s => s.canFit(rect.width, options.padding));
+
+  if (shelf) {
+    return shelf.place(rect, options.padding, options.inPlace);
   }
 
   const newShelf = new Shelf(options.containerWidth, getNextShelfY(shelves, options.padding));
@@ -174,15 +192,19 @@ function placeRectangle(rect: Rectangle, shelves: Shelf[], options: NormalizedPa
   return newShelf.place(rect, options.padding, options.inPlace);
 }
 
-function placeRectangleNearOriginalPosition(rect: PlacedRectangle, shelves: Shelf[], options: NormalizedPackingOptions): PlacedRectangle {
+function placeRectangleNearOriginal(
+  rect: PlacedRectangle,
+  shelves: Shelf[],
+  options: NormalizedOptions
+): PlacedRectangle {
   let bestShelf: Shelf | null = null;
-  let minDistanceY = Infinity;
+  let minDistance = Infinity;
 
   for (const shelf of shelves) {
     if (shelf.canFit(rect.width, options.padding)) {
-      const distanceY = Math.abs(shelf.y - rect.top);
-      if (distanceY < minDistanceY) {
-        minDistanceY = distanceY;
+      const distance = Math.abs(shelf.y - rect.top);
+      if (distance < minDistance) {
+        minDistance = distance;
         bestShelf = shelf;
       }
     }
@@ -197,108 +219,89 @@ function placeRectangleNearOriginalPosition(rect: PlacedRectangle, shelves: Shel
   return newShelf.placeAtPreferredX(rect, rect.left, options.padding, options.inPlace);
 }
 
-export function calculateBounds(rectangles: PlacedRectangle[], paddingBorderX: number = 0, paddingBorderY: number = 0): { width: number; height: number } {
-  if (rectangles.length === 0) return { width: paddingBorderX, height: paddingBorderY };
+function sortRectangles(rects: Rectangle[], sortBy: 'area' | 'position', groupByType: boolean, padding: number): Rectangle[] {
+  let sorted = rects;
 
-  let maxX = 0;
-  let maxY = 0;
+  if (sortBy === 'area') {
+    if (groupByType) sorted = groupRectanglesByType(sorted);
+    sorted.sort((a, b) => b.width * b.height - a.width * a.height);
+  } else {
+    sorted.sort((a, b) => {
+      const topA = (a as PlacedRectangle).top ?? 0;
+      const topB = (b as PlacedRectangle).top ?? 0;
+      const deltaY = Math.abs(topA - topB);
 
-  for (const rect of rectangles) {
-    maxX = Math.max(maxX, rect.left + rect.width);
-    maxY = Math.max(maxY, rect.top + rect.height);
+      if (deltaY < padding) {
+        return ((a as PlacedRectangle).left ?? 0) - ((b as PlacedRectangle).left ?? 0);
+      }
+      return topA - topB;
+    });
   }
 
-  return { width: maxX + paddingBorderX, height: maxY + paddingBorderY };
+  return sorted;
+}
+
+function packWithStrategy(
+  rectangles: Rectangle[],
+  options: NormalizedOptions,
+  sortBy: 'area' | 'position',
+  preservePosition: boolean
+): PlacedRectangle[] {
+  const shelves: Shelf[] = [];
+  const sorted = sortRectangles(rectangles, sortBy, options.groupByType, options.padding);
+  const usePositionAware = preservePosition && sortBy === 'position';
+
+  if (usePositionAware && options.groupByType) {
+    const groups = new Map<string, PlacedRectangle[]>();
+    for (const rect of sorted) {
+      const group = groups.get(rect.type) || [];
+      group.push(rect as PlacedRectangle);
+      groups.set(rect.type, group);
+    }
+
+    return Array.from(groups.values())
+      .flat()
+      .map(r => placeRectangleNearOriginal(r, shelves, options));
+  }
+
+  return sorted.map(rect =>
+    usePositionAware
+      ? placeRectangleNearOriginal(rect as PlacedRectangle, shelves, options)
+      : placeRectangle(rect, shelves, options)
+  );
 }
 
 // #endregion
 
-// #region Main Packing Algorithms
+// #region Main Packing Algorithm
 
-export function initialPack(rectangles: Rectangle[], options: PackingOptions): PackingResult {
-  const normalizedOptions = normalizeOptions(rectangles, options);
-  let processedRects = options.inPlace ? rectangles : [...rectangles];
+export function pack(rectangles: Rectangle[], rawOptions: PackingOptions = {}): PackingResult {
+  const options = normalizeOptions(rectangles, rawOptions);
+  const sortBy = options.sortBy || 'area';
+  const preservePosition = options.preservePosition ?? (sortBy === 'position');
+  const processedRects = options.inPlace ? rectangles : [...rectangles];
 
-  if (normalizedOptions.groupByType) {
-    processedRects = groupRectanglesByType(processedRects);
-  }
+  const result = packWithStrategy(processedRects, options, sortBy, preservePosition);
 
-  // Sort by area (largest first)
-  processedRects.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-
-  const shelves: Shelf[] = [];
-  const result: PlacedRectangle[] = [];
-
-  for (const rect of processedRects) {
-    result.push(placeRectangle(rect, shelves, normalizedOptions));
-  }
-
-  if (normalizedOptions.paddingBorderX || normalizedOptions.paddingBorderY) {
+  if (options.paddingBorderX || options.paddingBorderY) {
     for (const rect of result) {
-      rect.left += normalizedOptions.paddingBorderX;
-      rect.top += normalizedOptions.paddingBorderY;
+      rect.left += options.paddingBorderX;
+      rect.top += options.paddingBorderY;
     }
   }
 
-  const actualBounds = calculateBounds(result, normalizedOptions.paddingBorderX, normalizedOptions.paddingBorderY);
+  const actualBounds = calculateBounds(
+    result,
+    options.paddingBorderX,
+    options.paddingBorderY
+  );
 
   return {
     rectangles: result,
-    suggestedContainerWidth: Math.max(normalizedOptions.containerWidth, actualBounds.width),
-    suggestedContainerHeight: Math.max(normalizedOptions.containerHeight, actualBounds.height),
+    suggestedContainerWidth: Math.max(options.containerWidth, actualBounds.width),
+    suggestedContainerHeight: Math.max(options.containerHeight, actualBounds.height),
     actualBounds
   };
 }
-
-export function adjustLayout(rectangles: PlacedRectangle[], options: PackingOptions): PackingResult {
-  const normalizedOptions = normalizeOptions(rectangles, options);
-
-  const sortedRects = options.inPlace ? rectangles : [...rectangles];
-  sortedRects.sort((a, b) => {
-    const deltaY = Math.abs(a.top - b.top);
-    return deltaY < normalizedOptions.padding ? a.left - b.left : a.top - b.top;
-  });
-
-  const shelves: Shelf[] = [];
-  const result: PlacedRectangle[] = [];
-
-  if (normalizedOptions.groupByType) {
-    const typeGroups = new Map<string, PlacedRectangle[]>();
-
-    for (const rect of sortedRects) {
-      if (!typeGroups.has(rect.type)) {
-        typeGroups.set(rect.type, []);
-      }
-      typeGroups.get(rect.type)!.push(rect);
-    }
-
-    for (const group of typeGroups.values()) {
-      for (const rect of group) {
-        result.push(placeRectangleNearOriginalPosition(rect, shelves, normalizedOptions));
-      }
-    }
-  } else {
-    for (const rect of sortedRects) {
-      result.push(placeRectangleNearOriginalPosition(rect, shelves, normalizedOptions));
-    }
-  }
-  
-  if (normalizedOptions.paddingBorderX || normalizedOptions.paddingBorderY) {
-    for (const rect of result) {
-      rect.left += normalizedOptions.paddingBorderX;
-      rect.top += normalizedOptions.paddingBorderY;
-    }
-  }
-
-  const actualBounds = calculateBounds(result, normalizedOptions.paddingBorderX, normalizedOptions.paddingBorderY);
-
-  return {
-    rectangles: result,
-    suggestedContainerWidth: Math.max(normalizedOptions.containerWidth, actualBounds.width),
-    suggestedContainerHeight: Math.max(normalizedOptions.containerHeight, actualBounds.height),
-    actualBounds
-  };
-}
-
 
 // #endregion

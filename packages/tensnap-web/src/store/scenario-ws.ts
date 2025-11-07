@@ -12,15 +12,8 @@ export function registerEventHandlers(
   });
 
   wsManager.on('time_step_end', (payload: TimeStepEndPayload) => {
-    // 创建快照
     const store = useStore.getState();
     store.setCurrentTime(payload.time ?? store.currentTime, false);
-    const snapshot = {
-      id: `snapshot-${Date.now()}`,
-      timestamp: Date.now(),
-      timeStep: payload.time ?? store.currentTime,
-    };
-    store.addSnapshot(snapshot);
   });
 
   wsManager.on('environment_update', (payload: EnvironmentUpdatePayload) => {
@@ -64,7 +57,7 @@ export function registerEventHandlers(
 
       clear_charts,
     } = payload ?? {};
-    
+
 
     const allParameters = [
       ...added_parameters,
@@ -103,12 +96,14 @@ export function registerEventHandlers(
     if (payload.removed_parameters.length > 0 ||
       payload.removed_environments.length > 0 ||
       payload.removed_charts.length > 0) {
-      console.log('Items removed from server:', {
-        parameters: payload.removed_parameters,
-        environments: payload.removed_environments,
-        charts: payload.removed_charts
+      store.log({
+        message: 'Some items have been removed from the simulation state.',
+        data: {
+          parameters: payload.removed_parameters,
+          environments: payload.removed_environments,
+          charts: payload.removed_charts
+        }
       });
-      // 可以在此处实现禁用逻辑，而不是直接删除
     }
   });
 
@@ -124,11 +119,7 @@ export function registerEventHandlers(
   });
 
   wsManager.on('log', (payload: LogPayload) => {
-    // TODO 处理日志消息
-    if (payload.target) {
-      console.log(`[${payload.level.toUpperCase()}][${payload.target}] ${payload.message}`);
-    } else {
-      console.log(`[${payload.level.toUpperCase()}] ${payload.message}`);
-    }
+    const { log } = useStore.getState();
+    log(payload);
   });
 }
