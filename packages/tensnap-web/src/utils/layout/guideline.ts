@@ -294,11 +294,13 @@ export class GuideLineMatcher {
   private generator: GuideLineGenerator;
   private snapContent: GuideLineContent;
   private viewsUpdated = false;
+  private mode: 'drag' | 'resize' = 'drag';
 
-  constructor(snapContent: GuideLineContent, threshold = 5) {
+  constructor(snapContent: GuideLineContent, threshold = 5, mode: 'drag' | 'resize' = 'drag') {
     this.generator = new GuideLineGenerator(threshold);
     this.snapContent = snapContent;
     this.viewsUpdated = true;
+    this.mode = mode;
   }
 
   updateViews(views: ViewBox[]): void {
@@ -320,12 +322,30 @@ export class GuideLineMatcher {
     guidelines.forEach(line => {
       const dist = calculateSnapDistance(coord, line);
 
-      if (line.type === 'vertical' && dist < minDistX) {
-        minDistX = dist;
-        snap.snapX = calcSnapPos(line.position, coord.width, line.alignType);
-      } else if (line.type === 'horizontal' && dist < minDistY) {
-        minDistY = dist;
-        snap.snapY = calcSnapPos(line.position, coord.height, line.alignType);
+      if (this.mode === 'resize') {
+        // Resize 模式：只对边缘对齐，改变 width/height
+        if (line.type === 'vertical' && dist < minDistX) {
+          if (line.alignType === 'edge-right') {
+            minDistX = dist;
+            // 对齐右边缘，调整 width
+            snap.snapX = line.position - coord.left;
+          }
+        } else if (line.type === 'horizontal' && dist < minDistY) {
+          if (line.alignType === 'edge-bottom') {
+            minDistY = dist;
+            // 对齐下边缘，调整 height
+            snap.snapY = line.position - coord.top;
+          }
+        }
+      } else {
+        // Drag 模式：原有逻辑
+        if (line.type === 'vertical' && dist < minDistX) {
+          minDistX = dist;
+          snap.snapX = calcSnapPos(line.position, coord.width, line.alignType);
+        } else if (line.type === 'horizontal' && dist < minDistY) {
+          minDistY = dist;
+          snap.snapY = calcSnapPos(line.position, coord.height, line.alignType);
+        }
       }
     });
 

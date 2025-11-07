@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { Move, Edit, Trash2 } from 'lucide-react';
@@ -19,6 +19,15 @@ interface DraggableViewProps extends ViewProps<AnyView> {
   siblings: AnyView[];
   isOverlay?: boolean;
   isUnderRootView?: boolean;
+  onResizeStart?: (
+    view: AnyView,
+    parentView: ContainerView,
+    direction: string,
+    relativeLeft: number,
+    relativeTop: number,
+    clientX: number,
+    clientY: number,
+  ) => void;
 }
 
 export const DraggableView: React.FC<DraggableViewProps> = ({
@@ -30,6 +39,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
   relativeTop = 0,
   siblings,
   isOverlay = false,
+  onResizeStart: _onResizeStart,
 }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: view.id,
@@ -44,31 +54,18 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     height: view.expanded ? `${view.height}px` : 'min-content',
   };
 
-  const viewSizeOnResizeStart = useRef<{ w: number, h: number }>(undefined);
-
-  const handleResizeStart = useCallback(() => {
-    viewSizeOnResizeStart.current = {
-      w: view.width | 0,
-      h: view.height | 0,
-    };
-  }, [view]);
-
-  const handleResize = useCallback((deltaWidth: number, deltaHeight: number) => {
-    const {
-      w = 10,
-      h = 10
-    } = viewSizeOnResizeStart.current ?? {};
-
-    const newWidth = Math.max(60, w + deltaWidth | 0);
-    const newHeight = Math.max(view.type === 'button' ? 30 : 60, h + deltaHeight | 0);
-
-    // 批量更新，避免频繁触发重渲染
-    if (Math.abs(view.width - newWidth) > 1 || Math.abs(view.height - newHeight) > 1) {
-      view.width = newWidth;
-      view.height = newHeight;
-      onViewUpdate?.(view.id, view);
-    }
-  }, [view, onViewUpdate, viewSizeOnResizeStart]);
+  const handleResizeStart = useCallback((direction: string, e: React.MouseEvent) => {
+    if (!parentView || !_onResizeStart) return;
+    _onResizeStart(
+      view,
+      parentView,
+      direction,
+      relativeLeft,
+      relativeTop,
+      e.clientX,
+      e.clientY,
+    );
+  }, [view, parentView, relativeLeft, relativeTop, _onResizeStart]);
 
   const handleDelete = useCallback((id: string) => {
     if (!parentView) return;
@@ -120,11 +117,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
         <Move className={styles.dragIcon} />
       </div>
       {renderViewContent()}
-      {!isDragging && !isOverlay && <ResizeHandles
-        onResizeStart={handleResizeStart}
-        onResize={handleResize}
-        onResizeEnd={handleResize}
-      />}
+      {!isDragging && !isOverlay && <ResizeHandles onResizeStart={handleResizeStart} />}
     </div>
   );
 

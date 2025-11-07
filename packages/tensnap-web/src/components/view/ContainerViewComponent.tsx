@@ -16,6 +16,15 @@ interface ContainerViewComponentProps extends ViewProps<ContainerView> {
   relativeTop?: number,
   isOverlay?: boolean;
   isRootView?: boolean;
+  onResizeStart?: (
+    view: AnyView,
+    parentView: ContainerView,
+    direction: string,
+    relativeLeft: number,
+    relativeTop: number,
+    clientX: number,
+    clientY: number,
+  ) => void;
 }
 
 export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
@@ -26,6 +35,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   relativeTop = 0,
   isOverlay = false,
   isRootView = false,
+  onResizeStart,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${view.id}`,
@@ -123,6 +133,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
             siblings={view.views}
             isOverlay={isOverlay}
             isUnderRootView={isRootView}
+            onResizeStart={onResizeStart}
           />
         ))}
       </div>

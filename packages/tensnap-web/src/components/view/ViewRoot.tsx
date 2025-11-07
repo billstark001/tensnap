@@ -18,7 +18,7 @@ import { ViewProps } from './common';
 import { viewConstants } from './constants';
 import { Guidelines } from './GuideLines';
 import clsx from 'clsx';
-import { useDragContent } from './useDragContext';
+import { useDragContent, useResizeContent } from './useDragAndResizeContent';
 
 export type ViewRendererProps = ViewProps<ContainerView> &
   Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
@@ -58,6 +58,16 @@ export default function ViewRoot({
 
   const { state } = dragState;
 
+  // resize
+  const {
+    resizeState,
+    onResizeStart,
+  } = useResizeContent({
+    onViewUpdate,
+  });
+
+  const { state: resizeStateValue } = resizeState;
+
   return (
     <ViewContext.Provider value={contextValue}>
       <DndContext
@@ -74,6 +84,7 @@ export default function ViewRoot({
               view={rootView}
               updateTrigger={updateTrigger}
               onViewUpdate={onViewUpdate}
+              onResizeStart={onResizeStart}
               isRootView
             />
 
@@ -94,6 +105,28 @@ export default function ViewRoot({
                   height: state.suggestedSnap.height,
                   left: state.guideOrigin.relativeLeft + state.suggestedSnap.left,
                   top: state.guideOrigin.relativeTop + state.suggestedSnap.top,
+                }}
+              />
+            )}
+
+            {/* Resize guidelines and snap preview */}
+            {resizeStateValue.guideLines.length > 0 && (
+              <Guidelines
+                style={{ width: rootView.width, height: rootView.height }}
+                guidelines={resizeStateValue.guideLines}
+                leftShift={resizeStateValue.guideOrigin.relativeLeft}
+                topShift={resizeStateValue.guideOrigin.relativeTop}
+              />
+            )}
+
+            {resizeStateValue.suggestedSnap && (
+              <div
+                className={clsx(styles.dragOverlay, 'snap')}
+                style={{
+                  width: resizeStateValue.suggestedSnap.width,
+                  height: resizeStateValue.suggestedSnap.height,
+                  left: resizeStateValue.guideOrigin.relativeLeft + resizeStateValue.suggestedSnap.left,
+                  top: resizeStateValue.guideOrigin.relativeTop + resizeStateValue.suggestedSnap.top,
                 }}
               />
             )}
