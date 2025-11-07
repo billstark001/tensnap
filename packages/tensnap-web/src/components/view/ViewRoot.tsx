@@ -1,0 +1,125 @@
+import { useMemo } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { restrictToWindowEdges } from '@dnd-kit/modifiers';
+import * as styles from './styles.css';
+import { ContainerView } from '@/types/ui';
+import { ContainerViewComponent } from './ContainerViewComponent';
+import { nestedOverlapCollisionDetection } from './utils/collision';
+import { ViewContext, ViewContextScheme } from './useViewContext';
+import { useCallbackRef } from '@/utils/react';
+import { ViewProps } from './common';
+import { viewConstants } from './constants';
+import { Guidelines } from './GuideLines';
+import clsx from 'clsx';
+import { useDragContent } from './useDragContext';
+
+export type ViewRendererProps = ViewProps<ContainerView> &
+  Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
+
+export default function ViewRoot({
+  view: rootView,
+  updateTrigger,
+  onViewUpdate: _onViewUpdate,
+  onButtonAction: _onButtonAction,
+  renderAnchoredView: _renderAnchoredView,
+}: ViewRendererProps) {
+  
+  const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
+  const renderAnchoredView = useCallbackRef(_renderAnchoredView ?? (() => undefined));
+  const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const contextValue = useMemo(
+    () => ({ onButtonAction, renderAnchoredView }),
+    [onButtonAction, renderAnchoredView]
+  );
+
+  // drag
+  const {
+    dragState,
+    onDragStart,
+    onDragMove,
+    onDragEnd,
+  } = useDragContent({
+    rootView,
+    onViewUpdate,
+  });
+
+  const { state } = dragState;
+
+  return (
+    <ViewContext.Provider value={contextValue}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={nestedOverlapCollisionDetection}
+        onDragStart={onDragStart}
+        onDragMove={onDragMove}
+        onDragEnd={onDragEnd}
+        modifiers={[restrictToWindowEdges]}
+      >
+        <div className={styles.container}>
+          <div className={styles.rootView} style={{ width: rootView.width, height: rootView.height }}>
+            <ContainerViewComponent
+              view={rootView}
+              updateTrigger={updateTrigger}
+              onViewUpdate={onViewUpdate}
+              isRootView
+            />
+
+            {state.guideLines.length > 0 && (
+              <Guidelines
+                style={{ width: rootView.width, height: rootView.height }}
+                guidelines={state.guideLines}
+                leftShift={state.guideOrigin.relativeLeft}
+                topShift={state.guideOrigin.relativeTop}
+              />
+            )}
+
+            {state.suggestedSnap && (
+              <div
+                className={clsx(styles.dragOverlay, 'snap')}
+                style={{
+                  width: state.suggestedSnap.width,
+                  height: state.suggestedSnap.height,
+                  left: state.guideOrigin.relativeLeft + state.suggestedSnap.left,
+                  top: state.guideOrigin.relativeTop + state.suggestedSnap.top,
+                }}
+              />
+            )}
+          </div>
+        </div>
+
+        <DragOverlay>
+          {state.content && (
+            <div
+              className={styles.dragOverlayAnchor}
+              style={{
+                width: state.content.mouseX + viewConstants.dragHandleContentDelta,
+                height: state.content.mouseY + viewConstants.dragHandleContentDelta,
+              }}
+            >
+              <div
+                className={clsx(styles.dragOverlay, state.suggestedSnap && 'snapping')}
+                style={{
+                  width: state.content.view.width,
+                  height: state.content.view.height,
+                }}
+              />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+    </ViewContext.Provider>
+  );
+}

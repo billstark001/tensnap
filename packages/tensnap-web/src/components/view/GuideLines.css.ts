@@ -8,6 +8,7 @@ export const guidelinesContainer = style({
   height: '100%',
   pointerEvents: 'none',
   zIndex: 9999,
+  overflow: 'hidden',
 });
 
 export const guidelineBase = style({

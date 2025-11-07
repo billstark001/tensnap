@@ -1,5 +1,5 @@
 import { useScenarioStore } from './store/scenario';
-import ViewRenderer from './components/view/ViewRenderer';
+import ViewRoot from './components/view/ViewRoot';
 import { AnchoredViewRenderer } from './components/AnchoredViewRenderer';
 import * as styles from './styles/app.css';
 import { ToolBarLayout } from './components/ToolBarLayout';
@@ -38,7 +38,7 @@ function MainViewWrapper() {
   }
 
   return (
-    <ViewRenderer
+    <ViewRoot
       view={mainView}
       updateTrigger={updateTrigger}
       onViewUpdate={onUpdate}

@@ -8,7 +8,7 @@ const fadeIn = keyframes({
 
 export const container = style({
   minWidth: '100%',
-  minHeight: '100%',
+  minHeight: '50%',
   backgroundColor: '#f3f4f6',
   overflow: 'auto',
   position: 'relative',
@@ -308,4 +308,14 @@ export const dragOverlay = style({
   boxSizing: 'border-box',
   border: `${viewConstants.windowBorderWidth}px dashed #3b83f694`,
   borderRadius: `${viewConstants.windowBorderRadius}px`,
+
+  selectors: {
+    '&.snap': {
+      opacity: 0.5,
+      borderColor: '#b23bf6ff',
+    },
+    '&.snapping': {
+      opacity: 0.3,
+    },
+  },
 });

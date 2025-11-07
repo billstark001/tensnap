@@ -124,13 +124,13 @@ export class GuideLineGenerator {
     // Get perpendicular axis for overlap calculation
     const perpAxis = axis === 'vertical' ? 'horizontal' : 'vertical';
     const config = this.axisConfig[perpAxis];
-    
+
     const viewBounds = this.boundaries[perpAxis].filter(b => b.viewIndex === viewIndex);
     if (viewBounds.length === 0) return [];
 
     const viewStart = viewBounds.find(b => b.type === config.viewKeys[0])?.pos ?? 0;
     const viewEnd = viewBounds.find(b => b.type === config.viewKeys[1])?.pos ?? 0;
-    
+
     const coordStart = coord[config.posProp];
     const coordEnd = coordStart + coord[config.dimProp];
 
@@ -153,7 +153,7 @@ export class GuideLineGenerator {
     threshold: number
   ): Boundary[] {
     const [minPos, maxPos] = [target - threshold, target + threshold];
-    
+
     // Binary search for lower bound
     let left = 0, right = boundaries.length;
     while (left < right) {
@@ -213,7 +213,7 @@ export class GuideLineGenerator {
     guidelines.forEach(line => {
       const key = `${line.type}-${Math.round(line.position)}-${line.alignType}`;
       const existing = map.get(key);
-      
+
       if (existing) {
         existing.relatedSegments.push(...line.relatedSegments);
       } else {
@@ -257,6 +257,36 @@ export class GuideLineGenerator {
   }
 }
 
+export function calcSnapPos(snapPos: number, dimension: number, alignType: AlignType): number {
+  if (alignType.includes('right') || alignType === 'edge-bottom') {
+    return snapPos - dimension;
+  }
+  if (alignType.includes('center')) {
+    return snapPos - dimension / 2;
+  }
+  return snapPos; // edge-left or edge-top
+}
+
+export function calculateSnapDistance(coord: ViewBox, line: GuideLine): number {
+  switch (line.alignType) {
+    case 'edge-left':
+      return Math.abs(coord.left - line.position);
+    case 'edge-right':
+      return Math.abs(coord.left + coord.width - line.position);
+    case 'center-v':
+      return Math.abs(coord.left + coord.width / 2 - line.position);
+    case 'edge-top':
+      return Math.abs(coord.top - line.position);
+    case 'edge-bottom':
+      return Math.abs(coord.top + coord.height - line.position);
+    case 'center-h':
+      return Math.abs(coord.top + coord.height / 2 - line.position);
+    case 'cross':
+    default:
+      return Infinity;
+  }
+}
+
 /**
  * Fast guideline matcher for real-time snapping
  */
@@ -268,6 +298,7 @@ export class GuideLineMatcher {
   constructor(snapContent: GuideLineContent, threshold = 5) {
     this.generator = new GuideLineGenerator(threshold);
     this.snapContent = snapContent;
+    this.viewsUpdated = true;
   }
 
   updateViews(views: ViewBox[]): void {
@@ -287,58 +318,18 @@ export class GuideLineMatcher {
     let [minDistX, minDistY] = [Infinity, Infinity];
 
     guidelines.forEach(line => {
-      const dist = this.calculateSnapDistance(coord, line);
-      
+      const dist = calculateSnapDistance(coord, line);
+
       if (line.type === 'vertical' && dist < minDistX) {
         minDistX = dist;
-        snap.snapX = line.position;
+        snap.snapX = calcSnapPos(line.position, coord.width, line.alignType);
       } else if (line.type === 'horizontal' && dist < minDistY) {
         minDistY = dist;
-        snap.snapY = line.position;
+        snap.snapY = calcSnapPos(line.position, coord.height, line.alignType);
       }
     });
 
     return { guidelines, ...snap };
   }
 
-  private calculateSnapDistance(coord: ViewBox, line: GuideLine): number {
-    const distMap: Record<AlignType, number> = {
-      'edge-left': Math.abs(coord.left - line.position),
-      'edge-right': Math.abs(coord.left + coord.width - line.position),
-      'center-v': Math.abs(coord.left + coord.width / 2 - line.position),
-      'edge-top': Math.abs(coord.top - line.position),
-      'edge-bottom': Math.abs(coord.top + coord.height - line.position),
-      'center-h': Math.abs(coord.top + coord.height / 2 - line.position),
-      'cross': Infinity,
-    };
-
-    return distMap[line.alignType] ?? Infinity;
-  }
-
-  applySnap(coord: ViewBox): ViewBox {
-    const { snapX, snapY, guidelines } = this.match(coord);
-    const result = { ...coord };
-
-    if (snapX !== null) {
-      const line = guidelines.find(g => g.type === 'vertical' && g.position === snapX);
-      if (line) result.left = this.calcSnapPos(snapX, coord.width, line.alignType);
-    }
-
-    if (snapY !== null) {
-      const line = guidelines.find(g => g.type === 'horizontal' && g.position === snapY);
-      if (line) result.top = this.calcSnapPos(snapY, coord.height, line.alignType);
-    }
-
-    return result;
-  }
-
-  private calcSnapPos(snapPos: number, dimension: number, alignType: AlignType): number {
-    if (alignType.includes('right') || alignType === 'edge-bottom') {
-      return snapPos - dimension;
-    }
-    if (alignType.includes('center')) {
-      return snapPos - dimension / 2;
-    }
-    return snapPos; // edge-left or edge-top
-  }
 }
