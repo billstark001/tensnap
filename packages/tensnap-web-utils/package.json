@@ -17,9 +17,15 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --maxWorkers=1",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch --maxWorkers=1",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "clean": "rm -rf dist node_modules"
+    "clean": "rm -rf dist node_modules",
+    "i18n:extract": "lingui extract",
+    "i18n:compile": "lingui compile"
   },
   "dependencies": {
+    "@lingui/cli": "^5.5.2",
+    "@lingui/core": "^5.5.2",
+    "@lingui/macro": "^5.5.2",
+    "@lingui/react": "^5.5.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-dialog": "^1.1.15",

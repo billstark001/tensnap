@@ -4,6 +4,7 @@ import { useFileOperations } from './FileOperationsProvider';
 import * as styles from '@/styles/toolbar.css';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';
+import { Trans } from '@lingui/macro';
 
 export interface MenuBarProps {
   className?: string;
@@ -20,14 +21,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   } = useFileOperations();
 
   const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
+  const setAboutDialogOpen = useSettingsStore(x => x.setAboutDialogOpen);
 
   return (
     <>
       <div className={clsx(styles.menuBar, className)}>
-        {/* File 菜单 */}
+        {/* File Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}>文件</button>
+            <button className={styles.menuItem}><Trans>File</Trans></button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
@@ -38,53 +40,53 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 className={styles.dropdownItem}
                 onClick={onNewFile}
               >
-                新建
+                <Trans>New</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={onFileOpen}
               >
-                打开文件
+                <Trans>Open File</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={onDirectoryOpen}
               >
-                打开文件夹
+                <Trans>Open Folder</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={canSaveFile ? onFileSave : undefined}
                 disabled={!canSaveFile}
               >
-                保存
+                <Trans>Save</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={canSaveFile ? onFileSaveAs : undefined}
                 disabled={!canSaveFile}
               >
-                另存为...
+                <Trans>Save As...</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={onExport}
               >
-                导出
+                <Trans>Export</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
               <DropdownMenu.Item className={styles.dropdownItem}>
-                退出
+                <Trans>Exit</Trans>
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
 
-        {/* Edit 菜单 */}
+        {/* Edit Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}>编辑</button>
+            <button className={styles.menuItem}><Trans>Edit</Trans></button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
@@ -92,33 +94,33 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               sideOffset={5}
             >
               <DropdownMenu.Item className={styles.dropdownItem}>
-                撤销
+                <Trans>Undo</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem}>
-                重做
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                剪切
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                复制
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                粘贴
+                <Trans>Redo</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
               <DropdownMenu.Item className={styles.dropdownItem}>
-                全选
+                <Trans>Cut</Trans>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item className={styles.dropdownItem}>
+                <Trans>Copy</Trans>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item className={styles.dropdownItem}>
+                <Trans>Paste</Trans>
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator className={styles.dropdownSeparator} />
+              <DropdownMenu.Item className={styles.dropdownItem}>
+                <Trans>Select All</Trans>
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
 
-        {/* View 菜单 */}
+        {/* View Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}>视图</button>
+            <button className={styles.menuItem}><Trans>View</Trans></button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
@@ -126,38 +128,38 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               sideOffset={5}
             >
               <DropdownMenu.Item className={styles.dropdownItem}>
-                放大
+                <Trans>Zoom In</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem}>
-                缩小
+                <Trans>Zoom Out</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem}>
-                重置缩放
+                <Trans>Reset Zoom</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
               <DropdownMenu.Item className={styles.dropdownItem}>
-                显示网格
+                <Trans>Show Grid</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem}>
-                显示工具栏
+                <Trans>Show Toolbar</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={onOpenBrowser}
               >
-                文件浏览器
+                <Trans>File Browser</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem}>
-                全屏
+                <Trans>Fullscreen</Trans>
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
 
-        {/* Tools 菜单 */}
+        {/* Tools Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}>工具</button>
+            <button className={styles.menuItem}><Trans>Tools</Trans></button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
@@ -168,29 +170,29 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 className={styles.dropdownItem}
                 onClick={onOpenBrowser}
               >
-                文件管理器
+                <Trans>File Manager</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={() => setSettingsDialogOpen(true)}
               >
-                设置
+                <Trans>Settings</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={onExport}
               >
-                导出当前目录
+                <Trans>Export Current Directory</Trans>
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
 
-        {/* About 菜单 */}
+        {/* Help Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}>帮助</button>
+            <button className={styles.menuItem}><Trans>Help</Trans></button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
@@ -198,14 +200,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               sideOffset={5}
             >
               <DropdownMenu.Item className={styles.dropdownItem}>
-                帮助文档
+                <Trans>Documentation</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem}>
-                快捷键
+                <Trans>Keyboard Shortcuts</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                关于 TenSnap
+              <DropdownMenu.Item
+                className={styles.dropdownItem}
+                onClick={() => setAboutDialogOpen(true)}
+              >
+                <Trans>About TenSnap</Trans>
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>

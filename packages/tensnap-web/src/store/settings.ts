@@ -2,17 +2,23 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
 type Theme = 'light' | 'dark';
+type Locale = 'en' | 'zh' | 'ja';
 
 interface SettingsStore {
 
   settingsDialogOpen: boolean;
   setSettingsDialogOpen: (open: boolean) => void;
 
+  aboutDialogOpen: boolean;
+  setAboutDialogOpen: (open: boolean) => void;
+
   theme: Theme;
   saveFormat: 'json' | 'msgpack';
+  locale: Locale;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
   setSaveFormat: (format: 'json' | 'msgpack') => void;
+  setLocale: (locale: Locale) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -24,7 +30,13 @@ export const useSettingsStore = create<SettingsStore>()(
       set({ settingsDialogOpen: open });
     },
 
-    // 从 localStorage 初始化主题
+    aboutDialogOpen: false,
+
+    setAboutDialogOpen: (open: boolean) => {
+      set({ aboutDialogOpen: open });
+    },
+
+    // Initialize from localStorage
     theme: (() => {
       const saved = localStorage.getItem('theme');
       return (saved as Theme) || 'light';
@@ -33,6 +45,11 @@ export const useSettingsStore = create<SettingsStore>()(
     saveFormat: (() => {
       const saved = localStorage.getItem('saveFormat');
       return (saved as 'json' | 'msgpack') || 'msgpack';
+    })(),
+
+    locale: (() => {
+      const saved = localStorage.getItem('locale');
+      return (saved as Locale) || 'en';
     })(),
 
     toggleTheme: () => {
@@ -47,6 +64,10 @@ export const useSettingsStore = create<SettingsStore>()(
 
     setSaveFormat: (format: 'json' | 'msgpack') => {
       set({ saveFormat: format });
+    },
+
+    setLocale: (locale: Locale) => {
+      set({ locale });
     },
   }))
 );
@@ -63,5 +84,12 @@ useSettingsStore.subscribe(
   (state) => state.saveFormat,
   (format) => {
     localStorage.setItem('saveFormat', format);
+  }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.locale,
+  (locale) => {
+    localStorage.setItem('locale', locale);
   }
 );

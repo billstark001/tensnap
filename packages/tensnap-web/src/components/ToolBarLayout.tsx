@@ -11,6 +11,7 @@ import { CreateNewDialog } from "./CreateNewDialog";
 import { FileMetadata } from "@/types/file";
 import { useWithLoading } from "@/store/loading";
 import { SettingsDialog } from "./SettingsDialog";
+import { AboutDialog } from "./AboutDialog";
 import { useFakeModelPicker } from "tensnap-web-utils";
 import { Beaker, Sun, Moon } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -18,6 +19,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 export const ToolBarLayout = () => {
   const { 
     settingsDialogOpen, setSettingsDialogOpen,
+    aboutDialogOpen, setAboutDialogOpen,
     theme, toggleTheme,
   } = useSettingsStore();
   const withLoading = useWithLoading();
@@ -151,6 +153,7 @@ export const ToolBarLayout = () => {
         </div>
 
         <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
+        <AboutDialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen} />
       </Tooltip.Provider>
     </FileOperationsProvider>
   );
