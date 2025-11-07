@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import type { Locale } from '@/i18n';
 
 type Theme = 'light' | 'dark';
-type Locale = 'en' | 'zh' | 'ja';
 
 interface SettingsStore {
 

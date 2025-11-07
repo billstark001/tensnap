@@ -7,7 +7,7 @@ import './styles/global.css';
 import { UseFileSystemGuard } from './store/file-system/provider';
 import { registerFakeModels } from 'tensnap-web-utils';
 import { WebSocketManagerFake } from './websocket/fake';
-import { initI18n, detectLocale } from './i18n';
+import { initI18n, detectLocale, isValidLocale } from './i18n';
 import { useSettingsStore } from './store/settings';
 
 // Register fake models for development/testing
@@ -19,11 +19,11 @@ document.body.setAttribute('data-theme', initialTheme);
 
 // Initialize i18n with detected locale
 const savedLocale = localStorage.getItem('locale');
-const initialLocale = savedLocale || detectLocale();
+const initialLocale = (savedLocale && isValidLocale(savedLocale)) ? savedLocale : detectLocale();
 
 initI18n(initialLocale).then((locale) => {
   // Update settings store with the initialized locale
-  useSettingsStore.getState().setLocale(locale as 'en' | 'zh' | 'ja');
+  useSettingsStore.getState().setLocale(locale);
   
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

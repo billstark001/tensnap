@@ -7,7 +7,7 @@ import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
 import { Trans, msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
-import { activateLocale, locales } from '@/i18n';
+import { activateLocale, locales, isValidLocale } from '@/i18n';
 
 import * as styles from './SettingsDialog.css';
 
@@ -51,8 +51,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   }, []);
 
   const handleLocaleChange = useCallback(async (newLocale: string) => {
+    if (!isValidLocale(newLocale)) {
+      console.error(`Invalid locale: ${newLocale}`);
+      return;
+    }
     await activateLocale(newLocale);
-    setLocale(newLocale as 'en' | 'zh' | 'ja');
+    setLocale(newLocale);
   }, [setLocale]);
 
   return (
