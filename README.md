@@ -10,6 +10,7 @@
 - **🎛️ NetLogo-Inspired UI**: Familiar controls (sliders, buttons, charts) with modern enhancements
 - **🔧 Multi-Granularity APIs**: From simple high-level APIs for beginners to low-level protocol access for experts
 - **💻 Dual Deployment**: Run in browser or as desktop app via Tauri
+- **🌍 Internationalization**: Full i18n support with English, Chinese, and Japanese languages
 
 ## 🚀 Quick Start
 
@@ -59,6 +60,7 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[Development Setup](./docs/maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./docs/maintainer-guide/contributing.md)** - How to contribute to TenSnap
 - **[Protocol Documentation](./docs/maintainer-guide/protocol.md)** - WebSocket protocol specification
+- **[Internationalization (i18n)](./docs/maintainer-guide/i18n.md)** - Translation and localization guide
 
 ## 🎯 Design Philosophy
 

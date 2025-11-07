@@ -6,6 +6,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: ja\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
 
 #: src/components/AboutDialog.tsx:76
 msgid "© 2025 TenSnap Contributors"
@@ -16,9 +22,14 @@ msgstr "© 2025 TenSnap コントリビューター"
 msgid "About TenSnap"
 msgstr "TenSnapについて"
 
+#: src/components/CreateNewDialog.tsx:47
 #: src/components/SettingsDialog.tsx:142
 msgid "Backend URL"
 msgstr "バックエンドURL"
+
+#: src/components/CreateNewDialog.tsx:60
+msgid "Cancel"
+msgstr "キャンセル"
 
 #: src/components/AboutDialog.tsx:82
 #: src/components/SettingsDialog.tsx:175
@@ -36,6 +47,14 @@ msgstr "接続済み"
 #: src/components/toolbar/MenuBar.tsx:107
 msgid "Copy"
 msgstr "コピー"
+
+#: src/components/CreateNewDialog.tsx:67
+msgid "Create"
+msgstr "作成"
+
+#: src/components/CreateNewDialog.tsx:43
+msgid "Create New Project"
+msgstr "新しいプロジェクトを作成"
 
 #: src/components/toolbar/MenuBar.tsx:104
 msgid "Cut"
@@ -61,6 +80,7 @@ msgstr "ドキュメント："
 msgid "Edit"
 msgstr "編集"
 
+#: src/components/CreateNewDialog.tsx:53
 #: src/components/SettingsDialog.tsx:148
 msgid "Enter backend WebSocket server address"
 msgstr "バックエンドWebSocketサーバーアドレスを入力"

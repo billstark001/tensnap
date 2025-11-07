@@ -6,6 +6,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: zh\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
 
 #: src/components/AboutDialog.tsx:76
 msgid "© 2025 TenSnap Contributors"
@@ -16,9 +22,14 @@ msgstr "© 2025 TenSnap 贡献者"
 msgid "About TenSnap"
 msgstr "关于 TenSnap"
 
+#: src/components/CreateNewDialog.tsx:47
 #: src/components/SettingsDialog.tsx:142
 msgid "Backend URL"
 msgstr "后端地址"
+
+#: src/components/CreateNewDialog.tsx:60
+msgid "Cancel"
+msgstr "取消"
 
 #: src/components/AboutDialog.tsx:82
 #: src/components/SettingsDialog.tsx:175
@@ -36,6 +47,14 @@ msgstr "已连接"
 #: src/components/toolbar/MenuBar.tsx:107
 msgid "Copy"
 msgstr "复制"
+
+#: src/components/CreateNewDialog.tsx:67
+msgid "Create"
+msgstr "创建"
+
+#: src/components/CreateNewDialog.tsx:43
+msgid "Create New Project"
+msgstr "创建新项目"
 
 #: src/components/toolbar/MenuBar.tsx:104
 msgid "Cut"
@@ -61,6 +80,7 @@ msgstr "文档："
 msgid "Edit"
 msgstr "编辑"
 
+#: src/components/CreateNewDialog.tsx:53
 #: src/components/SettingsDialog.tsx:148
 msgid "Enter backend WebSocket server address"
 msgstr "输入后端 WebSocket 服务器地址"
