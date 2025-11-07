@@ -11,6 +11,7 @@ import { findAndAddView, findAndDeleteView } from './utils/container';
 import { ViewProps } from './common';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
+import { SNAP_THRESHOLD } from './constants';
 
 export type ViewRendererProps = ViewProps<ContainerView> &
   Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
@@ -30,7 +31,6 @@ type DragState = {
   suggestedSnap: ViewBox | null;
 };
 
-const SNAP_THRESHOLD = 10;
 const INITIAL_GUIDE_ORIGIN = { relativeLeft: 0, relativeTop: 0 };
 
 const getCalibratedCoordinates = (
