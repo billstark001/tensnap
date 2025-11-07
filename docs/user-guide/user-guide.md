@@ -464,7 +464,7 @@ The TenSnap interface consists of:
 1. **Top Toolbar**
    - File operations (save, load, export)
    - View controls
-   - Settings
+   - Settings (including language preferences)
 
 2. **Left Panel** - Parameters and Controls
    - Sliders for numeric parameters
@@ -486,6 +486,22 @@ The TenSnap interface consists of:
    - Step button (single step execution)
    - Speed control
    - Time step display
+
+### Language Settings
+
+TenSnap supports multiple languages:
+
+- **English** (default)
+- **Chinese** (中文)
+- **Japanese** (日本語)
+
+To change the language:
+
+1. Open **Tools → Settings**
+2. Select your preferred language from the **Language** dropdown
+3. The interface will update immediately
+
+The language preference is saved automatically and will be restored when you return to TenSnap. The system also detects your browser's language on first use.
 
 ### Customizing Layout
 

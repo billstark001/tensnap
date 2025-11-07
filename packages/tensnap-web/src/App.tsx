@@ -7,6 +7,7 @@ import { useButtonControls } from './components/useButtonControls';
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 import { createUpdateTriggerStore } from './store/update-trigger';
+import { Trans } from '@lingui/react/macro';
 
 function StatusBar() {
   const connected = useScenarioStore((store) => store.connected);
@@ -15,9 +16,9 @@ function StatusBar() {
   return (
     <div className={styles.statusBar}>
       <span className={connected ? styles.statusConnected : styles.statusDisconnected}>
-        {connected ? 'Connected' : 'Disconnected'}
+        {connected ? <Trans>Connected</Trans> : <Trans>Disconnected</Trans>}
       </span>
-      <span style={{ marginLeft: '16px' }}>Time Step: {currentTime}</span>
+      <span style={{ marginLeft: '16px' }}><Trans>Time Step:</Trans> {currentTime}</span>
     </div>
   )
 }

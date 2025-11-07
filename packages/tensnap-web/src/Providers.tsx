@@ -1,4 +1,6 @@
 import { PropsWithChildren, ComponentType, ReactNode } from 'react';
+import { I18nProvider } from '@lingui/react';
+import { i18n } from '@/i18n';
 import { ScenarioStoreProvider } from '@/store/scenario';
 import { AdapterProvider, AdapterProviderProps } from '@/store/file-system/provider';
 import { useProjectStore } from '@/store/project';
@@ -28,29 +30,33 @@ export function Providers({
   };
 
   if (!activeProject) {
-    return <AdapterProvider {...adapterProps}>
-      <CustomFilePickerProvider>
-        <FakeModelPickerProvider>
-          {children}
-        </FakeModelPickerProvider>
-      </CustomFilePickerProvider>
-    </AdapterProvider>
+    return <I18nProvider i18n={i18n}>
+      <AdapterProvider {...adapterProps}>
+        <CustomFilePickerProvider>
+          <FakeModelPickerProvider>
+            {children}
+          </FakeModelPickerProvider>
+        </CustomFilePickerProvider>
+      </AdapterProvider>
+    </I18nProvider>
   }
 
   return (
-    <AdapterProvider {...adapterProps}>
-      <CustomFilePickerProvider>
-        <FakeModelPickerProvider>
-          <ScenarioStoreProvider value={activeProject.useScenarioStore}>
-            <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
-              <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
-                {children}
-              </ScenarioUndoRedoStoreProvider>
-            </WebSocketStoreProvider>
-          </ScenarioStoreProvider>
-        </FakeModelPickerProvider>
-      </CustomFilePickerProvider>
-    </AdapterProvider>
+    <I18nProvider i18n={i18n}>
+      <AdapterProvider {...adapterProps}>
+        <CustomFilePickerProvider>
+          <FakeModelPickerProvider>
+            <ScenarioStoreProvider value={activeProject.useScenarioStore}>
+              <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
+                <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
+                  {children}
+                </ScenarioUndoRedoStoreProvider>
+              </WebSocketStoreProvider>
+            </ScenarioStoreProvider>
+          </FakeModelPickerProvider>
+        </CustomFilePickerProvider>
+      </AdapterProvider>
+    </I18nProvider>
   );
 
 }
