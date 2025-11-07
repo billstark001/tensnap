@@ -19,7 +19,6 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@lingui/cli": "^5.5.2",
     "@lingui/core": "^5.5.2",
-    "@lingui/macro": "^5.5.2",
     "@lingui/react": "^5.5.2",
     "@msgpack/msgpack": "^3.1.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -66,7 +65,7 @@
     "jest-environment-jsdom": "^30.2.0",
     "ts-jest": "^29.4.5",
     "typescript": "^5.9.3",
-    "vite": "^7.1.12"
+    "vite": "^7.2.1"
   },
   "main": "./index.ts",
   "types": "./index.ts",

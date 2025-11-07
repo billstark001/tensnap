@@ -2,7 +2,7 @@ import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as dialogStyles from '@/styles/dialog.css';
 import { DialogOpenProps } from '@/utils/react';
-import { Trans } from '@lingui/macro';
+import { Trans } from '@lingui/react/macro';
 
 export interface AboutDialogProps extends DialogOpenProps {
 
@@ -21,7 +21,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
             <Trans>About TenSnap</Trans>
           </Dialog.Title>
           <Dialog.Description></Dialog.Description>
-          
+
           <div style={{ padding: '20px 0' }}>
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
@@ -35,8 +35,8 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
             <div style={{ marginBottom: '16px' }}>
               <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '12px' }}>
                 <Trans>
-                  TenSnap is a visualization and simulation tool for tensor network models, 
-                  designed to help researchers and students understand complex systems through 
+                  TenSnap is a visualization and simulation tool for tensor network models,
+                  designed to help researchers and students understand complex systems through
                   interactive simulations and visualizations.
                 </Trans>
               </p>
@@ -45,21 +45,21 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
             <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
               <div style={{ marginBottom: '12px' }}>
                 <strong><Trans>Repository:</Trans></strong>{' '}
-                <a 
-                  href="https://github.com/billstark001/tensnap" 
-                  target="_blank" 
+                <a
+                  href="https://github.com/billstark001/tensnap"
+                  target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: 'var(--link-color)', textDecoration: 'none' }}
                 >
                   github.com/billstark001/tensnap
                 </a>
               </div>
-              
+
               <div style={{ marginBottom: '12px' }}>
                 <strong><Trans>Documentation:</Trans></strong>{' '}
-                <a 
-                  href="https://github.com/billstark001/tensnap/tree/main/docs" 
-                  target="_blank" 
+                <a
+                  href="https://github.com/billstark001/tensnap/tree/main/docs"
+                  target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: 'var(--link-color)', textDecoration: 'none' }}
                 >

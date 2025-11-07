@@ -2,7 +2,8 @@ import React, { useState, useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as dialogStyles from '@/styles/dialog.css';
 import { DialogOpenProps } from '@/utils/react';
-import { Trans, msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 
 export interface CreateNewDialogProps extends DialogOpenProps {
@@ -59,7 +60,7 @@ export const CreateNewDialog: React.FC<CreateNewDialogProps> = ({
             <Dialog.Close asChild>
               <button className={dialogStyles.dialogButton}><Trans>Cancel</Trans></button>
             </Dialog.Close>
-            <button 
+            <button
               className={dialogStyles.dialogButtonPrimary}
               onClick={handleCreateItem}
               disabled={!newItemName.trim()}

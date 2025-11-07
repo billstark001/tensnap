@@ -4,7 +4,7 @@ import { useFileOperations } from './FileOperationsProvider';
 import * as styles from '@/styles/toolbar.css';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';
-import { Trans } from '@lingui/macro';
+import { Trans } from '@lingui/react/macro';
 
 export interface MenuBarProps {
   className?: string;

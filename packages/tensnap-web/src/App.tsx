@@ -7,7 +7,7 @@ import { useButtonControls } from './components/useButtonControls';
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 import { createUpdateTriggerStore } from './store/update-trigger';
-import { Trans } from '@lingui/macro';
+import { Trans } from '@lingui/react/macro';
 
 function StatusBar() {
   const connected = useScenarioStore((store) => store.connected);

@@ -1,4 +1,4 @@
-import { style } from '@vanilla-extract/css';
+import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@/styles/global.css';
 
 export const settingsContainer = style({
@@ -129,6 +129,7 @@ export const selectContent = style({
   border: `1px solid ${vars.color.secondary}`,
   boxShadow: vars.shadow.lg,
   overflow: 'hidden',
+  position: 'relative',
   zIndex: 50,
   
   selectors: {
@@ -137,6 +138,13 @@ export const selectContent = style({
       borderColor: 'rgba(255, 255, 255, 0.3)',
     },
   },
+});
+
+globalStyle('[data-radix-popper-content-wrapper]', {
+  position: 'absolute',
+  top: '0',
+  left: '0',
+  willChange: 'transform',
 });
 
 export const selectItem = style({

@@ -52,10 +52,10 @@ importers:
         version: 1.17.4(babel-plugin-macros@3.1.0)
       '@vanilla-extract/vite-plugin':
         specifier: ^5.1.1
-        version: 5.1.1(@types/node@20.19.9)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))(yaml@2.8.1)
+        version: 5.1.1(@types/node@20.19.9)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))(yaml@2.8.1)
       '@vitejs/plugin-react':
         specifier: ^5.1.0
-        version: 5.1.0(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))
+        version: 5.1.0(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
@@ -69,8 +69,8 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: ^7.1.12
-        version: 7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
+        specifier: ^7.2.1
+        version: 7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
 
   packages/tensnap-web:
     dependencies:
@@ -86,9 +86,6 @@ importers:
       '@lingui/core':
         specifier: ^5.5.2
         version: 5.5.2(@lingui/babel-plugin-lingui-macro@5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3))(babel-plugin-macros@3.1.0)
-      '@lingui/macro':
-        specifier: ^5.5.2
-        version: 5.5.2(@lingui/babel-plugin-lingui-macro@5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3))(babel-plugin-macros@3.1.0)(react@19.2.0)
       '@lingui/react':
         specifier: ^5.5.2
         version: 5.5.2(@lingui/babel-plugin-lingui-macro@5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3))(babel-plugin-macros@3.1.0)(react@19.2.0)
@@ -161,7 +158,7 @@ importers:
     devDependencies:
       '@lingui/vite-plugin':
         specifier: ^5.5.2
-        version: 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))
+        version: 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1
@@ -194,10 +191,10 @@ importers:
         version: 1.17.4(babel-plugin-macros@3.1.0)
       '@vanilla-extract/vite-plugin':
         specifier: ^5.1.1
-        version: 5.1.1(@types/node@20.19.9)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))(yaml@2.8.1)
+        version: 5.1.1(@types/node@20.19.9)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))(yaml@2.8.1)
       '@vitejs/plugin-react':
         specifier: ^5.1.0
-        version: 5.1.0(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))
+        version: 5.1.0(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))
       babel-plugin-macros:
         specifier: ^3.1.0
         version: 3.1.0
@@ -223,8 +220,8 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: ^7.1.12
-        version: 7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
+        specifier: ^7.2.1
+        version: 7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
 
   packages/tensnap-web-utils:
     dependencies:
@@ -4234,8 +4231,8 @@ packages:
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
 
-  vite@7.1.12:
-    resolution: {integrity: sha512-ZWyE8YXEXqJrrSLvYgrRP7p62OziLW7xI5HYGWFzOvupfAlrLvURSzv/FyGyy0eidogEM3ujU+kUG1zuHgb6Ug==}
+  vite@7.2.1:
+    resolution: {integrity: sha512-qTl3VF7BvOupTR85Zc561sPEgxyUSNSvTQ9fit7DEMP7yPgvvIGm5Zfa1dOM+kOwWGNviK9uFM9ra77+OjK7lQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -5536,11 +5533,11 @@ snapshots:
       '@lingui/babel-plugin-lingui-macro': 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)
       babel-plugin-macros: 3.1.0
 
-  '@lingui/vite-plugin@5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))':
+  '@lingui/vite-plugin@5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))':
     dependencies:
       '@lingui/cli': 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)
       '@lingui/conf': 5.5.2(typescript@5.9.3)
-      vite: 7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
+      vite: 7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -6556,7 +6553,7 @@ snapshots:
     dependencies:
       '@vanilla-extract/css': 1.17.4(babel-plugin-macros@3.1.0)
       '@vanilla-extract/integration': 8.0.4(babel-plugin-macros@3.1.0)
-      vite: 7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
+      vite: 7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
       vite-node: 3.2.4(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@types/node'
@@ -6608,11 +6605,11 @@ snapshots:
 
   '@vanilla-extract/private@1.0.9': {}
 
-  '@vanilla-extract/vite-plugin@5.1.1(@types/node@20.19.9)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))(yaml@2.8.1)':
+  '@vanilla-extract/vite-plugin@5.1.1(@types/node@20.19.9)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))(yaml@2.8.1)':
     dependencies:
       '@vanilla-extract/compiler': 0.3.1(@types/node@20.19.9)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(yaml@2.8.1)
       '@vanilla-extract/integration': 8.0.4(babel-plugin-macros@3.1.0)
-      vite: 7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
+      vite: 7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@types/node'
       - babel-plugin-macros
@@ -6628,7 +6625,7 @@ snapshots:
       - tsx
       - yaml
 
-  '@vitejs/plugin-react@5.1.0(vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))':
+  '@vitejs/plugin-react@5.1.0(vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1))':
     dependencies:
       '@babel/core': 7.28.5
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.28.5)
@@ -6636,7 +6633,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.43
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
-      vite: 7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
+      vite: 7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -8914,7 +8911,7 @@ snapshots:
       debug: 4.4.1
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
+      vite: 7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@types/node'
       - jiti
@@ -8929,7 +8926,7 @@ snapshots:
       - tsx
       - yaml
 
-  vite@7.1.12(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1):
+  vite@7.2.1(@types/node@20.19.9)(jiti@2.6.1)(yaml@2.8.1):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)

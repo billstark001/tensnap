@@ -5,7 +5,8 @@ import * as Select from '@radix-ui/react-select';
 import * as dialogStyles from '@/styles/dialog.css';
 import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
-import { Trans, msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
 
@@ -66,12 +67,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         <Dialog.Content className={dialogStyles.dialogContentLarge}>
           <Dialog.Title className={dialogStyles.dialogTitle}><Trans>Settings</Trans></Dialog.Title>
           <Dialog.Description></Dialog.Description>
-          
+
           <div className={styles.settingsContainer}>
             {/* System Settings */}
             <div className={styles.sectionContainer}>
               <h3 className={styles.sectionTitle}><Trans>System Settings</Trans></h3>
-              
+
               <div className={styles.settingItem}>
                 <label className={styles.settingLabel}><Trans>Theme</Trans></label>
                 <div className={styles.settingControl}>
@@ -99,7 +100,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                       <Select.Icon>▼</Select.Icon>
                     </Select.Trigger>
                     <Select.Portal>
-                      <Select.Content className={styles.selectContent}>
+                      <Select.Content className={styles.selectContent} position='popper'>
                         {Object.entries(locales).map(([code, name]) => (
                           <Select.Item key={code} value={code} className={styles.selectItem}>
                             <Select.ItemText>{name}</Select.ItemText>
@@ -120,7 +121,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                       <Select.Icon>▼</Select.Icon>
                     </Select.Trigger>
                     <Select.Portal>
-                      <Select.Content className={styles.selectContent}>
+                      <Select.Content className={styles.selectContent} position='popper'>
                         <Select.Item value="msgpack" className={styles.selectItem}>
                           <Select.ItemText>MessagePack</Select.ItemText>
                         </Select.Item>
@@ -139,7 +140,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             {/* Project Settings */}
             <div className={styles.sectionContainer}>
               <h3 className={styles.sectionTitle}><Trans>Project Settings</Trans></h3>
-              
+
               <div className={styles.projectSettingsContainer}>
                 <div className={styles.projectSettingsForm}>
                   <fieldset className={dialogStyles.dialogFieldset}>
@@ -155,14 +156,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 </div>
 
                 <div className={styles.projectSettingsFooter}>
-                  <button 
+                  <button
                     className={dialogStyles.dialogButton}
                     onClick={handleProjectSettingsReset}
                     disabled={!hasProjectChanges}
                   >
                     <Trans>Reset</Trans>
                   </button>
-                  <button 
+                  <button
                     className={dialogStyles.dialogButtonPrimary}
                     onClick={handleProjectSettingsConfirm}
                     disabled={!hasProjectChanges}
