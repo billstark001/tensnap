@@ -104,6 +104,12 @@ export interface LogPayload {
 }
 
 
+export interface NormalizedLogPayload extends LogPayload {
+  level: LogLevel; // default is 'info'
+  timestamp: number;
+}
+
+
 // state_sync - Unified state synchronization (request and response)
 export interface StateSyncRequest {
   parameters: Parameter[];  // Parameter ID list

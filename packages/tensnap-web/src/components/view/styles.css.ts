@@ -7,8 +7,8 @@ const fadeIn = keyframes({
 });
 
 export const container = style({
-  minWidth: '100%',
-  minHeight: '50%',
+  minWidth: '100px',
+  minHeight: '100px',
   backgroundColor: '#f3f4f6',
   overflow: 'auto',
   position: 'relative',

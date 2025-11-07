@@ -55,10 +55,10 @@ const getCalibratedCoordinates = (
   delta: Coordinates,
   clipZero = true,
 ): ViewBox => {
-  const { left = 0, top = 0, width, height } = view;
-  const { relativeLeft: sourceLeft = 0, relativeTop: sourceTop = 0 } = source;
-  const { relativeLeft: targetLeft = 0, relativeTop: targetTop = 0 } = target;
-  const { x: deltaX = 0, y: deltaY = 0 } = delta;
+  const { left = 0, top = 0, width, height } = view ?? {};
+  const { relativeLeft: sourceLeft = 0, relativeTop: sourceTop = 0 } = source ?? {};
+  const { relativeLeft: targetLeft = 0, relativeTop: targetTop = 0 } = target ?? {};
+  const { x: deltaX = 0, y: deltaY = 0 } = delta ?? {};
 
   const ret: ViewBox = {
     left: (left + sourceLeft - targetLeft + deltaX) | 0,
@@ -213,6 +213,9 @@ export function useDragContent({
   }, [initMatcher, updateState, updateSnapState]);
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
+    if (!event.over) {
+      return;
+    }
     const { view: activeView } = event.active.data.current ?? {};
     const { view: overView, relativeLeft, relativeTop } = event.over?.data.current ?? {};
 

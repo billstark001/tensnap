@@ -5,7 +5,7 @@ import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
 import { createAutoLayout, createDefaultRootLayout } from '@/components/view/utils/pack';
 import { instantiateChartMetadata, InstantiatedChartStorage, InstantiatedEnvironment, instantiateEnvironment, sanitizeParameter, serializeEnvironment } from '@/store/scenario-inst';
-import { LogLevel, LogPayload } from '@/types/api';
+import { LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
 
 export interface SetDataPayload {
   environments?: Environment[];
@@ -32,6 +32,8 @@ export interface ScenarioStore {
   parameters: Parameter[];
   charts: InstantiatedChartStorage;
   snapshots: Snapshot[];
+  logs: NormalizedLogPayload[];
+  lastLogs?: NormalizedLogPayload;
   maxSnapshots: number;
   mainView: ContainerView;
 
@@ -60,6 +62,8 @@ const getEnvironmentMetadata = (env: InstantiatedEnvironment) => ({
   height: (env.props as any)?.height,
 });
 
+const MAX_LOG_ENTRIES = 1000;
+
 export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   // Initial state
   connected: false,
@@ -69,6 +73,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   parameters: [],
   charts: new InstantiatedChartStorage([]),
   snapshots: [],
+  logs: [],
   maxSnapshots: 32,
   mainView: createDefaultRootLayout(),
 
@@ -298,11 +303,19 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     if (typeof payload === 'string') {
       payload = { level, message: payload };
     }
-    level = payload.level || level;
+    payload.level = payload.level || level;
+    payload.timestamp = payload.timestamp || Date.now();
+    set((state) => {
+      state.logs.push(payload as NormalizedLogPayload);
+      if (state.logs.length > MAX_LOG_ENTRIES) {
+        state.logs.splice(0, state.logs.length - MAX_LOG_ENTRIES);
+      }
+      return { lastLogs: payload as NormalizedLogPayload, };
+    });
     if (payload.target) {
-      console.log(`[${level.toUpperCase()}][${payload.target}] ${payload.message}`);
+      console.log(`[${payload.level.toUpperCase()}][${payload.target}] ${payload.message}`);
     } else {
-      console.log(`[${level.toUpperCase()}] ${payload.message}`);
+      console.log(`[${payload.level.toUpperCase()}] ${payload.message}`);
     }
   },
 }));

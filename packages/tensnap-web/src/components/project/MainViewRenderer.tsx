@@ -6,7 +6,7 @@ import { AnchoredViewRenderer } from "./AnchoredViewRenderer";
 
 const useUpdateTriggerStore = createUpdateTriggerStore();
 
-export function MainViewWrapper() {
+export function MainViewRenderer() {
   const mainView = useScenarioStore((store) => store.mainView);
 
   const updateTrigger = useUpdateTriggerStore((store) => store.updateTrigger);

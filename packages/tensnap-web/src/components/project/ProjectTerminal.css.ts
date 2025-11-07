@@ -12,9 +12,12 @@ export const projectContainer = style({
 });
 
 export const projectTerminal = style({
+  width: '100%',
+  height: '100%',
   background: '#1e1e1e',
   color: '#fff',
-  overflow: 'auto',
+  overflowY: 'auto',
+  fontFamily: 'monospace',
 });
 
 export const sidebar = style({

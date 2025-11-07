@@ -1,46 +1,78 @@
 import Split from 'react-split';
 import * as styles from './ProjectPanel.css';
-import { MainViewWrapper } from './MainViewRenderer';
+import { MainViewRenderer } from './MainViewRenderer';
 import { StatusBar } from './StatusBar';
 import { ProjectTerminal } from './ProjectTerminal';
-import { useState } from 'react';
+import { RightPanel } from './RightPanel';
+import { useState, useCallback } from 'react';
 
 export const ProjectPanel = () => {
+  const [rightPanelVisible, setRightPanelVisible] = useState(true);
+  const [bottomPanelVisible, setBottomPanelVisible] = useState(true);
 
-  const [rightExpanded, setRightExpanded] = useState(false);
-  const [bottomExpanded, setBottomExpanded] = useState(false);
+  const mainContent = <div className={styles.panelWrapper}>
+    <MainViewRenderer />
+  </div>;
 
-  const mainView = <MainViewWrapper />;
-  const terminal = <ProjectTerminal />;
+  const rightPanelContent = <div
+    className={styles.panelWrapper}
+    style={{ display: rightPanelVisible ? 'flex' : 'none' }}
+  >
+    <RightPanel />
+  </div>;
 
-  const topPanel = rightExpanded ? <Split
+  const terminalContent = <div
+    className={styles.panelWrapper}
+    style={{ display: bottomPanelVisible ? 'flex' : 'none' }}
+  >
+    <ProjectTerminal />
+  </div>;
+
+  const horizontalSizes = rightPanelVisible ? [70, 30] : [100, 0];
+
+  const horizontalSplit = <Split
     direction="horizontal"
-    sizes={[500, 200]}
-    minSize={200}
-    gutterSize={4}
+    sizes={horizontalSizes}
+    minSize={[0, 0]}
+    gutterSize={rightPanelVisible ? 4 : 0}
     className="split-horizontal"
   >
-    {mainView}
-    <div style={{ display: bottomExpanded ? 'block' : 'none' }}>
-      {terminal}
-    </div>
-  </Split> : mainView;
+    {mainContent}
+    {rightPanelContent}
+  </Split>;
 
-  const mainPanel = bottomExpanded ? <Split
+  const verticalSizes = bottomPanelVisible ? [75, 25] : [100, 0];
+
+  const verticalSplit = <Split
     direction="vertical"
-    sizes={[750, 250]}
-    minSize={100}
-    gutterSize={4}
+    sizes={verticalSizes}
+    minSize={[0, 0]}
+    gutterSize={bottomPanelVisible ? 4 : 0}
     className="split-vertical"
   >
-    {topPanel}
-    {terminal}
-  </Split> : topPanel;
+    {horizontalSplit}
+    {terminalContent}
+  </Split>;
+
+  const toggleRightPanel = useCallback(() => {
+    setRightPanelVisible(prev => !prev);
+  }, []);
+
+  const toggleBottomPanel = useCallback(() => {
+    setBottomPanelVisible(prev => !prev);
+  }, []);
 
   return (
     <main className={styles.projectContainer}>
-      <StatusBar />
-      {mainPanel}
+      <StatusBar
+        onToggleRightPanel={toggleRightPanel}
+        onToggleBottomPanel={toggleBottomPanel}
+        rightPanelVisible={rightPanelVisible}
+        bottomPanelVisible={bottomPanelVisible}
+      />
+      <div className={styles.mainContent}>
+        {verticalSplit}
+      </div>
     </main>
   );
 };
