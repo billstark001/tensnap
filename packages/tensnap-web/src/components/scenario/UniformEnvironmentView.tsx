@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { UniformAgent } from '@/types/model';
 import { InstantiatedUniformEnvironment } from '@/store/scenario-inst';
 import { Pagination } from '@/components/ui/Pagination';
-import { AgentDetailsDialog, createIconElement } from './AgentDetailsDialog';
+import { AgentDetailsDialog, createIconElement } from '../../dialogs/AgentDetailsDialog';
 import * as styles from './UniformEnvironmentView.css';
 
 interface UniformEnvironmentViewProps {

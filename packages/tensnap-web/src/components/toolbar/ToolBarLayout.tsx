@@ -1,17 +1,17 @@
 import { useSettingsStore } from "@/store/settings";
-import { MenuBar } from './toolbar/MenuBar';
-import { ToolBar } from './toolbar/ToolBar';
-import { TabBar } from './toolbar/TabBar';
+import { MenuBar } from './MenuBar';
+import { ToolBar } from './ToolBar';
+import { TabBar } from './TabBar';
 import { useProjectStore } from "@/store/project";
-import { FileOperationsProvider } from './toolbar/FileOperationsProvider';
+import { FileOperationsProvider } from './FileOperationsProvider';
 
-import * as styles from '../styles/toolbar.css';
+import * as styles from '../../styles/toolbar.css';
 import { useCallback, useState } from "react";
-import { CreateNewDialog } from "./CreateNewDialog";
+import { CreateNewDialog } from "../../dialogs/CreateNewDialog";
 import { FileMetadata } from "@/types/file";
 import { useWithLoading } from "@/store/loading";
-import { SettingsDialog } from "./SettingsDialog";
-import { AboutDialog } from "./AboutDialog";
+import { SettingsDialog } from "../../dialogs/SettingsDialog";
+import { AboutDialog } from "../../dialogs/AboutDialog";
 import { useFakeModelPicker } from "tensnap-web-utils";
 import { Beaker, Sun, Moon } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';

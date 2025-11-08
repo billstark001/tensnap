@@ -4,7 +4,7 @@ import { Trans } from '@lingui/react/macro';
 import { Camera, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Snapshot } from '@/types/model';
-import { SnapshotDetailDialog } from './SnapshotDetailDialog';
+import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
 
 export const RightPanel = () => {
   const scenarioStore = useScenarioStore();

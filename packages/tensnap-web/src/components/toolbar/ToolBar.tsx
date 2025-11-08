@@ -18,7 +18,7 @@ import {
   TimerReset
 } from 'lucide-react';
 import * as styles from '@/styles/toolbar.css';
-import { useButtonControls } from '../useButtonControls';
+import { useButtonControls } from '../../hooks/useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
 import { useFileOperations } from './FileOperationsProvider';
 import clsx from 'clsx';

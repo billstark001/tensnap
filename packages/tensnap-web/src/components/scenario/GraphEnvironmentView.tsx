@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { GraphAgent } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
-import { AgentDetailsDialog } from './AgentDetailsDialog';
+import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { InstantiatedGraphEnvironment } from '@/store/scenario-inst';
 
 interface GraphEnvironmentViewProps {

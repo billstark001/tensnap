@@ -1,6 +1,6 @@
 import { useScenarioStore } from "@/store/scenario";
 import { createUpdateTriggerStore } from "@/store/update-trigger";
-import { useButtonControls } from "../useButtonControls";
+import { useButtonControls } from "../../hooks/useButtonControls";
 import ViewRoot from "../view/ViewRoot";
 import { AnchoredViewRenderer } from "./AnchoredViewRenderer";
 

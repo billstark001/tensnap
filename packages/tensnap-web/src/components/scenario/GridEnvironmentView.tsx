@@ -6,7 +6,7 @@ import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
 import { InstantiatedGridEnvironment } from '@/store/scenario-inst';
-import { AgentDetailsDialog } from './AgentDetailsDialog';
+import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { useThrottled } from '@/utils/react';
 
 interface GridEnvironmentViewProps {
