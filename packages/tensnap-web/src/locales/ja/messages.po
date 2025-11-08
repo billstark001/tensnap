@@ -13,25 +13,30 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/components/AboutDialog.tsx:73
+#: src/dialogs/AboutDialog.tsx:73
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap コントリビューター"
 
-#: src/components/AboutDialog.tsx:18
 #: src/components/toolbar/MenuBar.tsx:185
+#: src/dialogs/AboutDialog.tsx:18
 msgid "About TenSnap"
 msgstr "TenSnapについて"
 
 #: src/components/project/SnapshotDetailDialog.tsx:102
-msgid "Agents:"
-msgstr ""
+#~ msgid "Agents:"
+#~ msgstr ""
 
-#: src/components/CreateNewDialog.tsx:45
-#: src/components/SettingsDialog.tsx:144
+#: src/dialogs/CreateNewDialog.tsx:45
+#: src/dialogs/SettingsDialog.tsx:144
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
-#: src/components/CreateNewDialog.tsx:58
+#: src/components/view/EditViewDialog.tsx:108
+msgid "Button Text"
+msgstr ""
+
+#: src/components/view/EditViewDialog.tsx:341
+#: src/dialogs/CreateNewDialog.tsx:58
 msgid "Cancel"
 msgstr "キャンセル"
 
@@ -39,12 +44,12 @@ msgstr "キャンセル"
 msgid "Clear All"
 msgstr "すべてクリア"
 
-#: src/components/AboutDialog.tsx:80
-#: src/components/SettingsDialog.tsx:176
+#: src/dialogs/AboutDialog.tsx:80
+#: src/dialogs/SettingsDialog.tsx:176
 msgid "Close"
 msgstr "閉じる"
 
-#: src/components/SettingsDialog.tsx:167
+#: src/dialogs/SettingsDialog.tsx:167
 msgid "Confirm Changes"
 msgstr "変更を確認"
 
@@ -56,11 +61,11 @@ msgstr "接続済み"
 msgid "Copy"
 msgstr "コピー"
 
-#: src/components/CreateNewDialog.tsx:65
+#: src/dialogs/CreateNewDialog.tsx:65
 msgid "Create"
 msgstr "作成"
 
-#: src/components/CreateNewDialog.tsx:41
+#: src/dialogs/CreateNewDialog.tsx:41
 msgid "Create New Project"
 msgstr "新しいプロジェクトを作成"
 
@@ -68,13 +73,21 @@ msgstr "新しいプロジェクトを作成"
 msgid "Cut"
 msgstr "切り取り"
 
-#: src/components/SettingsDialog.tsx:85
+#: src/dialogs/SettingsDialog.tsx:85
 msgid "Dark"
 msgstr "ダーク"
 
-#: src/components/project/SnapshotDetailDialog.tsx:112
+#: src/components/view/DraggableView.tsx:180
+msgid "Delete"
+msgstr ""
+
+#: src/dialogs/SnapshotDetailDialog.tsx:148
 msgid "Delete Snapshot"
 msgstr "スナップショットを削除"
+
+#: src/components/view/EditViewDialog.tsx:117
+msgid "Disabled"
+msgstr ""
 
 #: src/components/project/StatusBar.tsx:26
 msgid "Disconnected"
@@ -84,31 +97,40 @@ msgstr "未接続"
 msgid "Documentation"
 msgstr "ドキュメント"
 
-#: src/components/AboutDialog.tsx:56
+#: src/dialogs/AboutDialog.tsx:56
 msgid "Documentation:"
 msgstr "ドキュメント："
 
 #: src/components/toolbar/MenuBar.tsx:76
+#: src/components/view/DraggableView.tsx:173
 msgid "Edit"
 msgstr "編集"
 
-#: src/components/CreateNewDialog.tsx:51
-#: src/components/SettingsDialog.tsx:150
+#: src/components/view/EditViewDialog.tsx:253
+msgid "Edit View"
+msgstr ""
+
+#: src/dialogs/CreateNewDialog.tsx:51
+#: src/dialogs/SettingsDialog.tsx:150
 msgid "Enter backend WebSocket server address"
 msgstr "バックエンドWebSocketサーバーアドレスを入力"
 
 #: src/components/project/SnapshotDetailDialog.tsx:92
-msgid "Environments"
-msgstr "環境"
+#~ msgid "Environments"
+#~ msgstr "環境"
 
 #: src/components/project/RightPanel.tsx:128
-#: src/components/project/SnapshotDetailDialog.tsx:64
+#: src/dialogs/SnapshotDetailDialog.tsx:104
 msgid "Environments:"
 msgstr "環境："
 
 #: src/components/toolbar/MenuBar.tsx:67
 msgid "Exit"
 msgstr "終了"
+
+#: src/components/view/EditViewDialog.tsx:320
+msgid "Expanded"
+msgstr ""
 
 #: src/components/toolbar/MenuBar.tsx:76
 #~ msgid "Export"
@@ -134,11 +156,20 @@ msgstr "ファイル"
 msgid "Fullscreen"
 msgstr "全画面"
 
+#: src/components/view/EditViewDialog.tsx:185
+#: src/components/view/EditViewDialog.tsx:310
+msgid "Height"
+msgstr ""
+
 #: src/components/toolbar/MenuBar.tsx:167
 msgid "Help"
 msgstr "ヘルプ"
 
-#: src/components/project/SnapshotDetailDialog.tsx:43
+#: src/components/view/EditViewDialog.tsx:258
+msgid "ID"
+msgstr ""
+
+#: src/dialogs/SnapshotDetailDialog.tsx:83
 msgid "ID:"
 msgstr "ID："
 
@@ -146,15 +177,24 @@ msgstr "ID："
 msgid "Keyboard Shortcuts"
 msgstr "キーボードショートカット"
 
-#: src/components/SettingsDialog.tsx:92
+#: src/components/view/EditViewDialog.tsx:212
+#: src/components/view/EditViewDialog.tsx:234
+msgid "Label"
+msgstr ""
+
+#: src/dialogs/SettingsDialog.tsx:92
 msgid "Language"
 msgstr "言語"
 
-#: src/components/AboutDialog.tsx:68
+#: src/components/view/EditViewDialog.tsx:280
+msgid "Left"
+msgstr ""
+
+#: src/dialogs/AboutDialog.tsx:68
 msgid "License:"
 msgstr "ライセンス："
 
-#: src/components/SettingsDialog.tsx:85
+#: src/dialogs/SettingsDialog.tsx:85
 msgid "Light"
 msgstr "ライト"
 
@@ -178,7 +218,7 @@ msgstr "ファイルを開く"
 #~ msgid "Open Folder"
 #~ msgstr "フォルダーを開く"
 
-#: src/components/project/SnapshotDetailDialog.tsx:74
+#: src/dialogs/SnapshotDetailDialog.tsx:111
 msgid "Parameters"
 msgstr "パラメータ"
 
@@ -190,7 +230,7 @@ msgstr "パラメータ："
 msgid "Paste"
 msgstr "貼り付け"
 
-#: src/components/SettingsDialog.tsx:139
+#: src/dialogs/SettingsDialog.tsx:139
 msgid "Project Settings"
 msgstr "プロジェクト設定"
 
@@ -198,11 +238,12 @@ msgstr "プロジェクト設定"
 msgid "Redo"
 msgstr "やり直す"
 
-#: src/components/AboutDialog.tsx:44
+#: src/dialogs/AboutDialog.tsx:44
 msgid "Repository:"
 msgstr "リポジトリ："
 
-#: src/components/SettingsDialog.tsx:160
+#: src/components/view/EditViewDialog.tsx:335
+#: src/dialogs/SettingsDialog.tsx:160
 msgid "Reset"
 msgstr "リセット"
 
@@ -210,11 +251,12 @@ msgstr "リセット"
 msgid "Reset Zoom"
 msgstr "ズームをリセット"
 
-#: src/components/project/SnapshotDetailDialog.tsx:115
+#: src/dialogs/SnapshotDetailDialog.tsx:151
 msgid "Restore Snapshot"
 msgstr "スナップショットを復元"
 
 #: src/components/toolbar/MenuBar.tsx:55
+#: src/components/view/EditViewDialog.tsx:338
 msgid "Save"
 msgstr "保存"
 
@@ -222,7 +264,7 @@ msgstr "保存"
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
-#: src/components/SettingsDialog.tsx:113
+#: src/dialogs/SettingsDialog.tsx:113
 msgid "Save Format"
 msgstr "保存形式"
 
@@ -234,8 +276,8 @@ msgstr "シナリオプロパティ"
 msgid "Select All"
 msgstr "すべて選択"
 
-#: src/components/SettingsDialog.tsx:65
 #: src/components/toolbar/MenuBar.tsx:156
+#: src/dialogs/SettingsDialog.tsx:65
 msgid "Settings"
 msgstr "設定"
 
@@ -247,7 +289,7 @@ msgstr "グリッドを表示"
 msgid "Show Toolbar"
 msgstr "ツールバーを表示"
 
-#: src/components/project/SnapshotDetailDialog.tsx:33
+#: src/dialogs/SnapshotDetailDialog.tsx:72
 msgid "Snapshot Details"
 msgstr "スナップショットの詳細"
 
@@ -255,7 +297,7 @@ msgstr "スナップショットの詳細"
 msgid "Snapshots"
 msgstr "スナップショット"
 
-#: src/components/SettingsDialog.tsx:71
+#: src/dialogs/SettingsDialog.tsx:71
 msgid "System Settings"
 msgstr "システム設定"
 
@@ -263,33 +305,46 @@ msgstr "システム設定"
 msgid "Take Snapshot"
 msgstr "スナップショットを撮る"
 
-#: src/components/AboutDialog.tsx:34
+#: src/dialogs/AboutDialog.tsx:34
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnapは、エージェントベースモデルのインタラクティブ可視化であり、インタラクティブなシミュレーションと可視化を通じて、研究者や学生が複雑なシステムを理解するのを支援するように設計されています。"
 
-#: src/components/SettingsDialog.tsx:74
+#: src/dialogs/SettingsDialog.tsx:74
 msgid "Theme"
 msgstr "テーマ"
 
 #: src/components/project/RightPanel.tsx:122
-#: src/components/project/SnapshotDetailDialog.tsx:57
 #: src/components/project/StatusBar.tsx:28
+#: src/dialogs/SnapshotDetailDialog.tsx:97
 msgid "Time Step:"
 msgstr "タイムステップ："
 
-#: src/components/project/SnapshotDetailDialog.tsx:50
+#: src/dialogs/SnapshotDetailDialog.tsx:90
 msgid "Timestamp:"
 msgstr "タイムスタンプ："
+
+#: src/components/view/EditViewDialog.tsx:129
+#: src/components/view/EditViewDialog.tsx:145
+msgid "Title"
+msgstr ""
 
 #: src/components/toolbar/MenuBar.tsx:144
 msgid "Tools"
 msgstr "ツール"
 
+#: src/components/view/EditViewDialog.tsx:290
+msgid "Top"
+msgstr ""
+
+#: src/components/view/EditViewDialog.tsx:269
+msgid "Type"
+msgstr ""
+
 #: src/components/toolbar/MenuBar.tsx:84
 msgid "Undo"
 msgstr "元に戻す"
 
-#: src/components/AboutDialog.tsx:28
+#: src/dialogs/AboutDialog.tsx:28
 msgid "Version"
 msgstr "バージョン"
 
@@ -297,13 +352,18 @@ msgstr "バージョン"
 msgid "View"
 msgstr "表示"
 
-#: src/components/project/SnapshotDetailDialog.tsx:36
+#: src/dialogs/SnapshotDetailDialog.tsx:75
 msgid "View and manage snapshot"
 msgstr "スナップショットを表示・管理"
 
-#: src/components/AboutDialog.tsx:63
+#: src/dialogs/AboutDialog.tsx:63
 msgid "View Docs"
 msgstr "ドキュメントを見る"
+
+#: src/components/view/EditViewDialog.tsx:170
+#: src/components/view/EditViewDialog.tsx:300
+msgid "Width"
+msgstr ""
 
 #: src/components/toolbar/MenuBar.tsx:118
 msgid "Zoom In"

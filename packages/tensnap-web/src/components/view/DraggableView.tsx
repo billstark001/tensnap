@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { Move, Edit, Trash2 } from 'lucide-react';
@@ -11,6 +11,8 @@ import { AnchoredViewComponent } from './AnchoredViewComponent';
 import { ViewProps } from './common';
 import { findAndDeleteView } from './utils/container';
 import clsx from 'clsx';
+import { Trans } from '@lingui/react/macro';
+import { EditViewDialog } from '../../dialogs/EditViewDialog';
 
 interface DraggableViewProps extends ViewProps<AnyView> {
   relativeLeft?: number,
@@ -41,6 +43,8 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
   isOverlay = false,
   onResizeStart: _onResizeStart,
 }) => {
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: view.id,
     data: { view, siblings, relativeLeft, relativeTop, parentView: parentView, parentId: parentView?.id },
@@ -71,6 +75,37 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     if (!parentView) return;
     findAndDeleteView(parentView, id);
     onViewUpdate?.(parentView.id, parentView);
+  }, [parentView, onViewUpdate]);
+
+  const handleEdit = useCallback(() => {
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const handleSaveEdit = useCallback((updatedView: AnyView) => {
+    if (!parentView) return;
+    // Find and update the view in the parent
+    const updateViewInTree = (views: AnyView[]): AnyView[] => {
+      return views.map(v => {
+        if (v.id === updatedView.id) {
+          return updatedView;
+        }
+        if (v.type === 'container') {
+          return {
+            ...v,
+            views: updateViewInTree((v as ContainerView).views)
+          } as ContainerView;
+        }
+        return v;
+      });
+    };
+
+    if (parentView.type === 'container') {
+      const updatedParent = {
+        ...parentView,
+        views: updateViewInTree(parentView.views)
+      };
+      onViewUpdate?.(parentView.id, updatedParent);
+    }
   }, [parentView, onViewUpdate]);
 
   const renderViewContent = () => {
@@ -132,21 +167,28 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
           <ContextMenu.Content className={styles.contextMenu}>
             <ContextMenu.Item
               className={styles.contextMenuItem}
-              onSelect={() => console.log('Edit', view.id)}
+              onSelect={handleEdit}
             >
               <Edit style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-              编辑
+              <Trans>Edit</Trans>
             </ContextMenu.Item>
             <ContextMenu.Item
               className={styles.contextMenuItemDanger}
               onSelect={() => handleDelete(view.id)}
             >
               <Trash2 style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-              删除
+              <Trans>Delete</Trans>
             </ContextMenu.Item>
           </ContextMenu.Content>
         </ContextMenu.Portal>
       </ContextMenu.Root>
+
+      <EditViewDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        view={view}
+        onSave={handleSaveEdit}
+      />
     </>
   );
 };

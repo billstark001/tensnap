@@ -1,4 +1,4 @@
-export type JsonSerializable = any;
+import { JsonSerializable } from "./utils";
 
 export type BaseView<TType extends string, TData extends JsonSerializable> = {
   id: string;

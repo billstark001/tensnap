@@ -13,25 +13,30 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/components/AboutDialog.tsx:73
+#: src/dialogs/AboutDialog.tsx:73
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap 贡献者"
 
-#: src/components/AboutDialog.tsx:18
 #: src/components/toolbar/MenuBar.tsx:185
+#: src/dialogs/AboutDialog.tsx:18
 msgid "About TenSnap"
 msgstr "关于 TenSnap"
 
 #: src/components/project/SnapshotDetailDialog.tsx:102
-msgid "Agents:"
-msgstr ""
+#~ msgid "Agents:"
+#~ msgstr ""
 
-#: src/components/CreateNewDialog.tsx:45
-#: src/components/SettingsDialog.tsx:144
+#: src/dialogs/CreateNewDialog.tsx:45
+#: src/dialogs/SettingsDialog.tsx:144
 msgid "Backend URL"
 msgstr "后端地址"
 
-#: src/components/CreateNewDialog.tsx:58
+#: src/components/view/EditViewDialog.tsx:108
+msgid "Button Text"
+msgstr ""
+
+#: src/components/view/EditViewDialog.tsx:341
+#: src/dialogs/CreateNewDialog.tsx:58
 msgid "Cancel"
 msgstr "取消"
 
@@ -39,12 +44,12 @@ msgstr "取消"
 msgid "Clear All"
 msgstr "清空所有"
 
-#: src/components/AboutDialog.tsx:80
-#: src/components/SettingsDialog.tsx:176
+#: src/dialogs/AboutDialog.tsx:80
+#: src/dialogs/SettingsDialog.tsx:176
 msgid "Close"
 msgstr "关闭"
 
-#: src/components/SettingsDialog.tsx:167
+#: src/dialogs/SettingsDialog.tsx:167
 msgid "Confirm Changes"
 msgstr "确认更改"
 
@@ -56,11 +61,11 @@ msgstr "已连接"
 msgid "Copy"
 msgstr "复制"
 
-#: src/components/CreateNewDialog.tsx:65
+#: src/dialogs/CreateNewDialog.tsx:65
 msgid "Create"
 msgstr "创建"
 
-#: src/components/CreateNewDialog.tsx:41
+#: src/dialogs/CreateNewDialog.tsx:41
 msgid "Create New Project"
 msgstr "创建新项目"
 
@@ -68,13 +73,21 @@ msgstr "创建新项目"
 msgid "Cut"
 msgstr "剪切"
 
-#: src/components/SettingsDialog.tsx:85
+#: src/dialogs/SettingsDialog.tsx:85
 msgid "Dark"
 msgstr "深色"
 
-#: src/components/project/SnapshotDetailDialog.tsx:112
+#: src/components/view/DraggableView.tsx:180
+msgid "Delete"
+msgstr ""
+
+#: src/dialogs/SnapshotDetailDialog.tsx:148
 msgid "Delete Snapshot"
 msgstr "删除快照"
+
+#: src/components/view/EditViewDialog.tsx:117
+msgid "Disabled"
+msgstr ""
 
 #: src/components/project/StatusBar.tsx:26
 msgid "Disconnected"
@@ -84,31 +97,40 @@ msgstr "未连接"
 msgid "Documentation"
 msgstr "帮助文档"
 
-#: src/components/AboutDialog.tsx:56
+#: src/dialogs/AboutDialog.tsx:56
 msgid "Documentation:"
 msgstr "文档："
 
 #: src/components/toolbar/MenuBar.tsx:76
+#: src/components/view/DraggableView.tsx:173
 msgid "Edit"
 msgstr "编辑"
 
-#: src/components/CreateNewDialog.tsx:51
-#: src/components/SettingsDialog.tsx:150
+#: src/components/view/EditViewDialog.tsx:253
+msgid "Edit View"
+msgstr ""
+
+#: src/dialogs/CreateNewDialog.tsx:51
+#: src/dialogs/SettingsDialog.tsx:150
 msgid "Enter backend WebSocket server address"
 msgstr "输入后端 WebSocket 服务器地址"
 
 #: src/components/project/SnapshotDetailDialog.tsx:92
-msgid "Environments"
-msgstr "环境"
+#~ msgid "Environments"
+#~ msgstr "环境"
 
 #: src/components/project/RightPanel.tsx:128
-#: src/components/project/SnapshotDetailDialog.tsx:64
+#: src/dialogs/SnapshotDetailDialog.tsx:104
 msgid "Environments:"
 msgstr "环境："
 
 #: src/components/toolbar/MenuBar.tsx:67
 msgid "Exit"
 msgstr "退出"
+
+#: src/components/view/EditViewDialog.tsx:320
+msgid "Expanded"
+msgstr ""
 
 #: src/components/toolbar/MenuBar.tsx:76
 #~ msgid "Export"
@@ -134,11 +156,20 @@ msgstr "文件"
 msgid "Fullscreen"
 msgstr "全屏"
 
+#: src/components/view/EditViewDialog.tsx:185
+#: src/components/view/EditViewDialog.tsx:310
+msgid "Height"
+msgstr ""
+
 #: src/components/toolbar/MenuBar.tsx:167
 msgid "Help"
 msgstr "帮助"
 
-#: src/components/project/SnapshotDetailDialog.tsx:43
+#: src/components/view/EditViewDialog.tsx:258
+msgid "ID"
+msgstr ""
+
+#: src/dialogs/SnapshotDetailDialog.tsx:83
 msgid "ID:"
 msgstr "ID："
 
@@ -146,15 +177,24 @@ msgstr "ID："
 msgid "Keyboard Shortcuts"
 msgstr "快捷键"
 
-#: src/components/SettingsDialog.tsx:92
+#: src/components/view/EditViewDialog.tsx:212
+#: src/components/view/EditViewDialog.tsx:234
+msgid "Label"
+msgstr ""
+
+#: src/dialogs/SettingsDialog.tsx:92
 msgid "Language"
 msgstr "语言"
 
-#: src/components/AboutDialog.tsx:68
+#: src/components/view/EditViewDialog.tsx:280
+msgid "Left"
+msgstr ""
+
+#: src/dialogs/AboutDialog.tsx:68
 msgid "License:"
 msgstr "许可证："
 
-#: src/components/SettingsDialog.tsx:85
+#: src/dialogs/SettingsDialog.tsx:85
 msgid "Light"
 msgstr "浅色"
 
@@ -168,7 +208,7 @@ msgstr "未加载场景数据。"
 
 #: src/components/project/RightPanel.tsx:103
 msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
-msgstr "暂无快照。点击"拍摄快照"创建一个。"
+msgstr "暂无快照。点击\"拍摄快照\"创建一个。"
 
 #: src/components/toolbar/MenuBar.tsx:48
 msgid "Open File"
@@ -178,7 +218,7 @@ msgstr "打开文件"
 #~ msgid "Open Folder"
 #~ msgstr "打开文件夹"
 
-#: src/components/project/SnapshotDetailDialog.tsx:74
+#: src/dialogs/SnapshotDetailDialog.tsx:111
 msgid "Parameters"
 msgstr "参数"
 
@@ -190,7 +230,7 @@ msgstr "参数："
 msgid "Paste"
 msgstr "粘贴"
 
-#: src/components/SettingsDialog.tsx:139
+#: src/dialogs/SettingsDialog.tsx:139
 msgid "Project Settings"
 msgstr "项目设置"
 
@@ -198,11 +238,12 @@ msgstr "项目设置"
 msgid "Redo"
 msgstr "重做"
 
-#: src/components/AboutDialog.tsx:44
+#: src/dialogs/AboutDialog.tsx:44
 msgid "Repository:"
 msgstr "代码仓库："
 
-#: src/components/SettingsDialog.tsx:160
+#: src/components/view/EditViewDialog.tsx:335
+#: src/dialogs/SettingsDialog.tsx:160
 msgid "Reset"
 msgstr "重置"
 
@@ -210,11 +251,12 @@ msgstr "重置"
 msgid "Reset Zoom"
 msgstr "重置缩放"
 
-#: src/components/project/SnapshotDetailDialog.tsx:115
+#: src/dialogs/SnapshotDetailDialog.tsx:151
 msgid "Restore Snapshot"
 msgstr "恢复快照"
 
 #: src/components/toolbar/MenuBar.tsx:55
+#: src/components/view/EditViewDialog.tsx:338
 msgid "Save"
 msgstr "保存"
 
@@ -222,7 +264,7 @@ msgstr "保存"
 msgid "Save As..."
 msgstr "另存为..."
 
-#: src/components/SettingsDialog.tsx:113
+#: src/dialogs/SettingsDialog.tsx:113
 msgid "Save Format"
 msgstr "存储格式"
 
@@ -234,8 +276,8 @@ msgstr "场景属性"
 msgid "Select All"
 msgstr "全选"
 
-#: src/components/SettingsDialog.tsx:65
 #: src/components/toolbar/MenuBar.tsx:156
+#: src/dialogs/SettingsDialog.tsx:65
 msgid "Settings"
 msgstr "设置"
 
@@ -247,7 +289,7 @@ msgstr "显示网格"
 msgid "Show Toolbar"
 msgstr "显示工具栏"
 
-#: src/components/project/SnapshotDetailDialog.tsx:33
+#: src/dialogs/SnapshotDetailDialog.tsx:72
 msgid "Snapshot Details"
 msgstr "快照详情"
 
@@ -255,7 +297,7 @@ msgstr "快照详情"
 msgid "Snapshots"
 msgstr "快照"
 
-#: src/components/SettingsDialog.tsx:71
+#: src/dialogs/SettingsDialog.tsx:71
 msgid "System Settings"
 msgstr "系统设置"
 
@@ -263,33 +305,46 @@ msgstr "系统设置"
 msgid "Take Snapshot"
 msgstr "拍摄快照"
 
-#: src/components/AboutDialog.tsx:34
+#: src/dialogs/AboutDialog.tsx:34
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnap 是一个主体模型（ABM）的互动可视化工具，旨在通过交互式模拟和可视化帮助研究人员和学生理解复杂系统。"
 
-#: src/components/SettingsDialog.tsx:74
+#: src/dialogs/SettingsDialog.tsx:74
 msgid "Theme"
 msgstr "主题模式"
 
 #: src/components/project/RightPanel.tsx:122
-#: src/components/project/SnapshotDetailDialog.tsx:57
 #: src/components/project/StatusBar.tsx:28
+#: src/dialogs/SnapshotDetailDialog.tsx:97
 msgid "Time Step:"
 msgstr "时间步："
 
-#: src/components/project/SnapshotDetailDialog.tsx:50
+#: src/dialogs/SnapshotDetailDialog.tsx:90
 msgid "Timestamp:"
 msgstr "时间戳："
+
+#: src/components/view/EditViewDialog.tsx:129
+#: src/components/view/EditViewDialog.tsx:145
+msgid "Title"
+msgstr ""
 
 #: src/components/toolbar/MenuBar.tsx:144
 msgid "Tools"
 msgstr "工具"
 
+#: src/components/view/EditViewDialog.tsx:290
+msgid "Top"
+msgstr ""
+
+#: src/components/view/EditViewDialog.tsx:269
+msgid "Type"
+msgstr ""
+
 #: src/components/toolbar/MenuBar.tsx:84
 msgid "Undo"
 msgstr "撤销"
 
-#: src/components/AboutDialog.tsx:28
+#: src/dialogs/AboutDialog.tsx:28
 msgid "Version"
 msgstr "版本"
 
@@ -297,13 +352,18 @@ msgstr "版本"
 msgid "View"
 msgstr "视图"
 
-#: src/components/project/SnapshotDetailDialog.tsx:36
+#: src/dialogs/SnapshotDetailDialog.tsx:75
 msgid "View and manage snapshot"
 msgstr "查看和管理快照"
 
-#: src/components/AboutDialog.tsx:63
+#: src/dialogs/AboutDialog.tsx:63
 msgid "View Docs"
 msgstr "查看文档"
+
+#: src/components/view/EditViewDialog.tsx:170
+#: src/components/view/EditViewDialog.tsx:300
+msgid "Width"
+msgstr ""
 
 #: src/components/toolbar/MenuBar.tsx:118
 msgid "Zoom In"

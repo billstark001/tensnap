@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation } from '../types/model';
+import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation, ChartGroup, SimulationState } from '../types/model';
 import { ContainerView } from '../types/ui';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
@@ -38,20 +38,30 @@ export interface ScenarioStore {
   mainView: ContainerView;
 
   // Actions
+
+  dump(): SimulationState;
+
   setConnected: (connected: boolean) => void;
   setCurrentTime: (time: number | null | undefined, isInTimeStep: boolean) => void;
+
   setData: (data: SetDataPayload, options?: SetDataOptions) => void;
+
   updateEnvironment: (id: EnvironmentId, data: PureEnvironment, agents?: Agent[]) => void;
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
   updateParameter: (id: string, value: any) => void;
+  updateParameterProps: (id: string, propsUpdate: Omit<Partial<Parameter>, 'id' | 'value'>) => void;
+  updateChartProps: (id: string, propsUpdate: Omit<Partial<ChartGroup>, 'id' | 'data'>) => void;
   addChartData: (updates: ChartUpdateData[]) => void;
   executeChartOperations: (operations: ChartUpdateOperation[]) => void;
+
   addSnapshot: (snapshot: SnapshotMetadata) => void;
   removeSnapshot: (id: string) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
+
   setMainView: (view: SetStateAction<ContainerView>) => void;
   updateMainViewLayout: () => void;
+
   log(payload: string | LogPayload, level?: LogLevel): void;
 }
 
@@ -79,6 +89,19 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   mainView: createDefaultRootLayout(),
 
   // Actions
+
+  dump: () => {
+    const store = get();
+    return {  
+      connected: false,
+      currentTime: store.currentTime,
+      environments: Array.from(store.environments.values()).map(env => serializeEnvironment(env)),
+      parameters: structuredClone(store.parameters),
+      charts: structuredClone(store.charts.getGroups()),
+      snapshots: structuredClone(store.snapshots),
+    };
+  },
+
   setConnected: (connected) => set({ connected }),
 
   setCurrentTime: (time, isInTimeStep) => {
@@ -240,6 +263,18 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
         param.id === id ? { ...param, value } : param
       ),
     }));
+  },
+
+  updateParameterProps: (id, propsUpdate) => {
+    set((state) => ({
+      parameters: state.parameters.map((param) =>
+        param.id === id ? { ...param, ...propsUpdate as any } : param
+      ),
+    }));
+  },
+
+  updateChartProps: (id, propsUpdate) => {
+    // TODO implement this
   },
 
   addChartData: (updates) => {

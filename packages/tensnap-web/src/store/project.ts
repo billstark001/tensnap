@@ -9,7 +9,7 @@ import { ChartGroup, ChartMetadata, Environment, EnvironmentId, SimulationState 
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { InstantiatedChartStorage, InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from "@/store/scenario-inst";
+import { InstantiatedChartStorage, InstantiatedEnvironment, instantiateEnvironment } from "@/store/scenario-inst";
 import { StateSyncRequest } from "@/types/api";
 
 export interface ProjectSettings {
@@ -219,14 +219,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // pack the scenario
 
     const scenarioStore = project.useScenarioStore.getState();
-    const scenarioDump: SimulationState = {
-      connected: false,
-      currentTime: scenarioStore.currentTime,
-      environments: Array.from(scenarioStore.environments.values()).map(env => serializeEnvironment(env)),
-      parameters: scenarioStore.parameters,
-      charts: scenarioStore.charts.getGroups(),
-      snapshots: scenarioStore.snapshots,
-    };
+    const scenarioDump = scenarioStore.dump();
     const mainView = scenarioStore.mainView;
     const url = project.useWebSocketStore.getState().url ?? '';
 
