@@ -1,9 +1,9 @@
 import React from 'react';
-import { GridEnvironmentView } from '../modeling/GridEnvironmentView';
-import { GraphEnvironmentView } from '../modeling/GraphEnvironmentView';
-import { UniformEnvironmentView } from '../modeling/UniformEnvironmentView';
+import { GridEnvironmentView } from '../scenario/GridEnvironmentView';
+import { GraphEnvironmentView } from '../scenario/GraphEnvironmentView';
+import { UniformEnvironmentView } from '../scenario/UniformEnvironmentView';
 import { ParameterControl } from './ParameterControl';
-import { ChartView } from '../modeling/ChartView';
+import { ChartView } from '../scenario/ChartView';
 import { ScenarioStore, useScenarioStore } from '../../store/scenario';
 import { AnchoredView } from '../../types/ui';
 import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment } from '@/store/scenario-inst';

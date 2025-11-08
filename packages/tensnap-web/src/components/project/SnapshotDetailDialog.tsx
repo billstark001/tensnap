@@ -5,10 +5,10 @@ import { Trans } from '@lingui/react/macro';
 import { Environment, Snapshot } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import clsx from 'clsx';
-import { GridEnvironmentView } from '../modeling/GridEnvironmentView';
+import { GridEnvironmentView } from '../scenario/GridEnvironmentView';
 import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment, instantiateEnvironment } from '@/store/scenario-inst';
-import { GraphEnvironmentView } from '../modeling/GraphEnvironmentView';
-import { UniformEnvironmentView } from '../modeling/UniformEnvironmentView';
+import { GraphEnvironmentView } from '../scenario/GraphEnvironmentView';
+import { UniformEnvironmentView } from '../scenario/UniformEnvironmentView';
 
 
 const EnvironmentRenderer = (props: {
