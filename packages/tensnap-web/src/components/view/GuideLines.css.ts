@@ -1,4 +1,5 @@
 import { style } from '@vanilla-extract/css';
+import { vars } from '@/styles/global.css';
 
 export const guidelinesContainer = style({
   position: 'absolute',
@@ -36,7 +37,7 @@ export const horizontalGuideline = style([
 
 export const guidelineSegment = style({
   position: 'absolute',
-  backgroundColor: '#007AFF',
+  backgroundColor: vars.color.primary,
   opacity: 0.8,
 });
 

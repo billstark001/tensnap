@@ -36,13 +36,16 @@ const contentHide = keyframes({
 
 // Dialog Overlay 样式
 export const dialogOverlay = style({
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  backgroundColor: vars.color.overlayLight,
   position: 'fixed',
   inset: 0,
   zIndex: 30,
   animation: `${overlayShow} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
   
   selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.overlayDark,
+    },
     '&[data-state="closed"]': {
       animation: `${overlayHide} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
     },
@@ -53,7 +56,7 @@ export const dialogOverlay = style({
 export const dialogContent = style({
   backgroundColor: vars.color.background,
   borderRadius: vars.radius.lg,
-  boxShadow: `${vars.shadow.xl}, 0 0 0 1px rgba(0, 0, 0, 0.1)`,
+  boxShadow: `${vars.shadow.xl}, 0 0 0 1px ${vars.color.border}`,
   position: 'fixed',
   top: '50%',
   left: '50%',
@@ -76,7 +79,7 @@ export const dialogContent = style({
     // 暗色主题支持
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
-      boxShadow: `${vars.shadow.xl}, 0 0 0 1px rgba(255, 255, 255, 0.1)`,
+      boxShadow: `${vars.shadow.xl}, 0 0 0 1px ${vars.color.darkBorder}`,
     },
   },
 });
@@ -113,10 +116,117 @@ export const dialogTitle = style({
 
 // Dialog Description 样式
 export const dialogDescription = style({
-  margin: `${vars.space.sm} 0 ${vars.space.lg}`,
-  color: vars.color.secondary,
   fontSize: vars.fontSize.sm,
+  color: vars.color.secondary,
+  marginBottom: vars.space.md,
   lineHeight: 1.5,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const aboutContainer = style({
+  padding: `${vars.space.lg} 0`,
+});
+
+export const aboutHeader = style({
+  textAlign: 'center',
+  marginBottom: vars.space.lg,
+});
+
+export const aboutTitle = style({
+  fontSize: vars.fontSize.xxl,
+  fontWeight: 'bold',
+  marginBottom: vars.space.sm,
+  color: vars.color.foreground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const aboutVersion = style({
+  fontSize: vars.fontSize.sm,
+  color: vars.color.textSecondary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextSecondary,
+    },
+  },
+});
+
+export const aboutDescription = style({
+  marginBottom: vars.space.md,
+});
+
+export const aboutText = style({
+  fontSize: vars.fontSize.sm,
+  lineHeight: 1.6,
+  marginBottom: vars.space.md,
+  color: vars.color.foreground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const aboutLinks = style({
+  marginTop: vars.space.lg,
+  borderTop: `1px solid ${vars.color.border}`,
+  paddingTop: vars.space.md,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderTopColor: vars.color.darkBorder,
+    },
+  },
+});
+
+export const aboutLinkItem = style({
+  marginBottom: vars.space.md,
+  color: vars.color.foreground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const aboutLink = style({
+  color: vars.color.link,
+  textDecoration: 'none',
+  
+  ':hover': {
+    textDecoration: 'underline',
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkLink,
+    },
+  },
+});
+
+export const aboutFooter = style({
+  marginTop: vars.space.lg,
+  fontSize: vars.fontSize.xs,
+  color: vars.color.textSecondary,
+  textAlign: 'center',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextSecondary,
+    },
+  },
 });
 
 // Dialog 关闭按钮

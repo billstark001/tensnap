@@ -22,18 +22,18 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
           </Dialog.Title>
           <Dialog.Description></Dialog.Description>
 
-          <div style={{ padding: '20px 0' }}>
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
+          <div className={dialogStyles.aboutContainer}>
+            <div className={dialogStyles.aboutHeader}>
+              <h2 className={dialogStyles.aboutTitle}>
                 TenSnap
               </h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+              <p className={dialogStyles.aboutVersion}>
                 <Trans>Version</Trans> 0.1.0
               </p>
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '12px' }}>
+            <div className={dialogStyles.aboutDescription}>
+              <p className={dialogStyles.aboutText}>
                 <Trans>
                   TenSnap is a visualization and simulation tool for tensor network models,
                   designed to help researchers and students understand complex systems through
@@ -42,37 +42,37 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
               </p>
             </div>
 
-            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-              <div style={{ marginBottom: '12px' }}>
+            <div className={dialogStyles.aboutLinks}>
+              <div className={dialogStyles.aboutLinkItem}>
                 <strong><Trans>Repository:</Trans></strong>{' '}
                 <a
                   href="https://github.com/billstark001/tensnap"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: 'var(--link-color)', textDecoration: 'none' }}
+                  className={dialogStyles.aboutLink}
                 >
                   github.com/billstark001/tensnap
                 </a>
               </div>
 
-              <div style={{ marginBottom: '12px' }}>
+              <div className={dialogStyles.aboutLinkItem}>
                 <strong><Trans>Documentation:</Trans></strong>{' '}
                 <a
                   href="https://github.com/billstark001/tensnap/tree/main/docs"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: 'var(--link-color)', textDecoration: 'none' }}
+                  className={dialogStyles.aboutLink}
                 >
                   <Trans>View Docs</Trans>
                 </a>
               </div>
 
-              <div>
+              <div className={dialogStyles.aboutLinkItem}>
                 <strong><Trans>License:</Trans></strong> MIT
               </div>
             </div>
 
-            <div style={{ marginTop: '20px', fontSize: '12px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+            <div className={dialogStyles.aboutFooter}>
               <Trans>© 2025 TenSnap Contributors</Trans>
             </div>
           </div>

@@ -15,9 +15,20 @@ export function ProjectTerminal() {
     }
   }, [lastLogs?.timestamp]);
 
+  const getLogClassName = (level: string) => {
+    switch (level) {
+      case 'error':
+        return styles.terminalLogError;
+      case 'warning':
+        return styles.terminalLogWarning;
+      default:
+        return styles.terminalLogInfo;
+    }
+  };
+
   return <div className={styles.projectTerminal} ref={terminalRef}>
     {logs?.map((log, index) => (
-      <div key={index} style={{ color: log.level === 'error' ? 'red' : log.level === 'warning' ? 'yellow' : 'white' }}>
+      <div key={index} className={getLogClassName(log.level)}>
         {log.target 
           ? `[${new Date(log.timestamp).toLocaleTimeString()} / ${log.level.toUpperCase()}][${log.target}] ${log.message}` 
           : `[${new Date(log.timestamp).toLocaleTimeString()} / ${log.level.toUpperCase()}] ${log.message}`}

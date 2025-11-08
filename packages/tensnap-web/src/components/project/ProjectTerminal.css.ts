@@ -14,10 +14,28 @@ export const projectContainer = style({
 export const projectTerminal = style({
   width: '100%',
   height: '100%',
-  background: '#1e1e1e',
-  color: '#fff',
+  background: vars.color.terminalBackground,
+  color: vars.color.terminalForeground,
   overflowY: 'auto',
   fontFamily: 'monospace',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      background: vars.color.darkTerminalBackground,
+    },
+  },
+});
+
+export const terminalLogError = style({
+  color: vars.color.terminalError,
+});
+
+export const terminalLogWarning = style({
+  color: vars.color.terminalWarning,
+});
+
+export const terminalLogInfo = style({
+  color: vars.color.terminalForeground,
 });
 
 export const sidebar = style({

@@ -79,7 +79,7 @@ export const switchThumb = style({
   display: 'block',
   width: '18px',
   height: '18px',
-  backgroundColor: 'white',
+  backgroundColor: vars.color.terminalForeground,
   borderRadius: '9px',
   transition: 'transform 0.2s ease',
   transform: 'translateX(3px)',
@@ -113,12 +113,12 @@ export const selectTrigger = style({
     '&:focus': {
       outline: 'none',
       borderColor: vars.color.primary,
-      boxShadow: `0 0 0 2px rgba(0, 102, 204, 0.2)`,
+      boxShadow: `0 0 0 2px ${vars.color.overlayLight}`,
     },
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
       color: vars.color.darkForeground,
-      borderColor: 'rgba(255, 255, 255, 0.3)',
+      borderColor: vars.color.darkBorder,
     },
   },
 });
@@ -135,7 +135,7 @@ export const selectContent = style({
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
-      borderColor: 'rgba(255, 255, 255, 0.3)',
+      borderColor: vars.color.darkBorder,
     },
   },
 });
@@ -155,14 +155,14 @@ export const selectItem = style({
   
   selectors: {
     '&:hover': {
-      backgroundColor: 'rgba(0, 0, 0, 0.05)',
+      backgroundColor: vars.color.border,
     },
     '&[data-highlighted]': {
       backgroundColor: vars.color.primary,
-      color: 'white',
+      color: vars.color.terminalForeground,
     },
     'body[data-theme="dark"] &:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      backgroundColor: vars.color.darkBorder,
     },
   },
 });
@@ -184,11 +184,23 @@ export const projectSettingsFooter = style({
   justifyContent: 'flex-end',
   gap: vars.space.sm,
   paddingTop: vars.space.md,
-  borderTop: `1px solid rgba(0, 0, 0, 0.1)`,
+  borderTop: `1px solid ${vars.color.border}`,
   
   selectors: {
     'body[data-theme="dark"] &': {
-      borderTopColor: 'rgba(255, 255, 255, 0.1)',
+      borderTopColor: vars.color.darkBorder,
+    },
+  },
+});
+
+export const themeLabel = style({
+  marginLeft: vars.space.sm,
+  fontSize: vars.fontSize.xs,
+  color: vars.color.foreground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
     },
   },
 });

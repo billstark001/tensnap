@@ -38,9 +38,15 @@ export const fullPanel = style({
 });
 
 export const projectTerminal = style({
-  background: '#1e1e1e',
-  color: '#fff',
+  background: vars.color.terminalBackground,
+  color: vars.color.terminalForeground,
   overflow: 'auto',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      background: vars.color.darkTerminalBackground,
+    },
+  },
 });
 
 export const sidebar = style({
@@ -72,13 +78,21 @@ globalStyle('.split-vertical', {
 });
 
 globalStyle('.gutter', {
-  backgroundColor: '#ddd',
+  backgroundColor: vars.color.gridLine,
   backgroundRepeat: 'no-repeat',
   backgroundPosition: '50%',
 });
 
 globalStyle('.gutter:hover', {
-  backgroundColor: '#aaa',
+  backgroundColor: vars.color.secondary,
+});
+
+globalStyle('body[data-theme="dark"] .gutter', {
+  backgroundColor: vars.color.darkGridLine,
+});
+
+globalStyle('body[data-theme="dark"] .gutter:hover', {
+  backgroundColor: vars.color.darkSecondary,
 });
 
 globalStyle('.gutter.gutter-horizontal', {

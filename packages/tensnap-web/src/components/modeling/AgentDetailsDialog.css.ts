@@ -1,4 +1,5 @@
 import { style } from '@vanilla-extract/css';
+import { vars } from '@/styles/global.css';
 
 export const detailRow = style({
   margin: '8px 0',
@@ -6,21 +7,40 @@ export const detailRow = style({
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
+  color: vars.color.foreground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
 });
 
 export const detailLabel = style({
   fontWeight: 'bold',
   minWidth: '80px',
-  color: '#666',
+  color: vars.color.textTertiary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const colorSwatch = style({
   width: '16px',
   height: '16px',
   borderRadius: '2px',
-  border: '1px solid #ccc',
+  border: `1px solid ${vars.color.subtleBorder}`,
   display: 'inline-block',
   marginRight: '8px',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkSubtleBorder,
+    },
+  },
 });
 
 export const dataSection = style({
@@ -31,18 +51,33 @@ export const dataSectionTitle = style({
   margin: '16px 0 8px 0',
   fontSize: '14px',
   fontWeight: 'bold',
-  color: '#333',
+  color: vars.color.textPrimary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextPrimary,
+    },
+  },
 });
 
 export const dataContent = style({
-  backgroundColor: '#f5f5f5',
+  backgroundColor: vars.color.inputHoverBackground,
   padding: '8px',
   borderRadius: '4px',
   fontSize: '12px',
   overflow: 'auto',
   maxHeight: '200px',
-  border: '1px solid #e0e0e0',
+  border: `1px solid ${vars.color.inputBorder}`,
   fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+  color: vars.color.foreground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkInputHoverBackground,
+      borderColor: vars.color.darkInputBorder,
+      color: vars.color.darkForeground,
+    },
+  },
 });
 
 export const positionInfo = style({
@@ -60,7 +95,13 @@ export const headingInfo = style({
 export const trajectoryInfo = style({
   marginTop: '8px',
   fontSize: '12px',
-  color: '#666',
+  color: vars.color.textTertiary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const agentIcon = style({
@@ -83,7 +124,7 @@ export const iconCircle = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'white',
+  color: vars.color.terminalForeground,
   fontWeight: 'bold',
   fontSize: '12px',
 });
@@ -92,7 +133,7 @@ export const iconSquare = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'white',
+  color: vars.color.terminalForeground,
   fontWeight: 'bold',
   fontSize: '12px',
 });
@@ -109,7 +150,7 @@ export const iconArrow = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'white',
+  color: vars.color.terminalForeground,
   fontWeight: 'bold',
   fontSize: '12px',
 });

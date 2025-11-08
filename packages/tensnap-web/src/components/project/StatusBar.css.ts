@@ -8,6 +8,12 @@ export const statusBar = style({
   alignItems: 'center',
   gap: vars.space.sm,
   borderBottom: `1px solid ${vars.color.gridLine}`,
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderBottomColor: vars.color.darkGridLine,
+    },
+  }
 });
 
 export const statusBadge = style({
@@ -40,16 +46,16 @@ export const toggleButton = style({
   gap: '4px',
   color: vars.color.foreground,
   transition: 'all 0.2s ease',
-  
+
   ':hover': {
     backgroundColor: vars.color.gridBackground,
     borderColor: vars.color.primary,
   },
-  
+
   ':active': {
     transform: 'scale(0.95)',
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,

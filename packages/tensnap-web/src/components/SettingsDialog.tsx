@@ -84,7 +84,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                     >
                       <Switch.Thumb className={styles.switchThumb} />
                     </Switch.Root>
-                    <span style={{ marginLeft: '8px', fontSize: '12px' }}>
+                    <span className={styles.themeLabel}>
                       {theme === 'dark' ? <Trans>Dark</Trans> : <Trans>Light</Trans>}
                     </span>
                   </div>

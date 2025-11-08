@@ -1,5 +1,6 @@
 // UniformEnvironmentView.css.ts
 import { style } from '@vanilla-extract/css';
+import { vars } from '@/styles/global.css';
 
 export const container = style({
   position: 'relative',
@@ -7,9 +8,16 @@ export const container = style({
   flexDirection: 'column',
   height: '100%',
   padding: '16px',
-  backgroundColor: '#f9f9f9',
+  backgroundColor: vars.color.cardBackground,
   borderRadius: '8px',
-  border: '1px solid #e0e0e0',
+  border: `1px solid ${vars.color.cardBorder}`,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkCardBackground,
+      borderColor: vars.color.darkCardBorder,
+    },
+  },
 });
 
 export const header = style({
@@ -18,19 +26,37 @@ export const header = style({
   alignItems: 'center',
   marginBottom: '16px',
   padding: '8px 0',
-  borderBottom: '1px solid #e0e0e0',
+  borderBottom: `1px solid ${vars.color.inputBorder}`,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderBottomColor: vars.color.darkInputBorder,
+    },
+  },
 });
 
 export const title = style({
   fontSize: '18px',
   fontWeight: '600',
-  color: '#333',
+  color: vars.color.textPrimary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextPrimary,
+    },
+  },
 });
 
 export const agentCount = style({
   fontSize: '14px',
-  color: '#666',
+  color: vars.color.textTertiary,
   fontWeight: '400',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const agentsList = style({
@@ -49,19 +75,30 @@ export const agentCard = style({
   display: 'flex',
   alignItems: 'center',
   padding: '12px',
-  backgroundColor: 'white',
-  border: '1px solid #e0e0e0',
+  backgroundColor: vars.color.inputBackground,
+  border: `1px solid ${vars.color.inputBorder}`,
   borderRadius: '6px',
   cursor: 'pointer',
   transition: 'all 0.2s ease',
   ':hover': {
-    backgroundColor: '#f5f5f5',
-    borderColor: '#ccc',
+    backgroundColor: vars.color.inputHoverBackground,
+    borderColor: vars.color.subtleBorder,
     transform: 'translateY(-1px)',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    boxShadow: vars.shadow.sm,
   },
   ':active': {
     transform: 'translateY(0)',
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkInputBackground,
+      borderColor: vars.color.darkInputBorder,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkInputHoverBackground,
+      borderColor: vars.color.darkSubtleBorder,
+    },
   },
 });
 
@@ -84,19 +121,31 @@ export const agentInfo = style({
 export const agentId = style({
   fontSize: '14px',
   fontWeight: '500',
-  color: '#333',
+  color: vars.color.textPrimary,
   marginBottom: '4px',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextPrimary,
+    },
+  },
 });
 
 export const agentMeta = style({
   fontSize: '12px',
-  color: '#666',
+  color: vars.color.textTertiary,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const emptyState = style({
@@ -105,10 +154,16 @@ export const emptyState = style({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  color: '#666',
+  color: vars.color.textTertiary,
   fontSize: '14px',
   textAlign: 'center',
   gap: '8px',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const emptyIcon = style({
@@ -118,26 +173,48 @@ export const emptyIcon = style({
 
 export const searchBox = style({
   padding: '8px 12px',
-  border: '1px solid #ccc',
+  border: `1px solid ${vars.color.subtleBorder}`,
   borderRadius: '4px',
   fontSize: '14px',
   marginBottom: '16px',
   outline: 'none',
+  backgroundColor: vars.color.inputBackground,
+  color: vars.color.foreground,
   ':focus': {
-    borderColor: '#007acc',
-    boxShadow: '0 0 0 1px #007acc',
+    borderColor: vars.color.primary,
+    boxShadow: `0 0 0 1px ${vars.color.primary}`,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkInputBackground,
+      borderColor: vars.color.darkSubtleBorder,
+      color: vars.color.darkForeground,
+    },
   },
 });
 
 export const clearButton = style({
   marginTop: '8px',
   padding: '4px 8px',
-  border: '1px solid #ccc',
+  border: `1px solid ${vars.color.subtleBorder}`,
   borderRadius: '4px',
-  backgroundColor: 'white',
+  backgroundColor: vars.color.inputBackground,
   cursor: 'pointer',
   fontSize: '14px',
+  color: vars.color.foreground,
   ':hover': {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: vars.color.inputHoverBackground,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkInputBackground,
+      borderColor: vars.color.darkSubtleBorder,
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkInputHoverBackground,
+    },
   },
 });

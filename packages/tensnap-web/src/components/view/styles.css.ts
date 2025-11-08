@@ -1,4 +1,5 @@
 import { style, styleVariants, keyframes } from '@vanilla-extract/css';
+import { vars } from '@/styles/global.css';
 import { viewConstants } from './constants';
 
 const fadeIn = keyframes({
@@ -9,28 +10,28 @@ const fadeIn = keyframes({
 export const container = style({
   minWidth: '100px',
   minHeight: '100px',
-  backgroundColor: '#f3f4f6',
+  backgroundColor: vars.color.verySubtleBackground,
   overflow: 'auto',
   position: 'relative',
 
   selectors: {
     'body[data-theme="dark"] &': {
-      backgroundColor: '#1a1a1a',
+      backgroundColor: vars.color.darkBackground,
     },
   },
 });
 
 export const rootView = style({
   position: 'relative',
-  backgroundColor: 'white',
+  backgroundColor: vars.color.inputBackground,
   borderRadius: '8px',
-  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+  boxShadow: vars.shadow.lg,
   overflow: 'hidden',
 
   selectors: {
     'body[data-theme="dark"] &': {
-      backgroundColor: '#2a2a2a',
-      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+      backgroundColor: vars.color.darkSecondary,
+      boxShadow: `0 10px 15px -3px ${vars.color.overlayDark}`,
     },
   },
 });
@@ -40,7 +41,7 @@ export const draggableView = style({
   userSelect: 'none',
   transition: 'box-shadow 0.2s',
   ':hover': {
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    boxShadow: vars.shadow.md,
   },
 });
 
@@ -65,19 +66,29 @@ export const dragHandle = style({
   borderTopLeftRadius: `${viewConstants.windowBorderRadius}px`,
   borderTopRightRadius: `${viewConstants.windowBorderRadius}px`,
   ':hover': {
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: vars.color.border,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkBorder,
+    },
   },
 });
 
 export const dragIcon = style({
   width: '16px',
   height: '16px',
-  color: '#6b7280',
+  color: vars.color.textTertiary,
   opacity: 0,
   transition: 'opacity 0.2s',
+  
   selectors: {
     [`${dragHandle}:hover &`]: {
       opacity: 1,
+    },
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
     },
   },
 });
@@ -90,7 +101,7 @@ export const resizeHandle = styleVariants({
     width: '12px',
     height: '12px',
     cursor: 'se-resize',
-    backgroundColor: '#3b82f6',
+    backgroundColor: vars.color.primary,
     borderRadius: '2px',
     opacity: 0,
     transition: 'opacity 0.2s',
@@ -109,7 +120,7 @@ export const resizeHandle = styleVariants({
     height: '40px',
     transform: 'translateY(-50%)',
     cursor: 'e-resize',
-    backgroundColor: '#3b82f6',
+    backgroundColor: vars.color.primary,
     borderRadius: '2px',
     opacity: 0,
     transition: 'opacity 0.2s',
@@ -128,7 +139,7 @@ export const resizeHandle = styleVariants({
     height: '8px',
     transform: 'translateX(-50%)',
     cursor: 's-resize',
-    backgroundColor: '#3b82f6',
+    backgroundColor: vars.color.primary,
     borderRadius: '2px',
     opacity: 0,
     transition: 'opacity 0.2s',
@@ -142,8 +153,8 @@ export const resizeHandle = styleVariants({
 });
 
 export const buttonView = style({
-  backgroundColor: '#3b82f6',
-  color: 'white',
+  backgroundColor: vars.color.primary,
+  color: vars.color.terminalForeground,
   borderRadius: '6px',
   padding: '8px',
   height: '100%',
@@ -153,16 +164,16 @@ export const buttonView = style({
   cursor: 'pointer',
   transition: 'background-color 0.2s',
   ':hover': {
-    backgroundColor: '#2563eb',
+    backgroundColor: vars.color.primaryHover,
   },
 });
 
 export const windowView = style({
-  backgroundColor: 'white',
-  border: `${viewConstants.windowBorderWidth}px solid #d6d8deff`,
+  backgroundColor: vars.color.inputBackground,
+  border: `${viewConstants.windowBorderWidth}px solid ${vars.color.inputBorder}`,
   borderRadius: `${viewConstants.windowBorderRadius}px`,
   boxSizing: 'border-box',
-  boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
+  boxShadow: vars.shadow.lg,
   height: '100%',
   position: 'relative',
   display: 'flex',
@@ -170,21 +181,21 @@ export const windowView = style({
 
   selectors: {
     'body[data-theme="dark"] &': {
-      backgroundColor: '#2a2a2a',
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-      boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.3)',
+      backgroundColor: vars.color.darkSecondary,
+      borderColor: vars.color.darkInputBorder,
+      boxShadow: `0 0 10px 0 ${vars.color.overlayDark}`,
     },
 
     [`${draggingView} &`]: {
-      border: `${viewConstants.windowBorderWidth}px dashed #3b82f6`,
+      border: `${viewConstants.windowBorderWidth}px dashed ${vars.color.primary}`,
     }
   },
 });
 
 export const windowViewHeader = style({
-  backgroundColor: '#f9fafb',
+  backgroundColor: vars.color.subtleBackground,
   padding: '6px 8px',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: `1px solid ${vars.color.inputBorder}`,
   borderTopLeftRadius: `${viewConstants.windowBorderRadius - viewConstants.windowBorderWidth}px`,
   borderTopRightRadius: `${viewConstants.windowBorderRadius - viewConstants.windowBorderWidth}px`,
   height: `${viewConstants.windowHeaderHeight - viewConstants.windowBorderWidth * 2}px`,
@@ -195,8 +206,8 @@ export const windowViewHeader = style({
 
   selectors: {
     'body[data-theme="dark"] &': {
-      backgroundColor: '#3a3a3a',
-      borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+      backgroundColor: vars.color.darkTertiary,
+      borderBottomColor: vars.color.darkInputBorder,
     },
   },
 });
@@ -214,8 +225,14 @@ export const windowViewContent = style({
 
 
 export const containerViewDragOver = style({
-  borderColor: '#3b82f6',
-  backgroundColor: '#eff6ff',
+  borderColor: vars.color.primary,
+  backgroundColor: vars.color.verySubtleBackground,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkVerySubtleBackground,
+    },
+  },
 });
 
 export const expandButton = style({
@@ -225,12 +242,18 @@ export const expandButton = style({
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  color: '#4b5563',
+  color: vars.color.textTertiary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const alignmentGuide = style({
   position: 'absolute',
-  backgroundColor: '#ef4444',
+  backgroundColor: vars.color.danger,
   zIndex: 1000,
   pointerEvents: 'none',
   animation: `${fadeIn} 0.1s ease-in`,
@@ -255,12 +278,19 @@ export const verticalGuide = style([
 ]);
 
 export const contextMenu = style({
-  backgroundColor: 'white',
+  backgroundColor: vars.color.inputBackground,
   borderRadius: '6px',
-  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+  boxShadow: vars.shadow.lg,
   padding: '4px',
   minWidth: '160px',
-  border: '1px solid #e5e7eb',
+  border: `1px solid ${vars.color.inputBorder}`,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkInputBackground,
+      borderColor: vars.color.darkInputBorder,
+    },
+  },
 });
 
 export const contextMenuItem = style({
@@ -271,32 +301,54 @@ export const contextMenuItem = style({
   borderRadius: '4px',
   cursor: 'pointer',
   transition: 'background-color 0.1s',
+  color: vars.color.foreground,
   ':hover': {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: vars.color.verySubtleBackground,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkVerySubtleBackground,
+    },
   },
 });
 
 export const contextMenuItemDanger = style([
   contextMenuItem,
   {
-    color: '#dc2626',
+    color: vars.color.danger,
   },
 ]);
 
 export const contextMenuLabel = style({
   padding: '8px 12px',
   fontSize: '12px',
-  color: '#6b7280',
+  color: vars.color.textTertiary,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const dragOverlayAnchor = style({
   position: 'absolute',
-  backgroundColor: 'rgba(83, 206, 255, 0.34)',
+  backgroundColor: vars.color.overlayLight,
   top: 0,
   left: 0,
   minWidth: `${viewConstants.dragHandleMinWidth}px`,
   minHeight: `${viewConstants.dragHandleMinHeight}px`,
   borderRadius: `${viewConstants.windowBorderRadius}px`,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.overlayDark,
+    },
+  },
 });
 
 export const dragOverlay = style({
@@ -304,15 +356,15 @@ export const dragOverlay = style({
   position: 'absolute',
   top: 0,
   left: 0,
-  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+  boxShadow: vars.shadow.lg,
   boxSizing: 'border-box',
-  border: `${viewConstants.windowBorderWidth}px dashed #3b83f694`,
+  border: `${viewConstants.windowBorderWidth}px dashed ${vars.color.primary}`,
   borderRadius: `${viewConstants.windowBorderRadius}px`,
 
   selectors: {
     '&.snap': {
       opacity: 0.5,
-      borderColor: '#b23bf6ff',
+      borderColor: vars.color.info,
     },
     '&.snapping': {
       opacity: 0.3,

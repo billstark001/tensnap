@@ -1,5 +1,6 @@
 // GridEnvironmentView.css.ts
 import { style } from '@vanilla-extract/css';
+import { vars } from '@/styles/global.css';
 
 export const container = style({
   position: 'relative',
@@ -18,19 +19,37 @@ export const canvasContainer = style({
 
 export const contextMenu = style({
   position: 'fixed',
-  background: 'white',
-  border: '1px solid #ccc',
+  background: vars.color.inputBackground,
+  border: `1px solid ${vars.color.subtleBorder}`,
   borderRadius: '4px',
   padding: '4px 0',
-  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-  zIndex: 999
+  boxShadow: vars.shadow.md,
+  zIndex: 999,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      background: vars.color.darkInputBackground,
+      borderColor: vars.color.darkSubtleBorder,
+    },
+  },
 });
 
 export const contextMenuItem = style({
   padding: '8px 16px',
   cursor: 'pointer',
   fontSize: '14px',
+  color: vars.color.foreground,
+  
   ':hover': {
-    background: '#f0f0f0'
-  }
+    background: vars.color.verySubtleBackground,
+  },
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      background: vars.color.darkVerySubtleBackground,
+    },
+  },
 });

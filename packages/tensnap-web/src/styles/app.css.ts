@@ -59,7 +59,7 @@ export const parameterControl = style({
 export const button = style({
   padding: `${vars.space.sm} ${vars.space.md}`,
   backgroundColor: vars.color.primary,
-  color: '#ffffff',
+  color: vars.color.terminalForeground,
   border: 'none',
   borderRadius: vars.radius.sm,
   cursor: 'pointer',
@@ -68,7 +68,7 @@ export const button = style({
   transition: 'background-color 0.2s',
   
   ':hover': {
-    backgroundColor: '#0052a3',
+    backgroundColor: vars.color.primaryHover,
   },
   
   ':active': {
@@ -86,7 +86,7 @@ export const spinnerOverlay = style({
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  backgroundColor: vars.color.overlayLight,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -94,7 +94,7 @@ export const spinnerOverlay = style({
   
   selectors: {
     'body[data-theme="dark"] &': {
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      backgroundColor: vars.color.overlayDark,
     },
   },
 });
