@@ -6,7 +6,6 @@ import { createUpdateTriggerStore } from '../update-trigger';
 type FileSystemStore = ReturnType<typeof createFileSystemStore>;
 
 let currentAdapter: FileSystemAdapter | null = null;
-let currentAdapterName: string = 'none';
 let useFileSystemStore: FileSystemStore | null = null;
 
 let currentPicker: FileSystemPicker | null = null;
@@ -17,7 +16,6 @@ export const cleanupCurrentAdapter = async () => {
   if (currentAdapter) {
     await currentAdapter.cleanup();
     currentAdapter = null;
-    currentAdapterName = 'none';
     useFileSystemStore = null;
     useUpdateTriggerStore.setState({ updateTrigger: Date.now() });
   }
@@ -29,7 +27,6 @@ export const registerFileSystemAdapter = async (adapterFactory: FileSystemAdapte
 
   const newAdapter = adapterFactory.create();
   currentAdapter = newAdapter;
-  currentAdapterName = adapterFactory.name;
 
   // Create new store with the adapter
   const newStore = createFileSystemStore(newAdapter, adapterFactory.name);

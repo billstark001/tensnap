@@ -1,6 +1,6 @@
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from '@/styles/dialog.css';
+import * as dialogStyles from '@/components/ui/Dialog.css';
 import { DialogOpenProps } from '@/utils/react';
 import { Trans } from '@lingui/react/macro';
 

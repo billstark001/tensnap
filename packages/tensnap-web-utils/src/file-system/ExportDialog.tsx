@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from 'tensnap-web/styles/dialog.css';
-import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils/react';
+import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
+import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
 import { FileSystemOperations } from './FileSystemBrowser';
 
 export interface ExportOption {

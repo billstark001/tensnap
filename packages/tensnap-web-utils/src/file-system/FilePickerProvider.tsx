@@ -2,7 +2,7 @@ import React, { createContext, useContext, useCallback, useState, ReactNode } fr
 import * as Dialog from '@radix-ui/react-dialog';
 import { FileSystemBrowser } from './FileSystemBrowser';
 import { FileMetadata, DirectoryMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from 'tensnap-web/types/file';
-import * as dialogStyles from 'tensnap-web/styles/dialog.css';
+import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
 
 export interface FilePickerResult {
   files: FileMetadata[];

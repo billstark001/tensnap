@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from 'tensnap-web/styles/dialog.css';
-import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils/react';
+import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
+import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
 
 export interface CreateDialogProps extends DialogOpenProps {
   onCreateItem: (name: string, type: 'file' | 'directory') => Promise<void>;

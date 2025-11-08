@@ -7,7 +7,7 @@
 
 import React, { createContext, useContext, useCallback, useState, ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from 'tensnap-web/styles/dialog.css';
+import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
 import { FAKE_MODELS, FakeModelMetadata } from './index';
 
 export interface FakeModelPickerResult {

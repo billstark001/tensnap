@@ -1,5 +1,5 @@
 import { style, keyframes } from '@vanilla-extract/css';
-import { vars } from './global.css';
+import { vars } from '../../styles/global.css';
 
 // 动画关键帧
 const overlayShow = keyframes({

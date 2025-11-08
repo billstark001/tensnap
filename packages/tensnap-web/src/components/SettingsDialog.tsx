@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Switch from '@radix-ui/react-switch';
 import * as Select from '@radix-ui/react-select';
-import * as dialogStyles from '@/styles/dialog.css';
+import * as dialogStyles from '@/components/ui/Dialog.css';
 import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
 import { msg } from '@lingui/core/macro';

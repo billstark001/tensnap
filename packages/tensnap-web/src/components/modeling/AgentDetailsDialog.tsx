@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { GridAgent, GraphAgent, UniformAgent, AgentIcon, EnvironmentType } from '@/types/model';
-import { dialogOverlay, dialogContent, dialogTitle, dialogDescription, dialogFooter, dialogButton, dialogClose } from '@/styles/dialog.css';
+import { dialogOverlay, dialogContent, dialogTitle, dialogDescription, dialogFooter, dialogButton, dialogClose } from '@/components/ui/Dialog.css';
 import * as styles from './AgentDetailsDialog.css';
 import clsx from 'clsx';
 

@@ -1,7 +1,7 @@
 import { ComponentType, PropsWithChildren, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { FileMetadata, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from "tensnap-web/types/file";
-import { FilePickerContextValue, FilePickerProvider, useFilePicker } from "./FilePickerProvider";
+import { FilePickerProvider, useFilePicker } from "./FilePickerProvider";
 
 
 function InFilePickerTrigger(props: {
