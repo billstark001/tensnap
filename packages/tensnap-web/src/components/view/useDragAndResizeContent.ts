@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   DragEndEvent,
   DragStartEvent,
@@ -6,7 +6,7 @@ import {
 } from '@dnd-kit/core';
 import { ContainerView, AnyView } from '@/types/ui';
 import { ViewContextScheme } from './useViewContext';
-import { throttle, useCallbackRef } from '@/utils/react';
+import { useCallbackRef, useThrottled } from '@/utils/react';
 import { findAndAddView, findAndDeleteView } from './utils/container';
 import { ViewProps } from './common';
 import { Coordinates } from '@dnd-kit/core/dist/types';
@@ -237,10 +237,7 @@ export function useDragContent({
     updateSnapState(coord);
   }, [state.container, updateViews, updateState, updateSnapState]);
 
-  const throttledHandleDragMove = useMemo(
-    () => throttle(handleDragMove, 32),
-    [handleDragMove]
-  );
+  const throttledHandleDragMove = useThrottled(handleDragMove, 32);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;

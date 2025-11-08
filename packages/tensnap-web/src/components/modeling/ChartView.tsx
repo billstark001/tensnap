@@ -129,6 +129,7 @@ export function ChartView(props: ChartViewProps) {
   useEffect(() => {
     // 对于小数据量立即更新，大数据量使用节流
     if (rawData.length <= updateNowLengthThreshold) {
+      throttledUpdateRef.current?.cancel();
       const processed = processData(rawData, maxDataPoints);
       setDisplayData(processed);
       setDataVersion((v) => (v + 1) | 0);

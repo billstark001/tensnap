@@ -7,7 +7,7 @@ import * as styles from './GridEnvironmentView.css';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
 import { InstantiatedGridEnvironment } from '@/store/scenario-inst';
 import { AgentDetailsDialog } from './AgentDetailsDialog';
-import { throttle } from '@/utils/react';
+import { useThrottled } from '@/utils/react';
 
 interface GridEnvironmentViewProps {
   environment: InstantiatedGridEnvironment;
@@ -107,7 +107,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
   const setCanvasSize = useCallback((width: number, height: number) => {
     const shapeCache = calculateShapes(envRef.current, width, height);
     shapeCacheRef.current = shapeCache;
-    const { canvasWidth, canvasHeight,  } = shapeCache;
+    const { canvasWidth, canvasHeight, } = shapeCache;
     if (leaferRef.current) {
       const x = (width - canvasWidth) / 2;
       const y = (height - canvasHeight) / 2;
@@ -192,6 +192,19 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     }
   }, [handleAgentClick]);
 
+  const refresh = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setCanvasSize(rect.width, rect.height);
+      updateGridSize(envRef.current);
+      Object.values(agentsProps).forEach((agent) => {
+        updateAgentDisplay(agent);
+      });
+    }
+  }, [envRef, agentsProps]);
+
+  const throttledRefresh = useThrottled(refresh, 100);
+
   // Initialize Leafer and create layers
   useEffect(() => {
     if (!containerRef.current) return;
@@ -215,19 +228,6 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     leaferRef.current.add(layersRef.current.grid);
     leaferRef.current.add(layersRef.current.agents);
 
-    const refresh = () => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        setCanvasSize(rect.width, rect.height);
-        updateGridSize(envRef.current);
-        Object.values(agentsProps).forEach((agent) => {
-          updateAgentDisplay(agent);
-        });
-      }
-    };
-
-    const throttledRefresh = throttle(refresh, 100);
-
     updateGridSize(envRef.current);
 
     const resizeObserver = new ResizeObserver(throttledRefresh);
@@ -241,7 +241,6 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       leaferRef.current = null;
       layersRef.current = {};
       agentShapesRef.current.clear();
-      throttledRefresh.cancel();
     };
   }, []);
 
