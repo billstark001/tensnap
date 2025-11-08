@@ -15,9 +15,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 }) => {
   const {
     canSaveFile,
-    onNewFile, onFileOpen, onDirectoryOpen,
+    onNewFile, onFileOpen,
     onFileSave, onFileSaveAs,
-    onExport, onOpenBrowser
   } = useFileOperations();
 
   const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
@@ -50,12 +49,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
-                onClick={onDirectoryOpen}
-              >
-                <Trans>Open Folder</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
                 onClick={canSaveFile ? onFileSave : undefined}
                 disabled={!canSaveFile}
               >
@@ -68,13 +61,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               >
                 <Trans>Save As...</Trans>
               </DropdownMenu.Item>
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={onExport}
-              >
-                <Trans>Export</Trans>
-              </DropdownMenu.Item>
+
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
               <DropdownMenu.Item className={styles.dropdownItem}>
                 <Trans>Exit</Trans>
@@ -143,12 +130,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <DropdownMenu.Item className={styles.dropdownItem}>
                 <Trans>Show Toolbar</Trans>
               </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={onOpenBrowser}
-              >
-                <Trans>File Browser</Trans>
-              </DropdownMenu.Item>
+
               <DropdownMenu.Item className={styles.dropdownItem}>
                 <Trans>Fullscreen</Trans>
               </DropdownMenu.Item>
@@ -166,12 +148,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               className={styles.dropdownContent}
               sideOffset={5}
             >
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={onOpenBrowser}
-              >
-                <Trans>File Manager</Trans>
-              </DropdownMenu.Item>
+
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={() => setSettingsDialogOpen(true)}
@@ -179,12 +156,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 <Trans>Settings</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={onExport}
-              >
-                <Trans>Export Current Directory</Trans>
-              </DropdownMenu.Item>
+
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>

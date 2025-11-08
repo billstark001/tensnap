@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useFileSystem } from 'tensnap-web/store/file-system/provider';
-import { DirectoryEntry } from 'tensnap-web/types/file';
+import { DirectoryEntry, FileSystemAdapter } from 'tensnap-web/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
@@ -9,7 +8,22 @@ import { CreateDialog } from './CreateDialog';
 import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 
+// Interface for file system operations needed by the browser
+export interface FileSystemOperations {
+  currentDirectory: string;
+  directoryContents: DirectoryEntry[];
+  loading: boolean;
+  error: string | null;
+  refreshCurrentDirectory: () => Promise<void>;
+  setCurrentDirectory: (path: string) => Promise<void>;
+  writeFile: (path: string, content: ArrayBuffer | string, metadata?: any) => Promise<any>;
+  createDirectory: (path: string, allowExist?: boolean) => Promise<any>;
+  deleteFile: (path: string) => Promise<void>;
+  deleteDirectory: (path: string, recursive?: boolean) => Promise<void>;
+}
+
 export interface FileSystemBrowserProps {
+  fileSystem: FileSystemAdapter;
   onFileSelect?: (file: DirectoryEntry) => void;
   onDirectorySelect?: (directory: DirectoryEntry) => void;
   allowUpload?: boolean;
@@ -18,24 +32,43 @@ export interface FileSystemBrowserProps {
 }
 
 export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
+  fileSystem,
   onFileSelect,
   onDirectorySelect,
   allowUpload = true,
   multiSelect = false,
   className,
 }) => {
-  const fileSystem = useFileSystem();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDragOver, setIsDragOver] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [currentDirectory, setCurrentDirectoryRaw] = useState('/');
+  const [directoryContents, setDirectoryContentsRaw] = useState<DirectoryEntry[]>([]);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const setCurrentDirectory = useCallback(async (path: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const listRes = await fileSystem.list(path);
+      setCurrentDirectoryRaw(path);
+      setDirectoryContentsRaw(listRes);
+    } catch (error) {
+      console.error('Failed to change directory:', error);
+      setError((error as Error).message || 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  const refreshCurrentDirectory = useCallback(
+    () => setCurrentDirectory(currentDirectory),
+    [currentDirectory, setCurrentDirectory]
+  );
 
   const {
-    currentDirectory,
-    directoryContents,
-    loading,
-    error,
-    refreshCurrentDirectory,
-    setCurrentDirectory,
     writeFile,
     createDirectory,
     deleteFile,
@@ -67,11 +100,20 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
   // 文件上传处理
   const handleFileUpload = useCallback(async (files: FileList) => {
-    for (const file of Array.from(files)) {
-      const content = await file.arrayBuffer();
-      await writeFile(`${currentDirectory}/${file.name}`, content);
+    setLoading(true);
+    setError(null);
+    try {
+      for (const file of Array.from(files)) {
+        const content = await file.arrayBuffer();
+        await writeFile(`${currentDirectory}/${file.name}`, content);
+      }
+      await refreshCurrentDirectory();
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      setError((error as Error).message || 'Unknown error');
+    } finally {
+      setLoading(false);
     }
-    await refreshCurrentDirectory();
   }, [writeFile, currentDirectory, refreshCurrentDirectory]);
 
   const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +142,8 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
   // 创建操作
   const handleCreateItem = useCallback(async (itemName: string, itemType: 'file' | 'directory') => {
+    setLoading(true);
+    setError(null);
     try {
       const itemPath = `${currentDirectory}/${itemName}`;
       if (itemType === 'file') {
@@ -112,6 +156,8 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     } catch (error) {
       console.error('Failed to create item:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   }, [writeFile, createDirectory, currentDirectory, refreshCurrentDirectory]);
 
@@ -129,23 +175,10 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     }
   }, [deleteFile, deleteDirectory, refreshCurrentDirectory]);
 
-  // 导出操作
-  const handleExportDirectory = useCallback(async (format: 'json' | 'zip') => {
-    try {
-      const { exportDirectory: exportDirectoryUtil } = await import('./export-utils');
-      const blob = await exportDirectoryUtil(fileSystem, currentDirectory, { format });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `export-${currentDirectory.replace(/\//g, '-')}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Failed to export directory:', error);
-    }
-  }, [fileSystem, currentDirectory]);
+  // 导出操作 - 现在由外部提供
+  const handleExportDirectory = useCallback(async (_format: 'json' | 'zip') => {
+    console.warn('Export functionality should be provided by the adapter implementation');
+  }, []);
 
   // 格式化工具函数
   const formatFileSize = useCallback((bytes: number): string => {

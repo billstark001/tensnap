@@ -13,13 +13,13 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "tensnap-web-utils": ["../tensnap-web-utils/index.ts"],
-      "tensnap-web-utils/*": ["../tensnap-web-utils/*"],
+      "tensnap-web-utils": ["../tensnap-web-utils/src/index.ts"],
+      "tensnap-web-utils/*": ["../tensnap-web-utils/src/*"],
       "tensnap-web-utils/file-system": ["../tensnap-web-utils/src/file-system/index.ts"],
       "tensnap-web-utils/adapters": ["../tensnap-web-utils/src/adapters/index.ts"],
       "tensnap-web-utils/adapters/*": ["../tensnap-web-utils/src/adapters/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "adapters.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

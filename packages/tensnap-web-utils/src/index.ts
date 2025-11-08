@@ -9,7 +9,7 @@
  */
 
 // Export all file system UI components
-export * from './src/file-system';
+export * from './file-system';
 
 // Export fake models and picker
-export * from './src/fake-models';
+export * from './fake-models';

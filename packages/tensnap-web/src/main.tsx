@@ -4,11 +4,11 @@ import { Providers } from './Providers';
 import { App } from './App';
 
 import './styles/global.css';
-import { UseFileSystemGuard } from './store/file-system/provider';
-import { registerFakeModels } from 'tensnap-web-utils';
+import { InBrowserFilePicker, registerFakeModels } from 'tensnap-web-utils';
 import { WebSocketManagerFake } from './websocket/fake';
 import { initI18n, detectLocale, isValidLocale } from './i18n';
-import { useSettingsStore } from './store/settings';
+import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
+import { IndexedDBFileSystemAdapter } from 'tensnap-web-utils/adapters';
 
 // Register fake models for development/testing
 registerFakeModels(WebSocketManagerFake);
@@ -21,17 +21,30 @@ document.body.setAttribute('data-theme', initialTheme);
 const savedLocale = localStorage.getItem('locale');
 const initialLocale = (savedLocale && isValidLocale(savedLocale)) ? savedLocale : detectLocale();
 
-initI18n(initialLocale).then((locale) => {
-  // Update settings store with the initialized locale
-  useSettingsStore.getState().setLocale(locale);
-  
-  ReactDOM.createRoot(document.getElementById('root')!).render(
+(async () => {
+  await initI18n(initialLocale);
+
+  // Register available file system adapters
+  const adapter = await registerFileSystemAdapter({
+    name: 'indexeddb',
+    description: 'Browser IndexedDB storage (recommended for web)',
+    supported: typeof window !== 'undefined' && 'indexedDB' in window,
+    create: () => new IndexedDBFileSystemAdapter()
+  });
+  await registerFileSystemPicker(new InBrowserFilePicker(
+    document.getElementById('file-picker-root')!,
+    adapter,
+  ));
+
+  const root = ReactDOM.createRoot(
+    document.getElementById('root') as HTMLElement
+  );
+
+  root.render(
     <React.StrictMode>
       <Providers>
-        <UseFileSystemGuard>
-          <App />
-        </UseFileSystemGuard>
+        <App />
       </Providers>
     </React.StrictMode>
   );
-});
+})();

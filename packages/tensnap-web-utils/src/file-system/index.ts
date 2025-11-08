@@ -7,6 +7,7 @@ export { CreateDialog } from './CreateDialog';
 
 // 主要组件
 export { FileSystemBrowser } from './FileSystemBrowser';
+export type { FileSystemBrowserProps, FileSystemOperations } from './FileSystemBrowser';
 export { ExportDialog } from './ExportDialog';
 
 // Provider 和 Context
@@ -14,10 +15,12 @@ export { FilePickerProvider, useFilePicker } from './FilePickerProvider';
 
 // 类型定义
 export type { 
-  FilePickerOptions, 
   FilePickerResult
 } from './FilePickerProvider';
 export type { 
   ExportDialogProps,
   ExportOption 
 } from './ExportDialog';
+
+
+export { InBrowserFilePicker } from './FilePicker';

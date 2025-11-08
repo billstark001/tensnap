@@ -1,12 +1,12 @@
-import { FileSystemAdapter } from './adapter';
 import * as PathUtils from './utils/path';
-import type {
-  FileMetadata,
-  FileContent,
-  DirectoryMetadata,
-  DirectoryEntry,
-  FileSystemStats,
-  FileSystemError as FileSystemErrorType
+import {
+  type FileMetadata,
+  type FileContent,
+  type DirectoryMetadata,
+  type DirectoryEntry,
+  type FileSystemStats,
+  type FileSystemError as FileSystemErrorType,
+  FileSystemAdapter
 } from 'tensnap-web/types/file';
 
 class FileSystemError extends Error {

@@ -1,10 +1,10 @@
-import { FileSystemAdapter } from 'tensnap-web-utils/adapters';
-import type {
-  FileMetadata,
-  FileContent,
-  DirectoryMetadata,
-  DirectoryEntry,
-  FileSystemStats
+import {
+  type FileMetadata,
+  type FileContent,
+  type DirectoryMetadata,
+  type DirectoryEntry,
+  type FileSystemStats,
+  FileSystemAdapter
 } from 'tensnap-web/types/file';
 import { invoke } from '@tauri-apps/api/tauri';
 

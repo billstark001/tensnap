@@ -1,16 +1,8 @@
 import React, { createContext, useContext, useCallback, useState, ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import { FileMetadata, DirectoryMetadata, DirectoryEntry } from 'tensnap-web/types/file';
-import { UseFileSystemGuard } from 'tensnap-web/store/file-system/provider';
+import { FileMetadata, DirectoryMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from 'tensnap-web/types/file';
 import * as dialogStyles from 'tensnap-web/styles/dialog.css';
-
-export interface FilePickerOptions {
-  title?: string;
-  multiSelect?: boolean;
-  mode?: 'files' | 'directories' | 'both';
-  allowUpload?: boolean;
-}
 
 export interface FilePickerResult {
   files: FileMetadata[];
@@ -18,10 +10,8 @@ export interface FilePickerResult {
   cancelled: boolean;
 }
 
-interface FilePickerContextValue {
-  pickFiles: (options?: FilePickerOptions) => Promise<FilePickerResult>;
-  pickFile: (options?: Omit<FilePickerOptions, 'multiSelect'>) => Promise<FileMetadata | null>;
-  pickDirectory: (options?: Omit<FilePickerOptions, 'multiSelect' | 'mode'>) => Promise<DirectoryMetadata | null>;
+export interface FilePickerContextValue {
+  pickFiles: FileSystemPicker['pickFiles'];
 }
 
 const FilePickerContext = createContext<FilePickerContextValue | null>(null);
@@ -36,38 +26,33 @@ export const useFilePicker = (): FilePickerContextValue => {
 
 interface FilePickerProviderProps {
   children: ReactNode;
+  fileSystem: FileSystemAdapter;
 }
 
 interface PickerState {
   isOpen: boolean;
   options: FilePickerOptions;
-  resolve: ((result: FilePickerResult) => void) | null;
+  resolve: ((result: FileMetadata[]) => void) | null;
 }
 
-export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children }) => {
+export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children, fileSystem }) => {
   const [pickerState, setPickerState] = useState<PickerState>({
     isOpen: false,
     options: {},
     resolve: null
   });
 
-  const openPicker = useCallback((options: FilePickerOptions = {}): Promise<FilePickerResult> => {
+  const openPicker = useCallback((options: FilePickerOptions = {}): Promise<FileMetadata[]> => {
     return new Promise((resolve) => {
       setPickerState({
         isOpen: true,
-        options: {
-          title: '选择文件',
-          multiSelect: false,
-          mode: 'files',
-          allowUpload: true,
-          ...options
-        },
+        options,
         resolve
       });
     });
   }, []);
 
-  const closePicker = useCallback((result: FilePickerResult) => {
+  const closePicker = useCallback((result: FileMetadata[]) => {
     if (pickerState.resolve) {
       pickerState.resolve(result);
     }
@@ -79,63 +64,19 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
   }, [pickerState.resolve]);
 
   const handleCancel = useCallback(() => {
-    closePicker({
-      files: [],
-      directories: [],
-      cancelled: true
-    });
+    closePicker([]);
   }, [closePicker]);
 
   const handleFileSelect = useCallback((file: DirectoryEntry) => {
-    if (pickerState.options.mode === 'directories') return;
-
-    closePicker({
-      files: [file as FileMetadata],
-      directories: [],
-      cancelled: false
-    });
+    closePicker([file as FileMetadata]);
   }, [pickerState.options.mode, closePicker]);
 
-  const handleDirectorySelect = useCallback((directory: DirectoryMetadata) => {
-    if (pickerState.options.mode === 'files') return;
-
-    closePicker({
-      files: [],
-      directories: [directory],
-      cancelled: false
-    });
-  }, [pickerState.options.mode, closePicker]);
-
-  const pickFiles = useCallback((options?: FilePickerOptions): Promise<FilePickerResult> => {
-    return openPicker({
-      mode: 'files',
-      multiSelect: true,
-      ...options
-    });
-  }, [openPicker]);
-
-  const pickFile = useCallback(async (options?: Omit<FilePickerOptions, 'multiSelect'>): Promise<FileMetadata | null> => {
-    const result = await openPicker({
-      mode: 'files',
-      multiSelect: false,
-      ...options
-    });
-    return result.cancelled ? null : result.files[0] || null;
-  }, [openPicker]);
-
-  const pickDirectory = useCallback(async (options?: Omit<FilePickerOptions, 'multiSelect' | 'mode'>): Promise<DirectoryMetadata | null> => {
-    const result = await openPicker({
-      mode: 'directories',
-      multiSelect: false,
-      ...options
-    });
-    return result.cancelled ? null : result.directories[0] || null;
+  const pickFiles = useCallback((options?: FilePickerOptions): Promise<FileMetadata[]> => {
+    return openPicker(options);
   }, [openPicker]);
 
   const contextValue: FilePickerContextValue = {
     pickFiles,
-    pickFile,
-    pickDirectory
   };
 
   return (
@@ -155,14 +96,12 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
             </div>
 
             <div className={dialogStyles.dialogBody}>
-              <UseFileSystemGuard>
-                <FileSystemBrowser
-                  onFileSelect={handleFileSelect}
-                  onDirectorySelect={handleDirectorySelect}
-                  allowUpload={pickerState.options.allowUpload}
-                  multiSelect={pickerState.options.multiSelect}
-                />
-              </UseFileSystemGuard>
+              <FileSystemBrowser
+                fileSystem={fileSystem}
+                onFileSelect={handleFileSelect}
+                allowUpload={pickerState.options.allowUpload}
+                multiSelect={pickerState.options.multiSelect}
+              />
             </div>
 
             <div className={dialogStyles.dialogFooter}>
@@ -188,3 +127,4 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     </FilePickerContext.Provider>
   );
 };
+

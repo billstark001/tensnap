@@ -1,17 +1,21 @@
 import { create } from 'zustand';
-import { FileSystemAdapter } from 'tensnap-web-utils/adapters';
+import { FileSystemAdapter } from '@/types/file';
 import type {
   FileMetadata,
   FileContent,
   DirectoryMetadata,
   DirectoryEntry,
-  FileSystemStats
+  FileSystemStats,
+  FilePickerOptions,
+  FileSystemPicker
 } from '@/types/file';
 
 export interface FileSystemState {
   // Adapter management
   adapter: FileSystemAdapter | null;
   adapterName: string;
+  picker: FileSystemPicker | null;
+
   initialized: boolean;
   loading: boolean;
   error: string | null;
@@ -29,6 +33,9 @@ export interface FileSystemState {
   setCurrentDirectory: (path: string) => Promise<void>;
 
   // File operations
+  setPicker: (picker: FileSystemPicker | null) => void;
+  pickFiles: (options?: FilePickerOptions) => Promise<FileMetadata[]>;
+
   writeFile: (path: string, content: ArrayBuffer | string, metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>) => Promise<FileContent>;
   readFile: (path: string) => Promise<FileContent | null>;
   deleteFile: (path: string) => Promise<void>;
@@ -90,6 +97,7 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
     // Initial state
     adapter,
     adapterName,
+    picker: null,
     initialized: false,
     loading: false,
     error: null,
@@ -146,6 +154,14 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
         set({ currentDirectory: path });
         await get().refreshCurrentDirectory();
       });
+    },
+
+    setPicker(picker) {
+      set({ picker });
+    },
+
+    pickFiles: async (options?: FilePickerOptions) => {
+      return await withErrorHandling(() => get().picker!.pickFiles(options));
     },
 
     // File operations

@@ -1,20 +1,14 @@
-import React, { createContext, useContext, useCallback, PropsWithChildren, useState } from 'react';
+import React, { createContext, useContext, useCallback, PropsWithChildren } from 'react';
 import { FileMetadata } from '@/types/file';
-import { ExportDialog, useFilePicker, FileSystemBrowser } from 'tensnap-web-utils/file-system';
 import { useCallbackRef } from '@/utils/react';
-import * as Dialog from '@radix-ui/react-dialog';
-import { UseFileSystemGuard } from '@/store/file-system/provider';
-import * as dialogStyles from '@/styles/dialog.css';
+import { useFileSystem } from '@/store/file-system/provider';
 
 export interface FileOperationsContextValue {
   canSaveFile: boolean;
   onNewFile: () => void;
   onFileOpen: () => void;
-  onDirectoryOpen: () => void;
   onFileSave: () => void;
   onFileSaveAs: () => void;
-  onExport: () => void;
-  onOpenBrowser: () => void;
 }
 
 const FileOperationsContext = createContext<FileOperationsContextValue | null>(null);
@@ -33,7 +27,7 @@ export const FileOperationsProvider: React.FC<FileOperationsProviderProps> = ({
   onFileOpen: externalOnFileOpen,
   onFileSave: externalOnFileSave,
 }) => {
-  const filePicker = useFilePicker();
+  const filePicker = useFileSystem();
 
   const onFileOpen = useCallbackRef(externalOnFileOpen);
   const onFileSave = useCallbackRef(externalOnFileSave);
@@ -41,62 +35,31 @@ export const FileOperationsProvider: React.FC<FileOperationsProviderProps> = ({
 
   const handleFileOpen = useCallback(async () => {
     try {
-      const files = await filePicker.pickFiles({
-        title: '选择文件',
-        multiSelect: true,
-        mode: 'files'
-      });
+      const files = await filePicker.pickFiles();
 
-      if (!files.cancelled && files.files.length > 0) {
-        onFileOpen(files.files);
+      if (files.length > 0) {
+        onFileOpen(files);
       }
     } catch (error) {
       console.error('Failed to open files:', error);
     }
   }, [filePicker, onFileOpen]);
 
-  const handleDirectoryOpen = useCallback(async () => {
-    try {
-      const result = await filePicker.pickFiles({
-        title: '选择文件夹',
-        mode: 'directories'
-      });
-
-      if (!result.cancelled && result.directories.length > 0) {
-        console.log('Selected directories:', result.directories);
-        // 这里可以处理目录选择
-      }
-    } catch (error) {
-      console.error('Failed to open directory:', error);
-    }
-  }, [filePicker]);
-
   const handleSaveAs = useCallback(async () => {
     try {
-      const file = await filePicker.pickFile({
+      const files = await filePicker.pickFiles({
         title: '另存为',
-        mode: 'files'
+        mode: 'save',
+        multiSelect: false,
       });
 
-      if (file) {
-        onFileSave(file.path);
+      if (files.length > 0) {
+        onFileSave(files[0].path);
       }
     } catch (error) {
       console.error('Failed to save file:', error);
     }
   }, [filePicker, onFileSave]);
-
-  // dialogs
-  const [exportOpen, setExportOpen] = useState(false);
-  const [browserOpen, setBrowserOpen] = useState(false);
-
-  const onExport = useCallback(() => {
-    setExportOpen(true);
-  }, []);
-
-  const onOpenBrowser = useCallback(() => {
-    setBrowserOpen(true);
-  }, []);
 
   const handleFileSave = useCallback(
     () => onFileSave(),
@@ -107,11 +70,8 @@ export const FileOperationsProvider: React.FC<FileOperationsProviderProps> = ({
     canSaveFile,
     onNewFile,
     onFileOpen: handleFileOpen,
-    onDirectoryOpen: handleDirectoryOpen,
     onFileSave: handleFileSave,
     onFileSaveAs: handleSaveAs,
-    onExport,
-    onOpenBrowser,
   };
   
 
@@ -119,64 +79,7 @@ export const FileOperationsProvider: React.FC<FileOperationsProviderProps> = ({
     <FileOperationsContext.Provider value={contextValue}>
       {children}
 
-      <ExportDialog
-        open={exportOpen}
-        onOpenChange={setExportOpen}
-        customOptions={[
-          {
-            key: 'custom',
-            title: '自定义导出',
-            description: '自定义格式导出',
-            format: 'other',
-            handler: () => {
-              onExport?.();
-            }
-          }
-        ]}
-        showDefaultOptions={true}
-      />
 
-      <Dialog.Root open={browserOpen} onOpenChange={setBrowserOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-          <Dialog.Content className={dialogStyles.dialogContentXLarge}>
-            <div className={dialogStyles.dialogHeader}>
-              <Dialog.Title className={dialogStyles.dialogTitle}>
-                文件浏览器
-              </Dialog.Title>
-              <Dialog.Description></Dialog.Description>
-            </div>
-
-            <div className={dialogStyles.dialogBody}>
-              <UseFileSystemGuard>
-                <FileSystemBrowser
-                  onFileSelect={(file) => {
-                    console.log('Selected file:', file);
-                    // TODO add file management
-                    // TODO merge this one with FilePickerProvider
-                    setBrowserOpen(false);
-                  }}
-                  onDirectorySelect={(directory) => {
-                    console.log('Selected directory:', directory);
-                  }}
-                  allowUpload={true}
-                  multiSelect={false}
-                />
-              </UseFileSystemGuard>
-            </div>
-
-            <Dialog.Close asChild>
-              <button
-                className={dialogStyles.dialogClose}
-                aria-label="关闭"
-              >
-                ✕
-              </button>
-            </Dialog.Close>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-      
     </FileOperationsContext.Provider>
   );
 };

@@ -6,8 +6,6 @@
  * - IndexedDBFileSystemAdapter: Browser IndexedDB storage
  */
 
-export { FileSystemAdapter } from './adapter';
 export { MemoryFileSystemAdapter } from './memory-adapter';
 export { IndexedDBFileSystemAdapter } from './indexeddb-adapter';
 
-export type { FileSystemAdapterFactory } from './adapter';

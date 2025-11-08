@@ -1,9 +1,8 @@
 import React, { useCallback } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { useFileSystem } from 'tensnap-web/store/file-system/provider';
 import * as dialogStyles from 'tensnap-web/styles/dialog.css';
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils/react';
-import { exportDirectory as exportDirectoryUtil } from './export-utils';
+import { FileSystemOperations } from './FileSystemBrowser';
 
 export interface ExportOption {
   key: string;
@@ -14,9 +13,11 @@ export interface ExportOption {
 }
 
 export interface ExportDialogProps extends DialogOpenProps {
+  fileSystem: FileSystemOperations;
   title?: string;
   customOptions?: ExportOption[];
   showDefaultOptions?: boolean;
+  onExport?: (format: 'json' | 'zip') => Promise<void>;
 }
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
@@ -24,29 +25,23 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   onOpenChange: _onOpenChange,
   title = "导出选项",
   customOptions = [],
-  showDefaultOptions = true
+  showDefaultOptions = true,
+  onExport
 }) => {
-  const fileSystem = useFileSystem();
-  const { currentDirectory } = fileSystem;
-
   const onOpenChange = useCallbackRef(_onOpenChange);
 
   const handleExportDirectory = useCallback(async (format: 'json' | 'zip') => {
     try {
-      const blob = await exportDirectoryUtil(fileSystem, currentDirectory, { format });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `export-${currentDirectory.replace(/\//g, '-')}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (onExport) {
+        await onExport(format);
+      } else {
+        console.warn('Export functionality not provided');
+      }
       onOpenChange(false);
     } catch (error) {
       console.error('Failed to export directory:', error);
     }
-  }, [fileSystem, currentDirectory, onOpenChange]);
+  }, [onExport, onOpenChange]);
 
   const defaultOptions: ExportOption[] = [
     {
