@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useCallback, useState, ReactNode } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import * as Dialog from 'tensnap-web/components/ui/Dialog';
 import { FileSystemBrowser } from './FileSystemBrowser';
 import { FileMetadata, DirectoryMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from 'tensnap-web/types/file';
-import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
 
 export interface FilePickerResult {
   files: FileMetadata[];
@@ -84,45 +83,30 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       {children}
 
       {/* 文件选择器对话框 */}
-      <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-          <Dialog.Content className={dialogStyles.dialogContentXLarge}>
-            <div className={dialogStyles.dialogHeader}>
-              <Dialog.Title className={dialogStyles.dialogTitle}>
-                {pickerState.options.title}
-              </Dialog.Title>
-              <Dialog.Description></Dialog.Description>
-            </div>
+      <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()} size='xl'>
+        <Dialog.Title>
+          {pickerState.options.title}
+        </Dialog.Title>
+        <Dialog.Description></Dialog.Description>
 
-            <div className={dialogStyles.dialogBody}>
-              <FileSystemBrowser
-                fileSystem={fileSystem}
-                onFileSelect={handleFileSelect}
-                allowUpload={pickerState.options.allowUpload}
-                multiSelect={pickerState.options.multiSelect}
-              />
-            </div>
+        <Dialog.Body>
+          <FileSystemBrowser
+            fileSystem={fileSystem}
+            onFileSelect={handleFileSelect}
+            allowUpload={pickerState.options.allowUpload}
+            multiSelect={pickerState.options.multiSelect}
+          />
+        </Dialog.Body>
 
-            <div className={dialogStyles.dialogFooter}>
-              <Dialog.Close asChild>
-                <button className={dialogStyles.dialogButton} onClick={handleCancel}>
-                  取消
-                </button>
-              </Dialog.Close>
-            </div>
+        <Dialog.Footer>
+          <Dialog.Close asChild>
+            <Dialog.Button onClick={handleCancel}>
+              取消
+            </Dialog.Button>
+          </Dialog.Close>
+        </Dialog.Footer>
 
-            <Dialog.Close asChild>
-              <button
-                className={dialogStyles.dialogClose}
-                aria-label="关闭"
-                onClick={handleCancel}
-              >
-                ✕
-              </button>
-            </Dialog.Close>
-          </Dialog.Content>
-        </Dialog.Portal>
+        <Dialog.CloseButton />
       </Dialog.Root>
     </FilePickerContext.Provider>
   );

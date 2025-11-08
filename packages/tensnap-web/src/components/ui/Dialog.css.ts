@@ -128,107 +128,6 @@ export const dialogDescription = style({
   },
 });
 
-export const aboutContainer = style({
-  padding: `${vars.space.lg} 0`,
-});
-
-export const aboutHeader = style({
-  textAlign: 'center',
-  marginBottom: vars.space.lg,
-});
-
-export const aboutTitle = style({
-  fontSize: vars.fontSize.xxl,
-  fontWeight: 'bold',
-  marginBottom: vars.space.sm,
-  color: vars.color.foreground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
-export const aboutVersion = style({
-  fontSize: vars.fontSize.sm,
-  color: vars.color.textSecondary,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextSecondary,
-    },
-  },
-});
-
-export const aboutDescription = style({
-  marginBottom: vars.space.md,
-});
-
-export const aboutText = style({
-  fontSize: vars.fontSize.sm,
-  lineHeight: 1.6,
-  marginBottom: vars.space.md,
-  color: vars.color.foreground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
-export const aboutLinks = style({
-  marginTop: vars.space.lg,
-  borderTop: `1px solid ${vars.color.border}`,
-  paddingTop: vars.space.md,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      borderTopColor: vars.color.darkBorder,
-    },
-  },
-});
-
-export const aboutLinkItem = style({
-  marginBottom: vars.space.md,
-  color: vars.color.foreground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
-export const aboutLink = style({
-  color: vars.color.link,
-  textDecoration: 'none',
-  
-  ':hover': {
-    textDecoration: 'underline',
-  },
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkLink,
-    },
-  },
-});
-
-export const aboutFooter = style({
-  marginTop: vars.space.lg,
-  fontSize: vars.fontSize.xs,
-  color: vars.color.textSecondary,
-  textAlign: 'center',
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextSecondary,
-    },
-  },
-});
-
 // Dialog 关闭按钮
 export const dialogClose = style({
   position: 'absolute',
@@ -261,19 +160,6 @@ export const dialogClose = style({
     },
     'body[data-theme="dark"] &:hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
-  },
-});
-
-// Dialog 头部区域（带边框）
-export const dialogHeader = style({
-  padding: `${vars.space.lg} ${vars.space.lg} ${vars.space.md}`,
-  borderBottom: `1px solid rgba(0, 0, 0, 0.1)`,
-  marginBottom: vars.space.lg,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     },
   },
 });
@@ -376,51 +262,6 @@ export const dialogButtonDanger = style([dialogButton, {
   },
 }]);
 
-// 表单相关样式
-export const dialogInput = style({
-  width: '100%',
-  padding: `${vars.space.sm} ${vars.space.md}`,
-  borderRadius: vars.radius.sm,
-  border: `1px solid ${vars.color.secondary}`,
-  fontSize: vars.fontSize.sm,
-  transition: 'border-color 0.2s ease',
-  
-  selectors: {
-    '&:focus': {
-      outline: 'none',
-      borderColor: vars.color.primary,
-      boxShadow: `0 0 0 2px rgba(0, 102, 204, 0.2)`,
-    },
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkBackground,
-      color: vars.color.darkForeground,
-      borderColor: 'rgba(255, 255, 255, 0.3)',
-    },
-  },
-});
-
-export const dialogLabel = style({
-  display: 'block',
-  fontSize: vars.fontSize.sm,
-  fontWeight: '500',
-  color: vars.color.foreground,
-  marginBottom: vars.space.xs,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
-export const dialogFieldset = style({
-  border: 'none',
-  padding: 0,
-  margin: 0,
-  marginBottom: vars.space.md,
-});
-
-// 分隔符样式
 export const dialogSeparator = style({
   height: '1px',
   backgroundColor: 'rgba(0, 0, 0, 0.1)',
@@ -432,3 +273,4 @@ export const dialogSeparator = style({
     },
   },
 });
+

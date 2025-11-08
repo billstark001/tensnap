@@ -1,6 +1,6 @@
 import React from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from '@/components/ui/Dialog.css';
+import * as Dialog from '@/components/ui/Dialog';
+import * as dialogStyles from './AboutDialog.css';
 import { DialogOpenProps } from '@/utils/react';
 import { Trans } from '@lingui/react/macro';
 
@@ -14,76 +14,73 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
 }) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-        <Dialog.Content className={dialogStyles.dialogContent}>
-          <Dialog.Title className={dialogStyles.dialogTitle}>
-            <Trans>About TenSnap</Trans>
-          </Dialog.Title>
-          <Dialog.Description></Dialog.Description>
+      <Dialog.Title>
+        <Trans>About TenSnap</Trans>
+      </Dialog.Title>
+      <Dialog.Description></Dialog.Description>
 
-          <div className={dialogStyles.aboutContainer}>
-            <div className={dialogStyles.aboutHeader}>
-              <h2 className={dialogStyles.aboutTitle}>
-                TenSnap
-              </h2>
-              <p className={dialogStyles.aboutVersion}>
-                <Trans>Version</Trans> 0.1.0
-              </p>
-            </div>
+      <div className={dialogStyles.aboutContainer}>
+        <div className={dialogStyles.aboutHeader}>
+          <h2 className={dialogStyles.aboutTitle}>
+            TenSnap
+          </h2>
+          <p className={dialogStyles.aboutVersion}>
+            <Trans>Version</Trans> 0.1.0
+          </p>
+        </div>
 
-            <div className={dialogStyles.aboutDescription}>
-              <p className={dialogStyles.aboutText}>
-                <Trans>
-                  TenSnap is a visualization and simulation tool for tensor network models,
-                  designed to help researchers and students understand complex systems through
-                  interactive simulations and visualizations.
-                </Trans>
-              </p>
-            </div>
+        <div className={dialogStyles.aboutDescription}>
+          <p className={dialogStyles.aboutText}>
+            <Trans>
+              TenSnap is a visualization and simulation tool for tensor network models,
+              designed to help researchers and students understand complex systems through
+              interactive simulations and visualizations.
+            </Trans>
+          </p>
+        </div>
 
-            <div className={dialogStyles.aboutLinks}>
-              <div className={dialogStyles.aboutLinkItem}>
-                <strong><Trans>Repository:</Trans></strong>{' '}
-                <a
-                  href="https://github.com/billstark001/tensnap"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={dialogStyles.aboutLink}
-                >
-                  github.com/billstark001/tensnap
-                </a>
-              </div>
-
-              <div className={dialogStyles.aboutLinkItem}>
-                <strong><Trans>Documentation:</Trans></strong>{' '}
-                <a
-                  href="https://github.com/billstark001/tensnap/tree/main/docs"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={dialogStyles.aboutLink}
-                >
-                  <Trans>View Docs</Trans>
-                </a>
-              </div>
-
-              <div className={dialogStyles.aboutLinkItem}>
-                <strong><Trans>License:</Trans></strong> MIT
-              </div>
-            </div>
-
-            <div className={dialogStyles.aboutFooter}>
-              <Trans>© 2025 TenSnap Contributors</Trans>
-            </div>
+        <div className={dialogStyles.aboutLinks}>
+          <div className={dialogStyles.aboutLinkItem}>
+            <strong><Trans>Repository:</Trans></strong>{' '}
+            <a
+              href="https://github.com/billstark001/tensnap"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={dialogStyles.aboutLink}
+            >
+              github.com/billstark001/tensnap
+            </a>
           </div>
 
-          <div className={dialogStyles.dialogFooter}>
-            <Dialog.Close asChild>
-              <button className={dialogStyles.dialogButton}><Trans>Close</Trans></button>
-            </Dialog.Close>
+          <div className={dialogStyles.aboutLinkItem}>
+            <strong><Trans>Documentation:</Trans></strong>{' '}
+            <a
+              href="https://github.com/billstark001/tensnap/tree/main/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={dialogStyles.aboutLink}
+            >
+              <Trans>View Docs</Trans>
+            </a>
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
+
+          <div className={dialogStyles.aboutLinkItem}>
+            <strong><Trans>License:</Trans></strong> MIT
+          </div>
+        </div>
+
+        <div className={dialogStyles.aboutFooter}>
+          <Trans>© 2025 TenSnap Contributors</Trans>
+        </div>
+      </div>
+
+      <Dialog.Footer>
+        <Dialog.Close asChild>
+          <Dialog.Button>
+            <Trans>Close</Trans>
+          </Dialog.Button>
+        </Dialog.Close>
+      </Dialog.Footer>
     </Dialog.Root>
   );
 };

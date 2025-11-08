@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
+import * as Dialog from 'tensnap-web/components/ui/Dialog';
+import * as dialogStyles from 'tensnap-web/styles/form.css';
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
 import { FileSystemOperations } from './FileSystemBrowser';
 
@@ -60,7 +60,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     }
   ];
 
-  const allOptions = showDefaultOptions 
+  const allOptions = showDefaultOptions
     ? [...defaultOptions, ...customOptions]
     : customOptions;
 
@@ -74,52 +74,46 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-        <Dialog.Content className={dialogStyles.dialogContent} aria-describedby="导出选项">
-          <Dialog.Title className={dialogStyles.dialogTitle}>
-            {title}
-          </Dialog.Title>
+      <Dialog.Title>
+        {title}
+      </Dialog.Title>
 
-          <div>
-            <fieldset className={dialogStyles.dialogFieldset}>
-              <label className={dialogStyles.dialogLabel}>
-                导出格式
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {allOptions.map((option) => (
-                  <button
-                    key={option.key}
-                    className={dialogStyles.dialogButton}
-                    style={{
-                      padding: '12px',
-                      textAlign: 'left',
-                      justifyContent: 'flex-start',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: '4px'
-                    }}
-                    onClick={() => handleOptionClick(option)}
-                  >
-                    <div style={{ fontWeight: '500' }}>{option.title}</div>
-                    <div style={{ fontSize: '12px', color: '#666666' }}>
-                      {option.description}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+      <div>
+        <fieldset className={dialogStyles.formFieldSet}>
+          <label className={dialogStyles.formLabel}>
+            导出格式
+          </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {allOptions.map((option) => (
+              <Dialog.Button
+                key={option.key}
+                style={{
+                  padding: '12px',
+                  textAlign: 'left',
+                  justifyContent: 'flex-start',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: '4px'
+                }}
+                onClick={() => handleOptionClick(option)}
+              >
+                <div style={{ fontWeight: '500' }}>{option.title}</div>
+                <div style={{ fontSize: '12px', color: '#666666' }}>
+                  {option.description}
+                </div>
+              </Dialog.Button>
+            ))}
           </div>
+        </fieldset>
+      </div>
 
-          <div className={dialogStyles.dialogFooter}>
-            <Dialog.Close asChild>
-              <button className={dialogStyles.dialogButton}>
-                取消
-              </button>
-            </Dialog.Close>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
+      <Dialog.Footer>
+        <Dialog.Close asChild>
+          <Dialog.Button>
+            取消
+          </Dialog.Button>
+        </Dialog.Close>
+      </Dialog.Footer>
     </Dialog.Root>
   );
 };

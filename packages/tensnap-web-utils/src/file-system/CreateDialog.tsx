@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
+import * as Dialog from 'tensnap-web/components/ui/Dialog';
+import * as formStyles from 'tensnap-web/styles/form.css';
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
 
 export interface CreateDialogProps extends DialogOpenProps {
@@ -37,49 +37,44 @@ export const CreateDialog: React.FC<CreateDialogProps> = ({
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-        <Dialog.Content className={dialogStyles.dialogContent}>
-          <Dialog.Title className={dialogStyles.dialogTitle}>创建新项目</Dialog.Title>
-          <Dialog.Description></Dialog.Description>
-          <div>
-            <fieldset className={dialogStyles.dialogFieldset}>
-              <label className={dialogStyles.dialogLabel}>类型</label>
-              <select 
-                value={newItemType}
-                onChange={(e) => setNewItemType(e.target.value as 'file' | 'directory')}
-                className={dialogStyles.dialogInput}
-              >
-                <option value="file">文件</option>
-                <option value="directory">目录</option>
-              </select>
-            </fieldset>
-            <fieldset className={dialogStyles.dialogFieldset}>
-              <label className={dialogStyles.dialogLabel}>名称</label>
-              <input
-                type="text"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                className={dialogStyles.dialogInput}
-                placeholder={`输入${newItemType === 'file' ? '文件' : '目录'}名称`}
-                onKeyDown={handleKeyDown}
-              />
-            </fieldset>
-          </div>
-          <div className={dialogStyles.dialogFooter}>
-            <Dialog.Close asChild>
-              <button className={dialogStyles.dialogButton}>取消</button>
-            </Dialog.Close>
-            <button 
-              className={dialogStyles.dialogButtonPrimary}
-              onClick={handleCreateItem}
-              disabled={!newItemName.trim()}
-            >
-              创建
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
+      <Dialog.Title>创建新项目</Dialog.Title>
+      <Dialog.Description></Dialog.Description>
+      <div>
+        <fieldset className={formStyles.formFieldSet}>
+          <label className={formStyles.formLabel}>类型</label>
+          <select
+            value={newItemType}
+            onChange={(e) => setNewItemType(e.target.value as 'file' | 'directory')}
+            className={formStyles.formInput}
+          >
+            <option value="file">文件</option>
+            <option value="directory">目录</option>
+          </select>
+        </fieldset>
+        <fieldset className={formStyles.formFieldSet}>
+          <label className={formStyles.formLabel}>名称</label>
+          <input
+            type="text"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            className={formStyles.formInput}
+            placeholder={`输入${newItemType === 'file' ? '文件' : '目录'}名称`}
+            onKeyDown={handleKeyDown}
+          />
+        </fieldset>
+      </div>
+      <Dialog.Footer>
+        <Dialog.Close asChild>
+          <Dialog.Button>取消</Dialog.Button>
+        </Dialog.Close>
+        <Dialog.Button
+          variant="primary"
+          onClick={handleCreateItem}
+          disabled={!newItemName.trim()}
+        >
+          创建
+        </Dialog.Button>
+      </Dialog.Footer>
     </Dialog.Root>
   );
 };

@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import * as Dialog from '@/components/ui/Dialog';
 import * as Switch from '@radix-ui/react-switch';
 import * as Select from '@radix-ui/react-select';
-import * as dialogStyles from '@/components/ui/Dialog.css';
+import * as formStyles from '@/styles/form.css';
 import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
 import { msg } from '@lingui/core/macro';
@@ -62,126 +62,120 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-        <Dialog.Content className={dialogStyles.dialogContentLarge}>
-          <Dialog.Title className={dialogStyles.dialogTitle}><Trans>Settings</Trans></Dialog.Title>
-          <Dialog.Description></Dialog.Description>
+      <Dialog.Title><Trans>Settings</Trans></Dialog.Title>
+      <Dialog.Description></Dialog.Description>
 
-          <div className={styles.settingsContainer}>
-            {/* System Settings */}
-            <div className={styles.sectionContainer}>
-              <h3 className={styles.sectionTitle}><Trans>System Settings</Trans></h3>
+      <div className={styles.settingsContainer}>
+        {/* System Settings */}
+        <div className={styles.sectionContainer}>
+          <h3 className={styles.sectionTitle}><Trans>System Settings</Trans></h3>
 
-              <div className={styles.settingItem}>
-                <label className={styles.settingLabel}><Trans>Theme</Trans></label>
-                <div className={styles.settingControl}>
-                  <div className={styles.switchContainer}>
-                    <Switch.Root
-                      className={styles.switchRoot}
-                      checked={theme === 'dark'}
-                      onCheckedChange={toggleTheme}
-                    >
-                      <Switch.Thumb className={styles.switchThumb} />
-                    </Switch.Root>
-                    <span className={styles.themeLabel}>
-                      {theme === 'dark' ? <Trans>Dark</Trans> : <Trans>Light</Trans>}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.settingItem}>
-                <label className={styles.settingLabel}><Trans>Language</Trans></label>
-                <div className={styles.settingControl}>
-                  <Select.Root value={locale} onValueChange={handleLocaleChange}>
-                    <Select.Trigger className={styles.selectTrigger}>
-                      <Select.Value />
-                      <Select.Icon>▼</Select.Icon>
-                    </Select.Trigger>
-                    <Select.Portal>
-                      <Select.Content className={styles.selectContent} position='popper'>
-                        {Object.entries(locales).map(([code, name]) => (
-                          <Select.Item key={code} value={code} className={styles.selectItem}>
-                            <Select.ItemText>{name}</Select.ItemText>
-                          </Select.Item>
-                        ))}
-                      </Select.Content>
-                    </Select.Portal>
-                  </Select.Root>
-                </div>
-              </div>
-
-              <div className={styles.settingItem}>
-                <label className={styles.settingLabel}><Trans>Save Format</Trans></label>
-                <div className={styles.settingControl}>
-                  <Select.Root value={saveFormat} onValueChange={setSaveFormat}>
-                    <Select.Trigger className={styles.selectTrigger}>
-                      <Select.Value />
-                      <Select.Icon>▼</Select.Icon>
-                    </Select.Trigger>
-                    <Select.Portal>
-                      <Select.Content className={styles.selectContent} position='popper'>
-                        <Select.Item value="msgpack" className={styles.selectItem}>
-                          <Select.ItemText>MessagePack</Select.ItemText>
-                        </Select.Item>
-                        <Select.Item value="json" className={styles.selectItem}>
-                          <Select.ItemText>JSON</Select.ItemText>
-                        </Select.Item>
-                      </Select.Content>
-                    </Select.Portal>
-                  </Select.Root>
-                </div>
-              </div>
-            </div>
-
-            <div className={dialogStyles.dialogSeparator} />
-
-            {/* Project Settings */}
-            <div className={styles.sectionContainer}>
-              <h3 className={styles.sectionTitle}><Trans>Project Settings</Trans></h3>
-
-              <div className={styles.projectSettingsContainer}>
-                <div className={styles.projectSettingsForm}>
-                  <fieldset className={dialogStyles.dialogFieldset}>
-                    <label className={dialogStyles.dialogLabel}><Trans>Backend URL</Trans></label>
-                    <input
-                      type="text"
-                      value={backendUrl}
-                      onChange={(e) => handleBackendUrlChange(e.target.value)}
-                      className={dialogStyles.dialogInput}
-                      placeholder={_(msg`Enter backend WebSocket server address`)}
-                    />
-                  </fieldset>
-                </div>
-
-                <div className={styles.projectSettingsFooter}>
-                  <button
-                    className={dialogStyles.dialogButton}
-                    onClick={handleProjectSettingsReset}
-                    disabled={!hasProjectChanges}
-                  >
-                    <Trans>Reset</Trans>
-                  </button>
-                  <button
-                    className={dialogStyles.dialogButtonPrimary}
-                    onClick={handleProjectSettingsConfirm}
-                    disabled={!hasProjectChanges}
-                  >
-                    <Trans>Confirm Changes</Trans>
-                  </button>
-                </div>
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Theme</Trans></label>
+            <div className={styles.settingControl}>
+              <div className={styles.switchContainer}>
+                <Switch.Root
+                  className={styles.switchRoot}
+                  checked={theme === 'dark'}
+                  onCheckedChange={toggleTheme}
+                >
+                  <Switch.Thumb className={styles.switchThumb} />
+                </Switch.Root>
+                <span className={styles.themeLabel}>
+                  {theme === 'dark' ? <Trans>Dark</Trans> : <Trans>Light</Trans>}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className={dialogStyles.dialogFooter}>
-            <Dialog.Close asChild>
-              <button className={dialogStyles.dialogButton}><Trans>Close</Trans></button>
-            </Dialog.Close>
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Language</Trans></label>
+            <div className={styles.settingControl}>
+              <Select.Root value={locale} onValueChange={handleLocaleChange}>
+                <Select.Trigger className={styles.selectTrigger}>
+                  <Select.Value />
+                  <Select.Icon>▼</Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content className={styles.selectContent} position='popper'>
+                    {Object.entries(locales).map(([code, name]) => (
+                      <Select.Item key={code} value={code} className={styles.selectItem}>
+                        <Select.ItemText>{name}</Select.ItemText>
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Save Format</Trans></label>
+            <div className={styles.settingControl}>
+              <Select.Root value={saveFormat} onValueChange={setSaveFormat}>
+                <Select.Trigger className={styles.selectTrigger}>
+                  <Select.Value />
+                  <Select.Icon>▼</Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content className={styles.selectContent} position='popper'>
+                    <Select.Item value="msgpack" className={styles.selectItem}>
+                      <Select.ItemText>MessagePack</Select.ItemText>
+                    </Select.Item>
+                    <Select.Item value="json" className={styles.selectItem}>
+                      <Select.ItemText>JSON</Select.ItemText>
+                    </Select.Item>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
+          </div>
+        </div>
+
+        <Dialog.Separator />
+
+        {/* Project Settings */}
+        <div className={styles.sectionContainer}>
+          <h3 className={styles.sectionTitle}><Trans>Project Settings</Trans></h3>
+
+          <div className={styles.projectSettingsContainer}>
+            <div className={styles.projectSettingsForm}>
+              <fieldset className={formStyles.formFieldSet}>
+                <label className={formStyles.formLabel}><Trans>Backend URL</Trans></label>
+                <input
+                  type="text"
+                  value={backendUrl}
+                  onChange={(e) => handleBackendUrlChange(e.target.value)}
+                  className={formStyles.formInput}
+                  placeholder={_(msg`Enter backend WebSocket server address`)}
+                />
+              </fieldset>
+            </div>
+
+            <div className={styles.projectSettingsFooter}>
+              <Dialog.Button
+                onClick={handleProjectSettingsReset}
+                disabled={!hasProjectChanges}
+              >
+                <Trans>Reset</Trans>
+              </Dialog.Button>
+              <Dialog.Button
+                variant="primary"
+                onClick={handleProjectSettingsConfirm}
+                disabled={!hasProjectChanges}
+              >
+                <Trans>Confirm Changes</Trans>
+              </Dialog.Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Dialog.Footer>
+        <Dialog.Close asChild>
+          <Dialog.Button><Trans>Close</Trans></Dialog.Button>
+        </Dialog.Close>
+      </Dialog.Footer>
     </Dialog.Root>
   );
 };

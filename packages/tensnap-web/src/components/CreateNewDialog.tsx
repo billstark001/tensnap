@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from '@/components/ui/Dialog.css';
+import * as Dialog from '@/components/ui/Dialog';
+import * as formStyles from '@/styles/form.css';
 import { DialogOpenProps } from '@/utils/react';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
@@ -38,38 +38,33 @@ export const CreateNewDialog: React.FC<CreateNewDialogProps> = ({
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-        <Dialog.Content className={dialogStyles.dialogContent}>
-          <Dialog.Title className={dialogStyles.dialogTitle}><Trans>Create New Project</Trans></Dialog.Title>
-          <Dialog.Description></Dialog.Description>
-          <div>
-            <fieldset className={dialogStyles.dialogFieldset}>
-              <label className={dialogStyles.dialogLabel}><Trans>Backend URL</Trans></label>
-              <input
-                type="text"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                className={dialogStyles.dialogInput}
-                placeholder={_(msg`Enter backend WebSocket server address`)}
-                onKeyDown={handleKeyDown}
-              />
-            </fieldset>
-          </div>
-          <div className={dialogStyles.dialogFooter}>
-            <Dialog.Close asChild>
-              <button className={dialogStyles.dialogButton}><Trans>Cancel</Trans></button>
-            </Dialog.Close>
-            <button
-              className={dialogStyles.dialogButtonPrimary}
-              onClick={handleCreateItem}
-              disabled={!newItemName.trim()}
-            >
-              <Trans>Create</Trans>
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
+      <Dialog.Title><Trans>Create New Project</Trans></Dialog.Title>
+      <Dialog.Description></Dialog.Description>
+      <div>
+        <fieldset className={formStyles.formFieldSet}>
+          <label className={formStyles.formLabel}><Trans>Backend URL</Trans></label>
+          <input
+            type="text"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            className={formStyles.formInput}
+            placeholder={_(msg`Enter backend WebSocket server address`)}
+            onKeyDown={handleKeyDown}
+          />
+        </fieldset>
+      </div>
+      <Dialog.Footer>
+        <Dialog.Close asChild>
+          <Dialog.Button><Trans>Cancel</Trans></Dialog.Button>
+        </Dialog.Close>
+        <Dialog.Button
+          variant="primary"
+          onClick={handleCreateItem}
+          disabled={!newItemName.trim()}
+        >
+          <Trans>Create</Trans>
+        </Dialog.Button>
+      </Dialog.Footer>
     </Dialog.Root>
   );
 };

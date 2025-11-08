@@ -1,7 +1,5 @@
-import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import * as Dialog from '@/components/ui/Dialog';
 import { GridAgent, GraphAgent, UniformAgent, AgentIcon, EnvironmentType } from '@/types/model';
-import { dialogOverlay, dialogContent, dialogTitle, dialogDescription, dialogFooter, dialogButton, dialogClose } from '@/components/ui/Dialog.css';
 import * as styles from './AgentDetailsDialog.css';
 import clsx from 'clsx';
 
@@ -128,69 +126,60 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={dialogContent}>
-          <Dialog.Title className={dialogTitle}>
-            Agent Details
-          </Dialog.Title>
-          <Dialog.Description className={dialogDescription}>
-            View detailed information about the selected agent
-          </Dialog.Description>
+      <Dialog.Title>
+        Agent Details
+      </Dialog.Title>
+      <Dialog.Description>
+        View detailed information about the selected agent
+      </Dialog.Description>
 
-          <div>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>ID:</span>
-              {agent.id}
-            </div>
+      <div>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel}>ID:</span>
+          {agent.id}
+        </div>
 
-            <PositionInfo agent={agent} agentType={agentType} />
+        <PositionInfo agent={agent} agentType={agentType} />
 
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Icon:</span>
-              <div className={styles.agentIcon}>
-                {createIconElement(agent.icon, size, color)}
-              </div>
-              {agent.icon || 'circle'}
-            </div>
-
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Color:</span>
-              <span
-                className={styles.colorSwatch}
-                style={{ backgroundColor: color }}
-              />
-              {color}
-            </div>
-
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>Size:</span>
-              {agent.size || 'default'}
-            </div>
-
-            {agentType === 'grid' && <TrajectoryInfo agent={agent as GridAgent} />}
-
-            <div className={styles.dataSection}>
-              <h4 className={styles.dataSectionTitle}>Custom Data:</h4>
-              <pre className={styles.dataContent}>
-                {JSON.stringify(agent.data, null, 2)}
-              </pre>
-            </div>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel}>Icon:</span>
+          <div className={styles.agentIcon}>
+            {createIconElement(agent.icon, size, color)}
           </div>
+          {agent.icon || 'circle'}
+        </div>
 
-          <div className={dialogFooter}>
-            <Dialog.Close asChild>
-              <button className={dialogButton}>Close</button>
-            </Dialog.Close>
-          </div>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel}>Color:</span>
+          <span
+            className={styles.colorSwatch}
+            style={{ backgroundColor: color }}
+          />
+          {color}
+        </div>
 
-          <Dialog.Close asChild>
-            <button className={dialogClose} aria-label="Close">
-              <X size={16} />
-            </button>
-          </Dialog.Close>
-        </Dialog.Content>
-      </Dialog.Portal>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel}>Size:</span>
+          {agent.size || 'default'}
+        </div>
+
+        {agentType === 'grid' && <TrajectoryInfo agent={agent as GridAgent} />}
+
+        <div className={styles.dataSection}>
+          <h4 className={styles.dataSectionTitle}>Custom Data:</h4>
+          <pre className={styles.dataContent}>
+            {JSON.stringify(agent.data, null, 2)}
+          </pre>
+        </div>
+      </div>
+
+      <Dialog.Footer>
+        <Dialog.Close asChild>
+          <Dialog.Button>Close</Dialog.Button>
+        </Dialog.Close>
+      </Dialog.Footer>
+
+      <Dialog.CloseButton />
     </Dialog.Root>
   );
 }

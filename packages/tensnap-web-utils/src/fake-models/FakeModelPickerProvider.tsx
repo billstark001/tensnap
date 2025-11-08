@@ -6,8 +6,7 @@
  */
 
 import React, { createContext, useContext, useCallback, useState, ReactNode } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as dialogStyles from 'tensnap-web/components/ui/Dialog.css';
+import * as Dialog from 'tensnap-web/components/ui/Dialog';
 import { FAKE_MODELS, FakeModelMetadata } from './index';
 
 export interface FakeModelPickerResult {
@@ -122,69 +121,54 @@ export const FakeModelPickerProvider: React.FC<FakeModelPickerProviderProps> = (
       {children}
 
       {/* Model picker dialog */}
-      <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogStyles.dialogOverlay} />
-          <Dialog.Content className={dialogStyles.dialogContentLarge}>
-            <div className={dialogStyles.dialogHeader}>
-              <Dialog.Title className={dialogStyles.dialogTitle}>
-                Select Fake Model
-              </Dialog.Title>
-              <Dialog.Description style={{ marginTop: '8px', color: 'var(--color-text-secondary)' }}>
-                Choose a built-in simulation model to run in your browser.
-              </Dialog.Description>
+      <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()} size='lg'>
+        <Dialog.Title>
+          Select Fake Model
+        </Dialog.Title>
+        <Dialog.Description style={{ marginTop: '8px', color: 'var(--color-text-secondary)' }}>
+          Choose a built-in simulation model to run in your browser.
+        </Dialog.Description>
+
+        <Dialog.Body>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: '16px',
+              padding: '8px',
+            }}
+          >
+            {FAKE_MODELS.map((model) => (
+              <FakeModelCard
+                key={model.id}
+                model={model}
+                onSelect={handleModelSelect}
+              />
+            ))}
+          </div>
+
+          {FAKE_MODELS.length === 0 && (
+            <div
+              style={{
+                padding: '48px',
+                textAlign: 'center',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              <p>No fake models available.</p>
             </div>
+          )}
+        </Dialog.Body>
 
-            <div className={dialogStyles.dialogBody}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                  gap: '16px',
-                  padding: '8px',
-                }}
-              >
-                {FAKE_MODELS.map((model) => (
-                  <FakeModelCard
-                    key={model.id}
-                    model={model}
-                    onSelect={handleModelSelect}
-                  />
-                ))}
-              </div>
+        <Dialog.Footer>
+          <Dialog.Close asChild>
+            <Dialog.Button onClick={handleCancel}>
+              Cancel
+            </Dialog.Button>
+          </Dialog.Close>
+        </Dialog.Footer>
 
-              {FAKE_MODELS.length === 0 && (
-                <div
-                  style={{
-                    padding: '48px',
-                    textAlign: 'center',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  <p>No fake models available.</p>
-                </div>
-              )}
-            </div>
-
-            <div className={dialogStyles.dialogFooter}>
-              <Dialog.Close asChild>
-                <button className={dialogStyles.dialogButton} onClick={handleCancel}>
-                  Cancel
-                </button>
-              </Dialog.Close>
-            </div>
-
-            <Dialog.Close asChild>
-              <button
-                className={dialogStyles.dialogClose}
-                aria-label="Close"
-                onClick={handleCancel}
-              >
-                ✕
-              </button>
-            </Dialog.Close>
-          </Dialog.Content>
-        </Dialog.Portal>
+        <Dialog.CloseButton />
       </Dialog.Root>
     </FakeModelPickerContext.Provider>
   );
