@@ -13,231 +13,302 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/components/AboutDialog.tsx:76
+#: src/components/AboutDialog.tsx:73
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap コントリビューター"
 
-#: src/components/AboutDialog.tsx:21
-#: src/components/toolbar/MenuBar.tsx:213
+#: src/components/AboutDialog.tsx:18
+#: src/components/toolbar/MenuBar.tsx:185
 msgid "About TenSnap"
 msgstr "TenSnapについて"
 
-#: src/components/CreateNewDialog.tsx:47
-#: src/components/SettingsDialog.tsx:142
+#: src/components/project/SnapshotDetailDialog.tsx:102
+msgid "Agents:"
+msgstr ""
+
+#: src/components/CreateNewDialog.tsx:45
+#: src/components/SettingsDialog.tsx:144
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
-#: src/components/CreateNewDialog.tsx:60
+#: src/components/CreateNewDialog.tsx:58
 msgid "Cancel"
 msgstr "キャンセル"
 
-#: src/components/AboutDialog.tsx:82
-#: src/components/SettingsDialog.tsx:175
+#: src/components/project/RightPanel.tsx:96
+msgid "Clear All"
+msgstr "すべてクリア"
+
+#: src/components/AboutDialog.tsx:80
+#: src/components/SettingsDialog.tsx:176
 msgid "Close"
 msgstr "閉じる"
 
-#: src/components/SettingsDialog.tsx:166
+#: src/components/SettingsDialog.tsx:167
 msgid "Confirm Changes"
 msgstr "変更を確認"
 
-#: src/App.tsx:19
+#: src/components/project/StatusBar.tsx:26
 msgid "Connected"
 msgstr "接続済み"
 
-#: src/components/toolbar/MenuBar.tsx:107
+#: src/components/toolbar/MenuBar.tsx:94
 msgid "Copy"
 msgstr "コピー"
 
-#: src/components/CreateNewDialog.tsx:67
+#: src/components/CreateNewDialog.tsx:65
 msgid "Create"
 msgstr "作成"
 
-#: src/components/CreateNewDialog.tsx:43
+#: src/components/CreateNewDialog.tsx:41
 msgid "Create New Project"
 msgstr "新しいプロジェクトを作成"
 
-#: src/components/toolbar/MenuBar.tsx:104
+#: src/components/toolbar/MenuBar.tsx:91
 msgid "Cut"
 msgstr "切り取り"
 
-#: src/components/SettingsDialog.tsx:83
+#: src/components/SettingsDialog.tsx:85
 msgid "Dark"
 msgstr "ダーク"
 
-#: src/App.tsx:19
+#: src/components/project/SnapshotDetailDialog.tsx:112
+msgid "Delete Snapshot"
+msgstr "スナップショットを削除"
+
+#: src/components/project/StatusBar.tsx:26
 msgid "Disconnected"
 msgstr "未接続"
 
-#: src/components/toolbar/MenuBar.tsx:203
+#: src/components/toolbar/MenuBar.tsx:175
 msgid "Documentation"
 msgstr "ドキュメント"
 
-#: src/components/AboutDialog.tsx:59
+#: src/components/AboutDialog.tsx:56
 msgid "Documentation:"
 msgstr "ドキュメント："
 
-#: src/components/toolbar/MenuBar.tsx:89
+#: src/components/toolbar/MenuBar.tsx:76
 msgid "Edit"
 msgstr "編集"
 
-#: src/components/CreateNewDialog.tsx:53
-#: src/components/SettingsDialog.tsx:148
+#: src/components/CreateNewDialog.tsx:51
+#: src/components/SettingsDialog.tsx:150
 msgid "Enter backend WebSocket server address"
 msgstr "バックエンドWebSocketサーバーアドレスを入力"
 
-#: src/components/toolbar/MenuBar.tsx:80
+#: src/components/project/SnapshotDetailDialog.tsx:92
+msgid "Environments"
+msgstr "環境"
+
+#: src/components/project/RightPanel.tsx:128
+#: src/components/project/SnapshotDetailDialog.tsx:64
+msgid "Environments:"
+msgstr "環境："
+
+#: src/components/toolbar/MenuBar.tsx:67
 msgid "Exit"
 msgstr "終了"
 
 #: src/components/toolbar/MenuBar.tsx:76
-msgid "Export"
-msgstr "エクスポート"
+#~ msgid "Export"
+#~ msgstr "エクスポート"
 
 #: src/components/toolbar/MenuBar.tsx:186
-msgid "Export Current Directory"
-msgstr "現在のディレクトリをエクスポート"
+#~ msgid "Export Current Directory"
+#~ msgstr "現在のディレクトリをエクスポート"
 
-#: src/components/toolbar/MenuBar.tsx:32
+#: src/components/toolbar/MenuBar.tsx:31
 msgid "File"
 msgstr "ファイル"
 
 #: src/components/toolbar/MenuBar.tsx:150
-msgid "File Browser"
-msgstr "ファイルブラウザ"
+#~ msgid "File Browser"
+#~ msgstr "ファイルブラウザ"
 
 #: src/components/toolbar/MenuBar.tsx:173
-msgid "File Manager"
-msgstr "ファイルマネージャー"
+#~ msgid "File Manager"
+#~ msgstr "ファイルマネージャー"
 
-#: src/components/toolbar/MenuBar.tsx:153
+#: src/components/toolbar/MenuBar.tsx:135
 msgid "Fullscreen"
 msgstr "全画面"
 
-#: src/components/toolbar/MenuBar.tsx:195
+#: src/components/toolbar/MenuBar.tsx:167
 msgid "Help"
 msgstr "ヘルプ"
 
-#: src/components/toolbar/MenuBar.tsx:206
+#: src/components/project/SnapshotDetailDialog.tsx:43
+msgid "ID:"
+msgstr "ID："
+
+#: src/components/toolbar/MenuBar.tsx:178
 msgid "Keyboard Shortcuts"
 msgstr "キーボードショートカット"
 
-#: src/components/SettingsDialog.tsx:90
+#: src/components/SettingsDialog.tsx:92
 msgid "Language"
 msgstr "言語"
 
-#: src/components/AboutDialog.tsx:71
+#: src/components/AboutDialog.tsx:68
 msgid "License:"
 msgstr "ライセンス："
 
-#: src/components/SettingsDialog.tsx:83
+#: src/components/SettingsDialog.tsx:85
 msgid "Light"
 msgstr "ライト"
 
-#: src/components/toolbar/MenuBar.tsx:43
+#: src/components/toolbar/MenuBar.tsx:42
 msgid "New"
 msgstr "新規"
 
-#: src/components/toolbar/MenuBar.tsx:49
+#: src/components/project/RightPanel.tsx:21
+msgid "No scenario data loaded."
+msgstr "シナリオデータが読み込まれていません。"
+
+#: src/components/project/RightPanel.tsx:103
+msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
+msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
+
+#: src/components/toolbar/MenuBar.tsx:48
 msgid "Open File"
 msgstr "ファイルを開く"
 
 #: src/components/toolbar/MenuBar.tsx:55
-msgid "Open Folder"
-msgstr "フォルダーを開く"
+#~ msgid "Open Folder"
+#~ msgstr "フォルダーを開く"
 
-#: src/components/toolbar/MenuBar.tsx:110
+#: src/components/project/SnapshotDetailDialog.tsx:74
+msgid "Parameters"
+msgstr "パラメータ"
+
+#: src/components/project/RightPanel.tsx:136
+msgid "Parameters:"
+msgstr "パラメータ："
+
+#: src/components/toolbar/MenuBar.tsx:97
 msgid "Paste"
 msgstr "貼り付け"
 
-#: src/components/SettingsDialog.tsx:137
+#: src/components/SettingsDialog.tsx:139
 msgid "Project Settings"
 msgstr "プロジェクト設定"
 
-#: src/components/toolbar/MenuBar.tsx:100
+#: src/components/toolbar/MenuBar.tsx:87
 msgid "Redo"
 msgstr "やり直す"
 
-#: src/components/AboutDialog.tsx:47
+#: src/components/AboutDialog.tsx:44
 msgid "Repository:"
 msgstr "リポジトリ："
 
-#: src/components/SettingsDialog.tsx:159
+#: src/components/SettingsDialog.tsx:160
 msgid "Reset"
 msgstr "リセット"
 
-#: src/components/toolbar/MenuBar.tsx:137
+#: src/components/toolbar/MenuBar.tsx:124
 msgid "Reset Zoom"
 msgstr "ズームをリセット"
 
-#: src/components/toolbar/MenuBar.tsx:62
+#: src/components/project/SnapshotDetailDialog.tsx:115
+msgid "Restore Snapshot"
+msgstr "スナップショットを復元"
+
+#: src/components/toolbar/MenuBar.tsx:55
 msgid "Save"
 msgstr "保存"
 
-#: src/components/toolbar/MenuBar.tsx:69
+#: src/components/toolbar/MenuBar.tsx:62
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
-#: src/components/SettingsDialog.tsx:111
+#: src/components/SettingsDialog.tsx:113
 msgid "Save Format"
 msgstr "保存形式"
 
-#: src/components/toolbar/MenuBar.tsx:114
+#: src/components/project/RightPanel.tsx:18
+msgid "Scenario Properties"
+msgstr "シナリオプロパティ"
+
+#: src/components/toolbar/MenuBar.tsx:101
 msgid "Select All"
 msgstr "すべて選択"
 
-#: src/components/SettingsDialog.tsx:63
-#: src/components/toolbar/MenuBar.tsx:179
+#: src/components/SettingsDialog.tsx:65
+#: src/components/toolbar/MenuBar.tsx:156
 msgid "Settings"
 msgstr "設定"
 
-#: src/components/toolbar/MenuBar.tsx:141
+#: src/components/toolbar/MenuBar.tsx:128
 msgid "Show Grid"
 msgstr "グリッドを表示"
 
-#: src/components/toolbar/MenuBar.tsx:144
+#: src/components/toolbar/MenuBar.tsx:131
 msgid "Show Toolbar"
 msgstr "ツールバーを表示"
 
-#: src/components/SettingsDialog.tsx:69
+#: src/components/project/SnapshotDetailDialog.tsx:33
+msgid "Snapshot Details"
+msgstr "スナップショットの詳細"
+
+#: src/components/project/RightPanel.tsx:79
+msgid "Snapshots"
+msgstr "スナップショット"
+
+#: src/components/SettingsDialog.tsx:71
 msgid "System Settings"
 msgstr "システム設定"
 
-#: src/components/AboutDialog.tsx:37
-msgid "TenSnap is a visualization and simulation tool for tensor network models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
-msgstr "TenSnapは、テンソルネットワークモデルの可視化とシミュレーションツールであり、インタラクティブなシミュレーションと可視化を通じて、研究者や学生が複雑なシステムを理解するのを支援するように設計されています。"
+#: src/components/project/RightPanel.tsx:87
+msgid "Take Snapshot"
+msgstr "スナップショットを撮る"
 
-#: src/components/SettingsDialog.tsx:72
+#: src/components/AboutDialog.tsx:34
+msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
+msgstr "TenSnapは、エージェントベースモデルのインタラクティブ可視化であり、インタラクティブなシミュレーションと可視化を通じて、研究者や学生が複雑なシステムを理解するのを支援するように設計されています。"
+
+#: src/components/SettingsDialog.tsx:74
 msgid "Theme"
 msgstr "テーマ"
 
-#: src/App.tsx:21
+#: src/components/project/RightPanel.tsx:122
+#: src/components/project/SnapshotDetailDialog.tsx:57
+#: src/components/project/StatusBar.tsx:28
 msgid "Time Step:"
 msgstr "タイムステップ："
 
-#: src/components/toolbar/MenuBar.tsx:162
+#: src/components/project/SnapshotDetailDialog.tsx:50
+msgid "Timestamp:"
+msgstr "タイムスタンプ："
+
+#: src/components/toolbar/MenuBar.tsx:144
 msgid "Tools"
 msgstr "ツール"
 
-#: src/components/toolbar/MenuBar.tsx:97
+#: src/components/toolbar/MenuBar.tsx:84
 msgid "Undo"
 msgstr "元に戻す"
 
-#: src/components/AboutDialog.tsx:31
+#: src/components/AboutDialog.tsx:28
 msgid "Version"
 msgstr "バージョン"
 
-#: src/components/toolbar/MenuBar.tsx:123
+#: src/components/toolbar/MenuBar.tsx:110
 msgid "View"
 msgstr "表示"
 
-#: src/components/AboutDialog.tsx:66
+#: src/components/project/SnapshotDetailDialog.tsx:36
+msgid "View and manage snapshot"
+msgstr "スナップショットを表示・管理"
+
+#: src/components/AboutDialog.tsx:63
 msgid "View Docs"
 msgstr "ドキュメントを見る"
 
-#: src/components/toolbar/MenuBar.tsx:131
+#: src/components/toolbar/MenuBar.tsx:118
 msgid "Zoom In"
 msgstr "拡大"
 
-#: src/components/toolbar/MenuBar.tsx:134
+#: src/components/toolbar/MenuBar.tsx:121
 msgid "Zoom Out"
 msgstr "縮小"

@@ -96,7 +96,6 @@ export const dialogContentXLarge = style([dialogContent, {
   width: '90vw',
   height: '80vh',
   maxHeight: '80vh',
-  padding: 0,
 }]);
 
 // Dialog Title 样式
@@ -166,9 +165,9 @@ export const dialogClose = style({
 
 // Dialog 主体内容区域
 export const dialogBody = style({
-  padding: `0 ${vars.space.lg}`,
+  padding: 0,
   flex: 1,
-  overflow: 'auto',
+  overflowY: 'auto',
 });
 
 // Dialog 底部区域（按钮区域）
@@ -270,6 +269,11 @@ export const dialogSeparator = style({
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    '&.vertical': {
+      width: '1px',
+      height: 'auto',
+      margin: `0 ${vars.space.md}`,
     },
   },
 });

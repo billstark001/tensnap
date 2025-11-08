@@ -13,231 +13,302 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/components/AboutDialog.tsx:76
+#: src/components/AboutDialog.tsx:73
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap Contributors"
 
-#: src/components/AboutDialog.tsx:21
-#: src/components/toolbar/MenuBar.tsx:213
+#: src/components/AboutDialog.tsx:18
+#: src/components/toolbar/MenuBar.tsx:185
 msgid "About TenSnap"
 msgstr "About TenSnap"
 
-#: src/components/CreateNewDialog.tsx:47
-#: src/components/SettingsDialog.tsx:142
+#: src/components/project/SnapshotDetailDialog.tsx:102
+msgid "Agents:"
+msgstr "Agents:"
+
+#: src/components/CreateNewDialog.tsx:45
+#: src/components/SettingsDialog.tsx:144
 msgid "Backend URL"
 msgstr "Backend URL"
 
-#: src/components/CreateNewDialog.tsx:60
+#: src/components/CreateNewDialog.tsx:58
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/components/AboutDialog.tsx:82
-#: src/components/SettingsDialog.tsx:175
+#: src/components/project/RightPanel.tsx:96
+msgid "Clear All"
+msgstr "Clear All"
+
+#: src/components/AboutDialog.tsx:80
+#: src/components/SettingsDialog.tsx:176
 msgid "Close"
 msgstr "Close"
 
-#: src/components/SettingsDialog.tsx:166
+#: src/components/SettingsDialog.tsx:167
 msgid "Confirm Changes"
 msgstr "Confirm Changes"
 
-#: src/App.tsx:19
+#: src/components/project/StatusBar.tsx:26
 msgid "Connected"
 msgstr "Connected"
 
-#: src/components/toolbar/MenuBar.tsx:107
+#: src/components/toolbar/MenuBar.tsx:94
 msgid "Copy"
 msgstr "Copy"
 
-#: src/components/CreateNewDialog.tsx:67
+#: src/components/CreateNewDialog.tsx:65
 msgid "Create"
 msgstr "Create"
 
-#: src/components/CreateNewDialog.tsx:43
+#: src/components/CreateNewDialog.tsx:41
 msgid "Create New Project"
 msgstr "Create New Project"
 
-#: src/components/toolbar/MenuBar.tsx:104
+#: src/components/toolbar/MenuBar.tsx:91
 msgid "Cut"
 msgstr "Cut"
 
-#: src/components/SettingsDialog.tsx:83
+#: src/components/SettingsDialog.tsx:85
 msgid "Dark"
 msgstr "Dark"
 
-#: src/App.tsx:19
+#: src/components/project/SnapshotDetailDialog.tsx:112
+msgid "Delete Snapshot"
+msgstr "Delete Snapshot"
+
+#: src/components/project/StatusBar.tsx:26
 msgid "Disconnected"
 msgstr "Disconnected"
 
-#: src/components/toolbar/MenuBar.tsx:203
+#: src/components/toolbar/MenuBar.tsx:175
 msgid "Documentation"
 msgstr "Documentation"
 
-#: src/components/AboutDialog.tsx:59
+#: src/components/AboutDialog.tsx:56
 msgid "Documentation:"
 msgstr "Documentation:"
 
-#: src/components/toolbar/MenuBar.tsx:89
+#: src/components/toolbar/MenuBar.tsx:76
 msgid "Edit"
 msgstr "Edit"
 
-#: src/components/CreateNewDialog.tsx:53
-#: src/components/SettingsDialog.tsx:148
+#: src/components/CreateNewDialog.tsx:51
+#: src/components/SettingsDialog.tsx:150
 msgid "Enter backend WebSocket server address"
 msgstr "Enter backend WebSocket server address"
 
-#: src/components/toolbar/MenuBar.tsx:80
+#: src/components/project/SnapshotDetailDialog.tsx:92
+msgid "Environments"
+msgstr "Environments"
+
+#: src/components/project/RightPanel.tsx:128
+#: src/components/project/SnapshotDetailDialog.tsx:64
+msgid "Environments:"
+msgstr "Environments:"
+
+#: src/components/toolbar/MenuBar.tsx:67
 msgid "Exit"
 msgstr "Exit"
 
 #: src/components/toolbar/MenuBar.tsx:76
-msgid "Export"
-msgstr "Export"
+#~ msgid "Export"
+#~ msgstr "Export"
 
 #: src/components/toolbar/MenuBar.tsx:186
-msgid "Export Current Directory"
-msgstr "Export Current Directory"
+#~ msgid "Export Current Directory"
+#~ msgstr "Export Current Directory"
 
-#: src/components/toolbar/MenuBar.tsx:32
+#: src/components/toolbar/MenuBar.tsx:31
 msgid "File"
 msgstr "File"
 
 #: src/components/toolbar/MenuBar.tsx:150
-msgid "File Browser"
-msgstr "File Browser"
+#~ msgid "File Browser"
+#~ msgstr "File Browser"
 
 #: src/components/toolbar/MenuBar.tsx:173
-msgid "File Manager"
-msgstr "File Manager"
+#~ msgid "File Manager"
+#~ msgstr "File Manager"
 
-#: src/components/toolbar/MenuBar.tsx:153
+#: src/components/toolbar/MenuBar.tsx:135
 msgid "Fullscreen"
 msgstr "Fullscreen"
 
-#: src/components/toolbar/MenuBar.tsx:195
+#: src/components/toolbar/MenuBar.tsx:167
 msgid "Help"
 msgstr "Help"
 
-#: src/components/toolbar/MenuBar.tsx:206
+#: src/components/project/SnapshotDetailDialog.tsx:43
+msgid "ID:"
+msgstr "ID:"
+
+#: src/components/toolbar/MenuBar.tsx:178
 msgid "Keyboard Shortcuts"
 msgstr "Keyboard Shortcuts"
 
-#: src/components/SettingsDialog.tsx:90
+#: src/components/SettingsDialog.tsx:92
 msgid "Language"
 msgstr "Language"
 
-#: src/components/AboutDialog.tsx:71
+#: src/components/AboutDialog.tsx:68
 msgid "License:"
 msgstr "License:"
 
-#: src/components/SettingsDialog.tsx:83
+#: src/components/SettingsDialog.tsx:85
 msgid "Light"
 msgstr "Light"
 
-#: src/components/toolbar/MenuBar.tsx:43
+#: src/components/toolbar/MenuBar.tsx:42
 msgid "New"
 msgstr "New"
 
-#: src/components/toolbar/MenuBar.tsx:49
+#: src/components/project/RightPanel.tsx:21
+msgid "No scenario data loaded."
+msgstr "No scenario data loaded."
+
+#: src/components/project/RightPanel.tsx:103
+msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
+msgstr "No snapshots yet. Click \"Take Snapshot\" to create one."
+
+#: src/components/toolbar/MenuBar.tsx:48
 msgid "Open File"
 msgstr "Open File"
 
 #: src/components/toolbar/MenuBar.tsx:55
-msgid "Open Folder"
-msgstr "Open Folder"
+#~ msgid "Open Folder"
+#~ msgstr "Open Folder"
 
-#: src/components/toolbar/MenuBar.tsx:110
+#: src/components/project/SnapshotDetailDialog.tsx:74
+msgid "Parameters"
+msgstr "Parameters"
+
+#: src/components/project/RightPanel.tsx:136
+msgid "Parameters:"
+msgstr "Parameters:"
+
+#: src/components/toolbar/MenuBar.tsx:97
 msgid "Paste"
 msgstr "Paste"
 
-#: src/components/SettingsDialog.tsx:137
+#: src/components/SettingsDialog.tsx:139
 msgid "Project Settings"
 msgstr "Project Settings"
 
-#: src/components/toolbar/MenuBar.tsx:100
+#: src/components/toolbar/MenuBar.tsx:87
 msgid "Redo"
 msgstr "Redo"
 
-#: src/components/AboutDialog.tsx:47
+#: src/components/AboutDialog.tsx:44
 msgid "Repository:"
 msgstr "Repository:"
 
-#: src/components/SettingsDialog.tsx:159
+#: src/components/SettingsDialog.tsx:160
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/toolbar/MenuBar.tsx:137
+#: src/components/toolbar/MenuBar.tsx:124
 msgid "Reset Zoom"
 msgstr "Reset Zoom"
 
-#: src/components/toolbar/MenuBar.tsx:62
+#: src/components/project/SnapshotDetailDialog.tsx:115
+msgid "Restore Snapshot"
+msgstr "Restore Snapshot"
+
+#: src/components/toolbar/MenuBar.tsx:55
 msgid "Save"
 msgstr "Save"
 
-#: src/components/toolbar/MenuBar.tsx:69
+#: src/components/toolbar/MenuBar.tsx:62
 msgid "Save As..."
 msgstr "Save As..."
 
-#: src/components/SettingsDialog.tsx:111
+#: src/components/SettingsDialog.tsx:113
 msgid "Save Format"
 msgstr "Save Format"
 
-#: src/components/toolbar/MenuBar.tsx:114
+#: src/components/project/RightPanel.tsx:18
+msgid "Scenario Properties"
+msgstr "Scenario Properties"
+
+#: src/components/toolbar/MenuBar.tsx:101
 msgid "Select All"
 msgstr "Select All"
 
-#: src/components/SettingsDialog.tsx:63
-#: src/components/toolbar/MenuBar.tsx:179
+#: src/components/SettingsDialog.tsx:65
+#: src/components/toolbar/MenuBar.tsx:156
 msgid "Settings"
 msgstr "Settings"
 
-#: src/components/toolbar/MenuBar.tsx:141
+#: src/components/toolbar/MenuBar.tsx:128
 msgid "Show Grid"
 msgstr "Show Grid"
 
-#: src/components/toolbar/MenuBar.tsx:144
+#: src/components/toolbar/MenuBar.tsx:131
 msgid "Show Toolbar"
 msgstr "Show Toolbar"
 
-#: src/components/SettingsDialog.tsx:69
+#: src/components/project/SnapshotDetailDialog.tsx:33
+msgid "Snapshot Details"
+msgstr "Snapshot Details"
+
+#: src/components/project/RightPanel.tsx:79
+msgid "Snapshots"
+msgstr "Snapshots"
+
+#: src/components/SettingsDialog.tsx:71
 msgid "System Settings"
 msgstr "System Settings"
 
-#: src/components/AboutDialog.tsx:37
-msgid "TenSnap is a visualization and simulation tool for tensor network models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
-msgstr "TenSnap is a visualization and simulation tool for tensor network models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
+#: src/components/project/RightPanel.tsx:87
+msgid "Take Snapshot"
+msgstr "Take Snapshot"
 
-#: src/components/SettingsDialog.tsx:72
+#: src/components/AboutDialog.tsx:34
+msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
+msgstr "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
+
+#: src/components/SettingsDialog.tsx:74
 msgid "Theme"
 msgstr "Theme"
 
-#: src/App.tsx:21
+#: src/components/project/RightPanel.tsx:122
+#: src/components/project/SnapshotDetailDialog.tsx:57
+#: src/components/project/StatusBar.tsx:28
 msgid "Time Step:"
 msgstr "Time Step:"
 
-#: src/components/toolbar/MenuBar.tsx:162
+#: src/components/project/SnapshotDetailDialog.tsx:50
+msgid "Timestamp:"
+msgstr "Timestamp:"
+
+#: src/components/toolbar/MenuBar.tsx:144
 msgid "Tools"
 msgstr "Tools"
 
-#: src/components/toolbar/MenuBar.tsx:97
+#: src/components/toolbar/MenuBar.tsx:84
 msgid "Undo"
 msgstr "Undo"
 
-#: src/components/AboutDialog.tsx:31
+#: src/components/AboutDialog.tsx:28
 msgid "Version"
 msgstr "Version"
 
-#: src/components/toolbar/MenuBar.tsx:123
+#: src/components/toolbar/MenuBar.tsx:110
 msgid "View"
 msgstr "View"
 
-#: src/components/AboutDialog.tsx:66
+#: src/components/project/SnapshotDetailDialog.tsx:36
+msgid "View and manage snapshot"
+msgstr "View and manage snapshot"
+
+#: src/components/AboutDialog.tsx:63
 msgid "View Docs"
 msgstr "View Docs"
 
-#: src/components/toolbar/MenuBar.tsx:131
+#: src/components/toolbar/MenuBar.tsx:118
 msgid "Zoom In"
 msgstr "Zoom In"
 
-#: src/components/toolbar/MenuBar.tsx:134
+#: src/components/toolbar/MenuBar.tsx:121
 msgid "Zoom Out"
 msgstr "Zoom Out"

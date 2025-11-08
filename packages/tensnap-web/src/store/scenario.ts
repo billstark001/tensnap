@@ -47,6 +47,7 @@ export interface ScenarioStore {
   addChartData: (updates: ChartUpdateData[]) => void;
   executeChartOperations: (operations: ChartUpdateOperation[]) => void;
   addSnapshot: (snapshot: SnapshotMetadata) => void;
+  removeSnapshot: (id: string) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
   setMainView: (view: SetStateAction<ContainerView>) => void;
@@ -265,7 +266,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     const snapshot: Snapshot = {
       ...snapshotMetadata,
       environments: Array.from(environments.values()).map(env => serializeEnvironment(env)),
-      parameters: parameters,
+      parameters: structuredClone(parameters.filter(p => p.type !== 'action')),
     };
     set((state) => {
       const newSnapshots = [...state.snapshots, snapshot];
@@ -274,6 +275,13 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       }
       return { snapshots: newSnapshots };
     })
+  },
+
+  removeSnapshot: (id: string) => {
+    set((state) => {
+      const newSnapshots = state.snapshots.filter(snapshot => snapshot.id !== id);
+      return { snapshots: newSnapshots };
+    });
   },
 
   clearSnapshots: () => set({ snapshots: [] }),

@@ -10,6 +10,11 @@ import { initI18n, detectLocale, isValidLocale } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
 import { IndexedDBFileSystemAdapter } from 'tensnap-web-utils/adapters';
 
+
+if (!window.structuredClone) {
+  window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
+}
+
 // Register fake models for development/testing
 registerFakeModels(WebSocketManagerFake);
 

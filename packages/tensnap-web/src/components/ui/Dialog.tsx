@@ -119,9 +119,11 @@ export const Body = (props: React.HTMLAttributes<HTMLDivElement>) => {
   );
 };
 
-export const Separator = (props: React.HTMLAttributes<HTMLDivElement>) => {
+export const Separator = (props: React.HTMLAttributes<HTMLDivElement> & {
+  vertical?: boolean;
+}) => {
   return (
-    <div{...props} className={clsx(dialogStyles.dialogSeparator)} />
+    <div {...props} className={clsx(dialogStyles.dialogSeparator, props.vertical && 'vertical')} />
   );
 };
 

@@ -60,8 +60,8 @@ export function serializeEnvironment(instEnv: InstantiatedEnvironment): Environm
   return {
     id,
     type,
-    ...props,
-    agents: Object.values(agents),
+    ...structuredClone(props),
+    agents: structuredClone(Object.values(agents)),
   } as any;
 }
 

@@ -32,7 +32,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
         <div className={dialogStyles.aboutDescription}>
           <p className={dialogStyles.aboutText}>
             <Trans>
-              TenSnap is a visualization and simulation tool for tensor network models,
+              TenSnap is an interactive simulation toolset for agent-based models,
               designed to help researchers and students understand complex systems through
               interactive simulations and visualizations.
             </Trans>
