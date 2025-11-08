@@ -4,6 +4,7 @@ import { ChartDataPoint, ChartConfig } from './types';
 
 export interface LeaferChartViewProps {
   data: ChartDataPoint[];
+  dataVersion?: any;
   config: ChartConfig;
   className?: string;
   style?: React.CSSProperties;
@@ -15,7 +16,7 @@ export interface LeaferChartViewRef {
 
 // React binding for LeaferLineChart
 export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewProps>((props, ref) => {
-  const { data, config, className, style } = props;
+  const { data, dataVersion, config, className, style } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<LeaferLineChart | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -51,7 +52,7 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
     if (isReady && chartRef.current) {
       chartRef.current.updateData(data);
     }
-  }, [data, isReady]);
+  }, [data, dataVersion, isReady]);
 
   // Update config when it changes
   useEffect(() => {
@@ -64,18 +65,26 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
   useEffect(() => {
     if (!isReady || !chartRef.current || !containerRef.current) return;
 
+    let isCleanedUp = false;
+    const chartInstance = chartRef.current;
+    const containerElement = containerRef.current;
+
     const resizeObserver = new ResizeObserver(entries => {
+      // Prevent callback execution after cleanup
+      if (isCleanedUp) return;
+      
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        if (chartRef.current && width > 0 && height > 0) {
-          chartRef.current.resize(width, height);
+        if (chartInstance && width > 0 && height > 0) {
+          chartInstance.resize(width, height);
         }
       }
     });
 
-    resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(containerElement);
 
     return () => {
+      isCleanedUp = true;
       resizeObserver.disconnect();
     };
   }, [isReady]);

@@ -286,6 +286,13 @@ export function useDragContent({
     clearMatcher();
   }, [rootView, clearState, clearMatcher, onViewUpdate, updateSnapState]);
 
+  // cleanup
+  useEffect(() => {
+    return () => {
+      throttledHandleDragMove.cancel();
+    };
+  }, []);
+
   return {
     dragState,
     dragGuidelines,

@@ -3,7 +3,8 @@ import * as styles from './ChartView.css';
 import { ChartGroup, NativeDataPoint } from '@/types/model';
 import { createCsvContent } from '@/store/scenario-inst';
 import { LeaferChartView } from '@/components/chart';
-import type { ChartDataPoint, ChartConfig, LeaferChartViewRef } from '@/components/chart';
+import type { ChartConfig, LeaferChartViewRef } from '@/components/chart';
+import { throttle } from '@/utils/react';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -51,9 +52,9 @@ interface ChartViewProps {
 
 export function ChartView(props: ChartViewProps) {
   // 缓存处理后的数据和相关状态
-  const { 
-    chartGroup, 
-    updateInterval = 200, 
+  const {
+    chartGroup,
+    updateInterval = 200,
     updateNowLengthThreshold = 8,
     maxDataPoints = undefined,
   } = props;
@@ -61,53 +62,80 @@ export function ChartView(props: ChartViewProps) {
     data: rawData,
   } = chartGroup;
 
-  // 节流相关状态
+  // 显示数据和缓存
   const [displayData, setDisplayData] = useState<Array<NativeDataPoint>>([]);
-  const rawDataRef = useRef<Array<NativeDataPoint>>(rawData);
-  const lastUpdateTimeRef = useRef<number>(0);
-  const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [dataVersion, setDataVersion] = useState(0);
   const chartViewRef = useRef<LeaferChartViewRef>(null);
 
+  // 缓存上次处理的数据，避免重复slice
+  const lastProcessedDataRef = useRef<{
+    sourceLength: number;
+    maxPoints: number | undefined;
+    result: Array<NativeDataPoint>;
+  } | null>(null);
 
-  // 节流更新函数
-  const scheduleUpdate = useCallback(() => {
-    if (updateTimerRef.current) {
-      return; // 已经有一个更新计划在进行中
+  // 优化的数据处理函数
+  const processData = useCallback((data: Array<NativeDataPoint>, max: number | undefined): Array<NativeDataPoint> => {
+    // 检查缓存是否有效
+    const cached = lastProcessedDataRef.current;
+    if (cached &&
+      cached.sourceLength === data.length &&
+      cached.maxPoints === max &&
+      cached.result.length > 0) {
+      return cached.result;
     }
 
-    const now = Date.now();
-    const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+    // 处理新数据
+    const result = max !== undefined && data.length > max
+      ? data.slice(-max)
+      : data;
 
-    if (timeSinceLastUpdate >= updateInterval || rawDataRef.current.length <= updateNowLengthThreshold) {
-      // 可以立即更新
-      setDisplayData(rawDataRef.current.slice(- (maxDataPoints ?? rawDataRef.current.length)));
-      lastUpdateTimeRef.current = now;
-      updateTimerRef.current = null;
-    } else {
-      // 需要等待
-      const remainingTime = updateInterval - timeSinceLastUpdate;
-      updateTimerRef.current = setTimeout(() => {
-        setDisplayData(rawDataRef.current.slice(- (maxDataPoints ?? rawDataRef.current.length)));
-        lastUpdateTimeRef.current = Date.now();
-        updateTimerRef.current = null;
-      }, remainingTime);
+    // 更新缓存
+    lastProcessedDataRef.current = {
+      sourceLength: data.length,
+      maxPoints: max,
+      result,
+    };
+
+    return result;
+  }, []);
+
+  // 使用throttle创建节流更新函数
+  const throttledUpdateRef = useRef<ReturnType<typeof throttle> | null>(null);
+
+  // 创建节流函数（仅在依赖变化时重建）
+  useEffect(() => {
+    // 清理旧的throttle函数
+    if (throttledUpdateRef.current) {
+      throttledUpdateRef.current.cancel();
     }
-  }, [updateInterval, maxDataPoints]);
 
-  // 持续更新原始数据引用
-  useEffect(() => {
-    rawDataRef.current = rawData;
-    scheduleUpdate();
-  }, [rawData, rawData.length, scheduleUpdate]);
+    // 创建新的throttle函数
+    throttledUpdateRef.current = throttle((data: Array<NativeDataPoint>) => {
+      const processed = processData(data, maxDataPoints);
+      setDisplayData(processed);
+      setDataVersion((v) => (v + 1) | 0);
+    }, updateInterval);
 
-  useEffect(() => {
     return () => {
-      // 清理定时器
-      if (updateTimerRef.current) {
-        clearTimeout(updateTimerRef.current);
+      // 组件卸载时清理
+      if (throttledUpdateRef.current) {
+        throttledUpdateRef.current.cancel();
       }
     };
-  }, []);
+  }, [updateInterval, maxDataPoints, processData, setDisplayData, setDataVersion]);
+
+  // 数据更新处理
+  useEffect(() => {
+    // 对于小数据量立即更新，大数据量使用节流
+    if (rawData.length <= updateNowLengthThreshold) {
+      const processed = processData(rawData, maxDataPoints);
+      setDisplayData(processed);
+      setDataVersion((v) => (v + 1) | 0);
+    } else if (throttledUpdateRef.current) {
+      throttledUpdateRef.current(rawData);
+    }
+  }, [rawData, rawData.length, updateNowLengthThreshold, maxDataPoints, processData]);
 
   const exportToCSV = useCallback(() => {
     const csvContent = createCsvContent(chartGroup);
@@ -137,7 +165,7 @@ export function ChartView(props: ChartViewProps) {
     }
   }, []);
 
-  // Build chart configuration from metadata
+  // Build chart configuration from metadata (稳定化依赖)
   const chartConfig: ChartConfig = useMemo(() => {
     const lines = Object.values(chartGroup.metadataDict).map((chart) => ({
       key: chart.id,
@@ -163,11 +191,6 @@ export function ChartView(props: ChartViewProps) {
     };
   }, [chartGroup.metadataDict]);
 
-  // Convert display data to chart format
-  const chartData: ChartDataPoint[] = useMemo(() => {
-    return displayData.map(point => ({ ...point }));
-  }, [displayData]);
-
   return (
     <div className={styles.chartContainer}>
       <div className={styles.buttonContainer}>
@@ -187,9 +210,10 @@ export function ChartView(props: ChartViewProps) {
       </div>
 
       <div className={styles.chartViewContainer}>
-        <LeaferChartView 
+        <LeaferChartView
           ref={chartViewRef}
-          data={chartData}
+          data={displayData}
+          dataVersion={dataVersion}
           config={chartConfig}
           style={{ width: '100%', height: '100%' }}
         />

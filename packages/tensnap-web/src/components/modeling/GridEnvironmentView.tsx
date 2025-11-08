@@ -241,6 +241,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       leaferRef.current = null;
       layersRef.current = {};
       agentShapesRef.current.clear();
+      throttledRefresh.cancel();
     };
   }, []);
 

@@ -53,11 +53,19 @@ export function useCallbackRef<T extends (...args: any[]) => any>(
 
 export type DialogOpenProps = Pick<DialogProps, 'open' | 'onOpenChange'>;
 
-export const throttle = <T extends (...args: any[]) => any>(fn: T, delay: number): T => {
+export interface ThrottledFunction<T extends (...args: any[]) => any> {
+  (...args: Parameters<T>): void;
+  cancel(): void;
+}
+
+export const throttle = <T extends (...args: any[]) => any>(
+  fn: T, 
+  delay: number
+): ThrottledFunction<T> => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let lastExecTime = 0;
   
-  return ((...args: any[]) => {
+  const throttled = ((...args: any[]) => {
     const currentTime = Date.now();
     
     if (currentTime - lastExecTime > delay) {
@@ -68,7 +76,18 @@ export const throttle = <T extends (...args: any[]) => any>(fn: T, delay: number
       timeoutId = setTimeout(() => {
         fn(...args);
         lastExecTime = Date.now();
+        timeoutId = null;
       }, delay - (currentTime - lastExecTime));
     }
-  }) as T;
+  }) as ThrottledFunction<T>;
+  
+  // Add cancel method to clear pending timeouts
+  throttled.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+  
+  return throttled;
 };

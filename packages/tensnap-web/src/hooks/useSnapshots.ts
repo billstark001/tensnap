@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { useScenarioStore } from '../store/scenario';
 import { Snapshot } from '../types/model';
@@ -13,11 +13,11 @@ interface SnapshotDB extends DBSchema {
 
 export function useSnapshots() {
   const { snapshots, addSnapshot, clearSnapshots } = useScenarioStore() ?? {};
-  let db: IDBPDatabase<SnapshotDB> | null = null;
+  const dbRef = useRef<IDBPDatabase<SnapshotDB> | null>(null);
   
   useEffect(() => {
     const initDB = async () => {
-      db = await openDB<SnapshotDB>('tensnap-snapshots', 1, {
+      dbRef.current = await openDB<SnapshotDB>('tensnap-snapshots', 1, {
         upgrade(db) {
           const store = db.createObjectStore('snapshots', { keyPath: 'id' });
           store.createIndex('by-timestamp', 'timestamp');
@@ -29,15 +29,18 @@ export function useSnapshots() {
     initDB();
     
     return () => {
-      db?.close();
+      if (dbRef.current) {
+        dbRef.current.close();
+        dbRef.current = null;
+      }
     };
   }, []);
   
   const saveSnapshot = useCallback(async (snapshot: Snapshot) => {
-    if (!db || !addSnapshot) return;
+    if (!dbRef.current || !addSnapshot) return;
     
     try {
-      await db.put('snapshots', snapshot);
+      await dbRef.current.put('snapshots', snapshot);
       addSnapshot(snapshot);
     } catch (error) {
       console.error('Error saving snapshot:', error);
@@ -45,10 +48,10 @@ export function useSnapshots() {
   }, [addSnapshot]);
   
   const loadSnapshots = useCallback(async () => {
-    if (!db || !clearSnapshots || !addSnapshot) return;
+    if (!dbRef.current || !clearSnapshots || !addSnapshot) return;
     
     try {
-      const allSnapshots = await db.getAll('snapshots');
+      const allSnapshots = await dbRef.current.getAll('snapshots');
       clearSnapshots();
       allSnapshots.forEach(addSnapshot);
     } catch (error) {
@@ -57,10 +60,10 @@ export function useSnapshots() {
   }, [addSnapshot, clearSnapshots]);
   
   const deleteSnapshot = useCallback(async (id: string) => {
-    if (!db || !clearSnapshots || !addSnapshot) return;
+    if (!dbRef.current || !clearSnapshots || !addSnapshot) return;
     
     try {
-      await db.delete('snapshots', id);
+      await dbRef.current.delete('snapshots', id);
       // Update store
       const newSnapshots = snapshots?.filter(s => s.id !== id);
       clearSnapshots();

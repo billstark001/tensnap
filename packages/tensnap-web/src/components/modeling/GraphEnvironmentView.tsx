@@ -25,6 +25,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
   const nodesDataRef = useRef<VisualizedGraphAgent[]>([]);
   const edgesDataRef = useRef<any[]>([]);
   const lastEnvironmentIdRef = useRef<string | number | null>(null);
+  const fitViewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const findConnectedComponents = useCallback((nodes: VisualizedGraphAgent[], edges: any[]) => {
     const components: VisualizedGraphAgent[][] = [];
@@ -365,11 +366,41 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
       });
 
       simulationRef.current.alpha(0.3).restart();
-      setTimeout(() => simulationNodes.length > 0 && fitViewToGraph(svg, simulationNodes), 1000);
+      
+      // Clear any existing timeout
+      if (fitViewTimeoutRef.current) {
+        clearTimeout(fitViewTimeoutRef.current);
+      }
+      
+      fitViewTimeoutRef.current = setTimeout(() => {
+        if (simulationNodes.length > 0) {
+          fitViewToGraph(svg, simulationNodes);
+        }
+        fitViewTimeoutRef.current = null;
+      }, 1000);
     }
 
     return () => {
-      simulationRef.current?.stop();
+      // Stop the simulation
+      if (simulationRef.current) {
+        simulationRef.current.stop();
+        simulationRef.current.on('tick', null);
+      }
+      
+      // Clear the fit view timeout
+      if (fitViewTimeoutRef.current) {
+        clearTimeout(fitViewTimeoutRef.current);
+        fitViewTimeoutRef.current = null;
+      }
+      
+      // Remove all event listeners from SVG elements
+      if (svgRef.current) {
+        const svg = d3.select(svgRef.current);
+        // Remove all event listeners by setting them to null
+        svg.selectAll('*').on('.drag', null);
+        svg.selectAll('*').on('dblclick', null);
+        svg.on('.zoom', null);
+      }
     };
   }, [environment, findConnectedComponents, arrangeComponentPositions, createComponentConstraintForce, fitViewToGraph]);
 
