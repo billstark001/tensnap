@@ -31,6 +31,7 @@
     "@radix-ui/react-slider": "^1.3.6",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-tooltip": "^1.2.8",
     "clsx": "^2.1.1",
     "d3": "^7.9.0",
@@ -73,6 +74,7 @@
     "./components/ui/Dialog": "./src/components/ui/Dialog.tsx",
     "./components/ui/Form": "./src/components/ui/Form.tsx",
     "./utils": "./src/utils/index.ts",
-    "./store/file-system/provider": "./src/store/file-system/provider.tsx"
+    "./store/file-system/provider": "./src/store/file-system/provider.tsx",
+    "./store/toast": "./src/store/toast/store.ts"
   }
 }

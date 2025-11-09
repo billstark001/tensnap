@@ -6,6 +6,7 @@ import { useProjectStore } from '@/store/project';
 import { WebSocketStoreProvider } from '@/store/websocket';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
 import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialog';
+import { ToastAnchor } from '@/store/toast';
 
 interface ProvidersProps extends PropsWithChildren<object> {
 
@@ -32,6 +33,7 @@ export function Providers({
     <I18nProvider i18n={i18n}>
       {projectProvider}
       <CreateNewProjectDialogAnchor />
+      <ToastAnchor />
     </I18nProvider>
   );
 

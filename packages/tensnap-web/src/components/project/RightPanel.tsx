@@ -5,11 +5,13 @@ import { Camera, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Snapshot } from '@/types/model';
 import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
+import { useToast } from '@/store/toast';
 
 export const RightPanel = () => {
   const scenarioStore = useScenarioStore();
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const toast = useToast();
 
   if (!scenarioStore) {
     return (
@@ -54,7 +56,7 @@ export const RightPanel = () => {
 
   const handleRestoreSnapshot = () => {
     // TODO: Implement restore functionality
-    console.log('Restore snapshot:', selectedSnapshot);
+    toast.info('Restore snapshot', `ID: ${selectedSnapshot?.id}`);
   };
 
   const formatDate = (timestamp: number) => {

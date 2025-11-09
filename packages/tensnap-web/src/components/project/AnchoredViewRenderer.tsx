@@ -8,6 +8,7 @@ import { ScenarioStore, useScenarioStore } from '../../store/scenario/store';
 import { AnchoredView } from '../../types/ui';
 import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment } from '@/store/scenario/environment';
 import { EnvironmentId } from '@/types/model';
+import { useToast } from '@/store/toast';
 
 export interface AnchoredViewRendererProps {
   type: AnchoredView['type'];
@@ -22,11 +23,11 @@ const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
   const environment = environments.get(id);
   if (!environment) return <div>Environment not found: {id}</div>;
 
-  
+
   if (environment.type === 'grid') {
     const agentCount = Object.keys(environment?.agents ?? {}).length;
     const updateTrigger = (isInTimeStep ? -currentTime - 2 : currentTime + 2) + (agentCount << 20);
-    return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} updateTrigger={updateTrigger}/>;
+    return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} updateTrigger={updateTrigger} />;
   } else if (environment.type === 'graph') {
     return <GraphEnvironmentView environment={environment as InstantiatedGraphEnvironment} />;
   } else if (environment.type === 'uniform') {
@@ -55,6 +56,7 @@ const AnchoredChartView = ({ id }: { id: string }) => {
 
 export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type, id }) => {
 
+  const toast = useToast();
   switch (type) {
     case 'environment': {
       return <AnchoredEnvironmentView id={id} />;
@@ -68,8 +70,9 @@ export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type
       return <AnchoredChartView id={id} />;
     }
 
-    default:
-      console.log(type, id);
+    default: {
+      toast.warning('Unknown view type', `Type: ${type}, ID: ${id}`);
       return <div>Unknown view type: {type}</div>;
+    }
   }
 };

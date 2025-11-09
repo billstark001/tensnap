@@ -461,11 +461,6 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       }
       return { lastLogs: payload as NormalizedLogPayload, };
     });
-    if (payload.target) {
-      console.log(`[${payload.level.toUpperCase()}][${payload.target}] ${payload.message}`);
-    } else {
-      console.log(`[${payload.level.toUpperCase()}] ${payload.message}`);
-    }
   },
 }));
 

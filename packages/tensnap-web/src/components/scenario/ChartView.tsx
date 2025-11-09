@@ -5,6 +5,7 @@ import { LeaferChartView } from '@/components/chart';
 import type { ChartConfig, LeaferChartViewRef } from '@/components/chart';
 import { throttle } from '@/utils/react';
 import { createCsvContent } from '@/store/scenario/chart';
+import { useToast } from '@/store/toast';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -66,6 +67,7 @@ export function ChartView(props: ChartViewProps) {
   const [displayData, setDisplayData] = useState<Array<NativeDataPoint>>([]);
   const [dataVersion, setDataVersion] = useState(0);
   const chartViewRef = useRef<LeaferChartViewRef>(null);
+  const toast = useToast();
 
   // 缓存上次处理的数据，避免重复slice
   const lastProcessedDataRef = useRef<{
@@ -158,13 +160,12 @@ export function ChartView(props: ChartViewProps) {
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': blob }),
         ]);
-        alert('Chart copied to clipboard!');
+        toast.success('Chart copied to clipboard!');
       }
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-      alert('Failed to copy to clipboard');
+      toast.error('Failed to copy to clipboard', String(error));
     }
-  }, []);
+  }, [toast]);
 
   // Build chart configuration from metadata (稳定化依赖)
   const chartConfig: ChartConfig = useMemo(() => {

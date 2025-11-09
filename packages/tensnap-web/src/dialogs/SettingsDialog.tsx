@@ -8,6 +8,7 @@ import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
+import { useToast } from '@/store/toast';
 
 import * as styles from './SettingsDialog.css';
 import Form from '@/components/ui/Form';
@@ -21,6 +22,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   onOpenChange,
 }) => {
   const { _ } = useLingui();
+  const toast = useToast();
 
   const {
     theme,
@@ -42,9 +44,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   const handleProjectSettingsConfirm = useCallback(() => {
     // TODO: Implementation for actual project settings save logic
-    console.log('Save project settings:', { backendUrl });
+    toast.info('Save project settings', `Backend URL: ${backendUrl}`);
     setHasProjectChanges(false);
-  }, [backendUrl]);
+  }, [backendUrl, toast]);
 
   const handleProjectSettingsReset = useCallback(() => {
     setBackendUrl('http://localhost:5678');
@@ -53,12 +55,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   const handleLocaleChange = useCallback(async (newLocale: string) => {
     if (!isValidLocale(newLocale)) {
-      console.error(`Invalid locale: ${newLocale}`);
+      toast.error('Invalid locale', newLocale);
       return;
     }
     await activateLocale(newLocale);
     setLocale(newLocale);
-  }, [setLocale]);
+  }, [setLocale, toast]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>

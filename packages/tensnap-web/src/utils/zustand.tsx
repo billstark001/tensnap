@@ -1,6 +1,7 @@
 import { DialogProps } from "@radix-ui/react-dialog";
 import { createContext, useContext } from "react";
 import { create, StoreApi, UseBoundStore } from "zustand";
+import { ToastContainer, ToastProps, ToastStatus } from "@/components/ui/Toast";
 
 type FakeUseBoundStore<T> = {
   (): T | undefined;
@@ -83,3 +84,82 @@ export const createDialogStore = <T extends MinimalDialogProps, R = void>(
 
   return [useDialogStore, DialogAnchor] as const;
 }
+
+// Toast Store
+export interface ToastOptions {
+  title?: string;
+  description?: string;
+  status?: ToastStatus;
+  duration?: number;
+  isClosable?: boolean;
+}
+
+export interface ToastStore {
+  toasts: ToastProps[];
+  // actions
+  toast: (options: ToastOptions) => string;
+  success: (title: string, description?: string) => string;
+  error: (title: string, description?: string) => string;
+  warning: (title: string, description?: string) => string;
+  info: (title: string, description?: string) => string;
+  close: (id: string) => void;
+  closeAll: () => void;
+}
+
+let toastIdCounter = 0;
+
+export const createToastStore = () => {
+  const useToastStore = create<ToastStore>((set, get) => ({
+    toasts: [],
+
+    toast: (options: ToastOptions) => {
+      const id = `toast-${++toastIdCounter}`;
+      const toast: ToastProps = {
+        id,
+        ...options,
+        onClose: () => {
+          get().close(id);
+        },
+      };
+      
+      set((state) => ({
+        toasts: [...state.toasts, toast],
+      }));
+      
+      return id;
+    },
+
+    success: (title: string, description?: string) => {
+      return get().toast({ title, description, status: 'success' });
+    },
+
+    error: (title: string, description?: string) => {
+      return get().toast({ title, description, status: 'error' });
+    },
+
+    warning: (title: string, description?: string) => {
+      return get().toast({ title, description, status: 'warning' });
+    },
+
+    info: (title: string, description?: string) => {
+      return get().toast({ title, description, status: 'info' });
+    },
+
+    close: (id: string) => {
+      set((state) => ({
+        toasts: state.toasts.filter((t) => t.id !== id),
+      }));
+    },
+
+    closeAll: () => {
+      set({ toasts: [] });
+    },
+  }));
+
+  function ToastAnchor() {
+    const toasts = useToastStore((state) => state.toasts);
+    return <ToastContainer toasts={toasts} />;
+  }
+
+  return [useToastStore, ToastAnchor] as const;
+};

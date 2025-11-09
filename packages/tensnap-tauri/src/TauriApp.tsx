@@ -7,6 +7,7 @@ import { initI18n } from 'tensnap-web/i18n';
 
 export const TauriApp: React.FC = () => {
   const [isReady, setIsReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const initialize = async () => {
@@ -26,7 +27,7 @@ export const TauriApp: React.FC = () => {
 
         setIsReady(true);
       } catch (error) {
-        console.error('Failed to initialize file system:', error);
+        setError(error instanceof Error ? error.message : String(error) || 'Unknown error during initialization');
       }
     };
 
@@ -43,7 +44,22 @@ export const TauriApp: React.FC = () => {
         fontSize: '1.2rem',
         color: '#666'
       }}>
-        Initializing file system...
+        Initializing...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '1.2rem',
+        color: '#666'
+      }}>
+        Error initializing: {error}
       </div>
     );
   }

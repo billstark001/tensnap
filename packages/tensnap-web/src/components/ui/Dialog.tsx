@@ -2,6 +2,7 @@ import * as RadixDialog from '@radix-ui/react-dialog';
 import * as dialogStyles from './Dialog.css';
 import clsx from 'clsx';
 import { X } from 'lucide-react';
+import { forwardRef } from 'react';
 
 export interface DialogProps extends RadixDialog.DialogProps {
   closeOnInteractOutside?: boolean;
@@ -54,40 +55,47 @@ export const Root = (props: DialogProps) => {
   );
 };
 
-export const Title = (props: RadixDialog.DialogTitleProps) => {
+export const Title = forwardRef<HTMLHeadingElement, RadixDialog.DialogTitleProps>((props, ref) => {
   return (
     <RadixDialog.Title
       {...props}
+      ref={ref}
       className={clsx(dialogStyles.dialogTitle, props.className)}
     />
   );
-};
+});
+Title.displayName = 'Dialog.Title';
 
-export const Description = (props: RadixDialog.DialogDescriptionProps) => {
+export const Description = forwardRef<HTMLParagraphElement, RadixDialog.DialogDescriptionProps>((props, ref) => {
   return (
     <RadixDialog.Description
       {...props}
+      ref={ref}
       className={clsx(dialogStyles.dialogDescription, props.className)}
     />
   );
-};
+});
+Description.displayName = 'Dialog.Description';
 
-export const Footer = (props: React.HTMLAttributes<HTMLDivElement>) => {
+export const Footer = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => {
   return (
     <div
       {...props}
+      ref={ref}
       className={clsx(dialogStyles.dialogFooter, props.className)}
     />
   );
-};
+});
+Footer.displayName = 'Dialog.Footer';
 
-export const Button = (props: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+export const Button = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'normal' | 'primary' | 'danger';
-}) => {
+}>((props, ref) => {
   const { variant, className, ...rest } = props;
   return (
     <button
       {...rest}
+      ref={ref}
       className={clsx(
         dialogStyles.dialogButton,
         variant === 'primary' && dialogStyles.dialogButtonPrimary,
@@ -96,15 +104,17 @@ export const Button = (props: React.ButtonHTMLAttributes<HTMLButtonElement> & {
       )}
     />
   );
-};
+});
+Button.displayName = 'Dialog.Button';
 
-export const CloseButton = (props: Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
+export const CloseButton = forwardRef<HTMLButtonElement, Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   closeProps?: RadixDialog.DialogCloseProps;
-}) => {
+}>((props, ref) => {
   const { closeProps, className, ...buttonProps } = props;
   return (
     <RadixDialog.Close asChild {...closeProps}>
       <button
+        ref={ref}
         className={clsx(dialogStyles.dialogClose, className)}
         aria-label="Close"
         {...buttonProps}
@@ -113,28 +123,31 @@ export const CloseButton = (props: Omit<React.ButtonHTMLAttributes<HTMLButtonEle
       </button>
     </RadixDialog.Close>
   );
-};
+});
+CloseButton.displayName = 'Dialog.CloseButton';
 
-export const Body = (props: React.HTMLAttributes<HTMLDivElement>) => {
+export const Body = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => {
   return (
     <div
       {...props}
+      ref={ref}
       className={clsx(dialogStyles.dialogBody, props.className)}
     />
   );
-};
+});
+Body.displayName = 'Dialog.Body';
 
-export const Separator = (props: React.HTMLAttributes<HTMLDivElement> & {
+export const Separator = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & {
   vertical?: boolean;
-}) => {
+}>((props, ref) => {
   return (
-    <div {...props} className={clsx(dialogStyles.dialogSeparator, props.vertical && 'vertical')} />
+    <div {...props} ref={ref} className={clsx(dialogStyles.dialogSeparator, props.vertical && 'vertical')} />
   );
-};
+});
+Separator.displayName = 'Dialog.Separator';
 
 export const Trigger = RadixDialog.Trigger;
 export const Close = RadixDialog.Close;
-
 
 export default {
   Root,

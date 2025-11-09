@@ -3,6 +3,7 @@ import { useFileSystem } from '@/store/file-system/provider';
 import { useWithLoading } from '@/store/loading';
 import { useProjectStore } from '@/store/project';
 import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialog';
+import { useToast } from '@/store/toast';
 
 export interface FileOperationsContextValue {
   canSaveFile: boolean;
@@ -19,6 +20,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
   } = useFileSystem();
 
   const withLoading = useWithLoading();
+  const toast = useToast();
 
   const activeTabId = useProjectStore((store) => store.activeProject?.id);
   const activeFilepath = useProjectStore((store) => store.activeFilepath);
@@ -50,9 +52,9 @@ export const useFileOperations = (): FileOperationsContextValue => {
         withLoading(() => open(file.path));
       }
     } catch (error) {
-      console.error('Failed to open files:', error);
+      toast.error('Failed to open files', String(error));
     }
-  }, [withLoading, openFile, open]);
+  }, [withLoading, openFile, open, toast]);
 
   const onFileSaveAs = useCallback(async () => {
     try {
@@ -61,9 +63,9 @@ export const useFileOperations = (): FileOperationsContextValue => {
         withLoading(() => save(undefined, file.path));
       }
     } catch (error) {
-      console.error('Failed to save file:', error);
+      toast.error('Failed to save file', String(error));
     }
-  }, [withLoading, saveFileAs, save]);
+  }, [withLoading, saveFileAs, save, toast]);
 
 
   const contextValue: FileOperationsContextValue = {
