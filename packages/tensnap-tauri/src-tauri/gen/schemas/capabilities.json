@@ -1,0 +1,1 @@
+{"dialog":{"identifier":"dialog","description":"Permission to use dialog plugin features","local":true,"windows":["main"],"permissions":["dialog:allow-open","dialog:allow-save","dialog:allow-message","dialog:allow-confirm"],"platforms":["linux","macOS","windows"]}}

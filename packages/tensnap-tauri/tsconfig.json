@@ -27,11 +27,6 @@
     "paths": {
       "@/*": ["./src/*"],
       "tensnap-web/*": ["../tensnap-web/*"],
-      "tensnap-web-utils": ["../tensnap-web-utils/src/index.ts"],
-      "tensnap-web-utils/*": ["../tensnap-web-utils/*"],
-      "tensnap-web-utils/file-system": ["../tensnap-web-utils/src/file-system/index.ts"],
-      "tensnap-web-utils/adapters": ["../tensnap-web-utils/src/adapters/index.ts"],
-      "tensnap-web-utils/adapters/*": ["../tensnap-web-utils/src/adapters/*"]
     }
   },
   "include": ["src"],

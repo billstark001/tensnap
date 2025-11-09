@@ -9,8 +9,9 @@ This directory should contain the application icons for different platforms:
 - `icon.ico` - Windows icon file
 
 You can generate these icons from a single source image using tools like:
-- https://icon.kitchen/
-- https://appicon.co/
+
+- <https://icon.kitchen/>
+- <https://appicon.co/>
 - ImageMagick (command line)
 
 For now, you can use placeholder icons or copy icons from the web package if available.

@@ -19,6 +19,7 @@ fn main() {
             directory_exists_handler,
             get_file_metadata_handler
         ])
+        .plugin(tauri_plugin_dialog::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

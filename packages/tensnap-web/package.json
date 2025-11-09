@@ -17,7 +17,6 @@
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",
-    "@lingui/cli": "^5.5.2",
     "@lingui/core": "^5.5.2",
     "@lingui/react": "^5.5.2",
     "@msgpack/msgpack": "^3.1.2",
@@ -45,6 +44,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@lingui/cli": "^5.5.2",
     "@lingui/vite-plugin": "^5.5.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -64,6 +64,7 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
+    "./i18n": "./src/i18n.ts",
     "./App": "./src/App.tsx",
     "./Providers": "./src/Providers.tsx",
     "./types/file": "./src/types/file.ts",
@@ -71,6 +72,7 @@
     "./components/ui/Pagination": "./src/components/ui/Pagination.tsx",
     "./components/ui/Dialog": "./src/components/ui/Dialog.tsx",
     "./components/ui/Form": "./src/components/ui/Form.tsx",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./store/file-system/provider": "./src/store/file-system/provider.tsx"
   }
 }
