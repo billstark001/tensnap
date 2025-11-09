@@ -6,6 +6,7 @@ import { useProjectStore } from '@/store/project';
 import { WebSocketStoreProvider } from '@/store/websocket';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
 import { FakeModelPickerProvider } from 'tensnap-web-utils';
+import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialog';
 
 interface ProvidersProps extends PropsWithChildren<object> {
 
@@ -15,14 +16,13 @@ export function Providers({
   children,
 }: ProvidersProps) {
 
-  const { getActive } = useProjectStore();
-
-  const activeProject = getActive();
+  const activeProject = useProjectStore((store) => store.activeProject);
 
   if (!activeProject) {
     return <I18nProvider i18n={i18n}>
       <FakeModelPickerProvider>
         {children}
+        <CreateNewProjectDialogAnchor />
       </FakeModelPickerProvider>
     </I18nProvider>
   }
@@ -34,6 +34,7 @@ export function Providers({
           <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
             <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
               {children}
+              <CreateNewProjectDialogAnchor />
             </ScenarioUndoRedoStoreProvider>
           </WebSocketStoreProvider>
         </ScenarioStoreProvider>

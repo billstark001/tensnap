@@ -25,7 +25,7 @@ import {
 import * as styles from '@/styles/toolbar.css';
 import { useButtonControls } from '../../hooks/useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
-import { useFileOperations } from './FileOperationsProvider';
+import { useFileOperations } from './useFileOperations';
 
 import { ToolButton } from './ToolButton';
 import { createStateSyncRequestFromStore, useProjectStore } from '@/store/project';
@@ -49,9 +49,7 @@ export function FileOperationTools() {
 
   const { pickModel } = useFakeModelPicker();
 
-  const {
-    new: createNewProject,
-  } = useProjectStore();
+  const createNewProject = useProjectStore((store) => store.new);
 
   const onLoadFakeModel = useCallback(async () => {
     const result = await pickModel();

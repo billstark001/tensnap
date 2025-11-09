@@ -1,31 +1,24 @@
 import { MenuBar } from './MenuBar';
 import { TabBar } from './TabBar';
 import { useProjectStore } from "@/store/project";
-import { FileOperationsProvider } from './FileOperationsProvider';
 
 import * as styles from '../../styles/toolbar.css';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { FileOperationTools, SettingTools, SimulationControlTools, UndoRedoTools, ViewTools } from "./ToolGroups";
+import { useFileOperations } from './useFileOperations';
 
 const Separator = () => <div className={styles.separator} />;
 
 export const ToolBarLayout = () => {
 
-  const {
-    activeIndex,
-    setActive,
-    getDisplayNames,
-    new: createNewProject,
-    close,
-  } = useProjectStore();
+  const setActive = useProjectStore((store) => store.setActive);
+  const close = useProjectStore((store) => store.close);
 
-  // 管理标签页状态
-  const tabs = getDisplayNames();
-  const activeTabId = activeIndex != null ? tabs[activeIndex].id : undefined;
+  const activeTabId = useProjectStore((store) => store.activeProject?.id);
 
-  const handleNewTab = () => {
-    createNewProject('http://localhost:8765');
-  };
+  const { onNewFile } = useFileOperations();
+
+  const tabs = useProjectStore((store) => store.tabs);
 
   const handleTabClose = (tabId: string) => {
     close(tabs.findIndex(tab => tab.id === tabId));
@@ -36,41 +29,38 @@ export const ToolBarLayout = () => {
   };
 
   return (
-    <FileOperationsProvider>
-      <Tooltip.Provider>
-        <div className={styles.toolbar}>
+    <Tooltip.Provider>
+      <div className={styles.toolbar}>
 
-          <MenuBar />
+        <MenuBar />
 
-          <div className={styles.toolBarRow}>
+        <div className={styles.toolBarRow}>
 
-            <FileOperationTools />
-            <Separator />
+          <FileOperationTools />
+          <Separator />
 
-            <UndoRedoTools />
-            <Separator />
+          <UndoRedoTools />
+          <Separator />
 
-            <SimulationControlTools />
-            <Separator />
+          <SimulationControlTools />
+          <Separator />
 
-            <ViewTools />
-            <Separator />
+          <ViewTools />
+          <Separator />
 
-            <SettingTools />
+          <SettingTools />
 
-          </div>
-
-          {/* 标签页 */}
-          <TabBar
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onTabChange={handleTabChange}
-            onTabClose={handleTabClose}
-            onNewTab={handleNewTab}
-          />
         </div>
 
-      </Tooltip.Provider>
-    </FileOperationsProvider>
+        <TabBar
+          tabs={tabs}
+          activeTabId={activeTabId ?? undefined}
+          onTabChange={handleTabChange}
+          onTabClose={handleTabClose}
+          onNewTab={onNewFile}
+        />
+      </div>
+
+    </Tooltip.Provider>
   );
 };

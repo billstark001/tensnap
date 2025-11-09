@@ -474,3 +474,72 @@ export const dropdownItemDanger = style([dropdownItem, {
     }
   }
 }]);
+
+// File picker selection bar styles
+export const selectionBar = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  padding: '12px 16px',
+  backgroundColor: vars.color.background,
+  borderTop: `1px solid ${vars.color.border}`,
+  minHeight: '60px',
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkSecondary,
+      borderTopColor: vars.color.darkBorder,
+    },
+  },
+});
+
+export const selectionBarLabel = style({
+  fontSize: vars.fontSize.sm,
+  color: vars.color.textSecondary,
+  fontWeight: '500',
+  flexShrink: 0,
+  
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextSecondary,
+    },
+  },
+});
+
+export const selectionBarInput = style({
+  flex: 1,
+  padding: '8px 12px',
+  borderRadius: vars.radius.sm,
+  border: `1px solid ${vars.color.inputBorder}`,
+  backgroundColor: vars.color.inputBackground,
+  color: vars.color.textPrimary,
+  fontSize: vars.fontSize.sm,
+  outline: 'none',
+  transition: 'all 0.2s',
+  
+  selectors: {
+    '&:focus': {
+      borderColor: vars.color.primary,
+      boxShadow: `0 0 0 2px ${vars.color.primary}40`,
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.6,
+    },
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkInputBackground,
+      borderColor: vars.color.darkInputBorder,
+      color: vars.color.darkTextPrimary,
+    },
+    'body[data-theme="dark"] &:focus': {
+      borderColor: vars.color.primary,
+      boxShadow: `0 0 0 2px ${vars.color.primary}40`,
+    },
+  },
+});
+
+export const selectionBarButtons = style({
+  display: 'flex',
+  gap: '8px',
+  flexShrink: 0,
+});

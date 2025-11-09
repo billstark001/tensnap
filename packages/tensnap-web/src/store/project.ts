@@ -19,41 +19,27 @@ export interface ProjectSettings {
 export interface ProjectContextScheme extends ProjectSettings {
   id: string;
   filepath: string | null;
-
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useWebSocketStore: UseBoundStore<StoreApi<WebSocketStore>>;
   useUndoRedoStore: UseBoundStore<StoreApi<UndoRedoState<ScenarioStore>>>;
 }
 
-const insertProject = (projects: readonly Readonly<ProjectContextScheme>[], newProject: ProjectContextScheme, indexHint?: number) => {
-  const newProjects = [...projects];
-  let activeIndex: number;
-  if (indexHint != null) {
-    newProjects.splice(indexHint, 0, newProject);
-    activeIndex = indexHint;
-  } else {
-    newProjects.push(newProject);
-    activeIndex = newProjects.length - 1;
-  }
-  return { newProjects, activeIndex };
-};
-
-
-const stripAgents = ({ agents, ...rest }: Environment) => (rest as Omit<Environment, 'agents'>);
-
+const stripAgents = ({ agents, ...rest }: Environment): Omit<Environment, 'agents'> => rest;
 
 const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
-  const allMetadata: ChartMetadata[] = [];
-  const metadataIdSet = new Set<string>();
-  for (const { metadataDict: metadataList } of chartGroups) {
-    for (const metadata of Object.values(metadataList)) {
-      if (!metadataIdSet.has(metadata.id)) {
-        allMetadata.push(metadata);
-        metadataIdSet.add(metadata.id);
+  const seen = new Set<string>();
+  const metadata: ChartMetadata[] = [];
+
+  for (const group of chartGroups) {
+    for (const meta of Object.values(group.metadataDict)) {
+      if (!seen.has(meta.id)) {
+        metadata.push(meta);
+        seen.add(meta.id);
       }
     }
   }
-  return allMetadata;
+
+  return metadata;
 };
 
 export const createStateSyncRequestFromStore = (store?: SimulationState): StateSyncRequest => {
@@ -65,211 +51,175 @@ export const createStateSyncRequestFromStore = (store?: SimulationState): StateS
   };
 };
 
+const createProject = (url: string, filepath: string | null = null): ProjectContextScheme => {
+  const useScenarioStore = createScenarioStore();
+  const useWebSocketStore = createWebSocketStore(useScenarioStore);
+  const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
+
+  return {
+    id: generateUniqueId(),
+    filepath,
+    url,
+    useScenarioStore,
+    useWebSocketStore,
+    useUndoRedoStore,
+  };
+};
+
+const determineFilePath = (basePath: string, format: 'json' | 'msgpack'): string => {
+  if (basePath.endsWith('.json') || basePath.endsWith('.msgpack')) {
+    return basePath;
+  }
+  return `${basePath}.${format}`;
+};
 
 export interface ProjectStore {
-
-  projects: readonly Readonly<ProjectContextScheme>[];
-
+  projects: ProjectContextScheme[];
   activeIndex: number | null;
+  activeProject: ProjectContextScheme | null;
+  activeFilepath: string | null;
+  tabs: { id: string; name: string }[];
 
-  getActive: () => Readonly<ProjectContextScheme> | null;
   setActive: (index: number | null) => void;
-
-  getDisplayNames: () => { id: string; name: string; }[];
+  refreshActiveProject: () => void;
 
   new: (url: string, indexHint?: number) => void;
   open: (filepath: string, indexHint?: number) => Promise<void>;
   save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
-
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
-
-  fileSystemStore: null,
-
   projects: [],
   activeIndex: null,
+  activeProject: null,
+  activeFilepath: null,
+  tabs: [],
 
-  getDisplayNames() {
-    const { projects } = get();
-    return projects.map(project => ({
-      id: project.id,
-      name: project.filepath ?? project.url,
-    }));
-  },
-
-  getActive() {
-    const { activeIndex, projects } = get();
-    if (activeIndex === null) return null;
-    return projects[activeIndex];
+  refreshActiveProject() {
+    const { projects, activeIndex } = get();
+    set({
+      tabs: projects.map(project => ({
+        id: project.id,
+        name: project.filepath ?? project.url,
+      })),
+      activeProject: activeIndex !== null ? projects[activeIndex] : null,
+      activeFilepath: activeIndex !== null ? projects[activeIndex].filepath : null,
+    });
   },
 
   setActive(index) {
-    const { projects } = get();
+    const { projects, refreshActiveProject } = get();
+
     if (index !== null && (index < 0 || index >= projects.length)) {
       throw new Error("Invalid project index");
     }
+
     set({ activeIndex: index });
+    refreshActiveProject();
   },
 
   new(url, indexHint) {
-    const { projects } = get();
-    const useScenarioStore = createScenarioStore();
-    const useWebSocketStore = createWebSocketStore(useScenarioStore);
-    const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
+    const { projects, setActive } = get();
+    const newProject = createProject(url);
 
-    const newProject: ProjectContextScheme = {
-      id: generateUniqueId(),
-      filepath: null,
-      url,
-      useScenarioStore,
-      useWebSocketStore,
-      useUndoRedoStore,
-    };
+    const targetIndex = indexHint ?? projects.length;
+    projects.splice(targetIndex, 0, newProject);
 
-    const { newProjects, activeIndex } = insertProject(projects, newProject, indexHint);
+    setActive(targetIndex);
 
-    set({
-      projects: newProjects,
-      activeIndex: activeIndex,
-    });
-
-    useWebSocketStore.getState().initialize(url);
+    newProject.useWebSocketStore.getState().initialize(url);
   },
 
   async open(filepath, indexHint) {
     const fileSystemState = getFileSystemState();
     const fileContent = await fileSystemState.readFile(filepath);
+
     if (!fileContent?.content) {
       throw new Error(`File not found: ${filepath}`);
     }
-    const { content } = fileContent;
 
-    const parsedContent: ProjectFileContent = typeof content === 'string'
-      ? JSON.parse(content)
-      : decode(new Uint8Array(content));
+    const parsedContent: ProjectFileContent = typeof fileContent.content === 'string'
+      ? JSON.parse(fileContent.content)
+      : decode(new Uint8Array(fileContent.content));
 
-    const useScenarioStore = createScenarioStore();
-    const useWebSocketStore = createWebSocketStore(useScenarioStore);
-    const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
-
-    const { environments, charts, parameters, ...rest } = parsedContent.scenario;
-
+    const { scenario, mainView, url } = parsedContent;
+    const { environments, charts, parameters, ...restScenario } = scenario;
     const instantiated = instantiateScenarioContent({ environments, charts, parameters });
 
-
-    useScenarioStore.setState({
-      mainView: parsedContent.mainView,
-      ...rest,
+    const newProject = createProject(url, filepath);
+    newProject.useScenarioStore.setState({
+      mainView,
+      ...restScenario,
       ...instantiated,
     });
 
-    const { url } = parsedContent || null;
-    const { projects } = get();
-    const newProject: ProjectContextScheme = {
-      id: generateUniqueId(),
-      filepath,
+    const { projects, setActive } = get();
+    const targetIndex = indexHint ?? projects.length;
+    projects.splice(targetIndex, 0, newProject);
+
+    setActive(targetIndex);
+
+    newProject.useWebSocketStore.getState().initialize(
       url,
-      useScenarioStore,
-      useWebSocketStore,
-      useUndoRedoStore,
-    };
-
-    const { newProjects, activeIndex } = insertProject(projects, newProject, indexHint);
-
-    set({
-      projects: newProjects,
-      activeIndex: activeIndex,
-    });
-
-    useWebSocketStore.getState().initialize(url, createStateSyncRequestFromStore(parsedContent.scenario));
+      createStateSyncRequestFromStore(scenario)
+    );
   },
 
   async save(index, saveAsPath) {
-    const { projects, activeIndex } = get();
-    index ??= activeIndex ?? undefined;
-    if (index == null || index < 0 || index >= projects.length) {
+    const { projects, activeIndex, refreshActiveProject } = get();
+    const targetIndex = index ?? activeIndex;
+
+    if (targetIndex == null || targetIndex < 0 || targetIndex >= projects.length) {
       throw new Error("Invalid project index");
     }
 
-    const project = projects[index];
-    const fileSystemState = getFileSystemState();
-
-    // pack the scenario
-
+    const project = projects[targetIndex];
     const scenarioStore = project.useScenarioStore.getState();
-    const scenarioDump = scenarioStore.dump();
-    const mainView = scenarioStore.mainView;
     const url = project.useWebSocketStore.getState().url ?? '';
 
     const projectFile: ProjectFileContent = {
-      mainView,
-      scenario: scenarioDump,
+      mainView: scenarioStore.mainView,
+      scenario: scenarioStore.dump(),
       url: typeof url === 'string' ? url : 'ws://fake-url',
     };
 
-    // determine path
-
-    saveAsPath ??= project.filepath ?? undefined;
-    if (!saveAsPath) {
+    const basePath = saveAsPath ?? project.filepath;
+    if (!basePath) {
       throw new Error("No file path specified for saving the project");
     }
 
-    const { saveFormat: saveFormatSetting } = useSettingsStore.getState();
-    const saveFormatFromFile = saveAsPath?.endsWith('json') ? 'json'
-      : saveAsPath?.endsWith('msgpack') ? 'msgpack'
-        : undefined;
+    const saveFormat = useSettingsStore.getState().saveFormat;
+    const filepath = determineFilePath(basePath, saveFormat);
 
-    const projectFilepath = saveFormatFromFile == null
-      ? `${saveAsPath}.${saveFormatSetting}`
-      : saveAsPath;
+    const fileSystemState = getFileSystemState();
+    const content = saveFormat === 'msgpack'
+      ? (checkMsgpackCompatibility(projectFile), uint8ArrayToArrayBuffer(encode(projectFile)))
+      : JSON.stringify(projectFile);
 
-    const saveFormat = saveFormatFromFile ?? saveFormatSetting;
-    // save
+    await fileSystemState.writeFile(filepath, content);
+    console.log('Project saved to', filepath);
 
-    if (saveFormat === 'msgpack') {
-      checkMsgpackCompatibility(projectFile);
-      const buffer = encode(projectFile);
-      await fileSystemState.writeFile(projectFilepath, uint8ArrayToArrayBuffer(buffer));
-    } else {
-      await fileSystemState.writeFile(projectFilepath, JSON.stringify(projectFile));
-    }
-    console.log('Project saved to', projectFilepath);
-
-    // update project file path
-    const newProject = {
-      ...project,
-      filepath: projectFilepath,
-    };
-    set({
-      projects: [...projects.slice(0, index), newProject, ...projects.slice(index + 1)],
-    });
+    project.filepath = filepath;
+    refreshActiveProject();
   },
 
   close(index) {
-    // close without save
-    const { projects, activeIndex } = get();
+    const { projects, activeIndex, setActive } = get();
+
     if (index < 0 || index >= projects.length) {
       throw new Error("Invalid project index");
     }
 
-    const useWebSocketStore = projects[index].useWebSocketStore;
-    useWebSocketStore.getState().destroy();
+    projects[index].useWebSocketStore.getState().destroy();
+    projects.splice(index, 1);
 
-    const newProjects = [...projects];
-    newProjects.splice(index, 1);
+    const newActiveIndex = activeIndex === null || activeIndex < projects.length
+      ? activeIndex
+      : projects.length > 0
+        ? projects.length - 1
+        : null;
 
-    let newActiveIndex: number | null = null;
-    if (activeIndex !== null && activeIndex >= newProjects.length) {
-      newActiveIndex = newProjects.length > 0 ? newProjects.length - 1 : null;
-    } else {
-      newActiveIndex = activeIndex;
-    }
-
-    set({
-      projects: newProjects,
-      activeIndex: newActiveIndex,
-    });
+    setActive(newActiveIndex);
   },
 }));

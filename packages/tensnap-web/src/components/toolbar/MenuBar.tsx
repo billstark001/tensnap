@@ -1,6 +1,6 @@
 import React from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { useFileOperations } from './FileOperationsProvider';
+import { useFileOperations } from './useFileOperations';
 import * as styles from '@/styles/toolbar.css';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';

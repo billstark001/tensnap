@@ -47,6 +47,9 @@ export interface FileSystemState {
   // Utility operations
   refreshCurrentDirectory: () => Promise<void>;
   refreshStats: () => Promise<void>;
+
+  openFile: (dialogTitle?: string) => Promise<FileMetadata | null>;
+  saveFileAs: (dialogTitle?: string) => Promise<FileMetadata | null>;
 }
 
 export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: string) => create<FileSystemState>((set, get) => {
@@ -209,6 +212,32 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       } catch (error) {
         handleError(error);
       }
-    }
-  };
+    },
+
+    openFile: async (dialogTitle?: string) => {
+      const { picker } = get();
+      if (!picker) throw new Error('No file picker registered');
+
+      const files = await picker.pickFiles({
+        title: dialogTitle,
+        mode: 'open',
+        multiSelect: false,
+      });
+
+      return files.length > 0 ? files[0] : null;
+    },
+
+    saveFileAs: async (dialogTitle?: string) => {
+      const { picker } = get();
+      if (!picker) throw new Error('No file picker registered');
+
+      const files = await picker.pickFiles({
+        title: dialogTitle,
+        mode: 'save',
+        multiSelect: false,
+      });
+
+      return files.length > 0 ? files[0] : null;
+    },
+  }
 });

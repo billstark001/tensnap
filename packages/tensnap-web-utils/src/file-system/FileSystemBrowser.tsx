@@ -14,6 +14,7 @@ export interface FileSystemBrowserProps {
   fileSystem: FileSystemAdapter;
   initialPath?: string;
   onFileSelect?: (file: DirectoryEntry) => void;
+  onFileDoubleClick?: (file: DirectoryEntry) => void;
   onDirectorySelect?: (directory: DirectoryEntry) => void;
   allowUpload?: boolean;
   multiSelect?: boolean;
@@ -24,6 +25,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   fileSystem,
   initialPath = '/',
   onFileSelect,
+  onFileDoubleClick,
   onDirectorySelect,
   allowUpload = true,
   multiSelect = false,
@@ -106,6 +108,18 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       setSelectedItems(new Set([entry.path]));
     }
   }, [onFileSelect, onDirectorySelect, multiSelect, setCurrentDirectory, toggleItemSelection]);
+
+  const handleItemDoubleClick = useCallback((entry: DirectoryEntry) => {
+    if (entry.type === 'directory') {
+      // 双击目录时导航
+      setCurrentDirectory(entry.path);
+    } else {
+      // 双击文件时触发双击回调
+      if (onFileDoubleClick) {
+        onFileDoubleClick(entry);
+      }
+    }
+  }, [onFileDoubleClick, setCurrentDirectory]);
 
   // 文件上传处理
   const handleFileUpload = useCallback(async (files: FileList) => {
@@ -274,6 +288,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
                 entry={entry}
                 isSelected={selectedItems.has(entry.path)}
                 onItemClick={handleItemClick}
+                onItemDoubleClick={handleItemDoubleClick}
                 onDelete={handleDeleteItem}
               />
             ))}

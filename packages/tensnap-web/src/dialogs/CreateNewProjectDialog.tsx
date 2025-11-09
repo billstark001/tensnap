@@ -5,12 +5,13 @@ import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import Form from '@/components/ui/Form';
+import { createDialogStore } from '@/utils/zustand';
 
 export interface CreateNewDialogProps extends DialogOpenProps {
   onCreateItem: (name: string) => void;
 }
 
-export const CreateNewDialog: React.FC<CreateNewDialogProps> = ({
+export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
   open: isOpen,
   onOpenChange,
   onCreateItem
@@ -67,3 +68,9 @@ export const CreateNewDialog: React.FC<CreateNewDialogProps> = ({
     </Dialog.Root>
   );
 };
+
+
+export const [
+  useCreateNewProjectStore,
+  CreateNewProjectDialogAnchor
+] = createDialogStore(CreateNewProjectDialog, (res) => ({ onCreateItem: res }), '');

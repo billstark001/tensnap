@@ -8,6 +8,7 @@ export interface FileItemProps {
   entry: DirectoryEntry;
   isSelected: boolean;
   onItemClick: (entry: DirectoryEntry) => void;
+  onItemDoubleClick?: (entry: DirectoryEntry) => void;
   onDelete: (entry: DirectoryEntry) => void;
 }
 
@@ -15,6 +16,7 @@ export const FileItem: React.FC<FileItemProps> = ({
   entry,
   isSelected,
   onItemClick,
+  onItemDoubleClick,
   onDelete
 }) => {
   
@@ -27,6 +29,12 @@ export const FileItem: React.FC<FileItemProps> = ({
     onItemClick(entry);
   }, [entry, onItemClick]);
 
+  const handleItemDoubleClick = useCallback(() => {
+    if (onItemDoubleClick) {
+      onItemDoubleClick(entry);
+    }
+  }, [entry, onItemDoubleClick]);
+
   // 格式化详情信息
   const detailsText = entry.type === 'file' 
     ? `${formatFileSize(entry.size)} • ${formatDate(entry.modifiedAt)}`
@@ -36,6 +44,7 @@ export const FileItem: React.FC<FileItemProps> = ({
     <div
       className={isSelected ? styles.listItemSelected : styles.listItem}
       onClick={handleItemClick}
+      onDoubleClick={handleItemDoubleClick}
     >
       <div className={styles.itemIcon}>
         {entry.type === 'directory' ? '📁' : '📄'}

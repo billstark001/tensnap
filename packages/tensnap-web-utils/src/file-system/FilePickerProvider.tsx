@@ -2,6 +2,7 @@ import React, { createContext, useContext, useCallback, useState, useRef, ReactN
 import * as Dialog from 'tensnap-web/components/ui/Dialog';
 import { FileSystemBrowser } from './FileSystemBrowser';
 import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from 'tensnap-web/types/file';
+import * as styles from './FileSystemBrowser.css';
 
 export interface FilePickerContextValue {
   pickFiles: FileSystemPicker['pickFiles'];
@@ -34,12 +35,14 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
   });
 
   const [selectedItems, setSelectedItems] = useState<DirectoryEntry[]>([]);
+  const [inputFileName, setInputFileName] = useState<string>('');
   const resolveRef = useRef<((result: FileMetadata[]) => void) | null>(null);
 
   const openPicker = useCallback((options: FilePickerOptions = {}): Promise<FileMetadata[]> => {
     return new Promise((resolve) => {
       resolveRef.current = resolve;
       setSelectedItems([]);
+      setInputFileName('');
       setPickerState({
         isOpen: true,
         options
@@ -57,6 +60,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       options: {}
     });
     setSelectedItems([]);
+    setInputFileName('');
   }, []);
 
   const handleCancel = useCallback(() => {
@@ -64,12 +68,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
   }, [closePicker]);
 
   const handleFileSelect = useCallback((entry: DirectoryEntry) => {
-    const { mode, multiSelect } = pickerState.options;
-
-    // 如果是保存模式，不允许选择现有文件
-    if (mode === 'save') {
-      return;
-    }
+    const { multiSelect } = pickerState.options;
 
     // 只允许选择文件，不允许选择目录
     if (entry.type === 'directory') {
@@ -87,17 +86,49 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
         }
       });
     } else {
-      // 单选模式：直接选择并关闭
+      // 单选模式：只更新选择状态，不关闭对话框
+      setSelectedItems([entry]);
+      // 更新输入框文件名
+      setInputFileName(entry.name);
+    }
+  }, [pickerState.options]);
+
+  const handleFileDoubleClick = useCallback((entry: DirectoryEntry) => {
+    // 双击文件时直接确认并关闭
+    if (entry.type === 'file') {
       closePicker([entry as FileMetadata]);
     }
-  }, [pickerState.options, closePicker]);
+  }, [closePicker]);
 
   const handleConfirm = useCallback(() => {
-    // 多选模式下的确认
-    if (pickerState.options.multiSelect) {
+    const { mode, multiSelect } = pickerState.options;
+
+    if (multiSelect) {
+      // 多选模式下的确认
       closePicker(selectedItems as FileMetadata[]);
+    } else if (mode === 'save') {
+      // 保存模式：使用输入的文件名
+      if (!inputFileName.trim()) {
+        return; // 文件名为空时不允许确认
+      }
+      // 创建一个临时的 FileMetadata 对象，包含用户输入的文件名
+      const fileMetadata: FileMetadata = {
+        path: inputFileName, // 这里只是文件名，实际路径将由调用者处理
+        name: inputFileName,
+        parentPath: '',
+        size: 0,
+        mimeType: 'application/octet-stream',
+        createdAt: new Date(),
+        modifiedAt: new Date(),
+      };
+      closePicker([fileMetadata]);
+    } else {
+      // 打开模式：使用选择的文件
+      if (selectedItems.length > 0) {
+        closePicker(selectedItems as FileMetadata[]);
+      }
     }
-  }, [pickerState.options.multiSelect, selectedItems, closePicker]);
+  }, [pickerState.options, selectedItems, inputFileName, closePicker]);
 
   const pickFiles = useCallback((options?: FilePickerOptions): Promise<FileMetadata[]> => {
     return openPicker(options);
@@ -111,7 +142,11 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     (pickerState.options.mode === 'save' ? '保存文件' : 
      pickerState.options.multiSelect ? '选择文件' : '打开文件');
 
-  const showConfirmButton = pickerState.options.multiSelect && selectedItems.length > 0;
+  const { mode, multiSelect } = pickerState.options;
+  const showSelectionBar = !multiSelect; // 单选模式下显示选择栏
+  const canConfirm = multiSelect 
+    ? selectedItems.length > 0 
+    : (mode === 'save' ? inputFileName.trim().length > 0 : selectedItems.length > 0);
 
   return (
     <FilePickerContext.Provider value={contextValue}>
@@ -130,22 +165,43 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
           <FileSystemBrowser
             fileSystem={fileSystem}
             onFileSelect={handleFileSelect}
+            onFileDoubleClick={handleFileDoubleClick}
             allowUpload={pickerState.options.allowUpload}
             multiSelect={pickerState.options.multiSelect}
           />
         </Dialog.Body>
 
         <Dialog.Footer>
-          <Dialog.Close asChild>
-            <Dialog.Button onClick={handleCancel}>
-              取消
-            </Dialog.Button>
-          </Dialog.Close>
-          {showConfirmButton && (
-            <Dialog.Button variant="primary" onClick={handleConfirm}>
-              确认选择 ({selectedItems.length})
-            </Dialog.Button>
+          {showSelectionBar && (
+            <div className={styles.selectionBar}>
+              <label className={styles.selectionBarLabel}>
+                {mode === 'save' ? '文件名:' : '选择的文件:'}
+              </label>
+              <input
+                type="text"
+                className={styles.selectionBarInput}
+                value={inputFileName}
+                onChange={(e) => setInputFileName(e.target.value)}
+                placeholder={mode === 'save' ? '输入文件名' : '未选择文件'}
+                readOnly={mode !== 'save'}
+                disabled={mode !== 'save'}
+              />
+            </div>
           )}
+          <div className={styles.selectionBarButtons}>
+            <Dialog.Close asChild>
+              <Dialog.Button onClick={handleCancel}>
+                取消
+              </Dialog.Button>
+            </Dialog.Close>
+            <Dialog.Button 
+              variant="primary" 
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+            >
+              {mode === 'save' ? '保存' : multiSelect ? `确认选择 (${selectedItems.length})` : '打开'}
+            </Dialog.Button>
+          </div>
         </Dialog.Footer>
 
         <Dialog.CloseButton />
