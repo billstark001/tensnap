@@ -176,9 +176,14 @@ export const dialogClose = style({
 
 // Dialog 主体内容区域
 export const dialogBody = style({
-  padding: 0,
-  flex: 1,
+  minHeight: '200px',
   overflowY: 'auto',
+
+  selectors: {
+    [`${dialogContentFull} &`]: {
+      height: `calc(100vh - ${DIALOG_MARGIN + 180}px)`,
+    },
+  },
 });
 
 // Dialog 底部区域（按钮区域）

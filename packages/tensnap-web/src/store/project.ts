@@ -1,6 +1,5 @@
 import { create, StoreApi, UseBoundStore } from "zustand";
 import { createWebSocketStore, WebSocketStore } from "./websocket";
-import { FileSystemState } from "./file-system/store";
 import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
@@ -11,6 +10,7 @@ import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgp
 import { StateSyncRequest } from "@/types/api";
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { instantiateScenarioContent } from "./scenario/utils";
+import { getFileSystemState } from "./file-system/provider";
 
 export interface ProjectSettings {
   url: string;
@@ -68,13 +68,9 @@ export const createStateSyncRequestFromStore = (store?: SimulationState): StateS
 
 export interface ProjectStore {
 
-  fileSystemStore: UseBoundStore<StoreApi<FileSystemState>> | null;
-
   projects: readonly Readonly<ProjectContextScheme>[];
 
   activeIndex: number | null;
-
-  setFileSystemStore: (fsStore: UseBoundStore<StoreApi<FileSystemState>>) => void;
 
   getActive: () => Readonly<ProjectContextScheme> | null;
   setActive: (index: number | null) => void;
@@ -117,10 +113,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ activeIndex: index });
   },
 
-  setFileSystemStore(fsStore) {
-    set({ fileSystemStore: fsStore });
-  },
-
   new(url, indexHint) {
     const { projects } = get();
     const useScenarioStore = createScenarioStore();
@@ -147,12 +139,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   async open(filepath, indexHint) {
-    const { fileSystemStore } = get();
-    if (!fileSystemStore) {
-      throw new Error("File system store is not initialized");
-    }
-
-    const fileSystemState = fileSystemStore.getState();
+    const fileSystemState = getFileSystemState();
     const fileContent = await fileSystemState.readFile(filepath);
     if (!fileContent?.content) {
       throw new Error(`File not found: ${filepath}`);
@@ -205,13 +192,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (index == null || index < 0 || index >= projects.length) {
       throw new Error("Invalid project index");
     }
-    const { fileSystemStore } = get();
-    if (!fileSystemStore) {
-      throw new Error("File system store is not initialized");
-    }
 
     const project = projects[index];
-    const fileSystemState = fileSystemStore.getState();
+    const fileSystemState = getFileSystemState();
 
     // pack the scenario
 

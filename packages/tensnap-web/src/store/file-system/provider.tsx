@@ -57,6 +57,12 @@ export const registerFileSystemPicker = async (picker: FileSystemPicker) => {
   await currentPicker.initialize();
 };
 
+export const getFileSystemState = () => {
+  if (!useFileSystemStore) {
+    throw new Error('File system store not initialized');
+  }
+  return useFileSystemStore.getState();
+};
 
 export const useFileSystem = () => {
   if (!useFileSystemStore) {

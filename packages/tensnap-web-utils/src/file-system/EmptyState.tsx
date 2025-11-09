@@ -4,24 +4,20 @@ import * as styles from './FileSystemBrowser.css';
 export interface EmptyStateProps {
   allowUpload: boolean;
   isDragOver: boolean;
-  onUploadClick: () => void;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   allowUpload,
-  isDragOver,
-  onUploadClick
+  isDragOver
 }) => {
   return (
     <div className={styles.emptyState}>
-      <div>此目录为空</div>
+      <div className={styles.emptyStateIcon}>📂</div>
+      <div className={styles.emptyStateText}>此目录为空</div>
       {allowUpload && (
-        <div 
-          className={isDragOver ? styles.uploadAreaActive : styles.uploadArea}
-          onClick={onUploadClick}
-        >
-          <div className={styles.uploadText}>拖拽文件到此处或点击上传</div>
-          <div className={styles.uploadHint}>支持多文件上传</div>
+        <div className={isDragOver ? styles.uploadAreaActive : styles.uploadArea}>
+          <div className={styles.uploadText}>拖拽文件到此处上传</div>
+          <div className={styles.uploadHint}>或使用上方的"上传文件"按钮</div>
         </div>
       )}
     </div>

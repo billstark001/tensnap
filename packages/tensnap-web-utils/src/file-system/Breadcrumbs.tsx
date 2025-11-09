@@ -1,4 +1,5 @@
-import React, { useCallback } from 'react';
+import React, { useMemo } from 'react';
+import { parseBreadcrumbs } from './utils';
 import * as styles from './FileSystemBrowser.css';
 
 export interface BreadcrumbsProps {
@@ -10,29 +11,18 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
   currentDirectory,
   onNavigate
 }) => {
-  const breadcrumbParts = currentDirectory.split('/').filter(Boolean);
-  
-  const handleBreadcrumbClick = useCallback((index: number) => {
-    const newPath = index === -1 ? '/' : '/' + breadcrumbParts.slice(0, index + 1).join('/');
-    onNavigate(newPath);
-  }, [breadcrumbParts, onNavigate]);
+  const breadcrumbs = useMemo(() => parseBreadcrumbs(currentDirectory), [currentDirectory]);
 
   return (
     <div className={styles.breadcrumbs}>
-      <span 
-        className={currentDirectory === '/' ? styles.breadcrumbCurrent : styles.breadcrumbItem}
-        onClick={() => handleBreadcrumbClick(-1)}
-      >
-        根目录
-      </span>
-      {breadcrumbParts.map((part, index) => (
-        <React.Fragment key={index}>
-          <span className={styles.breadcrumbSeparator}>/</span>
+      {breadcrumbs.map((crumb, index) => (
+        <React.Fragment key={crumb.path}>
+          {index > 0 && <span className={styles.breadcrumbSeparator}>/</span>}
           <span 
-            className={index === breadcrumbParts.length - 1 ? styles.breadcrumbCurrent : styles.breadcrumbItem}
-            onClick={() => handleBreadcrumbClick(index)}
+            className={index === breadcrumbs.length - 1 ? styles.breadcrumbCurrent : styles.breadcrumbItem}
+            onClick={() => onNavigate(crumb.path)}
           >
-            {part}
+            {crumb.name}
           </span>
         </React.Fragment>
       ))}

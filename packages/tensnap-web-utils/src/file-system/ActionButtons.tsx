@@ -7,7 +7,7 @@ export interface ActionButtonsProps {
   allowUpload: boolean;
   onRefresh: () => void;
   onCreate: () => void;
-  onExport: (format: 'json' | 'zip') => void;
+  onExport: () => void;
   onFileInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
@@ -57,15 +57,9 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           <DropdownMenu.Content className={styles.dropdownContent}>
             <DropdownMenu.Item 
               className={styles.dropdownItem}
-              onClick={() => onExport('json')}
+              onClick={() => onExport()}
             >
-              导出为JSON
-            </DropdownMenu.Item>
-            <DropdownMenu.Item 
-              className={styles.dropdownItem}
-              onClick={() => onExport('zip')}
-            >
-              导出为ZIP
+              导出
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>

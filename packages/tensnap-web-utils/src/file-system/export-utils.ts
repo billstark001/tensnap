@@ -5,8 +5,8 @@
  * They work by reading files/directories using the basic read operations.
  */
 
-import type { FileSystemState } from 'tensnap-web/store/file-system/store';
 import JSZip from 'jszip';
+import { FileSystemAdapter } from 'tensnap-web/types/file';
 
 export interface ExportOptions {
   format: 'json' | 'zip';
@@ -16,7 +16,7 @@ export interface ExportOptions {
  * Export a directory and all its contents
  */
 export async function exportDirectory(
-  fileSystem: FileSystemState,
+  fileSystem: FileSystemAdapter,
   path: string,
   options: ExportOptions = { format: 'json' }
 ): Promise<Blob> {
@@ -35,7 +35,7 @@ export async function exportDirectory(
  * Export directory as JSON
  */
 async function exportAsJSON(
-  fileSystem: FileSystemState,
+  fileSystem: FileSystemAdapter,
   path: string
 ): Promise<Blob> {
   const tree = await buildDirectoryTree(fileSystem, path);
@@ -47,7 +47,7 @@ async function exportAsJSON(
  * Export directory as ZIP
  */
 async function exportAsZip(
-  fileSystem: FileSystemState,
+  fileSystem: FileSystemAdapter,
   path: string
 ): Promise<Blob> {
   const zip = new JSZip();
@@ -59,10 +59,10 @@ async function exportAsZip(
  * Build a directory tree structure
  */
 async function buildDirectoryTree(
-  fileSystem: FileSystemState,
+  fileSystem: FileSystemAdapter,
   path: string
 ): Promise<any> {
-  const contents = await fileSystem.adapter!.list(path);
+  const contents = await fileSystem.list(path);
   
   const tree: any = {
     path,
@@ -95,12 +95,12 @@ async function buildDirectoryTree(
  * Add directory contents to ZIP
  */
 async function addDirectoryToZip(
-  fileSystem: FileSystemState,
+  fileSystem: FileSystemAdapter,
   dirPath: string,
   zip: JSZip,
   zipPath: string
 ): Promise<void> {
-  const contents = await fileSystem.adapter!.list(dirPath);
+  const contents = await fileSystem.list(dirPath);
   
   for (const entry of contents) {
     const entryZipPath = zipPath ? `${zipPath}/${entry.name}` : entry.name;

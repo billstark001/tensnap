@@ -1,8 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import * as Dialog from 'tensnap-web/components/ui/Dialog';
 import * as Form from 'tensnap-web/components/ui/Form';
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
-import { FileSystemOperations } from './FileSystemBrowser';
+import { FileSystemAdapter } from 'tensnap-web/types/file';
+import { exportDirectory } from './export-utils';
 
 export interface ExportOption {
   key: string;
@@ -13,50 +14,66 @@ export interface ExportOption {
 }
 
 export interface ExportDialogProps extends DialogOpenProps {
-  fileSystem: FileSystemOperations;
+  fileSystem: FileSystemAdapter;
+  currentPath?: string;
   title?: string;
   customOptions?: ExportOption[];
   showDefaultOptions?: boolean;
-  onExport?: (format: 'json' | 'zip') => Promise<void>;
 }
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
   open: isOpen,
   onOpenChange: _onOpenChange,
+  fileSystem,
+  currentPath = '/',
   title = "导出选项",
   customOptions = [],
-  showDefaultOptions = true,
-  onExport
+  showDefaultOptions = true
 }) => {
   const onOpenChange = useCallbackRef(_onOpenChange);
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleExportDirectory = useCallback(async (format: 'json' | 'zip') => {
+    setExporting(true);
+    setError(null);
+
     try {
-      if (onExport) {
-        await onExport(format);
-      } else {
-        console.warn('Export functionality not provided');
-      }
+      const blob = await exportDirectory(fileSystem, currentPath, { format });
+      
+      // 创建下载链接
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `export-${Date.now()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
       onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to export directory:', error);
+    } catch (err) {
+      console.error('Failed to export directory:', err);
+      setError((err as Error).message || '导出失败');
+    } finally {
+      setExporting(false);
     }
-  }, [onExport, onOpenChange]);
+  }, [fileSystem, currentPath, onOpenChange]);
 
   const defaultOptions: ExportOption[] = [
     {
-      key: 'zip',
-      title: 'ZIP 压缩包',
-      description: '包含所有文件的压缩包',
-      format: 'zip',
-      handler: () => handleExportDirectory('zip')
-    },
-    {
       key: 'json',
-      title: 'JSON 数据',
-      description: '结构化数据格式',
+      title: 'JSON 格式',
+      description: '导出为 JSON 文件，包含所有文件内容和元数据',
       format: 'json',
       handler: () => handleExportDirectory('json')
+    },
+    {
+      key: 'zip',
+      title: 'ZIP 压缩包',
+      description: '导出为 ZIP 压缩文件，保留目录结构',
+      format: 'zip',
+      handler: () => handleExportDirectory('zip')
     }
   ];
 
@@ -65,51 +82,84 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     : customOptions;
 
   const handleOptionClick = useCallback(async (option: ExportOption) => {
+    if (exporting) return;
+    
     try {
       await option.handler();
-    } catch (error) {
-      console.error(`Failed to execute export option ${option.key}:`, error);
+    } catch (err) {
+      console.error(`Failed to execute export option ${option.key}:`, err);
+      setError((err as Error).message || '执行失败');
     }
-  }, []);
+  }, [exporting]);
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
       <Dialog.Title>
         {title}
       </Dialog.Title>
+      <Dialog.Description>
+        导出路径: {currentPath}
+      </Dialog.Description>
 
       <div>
+        {error && (
+          <div style={{ 
+            padding: '12px', 
+            backgroundColor: '#ffebee', 
+            color: '#c62828', 
+            borderRadius: '6px',
+            marginBottom: '16px'
+          }}>
+            {error}
+          </div>
+        )}
+
         <Form.FieldSet>
           <Form.Label>
-            导出格式
+            选择导出格式
           </Form.Label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {allOptions.map((option) => (
-              <Dialog.Button
+              <button
                 key={option.key}
+                disabled={exporting}
                 style={{
                   padding: '12px',
                   textAlign: 'left',
-                  justifyContent: 'flex-start',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  gap: '4px'
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '6px',
+                  backgroundColor: '#ffffff',
+                  cursor: exporting ? 'not-allowed' : 'pointer',
+                  opacity: exporting ? 0.6 : 1,
+                  transition: 'all 0.2s'
                 }}
                 onClick={() => handleOptionClick(option)}
               >
-                <div style={{ fontWeight: '500' }}>{option.title}</div>
+                <div style={{ fontWeight: '500', marginBottom: '4px' }}>
+                  {option.title}
+                </div>
                 <div style={{ fontSize: '12px', color: '#666666' }}>
                   {option.description}
                 </div>
-              </Dialog.Button>
+              </button>
             ))}
           </div>
         </Form.FieldSet>
+
+        {exporting && (
+          <div style={{ 
+            marginTop: '16px', 
+            textAlign: 'center', 
+            color: '#666666' 
+          }}>
+            正在导出，请稍候...
+          </div>
+        )}
       </div>
 
       <Dialog.Footer>
         <Dialog.Close asChild>
-          <Dialog.Button>
+          <Dialog.Button disabled={exporting}>
             取消
           </Dialog.Button>
         </Dialog.Close>
