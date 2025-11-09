@@ -52,7 +52,13 @@ export interface ScenarioStore {
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
   updateParameter: (id: string, value: any) => void;
   updateParameterProps: (id: string, propsUpdate: Omit<Partial<Parameter>, 'id' | 'value'>) => void;
+  
+  // Chart operations
   updateChartProps: (id: string, propsUpdate: Omit<Partial<ChartGroup>, 'id' | 'data'>) => void;
+  addChartMetadata: (groupId: string, metadata: ChartMetadata) => void;
+  updateChartMetadata: (metadataId: string, propsUpdate: Partial<ChartMetadata>) => void;
+  removeChartMetadataFromGroup: (metadataId: string, groupId: string, options?: { persistData?: boolean }) => void;
+  moveChartMetadata: (metadataId: string, fromGroupId: string, toGroupId: string, options?: { copy?: boolean }) => void;
   addChartData: (updates: ChartUpdateData[]) => void;
   executeChartOperations: (operations: ChartUpdateOperation[]) => void;
 
@@ -276,8 +282,105 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateChartProps: (id, propsUpdate) => {
-    console.log('updateChartProps', id, propsUpdate);
-    // TODO implement this
+    const { charts, log } = get();
+    const group = charts.allChartGroups.get(id);
+    if (!group) {
+      log(`Chart group with id ${id} not found.`, 'warning');
+      return;
+    }
+    Object.assign(group, propsUpdate);
+    set({ charts });
+  },
+
+  addChartMetadata: (groupId, metadata) => {
+    const { charts, log } = get();
+    const group = charts.allChartGroups.get(groupId);
+    if (!group) {
+      log(`Chart group with id ${groupId} not found.`, 'warning');
+      return;
+    }
+    if (metadata.id in group.metadataDict) {
+      log(`Metadata with id ${metadata.id} already exists in group ${groupId}.`, 'warning');
+      return;
+    }
+    group.metadataDict[metadata.id] = metadata;
+    
+    // Register the new metadata
+    const metaList = charts.allChartMetadata.get(metadata.id) ?? [];
+    metaList.push(metadata);
+    charts.allChartMetadata.set(metadata.id, metaList);
+    
+    const groupList = charts.chartGroupsByMetadataId.get(metadata.id) ?? [];
+    groupList.push(group);
+    charts.chartGroupsByMetadataId.set(metadata.id, groupList);
+    
+    set({ charts });
+  },
+
+  updateChartMetadata: (metadataId, propsUpdate) => {
+    const { charts } = get();
+    const metadataList = charts.allChartMetadata.get(metadataId);
+    if (!metadataList?.length) {
+      return;
+    }
+    metadataList.forEach(meta => Object.assign(meta, propsUpdate));
+    set({ charts });
+  },
+
+  removeChartMetadataFromGroup: (metadataId, groupId, options) => {
+    const { charts } = get();
+    charts.removeChartMetadataFromGroup(metadataId, groupId, options);
+    set({ charts });
+  },
+
+  moveChartMetadata: (metadataId, fromGroupId, toGroupId, options) => {
+    const { charts, log } = get();
+    const { copy = false } = options || {};
+    
+    const fromGroup = charts.allChartGroups.get(fromGroupId);
+    const toGroup = charts.allChartGroups.get(toGroupId);
+    
+    if (!fromGroup) {
+      log(`Source chart group with id ${fromGroupId} not found.`, 'warning');
+      return;
+    }
+    if (!toGroup) {
+      log(`Target chart group with id ${toGroupId} not found.`, 'warning');
+      return;
+    }
+    
+    const metadata = fromGroup.metadataDict[metadataId];
+    if (!metadata) {
+      log(`Metadata with id ${metadataId} not found in group ${fromGroupId}.`, 'warning');
+      return;
+    }
+    
+    // Extract data points from source group
+    const dataPoints = charts.removeChartMetadataFromGroup(metadataId, fromGroupId, { 
+      persistData: copy, 
+      returnData: true 
+    });
+    
+    // Add metadata to target group
+    if (!(metadataId in toGroup.metadataDict)) {
+      toGroup.metadataDict[metadataId] = metadata;
+      
+      // Register metadata in target group
+      const metaList = charts.allChartMetadata.get(metadataId) ?? [];
+      metaList.push(metadata);
+      charts.allChartMetadata.set(metadataId, metaList);
+      
+      const groupList = charts.chartGroupsByMetadataId.get(metadataId) ?? [];
+      groupList.push(toGroup);
+      charts.chartGroupsByMetadataId.set(metadataId, groupList);
+    }
+    
+    // Add data points to target group if any
+    if (dataPoints && dataPoints.length > 0) {
+      charts.pushMany(metadataId, dataPoints);
+    }
+    
+    set({ charts });
   },
 
   addChartData: (updates) => {

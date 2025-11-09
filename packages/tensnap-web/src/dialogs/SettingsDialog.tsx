@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import * as Dialog from '@/components/ui/Dialog';
 import * as Switch from '@radix-ui/react-switch';
 import * as Select from '@radix-ui/react-select';
-import * as formStyles from '@/styles/form.css';
 import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
 import { msg } from '@lingui/core/macro';
@@ -11,6 +10,7 @@ import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
 
 import * as styles from './SettingsDialog.css';
+import Form from '@/components/ui/Form';
 
 export interface SettingsDialogProps extends DialogOpenProps {
 
@@ -140,16 +140,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
           <div className={styles.projectSettingsContainer}>
             <div className={styles.projectSettingsForm}>
-              <fieldset className={formStyles.formFieldSet}>
-                <label className={formStyles.formLabel}><Trans>Backend URL</Trans></label>
-                <input
+              <Form.FieldSet>
+                <Form.Label><Trans>Backend URL</Trans></Form.Label>
+                <Form.Input
                   type="text"
                   value={backendUrl}
                   onChange={(e) => handleBackendUrlChange(e.target.value)}
-                  className={formStyles.formInput}
                   placeholder={_(msg`Enter backend WebSocket server address`)}
                 />
-              </fieldset>
+              </Form.FieldSet>
             </div>
 
             <div className={styles.projectSettingsFooter}>

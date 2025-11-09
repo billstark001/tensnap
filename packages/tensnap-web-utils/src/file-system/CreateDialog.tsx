@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import * as Dialog from 'tensnap-web/components/ui/Dialog';
-import * as formStyles from 'tensnap-web/styles/form.css';
+import * as Form from 'tensnap-web/components/ui/Form';
+
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
 
 export interface CreateDialogProps extends DialogOpenProps {
@@ -40,28 +41,26 @@ export const CreateDialog: React.FC<CreateDialogProps> = ({
       <Dialog.Title>创建新项目</Dialog.Title>
       <Dialog.Description></Dialog.Description>
       <div>
-        <fieldset className={formStyles.formFieldSet}>
-          <label className={formStyles.formLabel}>类型</label>
-          <select
+        <Form.FieldSet>
+          <Form.Label>类型</Form.Label>
+          <Form.Select
             value={newItemType}
             onChange={(e) => setNewItemType(e.target.value as 'file' | 'directory')}
-            className={formStyles.formInput}
           >
             <option value="file">文件</option>
             <option value="directory">目录</option>
-          </select>
-        </fieldset>
-        <fieldset className={formStyles.formFieldSet}>
-          <label className={formStyles.formLabel}>名称</label>
-          <input
+          </Form.Select>
+        </Form.FieldSet>
+        <Form.FieldSet>
+          <Form.Label>名称</Form.Label>
+          <Form.Input
             type="text"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            className={formStyles.formInput}
             placeholder={`输入${newItemType === 'file' ? '文件' : '目录'}名称`}
             onKeyDown={handleKeyDown}
           />
-        </fieldset>
+        </Form.FieldSet>
       </div>
       <Dialog.Footer>
         <Dialog.Close asChild>

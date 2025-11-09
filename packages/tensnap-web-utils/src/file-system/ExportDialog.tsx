@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import * as Dialog from 'tensnap-web/components/ui/Dialog';
-import * as dialogStyles from 'tensnap-web/styles/form.css';
+import * as Form from 'tensnap-web/components/ui/Form';
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
 import { FileSystemOperations } from './FileSystemBrowser';
 
@@ -79,10 +79,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       </Dialog.Title>
 
       <div>
-        <fieldset className={dialogStyles.formFieldSet}>
-          <label className={dialogStyles.formLabel}>
+        <Form.FieldSet>
+          <Form.Label>
             导出格式
-          </label>
+          </Form.Label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {allOptions.map((option) => (
               <Dialog.Button
@@ -104,7 +104,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               </Dialog.Button>
             ))}
           </div>
-        </fieldset>
+        </Form.FieldSet>
       </div>
 
       <Dialog.Footer>

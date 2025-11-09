@@ -1,5 +1,5 @@
 import { style } from "@vanilla-extract/css";
-import { vars } from "./global.css";
+import { vars } from "../../styles/global.css";
 
 export const formInput = style({
   width: '100%',

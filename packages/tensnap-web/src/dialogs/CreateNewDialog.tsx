@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import * as Dialog from '@/components/ui/Dialog';
-import * as formStyles from '@/styles/form.css';
 import { DialogOpenProps } from '@/utils/react';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
+import Form from '@/components/ui/Form';
 
 export interface CreateNewDialogProps extends DialogOpenProps {
   onCreateItem: (name: string) => void;
@@ -41,17 +41,16 @@ export const CreateNewDialog: React.FC<CreateNewDialogProps> = ({
       <Dialog.Title><Trans>Create New Project</Trans></Dialog.Title>
       <Dialog.Description></Dialog.Description>
       <div>
-        <fieldset className={formStyles.formFieldSet}>
-          <label className={formStyles.formLabel}><Trans>Backend URL</Trans></label>
-          <input
+        <Form.FieldSet>
+          <Form.Label><Trans>Backend URL</Trans></Form.Label>
+          <Form.Input
             type="text"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            className={formStyles.formInput}
             placeholder={_(msg`Enter backend WebSocket server address`)}
             onKeyDown={handleKeyDown}
           />
-        </fieldset>
+        </Form.FieldSet>
       </div>
       <Dialog.Footer>
         <Dialog.Close asChild>
