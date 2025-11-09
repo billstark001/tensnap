@@ -179,7 +179,87 @@ describe('InstantiatedChartStorage', () => {
     });
   });
 
-  describe('removeChartGroupsByMetadata', () => {
+  describe('removeChartMetadataFromGroup', () => {
+    it('should remove metadata from specific group', () => {
+      storage.push(1000, [
+        { id: 'chart1', value: 10 },
+        { id: 'chart2', value: 20 },
+      ]);
+
+      const result = storage.removeChartMetadataFromGroup('chart1', 'group1');
+
+      expect(result).toBeNull();
+      expect(storage.allChartGroups.has('group1')).toBe(true);
+      const group = storage.allChartGroups.get('group1')!;
+      expect(Object.keys(group.metadataDict)).toEqual(['chart2']);
+      expect(group.data[0].chart1).toBeUndefined();
+      expect(group.data[0].chart2).toBe(20);
+    });
+
+    it('should remove entire group if it is the only metadata', () => {
+      storage.push(1000, [{ id: 'chart3', value: 30 }]);
+
+      const result = storage.removeChartMetadataFromGroup('chart3', 'group2');
+
+      expect(result).toBeNull();
+      expect(storage.allChartGroups.has('group2')).toBe(false);
+    });
+
+    it('should return data when returnData is true', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      const result = storage.removeChartMetadataFromGroup('chart1', 'group1', { returnData: true });
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(2);
+      expect(result![0]).toEqual({ time: 1000, chart1: 10 });
+      expect(result![1]).toEqual({ time: 2000, chart1: 20 });
+    });
+
+    it('should persist data when persistData is true', () => {
+      storage.push(1000, [
+        { id: 'chart1', value: 10 },
+        { id: 'chart2', value: 20 },
+      ]);
+
+      storage.removeChartMetadataFromGroup('chart1', 'group1', { persistData: true });
+
+      const group = storage.allChartGroups.get('group1')!;
+      expect(group.data[0].chart1).toBe(10);
+      expect(group.data[0].chart2).toBe(20);
+    });
+
+    it('should return null if metadata does not exist in group', () => {
+      const result = storage.removeChartMetadataFromGroup('chart3', 'group1');
+      expect(result).toBeNull();
+    });
+
+    it('should return null if group does not exist', () => {
+      const result = storage.removeChartMetadataFromGroup('chart1', 'nonexistent');
+      expect(result).toBeNull();
+    });
+
+    it('should handle both returnData and persistData together', () => {
+      storage.push(1000, [
+        { id: 'chart1', value: 10 },
+        { id: 'chart2', value: 20 },
+      ]);
+
+      const result = storage.removeChartMetadataFromGroup('chart1', 'group1', { 
+        returnData: true, 
+        persistData: true 
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result![0]).toEqual({ time: 1000, chart1: 10 });
+      
+      const group = storage.allChartGroups.get('group1')!;
+      expect(group.data[0].chart1).toBe(10);
+    });
+  });
+
+  describe('removeChartMetadata', () => {
     it('should remove groups with single metadata', () => {
       const result = storage.removeChartMetadata('chart3');
 
@@ -200,6 +280,143 @@ describe('InstantiatedChartStorage', () => {
     it('should return null if metadata does not exist', () => {
       const result = storage.removeChartMetadata('nonexistent');
       expect(result).toBeNull();
+    });
+
+    it('should return data when returnData is true', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+      storage.push(3000, [{ id: 'chart1', value: 30 }]);
+
+      const result = storage.removeChartMetadata('chart1', { returnData: true });
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(3);
+      expect(result![0]).toEqual({ time: 1000, chart1: 10 });
+      expect(result![1]).toEqual({ time: 2000, chart1: 20 });
+      expect(result![2]).toEqual({ time: 3000, chart1: 30 });
+    });
+
+    it('should persist data when persistData is true', () => {
+      storage.push(1000, [
+        { id: 'chart1', value: 10 },
+        { id: 'chart2', value: 20 },
+      ]);
+
+      storage.removeChartMetadata('chart1', { persistData: true });
+
+      const group = storage.allChartGroups.get('group1')!;
+      expect(group.data[0].chart1).toBe(10);
+      expect(group.data[0].chart2).toBe(20);
+    });
+
+    it('should handle metadata in multiple groups', () => {
+      // Add chart1 to another group
+      const newGroup: ChartGroup = {
+        id: 'group3',
+        label: 'Group 3',
+        metadataDict: {
+          chart1: { id: 'chart1', label: 'Chart 1' },
+        },
+        data: [],
+      };
+      storage.addChartGroup(newGroup);
+
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      const result = storage.removeChartMetadata('chart1', { returnData: true });
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(2);
+      expect(storage.allChartGroups.has('group1')).toBe(true);
+      expect(storage.allChartGroups.has('group3')).toBe(false); // Removed because it only had chart1
+    });
+
+    it('should return empty array when returnData is false', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      const result = storage.removeChartMetadata('chart1', { returnData: false });
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getChartData', () => {
+    it('should return all data for a metadata', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+      storage.push(3000, [{ id: 'chart1', value: 30 }]);
+
+      const result = storage.getChartData('chart1');
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(3);
+      expect(result![0]).toEqual({ time: 1000, chart1: 10 });
+      expect(result![1]).toEqual({ time: 2000, chart1: 20 });
+      expect(result![2]).toEqual({ time: 3000, chart1: 30 });
+    });
+
+    it('should return null if metadata does not exist', () => {
+      const result = storage.getChartData('nonexistent');
+      expect(result).toBeNull();
+    });
+
+    it('should return null if no data points exist', () => {
+      const result = storage.getChartData('chart1');
+      expect(result).toBeNull();
+    });
+
+    it('should aggregate data from multiple groups', () => {
+      // Add chart1 to another group
+      const newGroup: ChartGroup = {
+        id: 'group3',
+        label: 'Group 3',
+        metadataDict: {
+          chart1: { id: 'chart1', label: 'Chart 1' },
+        },
+        data: [],
+      };
+      storage.addChartGroup(newGroup);
+
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      const result = storage.getChartData('chart1');
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(2);
+      expect(result![0]).toEqual({ time: 1000, chart1: 10 });
+      expect(result![1]).toEqual({ time: 2000, chart1: 20 });
+    });
+
+    it('should return sorted data', () => {
+      storage.push(3000, [{ id: 'chart1', value: 30 }]);
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      const result = storage.getChartData('chart1');
+
+      expect(result).not.toBeNull();
+      expect(result!.map(d => d.time)).toEqual([1000, 2000, 3000]);
+    });
+
+    it('should handle sparse data', () => {
+      storage.push(1000, [
+        { id: 'chart1', value: 10 },
+        { id: 'chart2', value: 20 },
+      ]);
+      storage.push(2000, [
+        { id: 'chart2', value: 30 },
+      ]);
+      storage.push(3000, [
+        { id: 'chart1', value: 40 },
+      ]);
+
+      const result = storage.getChartData('chart1');
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(2);
+      expect(result![0]).toEqual({ time: 1000, chart1: 10 });
+      expect(result![1]).toEqual({ time: 3000, chart1: 40 });
     });
   });
 

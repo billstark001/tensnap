@@ -102,27 +102,13 @@ export class InstantiatedChartStorage {
     }
   }
 
-  removeChartGroup(groupId: string): boolean {
-    const group = this.allChartGroups.get(groupId);
-    if (!group) return false;
-
-    Object.values(group.metadataDict).forEach(meta => {
-      this.removeChartMetadataFromGroup(meta.id, groupId);
-    });
-
-    this.allChartGroups.delete(groupId);
-    this._pushMap.delete(groupId);
-    return true;
-  }
-
-  removeChartMetadataFromGroup(metadataId: string, groupId: string) {
+  private _cleanupMetadataRegistration(metadataId: string, groupId: string) {
     const metaList = this.allChartMetadata.get(metadataId);
     if (metaList) {
       const filtered = metaList.filter(m => {
         const groups = this.chartGroupsByMetadataId.get(m.id);
         return groups?.some(g => g.id === groupId) === false;
       });
-
       filtered.length
         ? this.allChartMetadata.set(metadataId, filtered)
         : this.allChartMetadata.delete(metadataId);
@@ -135,6 +121,122 @@ export class InstantiatedChartStorage {
         ? this.chartGroupsByMetadataId.set(metadataId, filtered)
         : this.chartGroupsByMetadataId.delete(metadataId);
     }
+  }
+
+  /**
+   * Extract data points for a specific metadata from a group's data array.
+   * @private
+   */
+  private _extractDataPoints(
+    data: NativeDataPoint[], 
+    metadataId: string
+  ): NativeDataPoint[] {
+    const result: NativeDataPoint[] = [];
+    for (let i = 0; i < data.length; i++) {
+      const dp = data[i];
+      if (dp[metadataId] !== undefined) {
+        result.push({ time: dp.time, [metadataId]: dp[metadataId] });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Collect data points for a metadata across multiple groups and merge by time.
+   * @private
+   */
+  private _collectAndMergeDataPoints(
+    groups: ChartGroup[], 
+    metadataId: string
+  ): NativeDataPoint[] {
+    const timeValueMap = new Map<number, any>();
+
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
+      for (let j = 0; j < group.data.length; j++) {
+        const dp = group.data[j];
+        if (dp[metadataId] !== undefined) {
+          timeValueMap.set(dp.time, dp[metadataId]);
+        }
+      }
+    }
+
+    if (timeValueMap.size === 0) return [];
+
+    const result: NativeDataPoint[] = [];
+    timeValueMap.forEach((value, time) => {
+      result.push({ time, [metadataId]: value });
+    });
+    result.sort((a, b) => a.time - b.time);
+    return result;
+  }
+
+  removeChartGroup(groupId: string): boolean {
+    const group = this.allChartGroups.get(groupId);
+    if (!group) return false;
+
+    // Clean up metadata registrations without calling removeChartMetadataFromGroup
+    const metadataIds = Object.keys(group.metadataDict);
+    for (let i = 0; i < metadataIds.length; i++) {
+      this._cleanupMetadataRegistration(metadataIds[i], groupId);
+    }
+
+    this.allChartGroups.delete(groupId);
+    this._pushMap.delete(groupId);
+    return true;
+  }
+
+  /**
+   * Remove chart metadata from a specific group.
+   * @param metadataId The ID of the metadata to remove.
+   * @param groupId The ID of the group to remove from.
+   * @param options Options for the removal process.
+   *  - persistData: If true, the data points associated with the metadata will be retained (set to undefined). Default is false.
+   *  - returnData: If true, the data points associated with the removed metadata will be returned. Default is false.
+   * @returns The removed data points if returnData is true, otherwise null.
+   */
+  removeChartMetadataFromGroup(metadataId: string, groupId: string, options?: {
+    persistData?: boolean;
+    returnData?: boolean;
+  }): NativeDataPoint[] | null {
+    const { persistData = false, returnData = false } = options || {};
+    const group = this.allChartGroups.get(groupId);
+
+    if (!group || !(metadataId in group.metadataDict)) {
+      return null;
+    }
+
+    let result: NativeDataPoint[] | null = null;
+
+    // Handle data removal/collection
+    if (Object.keys(group.metadataDict).length === 1) {
+      // If this is the only metadata in the group, remove the entire group
+      if (returnData) {
+        result = this._extractDataPoints(group.data, metadataId);
+      }
+      this.removeChartGroup(groupId);
+      return result;
+    }
+
+    // Extract data if needed before modifying
+    if (returnData) {
+      result = this._extractDataPoints(group.data, metadataId);
+    }
+
+    // Remove metadata from group
+    delete group.metadataDict[metadataId];
+
+    // Remove data points if not persisting
+    if (!persistData) {
+      for (let i = 0; i < group.data.length; i++) {
+        delete group.data[i][metadataId];
+      }
+    }
+
+    // Clean up metadata registrations
+    this._cleanupMetadataRegistration(metadataId, groupId);
+
+    return result;
   }
 
   /**
@@ -154,29 +256,32 @@ export class InstantiatedChartStorage {
     const groups = this.chartGroupsByMetadataId.get(metadataId);
     if (!groups?.length) return null;
 
-    const rawResult: Map<number, number> = new Map();
-    for (const group of groups) {
-      if (Object.keys(group.metadataDict).length === 1) {
-        this.removeChartGroup(group.id);
-      } else {
-        delete group.metadataDict[metadataId];
-        for (const dp of group.data) {
-          if (returnData && dp[metadataId] !== undefined) {
-            rawResult.set(dp.time, dp[metadataId]);
-          }
-          if (!persistData) {
-            delete dp[metadataId];
-          }
-        }
-      }
-    }
-    this.chartGroupsByMetadataId.delete(metadataId);
-    this.allChartMetadata.delete(metadataId);
-    const result: NativeDataPoint[] = Array.from(rawResult.entries()).map(([time, value]) => ({ time, [metadataId]: value }));
+    // If returnData, collect data before removal
+    let result: NativeDataPoint[] | null = null;
     if (returnData) {
-      result.sort((a, b) => a.time - b.time);
+      result = this._collectAndMergeDataPoints(groups, metadataId);
     }
-    return result;
+
+    // Copy to avoid mutation during iteration
+    const groupsToRemove = [...groups];
+    for (let i = 0; i < groupsToRemove.length; i++) {
+      this.removeChartMetadataFromGroup(metadataId, groupsToRemove[i].id, { persistData, returnData: false });
+    }
+
+    return returnData ? result : [];
+  }
+
+  /**
+   * Get all data points associated with a specific metadata.
+   * @param metadataId The ID of the metadata to retrieve data for.
+   * @returns An array of data points containing the metadata, sorted by time. Returns null if the metadata does not exist.
+   */
+  getChartData(metadataId: string): NativeDataPoint[] | null {
+    const groups = this.chartGroupsByMetadataId.get(metadataId);
+    if (!groups?.length) return null;
+
+    const result = this._collectAndMergeDataPoints(groups, metadataId);
+    return result.length > 0 ? result : null;
   }
 
   getAllChartIds(): string[] {
