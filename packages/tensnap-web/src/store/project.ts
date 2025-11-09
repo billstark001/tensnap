@@ -87,6 +87,7 @@ export interface ProjectStore {
   open: (filepath: string, indexHint?: number) => Promise<void>;
   save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
+  changeUrl: (index: number, newUrl: string) => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -176,12 +177,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const project = projects[targetIndex];
     const scenarioStore = project.useScenarioStore.getState();
-    const url = project.useWebSocketStore.getState().url ?? '';
+    const url = project.useWebSocketStore.getState().url;
 
     const projectFile: ProjectFileContent = {
       mainView: scenarioStore.mainView,
       scenario: scenarioStore.dump(),
-      url: typeof url === 'string' ? url : 'ws://fake-url',
+      url: url ?? 'ws://localhost:5678', // 提供默认值
     };
 
     const basePath = saveAsPath ?? project.filepath;
@@ -195,7 +196,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const fileSystemState = getFileSystemState();
     const content = saveFormat === 'msgpack'
       ? (checkMsgpackCompatibility(projectFile), uint8ArrayToArrayBuffer(encode(projectFile)))
-      : JSON.stringify(projectFile);
+      : JSON.stringify(projectFile, null, 2); // 添加格式化以提高可读性
 
     await fileSystemState.writeFile(filepath, content);
     console.log('Project saved to', filepath);
@@ -221,5 +222,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         : null;
 
     setActive(newActiveIndex);
+  },
+
+  async changeUrl(index, newUrl) {
+    const { projects } = get();
+
+    if (index < 0 || index >= projects.length) {
+      throw new Error("Invalid project index");
+    }
+
+    const project = projects[index];
+    const scenarioState = project.useScenarioStore.getState().dump();
+    const stateSyncRequest = createStateSyncRequestFromStore(scenarioState);
+
+    // 使用 WebSocket store 的 changeUrl 方法
+    await project.useWebSocketStore.getState().changeUrl(newUrl, stateSyncRequest);
+    
+    // 更新项目的 URL 属性
+    project.url = newUrl;
   },
 }));

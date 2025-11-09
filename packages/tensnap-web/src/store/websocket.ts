@@ -3,7 +3,7 @@ import { ScenarioStore } from './scenario/store';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import { StateSyncRequest, WSMessage } from '@/types/api';
-import { registerEventHandlers } from './scenario/scenario-ws';
+import { registerEventHandlers, unregisterEventHandlers } from './scenario/scenario-ws';
 import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, WebSocketManagerFake } from '@/websocket';
 
 
@@ -21,12 +21,16 @@ export interface WebSocketStore {
   connectionError: string | null;
   abortController: AbortController | null;
 
+  // Computed
+  isConnected: () => boolean;
+
   // Actions
   initialize: (url: string, state?: StateSyncRequest) => Promise<void>;
   sendMessage: <T = any>(message: WSMessage<T>) => void;
   requestStateSync: (currentState?: StateSyncRequest) => void;
   disconnect: () => void;
   reconnect: (state?: StateSyncRequest) => Promise<void>;
+  changeUrl: (newUrl: string, state?: StateSyncRequest) => Promise<void>;
   destroy: () => void;
   abortConnection: () => void;
 }
@@ -41,6 +45,11 @@ export const createWebSocketStore = (
   connectionError: null,
   abortController: null,
 
+  isConnected: () => {
+    const { wsManager } = get();
+    return wsManager?.isConnected ?? false;
+  },
+
   initialize: async (url: string, state?: StateSyncRequest) => {
     const { wsManager: currentManager, abortController: currentAbort } = get();
 
@@ -49,9 +58,10 @@ export const createWebSocketStore = (
       currentAbort.abort();
     }
 
-    // 如果已经有连接，先断开
+    // 如果已经有连接，先断开并清理
     if (currentManager) {
-      currentManager.disconnect();
+      unregisterEventHandlers(currentManager);
+      currentManager.destroy();
     }
 
     // 创建新的 AbortController 用于这次连接
@@ -71,9 +81,14 @@ export const createWebSocketStore = (
         connectionError: null,
         abortController: null // 连接成功后清理 AbortController
       });
-      // 设置连接状态并请求初始状态
       useScenarioStore.getState().setConnected(true);
-      wsManager.send({ type: 'state_sync', payload: state ?? createEmptyStateSyncRequest()});
+      const stateCount = (state?.environments.length ?? 0)
+        + (state?.parameters.length ?? 0)
+        + (state?.charts.length ?? 0);
+      if (stateCount == 0) {
+        // 如果没有提供状态，则请求完整同步
+        wsManager.send({ type: 'state_sync', payload: createEmptyStateSyncRequest() });
+      }
     };
 
     wsManager.on(wsConnected, onConnected);
@@ -93,7 +108,9 @@ export const createWebSocketStore = (
       await wsManager.connect(abortController.signal);
       // 检查在连接过程中是否被中断
       if (abortController.signal.aborted) {
+        unregisterEventHandlers(wsManager);
         wsManager.destroy();
+        set({ wsManager: null });
         throw new Error('Connection was aborted');
       }
       onConnected();
@@ -106,7 +123,16 @@ export const createWebSocketStore = (
         abortController: null
       });
       useScenarioStore.getState().setConnected(false);
-      if (!(error instanceof WebSocketConnectionError)) {
+
+      // 对于连接错误，保留 wsManager 以允许自动重连
+      // 对于其他错误（如中止），清理所有资源
+      if (error instanceof WebSocketConnectionError) {
+        // WebSocketConnectionError 表示初始连接失败，但 wsManager 会自动重连
+        // 保留 wsManager，不清理
+        console.log(`${wsManager.id}: Initial connection failed, will auto-reconnect`);
+      } else {
+        // 其他错误，清理资源并抛出
+        unregisterEventHandlers(wsManager);
         wsManager.destroy();
         set({ wsManager: null });
         throw error;
@@ -138,6 +164,7 @@ export const createWebSocketStore = (
     }
 
     if (wsManager) {
+      unregisterEventHandlers(wsManager);
       wsManager.destroy();
       set({ wsManager: null });
       useScenarioStore.getState().setConnected(false);
@@ -146,9 +173,34 @@ export const createWebSocketStore = (
 
   reconnect: async (state?: StateSyncRequest) => {
     const { url } = get();
-    if (url) {
-      await get().initialize(url, state);
+    if (!url) return;
+
+    // 如果没有提供状态，尝试从当前 scenario store 获取
+    let currentState = state;
+    if (!currentState) {
+      const scenarioState = useScenarioStore.getState().dump();
+      const { parameters = [], environments = [], charts = [] } = scenarioState;
+      currentState = {
+        parameters,
+        environments: environments.map(({ agents, ...rest }) => rest),
+        charts: charts.flatMap(group => Object.values(group.metadataDict)),
+      };
     }
+    await get().initialize(url, currentState);
+  },
+
+  /**
+   * 更改 WebSocket URL 并重新连接
+   */
+  changeUrl: async (newUrl: string, state?: StateSyncRequest) => {
+    const { url: currentUrl } = get();
+    if (currentUrl === newUrl) return;
+
+    // 断开当前连接
+    get().disconnect();
+
+    // 使用新 URL 初始化连接
+    await get().initialize(newUrl, state);
   },
 
   /**
@@ -164,6 +216,7 @@ export const createWebSocketStore = (
 
     // 销毁 WebSocket 管理器
     if (wsManager) {
+      unregisterEventHandlers(wsManager);
       wsManager.destroy();
     }
 

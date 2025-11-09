@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import * as Dialog from '@/components/ui/Dialog';
 import * as Switch from '@radix-ui/react-switch';
 import * as Select from '@radix-ui/react-select';
 import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
+import { useProjectStore } from '@/store/project';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
@@ -33,25 +34,55 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     setLocale,
   } = useSettingsStore();
 
+  const { activeProject, activeIndex, changeUrl } = useProjectStore();
+
   // Project settings local state
-  const [backendUrl, setBackendUrl] = useState('http://localhost:5678');
+  const [backendUrl, setBackendUrl] = useState('');
   const [hasProjectChanges, setHasProjectChanges] = useState(false);
+
+  // 同步当前项目的 URL
+  useEffect(() => {
+    if (activeProject) {
+      const currentUrl = activeProject.useWebSocketStore.getState().url || '';
+      setBackendUrl(currentUrl);
+      setHasProjectChanges(false);
+    } else {
+      setBackendUrl('');
+      setHasProjectChanges(false);
+    }
+  }, [activeProject]);
 
   const handleBackendUrlChange = useCallback((value: string) => {
     setBackendUrl(value);
-    setHasProjectChanges(true);
-  }, []);
+    const currentUrl = activeProject?.useWebSocketStore.getState().url || '';
+    setHasProjectChanges(value !== currentUrl);
+  }, [activeProject]);
 
-  const handleProjectSettingsConfirm = useCallback(() => {
-    // TODO: Implementation for actual project settings save logic
-    toast.info('Save project settings', `Backend URL: ${backendUrl}`);
-    setHasProjectChanges(false);
-  }, [backendUrl, toast]);
+  const handleProjectSettingsConfirm = useCallback(async () => {
+    if (!activeProject || activeIndex === null) {
+      toast.error(_(msg`No active project`));
+      return;
+    }
+
+    try {
+      await changeUrl(activeIndex, backendUrl);
+      toast.success(_(msg`Project URL updated successfully`));
+      setHasProjectChanges(false);
+    } catch (error) {
+      toast.error(_(msg`Failed to update project URL`), error instanceof Error ? error.message : String(error));
+      console.error('Failed to update project URL:', error);
+    }
+  }, [activeIndex, backendUrl, changeUrl, toast, _, activeProject]);
 
   const handleProjectSettingsReset = useCallback(() => {
-    setBackendUrl('http://localhost:5678');
+    if (activeProject) {
+      const currentUrl = activeProject.useWebSocketStore.getState().url || '';
+      setBackendUrl(currentUrl);
+    } else {
+      setBackendUrl('');
+    }
     setHasProjectChanges(false);
-  }, []);
+  }, [activeProject]);
 
   const handleLocaleChange = useCallback(async (newLocale: string) => {
     if (!isValidLocale(newLocale)) {
@@ -137,39 +168,44 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         <Dialog.Separator />
 
         {/* Project Settings */}
-        <div className={styles.sectionContainer}>
-          <h3 className={styles.sectionTitle}><Trans>Project Settings</Trans></h3>
+        {activeProject && (
+          <div className={styles.sectionContainer}>
+            <h3 className={styles.sectionTitle}><Trans>Project Settings</Trans></h3>
 
-          <div className={styles.projectSettingsContainer}>
-            <div className={styles.projectSettingsForm}>
-              <Form.FieldSet>
-                <Form.Label><Trans>Backend URL</Trans></Form.Label>
-                <Form.Input
-                  type="text"
-                  value={backendUrl}
-                  onChange={(e) => handleBackendUrlChange(e.target.value)}
-                  placeholder={_(msg`Enter backend WebSocket server address`)}
-                />
-              </Form.FieldSet>
-            </div>
+            <div className={styles.projectSettingsContainer}>
+              <div className={styles.projectSettingsForm}>
+                <Form.FieldSet>
+                  <Form.Label><Trans>Backend URL</Trans></Form.Label>
+                  <Form.Input
+                    type="text"
+                    value={backendUrl}
+                    onChange={(e) => handleBackendUrlChange(e.target.value)}
+                    placeholder={_(msg`Enter backend WebSocket server address`)}
+                  />
+                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
+                    <Trans>Change the WebSocket server URL for the current project. The connection will be reestablished.</Trans>
+                  </div>
+                </Form.FieldSet>
+              </div>
 
-            <div className={styles.projectSettingsFooter}>
-              <Dialog.Button
-                onClick={handleProjectSettingsReset}
-                disabled={!hasProjectChanges}
-              >
-                <Trans>Reset</Trans>
-              </Dialog.Button>
-              <Dialog.Button
-                variant="primary"
-                onClick={handleProjectSettingsConfirm}
-                disabled={!hasProjectChanges}
-              >
-                <Trans>Confirm Changes</Trans>
-              </Dialog.Button>
+              <div className={styles.projectSettingsFooter}>
+                <Dialog.Button
+                  onClick={handleProjectSettingsReset}
+                  disabled={!hasProjectChanges}
+                >
+                  <Trans>Reset</Trans>
+                </Dialog.Button>
+                <Dialog.Button
+                  variant="primary"
+                  onClick={handleProjectSettingsConfirm}
+                  disabled={!hasProjectChanges}
+                >
+                  <Trans>Apply</Trans>
+                </Dialog.Button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <Dialog.Footer>

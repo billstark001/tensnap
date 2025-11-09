@@ -1,6 +1,11 @@
 import { useScenarioStore } from '@/store/scenario/store';
+import { useWebSocketStore } from '@/store/websocket';
+import { useToast } from '@/store/toast';
 import { Trans } from '@lingui/react/macro';
-import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose } from 'lucide-react';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw } from 'lucide-react';
+import { useState, useCallback } from 'react';
 
 import * as styles from './StatusBar.css';
 
@@ -17,8 +22,43 @@ export function StatusBar({
   rightPanelVisible = true,
   bottomPanelVisible = true,
 }: StatusBarProps) {
+  const { _ } = useLingui();
+  const toast = useToast();
   const connected = useScenarioStore((store) => store.connected);
   const currentTime = useScenarioStore((store) => store.currentTime);
+  const websocketStore = useWebSocketStore();
+  
+  const [isReconnecting, setIsReconnecting] = useState(false);
+
+  const reconnect = websocketStore?.reconnect;
+  const isConnecting = websocketStore?.isConnecting ?? false;
+
+  const handleReconnect = useCallback(async () => {
+    if (isReconnecting || isConnecting || !reconnect || !websocketStore) return;
+    
+    setIsReconnecting(true);
+    try {
+      await reconnect();
+      
+      // 等待一小段时间让连接状态更新
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 检查实际的连接状态
+      const isNowConnected = websocketStore.isConnected();
+      
+      if (isNowConnected) {
+        toast.success(_(msg`Reconnected successfully`));
+      } else {
+        // 连接失败，但会自动重试
+        toast.info(_(msg`Connection failed, will retry automatically`));
+      }
+    } catch (error) {
+      toast.error(_(msg`Failed to reconnect`), error instanceof Error ? error.message : String(error));
+      console.error('Reconnection failed:', error);
+    } finally {
+      setIsReconnecting(false);
+    }
+  }, [reconnect, isReconnecting, isConnecting, websocketStore, toast, _]);
 
   return (
     <div className={styles.statusBar}>
@@ -28,11 +68,37 @@ export function StatusBar({
       <span style={{ marginLeft: '16px' }}><Trans>Time Step:</Trans> {currentTime}</span>
       
       <div className={styles.buttonGroup}>
+        <button
+          onClick={handleReconnect}
+          className={styles.toggleButton}
+          disabled={isReconnecting || isConnecting}
+          title={_(msg`Force reconnect to server`)}
+          style={{
+            opacity: (isReconnecting || isConnecting) ? 0.5 : 1,
+            cursor: (isReconnecting || isConnecting) ? 'not-allowed' : 'pointer',
+          }}
+        >
+          <RefreshCw 
+            size={16}
+            className={isReconnecting || isConnecting ? 'spinning-icon' : ''}
+          />
+          <span><Trans>Reconnect</Trans></span>
+        </button>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .spinning-icon {
+            animation: spin 1s linear infinite;
+          }
+        `}</style>
+        
         {onToggleRightPanel && (
           <button
             onClick={onToggleRightPanel}
             className={styles.toggleButton}
-            title={rightPanelVisible ? 'Hide Right Panel' : 'Show Right Panel'}
+            title={rightPanelVisible ? _(msg`Hide Right Panel`) : _(msg`Show Right Panel`)}
           >
             {rightPanelVisible ? <PanelRightClose size={16} /> : <PanelRight size={16} />}
           </button>
@@ -41,7 +107,7 @@ export function StatusBar({
           <button
             onClick={onToggleBottomPanel}
             className={styles.toggleButton}
-            title={bottomPanelVisible ? 'Hide Bottom Panel' : 'Show Bottom Panel'}
+            title={bottomPanelVisible ? _(msg`Hide Bottom Panel`) : _(msg`Show Bottom Panel`)}
           >
             {bottomPanelVisible ? <PanelBottomClose size={16} /> : <PanelBottom size={16} />}
           </button>

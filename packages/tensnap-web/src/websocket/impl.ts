@@ -97,7 +97,8 @@ export class WebSocketManagerImpl implements WebSocketManager {
           if (!promiseFinished) {
             promiseFinished = true;
             resolve();
-          } else if (!this.isDestroyed) {
+          } 
+          if (!this.isDestroyed) {
             this.messageHandlers.get(wsConnected)?.(event);
           }
         };

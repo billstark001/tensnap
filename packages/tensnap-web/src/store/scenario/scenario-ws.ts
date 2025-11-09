@@ -3,10 +3,26 @@ import { ScenarioStore, SetDataPayload } from "./store";
 import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartUpdatePayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload } from "@/types/api";
 import { StoreApi, UseBoundStore } from "zustand";
 
+/**
+ * Cleanup function to remove all event handlers
+ */
+export function unregisterEventHandlers(wsManager: WebSocketManager) {
+  wsManager.off('time_step_start');
+  wsManager.off('time_step_end');
+  wsManager.off('environment_update');
+  wsManager.off('agent_update');
+  wsManager.off('agent_batch_update');
+  wsManager.off('state_sync');
+  wsManager.off('chart_update');
+  wsManager.off('log');
+}
+
 export function registerEventHandlers(
   wsManager: WebSocketManager,
   useStore: UseBoundStore<StoreApi<ScenarioStore>>,
 ) {
+  // Clear any existing handlers first to prevent duplicates
+  unregisterEventHandlers(wsManager);
   wsManager.on('time_step_start', (payload: TimeStepStartPayload) => {
     useStore.getState().setCurrentTime(payload.time, true);
   });
