@@ -4,7 +4,7 @@ import { Providers } from './Providers';
 import { App } from './App';
 
 import './styles/global.css';
-import { InBrowserFilePicker, registerFakeModels } from 'tensnap-web-utils';
+import { InBrowserFilePicker, createSchellingSimulation } from 'tensnap-web-utils';
 import { WebSocketManagerFake } from './websocket/fake';
 import { initI18n, detectLocale, isValidLocale } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
@@ -16,7 +16,7 @@ if (!window.structuredClone) {
 }
 
 // Register fake models for development/testing
-registerFakeModels(WebSocketManagerFake);
+WebSocketManagerFake.setGlobalOptions('fake:schelling', createSchellingSimulation() as any);
 
 const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
 const initialTheme = savedTheme || 'light';

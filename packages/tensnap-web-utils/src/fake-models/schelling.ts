@@ -14,6 +14,10 @@ export interface WSMessage<T = any> {
 }
 
 export interface FakeWebSocketOptions {
+  metadata?: {
+    name: string;
+    description: string;
+  },
   onMessage?: (message: WSMessage) => void;
   onSendMessageFuncReady?: (sendFunc: (message: WSMessage) => void, wsManager: any) => void;
   connectDelay?: number;
@@ -481,5 +485,10 @@ export function createSchellingSimulation(config?: Partial<SchellingConfig>): Fa
     },
 
     connectDelay: 100,
+
+    metadata: {
+      name: 'Schelling Segregation Model',
+      description: 'Demonstrates how individual preferences for similar neighbors lead to large-scale segregation patterns.',
+    },
   };
 }

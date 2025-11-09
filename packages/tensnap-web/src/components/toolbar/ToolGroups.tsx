@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   FileText,
@@ -16,7 +15,6 @@ import {
   Edit,
   Wrench,
   TimerReset,
-  Beaker,
   Moon,
   Sun,
   RefreshCcw,
@@ -28,8 +26,7 @@ import { useScenarioUndoRedoStore } from '@/store/undo-redo';
 import { useFileOperations } from './useFileOperations';
 
 import { ToolButton } from './ToolButton';
-import { createStateSyncRequestFromStore, useProjectStore } from '@/store/project';
-import { useFakeModelPicker } from 'tensnap-web-utils';
+import { createStateSyncRequestFromStore } from '@/store/project';
 import { useSettingsStore } from '@/store/settings';
 import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import { AboutDialog } from '@/dialogs/AboutDialog';
@@ -42,21 +39,9 @@ const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
   </div>
 };
 
-const SHOW_LOAD_FAKE_MODEL_BUTTON = true;
 
 export function FileOperationTools() {
   const { canSaveFile, onNewFile, onFileOpen, onFileSave } = useFileOperations();
-
-  const { pickModel } = useFakeModelPicker();
-
-  const createNewProject = useProjectStore((store) => store.new);
-
-  const onLoadFakeModel = useCallback(async () => {
-    const result = await pickModel();
-    if (!result.cancelled && result.model) {
-      createNewProject(result.model.url);
-    }
-  }, [pickModel, createNewProject]);
 
   return (
     <ToolGroupContainer>
@@ -65,22 +50,7 @@ export function FileOperationTools() {
         tooltip="New File"
         onClick={onNewFile}
       />
-      {SHOW_LOAD_FAKE_MODEL_BUTTON && <Tooltip.Root>
-        <Tooltip.Trigger asChild>
-          <button
-            onClick={onLoadFakeModel}
-            className={styles.toolButton}
-            aria-label="Load Fake Model"
-          >
-            <Beaker size={16} />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content className={styles.tooltipContent}>
-            Load Fake Model
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>}
+
       <ToolButton
         icon={<FolderOpen size={16} />}
         tooltip="Open File"

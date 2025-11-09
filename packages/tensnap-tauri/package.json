@@ -14,9 +14,10 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",
-    "tensnap-web": "workspace:*",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "tauri": "link:@tauri-apps/api/tauri",
+    "tensnap-web": "workspace:*"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.3",

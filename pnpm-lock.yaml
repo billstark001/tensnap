@@ -55,6 +55,9 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
+      tauri:
+        specifier: link:@tauri-apps/api/tauri
+        version: link:@tauri-apps/api/tauri
       tensnap-web:
         specifier: workspace:*
         version: link:../tensnap-web

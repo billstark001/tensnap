@@ -3,6 +3,12 @@ import { WebSocketConnectionState, WebSocketManager } from "./types";
 import { wsConnected, wsDisconnected } from "./constants";
 
 export interface FakeWebSocketOptions {
+
+  metadata?: {
+    name: string;
+    description: string;
+  },
+
   /**
    * 当WebSocketManagerFake发送消息时调用的函数
    * @param message 发送的消息
@@ -18,6 +24,12 @@ export interface FakeWebSocketOptions {
   connectDelay?: number;
 }
 
+export interface FakeModelInfo {
+  url: string;
+  name: string;
+  description: string;
+}
+
 export class WebSocketManagerFake implements WebSocketManager {
   
   static readonly WEBSOCKET_FAKE_PROTOCOL = 'fake:';
@@ -27,7 +39,21 @@ export class WebSocketManagerFake implements WebSocketManager {
     if (url.startsWith(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL)) {
       url = url.slice(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL.length);
     }
-    WebSocketManagerFake.globalOptions.set(url, options);
+    const optionsToRegister = {
+      ...options,
+    };
+    if (!optionsToRegister.metadata) {
+      optionsToRegister.metadata = {
+        name: url,
+        description: 'No description available.',
+      };
+    } else {
+      optionsToRegister.metadata = {
+        name: options.metadata!.name || url,
+        description: options.metadata!.description || 'No description available.',
+      };
+    }
+    WebSocketManagerFake.globalOptions.set(url, optionsToRegister);
   }
 
   static getGlobalOptions(url: string): FakeWebSocketOptions | undefined {
@@ -35,6 +61,18 @@ export class WebSocketManagerFake implements WebSocketManager {
       url = url.slice(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL.length);
     }
     return WebSocketManagerFake.globalOptions.get(url);
+  }
+
+  static listRegisteredModels(): FakeModelInfo[] {
+    const models: FakeModelInfo[] = [];
+    for (const [url, options] of WebSocketManagerFake.globalOptions) {
+      models.push({
+        url: `${WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL}${url}`,
+        name: options.metadata?.name || url,
+        description: options.metadata?.description || 'No description available.',
+      });
+    }
+    return models;
   }
 
   static createFromGlobalOptions(id: string | null, url: string): WebSocketManagerFake {
