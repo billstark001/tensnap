@@ -185,7 +185,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       // 1. remove charts
       for (const chartId of removedChartIdsSet) {
         newCharts.removeChartGroup(chartId)
-          || newCharts.removeChartGroupsByMetadata(chartId);
+          || newCharts.removeChartMetadata(chartId);
       }
       // 2. commit chart group changes
       for (const chartGroupMeta of chartGroupMetadata) {
@@ -268,6 +268,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateParameterProps: (id, propsUpdate) => {
+    console.log('updateParameterProps', id, propsUpdate);
     set((state) => ({
       parameters: state.parameters.map((param) =>
         param.id === id ? { ...param, ...propsUpdate as any } : param
@@ -276,6 +277,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateChartProps: (id, propsUpdate) => {
+    console.log('updateChartProps', id, propsUpdate);
     // TODO implement this
   },
 

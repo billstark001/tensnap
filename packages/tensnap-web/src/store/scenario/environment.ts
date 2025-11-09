@@ -15,19 +15,19 @@ export interface InstantiatedEnvironment {
 
 export interface InstantiatedGridEnvironment extends InstantiatedEnvironment {
   type: 'grid';
-  props: Omit<PureGridEnvironment, 'type' | 'id'>;
+  props: PureGridEnvironment;
   agents: Record<AgentId, GridAgent>;
 }
 
 export interface InstantiatedGraphEnvironment extends InstantiatedEnvironment {
   type: 'graph';
-  props: Omit<PureGraphEnvironment, 'type' | 'id'>;
+  props: PureGraphEnvironment;
   agents: Record<AgentId, GraphAgent>;
 }
 
 export interface InstantiatedUniformEnvironment extends InstantiatedEnvironment {
   type: 'uniform';
-  props: Omit<PureUniformEnvironment, 'type' | 'id'>;
+  props: PureUniformEnvironment;
   agents: Record<AgentId, UniformAgent>;
 }
 

@@ -1,12 +1,10 @@
 import { ChartGroupMetadata, ChartGroup, ChartMetadata, NativeDataPoint, ChartUpdateData } from "@/types/model";
 
 export function instantiateChartMetadata(meta: ChartGroupMetadata): ChartGroup {
-  const metadataDict: Record<string, ChartMetadata> = meta.dataList?.length
-    ? meta.dataList.reduce((dict, m) => {
-      dict[m.id] = m;
-      return dict;
-    }, {} as Record<string, ChartMetadata>)
+  const metadataDict = meta.dataList?.length
+    ? Object.fromEntries(meta.dataList.map(m => [m.id, m]))
     : { [meta.id]: meta };
+
   return {
     id: meta.id,
     label: meta.label,
@@ -16,35 +14,26 @@ export function instantiateChartMetadata(meta: ChartGroupMetadata): ChartGroup {
 }
 
 export function createCsvContent(chartGroup: ChartGroup): string {
-  const { metadataDict: metadataList, data } = chartGroup;
-  const chartIds = Object.keys(metadataList);
+  const { metadataDict, data } = chartGroup;
+  const chartIds = Object.keys(metadataDict);
 
   const header = ['time', ...chartIds].join(',');
-  const rows = data.map(dp => {
-    const row = [dp.time.toString()];
-    for (const chartId of chartIds) {
-      row.push(dp[chartId] !== undefined ? dp[chartId].toString() : '');
-    }
-    return row.join(',');
-  });
+  const rows = data.map(dp =>
+    [dp.time, ...chartIds.map(id => dp[id] ?? '')].join(',')
+  );
 
-  rows.unshift(header);
-
-  return rows.join('\n');
+  return [header, ...rows].join('\n');
 }
 
 export class InstantiatedChartStorage {
-
-  readonly allChartGroups: Map<string, ChartGroup> = new Map();
-  readonly allChartMetadata: Map<string, ChartMetadata[]> = new Map();
+  readonly allChartGroups = new Map<string, ChartGroup>();
+  readonly allChartMetadata = new Map<string, ChartMetadata[]>();
   readonly chartGroupsByMetadataId = new Map<string, ChartGroup[]>();
 
-  private readonly _pushMap: Map<string, Map<number, NativeDataPoint>> = new Map();
+  private readonly _pushMap = new Map<string, Map<number, NativeDataPoint>>();
 
   constructor(groups: ChartGroup[]) {
-    for (const group of groups) {
-      this.addChartGroup(group);
-    }
+    groups.forEach(group => this.addChartGroup(group));
   }
 
   getGroups(): ChartGroup[] {
@@ -53,113 +42,141 @@ export class InstantiatedChartStorage {
 
   shallowCopy(): InstantiatedChartStorage {
     const newStorage = new InstantiatedChartStorage([]);
-    for (const [groupId, group] of this.allChartGroups.entries()) {
-      newStorage.allChartGroups.set(groupId, group);
-      newStorage._pushMap.set(groupId, new Map());
-    }
-    for (const [chartId, metadataList] of this.allChartMetadata.entries()) {
-      newStorage.allChartMetadata.set(chartId, metadataList);
-    }
-    for (const [groupId, groupList] of this.chartGroupsByMetadataId.entries()) {
-      newStorage.chartGroupsByMetadataId.set(groupId, groupList);
-    }
+    this.allChartGroups.forEach((group, id) => {
+      newStorage.allChartGroups.set(id, group);
+      newStorage._pushMap.set(id, new Map());
+    });
+    this.allChartMetadata.forEach((list, id) =>
+      newStorage.allChartMetadata.set(id, list)
+    );
+    this.chartGroupsByMetadataId.forEach((list, id) =>
+      newStorage.chartGroupsByMetadataId.set(id, list)
+    );
     return newStorage;
   }
 
-  addChartGroup(group: ChartGroup, upsert: boolean = false) {
-    let newGroup = group;
-    let addedMetadataIds = new Set<string>(Object.keys(group.metadataDict));
-    // merge with existing group if overwrite is true
-    if (upsert && this.allChartGroups.has(group.id)) {
-      const existingGroup = this.allChartGroups.get(group.id)!;
+  addChartGroup(group: ChartGroup, upsert = false) {
+    const existingGroup = this.allChartGroups.get(group.id);
+
+    if (upsert && existingGroup) {
       existingGroup.label = group.label;
-      const existingMetadataIds = new Set(Object.keys(existingGroup.metadataDict));
-      for (const metadataId in group.metadataDict) {
-        if (!existingMetadataIds.has(metadataId)) {
-          existingGroup.metadataDict[metadataId] = group.metadataDict[metadataId];
-        } else {
-          addedMetadataIds.delete(metadataId);
+      const newMetadataIds = new Set<string>();
+
+      Object.entries(group.metadataDict).forEach(([id, meta]) => {
+        if (!(id in existingGroup.metadataDict)) {
+          existingGroup.metadataDict[id] = meta;
+          newMetadataIds.add(id);
         }
-      }
+      });
+
       existingGroup.data.push(...group.data);
-      newGroup = existingGroup;
+      this._registerMetadata(newMetadataIds, existingGroup);
+    } else {
+      this.allChartGroups.set(group.id, group);
+      this._registerMetadata(new Set(Object.keys(group.metadataDict)), group);
+      this._pushMap.set(group.id, new Map());
     }
-    this.allChartGroups.set(group.id, newGroup);
-    // maintain metadata maps
-    for (const metadata of addedMetadataIds) {
-      const meta = newGroup.metadataDict[metadata];
+  }
 
-      const existing = this.allChartMetadata.get(meta.id) || [];
-      existing.push(meta);
-      this.allChartMetadata.set(meta.id, existing);
+  private _registerMetadata(metadataIds: Set<string>, group: ChartGroup) {
+    metadataIds.forEach(id => {
+      const meta = group.metadataDict[id];
 
-      const existingGroups = this.chartGroupsByMetadataId.get(meta.id) || [];
-      existingGroups.push(group);
-      this.chartGroupsByMetadataId.set(meta.id, existingGroups);
-    }
+      const metaList = this.allChartMetadata.get(id) ?? [];
+      metaList.push(meta);
+      this.allChartMetadata.set(id, metaList);
 
-    this._pushMap.set(group.id, new Map());
+      const groupList = this.chartGroupsByMetadataId.get(id) ?? [];
+      groupList.push(group);
+      this.chartGroupsByMetadataId.set(id, groupList);
+    });
   }
 
   upsertChartMetadata(metadata: ChartMetadata) {
-    const existingMetadata = this.allChartMetadata.get(metadata.id) || [];
-    if (existingMetadata.length === 0) {
+    const existing = this.allChartMetadata.get(metadata.id);
+
+    if (!existing?.length) {
       this.addChartGroup(instantiateChartMetadata(metadata));
-      return;
     } else {
-      for (const meta of existingMetadata) {
-        Object.assign(meta, metadata);
-      }
+      existing.forEach(meta => Object.assign(meta, metadata));
     }
   }
 
-  removeChartGroup(groupId: string) {
+  removeChartGroup(groupId: string): boolean {
     const group = this.allChartGroups.get(groupId);
     if (!group) return false;
-    for (const metadata in group.metadataDict) {
-      const meta = group.metadataDict[metadata];
-      const existing = this.allChartMetadata.get(meta.id);
-      if (existing) {
-        const filtered = existing.filter(m => m.id !== meta.id);
-        if (filtered.length === 0) {
-          this.allChartMetadata.delete(meta.id);
-        } else {
-          this.allChartMetadata.set(meta.id, filtered);
-        }
-      }
-      const existingGroups = this.chartGroupsByMetadataId.get(meta.id);
-      if (existingGroups) {
-        const filteredGroups = existingGroups.filter(g => g.id !== groupId);
-        if (filteredGroups.length === 0) {
-          this.chartGroupsByMetadataId.delete(meta.id);
-        } else {
-          this.chartGroupsByMetadataId.set(meta.id, filteredGroups);
-        }
-      }
-    }
+
+    Object.values(group.metadataDict).forEach(meta => {
+      this.removeChartMetadataFromGroup(meta.id, groupId);
+    });
+
     this.allChartGroups.delete(groupId);
     this._pushMap.delete(groupId);
     return true;
   }
 
-  removeChartGroupsByMetadata(metadataId: string) {
-    const groups = this.chartGroupsByMetadataId.get(metadataId);
-    if (!groups?.length) {
-      return false;
+  removeChartMetadataFromGroup(metadataId: string, groupId: string) {
+    const metaList = this.allChartMetadata.get(metadataId);
+    if (metaList) {
+      const filtered = metaList.filter(m => {
+        const groups = this.chartGroupsByMetadataId.get(m.id);
+        return groups?.some(g => g.id === groupId) === false;
+      });
+
+      filtered.length
+        ? this.allChartMetadata.set(metadataId, filtered)
+        : this.allChartMetadata.delete(metadataId);
     }
+
+    const groupList = this.chartGroupsByMetadataId.get(metadataId);
+    if (groupList) {
+      const filtered = groupList.filter(g => g.id !== groupId);
+      filtered.length
+        ? this.chartGroupsByMetadataId.set(metadataId, filtered)
+        : this.chartGroupsByMetadataId.delete(metadataId);
+    }
+  }
+
+  /**
+   * Remove chart metadata from all groups.
+   * @param metadataId The ID of the metadata to remove.
+   * @param options Options for the removal process.
+   *  - persistData: If true, the data points associated with the metadata will be retained (set to undefined). Default is false.
+   *  - returnData: If true, the data points associated with the removed metadata will be returned. Default is false.
+   * @returns An array if there are any metadata removed, otherwise null. 
+   * If `returnData` is true, returns the data points associated with the removed metadata. Else, returns an empty array.
+   */
+  removeChartMetadata(metadataId: string, options?: {
+    persistData?: boolean;
+    returnData?: boolean;
+  }): NativeDataPoint[] | null {
+    const { persistData = false, returnData = false } = options || {};
+    const groups = this.chartGroupsByMetadataId.get(metadataId);
+    if (!groups?.length) return null;
+
+    const rawResult: Map<number, number> = new Map();
     for (const group of groups) {
       if (Object.keys(group.metadataDict).length === 1) {
         this.removeChartGroup(group.id);
       } else {
         delete group.metadataDict[metadataId];
-        group.data.forEach(dp => {
-          delete dp[metadataId];
-        });
+        for (const dp of group.data) {
+          if (returnData && dp[metadataId] !== undefined) {
+            rawResult.set(dp.time, dp[metadataId]);
+          }
+          if (!persistData) {
+            delete dp[metadataId];
+          }
+        }
       }
     }
     this.chartGroupsByMetadataId.delete(metadataId);
     this.allChartMetadata.delete(metadataId);
-    return true;
+    const result: NativeDataPoint[] = Array.from(rawResult.entries()).map(([time, value]) => ({ time, [metadataId]: value }));
+    if (returnData) {
+      result.sort((a, b) => a.time - b.time);
+    }
+    return result;
   }
 
   getAllChartIds(): string[] {
@@ -167,97 +184,161 @@ export class InstantiatedChartStorage {
   }
 
   getAllChartMetadata(): ChartMetadata[] {
-    const allMetadata: ChartMetadata[] = [];
-    const metadataIdSet = new Set<string>();
-    for (const metadataList of this.allChartMetadata.values()) {
-      for (const metadata of metadataList) {
-        if (!metadataIdSet.has(metadata.id)) {
-          allMetadata.push(metadata);
-          metadataIdSet.add(metadata.id);
+    const seen = new Set<string>();
+    const result: ChartMetadata[] = [];
+
+    this.allChartMetadata.forEach(list => {
+      list.forEach(meta => {
+        if (!seen.has(meta.id)) {
+          result.push(meta);
+          seen.add(meta.id);
         }
-      }
-    }
-    return allMetadata;
+      });
+    });
+
+    return result;
   }
 
   push(currentTime: number, dataPoints: ChartUpdateData[]) {
-    for (const m of this._pushMap.values()) {
-      m.clear();
-    }
-    for (const { id, time = currentTime, value } of dataPoints) {
-      const allGroups = this.chartGroupsByMetadataId.get(id);
-      if (!allGroups) {
+    this._pushMap.forEach(m => m.clear());
+
+    dataPoints.forEach(({ id, time = currentTime, value }) => {
+      const groups = this.chartGroupsByMetadataId.get(id);
+      if (!groups) {
         console.warn(`Chart with id ${id} not found.`);
+        return;
+      }
+
+      for (const group of groups) {
+        const timeMap = this._pushMap.get(group.id)!;
+        const point = timeMap.get(time) ?? { time };
+        point[id] = value;
+        timeMap.set(time, point);
+      }
+    });
+
+    for (const [groupId, timeMap] of this._pushMap) {
+      if (!timeMap.size) {
         continue;
       }
-      for (const group of allGroups) {
-        const m = this._pushMap.get(group.id)!;
-        const timePoint = m.get(time) || { time };
-        timePoint[id] = value;
-        m.set(time, timePoint);
-      }
-    }
-    for (const [groupId, m] of this._pushMap.entries()) {
-      if (!m.size) continue;
       const group = this.allChartGroups.get(groupId)!;
-      for (const dataPoint of m.values()) {
-        group.data.push(dataPoint);
+      const newPoints = Array.from(timeMap.values());
+
+      // 优化：如果新数据是单个点且比最后一个点时间晚，直接追加
+      if (newPoints.length === 1 && group.data.length > 0) {
+        const lastTime = group.data[group.data.length - 1].time;
+        if (newPoints[0].time >= lastTime) {
+          group.data.push(newPoints[0]);
+          return;
+        }
       }
+
+      // 检查是否所有新点都比现有数据晚
+      if (group.data.length > 0 && newPoints.length > 0) {
+        const lastTime = group.data[group.data.length - 1].time;
+        const allLater = newPoints.every(p => p.time >= lastTime);
+
+        if (allLater) {
+          // 先排序新点（如果有多个）
+          if (newPoints.length > 1) {
+            newPoints.sort((a, b) => a.time - b.time);
+          }
+          group.data.push(...newPoints);
+          return;
+        }
+      }
+
+      // 否则，添加新点后重新排序
+      group.data.push(...newPoints);
+      group.data.sort((a, b) => a.time - b.time);
+    };
+  }
+
+  pushMany(metadataId: string, dataPoints: NativeDataPoint[]) {
+    if (!dataPoints.length) return;
+
+    const groups = this.chartGroupsByMetadataId.get(metadataId);
+    if (!groups?.length) {
+      console.warn(`Chart with id ${metadataId} not found.`);
+      return;
+    }
+
+    // 按时间排序输入的数据点
+    const sortedPoints = [...dataPoints].sort((a, b) => a.time - b.time);
+
+    for (const group of groups) {
+      // 为每个group创建或更新数据点
+      const timeToPoint = new Map<number, NativeDataPoint>();
+
+      // 先把现有数据加入map
+      group.data.forEach(point => {
+        timeToPoint.set(point.time, { ...point });
+      });
+
+      // 合并新数据
+      sortedPoints.forEach(point => {
+        if (metadataId in point) {
+          const existing = timeToPoint.get(point.time);
+          if (existing) {
+            existing[metadataId] = point[metadataId];
+          } else {
+            timeToPoint.set(point.time, { time: point.time, [metadataId]: point[metadataId] });
+          }
+        }
+      });
+
+      // 按时间排序并更新group数据
+      group.data = Array.from(timeToPoint.values()).sort((a, b) => a.time - b.time);
     }
   }
 
   clearAll() {
-    for (const group of this.allChartGroups.values()) {
-      group.data = [];
-    }
+    this.allChartGroups.forEach(group => group.data = []);
   }
 
-  clearByGroup(groupIds: string[]) {
-    const clearedGroupIds = new Set<string>();
-    for (const groupId of groupIds) {
-      const group = this.allChartGroups.get(groupId);
+  clearByGroup(groupIds: string[]): Set<string> {
+    const cleared = new Set<string>();
+    groupIds.forEach(id => {
+      const group = this.allChartGroups.get(id);
       if (group) {
         group.data = [];
-        clearedGroupIds.add(groupId);
+        cleared.add(id);
       }
-    }
-    return clearedGroupIds;
+    });
+    return cleared;
   }
 
-  clearByMetadata(metadataIds: string[]) {
-    const metadataToClear = new Map<string, Set<string>>(); // groupId -> metadataIds[]
-    const clearedMetadataIds = new Set<string>();
-    for (const metadataId of metadataIds) {
-      const groups = this.chartGroupsByMetadataId.get(metadataId);
+  clearByMetadata(metadataIds: string[]): Set<string> {
+    const groupMetadata = new Map<string, Set<string>>();
+    const cleared = new Set<string>();
+
+    metadataIds.forEach(metaId => {
+      const groups = this.chartGroupsByMetadataId.get(metaId);
       if (groups?.length) {
-        for (const group of groups) {
-          if (!metadataToClear.has(group.id)) {
-            metadataToClear.set(group.id, new Set());
-          }
-          metadataToClear.get(group.id)!.add(metadataId);
-        }
-        clearedMetadataIds.add(metadataId);
+        groups.forEach(group => {
+          const set = groupMetadata.get(group.id) ?? new Set();
+          set.add(metaId);
+          groupMetadata.set(group.id, set);
+        });
+        cleared.add(metaId);
       }
-    }
-    for (const [groupId, metaIds] of metadataToClear.entries()) {
+    });
+
+    groupMetadata.forEach((metaIds, groupId) => {
       const group = this.allChartGroups.get(groupId);
-      if (group) {
-        const metaIdsArray = Array.from(metaIds);
-        if (metaIdsArray.length === Object.keys(group.metadataDict).length) {
-          // all metadata in this group need to be cleared
-          group.data = [];
-          continue;
-        }
+      if (!group) return;
+
+      if (metaIds.size === Object.keys(group.metadataDict).length) {
+        group.data = [];
+      } else {
         group.data = group.data.map(dp => {
           const newDp = { ...dp };
-          for (const metaId of metaIdsArray) {
-            delete newDp[metaId];
-          }
+          metaIds.forEach(id => delete newDp[id]);
           return newDp;
         });
       }
-    }
-    return clearedMetadataIds;
-  }
+    });
 
+    return cleared;
+  }
 }

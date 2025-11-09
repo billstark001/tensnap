@@ -1,17 +1,16 @@
 import { create, StoreApi, UseBoundStore } from "zustand";
-import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { createWebSocketStore, WebSocketStore } from "./websocket";
 import { FileSystemState } from "./file-system/store";
 import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
-import { ChartGroup, ChartMetadata, Environment, EnvironmentId, SimulationState } from "@/types/model";
+import { ChartGroup, ChartMetadata, Environment, SimulationState } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { InstantiatedEnvironment, instantiateEnvironment } from "@/store/scenario/environment";
 import { StateSyncRequest } from "@/types/api";
-import { InstantiatedChartStorage } from "./scenario/chart";
+import { createScenarioStore, ScenarioStore } from "./scenario/store";
+import { instantiateScenarioContent } from "./scenario/utils";
 
 export interface ProjectSettings {
   url: string;
@@ -168,18 +167,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const useWebSocketStore = createWebSocketStore(useScenarioStore);
     const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
-    const { environments, charts, ...rest } = parsedContent.scenario;
+    const { environments, charts, parameters, ...rest } = parsedContent.scenario;
 
-    const instantiatedEnvironments: Map<EnvironmentId, InstantiatedEnvironment> = new Map();
-    for (const env of environments) {
-      instantiatedEnvironments.set(env.id, instantiateEnvironment(env));
-    }
+    const instantiated = instantiateScenarioContent({ environments, charts, parameters });
+
 
     useScenarioStore.setState({
       mainView: parsedContent.mainView,
       ...rest,
-      environments: instantiatedEnvironments,
-      charts: new InstantiatedChartStorage(charts),
+      ...instantiated,
     });
 
     const { url } = parsedContent || null;
