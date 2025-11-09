@@ -16,20 +16,34 @@ interface EstimatedRange {
 export function estimateNumericRange(hint: RangeHint): EstimatedRange {
   const { value, min, max, step } = hint;
 
-  // 辅助函数：将数值转换为10的整数次幂
+  // 检查是否所有提供的数值都是整数
+  const isIntegerValue = Number.isInteger(value) && value !== 0;
+  const isIntegerMin = min == undefined || Number.isInteger(min);
+  const isIntegerMax = max == undefined || Number.isInteger(max);
+  const isIntegerStep = step == undefined || Number.isInteger(step);
+  const shouldUseInteger = isIntegerValue && isIntegerMin && isIntegerMax && isIntegerStep;
+
+  // 辅助函数:将数值转换为10的整数次幂
   function toPowerOfTen(val: number, roundUp: boolean = false): number {
     if (val === 0) return 0;
 
     const absVal = Math.abs(val);
     const sign = val < 0 ? -1 : 1;
 
-    // 防止太小的值，直接截断为0或1
+    // 防止太小的值,直接截断为0或1
     if (absVal < 1e-10) return val < 0 ? -1 : (val === 0 ? 0 : 1);
 
     const log10Val = Math.log10(absVal);
     const exponent = roundUp ? Math.ceil(log10Val) : Math.floor(log10Val);
 
-    return sign * Math.pow(10, exponent);
+    const result = sign * Math.pow(10, exponent);
+
+    // 如果应该使用整数,确保结果至少为整数
+    if (shouldUseInteger && Math.abs(result) < 1) {
+      return sign;
+    }
+
+    return result;
   }
 
   // 检查hint是否合理
@@ -131,6 +145,11 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
       // 步幅通常是范围的1%到10%之间的10的幂
       const targetStep = range / 100;
       estimatedStep = toPowerOfTen(targetStep);
+    }
+
+    // 如果所有输入都是整数,确保步幅至少为1
+    if (shouldUseInteger && estimatedStep < 1) {
+      estimatedStep = 1;
     }
   }
 
