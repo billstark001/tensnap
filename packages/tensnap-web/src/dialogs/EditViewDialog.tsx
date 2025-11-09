@@ -3,7 +3,7 @@ import * as Dialog from '@/components/ui/Dialog';
 import * as formStyles from '@/styles/form.css';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@/types/ui';
 import { Trans } from '@lingui/react/macro';
-import { useScenarioStore } from '@/store/scenario';
+import { useScenarioStore } from '@/store/scenario/store';
 import { DialogOpenProps } from '@/utils/react';
 import { PureGridEnvironment } from '@/types/model';
 

@@ -1,4 +1,4 @@
-import { useScenarioStore } from "@/store/scenario";
+import { useScenarioStore } from "@/store/scenario/store";
 import { createUpdateTriggerStore } from "@/store/update-trigger";
 import { useButtonControls } from "../../hooks/useButtonControls";
 import ViewRoot from "../view/ViewRoot";

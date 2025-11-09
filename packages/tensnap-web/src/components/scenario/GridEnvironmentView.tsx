@@ -5,7 +5,7 @@ import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import * as styles from './GridEnvironmentView.css';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
-import { InstantiatedGridEnvironment } from '@/store/scenario-inst';
+import { InstantiatedGridEnvironment } from '@/store/scenario/environment';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { useThrottled } from '@/utils/react';
 

@@ -1,5 +1,5 @@
 import { create, StoreApi, UseBoundStore } from "zustand";
-import { createScenarioStore, ScenarioStore } from "./scenario";
+import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { createWebSocketStore, WebSocketStore } from "./websocket";
 import { FileSystemState } from "./file-system/store";
 import { generateUniqueId } from "@/utils/common";
@@ -9,8 +9,9 @@ import { ChartGroup, ChartMetadata, Environment, EnvironmentId, SimulationState 
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { InstantiatedChartStorage, InstantiatedEnvironment, instantiateEnvironment } from "@/store/scenario-inst";
+import { InstantiatedEnvironment, instantiateEnvironment } from "@/store/scenario/environment";
 import { StateSyncRequest } from "@/types/api";
+import { InstantiatedChartStorage } from "./scenario/chart";
 
 export interface ProjectSettings {
   url: string;
@@ -39,7 +40,7 @@ const insertProject = (projects: readonly Readonly<ProjectContextScheme>[], newP
 };
 
 
-const stripAgents = ({ agents, ...rest }: Environment) => (rest as Omit<Environment, 'agents'>) ;
+const stripAgents = ({ agents, ...rest }: Environment) => (rest as Omit<Environment, 'agents'>);
 
 
 const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {

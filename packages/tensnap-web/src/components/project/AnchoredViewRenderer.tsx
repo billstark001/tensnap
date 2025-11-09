@@ -4,9 +4,9 @@ import { GraphEnvironmentView } from '../scenario/GraphEnvironmentView';
 import { UniformEnvironmentView } from '../scenario/UniformEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from '../scenario/ChartView';
-import { ScenarioStore, useScenarioStore } from '../../store/scenario';
+import { ScenarioStore, useScenarioStore } from '../../store/scenario/store';
 import { AnchoredView } from '../../types/ui';
-import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment } from '@/store/scenario-inst';
+import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment } from '@/store/scenario/environment';
 import { EnvironmentId } from '@/types/model';
 
 export interface AnchoredViewRendererProps {

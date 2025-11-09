@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 import { GraphAgent } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
-import { InstantiatedGraphEnvironment } from '@/store/scenario-inst';
+import { InstantiatedGraphEnvironment } from '@/store/scenario/environment';
 
 interface GraphEnvironmentViewProps {
   environment: InstantiatedGraphEnvironment;

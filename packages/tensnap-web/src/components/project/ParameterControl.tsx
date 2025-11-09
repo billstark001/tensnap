@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { BooleanParameter, EnumParameter, Parameter, ParameterType, NumberParameter, StringParameter } from '../../types/model';
-import { useScenarioStore } from '../../store/scenario';
+import { useScenarioStore } from '../../store/scenario/store';
 import { useWebSocketStore } from '@/store/websocket';
 import { ParameterChangePayload } from '@/types/api';
 import * as styles from './ParameterControl.css';

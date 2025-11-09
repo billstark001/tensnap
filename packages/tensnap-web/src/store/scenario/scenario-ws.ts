@@ -1,5 +1,5 @@
 import { WebSocketManager } from "@/websocket";
-import { ScenarioStore, SetDataPayload } from "./scenario";
+import { ScenarioStore, SetDataPayload } from "./store";
 import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartUpdatePayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload } from "@/types/api";
 import { StoreApi, UseBoundStore } from "zustand";
 

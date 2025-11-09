@@ -1,5 +1,5 @@
 
-import { useScenarioStore } from '@/store/scenario';
+import { useScenarioStore } from '@/store/scenario/store';
 import * as styles from './ProjectTerminal.css'
 import { useEffect, useRef } from 'react';
 

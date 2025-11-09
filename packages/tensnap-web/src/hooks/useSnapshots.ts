@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { useScenarioStore } from '../store/scenario';
+import { useScenarioStore } from '../store/scenario/store';
 import { Snapshot } from '../types/model';
 
 interface SnapshotDB extends DBSchema {

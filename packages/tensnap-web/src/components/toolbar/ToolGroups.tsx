@@ -33,7 +33,7 @@ import { useFakeModelPicker } from 'tensnap-web-utils';
 import { useSettingsStore } from '@/store/settings';
 import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import { AboutDialog } from '@/dialogs/AboutDialog';
-import { useScenarioStore } from '@/store/scenario';
+import { useScenarioStore } from '@/store/scenario/store';
 import { useWebSocketStore } from '@/store/websocket';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {

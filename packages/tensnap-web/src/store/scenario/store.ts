@@ -1,11 +1,13 @@
 import { create } from 'zustand';
-import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation, ChartGroup, SimulationState } from '../types/model';
-import { ContainerView } from '../types/ui';
+import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation, ChartGroup, SimulationState } from '../../types/model';
+import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
 import { createAutoLayout, createDefaultRootLayout } from '@/components/view/utils/pack';
-import { instantiateChartMetadata, InstantiatedChartStorage, InstantiatedEnvironment, instantiateEnvironment, sanitizeParameter, serializeEnvironment } from '@/store/scenario-inst';
+import { InstantiatedEnvironment, instantiateEnvironment, serializeEnvironment } from '@/store/scenario/environment';
 import { LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
+import { InstantiatedChartStorage, instantiateChartMetadata } from './chart';
+import { sanitizeParameter } from './parameter';
 
 export interface SetDataPayload {
   environments?: Environment[];

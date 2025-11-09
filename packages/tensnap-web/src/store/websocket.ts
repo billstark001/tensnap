@@ -1,9 +1,9 @@
 import { create, StoreApi, UseBoundStore } from 'zustand';
-import { ScenarioStore } from './scenario';
+import { ScenarioStore } from './scenario/store';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import { StateSyncRequest, WSMessage } from '@/types/api';
-import { registerEventHandlers } from './scenario-ws';
+import { registerEventHandlers } from './scenario/scenario-ws';
 import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, WebSocketManagerFake } from '@/websocket';
 
 

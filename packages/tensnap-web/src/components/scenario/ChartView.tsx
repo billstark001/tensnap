@@ -1,10 +1,10 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import * as styles from './ChartView.css';
 import { ChartGroup, NativeDataPoint } from '@/types/model';
-import { createCsvContent } from '@/store/scenario-inst';
 import { LeaferChartView } from '@/components/chart';
 import type { ChartConfig, LeaferChartViewRef } from '@/components/chart';
 import { throttle } from '@/utils/react';
+import { createCsvContent } from '@/store/scenario/chart';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [

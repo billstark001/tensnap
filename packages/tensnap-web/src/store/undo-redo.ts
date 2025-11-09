@@ -1,6 +1,6 @@
 import { createStoreContext } from '@/utils/zustand';
 import { create, StoreApi, UseBoundStore } from 'zustand';
-import { ScenarioStore } from './scenario';
+import { ScenarioStore } from './scenario/store';
 
 // Types for the undo/redo store
 export interface UndoRedoState<T> {

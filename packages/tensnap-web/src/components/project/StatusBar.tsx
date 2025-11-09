@@ -1,4 +1,4 @@
-import { useScenarioStore } from '@/store/scenario';
+import { useScenarioStore } from '@/store/scenario/store';
 import { Trans } from '@lingui/react/macro';
 import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose } from 'lucide-react';
 

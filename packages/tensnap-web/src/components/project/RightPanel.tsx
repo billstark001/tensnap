@@ -1,4 +1,4 @@
-import { useScenarioStore } from '@/store/scenario';
+import { useScenarioStore } from '@/store/scenario/store';
 import * as styles from './RightPanel.css';
 import { Trans } from '@lingui/react/macro';
 import { Camera, Trash2 } from 'lucide-react';

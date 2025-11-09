@@ -6,7 +6,7 @@ import { Environment, Snapshot } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import clsx from 'clsx';
 import { GridEnvironmentView } from '../components/scenario/GridEnvironmentView';
-import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment, instantiateEnvironment } from '@/store/scenario-inst';
+import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment, instantiateEnvironment } from '@/store/scenario/environment';
 import { GraphEnvironmentView } from '../components/scenario/GraphEnvironmentView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
 
