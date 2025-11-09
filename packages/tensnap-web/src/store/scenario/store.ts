@@ -268,7 +268,6 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   updateParameterProps: (id, propsUpdate) => {
-    console.log('updateParameterProps', id, propsUpdate);
     set((state) => ({
       parameters: state.parameters.map((param) =>
         param.id === id ? { ...param, ...propsUpdate as any } : param

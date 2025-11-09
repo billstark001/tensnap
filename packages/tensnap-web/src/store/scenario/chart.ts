@@ -202,11 +202,11 @@ export class InstantiatedChartStorage {
   push(currentTime: number, dataPoints: ChartUpdateData[]) {
     this._pushMap.forEach(m => m.clear());
 
-    dataPoints.forEach(({ id, time = currentTime, value }) => {
+    for (const { id, time = currentTime, value } of dataPoints) {
       const groups = this.chartGroupsByMetadataId.get(id);
       if (!groups) {
         console.warn(`Chart with id ${id} not found.`);
-        return;
+        continue;
       }
 
       for (const group of groups) {
@@ -215,7 +215,7 @@ export class InstantiatedChartStorage {
         point[id] = value;
         timeMap.set(time, point);
       }
-    });
+    }
 
     for (const [groupId, timeMap] of this._pushMap) {
       if (!timeMap.size) {
@@ -229,7 +229,7 @@ export class InstantiatedChartStorage {
         const lastTime = group.data[group.data.length - 1].time;
         if (newPoints[0].time >= lastTime) {
           group.data.push(newPoints[0]);
-          return;
+          continue;
         }
       }
 
@@ -244,14 +244,14 @@ export class InstantiatedChartStorage {
             newPoints.sort((a, b) => a.time - b.time);
           }
           group.data.push(...newPoints);
-          return;
+          continue;
         }
       }
 
       // 否则，添加新点后重新排序
       group.data.push(...newPoints);
       group.data.sort((a, b) => a.time - b.time);
-    };
+    }
   }
 
   pushMany(metadataId: string, dataPoints: NativeDataPoint[]) {
