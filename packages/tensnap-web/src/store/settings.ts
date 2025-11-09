@@ -12,6 +12,9 @@ interface SettingsStore {
   aboutDialogOpen: boolean;
   setAboutDialogOpen: (open: boolean) => void;
 
+  isAdjusting: boolean;
+  setIsAdjusting: (isAdjusting: boolean) => void;
+
   theme: Theme;
   saveFormat: 'json' | 'msgpack';
   locale: Locale;
@@ -34,6 +37,12 @@ export const useSettingsStore = create<SettingsStore>()(
 
     setAboutDialogOpen: (open: boolean) => {
       set({ aboutDialogOpen: open });
+    },
+
+    isAdjusting: false,
+
+    setIsAdjusting: (isAdjusting: boolean) => {
+      set({ isAdjusting });
     },
 
     // Initialize from localStorage

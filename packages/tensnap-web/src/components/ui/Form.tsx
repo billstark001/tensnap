@@ -1,5 +1,6 @@
 import React, { forwardRef, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes } from 'react';
 import * as formStyles from '@/components/ui/Form.css';
+import clsx from 'clsx';
 
 // Form Root Component
 export interface FormProps extends React.FormHTMLAttributes<HTMLFormElement> {
@@ -126,6 +127,31 @@ export const Field: React.FC<FieldProps> = ({ label, htmlFor, children, classNam
   );
 };
 
+// FieldGroup Component (multi-column layout)
+export interface FieldGroupProps {
+  children: React.ReactNode;
+  columns?: number;
+  className?: string;
+}
+
+export const FieldGroup = forwardRef<HTMLDivElement, FieldGroupProps>(
+  ({ children, columns = 2, className, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={clsx(formStyles.formFieldGroup, className)}
+        style={{
+          gridTemplateColumns: `repeat(${columns}, 1fr)`,
+        }}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+FieldGroup.displayName = 'FieldGroup';
+
 // Export as namespace object
 export default {
   Root: Form,
@@ -135,4 +161,5 @@ export default {
   Textarea,
   Select,
   Field,
+  FieldGroup,
 };

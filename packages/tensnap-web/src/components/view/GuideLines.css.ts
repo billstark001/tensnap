@@ -39,6 +39,7 @@ export const guidelineSegment = style({
   position: 'absolute',
   backgroundColor: vars.color.primary,
   opacity: 0.8,
+  transition: 'opacity 0.15s ease',
 });
 
 export const verticalSegment = style([
@@ -56,3 +57,18 @@ export const horizontalSegment = style([
     top: 0,
   },
 ]);
+
+export const guidelineLabel = style({
+  position: 'absolute',
+  pointerEvents: 'none',
+  zIndex: 10000,
+  userSelect: 'none',
+  fontSize: '10px',
+  fontWeight: 600,
+  padding: '2px 6px',
+  borderRadius: '3px',
+  whiteSpace: 'nowrap',
+  color: 'white',
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+  transition: 'opacity 0.15s ease',
+});

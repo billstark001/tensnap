@@ -3,11 +3,14 @@ import { createUpdateTriggerStore } from "@/store/update-trigger";
 import { useButtonControls } from "../../hooks/useButtonControls";
 import ViewRoot from "../view/ViewRoot";
 import { AnchoredViewRenderer } from "./AnchoredViewRenderer";
+import { useSettingsStore } from "@/store/settings";
 
 const useUpdateTriggerStore = createUpdateTriggerStore();
 
 export function MainViewRenderer() {
   const mainView = useScenarioStore((store) => store.mainView);
+
+  const isAdjusting = useSettingsStore((store) => store.isAdjusting);
 
   const updateTrigger = useUpdateTriggerStore((store) => store.updateTrigger);
   const onUpdate = useUpdateTriggerStore((store) => store.onUpdate);
@@ -21,6 +24,7 @@ export function MainViewRenderer() {
   return (
     <ViewRoot
       view={mainView}
+      isAdjusting={isAdjusting}
       updateTrigger={updateTrigger}
       onViewUpdate={onUpdate}
       renderAnchoredView={AnchoredViewRenderer}

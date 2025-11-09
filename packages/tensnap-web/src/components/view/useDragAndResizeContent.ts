@@ -12,6 +12,7 @@ import { ViewProps } from './common';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
 import { SNAP_THRESHOLD } from './constants';
+import { adjustForMainViewPadding } from './utils/pack';
 
 export type ViewRendererProps = ViewProps<ContainerView> &
   Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
@@ -79,7 +80,10 @@ export function useDragGuidelines(mode: 'drag' | 'resize' = 'drag') {
   const matcherRef = useRef<GuideLineMatcher | null>(null);
 
   const initMatcher = useCallback((coord: ViewBox, views: AnyView[]) => {
-    matcherRef.current = new GuideLineMatcher({ coord, views }, SNAP_THRESHOLD, mode);
+    matcherRef.current = new GuideLineMatcher({ coord, views }, SNAP_THRESHOLD, mode, {
+      enableSize: true,
+      enableSpacing: true,
+    });
   }, [mode]);
 
   const updateViews = useCallback((views: AnyView[]) => {
@@ -279,6 +283,8 @@ export function useDragContent({
       onViewUpdate?.(draggedView.id, draggedView);
     }
 
+    adjustForMainViewPadding(rootView);
+
     clearState();
     clearMatcher();
   }, [rootView, clearState, clearMatcher, onViewUpdate, updateSnapState]);
@@ -302,8 +308,10 @@ export function useDragContent({
 
 // Resize 功能
 export function useResizeContent({
+  rootView,
   onViewUpdate,
 }: {
+  rootView: ContainerView;
   onViewUpdate?: (id: string, view: AnyView) => void;
 }) {
   const resizeState = useResizeState();
@@ -458,6 +466,7 @@ export function useResizeContent({
     }
 
     onViewUpdate?.(view.id, view);
+    adjustForMainViewPadding(rootView);
 
     isResizing.current = undefined;
     startPos.current = undefined;

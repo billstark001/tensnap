@@ -2,6 +2,8 @@
 export const SNAP_THRESHOLD = 8;
 export const GRID_SIZE = 20;
 
+export const MAIN_VIEW_PADDING = 400;
+
 
 const windowHeaderHeight = 40;
 const windowBorderWidth = 2;

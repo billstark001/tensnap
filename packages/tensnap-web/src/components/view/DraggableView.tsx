@@ -9,10 +9,11 @@ import * as styles from './styles.css';
 import { ButtonViewComponent } from './ButtonViewComponent';
 import { AnchoredViewComponent } from './AnchoredViewComponent';
 import { ViewProps } from './common';
-import { findAndDeleteView } from './utils/container';
+import { findAndDeleteView, findAndUpdateView } from './utils/container';
 import clsx from 'clsx';
 import { Trans } from '@lingui/react/macro';
 import { EditViewDialog } from '../../dialogs/EditViewDialog';
+import { useViewContext } from './useViewContext';
 
 interface DraggableViewProps extends ViewProps<AnyView> {
   relativeLeft?: number,
@@ -21,29 +22,20 @@ interface DraggableViewProps extends ViewProps<AnyView> {
   siblings: AnyView[];
   isOverlay?: boolean;
   isUnderRootView?: boolean;
-  onResizeStart?: (
-    view: AnyView,
-    parentView: ContainerView,
-    direction: string,
-    relativeLeft: number,
-    relativeTop: number,
-    clientX: number,
-    clientY: number,
-  ) => void;
 }
 
 export const DraggableView: React.FC<DraggableViewProps> = ({
   view,
   parentView,
   updateTrigger,
-  onViewUpdate,
   relativeLeft = 0,
   relativeTop = 0,
   siblings,
   isOverlay = false,
-  onResizeStart: _onResizeStart,
 }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const { isAdjusting, onResizeStart, onViewUpdate } = useViewContext();
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: view.id,
@@ -59,8 +51,8 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
   };
 
   const handleResizeStart = useCallback((direction: string, e: React.MouseEvent) => {
-    if (!parentView || !_onResizeStart) return;
-    _onResizeStart(
+    if (!parentView || !onResizeStart) return;
+    onResizeStart(
       view,
       parentView,
       direction,
@@ -69,7 +61,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       e.clientX,
       e.clientY,
     );
-  }, [view, parentView, relativeLeft, relativeTop, _onResizeStart]);
+  }, [view, parentView, relativeLeft, relativeTop, onResizeStart]);
 
   const handleDelete = useCallback((id: string) => {
     if (!parentView) return;
@@ -82,30 +74,14 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
   }, []);
 
   const handleSaveEdit = useCallback((updatedView: AnyView) => {
-    if (!parentView) return;
-    // Find and update the view in the parent
-    const updateViewInTree = (views: AnyView[]): AnyView[] => {
-      return views.map(v => {
-        if (v.id === updatedView.id) {
-          return updatedView;
-        }
-        if (v.type === 'container') {
-          return {
-            ...v,
-            views: updateViewInTree((v as ContainerView).views)
-          } as ContainerView;
-        }
-        return v;
-      });
-    };
-
-    if (parentView.type === 'container') {
-      const updatedParent = {
-        ...parentView,
-        views: updateViewInTree(parentView.views)
-      };
-      onViewUpdate?.(parentView.id, updatedParent);
+    const updateRoot = parentView ?? (view.type === 'container' ? view as ContainerView : null);
+    if (!updateRoot) {
+      return;
     }
+    const { id: viewId, type: _, ...rest } = updatedView;
+    delete (rest as any).views; 
+    findAndUpdateView(updateRoot, viewId, rest);
+    onViewUpdate?.(updateRoot.id, updateRoot);
   }, [parentView, onViewUpdate]);
 
   const renderViewContent = () => {
@@ -121,7 +97,6 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
             view={containerView}
             parentView={view}
             updateTrigger={updateTrigger}
-            onViewUpdate={onViewUpdate}
             relativeLeft={relativeLeft}
             relativeTop={relativeTop}
             isOverlay={isOverlay || isDragging}
@@ -144,15 +119,17 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       style={style}
       className={clsx(styles.draggableView, isDragging && !isOverlay && styles.draggingView)}
     >
-      <div
+      {isAdjusting && <div
         {...listeners}
         {...attributes}
         className={styles.dragHandle}
       >
         <Move className={styles.dragIcon} />
-      </div>
+      </div>}
       {renderViewContent()}
-      {!isDragging && !isOverlay && <ResizeHandles onResizeStart={handleResizeStart} />}
+      {isAdjusting && !isDragging && !isOverlay && <ResizeHandles onResizeStart={handleResizeStart} horizontalOnly={
+        view.type === 'container' && !view.expanded
+      } />}
     </div>
   );
 

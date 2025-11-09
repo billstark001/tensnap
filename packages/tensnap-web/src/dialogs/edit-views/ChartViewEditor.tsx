@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
+import * as styles from './EditViews.css';
 
 interface ChartViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
@@ -12,9 +13,12 @@ interface ChartViewEditorProps extends BaseViewEditorProps {
 export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, onChange }) => {
   const charts = useScenarioStore((store) => store.charts);
   const updateChartProps = useScenarioStore((store) => store.updateChartProps);
+  const updateChartMetadata = useScenarioStore((store) => store.updateChartMetadata);
   
   const chartGroup = charts?.allChartGroups.get(view.data.id);
   const metadataList = chartGroup ? Object.values(chartGroup.metadataDict) : [];
+
+  const [editingMetadataId, setEditingMetadataId] = useState<string | null>(null);
 
   return (
     <>
@@ -31,15 +35,27 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, onChange
 
       {chartGroup && (
         <>
-          <Form.Field label={<Trans>Chart Group ID</Trans>} htmlFor="chart-id">
-            <Form.Input
-              id="chart-id"
-              type="text"
-              value={chartGroup.id}
-              disabled
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}
-            />
-          </Form.Field>
+          <Form.FieldGroup columns={2}>
+            <Form.Field label={<Trans>Chart Group ID</Trans>} htmlFor="chart-id">
+              <Form.Input
+                id="chart-id"
+                type="text"
+                value={chartGroup.id}
+                disabled
+                className={styles.disabledField}
+              />
+            </Form.Field>
+
+            <Form.Field label={<Trans>Data Points</Trans>} htmlFor="data-points">
+              <Form.Input
+                id="data-points"
+                type="text"
+                value={`${chartGroup.data.length} ${chartGroup.data.length === 1 ? 'point' : 'points'}`}
+                disabled
+                className={styles.disabledField}
+              />
+            </Form.Field>
+          </Form.FieldGroup>
 
           <Form.Field label={<Trans>Chart Group Label</Trans>} htmlFor="chart-label">
             <Form.Input
@@ -55,55 +71,58 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, onChange
           </Form.Field>
 
           <Form.FieldSet>
-            <Form.Label><Trans>Metadata Count</Trans></Form.Label>
-            <div style={{ fontSize: '0.875rem', color: 'var(--color-foreground)', opacity: 0.7 }}>
-              {metadataList.length} {metadataList.length === 1 ? 'series' : 'series'}
-            </div>
-          </Form.FieldSet>
-
-          {metadataList.length > 0 && (
-            <Form.FieldSet>
-              <Form.Label><Trans>Chart Series</Trans></Form.Label>
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '4px',
-                fontSize: '0.875rem',
-                maxHeight: '200px',
-                overflowY: 'auto',
-                padding: '8px',
-                border: '1px solid rgba(0, 0, 0, 0.1)',
-                borderRadius: '4px'
-              }}>
+            <Form.Label>
+              <Trans>Chart Series</Trans> ({metadataList.length})
+            </Form.Label>
+            {metadataList.length > 0 ? (
+              <div className={styles.seriesList}>
                 {metadataList.map((meta) => (
-                  <div key={meta.id} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '8px',
-                    padding: '4px'
-                  }}>
+                  <div key={meta.id} className={styles.seriesItem}>
                     {meta.color && (
-                      <div style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '2px',
-                        backgroundColor: meta.color,
-                        flexShrink: 0
-                      }} />
+                      <div 
+                        className={styles.seriesColor}
+                        style={{ backgroundColor: meta.color }}
+                      />
                     )}
-                    <span style={{ fontWeight: 500 }}>{meta.label}</span>
-                    <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>({meta.id})</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {editingMetadataId === meta.id ? (
+                        <Form.Input
+                          type="text"
+                          value={meta.label}
+                          onChange={(e) => {
+                            if (updateChartMetadata) {
+                              updateChartMetadata(meta.id, { label: e.target.value });
+                            }
+                          }}
+                          onBlur={() => setEditingMetadataId(null)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === 'Escape') {
+                              setEditingMetadataId(null);
+                            }
+                          }}
+                          autoFocus
+                          style={{ padding: '2px 4px', fontSize: '0.875rem' }}
+                        />
+                      ) : (
+                        <span 
+                          className={styles.seriesLabel}
+                          onClick={() => setEditingMetadataId(meta.id)}
+                          style={{ cursor: 'pointer' }}
+                          title="Click to edit"
+                        >
+                          {meta.label}
+                        </span>
+                      )}
+                      <span className={styles.seriesId}> ({meta.id})</span>
+                    </div>
                   </div>
                 ))}
               </div>
-            </Form.FieldSet>
-          )}
-
-          <Form.FieldSet>
-            <Form.Label><Trans>Data Points</Trans></Form.Label>
-            <div style={{ fontSize: '0.875rem', color: 'var(--color-foreground)', opacity: 0.7 }}>
-              {chartGroup.data.length} {chartGroup.data.length === 1 ? 'point' : 'points'}
-            </div>
+            ) : (
+              <div className={styles.infoText}>
+                <Trans>No series available</Trans>
+              </div>
+            )}
           </Form.FieldSet>
         </>
       )}

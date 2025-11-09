@@ -62,6 +62,7 @@ export const dialogContent = style({
   left: '50%',
   transform: 'translate(-50%, -50%)',
   width: '90vw',
+  minWidth: '150px',
   maxWidth: '450px',
   maxHeight: '85vh',
   padding: vars.space.lg,
@@ -86,16 +87,26 @@ export const dialogContent = style({
 
 // 大尺寸 Dialog Content
 export const dialogContentLarge = style([dialogContent, {
+  minWidth: '300px',
   maxWidth: '600px',
   width: '95vw',
 }]);
 
-// 超大尺寸 Dialog Content（如文件浏览器）
 export const dialogContentXLarge = style([dialogContent, {
-  maxWidth: '90vw',
-  width: '90vw',
-  height: '80vh',
-  maxHeight: '80vh',
+  minWidth: '400px',
+  maxWidth: '1000px',
+  width: '95vw',
+}]);
+
+// 超大尺寸 Dialog Content（如文件浏览器）
+const DIALOG_MARGIN = 120;
+export const dialogContentFull = style([dialogContent, {
+  width: `calc(100vw - ${DIALOG_MARGIN}px)`,
+  maxWidth: `calc(100vw - ${DIALOG_MARGIN}px)`,
+  height: `calc(100vh - ${DIALOG_MARGIN}px)`,
+  maxHeight: `calc(100vh - ${DIALOG_MARGIN}px)`,
+  minWidth: '600px',
+  minHeight: '400px',
 }]);
 
 // Dialog Title 样式

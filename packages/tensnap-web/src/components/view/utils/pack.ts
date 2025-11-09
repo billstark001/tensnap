@@ -1,7 +1,7 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
 import { Parameter, ActionParameter, NumberParameter, EnumParameter, EnvironmentId, EnvironmentType, BooleanParameter, StringParameter } from '@/types/model';
 import { pack } from '@/utils/layout/pack';
-import { viewConstants } from '../constants';
+import { MAIN_VIEW_PADDING, viewConstants } from '../constants';
 
 const ENVIRONMENT_GRID_WIDTH = 16;
 const ENVIRONMENT_CARD_WIDTH = 600;
@@ -11,8 +11,9 @@ const CHART_CARD_WIDTH = 500;
 const CHART_CARD_HEIGHT = 400;
 
 const PADDING = 10;
-const WINDOW_X_DELTA = viewConstants.windowBorderWidth * 2;
-const WINDOW_Y_DELTA = viewConstants.windowBorderWidth + viewConstants.windowHeaderHeight;
+// 确保窗口增量是整数
+const WINDOW_X_DELTA = Math.ceil(viewConstants.windowBorderWidth * 2);
+const WINDOW_Y_DELTA = Math.ceil(viewConstants.windowBorderWidth + viewConstants.windowHeaderHeight);
 
 const PARAMETER_CARD_HEIGHT = 40 + WINDOW_Y_DELTA;
 
@@ -22,10 +23,6 @@ export const preservedViewIds = Object.freeze({
   mainContainer: 'main-container',
 });
 
-export interface LayoutOptions {
-  currentView?: ContainerView;
-  preserveExisting?: boolean;
-}
 
 type ObjectWithEnvironmentMetadata = {
   id: EnvironmentId;
@@ -69,14 +66,13 @@ function createVerticalContainer(
   title: string,
   containerLeft: number,
   containerTop: number,
-  containerWidth: number,
 ): ContainerView {
   return {
     id,
     type: 'container',
     left: containerLeft,
     top: containerTop,
-    width: containerWidth,
+    width: 100,
     height: 100,
     expanded: true,
     data: { title },
@@ -132,8 +128,9 @@ function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): 
     type: 'environment',
     left: 0,
     top: 0,
-    width: (env.width ? env.width * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_WIDTH) + WINDOW_X_DELTA,
-    height: (env.height ? env.height * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_HEIGHT) + WINDOW_Y_DELTA,
+    // 确保宽度和高度是整数
+    width: Math.ceil((env.width ? env.width * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_WIDTH) + WINDOW_X_DELTA),
+    height: Math.ceil((env.height ? env.height * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_HEIGHT) + WINDOW_Y_DELTA),
     expanded: true,
     data: {
       id: env.id.toString(),
@@ -239,15 +236,39 @@ if (!window.structuredClone) {
   window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
 }
 
+
+export function adjustForMainViewPadding(currentView: ContainerView) {
+  let maxWidth = 0;
+  let maxHeight = 0;
+  for (const view of currentView.views) {
+    const rightEdge = view.left + view.width;
+    const bottomEdge = view.top + view.height;
+    if (rightEdge > maxWidth) {
+      maxWidth = rightEdge;
+    }
+    if (bottomEdge > maxHeight) {
+      maxHeight = bottomEdge;
+    }
+  }
+  currentView.width = Math.ceil(maxWidth + MAIN_VIEW_PADDING);
+  currentView.height = Math.ceil(maxHeight + MAIN_VIEW_PADDING);
+}
+
+export interface LayoutOptions {
+  currentView?: ContainerView;
+  inPlace?: boolean;
+  preserveExisting?: boolean;
+}
+
 export function createAutoLayout(
   environments: ObjectWithEnvironmentMetadata[],
   parameters: Parameter[],
   charts: ObjectWithChartMetadata[],
   options: LayoutOptions = {}
 ): ContainerView {
-  const { currentView: _currentView, preserveExisting = false } = options;
+  const { currentView: _currentView, inPlace = false, preserveExisting = false } = options;
   const currentView = _currentView
-    ? structuredClone(_currentView)
+    ? inPlace ? _currentView : structuredClone(_currentView)
     : createDefaultRootLayout();
 
   const statesFound = new Map<string, boolean>();
@@ -281,12 +302,15 @@ export function createAutoLayout(
   let buttonsContainer = walkAndFind(currentView, view => view.id === preservedViewIds.buttonsContainer) as ContainerView | undefined;
   let parametersContainer = walkAndFind(currentView, view => view.id === preservedViewIds.parametersContainer) as ContainerView | undefined;
 
+  const buttonsContainerIsNew = !buttonsContainer;
+  const parametersContainerIsNew = !parametersContainer;
+
   if (!buttonsContainer) {
     buttonsContainer = createVerticalContainer(
       preservedViewIds.buttonsContainer,
       'Buttons',
-      0,
-      10, 10
+      10,
+      10
     );
     currentView.views.push(buttonsContainer);
   }
@@ -294,8 +318,8 @@ export function createAutoLayout(
     parametersContainer = createVerticalContainer(
       preservedViewIds.parametersContainer,
       'Parameters',
-      0,
-      10, 10
+      10,
+      10
     );
     currentView.views.push(parametersContainer);
   }
@@ -313,35 +337,51 @@ export function createAutoLayout(
   let rootViewNeedsAdjust = false;
 
   // Process buttons container
+  // Add new button views if any
   if (newButtonParameters.length > 0) {
-    // Create new button views and combine with existing
     const newButtonViews = createButtonViews(newButtonParameters);
     buttonsContainer.views.push(...newButtonViews);
+    rootViewNeedsAdjust = true;
+  }
+  // Re-layout buttons container if it has views (handles both new and existing overlapping views)
+  if (buttonsContainer.views.length > 0) {
     const { suggestedContainerWidth, suggestedContainerHeight } = pack(buttonsContainer.views, {
       inPlace: true,
       padding: PADDING,
       paddingBorder: PADDING,
       sortBy: 'position',
+      preservePosition: !buttonsContainerIsNew,
     });
-    buttonsContainer.width = suggestedContainerWidth + WINDOW_X_DELTA;
-    buttonsContainer.height = suggestedContainerHeight + WINDOW_Y_DELTA;
-    rootViewNeedsAdjust = true;
+    // 确保容器尺寸是整数
+    buttonsContainer.width = Math.ceil(suggestedContainerWidth + WINDOW_X_DELTA);
+    buttonsContainer.height = Math.ceil(suggestedContainerHeight + WINDOW_Y_DELTA);
+    if (buttonsContainerIsNew) {
+      rootViewNeedsAdjust = true;
+    }
   }
 
   // Process parameters container
+  // Add new parameter views if any
   if (newOtherParameters.length > 0) {
-    // Create new parameter views and combine with existing
     const newParameterViews = createParameterViews(newOtherParameters);
     parametersContainer.views.push(...newParameterViews);
+    rootViewNeedsAdjust = true;
+  }
+  // Re-layout parameters container if it has views (handles both new and existing overlapping views)
+  if (parametersContainer.views.length > 0) {
     const { suggestedContainerWidth, suggestedContainerHeight } = pack(parametersContainer.views, {
       inPlace: true,
       padding: PADDING,
       paddingBorder: PADDING,
       sortBy: 'position',
+      preservePosition: !parametersContainerIsNew,
     });
-    parametersContainer.width = suggestedContainerWidth + WINDOW_X_DELTA;
-    parametersContainer.height = suggestedContainerHeight + WINDOW_Y_DELTA;
-    rootViewNeedsAdjust = true;
+    // 确保容器尺寸是整数
+    parametersContainer.width = Math.ceil(suggestedContainerWidth + WINDOW_X_DELTA);
+    parametersContainer.height = Math.ceil(suggestedContainerHeight + WINDOW_Y_DELTA);
+    if (parametersContainerIsNew) {
+      rootViewNeedsAdjust = true;
+    }
   }
 
   // Process environments
@@ -359,8 +399,36 @@ export function createAutoLayout(
     currentView.views.push(...newChartViews);
     rootViewNeedsAdjust = true;
   }
+
+  // Handle views that should be removed
+  if (!preserveExisting && viewsShouldDisable.length > 0) {
+    const viewsToRemoveSet = new Set(viewsShouldDisable);
+
+    // Remove from root level
+    currentView.views = currentView.views.filter(view => !viewsToRemoveSet.has(view));
+
+    // Remove from containers
+    if (buttonsContainer) {
+      buttonsContainer.views = buttonsContainer.views.filter(view => !viewsToRemoveSet.has(view));
+    }
+    if (parametersContainer) {
+      parametersContainer.views = parametersContainer.views.filter(view => !viewsToRemoveSet.has(view));
+    }
+
+    rootViewNeedsAdjust = true;
+  } else if (preserveExisting) {
+    // Mark views as disabled instead of removing them
+    viewsShouldDisable.forEach(view => {
+      if (view.type !== 'container' && view.type) {
+        view.data.disabled = true;
+      }
+    });
+  }
+
   // Adjust root layout
+  // Always re-layout if it's a new view or if there are changes
   if (!_currentView) {
+    // New layout: use area-based sorting for optimal initial placement
     pack(currentView.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
@@ -368,27 +436,19 @@ export function createAutoLayout(
       paddingBorder: PADDING,
       sortBy: 'area',
     });
-  } else if (rootViewNeedsAdjust) {
-    const { suggestedContainerWidth, suggestedContainerHeight } = pack(currentView.views, {
+  } else if (rootViewNeedsAdjust || currentView.views.length > 0) {
+    // Existing layout: use position-based sorting to preserve user's layout intent
+    pack(currentView.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
       padding: PADDING,
       paddingBorder: PADDING,
       sortBy: 'position',
+      preservePosition: true,
     });
-    currentView.width = suggestedContainerWidth;
-    currentView.height = suggestedContainerHeight;
   }
 
-  if (preserveExisting) {
-    viewsShouldDisable.forEach(view => {
-      if (view.type !== 'container' && view.type) {
-        view.data.disabled = true;
-      }
-    });
-  } else {
-    // TODO delete all views in-place
-  }
+  adjustForMainViewPadding(currentView);
 
   return currentView;
 }

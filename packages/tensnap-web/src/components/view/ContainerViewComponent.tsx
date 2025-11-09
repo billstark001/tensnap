@@ -10,33 +10,26 @@ import { viewConstants } from './constants';
 import cx from 'clsx';
 import { ViewProps } from './common';
 import { findAndAddView } from './utils/container';
+import { useViewContext } from './useViewContext';
 
 interface ContainerViewComponentProps extends ViewProps<ContainerView> {
   relativeLeft?: number,
   relativeTop?: number,
   isOverlay?: boolean;
   isRootView?: boolean;
-  onResizeStart?: (
-    view: AnyView,
-    parentView: ContainerView,
-    direction: string,
-    relativeLeft: number,
-    relativeTop: number,
-    clientX: number,
-    clientY: number,
-  ) => void;
 }
 
 export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   view,
   updateTrigger,
-  onViewUpdate,
   relativeLeft = 0,
   relativeTop = 0,
   isOverlay = false,
   isRootView = false,
-  onResizeStart,
 }) => {
+
+  const { onViewUpdate } = useViewContext();
+
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${view.id}`,
     data: {
@@ -126,14 +119,12 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
             view={childView}
             parentView={view}
             updateTrigger={updateTrigger}
-            onViewUpdate={onViewUpdate}
             relativeLeft={relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta)}
             relativeTop={relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta)}
             parentId={view.id}
             siblings={view.views}
             isOverlay={isOverlay}
             isUnderRootView={isRootView}
-            onResizeStart={onResizeStart}
           />
         ))}
       </div>

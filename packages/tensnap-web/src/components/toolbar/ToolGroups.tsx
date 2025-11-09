@@ -166,12 +166,15 @@ export function ViewTools() {
     });
   };
 
+  const { isAdjusting, setIsAdjusting } = useSettingsStore();
+
   return (
     <ToolGroupContainer>
       <ToolButton
         icon={<MousePointer size={16} />}
-        tooltip="Select Mode"
-        isActive={true}
+        tooltip="Adjust Mode"
+        isActive={isAdjusting}
+        onClick={() => setIsAdjusting(!isAdjusting)}
       />
       <ToolButton
         icon={<ZoomIn size={16} />}

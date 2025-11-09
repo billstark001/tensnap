@@ -24,7 +24,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    setLocalView(view);
+    setLocalView({ ...view });
     setHasChanges(false);
   }, [view, open]);
 
@@ -71,7 +71,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
       <Dialog.CloseButton />
       <Dialog.Title><Trans>Edit View</Trans></Dialog.Title>
       <Dialog.Description></Dialog.Description>

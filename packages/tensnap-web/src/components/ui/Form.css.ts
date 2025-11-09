@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../styles/global.css";
 
 export const formInput = style({
@@ -42,4 +42,14 @@ export const formFieldSet = style({
   padding: 0,
   margin: 0,
   marginBottom: vars.space.md,
+});
+
+export const formFieldGroup = style({
+  display: 'grid',
+  gap: vars.space.md,
+  marginBottom: vars.space.md,
+});
+
+globalStyle(`${formFieldGroup} > *`, {
+  minWidth: 0, // Prevent grid items from overflowing
 });

@@ -5,11 +5,18 @@ import { X } from 'lucide-react';
 
 export interface DialogProps extends RadixDialog.DialogProps {
   closeOnInteractOutside?: boolean;
-  size?: 'md' | 'lg' | 'xl';
+  size?: 'md' | 'lg' | 'xl' | 'full';
   portalProps?: RadixDialog.DialogPortalProps;
   overlayProps?: RadixDialog.DialogOverlayProps;
   contentProps?: RadixDialog.DialogContentProps;
 }
+
+const dialogContentClassNameMap = {
+  md: dialogStyles.dialogContent,
+  lg: dialogStyles.dialogContentLarge,
+  xl: dialogStyles.dialogContentXLarge,
+  full: dialogStyles.dialogContentFull,
+};
 
 export const Root = (props: DialogProps) => {
   const {
@@ -31,9 +38,7 @@ export const Root = (props: DialogProps) => {
         <RadixDialog.Content
           {...contentProps}
           className={clsx(
-            size === 'xl' ? dialogStyles.dialogContentXLarge
-              : size === 'lg' ? dialogStyles.dialogContentLarge
-                : dialogStyles.dialogContent,
+            dialogContentClassNameMap[size],
             contentProps?.className
           )}
           onInteractOutside={contentProps?.onInteractOutside ?? (
@@ -129,3 +134,17 @@ export const Separator = (props: React.HTMLAttributes<HTMLDivElement> & {
 
 export const Trigger = RadixDialog.Trigger;
 export const Close = RadixDialog.Close;
+
+
+export default {
+  Root,
+  Title,
+  Description,
+  Body,
+  Footer,
+  Button,
+  CloseButton,
+  Separator,
+  Trigger,
+  Close,
+}

@@ -3,6 +3,7 @@ import { Trans } from '@lingui/react/macro';
 import Form from '@/components/ui/Form';
 import { ButtonView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
+import * as styles from './EditViews.css';
 
 interface ButtonViewEditorProps extends BaseViewEditorProps {
   view: ButtonView;
@@ -23,13 +24,13 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({ view, onChan
       </Form.Field>
 
       <Form.FieldSet>
-        <Form.Label htmlFor="button-disabled">
+        <Form.Label htmlFor="button-disabled" className={styles.checkboxLabel}>
           <input
             id="button-disabled"
             type="checkbox"
             checked={view.data.disabled || false}
             onChange={(e) => onChange('data.disabled', e.target.checked)}
-            style={{ marginRight: '8px' }}
+            className={styles.checkboxInput}
           />
           <Trans>Disabled</Trans>
         </Form.Label>

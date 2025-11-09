@@ -83,7 +83,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       {children}
 
       {/* 文件选择器对话框 */}
-      <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()} size='xl'>
+      <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()} size='full'>
         <Dialog.Title>
           {pickerState.options.title}
         </Dialog.Title>

@@ -5,10 +5,26 @@ import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
 import { PureGridEnvironment } from '@/types/model';
+import * as styles from './EditViews.css';
 
 interface EnvironmentViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
 }
+
+// Helper function to parse integer input safely
+const parseIntInput = (value: string, fallback: number = 0, min?: number): number => {
+  if (value === '' || value === '-') {
+    return fallback;
+  }
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    return fallback;
+  }
+  if (min !== undefined && parsed < min) {
+    return min;
+  }
+  return parsed;
+};
 
 export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ view, onChange }) => {
   const environments = useScenarioStore((store) => store.environments);
@@ -31,25 +47,27 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
 
       {env && (
         <>
-          <Form.Field label={<Trans>Environment ID</Trans>} htmlFor="env-id">
-            <Form.Input
-              id="env-id"
-              type="text"
-              value={env.id}
-              disabled
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}
-            />
-          </Form.Field>
+          <Form.FieldGroup columns={2}>
+            <Form.Field label={<Trans>Environment ID</Trans>} htmlFor="env-id">
+              <Form.Input
+                id="env-id"
+                type="text"
+                value={env.id}
+                disabled
+                className={styles.disabledField}
+              />
+            </Form.Field>
 
-          <Form.Field label={<Trans>Environment Type</Trans>} htmlFor="env-type">
-            <Form.Input
-              id="env-type"
-              type="text"
-              value={env.type}
-              disabled
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}
-            />
-          </Form.Field>
+            <Form.Field label={<Trans>Environment Type</Trans>} htmlFor="env-type">
+              <Form.Input
+                id="env-type"
+                type="text"
+                value={env.type}
+                disabled
+                className={styles.disabledField}
+              />
+            </Form.Field>
+          </Form.FieldGroup>
 
           <Form.Field label={<Trans>Environment Label</Trans>} htmlFor="env-label">
             <Form.Input
@@ -66,7 +84,7 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
           </Form.Field>
 
           {env.type === 'grid' && (
-            <>
+            <Form.FieldGroup columns={2}>
               <Form.Field label={<Trans>Grid Width</Trans>} htmlFor="grid-width">
                 <Form.Input
                   id="grid-width"
@@ -75,9 +93,10 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                   value={(env.props as PureGridEnvironment).width}
                   onChange={(e) => {
                     if (updateEnvironment) {
+                      const currentWidth = (env.props as PureGridEnvironment).width;
                       updateEnvironment(env.id, {
                         ...env.props,
-                        width: parseInt(e.target.value) || 1
+                        width: parseIntInput(e.target.value, currentWidth, 1)
                       });
                     }
                   }}
@@ -92,15 +111,16 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                   value={(env.props as PureGridEnvironment).height}
                   onChange={(e) => {
                     if (updateEnvironment) {
+                      const currentHeight = (env.props as PureGridEnvironment).height;
                       updateEnvironment(env.id, {
                         ...env.props,
-                        height: parseInt(e.target.value) || 1
+                        height: parseIntInput(e.target.value, currentHeight, 1)
                       });
                     }
                   }}
                 />
               </Form.Field>
-            </>
+            </Form.FieldGroup>
           )}
         </>
       )}

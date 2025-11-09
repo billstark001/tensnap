@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -21,16 +21,17 @@ import clsx from 'clsx';
 import { useDragContent, useResizeContent } from './useDragAndResizeContent';
 
 export type ViewRendererProps = ViewProps<ContainerView> &
-  Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
+  Partial<ViewContextScheme>;
 
 export default function ViewRoot({
   view: rootView,
   updateTrigger,
+  isAdjusting = false,
   onViewUpdate: _onViewUpdate,
   onButtonAction: _onButtonAction,
   renderAnchoredView: _renderAnchoredView,
 }: ViewRendererProps) {
-  
+
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
   const renderAnchoredView = useCallbackRef(_renderAnchoredView ?? (() => undefined));
   const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
@@ -40,10 +41,10 @@ export default function ViewRoot({
     useSensor(KeyboardSensor)
   );
 
-  const contextValue = useMemo(
-    () => ({ onButtonAction, renderAnchoredView }),
-    [onButtonAction, renderAnchoredView]
-  );
+  useEffect(() => {
+    console.log('ViewRoot rendered with rootView:', rootView);
+  }, [rootView]);
+
 
   // drag
   const {
@@ -63,8 +64,14 @@ export default function ViewRoot({
     resizeState,
     onResizeStart,
   } = useResizeContent({
+    rootView,
     onViewUpdate,
   });
+
+  const contextValue = useMemo(
+    () => ({ isAdjusting, onButtonAction, renderAnchoredView, onResizeStart, onViewUpdate }),
+    [isAdjusting, onButtonAction, renderAnchoredView, onResizeStart, onViewUpdate]
+  );
 
   const { state: resizeStateValue } = resizeState;
 
@@ -83,8 +90,6 @@ export default function ViewRoot({
             <ContainerViewComponent
               view={rootView}
               updateTrigger={updateTrigger}
-              onViewUpdate={onViewUpdate}
-              onResizeStart={onResizeStart}
               isRootView
             />
 
