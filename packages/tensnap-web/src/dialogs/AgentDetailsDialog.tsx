@@ -2,6 +2,7 @@ import * as Dialog from '@/components/ui/Dialog';
 import { GridAgent, GraphAgent, UniformAgent, AgentIcon, EnvironmentType } from '@/types/model';
 import * as styles from './AgentDetailsDialog.css';
 import clsx from 'clsx';
+import { Trans } from '@lingui/react/macro';
 
 // Union type for all agent types
 export type AnyAgent = GridAgent | GraphAgent | UniformAgent;
@@ -68,12 +69,12 @@ const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps
     return (
       <div className={styles.positionInfo}>
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>Position:</span>
+          <span className={styles.detailLabel}><Trans>Position:</Trans></span>
           ({agent.x?.toFixed(4)}, {agent.y?.toFixed(4)})
         </div>
         {agent.heading !== undefined && (
           <div className={styles.headingInfo}>
-            <span className={styles.detailLabel}>Heading:</span>
+            <span className={styles.detailLabel}><Trans>Heading:</Trans></span>
             {(agent.heading * 180 / Math.PI).toFixed(2)}°
           </div>
         )}
@@ -85,10 +86,10 @@ const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps
     const agent = _agent as GraphAgent;
     return (
       <div className={styles.detailRow}>
-        <span className={styles.detailLabel}>Position:</span>
+        <span className={styles.detailLabel}><Trans>Position:</Trans></span>
         {agent.x !== undefined && agent.y !== undefined
           ? `(${agent.x.toFixed(2)}, ${agent.y.toFixed(2)})`
-          : 'Not positioned'
+          : <Trans>Not positioned</Trans>
         }
       </div>
     );
@@ -104,8 +105,8 @@ const TrajectoryInfo = ({ agent }: { agent: GridAgent }) => {
   }
   return (
     <div className={styles.trajectoryInfo}>
-      <span className={styles.detailLabel}>Trajectory:</span>
-      {agent.trajectory?.length} points recorded
+      <span className={styles.detailLabel}><Trans>Trajectory:</Trans></span>
+      <Trans>{agent.trajectory?.length} points recorded</Trans>
     </div>
   );
 };
@@ -127,22 +128,22 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Title>
-        Agent Details
+        <Trans>Agent Details</Trans>
       </Dialog.Title>
       <Dialog.Description>
-        View detailed information about the selected agent
+        <Trans>View detailed information about the selected agent</Trans>
       </Dialog.Description>
 
       <div>
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>ID:</span>
+          <span className={styles.detailLabel}><Trans>ID:</Trans></span>
           {agent.id}
         </div>
 
         <PositionInfo agent={agent} agentType={agentType} />
 
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>Icon:</span>
+          <span className={styles.detailLabel}><Trans>Icon:</Trans></span>
           <div className={styles.agentIcon}>
             {createIconElement(agent.icon, size, color)}
           </div>
@@ -150,7 +151,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
         </div>
 
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>Color:</span>
+          <span className={styles.detailLabel}><Trans>Color:</Trans></span>
           <span
             className={styles.colorSwatch}
             style={{ backgroundColor: color }}
@@ -159,14 +160,14 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
         </div>
 
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>Size:</span>
-          {agent.size || 'default'}
+          <span className={styles.detailLabel}><Trans>Size:</Trans></span>
+          {agent.size || <Trans>default</Trans>}
         </div>
 
         {agentType === 'grid' && <TrajectoryInfo agent={agent as GridAgent} />}
 
         <div className={styles.dataSection}>
-          <h4 className={styles.dataSectionTitle}>Custom Data:</h4>
+          <h4 className={styles.dataSectionTitle}><Trans>Custom Data:</Trans></h4>
           <pre className={styles.dataContent}>
             {JSON.stringify(agent.data, null, 2)}
           </pre>
@@ -175,7 +176,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
 
       <Dialog.Footer>
         <Dialog.Close asChild>
-          <Dialog.Button>Close</Dialog.Button>
+          <Dialog.Button><Trans>Close</Trans></Dialog.Button>
         </Dialog.Close>
       </Dialog.Footer>
 

@@ -5,6 +5,9 @@ import { InstantiatedUniformEnvironment } from '@/store/scenario/environment';
 import { Pagination } from '@/components/ui/Pagination';
 import { AgentDetailsDialog, createIconElement } from '../../dialogs/AgentDetailsDialog';
 import * as styles from './UniformEnvironmentView.css';
+import { Trans } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 
 interface UniformEnvironmentViewProps {
   environment: InstantiatedUniformEnvironment;
@@ -50,12 +53,12 @@ const EmptyAgentState = ({
     <div className={styles.emptyIcon}>🔍</div>
     <div>
       {hasSearch
-        ? 'No agents found matching your search'
-        : 'No agents in this environment'}
+        ? <Trans>No agents found matching your search</Trans>
+        : <Trans>No agents in this environment</Trans>}
     </div>
     {hasSearch && (
       <button onClick={onClearSearch} className={styles.clearButton}>
-        Clear search
+        <Trans>Clear search</Trans>
       </button>
     )}
   </div>
@@ -118,18 +121,20 @@ export function UniformEnvironmentView({
     setSelectedAgent(null);
   }, []);
 
+  const { _ } = useLingui();
+  
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <div className={styles.title}>Uniform Environment</div>
+        <div className={styles.title}><Trans>Uniform Environment</Trans></div>
         <div className={styles.agentCount}>
-          {filteredAgents.length} / {agentsList.length} agents
+          <Trans>{filteredAgents.length} / {agentsList.length} agents</Trans>
         </div>
       </div>
 
       <input
         type="text"
-        placeholder="Search agents by ID, color, or icon..."
+        placeholder={_(msg`Search agents by ID, color, or icon...`)}
         value={searchTerm}
         onChange={handleSearchChange}
         className={styles.searchBox}

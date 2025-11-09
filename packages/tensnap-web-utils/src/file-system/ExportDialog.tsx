@@ -4,6 +4,7 @@ import * as Form from 'tensnap-web/components/ui/Form';
 import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
 import { FileSystemAdapter } from 'tensnap-web/types/file';
 import { exportDirectory } from './export-utils';
+import { Trans } from '@lingui/react/macro';
 
 export interface ExportOption {
   key: string;
@@ -63,15 +64,15 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const defaultOptions: ExportOption[] = [
     {
       key: 'json',
-      title: 'JSON 格式',
-      description: '导出为 JSON 文件，包含所有文件内容和元数据',
+      title: 'JSON Format',
+      description: 'Export as JSON file with all file contents and metadata',
       format: 'json',
       handler: () => handleExportDirectory('json')
     },
     {
       key: 'zip',
-      title: 'ZIP 压缩包',
-      description: '导出为 ZIP 压缩文件，保留目录结构',
+      title: 'ZIP Archive',
+      description: 'Export as ZIP compressed file, preserving directory structure',
       format: 'zip',
       handler: () => handleExportDirectory('zip')
     }
@@ -98,7 +99,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         {title}
       </Dialog.Title>
       <Dialog.Description>
-        导出路径: {currentPath}
+        <Trans>Export path: {currentPath}</Trans>
       </Dialog.Description>
 
       <div>
@@ -116,7 +117,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
         <Form.FieldSet>
           <Form.Label>
-            选择导出格式
+            <Trans>Select export format</Trans>
           </Form.Label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {allOptions.map((option) => (
@@ -152,7 +153,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             textAlign: 'center', 
             color: '#666666' 
           }}>
-            正在导出，请稍候...
+            <Trans>Exporting, please wait...</Trans>
           </div>
         )}
       </div>
@@ -160,7 +161,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       <Dialog.Footer>
         <Dialog.Close asChild>
           <Dialog.Button disabled={exporting}>
-            取消
+            <Trans>Cancel</Trans>
           </Dialog.Button>
         </Dialog.Close>
       </Dialog.Footer>

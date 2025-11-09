@@ -2,6 +2,8 @@
 import { memo } from 'react';
 import * as styles from './Pagination.css';
 import clsx from 'clsx';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 
 interface PaginationProps {
   currentPage: number;
@@ -16,6 +18,7 @@ export const Pagination = memo(function Pagination({
   onPageChange,
   maxVisiblePages = 2,
 }: PaginationProps) {
+  const { _ } = useLingui();
   if (totalPages <= 1) return null;
 
   const getVisiblePages = () => {
@@ -54,7 +57,7 @@ export const Pagination = memo(function Pagination({
         className={styles.pageButton}
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        aria-label="Previous page"
+        aria-label={_(msg`Previous page`)}
       >
         ←
       </button>
@@ -77,7 +80,7 @@ export const Pagination = memo(function Pagination({
               pageNum === currentPage && styles.pageButtonActive
             )}
             onClick={() => onPageChange(pageNum)}
-            aria-label={`Page ${pageNum}`}
+            aria-label={_(msg`Page ${pageNum}`)}
             aria-current={pageNum === currentPage ? 'page' : undefined}
           >
             {pageNum}
@@ -89,7 +92,7 @@ export const Pagination = memo(function Pagination({
         className={styles.pageButton}
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        aria-label="Next page"
+        aria-label={_(msg`Next page`)}
       >
         →
       </button>

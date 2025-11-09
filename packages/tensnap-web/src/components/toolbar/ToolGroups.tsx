@@ -32,6 +32,8 @@ import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useWebSocketStore } from '@/store/websocket';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
   return <div className={styles.toolGroup}>
@@ -42,23 +44,24 @@ const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
 
 export function FileOperationTools() {
   const { canSaveFile, onNewFile, onFileOpen, onFileSave } = useFileOperations();
+  const { _ } = useLingui();
 
   return (
     <ToolGroupContainer>
       <ToolButton
         icon={<FileText size={16} />}
-        tooltip="New File"
+        tooltip={_(msg`New File`)}
         onClick={onNewFile}
       />
 
       <ToolButton
         icon={<FolderOpen size={16} />}
-        tooltip="Open File"
+        tooltip={_(msg`Open File`)}
         onClick={onFileOpen}
       />
       <ToolButton
         icon={<Save size={16} />}
-        tooltip="Save"
+        tooltip={_(msg`Save`)}
         onClick={onFileSave}
         disabled={!canSaveFile}
       />
@@ -68,17 +71,18 @@ export function FileOperationTools() {
 
 export function UndoRedoTools() {
   const undoRedoStore = useScenarioUndoRedoStore();
+  const { _ } = useLingui();
   return (
     <ToolGroupContainer>
       <ToolButton
         icon={<Undo size={16} />}
-        tooltip="Undo"
+        tooltip={_(msg`Undo`)}
         disabled={!undoRedoStore?.canUndo()}
         onClick={() => undoRedoStore?.undo()}
       />
       <ToolButton
         icon={<Redo size={16} />}
-        tooltip="Redo"
+        tooltip={_(msg`Redo`)}
         disabled={!undoRedoStore?.canRedo()}
         onClick={() => undoRedoStore?.redo()}
       />
@@ -89,33 +93,34 @@ export function UndoRedoTools() {
 export function SimulationControlTools() {
 
   const { handleButtonAction } = useButtonControls();
+  const { _ } = useLingui();
 
   return (
     <ToolGroupContainer>
       <ToolButton
         icon={<Play size={16} />}
-        tooltip="Start/Stop"
+        tooltip={_(msg`Start/Stop`)}
         isActive={true}
         onClick={() => handleButtonAction('start_stop')}
       />
       <ToolButton
         icon={<Play size={16} />}
-        tooltip="Start"
+        tooltip={_(msg`Start`)}
         onClick={() => handleButtonAction('start')}
       />
       <ToolButton
         icon={<Square size={16} />}
-        tooltip="Stop"
+        tooltip={_(msg`Stop`)}
         onClick={() => handleButtonAction('stop')}
       />
       <ToolButton
         icon={<SkipForward size={16} />}
-        tooltip="Step"
+        tooltip={_(msg`Step`)}
         onClick={() => handleButtonAction('step')}
       />
       <ToolButton
         icon={<TimerReset size={16} />}
-        tooltip="Reset"
+        tooltip={_(msg`Reset`)}
         onClick={() => handleButtonAction('reset')}
       />
     </ToolGroupContainer>
@@ -125,6 +130,7 @@ export function SimulationControlTools() {
 export function ViewTools() {
   const scenarioStore = useScenarioStore();
   const websocketStore = useWebSocketStore();
+  const { _ } = useLingui();
 
   const handleTakeSnapshot = () => {
     scenarioStore?.addSnapshot({
@@ -140,26 +146,26 @@ export function ViewTools() {
     <ToolGroupContainer>
       <ToolButton
         icon={<MousePointer size={16} />}
-        tooltip="Adjust Mode"
+        tooltip={_(msg`Adjust Mode`)}
         isActive={isAdjusting}
         onClick={() => setIsAdjusting(!isAdjusting)}
       />
       <ToolButton
         icon={<ZoomIn size={16} />}
-        tooltip="Zoom In"
+        tooltip={_(msg`Zoom In`)}
       />
       <ToolButton
         icon={<ZoomOut size={16} />}
-        tooltip="Zoom Out"
+        tooltip={_(msg`Zoom Out`)}
       />
       <ToolButton
         icon={<Target size={16} />}
-        tooltip="Take Snapshot"
+        tooltip={_(msg`Take Snapshot`)}
         onClick={handleTakeSnapshot}
       />
       <ToolButton
         icon={<RefreshCcw size={16} />}
-        tooltip="Synchronize State"
+        tooltip={_(msg`Synchronize State`)}
         onClick={() => scenarioStore ? websocketStore?.sendMessage({
           type: 'state_sync',
           payload: createStateSyncRequestFromStore(scenarioStore.dump()),
@@ -167,7 +173,7 @@ export function ViewTools() {
       />
       <ToolButton
         icon={<LayoutTemplate size={16} />}
-        tooltip="Update View Layout"
+        tooltip={_(msg`Update View Layout`)}
         onClick={() => scenarioStore?.updateMainViewLayout()}
       />
     </ToolGroupContainer>
@@ -180,6 +186,7 @@ export function SettingTools() {
     aboutDialogOpen, setAboutDialogOpen,
     theme, toggleTheme,
   } = useSettingsStore();
+  const { _ } = useLingui();
   return (
     <ToolGroupContainer>
 
@@ -188,26 +195,26 @@ export function SettingTools() {
           <button
             onClick={toggleTheme}
             className={styles.toolButton}
-            aria-label="Toggle theme"
+            aria-label={_(msg`Toggle theme`)}
           >
             {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content className={styles.tooltipContent}>
-            Toggle Theme
+            {_(msg`Toggle Theme`)}
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
 
       <ToolButton
         icon={<Edit size={16} />}
-        tooltip="About"
+        tooltip={_(msg`About`)}
         onClick={() => setAboutDialogOpen(true)}
       />
       <ToolButton
         icon={<Wrench size={16} />}
-        tooltip="Settings"
+        tooltip={_(msg`Settings`)}
         onClick={() => setSettingsDialogOpen(true)}
       />
 

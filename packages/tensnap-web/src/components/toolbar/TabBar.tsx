@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import * as styles from '@/styles/toolbar.css';
 import clsx from 'clsx';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 
 export interface Tab {
   id: string;
@@ -26,7 +28,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   onNewTab,
   className
 }) => {
-
+  const { _ } = useLingui();
 
   const [localActiveTab, setLocalActiveTab] = useState(tabs[0]?.id || '');
   const currentActiveTab = activeTabId || localActiveTab;
@@ -64,7 +66,7 @@ export const TabBar: React.FC<TabBarProps> = ({
               <span
                 className={styles.tabCloseButton}
                 onClick={(e) => handleTabClose(e, tab.id)}
-                aria-label={`Close ${tab.name}`}
+                aria-label={_(msg`Close ${tab.name}`)}
               >
                 ×
               </span>
@@ -76,7 +78,7 @@ export const TabBar: React.FC<TabBarProps> = ({
         <button
           className={styles.newTabButton}
           onClick={onNewTab}
-          aria-label="New Tab"
+          aria-label={_(msg`New Tab`)}
         >
           +
         </button>

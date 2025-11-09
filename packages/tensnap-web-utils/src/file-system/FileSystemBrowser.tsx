@@ -9,6 +9,7 @@ import { normalizePath, joinPath, validateName, readFileContent } from './utils'
 import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 import { ExportDialog } from './ExportDialog';
+import { Trans } from '@lingui/react/macro';
 
 export interface FileSystemBrowserProps {
   fileSystem: FileSystemAdapter;
@@ -261,14 +262,14 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       {/* 内容区域 */}
       <div className={styles.browserContent}>
         {loading && (
-          <div className={styles.loadingState}>正在加载...</div>
+          <div className={styles.loadingState}><Trans>Loading...</Trans></div>
         )}
 
         {error && (
           <div className={styles.errorState}>
-            <div>加载失败: {error}</div>
+            <div><Trans>Failed to load: {error}</Trans></div>
             <button className={styles.actionButton} onClick={refreshCurrentDirectory}>
-              重试
+              <Trans>Retry</Trans>
             </button>
           </div>
         )}

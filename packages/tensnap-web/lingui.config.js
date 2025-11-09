@@ -5,7 +5,7 @@ module.exports = {
   catalogs: [
     {
       path: '<rootDir>/src/locales/{locale}/messages',
-      include: ['src'],
+      include: ['src', '../tensnap-web-utils/src'],
       exclude: ['**/node_modules/**'],
     },
   ],

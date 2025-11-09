@@ -84,6 +84,7 @@ export const RightPanel = () => {
             className={styles.headerButton}
             onClick={handleTakeSnapshot}
             title="Take Snapshot"
+            aria-label="Take Snapshot"
           >
             <Camera size={16} />
             <span><Trans>Take Snapshot</Trans></span>
@@ -92,6 +93,7 @@ export const RightPanel = () => {
             className={styles.headerButton}
             onClick={handleClearSnapshots}
             title="Clear All Snapshots"
+            aria-label="Clear All Snapshots"
             disabled={snapshots.length === 0}
           >
             <Trash2 size={16} />
