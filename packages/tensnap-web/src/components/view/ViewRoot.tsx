@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -40,11 +40,6 @@ export default function ViewRoot({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor)
   );
-
-  useEffect(() => {
-    console.log('ViewRoot rendered with rootView:', rootView);
-  }, [rootView]);
-
 
   // drag
   const {
