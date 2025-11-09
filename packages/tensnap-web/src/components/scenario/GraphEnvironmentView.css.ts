@@ -3,6 +3,8 @@ import { vars } from '@/styles/global.css';
 
 export const container = style({
   position: 'relative',
+  width: '100%',
+  height: '100%',
 });
 
 export const svg = style({
@@ -16,92 +18,6 @@ export const svg = style({
       background: vars.color.darkSubtleBackground,
     },
   },
-});
-
-export const modal = style({
-  position: 'fixed',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  background: vars.color.inputBackground,
-  padding: '20px',
-  borderRadius: '8px',
-  boxShadow: vars.shadow.lg,
-  zIndex: 1000,
-  maxWidth: '400px',
-  maxHeight: '80vh',
-  overflow: 'auto',
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      background: vars.color.darkInputBackground,
-    },
-  },
-});
-
-export const modalTitle = style({
-  margin: '0 0 16px 0',
-  fontSize: '18px',
-  fontWeight: 'bold',
-  color: vars.color.foreground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
-export const modalProperty = style({
-  margin: '8px 0',
-  fontSize: '14px',
-  color: vars.color.foreground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
-export const modalCode = style({
-  background: vars.color.inputHoverBackground,
-  padding: '8px',
-  borderRadius: '4px',
-  fontSize: '12px',
-  fontFamily: 'monospace',
-  overflow: 'auto',
-  maxHeight: '200px',
-  color: vars.color.foreground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      background: vars.color.darkInputHoverBackground,
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
-export const closeButton = style({
-  marginTop: '16px',
-  padding: '8px 16px',
-  background: vars.color.primary,
-  color: vars.color.terminalForeground,
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  ':hover': {
-    background: vars.color.primaryHover,
-  },
-});
-
-export const nodeText = style({
-  textAnchor: 'middle',
-  dominantBaseline: 'middle',
-  fontSize: '10px',
-  fill: vars.color.terminalForeground,
-  pointerEvents: 'none',
-  userSelect: 'none',
 });
 
 export const resetButton = style({
