@@ -1,13 +1,17 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
-import { useScenarioStore } from '@/store/scenario/store';
+import { Parameter } from '@/types/model';
 import * as styles from './EditViews.css';
+import * as Select from '@radix-ui/react-select';
+import { Check, ChevronDown } from 'lucide-react';
 
 interface ParameterViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
+  objectData: Parameter | null;
+  onObjectChange: (field: string, value: any) => void;
 }
 
 // Helper function to parse number input safely
@@ -19,15 +23,7 @@ const parseNumberInput = (value: string, fallback: number = 0): number => {
   return isNaN(parsed) ? fallback : parsed;
 };
 
-export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, onChange }) => {
-  const parameters = useScenarioStore((store) => store.parameters);
-  const param = useMemo(() => {
-    return parameters?.find(p => p.id === view.data?.id)
-  }, [parameters, view.data?.id]);
-  
-  const updateParameterProps = useScenarioStore((store) => store.updateParameterProps);
-  
-
+export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, objectData: param, onChange, onObjectChange }) => {
   return (
     <>
       <BaseViewFields view={view} onChange={onChange} />
@@ -49,19 +45,55 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, 
                 id="param-id"
                 type="text"
                 value={param.id}
-                disabled
-                className={styles.disabledField}
+                onChange={(e) => onObjectChange('id', e.target.value)}
               />
             </Form.Field>
 
             <Form.Field label={<Trans>Parameter Type</Trans>} htmlFor="param-type">
-              <Form.Input
-                id="param-type"
-                type="text"
-                value={param.type}
-                disabled
-                className={styles.disabledField}
-              />
+              <Select.Root value={param.type} onValueChange={(value) => onObjectChange('type', value)}>
+                <Select.Trigger className={styles.selectTrigger}>
+                  <Select.Value />
+                  <Select.Icon>
+                    <ChevronDown size={16} />
+                  </Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content className={styles.selectContent}>
+                    <Select.Viewport>
+                      <Select.Item value="number" className={styles.selectItem}>
+                        <Select.ItemText>Number</Select.ItemText>
+                        <Select.ItemIndicator className={styles.selectItemIndicator}>
+                          <Check size={16} />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                      <Select.Item value="enum" className={styles.selectItem}>
+                        <Select.ItemText>Enum</Select.ItemText>
+                        <Select.ItemIndicator className={styles.selectItemIndicator}>
+                          <Check size={16} />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                      <Select.Item value="boolean" className={styles.selectItem}>
+                        <Select.ItemText>Boolean</Select.ItemText>
+                        <Select.ItemIndicator className={styles.selectItemIndicator}>
+                          <Check size={16} />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                      <Select.Item value="string" className={styles.selectItem}>
+                        <Select.ItemText>String</Select.ItemText>
+                        <Select.ItemIndicator className={styles.selectItemIndicator}>
+                          <Check size={16} />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                      <Select.Item value="action" className={styles.selectItem}>
+                        <Select.ItemText>Action</Select.ItemText>
+                        <Select.ItemIndicator className={styles.selectItemIndicator}>
+                          <Check size={16} />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
             </Form.Field>
           </Form.FieldGroup>
 
@@ -70,11 +102,7 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, 
               id="param-label"
               type="text"
               value={param.label}
-              onChange={(e) => {
-                if (updateParameterProps) {
-                  updateParameterProps(param.id, { label: e.target.value });
-                }
-              }}
+              onChange={(e) => onObjectChange('label', e.target.value)}
             />
           </Form.Field>
 
@@ -86,12 +114,8 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, 
                   type="number"
                   value={(param as any).min ?? ''}
                   onChange={(e) => {
-                    if (updateParameterProps) {
-                      const currentMin = (param as any).min ?? 0;
-                      updateParameterProps(param.id, { 
-                        min: parseNumberInput(e.target.value, currentMin) 
-                      } as any);
-                    }
+                    const currentMin = (param as any).min ?? 0;
+                    onObjectChange('min', parseNumberInput(e.target.value, currentMin));
                   }}
                 />
               </Form.Field>
@@ -102,12 +126,8 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, 
                   type="number"
                   value={(param as any).max ?? ''}
                   onChange={(e) => {
-                    if (updateParameterProps) {
-                      const currentMax = (param as any).max ?? 100;
-                      updateParameterProps(param.id, { 
-                        max: parseNumberInput(e.target.value, currentMax) 
-                      } as any);
-                    }
+                    const currentMax = (param as any).max ?? 100;
+                    onObjectChange('max', parseNumberInput(e.target.value, currentMax));
                   }}
                 />
               </Form.Field>
@@ -118,12 +138,8 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, 
                   type="number"
                   value={(param as any).step ?? ''}
                   onChange={(e) => {
-                    if (updateParameterProps) {
-                      const currentStep = (param as any).step ?? 1;
-                      updateParameterProps(param.id, { 
-                        step: parseNumberInput(e.target.value, currentStep) 
-                      } as any);
-                    }
+                    const currentStep = (param as any).step ?? 1;
+                    onObjectChange('step', parseNumberInput(e.target.value, currentStep));
                   }}
                 />
               </Form.Field>
@@ -136,11 +152,7 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({ view, 
                 id="param-runtime-change"
                 type="checkbox"
                 checked={param.allowRuntimeChange || false}
-                onChange={(e) => {
-                  if (updateParameterProps) {
-                    updateParameterProps(param.id, { allowRuntimeChange: e.target.checked });
-                  }
-                }}
+                onChange={(e) => onObjectChange('allowRuntimeChange', e.target.checked)}
                 className={styles.checkboxInput}
               />
               <Trans>Allow Runtime Change</Trans>

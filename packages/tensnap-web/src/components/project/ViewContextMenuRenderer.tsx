@@ -82,7 +82,11 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
     setIsEditDialogOpen(true);
   }, []);
 
-  const handleSaveEdit = useCallback((updatedView: AnyView) => {
+  const updateParameter = useScenarioStore((store) => store.updateParameterProps);
+  const updateEnvironment = useScenarioStore((store) => store.updateEnvironment);
+  const updateChartProps = useScenarioStore((store) => store.updateChartProps);
+
+  const handleSaveEdit = useCallback((updatedView: AnyView, objectData?: any) => {
     const updateRoot = parentView ?? (view.type === 'container' ? view as ContainerView : null);
     if (!updateRoot) {
       return;
@@ -91,7 +95,21 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
     delete (rest as any).views;
     findAndUpdateView(updateRoot, viewId, rest);
     onViewUpdate?.(updateRoot.id, updateRoot);
-  }, [parentView, onViewUpdate]);
+
+    // Update the associated object data if provided
+    if (objectData) {
+      if (updatedView.type === 'parameter') {
+        const { id, ...props } = objectData;
+        updateParameter?.(id, props);
+      } else if (updatedView.type === 'environment') {
+        const { id, props: envProps } = objectData;
+        updateEnvironment?.(id, envProps);
+      } else if (updatedView.type === 'chart') {
+        const { id, ...props } = objectData;
+        updateChartProps?.(id, props);
+      }
+    }
+  }, [parentView, onViewUpdate, updateParameter, updateEnvironment, updateChartProps]);
 
   const handleCopySVG = useCallback(async () => {
     if (!node) return;

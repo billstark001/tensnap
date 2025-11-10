@@ -8,10 +8,12 @@ import { ContainerViewEditor } from './edit-views/ContainerViewEditor';
 import { EnvironmentViewEditor } from './edit-views/EnvironmentViewEditor';
 import { ParameterViewEditor } from './edit-views/ParameterViewEditor';
 import { ChartViewEditor } from './edit-views/ChartViewEditor';
+import { useScenarioStore } from '@/store/scenario/store';
+import { Parameter, ChartGroup } from '@/types/model';
 
 interface EditViewDialogProps extends DialogOpenProps {
   view: AnyView;
-  onSave: (updatedView: AnyView) => void;
+  onSave: (updatedView: AnyView, objectData?: any) => void;
 }
 
 export const EditViewDialog: React.FC<EditViewDialogProps> = ({
@@ -21,12 +23,34 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   onSave,
 }) => {
   const [localView, setLocalView] = useState<AnyView>(view);
+  const [localObjectData, setLocalObjectData] = useState<Parameter | any | ChartGroup | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+
+  const parameters = useScenarioStore((store) => store.parameters);
+  const environments = useScenarioStore((store) => store.environments);
+  const charts = useScenarioStore((store) => store.charts);
 
   useEffect(() => {
     setLocalView({ ...view });
     setHasChanges(false);
-  }, [view, open]);
+
+    // Load the associated object data for anchored views
+    if (view.type === 'parameter' || view.type === 'environment' || view.type === 'chart') {
+      const anchoredView = view as AnchoredView;
+      if (view.type === 'parameter') {
+        const param = parameters?.find(p => p.id === anchoredView.data.id);
+        setLocalObjectData(param ? { ...param } : null);
+      } else if (view.type === 'environment') {
+        const env = environments?.get(anchoredView.data.id);
+        setLocalObjectData(env ? { ...env } : null);
+      } else if (view.type === 'chart') {
+        const chart = charts?.allChartGroups.get(anchoredView.data.id);
+        setLocalObjectData(chart ? { ...chart } : null);
+      }
+    } else {
+      setLocalObjectData(null);
+    }
+  }, [view, open, parameters, environments, charts]);
 
   const handleChange = useCallback((field: string, value: any) => {
     setLocalView((prev) => {
@@ -42,16 +66,53 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     setHasChanges(true);
   }, []);
 
+  const handleObjectChange = useCallback((field: string, value: any) => {
+    setLocalObjectData((prev: any) => {
+      if (!prev) return null;
+      const updated = { ...prev };
+      if (field.includes('.')) {
+        const parts = field.split('.');
+        let current: any = updated;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!current[parts[i]]) {
+            current[parts[i]] = {};
+          }
+          current = current[parts[i]];
+        }
+        current[parts[parts.length - 1]] = value;
+      } else {
+        (updated as any)[field] = value;
+      }
+      return updated;
+    });
+    setHasChanges(true);
+  }, []);
+
   const handleSave = useCallback(() => {
-    onSave(localView);
+    onSave(localView, localObjectData);
     setHasChanges(false);
     onOpenChange?.(false);
-  }, [localView, onSave, onOpenChange]);
+  }, [localView, localObjectData, onSave, onOpenChange]);
 
   const handleReset = useCallback(() => {
     setLocalView(view);
     setHasChanges(false);
-  }, [view]);
+    
+    // Reset object data
+    if (view.type === 'parameter' || view.type === 'environment' || view.type === 'chart') {
+      const anchoredView = view as AnchoredView;
+      if (view.type === 'parameter') {
+        const param = parameters?.find(p => p.id === anchoredView.data.id);
+        setLocalObjectData(param ? { ...param } : null);
+      } else if (view.type === 'environment') {
+        const env = environments?.get(anchoredView.data.id);
+        setLocalObjectData(env ? { ...env } : null);
+      } else if (view.type === 'chart') {
+        const chart = charts?.allChartGroups.get(anchoredView.data.id);
+        setLocalObjectData(chart ? { ...chart } : null);
+      }
+    }
+  }, [view, parameters, environments, charts]);
 
   const renderEditor = () => {
     switch (localView.type) {
@@ -60,11 +121,26 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
       case 'container':
         return <ContainerViewEditor view={localView as ContainerView} onChange={handleChange} />;
       case 'environment':
-        return <EnvironmentViewEditor view={localView as AnchoredView} onChange={handleChange} />;
+        return <EnvironmentViewEditor 
+          view={localView as AnchoredView} 
+          objectData={localObjectData as any}
+          onChange={handleChange}
+          onObjectChange={handleObjectChange}
+        />;
       case 'parameter':
-        return <ParameterViewEditor view={localView as AnchoredView} onChange={handleChange} />;
+        return <ParameterViewEditor 
+          view={localView as AnchoredView} 
+          objectData={localObjectData as Parameter}
+          onChange={handleChange}
+          onObjectChange={handleObjectChange}
+        />;
       case 'chart':
-        return <ChartViewEditor view={localView as AnchoredView} onChange={handleChange} />;
+        return <ChartViewEditor 
+          view={localView as AnchoredView} 
+          objectData={localObjectData as ChartGroup}
+          onChange={handleChange}
+          onObjectChange={handleObjectChange}
+        />;
       default:
         return null;
     }
