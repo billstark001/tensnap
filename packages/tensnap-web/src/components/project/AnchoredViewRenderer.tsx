@@ -1,19 +1,14 @@
-import React from 'react';
 import { GridEnvironmentView } from '../scenario/GridEnvironmentView';
 import { GraphEnvironmentView } from '../scenario/GraphEnvironmentView';
 import { UniformEnvironmentView } from '../scenario/UniformEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from '../scenario/ChartView';
 import { ScenarioStore, useScenarioStore } from '../../store/scenario/store';
-import { AnchoredView } from '../../types/ui';
 import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment } from '@/store/scenario/environment';
 import { EnvironmentId } from '@/types/model';
 import { useToast } from '@/store/toast';
+import { AnchoredViewRendererType } from '../view/types';
 
-export interface AnchoredViewRendererProps {
-  type: AnchoredView['type'];
-  id: string;
-}
 
 const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
   const isInTimeStep = useScenarioStore((store) => store.isInTimeStep); // subscribe to time step changes
@@ -54,7 +49,7 @@ const AnchoredChartView = ({ id }: { id: string }) => {
   return <ChartView chartGroup={chartGroup} />;
 }
 
-export const AnchoredViewRenderer: React.FC<AnchoredViewRendererProps> = ({ type, id }) => {
+export const AnchoredViewRenderer: AnchoredViewRendererType = ({ type, id }) => {
 
   const toast = useToast();
   switch (type) {

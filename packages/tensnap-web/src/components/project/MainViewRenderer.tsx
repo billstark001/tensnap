@@ -4,6 +4,7 @@ import { useButtonControls } from "../../hooks/useButtonControls";
 import ViewRoot from "../view/ViewRoot";
 import { AnchoredViewRenderer } from "./AnchoredViewRenderer";
 import { useSettingsStore } from "@/store/settings";
+import { ViewContextMenuRenderer } from "./ViewContextMenuRenderer";
 
 const useUpdateTriggerStore = createUpdateTriggerStore();
 
@@ -27,7 +28,8 @@ export function MainViewRenderer() {
       isAdjusting={isAdjusting}
       updateTrigger={updateTrigger}
       onViewUpdate={onUpdate}
-      renderAnchoredView={AnchoredViewRenderer}
+      AnchoredViewRenderer={AnchoredViewRenderer}
+      ViewContextMenuRenderer={ViewContextMenuRenderer}
       onButtonAction={handleButtonAction}
     />
   );

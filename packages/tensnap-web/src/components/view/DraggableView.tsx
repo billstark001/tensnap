@@ -1,18 +1,14 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import * as ContextMenu from '@radix-ui/react-context-menu';
-import { Move, Edit, Trash2 } from 'lucide-react';
+import { Move } from 'lucide-react';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@/types/ui';
 import { ResizeHandles } from './ResizeHandles';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import * as styles from './styles.css';
 import { ButtonViewComponent } from './ButtonViewComponent';
 import { AnchoredViewComponent } from './AnchoredViewComponent';
-import { ViewProps } from './common';
-import { findAndDeleteView, findAndUpdateView } from './utils/container';
+import { getViewType, ViewProps } from './types';
 import clsx from 'clsx';
-import { Trans } from '@lingui/react/macro';
-import { EditViewDialog } from '../../dialogs/EditViewDialog';
 import { useViewContext } from './useViewContext';
 
 interface DraggableViewProps extends ViewProps<AnyView> {
@@ -33,9 +29,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
   siblings,
   isOverlay = false,
 }) => {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
-  const { isAdjusting, onResizeStart, onViewUpdate } = useViewContext();
+  const { ViewContextMenuRenderer, isAdjusting, onResizeStart } = useViewContext();
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: view.id,
@@ -63,27 +57,6 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     );
   }, [view, parentView, relativeLeft, relativeTop, onResizeStart]);
 
-  const handleDelete = useCallback((id: string) => {
-    if (!parentView) return;
-    findAndDeleteView(parentView, id);
-    onViewUpdate?.(parentView.id, parentView);
-  }, [parentView, onViewUpdate]);
-
-  const handleEdit = useCallback(() => {
-    setIsEditDialogOpen(true);
-  }, []);
-
-  const handleSaveEdit = useCallback((updatedView: AnyView) => {
-    const updateRoot = parentView ?? (view.type === 'container' ? view as ContainerView : null);
-    if (!updateRoot) {
-      return;
-    }
-    const { id: viewId, type: _, ...rest } = updatedView;
-    delete (rest as any).views; 
-    findAndUpdateView(updateRoot, viewId, rest);
-    onViewUpdate?.(updateRoot.id, updateRoot);
-  }, [parentView, onViewUpdate]);
-
   const renderViewContent = () => {
 
     switch (view.type) {
@@ -95,7 +68,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
         return (
           <ContainerViewComponent
             view={containerView}
-            parentView={view}
+            parentView={parentView}
             updateTrigger={updateTrigger}
             relativeLeft={relativeLeft}
             relativeTop={relativeTop}
@@ -106,7 +79,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       case 'environment':
       case 'parameter':
       case 'chart':
-        return <AnchoredViewComponent view={view as AnchoredView} />;
+        return <AnchoredViewComponent view={view as AnchoredView} parentView={parentView} />;
 
       default:
         return null;
@@ -133,39 +106,17 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     </div>
   );
 
+  const { type, dataType } = getViewType(view);
+
   return (
-    <>
-      <ContextMenu.Root>
-        <ContextMenu.Trigger asChild>
-          {body}
-        </ContextMenu.Trigger>
-
-        <ContextMenu.Portal>
-          <ContextMenu.Content className={styles.contextMenu}>
-            <ContextMenu.Item
-              className={styles.contextMenuItem}
-              onSelect={handleEdit}
-            >
-              <Edit style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-              <Trans>Edit</Trans>
-            </ContextMenu.Item>
-            <ContextMenu.Item
-              className={styles.contextMenuItemDanger}
-              onSelect={() => handleDelete(view.id)}
-            >
-              <Trash2 style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-              <Trans>Delete</Trans>
-            </ContextMenu.Item>
-          </ContextMenu.Content>
-        </ContextMenu.Portal>
-      </ContextMenu.Root>
-
-      <EditViewDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        view={view}
-        onSave={handleSaveEdit}
-      />
-    </>
+    <ViewContextMenuRenderer
+      view={view}
+      parentView={parentView}
+      type={type}
+      dataType={dataType}
+    >
+      {body}
+    </ViewContextMenuRenderer>
   );
+
 };

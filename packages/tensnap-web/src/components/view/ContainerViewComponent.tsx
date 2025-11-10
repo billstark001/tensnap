@@ -1,16 +1,17 @@
 import React, { useCallback } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import * as ContextMenu from '@radix-ui/react-context-menu';
-import { ChevronDown, ChevronRight, Square, Link, Container } from 'lucide-react';
+import { ChevronDown, ChevronRight, Square, Container, Pyramid, Earth, ChartArea } from 'lucide-react';
 import { ContainerView, AnyView, ButtonView, AnchoredView } from '@/types/ui';
 import { generateUniqueId } from '@/utils/common';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
 import { viewConstants } from './constants';
 import cx from 'clsx';
-import { ViewProps } from './common';
+import { ViewProps } from './types';
 import { findAndAddView } from './utils/container';
 import { useViewContext } from './useViewContext';
+import ContextMenu from '../ui/ContextMenu';
+import { Trans } from '@lingui/react/macro';
 
 interface ContainerViewComponentProps extends ViewProps<ContainerView> {
   relativeLeft?: number,
@@ -28,7 +29,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   isRootView = false,
 }) => {
 
-  const { onViewUpdate } = useViewContext();
+  const { onViewUpdate, isAdjusting } = useViewContext();
 
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${view.id}`,
@@ -41,46 +42,61 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     disabled: isOverlay,
   });
 
-  const handleCreateView = (type: 'action' | 'environment' | 'container', e: React.MouseEvent) => {
+  const lastClickPositionRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handleContextMenu = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    lastClickPositionRef.current = { x: e.nativeEvent.offsetX || 0, y: e.nativeEvent.offsetY || 0 };
+  }, [lastClickPositionRef]);
+
+  const handleCreateView = (type: AnyView['type'], e: React.MouseEvent) => {
     e.stopPropagation();
-    const containerRect = (e.currentTarget as HTMLElement).closest(`.${styles.windowViewContent}`)?.getBoundingClientRect();
-
-    const relativeX = containerRect ? e.clientX / window.devicePixelRatio - containerRect.left : 50;
-    const relativeY = containerRect ? e.clientY / window.devicePixelRatio - containerRect.top : 50;
-
-    // Snap to grid
-    const snappedX = Math.max(0, relativeX - 75);
-    const snappedY = Math.max(0, relativeY - 50);
-
     let newView: AnyView;
     const baseProps = {
       id: generateUniqueId(),
-      left: snappedX,
-      top: snappedY,
-      width: 150,
-      height: 100,
+      type,
+      left: lastClickPositionRef.current.x,
+      top: lastClickPositionRef.current.y,
       expanded: true,
     };
 
     switch (type) {
-      case 'action':
+      case 'button':
         newView = {
           ...baseProps,
-          type: 'button',
+          width: 120,
+          height: 40,
           data: { id: 'click', text: 'New Button' },
         } as ButtonView;
+        break;
+      case 'parameter':
+        newView = {
+          ...baseProps,
+          width: 200,
+          height: 80,
+          data: { id: generateUniqueId(), title: 'New Parameter', type: 'boolean' },
+        } as AnchoredView;
+        break;
+      case 'chart':
+        newView = {
+          ...baseProps,
+          width: 300,
+          height: 200,
+          data: { id: generateUniqueId(), title: 'New Chart', type: 'line' },
+        } as AnchoredView;
         break;
       case 'environment':
         newView = {
           ...baseProps,
-          type,
+          width: 200,
+          height: 200,
           data: { id: generateUniqueId(), title: 'New View' },
         } as AnchoredView;
         break;
       case 'container':
         newView = {
           ...baseProps,
-          type: 'container',
+          width: 300,
+          height: 300,
           data: { title: 'New Container' },
           views: [],
         } as ContainerView;
@@ -104,61 +120,69 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     styles.windowView,
     isOver && styles.containerViewDragOver,
   );
-  const body = <ContextMenu.Root>
-    <ContextMenu.Trigger asChild>
-      <div
-        ref={setNodeRef}
-        className={cx(
-          styles.windowViewContent,
-          isRootView && isOver && styles.containerViewDragOver,
-        )}
-      >
-        {view.views.map((childView) => (
-          <DraggableView
-            key={childView.id}
-            view={childView}
-            parentView={view}
-            updateTrigger={updateTrigger}
-            relativeLeft={relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta)}
-            relativeTop={relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta)}
-            parentId={view.id}
-            siblings={view.views}
-            isOverlay={isOverlay}
-            isUnderRootView={isRootView}
-          />
-        ))}
-      </div>
-    </ContextMenu.Trigger>
 
-    <ContextMenu.Portal>
-      <ContextMenu.Content className={styles.contextMenu}>
-        <ContextMenu.Label className={styles.contextMenuLabel}>
-          新建视图
-        </ContextMenu.Label>
-        <ContextMenu.Item
-          className={styles.contextMenuItem}
-          onSelect={(e) => handleCreateView('action', e as any)}
-        >
-          <Square style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-          按钮
-        </ContextMenu.Item>
-        <ContextMenu.Item
-          className={styles.contextMenuItem}
-          onSelect={(e) => handleCreateView('environment', e as any)}
-        >
-          <Link style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-          锚定视图
-        </ContextMenu.Item>
-        <ContextMenu.Item
-          className={styles.contextMenuItem}
-          onSelect={(e) => handleCreateView('container', e as any)}
-        >
-          <Container style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-          容器
-        </ContextMenu.Item>
-      </ContextMenu.Content>
-    </ContextMenu.Portal>
-  </ContextMenu.Root>;
+  const draggableView = <div
+    ref={setNodeRef}
+    className={cx(
+      styles.windowViewContent,
+      isRootView && isOver && styles.containerViewDragOver,
+    )}
+    onContextMenu={handleContextMenu}
+  >
+    {view.views.map((childView) => (
+      <DraggableView
+        key={childView.id}
+        view={childView}
+        parentView={view}
+        updateTrigger={updateTrigger}
+        relativeLeft={relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta)}
+        relativeTop={relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta)}
+        parentId={view.id}
+        siblings={view.views}
+        isOverlay={isOverlay}
+        isUnderRootView={isRootView}
+      />
+    ))}
+  </div>;
+
+  const body = isAdjusting ? (
+    <ContextMenu.Root trigger={draggableView} >
+      <ContextMenu.Label>
+        <Trans>New View</Trans>
+      </ContextMenu.Label>
+      <ContextMenu.Item
+        onSelect={(e) => handleCreateView('button', e as any)}
+      >
+        <Square />
+        <Trans>Button</Trans>
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        onSelect={(e) => handleCreateView('parameter', e as any)}
+      >
+        <Pyramid />
+        <Trans>Parameter</Trans>
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        onSelect={(e) => handleCreateView('environment', e as any)}
+      >
+        <Earth />
+        <Trans>Environment</Trans>
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        onSelect={(e) => handleCreateView('chart', e as any)}
+      >
+        <ChartArea />
+        <Trans>Chart</Trans>
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        onSelect={(e) => handleCreateView('container', e as any)}
+      >
+        <Container />
+        <Trans>Container</Trans>
+      </ContextMenu.Item>
+    </ContextMenu.Root>) : (
+    draggableView
+  );
 
   if (isRootView) {
     return body;
@@ -171,12 +195,10 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
       <div
         className={styles.windowViewHeader}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button onClick={handleToggleExpand} className={styles.expandButton}>
-            {view.expanded ? <ChevronDown style={{ width: '16px', height: '16px' }} /> : <ChevronRight style={{ width: '16px', height: '16px' }} />}
-          </button>
-          <span style={{ fontWeight: 500, fontSize: '14px' }}>{view.data?.title}</span>
-        </div>
+        <button onClick={handleToggleExpand} className={styles.expandButton}>
+          {view.expanded ? <ChevronDown className='icon' /> : <ChevronRight className='icon' />}
+        </button>
+        <span className={styles.windowViewTitle}>{view.data?.title}</span>
       </div>
 
       {view.expanded && body}

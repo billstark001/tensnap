@@ -5,17 +5,13 @@ import {
   DragMoveEvent,
 } from '@dnd-kit/core';
 import { ContainerView, AnyView } from '@/types/ui';
-import { ViewContextScheme } from './useViewContext';
 import { useCallbackRef, useThrottled } from '@/utils/react';
 import { findAndAddView, findAndDeleteView } from './utils/container';
-import { ViewProps } from './common';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
 import { SNAP_THRESHOLD } from './constants';
 import { adjustForMainViewPadding } from './utils/pack';
 
-export type ViewRendererProps = ViewProps<ContainerView> &
-  Partial<Pick<ViewContextScheme, 'onButtonAction' | 'renderAnchoredView'>>;
 
 type DragContent = {
   id: string;

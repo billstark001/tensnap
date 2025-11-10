@@ -1,11 +1,6 @@
-import { style, styleVariants, keyframes } from '@vanilla-extract/css';
+import { style, styleVariants, globalStyle } from '@vanilla-extract/css';
 import { vars } from '@/styles/global.css';
 import { viewConstants } from './constants';
-
-const fadeIn = keyframes({
-  from: { opacity: 0 },
-  to: { opacity: 1 },
-});
 
 export const container = style({
   minWidth: '100px',
@@ -68,7 +63,7 @@ export const dragHandle = style({
   ':hover': {
     backgroundColor: vars.color.border,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &:hover': {
       backgroundColor: vars.color.darkBorder,
@@ -82,7 +77,7 @@ export const dragIcon = style({
   color: vars.color.textTertiary,
   opacity: 0,
   transition: 'opacity 0.2s',
-  
+
   selectors: {
     [`${dragHandle}:hover &`]: {
       opacity: 1,
@@ -202,7 +197,7 @@ export const windowViewHeader = style({
   boxSizing: 'border-box',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
+  gap: '6px',
 
   selectors: {
     'body[data-theme="dark"] &': {
@@ -210,6 +205,53 @@ export const windowViewHeader = style({
       borderBottomColor: vars.color.darkInputBorder,
     },
   },
+});
+
+export const windowViewTitle = style({
+  fontSize: '14px',
+  fontWeight: 500,
+  color: vars.color.foreground,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const windowViewExpandButtonContainer = style({
+  display: 'flex',
+  alignItems: 'center',
+});
+
+export const expandButton = style({
+  background: 'none',
+  border: 'none',
+  padding: '0',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  color: vars.color.textTertiary,
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkTextTertiary,
+    },
+    '&:hover': {
+      color: vars.color.foreground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+globalStyle(`${expandButton} .icon`, {
+  width: '16px',
+  height: '16px',
 });
 
 export const windowViewContent = style({
@@ -223,114 +265,13 @@ export const windowViewContent = style({
   }
 });
 
-
 export const containerViewDragOver = style({
   borderColor: vars.color.primary,
   backgroundColor: vars.color.verySubtleBackground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkVerySubtleBackground,
-    },
-  },
-});
-
-export const expandButton = style({
-  background: 'none',
-  border: 'none',
-  padding: '0',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  color: vars.color.textTertiary,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary,
-    },
-  },
-});
-
-export const alignmentGuide = style({
-  position: 'absolute',
-  backgroundColor: vars.color.danger,
-  zIndex: 1000,
-  pointerEvents: 'none',
-  animation: `${fadeIn} 0.1s ease-in`,
-});
-
-export const horizontalGuide = style([
-  alignmentGuide,
-  {
-    height: '1px',
-    left: 0,
-    right: 0,
-  },
-]);
-
-export const verticalGuide = style([
-  alignmentGuide,
-  {
-    width: '1px',
-    top: 0,
-    bottom: 0,
-  },
-]);
-
-export const contextMenu = style({
-  backgroundColor: vars.color.inputBackground,
-  borderRadius: '6px',
-  boxShadow: vars.shadow.lg,
-  padding: '4px',
-  minWidth: '160px',
-  border: `1px solid ${vars.color.inputBorder}`,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkInputBackground,
-      borderColor: vars.color.darkInputBorder,
-    },
-  },
-});
-
-export const contextMenuItem = style({
-  display: 'flex',
-  alignItems: 'center',
-  padding: '8px 12px',
-  fontSize: '14px',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  transition: 'background-color 0.1s',
-  color: vars.color.foreground,
-  ':hover': {
-    backgroundColor: vars.color.verySubtleBackground,
-  },
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-    'body[data-theme="dark"] &:hover': {
-      backgroundColor: vars.color.darkVerySubtleBackground,
-    },
-  },
-});
-
-export const contextMenuItemDanger = style([
-  contextMenuItem,
-  {
-    color: vars.color.danger,
-  },
-]);
-
-export const contextMenuLabel = style({
-  padding: '8px 12px',
-  fontSize: '12px',
-  color: vars.color.textTertiary,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary,
     },
   },
 });
@@ -343,7 +284,7 @@ export const dragOverlayAnchor = style({
   minWidth: `${viewConstants.dragHandleMinWidth}px`,
   minHeight: `${viewConstants.dragHandleMinHeight}px`,
   borderRadius: `${viewConstants.windowBorderRadius}px`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.overlayDark,

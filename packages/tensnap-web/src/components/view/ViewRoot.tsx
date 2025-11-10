@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -14,14 +13,19 @@ import { ContainerViewComponent } from './ContainerViewComponent';
 import { nestedOverlapCollisionDetection } from './utils/collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
 import { useCallbackRef } from '@/utils/react';
-import { ViewProps } from './common';
+import { ViewProps } from './types';
 import { viewConstants } from './constants';
 import { Guidelines } from './GuideLines';
 import clsx from 'clsx';
 import { useDragContent, useResizeContent } from './useDragAndResizeContent';
+import { PropsWithChildren } from 'react';
 
 export type ViewRendererProps = ViewProps<ContainerView> &
   Partial<ViewContextScheme>;
+
+const NaiveRenderer = (props: PropsWithChildren<object>) => {
+  return <>{props.children}</>;
+}
 
 export default function ViewRoot({
   view: rootView,
@@ -29,12 +33,15 @@ export default function ViewRoot({
   isAdjusting = false,
   onViewUpdate: _onViewUpdate,
   onButtonAction: _onButtonAction,
-  renderAnchoredView: _renderAnchoredView,
+  AnchoredViewRenderer: _AnchoredViewRenderer,
+  ViewContextMenuRenderer: _ViewContextMenuRenderer,
 }: ViewRendererProps) {
 
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
-  const renderAnchoredView = useCallbackRef(_renderAnchoredView ?? (() => undefined));
   const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
+
+  const AnchoredViewRenderer = useCallbackRef(_AnchoredViewRenderer ?? NaiveRenderer as any);
+  const ViewContextMenuRenderer = useCallbackRef(_ViewContextMenuRenderer ?? NaiveRenderer as any);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -63,10 +70,14 @@ export default function ViewRoot({
     onViewUpdate,
   });
 
-  const contextValue = useMemo(
-    () => ({ isAdjusting, onButtonAction, renderAnchoredView, onResizeStart, onViewUpdate }),
-    [isAdjusting, onButtonAction, renderAnchoredView, onResizeStart, onViewUpdate]
-  );
+  const contextValue: ViewContextScheme = {
+    isAdjusting,
+    onButtonAction,
+    AnchoredViewRenderer,
+    ViewContextMenuRenderer,
+    onResizeStart,
+    onViewUpdate,
+  };
 
   const { state: resizeStateValue } = resizeState;
 

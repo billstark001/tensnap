@@ -1,14 +1,13 @@
-import { AnchoredView, AnyView, ContainerView } from "@/types/ui"
-import React, { createContext, useContext } from "react"
+import { AnyView, ContainerView } from "@/types/ui"
+import { createContext, useContext } from "react"
+import { AnchoredViewRendererType, ViewContextMenuRendererType } from "./types";
 
 
 export type ViewContextScheme = {
   isAdjusting: boolean,
   onButtonAction: (id: string) => void,
-  renderAnchoredView: React.FC<{
-    type: AnchoredView['type'],
-    id: string,
-  }>,
+  AnchoredViewRenderer: AnchoredViewRendererType,
+  ViewContextMenuRenderer: ViewContextMenuRendererType,
   onResizeStart: (
     view: AnyView, 
     parentView: ContainerView, 
@@ -24,7 +23,8 @@ export type ViewContextScheme = {
 export const ViewContext = createContext<ViewContextScheme>({
   isAdjusting: false,
   onButtonAction: () => void 0,
-  renderAnchoredView: () => void 0,
+  AnchoredViewRenderer: () => void 0,
+  ViewContextMenuRenderer: () => void 0,
   onResizeStart: () => void 0,
   onViewUpdate: () => void 0,
 });
