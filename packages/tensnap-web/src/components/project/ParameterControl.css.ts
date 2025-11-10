@@ -34,9 +34,18 @@ export const slider = style({
   background: vars.color.gridLine,
   outline: 'none',
   cursor: 'pointer',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  appearance: 'none',
 
   selectors: {
+    '&::-webkit-slider-runnable-track': {
+      height: '4px',
+      borderRadius: vars.radius.full,
+      background: vars.color.gridLine,
+    },
     '&::-webkit-slider-thumb': {
+      WebkitAppearance: 'none',
       appearance: 'none',
       width: '16px',
       height: '16px',
@@ -44,9 +53,15 @@ export const slider = style({
       background: vars.color.primary,
       cursor: 'pointer',
       transition: 'transform 0.1s ease',
+      marginTop: '-6px',
     },
     '&::-webkit-slider-thumb:hover': {
       transform: 'scale(1.1)',
+    },
+    '&::-moz-range-track': {
+      height: '4px',
+      borderRadius: vars.radius.full,
+      background: vars.color.gridLine,
     },
     '&::-moz-range-thumb': {
       width: '16px',
@@ -61,6 +76,12 @@ export const slider = style({
       transform: 'scale(1.1)',
     },
     'body[data-theme="dark"] &': {
+      background: vars.color.darkGridLine,
+    },
+    'body[data-theme="dark"] &::-webkit-slider-runnable-track': {
+      background: vars.color.darkGridLine,
+    },
+    'body[data-theme="dark"] &::-moz-range-track': {
       background: vars.color.darkGridLine,
     },
   },
@@ -91,6 +112,15 @@ export const select = style({
   cursor: 'pointer',
   outline: 'none',
   transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+  boxSizing: 'border-box',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  appearance: 'none',
+  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 8px center',
+  backgroundSize: '16px',
+  paddingRight: '32px',
 
   ':focus': {
     borderColor: vars.color.primary,
@@ -182,6 +212,10 @@ export const textInput = style({
   color: vars.color.foreground,
   outline: 'none',
   transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+  boxSizing: 'border-box',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  appearance: 'none',
 
   ':focus': {
     borderColor: vars.color.primary,

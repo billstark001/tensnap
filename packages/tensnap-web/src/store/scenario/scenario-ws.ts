@@ -58,7 +58,6 @@ export function registerEventHandlers(
     const store = useStore.getState();
 
     const {
-      mode = 'full',
       added_parameters,
       removed_parameters,
       updated_parameters,
@@ -102,7 +101,8 @@ export function registerEventHandlers(
         environments: allEnvironments,
         charts: allCharts,
       };
-      store.setData(updateData, { updateLayout: true, preserveExisting: mode === 'incremental' });
+      // Always preserve existing views and mark removed items as disabled instead of deleting them
+      store.setData(updateData, { updateLayout: true, preserveExisting: true });
     } else {
       store.updateMainViewLayout();
     }

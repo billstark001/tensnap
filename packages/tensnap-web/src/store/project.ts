@@ -44,6 +44,8 @@ const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
 
 export const createStateSyncRequestFromStore = (store?: SimulationState): StateSyncRequest => {
   const { parameters = [], environments = [], charts = [] } = store || {};
+  // Filter out disabled items - we don't send them in state sync requests
+  // This ensures the server knows about only active items
   return {
     parameters,
     environments: environments.map(stripAgents),
