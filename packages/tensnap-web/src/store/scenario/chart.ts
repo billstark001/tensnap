@@ -36,6 +36,8 @@ export function exportToCSV(chartGroup: ChartGroup) {
   URL.revokeObjectURL(url);
 }
 
+type WarnFunction = (msg: string) => void;
+
 export class InstantiatedChartStorage {
   readonly allChartGroups = new Map<string, ChartGroup>();
   readonly allChartMetadata = new Map<string, ChartMetadata[]>();
@@ -403,13 +405,13 @@ export class InstantiatedChartStorage {
     return closestValue;
   }
 
-  push(currentTime: number, dataPoints: ChartUpdateData[]) {
+  push(currentTime: number, dataPoints: ChartUpdateData[], warn: WarnFunction = console.warn) {
     this._pushMap.forEach(m => m.clear());
 
     for (const { id, time = currentTime, value } of dataPoints) {
       const groups = this.chartGroupsByMetadataId.get(id);
       if (!groups) {
-        console.warn(`Chart with id ${id} not found.`);
+        warn(`Chart with id ${id} not found.`);
         continue;
       }
 
@@ -458,12 +460,12 @@ export class InstantiatedChartStorage {
     }
   }
 
-  pushMany(metadataId: string, dataPoints: NativeDataPoint[]) {
+  pushMany(metadataId: string, dataPoints: NativeDataPoint[], warn: WarnFunction = console.warn) {
     if (!dataPoints.length) return;
 
     const groups = this.chartGroupsByMetadataId.get(metadataId);
     if (!groups?.length) {
-      console.warn(`Chart with id ${metadataId} not found.`);
+      warn(`Chart with id ${metadataId} not found.`);
       return;
     }
 
@@ -544,5 +546,110 @@ export class InstantiatedChartStorage {
     });
 
     return cleared;
+  }
+
+  /**
+   * Rename a chart group.
+   * @param oldGroupId The current ID of the group to rename.
+   * @param newGroupId The new ID for the group.
+   * @returns true if the group was successfully renamed, false otherwise.
+   */
+  renameChartGroup(oldGroupId: string, newGroupId: string, warn: WarnFunction = console.warn): boolean {
+    const group = this.allChartGroups.get(oldGroupId);
+    if (!group) return false;
+
+    // Check if new ID already exists
+    if (this.allChartGroups.has(newGroupId)) {
+      warn(`Group with id ${newGroupId} already exists.`);
+      return false;
+    }
+
+    // Update group ID
+    group.id = newGroupId;
+
+    // Update allChartGroups map
+    this.allChartGroups.delete(oldGroupId);
+    this.allChartGroups.set(newGroupId, group);
+
+    // Update chartGroupsByMetadataId map
+    Object.keys(group.metadataDict).forEach(metadataId => {
+      const groups = this.chartGroupsByMetadataId.get(metadataId);
+      if (groups) {
+        const index = groups.findIndex(g => g.id === oldGroupId);
+        if (index !== -1) {
+          groups[index] = group;
+        }
+      }
+    });
+
+    // Update pushMap
+    const pushMapValue = this._pushMap.get(oldGroupId);
+    if (pushMapValue) {
+      this._pushMap.delete(oldGroupId);
+      this._pushMap.set(newGroupId, pushMapValue);
+    }
+
+    return true;
+  }
+
+  /**
+   * Rename a chart metadata within a specific group or across all groups.
+   * @param oldMetadataId The current ID of the metadata to rename.
+   * @param newMetadataId The new ID for the metadata.
+   * @param groupId Optional: If specified, only rename the metadata in this group. Otherwise, rename in all groups.
+   * @returns true if the metadata was successfully renamed, false otherwise.
+   */
+  renameChartMetadata(oldMetadataId: string, newMetadataId: string, groupId?: string, warn: WarnFunction = console.warn): boolean {
+    // Check if new ID already exists
+    if (this.allChartMetadata.has(newMetadataId)) {
+      warn(`Metadata with id ${newMetadataId} already exists.`);
+      return false;
+    }
+
+    const groups = groupId 
+      ? (this.allChartGroups.has(groupId) ? [this.allChartGroups.get(groupId)!] : [])
+      : this.chartGroupsByMetadataId.get(oldMetadataId) || [];
+
+    if (!groups.length) return false;
+
+    // Filter groups to only those that actually contain the old metadata
+    const affectedGroups = groups.filter(g => oldMetadataId in g.metadataDict);
+    if (!affectedGroups.length) return false;
+
+    // Update metadata ID in each affected group
+    for (const group of affectedGroups) {
+      const metadata = group.metadataDict[oldMetadataId];
+      
+      // Update metadata object
+      metadata.id = newMetadataId;
+      
+      // Update metadataDict
+      delete group.metadataDict[oldMetadataId];
+      group.metadataDict[newMetadataId] = metadata;
+      
+      // Update data points - rename the keys in data array
+      group.data.forEach(dp => {
+        if (oldMetadataId in dp) {
+          dp[newMetadataId] = dp[oldMetadataId];
+          delete dp[oldMetadataId];
+        }
+      });
+    }
+
+    // Update allChartMetadata map
+    const metaList = this.allChartMetadata.get(oldMetadataId);
+    if (metaList) {
+      this.allChartMetadata.delete(oldMetadataId);
+      this.allChartMetadata.set(newMetadataId, metaList);
+    }
+
+    // Update chartGroupsByMetadataId map
+    const groupList = this.chartGroupsByMetadataId.get(oldMetadataId);
+    if (groupList) {
+      this.chartGroupsByMetadataId.delete(oldMetadataId);
+      this.chartGroupsByMetadataId.set(newMetadataId, groupList);
+    }
+
+    return true;
   }
 }

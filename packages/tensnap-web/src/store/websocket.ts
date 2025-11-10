@@ -5,6 +5,7 @@ import { createStoreContext } from '@/utils/zustand';
 import { StateSyncRequest, WSMessage } from '@/types/api';
 import { registerEventHandlers, unregisterEventHandlers } from './scenario/scenario-ws';
 import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, WebSocketManagerFake } from '@/websocket';
+import { useSettingsStore } from './settings';
 
 
 const createEmptyStateSyncRequest = (): StateSyncRequest => ({
@@ -70,7 +71,14 @@ export const createWebSocketStore = (
 
     const wsManager: WebSocketManager = url.startsWith(WebSocketManagerFake.WEBSOCKET_FAKE_PROTOCOL)
       ? WebSocketManagerFake.createFromGlobalOptions(null, url)
-      : new WebSocketManagerImpl(null, url)
+      : new WebSocketManagerImpl(null, url);
+
+    // Apply validation settings
+    const { clientMessageValidation, serverMessageValidation } = useSettingsStore.getState();
+    if (wsManager instanceof WebSocketManagerImpl) {
+      wsManager.clientMessageValidation = clientMessageValidation;
+      wsManager.serverMessageValidation = serverMessageValidation;
+    }
 
     const onConnected = () => {
       set({

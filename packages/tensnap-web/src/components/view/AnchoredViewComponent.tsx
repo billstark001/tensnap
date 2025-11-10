@@ -1,6 +1,7 @@
 import { AnchoredView, ContainerView } from "@/types/ui";
 import * as styles from './styles.css';
 import { useViewContext } from "./useViewContext";
+import clsx from 'clsx';
 
 
 export type AnchoredViewComponentProps = {
@@ -11,9 +12,10 @@ export type AnchoredViewComponentProps = {
 export const AnchoredViewComponent = ({ view, parentView }: AnchoredViewComponentProps) => {
 
   const { AnchoredViewRenderer } = useViewContext();
+  const isDisabled = view.disabled;
 
   return (
-    <div className={styles.windowView}>
+    <div className={clsx(styles.windowView, isDisabled && styles.windowViewDisabled)}>
       <div className={styles.windowViewHeader}>
         <span className={styles.windowViewTitle}>
           {(view as AnchoredView).data.title || view.type}

@@ -66,7 +66,7 @@ export const dialogContent = style({
   maxWidth: '450px',
   maxHeight: '85vh',
   padding: vars.space.lg,
-  zIndex: 31,
+  zIndex: 30,
   overflow: 'auto',
   animation: `${contentShow} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
   

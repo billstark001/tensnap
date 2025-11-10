@@ -71,7 +71,7 @@ export class InBrowserFilePicker extends FileSystemPicker {
     this.isInitialized = true;
 
     // 等待一个 tick 确保 React 组件已渲染
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await Promise.resolve();
   }
 
   async cleanup(): Promise<void> {

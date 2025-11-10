@@ -18,14 +18,14 @@ export const ProjectPanel = () => {
     className={styles.panelWrapper}
     style={{ display: rightPanelVisible ? 'flex' : 'none' }}
   >
-    <RightPanel />
+    { rightPanelVisible ? <RightPanel /> : null }
   </div>;
 
   const terminalContent = <div
     className={styles.panelWrapper}
     style={{ display: bottomPanelVisible ? 'flex' : 'none' }}
   >
-    <ProjectTerminal />
+    { bottomPanelVisible ? <ProjectTerminal /> : null }
   </div>;
 
   const horizontalSizes = rightPanelVisible ? [70, 30] : [100, 0];

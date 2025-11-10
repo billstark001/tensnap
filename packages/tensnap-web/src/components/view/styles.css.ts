@@ -154,9 +154,18 @@ export const buttonView = style({
   alignItems: 'center',
   justifyContent: 'center',
   cursor: 'pointer',
-  transition: 'background-color 0.2s',
+  transition: 'background-color 0.2s, opacity 0.2s',
   ':hover': {
     backgroundColor: vars.color.primaryHover,
+  },
+});
+
+export const buttonViewDisabled = style({
+  opacity: 0.5,
+  cursor: 'not-allowed',
+  pointerEvents: 'none',
+  ':hover': {
+    backgroundColor: vars.color.primary,
   },
 });
 
@@ -170,6 +179,7 @@ export const windowView = style({
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
+  transition: 'opacity 0.2s',
 
   selectors: {
     'body[data-theme="dark"] &': {
@@ -182,6 +192,11 @@ export const windowView = style({
       border: `${viewConstants.windowBorderWidth}px dashed ${vars.color.primary}`,
     }
   },
+});
+
+export const windowViewDisabled = style({
+  opacity: 0.5,
+  pointerEvents: 'none',
 });
 
 export const windowViewHeader = style({

@@ -3,6 +3,15 @@ import { createContext, useContext } from "react";
 import { create, StoreApi, UseBoundStore } from "zustand";
 import { ToastContainer, ToastProps, ToastStatus } from "@/components/ui/Toast";
 
+export type CreateStoreFunction<T, TExternal = object> = (
+  set: {
+    (partial: T | Partial<T> | ((state: T) => T | Partial<T>), replace?: false): void;
+    (state: T | ((state: T) => T), replace: true): void;
+  },
+  get: () => T & TExternal,
+  store: StoreApi<T>
+) => T;
+
 type FakeUseBoundStore<T> = {
   (): T | undefined;
   <U>(selector: (state: T) => U): U | undefined;

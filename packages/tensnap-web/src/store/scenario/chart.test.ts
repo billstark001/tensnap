@@ -731,4 +731,227 @@ describe('InstantiatedChartStorage', () => {
       expect(new Set(ids).size).toBe(3);
     });
   });
+
+  describe('renameChartGroup', () => {
+    it('should rename a group successfully', () => {
+      storage.push(1000, [
+        { id: 'chart1', value: 10 },
+        { id: 'chart2', value: 20 },
+      ]);
+
+      const result = storage.renameChartGroup('group1', 'newGroup1');
+
+      expect(result).toBe(true);
+      expect(storage.allChartGroups.has('group1')).toBe(false);
+      expect(storage.allChartGroups.has('newGroup1')).toBe(true);
+
+      const renamedGroup = storage.allChartGroups.get('newGroup1')!;
+      expect(renamedGroup.id).toBe('newGroup1');
+      expect(renamedGroup.data).toHaveLength(1);
+      expect(renamedGroup.data[0].chart1).toBe(10);
+      expect(renamedGroup.data[0].chart2).toBe(20);
+    });
+
+    it('should update metadata group references', () => {
+      storage.renameChartGroup('group1', 'newGroup1');
+
+      const chart1Groups = storage.chartGroupsByMetadataId.get('chart1')!;
+      expect(chart1Groups.some(g => g.id === 'newGroup1')).toBe(true);
+      expect(chart1Groups.some(g => g.id === 'group1')).toBe(false);
+    });
+
+    it('should return false if group does not exist', () => {
+      const result = storage.renameChartGroup('nonexistent', 'newGroup');
+      expect(result).toBe(false);
+    });
+
+    it('should return false if new ID already exists', () => {
+      const result = storage.renameChartGroup('group1', 'group2');
+      expect(result).toBe(false);
+    });
+
+    it('should maintain data integrity after renaming', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      storage.renameChartGroup('group1', 'newGroup1');
+
+      const data = storage.getChartData('chart1');
+      expect(data).toHaveLength(2);
+      expect(data![0].chart1).toBe(10);
+      expect(data![1].chart1).toBe(20);
+    });
+
+    it('should allow pushing data after renaming', () => {
+      storage.renameChartGroup('group1', 'newGroup1');
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+
+      const group = storage.allChartGroups.get('newGroup1')!;
+      expect(group.data).toHaveLength(1);
+      expect(group.data[0].chart1).toBe(10);
+    });
+  });
+
+  describe('renameChartMetadata', () => {
+    it('should rename metadata across all groups', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      const result = storage.renameChartMetadata('chart1', 'newChart1');
+
+      expect(result).toBe(true);
+      expect(storage.getAllChartIds()).toContain('newChart1');
+      expect(storage.getAllChartIds()).not.toContain('chart1');
+
+      const group = storage.allChartGroups.get('group1')!;
+      expect('newChart1' in group.metadataDict).toBe(true);
+      expect('chart1' in group.metadataDict).toBe(false);
+    });
+
+    it('should update data points with new metadata ID', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      storage.renameChartMetadata('chart1', 'newChart1');
+
+      const group = storage.allChartGroups.get('group1')!;
+      expect(group.data[0].newChart1).toBe(10);
+      expect(group.data[0].chart1).toBeUndefined();
+      expect(group.data[1].newChart1).toBe(20);
+      expect(group.data[1].chart1).toBeUndefined();
+    });
+
+    it('should update metadata object ID', () => {
+      storage.renameChartMetadata('chart1', 'newChart1');
+
+      const group = storage.allChartGroups.get('group1')!;
+      expect(group.metadataDict.newChart1.id).toBe('newChart1');
+    });
+
+    it('should update metadata registrations', () => {
+      storage.renameChartMetadata('chart1', 'newChart1');
+
+      expect(storage.allChartMetadata.has('chart1')).toBe(false);
+      expect(storage.allChartMetadata.has('newChart1')).toBe(true);
+      expect(storage.chartGroupsByMetadataId.has('chart1')).toBe(false);
+      expect(storage.chartGroupsByMetadataId.has('newChart1')).toBe(true);
+    });
+
+    it('should rename metadata in specific group only', () => {
+      // Add chart1 to another group
+      const newGroup: ChartGroup = {
+        id: 'group3',
+        label: 'Group 3',
+        metadataDict: {
+          chart1: { id: 'chart1', label: 'Chart 1' },
+        },
+        data: [],
+      };
+      storage.addChartGroup(newGroup);
+
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+
+      const result = storage.renameChartMetadata('chart1', 'newChart1', 'group1');
+
+      expect(result).toBe(true);
+
+      const group1 = storage.allChartGroups.get('group1')!;
+      const group3 = storage.allChartGroups.get('group3')!;
+
+      expect('newChart1' in group1.metadataDict).toBe(true);
+      expect('chart1' in group1.metadataDict).toBe(false);
+      expect('chart1' in group3.metadataDict).toBe(true);
+      expect('newChart1' in group3.metadataDict).toBe(false);
+
+      // Data points in group1 should be renamed
+      expect(group1.data[0].newChart1).toBe(10);
+      expect(group1.data[0].chart1).toBeUndefined();
+
+      // Data points in group3 should not be renamed
+      expect(group3.data[0].chart1).toBe(10);
+      expect(group3.data[0].newChart1).toBeUndefined();
+    });
+
+    it('should return false if new ID already exists', () => {
+      const result = storage.renameChartMetadata('chart1', 'chart2');
+      expect(result).toBe(false);
+    });
+
+    it('should return false if metadata does not exist', () => {
+      const result = storage.renameChartMetadata('nonexistent', 'newChart');
+      expect(result).toBe(false);
+    });
+
+    it('should return false if specified group does not exist', () => {
+      const result = storage.renameChartMetadata('chart1', 'newChart1', 'nonexistent');
+      expect(result).toBe(false);
+    });
+
+    it('should return false if metadata not in specified group', () => {
+      const result = storage.renameChartMetadata('chart1', 'newChart1', 'group2');
+      expect(result).toBe(false);
+    });
+
+    it('should maintain data retrieval after renaming', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      storage.renameChartMetadata('chart1', 'newChart1');
+
+      const data = storage.getChartData('newChart1');
+      expect(data).not.toBeNull();
+      expect(data).toHaveLength(2);
+      expect(data![0].newChart1).toBe(10);
+      expect(data![1].newChart1).toBe(20);
+
+      const oldData = storage.getChartData('chart1');
+      expect(oldData).toBeNull();
+    });
+
+    it('should allow pushing data with new metadata ID after renaming', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.renameChartMetadata('chart1', 'newChart1');
+      storage.push(2000, [{ id: 'newChart1', value: 20 }]);
+
+      const data = storage.getChartData('newChart1');
+      expect(data).toHaveLength(2);
+      expect(data![0].newChart1).toBe(10);
+      expect(data![1].newChart1).toBe(20);
+    });
+
+    it('should handle sparse data correctly after renaming', () => {
+      storage.push(1000, [
+        { id: 'chart1', value: 10 },
+        { id: 'chart2', value: 20 },
+      ]);
+      storage.push(2000, [
+        { id: 'chart2', value: 30 },
+      ]);
+      storage.push(3000, [
+        { id: 'chart1', value: 40 },
+      ]);
+
+      storage.renameChartMetadata('chart1', 'newChart1');
+
+      const group = storage.allChartGroups.get('group1')!;
+      expect(group.data[0].newChart1).toBe(10);
+      expect(group.data[0].chart2).toBe(20);
+      expect(group.data[1].newChart1).toBeUndefined();
+      expect(group.data[1].chart2).toBe(30);
+      expect(group.data[2].newChart1).toBe(40);
+      expect(group.data[2].chart2).toBeUndefined();
+    });
+
+    it('should work with getValueAtTime after renaming', () => {
+      storage.push(1000, [{ id: 'chart1', value: 10 }]);
+      storage.push(2000, [{ id: 'chart1', value: 20 }]);
+
+      storage.renameChartMetadata('chart1', 'newChart1');
+
+      expect(storage.getValueAtTime('newChart1', 1000)).toBe(10);
+      expect(storage.getValueAtTime('newChart1', 2000)).toBe(20);
+      expect(storage.getValueAtTime('newChart1', 1500)).toBeDefined();
+      expect(storage.getValueAtTime('chart1', 1000)).toBeUndefined();
+    });
+  });
 });

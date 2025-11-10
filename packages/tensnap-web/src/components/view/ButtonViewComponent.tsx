@@ -1,6 +1,7 @@
 import { ButtonView } from "@/types/ui";
 import * as styles from './styles.css';
 import { useViewContext } from "./useViewContext";
+import clsx from 'clsx';
 
 export type ButtonViewProps = {
   view: ButtonView;
@@ -9,9 +10,13 @@ export type ButtonViewProps = {
 export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
 
   const { onButtonAction } = useViewContext();
+  const isDisabled = view.disabled;
 
   return (
-    <div className={styles.buttonView} onClick={() => onButtonAction(view.data.id)}>
+    <div 
+      className={clsx(styles.buttonView, isDisabled && styles.buttonViewDisabled)} 
+      onClick={isDisabled ? undefined : () => onButtonAction(view.data.id)}
+    >
       {(view as ButtonView).data.text}
     </div>
   );

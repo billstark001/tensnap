@@ -1,165 +1,19 @@
-import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
-import { Parameter, ActionParameter, NumberParameter, EnumParameter, EnvironmentId, EnvironmentType, BooleanParameter, StringParameter } from '@/types/model';
+import { ContainerView, AnyView } from '@/types/ui';
+import { Parameter, ActionParameter, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from '@/types/model';
 import { pack } from '@/utils/layout/pack';
-import { MAIN_VIEW_PADDING, viewConstants } from '../constants';
+import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '../constants';
+import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '../types';
+import {
+  createDefaultRootLayout,
+  createVerticalContainer,
+  createButtonViews,
+  createParameterViews,
+  createEnvironmentViews,
+  createChartViews,
+} from './create-view';
 
-const ENVIRONMENT_GRID_WIDTH = 16;
-const ENVIRONMENT_CARD_WIDTH = 600;
-const ENVIRONMENT_CARD_HEIGHT = 600;
-
-const CHART_CARD_WIDTH = 500;
-const CHART_CARD_HEIGHT = 400;
-
-const PADDING = 10;
-// 确保窗口增量是整数
-const WINDOW_X_DELTA = Math.ceil(viewConstants.windowBorderWidth * 2);
-const WINDOW_Y_DELTA = Math.ceil(viewConstants.windowBorderWidth + viewConstants.windowHeaderHeight);
-
-const PARAMETER_CARD_HEIGHT = 40 + WINDOW_Y_DELTA;
-
-export const preservedViewIds = Object.freeze({
-  buttonsContainer: 'buttons-container',
-  parametersContainer: 'parameters-container',
-  mainContainer: 'main-container',
-});
-
-
-type ObjectWithEnvironmentMetadata = {
-  id: EnvironmentId;
-  type: EnvironmentType;
-  label: string;
-  width?: number;
-  height?: number;
-};
-
-type ObjectWithChartMetadata = {
-  id: string;
-  label: string;
-};
-
-// #region object creation functions
-
-export function createDefaultRootLayout(
-  views?: AnyView[],
-): ContainerView {
-  views ??= [];
-  return {
-    id: preservedViewIds.mainContainer,
-    type: 'container',
-    left: 0,
-    top: 0,
-    width: 1200,
-    height: 800,
-    expanded: true,
-    data: {
-      title: 'TenSnap Visualization',
-    },
-    views,
-  };
-}
-
-/**
- * Creates a generic container with vertically packed views
- */
-function createVerticalContainer(
-  id: string,
-  title: string,
-  containerLeft: number,
-  containerTop: number,
-): ContainerView {
-  return {
-    id,
-    type: 'container',
-    left: containerLeft,
-    top: containerTop,
-    width: 100,
-    height: 100,
-    expanded: true,
-    data: { title },
-    views: [],
-  };
-}
-
-/**
- * Creates views for buttons from parameters
- */
-function createButtonViews(parameters: Parameter[]): ButtonView[] {
-  return parameters.map((param) => ({
-    id: `button-${param.id}`,
-    type: 'button',
-    left: 0,
-    top: 0,
-    width: 200,
-    height: 50,
-    expanded: true,
-    data: {
-      id: param.id,
-      text: param.label,
-    },
-  }));
-}
-
-/**
- * Creates views for parameters
- */
-function createParameterViews(parameters: Parameter[]): AnchoredView[] {
-  return parameters.map((param) => ({
-    id: `parameter-${param.id}`,
-    type: 'parameter',
-    left: 0,
-    top: 0,
-    width: 240,
-    height: PARAMETER_CARD_HEIGHT,
-    expanded: true,
-    data: {
-      id: param.id,
-      title: param.label,
-      type: param.type,
-    },
-  }));
-}
-
-/**
- * Creates views for environments
- */
-function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): AnchoredView[] {
-  return environments.map((env) => ({
-    id: `environment-${env.id}`,
-    type: 'environment',
-    left: 0,
-    top: 0,
-    // 确保宽度和高度是整数
-    width: Math.ceil((env.width ? env.width * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_WIDTH) + WINDOW_X_DELTA),
-    height: Math.ceil((env.height ? env.height * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_HEIGHT) + WINDOW_Y_DELTA),
-    expanded: true,
-    data: {
-      id: env.id.toString(),
-      title: `Environment ${env.label}`,
-      type: env.type,
-    },
-  }));
-}
-
-/**
- * Creates views for charts
- */
-function createChartViews(charts: ObjectWithChartMetadata[]): AnchoredView[] {
-  return charts.map((chart) => ({
-    id: `chart-${chart.id}`,
-    type: 'chart',
-    left: 0,
-    top: 0,
-    width: CHART_CARD_WIDTH,
-    height: CHART_CARD_HEIGHT,
-    expanded: true,
-    data: {
-      id: chart.id,
-      title: chart.label,
-    },
-  }));
-}
-
-// #endregion
+// Re-export for backward compatibility
+export { preservedViewIds, createDefaultRootLayout };
 
 
 // #region other utility functions
@@ -233,11 +87,6 @@ function getChartSignature(chart: ObjectWithChartMetadata): string {
 
 // #region module entry
 
-if (!window.structuredClone) {
-  window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
-}
-
-
 export function adjustForMainViewPadding(currentView: ContainerView) {
   let maxWidth = 0;
   let maxHeight = 0;
@@ -255,21 +104,32 @@ export function adjustForMainViewPadding(currentView: ContainerView) {
   currentView.height = Math.ceil(maxHeight + MAIN_VIEW_PADDING);
 }
 
-export interface LayoutOptions {
-  currentView?: ContainerView;
+export interface CreateAutoLayoutOptions {
+  /** Whether to modify the currentView in place or create a copy */
   inPlace?: boolean;
-  preserveExisting?: boolean;
+  /** If true, views for objects not in the lists will be disabled rather than removed */
+  disableMissingViews?: boolean;
 }
 
+/**
+ * Creates or updates the auto layout for views based on the current state of objects
+ * @param currentView The current view to update (or undefined to create new)
+ * @param environments List of all active environments
+ * @param parameters List of all active parameters  
+ * @param charts List of all active charts
+ * @param options Layout options
+ * @returns Updated container view
+ */
 export function createAutoLayout(
+  currentView: ContainerView | undefined,
   environments: ObjectWithEnvironmentMetadata[],
   parameters: Parameter[],
   charts: ObjectWithChartMetadata[],
-  options: LayoutOptions = {}
+  options: CreateAutoLayoutOptions = {}
 ): ContainerView {
-  const { currentView: _currentView, inPlace = false, preserveExisting = false } = options;
-  const currentView = _currentView
-    ? inPlace ? _currentView : structuredClone(_currentView)
+  const { inPlace = false, disableMissingViews = false } = options;
+  const view = currentView
+    ? inPlace ? currentView : structuredClone(currentView)
     : createDefaultRootLayout();
 
   const statesFound = new Map<string, boolean>();
@@ -279,20 +139,20 @@ export function createAutoLayout(
   charts.forEach(c => statesFound.set(getChartSignature(c), false));
 
   // this maintains statesFound and viewsShouldDisable
-  const viewsShouldDisable = walkAndFilter(currentView, (view) => {
-    if (view.type === 'container' || !view.type) {
+  const viewsShouldDisable = walkAndFilter(view, (v) => {
+    if (v.type === 'container' || !v.type) {
       return false;
     }
-    const sign = view.type === 'parameter' ? getParameterSignature(view.data) :
-      view.type === 'environment' ? getEnvironmentSignature(view.data as ObjectWithEnvironmentMetadata) :
-        view.type === 'chart' ? getChartSignature(view.data as ObjectWithChartMetadata) :
-          view.type === 'button' ? getParameterSignature({ id: view.data.id, type: 'action' }) : undefined;
+    const sign = v.type === 'parameter' ? getParameterSignature(v.data) :
+      v.type === 'environment' ? getEnvironmentSignature(v.data as ObjectWithEnvironmentMetadata) :
+        v.type === 'chart' ? getChartSignature(v.data as ObjectWithChartMetadata) :
+          v.type === 'button' ? getParameterSignature({ id: v.data.id, type: 'action' }) : undefined;
     if (!sign) {
       return false;
     }
     if (statesFound.has(sign)) {
       statesFound.set(sign, true);
-      delete view.data.disabled;
+      v.disabled = false;
       return false;
     } else {
       return true;
@@ -300,8 +160,8 @@ export function createAutoLayout(
   });
 
   // Find existing containers
-  let buttonsContainer = walkAndFind(currentView, view => view.id === preservedViewIds.buttonsContainer) as ContainerView | undefined;
-  let parametersContainer = walkAndFind(currentView, view => view.id === preservedViewIds.parametersContainer) as ContainerView | undefined;
+  let buttonsContainer = walkAndFind(view, v => v.id === preservedViewIds.buttonsContainer) as ContainerView | undefined;
+  let parametersContainer = walkAndFind(view, v => v.id === preservedViewIds.parametersContainer) as ContainerView | undefined;
 
   const buttonsContainerIsNew = !buttonsContainer;
   const parametersContainerIsNew = !parametersContainer;
@@ -313,7 +173,7 @@ export function createAutoLayout(
       10,
       10
     );
-    currentView.views.push(buttonsContainer);
+    view.views.push(buttonsContainer);
   }
   if (!parametersContainer) {
     parametersContainer = createVerticalContainer(
@@ -322,7 +182,7 @@ export function createAutoLayout(
       10,
       10
     );
-    currentView.views.push(parametersContainer);
+    view.views.push(parametersContainer);
   }
 
   // Separate parameters into buttons and other types
@@ -389,7 +249,7 @@ export function createAutoLayout(
   const newEnvironments = environments.filter(env => !statesFound.get(getEnvironmentSignature(env)));
   if (newEnvironments.length > 0) {
     const newEnvironmentViews = createEnvironmentViews(newEnvironments);
-    currentView.views.push(...newEnvironmentViews);
+    view.views.push(...newEnvironmentViews);
     rootViewNeedsAdjust = true;
   }
 
@@ -397,16 +257,16 @@ export function createAutoLayout(
   const newCharts = charts.filter(chart => !statesFound.get(getChartSignature(chart)));
   if (newCharts.length > 0) {
     const newChartViews = createChartViews(newCharts);
-    currentView.views.push(...newChartViews);
+    view.views.push(...newChartViews);
     rootViewNeedsAdjust = true;
   }
 
-  // Handle views that should be removed
-  if (!preserveExisting && viewsShouldDisable.length > 0) {
+  // Handle views that should be removed or disabled
+  if (!disableMissingViews && viewsShouldDisable.length > 0) {
     const viewsToRemoveSet = new Set(viewsShouldDisable);
 
     // Remove from root level
-    currentView.views = currentView.views.filter(view => !viewsToRemoveSet.has(view));
+    view.views = view.views.filter(v => !viewsToRemoveSet.has(v));
 
     // Remove from containers
     if (buttonsContainer) {
@@ -417,29 +277,29 @@ export function createAutoLayout(
     }
 
     rootViewNeedsAdjust = true;
-  } else if (preserveExisting) {
+  } else if (disableMissingViews) {
     // Mark views as disabled instead of removing them
-    viewsShouldDisable.forEach(view => {
-      if (view.type !== 'container' && view.type) {
-        view.data.disabled = true;
+    viewsShouldDisable.forEach(v => {
+      if (v.type !== 'container' && v.type) {
+        v.disabled = true;
       }
     });
   }
 
   // Adjust root layout
   // Always re-layout if it's a new view or if there are changes
-  if (!_currentView) {
+  if (!currentView) {
     // New layout: use area-based sorting for optimal initial placement
-    pack(currentView.views, {
+    pack(view.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
       padding: PADDING,
       paddingBorder: PADDING,
       sortBy: 'area',
     });
-  } else if (rootViewNeedsAdjust || currentView.views.length > 0) {
+  } else if (rootViewNeedsAdjust || view.views.length > 0) {
     // Existing layout: use position-based sorting to preserve user's layout intent
-    pack(currentView.views, {
+    pack(view.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
       padding: PADDING,
@@ -449,7 +309,7 @@ export function createAutoLayout(
     });
   }
 
-  adjustForMainViewPadding(currentView);
+  adjustForMainViewPadding(view);
 
-  return currentView;
+  return view;
 }

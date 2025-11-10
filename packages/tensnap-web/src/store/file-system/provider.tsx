@@ -17,7 +17,7 @@ export const cleanupCurrentAdapter = async () => {
     await currentAdapter.cleanup();
     currentAdapter = null;
     useFileSystemStore = null;
-    useUpdateTriggerStore.setState({ updateTrigger: Date.now() });
+    useUpdateTriggerStore.setState({ value: Date.now() });
   }
 };
 
@@ -68,7 +68,7 @@ export const useFileSystem = () => {
   if (!useFileSystemStore) {
     throw new Error('File system store not initialized');
   }
-  useUpdateTriggerStore(store => store.updateTrigger);
+  useUpdateTriggerStore(store => store.value);
   const fileSystem = useFileSystemStore();
   useEffect(() => {
     if (!fileSystem.initialized) {

@@ -1,6 +1,6 @@
 import { AnyView, ContainerView } from "@/types/ui"
 import { createContext, useContext } from "react"
-import { AnchoredViewRendererType, ViewContextMenuRendererType } from "./types";
+import { AnchoredViewRendererType, Point, ViewContextMenuRendererType } from "./types";
 
 
 export type ViewContextScheme = {
@@ -17,6 +17,7 @@ export type ViewContextScheme = {
     clientX: number, 
     clientY: number
   ) => void,
+  onViewCreateRequest: (type: AnyView['type'], position: Point, container: ContainerView,) => void,
   onViewUpdate: (id: string, updatedView: AnyView) => void,
 };
 
@@ -26,6 +27,7 @@ export const ViewContext = createContext<ViewContextScheme>({
   AnchoredViewRenderer: () => void 0,
   ViewContextMenuRenderer: () => void 0,
   onResizeStart: () => void 0,
+  onViewCreateRequest: () => void 0,
   onViewUpdate: () => void 0,
 });
 

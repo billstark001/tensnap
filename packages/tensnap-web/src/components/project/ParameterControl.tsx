@@ -1,10 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { BooleanParameter, EnumParameter, Parameter, ParameterType, NumberParameter, StringParameter } from '../../types/model';
 import { useScenarioStore } from '../../store/scenario/store';
 import { useWebSocketStore } from '@/store/websocket';
 import { ParameterChangePayload } from '@/types/api';
 import * as styles from './ParameterControl.css';
 import * as Switch from '@radix-ui/react-switch';
+import * as Select from '@/components/ui/Select';
+import { useThrottled } from '@/utils';
 
 interface ParameterControlProps {
   parameter: Parameter;
@@ -12,6 +14,41 @@ interface ParameterControlProps {
 }
 
 function SliderParameterControl({ parameter, onChange }: { parameter: NumberParameter; onChange: (value: number) => void }) {
+  const [isEditingValue, setIsEditingValue] = useState(false);
+  const [editValue, setEditValue] = useState(String(parameter.value));
+
+  const throttledOnChange = useThrottled(onChange, 16);
+
+  const handleValueClick = () => {
+    setEditValue(String(parameter.value));
+    setIsEditingValue(true);
+  };
+
+  const handleValueBlur = () => {
+    const numValue = parseFloat(editValue);
+    if (!isNaN(numValue)) {
+      // Truncate to nearest valid value based on min, max, and step
+      const min = parameter.min || 0;
+      const max = parameter.max || 100;
+      const step = parameter.step || 1;
+      
+      let truncated = Math.max(min, Math.min(max, numValue));
+      // Round to nearest step
+      truncated = Math.round((truncated - min) / step) * step + min;
+      
+      onChange(truncated);
+    }
+    setIsEditingValue(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleValueBlur();
+    } else if (e.key === 'Escape') {
+      setIsEditingValue(false);
+    }
+  };
+
   return (
     <div className={styles.controlContainer}>
       <input
@@ -20,12 +57,30 @@ function SliderParameterControl({ parameter, onChange }: { parameter: NumberPara
         max={parameter.max || 100}
         step={parameter.step || 1}
         value={(parameter.value as number) || 0}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => throttledOnChange(Number(e.target.value))}
         className={styles.slider}
       />
-      <span className={styles.sliderValue}>
-        {parameter.value}
-      </span>
+      {isEditingValue ? (
+        <input
+          type="number"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleValueBlur}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          className={styles.sliderValueInput}
+          style={{ width: '60px', textAlign: 'right' }}
+        />
+      ) : (
+        <span 
+          className={styles.sliderValue}
+          onClick={handleValueClick}
+          style={{ cursor: 'pointer' }}
+          title="Click to edit"
+        >
+          {parameter.value}
+        </span>
+      )}
     </div>
   );
 }
@@ -33,18 +88,21 @@ function SliderParameterControl({ parameter, onChange }: { parameter: NumberPara
 function EnumParameterControl({ parameter, onChange }: { parameter: EnumParameter; onChange: (value: string) => void }) {
   const { value, options, labels } = parameter;
   return (
-    <select
+    <Select.Root
+      triggerClassName={styles.select}
       value={(value as string) || ''}
-      onChange={(e) => onChange(e.target.value)}
-      className={styles.select}
+      onValueChange={onChange}
     >
-      <option value="">Select...</option>
-      {options?.map((opt) => (
-        <option key={opt} value={opt} className={styles.option}>
+      {options?.length ? options.filter(Boolean).map((opt) => (
+        <Select.Item key={opt} value={opt} className={styles.option} indicator>
           {labels?.[opt] || opt}
-        </option>
-      ))}
-    </select>
+        </Select.Item>
+      )) : (
+        <Select.Item value="_" className={styles.option} indicator>
+          (no options)
+        </Select.Item>
+      )}
+    </Select.Root>
   );
 }
 
@@ -94,7 +152,8 @@ const renderers: Record<ParameterType, React.FC<{ parameter: Parameter; onChange
 
 export function ParameterControl({ parameter, showLabel = false }: ParameterControlProps) {
   const sendMessage = useWebSocketStore((state) => state.sendMessage);
-  const updateParameter = useScenarioStore((state) => state.updateParameter);
+  const updateParameter = useScenarioStore((state) => state.updateParameterValue);
+  useScenarioStore((state) => state.parameterUpdateTrigger.value);
 
   const parameterId = parameter.id;
 

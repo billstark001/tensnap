@@ -1,4 +1,4 @@
-import { globalStyle, style } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
 import { vars } from '@/styles/global.css';
 
 export const settingsContainer = style({
@@ -18,7 +18,7 @@ export const sectionTitle = style({
   fontWeight: '600',
   color: vars.color.foreground,
   marginBottom: vars.space.sm,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -36,7 +36,7 @@ export const settingItem = style({
 export const settingLabel = style({
   fontSize: vars.fontSize.sm,
   color: vars.color.foreground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -63,7 +63,7 @@ export const switchRoot = style({
   border: 'none',
   cursor: 'pointer',
   transition: 'background-color 0.2s ease',
-  
+
   selectors: {
     '&[data-state="checked"]': {
       backgroundColor: vars.color.primary,
@@ -83,7 +83,7 @@ export const switchThumb = style({
   borderRadius: '9px',
   transition: 'transform 0.2s ease',
   transform: 'translateX(3px)',
-  
+
   selectors: {
     '[data-state="checked"] &': {
       transform: 'translateX(21px)',
@@ -91,81 +91,6 @@ export const switchThumb = style({
   },
 });
 
-export const selectContainer = style({
-  position: 'relative',
-  minWidth: '120px',
-});
-
-export const selectTrigger = style({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  width: '100%',
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  backgroundColor: vars.color.background,
-  border: `1px solid ${vars.color.secondary}`,
-  borderRadius: vars.radius.sm,
-  fontSize: vars.fontSize.sm,
-  cursor: 'pointer',
-  transition: 'border-color 0.2s ease',
-  
-  selectors: {
-    '&:focus': {
-      outline: 'none',
-      borderColor: vars.color.primary,
-      boxShadow: `0 0 0 2px ${vars.color.overlayLight}`,
-    },
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkBackground,
-      color: vars.color.darkForeground,
-      borderColor: vars.color.darkBorder,
-    },
-  },
-});
-
-export const selectContent = style({
-  backgroundColor: vars.color.background,
-  borderRadius: vars.radius.sm,
-  border: `1px solid ${vars.color.secondary}`,
-  boxShadow: vars.shadow.lg,
-  overflow: 'hidden',
-  position: 'relative',
-  zIndex: 50,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkBackground,
-      borderColor: vars.color.darkBorder,
-    },
-  },
-});
-
-globalStyle('[data-radix-popper-content-wrapper]', {
-  position: 'absolute',
-  top: '0',
-  left: '0',
-  willChange: 'transform',
-});
-
-export const selectItem = style({
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  fontSize: vars.fontSize.sm,
-  cursor: 'pointer',
-  transition: 'background-color 0.2s ease',
-  
-  selectors: {
-    '&:hover': {
-      backgroundColor: vars.color.border,
-    },
-    '&[data-highlighted]': {
-      backgroundColor: vars.color.primary,
-      color: vars.color.terminalForeground,
-    },
-    'body[data-theme="dark"] &:hover': {
-      backgroundColor: vars.color.darkBorder,
-    },
-  },
-});
 
 export const projectSettingsContainer = style({
   display: 'flex',
@@ -185,7 +110,7 @@ export const projectSettingsFooter = style({
   gap: vars.space.sm,
   paddingTop: vars.space.md,
   borderTop: `1px solid ${vars.color.border}`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       borderTopColor: vars.color.darkBorder,
@@ -197,7 +122,7 @@ export const themeLabel = style({
   marginLeft: vars.space.sm,
   fontSize: vars.fontSize.xs,
   color: vars.color.foreground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,

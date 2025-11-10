@@ -8,6 +8,7 @@ export type BaseView<TType extends string, TData extends JsonSerializable> = {
   width: number;
   height: number;
   expanded: boolean;
+  disabled: boolean;
 } & (
     [TData] extends [null | undefined | never]
     ? { data?: TData; }
@@ -19,7 +20,6 @@ export type ButtonView = BaseView<
   {
     id: string;
     text: string;
-    disabled?: boolean;
   }>;
 
 export type AnchoredView = BaseView<
@@ -28,7 +28,6 @@ export type AnchoredView = BaseView<
     id: string;
     title?: string;
     type?: string;
-    disabled?: boolean;
   }>;
 
 export type ContainerView = BaseView<

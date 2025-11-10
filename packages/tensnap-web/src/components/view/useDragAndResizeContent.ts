@@ -237,7 +237,7 @@ export function useDragContent({
     updateSnapState(coord);
   }, [state.container, updateViews, updateState, updateSnapState]);
 
-  const throttledHandleDragMove = useThrottled(handleDragMove, 32);
+  const throttledHandleDragMove = useThrottled(handleDragMove, 16);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -317,7 +317,6 @@ export function useResizeContent({
 
   const isResizing = useRef<string | undefined>(undefined);
   const startPos = useRef<{ x: number; y: number } | undefined>(undefined);
-  const rafId = useRef<number | undefined>(undefined);
   const lastUpdateTime = useRef<number>(0);
 
   const onResizeStart = useCallbackRef((
@@ -355,71 +354,61 @@ export function useResizeContent({
       return;
     }
 
-    if (rafId.current) {
-      cancelAnimationFrame(rafId.current);
+    // 简单的时间节流，避免过于频繁的更新
+    const currentTime = Date.now();
+    if (currentTime - lastUpdateTime.current < 16) {
+      return;
     }
 
-    rafId.current = requestAnimationFrame(() => {
-      const currentTime = Date.now();
-      if (currentTime - lastUpdateTime.current < 16) return;
+    lastUpdateTime.current = currentTime;
 
-      lastUpdateTime.current = currentTime;
+    const { x: lastX, y: lastY } = startPos.current;
+    const { view, direction, startWidth, startHeight } = state.content;
 
-      if (!startPos.current || !isResizing.current || !state.content) return;
+    const deltaX = clientX - lastX;
+    const deltaY = clientY - lastY;
 
-      const { x: lastX, y: lastY } = startPos.current;
-      const { view, direction, startWidth, startHeight } = state.content;
+    let newWidth = startWidth;
+    let newHeight = startHeight;
 
-      const deltaX = clientX - lastX;
-      const deltaY = clientY - lastY;
+    switch (direction) {
+      case 'se':
+        newWidth = Math.max(60, startWidth + deltaX | 0);
+        newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
+        break;
+      case 'e':
+        newWidth = Math.max(60, startWidth + deltaX | 0);
+        break;
+      case 's':
+        newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
+        break;
+    }
 
-      let newWidth = startWidth;
-      let newHeight = startHeight;
+    const coord = {
+      left: view.left,
+      top: view.top,
+      width: newWidth,
+      height: newHeight,
+    };
 
-      switch (direction) {
-        case 'se':
-          newWidth = Math.max(60, startWidth + deltaX | 0);
-          newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
-          break;
-        case 'e':
-          newWidth = Math.max(60, startWidth + deltaX | 0);
-          break;
-        case 's':
-          newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
-          break;
-      }
+    const { guidelines, snap } = match(coord);
 
-      const coord = {
-        left: view.left,
-        top: view.top,
-        width: newWidth,
-        height: newHeight,
-      };
+    // snap 中的 width 和 height 已经被调整好了
+    if (snap) {
+      view.width = snap.width;
+      view.height = snap.height;
+    } else {
+      view.width = newWidth;
+      view.height = newHeight;
+    }
 
-      const { guidelines, snap } = match(coord);
-
-      // snap 中的 width 和 height 已经被调整好了
-      if (snap) {
-        view.width = snap.width;
-        view.height = snap.height;
-      } else {
-        view.width = newWidth;
-        view.height = newHeight;
-      }
-
-      updateState({ guideLines: guidelines, suggestedSnap: snap });
-      onViewUpdate?.(view.id, view);
-    });
+    updateState({ guideLines: guidelines, suggestedSnap: snap });
+    onViewUpdate?.(view.id, view);
   });
 
   const onResizeEnd = useCallbackRef((clientX: number, clientY: number) => {
     if (!startPos.current || !isResizing.current || !state.content) {
       return;
-    }
-
-    if (rafId.current) {
-      cancelAnimationFrame(rafId.current);
-      rafId.current = undefined;
     }
 
     const { x: lastX, y: lastY } = startPos.current;
@@ -487,10 +476,6 @@ export function useResizeContent({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-      }
     };
   }, [handleMouseMove, handleMouseUp]);
 
