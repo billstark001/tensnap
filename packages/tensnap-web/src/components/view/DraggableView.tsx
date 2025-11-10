@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Move } from 'lucide-react';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@/types/ui';
@@ -31,11 +31,18 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
 }) => {
   const { ViewContextMenuRenderer, isAdjusting, onResizeStart } = useViewContext();
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const [node, setNode] = useState<HTMLElement | null>(null);
+
+  const { attributes, listeners, setNodeRef: _setNodeRef, isDragging } = useDraggable({
     id: view.id,
     data: { view, siblings, relativeLeft, relativeTop, parentView: parentView, parentId: parentView?.id },
     disabled: isOverlay,
   });
+
+  const setNodeRef = useCallback((node: HTMLElement | null) => {
+    _setNodeRef(node);
+    setNode(node);
+  }, [_setNodeRef]);
 
   const style: React.CSSProperties = {
     left: `${view.left}px`,
@@ -110,6 +117,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
 
   return (
     <ViewContextMenuRenderer
+      node={node}
       view={view}
       parentView={parentView}
       type={type}

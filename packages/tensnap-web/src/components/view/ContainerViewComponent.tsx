@@ -89,7 +89,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
           ...baseProps,
           width: 200,
           height: 200,
-          data: { id: generateUniqueId(), title: 'New View' },
+          data: { id: generateUniqueId(), title: 'New Environment', type: 'uniform' },
         } as AnchoredView;
         break;
       case 'container':

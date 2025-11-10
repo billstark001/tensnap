@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation, ChartGroup, SimulationState } from '../../types/model';
+import { Environment, Parameter, Snapshot, PureEnvironment, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartGroupMetadata, ChartMetadata, ChartUpdateOperation, ChartGroup, SimulationState, SnapshotChartData } from '../../types/model';
 import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
 import { createStoreContext } from '@/utils/zustand';
@@ -403,11 +403,27 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
   },
 
   addSnapshot: (snapshotMetadata: SnapshotMetadata) => {
-    const { environments, parameters } = get();
+    const { environments, parameters, charts, currentTime } = get();
+    
+    // 提取当前时刻的图表数据 - 使用二分查找优化性能
+    const chartData: SnapshotChartData[] = [];
+    const allMetadata = charts.getAllChartMetadata();
+    
+    for (const meta of allMetadata) {
+      const value = charts.getValueAtTime(meta.id, currentTime);
+      if (value !== undefined) {
+        chartData.push({
+          id: meta.id,
+          value
+        });
+      }
+    }
+    
     const snapshot: Snapshot = {
       ...snapshotMetadata,
       environments: Array.from(environments.values()).map(env => serializeEnvironment(env)),
       parameters: structuredClone(parameters.filter(p => p.type !== 'action')),
+      chartData,
     };
     set((state) => {
       const newSnapshots = [...state.snapshots, snapshot];

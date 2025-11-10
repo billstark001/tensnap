@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { LeaferLineChart } from './LeaferLineChart';
 import { ChartDataPoint, ChartConfig } from './types';
+import { useSettingsStore } from '@/store/settings';
+import clsx from 'clsx';
+import * as styles from './LeaferChartView.css';
 
 export interface LeaferChartViewProps {
   data: ChartDataPoint[];
@@ -20,6 +23,7 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<LeaferLineChart | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const theme = useSettingsStore((state) => state.theme);
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -35,6 +39,10 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
   useEffect(() => {
     if (containerRef.current && !chartRef.current) {
       chartRef.current = new LeaferLineChart(containerRef.current, config);
+      chartRef.current.resize(
+        containerRef.current.clientWidth,
+        containerRef.current.clientHeight
+      );
       setIsReady(true);
     }
 
@@ -61,6 +69,13 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
     }
   }, [config, isReady]);
 
+  // Update theme when it changes
+  useEffect(() => {
+    if (isReady && chartRef.current) {
+      chartRef.current.updateTheme();
+    }
+  }, [theme, isReady]);
+
   // Handle container resize
   useEffect(() => {
     if (!isReady || !chartRef.current || !containerRef.current) return;
@@ -69,8 +84,7 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
     const chartInstance = chartRef.current;
     const containerElement = containerRef.current;
 
-    const resizeObserver = new ResizeObserver(entries => {
-      // Prevent callback execution after cleanup
+    const handleResize = (entries: ResizeObserverEntry[]) => {
       if (isCleanedUp) return;
       
       for (const entry of entries) {
@@ -79,7 +93,9 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
           chartInstance.resize(width, height);
         }
       }
-    });
+    };
+
+    const resizeObserver = new ResizeObserver(handleResize);
 
     resizeObserver.observe(containerElement);
 
@@ -92,12 +108,11 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
   return (
     <div
       ref={containerRef}
-      className={className}
-      style={{
-        width: config.width,
-        height: config.height,
-        ...style,
-      }}
+      className={clsx(
+        className,
+        styles.chartContainer,
+      )}
+      style={style}
     />
   );
 });

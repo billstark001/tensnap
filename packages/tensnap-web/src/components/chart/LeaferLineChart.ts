@@ -6,6 +6,9 @@ export class LeaferLineChart {
   private app: Leafer | null = null;
   private container: HTMLElement;
   private config: ChartConfig;
+  private width: number = 600;
+  private height: number = 400;
+
   private data: ChartDataPoint[] = [];
   private chartGroup: Group | null = null;
   private gridGroup: Group | null = null;
@@ -14,19 +17,62 @@ export class LeaferLineChart {
   private tooltipGroup: Group | null = null;
   private lineGroups: Map<string, Group> = new Map();
   private dataPointPositions: Map<string, Array<{ x: number; y: number; value: number; time: number }>> = new Map();
+  private isDarkMode: boolean = false;
 
   constructor(container: HTMLElement, config: ChartConfig) {
     this.container = container;
     this.config = config;
+    this.isDarkMode = this.detectDarkMode();
     this.initialize();
+  }
+
+  // Detect dark mode from body attribute
+  private detectDarkMode(): boolean {
+    return document.body.getAttribute('data-theme') === 'dark';
+  }
+
+  // Update theme and re-render
+  public updateTheme(): void {
+    const newIsDarkMode = this.detectDarkMode();
+    if (newIsDarkMode !== this.isDarkMode) {
+      this.isDarkMode = newIsDarkMode;
+      this.render();
+    }
+  }
+
+  // Get theme-aware colors
+  private getThemeColors() {
+    if (this.isDarkMode) {
+      return {
+        gridColor: '#404040',
+        axisColor: '#cccccc',
+        textColor: '#b0b0b0',
+        labelColor: '#d0d0d0',
+        tooltipBackground: 'rgba(40, 40, 40, 0.95)',
+        tooltipBorder: '#888',
+        tooltipText: '#e0e0e0',
+        highlightFill: '#ff8787',
+      };
+    } else {
+      return {
+        gridColor: '#e0e0e0',
+        axisColor: '#333333',
+        textColor: '#666666',
+        labelColor: '#333333',
+        tooltipBackground: 'rgba(255, 255, 255, 0.95)',
+        tooltipBorder: '#666',
+        tooltipText: '#333',
+        highlightFill: '#ff6b6b',
+      };
+    }
   }
 
   private initialize(): void {
     // Create leafer app instance
     this.app = new Leafer({
       view: this.container,
-      width: this.config.width,
-      height: this.config.height,
+      width: this.width,
+      height: this.height,
     });
 
     // Create layer groups for organized rendering
@@ -157,6 +203,7 @@ export class LeaferLineChart {
 
     this.tooltipGroup.clear();
 
+    const colors = this.getThemeColors();
     const text = `${point.name}\nTime: ${point.time.toFixed(2)}\nValue: ${point.value.toFixed(3)}`;
     const padding = 8;
     const lineHeight = 14;
@@ -166,7 +213,7 @@ export class LeaferLineChart {
     let tooltipX = point.x + 15;
     let tooltipY = point.y - 10;
 
-    if (tooltipX + 150 > this.config.width) {
+    if (tooltipX + 150 > this.width) {
       tooltipX = point.x - 165;
     }
     if (tooltipY < 0) {
@@ -179,8 +226,8 @@ export class LeaferLineChart {
       y: tooltipY,
       width: 150,
       height: padding * 2 + lineHeight * lines.length,
-      fill: 'rgba(255, 255, 255, 0.95)',
-      stroke: '#666',
+      fill: colors.tooltipBackground,
+      stroke: colors.tooltipBorder,
       strokeWidth: 1,
       cornerRadius: 4,
     });
@@ -193,7 +240,7 @@ export class LeaferLineChart {
         x: tooltipX + padding,
         y: tooltipY + padding + i * lineHeight,
         fontSize: 11,
-        fill: '#333',
+        fill: colors.tooltipText,
       });
       this.tooltipGroup!.add(label);
     });
@@ -204,8 +251,8 @@ export class LeaferLineChart {
       y: point.y,
       width: 8,
       height: 8,
-      fill: '#ff6b6b',
-      stroke: '#fff',
+      fill: colors.highlightFill,
+      stroke: this.isDarkMode ? '#ddd' : '#fff',
       strokeWidth: 2,
     });
     this.tooltipGroup.add(highlight);
@@ -244,7 +291,7 @@ export class LeaferLineChart {
   private render(): void {
     if (!this.app || this.data.length === 0) return;
 
-    const { width, height, padding = {} } = this.config;
+    const { padding = {} } = this.config;
     const pad = {
       top: padding.top ?? 20,
       right: padding.right ?? 20,
@@ -252,8 +299,8 @@ export class LeaferLineChart {
       left: padding.left ?? 60,
     };
 
-    const chartWidth = width - pad.left - pad.right;
-    const chartHeight = height - pad.top - pad.bottom;
+    const chartWidth = this.width - pad.left - pad.right;
+    const chartHeight = this.height - pad.top - pad.bottom;
 
     // Clear previous renders
     this.clearGroups();
@@ -346,7 +393,8 @@ export class LeaferLineChart {
     xTicks: number[],
     yTicks: number[]
   ): void {
-    const gridColor = '#e0e0e0';
+    const colors = this.getThemeColors();
+    const gridColor = colors.gridColor;
     const xRange = xMax - xMin || 1;
     const yRange = yMax - yMin || 1;
 
@@ -388,7 +436,10 @@ export class LeaferLineChart {
     xTicks: number[],
     yTicks: number[]
   ): void {
-    const textColor = '#666666';
+    const colors = this.getThemeColors();
+    const textColor = colors.textColor;
+    const labelColor = colors.labelColor;
+    const axisColor = colors.axisColor;
     const fontSize = 10;
     const labelFontSize = 12;
     const xRange = xMax - xMin || 1;
@@ -398,7 +449,7 @@ export class LeaferLineChart {
     if (this.config.showXAxis !== false) {
       const xAxisLine = new Line({
         points: [pad.left, pad.top + chartHeight, pad.left + chartWidth, pad.top + chartHeight],
-        stroke: '#333333',
+        stroke: axisColor,
         strokeWidth: 2,
       });
       this.axisGroup?.add(xAxisLine);
@@ -430,7 +481,7 @@ export class LeaferLineChart {
           x: pad.left + chartWidth / 2 - 30,
           y: pad.top + chartHeight + 25,
           fontSize: labelFontSize,
-          fill: '#333',
+          fill: labelColor,
         });
         this.axisGroup?.add(xLabel);
       }
@@ -440,7 +491,7 @@ export class LeaferLineChart {
     if (this.config.showYAxis !== false) {
       const yAxisLine = new Line({
         points: [pad.left, pad.top, pad.left, pad.top + chartHeight],
-        stroke: '#333333',
+        stroke: axisColor,
         strokeWidth: 2,
       });
       this.axisGroup?.add(yAxisLine);
@@ -472,7 +523,7 @@ export class LeaferLineChart {
           x: 10,
           y: pad.top + chartHeight / 2,
           fontSize: labelFontSize,
-          fill: '#333',
+          fill: labelColor,
           rotation: -90,
         });
         this.axisGroup?.add(yLabel);
@@ -523,7 +574,7 @@ export class LeaferLineChart {
     });
   }
 
-  // Render legend
+  // Render legend with intelligent wrapping
   private renderLegend(
     pad: { top: number; right: number; bottom: number; left: number },
     chartWidth: number,
@@ -531,22 +582,42 @@ export class LeaferLineChart {
   ): void {
     if (!this.legendGroup) return;
 
-    const itemWidth = 100;
-    // const itemHeight = 16;
-    // const itemSpacing = 8;
+    const colors = this.getThemeColors();
+    const itemSpacing = 8;
+    const itemHeight = 16;
+    const colorBoxSize = 12;
+    const colorBoxMargin = 4;
 
-    // Position legend at top-right corner, inside the chart area
-    const legendStartX = pad.left + chartWidth - (this.config.lines.length * itemWidth);
-    const legendY = pad.top + 5;
-    let offsetX = 0;
+    // Calculate available width for legend
+    const availableWidth = chartWidth;
+    
+    // Measure each legend item width
+    const items = this.config.lines.map((lineConfig) => {
+      // Approximate text width (rough estimation: char count * 6px)
+      const textWidth = lineConfig.name.length * 6.5;
+      const itemWidth = colorBoxSize + colorBoxMargin + textWidth + itemSpacing;
+      return { lineConfig, itemWidth };
+    });
 
-    this.config.lines.forEach((lineConfig) => {
+    // Arrange legend items with wrapping
+    let currentX = pad.left;
+    let currentY = pad.top + 5;
+    let currentRowWidth = 0;
+
+    items.forEach(({ lineConfig, itemWidth }) => {
+      // Check if we need to wrap to next line
+      if (currentRowWidth + itemWidth > availableWidth && currentRowWidth > 0) {
+        currentX = pad.left;
+        currentY += itemHeight;
+        currentRowWidth = 0;
+      }
+
       // Legend color box
       const colorBox = new Rect({
-        x: legendStartX + offsetX,
-        y: legendY,
-        width: 12,
-        height: 12,
+        x: currentX,
+        y: currentY,
+        width: colorBoxSize,
+        height: colorBoxSize,
         fill: lineConfig.color ?? '#8884d8',
       });
       this.legendGroup!.add(colorBox);
@@ -554,22 +625,23 @@ export class LeaferLineChart {
       // Legend text
       const text = new Text({
         text: lineConfig.name,
-        x: legendStartX + offsetX + 16,
-        y: legendY,
+        x: currentX + colorBoxSize + colorBoxMargin,
+        y: currentY,
         fontSize: 11,
-        fill: '#333',
+        fill: colors.labelColor,
       });
       this.legendGroup!.add(text);
 
-      offsetX += itemWidth;
+      currentX += itemWidth;
+      currentRowWidth += itemWidth;
     });
   }
 
   // Resize chart
   public resize(width: number, height: number): void {
     if (this.app) {
-      this.config.width = width;
-      this.config.height = height;
+      this.width = width;
+      this.height = height;
       this.app.resize({ width, height });
       this.render();
     }

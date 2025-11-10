@@ -122,6 +122,27 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
             </div>
           </div>
 
+          {snapshot.chartData && snapshot.chartData.length > 0 && (
+            <>
+              <Dialog.Separator />
+              <div className={clsx(styles.detailSection, 'scroll')}>
+                <h4 className={styles.sectionTitle}>
+                  <Trans>Chart Data</Trans>
+                </h4>
+                <div className={styles.parameterList}>
+                  {snapshot.chartData.map((data) => (
+                    <div key={data.id} className={styles.parameterItem}>
+                      <span className={styles.parameterLabel}>{data.id}:</span>
+                      <span className={styles.parameterValue}>
+                        {typeof data.value === 'number' ? data.value.toFixed(4) : String(data.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
         </div>
         <Dialog.Separator vertical />
 

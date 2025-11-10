@@ -25,6 +25,17 @@ export function createCsvContent(chartGroup: ChartGroup): string {
   return [header, ...rows].join('\n');
 }
 
+export function exportToCSV(chartGroup: ChartGroup) {
+  const csvContent = createCsvContent(chartGroup);
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `chart_${chartGroup.id}_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export class InstantiatedChartStorage {
   readonly allChartGroups = new Map<string, ChartGroup>();
   readonly allChartMetadata = new Map<string, ChartMetadata[]>();
@@ -128,7 +139,7 @@ export class InstantiatedChartStorage {
    * @private
    */
   private _extractDataPoints(
-    data: NativeDataPoint[], 
+    data: NativeDataPoint[],
     metadataId: string
   ): NativeDataPoint[] {
     const result: NativeDataPoint[] = [];
@@ -146,7 +157,7 @@ export class InstantiatedChartStorage {
    * @private
    */
   private _collectAndMergeDataPoints(
-    groups: ChartGroup[], 
+    groups: ChartGroup[],
     metadataId: string
   ): NativeDataPoint[] {
     const timeValueMap = new Map<number, any>();
@@ -302,6 +313,94 @@ export class InstantiatedChartStorage {
     });
 
     return result;
+  }
+
+  /**
+   * Get the value of a specific metadata at a given time using binary search.
+   * @param metadataId The ID of the metadata to retrieve value for.
+   * @param time The time to query.
+   * @returns The value at the closest time point, or undefined if not found.
+   */
+  getValueAtTime(metadataId: string, time: number): number | undefined {
+    const groups = this.chartGroupsByMetadataId.get(metadataId);
+    if (!groups?.length) return undefined;
+
+    // Try to find the value across all groups
+    let closestValue: number | undefined = undefined;
+    let minTimeDiff = Infinity;
+
+    for (const group of groups) {
+      const data = group.data;
+      if (!data.length) continue;
+
+      // Binary search to find the closest time point
+      let left = 0;
+      let right = data.length - 1;
+
+      // Handle edge cases
+      if (time <= data[0].time) {
+        const value = data[0][metadataId];
+        if (value !== undefined) {
+          const timeDiff = Math.abs(data[0].time - time);
+          if (timeDiff < minTimeDiff) {
+            minTimeDiff = timeDiff;
+            closestValue = value;
+          }
+        }
+        continue;
+      }
+
+      if (time >= data[right].time) {
+        const value = data[right][metadataId];
+        if (value !== undefined) {
+          const timeDiff = Math.abs(data[right].time - time);
+          if (timeDiff < minTimeDiff) {
+            minTimeDiff = timeDiff;
+            closestValue = value;
+          }
+        }
+        continue;
+      }
+
+      // Binary search for the closest time
+      while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        const midTime = data[mid].time;
+
+        if (midTime === time) {
+          const value = data[mid][metadataId];
+          if (value !== undefined) {
+            return value;
+          }
+          break;
+        }
+
+        if (midTime < time) {
+          left = mid + 1;
+        } else {
+          right = mid - 1;
+        }
+      }
+
+      // Check the two closest points
+      const candidates = [
+        left - 1 >= 0 ? left - 1 : null,
+        left < data.length ? left : null
+      ].filter(idx => idx !== null) as number[];
+
+      for (const idx of candidates) {
+        const value = data[idx][metadataId];
+        if (value !== undefined) {
+          const timeDiff = Math.abs(data[idx].time - time);
+          if (timeDiff < minTimeDiff) {
+            minTimeDiff = timeDiff;
+            closestValue = value;
+          }
+        }
+      }
+    }
+
+    return closestValue;
   }
 
   push(currentTime: number, dataPoints: ChartUpdateData[]) {

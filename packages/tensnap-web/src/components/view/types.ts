@@ -23,6 +23,7 @@ export type AnchoredViewRendererType = ComponentType<{
 }>;
 
 export type ViewContextMenuRendererType = ComponentType<PropsWithChildren<{
+  node?: HTMLElement | null,
   view: AnyView,
   parentView?: ContainerView,
   type: AnyView['type'],

@@ -28,8 +28,6 @@ describe('LeaferLineChart', () => {
   beforeEach(() => {
     container = document.createElement('div');
     config = {
-      width: 800,
-      height: 400,
       lines: [
         { key: 'value1', name: 'Line 1', color: '#8884d8' },
         { key: 'value2', name: 'Line 2', color: '#82ca9d' },

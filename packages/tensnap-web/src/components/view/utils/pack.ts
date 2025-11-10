@@ -135,6 +135,7 @@ function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): 
     data: {
       id: env.id.toString(),
       title: `Environment ${env.label}`,
+      type: env.type,
     },
   }));
 }
@@ -221,7 +222,7 @@ function getParameterSignature(param: { id: string, type?: string }): string {
 }
 
 function getEnvironmentSignature(env: ObjectWithEnvironmentMetadata): string {
-  return `env:${env.id}`;
+  return `env:${env.type}:${env.id}`;
 }
 
 function getChartSignature(chart: ObjectWithChartMetadata): string {

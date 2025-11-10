@@ -12,8 +12,6 @@ export interface LineConfig {
 }
 
 export interface ChartConfig {
-  width: number;
-  height: number;
   lines: LineConfig[];
   showGrid?: boolean;
   showXAxis?: boolean;

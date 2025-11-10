@@ -4,8 +4,6 @@ import { ChartGroup, NativeDataPoint } from '@/types/model';
 import { LeaferChartView } from '@/components/chart';
 import type { ChartConfig, LeaferChartViewRef } from '@/components/chart';
 import { throttle } from '@/utils/react';
-import { createCsvContent } from '@/store/scenario/chart';
-import { useToast } from '@/store/toast';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -67,7 +65,6 @@ export function ChartView(props: ChartViewProps) {
   const [displayData, setDisplayData] = useState<Array<NativeDataPoint>>([]);
   const [dataVersion, setDataVersion] = useState(0);
   const chartViewRef = useRef<LeaferChartViewRef>(null);
-  const toast = useToast();
 
   // 缓存上次处理的数据，避免重复slice
   const lastProcessedDataRef = useRef<{
@@ -140,33 +137,6 @@ export function ChartView(props: ChartViewProps) {
     }
   }, [rawData, rawData.length, updateNowLengthThreshold, maxDataPoints, processData]);
 
-  const exportToCSV = useCallback(() => {
-    const csvContent = createCsvContent(chartGroup);
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chart_${chartGroup.id}_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [chartGroup]);
-
-  const copyToClipboard = useCallback(async () => {
-    if (!chartViewRef.current) return;
-
-    try {
-      const blob = await chartViewRef.current.getCanvasBlob();
-      if (blob) {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob }),
-        ]);
-        toast.success('Chart copied to clipboard!');
-      }
-    } catch (error) {
-      toast.error('Failed to copy to clipboard', String(error));
-    }
-  }, [toast]);
-
   // Build chart configuration from metadata (稳定化依赖)
   const chartConfig: ChartConfig = useMemo(() => {
     const lines = Object.values(chartGroup.metadataDict).map((chart) => ({
@@ -194,32 +164,14 @@ export function ChartView(props: ChartViewProps) {
   }, [chartGroup.metadataDict]);
 
   return (
-    <div className={styles.chartContainer}>
-      <div className={styles.buttonContainer}>
-        <button
-          onClick={exportToCSV}
-          className={styles.exportButton}
-        >
-          Export CSV
-        </button>
-        <button
-          onClick={copyToClipboard}
-          className={styles.exportButton}
-          style={{ marginLeft: '8px' }}
-        >
-          Copy Chart
-        </button>
-      </div>
-
-      <div className={styles.chartViewContainer}>
-        <LeaferChartView
-          ref={chartViewRef}
-          data={displayData}
-          dataVersion={dataVersion}
-          config={chartConfig}
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
+    <div className={styles.chartViewContainer}>
+      <LeaferChartView
+        ref={chartViewRef}
+        data={displayData}
+        dataVersion={dataVersion}
+        config={chartConfig}
+        style={{ width: '100%', height: '100%' }}
+      />
     </div>
   );
 }

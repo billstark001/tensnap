@@ -23,7 +23,6 @@ export const resetButton = style({
   borderRadius: '4px',
   cursor: 'pointer',
   fontSize: '12px',
-  zIndex: 10,
   color: vars.color.foreground,
   
   selectors: {
@@ -31,6 +30,12 @@ export const resetButton = style({
       backgroundColor: vars.color.darkInputBackground,
       borderColor: vars.color.darkSubtleBorder,
       color: vars.color.darkForeground,
+    },
+    '&:hover': {
+      backgroundColor: vars.color.inputHoverBackground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkInputHoverBackground,
     },
   },
 });

@@ -7,9 +7,9 @@ export type AgentId = string | number;
 
 export type EnvironmentId = string;
 
-export interface TrajectoryPoint { 
-  x: number; 
-  y: number; 
+export interface TrajectoryPoint {
+  x: number;
+  y: number;
   time: number;
 }
 
@@ -205,6 +205,11 @@ export interface SimulationState {
   snapshots: Snapshot[];
 }
 
+export interface SnapshotChartData {
+  id: string;
+  value: number;
+}
+
 export interface SnapshotMetadata {
   id: string;
   timestamp: number;
@@ -214,6 +219,7 @@ export interface SnapshotMetadata {
 export interface Snapshot extends SnapshotMetadata {
   environments: Environment[];
   parameters: Parameter[];
+  chartData: SnapshotChartData[];
 }
 
 export const defaultSimulationState = (): SimulationState => ({
