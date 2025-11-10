@@ -223,12 +223,29 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     // Auto-update layout when data changes with incremental updates
     if (updateLayout) {
       const { environments, parameters, charts, mainView } = get();
-      const environmentsArray = Array.from(environments.values()).map(getEnvironmentMetadata);
+      
+      // When preserveExisting is true, we need to filter out removed items for the layout
+      // but keep them in the store. This way views for removed items will be disabled.
+      const removedEnvIds = new Set(data.removedEnvironmentIds || []);
+      const removedParamIds = new Set(data.removedParameterIds || []);
+      const removedChartIds = new Set(data.removedChartIds || []);
+      
+      const activeEnvironments = Array.from(environments.values())
+        .filter(env => !removedEnvIds.has(env.id))
+        .map(getEnvironmentMetadata);
+      const activeParameters = parameters.filter(p => !removedParamIds.has(p.id));
+      const activeCharts = charts.getGroups().filter(c => !removedChartIds.has(c.id));
+      
       set({
-        mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
-          currentView: mainView,
-          preserveExisting: true
-        })
+        mainView: createAutoLayout(
+          mainView,
+          activeEnvironments, 
+          activeParameters, 
+          activeCharts, 
+          {
+            disableMissingViews: preserveExisting
+          }
+        )
       });
     }
   },
@@ -462,10 +479,15 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     const { environments, parameters, charts, mainView } = get();
     const environmentsArray = Array.from(environments.values()).map(getEnvironmentMetadata);
     set({
-      mainView: createAutoLayout(environmentsArray, parameters, charts.getGroups(), {
-        currentView: mainView,
-        preserveExisting: true
-      })
+      mainView: createAutoLayout(
+        mainView,
+        environmentsArray, 
+        parameters, 
+        charts.getGroups(), 
+        {
+          disableMissingViews: true
+        }
+      )
     });
   },
 
