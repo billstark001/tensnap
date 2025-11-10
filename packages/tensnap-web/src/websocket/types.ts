@@ -2,15 +2,17 @@ import { WSMessage } from '@/types/api';
 
 export type WebSocketConnectionState = 'connecting' | 'open' | 'closing' | 'closed' | 'destroyed';
 
+export type EventHandler<T = any> = (payload: T) => void;
+
 export interface WebSocketManager {
 
   readonly id: string;
 
   connect(signal?: AbortSignal): Promise<void>;
 
-  on<T = any>(type: string | symbol, handler: (payload: T) => void): void;
+  on<T = any>(type: string | symbol, handler: EventHandler<T>): void;
 
-  off(type: string | symbol): void;
+  off<T = any>(type: string | symbol, handler?: EventHandler<T>): void;
 
   send(message: WSMessage): void;
 

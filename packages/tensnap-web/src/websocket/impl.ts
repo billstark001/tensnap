@@ -3,7 +3,7 @@ import { generateUniqueId } from '@/utils/common';
 import { WSMessage } from '@/types/api';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
 import { wsConnected, wsDisconnected } from './constants';
-import { WebSocketManager } from './types';
+import { EventHandler, WebSocketManager } from './types';
 
 
 export class WebSocketManagerImpl implements WebSocketManager {
@@ -13,7 +13,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
   private ws: WebSocket | null = null;
   private manualDisconnect = false; // Indicates if disconnect was intentional
 
-  private messageHandlers: Map<string | symbol, (payload: any) => void> = new Map();
+  private messageHandlers: Map<string | symbol, Set<EventHandler>> = new Map();
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -21,6 +21,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
   private url: string;
   private useMsgPack: boolean;
   private abortController: AbortController | null = null;
+  private externalAbortHandler: (() => void) | null = null;
   private isDestroyed: boolean = false;
 
   constructor(id: string | null | undefined, url: string, useMsgPack: boolean = false) {
@@ -32,13 +33,26 @@ export class WebSocketManagerImpl implements WebSocketManager {
   connect(signal?: AbortSignal): Promise<void> {
     this.manualDisconnect = false;
     return new Promise((resolve, reject) => {
-      let promiseFinished = false;
+      let promiseSettled = false;
+      
+      const settlePromise = (settler: () => void) => {
+        if (!promiseSettled) {
+          promiseSettled = true;
+          settler();
+        }
+      };
+
       try {
         // Check if already destroyed
         if (this.isDestroyed) {
-          promiseFinished = true;
-          reject(new WebSocketDestroyedError());
+          settlePromise(() => reject(new WebSocketDestroyedError()));
           return;
+        }
+
+        // Clean up existing external abort handler if any
+        if (this.externalAbortHandler && signal) {
+          signal.removeEventListener('abort', this.externalAbortHandler);
+          this.externalAbortHandler = null;
         }
 
         // Create internal AbortController for connection management
@@ -46,27 +60,27 @@ export class WebSocketManagerImpl implements WebSocketManager {
 
         // Listen to external abort signal if provided
         if (signal) {
-          signal.addEventListener('abort', () => {
+          this.externalAbortHandler = () => {
             this.abortController?.abort();
-          });
+          };
+          signal.addEventListener('abort', this.externalAbortHandler, { once: true });
         }
 
         // Listen to abort signal
-        this.abortController.signal.addEventListener('abort', () => {
+        const internalAbortHandler = () => {
           if (this.ws) {
-            console.log(`${this.id}: Connection aborted by external signal`);
+            console.log(`${this.id}: Connection aborted`);
             this.manualDisconnect = true;
             this.ws.close();
             this.ws = null;
           }
-          promiseFinished = true;
-          reject(new WebSocketAbortedError());
-        });
+          settlePromise(() => reject(new WebSocketAbortedError()));
+        };
+        this.abortController.signal.addEventListener('abort', internalAbortHandler, { once: true });
 
         // Check if already aborted before starting connection
         if (this.abortController.signal.aborted) {
-          promiseFinished = true;
-          reject(new WebSocketAbortedError());
+          settlePromise(() => reject(new WebSocketAbortedError()));
           return;
         }
 
@@ -79,8 +93,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
             this.manualDisconnect = true;
             this.ws?.close();
             this.ws = null;
-            promiseFinished = true;
-            reject(new WebSocketAbortedError());
+            settlePromise(() => reject(new WebSocketAbortedError()));
             return;
           }
           console.log(`${this.id}: WebSocket connected`);
@@ -94,12 +107,12 @@ export class WebSocketManagerImpl implements WebSocketManager {
 
           // Clean up AbortController after successful connection
           this.abortController = null;
-          if (!promiseFinished) {
-            promiseFinished = true;
-            resolve();
-          } 
+          this.externalAbortHandler = null;
+          
+          settlePromise(() => resolve());
+          
           if (!this.isDestroyed) {
-            this.messageHandlers.get(wsConnected)?.(event);
+            this.emit(wsConnected, event);
           }
         };
 
@@ -111,28 +124,27 @@ export class WebSocketManagerImpl implements WebSocketManager {
 
         this.ws.onerror = (error) => {
           this.abortController = null;
-          if (!promiseFinished) {
-            promiseFinished = true;
-            reject(new WebSocketConnectionError(`Failed to connect: ${error}`));
-          }
+          this.externalAbortHandler = null;
+          settlePromise(() => reject(new WebSocketConnectionError(`Failed to connect: ${error}`)));
         };
 
         this.ws.onclose = (event) => {
           console.log(`${this.id}: WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
           this.abortController = null;
+          this.externalAbortHandler = null;
 
           // Only attempt reconnection if not manually disconnected, not destroyed, and within retry limits
           if (!this.isDestroyed && !this.manualDisconnect && this.shouldReconnect(event.code)) {
             this.scheduleReconnect();
           }
           if (!this.isDestroyed) {
-            this.messageHandlers.get(wsDisconnected)?.(event);
+            this.emit(wsDisconnected, event);
           }
         };
       } catch (error) {
         this.abortController = null;
-        promiseFinished = true;
-        reject(new WebSocketConnectionError(`Connection failed: ${error}`));
+        this.externalAbortHandler = null;
+        settlePromise(() => reject(new WebSocketConnectionError(`Connection failed: ${error}`)));
       }
     });
   }
@@ -161,21 +173,46 @@ export class WebSocketManagerImpl implements WebSocketManager {
         message = JSON.parse(text);
       }
 
-      const handler = this.messageHandlers.get(message.type);
-      if (handler) {
-        handler(message.payload);
-      }
+      this.emit(message.type, message.payload);
     } catch (error) {
       console.error(`${this.id}: Error handling message:`, error);
     }
   }
 
-  on<T = any>(type: string | symbol, handler: (payload: T) => void) {
-    this.messageHandlers.set(type, handler);
+  private emit<T = any>(type: string | symbol, payload: T) {
+    const handlers = this.messageHandlers.get(type);
+    if (handlers) {
+      handlers.forEach(handler => {
+        try {
+          handler(payload);
+        } catch (error) {
+          console.error(`${this.id}: Error in event handler:`, error);
+        }
+      });
+    }
   }
 
-  off(type: string | symbol) {
-    this.messageHandlers.delete(type);
+  on<T = any>(type: string | symbol, handler: EventHandler<T>) {
+    if (!this.messageHandlers.has(type)) {
+      this.messageHandlers.set(type, new Set());
+    }
+    this.messageHandlers.get(type)!.add(handler);
+  }
+
+  off<T = any>(type: string | symbol, handler?: EventHandler<T>) {
+    if (handler) {
+      // Remove specific handler
+      const handlers = this.messageHandlers.get(type);
+      if (handlers) {
+        handlers.delete(handler);
+        if (handlers.size === 0) {
+          this.messageHandlers.delete(type);
+        }
+      }
+    } else {
+      // Remove all handlers for this type
+      this.messageHandlers.delete(type);
+    }
   }
 
   send(message: WSMessage) {
@@ -220,6 +257,9 @@ export class WebSocketManagerImpl implements WebSocketManager {
       this.abortController.abort();
       this.abortController = null;
     }
+
+    // Clean up external abort handler
+    this.externalAbortHandler = null;
 
     // Clear reconnection timer
     if (this.reconnectTimer) {

@@ -157,8 +157,20 @@ export class WebSocketManagerFake implements WebSocketManager {
     this._eventHandlers.get(type)!.add(handler);
   }
 
-  off(type: string | symbol): void {
-    this._eventHandlers.delete(type);
+  off<T = any>(type: string | symbol, handler?: (payload: T) => void): void {
+    if (handler) {
+      // Remove specific handler
+      const handlers = this._eventHandlers.get(type);
+      if (handlers) {
+        handlers.delete(handler);
+        if (handlers.size === 0) {
+          this._eventHandlers.delete(type);
+        }
+      }
+    } else {
+      // Remove all handlers for this type
+      this._eventHandlers.delete(type);
+    }
   }
 
   send(message: WSMessage): void {
@@ -182,11 +194,16 @@ export class WebSocketManagerFake implements WebSocketManager {
     this._connectionState = 'closing';
     this._connectAbortController?.abort();
 
-    // 模拟断开连接的异步行为
-    setTimeout(() => {
-      this._connectionState = 'closed';
-      this._emit(wsDisconnected, undefined);
-    }, 10);
+    // Synchronous disconnect to match WebSocketManagerImpl behavior
+    this._connectionState = 'closed';
+    
+    // Use queueMicrotask to ensure disconnect event is emitted asynchronously
+    // but without the delay of setTimeout, maintaining consistency
+    queueMicrotask(() => {
+      if (!this._destroyed) {
+        this._emit(wsDisconnected, undefined);
+      }
+    });
   }
 
   destroy(): void {

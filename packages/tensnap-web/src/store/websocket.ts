@@ -72,9 +72,6 @@ export const createWebSocketStore = (
       ? WebSocketManagerFake.createFromGlobalOptions(null, url)
       : new WebSocketManagerImpl(null, url)
 
-    // 设置消息处理器
-    registerEventHandlers(wsManager, useScenarioStore);
-
     const onConnected = () => {
       set({
         isConnecting: false,
@@ -91,11 +88,15 @@ export const createWebSocketStore = (
       }
     };
 
-    wsManager.on(wsConnected, onConnected);
-
-    wsManager.on(wsDisconnected, () => {
+    const onDisconnected = () => {
       useScenarioStore.getState().setConnected(false);
-    });
+    };
+
+    wsManager.on(wsConnected, onConnected);
+    wsManager.on(wsDisconnected, onDisconnected);
+
+    // 设置消息处理器
+    registerEventHandlers(wsManager, useScenarioStore);
 
     set({
       wsManager,
@@ -108,12 +109,15 @@ export const createWebSocketStore = (
       await wsManager.connect(abortController.signal);
       // 检查在连接过程中是否被中断
       if (abortController.signal.aborted) {
+        // Clean up all event handlers including wsConnected and wsDisconnected
+        wsManager.off(wsConnected, onConnected);
+        wsManager.off(wsDisconnected, onDisconnected);
         unregisterEventHandlers(wsManager);
         wsManager.destroy();
         set({ wsManager: null });
         throw new Error('Connection was aborted');
       }
-      onConnected();
+      // onConnected will be called by the wsManager
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
@@ -132,6 +136,8 @@ export const createWebSocketStore = (
         console.log(`${wsManager.id}: Initial connection failed, will auto-reconnect`);
       } else {
         // 其他错误，清理资源并抛出
+        wsManager.off(wsConnected, onConnected);
+        wsManager.off(wsDisconnected, onDisconnected);
         unregisterEventHandlers(wsManager);
         wsManager.destroy();
         set({ wsManager: null });
