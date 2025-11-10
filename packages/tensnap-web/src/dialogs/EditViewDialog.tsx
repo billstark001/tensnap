@@ -72,16 +72,35 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
       const updated = { ...prev };
       if (field.includes('.')) {
         const parts = field.split('.');
+        
+        // Guard against prototype pollution
+        const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+        if (parts.some(part => dangerousKeys.includes(part))) {
+          console.warn('Attempted to set dangerous property:', field);
+          return prev;
+        }
+        
         let current: any = updated;
         for (let i = 0; i < parts.length - 1; i++) {
-          if (!current[parts[i]]) {
-            current[parts[i]] = {};
+          const part = parts[i];
+          if (!Object.prototype.hasOwnProperty.call(current, part)) {
+            current[part] = {};
           }
-          current = current[parts[i]];
+          current = current[part];
         }
-        current[parts[parts.length - 1]] = value;
+        const lastPart = parts[parts.length - 1];
+        if (!dangerousKeys.includes(lastPart)) {
+          current[lastPart] = value;
+        }
       } else {
-        (updated as any)[field] = value;
+        // Guard against prototype pollution
+        const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+        if (!dangerousKeys.includes(field)) {
+          (updated as any)[field] = value;
+        } else {
+          console.warn('Attempted to set dangerous property:', field);
+          return prev;
+        }
       }
       return updated;
     });
