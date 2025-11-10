@@ -74,7 +74,9 @@ When submitting a bug report, include:
 
 **Error Message:**
 ```
+
 WebSocket connection to 'ws://localhost:8765' failed: Connection refused
+
 ```
 ```
 
@@ -336,6 +338,7 @@ TenSnap uses [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 
 **Type** (required):
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -555,6 +558,7 @@ describe('ParameterSlider', () => {
 ### Test Coverage
 
 Aim for:
+
 - **Line coverage**: >80%
 - **Branch coverage**: >70%
 - **Function coverage**: >80%
@@ -587,6 +591,6 @@ Contributors are recognized in:
 
 By contributing to TenSnap, you agree that your contributions will be licensed under the MIT License.
 
-## Thank You!
+## Thank You
 
 Your contributions make TenSnap better for everyone. Thank you for taking the time to contribute!

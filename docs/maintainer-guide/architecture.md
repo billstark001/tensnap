@@ -1,644 +1,228 @@
 # TenSnap Architecture
 
-This document provides a comprehensive overview of TenSnap's architecture, design decisions, and implementation details for maintainers and contributors.
-
-## Table of Contents
-
-1. [System Overview](#system-overview)
-2. [Design Philosophy](#design-philosophy)
-3. [Component Architecture](#component-architecture)
-4. [Communication Protocol](#communication-protocol)
-5. [Data Flow](#data-flow)
-6. [Performance Considerations](#performance-considerations)
-7. [Future Architecture Plans](#future-architecture-plans)
+Architecture overview for maintainers and contributors.
 
 ## System Overview
 
-TenSnap follows a client-server architecture with clear separation between simulation logic, communication layer, and visualization.
+TenSnap separates simulation logic, communication, and visualization:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     TenSnap System Architecture                  │
-└─────────────────────────────────────────────────────────────────┘
-
-┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│  Simulation      │         │  Communication   │         │  Visualization   │
-│  Backend         │◄───────►│  Layer           │◄───────►│  Frontend        │
-│                  │         │                  │         │                  │
-│  - Python Model  │         │  - WebSocket     │         │  - React UI      │
-│  - Java (planned)│         │  - MessagePack   │         │  - D3/Leafer     │
-│  - Any Language  │         │  - State Sync    │         │  - Recharts      │
-└──────────────────┘         └──────────────────┘         └──────────────────┘
+```text
+┌──────────────┐    WebSocket    ┌──────────────┐
+│  Python      │◄───────────────►│  React       │
+│  Backend     │   MessagePack   │  Frontend    │
+│              │                 │              │
+│ • Scenario   │                 │ • Zustand    │
+│ • Server     │                 │ • Leafer UI  │
+│ • SimLoop    │                 │ • Recharts   │
+└──────────────┘                 └──────────────┘
 ```
 
-### Core Principles
+**Design Principles**:
 
-1. **Language Agnostic**: Simulation logic can be written in any language
-2. **Decoupled Components**: Clear boundaries between model, communication, and view
-3. **Performance First**: Optimized for real-time updates with many agents
-4. **User-Friendly**: Multiple API levels for different user expertise
+- **Language Agnostic**: Protocol supports any backend language
+- **Decoupled**: Clear separation of concerns
+- **Real-time**: Optimized for fast updates with many agents
+- **Flexible APIs**: High-level decorators to low-level protocol access
 
-## Design Philosophy
+## API Levels
 
-### Separation of Concerns
+### High-Level (Decorators)
 
-TenSnap separates three primary concerns:
-
-#### 1. Simulation Logic (Pure Model)
-
-- Domain-specific simulation code
-- No visualization dependencies
-- Testable independently
-- Reusable across different visualization tools
+Auto-discovery with minimal boilerplate:
 
 ```python
-# Pure simulation - no TenSnap dependencies
-class FlockSimulation:
-    def step(self):
-        for bird in self.birds:
-            bird.update_velocity(self.birds)
-            bird.update_position()
-```
+from tensnap import SimulationScenario, action, chart
 
-#### 2. Integration Layer (Bindings)
+scenario = SimulationScenario()
+scenario.add_parameters(config)  # Auto-detect from dataclass/object
+scenario.add_charts(globals())   # Auto-detect @chart decorators
 
-- Connects simulation to TenSnap
-- Manages parameters, charts, buttons
-- Handles state synchronization
-- Language-specific implementations
-
-```python
-# Integration layer - TenSnap bindings
-from tensnap import TenSnapServer, GridEnvironmentModel
-server = TenSnapServer()
-grid = GridEnvironmentModel()
-# ... bind parameters, charts, etc.
-```
-
-#### 3. Visualization Layer (Frontend)
-
-- Pure view logic
-- Receives state updates
-- Handles user interaction
-- No simulation logic
-
-### Multi-Granularity API Design
-
-TenSnap provides APIs at different abstraction levels:
-
-#### Level 1: High-Level Decorators (Beginners)
-
-```python
-@chart("population", "Population")
-def track_pop():
+@chart("population", "Population Count")
+def get_population():
     return len(agents)
-
-params = quick_bind(config)
 ```
 
-**Target Users**: Students, researchers new to programming  
-**Benefits**: Minimal code, automatic binding, convention over configuration
+### Low-Level (Direct API)
 
-#### Level 2: Object-Oriented API (Intermediate)
+Explicit control:
 
 ```python
-param = parameter(id="speed", label="Speed", value=1.0, min=0.1, max=5.0)
-server.add_parameter(param)
+from tensnap import TenSnapServer, NumberParameter
 
-chart_obj = Chart(id="pop", label="Population", collect_func=count_agents)
-server.add_chart(chart_obj)
+server = TenSnapServer()
+param = NumberParameter(id="speed", label="Speed", value=1.0, min=0.1, max=5.0)
+server.add_parameter(param, getter=lambda: model.speed, setter=lambda v: setattr(model, 'speed', v))
 ```
 
-**Target Users**: Professional researchers, developers  
-**Benefits**: Explicit control, better IDE support, clear data flow
+### Protocol-Level (Advanced)
 
-#### Level 3: Protocol-Level Access (Advanced)
+Direct message control:
 
 ```python
-# Direct WebSocket message construction
-message = {
-    "type": "agent_batch_update",
-    "payload": {
-        "env_id": "main",
-        "updates": [...]
-    }
-}
-await websocket.send(msgpack.packb(message))
+await server.update_agents_batch("main", updates)
+await server.update_charts(time_step)
 ```
 
-**Target Users**: Framework developers, performance optimization experts  
-**Benefits**: Maximum control, custom message types, direct protocol access
+## Python Backend
 
-## Component Architecture
+### Core Components
 
-### Monorepo Structure
+**`scenario.py`** - High-level orchestration combining server, simulation loop, and auto-binding.
 
-```
-tensnap/
-├── packages/
-│   ├── tensnap-python/          # Python bindings
-│   │   └── tensnap/
-│   │       ├── models/          # Data models
-│   │       ├── bindings/        # High-level API
-│   │       ├── server.py        # WebSocket server
-│   │       ├── simulation.py    # Simulation manager
-│   │       └── examples/        # Example models
-│   │
-│   ├── tensnap-web/             # Web frontend (React)
-│   │   └── src/
-│   │       ├── components/      # UI components
-│   │       ├── store/           # State management (Zustand)
-│   │       ├── utils/           # Utilities
-│   │       └── types/           # TypeScript types
-│   │
-│   └── tensnap-tauri/           # Desktop app (Tauri)
-│       ├── src/                 # Web content
-│       └── src-tauri/           # Rust backend
-│
-└── docs/                        # Documentation
-```
+**`server.py`** - WebSocket server managing connections and broadcasting updates.
 
-### Python Backend Architecture
+Key features:
 
-#### Scenario Component (`scenario.py`) - High-Level API
+- Batched message queue for efficiency
+- MessagePack/JSON serialization
+- Async I/O with non-blocking operations
+- State sync with differential updates
 
-**New in Major Refactoring**: `SimulationScenario` provides a unified, high-level API that combines server, simulation loop, and automatic binding detection.
+**`sim_loop.py`** - Simulation execution manager with operation queue.
 
-**Responsibilities**:
-- Orchestrate entire simulation lifecycle
-- Automatic parameter/chart/action detection
-- Environment binder management
-- Simulation timing coordination
-- Default handler implementations
+Actions: `start()`, `stop()`, `toggle()`, `step_once()`
 
-**Key Classes**:
+Uses queue to serialize control commands and prevent race conditions.
 
-```python
-class SimulationScenario:
-    """High-level simulation orchestration"""
-    - server: TenSnapServer
-    - sim_manager: SimulationLoop
-    - env_binders: Dict[str, EnvironmentModel]
-    - handler: SimulationHandlerProtocol
-    
-    def add_environment(env: EnvironmentModel)
-    def add_parameters(obj: Any, config: BindParametersConfig)
-    def add_charts(namespace: dict)
-    def add_actions(namespace: dict)
-    def register_model_handler(init_func, step_func)
-    async def run()
+### Environment Binders
 
-class DefaultSimulationHandler:
-    """Default handler for simulation lifecycle"""
-    async def on_start(step: int)  # First step
-    async def on_step(step: int)   # Each subsequent step
-    async def on_reset()           # Reset simulation
-    async def send_updates()       # Send env/agent updates
-```
+Adapters connecting user models to TenSnap protocol:
 
-**Benefits of SimulationScenario**:
-- Single entry point for complete simulations
-- Automatic discovery of decorated functions
-- Built-in reset/start/stop handlers
-- Environment binder integration
-- Reduced boilerplate code
+- `UniformEnvironmentBinder` - Simple agent list
+- `GridEnvironmentBinder` - 2D grid with width/height
+- `NXGraphEnvironmentBinder` - NetworkX graph integration
 
-#### Server Component (`server.py`) - Low-Level API
+### Auto-Detection
 
-**Responsibilities**:
-- Manage WebSocket connections
-- Broadcast state updates to clients
-- Handle parameter changes from clients
-- Direct protocol-level control
+**Parameters**: Auto-detect from dataclass fields/attributes with configurable regex patterns.
 
-**Key Classes**:
+**Charts**: `@chart(id, label)` decorator for functions returning chart data. Supports multi-series.
 
-```python
-class TenSnapServer:
-    """Low-level WebSocket server"""
-    - environments: Dict[str|int, EnvironmentModel]
-    - parameters: Dict[str, Parameter]
-    - charts: Dict[str, Tuple[ChartGroupMetadata, Callable]]
-    - button_handlers: Dict[str, Callable]
-    - clients: Set[WebSocketServerProtocol]
-    
-    async def run()
-    async def start_time_step(time: int)
-    async def end_time_step(time: int)
-    async def update_agents_batch(env_id, updates)
-    async def update_charts(time: int)
-    def add_parameter(param, getter, setter)
-    def add_chart(getter, chart)
-    def add_action(action_param, handler)
-```
+**Actions**: `@action(id, label)` decorator for button handlers.
 
-**Optimizations**:
-- Batched message queue with configurable flush interval
-- Differential updates (only send changes)
-- MessagePack for efficient binary serialization
-- Async message handling with connection pooling
+## Frontend (React/TypeScript)
 
-#### Models Component (`models/`)
+**Tech Stack**: React 18, TypeScript, Zustand, Vite, Leafer UI, Recharts
 
-**Data Models**:
+### State Management (Zustand)
 
-```python
-# agent.py
-class AgentModel:
-    """Represents a single agent"""
-    - Stores agent properties (position, color, etc.)
-    - Supports update_source for automatic syncing
-    - Generates update dictionaries
+Store organized into slices:
 
-# environment.py
-class GridEnvironmentModel:
-    """2D grid environment"""
-    - Manages agents in 2D space
-    - Background image support (NumPy arrays)
-    - Batch update generation
+- Environments with agents
+- Parameters
+- Charts with time-series data
+- Current time
+- Logs
 
-class GraphEnvironmentModel:
-    """Network/graph environment"""
-    - Manages nodes and edges
-    - Agent positioning on graph
-    - Network topology updates
+Key methods:
 
-# communication.py
-TypedDict definitions for WebSocket messages:
-    - ParameterState
-    - EnvironmentState
-    - ChartState
-    - StateSyncResponse
-```
+- `setData()` - Apply incremental updates
+- `updateAgents()` - Batch agent updates
+- `addChartData()` - Add chart points
 
-#### Bindings Component (`bindings/`)
+### WebSocket Client
 
-**High-Level API Implementation** (After Major Refactoring):
+`WebSocketManager` features:
 
-```python
-# bindings/basic/parameter.py
-- Parameter type hierarchy: NumberParameter, EnumParameter, BooleanParameter, StringParameter, ActionParameter
-- bind: Property descriptor for parameter binding using type hints
-- BindParametersConfig: Configuration for automatic parameter detection
-- get_parameter_metadata_from_namespace(): Auto-detect parameters from namespace
-- get_parameter_metadata_from_object(): Auto-detect parameters from objects/dataclasses
-- create_parameter(): Factory function for creating typed parameters
+- MessagePack/JSON support
+- Auto-reconnect with exponential backoff
+- Event-based message routing
+- Optional message validation
 
-# bindings/basic/chart.py
-- @chart: Decorator for chart functions
-- ChartMetadata: Single chart configuration
-- ChartGroupMetadata: Multi-series chart group configuration
-- ChartProperty: Property descriptor for chart data getters
-- categorize_charts(): Diff algorithm for chart state synchronization
-- get_chart_metadata_from_namespace(): Auto-discover chart decorators
+### Components
 
-# bindings/basic/action.py
-- @action: Decorator for button actions (renamed from @button)
-- ActionParameter: Special parameter type for actions
-- get_action_metadata_from_namespace(): Auto-discover action decorators
-```
+Views dynamically generated from state:
 
-**New Features After Refactoring**:
+- **Parameters**: Auto-generated controls (sliders, dropdowns, buttons)
+- **Environments**: Leafer UI canvas for grid/graph visualization
+- **Charts**: Recharts for time-series data
 
-1. **Typed Parameter System**: Strong typing with dedicated classes for each parameter type
-2. **Dataclass Support**: Automatic parameter binding from dataclasses using type hints
-3. **Property Descriptors**: `bind` decorator works as property descriptor for seamless integration
-4. **Multi-Series Charts**: Support for chart groups with multiple data series
-5. **Flexible Auto-Detection**: Regex patterns and inclusion/exclusion rules for parameter detection
-6. **Action Renaming**: `@button` renamed to `@action` for clarity
+### Desktop App (Tauri)
 
-**Parameter Binding Architecture**:
-
-```python
-class ParameterBinding:
-    """Two-way binding between object attribute and UI parameter"""
-    
-    def __init__(self, target, attr_name, param):
-        self.target = target
-        self.attr_name = attr_name
-        self.param = param
-    
-    @property
-    def value(self):
-        """Read from target object"""
-        return getattr(self.target, self.attr_name)
-    
-    @value.setter
-    def value(self, val):
-        """Write to target object"""
-        setattr(self.target, self.attr_name, val)
-        self.param.value = val  # Also update parameter
-```
-
-### Frontend Architecture
-
-#### Technology Stack
-
-- **React 18**: UI framework
-- **TypeScript**: Type safety
-- **Zustand**: State management
-- **Vite**: Build tool
-- **D3.js**: Data visualization
-- **Leafer UI**: Canvas rendering
-- **Recharts**: Chart components
-- **Radix UI**: Component primitives
-
-#### State Management
-
-```typescript
-// store/websocket.ts
-interface WebSocketStore {
-  socket: WebSocket | null;
-  connected: boolean;
-  connect: (url: string) => void;
-  disconnect: () => void;
-  sendMessage: (message: any) => void;
-}
-
-// store/scenario.ts
-interface ScenarioStore {
-  parameters: Map<string, Parameter>;
-  environments: Map<string, Environment>;
-  charts: Map<string, Chart>;
-  updateParameter: (id: string, value: any) => void;
-  updateEnvironment: (id: string, state: EnvironmentState) => void;
-}
-```
-
-#### Component Hierarchy
-
-```
-App
-├── Providers (Context providers)
-├── ToolBar (Top menu)
-├── ParameterControl (Left panel)
-│   ├── Slider components
-│   ├── Enum dropdowns
-│   └── Button components
-├── ViewRenderer (Center area)
-│   ├── GridEnvironmentView
-│   │   ├── Canvas rendering (Leafer)
-│   │   ├── Agent visualization
-│   │   └── Background image
-│   ├── GraphEnvironmentView
-│   │   ├── Network visualization (D3)
-│   │   └── Node/edge rendering
-│   └── ChartView
-│       └── Line charts (Recharts)
-└── FileSystem (File management)
-```
-
-#### WebSocket Client
-
-```typescript
-class WebSocketManager {
-  private socket: WebSocket | null = null;
-  private messageQueue: Message[] = [];
-  
-  connect(url: string) {
-    this.socket = new WebSocket(url);
-    this.socket.onmessage = this.handleMessage;
-  }
-  
-  private handleMessage(event: MessageEvent) {
-    const data = msgpack.decode(event.data);
-    switch (data.type) {
-      case 'state_sync':
-        this.handleStateSync(data.payload);
-        break;
-      case 'agent_batch_update':
-        this.handleAgentUpdate(data.payload);
-        break;
-      // ... more handlers
-    }
-  }
-}
-```
-
-### Desktop Application (Tauri)
-
-**Architecture**:
-- Embeds web frontend
-- Rust backend for system access
-- Native window management
-- File system access
-
-**Benefits**:
-- No browser required
-- Native performance
-- OS integration
-- Offline capability
+Wraps web frontend with Rust backend for native file system access.
 
 ## Communication Protocol
 
-### WebSocket Protocol
+All messages: `{ type: string, payload: object }`
 
-TenSnap uses WebSocket for bidirectional communication with MessagePack serialization.
+Encoding: MessagePack (binary) or JSON
 
-#### Message Format
-
-```javascript
-{
-  "type": "message_type",
-  "payload": { /* message-specific data */ }
-}
-```
-
-#### Message Types
+### Key Messages
 
 **Server → Client**:
 
-```typescript
-type ServerMessage =
-  | { type: "time_step_start", payload: { step: number } }
-  | { type: "time_step_end", payload: { step: number } }
-  | { type: "agent_batch_update", payload: AgentUpdate[] }
-  | { type: "environment_update", payload: EnvironmentState }
-  | { type: "chart_update", payload: ChartDataPoint }
-  | { type: "state_sync", payload: StateSyncResponse }
-  | { type: "error", payload: { message: string } }
-```
+- `time_step_start/end` - Step boundaries
+- `environment_update` - Full environment state
+- `agent_batch_update` - Incremental agent changes
+- `chart_update` - Chart data/operations
+- `state_sync` - Differential sync response
+- `log` - Server logs
 
 **Client → Server**:
 
-```typescript
-type ClientMessage =
-  | { type: "state_sync", payload: StateSyncRequest }
-  | { type: "parameter_change", payload: { id: string, value: any } }
-  | { type: "button_click", payload: { id: string } }
-```
+- `state_sync` - Request state synchronization
+- `parameter_change` - Update parameter
+- `button_click` - Trigger action
 
 ### State Synchronization
 
-TenSnap uses a differential state sync protocol:
+Enables reconnection without data loss:
 
-1. **Client connects** → Sends current state (parameters, environments, charts it knows about)
-2. **Server compares** → Determines what's added/removed/updated
-3. **Server responds** → Sends only differences
-4. **Client updates** → Applies changes to local state
+1. Client sends current state on connect
+2. Server computes diff (added/removed/updated)
+3. Server responds with only changes
+4. Client applies incremental update
 
-**Benefits**:
-- Handles reconnections gracefully
-- Minimal bandwidth usage
-- Supports multiple concurrent clients
-- Hot-reload friendly
+Supports hot-reload and multi-client sync.
 
 ## Data Flow
 
-### Initialization Flow
+### Initialization
 
-```
-1. User starts Python simulation
-   └─→ Creates TenSnapServer, environments, parameters
-   
-2. User opens web interface
-   └─→ React app loads, attempts WebSocket connection
-   
-3. WebSocket connects
-   └─→ Client sends state_sync request with empty state
-   
-4. Server responds
-   └─→ Sends all parameters, environments, charts, buttons
-   
-5. UI initializes
-   └─→ Renders controls, environments, charts
-```
+1. Backend starts WebSocket server
+2. Frontend connects and sends `state_sync` request
+3. Backend computes diff (all new on first connect)
+4. Frontend receives state and renders UI
 
-### Simulation Step Flow
+### Simulation Loop
 
-```
-1. User clicks "Play" in UI
-   └─→ Client sends button_click("play")
-   
-2. Server receives click
-   └─→ Starts SimulationManager
-   
-3. SimulationManager calls on_step
-   ├─→ Server sends time_step_start
-   ├─→ User simulation code runs
-   ├─→ Agents update positions
-   ├─→ Server sends agent_batch_update
-   ├─→ Charts collect data points
-   ├─→ Server sends chart_update
-   └─→ Server sends time_step_end
-   
-4. Client receives updates
-   ├─→ Updates agent positions in environment
-   ├─→ Adds data points to charts
-   └─→ Triggers re-render
-   
-5. Repeat steps 3-4 until stopped
-```
+1. User clicks button → `button_click` message
+2. Backend calls handler (e.g., `SimulationLoop.toggle()`)
+3. Each step:
+   - Send `time_step_start`
+   - Execute model code
+   - Send `agent_batch_update`
+   - Send `chart_update`
+   - Send `time_step_end`
+4. Frontend updates visualization in real-time
 
-### Parameter Change Flow
+### Parameter Change
 
-```
-1. User moves slider in UI
-   └─→ Client sends parameter_change message
-   
-2. Server receives message
-   ├─→ Validates change (runtime_change_allowed?)
-   ├─→ Updates parameter value
-   └─→ Updates bound object attribute
-   
-3. Simulation uses new value
-   └─→ Next step uses updated parameter
-```
+1. User adjusts control → `parameter_change` message
+2. Backend calls setter, updates internal value
+3. Model uses new value on next step
 
-## Performance Considerations
+## Performance
 
-### Backend Optimizations
+**Optimizations**:
 
-1. **Message Batching**: Group multiple updates into single WebSocket message
-2. **Differential Updates**: Only send changed agent properties
-3. **MessagePack**: Binary serialization (faster than JSON)
-4. **Async I/O**: Non-blocking WebSocket communication
-5. **Update Source Pattern**: Avoid redundant property copies
+- Batched message queue (0.1s flush interval)
+- MessagePack binary serialization
+- Async I/O
+- Differential updates (only changed properties)
+- Leafer UI canvas rendering
+- Zustand state management
 
-### Frontend Optimizations
+**Tested Performance**:
 
-1. **Canvas Rendering**: Use Leafer UI for efficient agent rendering
-2. **Virtual Scrolling**: For large parameter lists
-3. **Memoization**: React.memo for expensive components
-4. **Web Workers**: Offload heavy computations (planned)
-5. **Incremental Updates**: Only re-render changed components
-
-### Scalability Limits
-
-**Current Performance** (tested):
-- **Agents**: Up to 10,000 agents at 30 FPS
-- **Update Rate**: 50-100 updates per second
-- **Clients**: Multiple clients (5+) simultaneously
-- **Network**: ~100 KB/s average bandwidth
-
-**Bottlenecks**:
-- Browser rendering (canvas)
-- WebSocket message throughput
-- JavaScript chart rendering
-
-**Future Improvements**:
-- WebGL rendering for >10k agents
-- Binary diff protocol
-- WebRTC for lower latency
-- Server-side rendering option
-
-## Future Architecture Plans
-
-### Language Bindings
-
-**Planned**:
-- Java bindings (Maven package)
-- JavaScript bindings (npm package)
-- Go bindings (Go module)
-- MATLAB bindings (toolbox)
-
-**Architecture**:
-- Shared protocol specification
-- Language-specific implementations
-- Common test suite
-
-### Cloud Deployment
-
-**Goals**:
-- Web-hosted simulations
-- Collaborative modeling
-- Persistent state storage
-
-**Components**:
-- Authentication service
-- Simulation hosting backend
-- Shared workspace storage
-
-### AI-Assisted Workflows
-
-**Integration Points**:
-- Natural language model description
-- Auto-generated parameter bindings
-- Suggested visualizations
-- Documentation generation
-
-### Advanced Visualization
-
-**Planned Features**:
-- 3D environments (Three.js)
-- VR/AR support
-- Real-time video export
-- Interactive analysis tools
-
-## Contributing to Architecture
-
-When proposing architectural changes:
-
-1. **Document motivation**: Why is the change needed?
-2. **Analyze impact**: What components are affected?
-3. **Consider backwards compatibility**: Can existing code still work?
-4. **Performance implications**: Will this affect performance?
-5. **Test coverage**: How will changes be tested?
-
-See [Contributing Guidelines](./contributing.md) for more details.
+- 10,000+ agents at 30 FPS
+- 50-100 updates/sec
+- Multiple concurrent clients
+- ~100 KB/s bandwidth
 
 ## References
 
-- **[Protocol Documentation](./protocol.md)** - Detailed protocol specification
-- **[Development Setup](./development-setup.md)** - Setting up development environment
-- **[Python API Reference](../api-reference/python-api.md)** - API documentation
+- [Protocol Documentation](./protocol.md)
+- [Development Setup](./development-setup.md)
+- [Python API Reference](../api-reference/python-api.md)
+- [Contributing Guidelines](./contributing.md)

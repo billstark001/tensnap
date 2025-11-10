@@ -1,25 +1,15 @@
 # TenSnap WebSocket Protocol
 
-This document specifies the WebSocket communication protocol between TenSnap simulation backends and the visualization frontend.
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Connection Lifecycle](#connection-lifecycle)
-3. [Message Format](#message-format)
-4. [Message Types](#message-types)
-5. [State Synchronization](#state-synchronization)
-6. [Data Types](#data-types)
-7. [Implementation Examples](#implementation-examples)
+Specification for WebSocket communication between TenSnap simulation backends and visualization frontend.
 
 ## Overview
 
 ### Protocol Characteristics
 
 - **Transport**: WebSocket (RFC 6455)
-- **Serialization**: MessagePack (for efficiency) or JSON (for debugging)
+- **Serialization**: MessagePack (binary) or JSON (text)
 - **Communication**: Bidirectional (client ↔ server)
-- **Connection**: Persistent, reconnectable
+- **Connection**: Persistent with automatic reconnection
 
 ### Design Goals
 
@@ -28,88 +18,16 @@ This document specifies the WebSocket communication protocol between TenSnap sim
 3. **Robustness**: Handle reconnections gracefully
 4. **Simplicity**: Easy to implement in different languages
 
-### Default Settings
-
-- **Server Port**: 8765 (configurable)
-- **Serialization**: MessagePack (binary)
-- **Reconnection**: Automatic with exponential backoff
-
 ## Connection Lifecycle
 
-### 1. Initial Connection
-
-```
-Client                                     Server
-  |                                          |
-  |  WebSocket Connect (ws://host:port)     |
-  |----------------------------------------->|
-  |                                          |
-  |  Connection Established (101 Switching) |
-  |<-----------------------------------------|
-  |                                          |
-```
-
-### 2. State Synchronization
-
-```
-Client                                     Server
-  |                                          |
-  |  state_sync request (current state)     |
-  |----------------------------------------->|
-  |                                          |
-  |  state_sync response (diff)             |
-  |<-----------------------------------------|
-  |                                          |
-```
-
-### 3. Simulation Running
-
-```
-Client                                     Server
-  |                                          |
-  |  parameter_change                       |
-  |----------------------------------------->|
-  |                                          |
-  |  button_click (e.g., "play")            |
-  |----------------------------------------->|
-  |                                          |
-  |  time_step_start                        |
-  |<-----------------------------------------|
-  |  agent_batch_update                     |
-  |<-----------------------------------------|
-  |  chart_update                             |
-  |<-----------------------------------------|
-  |  time_step_end                          |
-  |<-----------------------------------------|
-  |  (repeat for each step)                 |
-```
-
-### 4. Disconnection and Reconnection
-
-```
-Client                                     Server
-  |                                          |
-  |  Connection Lost                        |
-  |  X                                   X  |
-  |                                          |
-  |  (wait, exponential backoff)            |
-  |                                          |
-  |  WebSocket Reconnect                    |
-  |----------------------------------------->|
-  |                                          |
-  |  state_sync request (cached state)      |
-  |----------------------------------------->|
-  |                                          |
-  |  state_sync response (diff)             |
-  |<-----------------------------------------|
-  |  (resume normal operation)              |
-```
+1. **Initial Connection**: Client connects via WebSocket
+2. **State Sync**: Client sends current state; server responds with differential updates
+3. **Runtime**: Bidirectional message exchange during simulation
+4. **Reconnection**: Automatic reconnect with state sync to recover session
 
 ## Message Format
 
-### Basic Structure
-
-All messages follow this format:
+All messages use this structure:
 
 ```json
 {
@@ -118,602 +36,272 @@ All messages follow this format:
 }
 ```
 
-### Serialization
-
-#### MessagePack (Default)
-
-```python
-import msgpack
-
-# Encode
-message = {"type": "time_step_start", "payload": {"step": 42}}
-binary_data = msgpack.packb(message)
-await websocket.send(binary_data)
-
-# Decode
-binary_data = await websocket.recv()
-message = msgpack.unpackb(binary_data)
-```
-
-#### JSON (Debug Mode)
-
-```python
-import json
-
-# Encode
-message = {"type": "time_step_start", "payload": {"step": 42}}
-json_data = json.dumps(message)
-await websocket.send(json_data)
-
-# Decode
-json_data = await websocket.recv()
-message = json.loads(json_data)
-```
+Messages are serialized with MessagePack (binary, default) or JSON (text, for debugging).
 
 ## Message Types
 
-### Server → Client Messages
+### Server → Client
 
-#### 1. `time_step_start`
+#### `time_step_start`
 
-Signals the beginning of a simulation time step.
-
-```typescript
-{
-  type: "time_step_start",
-  payload: {
-    step: number  // Current time step number
-  }
-}
-```
-
-**Example**:
-```json
-{
-  "type": "time_step_start",
-  "payload": {"step": 42}
-}
-```
-
-#### 2. `time_step_end`
-
-Signals the end of a simulation time step.
+Marks simulation step start.
 
 ```typescript
-{
-  type: "time_step_end",
-  payload: {
-    step: number  // Current time step number
-  }
-}
+{ type: "time_step_start", payload: { time: number } }
 ```
 
-#### 3. `agent_batch_update`
+#### `time_step_end`
 
-Updates multiple agents in an environment.
+Marks simulation step end.
 
 ```typescript
-{
-  type: "agent_batch_update",
-  payload: {
-    env_id: string | number,  // Environment identifier
-    updates: Array<{
-      id: string,              // Agent ID
-      x?: number,              // X position (optional)
-      y?: number,              // Y position (optional)
-      heading?: number,        // Heading in radians (optional)
-      color?: string,          // Hex color (optional)
-      size?: number,           // Size in pixels (optional)
-      label?: string,          // Text label (optional)
-      node_id?: string,        // For graph environments (optional)
-      [key: string]: any       // Custom properties
-    }>
-  }
-}
+{ type: "time_step_end", payload: { time?: number } }
 ```
 
-**Example**:
-```json
-{
-  "type": "agent_batch_update",
-  "payload": {
-    "env_id": "main",
-    "updates": [
-      {"id": "agent_1", "x": 25.3, "y": 30.7, "heading": 1.57},
-      {"id": "agent_2", "x": 40.1, "y": 15.2, "color": "#FF0000"}
-    ]
-  }
-}
-```
+#### `environment_update`
 
-#### 4. `environment_update`
-
-Updates entire environment state (rare, usually only on init).
+Updates environment state with optional full agent list.
 
 ```typescript
 {
   type: "environment_update",
   payload: {
-    id: string | number,
-    type: "grid" | "graph",
-    width?: number,           // For grid environments
-    height?: number,          // For grid environments
-    agents: Array<AgentState>,
-    nodes?: Array<NodeState>, // For graph environments
-    edges?: Array<EdgeState>, // For graph environments
-    background?: string       // Hex-encoded numpy array
+    id: string,
+    data: {
+      type: "grid" | "graph" | "uniform",
+      width?: number,          // Grid only
+      height?: number,         // Grid only
+      edges?: Array<Edge>,     // Graph only
+      background?: string      // Grid only (hex-encoded)
+    },
+    agents?: Array<Agent>      // Optional full replacement
   }
 }
 ```
 
-#### 5. `chart_update`
+#### `agent_update`
 
-Sends a data point for a chart.
+Updates a single agent.
+
+```typescript
+{
+  type: "agent_update",
+  payload: {
+    environment_id: string,
+    agent_id: string | number,
+    data: {
+      x?: number,
+      y?: number,
+      heading?: number,
+      color?: string,
+      size?: number,
+      icon?: string,
+      // ... custom properties
+    }
+  }
+}
+```
+
+#### `agent_batch_update`
+
+Updates multiple agents efficiently.
+
+```typescript
+{
+  type: "agent_batch_update",
+  payload: {
+    environment_id: string,
+    updates: Array<{
+      id: string | number,
+      data: { /* agent properties */ }
+    }>
+  }
+}
+```
+
+#### `chart_update`
+
+Updates chart data or executes operations.
 
 ```typescript
 {
   type: "chart_update",
   payload: {
-    chart_id: string,
-    step: number,
-    value: number
+    updates?: Array<{ id: string, value: any }>,
+    operations?: Array<{ id: string, operation: "clear" }>
   }
 }
 ```
 
-**Example**:
-```json
-{
-  "type": "chart_update",
-  "payload": {
-    "chart_id": "population",
-    "step": 42,
-    "value": 127.5
-  }
-}
-```
+#### `state_sync`
 
-#### 6. `state_sync`
-
-Response to client's state synchronization request.
+Differential state synchronization response.
 
 ```typescript
 {
   type: "state_sync",
   payload: {
-    added_parameters: Array<ParameterState>,
+    mode?: "full" | "incremental",
+    added_parameters: Array<Parameter>,
     removed_parameters: Array<string>,
-    updated_parameters: Array<ParameterState>,
-    added_environments: Array<EnvironmentState>,
-    removed_environments: Array<string | number>,
-    updated_environments: Array<EnvironmentState>,
-    added_charts: Array<ChartState>,
+    updated_parameters: Array<Parameter>,
+    added_environments: Array<Environment>,
+    removed_environments: Array<string>,
+    updated_environments: Array<Environment>,
+    added_charts: Array<ChartGroupMetadata>,
     removed_charts: Array<string>,
-    updated_charts: Array<ChartState>
+    updated_charts: Array<ChartGroupMetadata>,
+    clear_charts?: boolean | Array<string>
   }
 }
 ```
 
-#### 7. `error`
+#### `log`
 
-Reports an error from the server.
+Server log message.
 
 ```typescript
 {
-  type: "error",
+  type: "log",
   payload: {
+    level: "debug" | "info" | "warning" | "error",
     message: string,
-    code?: string,
-    details?: any
+    timestamp?: number
   }
 }
 ```
 
-### Client → Server Messages
+### Client → Server
 
-#### 1. `state_sync`
+#### `state_sync`
 
-Request server state or send client's current state.
+Request state synchronization.
 
 ```typescript
 {
   type: "state_sync",
   payload: {
-    parameters: Array<string>,        // Known parameter IDs
-    environments: Array<string | number>,  // Known environment IDs
-    charts: Array<string>,            // Known chart IDs
-    parameter_cache: {                // Cached parameter values
-      [param_id: string]: any
-    }
+    parameters: Array<Parameter>,       // Current parameters
+    environments: Array<Environment>,   // Current environments (without agents)
+    charts: Array<ChartMetadata>        // Current charts
   }
 }
 ```
 
-**Example**:
-```json
-{
-  "type": "state_sync",
-  "payload": {
-    "parameters": ["population", "speed"],
-    "environments": ["main"],
-    "charts": ["avg_speed"],
-    "parameter_cache": {
-      "population": 100,
-      "speed": 1.5
-    }
-  }
-}
-```
+#### `parameter_change`
 
-#### 2. `parameter_change`
-
-User changed a parameter value.
+Change parameter value.
 
 ```typescript
-{
-  type: "parameter_change",
-  payload: {
-    id: string,
-    value: any
-  }
-}
+{ type: "parameter_change", payload: { id: string, value: any } }
 ```
 
-**Example**:
-```json
-{
-  "type": "parameter_change",
-  "payload": {
-    "id": "population",
-    "value": 150
-  }
-}
-```
+#### `button_click`
 
-#### 3. `button_click`
-
-User clicked a button.
+Trigger action button.
 
 ```typescript
-{
-  type: "button_click",
-  payload: {
-    id: string
-  }
-}
-```
-
-**Example**:
-```json
-{
-  "type": "button_click",
-  "payload": {"id": "reset"}
-}
+{ type: "button_click", payload: { action: string } }
 ```
 
 ## State Synchronization
 
-### Why State Sync?
+State sync enables reconnection without data loss, hot reload, and multi-client sync with minimal bandwidth.
 
-State synchronization allows:
-- Reconnection without data loss
-- Hot reload during development
-- Multiple clients staying in sync
-- Minimal bandwidth usage
+**Process:**
 
-### Sync Algorithm
+1. Client connects and sends current state (parameters, environments, charts)
+2. Server computes diff: added, removed, updated items
+3. Server responds with only changes
+4. Client applies incremental update
 
-1. **Client connects** and sends current state:
-   ```json
-   {
-     "parameters": ["param1", "param2"],
-     "parameter_cache": {"param1": 100, "param2": 0.5}
-   }
-   ```
-
-2. **Server compares** with its state:
-   - Added: Parameters on server but not in client list
-   - Removed: Parameters in client list but not on server
-   - Updated: Parameters with different values
-
-3. **Server responds** with diff:
-   ```json
-   {
-     "added_parameters": [/* new param3 */],
-     "removed_parameters": ["param2"],
-     "updated_parameters": [/* param1 with new value */]
-   }
-   ```
-
-4. **Client applies** changes to local state
-
-### Parameter Caching
-
-Client caches parameter values to detect server-side changes:
-
-```typescript
-// Client sends last known values
-parameter_cache: {
-  "population": 100,
-  "speed": 1.5
-}
-
-// Server detects "speed" changed to 2.0 on server
-// Server includes "speed" in updated_parameters
-```
+This allows seamless reconnection and ensures all clients stay synchronized efficiently.
 
 ## Data Types
 
-### ParameterState
+### Parameter
 
 ```typescript
-interface ParameterState {
+interface Parameter {
   id: string;
-  type: "number" | "enum" | "action";
+  type: "number" | "enum" | "action" | "boolean" | "string";
   label: string;
-  value: any;
-  min?: number;              // For slider
-  max?: number;              // For slider
-  step?: number;             // For slider
-  options?: Array<string>;   // For enum
-  allow_runtime_change: boolean;
-  last_cached_value?: any;   // For sync
+  allowRuntimeChange?: boolean;
+  
+  // Type-specific fields
+  value?: any;               // Not for action
+  min?: number;              // Number only
+  max?: number;              // Number only
+  step?: number;             // Number only
+  options?: string[];        // Enum only
 }
 ```
 
-### EnvironmentState
+### Environment
 
 ```typescript
-interface EnvironmentState {
-  id: string | number;
-  type: "grid" | "graph";
-  width?: number;            // Grid only
-  height?: number;           // Grid only
-  agents: Array<AgentState>;
-  nodes?: Array<NodeState>;  // Graph only
-  edges?: Array<EdgeState>;  // Graph only
-  background?: string;       // Hex-encoded numpy array
-}
-```
-
-### AgentState
-
-```typescript
-interface AgentState {
+interface Environment {
   id: string;
-  x: number;
-  y: number;
-  heading?: number;          // Radians
-  color?: string;            // Hex color
-  icon?: string;             // Icon type
-  size?: number;             // Pixels
-  label?: string;            // Text label
-  node_id?: string;          // For graph environments
-}
-```
-
-### NodeState (Graph Environments)
-
-```typescript
-interface NodeState {
-  id: string;
-  x: number;
-  y: number;
-  color?: string;
-  size?: number;
+  type: "grid" | "graph" | "uniform";
   label?: string;
+  agents: Agent[];
+  
+  // Grid-specific
+  width?: number;
+  height?: number;
+  background?: string;       // Hex-encoded numpy array
+  
+  // Graph-specific
+  edges?: Array<{
+    source: string | number,
+    target: string | number,
+    directed?: boolean,
+    color?: string,
+    width?: number
+  }>;
 }
 ```
 
-### EdgeState (Graph Environments)
+### Agent
 
 ```typescript
-interface EdgeState {
-  source: string;            // Source node ID
-  target: string;            // Target node ID
-  weight?: number;
+interface Agent {
+  id: string | number;
+  x?: number;                // Grid/Graph
+  y?: number;                // Grid/Graph
+  heading?: number;          // Grid (radians)
   color?: string;
-  directed?: boolean;
+  icon?: "arrow" | "circle" | "square" | "triangle";
+  size?: number;
+  data?: Record<string, any>;
 }
 ```
 
-### ChartState
+### ChartGroupMetadata
 
 ```typescript
-interface ChartState {
+interface ChartGroupMetadata {
   id: string;
   label: string;
-  color?: string;            // Line color
+  color?: string;
+  dataList?: Array<{         // For multi-series charts
+    id: string,
+    label: string,
+    color?: string
+  }>;
 }
 ```
 
-## Implementation Examples
+## Performance
 
-### Python Server Implementation
-
-```python
-import asyncio
-import json
-import msgpack
-from websockets.server import serve, WebSocketServerProtocol
-
-class TenSnapServer:
-    def __init__(self, port=8765):
-        self.port = port
-        self.clients = set()
-        self.parameters = {}
-        self.environments = {}
-        self.charts = {}
-    
-    async def handle_client(self, websocket: WebSocketServerProtocol):
-        """Handle a client connection"""
-        self.clients.add(websocket)
-        try:
-            async for message in websocket:
-                data = msgpack.unpackb(message)
-                await self.handle_message(websocket, data)
-        finally:
-            self.clients.remove(websocket)
-    
-    async def handle_message(self, websocket, message):
-        """Process incoming message"""
-        msg_type = message.get("type")
-        payload = message.get("payload", {})
-        
-        if msg_type == "state_sync":
-            response = self.generate_state_sync(payload)
-            await self.send_message(websocket, "state_sync", response)
-        elif msg_type == "parameter_change":
-            self.handle_parameter_change(payload)
-        elif msg_type == "button_click":
-            await self.handle_button_click(payload)
-    
-    async def send_message(self, websocket, msg_type, payload):
-        """Send message to specific client"""
-        message = {"type": msg_type, "payload": payload}
-        data = msgpack.packb(message)
-        await websocket.send(data)
-    
-    async def broadcast(self, msg_type, payload):
-        """Broadcast message to all clients"""
-        message = {"type": msg_type, "payload": payload}
-        data = msgpack.packb(message)
-        await asyncio.gather(
-            *[client.send(data) for client in self.clients],
-            return_exceptions=True
-        )
-    
-    async def run(self):
-        """Start server"""
-        async with serve(self.handle_client, "localhost", self.port):
-            await asyncio.Future()  # Run forever
-```
-
-### JavaScript Client Implementation
-
-```typescript
-import msgpack from '@msgpack/msgpack';
-
-class TenSnapClient {
-  private socket: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  
-  connect(url: string) {
-    this.socket = new WebSocket(url);
-    this.socket.binaryType = 'arraybuffer';
-    
-    this.socket.onopen = () => {
-      console.log('Connected');
-      this.reconnectAttempts = 0;
-      this.sendStateSync();
-    };
-    
-    this.socket.onmessage = (event) => {
-      const message = msgpack.decode(new Uint8Array(event.data));
-      this.handleMessage(message);
-    };
-    
-    this.socket.onclose = () => {
-      console.log('Disconnected');
-      this.attemptReconnect();
-    };
-  }
-  
-  private handleMessage(message: any) {
-    const { type, payload } = message;
-    
-    switch (type) {
-      case 'state_sync':
-        this.applyStateSync(payload);
-        break;
-      case 'agent_batch_update':
-        this.updateAgents(payload);
-        break;
-      case 'chart_update':
-        this.addChartData(payload);
-        break;
-      // ... more handlers
-    }
-  }
-  
-  sendMessage(type: string, payload: any) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.warn('Socket not ready');
-      return;
-    }
-    
-    const message = { type, payload };
-    const data = msgpack.encode(message);
-    this.socket.send(data);
-  }
-  
-  sendParameterChange(id: string, value: any) {
-    this.sendMessage('parameter_change', { id, value });
-  }
-  
-  sendButtonClick(id: string) {
-    this.sendMessage('button_click', { id });
-  }
-  
-  private sendStateSync() {
-    // Send current client state
-    const payload = {
-      parameters: Array.from(this.parameters.keys()),
-      environments: Array.from(this.environments.keys()),
-      charts: Array.from(this.charts.keys()),
-      parameter_cache: this.getParameterCache()
-    };
-    this.sendMessage('state_sync', payload);
-  }
-  
-  private attemptReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      return;
-    }
-    
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    this.reconnectAttempts++;
-    
-    setTimeout(() => {
-      console.log(`Reconnecting (attempt ${this.reconnectAttempts})...`);
-      this.connect(this.url);
-    }, delay);
-  }
-}
-```
-
-## Performance Considerations
-
-### Bandwidth Optimization
-
-1. **Differential Updates**: Only send changed agent properties
-2. **Batch Updates**: Group multiple agent updates
-3. **MessagePack**: Binary serialization vs JSON
-4. **State Caching**: Avoid resending unchanged data
-
-### Latency Optimization
-
-1. **Direct WebSocket**: No HTTP overhead
-2. **Async Processing**: Non-blocking I/O
-3. **Efficient Serialization**: Fast encoding/decoding
-4. **Message Prioritization**: Time-critical updates first
-
-### Scalability
-
-- **Multiple Clients**: Server handles multiple simultaneous connections
-- **Large Agent Counts**: Batch updates support thousands of agents
-- **High Update Rates**: 50-100 updates per second achievable
-
-## Version Compatibility
-
-Current protocol version: **0.1.0**
-
-Future versions will maintain backwards compatibility or provide migration guides.
+- **Batch updates**: Multiple agent changes grouped per message
+- **MessagePack**: Binary serialization for efficiency
+- **Differential sync**: Only send changes, not full state
+- **Async I/O**: Non-blocking WebSocket operations
+- **Tested**: 10,000+ agents at 30 FPS, 50-100 updates/sec
 
 ## References
 
-- **WebSocket RFC**: [RFC 6455](https://tools.ietf.org/html/rfc6455)
-- **MessagePack**: [msgpack.org](https://msgpack.org/)
-- **Architecture Doc**: [architecture.md](./architecture.md)
+- [Architecture Documentation](./architecture.md)
+- [WebSocket RFC 6455](https://tools.ietf.org/html/rfc6455)
+- [MessagePack](https://msgpack.org/)
