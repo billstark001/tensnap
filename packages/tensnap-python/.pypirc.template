@@ -1,0 +1,20 @@
+# PyPI Configuration Template
+# 
+# This file is for reference only - DO NOT commit with actual credentials
+# With PyPI trusted publishing, you don't need this file for CI/CD
+# 
+# For local publishing (not recommended), create ~/.pypirc with:
+
+[distutils]
+index-servers =
+    pypi
+    testpypi
+
+[pypi]
+username = __token__
+password = <your-pypi-token>
+
+[testpypi]
+repository = https://test.pypi.org/legacy/
+username = __token__
+password = <your-testpypi-token>

@@ -8,6 +8,21 @@ version = "0.1.0"
 description = "Agent-based model visualization toolkit - Python bindings"
 readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "billstark001", email = "billstark001@example.com"}
+]
+keywords = ["agent-based-modeling", "simulation", "visualization", "abm"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Visualization",
+]
 dependencies = [
   "numpy>=1.24.0",
   "networkx>=3.0",
@@ -15,6 +30,12 @@ dependencies = [
   "websockets>=12.0",
   "typing-extensions>=4.9.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/billstark001/tensnap"
+Documentation = "https://github.com/billstark001/tensnap/tree/main/docs"
+Repository = "https://github.com/billstark001/tensnap"
+Issues = "https://github.com/billstark001/tensnap/issues"
 
 [project.optional-dependencies]
 dev = [
