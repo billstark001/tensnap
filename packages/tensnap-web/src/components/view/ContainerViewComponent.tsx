@@ -145,8 +145,8 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     ))}
   </div>;
 
-  const body = isAdjusting ? (
-    <ContextMenu.Root trigger={draggableView} >
+  const body = (
+    <ContextMenu.Root trigger={draggableView} disabled={!isAdjusting}>
       <ContextMenu.Label>
         <Trans>New View</Trans>
       </ContextMenu.Label>
@@ -180,8 +180,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
         <Container />
         <Trans>Container</Trans>
       </ContextMenu.Item>
-    </ContextMenu.Root>) : (
-    draggableView
+    </ContextMenu.Root>
   );
 
   if (isRootView) {

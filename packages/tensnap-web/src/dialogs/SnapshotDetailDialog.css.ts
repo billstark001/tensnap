@@ -178,9 +178,11 @@ export const environmentLabel = style({
 export const environmentDisplay = style({
   fontSize: vars.fontSize.xs,
   color: vars.color.secondary,
-  minHeight: '500px',
-  minWidth: '500px',
-  display: 'flex',
+  minHeight: '300px',
+  maxHeight: '600px',
+  minWidth: '300px',
+  maxWidth: '800px',
+  padding: 0,
 
   selectors: {
     'body[data-theme="dark"] &': {
@@ -189,7 +191,16 @@ export const environmentDisplay = style({
   },
 });
 
-globalStyle(`${environmentDisplay} > * > *`, {
+globalStyle(`${environmentDisplay} > *`, {
+  width: '100%',
+  height: '100%',
+});
+
+globalStyle(`${environmentDisplay} > * > div`, {
   minHeight: '500px',
   minWidth: '500px',
+});
+
+globalStyle(`${environmentDisplay} svg`, {
+  margin: 0,
 });

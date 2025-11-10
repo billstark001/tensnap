@@ -5,6 +5,7 @@ import { forwardRef } from 'react';
 
 export interface ContextMenuProps extends RadixContextMenu.ContextMenuProps {
   trigger?: React.ReactNode;
+  disabled?: boolean;
   portalProps?: RadixContextMenu.ContextMenuPortalProps;
   contentProps?: RadixContextMenu.ContextMenuContentProps;
 }
@@ -12,6 +13,7 @@ export interface ContextMenuProps extends RadixContextMenu.ContextMenuProps {
 export const Root = (props: ContextMenuProps) => {
   const {
     trigger,
+    disabled,
     portalProps,
     contentProps,
     children,
@@ -21,7 +23,7 @@ export const Root = (props: ContextMenuProps) => {
   return (
     <RadixContextMenu.Root {...rootProps}>
       {trigger ? (
-        <RadixContextMenu.Trigger asChild>
+        <RadixContextMenu.Trigger asChild disabled={disabled}>
           {trigger}
         </RadixContextMenu.Trigger>
       ) : null}

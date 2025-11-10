@@ -18,7 +18,7 @@ import { viewConstants } from './constants';
 import { Guidelines } from './GuideLines';
 import clsx from 'clsx';
 import { useDragContent, useResizeContent } from './useDragAndResizeContent';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
 
 export type ViewRendererProps = ViewProps<ContainerView> &
   Partial<ViewContextScheme>;
@@ -70,14 +70,14 @@ export default function ViewRoot({
     onViewUpdate,
   });
 
-  const contextValue: ViewContextScheme = {
+  const contextValue: ViewContextScheme = useMemo(() => ({
     isAdjusting,
     onButtonAction,
     AnchoredViewRenderer,
     ViewContextMenuRenderer,
     onResizeStart,
     onViewUpdate,
-  };
+  }), [isAdjusting, onButtonAction, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate]);
 
   const { state: resizeStateValue } = resizeState;
 

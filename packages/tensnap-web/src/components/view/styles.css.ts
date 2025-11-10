@@ -35,9 +35,6 @@ export const draggableView = style({
   position: 'absolute',
   userSelect: 'none',
   transition: 'box-shadow 0.2s',
-  ':hover': {
-    boxShadow: vars.shadow.md,
-  },
 });
 
 export const draggingView = style({

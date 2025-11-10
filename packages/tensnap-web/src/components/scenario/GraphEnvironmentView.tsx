@@ -5,6 +5,7 @@ import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { InstantiatedGraphEnvironment } from '@/store/scenario/environment';
 import { GraphVisualizer, GraphData } from './graphVisualizer';
 import { Trans } from '@lingui/react/macro';
+import { throttle } from '@/utils';
 
 interface GraphEnvironmentViewProps {
   environment: InstantiatedGraphEnvironment;
@@ -23,12 +24,14 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
+    const throttledResize = throttle((entries: ResizeObserverEntry[]) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         setSvgSize({ width, height });
       }
-    });
+    }, 32);
+
+    const resizeObserver = new ResizeObserver(throttledResize);
 
     resizeObserver.observe(containerRef.current);
 
@@ -108,12 +111,10 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
 
   return (
     <div ref={containerRef} className={styles.container}>
-      <div style={{ position: 'relative' }}>
-        <svg ref={svgRef} width={svgSize.width} height={svgSize.height} className={styles.svg} />
-        <button className={styles.resetButton} onClick={resetView}>
-          <Trans>Reset View</Trans>
-        </button>
-      </div>
+      <svg ref={svgRef} width={svgSize.width} height={svgSize.height} className={styles.svg} />
+      <button className={styles.resetButton} onClick={resetView}>
+        <Trans>Reset View</Trans>
+      </button>
       <AgentDetailsDialog
         agentType="graph"
         agent={selectedNode}

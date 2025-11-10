@@ -5,19 +5,12 @@ export const container = style({
   position: 'relative',
   width: '100%',
   height: '100%',
+  display: 'flex',
+  padding: 0,
 });
 
 export const svg = style({
-  border: `1px solid ${vars.color.subtleBorder}`,
-  borderRadius: '4px',
-  background: vars.color.subtleBackground,
   
-  selectors: {
-    'body[data-theme="dark"] &': {
-      borderColor: vars.color.darkSubtleBorder,
-      background: vars.color.darkSubtleBackground,
-    },
-  },
 });
 
 export const resetButton = style({
