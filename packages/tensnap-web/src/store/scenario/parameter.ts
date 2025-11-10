@@ -63,10 +63,20 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
 
   // 如果全部都有且合理，就直接返回（转换为10的幂）
   if (validMin !== undefined && validMax !== undefined && validStep !== undefined) {
+    const convertedMin = toPowerOfTen(validMin);
+    const convertedMax = toPowerOfTen(validMax, true);
+    const convertedStep = toPowerOfTen(validStep);
+    
+    // 确保 step 不会大于 min 的绝对值（当 min 不为 0 时）
+    let finalStep = convertedStep;
+    if (convertedMin !== 0 && Math.abs(convertedMin) < convertedStep) {
+      finalStep = toPowerOfTen(Math.abs(convertedMin));
+    }
+    
     return {
-      min: toPowerOfTen(validMin),
-      max: toPowerOfTen(validMax, true),
-      step: toPowerOfTen(validStep)
+      min: convertedMin,
+      max: convertedMax,
+      step: finalStep
     };
   }
 
@@ -151,6 +161,17 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
     if (shouldUseInteger && estimatedStep < 1) {
       estimatedStep = 1;
     }
+  }
+
+  // 修正: 确保 step 不会大于 min 的绝对值（当 min 不为 0 时）
+  if (estimatedMin !== 0 && Math.abs(estimatedMin) < estimatedStep) {
+    estimatedStep = toPowerOfTen(Math.abs(estimatedMin));
+  }
+  
+  // 同时也要确保 step 合理，不能太大导致无法在范围内滑动
+  const range = estimatedMax - estimatedMin;
+  if (estimatedStep > range / 2) {
+    estimatedStep = toPowerOfTen(range / 100);
   }
 
   return {
