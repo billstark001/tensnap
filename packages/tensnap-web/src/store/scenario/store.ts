@@ -137,9 +137,9 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
     if (data.environments !== undefined || data.removedEnvironmentIds !== undefined) {
       if (preserveExisting) {
         const newEnvironments = new Map(environments);
-        for (const id of data.removedEnvironmentIds || []) {
-          newEnvironments.delete(id);
-        }
+        // When preserveExisting is true, we don't delete objects from the store
+        // Instead, we keep them so that views can be marked as disabled in createAutoLayout
+        // DO NOT delete removed environments here
         for (const env of data.environments || []) {
           newEnvironments.set(env.id, instantiateEnvironment(env));
         }
@@ -156,15 +156,16 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
       const newParametersMap = new Map(data.parameters?.map(param => [param.id, param]));
       const removedIds = new Set(data.removedParameterIds || []);
       for (const oldParam of oldParameters) {
-        if (removedIds.has(oldParam.id)) {
-          continue;
-        }
-        const mightBeNew = newParametersMap.get(oldParam.id);
-        if (mightBeNew) {
-          newParameters.push(sanitizeParameter({ ...oldParam, ...mightBeNew }, true));
-          newParametersMap.delete(oldParam.id);
-        } else {
-          newParameters.push(sanitizeParameter(oldParam, false));
+        // When preserveExisting is true, we keep removed parameters in the store
+        // They will be marked as disabled in the views via createAutoLayout
+        if (preserveExisting || !removedIds.has(oldParam.id)) {
+          const mightBeNew = newParametersMap.get(oldParam.id);
+          if (mightBeNew) {
+            newParameters.push(sanitizeParameter({ ...oldParam, ...mightBeNew }, true));
+            newParametersMap.delete(oldParam.id);
+          } else {
+            newParameters.push(sanitizeParameter(oldParam, false));
+          }
         }
       }
       for (const [, param] of newParametersMap) {
@@ -188,10 +189,14 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get) => ({
           chartMetadata.push(chartMeta);
         }
       }
-      // 1. remove charts
-      for (const chartId of removedChartIdsSet) {
-        newCharts.removeChartGroup(chartId)
-          || newCharts.removeChartMetadata(chartId);
+      // 1. remove charts only when NOT preserving existing
+      // When preserveExisting is true, we keep removed charts in the store
+      // They will be marked as disabled in the views via createAutoLayout
+      if (!preserveExisting) {
+        for (const chartId of removedChartIdsSet) {
+          newCharts.removeChartGroup(chartId)
+            || newCharts.removeChartMetadata(chartId);
+        }
       }
       // 2. commit chart group changes
       for (const chartGroupMeta of chartGroupMetadata) {
