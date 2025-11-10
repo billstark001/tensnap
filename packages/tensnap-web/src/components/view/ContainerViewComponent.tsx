@@ -1,15 +1,14 @@
 import React, { useCallback } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { ChevronDown, ChevronRight, Square, Container, Pyramid, Earth, ChartArea } from 'lucide-react';
-import { ContainerView, AnyView, ButtonView, AnchoredView } from '@/types/ui';
-import { generateUniqueId } from '@/utils/common';
+import { ContainerView, AnyView } from '@/types/ui';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
 import { viewConstants } from './constants';
 import cx from 'clsx';
 import { ViewProps } from './types';
-import { findAndAddView } from './utils/container';
 import { useViewContext } from './useViewContext';
+import { useViewEdit } from './useViewEdit';
 import ContextMenu from '../ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';
 
@@ -30,6 +29,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 }) => {
 
   const { onViewUpdate, isAdjusting } = useViewContext();
+  const { handleCreateView: createView } = useViewEdit({ parentView: view, onViewUpdate });
 
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${view.id}`,
@@ -50,64 +50,8 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
   const handleCreateView = (type: AnyView['type'], e: React.MouseEvent) => {
     e.stopPropagation();
-    let newView: AnyView;
-    const baseProps = {
-      id: generateUniqueId(),
-      type,
-      left: lastClickPositionRef.current.x,
-      top: lastClickPositionRef.current.y,
-      expanded: true,
-    };
-
-    switch (type) {
-      case 'button':
-        newView = {
-          ...baseProps,
-          width: 120,
-          height: 40,
-          data: { id: 'click', text: 'New Button' },
-        } as ButtonView;
-        break;
-      case 'parameter':
-        newView = {
-          ...baseProps,
-          width: 200,
-          height: 80,
-          data: { id: generateUniqueId(), title: 'New Parameter', type: 'boolean' },
-        } as AnchoredView;
-        break;
-      case 'chart':
-        newView = {
-          ...baseProps,
-          width: 300,
-          height: 200,
-          data: { id: generateUniqueId(), title: 'New Chart', type: 'line' },
-        } as AnchoredView;
-        break;
-      case 'environment':
-        newView = {
-          ...baseProps,
-          width: 200,
-          height: 200,
-          data: { id: generateUniqueId(), title: 'New Environment', type: 'uniform' },
-        } as AnchoredView;
-        break;
-      case 'container':
-        newView = {
-          ...baseProps,
-          width: 300,
-          height: 300,
-          data: { title: 'New Container' },
-          views: [],
-        } as ContainerView;
-        break;
-      default:
-        return;
-    }
-
-    findAndAddView(view, view.id, newView);
-    onViewUpdate?.(view.id, view);
-
+    // Use the hook's createView which handles both view and object creation
+    createView(type, lastClickPositionRef.current, view);
   };
 
   const handleToggleExpand = useCallback((e: React.MouseEvent) => {

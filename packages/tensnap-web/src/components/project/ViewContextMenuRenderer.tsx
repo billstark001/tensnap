@@ -4,12 +4,12 @@ import { ViewContextMenuRendererType } from "../view/types";
 import { ClipboardCopy, Edit, Sheet, Trash2 } from "lucide-react";
 import { EditViewDialog } from "@/dialogs/EditViewDialog";
 import { useCallback, useState } from "react";
-import { AnyView, ContainerView } from "@/types/ui";
-import { findAndDeleteView, findAndUpdateView } from "../view/utils/container";
+import { AnyView } from "@/types/ui";
 import { useViewContext } from "../view/useViewContext";
 import { useToast } from "@/store/toast";
 import { useScenarioStore } from "@/store/scenario/store";
 import { exportToCSV } from "@/store/scenario/chart";
+import { useViewEdit } from "../view/useViewEdit";
 
 
 
@@ -67,49 +67,22 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const { onViewUpdate } = useViewContext();
+  const { handleDeleteView, handleUpdateView } = useViewEdit({ parentView, onViewUpdate });
 
   const charts = useScenarioStore((store) => store.charts);
-
   const toast = useToast();
 
   const handleDelete = useCallback((id: string) => {
-    if (!parentView) return;
-    findAndDeleteView(parentView, id);
-    onViewUpdate?.(parentView.id, parentView);
-  }, [parentView, onViewUpdate]);
+    handleDeleteView(id);
+  }, [handleDeleteView]);
 
   const handleEdit = useCallback(() => {
     setIsEditDialogOpen(true);
   }, []);
 
-  const updateParameter = useScenarioStore((store) => store.updateParameterProps);
-  const updateEnvironment = useScenarioStore((store) => store.updateEnvironment);
-  const updateChartProps = useScenarioStore((store) => store.updateChartProps);
-
   const handleSaveEdit = useCallback((updatedView: AnyView, objectData?: any) => {
-    const updateRoot = parentView ?? (view.type === 'container' ? view as ContainerView : null);
-    if (!updateRoot) {
-      return;
-    }
-    const { id: viewId, type: _, ...rest } = updatedView;
-    delete (rest as any).views;
-    findAndUpdateView(updateRoot, viewId, rest);
-    onViewUpdate?.(updateRoot.id, updateRoot);
-
-    // Update the associated object data if provided
-    if (objectData) {
-      if (updatedView.type === 'parameter') {
-        const { id, ...props } = objectData;
-        updateParameter?.(id, props);
-      } else if (updatedView.type === 'environment') {
-        const { id, props: envProps } = objectData;
-        updateEnvironment?.(id, envProps);
-      } else if (updatedView.type === 'chart') {
-        const { id, ...props } = objectData;
-        updateChartProps?.(id, props);
-      }
-    }
-  }, [parentView, onViewUpdate, updateParameter, updateEnvironment, updateChartProps]);
+    handleUpdateView(updatedView, objectData);
+  }, [handleUpdateView]);
 
   const handleCopySVG = useCallback(async () => {
     if (!node) return;
