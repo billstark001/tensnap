@@ -101,6 +101,31 @@ export const sliderValue = style({
   },
 });
 
+export const sliderValueInput = style({
+  minWidth: '40px',
+  fontSize: vars.fontSize.sm,
+  fontWeight: 500,
+  color: vars.color.foreground,
+  textAlign: 'right',
+  padding: `${vars.space.xs} ${vars.space.sm}`,
+  borderRadius: vars.radius.sm,
+  border: `1px solid ${vars.color.primary}`,
+  backgroundColor: vars.color.background,
+  outline: 'none',
+  boxSizing: 'border-box',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  appearance: 'none',
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkSecondary,
+      borderColor: vars.color.primary,
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
 export const select = style({
   width: '100%',
   padding: `${vars.space.xs} ${vars.space.sm}`,

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { BooleanParameter, EnumParameter, Parameter, ParameterType, NumberParameter, StringParameter } from '../../types/model';
 import { useScenarioStore } from '../../store/scenario/store';
 import { useWebSocketStore } from '@/store/websocket';
@@ -12,6 +12,39 @@ interface ParameterControlProps {
 }
 
 function SliderParameterControl({ parameter, onChange }: { parameter: NumberParameter; onChange: (value: number) => void }) {
+  const [isEditingValue, setIsEditingValue] = React.useState(false);
+  const [editValue, setEditValue] = React.useState(String(parameter.value));
+
+  const handleValueClick = () => {
+    setEditValue(String(parameter.value));
+    setIsEditingValue(true);
+  };
+
+  const handleValueBlur = () => {
+    const numValue = parseFloat(editValue);
+    if (!isNaN(numValue)) {
+      // Truncate to nearest valid value based on min, max, and step
+      const min = parameter.min || 0;
+      const max = parameter.max || 100;
+      const step = parameter.step || 1;
+      
+      let truncated = Math.max(min, Math.min(max, numValue));
+      // Round to nearest step
+      truncated = Math.round((truncated - min) / step) * step + min;
+      
+      onChange(truncated);
+    }
+    setIsEditingValue(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleValueBlur();
+    } else if (e.key === 'Escape') {
+      setIsEditingValue(false);
+    }
+  };
+
   return (
     <div className={styles.controlContainer}>
       <input
@@ -23,9 +56,27 @@ function SliderParameterControl({ parameter, onChange }: { parameter: NumberPara
         onChange={(e) => onChange(Number(e.target.value))}
         className={styles.slider}
       />
-      <span className={styles.sliderValue}>
-        {parameter.value}
-      </span>
+      {isEditingValue ? (
+        <input
+          type="number"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleValueBlur}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          className={styles.sliderValueInput}
+          style={{ width: '60px', textAlign: 'right' }}
+        />
+      ) : (
+        <span 
+          className={styles.sliderValue}
+          onClick={handleValueClick}
+          style={{ cursor: 'pointer' }}
+          title="Click to edit"
+        >
+          {parameter.value}
+        </span>
+      )}
     </div>
   );
 }

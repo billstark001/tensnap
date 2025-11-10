@@ -64,6 +64,20 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
     }
   };
 
+  const handleUpdateMetadataId = (oldId: string, newId: string) => {
+    if (chartGroup && oldId !== newId) {
+      const newMetadataDict = { ...chartGroup.metadataDict };
+      // Copy the metadata with the new ID
+      newMetadataDict[newId] = {
+        ...chartGroup.metadataDict[oldId],
+        id: newId,
+      };
+      // Remove the old entry
+      delete newMetadataDict[oldId];
+      onObjectChange('metadataDict', newMetadataDict);
+    }
+  };
+
   return (
     <>
       <BaseViewFields view={view} onChange={onChange} />
@@ -177,9 +191,23 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {editingMetadataId === meta.id ? (
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <Form.Input
                             type="text"
+                            placeholder="ID"
+                            value={meta.id}
+                            onChange={(e) => handleUpdateMetadataId(meta.id, e.target.value)}
+                            onBlur={() => setEditingMetadataId(null)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === 'Escape') {
+                                setEditingMetadataId(null);
+                              }
+                            }}
+                            style={{ padding: '2px 4px', fontSize: '0.875rem' }}
+                          />
+                          <Form.Input
+                            type="text"
+                            placeholder="Label"
                             value={meta.label}
                             onChange={(e) => handleUpdateMetadata(meta.id, { label: e.target.value })}
                             onBlur={() => setEditingMetadataId(null)}
