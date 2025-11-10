@@ -61,7 +61,6 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     styles.windowView,
     isOver && styles.containerViewDragOver,
   );
-  console.time('ContainerViewComponent Render Part 1');
 
   const viewList = useMemo(() => view.views.map((childView) => (
     <DraggableView
@@ -78,9 +77,6 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     />
   )), [view.views, view, updateTrigger, relativeLeft, relativeTop, isRootView, isOverlay]);
 
-  console.timeEnd('ContainerViewComponent Render Part 1');
-
-  console.time('ContainerViewComponent Render Part 2');
   const draggableView = <div
     ref={setNodeRef}
     className={cx(
@@ -91,9 +87,6 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   >
     {viewList}
   </div>;
-  console.timeEnd('ContainerViewComponent Render Part 2');
-
-  console.time('ContainerViewComponent Render Part 3');
 
   const contextMenuItems = useMemo(() => (
     <>
@@ -133,7 +126,6 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   </>
   ), [handleCreateView]);
 
-  console.timeEnd('ContainerViewComponent Render Part 3');
   const body = (
     <ContextMenu.Root trigger={draggableView} disabled={!isAdjusting}>
       {contextMenuItems}
