@@ -14,6 +14,156 @@ interface ChartViewEditorProps extends BaseViewEditorProps {
   onObjectChange: (field: string, value: any) => void;
 }
 
+// 新系列表单组件
+const NewSeriesForm: React.FC<{
+  formData: { id: string; label: string; color: string };
+  onUpdate: (updates: Partial<ChartMetadata>) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ formData, onUpdate, onConfirm, onCancel }) => (
+  <div className={styles.seriesItem} style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}>
+    <input
+      type="color"
+      value={formData.color}
+      onChange={(e) => onUpdate({ color: e.target.value })}
+      style={{ width: '32px', height: '32px', border: 'none' }}
+    />
+    <Form.Input
+      type="text"
+      placeholder="Series ID"
+      value={formData.id}
+      onChange={(e) => onUpdate({ id: e.target.value })}
+      style={{ flex: 1 }}
+    />
+    <Form.Input
+      type="text"
+      placeholder="Series Label"
+      value={formData.label}
+      onChange={(e) => onUpdate({ label: e.target.value })}
+      style={{ flex: 1 }}
+    />
+    <button type="button" onClick={onConfirm} className={styles.iconButton} title="Confirm">
+      <Plus size={16} />
+    </button>
+    <button type="button" onClick={onCancel} className={styles.iconButton} title="Cancel">
+      <Trash2 size={16} />
+    </button>
+  </div>
+);
+
+// 系列编辑表单组件
+const SeriesEditForm: React.FC<{
+  metadata: ChartMetadata;
+  onUpdateLabel: (label: string) => void;
+  onUpdateId: (id: string) => void;
+  onBlur: () => void;
+}> = ({ metadata, onUpdateLabel, onUpdateId, onBlur }) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'Escape') onBlur();
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <Form.Input
+        type="text"
+        placeholder="ID"
+        value={metadata.id}
+        onChange={(e) => onUpdateId(e.target.value)}
+        onBlur={onBlur}
+        onKeyDown={handleKeyDown}
+        style={{ padding: '2px 4px', fontSize: '0.875rem' }}
+      />
+      <Form.Input
+        type="text"
+        placeholder="Label"
+        value={metadata.label}
+        onChange={(e) => onUpdateLabel(e.target.value)}
+        onBlur={onBlur}
+        onKeyDown={handleKeyDown}
+        autoFocus
+        style={{ padding: '2px 4px', fontSize: '0.875rem' }}
+      />
+    </div>
+  );
+};
+
+// 系列项组件
+const SeriesItem: React.FC<{
+  metadata: ChartMetadata;
+  isEditing: boolean;
+  onUpdateColor: (color: string) => void;
+  onUpdateMetadata: (updates: Partial<ChartMetadata>) => void;
+  onUpdateId: (newId: string) => void;
+  onToggleEdit: () => void;
+  onRemove: () => void;
+}> = ({ metadata, isEditing, onUpdateColor, onUpdateMetadata, onUpdateId, onToggleEdit, onRemove }) => (
+  <div className={styles.seriesItem}>
+    <input
+      type="color"
+      value={metadata.color || '#000000'}
+      onChange={(e) => onUpdateColor(e.target.value)}
+      style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer' }}
+    />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      {isEditing ? (
+        <SeriesEditForm
+          metadata={metadata}
+          onUpdateLabel={(label) => onUpdateMetadata({ label })}
+          onUpdateId={onUpdateId}
+          onBlur={onToggleEdit}
+        />
+      ) : (
+        <span className={styles.seriesLabel}>
+          {metadata.label}
+          <span className={styles.seriesId}> ({metadata.id})</span>
+        </span>
+      )}
+    </div>
+    <button type="button" onClick={onToggleEdit} className={styles.iconButton} title="Edit">
+      <Edit2 size={14} />
+    </button>
+    <button type="button" onClick={onRemove} className={styles.iconButton} title="Remove">
+      <Trash2 size={14} />
+    </button>
+  </div>
+);
+
+// 系列列表组件
+const SeriesList: React.FC<{
+  metadataList: ChartMetadata[];
+  editingId: string | null;
+  onUpdateMetadata: (id: string, updates: Partial<ChartMetadata>) => void;
+  onUpdateId: (oldId: string, newId: string) => void;
+  onToggleEdit: (id: string) => void;
+  onRemove: (id: string) => void;
+}> = ({ metadataList, editingId, onUpdateMetadata, onUpdateId, onToggleEdit, onRemove }) => {
+  if (metadataList.length === 0) {
+    return (
+      <div className={styles.infoText}>
+        <Trans>No series available</Trans>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.seriesList}>
+      {metadataList.map((meta) => (
+        <SeriesItem
+          key={meta.id}
+          metadata={meta}
+          isEditing={editingId === meta.id}
+          onUpdateColor={(color) => onUpdateMetadata(meta.id, { color })}
+          onUpdateMetadata={(updates) => onUpdateMetadata(meta.id, updates)}
+          onUpdateId={(newId) => onUpdateId(meta.id, newId)}
+          onToggleEdit={() => onToggleEdit(meta.id)}
+          onRemove={() => onRemove(meta.id)}
+        />
+      ))}
+    </div>
+  );
+};
+
+// 主组件
 export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectData: chartGroup, onChange, onObjectChange }) => {
   const [editingMetadataId, setEditingMetadataId] = useState<string | null>(null);
   const [newMetadataForm, setNewMetadataForm] = useState<{ id: string; label: string; color: string } | null>(null);
@@ -25,57 +175,42 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
       setNewMetadataForm({
         id: `series-${generateUniqueId()}`,
         label: 'New Series',
-        color: '#' + Math.floor(Math.random()*16777215).toString(16),
+        color: '#' + Math.floor(Math.random() * 16777215).toString(16),
       });
-    } else {
-      if (chartGroup && newMetadataForm.id && newMetadataForm.label) {
-        const newMetadataDict = {
-          ...chartGroup.metadataDict,
-          [newMetadataForm.id]: {
-            id: newMetadataForm.id,
-            label: newMetadataForm.label,
-            color: newMetadataForm.color,
-          },
-        };
-        onObjectChange('metadataDict', newMetadataDict);
-        setNewMetadataForm(null);
-      }
+    } else if (chartGroup && newMetadataForm.id && newMetadataForm.label) {
+      onObjectChange('metadataDict', {
+        ...chartGroup.metadataDict,
+        [newMetadataForm.id]: newMetadataForm,
+      });
+      setNewMetadataForm(null);
     }
   };
 
   const handleRemoveMetadata = (metadataId: string) => {
-    if (chartGroup) {
-      const newMetadataDict = { ...chartGroup.metadataDict };
-      delete newMetadataDict[metadataId];
-      onObjectChange('metadataDict', newMetadataDict);
-    }
+    if (!chartGroup) return;
+    const newMetadataDict = { ...chartGroup.metadataDict };
+    delete newMetadataDict[metadataId];
+    onObjectChange('metadataDict', newMetadataDict);
   };
 
   const handleUpdateMetadata = (metadataId: string, updates: Partial<ChartMetadata>) => {
-    if (chartGroup) {
-      const newMetadataDict = {
-        ...chartGroup.metadataDict,
-        [metadataId]: {
-          ...chartGroup.metadataDict[metadataId],
-          ...updates,
-        },
-      };
-      onObjectChange('metadataDict', newMetadataDict);
-    }
+    if (!chartGroup) return;
+    onObjectChange('metadataDict', {
+      ...chartGroup.metadataDict,
+      [metadataId]: { ...chartGroup.metadataDict[metadataId], ...updates },
+    });
   };
 
   const handleUpdateMetadataId = (oldId: string, newId: string) => {
-    if (chartGroup && oldId !== newId) {
-      const newMetadataDict = { ...chartGroup.metadataDict };
-      // Copy the metadata with the new ID
-      newMetadataDict[newId] = {
-        ...chartGroup.metadataDict[oldId],
-        id: newId,
-      };
-      // Remove the old entry
-      delete newMetadataDict[oldId];
-      onObjectChange('metadataDict', newMetadataDict);
-    }
+    if (!chartGroup || oldId === newId) return;
+    const newMetadataDict = { ...chartGroup.metadataDict };
+    newMetadataDict[newId] = { ...chartGroup.metadataDict[oldId], id: newId };
+    delete newMetadataDict[oldId];
+    onObjectChange('metadataDict', newMetadataDict);
+  };
+
+  const handleToggleEdit = (id: string) => {
+    setEditingMetadataId(editingMetadataId === id ? null : id);
   };
 
   return (
@@ -128,129 +263,28 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
               <Form.Label>
                 <Trans>Chart Series</Trans> ({metadataList.length})
               </Form.Label>
-              <button
-                type="button"
-                onClick={handleAddMetadata}
-                className={styles.iconButton}
-                title="Add series"
-              >
+              <button type="button" onClick={handleAddMetadata} className={styles.iconButton} title="Add series">
                 <Plus size={16} />
               </button>
             </div>
 
             {newMetadataForm && (
-              <div className={styles.seriesItem} style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}>
-                <input
-                  type="color"
-                  value={newMetadataForm.color}
-                  onChange={(e) => setNewMetadataForm({ ...newMetadataForm, color: e.target.value })}
-                  style={{ width: '32px', height: '32px', border: 'none' }}
-                />
-                <Form.Input
-                  type="text"
-                  placeholder="Series ID"
-                  value={newMetadataForm.id}
-                  onChange={(e) => setNewMetadataForm({ ...newMetadataForm, id: e.target.value })}
-                  style={{ flex: 1 }}
-                />
-                <Form.Input
-                  type="text"
-                  placeholder="Series Label"
-                  value={newMetadataForm.label}
-                  onChange={(e) => setNewMetadataForm({ ...newMetadataForm, label: e.target.value })}
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddMetadata}
-                  className={styles.iconButton}
-                  title="Confirm"
-                >
-                  <Plus size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewMetadataForm(null)}
-                  className={styles.iconButton}
-                  title="Cancel"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              <NewSeriesForm
+                formData={newMetadataForm}
+                onUpdate={(updates) => setNewMetadataForm({ ...newMetadataForm, ...updates })}
+                onConfirm={handleAddMetadata}
+                onCancel={() => setNewMetadataForm(null)}
+              />
             )}
 
-            {metadataList.length > 0 ? (
-              <div className={styles.seriesList}>
-                {metadataList.map((meta) => (
-                  <div key={meta.id} className={styles.seriesItem}>
-                    <input
-                      type="color"
-                      value={meta.color || '#000000'}
-                      onChange={(e) => handleUpdateMetadata(meta.id, { color: e.target.value })}
-                      style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer' }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {editingMetadataId === meta.id ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <Form.Input
-                            type="text"
-                            placeholder="ID"
-                            value={meta.id}
-                            onChange={(e) => handleUpdateMetadataId(meta.id, e.target.value)}
-                            onBlur={() => setEditingMetadataId(null)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === 'Escape') {
-                                setEditingMetadataId(null);
-                              }
-                            }}
-                            style={{ padding: '2px 4px', fontSize: '0.875rem' }}
-                          />
-                          <Form.Input
-                            type="text"
-                            placeholder="Label"
-                            value={meta.label}
-                            onChange={(e) => handleUpdateMetadata(meta.id, { label: e.target.value })}
-                            onBlur={() => setEditingMetadataId(null)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === 'Escape') {
-                                setEditingMetadataId(null);
-                              }
-                            }}
-                            autoFocus
-                            style={{ padding: '2px 4px', fontSize: '0.875rem' }}
-                          />
-                        </div>
-                      ) : (
-                        <span className={styles.seriesLabel}>
-                          {meta.label}
-                          <span className={styles.seriesId}> ({meta.id})</span>
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditingMetadataId(editingMetadataId === meta.id ? null : meta.id)}
-                      className={styles.iconButton}
-                      title="Edit"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMetadata(meta.id)}
-                      className={styles.iconButton}
-                      title="Remove"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.infoText}>
-                <Trans>No series available</Trans>
-              </div>
-            )}
+            <SeriesList
+              metadataList={metadataList}
+              editingId={editingMetadataId}
+              onUpdateMetadata={handleUpdateMetadata}
+              onUpdateId={handleUpdateMetadataId}
+              onToggleEdit={handleToggleEdit}
+              onRemove={handleRemoveMetadata}
+            />
           </Form.FieldSet>
         </>
       )}

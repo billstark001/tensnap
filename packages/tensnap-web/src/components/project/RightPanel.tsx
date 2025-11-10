@@ -8,29 +8,19 @@ import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
 import { useToast } from '@/store/toast';
 
 export const RightPanel = () => {
-  const scenarioStore = useScenarioStore();
+
+  const snapshots = useScenarioStore((store) => store.snapshots);
+  const currentTime = useScenarioStore((store) => store.currentTime) ?? 0;
+  const addSnapshot = useScenarioStore((store) => store.addSnapshot);
+  const clearSnapshots = useScenarioStore((store) => store.clearSnapshots);
+  const removeSnapshot = useScenarioStore((store) => store.removeSnapshot);
+
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const toast = useToast();
 
-  if (!scenarioStore) {
-    return (
-      <div className={styles.rightPanel}>
-        <div className={styles.panelHeader}>
-          <h3><Trans>Scenario Properties</Trans></h3>
-        </div>
-        <div className={styles.panelContent}>
-          <p><Trans>No scenario data loaded.</Trans></p>
-        </div>
-      </div>
-    );
-  }
-
-  const snapshots = scenarioStore.snapshots;
-  const currentTime = scenarioStore.currentTime;
-
   const handleTakeSnapshot = () => {
-    scenarioStore.addSnapshot({
+    addSnapshot?.({
       id: `snapshot-${Date.now()}`,
       timestamp: Date.now(),
       timeStep: currentTime,
@@ -38,7 +28,7 @@ export const RightPanel = () => {
   };
 
   const handleClearSnapshots = () => {
-    scenarioStore.clearSnapshots();
+    clearSnapshots?.();
   };
 
   const handleSnapshotClick = (snapshot: Snapshot) => {
@@ -48,7 +38,7 @@ export const RightPanel = () => {
 
   const handleDeleteSnapshot = () => {
     if (selectedSnapshot) {
-      scenarioStore.removeSnapshot(selectedSnapshot.id);
+      removeSnapshot?.(selectedSnapshot.id);
       setDialogOpen(false);
       setSelectedSnapshot(null);
     }
@@ -94,7 +84,7 @@ export const RightPanel = () => {
             onClick={handleClearSnapshots}
             title="Clear All Snapshots"
             aria-label="Clear All Snapshots"
-            disabled={snapshots.length === 0}
+            disabled={!snapshots?.length}
           >
             <Trash2 size={16} />
             <span><Trans>Clear All</Trans></span>
@@ -102,7 +92,7 @@ export const RightPanel = () => {
         </div>
       </div>
       <div className={styles.panelContent}>
-        {snapshots.length === 0 ? (
+        {!snapshots?.length ? (
           <p className={styles.emptyMessage}>
             <Trans>No snapshots yet. Click "Take Snapshot" to create one.</Trans>
           </p>

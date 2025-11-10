@@ -31,6 +31,7 @@ export default function ViewRoot({
   view: rootView,
   updateTrigger,
   isAdjusting = false,
+  onViewCreateRequest: _onViewCreateRequest,
   onViewUpdate: _onViewUpdate,
   onButtonAction: _onButtonAction,
   AnchoredViewRenderer: _AnchoredViewRenderer,
@@ -39,6 +40,7 @@ export default function ViewRoot({
 
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
   const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
+  const onViewCreateRequest = useCallbackRef(_onViewCreateRequest ?? (() => void 0));
 
   const AnchoredViewRenderer = useCallbackRef(_AnchoredViewRenderer ?? NaiveRenderer as any);
   const ViewContextMenuRenderer = useCallbackRef(_ViewContextMenuRenderer ?? NaiveRenderer as any);
@@ -77,7 +79,8 @@ export default function ViewRoot({
     ViewContextMenuRenderer,
     onResizeStart,
     onViewUpdate,
-  }), [isAdjusting, onButtonAction, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate]);
+    onViewCreateRequest,
+  }), [isAdjusting, onButtonAction, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate, onViewCreateRequest]);
 
   const { state: resizeStateValue } = resizeState;
 

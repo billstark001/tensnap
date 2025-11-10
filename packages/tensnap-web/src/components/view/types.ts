@@ -1,6 +1,33 @@
 import { AnchoredView, AnyView, ContainerView } from "@/types/ui";
 import { ComponentType, PropsWithChildren } from "react";
+import { EnvironmentId, EnvironmentType } from '@/types/model';
 
+/**
+ * Point type for positioning
+ */
+export type Point = {
+  x: number;
+  y: number;
+};
+
+/**
+ * Metadata for environment objects used in view creation
+ */
+export type ObjectWithEnvironmentMetadata = {
+  id: EnvironmentId;
+  type: EnvironmentType;
+  label?: string;
+  width?: number;
+  height?: number;
+};
+
+/**
+ * Metadata for chart objects used in view creation
+ */
+export type ObjectWithChartMetadata = {
+  id: string;
+  label: string;
+};
 
 export interface ViewProps<T extends AnyView = AnyView> {
   view: T;

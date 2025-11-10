@@ -128,48 +128,8 @@ export const sliderValueInput = style({
 
 export const select = style({
   width: '100%',
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  borderRadius: vars.radius.sm,
-  border: `1px solid ${vars.color.gridLine}`,
-  fontSize: vars.fontSize.sm,
-  backgroundColor: vars.color.background,
-  color: vars.color.foreground,
-  cursor: 'pointer',
-  outline: 'none',
-  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-  boxSizing: 'border-box',
-  WebkitAppearance: 'none',
-  MozAppearance: 'none',
-  appearance: 'none',
-  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-  backgroundRepeat: 'no-repeat',
-  backgroundPosition: 'right 8px center',
-  backgroundSize: '16px',
-  paddingRight: '32px',
-
-  ':focus': {
-    borderColor: vars.color.primary,
-    boxShadow: `0 0 0 2px ${vars.color.primary}20`,
-  },
-
-  ':hover': {
-    borderColor: vars.color.primary,
-  },
-
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkSecondary,
-      borderColor: vars.color.darkGridLine,
-      color: vars.color.darkForeground,
-    },
-    'body[data-theme="dark"] &:focus': {
-      borderColor: vars.color.primary,
-      boxShadow: `0 0 0 2px ${vars.color.primary}20`,
-    },
-    'body[data-theme="dark"] &:hover': {
-      borderColor: vars.color.primary,
-    },
-  },
+  height: '100%',
+  maxHeight: '100px',
 });
 
 export const option = style({
@@ -185,19 +145,27 @@ export const option = style({
   },
 });
 
+const BORDER_SIZE = 2;
+const THUMB_SIZE = 20;
+const THUMB_SIZE_HORIZONTAL = 36;
+const THUMB_PADDING = 2;
+
 export const switchRoot = style({
-  width: '42px',
-  height: '25px',
+  width: `${THUMB_SIZE_HORIZONTAL + THUMB_PADDING * 2 + BORDER_SIZE * 2}px`,
+  height: `${THUMB_SIZE + THUMB_PADDING * 2 + BORDER_SIZE * 2}px`,
   backgroundColor: vars.color.background,
+  border: `${BORDER_SIZE}px solid ${vars.color.foreground}`,
   borderRadius: '9999px',
   position: 'relative',
-  boxShadow: `0 2px 10px ${vars.color.secondary}`,
-  WebkitTapHighlightColor: 'rgba(0, 0, 0, 0)',
   selectors: {
-    '&:focus': {
-      boxShadow: `0 0 0 2px ${vars.color.primary}`,
-    },
     '&[data-state="checked"]': {
+      backgroundColor: vars.color.primary,
+    },
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkSecondary,
+      borderColor: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &[data-state="checked"]': {
       backgroundColor: vars.color.primary,
     },
   },
@@ -205,17 +173,19 @@ export const switchRoot = style({
 
 export const switchThumb = style({
   display: 'block',
-  width: '21px',
-  height: '21px',
+  width: `${THUMB_SIZE}px`,
+  height: `${THUMB_SIZE}px`,
   backgroundColor: vars.color.foreground,
   borderRadius: '9999px',
-  boxShadow: `0 2px 2px ${vars.color.secondary}`,
   transition: 'transform 100ms',
-  transform: 'translateX(2px)',
+  transform: `translateX(${THUMB_PADDING}px)`,
   willChange: 'transform',
   selectors: {
     '&[data-state="checked"]': {
-      transform: 'translateX(19px)',
+      transform: `translateX(${THUMB_PADDING + THUMB_SIZE_HORIZONTAL - THUMB_SIZE}px)`,
+    },
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkForeground,
     },
   },
 });
@@ -225,6 +195,11 @@ export const switchLabel = style({
   fontSize: vars.fontSize.sm,
   lineHeight: 1,
   userSelect: 'none',
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
 });
 
 export const textInput = style({

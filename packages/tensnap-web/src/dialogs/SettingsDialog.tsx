@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import * as Dialog from '@/components/ui/Dialog';
+import * as Select from '@/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
-import * as Select from '@radix-ui/react-select';
 import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
@@ -129,19 +129,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <label className={styles.settingLabel}><Trans>Language</Trans></label>
             <div className={styles.settingControl}>
               <Select.Root value={locale} onValueChange={handleLocaleChange}>
-                <Select.Trigger className={styles.selectTrigger}>
-                  <Select.Value />
-                  <Select.Icon>▼</Select.Icon>
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Content className={styles.selectContent} position='popper'>
-                    {Object.entries(locales).map(([code, name]) => (
-                      <Select.Item key={code} value={code} className={styles.selectItem}>
-                        <Select.ItemText>{name}</Select.ItemText>
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Portal>
+                {Object.entries(locales).map(([code, name]) => (
+                  <Select.Item key={code} value={code} >
+                    {name}
+                  </Select.Item>
+                ))}
               </Select.Root>
             </div>
           </div>
@@ -150,20 +142,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <label className={styles.settingLabel}><Trans>Save Format</Trans></label>
             <div className={styles.settingControl}>
               <Select.Root value={saveFormat} onValueChange={setSaveFormat}>
-                <Select.Trigger className={styles.selectTrigger}>
-                  <Select.Value />
-                  <Select.Icon>▼</Select.Icon>
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Content className={styles.selectContent} position='popper'>
-                    <Select.Item value="msgpack" className={styles.selectItem}>
-                      <Select.ItemText>MessagePack</Select.ItemText>
-                    </Select.Item>
-                    <Select.Item value="json" className={styles.selectItem}>
-                      <Select.ItemText>JSON</Select.ItemText>
-                    </Select.Item>
-                  </Select.Content>
-                </Select.Portal>
+                <Select.Item value="msgpack" >
+                  MessagePack
+                </Select.Item>
+                <Select.Item value="json" >
+                  JSON
+                </Select.Item>
               </Select.Root>
             </div>
           </div>
@@ -172,23 +156,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <label className={styles.settingLabel}><Trans>Client Message Validation</Trans></label>
             <div className={styles.settingControl}>
               <Select.Root value={clientMessageValidation} onValueChange={(value) => setClientMessageValidation(value as 'off' | 'warning' | 'error')}>
-                <Select.Trigger className={styles.selectTrigger}>
-                  <Select.Value />
-                  <Select.Icon>▼</Select.Icon>
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Content className={styles.selectContent} position='popper'>
-                    <Select.Item value="off" className={styles.selectItem}>
-                      <Select.ItemText><Trans>Off</Trans></Select.ItemText>
-                    </Select.Item>
-                    <Select.Item value="warning" className={styles.selectItem}>
-                      <Select.ItemText><Trans>Warning</Trans></Select.ItemText>
-                    </Select.Item>
-                    <Select.Item value="error" className={styles.selectItem}>
-                      <Select.ItemText><Trans>Error</Trans></Select.ItemText>
-                    </Select.Item>
-                  </Select.Content>
-                </Select.Portal>
+                <Select.Item value="off" >
+                  <Trans>Off</Trans>
+                </Select.Item>
+                <Select.Item value="warning" >
+                  <Trans>Warning</Trans>
+                </Select.Item>
+                <Select.Item value="error" >
+                  <Trans>Error</Trans>
+                </Select.Item>
               </Select.Root>
             </div>
           </div>
@@ -197,23 +173,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <label className={styles.settingLabel}><Trans>Server Message Validation</Trans></label>
             <div className={styles.settingControl}>
               <Select.Root value={serverMessageValidation} onValueChange={(value) => setServerMessageValidation(value as 'off' | 'warning' | 'error')}>
-                <Select.Trigger className={styles.selectTrigger}>
-                  <Select.Value />
-                  <Select.Icon>▼</Select.Icon>
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Content className={styles.selectContent} position='popper'>
-                    <Select.Item value="off" className={styles.selectItem}>
-                      <Select.ItemText><Trans>Off</Trans></Select.ItemText>
-                    </Select.Item>
-                    <Select.Item value="warning" className={styles.selectItem}>
-                      <Select.ItemText><Trans>Warning</Trans></Select.ItemText>
-                    </Select.Item>
-                    <Select.Item value="error" className={styles.selectItem}>
-                      <Select.ItemText><Trans>Error</Trans></Select.ItemText>
-                    </Select.Item>
-                  </Select.Content>
-                </Select.Portal>
+                <Select.Item value="off" >
+                  <Trans>Off</Trans>
+                </Select.Item>
+                <Select.Item value="warning" >
+                  <Trans>Warning</Trans>
+                </Select.Item>
+                <Select.Item value="error" >
+                  <Trans>Error</Trans>
+                </Select.Item>
               </Select.Root>
             </div>
           </div>

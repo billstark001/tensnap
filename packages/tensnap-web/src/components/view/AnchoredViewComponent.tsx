@@ -12,7 +12,7 @@ export type AnchoredViewComponentProps = {
 export const AnchoredViewComponent = ({ view, parentView }: AnchoredViewComponentProps) => {
 
   const { AnchoredViewRenderer } = useViewContext();
-  const isDisabled = view.data.disabled;
+  const isDisabled = view.disabled;
 
   return (
     <div className={clsx(styles.windowView, isDisabled && styles.windowViewDisabled)}>

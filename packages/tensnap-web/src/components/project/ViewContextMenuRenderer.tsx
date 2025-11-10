@@ -2,14 +2,14 @@ import { Trans } from "@lingui/react/macro";
 import ContextMenu from "../ui/ContextMenu";
 import { ViewContextMenuRendererType } from "../view/types";
 import { ClipboardCopy, Edit, Sheet, Trash2 } from "lucide-react";
-import { EditViewDialog } from "@/dialogs/EditViewDialog";
+import { EditViewDialog } from "@/dialogs/edit-views/EditViewDialog";
 import { useCallback, useState } from "react";
 import { AnyView } from "@/types/ui";
 import { useViewContext } from "../view/useViewContext";
 import { useToast } from "@/store/toast";
 import { useScenarioStore } from "@/store/scenario/store";
 import { exportToCSV } from "@/store/scenario/chart";
-import { useViewEdit } from "../view/useViewEdit";
+import { useUpdateAndDeleteView } from "./view-edit-hooks";
 
 
 
@@ -67,22 +67,22 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const { onViewUpdate } = useViewContext();
-  const { handleDeleteView, handleUpdateView } = useViewEdit({ parentView, onViewUpdate });
+  const { deleteView, updateView } = useUpdateAndDeleteView({ parentView, onViewUpdate });
 
   const charts = useScenarioStore((store) => store.charts);
   const toast = useToast();
 
   const handleDelete = useCallback((id: string) => {
-    handleDeleteView(id);
-  }, [handleDeleteView]);
+    deleteView(id);
+  }, [deleteView]);
 
   const handleEdit = useCallback(() => {
     setIsEditDialogOpen(true);
   }, []);
 
   const handleSaveEdit = useCallback((updatedView: AnyView, objectData?: any) => {
-    handleUpdateView(updatedView, objectData);
-  }, [handleUpdateView]);
+    updateView(updatedView, objectData);
+  }, [updateView]);
 
   const handleCopySVG = useCallback(async () => {
     if (!node) return;

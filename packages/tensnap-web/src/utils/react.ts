@@ -105,12 +105,14 @@ export const throttle = <T extends (...args: any[]) => any>(
         execute();
         lastExecTime = now;
       } else {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => {
-          execute();
-          lastExecTime = Date.now();
-          timeoutRef.current = null;
-        }, delay - timeSinceLastExec);
+        // 修复：不要重复取消 timeout，保持第一次调度
+        if (!timeoutRef.current) {
+          timeoutRef.current = setTimeout(() => {
+            execute();
+            lastExecTime = Date.now();
+            timeoutRef.current = null;
+          }, delay - timeSinceLastExec);
+        }
       }
     }) as ThrottledFunction<T>;
 

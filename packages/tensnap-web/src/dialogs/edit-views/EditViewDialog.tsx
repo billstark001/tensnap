@@ -3,11 +3,11 @@ import * as Dialog from '@/components/ui/Dialog';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@/types/ui';
 import { Trans } from '@lingui/react/macro';
 import { DialogOpenProps } from '@/utils/react';
-import { ButtonViewEditor } from './edit-views/ButtonViewEditor';
-import { ContainerViewEditor } from './edit-views/ContainerViewEditor';
-import { EnvironmentViewEditor } from './edit-views/EnvironmentViewEditor';
-import { ParameterViewEditor } from './edit-views/ParameterViewEditor';
-import { ChartViewEditor } from './edit-views/ChartViewEditor';
+import { ButtonViewEditor } from './ButtonViewEditor';
+import { ContainerViewEditor } from './ContainerViewEditor';
+import { EnvironmentViewEditor } from './EnvironmentViewEditor';
+import { ParameterViewEditor } from './ParameterViewEditor';
+import { ChartViewEditor } from './ChartViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup } from '@/types/model';
 
@@ -38,7 +38,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     if (view.type === 'parameter' || view.type === 'environment' || view.type === 'chart') {
       const anchoredView = view as AnchoredView;
       if (view.type === 'parameter') {
-        const param = parameters?.find(p => p.id === anchoredView.data.id);
+        const param = parameters?.get(anchoredView.data.id);
         setLocalObjectData(param ? { ...param } : null);
       } else if (view.type === 'environment') {
         const env = environments?.get(anchoredView.data.id);
@@ -121,7 +121,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     if (view.type === 'parameter' || view.type === 'environment' || view.type === 'chart') {
       const anchoredView = view as AnchoredView;
       if (view.type === 'parameter') {
-        const param = parameters?.find(p => p.id === anchoredView.data.id);
+        const param = parameters?.get(anchoredView.data.id);
         setLocalObjectData(param ? { ...param } : null);
       } else if (view.type === 'environment') {
         const env = environments?.get(anchoredView.data.id);

@@ -29,7 +29,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
         const { width, height } = entry.contentRect;
         setSvgSize({ width, height });
       }
-    }, 32);
+    }, 16);
 
     const resizeObserver = new ResizeObserver(throttledResize);
 

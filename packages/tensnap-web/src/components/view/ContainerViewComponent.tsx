@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { ChevronDown, ChevronRight, Square, Container, Pyramid, Earth, ChartArea } from 'lucide-react';
 import { ContainerView, AnyView } from '@/types/ui';
@@ -8,7 +8,6 @@ import { viewConstants } from './constants';
 import cx from 'clsx';
 import { ViewProps } from './types';
 import { useViewContext } from './useViewContext';
-import { useViewEdit } from './useViewEdit';
 import ContextMenu from '../ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';
 
@@ -28,8 +27,8 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   isRootView = false,
 }) => {
 
-  const { onViewUpdate, isAdjusting } = useViewContext();
-  const { handleCreateView: createView } = useViewEdit({ parentView: view, onViewUpdate });
+
+  const { onViewCreateRequest, onViewUpdate, isAdjusting } = useViewContext();
 
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${view.id}`,
@@ -43,16 +42,14 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   });
 
   const lastClickPositionRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     lastClickPositionRef.current = { x: e.nativeEvent.offsetX || 0, y: e.nativeEvent.offsetY || 0 };
   }, [lastClickPositionRef]);
 
-  const handleCreateView = (type: AnyView['type'], e: React.MouseEvent) => {
+  const handleCreateView = useCallback((type: AnyView['type'], e: React.MouseEvent) => {
     e.stopPropagation();
-    // Use the hook's createView which handles both view and object creation
-    createView(type, lastClickPositionRef.current, view);
-  };
+    onViewCreateRequest(type, lastClickPositionRef.current, view);
+  }, [onViewCreateRequest, view]);
 
   const handleToggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -64,7 +61,26 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     styles.windowView,
     isOver && styles.containerViewDragOver,
   );
+  console.time('ContainerViewComponent Render Part 1');
 
+  const viewList = useMemo(() => view.views.map((childView) => (
+    <DraggableView
+      key={childView.id}
+      view={childView}
+      parentView={view}
+      updateTrigger={updateTrigger}
+      relativeLeft={relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta)}
+      relativeTop={relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta)}
+      parentId={view.id}
+      siblings={view.views}
+      isOverlay={isOverlay}
+      isUnderRootView={isRootView}
+    />
+  )), [view.views, view, updateTrigger, relativeLeft, relativeTop, isRootView, isOverlay]);
+
+  console.timeEnd('ContainerViewComponent Render Part 1');
+
+  console.time('ContainerViewComponent Render Part 2');
   const draggableView = <div
     ref={setNodeRef}
     className={cx(
@@ -73,25 +89,15 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     )}
     onContextMenu={handleContextMenu}
   >
-    {view.views.map((childView) => (
-      <DraggableView
-        key={childView.id}
-        view={childView}
-        parentView={view}
-        updateTrigger={updateTrigger}
-        relativeLeft={relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta)}
-        relativeTop={relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta)}
-        parentId={view.id}
-        siblings={view.views}
-        isOverlay={isOverlay}
-        isUnderRootView={isRootView}
-      />
-    ))}
+    {viewList}
   </div>;
+  console.timeEnd('ContainerViewComponent Render Part 2');
 
-  const body = (
-    <ContextMenu.Root trigger={draggableView} disabled={!isAdjusting}>
-      <ContextMenu.Label>
+  console.time('ContainerViewComponent Render Part 3');
+
+  const contextMenuItems = useMemo(() => (
+    <>
+    <ContextMenu.Label>
         <Trans>New View</Trans>
       </ContextMenu.Label>
       <ContextMenu.Item
@@ -124,8 +130,16 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
         <Container />
         <Trans>Container</Trans>
       </ContextMenu.Item>
+  </>
+  ), [handleCreateView]);
+
+  console.timeEnd('ContainerViewComponent Render Part 3');
+  const body = (
+    <ContextMenu.Root trigger={draggableView} disabled={!isAdjusting}>
+      {contextMenuItems}
     </ContextMenu.Root>
   );
+
 
   if (isRootView) {
     return body;

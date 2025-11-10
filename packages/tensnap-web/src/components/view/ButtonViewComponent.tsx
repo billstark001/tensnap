@@ -10,7 +10,7 @@ export type ButtonViewProps = {
 export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
 
   const { onButtonAction } = useViewContext();
-  const isDisabled = view.data.disabled;
+  const isDisabled = view.disabled;
 
   return (
     <div 

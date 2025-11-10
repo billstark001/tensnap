@@ -33,8 +33,8 @@ const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
 };
 
 const AnchoredParameterView = ({ id }: { id: string }) => {
-  const parameters = useScenarioStore((store) => store.parameters) ?? [];
-  const parameter = parameters.find(param => param.id === id);
+  const parameters = useScenarioStore((store) => store.parameters);
+  const parameter = parameters?.get(id);
   if (!parameter) return <div>Parameter not found: {id}</div>;
 
   return <ParameterControl parameter={parameter} />;

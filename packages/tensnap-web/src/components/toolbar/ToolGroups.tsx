@@ -128,15 +128,19 @@ export function SimulationControlTools() {
 }
 
 export function ViewTools() {
-  const scenarioStore = useScenarioStore();
+  const currentTime = useScenarioStore((store) => store.currentTime) ?? 0;
+  const addSnapshot = useScenarioStore((store) => store.addSnapshot);
+  const dump = useScenarioStore((store) => store.dump);
+  const updateMainViewLayout = useScenarioStore((store) => store.updateMainViewLayout);
+
   const websocketStore = useWebSocketStore();
   const { _ } = useLingui();
 
   const handleTakeSnapshot = () => {
-    scenarioStore?.addSnapshot({
+    addSnapshot?.({
       id: `snapshot-${Date.now()}`,
       timestamp: Date.now(),
-      timeStep: scenarioStore.currentTime,
+      timeStep: currentTime,
     });
   };
 
@@ -166,15 +170,15 @@ export function ViewTools() {
       <ToolButton
         icon={<RefreshCcw size={16} />}
         tooltip={_(msg`Synchronize State`)}
-        onClick={() => scenarioStore ? websocketStore?.sendMessage({
+        onClick={() => dump ? websocketStore?.sendMessage({
           type: 'state_sync',
-          payload: createStateSyncRequestFromStore(scenarioStore.dump()),
+          payload: createStateSyncRequestFromStore(dump()),
         }) : undefined}
       />
       <ToolButton
         icon={<LayoutTemplate size={16} />}
         tooltip={_(msg`Update View Layout`)}
-        onClick={() => scenarioStore?.updateMainViewLayout()}
+        onClick={() => updateMainViewLayout?.()}
       />
     </ToolGroupContainer>
   )

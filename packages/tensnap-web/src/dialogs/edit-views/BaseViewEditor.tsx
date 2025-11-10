@@ -81,8 +81,8 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
         </Form.Field>
       </Form.FieldGroup>
 
-      {view.type === 'container' && <Form.FieldSet>
-        <Form.Label htmlFor="view-expanded" className={styles.checkboxLabel}>
+      <Form.FieldSet>
+        {view.type === 'container' && <Form.Label htmlFor="view-expanded" className={styles.checkboxLabel}>
           <input
             id="view-expanded"
             type="checkbox"
@@ -91,8 +91,18 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
             className={styles.checkboxInput}
           />
           <Trans>Expanded</Trans>
-        </Form.Label>
-      </Form.FieldSet>}
+        </Form.Label>}
+        {view.type !== 'container' && <Form.Label htmlFor="view-disabled" className={styles.checkboxLabel}>
+          <input
+            id="view-disabled"
+            type="checkbox"
+            checked={view.disabled || false}
+            onChange={(e) => onChange('disabled', e.target.checked)}
+            className={styles.checkboxInput}
+          />
+          <Trans>Disabled</Trans>
+        </Form.Label>}
+      </Form.FieldSet>
     </>
   );
 };
