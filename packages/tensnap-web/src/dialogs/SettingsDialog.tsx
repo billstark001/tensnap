@@ -29,9 +29,13 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     theme,
     saveFormat,
     locale,
+    clientMessageValidation,
+    serverMessageValidation,
     setSaveFormat,
     toggleTheme,
     setLocale,
+    setClientMessageValidation,
+    setServerMessageValidation,
   } = useSettingsStore();
 
   const { activeProject, activeIndex, changeUrl } = useProjectStore();
@@ -157,6 +161,56 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                     </Select.Item>
                     <Select.Item value="json" className={styles.selectItem}>
                       <Select.ItemText>JSON</Select.ItemText>
+                    </Select.Item>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Client Message Validation</Trans></label>
+            <div className={styles.settingControl}>
+              <Select.Root value={clientMessageValidation} onValueChange={(value) => setClientMessageValidation(value as 'off' | 'warning' | 'error')}>
+                <Select.Trigger className={styles.selectTrigger}>
+                  <Select.Value />
+                  <Select.Icon>▼</Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content className={styles.selectContent} position='popper'>
+                    <Select.Item value="off" className={styles.selectItem}>
+                      <Select.ItemText><Trans>Off</Trans></Select.ItemText>
+                    </Select.Item>
+                    <Select.Item value="warning" className={styles.selectItem}>
+                      <Select.ItemText><Trans>Warning</Trans></Select.ItemText>
+                    </Select.Item>
+                    <Select.Item value="error" className={styles.selectItem}>
+                      <Select.ItemText><Trans>Error</Trans></Select.ItemText>
+                    </Select.Item>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Server Message Validation</Trans></label>
+            <div className={styles.settingControl}>
+              <Select.Root value={serverMessageValidation} onValueChange={(value) => setServerMessageValidation(value as 'off' | 'warning' | 'error')}>
+                <Select.Trigger className={styles.selectTrigger}>
+                  <Select.Value />
+                  <Select.Icon>▼</Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content className={styles.selectContent} position='popper'>
+                    <Select.Item value="off" className={styles.selectItem}>
+                      <Select.ItemText><Trans>Off</Trans></Select.ItemText>
+                    </Select.Item>
+                    <Select.Item value="warning" className={styles.selectItem}>
+                      <Select.ItemText><Trans>Warning</Trans></Select.ItemText>
+                    </Select.Item>
+                    <Select.Item value="error" className={styles.selectItem}>
+                      <Select.ItemText><Trans>Error</Trans></Select.ItemText>
                     </Select.Item>
                   </Select.Content>
                 </Select.Portal>

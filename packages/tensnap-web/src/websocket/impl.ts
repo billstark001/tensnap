@@ -4,6 +4,7 @@ import { WSMessage } from '@/types/api';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
 import { wsConnected, wsDisconnected } from './constants';
 import { EventHandler, WebSocketManager } from './types';
+import { validateClientMessage, validateServerMessage, ValidationLevel } from '@/utils/validation';
 
 
 export class WebSocketManagerImpl implements WebSocketManager {
@@ -23,6 +24,10 @@ export class WebSocketManagerImpl implements WebSocketManager {
   private abortController: AbortController | null = null;
   private externalAbortHandler: (() => void) | null = null;
   private isDestroyed: boolean = false;
+  
+  // Validation settings - can be set externally
+  public clientMessageValidation: ValidationLevel = 'off';
+  public serverMessageValidation: ValidationLevel = 'off';
 
   constructor(id: string | null | undefined, url: string, useMsgPack: boolean = false) {
     this.id = id || generateUniqueId();
@@ -173,6 +178,15 @@ export class WebSocketManagerImpl implements WebSocketManager {
         message = JSON.parse(text);
       }
 
+      // Validate server message if validation is enabled
+      if (this.serverMessageValidation !== 'off') {
+        const validation = validateServerMessage(message, this.serverMessageValidation);
+        if (!validation.valid && this.serverMessageValidation === 'error') {
+          console.error(`${this.id}: Server message validation failed`, validation.message);
+          return; // Don't emit invalid messages when in error mode
+        }
+      }
+
       this.emit(message.type, message.payload);
     } catch (error) {
       console.error(`${this.id}: Error handling message:`, error);
@@ -216,6 +230,15 @@ export class WebSocketManagerImpl implements WebSocketManager {
   }
 
   send(message: WSMessage) {
+    // Validate client message if validation is enabled
+    if (this.clientMessageValidation !== 'off') {
+      const validation = validateClientMessage(message, this.clientMessageValidation);
+      if (!validation.valid && this.clientMessageValidation === 'error') {
+        console.error(`${this.id}: Client message validation failed`, validation.message);
+        return; // Don't send invalid messages when in error mode
+      }
+    }
+
     if (this.ws?.readyState === WebSocket.OPEN) {
       if (this.useMsgPack) {
         const encoded = encode(message);
