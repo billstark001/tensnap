@@ -6,6 +6,7 @@ import math
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
+from tensnap import bind_grid_agent, bind_grid_environment
 
 @dataclass
 class FlockConfig:
@@ -20,6 +21,7 @@ class FlockConfig:
     world_height: float = 40.0
 
 
+@bind_grid_agent(size=True, icon=True, color=True, data=True, heading=True)
 class Bird:
     """A single bird agent in the flock"""
 
@@ -52,8 +54,17 @@ class Bird:
         speed = self.get_speed()
         if speed > 0.01:
             self.heading = math.atan2(self.vy, self.vx)
+            
+    @property
+    def data(self) -> Dict[str, Any]:
+        return {
+            "vx": self.vx,
+            "vy": self.vy,
+            "speed": self.get_speed(),
+        }
 
 
+@bind_grid_environment()
 class FlockSimulation:
     """Main flocking simulation class"""
 
@@ -172,18 +183,3 @@ class FlockSimulation:
         individual_avg = self.get_average_speed()
 
         return avg_speed / individual_avg if individual_avg > 0 else 0.0
-
-    def get_bird_data(self) -> List[Dict[str, Any]]:
-        """Get current data for all birds"""
-        return [
-            {
-                "id": bird.id,
-                "x": bird.x,
-                "y": bird.y,
-                "heading": bird.heading,
-                "vx": bird.vx,
-                "vy": bird.vy,
-                "speed": bird.get_speed(),
-            }
-            for bird in self.birds
-        ]

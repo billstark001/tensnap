@@ -9,7 +9,6 @@ from tensnap import (
     SimulationScenario,
     BindParametersConfig,
     GridEnvironmentBinder,
-    make_grid_agent_accessor,
 )
 
 from .flock import FlockSimulation, FlockConfig
@@ -23,7 +22,6 @@ model = FlockSimulation(config)
 grid = GridEnvironmentBinder(
     id="main",
     environment=model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True, size=True),
 )
 
 
@@ -58,7 +56,7 @@ async def main() -> None:
     scenario.add_charts(globals())
     scenario.add_actions({})
 
-    scenario.register_model_handler(
+    await scenario.register_model_handler(
         init_simulation,
         model.step,
     )

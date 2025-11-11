@@ -86,7 +86,7 @@ class BatchedMessageQueue:
                 if isinstance(result, Exception) and not isinstance(
                     result, (ConnectionError, asyncio.CancelledError)
                 ):
-                    logger.error(f"Error sending messages: {result}")
+                    logger.exception(f"Error sending messages: {result}")
 
     @staticmethod
     async def _send_batch(
@@ -106,7 +106,7 @@ class BatchedMessageQueue:
             # Expected exceptions during client disconnect
             pass
         except Exception as e:
-            logger.error(f"Unexpected error sending to client: {e}")
+            logger.exception(f"Unexpected error sending to client: {e}")
 
     async def close(self) -> None:
         """Gracefully close the queue and flush remaining messages."""

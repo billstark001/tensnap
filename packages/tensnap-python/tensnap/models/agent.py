@@ -47,32 +47,36 @@ class GraphAgentModelDict(AgentModelDict):
 
 
 # TypedDicts for accessor parameters
-class UniformAgentAccessorDict(TypedDict, total=False):
+class UniformAgentAccessorDict(TypedDict):
     """Type definition for uniform agent accessor parameters"""
     id: str
-    color: str | bool | None
-    icon: str | bool | None
-    size: str | bool | None
-    data: str | bool | None
+    color: NotRequired[str | bool | None]
+    icon: NotRequired[str | bool | None]
+    size: NotRequired[str | bool | None]
+    data: NotRequired[str | bool | None]
 
 
 class GridAgentAccessorDict(UniformAgentAccessorDict):
     """Type definition for grid agent accessor parameters"""
     x: str
     y: str
-    heading: str | bool | None
+    heading: NotRequired[str | bool | None]
 
 
-class GraphAgentAccessorDict(TypedDict, total=False):
+class GraphAgentAccessorNXDict(TypedDict):
     """Type definition for graph agent accessor parameters"""
-    id: str
-    x: str | bool | None
-    y: str | bool | None
-    color: str | bool | None
-    icon: str | bool | None
-    size: str | bool | None
-    data: str | bool | None
+    x: NotRequired[str | bool | None]
+    y: NotRequired[str | bool | None]
+    color: NotRequired[str | bool | None]
+    icon: NotRequired[str | bool | None]
+    size: NotRequired[str | bool | None]
+    data: NotRequired[str | bool | None]
+    auto_collect_data: NotRequired[bool]
 
+class GraphAgentAccessorDict(UniformAgentAccessorDict):
+    """Type definition for graph agent accessor parameters"""
+    x: NotRequired[str | bool | None]
+    y: NotRequired[str | bool | None]
 
 def _a(
     map_fields: dict[str, str],

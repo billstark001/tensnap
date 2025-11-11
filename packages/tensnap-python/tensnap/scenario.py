@@ -11,10 +11,11 @@ from tensnap.bindings.basic import (
 from tensnap.bindings.basic import (
     action as action_decorator,
 )
-from tensnap.models import EnvironmentModel
+from tensnap.models import EnvironmentBinderProtocol
 from tensnap.server import TenSnapServer
 from tensnap.sim_loop import SimulationLoop
 from tensnap.utils.func import call_function
+from tensnap.utils.attr import make_identifier_getter_and_setter
 
 
 class SimulationHandlerProtocol(Protocol):
@@ -32,11 +33,10 @@ class DefaultSimulationHandler:
 
     def __init__(
         self,
-        scenario: "SimulationScenario",
         model_init: Callable | None = None,
         model_step: Callable | None = None,
     ):
-        self.scenario = scenario
+        self.scenario: "SimulationScenario | None" = None
         self.model_init = model_init
         self.model_step = model_step
 
@@ -45,6 +45,8 @@ class DefaultSimulationHandler:
         self.scenario = scenario
 
     async def send_updates(self, replace_agents: bool = False) -> None:
+        if not self.scenario:
+            return
         """Send environment and agent updates to the server"""
         for name, env in self.scenario.env_binders.items():
             model_updates = env.get_model_dict()
@@ -58,6 +60,8 @@ class DefaultSimulationHandler:
 
     async def on_start(self, step: int, replace_agents: bool = False) -> None:
         s = self.scenario
+        if not s:
+            return
 
         await s.server.start_time_step(step)
         await self.send_updates(replace_agents=replace_agents)
@@ -66,6 +70,8 @@ class DefaultSimulationHandler:
 
     async def on_step(self, step: int) -> None:
         s = self.scenario
+        if not s:
+            return
 
         await s.server.start_time_step(step)
 
@@ -77,6 +83,9 @@ class DefaultSimulationHandler:
         await s.server.end_time_step(step)
 
     async def on_reset(self) -> None:
+        if not self.scenario:
+            return
+
         await self.scenario.sim_manager.stop()
         self.scenario.sim_manager.time_step = 0
         if self.model_init is not None:
@@ -107,25 +116,41 @@ class SimulationScenario:
         )
         self.sim_manager = SimulationLoop(step_interval=self.step_interval)
 
-        self.env_binders: dict[str, EnvironmentModel] = {}
+        self.env_binders: dict[str, EnvironmentBinderProtocol] = {}
 
-    def add_environment(self, binder: EnvironmentModel):
+    def add_environment(self, binder: EnvironmentBinderProtocol):
         self.env_binders[binder.id] = binder
         self.server.add_environment(binder)
 
+    def remove_environment(self, binder_id: str):
+        if binder_id in self.env_binders:
+            del self.env_binders[binder_id]
+            self.server.remove_environment(binder_id)
+
+    def remove_all_environments(self):
+        self.env_binders.clear()
+        self.server.remove_all_environments()
+
     def add_charts(self, target: dict[str, Any] | ModuleType | object):
+        target_dict = None
         if isinstance(target, ModuleType) or hasattr(target, "__dict__"):
-            target = vars(target)
+            target_dict = vars(target)
         if isinstance(target, dict):
-            charts = get_chart_metadata_from_namespace(target)
+            target_dict = target
+        if target_dict is not None:
+            charts = get_chart_metadata_from_namespace(target_dict)
             for _, func, chart in charts:
                 self.server.add_chart(func, chart)
-            return
         if hasattr(target, "__class__"):
             cls = target.__class__
             charts = get_chart_metadata_from_namespace(vars(cls))  # type: ignore
-            for name, _, chart in charts:
-                self.server.add_chart(getattr(target, name), chart)
+            for name, func, chart in charts:
+                def invoke():
+                    return func(target)
+                self.server.add_chart(invoke, chart)
+
+    def remove_all_charts(self):
+        self.server.remove_all_charts()
 
     def add_parameters(
         self,
@@ -147,10 +172,11 @@ class SimulationScenario:
             return
         else:
             for name, param in parameters:
+                getter, setter = make_identifier_getter_and_setter(name, target)
                 self.server.add_parameter(
                     param,
-                    lambda: getattr(target, name),
-                    lambda v: setattr(target, name, v),
+                    getter,
+                    setter,
                 )
             for name, func, action in actions:
                 self.server.add_action(
@@ -158,6 +184,9 @@ class SimulationScenario:
                     func or (lambda: getattr(target, name)()),
                     add_parameter=True,
                 )
+
+    def remove_all_parameters(self):
+        self.server.remove_all_parameters()
 
     def add_actions(
         self, target: dict[str, Any] | ModuleType | object, register_self: bool = True
@@ -197,6 +226,9 @@ class SimulationScenario:
                     action, getattr(target, name), add_parameter=True
                 )
 
+    def remove_all_actions(self, remove_parameters: bool = True):
+        self.server.remove_all_actions(remove_parameters=remove_parameters)
+
     async def register_handler(self, handler: SimulationHandlerProtocol):
         self.handler = handler
         self.sim_manager.on_start = handler.on_start
@@ -211,7 +243,6 @@ class SimulationScenario:
         model_step: Callable | None = None,
     ):
         handler = DefaultSimulationHandler(
-            scenario=self,
             model_init=model_init,
             model_step=model_step,
         )

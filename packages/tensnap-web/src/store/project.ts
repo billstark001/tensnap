@@ -184,7 +184,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const projectFile: ProjectFileContent = {
       mainView: scenarioStore.mainView,
       scenario: scenarioStore.dump(),
-      url: url ?? 'ws://localhost:5678', // 提供默认值
+      url: url ?? 'ws://localhost:8765',
     };
 
     const basePath = saveAsPath ?? project.filepath;

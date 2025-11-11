@@ -7,7 +7,7 @@ import numpy as np
 
 from tensnap import (
     chart,
-    NXGraphEnvironmentBinder,
+    GraphEnvironmentBinderNX,
     make_graph_agent_accessor_nx,
     SimulationScenario,
 )
@@ -20,12 +20,10 @@ server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port)
 
 model = DiscreteHKModel(n_agents=50, confidence_bound=0.3, k_random=3)
-graph_env = NXGraphEnvironmentBinder(
+graph_env = GraphEnvironmentBinderNX(
     id="opinion_network",
     graph=model.graph,
-    agent_accessor=make_graph_agent_accessor_nx(
-        color=True, size=True, auto_collect_data=True
-    ),
+    agent_accessor={"color": True, "size": True, "auto_collect_data": True},
 )
 
 
@@ -84,7 +82,7 @@ async def main() -> None:
     scenario.add_charts(globals())
     scenario.add_actions({})
 
-    scenario.register_model_handler(
+    await scenario.register_model_handler(
         init,
         step,
     )

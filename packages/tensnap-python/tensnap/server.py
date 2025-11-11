@@ -36,7 +36,7 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from .models import EnvironmentModel, StateSyncRequest
+    from .models import EnvironmentBinderProtocol, StateSyncRequest
 
 
 class ServerToClientMessageType(Enum):
@@ -70,8 +70,7 @@ def encode_message(
     )  # type: ignore
 
 
-
-def convert_env_state(env: "EnvironmentModel") -> Dict[str, Any]:
+def convert_env_state(env: "EnvironmentBinderProtocol") -> Dict[str, Any]:
     env_dict = env.get_model_dict()
     env_dict["agents"] = env.get_agent_list(is_update=False)
     return env_dict
@@ -85,7 +84,7 @@ class TenSnapServer:
         self.use_msgpack = use_msgpack
 
         self.clients: set[WebSocketServerProtocol] = set()
-        self.environments: Dict[str, "EnvironmentModel"] = {}
+        self.environments: Dict[str, "EnvironmentBinderProtocol"] = {}
         self.parameters: Dict[str, "Parameter"] = {}
         self.charts: Dict[str, Tuple["ChartGroupMetadata", Callable]] = {}
         self.button_handlers: Dict[str, Callable] = {}
@@ -93,7 +92,7 @@ class TenSnapServer:
         self._queue = BatchedMessageQueue()
         self._bg_task = None
 
-    def add_environment(self, env: "EnvironmentModel") -> None:
+    def add_environment(self, env: "EnvironmentBinderProtocol") -> None:
         self.environments[env.id] = env
 
     def add_parameter(
@@ -122,13 +121,22 @@ class TenSnapServer:
         if env_id in self.environments:
             del self.environments[env_id]
 
+    def remove_all_environments(self) -> None:
+        self.environments.clear()
+
     def remove_parameter(self, param_id: str) -> None:
         if param_id in self.parameters:
             del self.parameters[param_id]
 
+    def remove_all_parameters(self) -> None:
+        self.parameters.clear()
+
     def remove_chart(self, chart_id: str) -> None:
         if chart_id in self.charts:
             del self.charts[chart_id]
+
+    def remove_all_charts(self) -> None:
+        self.charts.clear()
 
     def remove_action(
         self,
@@ -139,6 +147,16 @@ class TenSnapServer:
             del self.button_handlers[action_id]
         if remove_parameter:
             self.remove_parameter(action_id)
+
+    def remove_all_actions(self, remove_parameters: bool = True) -> None:
+        self.button_handlers.clear()
+        if remove_parameters:
+            for action_id in list(self.parameters.keys()):
+                if (
+                    action_id in self.parameters
+                    and self.parameters[action_id].type == "action"
+                ):
+                    del self.parameters[action_id]
 
     async def handle_client(
         self, websocket: WebSocketServerProtocol, path: str
@@ -272,7 +290,7 @@ class TenSnapServer:
                 param.setter(value)
                 param.value = value
             except Exception as e:
-                logger.error(f"Error setting parameter {param.id}: {e}")
+                logger.exception(f"Error setting parameter {param.id}: {e}")
 
     async def _handle_state_sync(
         self, ws: WebSocketServerProtocol, req: "StateSyncRequest"
@@ -294,7 +312,7 @@ class TenSnapServer:
                 if param.type != "action":
                     param.value = value
             except Exception as e:
-                logger.error(f"Error setting parameter {pid}: {e}")
+                logger.exception(f"Error setting parameter {pid}: {e}")
 
     async def _handle_button_click(self, payload: Dict[str, Any]) -> None:
         action = payload.get("action")
@@ -308,7 +326,7 @@ class TenSnapServer:
             else:
                 await asyncio.get_event_loop().run_in_executor(None, handler)
         except Exception as e:
-            logger.error(f"Error handling button {action}: {e}")
+            logger.exception(f"Error handling button {action}: {e}")
 
     async def _broadcast(
         self, msg_type: ServerToClientMessageType, payload: dict
@@ -327,7 +345,7 @@ class TenSnapServer:
         try:
             await ws.send(encode_message(msg_type, payload, self.use_msgpack))
         except Exception as e:
-            logger.error(f"Error sending message to client: {e}")
+            logger.exception(f"Error sending message to client: {e}")
             self.clients.discard(ws)
 
     async def _send_error(self, ws: WebSocketServerProtocol, error: str) -> None:
@@ -350,7 +368,7 @@ class TenSnapServer:
         updates = []
         for r in results_raw:
             if isinstance(r, Exception):
-                logger.error(f"Error getting chart update: {r}")
+                logger.exception(f"Error getting chart update: {r}")
             else:
                 updates.extend(r)  # type: ignore
         if updates:
@@ -410,14 +428,18 @@ class TenSnapServer:
                     )
             return ret
         except Exception as e:
-            logger.error(f"Error getting chart data for {chart.id}: {e}")
+            logger.exception(f"Error getting chart data for {chart.id}: {e}")
             raise
 
     async def update_environment(
-        self, env_id: Union[str, int], data: Dict[str, Any] | None = None, agents: List[Dict[str, Any]] | None = None
+        self,
+        env_id: Union[str, int],
+        data: Dict[str, Any] | None = None,
+        agents: List[Dict[str, Any]] | None = None,
     ) -> None:
         await self._broadcast(
-            ServerToClientMessageType.ENVIRONMENT_UPDATE, {"id": env_id, "data": data, "agents": agents}
+            ServerToClientMessageType.ENVIRONMENT_UPDATE,
+            {"id": env_id, "data": data, "agents": agents},
         )
 
     async def update_agent(

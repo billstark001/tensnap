@@ -9,13 +9,20 @@ epidemiological model with support for three different interaction structures:
 """
 
 import numpy as np
-import io
 import networkx as nx
 from typing import List, Tuple, Optional
 from enum import IntEnum
 
 
-from tensnap import bind_parameters
+from tensnap import (
+    bind_parameters,
+    bind_uniform_agent,
+    bind_grid_environment,
+    bind_graph_environment,
+    bind_graph_agent,
+    chart,
+)
+from tensnap.utils import img_to_npy_bytes
 
 
 class State(IntEnum):
@@ -26,6 +33,8 @@ class State(IntEnum):
     RECOVERED = 2
 
 
+@bind_graph_agent(color=True)
+@bind_uniform_agent(color=True)
 class Agent:
     """
     Represents an individual agent in the SIRS model.
@@ -134,6 +143,7 @@ color_rgb_np_array_map = {
 }
 
 
+@bind_grid_environment(width="rows", height="cols", background=True)
 @bind_parameters(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
@@ -154,14 +164,6 @@ class GridEnvironment(Environment):
         super().__init__(rows * cols)
         self.rows = rows
         self.cols = cols
-
-    @property
-    def width(self) -> int:
-        return self.cols
-
-    @property
-    def height(self) -> int:
-        return self.rows
 
     def _id_to_coords(self, agent_id: int) -> Tuple[int, int]:
         """Convert agent ID to grid coordinates."""
@@ -204,14 +206,11 @@ class GridEnvironment(Environment):
     def background(self):
         """Get the background image representing agent states."""
         img = self.get_status_image()
-        buffer = io.BytesIO()
-        np.save(buffer, img)
-        img_bytes = buffer.getvalue()
+        img_bytes = img_to_npy_bytes(img)
         return img_bytes
-        # img_b64 = base64.b64encode(img_bytes)
-        # return img_b64
 
 
+@bind_graph_environment(edges="graph.edges")
 @bind_parameters(include=["num_agents", "connection_prob"])
 class ERNetworkEnvironment(Environment):
     """
@@ -288,6 +287,8 @@ class SIRSSimulation:
 
         self.init()
 
+        self.last_states: Tuple[int, int, int] = (0, 0, 0)  # S, I, R counts
+
     def init(self):
         # Initialize agents
         self.agents = [Agent(i) for i in range(self.environment.num_agents)]
@@ -305,7 +306,7 @@ class SIRSSimulation:
 
         # Track history
         self.history = {"susceptible": [], "infected": [], "recovered": []}
-        self.count_states(add_history=True)
+        self.last_states = self.count_states(add_history=True)
 
     def count_states(self, add_history: bool = False) -> Tuple[int, int, int]:
         """Count agents in each state."""
@@ -347,19 +348,26 @@ class SIRSSimulation:
             agent.update_state(new_state)
 
         # Record current state counts
-        self.count_states(add_history=True)
+        self.last_states = self.count_states(add_history=True)
 
-    def run(self, num_steps: int) -> dict:
-        """
-        Run the simulation for a given number of steps.
+    @chart(
+        "sir",
+        "S/I/R",
+        color="#3498DB",
+        data_list=[
+            {"id": "susceptible", "label": "Susceptible", "color": "#3498DB"},
+            {"id": "infected", "label": "Infected", "color": "#E74C3C"},
+            {"id": "recovered", "label": "Recovered", "color": "#2ECC71"},
+        ],
+    )
+    def get_current_states(self):
+        (susceptible, infected, recovered) = self.last_states
+        return {
+            "susceptible": susceptible,
+            "infected": infected,
+            "recovered": recovered,
+        }
 
-        Args:
-            num_steps: Number of time steps to simulate
-
-        Returns:
-            Dictionary containing the history of state counts
-        """
+    def run(self, num_steps: int):
         for _ in range(num_steps):
             self.step()
-
-        return self.history

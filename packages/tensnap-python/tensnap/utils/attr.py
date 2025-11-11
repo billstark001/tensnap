@@ -99,3 +99,38 @@ def make_dict_accessor(
     ns = {}
     exec(code, ns)
     return ns["f"]
+
+
+def make_identifier_getter_and_setter(
+    id_name: str,
+    bind_target: Any | None = None,
+) -> tuple[Callable[[Any], Any], Callable[[Any, Any], None]]:
+    """
+    Create getter and setter functions for a given attribute name.
+
+    Args:
+        attr_name: Name of the attribute to access
+
+    Returns:
+        A tuple containing the getter and setter functions.
+    """
+    if not validate_field_name(id_name):
+        raise ValueError(
+            f"Invalid attribute name: '{id_name}'. "
+            "Attribute names must be valid Python identifiers and not keywords."
+        )
+    id_name_for_func = id_name.replace(".", "_").replace("[", "_").replace("]", "")
+    getter_str = f'''
+def get_{id_name_for_func}({"" if bind_target is not None else "obj"}):
+    return obj.{id_name}
+'''
+    setter_str = f'''
+def set_{id_name_for_func}({"" if bind_target is not None else "obj, "}value):
+    obj.{id_name} = value
+'''
+    ns = {}
+    if bind_target is not None:
+        ns["obj"] = bind_target
+    exec(getter_str, ns)
+    exec(setter_str, ns)
+    return ns[f"get_{id_name_for_func}"], ns[f"set_{id_name_for_func}"]
