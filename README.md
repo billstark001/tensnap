@@ -79,8 +79,9 @@ Here's a simple agent-based model with TenSnap:
 from tensnap import (
     SimulationScenario,
     GridEnvironmentBinder,
-    make_grid_agent_accessor,
     BindParametersConfig,
+    bind_grid_agent,
+    bind_grid_environment,
     chart,
     action,
 )
@@ -92,41 +93,70 @@ class Config:
     num_agents: int = 50
     speed: float = 1.0
 
-# Setup
+# Define agent with metadata binding
+@bind_grid_agent(heading=True, color=True, size=True)
+class Agent:
+    color = "#3498db"
+    size = 8
+    
+    def __init__(self, agent_id, x, y):
+        self.id = agent_id
+        self.x = x
+        self.y = y
+        self.heading = 0
+
+# Define model with metadata binding
+@bind_grid_environment()
+class Model:
+    def __init__(self, config):
+        self.config = config
+        self.agents = []
+    
+    @property
+    def width(self): return 50
+    
+    @property
+    def height(self): return 50
+    
+    def initialize(self):
+        self.agents.clear()
+        for i in range(self.config.num_agents):
+            self.agents.append(Agent(f"agent_{i}", 25, 25))
+    
+    def step(self):
+        # Your simulation logic here
+        pass
+
+# Setup scenario
 config = Config()
+model = Model(config)
 scenario = SimulationScenario(port=8765)
 
-# Add environment with automatic agent syncing
+# Add environment
 grid = GridEnvironmentBinder(
     id="main",
-    environment=my_model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True)
+    environment=model,
+    agent_iterable_accessor='agents'
 )
 scenario.add_environment(grid)
 
-# Automatically bind parameters from config
+# Add parameters and charts
 scenario.add_parameters(config)
 
-# Add a chart
 @chart("population", "Population", color="#3498db")
 def track_population():
-    return len(my_model.agents)
+    return len(model.agents)
 
-# Add an action button
 @action("reset", "Reset")
 async def reset():
-    my_model.initialize()
-
-# Register handlers and charts
-scenario.add_charts(globals())
-scenario.add_actions(globals())
-scenario.register_model_handler(
-    init_func=my_model.initialize,
-    step_func=my_model.step
-)
+    model.initialize()
 
 # Run simulation
 async def main():
+    model.initialize()
+    scenario.add_charts(globals())
+    scenario.add_actions(globals())
+    await scenario.register_model_handler(model.initialize, model.step)
     await scenario.run()
 
 if __name__ == "__main__":

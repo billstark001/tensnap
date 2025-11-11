@@ -11,10 +11,10 @@ Step-by-step tutorials to help you learn TenSnap by building real simulations.
    - Simple parameter controls
    - Introduction to the UI
 
-2. **[Flocking Behavior](./02-flocking.md)** - Implement a classic flocking simulation
-   - Multiple agents with interaction rules
-   - Parameter binding and runtime changes
-   - Chart visualization
+2. **[Flocking Behavior](./02-flocking.md)** - Implement Reynolds' Boids flocking simulation
+   - Agent-agent interactions with three behavioral rules
+   - Heading and trajectory visualization
+   - Measuring emergent properties
 
 ### Intermediate Tutorials
 

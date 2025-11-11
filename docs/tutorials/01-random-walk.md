@@ -57,11 +57,17 @@ class Config:
 
 ## Step 3: Define Agent Class
 
-Create a simple agent that performs random walk:
+Create an agent class with TenSnap metadata binding:
 
 ```python
+from tensnap import bind_grid_agent
+
+@bind_grid_agent(color=True, size=True)
 class Walker:
     """An agent that performs random walk"""
+    
+    color = "#3498db"
+    size = 8
     
     def __init__(self, walker_id: str, world_size: int):
         self.id = walker_id
@@ -91,9 +97,16 @@ class Walker:
         return math.sqrt(dx * dx + dy * dy)
 ```
 
+The `@bind_grid_agent()` decorator tells TenSnap which properties to sync automatically.
+
 ## Step 4: Create Simulation Class
 
+Add environment metadata binding:
+
 ```python
+from tensnap import bind_grid_environment
+
+@bind_grid_environment()
 class RandomWalkSimulation:
     """Main simulation logic"""
     
@@ -101,6 +114,14 @@ class RandomWalkSimulation:
         self.config = config
         self.walkers: list[Walker] = []
         self.time_step = 0
+    
+    @property
+    def width(self) -> int:
+        return self.config.world_size
+    
+    @property
+    def height(self) -> int:
+        return self.config.world_size
     
     def initialize(self):
         """Create initial walkers"""
@@ -125,83 +146,35 @@ class RandomWalkSimulation:
         return sum(distances) / len(distances)
 ```
 
+The `@bind_grid_environment()` decorator enables automatic environment synchronization.
+
 ## Step 5: Set Up TenSnap Integration
 
-Import TenSnap components and create the visualization layer:
+Import TenSnap components and create the scenario:
 
 ```python
-from tensnap import TenSnapServer, GridEnvironmentModel, AgentModel
-from tensnap.sim_loop import SimulationManager
-from tensnap.bindings.basic import quick_bind, chart, button
+from tensnap import SimulationScenario, GridEnvironmentBinder, BindParametersConfig, chart, action
 
-# Create TenSnap components
+# Create simulation and scenario
 config = Config()
-server = TenSnapServer(port=8765)
-grid = GridEnvironmentModel(id="main", width=50, height=50)
 simulation = RandomWalkSimulation(config)
-sim_manager = SimulationManager(step_interval=0.1)
+scenario = SimulationScenario(port=8765, step_interval=0.1)
 
-# Automatically bind configuration parameters
-params = quick_bind(target=config, exclude=["world_size"])
+# Create environment binder
+grid = GridEnvironmentBinder(
+    id="main",
+    environment=simulation,
+    agent_iterable_accessor='walkers'
+)
 ```
 
-## Step 6: Define Initialization
+## Step 6: Define Interactive Controls and Charts
 
 ```python
-async def init_simulation():
-    """Initialize simulation and visualization"""
-    grid.agents.clear()
-    simulation.initialize()
-    await sim_manager.stop()
-    
-    # Create TenSnap agents for each walker
-    for walker in simulation.walkers:
-        agent = AgentModel(
-            id=walker.id,
-            x=walker.x,
-            y=walker.y,
-            color="#3498db",
-            icon="circle",
-            size=8,
-            update_source=walker  # Automatically sync with walker
-        )
-        grid.add_agent(agent)
-    
-    # Send initial state
-    sim_manager.time_step = 0
-    await server.start_time_step(0)
-    updates = grid.generate_agent_updates()
-    await server.update_agents_batch("main", updates)
-    await server.end_time_step(0)
-```
-
-## Step 7: Define Simulation Step
-
-```python
-async def on_step(step: int):
-    """Execute one simulation step and update visualization"""
-    if not simulation.walkers:
-        return
-    
-    await server.start_time_step(step)
-    
-    # Run simulation logic
-    simulation.step()
-    
-    # Update visualization
-    updates = grid.generate_agent_updates()
-    await server.update_agents_batch("main", updates)
-    
-    await server.end_time_step(step)
-```
-
-## Step 8: Add Interactive Controls
-
-```python
-@button("reset", "Reset Simulation")
+@action("reset", "Reset Simulation")
 async def reset():
     """Reset button handler"""
-    await init_simulation()
+    simulation.initialize()
 
 @chart("avg_distance", "Average Distance from Center", color="#e74c3c")
 def track_distance() -> float:
@@ -214,41 +187,45 @@ def track_population() -> float:
     return len(simulation.walkers)
 ```
 
-## Step 9: Main Function
+## Step 7: Main Function
 
 ```python
 async def main():
     """Main entry point"""
-    # Setup simulation step handler
-    sim_manager.on_step = on_step
+    # Initialize simulation
+    simulation.initialize()
     
-    # Initialize
-    await init_simulation()
+    # Register components with scenario
+    scenario.add_environment(grid)
+    scenario.add_parameters(config, BindParametersConfig(exclude="world_size"))
+    scenario.add_charts(globals())
+    scenario.add_actions(globals())
     
-    # Register with server
-    server.add_environment(grid)
-    for param in params:
-        server.add_parameter(param)
-    server.auto_register_from_globals(globals())
-    sim_manager.register_to(server)
+    # Register model handlers
+    await scenario.register_model_handler(
+        simulation.initialize,
+        simulation.step
+    )
     
     print(f"Random Walk Simulation starting on ws://localhost:8765")
     print("Open your browser to http://localhost:5173")
-    await server.run()
+    await scenario.run()
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Step 10: Run Your Simulation
+## Step 8: Run Your Simulation
 
 1. **Start the Web Interface** (in one terminal):
+
    ```bash
    cd tensnap
    pnpm dev:web
    ```
 
 2. **Run Your Simulation** (in another terminal):
+
    ```bash
    python random_walk.py
    ```
@@ -294,49 +271,41 @@ for agent in grid.agents:
     agent.color = get_color_by_distance(walker)
 ```
 
-### Exercise 2: Bounded Walk
+### Exercise 2: Add Trajectories
 
-Prevent agents from wrapping around edges:
+Enable trajectory visualization by updating the environment decorator:
 
 ```python
-def step_bounded(self, step_size: float):
-    """Step with boundary reflection instead of wrapping"""
-    angle = random.uniform(0, 2 * math.pi)
-    dx = math.cos(angle) * step_size
-    dy = math.sin(angle) * step_size
-    
-    new_x = self.x + dx
-    new_y = self.y + dy
-    
-    # Reflect at boundaries
-    if new_x < 0 or new_x >= self.world_size:
-        dx = -dx
-    if new_y < 0 or new_y >= self.world_size:
-        dy = -dy
-    
-    self.x = max(0, min(self.world_size - 0.1, self.x + dx))
-    self.y = max(0, min(self.world_size - 0.1, self.y + dy))
+@bind_grid_environment(trajectory_length=True)
+class RandomWalkSimulation:
+    trajectory_length = 10  # Show last 10 positions
+    # ... rest of class ...
 ```
 
-### Exercise 3: Add Trail Visualization
+### Exercise 3: Track Total Distance
 
-Track where agents have been:
+Add cumulative distance tracking:
 
 ```python
+@bind_grid_agent(color=True, size=True, data=True)
 class Walker:
     def __init__(self, walker_id: str, world_size: int):
         # ... existing code ...
-        self.trail_length = 0
+        self.total_distance = 0.0
     
     def step(self, step_size: float):
         # ... existing code ...
-        self.trail_length += step_size
+        self.total_distance += step_size
+    
+    @property
+    def data(self):
+        return {"total_distance": self.total_distance}
 
 @chart("total_distance", "Total Distance Traveled", color="#9b59b6")
 def track_total_distance() -> float:
     if not simulation.walkers:
         return 0.0
-    return sum(w.trail_length for w in simulation.walkers)
+    return sum(w.total_distance for w in simulation.walkers)
 ```
 
 ## Complete Code
@@ -357,7 +326,7 @@ Congratulations! You've built your first TenSnap simulation. Next, try:
 
 - Ensure `simulation.step()` is being called
 - Check that `step_size` is not zero
-- Verify `on_step` is registered: `sim_manager.on_step = on_step`
+- Verify handlers are registered: `await scenario.register_model_handler()`
 
 ### Web Interface Not Connecting
 
@@ -367,19 +336,19 @@ Congratulations! You've built your first TenSnap simulation. Next, try:
 
 ### Parameters Not Appearing
 
-- Check that parameters are registered: `server.add_parameter(param)`
-- Verify `quick_bind()` didn't exclude your parameters
-- Make sure `server.auto_register_from_globals(globals())` is called
+- Check that parameters are registered: `scenario.add_parameters(config)`
+- Verify `BindParametersConfig(exclude=...)` didn't exclude your parameters
+- Ensure the config object has the expected attributes
 
 ## Summary
 
 You've learned:
 
 ✅ Basic TenSnap project structure  
-✅ Creating agents and environments  
-✅ Automatic parameter binding with `quick_bind()`  
+✅ Decorator-based metadata binding with `@bind_grid_agent` and `@bind_grid_environment`  
+✅ Using `SimulationScenario` for unified setup  
+✅ Automatic parameter binding from dataclass config  
+✅ Creating charts and actions with decorators  
 ✅ Implementing simulation logic separately from visualization  
-✅ Using charts to track metrics  
-✅ Adding interactive buttons  
 
 Continue to the next tutorial to learn about agent interactions!
