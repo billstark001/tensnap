@@ -1,9 +1,12 @@
 # tensnap/bindings/mesa/decorators.py
 """Decorators for Mesa 3 Model integration with TenSnap"""
 
-from typing import Callable, Optional, List, Union, TYPE_CHECKING
-from tensnap.bindings.basic import chart as basic_chart, bind as basic_bind
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
 from tensnap.bindings.basic import ChartProperty, SimplifiedChartMetadata
+from tensnap.bindings.basic import bind as basic_bind
+from tensnap.bindings.basic import chart as basic_chart
 
 if TYPE_CHECKING:
     from mesa import Model
@@ -26,10 +29,10 @@ def parameters(*args, **kwargs):
 def chart(
     id: str,
     label: str,
-    color: Optional[str] = None,
-    data_list: Optional[List[SimplifiedChartMetadata]] = None,
+    color: str | None = None,
+    data_list: list[SimplifiedChartMetadata] | None = None,
     use_datacollector: bool = True,
-    datacollector_key: Optional[str] = None,
+    datacollector_key: str | None = None,
 ) -> Callable[[Callable], ChartProperty]:
     """
     Chart decorator for Mesa models that can optionally integrate with DataCollector.
@@ -64,7 +67,7 @@ def chart(
         if use_datacollector:
             key = datacollector_key or id
             
-            def datacollector_wrapper(model: "Model") -> Union[float, int]:
+            def datacollector_wrapper(model: "Model") -> float | int:
                 if hasattr(model, 'datacollector'):
                     from tensnap.bindings.mesa.datacollector import get_latest_data
                     data = get_latest_data(model.datacollector)

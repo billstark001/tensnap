@@ -2,27 +2,24 @@
 """Mesa 3 bindings for TenSnap"""
 
 from .accessors import (
-    Mesa3UniformAgentAccessorDict,
-    Mesa3GridAgentAccessorDict,
-    Mesa3GraphAgentAccessorDict,
-    Mesa3GridEnvironmentAccessorDict,
-    DEFAULT_MESA3_UNIFORM_AGENT_ACCESSOR,
     DEFAULT_MESA3_GRID_AGENT_ACCESSOR,
     DEFAULT_MESA3_GRID_ENVIRONMENT_ACCESSOR,
+    DEFAULT_MESA3_UNIFORM_AGENT_ACCESSOR,
+    Mesa3GraphAgentAccessorDict,
+    Mesa3GridAgentAccessorDict,
+    Mesa3GridEnvironmentAccessorDict,
+    Mesa3UniformAgentAccessorDict,
 )
-
 from .datacollector import (
-    get_registered_collectors,
-    get_latest_data,
     get_all_data,
     get_data_at_step,
+    get_latest_data,
+    get_registered_collectors,
 )
-
 from .decorators import (
-    parameters,
     chart,
+    parameters,
 )
-
 from .handler import (
     MesaSimulationHandler,
 )

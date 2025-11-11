@@ -1,13 +1,13 @@
 # tensnap/bindings/mesa/datacollector.py
 """Utility functions for working with Mesa 3 DataCollector"""
 
-from typing import Dict, List, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mesa import DataCollector
 
 
-def get_registered_collectors(datacollector: "DataCollector") -> List[str]:
+def get_registered_collectors(datacollector: "DataCollector") -> list[str]:
     """
     Get a list of all registered collector names in the DataCollector.
     
@@ -30,7 +30,7 @@ def get_registered_collectors(datacollector: "DataCollector") -> List[str]:
     return collectors
 
 
-def get_latest_data(datacollector: "DataCollector") -> Dict[str, Any]:
+def get_latest_data(datacollector: "DataCollector") -> dict[str, Any]:
     """
     Get the latest collected data from DataCollector after a collect() call.
     
@@ -51,7 +51,7 @@ def get_latest_data(datacollector: "DataCollector") -> Dict[str, Any]:
     return latest_data
 
 
-def get_all_data(datacollector: "DataCollector") -> Dict[str, List[Any]]:
+def get_all_data(datacollector: "DataCollector") -> dict[str, list[Any]]:
     """
     Get all collected data from DataCollector.
     
@@ -71,7 +71,7 @@ def get_all_data(datacollector: "DataCollector") -> Dict[str, List[Any]]:
     return all_data
 
 
-def get_data_at_step(datacollector: "DataCollector", step: int) -> Dict[str, Any]:
+def get_data_at_step(datacollector: "DataCollector", step: int) -> dict[str, Any]:
     """
     Get collected data at a specific step.
     

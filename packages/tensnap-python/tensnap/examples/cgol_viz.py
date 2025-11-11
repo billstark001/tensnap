@@ -5,15 +5,14 @@ import asyncio
 import os
 from typing import cast
 
-from tensnap import SimulationScenario, GridEnvironmentBinder
+from tensnap import GridEnvironmentBinder, SimulationScenario
 from tensnap.bindings.mesa import (
     MesaSimulationHandler,
-    get_latest_data,
     chart,
+    get_latest_data,
 )
 
-from .cgol import GameOfLife, Cell
-
+from .cgol import Cell, GameOfLife
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))

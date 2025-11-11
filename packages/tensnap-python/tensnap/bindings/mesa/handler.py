@@ -1,8 +1,10 @@
 # tensnap/bindings/mesa/handler.py
 """Mesa-specific SimulationHandler implementation"""
 
-from typing import TYPE_CHECKING, Optional, Callable, Any
-from tensnap.scenario import SimulationHandlerProtocol, SimulationScenario
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from tensnap.scenario import SimulationScenario
 from tensnap.utils.func import call_function
 
 if TYPE_CHECKING:
@@ -20,10 +22,10 @@ class MesaSimulationHandler:
     def __init__(
         self,
         model_class: type["Model"],
-        model_init_args: Optional[dict] = None,
-        model_init_kwargs: Optional[dict] = None,
-        on_model_init: Optional[Callable[["Model"], None]] = None,
-        on_model_step: Optional[Callable[["Model"], None]] = None,
+        model_init_args: dict | None = None,
+        model_init_kwargs: dict | None = None,
+        on_model_init: Callable[["Model"], None] | None = None,
+        on_model_step: Callable[["Model"], None] | None = None,
     ):
         """
         Initialize Mesa simulation handler.
@@ -40,8 +42,8 @@ class MesaSimulationHandler:
         self.model_init_kwargs = model_init_kwargs or {}
         self.on_model_init = on_model_init
         self.on_model_step = on_model_step
-        self.model: Optional["Model"] = None
-        self.scenario: Optional[SimulationScenario] = None
+        self.model: Model | None = None
+        self.scenario: SimulationScenario | None = None
 
     async def on_registered(self, scenario: SimulationScenario) -> None:
         """Called when the handler is registered with a scenario"""
@@ -55,8 +57,9 @@ class MesaSimulationHandler:
         for name, env in self.scenario.env_binders.items():
             model_updates = env.get_model_dict()
             agent_updates = env.get_agent_list(is_update=not replace_agents)
+            agents = agent_updates if replace_agents else None
             await self.scenario.server.update_environment(
-                name, data=model_updates, agents=agent_updates if replace_agents else None
+                name, data=model_updates, agents=agents
             )
             if not replace_agents:
                 await self.scenario.server.update_agents_batch(name, agent_updates)

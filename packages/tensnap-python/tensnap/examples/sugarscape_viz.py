@@ -4,13 +4,13 @@
 import asyncio
 import os
 from typing import cast
+
 import numpy as np
 
-from tensnap import SimulationScenario, GridEnvironmentBinder
+from tensnap import GridEnvironmentBinder, SimulationScenario
 from tensnap.bindings.mesa import MesaSimulationHandler, chart
 
-from .sugarscape import Sugarscape, SugarAgent
-
+from .sugarscape import SugarAgent, Sugarscape
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
@@ -79,17 +79,16 @@ def agent_accessor(agent: SugarAgent) -> dict:
 # Custom environment accessor to show sugar distribution as background
 def env_accessor(model: Sugarscape) -> dict:
     """Custom accessor for Sugarscape environment with sugar field as background"""
-    # Encode sugar field as a simple grayscale representation
-    # Higher sugar = lighter color
-    sugar_normalized = (model.sugar / model.sugar.max() * 255).astype(np.uint8)
+    # Note: In a real implementation, you could encode the sugar field
+    # as a background image using:
+    # sugar_normalized = (model.sugar / model.sugar.max() * 255).astype(np.uint8)
+    # For now, we'll skip the background visualization
     
     return {
         "id": "sugarscape_grid",
         "type": "grid",
         "width": model.grid.width,
         "height": model.grid.height,
-        # Note: In a real implementation, you'd encode this as a proper image
-        # For now, we'll skip the background
     }
 
 

@@ -1,20 +1,20 @@
-from typing import Dict, List, Any, Protocol, Callable
-
+from collections.abc import Callable
 from types import ModuleType
-
-from tensnap.server import TenSnapServer
-from tensnap.sim_loop import SimulationLoop
-from tensnap.models import EnvironmentModel, UniformEnvironmentBinder
-
-from tensnap.utils.func import call_function
+from typing import Any, Protocol
 
 from tensnap.bindings.basic import (
-    action as action_decorator,
-    get_chart_metadata_from_namespace,
-    get_action_metadata_from_namespace,
-    get_parameter_metadata_from_object,
     BindParametersConfig,
+    get_action_metadata_from_namespace,
+    get_chart_metadata_from_namespace,
+    get_parameter_metadata_from_object,
 )
+from tensnap.bindings.basic import (
+    action as action_decorator,
+)
+from tensnap.models import EnvironmentModel
+from tensnap.server import TenSnapServer
+from tensnap.sim_loop import SimulationLoop
+from tensnap.utils.func import call_function
 
 
 class SimulationHandlerProtocol(Protocol):
@@ -49,7 +49,10 @@ class DefaultSimulationHandler:
         for name, env in self.scenario.env_binders.items():
             model_updates = env.get_model_dict()
             agent_updates = env.get_agent_list(is_update=not replace_agents)
-            await self.scenario.server.update_environment(name, data=model_updates, agents=agent_updates if replace_agents else None)
+            agents = agent_updates if replace_agents else None
+            await self.scenario.server.update_environment(
+                name, data=model_updates, agents=agents
+            )
             if not replace_agents:
                 await self.scenario.server.update_agents_batch(name, agent_updates)
 
@@ -104,13 +107,13 @@ class SimulationScenario:
         )
         self.sim_manager = SimulationLoop(step_interval=self.step_interval)
 
-        self.env_binders: Dict[str, EnvironmentModel] = {}
+        self.env_binders: dict[str, EnvironmentModel] = {}
 
     def add_environment(self, binder: EnvironmentModel):
         self.env_binders[binder.id] = binder
         self.server.add_environment(binder)
 
-    def add_charts(self, target: Dict[str, Any] | ModuleType | object):
+    def add_charts(self, target: dict[str, Any] | ModuleType | object):
         if isinstance(target, ModuleType) or hasattr(target, "__dict__"):
             target = vars(target)
         if isinstance(target, dict):
@@ -126,7 +129,7 @@ class SimulationScenario:
 
     def add_parameters(
         self,
-        target: Dict[str, Any] | ModuleType | object,
+        target: dict[str, Any] | ModuleType | object,
         cfg_suggest: BindParametersConfig | None = None,
     ):
         parameters, actions = get_parameter_metadata_from_object(
@@ -157,7 +160,7 @@ class SimulationScenario:
                 )
 
     def add_actions(
-        self, target: Dict[str, Any] | ModuleType | object, register_self: bool = True
+        self, target: dict[str, Any] | ModuleType | object, register_self: bool = True
     ):
         if register_self:
             self.sim_manager.register_to(self.server)

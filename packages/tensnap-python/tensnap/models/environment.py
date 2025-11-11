@@ -1,52 +1,41 @@
 # tensnap/models/environment.py
 """Environment models for TenSnap simulations"""
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import (
-    Generic,
-    Protocol,
-    TypeVar,
-    Never,
-    cast,
     Any,
-    Dict,
-    Tuple, 
-    List,
-    Optional,
-    Union,
-    Literal,
-    TypeAlias,
-    Callable,
-    TypedDict,
+    Generic,
     NotRequired,
+    Protocol,
+    TypedDict,
+    TypeVar,
+    Union,
+    cast,
 )
-import numpy as np
+
 import networkx as nx
-import base64
-import io
-
-from .agent import (
-    AgentModelDict, 
-    GraphAgentModelDict, 
-    GridAgentModelDict, 
-    UniformAgentModelDict, 
-    UniformAgentAccessorDict,
-    GridAgentAccessorDict,
-    GraphAgentAccessorDict,
-    make_graph_agent_accessor_nx, 
-    make_grid_agent_accessor, 
-    make_uniform_agent_accessor
-)
-
 
 from tensnap.utils.attr import make_dict_accessor
+
+from .agent import (
+    GraphAgentAccessorDict,
+    GraphAgentModelDict,
+    GridAgentAccessorDict,
+    GridAgentModelDict,
+    UniformAgentAccessorDict,
+    UniformAgentModelDict,
+    make_graph_agent_accessor_nx,
+    make_grid_agent_accessor,
+    make_uniform_agent_accessor,
+)
+
 
 # region Environment Model Dicts
 class GraphEdgeDict(TypedDict):
     """Type definition for GraphEdge dictionary representation"""
 
-    source: Union[str, int]
-    target: Union[str, int]
+    source: str | int
+    target: str | int
     directed: NotRequired[bool]
     style: NotRequired[str]
     width: NotRequired[float]
@@ -58,13 +47,13 @@ class PureGridEnvironmentModel(TypedDict):
 
     width: int
     height: int
-    background: NotRequired[Optional[str]]  # base64 encoded
+    background: NotRequired[str | None]  # base64 encoded
 
 
 class PureGraphEnvironmentModel(TypedDict):
     """Type definition for pure graph environment model dictionary representation"""
 
-    edges: List[GraphEdgeDict]
+    edges: list[GraphEdgeDict]
     
 
 class PureUniformEnvironmentModel(TypedDict):
@@ -84,7 +73,7 @@ class GridEnvironmentAccessorDict(TypedDict, total=False):
     id: str
     width: str
     height: str
-    background: Union[str, bool, None]
+    background: str | bool | None
 
 
 class GraphEnvironmentAccessorDict(TypedDict, total=False):
@@ -110,7 +99,7 @@ def make_grid_environment_accessor(
     background: str | bool | None = None,
 ) -> Callable[[Any], PureGridEnvironmentModel]:
     """Create a function that accesses fields from a GridEnvironmentModel"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     map_fields["width"] = width
     map_fields["height"] = height
     if background is not None and background is not False:
@@ -125,7 +114,7 @@ def make_graph_environment_accessor(
     edges: str = "edges",
 ) -> Callable[[Any], PureGraphEnvironmentModel]:
     """Create a function that accesses fields from a GraphEnvironmentModel"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     map_fields["edges"] = edges
     return make_dict_accessor([], map_fields, {
         "id": id,
@@ -136,7 +125,7 @@ def make_uniform_environment_accessor(
     id: str,
 ) -> Callable[[Any], PureUniformEnvironmentModel]:
     """Create a function that accesses fields from a UniformEnvironmentModel"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     return make_dict_accessor([], map_fields, {
         "id": id,
         "type": "uniform",
@@ -149,7 +138,7 @@ def make_graph_edge_accessor_nx(
     color: str | bool | None = None,
 ):
     """Create a function that accesses fields from a GraphEdge in a NetworkX graph"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     if style is not None and style is not False:
         map_fields["style"] = 'style' if style is True else style
     if width is not None and width is not False:
@@ -157,7 +146,9 @@ def make_graph_edge_accessor_nx(
     if color is not None and color is not False:
         map_fields["color"] = 'color' if color is True else color
 
-    def f(source: Union[str, int], target: Union[str, int], edge_data: Dict[str, Any]) -> GraphEdgeDict:
+    def f(
+        source: str | int, target: str | int, edge_data: dict[str, Any]
+    ) -> GraphEdgeDict:
         obj: GraphEdgeDict = {
             "source": source,
             "target": target,
@@ -181,10 +172,10 @@ TEnv = TypeVar("TEnv")
 class EnvironmentModel(Protocol):
     id: str
     
-    def get_model_dict(self) -> Dict[str, Any]:
+    def get_model_dict(self) -> dict[str, Any]:
         ...
 
-    def get_agent_list(self, is_update = True) -> List[Dict[str, Any]]:
+    def get_agent_list(self, is_update = True) -> list[dict[str, Any]]:
         ...
 
 class UniformEnvironmentBinder(Generic[T, TEnv]):
@@ -193,8 +184,8 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
         self,
         id: str,
         environment: TEnv,
-        environment_accessor: Union[Callable[[Any], PureUniformEnvironmentModel], UniformEnvironmentAccessorDict, None] = None,
-        agent_accessor: Union[Callable[[Any], UniformAgentModelDict], UniformAgentAccessorDict, None] = None,
+        environment_accessor: Callable[[Any], PureUniformEnvironmentModel] | UniformEnvironmentAccessorDict | None = None,
+        agent_accessor: Callable[[Any], UniformAgentModelDict] | UniformAgentAccessorDict | None = None,
     ):
         self.id = id
         self.environment = environment
@@ -217,17 +208,17 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
             # It's a TypedDict, create accessor from it
             self.agent_accessor = make_uniform_agent_accessor(**agent_accessor)
         
-        self.agents: List[T] = []
+        self.agents: list[T] = []
 
 
-    def get_model_dict(self) -> Dict[str, Any]:
+    def get_model_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization"""
-        return cast(Dict[str, Any], self.environment_accessor(self.environment))
+        return cast(dict[str, Any], self.environment_accessor(self.environment))
 
-    def get_agent_list(self, is_update=True) -> List[Dict[str, Any]]:
-        ret: List[Dict[str, Any]] = []
+    def get_agent_list(self, is_update=True) -> list[dict[str, Any]]:
+        ret: list[dict[str, Any]] = []
         for agent in self.agents:
-            agent_dict = cast(Dict[str, Any], self.agent_accessor(agent))
+            agent_dict = cast(dict[str, Any], self.agent_accessor(agent))
             if is_update:
                 agent_dict = {"id": agent_dict["id"], "data": agent_dict}
             ret.append(agent_dict)
@@ -247,8 +238,8 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
         self,
         id: str,
         environment: TEnv,
-        environment_accessor: Union[Callable[[Any], PureGridEnvironmentModel], GridEnvironmentAccessorDict, None] = None,
-        agent_accessor: Union[Callable[[Any], GridAgentModelDict], GridAgentAccessorDict, None] = None,
+        environment_accessor: Callable[[Any], PureGridEnvironmentModel] | GridEnvironmentAccessorDict | None = None,
+        agent_accessor: Callable[[Any], GridAgentModelDict] | GridAgentAccessorDict | None = None,
     ):
         # Handle environment_accessor
         if environment_accessor is None:
@@ -274,8 +265,8 @@ class NXGraphEnvironmentBinder:
         self,
         id: str,
         graph: nx.Graph | nx.DiGraph,
-        agent_accessor: Union[Callable[[str | int, Dict[str, Any]], GraphAgentModelDict], GraphAgentAccessorDict, None] = None,
-        edge_accessor: Union[Callable[[str | int, str | int, Dict[str, Any]], GraphEdgeDict], None] = None,
+        agent_accessor: Callable[[str | int, dict[str, Any]], GraphAgentModelDict] | GraphAgentAccessorDict | None = None,
+        edge_accessor: Callable[[str | int, str | int, dict[str, Any]], GraphEdgeDict] | None = None,
 
     ):
         self.id = id
@@ -293,17 +284,17 @@ class NXGraphEnvironmentBinder:
         
         self.edge_accessor = edge_accessor or make_graph_edge_accessor_nx(directed=isinstance(graph, nx.DiGraph))
         
-    def get_model_dict(self) -> Dict[str, Any]:
+    def get_model_dict(self) -> dict[str, Any]:
         return {
             'id': self.id,
             'type': "graph",
             'edges': [self.edge_accessor(source, target, data) for source, target, data in self.graph.edges(data=True)],
         }
 
-    def get_agent_list(self, is_update=True) -> List[Dict[str, Any]]:
-        ret: List[Dict[str, Any]] = []
+    def get_agent_list(self, is_update=True) -> list[dict[str, Any]]:
+        ret: list[dict[str, Any]] = []
         for node_id, node_data in self.graph.nodes(data=True):
-            agent_dict = cast(Dict[str, Any], self.agent_accessor(node_id, node_data))
+            agent_dict = cast(dict[str, Any], self.agent_accessor(node_id, node_data))
             if is_update:
                 agent_dict = {"id": agent_dict["id"], "data": agent_dict}
             ret.append(agent_dict)

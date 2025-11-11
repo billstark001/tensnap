@@ -1,7 +1,7 @@
-from typing import Any, Callable, Dict, List, TypeVar
-import re
 import keyword
-
+import re
+from collections.abc import Callable
+from typing import Any
 
 # 验证Python标识符的正则表达式（支持嵌套字段）
 # 支持格式: identifier, identifier.identifier, identifier[0], identifier.identifier[0]等
@@ -37,29 +37,33 @@ dict_accessor_template_suffix = """
 
 
 def make_raw_dict_accessor(
-    fields: List[str], map_fields: Dict[str, str], default_values: Dict[str, Any]
+    fields: list[str], map_fields: dict[str, str], default_values: dict[str, Any]
 ) -> str:
 
     for field in fields:
         if not validate_field_name(field):
             raise ValueError(
-                f"Invalid field name: '{field}'. Field names must be valid Python identifiers and not keywords."
+                f"Invalid field name: '{field}'. "
+                "Field names must be valid Python identifiers and not keywords."
             )
 
     for field, mapped_field in map_fields.items():
         if not validate_field_name(field):
             raise ValueError(
-                f"Invalid field name: '{field}'. Field names must be valid Python identifiers and not keywords."
+                f"Invalid field name: '{field}'. "
+                "Field names must be valid Python identifiers and not keywords."
             )
         if not validate_field_name(mapped_field):
             raise ValueError(
-                f"Invalid mapped field name: '{mapped_field}'. Field names must be valid Python identifiers and not keywords."
+                f"Invalid mapped field name: '{mapped_field}'. "
+                "Field names must be valid Python identifiers and not keywords."
             )
 
     for field in default_values.keys():
         if not validate_field_name(field):
             raise ValueError(
-                f"Invalid field name in default values: '{field}'. Field names must be valid Python identifiers and not keywords."
+                f"Invalid field name in default values: '{field}'. "
+                "Field names must be valid Python identifiers and not keywords."
             )
 
     objects = [dict_accessor_template_prefix]
@@ -77,8 +81,8 @@ def make_raw_dict_accessor(
 
 
 def make_dict_accessor(
-    fields: List[str], map_fields: Dict[str, str], default_values: Dict[str, Any]
-) -> Callable[[Any], Dict[str, Any]]:
+    fields: list[str], map_fields: dict[str, str], default_values: dict[str, Any]
+) -> Callable[[Any], dict[str, Any]]:
     """
     Create a function that accesses specified fields from a dictionary,
     applying field mapping and default values.
