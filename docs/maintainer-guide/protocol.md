@@ -69,12 +69,15 @@ Updates environment state with optional full agent list.
     id: string,
     data: {
       type: "grid" | "graph" | "uniform",
-      width?: number,          // Grid only
-      height?: number,         // Grid only
-      edges?: Array<Edge>,     // Graph only
-      background?: string      // Grid only (hex-encoded)
+      width?: number,              // Grid only
+      height?: number,             // Grid only
+      coord_offset?: "int" | "float",  // Grid only, default 'int'
+      trajectory_length?: number,  // Grid only, <=0 for infinity
+      trajectory_color?: string,   // Grid only
+      edges?: Array<Edge>,         // Graph only
+      background?: string          // Grid only (hex-encoded)
     },
-    agents?: Array<Agent>      // Optional full replacement
+    agents?: Array<Agent>          // Optional full replacement
   }
 }
 ```
@@ -89,15 +92,18 @@ Updates a single agent.
   payload: {
     environment_id: string,
     agent_id: string | number,
-    data: {
+    data?: {
       x?: number,
       y?: number,
       heading?: number,
       color?: string,
       size?: number,
       icon?: string,
+      trajectory_length?: number,  // Grid only
+      trajectory_color?: string,   // Grid only
       // ... custom properties
-    }
+    },
+    operation?: "create" | "delete" | "update"  // default 'update'
   }
 }
 ```
@@ -113,7 +119,8 @@ Updates multiple agents efficiently.
     environment_id: string,
     updates: Array<{
       id: string | number,
-      data: { /* agent properties */ }
+      data?: { /* agent properties */ },
+      operation?: "create" | "delete" | "update"  // default 'update'
     }>
   }
 }
@@ -249,7 +256,10 @@ interface Environment {
   // Grid-specific
   width?: number;
   height?: number;
-  background?: string;       // Hex-encoded numpy array
+  coord_offset?: "int" | "float";   // Default 'int'
+  background?: string;               // Hex-encoded numpy array
+  trajectory_length?: number;        // <=0 for infinity
+  trajectory_color?: string;
   
   // Graph-specific
   edges?: Array<{
@@ -267,9 +277,11 @@ interface Environment {
 ```typescript
 interface Agent {
   id: string | number;
-  x?: number;                // Grid/Graph
-  y?: number;                // Grid/Graph
-  heading?: number;          // Grid (radians)
+  x?: number;                     // Grid/Graph
+  y?: number;                     // Grid/Graph
+  heading?: number;               // Grid (radians)
+  trajectory_length?: number;     // Grid only, overrides environment default
+  trajectory_color?: string;      // Grid only, overrides environment default
   color?: string;
   icon?: "arrow" | "circle" | "square" | "triangle";
   size?: number;

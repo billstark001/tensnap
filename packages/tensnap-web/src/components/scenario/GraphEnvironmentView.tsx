@@ -9,9 +9,14 @@ import { throttle } from '@/utils';
 
 interface GraphEnvironmentViewProps {
   environment: InstantiatedGraphEnvironment;
+  updateTrigger?: any;
 }
 
-export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps) {
+export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnvironmentViewProps) {
+
+  const { id, agents, props } = environment;
+
+
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const visualizerRef = useRef<GraphVisualizer | null>(null);
@@ -72,12 +77,12 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
   useEffect(() => {
     if (!visualizerRef.current) return;
 
-    const shouldReinitialize = lastEnvironmentIdRef.current !== environment.id;
-    lastEnvironmentIdRef.current = environment.id;
+    const shouldReinitialize = lastEnvironmentIdRef.current !== id;
+    lastEnvironmentIdRef.current = id;
 
     const graphData: GraphData = {
-      nodes: Object.values(environment.agents),
-      edges: environment.props.edges,
+      nodes: Object.values(agents),
+      edges: props.edges,
     };
 
     visualizerRef.current.update(graphData, shouldReinitialize);
@@ -101,7 +106,7 @@ export function GraphEnvironmentView({ environment }: GraphEnvironmentViewProps)
         fitViewTimeoutRef.current = null;
       }
     };
-  }, [environment]);
+  }, [id, agents, props.edges, updateTrigger]);
 
   const resetView = () => {
     if (visualizerRef.current) {

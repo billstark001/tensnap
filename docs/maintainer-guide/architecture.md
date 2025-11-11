@@ -26,31 +26,71 @@ TenSnap separates simulation logic, communication, and visualization:
 
 ## API Levels
 
-### High-Level (Decorators)
+### High-Level (Decorator-Based Binding)
 
-Auto-discovery with minimal boilerplate:
+Metadata binding with class decorators for automatic synchronization:
 
 ```python
-from tensnap import SimulationScenario, action, chart
+from tensnap import SimulationScenario, bind_grid_agent, bind_grid_environment, chart
 
-scenario = SimulationScenario()
-scenario.add_parameters(config)  # Auto-detect from dataclass/object
+# Define agent with metadata binding
+@bind_grid_agent(heading=True, color=True, size=True)
+class Bird:
+    def __init__(self, bird_id, x, y):
+        self.id = bird_id
+        self.x = x
+        self.y = y
+        self.heading = 0
+        self.color = "#3498db"
+        self.size = 5
+
+# Define environment with metadata binding
+@bind_grid_environment(coord_offset=True, trajectory_length=True)
+class FlockSimulation:
+    coord_offset = "float"
+    trajectory_length = 5
+    
+    def __init__(self):
+        self.birds = []
+    
+    @property
+    def width(self): return 50
+    
+    @property
+    def height(self): return 50
+
+# Unified scenario interface
+scenario = SimulationScenario(port=8765)
+scenario.add_environment(GridEnvironmentBinder(id="main", environment=model, agent_iterable_accessor='birds'))
+scenario.add_parameters(config)  # Auto-detect from dataclass
 scenario.add_charts(globals())   # Auto-detect @chart decorators
+```
 
-@chart("population", "Population Count")
-def get_population():
-    return len(agents)
+### Mid-Level (Binder Classes)
+
+Explicit environment configuration with accessor functions:
+
+```python
+from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+
+binder = GridEnvironmentBinder(
+    id="main",
+    environment=model,
+    agent_accessor=make_grid_agent_accessor(heading=True, color=True)
+)
+scenario.add_environment(binder)
 ```
 
 ### Low-Level (Direct API)
 
-Explicit control:
+Server and loop management:
 
 ```python
-from tensnap import TenSnapServer, NumberParameter
+from tensnap import TenSnapServer, SimulationLoop
 
-server = TenSnapServer()
-param = NumberParameter(id="speed", label="Speed", value=1.0, min=0.1, max=5.0)
+server = TenSnapServer(port=8765)
+loop = SimulationLoop(step_interval=0.1)
+server.add_environment(environment)
 server.add_parameter(param, getter=lambda: model.speed, setter=lambda v: setattr(model, 'speed', v))
 ```
 
@@ -67,11 +107,17 @@ await server.update_charts(time_step)
 
 ### Core Components
 
-**`scenario.py`** - High-level orchestration combining server, simulation loop, and auto-binding.
+**`scenario.py`** - Unified high-level API orchestrating server, simulation loop, handlers, and environment binders.
+
+Key class: `SimulationScenario` - Main entry point providing:
+
+- Simplified setup with `add_environment()`, `add_parameters()`, `add_charts()`, `add_actions()`
+- Handler registration via `register_handler()` or `register_model_handler()`
+- Automatic state synchronization through handlers
 
 **`server.py`** - WebSocket server managing connections and broadcasting updates.
 
-Key features:
+Features:
 
 - Batched message queue for efficiency
 - MessagePack/JSON serialization
@@ -84,19 +130,42 @@ Actions: `start()`, `stop()`, `toggle()`, `step_once()`
 
 Uses queue to serialize control commands and prevent race conditions.
 
-### Environment Binders
+### Binding System
 
-Adapters connecting user models to TenSnap protocol:
+**Decorator-Based Metadata Binding**: Class decorators for automatic agent/environment property synchronization.
 
+Agent decorators:
+
+- `@bind_grid_agent()` - 2D grid agents with position, heading, color, size, trajectory
+- `@bind_graph_agent_nx()` - NetworkX graph nodes
+- `@bind_uniform_agent()` - Basic agent properties
+
+Environment decorators:
+
+- `@bind_grid_environment()` - Grid environments with width, height, coordinate offset, background, trajectories
+- `@bind_graph_environment()` - Graph topologies
+- `@bind_uniform_environment()` - Basic environments
+
+**Binder Classes**: Explicit adapters connecting user models to TenSnap protocol.
+
+- `GridEnvironmentBinder` - 2D grid with coordinate offset control and trajectory rendering
+- `GraphEnvironmentBinderNX` - NetworkX graph integration
 - `UniformEnvironmentBinder` - Simple agent list
-- `GridEnvironmentBinder` - 2D grid with width/height
-- `NXGraphEnvironmentBinder` - NetworkX graph integration
+
+Binders accept environment objects and use accessor functions/metadata to extract agent/environment properties.
+
+**Mesa 3 Integration**: Dedicated binding support for Mesa 3 framework.
+
+- `@bind_mesa_grid_agent()` - Mesa agent metadata binding
+- `@bind_mesa_grid_environment()` - Mesa model metadata binding
+- `@bind_datacollector()` - Automatic chart generation from Mesa DataCollector
+- `MesaSimulationHandler` - Specialized handler for Mesa models with automatic initialization
 
 ### Auto-Detection
 
-**Parameters**: Auto-detect from dataclass fields/attributes with configurable regex patterns.
+**Parameters**: Auto-detect from dataclass fields/attributes with `BindParametersConfig` for exclusion patterns.
 
-**Charts**: `@chart(id, label)` decorator for functions returning chart data. Supports multi-series.
+**Charts**: `@chart(id, label)` decorator for functions returning scalar or multi-series data.
 
 **Actions**: `@action(id, label)` decorator for button handlers.
 
@@ -152,8 +221,8 @@ Encoding: MessagePack (binary) or JSON
 **Server → Client**:
 
 - `time_step_start/end` - Step boundaries
-- `environment_update` - Full environment state
-- `agent_batch_update` - Incremental agent changes
+- `environment_update` - Full environment state with grid trajectory/coordinate config
+- `agent_batch_update` - Incremental agent changes with create/delete/update operations
 - `chart_update` - Chart data/operations
 - `state_sync` - Differential sync response
 - `log` - Server logs
@@ -191,10 +260,10 @@ Supports hot-reload and multi-client sync.
 3. Each step:
    - Send `time_step_start`
    - Execute model code
-   - Send `agent_batch_update`
+   - Send `agent_batch_update` (with create/delete/update operations)
    - Send `chart_update`
    - Send `time_step_end`
-4. Frontend updates visualization in real-time
+4. Frontend updates visualization with trajectories and coordinate transformations in real-time
 
 ### Parameter Change
 

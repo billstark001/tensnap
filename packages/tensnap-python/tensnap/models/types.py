@@ -1,11 +1,17 @@
 # tensnap/models/communication.py
 """Communication models for WebSocket interactions"""
 
-from typing import Any, List, Optional, Union, Literal, NotRequired
-from typing_extensions import TypedDict, NotRequired
+from typing import Any, Literal
+
+from typing_extensions import NotRequired, TypedDict
+
+from tensnap.bindings.basic import (
+    ChartGroupMetadataDict,
+    ChartMetadataDict,
+    ParameterType,
+)
 
 from .environment import GraphEdgeDict
-from tensnap.bindings.basic import ChartMetadataDict, ChartGroupMetadataDict, ParameterType
 
 
 class ParameterState(TypedDict):
@@ -20,7 +26,7 @@ class ParameterState(TypedDict):
     min: NotRequired[float]
     max: NotRequired[float]
     step: NotRequired[float]
-    options: NotRequired[List[str]]
+    options: NotRequired[list[str]]
 
 
 class EnvironmentStateWithAgentsOmitted(TypedDict):
@@ -34,33 +40,33 @@ class EnvironmentStateWithAgentsOmitted(TypedDict):
     height: NotRequired[int]  # For grid environments
     background: NotRequired[str]  # Hex-encoded numpy array for grid backgrounds
     
-    edges: NotRequired[List[GraphEdgeDict]]  # For graph environments
+    edges: NotRequired[list[GraphEdgeDict]]  # For graph environments
 
 
 class StateSyncRequest(TypedDict):
-    parameters: List[ParameterState]
-    environments: List[EnvironmentStateWithAgentsOmitted]
-    charts: List[ChartMetadataDict]
+    parameters: list[ParameterState]
+    environments: list[EnvironmentStateWithAgentsOmitted]
+    charts: list[ChartMetadataDict]
 
 
 class StateSyncResponse(TypedDict):
 
     mode: NotRequired[Literal["full", "incremental"]]
 
-    added_parameters: List[ParameterState]
-    removed_parameters: List[str]
-    updated_parameters: List[ParameterState]
+    added_parameters: list[ParameterState]
+    removed_parameters: list[str]
+    updated_parameters: list[ParameterState]
 
-    added_environments: List[EnvironmentStateWithAgentsOmitted]
-    removed_environments: List[Union[str, int]]
-    updated_environments: List[EnvironmentStateWithAgentsOmitted]
+    added_environments: list[EnvironmentStateWithAgentsOmitted]
+    removed_environments: list[str | int]
+    updated_environments: list[EnvironmentStateWithAgentsOmitted]
 
-    added_charts: List[ChartGroupMetadataDict]
-    removed_charts: List[str]
-    updated_charts: List[ChartGroupMetadataDict]
+    added_charts: list[ChartGroupMetadataDict]
+    removed_charts: list[str]
+    updated_charts: list[ChartGroupMetadataDict]
 
     clear_charts: NotRequired[
-        bool | List[str]
+        bool | list[str]
     ]  # true means clear all charts, string[] means clear specific charts by IDs
 
 

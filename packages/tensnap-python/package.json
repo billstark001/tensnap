@@ -9,6 +9,8 @@
     "dev:sirs:grid": "python -m tensnap.examples.sirs_viz_grid",
     "dev:sirs:graph": "python -m tensnap.examples.sirs_viz_graph",
     "dev:sirs:uniform": "python -m tensnap.examples.sirs_viz_uniform",
+    "dev:cgol": "python -m tensnap.examples.cgol_viz",
+    "dev:sugarscape": "python -m tensnap.examples.sugarscape_viz",
     "test": "pytest",
     "lint": "mypy tensnap && ruff check tensnap",
     "format": "ruff format tensnap",

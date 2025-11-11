@@ -13,6 +13,8 @@
     "build:tauri": "pnpm --filter tensnap-tauri build",
     "dev:py:flock": "pnpm --filter tensnap-python dev:flock",
     "dev:py:hk": "pnpm --filter tensnap-python dev:hk",
+    "dev:py:cgol": "pnpm --filter tensnap-python dev:cgol",
+    "dev:py:sugarscape": "pnpm --filter tensnap-python dev:sugarscape",
     "dev:py:sirs:grid": "pnpm --filter tensnap-python dev:sirs:grid",
     "dev:py:sirs:graph": "pnpm --filter tensnap-python dev:sirs:graph",
     "dev:py:sirs:uniform": "pnpm --filter tensnap-python dev:sirs:uniform",

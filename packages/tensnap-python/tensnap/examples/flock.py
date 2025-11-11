@@ -6,6 +6,8 @@ import math
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
+from tensnap import bind_grid_agent, bind_grid_environment
+
 
 @dataclass
 class FlockConfig:
@@ -18,12 +20,14 @@ class FlockConfig:
     num_agents: int = 50
     world_width: float = 40.0
     world_height: float = 40.0
+    spawn_radius: float = 10.0
 
 
+@bind_grid_agent(size=True, icon=True, color=True, data=True, heading=True)
 class Bird:
     """A single bird agent in the flock"""
 
-    size = 5.0
+    size = 5
     icon = "arrow"
     color = "#3498DB"
 
@@ -53,9 +57,21 @@ class Bird:
         if speed > 0.01:
             self.heading = math.atan2(self.vy, self.vx)
 
+    @property
+    def data(self) -> Dict[str, Any]:
+        return {
+            "vx": self.vx,
+            "vy": self.vy,
+            "speed": self.get_speed(),
+        }
 
+
+@bind_grid_environment(coord_offset=True, trajectory_length=True)
 class FlockSimulation:
     """Main flocking simulation class"""
+
+    coord_offset = "float"
+    trajectory_length = 5
 
     def __init__(self, config: Optional[FlockConfig] = None):
         self.config = config or FlockConfig()
@@ -78,7 +94,7 @@ class FlockSimulation:
         # Create birds in the center area
         center_x = self.config.world_width / 2
         center_y = self.config.world_height / 2
-        spawn_radius = 5.0
+        spawn_radius = self.config.spawn_radius
 
         for i in range(int(self.config.num_agents + 0.5)):
             x = center_x + random.uniform(-spawn_radius, spawn_radius)
@@ -172,18 +188,3 @@ class FlockSimulation:
         individual_avg = self.get_average_speed()
 
         return avg_speed / individual_avg if individual_avg > 0 else 0.0
-
-    def get_bird_data(self) -> List[Dict[str, Any]]:
-        """Get current data for all birds"""
-        return [
-            {
-                "id": bird.id,
-                "x": bird.x,
-                "y": bird.y,
-                "heading": bird.heading,
-                "vx": bird.vx,
-                "vy": bird.vy,
-                "speed": bird.get_speed(),
-            }
-            for bird in self.birds
-        ]

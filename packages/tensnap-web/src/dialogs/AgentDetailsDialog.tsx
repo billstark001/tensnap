@@ -98,19 +98,6 @@ const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps
   return null;
 };
 
-// Component to render trajectory information
-const TrajectoryInfo = ({ agent }: { agent: GridAgent }) => {
-  if (!agent.trajectory || agent.trajectory.length === 0) {
-    return null;
-  }
-  return (
-    <div className={styles.trajectoryInfo}>
-      <span className={styles.detailLabel}><Trans>Trajectory:</Trans></span>
-      <Trans>{agent.trajectory?.length} points recorded</Trans>
-    </div>
-  );
-};
-
 export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   const {
     agent,
@@ -118,6 +105,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     open,
     agentType = 'uniform',
   } = props;
+
   const isOpen = open ?? !!agent;
 
   if (!agent) return null;
@@ -163,8 +151,6 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
           <span className={styles.detailLabel}><Trans>Size:</Trans></span>
           {agent.size || <Trans>default</Trans>}
         </div>
-
-        {agentType === 'grid' && <TrajectoryInfo agent={agent as GridAgent} />}
 
         <div className={styles.dataSection}>
           <h4 className={styles.dataSectionTitle}><Trans>Custom Data:</Trans></h4>

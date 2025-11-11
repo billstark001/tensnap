@@ -38,7 +38,7 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
   onCreateItem
 }) => {
   const { _ } = useLingui();
-  const [newItemName, setNewItemName] = useState('http://localhost:5678');
+  const [newItemName, setNewItemName] = useState('http://localhost:8765');
 
   const handleCreateItem = useCallback(() => {
     if (!newItemName.trim()) return;

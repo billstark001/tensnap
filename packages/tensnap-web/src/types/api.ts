@@ -70,11 +70,14 @@ export interface EnvironmentUpdatePayload {
   agents?: Agent[]; // Optional full agent list to replace existing agents
 }
 
+export type AgentUpdateOperation = 'create' | 'delete' | 'update';
+
 // agent_update
 export interface AgentUpdatePayload {
   environment_id: EnvironmentId;
   agent_id: AgentId;
-  data: Agent; // Recommend to specify as Agent data structure
+  data?: Agent;
+  operation?: AgentUpdateOperation; // default to update
 }
 
 // agent_batch_update
@@ -82,7 +85,8 @@ export interface AgentBatchUpdatePayload {
   environment_id: EnvironmentId;
   updates: Array<{
     id: AgentId;
-    data: Agent;
+    data?: Agent;
+    operation?: AgentUpdateOperation; // default to update
   }>;
 }
 
@@ -119,7 +123,7 @@ export interface StateSyncRequest {
 
 export interface StateSyncResponse {
   mode?: 'full' | 'incremental'; // Default is 'full'
-  
+
   added_parameters: Parameter[];
   removed_parameters: string[];
   updated_parameters: Parameter[];

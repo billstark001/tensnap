@@ -1,34 +1,28 @@
 # tensnap/models/agent.py
 """Agent model for TenSnap simulations"""
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import (
-    Any,
-    Dict,
-    Union,
-    Literal,
-    Optional,
-    Callable,
-    TypedDict,
-    NotRequired,
     TYPE_CHECKING,
+    Any,
+    NotRequired,
+    TypedDict,
 )
-
 
 from tensnap.utils.attr import make_dict_accessor
 
 if TYPE_CHECKING:
-    import networkx as nx
+    pass
 
 
 class AgentModelDict(TypedDict):
     """Type definition for AgentModel dictionary representation"""
 
-    id: Union[str, int]
+    id: str | int
     color: NotRequired[str]
     icon: NotRequired[str]
     size: NotRequired[float]
-    data: NotRequired[Dict[str, Any]]
+    data: NotRequired[dict[str, Any]]
 
 
 class UniformAgentModelDict(AgentModelDict):
@@ -43,6 +37,8 @@ class GridAgentModelDict(AgentModelDict):
     x: float
     y: float
     heading: float
+    trajectory_length: NotRequired[int | None]
+    trajectory_color: NotRequired[str | None]
 
 
 class GraphAgentModelDict(AgentModelDict):
@@ -52,8 +48,42 @@ class GraphAgentModelDict(AgentModelDict):
     y: NotRequired[float]
 
 
+# TypedDicts for accessor parameters
+class UniformAgentAccessorDict(TypedDict):
+    """Type definition for uniform agent accessor parameters"""
+    id: str
+    color: NotRequired[str | bool | None]
+    icon: NotRequired[str | bool | None]
+    size: NotRequired[str | bool | None]
+    data: NotRequired[str | bool | None]
+
+
+class GridAgentAccessorDict(UniformAgentAccessorDict):
+    """Type definition for grid agent accessor parameters"""
+    x: str
+    y: str
+    heading: NotRequired[str | bool | None]
+    trajectory_length: NotRequired[str | bool | None]
+    trajectory_color: NotRequired[str | bool | None]
+
+
+class GraphAgentAccessorNXDict(TypedDict):
+    """Type definition for graph agent accessor parameters"""
+    x: NotRequired[str | bool | None]
+    y: NotRequired[str | bool | None]
+    color: NotRequired[str | bool | None]
+    icon: NotRequired[str | bool | None]
+    size: NotRequired[str | bool | None]
+    data: NotRequired[str | bool | None]
+    auto_collect_data: NotRequired[bool]
+
+class GraphAgentAccessorDict(UniformAgentAccessorDict):
+    """Type definition for graph agent accessor parameters"""
+    x: NotRequired[str | bool | None]
+    y: NotRequired[str | bool | None]
+
 def _a(
-    map_fields: Dict[str, str],
+    map_fields: dict[str, str],
     color: str | bool | None = None,
     icon: str | bool | None = None,
     size: str | bool | None = None,
@@ -78,7 +108,7 @@ def make_uniform_agent_accessor(
     data: str | bool | None = None,
 ) -> Callable[[Any], UniformAgentModelDict]:
     """Create a function that accesses fields from an AgentModel"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     map_fields["id"] = id
     _a(map_fields, color, icon, size, data)
     return make_dict_accessor([], map_fields, {})  # type: ignore
@@ -93,14 +123,20 @@ def make_grid_agent_accessor(
     icon: str | bool | None = None,
     size: str | bool | None = None,
     data: str | bool | None = None,
+    trajectory_length: str | bool | None = None,
+    trajectory_color: str | bool | None = None,
 ) -> Callable[[Any], GridAgentModelDict]:
     """Create a function that accesses fields from an AgentModel"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     map_fields["id"] = id
     map_fields["x"] = x
     map_fields["y"] = y
     if heading is not None and heading is not False:
         map_fields["heading"] = "heading" if heading is True else heading
+    if trajectory_length is not None and trajectory_length is not False:
+        map_fields["trajectory_length"] = "trajectory_length" if trajectory_length is True else trajectory_length
+    if trajectory_color is not None and trajectory_color is not False:
+        map_fields["trajectory_color"] = "trajectory_color" if trajectory_color is True else trajectory_color
     _a(map_fields, color, icon, size, data)
     return make_dict_accessor([], map_fields, {})  # type: ignore
 
@@ -115,7 +151,7 @@ def make_graph_agent_accessor(
     data: str | bool | None = None,
 ) -> Callable[[Any], GraphAgentModelDict]:
     """Create a function that accesses fields from an AgentModel"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     map_fields["id"] = id
     if x is not None and x is not False:
         map_fields["x"] = "x" if x is True else x
@@ -133,9 +169,9 @@ def make_graph_agent_accessor_nx(
     size: str | bool | None = None,
     data: str | bool | None = None,
     auto_collect_data: bool = True,
-) -> Callable[[str | int, Dict[str, Any]], GraphAgentModelDict]:
+) -> Callable[[str | int, dict[str, Any]], GraphAgentModelDict]:
     """Create a function that accesses fields from an AgentModel in a NetworkX graph"""
-    map_fields: Dict[str, str] = {}
+    map_fields: dict[str, str] = {}
     if x is not None and x is not False:
         map_fields["x"] = "x" if x is True else x
     if y is not None and y is not False:

@@ -1,5 +1,6 @@
 import {
   Agent, AgentId, 
+  AgentTrajectoryPoint, 
   Environment, EnvironmentId, EnvironmentType, GraphAgent, GridAgent,
   PureEnvironment, PureGraphEnvironment, PureGridEnvironment, PureUniformEnvironment,
   UniformAgent
@@ -17,6 +18,7 @@ export interface InstantiatedGridEnvironment extends InstantiatedEnvironment {
   type: 'grid';
   props: PureGridEnvironment;
   agents: Record<AgentId, GridAgent>;
+  agentTraces: Record<AgentId, AgentTrajectoryPoint[]>;
 }
 
 export interface InstantiatedGraphEnvironment extends InstantiatedEnvironment {
@@ -42,13 +44,19 @@ export function instantiateEnvironment(env: Environment): InstantiatedEnvironmen
 
   const label = _label || (typeof id === 'string' ? id : `env-${type}-${id}`);
 
-  return {
+  const ret: InstantiatedEnvironment = {
     id,
     type,
     label,
     props,
     agents: agentsMap,
   };
+
+  if (type === 'grid') {
+    (ret as InstantiatedGridEnvironment).agentTraces = {};
+  }
+
+  return ret;
 }
 
 export function serializeEnvironment(instEnv: InstantiatedEnvironment): Environment {

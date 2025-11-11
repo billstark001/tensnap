@@ -25,6 +25,7 @@ from .chart import (
     ChartMetadataDict,
     ChartGroupMetadataDict,
     ChartProperty,
+    SimplifiedChartMetadata,
     get_chart_metadata_from_namespace,
     categorize_charts,
 )
@@ -32,4 +33,24 @@ from .chart import (
 from .action import (
     action,
     get_action_metadata_from_namespace,
+)
+
+
+from .accessor import (
+
+    BindUniformAgentConfig,
+    BindGridAgentConfig,
+    BindGraphAgentNXConfig,
+    BindGraphAgentConfig,
+    bind_uniform_agent,
+    bind_grid_agent,
+    bind_graph_agent_nx,
+    bind_graph_agent,
+
+    BindUniformEnvironmentConfig,
+    BindGridEnvironmentConfig,
+    BindGraphEnvironmentConfig,
+    bind_uniform_environment,
+    bind_grid_environment,
+    bind_graph_environment,
 )

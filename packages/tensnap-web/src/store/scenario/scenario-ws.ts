@@ -49,7 +49,7 @@ export function registerEventHandlers(
     const { environment_id, updates } = payload;
     useStore.getState().updateAgents(
       environment_id,
-      updates.map(({ id, data }) => ({ id, data }))
+      updates.map(({ id, data, operation }) => ({ id, data, operation }))
     );
   });
 
