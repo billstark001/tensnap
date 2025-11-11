@@ -68,6 +68,8 @@ class BindGridAgentConfig:
         icon: str | bool | None = None,
         size: str | bool | None = None,
         data: str | bool | None = None,
+        trajectory_length: str | bool | None = None,
+        trajectory_color: str | bool | None = None,
     ) -> None:
         self.accessor_dict: GridAgentAccessorDict = {
             "id": id,
@@ -78,6 +80,8 @@ class BindGridAgentConfig:
             "icon": icon,
             "size": size,
             "data": data,
+            "trajectory_length": trajectory_length,
+            "trajectory_color": trajectory_color,
         }
 
     def __call__(self, cls):
@@ -183,13 +187,19 @@ class BindGridEnvironmentConfig:
         self,
         width: str = "width",
         height: str = "height",
+        coord_offset: str | bool | None = None,
         background: str | bool | None = None,
+        trajectory_length: str | bool | None = None,
+        trajectory_color: str | bool | None = None,
     ) -> None:
         self.accessor_dict: GridEnvironmentAccessorDict = {
             "id": "id",
             "width": width,
             "height": height,
+            "coord_offset": coord_offset,
             "background": background,
+            "trajectory_length": trajectory_length,
+            "trajectory_color": trajectory_color,
         }
 
     def __call__(self, cls):

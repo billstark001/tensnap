@@ -2,7 +2,7 @@ import { Environment, Parameter, Snapshot, EnvironmentId, Agent, SnapshotMetadat
 import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
 import { InstantiatedEnvironment } from './environment';
-import { LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
+import { AgentUpdateOperation, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
 import { InstantiatedChartStorage } from './chart';
 import { UpdateTriggerState } from '../update-trigger';
 
@@ -39,7 +39,7 @@ export interface EnvironmentsSlice {
   environments: Map<EnvironmentId, InstantiatedEnvironment>;
   renameEnvironment: (id: EnvironmentId, newId: EnvironmentId) => void;
   updateEnvironment: (id: EnvironmentId, props: Partial<PureEnvironment>, agents?: Agent[]) => void;
-  updateAgents: (id: EnvironmentId, updates: { id: AgentId; data: Partial<Agent> }[]) => void;
+  updateAgents: (id: EnvironmentId, updates: { id: AgentId; data?: Partial<Agent>, operation?: AgentUpdateOperation }[]) => void;
 }
 
 // 参数管理切片

@@ -18,9 +18,12 @@ export const GridAgentSchema = AgentSchema.extend({
   heading: z.number(),
 });
 
+export const GridEnvironmentCoordOffsetSchema = z.enum(['int', 'float']);
+
 export const PureGridEnvironmentSchema = z.object({
   width: z.number(),
   height: z.number(),
+  coord_offset: GridEnvironmentCoordOffsetSchema.optional(),
   background: z.union([z.instanceof(Uint8Array), z.string()]).optional(),
 });
 
@@ -163,17 +166,21 @@ export const EnvironmentUpdatePayloadSchema = z.object({
   agents: z.array(AgentSchema).optional(),
 });
 
+export const AgentUpdateOperationSchema = z.enum(['create', 'delete', 'update']);
+
 export const AgentUpdatePayloadSchema = z.object({
   environment_id: z.string(),
   agent_id: z.union([z.string(), z.number()]),
-  data: AgentSchema,
+  data: AgentSchema.optional(),
+  operation: AgentUpdateOperationSchema.optional(),
 });
 
 export const AgentBatchUpdatePayloadSchema = z.object({
   environment_id: z.string(),
   updates: z.array(z.object({
     id: z.union([z.string(), z.number()]),
-    data: AgentSchema,
+    data: AgentSchema.optional(),
+    operation: AgentUpdateOperationSchema.optional(),
   })),
 });
 

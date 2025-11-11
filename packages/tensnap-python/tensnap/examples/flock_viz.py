@@ -22,17 +22,8 @@ model = FlockSimulation(config)
 grid = GridEnvironmentBinder(
     id="main",
     environment=model,
+    agent_iterable_accessor='birds',
 )
-
-
-# Initialize simulation
-def init_simulation():
-    model.initialize()
-
-    grid.agents.clear()
-    for agent in model.birds:
-        grid.add_agent(agent)
-
 
 # Chart functions
 @chart("average_speed", "Average Speed", color="#2ECC71")
@@ -48,8 +39,8 @@ def calculate_order_parameter() -> float:
 # Main function
 async def main() -> None:
     """Run the flock visualization"""
-    
-    init_simulation()
+
+    model.initialize()
 
     scenario.add_environment(grid)
     scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
@@ -57,7 +48,7 @@ async def main() -> None:
     scenario.add_actions({})
 
     await scenario.register_model_handler(
-        init_simulation,
+        model.initialize,
         model.step,
     )
 

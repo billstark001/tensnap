@@ -23,6 +23,7 @@ model = SIRSSimulation(env, beta, gamma, xi, initial_infected=5)
 grid = GridEnvironmentBinder(
     id="sirs_grid",
     environment=env,
+    agent_iterable_accessor=False,
 )
 
 

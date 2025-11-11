@@ -50,6 +50,8 @@ class BindMesaGridAgentConfig(BindGridAgentConfig):
         icon: str | bool | None = None,
         size: str | bool | None = None,
         data: str | bool | None = None,
+        trajectory_length: str | bool | None = None,
+        trajectory_color: str | bool | None = None,
     ) -> None:
         self.accessor_dict: GridAgentAccessorDict = {
             "id": id,
@@ -60,6 +62,8 @@ class BindMesaGridAgentConfig(BindGridAgentConfig):
             "icon": icon,
             "size": size,
             "data": data,
+            "trajectory_length": trajectory_length,
+            "trajectory_color": trajectory_color,
         }
 
 
@@ -72,13 +76,19 @@ class BindMesaGridEnvironmentConfig(BindGridEnvironmentConfig):
         self,
         width: str = "grid.width",
         height: str = "grid.height",
+        coord_offset: str | bool | None = None,
         background: str | bool | None = None,
+        trajectory_length: str | bool | None = None,
+        trajectory_color: str | bool | None = None,
     ) -> None:
         self.accessor_dict: GridEnvironmentAccessorDict = {
             "id": "id",
             "width": width,
             "height": height,
+            "coord_offset": coord_offset,
             "background": background,
+            "trajectory_length": trajectory_length,
+            "trajectory_color": trajectory_color,
         }
 
     def get_accessor(self, id: str) -> Any:

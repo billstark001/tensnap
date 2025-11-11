@@ -11,7 +11,7 @@ interface GridEnvironmentViewProps {
 }
 
 export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironmentViewProps) {
-  const { props: envProps, agents: agentsProps } = environment;
+  const { props: envProps, agents: agentsProps, agentTraces: traceProps } = environment;
   const containerRef = useRef<HTMLDivElement>(null);
   const visualizerRef = useRef<GridVisualizer | null>(null);
 
@@ -46,14 +46,22 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     visualizerRef.current?.updateEnvironment({
       width: envProps.width,
       height: envProps.height,
+      coordOffset: envProps.coord_offset,
       background: envProps.background,
     });
-  }, [envProps.width, envProps.height, envProps.background]);
+  }, [envProps.width, envProps.height, envProps.background, envProps.coord_offset]);
 
   // Update agents
   useEffect(() => {
     visualizerRef.current?.updateAgents(agentsProps);
   }, [agentsProps, updateTrigger]);
+
+  // Update trajectories
+  useEffect(() => {
+    if (traceProps) {
+      visualizerRef.current?.updateTrajectories(traceProps);
+    }
+  }, [traceProps, updateTrigger]);
 
   // Update event handlers
   useEffect(() => {

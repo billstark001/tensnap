@@ -20,7 +20,7 @@ def validate_field_name(field_name: str) -> bool:
     if not PYTHON_IDENTIFIER_PATTERN.match(field_name):
         return False
     # Check if the first part is not a keyword
-    first_part = field_name.split('.')[0].split('[')[0]
+    first_part = field_name.split(".")[0].split("[")[0]
     if keyword.iskeyword(first_part):
         return False
     return True
@@ -101,6 +101,45 @@ def make_dict_accessor(
     return ns["f"]
 
 
+def _make_identifier_getter_raw(
+    ns: dict,
+    id_name: str,
+    id_name_for_func: str,
+    bind_target: Any | None,
+):
+    getter_str = f"""
+def get_{id_name_for_func}({"" if bind_target is not None else "obj"}):
+    return obj.{id_name}
+"""
+    exec(getter_str, ns)
+
+
+def make_identifier_getter(
+    id_name: str,
+    bind_target: Any | None = None,
+) -> Callable[[Any], Any]:
+    """
+    Create getter and setter functions for a given attribute name.
+
+    Args:
+        attr_name: Name of the attribute to access
+
+    Returns:
+        A tuple containing the getter and setter functions.
+    """
+    if not validate_field_name(id_name):
+        raise ValueError(
+            f"Invalid attribute name: '{id_name}'. "
+            "Attribute names must be valid Python identifiers and not keywords."
+        )
+    id_name_for_func = id_name.replace(".", "_").replace("[", "_").replace("]", "")
+    ns = {}
+    if bind_target is not None:
+        ns["obj"] = bind_target
+    _make_identifier_getter_raw(ns, id_name, id_name_for_func, bind_target)
+    return ns[f"get_{id_name_for_func}"]
+
+
 def make_identifier_getter_and_setter(
     id_name: str,
     bind_target: Any | None = None,
@@ -120,17 +159,14 @@ def make_identifier_getter_and_setter(
             "Attribute names must be valid Python identifiers and not keywords."
         )
     id_name_for_func = id_name.replace(".", "_").replace("[", "_").replace("]", "")
-    getter_str = f'''
-def get_{id_name_for_func}({"" if bind_target is not None else "obj"}):
-    return obj.{id_name}
-'''
-    setter_str = f'''
-def set_{id_name_for_func}({"" if bind_target is not None else "obj, "}value):
-    obj.{id_name} = value
-'''
     ns = {}
     if bind_target is not None:
         ns["obj"] = bind_target
-    exec(getter_str, ns)
+    _make_identifier_getter_raw(ns, id_name, id_name_for_func, bind_target)
+
+    setter_str = f"""
+def set_{id_name_for_func}({"" if bind_target is not None else "obj, "}value):
+    obj.{id_name} = value
+"""
     exec(setter_str, ns)
     return ns[f"get_{id_name_for_func}"], ns[f"set_{id_name_for_func}"]

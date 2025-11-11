@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Protocol
+from typing import Any, Protocol, Set, List, Dict
 
 from tensnap.bindings.basic import (
     BindParametersConfig,
@@ -39,6 +39,8 @@ class DefaultSimulationHandler:
         self.scenario: "SimulationScenario | None" = None
         self.model_init = model_init
         self.model_step = model_step
+        
+        self.last_agent_ids: Set[int | str] | None = None
 
     async def on_registered(self, scenario: "SimulationScenario") -> None:
         """Called when the handler is registered with a scenario"""
@@ -50,13 +52,45 @@ class DefaultSimulationHandler:
         """Send environment and agent updates to the server"""
         for name, env in self.scenario.env_binders.items():
             model_updates = env.get_model_dict()
-            agent_updates = env.get_agent_list(is_update=not replace_agents)
-            agents = agent_updates if replace_agents else None
+            agent_updates_raw = env.get_agent_list()
+            if replace_agents:
+                await self.scenario.server.update_environment(
+                    name, data=model_updates, agents=agent_updates_raw
+                )
+                continue
+            
             await self.scenario.server.update_environment(
-                name, data=model_updates, agents=agents
+                name, data=model_updates,
             )
-            if not replace_agents:
-                await self.scenario.server.update_agents_batch(name, agent_updates)
+            
+            last_agent_ids = self.last_agent_ids.copy() if self.last_agent_ids is not None else None
+            current_agent_ids: Set[str] = set()
+            agent_updates: List[Dict[str, Any]] = []
+            for agent_update in agent_updates_raw:
+                agent_data = agent_update.copy()
+                agent_id = agent_data.pop('id')
+                agent_payload = {
+                    'id': agent_id,
+                    'data': agent_data,
+                }
+                current_agent_ids.add(agent_id)
+                if last_agent_ids is None:
+                    continue
+                if agent_id in last_agent_ids:
+                    last_agent_ids.remove(agent_id)
+                else:
+                    agent_payload['operation'] = 'create'
+                
+                agent_updates.append(agent_payload)
+
+            for removed_id in last_agent_ids or []:
+                agent_updates.append({
+                    'id': removed_id,
+                    'operation': 'delete',
+                })
+
+            self.last_agent_ids = current_agent_ids
+            await self.scenario.server.update_agents_batch(name, agent_updates)
 
     async def on_start(self, step: int, replace_agents: bool = False) -> None:
         s = self.scenario

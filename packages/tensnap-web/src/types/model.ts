@@ -7,10 +7,11 @@ export type AgentId = string | number;
 
 export type EnvironmentId = string;
 
-export interface TrajectoryPoint {
+export interface AgentTrajectoryPoint {
   x: number;
   y: number;
   time: number;
+  color?: string;
 }
 
 export interface Agent {
@@ -34,14 +35,19 @@ export interface GridAgent extends Agent {
   x: number;
   y: number;
   heading: number;
-  trajectory?: TrajectoryPoint[]; // this is to be maintained by the frontend only
+  trajectory_length?: number;
+  trajectory_color?: string;
 }
 
+export type GridEnvironmentCoordOffset = 'int' | 'float';
 
 export interface PureGridEnvironment {
   width: number;
   height: number;
+  coord_offset?: GridEnvironmentCoordOffset; // default to 'int'
   background?: Uint8Array | string;
+  trajectory_length?: number; // <=0: infinity
+  trajectory_color?: string;
 }
 
 export interface GridEnvironment extends PureGridEnvironment, EnvironmentBase {

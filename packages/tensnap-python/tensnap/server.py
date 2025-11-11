@@ -72,7 +72,7 @@ def encode_message(
 
 def convert_env_state(env: "EnvironmentBinderProtocol") -> Dict[str, Any]:
     env_dict = env.get_model_dict()
-    env_dict["agents"] = env.get_agent_list(is_update=False)
+    env_dict["agents"] = env.get_agent_list()
     return env_dict
 
 

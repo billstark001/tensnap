@@ -1,5 +1,5 @@
 import { Rect, Ellipse, Polygon, Line, Group, Leafer, ILeafer, PointerEvent, UI } from 'leafer-ui';
-import { TrajectoryPoint, GridAgent, AgentIcon, AgentId } from '@/types/model';
+import { GridAgent, AgentIcon, AgentId, GridEnvironmentCoordOffset, AgentTrajectoryPoint } from '@/types/model';
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
@@ -8,6 +8,7 @@ interface GridEnvironmentProps {
   width: number;
   height: number;
   background?: string | Uint8Array;
+  coordOffset?: GridEnvironmentCoordOffset;
 }
 
 interface ShapeCache {
@@ -21,16 +22,23 @@ interface ShapeCache {
 interface AgentShape {
   group: Group;
   shape: UI;
+  agent: GridAgent;
   icon: AgentIcon;
   size: number;
+  color: string;
+}
+
+interface TrajectoryCache {
+  group: Group;
+  lastRenderedIndex: number;
   color: string;
 }
 
 const SHAPE_CONFIGS: Record<AgentIcon, (size: number) => any> = {
   arrow: (size) => ({ points: [size, 0, -size / 2, -size / 2, -size / 2, size / 2] }),
   square: (size) => ({ width: size, height: size, x: -size / 2, y: -size / 2 }),
-  triangle: (size) => ({ points: [0, -size / 2, -size / 2, size / 2, size / 2, size / 2] }),
   circle: (size) => ({ width: size, height: size, x: -size / 2, y: -size / 2 }),
+  triangle: (size) => ({ points: [0, -size / 2, -size / 2, size / 2, size / 2, size / 2] }),
 };
 
 const SHAPE_CLASSES: Record<AgentIcon, typeof UI> = {
@@ -43,12 +51,15 @@ const SHAPE_CLASSES: Record<AgentIcon, typeof UI> = {
 export class GridVisualizer {
   private container: HTMLElement;
   private leafer: ILeafer | null = null;
-  private layers: { bg?: Rect; grid?: Group; agents?: Group } = {};
+  private layers: { bg?: Rect; grid?: Group; trajectories?: Group; agents?: Group } = {};
   private agentCache: Record<AgentId, GridAgent> = {};
   private agentShapes: Map<string, AgentShape> = new Map();
+  private trajectoryCache: Map<string, TrajectoryCache> = new Map();
+  private trajectoryData: Record<string, AgentTrajectoryPoint[]> = {};
   private shapeCache: ShapeCache;
   private envProps: GridEnvironmentProps;
   private resizeObserver: ResizeObserver | null = null;
+  private coordOffset: GridEnvironmentCoordOffset = 'int';
 
   // Event callbacks
   private onAgentClick?: (agent: GridAgent, event: any) => void;
@@ -57,6 +68,7 @@ export class GridVisualizer {
   constructor(container: HTMLElement, envProps: GridEnvironmentProps) {
     this.container = container;
     this.envProps = envProps;
+    this.coordOffset = envProps.coordOffset || 'int';
     this.shapeCache = this.calculateShapes(envProps, container.clientWidth, container.clientHeight);
     this.initialize();
   }
@@ -86,13 +98,15 @@ export class GridVisualizer {
       height: canvasHeight,
     });
 
-    // Initialize layers in correct order
+    // Initialize layers in correct order: bg -> grid -> trajectories -> agents
     this.layers.bg = new Rect({ width: canvasWidth, height: canvasHeight, fill: '#f0f0f0', cornerSmoothing: 0 });
     this.layers.grid = new Group();
+    this.layers.trajectories = new Group();
     this.layers.agents = new Group();
 
     this.leafer.add(this.layers.bg);
     this.leafer.add(this.layers.grid);
+    this.leafer.add(this.layers.trajectories);
     this.leafer.add(this.layers.agents);
 
     this.updateGridSize();
@@ -115,6 +129,27 @@ export class GridVisualizer {
     this.setCanvasSize(rect.width, rect.height);
     this.updateGridSize();
     this.refreshAllAgents();
+    // Rebuild all trajectories with new cell size
+    this.rebuildAllTrajectories();
+  }
+
+  private rebuildAllTrajectories(): void {
+    const trajectoriesLayer = this.layers.trajectories;
+    if (!trajectoriesLayer) return;
+
+    // Clear all trajectory groups and reset cache
+    this.trajectoryCache.forEach((cached) => {
+      cached.group.clear();
+      cached.lastRenderedIndex = -1;
+    });
+
+    // Redraw all trajectories from stored data
+    Object.entries(this.trajectoryData).forEach(([agentId, points]) => {
+      if (points && points.length > 0) {
+        const agent = this.agentCache[agentId];
+        this.updateAgentTrajectory(agentId, points, agent?.trajectory_color);
+      }
+    });
   }
 
   private setCanvasSize(width: number, height: number): void {
@@ -161,27 +196,6 @@ export class GridVisualizer {
     return new ShapeClass({ ...SHAPE_CONFIGS[icon]?.(size), fill: color });
   }
 
-  private createTrajectory(
-    trajectory: TrajectoryPoint[] | null | undefined,
-    cellWidth: number,
-    cellHeight: number,
-    x: number,
-    y: number,
-    color: string
-  ): Line | null {
-    if (!trajectory || trajectory.length <= 1) return null;
-
-    return new Line({
-      points: trajectory.flatMap(p => [
-        p.x * cellWidth + cellWidth / 2 - x,
-        p.y * cellHeight + cellHeight / 2 - y
-      ]),
-      stroke: color,
-      strokeWidth: 1,
-      opacity: 0.3,
-    });
-  }
-
   private updateAgentDisplay(agent: GridAgent): void {
     if (agent.x === undefined || agent.y === undefined) return;
 
@@ -189,7 +203,7 @@ export class GridVisualizer {
     const agentId = String(agent.id);
     const icon = agent.icon || 'circle';
     const size = (agent.size || 10) * (cellSize / 10);
-    const posDiff = cellSize - size / 2;
+    const posDiff = this.coordOffset === 'int' ? cellSize / 2 : 0;
     const x = agent.x * cellSize + posDiff;
     const y = agent.y * cellSize + posDiff;
     const color = agent.color || '#333333';
@@ -209,34 +223,29 @@ export class GridVisualizer {
         cached.shape.set({ fill: color });
         cached.color = color;
       }
-
-      // Update trajectory
-      const oldTrajectory = cached.group.children?.find(child => child instanceof Line);
-      if (oldTrajectory) oldTrajectory.remove();
-
-      const trajectory = this.createTrajectory(agent.trajectory, cellSize, cellSize, x, y, color);
-      if (trajectory) cached.group.add(trajectory);
+      cached.agent = agent;
     } else {
       // Create new
       const group = new Group({ x, y, rotation });
       const shape = this.createShape(icon, size, color);
 
       shape.on(PointerEvent.CLICK, (e: any) => {
-        this.onAgentClick?.(agent, e);
+        const agent = this.agentShapes.get(agentId)?.agent;
+        if (agent) {
+          this.onAgentClick?.(agent, e);
+        }
       });
       shape.on(PointerEvent.MENU, (e: any) => {
-        this.onAgentContextMenu?.(agent, e);
+        const agent = this.agentShapes.get(agentId)?.agent;
+        if (agent) {
+          this.onAgentContextMenu?.(agent, e);
+        }
       });
 
       group.add(shape);
 
-      const trajectory = this.createTrajectory(agent.trajectory, cellSize, cellSize, x, y, color);
-      if (trajectory) {
-        group.add(trajectory);
-      }
-
       this.layers.agents?.add(group);
-      this.agentShapes.set(agentId, { group, shape, icon, size, color });
+      this.agentShapes.set(agentId, { group, shape, icon, agent, size, color });
     }
   }
 
@@ -267,6 +276,77 @@ export class GridVisualizer {
         ctx.imageSmoothingEnabled = false;
       }
     }
+  }
+
+  private updateAgentTrajectory(agentId: string, trajectoryPoints: AgentTrajectoryPoint[], color?: string): void {
+    const trajectoriesLayer = this.layers.trajectories;
+    if (!trajectoriesLayer) return;
+
+    const { cellSize } = this.shapeCache;
+    const agentIdStr = String(agentId);
+
+    // Default trajectory color: semi-transparent blue
+    const trajectoryColor = color || 'rgba(66, 133, 244, 0.5)';
+
+    let cached = this.trajectoryCache.get(agentIdStr);
+
+    // If no cache or color changed, recreate
+    if (!cached || cached.color !== trajectoryColor) {
+      // Remove old trajectory if exists
+      if (cached) {
+        cached.group.remove();
+      }
+
+      // Create new group
+      const posDiff = this.coordOffset === 'int' ? cellSize / 2 : 0;
+      cached = {
+        group: new Group({ x: posDiff, y: posDiff }),
+        lastRenderedIndex: -1,
+        color: trajectoryColor,
+      };
+      
+      trajectoriesLayer.add(cached.group);
+      this.trajectoryCache.set(agentIdStr, cached);
+    }
+
+    // Render only new points (incremental)
+    const startIdx = Math.max(0, cached.lastRenderedIndex);
+    let maxTime = trajectoryPoints[trajectoryPoints.length - 1]?.time ?? startIdx;
+    for (let i = trajectoryPoints.length - 2; i > - 1; --i) {
+      const p1 = trajectoryPoints[i];
+      const p2 = trajectoryPoints[i + 1];
+
+      const currentTime = p2.time;
+      if (currentTime <= startIdx) {
+        break;
+      }
+
+      
+      const x1 = p1.x * cellSize;
+      const y1 = p1.y * cellSize;
+      const x2 = p2.x * cellSize;
+      const y2 = p2.y * cellSize;
+
+      // Use point color if available, otherwise use trajectory color
+      const lineColor = p1.color || trajectoryColor;
+
+      const line = new Line({
+        points: [x1, y1, x2, y2],
+        stroke: lineColor,
+        strokeWidth: 2,
+      });
+
+      cached.group.add(line);
+      if (cached.group.children.length > trajectoryPoints.length) {
+        const linesToRemove = cached.group.children.slice(0, cached.group.children.length - trajectoryPoints.length);
+        for (const l of linesToRemove) {
+          cached.group.remove(l);
+        }
+      }
+    }
+
+    // Update last rendered index
+    cached.lastRenderedIndex = maxTime;
   }
 
   // Public methods
@@ -306,6 +386,7 @@ export class GridVisualizer {
       this.envProps.height !== envProps.height;
 
     this.envProps = envProps;
+    this.coordOffset = envProps.coordOffset || 'int';
 
     if (dimensionsChanged) {
       const rect = this.container.getBoundingClientRect();
@@ -328,6 +409,12 @@ export class GridVisualizer {
       if (!currentAgentIds.has(id)) {
         this.agentShapes.get(id)?.group.remove();
         this.agentShapes.delete(id);
+        // Also remove trajectory
+        const trajCache = this.trajectoryCache.get(id);
+        if (trajCache) {
+          trajCache.group.remove();
+          this.trajectoryCache.delete(id);
+        }
       }
     });
 
@@ -336,11 +423,36 @@ export class GridVisualizer {
     this.refreshAllAgents();
   }
 
+  public updateTrajectories(trajectories: Record<string, AgentTrajectoryPoint[]>): void {
+    if (!this.layers.trajectories) return;
+
+    // Store trajectory data for later rebuilding
+    this.trajectoryData = trajectories;
+
+    // Remove trajectories for agents no longer present
+    const currentAgentIds = new Set(Object.keys(trajectories).map(String));
+    this.trajectoryCache.forEach((cached, agentId) => {
+      if (!currentAgentIds.has(agentId)) {
+        cached.group.remove();
+        this.trajectoryCache.delete(agentId);
+      }
+    });
+
+    // Update trajectories incrementally
+    Object.entries(trajectories).forEach(([agentId, points]) => {
+      if (points && points.length > 0) {
+        const agent = this.agentCache[agentId];
+        this.updateAgentTrajectory(agentId, points, agent?.trajectory_color);
+      }
+    });
+  }
+
   public destroy(): void {
     this.resizeObserver?.disconnect();
     this.leafer?.destroy();
     this.leafer = null;
     this.layers = {};
     this.agentShapes.clear();
+    this.trajectoryCache.clear();
   }
 }

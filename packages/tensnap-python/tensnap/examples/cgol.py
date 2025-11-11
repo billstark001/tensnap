@@ -4,6 +4,7 @@ import mesa
 from tensnap import (
     bind_datacollector,
     bind_mesa_grid_agent,
+    bind_mesa_grid_environment,
 )
 
 
@@ -36,6 +37,7 @@ class Cell(mesa.Agent):
 
 
 @bind_datacollector()
+@bind_mesa_grid_environment()
 class GameOfLife(mesa.Model):
     def __init__(self, width=50, height=50, seed=None):
         super().__init__(seed=seed)

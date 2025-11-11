@@ -24,20 +24,13 @@ graph = GraphEnvironmentBinder(
     environment=env,
 )
 
-def init():
-    model.init()
-    
-    graph.agents.clear()
-    for a in model.agents:
-        graph.add_agent(a)
-
 
 async def main():
 
-    init()
+    model.init()
 
     await scenario.register_model_handler(
-        init,
+        model.init,
         model.step,
     )
 

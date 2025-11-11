@@ -37,6 +37,8 @@ class GridAgentModelDict(AgentModelDict):
     x: float
     y: float
     heading: float
+    trajectory_length: NotRequired[int | None]
+    trajectory_color: NotRequired[str | None]
 
 
 class GraphAgentModelDict(AgentModelDict):
@@ -61,6 +63,8 @@ class GridAgentAccessorDict(UniformAgentAccessorDict):
     x: str
     y: str
     heading: NotRequired[str | bool | None]
+    trajectory_length: NotRequired[str | bool | None]
+    trajectory_color: NotRequired[str | bool | None]
 
 
 class GraphAgentAccessorNXDict(TypedDict):
@@ -119,6 +123,8 @@ def make_grid_agent_accessor(
     icon: str | bool | None = None,
     size: str | bool | None = None,
     data: str | bool | None = None,
+    trajectory_length: str | bool | None = None,
+    trajectory_color: str | bool | None = None,
 ) -> Callable[[Any], GridAgentModelDict]:
     """Create a function that accesses fields from an AgentModel"""
     map_fields: dict[str, str] = {}
@@ -127,6 +133,10 @@ def make_grid_agent_accessor(
     map_fields["y"] = y
     if heading is not None and heading is not False:
         map_fields["heading"] = "heading" if heading is True else heading
+    if trajectory_length is not None and trajectory_length is not False:
+        map_fields["trajectory_length"] = "trajectory_length" if trajectory_length is True else trajectory_length
+    if trajectory_color is not None and trajectory_color is not False:
+        map_fields["trajectory_color"] = "trajectory_color" if trajectory_color is True else trajectory_color
     _a(map_fields, color, icon, size, data)
     return make_dict_accessor([], map_fields, {})  # type: ignore
 

@@ -11,6 +11,7 @@ from typing import (
     TypedDict,
     TypeVar,
     Union,
+    Literal,
     cast,
     Tuple,
     Dict,
@@ -18,7 +19,7 @@ from typing import (
 
 import networkx as nx
 
-from tensnap.utils.attr import make_dict_accessor
+from tensnap.utils.attr import make_dict_accessor, make_identifier_getter
 
 from .agent import (
     GraphAgentAccessorNXDict,
@@ -47,12 +48,18 @@ class GraphEdgeDict(TypedDict):
     color: NotRequired[str]
 
 
+
+GridEnvironmentCoordOffset: TypeAlias = Literal['int', 'float']
+
 class PureGridEnvironmentModel(TypedDict):
     """Type definition for pure grid environment model dictionary representation"""
 
     width: int
     height: int
+    coord_offset: NotRequired[GridEnvironmentCoordOffset | None]
     background: NotRequired[str | None]  # base64 encoded
+    trajectory_length: NotRequired[int | None]
+    trajectory_color: NotRequired[str | None]
 
 
 class PureGraphEnvironmentModel(TypedDict):
@@ -81,13 +88,17 @@ class UniformEnvironmentAccessorDict(TypedDict):
 
 
 # TypedDicts for accessor parameters
+
 class GridEnvironmentAccessorDict(UniformEnvironmentAccessorDict):
     """Type definition for grid environment accessor parameters"""
 
     id: str
     width: str
     height: str
+    coord_offset: NotRequired[str | bool | None]
     background: NotRequired[str | bool | None]
+    trajectory_length: NotRequired[str | bool | None]
+    trajectory_color: NotRequired[str | bool | None]
 
 
 class GraphEnvironmentAccessorDict(UniformEnvironmentAccessorDict):
@@ -115,14 +126,23 @@ def make_grid_environment_accessor(
     id: str,
     width: str = "width",
     height: str = "height",
+    coord_offset: str | bool | None = None,
     background: str | bool | None = None,
+    trajectory_length: str | bool | None = None,
+    trajectory_color: str | bool | None = None,
 ) -> Callable[[Any], PureGridEnvironmentModel]:
     """Create a function that accesses fields from a GridEnvironmentModel"""
     map_fields: dict[str, str] = {}
     map_fields["width"] = width
     map_fields["height"] = height
+    if coord_offset:
+        map_fields['coord_offset'] = "coord_offset" if coord_offset is True else coord_offset
     if background is not None and background is not False:
         map_fields["background"] = "background" if background is True else background
+    if trajectory_length is not None and trajectory_length is not False:
+        map_fields["trajectory_length"] = "trajectory_length" if trajectory_length is True else trajectory_length
+    if trajectory_color is not None and trajectory_color is not False:
+        map_fields["trajectory_color"] = "trajectory_color" if trajectory_color is True else trajectory_color
     return make_dict_accessor(
         [],
         map_fields,
@@ -212,7 +232,7 @@ class EnvironmentBinderProtocol(Protocol):
 
     def get_model_dict(self) -> dict[str, Any]: ...
 
-    def get_agent_list(self, is_update=True) -> list[dict[str, Any]]: ...
+    def get_agent_list(self) -> list[dict[str, Any]]: ...
 
 
 class BindAccessorConfigProtocol(Protocol):
@@ -234,6 +254,7 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
             | UniformEnvironmentAccessorDict
             | None
         ) = None,
+        agent_iterable_accessor: str | bool = 'agents',
         agent_accessor: (
             Callable[[Any], UniformAgentModelDict] | UniformAgentAccessorDict | None
         ) = None,
@@ -260,22 +281,31 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
         else:
             # It's a TypedDict, create accessor from it
             self.agent_accessor = make_uniform_agent_accessor(**agent_accessor)
-
-        self.agents: list[T] = []
+            
+        # Handle agent_iterable_accessor
+        if not agent_iterable_accessor:
+            self.agent_iterable_accessor = None
+        else:
+            self.agent_iterable_accessor = make_identifier_getter(
+                agent_iterable_accessor if isinstance(agent_iterable_accessor, str) else 'agents'
+            )
 
     def get_model_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization"""
         return cast(dict[str, Any], self.environment_accessor(self.environment))
 
-    def get_agent_list(self, is_update=True) -> list[dict[str, Any]]:
-        if not self.agents:
+    def get_agent_list(self) -> list[dict[str, Any]]:
+        if not self.agent_iterable_accessor:
             return []
-        assert self.agent_accessor is not None, "Agent accessor is not defined"
+        agent_list = self.agent_iterable_accessor(self.environment)
+        if not agent_list:
+            return []
+        
         ret: list[dict[str, Any]] = []
-        for agent in self.agents:
-            agent_dict = cast(dict[str, Any], self.agent_accessor(agent))
-            if is_update:
-                agent_dict = {"id": agent_dict["id"], "data": agent_dict}
+        for agent in agent_list:
+            if self.agent_accessor is None:
+                self._create_agent_accessor(agent)
+            agent_dict = cast(dict[str, Any], self.agent_accessor(agent)) # type: ignore
             ret.append(agent_dict)
         return ret
 
@@ -299,28 +329,16 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
             )
             return accessor_config.get_accessor(self.id)
         return self._get_default_environment_accessor()
-
-    def add_agent(self, agent: T) -> None:
-        """Add an agent to the environment"""
-        self.agents.append(agent)
-
-        if self.agent_accessor is None:
-            cfg_key = self._get_agent_config_key(agent)
-            if hasattr(agent, cfg_key):
-                accessor_config = cast(
-                    BindAccessorConfigProtocol, getattr(agent, cfg_key)
-                )
-                self.agent_accessor = accessor_config.get_accessor()
-            else:
-                self.agent_accessor = self._get_default_agent_accessor()
-
-    def remove_agent(self, agent: T) -> None:
-        """Remove an agent from the environment"""
-        self.agents = [a for a in self.agents if a is not agent]
-
-    def clear_agents(self) -> None:
-        """Clear all agents from the environment"""
-        self.agents = []
+        
+    def _create_agent_accessor(self, agent: T):
+        cfg_key = self._get_agent_config_key(agent)
+        if hasattr(agent, cfg_key):
+            accessor_config = cast(
+                BindAccessorConfigProtocol, getattr(agent, cfg_key)
+            )
+            self.agent_accessor = accessor_config.get_accessor()
+        else:
+            self.agent_accessor = self._get_default_agent_accessor()
 
     def set_environment(self, environment: TEnv) -> None:
         """Set the environment object"""
@@ -337,6 +355,7 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
             | GridEnvironmentAccessorDict
             | None
         ) = None,
+        agent_iterable_accessor: str | bool = 'agents',
         agent_accessor: (
             Callable[[Any], GridAgentModelDict] | GridAgentAccessorDict | None
         ) = None,
@@ -357,7 +376,7 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
         else:
             agent_acc = make_grid_agent_accessor(**agent_accessor)
 
-        super().__init__(id, environment, env_acc, agent_acc)
+        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc)
 
     def _get_config_key(self, env: TEnv) -> str:
         return "_tensnap_bind_accessor_config_grid"
@@ -382,6 +401,7 @@ class GraphEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
             | GraphEnvironmentAccessorDict
             | None
         ) = None,
+        agent_iterable_accessor: str | bool = 'agents',
         agent_accessor: (
             Callable[[Any], GraphAgentModelDict] | GraphAgentAccessorDict | None
         ) = None,
@@ -417,7 +437,7 @@ class GraphEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
             self.is_nx_edge_accessor = True
             self.edge_accessor = make_graph_edge_accessor_nx(**edge_accessor)
 
-        super().__init__(id, environment, env_acc, agent_acc)
+        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc)
 
     def _get_config_key(self, env: TEnv) -> str:
         return "_tensnap_bind_accessor_config_graph"
@@ -500,12 +520,10 @@ class GraphEnvironmentBinderNX:
             "edges": [self.edge_accessor(x) for x in self.graph.edges(data=True)],
         }
 
-    def get_agent_list(self, is_update=True) -> list[dict[str, Any]]:
+    def get_agent_list(self) -> list[dict[str, Any]]:
         ret: list[dict[str, Any]] = []
         for node_id, node_data in self.graph.nodes(data=True):
             agent_dict = cast(dict[str, Any], self.agent_accessor(node_id, node_data))
-            if is_update:
-                agent_dict = {"id": agent_dict["id"], "data": agent_dict}
             ret.append(agent_dict)
         return ret
 
