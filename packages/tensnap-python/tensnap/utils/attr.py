@@ -3,16 +3,25 @@ import re
 import keyword
 
 
-# 验证Python标识符的正则表达式
-PYTHON_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+# 验证Python标识符的正则表达式（支持嵌套字段）
+# 支持格式: identifier, identifier.identifier, identifier[0], identifier.identifier[0]等
+PYTHON_IDENTIFIER_PATTERN = re.compile(
+    r"^[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*|\[\d+\])*$"
+)
 
 
 def validate_field_name(field_name: str) -> bool:
+    """
+    Validate field name, supporting nested field access.
+    Examples: 'name', 'pos.x', 'data[0]', 'agent.pos.x', 'items[0].value'
+    """
     if not isinstance(field_name, str):
         return False
     if not PYTHON_IDENTIFIER_PATTERN.match(field_name):
         return False
-    if keyword.iskeyword(field_name):
+    # Check if the first part is not a keyword
+    first_part = field_name.split('.')[0].split('[')[0]
+    if keyword.iskeyword(first_part):
         return False
     return True
 
@@ -58,8 +67,10 @@ def make_raw_dict_accessor(
         default_values_str = repr(default_values)[1:-1]  # Strip the surrounding braces
         objects.append(f"        {default_values_str},\n")
     for field in fields:
+        # Support nested field access (e.g., pos.x, data[0])
         objects.append(f'        "{field}": obj.{field},\n')
     for field, mapped_field in map_fields.items():
+        # Support nested field access (e.g., pos.x, data[0])
         objects.append(f'        "{field}": obj.{mapped_field},\n')
     objects.append(dict_accessor_template_suffix)
     return "".join(objects)

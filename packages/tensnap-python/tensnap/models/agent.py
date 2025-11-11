@@ -52,6 +52,34 @@ class GraphAgentModelDict(AgentModelDict):
     y: NotRequired[float]
 
 
+# TypedDicts for accessor parameters
+class UniformAgentAccessorDict(TypedDict, total=False):
+    """Type definition for uniform agent accessor parameters"""
+    id: str
+    color: Union[str, bool, None]
+    icon: Union[str, bool, None]
+    size: Union[str, bool, None]
+    data: Union[str, bool, None]
+
+
+class GridAgentAccessorDict(UniformAgentAccessorDict):
+    """Type definition for grid agent accessor parameters"""
+    x: str
+    y: str
+    heading: Union[str, bool, None]
+
+
+class GraphAgentAccessorDict(TypedDict, total=False):
+    """Type definition for graph agent accessor parameters"""
+    id: str
+    x: Union[str, bool, None]
+    y: Union[str, bool, None]
+    color: Union[str, bool, None]
+    icon: Union[str, bool, None]
+    size: Union[str, bool, None]
+    data: Union[str, bool, None]
+
+
 def _a(
     map_fields: Dict[str, str],
     color: str | bool | None = None,

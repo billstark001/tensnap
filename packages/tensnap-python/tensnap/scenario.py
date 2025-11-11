@@ -19,6 +19,8 @@ from tensnap.bindings.basic import (
 
 class SimulationHandlerProtocol(Protocol):
 
+    async def on_registered(self, scenario: "SimulationScenario") -> None: ...
+
     async def on_start(self, step: int) -> None: ...
 
     async def on_step(self, step: int) -> None: ...
@@ -37,6 +39,10 @@ class DefaultSimulationHandler:
         self.scenario = scenario
         self.model_init = model_init
         self.model_step = model_step
+
+    async def on_registered(self, scenario: "SimulationScenario") -> None:
+        """Called when the handler is registered with a scenario"""
+        self.scenario = scenario
 
     async def send_updates(self, replace_agents: bool = False) -> None:
         """Send environment and agent updates to the server"""
@@ -188,13 +194,15 @@ class SimulationScenario:
                     action, getattr(target, name), add_parameter=True
                 )
 
-    def register_handler(self, handler: SimulationHandlerProtocol):
+    async def register_handler(self, handler: SimulationHandlerProtocol):
         self.handler = handler
         self.sim_manager.on_start = handler.on_start
         self.sim_manager.on_step = handler.on_step
         self.sim_manager.on_stop = None
+        # Call on_registered callback
+        await handler.on_registered(self)
 
-    def register_model_handler(
+    async def register_model_handler(
         self,
         model_init: Callable | None = None,
         model_step: Callable | None = None,
@@ -204,7 +212,7 @@ class SimulationScenario:
             model_init=model_init,
             model_step=model_step,
         )
-        self.register_handler(handler)
+        await self.register_handler(handler)
 
     async def run(self) -> None:
         """Run the simulation scenario server and manager"""

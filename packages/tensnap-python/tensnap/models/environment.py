@@ -25,7 +25,18 @@ import networkx as nx
 import base64
 import io
 
-from .agent import AgentModelDict, GraphAgentModelDict, GridAgentModelDict, UniformAgentModelDict, make_graph_agent_accessor_nx, make_grid_agent_accessor, make_uniform_agent_accessor
+from .agent import (
+    AgentModelDict, 
+    GraphAgentModelDict, 
+    GridAgentModelDict, 
+    UniformAgentModelDict, 
+    UniformAgentAccessorDict,
+    GridAgentAccessorDict,
+    GraphAgentAccessorDict,
+    make_graph_agent_accessor_nx, 
+    make_grid_agent_accessor, 
+    make_uniform_agent_accessor
+)
 
 
 from tensnap.utils.attr import make_dict_accessor
@@ -65,6 +76,27 @@ PureEnvironmentModel = Union[
     PureGridEnvironmentModel,
     PureGraphEnvironmentModel,
 ]
+
+
+# TypedDicts for accessor parameters
+class GridEnvironmentAccessorDict(TypedDict, total=False):
+    """Type definition for grid environment accessor parameters"""
+    id: str
+    width: str
+    height: str
+    background: Union[str, bool, None]
+
+
+class GraphEnvironmentAccessorDict(TypedDict, total=False):
+    """Type definition for graph environment accessor parameters"""
+    id: str
+    edges: str
+
+
+class UniformEnvironmentAccessorDict(TypedDict, total=False):
+    """Type definition for uniform environment accessor parameters"""
+    id: str
+
 
 # endregion
 
@@ -161,13 +193,30 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
         self,
         id: str,
         environment: TEnv,
-        environment_accessor: Callable[[Any], PureUniformEnvironmentModel] | None = None,
-        agent_accessor: Callable[[Any], UniformAgentModelDict] | None = None,
+        environment_accessor: Union[Callable[[Any], PureUniformEnvironmentModel], UniformEnvironmentAccessorDict, None] = None,
+        agent_accessor: Union[Callable[[Any], UniformAgentModelDict], UniformAgentAccessorDict, None] = None,
     ):
         self.id = id
         self.environment = environment
-        self.environment_accessor = environment_accessor or make_uniform_environment_accessor(id=id)
-        self.agent_accessor = agent_accessor or make_uniform_agent_accessor(id=id)
+        
+        # Handle environment_accessor
+        if environment_accessor is None:
+            self.environment_accessor = make_uniform_environment_accessor(id=id)
+        elif callable(environment_accessor):
+            self.environment_accessor = environment_accessor
+        else:
+            # It's a TypedDict, create accessor from it
+            self.environment_accessor = make_uniform_environment_accessor(**environment_accessor)
+        
+        # Handle agent_accessor
+        if agent_accessor is None:
+            self.agent_accessor = make_uniform_agent_accessor(id=id)
+        elif callable(agent_accessor):
+            self.agent_accessor = agent_accessor
+        else:
+            # It's a TypedDict, create accessor from it
+            self.agent_accessor = make_uniform_agent_accessor(**agent_accessor)
+        
         self.agents: List[T] = []
 
 
@@ -198,15 +247,26 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
         self,
         id: str,
         environment: TEnv,
-        environment_accessor: Callable[[Any], PureGridEnvironmentModel] | None = None,
-        agent_accessor: Callable[[Any], GridAgentModelDict] | None = None,
+        environment_accessor: Union[Callable[[Any], PureGridEnvironmentModel], GridEnvironmentAccessorDict, None] = None,
+        agent_accessor: Union[Callable[[Any], GridAgentModelDict], GridAgentAccessorDict, None] = None,
     ):
-        super().__init__(
-            id,
-            environment,
-            environment_accessor if environment_accessor else make_grid_environment_accessor(id=id),
-            agent_accessor if agent_accessor else make_grid_agent_accessor()
-        )
+        # Handle environment_accessor
+        if environment_accessor is None:
+            env_acc = make_grid_environment_accessor(id=id)
+        elif callable(environment_accessor):
+            env_acc = environment_accessor
+        else:
+            env_acc = make_grid_environment_accessor(**environment_accessor)
+        
+        # Handle agent_accessor
+        if agent_accessor is None:
+            agent_acc = make_grid_agent_accessor()
+        elif callable(agent_accessor):
+            agent_acc = agent_accessor
+        else:
+            agent_acc = make_grid_agent_accessor(**agent_accessor)
+        
+        super().__init__(id, environment, env_acc, agent_acc)
 
 class NXGraphEnvironmentBinder:
     
@@ -214,14 +274,23 @@ class NXGraphEnvironmentBinder:
         self,
         id: str,
         graph: nx.Graph | nx.DiGraph,
-        agent_accessor: Callable[[str | int, Dict[str, Any]], GraphAgentModelDict] | None = None,
-        edge_accessor: Callable[[str | int, str | int, Dict[str, Any]], GraphEdgeDict] | None = None,
+        agent_accessor: Union[Callable[[str | int, Dict[str, Any]], GraphAgentModelDict], GraphAgentAccessorDict, None] = None,
+        edge_accessor: Union[Callable[[str | int, str | int, Dict[str, Any]], GraphEdgeDict], None] = None,
 
     ):
         self.id = id
         self.graph = graph
         self.environment_accessor = make_graph_environment_accessor(id=id)
-        self.agent_accessor = agent_accessor or make_graph_agent_accessor_nx(auto_collect_data=True)
+        
+        # Handle agent_accessor
+        if agent_accessor is None:
+            self.agent_accessor = make_graph_agent_accessor_nx(auto_collect_data=True)
+        elif callable(agent_accessor):
+            self.agent_accessor = agent_accessor
+        else:
+            # It's a TypedDict, create accessor from it
+            self.agent_accessor = make_graph_agent_accessor_nx(**agent_accessor)
+        
         self.edge_accessor = edge_accessor or make_graph_edge_accessor_nx(directed=isinstance(graph, nx.DiGraph))
         
     def get_model_dict(self) -> Dict[str, Any]:
