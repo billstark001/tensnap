@@ -25,6 +25,7 @@ from .chart import (
     ChartMetadataDict,
     ChartGroupMetadataDict,
     ChartProperty,
+    SimplifiedChartMetadata,
     get_chart_metadata_from_namespace,
     categorize_charts,
 )
