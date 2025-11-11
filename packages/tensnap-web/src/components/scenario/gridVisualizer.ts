@@ -30,7 +30,7 @@ const SHAPE_CONFIGS: Record<AgentIcon, (size: number) => any> = {
   arrow: (size) => ({ points: [size, 0, -size / 2, -size / 2, -size / 2, size / 2] }),
   square: (size) => ({ width: size, height: size, x: -size / 2, y: -size / 2 }),
   triangle: (size) => ({ points: [0, -size / 2, -size / 2, size / 2, size / 2, size / 2] }),
-  circle: (size) => ({ width: size, height: size }),
+  circle: (size) => ({ width: size, height: size, x: -size / 2, y: -size / 2 }),
 };
 
 const SHAPE_CLASSES: Record<AgentIcon, typeof UI> = {
@@ -49,7 +49,7 @@ export class GridVisualizer {
   private shapeCache: ShapeCache;
   private envProps: GridEnvironmentProps;
   private resizeObserver: ResizeObserver | null = null;
-  
+
   // Event callbacks
   private onAgentClick?: (agent: GridAgent, event: any) => void;
   private onAgentContextMenu?: (agent: GridAgent, event: any) => void;
@@ -87,7 +87,7 @@ export class GridVisualizer {
     });
 
     // Initialize layers in correct order
-    this.layers.bg = new Rect({ width: canvasWidth, height: canvasHeight, fill: '#f0f0f0' });
+    this.layers.bg = new Rect({ width: canvasWidth, height: canvasHeight, fill: '#f0f0f0', cornerSmoothing: 0 });
     this.layers.grid = new Group();
     this.layers.agents = new Group();
 
@@ -97,6 +97,10 @@ export class GridVisualizer {
 
     this.updateGridSize();
     this.setupResizeObserver();
+
+    // Disable image smoothing on the underlying canvas for pixel-perfect rendering
+    // Use setTimeout to ensure canvas is created
+    setTimeout(() => this.disableCanvasSmoothing(), 0);
   }
 
   private setupResizeObserver(): void {
@@ -137,24 +141,24 @@ export class GridVisualizer {
     const { width, height } = this.envProps;
 
     for (let i = 0; i <= width; i++) {
-      gridGroup.add(new Line({ 
-        points: [i * cellSize, 0, i * cellSize, canvasHeight], 
-        stroke: '#dddddd', 
-        strokeWidth: 1 
+      gridGroup.add(new Line({
+        points: [i * cellSize, 0, i * cellSize, canvasHeight],
+        stroke: '#dddddd',
+        strokeWidth: 1
       }));
     }
     for (let j = 0; j <= height; j++) {
-      gridGroup.add(new Line({ 
-        points: [0, j * cellSize, canvasWidth, j * cellSize], 
-        stroke: '#dddddd', 
-        strokeWidth: 1 
+      gridGroup.add(new Line({
+        points: [0, j * cellSize, canvasWidth, j * cellSize],
+        stroke: '#dddddd',
+        strokeWidth: 1
       }));
     }
   }
 
   private createShape(icon: AgentIcon = 'circle', size: number, color: string): UI {
     const ShapeClass = SHAPE_CLASSES[icon];
-    return new ShapeClass({ ...SHAPE_CONFIGS[icon](size), fill: color });
+    return new ShapeClass({ ...SHAPE_CONFIGS[icon]?.(size), fill: color });
   }
 
   private createTrajectory(
@@ -185,7 +189,7 @@ export class GridVisualizer {
     const agentId = String(agent.id);
     const icon = agent.icon || 'circle';
     const size = (agent.size || 10) * (cellSize / 10);
-    const posDiff = (cellSize - size) / 2;
+    const posDiff = cellSize - size / 2;
     const x = agent.x * cellSize + posDiff;
     const y = agent.y * cellSize + posDiff;
     const color = agent.color || '#333333';
@@ -245,9 +249,24 @@ export class GridVisualizer {
   private async loadImageAsync(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve) => {
       const img = new Image();
+      // Disable image smoothing for pixel-perfect rendering
+      img.style.imageRendering = 'pixelated';
+      img.style.setProperty('image-rendering', '-moz-crisp-edges', '');
+      img.style.setProperty('image-rendering', 'crisp-edges', '');
       img.onload = () => resolve(img);
       img.src = src;
     });
+  }
+
+  private disableCanvasSmoothing(): void {
+    // Find the canvas element and disable image smoothing
+    const canvas = this.container.querySelector('canvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = false;
+      }
+    }
   }
 
   // Public methods
@@ -282,8 +301,8 @@ export class GridVisualizer {
   }
 
   public updateEnvironment(envProps: GridEnvironmentProps): void {
-    const dimensionsChanged = 
-      this.envProps.width !== envProps.width || 
+    const dimensionsChanged =
+      this.envProps.width !== envProps.width ||
       this.envProps.height !== envProps.height;
 
     this.envProps = envProps;
