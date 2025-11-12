@@ -4,6 +4,7 @@
   "windows": ["main"],
   "permissions": [
     "core:window:allow-start-dragging",
+    "core:window:allow-theme",
     "core:event:allow-listen"
   ],
   "platforms": ["linux", "macOS", "windows"]

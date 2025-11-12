@@ -76,6 +76,7 @@
     "./components/ui/Form": "./src/components/ui/Form.tsx",
     "./utils": "./src/utils/index.ts",
     "./store/file-system/provider": "./src/store/file-system/provider.tsx",
-    "./store/toast": "./src/store/toast/store.ts"
+    "./store/toast": "./src/store/toast/store.ts",
+    "./store/settings": "./src/store/settings.ts"
   }
 }
