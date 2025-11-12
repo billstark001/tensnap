@@ -93,8 +93,11 @@ def sugar_field_circular(width: int, height: int):
 
 
 @bind_datacollector()
-@bind_mesa_grid_environment(background=True)
+@bind_mesa_grid_environment(background=True, trajectory_length=True)
 class Sugarscape(Model):
+
+    trajectory_length = 2
+
     def __init__(
         self,
         width: int,
@@ -110,23 +113,25 @@ class Sugarscape(Model):
     ):
         super().__init__(seed=seed)
         self.grid = MultiGrid(width, height, torus)
-        
+
         # 根据grid_type选择糖田生成方式
         if grid_type == "random":
             self.sugar = sugar_field_random(width, height)
         elif grid_type == "circular":
             self.sugar = sugar_field_circular(width, height)
         else:
-            raise ValueError(f"Unknown grid_type: {grid_type}. Must be 'random' or 'circular'")
-        
+            raise ValueError(
+                f"Unknown grid_type: {grid_type}. Must be 'random' or 'circular'"
+            )
+
         self.sugar_max = np.copy(self.sugar)
         self.sugar_growth_rate = sugar_growth_rate
-        
+
         # 保存智能体属性范围，供创建智能体时使用
         self.metabolism_range = metabolism_range
         self.vision_range = vision_range
         self.initial_sugar_range = initial_sugar_range
-        
+
         self.create_agents(agent_count)
 
         self.datacollector = DataCollector(
