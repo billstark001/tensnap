@@ -128,7 +128,7 @@ print("TenSnap Python bindings installed successfully!")
 pnpm dev:web
 ```
 
-This should start a development server, typically at `http://localhost:5173`.
+This should start a development server, default at `http://localhost:3200`. Configure the port by editing Vite's config file.
 
 ### Run Example Simulation
 

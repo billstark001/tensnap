@@ -282,13 +282,6 @@ Supports hot-reload and multi-client sync.
 - Leafer UI canvas rendering
 - Zustand state management
 
-**Tested Performance**:
-
-- 10,000+ agents at 30 FPS
-- 50-100 updates/sec
-- Multiple concurrent clients
-- ~100 KB/s bandwidth
-
 ## References
 
 - [Protocol Documentation](./protocol.md)

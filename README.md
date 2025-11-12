@@ -40,7 +40,7 @@ pnpm dev:web
 pnpm dev:py:flock
 ```
 
-Then open your browser to `http://localhost:5173` and watch the agents interact!
+Then open your browser to `http://localhost:3200` and watch the agents interact!
 
 ## 📚 Documentation
 

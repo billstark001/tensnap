@@ -208,7 +208,7 @@ async def main():
     )
     
     print(f"Random Walk Simulation starting on ws://localhost:8765")
-    print("Open your browser to http://localhost:5173")
+    print("Open your browser to http://localhost:3200")
     await scenario.run()
 
 if __name__ == "__main__":
@@ -230,7 +230,7 @@ if __name__ == "__main__":
    python random_walk.py
    ```
 
-3. **Open Browser**: Navigate to `http://localhost:5173`
+3. **Open Browser**: Navigate to `http://localhost:3200`
 
 ## What You Should See
 

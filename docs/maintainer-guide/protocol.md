@@ -304,14 +304,6 @@ interface ChartGroupMetadata {
 }
 ```
 
-## Performance
-
-- **Batch updates**: Multiple agent changes grouped per message
-- **MessagePack**: Binary serialization for efficiency
-- **Differential sync**: Only send changes, not full state
-- **Async I/O**: Non-blocking WebSocket operations
-- **Tested**: 10,000+ agents at 30 FPS, 50-100 updates/sec
-
 ## References
 
 - [Architecture Documentation](./architecture.md)

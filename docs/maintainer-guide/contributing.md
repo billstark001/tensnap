@@ -66,7 +66,7 @@ When submitting a bug report, include:
 
 **Steps to Reproduce:**
 1. Run `python flock_viz.py`
-2. Open http://localhost:5173
+2. Open http://localhost:3200
 3. Observe connection error in console
 
 **Expected:** WebSocket connects successfully
