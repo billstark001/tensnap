@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Snapshot } from '@/types/model';
 import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
 import { useToast } from '@/store/toast';
+import { EmptyState } from '../ui/EmptyState';
 
 export const RightPanel = () => {
 
@@ -58,7 +59,7 @@ export const RightPanel = () => {
       .filter(p => p.type !== 'action')
       .map(p => `${p.label}: ${p.value}`)
       .join(', ');
-    
+
     if (paramStr.length <= maxLength) {
       return paramStr;
     }
@@ -93,9 +94,12 @@ export const RightPanel = () => {
       </div>
       <div className={styles.panelContent}>
         {!snapshots?.length ? (
-          <p className={styles.emptyMessage}>
-            <Trans>No snapshots yet. Click "Take Snapshot" to create one.</Trans>
-          </p>
+          <EmptyState
+            compact
+            icon={<Camera size={48} />}
+            title={<Trans>No snapshots yet.</Trans>}
+            description={<Trans>Click "Take Snapshot" to create one.</Trans>}
+          />
         ) : (
           <div className={styles.snapshotList}>
             {snapshots.map((snapshot) => (

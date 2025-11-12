@@ -318,41 +318,6 @@ export const errorState = style({
   textAlign: 'center'
 });
 
-export const emptyState = style({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '48px 32px',
-  color: vars.color.textTertiary,
-  fontSize: vars.fontSize.sm,
-  textAlign: 'center',
-  gap: '16px',
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary
-    }
-  }
-});
-
-export const emptyStateIcon = style({
-  fontSize: '48px',
-  opacity: 0.5
-});
-
-export const emptyStateText = style({
-  fontSize: vars.fontSize.md,
-  fontWeight: '500',
-  color: vars.color.textTertiary,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary
-    }
-  }
-});
-
 export const uploadArea = style({
   border: `2px dashed ${vars.color.inputBorder}`,
   borderRadius: vars.radius.md,

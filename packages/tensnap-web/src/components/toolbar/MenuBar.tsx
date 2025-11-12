@@ -1,4 +1,4 @@
-import React from 'react';
+import { createContext, useContext } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useFileOperations } from './useFileOperations';
 import * as styles from '@/styles/toolbar.css';
@@ -9,6 +9,16 @@ import { Trans } from '@lingui/react/macro';
 export interface MenuBarProps {
   className?: string;
 }
+
+export type MenuBarConfig = {
+  environment: 'tauri' | 'web';
+  system: 'mac' | 'other';
+};
+
+export const MenuBarContext = createContext<MenuBarConfig>({
+  environment: 'web',
+  system: 'other',
+});
 
 export const MenuBar: React.FC<MenuBarProps> = ({
   className,
@@ -22,9 +32,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore(x => x.setAboutDialogOpen);
 
+  const { environment, system } = useContext(MenuBarContext);
+
   return (
     <>
-      <div className={clsx(styles.menuBar, className)}>
+      <div className={clsx(
+        styles.menuBar,
+        environment === 'tauri' && system === 'mac' && 'mac',
+        className
+      )} data-tauri-drag-region>
         {/* File Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

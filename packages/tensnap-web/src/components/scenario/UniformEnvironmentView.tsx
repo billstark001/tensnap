@@ -8,6 +8,7 @@ import * as styles from './UniformEnvironmentView.css';
 import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { EmptyState } from '../ui/EmptyState';
 
 interface UniformEnvironmentViewProps {
   environment: InstantiatedUniformEnvironment;
@@ -49,19 +50,15 @@ const EmptyAgentState = ({
   hasSearch: boolean;
   onClearSearch: () => void;
 }) => (
-  <div className={styles.emptyState}>
-    <div className={styles.emptyIcon}>🔍</div>
-    <div>
-      {hasSearch
-        ? <Trans>No agents found matching your search</Trans>
-        : <Trans>No agents in this environment</Trans>}
-    </div>
-    {hasSearch && (
-      <button onClick={onClearSearch} className={styles.clearButton}>
-        <Trans>Clear search</Trans>
-      </button>
-    )}
-  </div>
+  <EmptyState
+    icon="🔍"
+    title={hasSearch
+      ? <Trans>No agents found matching your search</Trans>
+      : <Trans>No agents in this environment</Trans>}
+    actions={[
+      { label: <Trans>Clear search</Trans>, onClick: onClearSearch }
+    ]}
+  />
 );
 
 // Main component

@@ -19,8 +19,6 @@ export { ActionButtons } from './ActionButtons';
 export type { ActionButtonsProps } from './ActionButtons';
 export { FileItem } from './FileItem';
 export type { FileItemProps } from './FileItem';
-export { EmptyState } from './EmptyState';
-export type { EmptyStateProps } from './EmptyState';
 export { CreateDialog } from './CreateDialog';
 export type { CreateDialogProps } from './CreateDialog';
 

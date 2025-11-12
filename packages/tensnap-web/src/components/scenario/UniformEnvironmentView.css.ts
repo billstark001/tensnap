@@ -148,29 +148,6 @@ export const agentMeta = style({
   },
 });
 
-export const emptyState = style({
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: vars.color.textTertiary,
-  fontSize: '14px',
-  textAlign: 'center',
-  gap: '8px',
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary,
-    },
-  },
-});
-
-export const emptyIcon = style({
-  fontSize: '48px',
-  opacity: 0.3,
-});
-
 export const searchBox = style({
   padding: '8px 12px',
   border: `1px solid ${vars.color.subtleBorder}`,

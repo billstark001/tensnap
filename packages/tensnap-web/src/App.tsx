@@ -3,16 +3,24 @@ import { ToolBarLayout } from './components/toolbar/ToolBarLayout';
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 import { ProjectPanel } from './components/project/ProjectPanel';
+import { MenuBarConfig, MenuBarContext } from './components/toolbar/MenuBar';
 
 
-export function App() {
+export function App(props: Partial<MenuBarConfig>) {
   
   const { loading: fileSystemLoading } = useFileSystem();
   const { loading: counterLoading } = useLoadingStore();
+  
+  const {
+    environment = 'web',
+    system = 'other'
+  } = props;
 
   return (
     <div className={styles.appContainer}>
-      <ToolBarLayout />
+      <MenuBarContext.Provider value={{ environment, system }}>
+        <ToolBarLayout />
+      </MenuBarContext.Provider>
 
       <ProjectPanel />
 

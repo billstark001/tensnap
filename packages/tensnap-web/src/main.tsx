@@ -19,8 +19,12 @@ if (!window.structuredClone) {
 // Register fake models for development/testing
 WebSocketManagerFake.setGlobalOptions('fake:schelling', createSchellingSimulation() as any);
 
+function isDarkMode() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-const initialTheme = savedTheme || 'light';
+const initialTheme = savedTheme || (isDarkMode() ? 'dark' : 'light');
 document.body.setAttribute('data-theme', initialTheme);
 
 // Initialize i18n with detected locale

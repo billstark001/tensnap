@@ -1,18 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { App } from 'tensnap-web/App';
 import { Providers } from 'tensnap-web/Providers';
 import { TauriFileSystemAdapter, TauriFilePicker } from './adapters';
 import { registerFileSystemAdapter, registerFileSystemPicker } from 'tensnap-web/store/file-system/provider';
-import { initI18n } from 'tensnap-web/i18n';
+import { detectLocale, initI18n, isValidLocale } from 'tensnap-web/i18n';
+import { useTauriMenuEvents } from './hooks/useTauriMenuEvents';
+import { App } from 'tensnap-web/index';
+import { getOsName } from './adapters/common';
+
+const TauriMenuEventsLoader = () => {
+  useTauriMenuEvents();
+  return null;
+}
 
 export const TauriApp: React.FC = () => {
+  const [isMac, setIsMac] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const initialize = async () => {
       try {
-        await initI18n();
+        const osName = await getOsName();
+        setIsMac(osName === 'macos' || osName === 'darwin' || osName === 'macOS');
+
+        // Initialize i18n with detected locale
+        const savedLocale = localStorage.getItem('locale');
+        const initialLocale = (savedLocale && isValidLocale(savedLocale)) ? savedLocale : detectLocale();
+
+        await initI18n(initialLocale);
 
         // Register the Tauri file system adapter
         await registerFileSystemAdapter({
@@ -36,10 +51,10 @@ export const TauriApp: React.FC = () => {
 
   if (!isReady) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         fontSize: '1.2rem',
         color: '#666'
@@ -51,10 +66,10 @@ export const TauriApp: React.FC = () => {
 
   if (error) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         fontSize: '1.2rem',
         color: '#666'
@@ -66,7 +81,8 @@ export const TauriApp: React.FC = () => {
 
   return (
     <Providers>
-      <App />
+      <TauriMenuEventsLoader />
+      <App environment='tauri' system={isMac ? 'mac' : 'other'} />
     </Providers>
   );
 };

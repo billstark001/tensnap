@@ -17,13 +17,16 @@
         "resizable": true,
         "title": "TenSnap",
         "width": 1200,
-        "minHeight": 600,
-        "minWidth": 800
+        "minHeight": 480,
+        "minWidth": 640,
+        "decorations": true,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {
       "capabilities": [
-        "dialog"
+        "dialog",
+        "file"
       ]
     },
     "withGlobalTauri": true

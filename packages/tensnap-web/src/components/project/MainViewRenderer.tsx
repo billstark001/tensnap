@@ -5,6 +5,11 @@ import { AnchoredViewRenderer } from "./AnchoredViewRenderer";
 import { useSettingsStore } from "@/store/settings";
 import { ViewContextMenuRenderer } from "./ViewContextMenuRenderer";
 import { useCreateView } from "./view-edit-hooks";
+import { EmptyState } from "../ui/EmptyState";
+import { Trans } from "@lingui/react/macro";
+import { Radar } from "lucide-react";
+
+
 
 export function MainViewRenderer() {
   const mainView = useScenarioStore((store) => store.mainView);
@@ -19,7 +24,11 @@ export function MainViewRenderer() {
   const { handleButtonAction } = useButtonControls();
 
   if (!mainView) {
-    return <div>No main view available.</div>;
+    return <EmptyState
+      icon={<Radar size={64} />}
+      title={<Trans>No main view available.</Trans>}
+      description={<Trans>Please create or open a project to get started.</Trans>}
+    />
   }
 
   return (

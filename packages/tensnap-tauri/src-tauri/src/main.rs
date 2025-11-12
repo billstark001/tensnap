@@ -2,8 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod menu;
 
 use commands::file_system::*;
+use commands::common::*;
+use menu::create_menu;
 
 fn main() {
     tauri::Builder::default()
@@ -17,8 +20,11 @@ fn main() {
             delete_directory_handler,
             file_exists_handler,
             directory_exists_handler,
-            get_file_metadata_handler
+            get_file_metadata_handler,
+            get_os_name_handler,
         ])
+        .menu(create_menu)
+        .on_menu_event(menu::handle_menu_event)
         .plugin(tauri_plugin_dialog::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

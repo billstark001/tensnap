@@ -7,7 +7,7 @@ export const toolbar = style({
   flexDirection: 'column',
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.background,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -23,12 +23,15 @@ export const menuBar = style({
   padding: `${vars.space.xs} ${vars.space.sm}`,
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.background,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
       borderBottomColor: vars.color.darkGridLine,
     },
+    '&.mac': {
+      paddingLeft: '70px',
+    }
   },
 });
 
@@ -41,16 +44,16 @@ export const menuItem = style({
   borderRadius: vars.radius.sm,
   transition: 'background-color 0.2s',
   color: vars.color.foreground,
-  
+
   ':hover': {
     backgroundColor: vars.color.gridBackground,
   },
-  
+
   ':focus': {
     outline: `2px solid ${vars.color.primary}`,
     outlineOffset: '2px',
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -69,7 +72,7 @@ export const toolBarRow = style({
   gap: vars.space.xs,
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.gridBackground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkGridBackground,
@@ -102,22 +105,22 @@ export const toolButton = style({
   cursor: 'pointer',
   transition: 'all 0.2s',
   color: vars.color.foreground,
-  
+
   ':hover': {
     backgroundColor: vars.color.background,
     borderColor: vars.color.primary,
   },
-  
+
   ':active': {
     backgroundColor: vars.color.primary,
     color: '#ffffff',
   },
-  
+
   ':disabled': {
     opacity: 0.5,
     cursor: 'not-allowed',
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -144,7 +147,7 @@ export const separator = style({
   height: '24px',
   backgroundColor: vars.color.gridLine,
   margin: `0 ${vars.space.xs}`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkGridLine,
@@ -159,7 +162,7 @@ export const tabsContainer = style({
   padding: `${vars.space.sm} ${vars.space.md} 0 ${vars.space.md}`,
   backgroundColor: vars.color.background,
   gap: vars.space.xs,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -180,11 +183,11 @@ export const tab = style({
   transition: 'all 0.2s',
   maxWidth: '200px',
   color: vars.color.foreground,
-  
+
   ':hover': {
     backgroundColor: vars.color.background,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkGridBackground,
@@ -201,7 +204,7 @@ export const activeTab = style([tab, {
   backgroundColor: vars.color.background,
   borderColor: vars.color.primary,
   color: vars.color.primary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -220,7 +223,7 @@ export const tabCloseButton = style({
   cursor: 'pointer',
   fontSize: '12px',
   opacity: 0.7,
-  
+
   ':hover': {
     opacity: 1,
     backgroundColor: vars.color.danger,
@@ -242,13 +245,13 @@ export const newTabButton = style({
   transition: 'all 0.2s',
   marginBottom: '4px',
   color: vars.color.foreground,
-  
+
   ':hover': {
     backgroundColor: vars.color.primary,
     color: '#ffffff',
     borderColor: vars.color.primary,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -268,11 +271,11 @@ export const themeToggle = style({
   fontSize: '16px',
   transition: 'background-color 0.2s',
   color: vars.color.foreground,
-  
+
   ':hover': {
     backgroundColor: vars.color.gridBackground,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -307,11 +310,11 @@ export const dropdownItem = style({
   cursor: 'pointer',
   borderRadius: vars.radius.sm,
   transition: 'background-color 0.2s',
-  
+
   ':hover': {
     backgroundColor: vars.color.gridBackground,
   },
-  
+
   ':focus': {
     outline: 'none',
     backgroundColor: vars.color.gridBackground,

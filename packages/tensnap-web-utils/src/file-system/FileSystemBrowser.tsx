@@ -3,13 +3,13 @@ import { DirectoryEntry, FileSystemAdapter } from 'tensnap-web/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
-import { EmptyState } from './EmptyState';
 import { CreateDialog } from './CreateDialog';
 import { normalizePath, joinPath, validateName, readFileContent } from './utils';
 import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 import { ExportDialog } from './ExportDialog';
 import { Trans } from '@lingui/react/macro';
+import { EmptyState } from 'tensnap-web/components/ui/EmptyState';
 
 export interface FileSystemBrowserProps {
   fileSystem: FileSystemAdapter;
@@ -275,9 +275,14 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         )}
 
         {!loading && !error && directoryContents.length === 0 && (
-          <EmptyState
-            allowUpload={allowUpload}
-            isDragOver={isDragOver}
+          <EmptyState 
+            icon="📂"
+            title={<Trans>Directory is empty</Trans>}
+            upload={allowUpload ? {
+              isDragOver: isDragOver,
+              uploadText: <Trans>Drag files here</Trans>,
+              uploadHint: <Trans>Or click to browse</Trans>,
+            } : undefined}
           />
         )}
 

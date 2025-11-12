@@ -71,6 +71,7 @@
     "./types/file": "./src/types/file.ts",
     "./styles/global.css": "./src/styles/global.css.ts",
     "./components/ui/Pagination": "./src/components/ui/Pagination.tsx",
+    "./components/ui/EmptyState": "./src/components/ui/EmptyState.tsx",
     "./components/ui/Dialog": "./src/components/ui/Dialog.tsx",
     "./components/ui/Form": "./src/components/ui/Form.tsx",
     "./utils": "./src/utils/index.ts",
