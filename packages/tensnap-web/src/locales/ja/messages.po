@@ -13,35 +13,38 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:273
+msgid "(No options available)"
+msgstr "(選択肢なし)"
+
 #. placeholder {0}: filteredAgents.length
 #. placeholder {1}: agentsList.length
-#: src/components/scenario/UniformEnvironmentView.tsx:131
+#: src/components/scenario/UniformEnvironmentView.tsx:128
 msgid "{0} / {1} agents"
 msgstr "{0} / {1} エージェント"
 
-#. placeholder {0}: agent.trajectory?.length
 #: src/dialogs/AgentDetailsDialog.tsx:109
-msgid "{0} points recorded"
-msgstr "{0} ポイント記録済み"
+#~ msgid "{0} points recorded"
+#~ msgstr "{0} ポイント記録済み"
 
 #: src/dialogs/AboutDialog.tsx:73
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap コントリビューター"
 
-#: src/components/toolbar/ToolGroups.tsx:212
+#: src/components/toolbar/ToolGroups.tsx:211
 msgid "About"
 msgstr "について"
 
-#: src/components/toolbar/MenuBar.tsx:185
+#: src/components/toolbar/MenuBar.tsx:201
 #: src/dialogs/AboutDialog.tsx:18
 msgid "About TenSnap"
 msgstr "TenSnapについて"
 
-#: src/components/toolbar/ToolGroups.tsx:149
+#: src/components/toolbar/ToolGroups.tsx:148
 msgid "Adjust Mode"
 msgstr "調整モード"
 
-#: src/dialogs/AgentDetailsDialog.tsx:131
+#: src/dialogs/AgentDetailsDialog.tsx:119
 msgid "Agent Details"
 msgstr "エージェントの詳細"
 
@@ -49,57 +52,78 @@ msgstr "エージェントの詳細"
 #~ msgid "Agents:"
 #~ msgstr "エージェント："
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:146
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:336
 msgid "Allow Runtime Change"
 msgstr "実行時変更を許可"
 
-#: src/dialogs/SettingsDialog.tsx:203
+#: src/dialogs/SettingsDialog.tsx:225
 msgid "Apply"
 msgstr "適用"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:68
-#: src/dialogs/SettingsDialog.tsx:178
+#: src/dialogs/SettingsDialog.tsx:200
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:17
+#: src/components/view/ContainerViewComponent.tsx:100
+msgid "Button"
+msgstr "ボタン"
+
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:16
 msgid "Button Text"
 msgstr "ボタンテキスト"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:71
 #: ../tensnap-web-utils/src/file-system/ExportDialog.tsx:164
 #: src/dialogs/CreateNewProjectDialog.tsx:101
-#: src/dialogs/EditViewDialog.tsx:91
+#: src/dialogs/edit-views/EditViewDialog.tsx:186
 msgid "Cancel"
 msgstr "キャンセル"
 
-#: src/dialogs/SettingsDialog.tsx:186
+#: src/dialogs/SettingsDialog.tsx:208
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "現在のプロジェクトのWebSocketサーバーURLを変更します。接続が再確立されます。"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:39
+#: src/components/view/ContainerViewComponent.tsx:118
+msgid "Chart"
+msgstr "チャート"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:130
+msgid "Chart Data"
+msgstr "チャートデータ"
+
+#: src/dialogs/edit-views/ChartViewEditor.tsx:232
 msgid "Chart Group ID"
 msgstr "チャートグループID"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:60
+#: src/dialogs/edit-views/ChartViewEditor.tsx:252
 msgid "Chart Group Label"
 msgstr "チャートグループラベル"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:75
+#: src/dialogs/edit-views/ChartViewEditor.tsx:264
 msgid "Chart Series"
 msgstr "チャート系列"
 
-#: src/components/project/RightPanel.tsx:100
+#: src/components/project/RightPanel.tsx:86
 msgid "Clear All"
 msgstr "すべてクリア"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:61
+#: src/components/scenario/UniformEnvironmentView.tsx:59
+#: src/components/ui/EmptyState.tsx:196
 msgid "Clear search"
 msgstr "検索をクリア"
 
+#: src/components/project/RightPanel.tsx:96
+msgid "Click \"Take Snapshot\" to create one."
+msgstr "「スナップショットを撮る」をクリックして作成してください。"
+
+#: src/dialogs/SettingsDialog.tsx:156
+msgid "Client Message Validation"
+msgstr クライアントメッセージバリデーション"
+
 #: src/dialogs/AboutDialog.tsx:80
-#: src/dialogs/AgentDetailsDialog.tsx:179
-#: src/dialogs/SettingsDialog.tsx:213
+#: src/dialogs/AgentDetailsDialog.tsx:165
+#: src/dialogs/SettingsDialog.tsx:235
 msgid "Close"
 msgstr "閉じる"
 
@@ -108,7 +132,7 @@ msgstr "閉じる"
 msgid "Close {0}"
 msgstr "{0}を閉じる"
 
-#: src/dialogs/AgentDetailsDialog.tsx:154
+#: src/dialogs/AgentDetailsDialog.tsx:142
 msgid "Color:"
 msgstr "色："
 
@@ -124,9 +148,19 @@ msgstr "接続済み"
 msgid "Connection failed, will retry automatically"
 msgstr "接続に失敗しました。自動的に再試行します"
 
-#: src/components/toolbar/MenuBar.tsx:94
+#: src/components/view/ContainerViewComponent.tsx:124
+msgid "Container"
+msgstr "コンテイナー"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:170
+#: src/components/project/ViewContextMenuRenderer.tsx:177
+#: src/components/toolbar/MenuBar.tsx:110
 msgid "Copy"
 msgstr "コピー"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:181
+msgid "Copy As Bitmap"
+msgstr "画像としてコピー"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:78
 #: src/dialogs/CreateNewProjectDialog.tsx:108
@@ -141,31 +175,31 @@ msgstr "新しいアイテムを作成"
 msgid "Create New Project"
 msgstr "新しいプロジェクトを作成"
 
-#: src/dialogs/AgentDetailsDialog.tsx:170
+#: src/dialogs/AgentDetailsDialog.tsx:156
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
-#: src/components/toolbar/MenuBar.tsx:91
+#: src/components/toolbar/MenuBar.tsx:107
 msgid "Cut"
 msgstr "切り取り"
 
-#: src/dialogs/SettingsDialog.tsx:118
+#: src/dialogs/SettingsDialog.tsx:122
 msgid "Dark"
 msgstr "ダーク"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:49
+#: src/dialogs/edit-views/ChartViewEditor.tsx:241
 msgid "Data Points"
 msgstr "データポイント"
 
-#: src/dialogs/AgentDetailsDialog.tsx:164
+#: src/dialogs/AgentDetailsDialog.tsx:152
 msgid "default"
 msgstr "デフォルト"
 
-#: src/components/view/DraggableView.tsx:157
+#: src/components/project/ViewContextMenuRenderer.tsx:199
 msgid "Delete"
 msgstr "削除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:148
+#: src/dialogs/SnapshotDetailDialog.tsx:169
 msgid "Delete Snapshot"
 msgstr "スナップショットを削除"
 
@@ -173,7 +207,11 @@ msgstr "スナップショットを削除"
 msgid "Directory"
 msgstr "ディレクトリ"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:35
+#: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:280
+msgid "Directory is empty"
+msgstr "ディレクトリに内容がありません"
+
+#: src/dialogs/edit-views/BaseViewEditor.tsx:103
 msgid "Disabled"
 msgstr "無効"
 
@@ -181,7 +219,7 @@ msgstr "無効"
 msgid "Disconnected"
 msgstr "未接続"
 
-#: src/components/toolbar/MenuBar.tsx:175
+#: src/components/toolbar/MenuBar.tsx:191
 msgid "Documentation"
 msgstr "ドキュメント"
 
@@ -189,21 +227,25 @@ msgstr "ドキュメント"
 msgid "Documentation:"
 msgstr "ドキュメント："
 
-#: ../tensnap-web-utils/src/file-system/EmptyState.tsx:20
+#: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:283
+msgid "Drag files here"
+msgstr "ファイルをここにドラッグ"
+
+#: src/components/ui/EmptyState.tsx:160
 msgid "Drag files here to upload"
 msgstr "ファイルをここにドラッグしてアップロード"
 
-#: src/components/toolbar/MenuBar.tsx:76
-#: src/components/view/DraggableView.tsx:150
+#: src/components/project/ViewContextMenuRenderer.tsx:191
+#: src/components/toolbar/MenuBar.tsx:92
 msgid "Edit"
 msgstr "編集"
 
-#: src/dialogs/EditViewDialog.tsx:76
+#: src/dialogs/edit-views/EditViewDialog.tsx:171
 msgid "Edit View"
 msgstr "ビューを編集"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:73
-#: src/dialogs/SettingsDialog.tsx:183
+#: src/dialogs/SettingsDialog.tsx:205
 msgid "Enter backend WebSocket server address"
 msgstr "バックエンドWebSocketサーバーアドレスを入力"
 
@@ -215,15 +257,23 @@ msgstr "ディレクトリ名を入力"
 msgid "Enter file name"
 msgstr "ファイル名を入力"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:51
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:240
+msgid "Enum Options"
+msgstr "列挙変数オプション"
+
+#: src/components/view/ContainerViewComponent.tsx:112
+msgid "Environment"
+msgstr "環境"
+
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:48
 msgid "Environment ID"
 msgstr "環境ID"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:72
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:68
 msgid "Environment Label"
 msgstr "環境ラベル"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:61
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:57
 msgid "Environment Type"
 msgstr "環境タイプ"
 
@@ -231,12 +281,17 @@ msgstr "環境タイプ"
 #~ msgid "Environments"
 #~ msgstr "環境"
 
-#: src/components/project/RightPanel.tsx:132
+#: src/components/project/RightPanel.tsx:121
 #: src/dialogs/SnapshotDetailDialog.tsx:104
 msgid "Environments:"
 msgstr "環境："
 
-#: src/components/toolbar/MenuBar.tsx:67
+#: src/dialogs/SettingsDialog.tsx:166
+#: src/dialogs/SettingsDialog.tsx:183
+msgid "Error"
+msgstr "エラー"
+
+#: src/components/toolbar/MenuBar.tsx:83
 msgid "Exit"
 msgstr "終了"
 
@@ -268,12 +323,12 @@ msgstr "読み込み失敗: {error}"
 msgid "Failed to reconnect"
 msgstr "再接続に失敗しました"
 
-#: src/dialogs/SettingsDialog.tsx:72
+#: src/dialogs/SettingsDialog.tsx:76
 msgid "Failed to update project URL"
 msgstr "プロジェクトURLの更新に失敗しました"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:54
-#: src/components/toolbar/MenuBar.tsx:31
+#: src/components/toolbar/MenuBar.tsx:47
 msgid "File"
 msgstr "ファイル"
 
@@ -289,15 +344,15 @@ msgstr "ファイル"
 msgid "Force reconnect to server"
 msgstr "サーバーに強制再接続"
 
-#: src/components/toolbar/MenuBar.tsx:135
+#: src/components/toolbar/MenuBar.tsx:151
 msgid "Fullscreen"
 msgstr "全画面"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:106
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:92
 msgid "Grid Height"
 msgstr "グリッドの高さ"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:88
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:79
 msgid "Grid Width"
 msgstr "グリッドの幅"
 
@@ -309,7 +364,7 @@ msgstr "方向："
 msgid "Height"
 msgstr "高さ"
 
-#: src/components/toolbar/MenuBar.tsx:167
+#: src/components/toolbar/MenuBar.tsx:183
 msgid "Help"
 msgstr "ヘルプ"
 
@@ -321,7 +376,7 @@ msgstr "下部パネルを非表示"
 msgid "Hide Right Panel"
 msgstr "右側パネルを非表示"
 
-#: src/dialogs/AgentDetailsDialog.tsx:146
+#: src/dialogs/AgentDetailsDialog.tsx:134
 msgid "Icon:"
 msgstr "アイコン："
 
@@ -329,12 +384,12 @@ msgstr "アイコン："
 msgid "ID"
 msgstr "ID"
 
-#: src/dialogs/AgentDetailsDialog.tsx:139
+#: src/dialogs/AgentDetailsDialog.tsx:127
 #: src/dialogs/SnapshotDetailDialog.tsx:83
 msgid "ID:"
 msgstr "ID："
 
-#: src/components/toolbar/MenuBar.tsx:178
+#: src/components/toolbar/MenuBar.tsx:194
 msgid "Keyboard Shortcuts"
 msgstr "キーボードショートカット"
 
@@ -343,7 +398,7 @@ msgstr "キーボードショートカット"
 #~ msgid "Label"
 #~ msgstr "ラベル"
 
-#: src/dialogs/SettingsDialog.tsx:125
+#: src/dialogs/SettingsDialog.tsx:129
 msgid "Language"
 msgstr "言語"
 
@@ -355,7 +410,7 @@ msgstr "左"
 msgid "License:"
 msgstr "ライセンス："
 
-#: src/dialogs/SettingsDialog.tsx:118
+#: src/dialogs/SettingsDialog.tsx:122
 msgid "Light"
 msgstr "ライト"
 
@@ -363,11 +418,11 @@ msgstr "ライト"
 msgid "Loading..."
 msgstr "読み込み中..."
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:99
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:55
 msgid "Maximum Value"
 msgstr "最大値"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:83
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:47
 msgid "Minimum Value"
 msgstr "最小値"
 
@@ -380,7 +435,7 @@ msgid "Name"
 msgstr "名前"
 
 #: ../tensnap-web-utils/src/file-system/ActionButtons.tsx:42
-#: src/components/toolbar/MenuBar.tsx:42
+#: src/components/toolbar/MenuBar.tsx:58
 msgid "New"
 msgstr "新規"
 
@@ -392,11 +447,19 @@ msgstr "新しいファイル"
 msgid "New Tab"
 msgstr "新しいタブ"
 
+#: src/components/view/ContainerViewComponent.tsx:94
+msgid "New View"
+msgstr "新しいビュー"
+
 #: src/components/ui/Pagination.tsx:95
 msgid "Next page"
 msgstr "次のページ"
 
-#: src/dialogs/SettingsDialog.tsx:63
+#: src/components/ui/EmptyState.tsx:209
+msgid "No {itemName} available"
+msgstr "{itemName}はありません"
+
+#: src/dialogs/SettingsDialog.tsx:67
 msgid "No active project"
 msgstr "アクティブなプロジェクトがありません"
 
@@ -408,23 +471,40 @@ msgstr "検索に一致するエージェントが見つかりません"
 msgid "No agents in this environment"
 msgstr "この環境にエージェントがありません"
 
-#: src/components/project/RightPanel.tsx:23
-msgid "No scenario data loaded."
-msgstr "シナリオデータが読み込まれていません。"
+#: src/components/project/MainViewRenderer.tsx:29
+msgid "No main view available."
+msgstr "メインビューはありません。"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:123
+#: src/components/ui/EmptyState.tsx:192
+msgid "No results found"
+msgstr "検索結果はありません。"
+
+#: src/components/project/RightPanel.tsx:23
+#~ msgid "No scenario data loaded."
+#~ msgstr "シナリオデータが読み込まれていません。"
+
+#: src/dialogs/edit-views/ChartViewEditor.tsx:143
 msgid "No series available"
 msgstr "利用可能な系列がありません"
 
+#: src/components/project/RightPanel.tsx:95
+msgid "No snapshots yet."
+msgstr "まだスナップショットがありません。"
+
 #: src/components/project/RightPanel.tsx:107
-msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
-msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
+#~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
+#~ msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
 
 #: src/dialogs/AgentDetailsDialog.tsx:92
 msgid "Not positioned"
 msgstr "位置指定なし"
 
-#: src/components/toolbar/MenuBar.tsx:48
+#: src/dialogs/SettingsDialog.tsx:160
+#: src/dialogs/SettingsDialog.tsx:177
+msgid "Off"
+msgstr "オフ"
+
+#: src/components/toolbar/MenuBar.tsx:64
 #: src/components/toolbar/ToolGroups.tsx:59
 msgid "Open File"
 msgstr "ファイルを開く"
@@ -433,27 +513,40 @@ msgstr "ファイルを開く"
 #~ msgid "Open Folder"
 #~ msgstr "フォルダーを開く"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:157
+msgid "Options"
+msgstr "オプション"
+
+#: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:284
+#: src/components/ui/EmptyState.tsx:163
+msgid "Or click to browse"
+msgstr "またはクリックして選択"
+
 #: src/dialogs/CreateNewProjectDialog.tsx:84
 msgid "Or select a built-in model that runs in the browser:"
 msgstr "またはブラウザで実行される組み込みモデルを選択："
 
 #: ../tensnap-web-utils/src/file-system/EmptyState.tsx:21
-msgid "Or use the \"Upload Files\" button above"
-msgstr "または上の「ファイルをアップロード」ボタンを使用"
+#~ msgid "Or use the \"Upload Files\" button above"
+#~ msgstr "または上の「ファイルをアップロード」ボタンを使用"
 
 #: src/components/ui/Pagination.tsx:83
 msgid "Page {pageNum}"
 msgstr "ページ {pageNum}"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:47
+#: src/components/view/ContainerViewComponent.tsx:106
+msgid "Parameter"
+msgstr "パラメータ"
+
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:303
 msgid "Parameter ID"
 msgstr "パラメータID"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:68
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:315
 msgid "Parameter Label"
 msgstr "パラメータラベル"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:57
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:29
 msgid "Parameter Type"
 msgstr "パラメータタイプ"
 
@@ -461,13 +554,17 @@ msgstr "パラメータタイプ"
 msgid "Parameters"
 msgstr "パラメータ"
 
-#: src/components/project/RightPanel.tsx:140
+#: src/components/project/RightPanel.tsx:129
 msgid "Parameters:"
 msgstr "パラメータ："
 
-#: src/components/toolbar/MenuBar.tsx:97
+#: src/components/toolbar/MenuBar.tsx:113
 msgid "Paste"
 msgstr "貼り付け"
+
+#: src/components/project/MainViewRenderer.tsx:30
+msgid "Please create or open a project to get started."
+msgstr "プロジェクトを開くか、作成してください。"
 
 #: src/dialogs/AgentDetailsDialog.tsx:72
 #: src/dialogs/AgentDetailsDialog.tsx:89
@@ -478,11 +575,11 @@ msgstr "位置："
 msgid "Previous page"
 msgstr "前のページ"
 
-#: src/dialogs/SettingsDialog.tsx:173
+#: src/dialogs/SettingsDialog.tsx:195
 msgid "Project Settings"
 msgstr "プロジェクト設定"
 
-#: src/dialogs/SettingsDialog.tsx:69
+#: src/dialogs/SettingsDialog.tsx:73
 msgid "Project URL updated successfully"
 msgstr "プロジェクトURLを正常に更新しました"
 
@@ -494,7 +591,7 @@ msgstr "再接続"
 msgid "Reconnected successfully"
 msgstr "再接続に成功しました"
 
-#: src/components/toolbar/MenuBar.tsx:87
+#: src/components/toolbar/MenuBar.tsx:103
 #: src/components/toolbar/ToolGroups.tsx:85
 msgid "Redo"
 msgstr "やり直す"
@@ -508,20 +605,20 @@ msgid "Repository:"
 msgstr "リポジトリ："
 
 #: src/components/toolbar/ToolGroups.tsx:123
-#: src/dialogs/EditViewDialog.tsx:85
-#: src/dialogs/SettingsDialog.tsx:196
+#: src/dialogs/edit-views/EditViewDialog.tsx:180
+#: src/dialogs/SettingsDialog.tsx:218
 msgid "Reset"
 msgstr "リセット"
 
-#: src/components/scenario/GraphEnvironmentView.tsx:114
+#: src/components/scenario/GraphEnvironmentView.tsx:124
 msgid "Reset View"
 msgstr "ビューをリセット"
 
-#: src/components/toolbar/MenuBar.tsx:124
+#: src/components/toolbar/MenuBar.tsx:140
 msgid "Reset Zoom"
 msgstr "ズームをリセット"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:151
+#: src/dialogs/SnapshotDetailDialog.tsx:172
 msgid "Restore Snapshot"
 msgstr "スナップショットを復元"
 
@@ -529,29 +626,33 @@ msgstr "スナップショットを復元"
 msgid "Retry"
 msgstr "再試行"
 
-#: src/components/toolbar/MenuBar.tsx:55
+#: src/components/toolbar/MenuBar.tsx:71
 #: src/components/toolbar/ToolGroups.tsx:64
-#: src/dialogs/EditViewDialog.tsx:88
+#: src/dialogs/edit-views/EditViewDialog.tsx:183
 msgid "Save"
 msgstr "保存"
 
-#: src/components/toolbar/MenuBar.tsx:62
+#: src/components/project/ViewContextMenuRenderer.tsx:163
+msgid "Save As CSV"
+msgstr "CSV形式で保存"
+
+#: src/components/toolbar/MenuBar.tsx:78
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
-#: src/dialogs/SettingsDialog.tsx:146
+#: src/dialogs/SettingsDialog.tsx:142
 msgid "Save Format"
 msgstr "保存形式"
 
 #: src/components/project/RightPanel.tsx:20
-msgid "Scenario Properties"
-msgstr "シナリオプロパティ"
+#~ msgid "Scenario Properties"
+#~ msgstr "シナリオプロパティ"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:137
+#: src/components/scenario/UniformEnvironmentView.tsx:134
 msgid "Search agents by ID, color, or icon..."
 msgstr "ID、色、またはアイコンでエージェントを検索..."
 
-#: src/components/toolbar/MenuBar.tsx:101
+#: src/components/toolbar/MenuBar.tsx:117
 msgid "Select All"
 msgstr "すべて選択"
 
@@ -559,9 +660,13 @@ msgstr "すべて選択"
 msgid "Select export format"
 msgstr "エクスポート形式を選択"
 
-#: src/components/toolbar/MenuBar.tsx:156
-#: src/components/toolbar/ToolGroups.tsx:217
-#: src/dialogs/SettingsDialog.tsx:98
+#: src/dialogs/SettingsDialog.tsx:173
+msgid "Server Message Validation"
+msgstr "サーバーメッセージバリデーション"
+
+#: src/components/toolbar/MenuBar.tsx:172
+#: src/components/toolbar/ToolGroups.tsx:216
+#: src/dialogs/SettingsDialog.tsx:102
 msgid "Settings"
 msgstr "設定"
 
@@ -569,7 +674,7 @@ msgstr "設定"
 msgid "Show Bottom Panel"
 msgstr "下部パネルを表示"
 
-#: src/components/toolbar/MenuBar.tsx:128
+#: src/components/toolbar/MenuBar.tsx:144
 msgid "Show Grid"
 msgstr "グリッドを表示"
 
@@ -577,11 +682,11 @@ msgstr "グリッドを表示"
 msgid "Show Right Panel"
 msgstr "右側パネルを表示"
 
-#: src/components/toolbar/MenuBar.tsx:131
+#: src/components/toolbar/MenuBar.tsx:147
 msgid "Show Toolbar"
 msgstr "ツールバーを表示"
 
-#: src/dialogs/AgentDetailsDialog.tsx:163
+#: src/dialogs/AgentDetailsDialog.tsx:151
 msgid "Size:"
 msgstr "サイズ："
 
@@ -589,7 +694,7 @@ msgstr "サイズ："
 msgid "Snapshot Details"
 msgstr "スナップショットの詳細"
 
-#: src/components/project/RightPanel.tsx:81
+#: src/components/project/RightPanel.tsx:67
 msgid "Snapshots"
 msgstr "スナップショット"
 
@@ -602,7 +707,7 @@ msgid "Start/Stop"
 msgstr "開始/停止"
 
 #: src/components/toolbar/ToolGroups.tsx:118
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:115
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:63
 msgid "Step"
 msgstr "ステップ"
 
@@ -610,16 +715,16 @@ msgstr "ステップ"
 msgid "Stop"
 msgstr "停止"
 
-#: src/components/toolbar/ToolGroups.tsx:168
+#: src/components/toolbar/ToolGroups.tsx:167
 msgid "Synchronize State"
 msgstr "状態を同期"
 
-#: src/dialogs/SettingsDialog.tsx:104
+#: src/dialogs/SettingsDialog.tsx:108
 msgid "System Settings"
 msgstr "システム設定"
 
-#: src/components/project/RightPanel.tsx:90
-#: src/components/toolbar/ToolGroups.tsx:163
+#: src/components/project/RightPanel.tsx:76
+#: src/components/toolbar/ToolGroups.tsx:162
 msgid "Take Snapshot"
 msgstr "スナップショットを撮る"
 
@@ -627,15 +732,16 @@ msgstr "スナップショットを撮る"
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnapは、エージェントベースモデルのインタラクティブ可視化であり、インタラクティブなシミュレーションと可視化を通じて、研究者や学生が複雑なシステムを理解するのを支援するように設計されています。"
 
-#: src/dialogs/SettingsDialog.tsx:107
+#: src/dialogs/SettingsDialog.tsx:111
 msgid "Theme"
 msgstr "テーマ"
 
-#: ../tensnap-web-utils/src/file-system/EmptyState.tsx:17
+#: src/components/ui/EmptyState.tsx:181
+#: src/components/ui/EmptyState.tsx:220
 msgid "This directory is empty"
 msgstr "このディレクトリは空です"
 
-#: src/components/project/RightPanel.tsx:126
+#: src/components/project/RightPanel.tsx:115
 #: src/components/project/StatusBar.tsx:68
 #: src/dialogs/SnapshotDetailDialog.tsx:97
 msgid "Time Step:"
@@ -645,22 +751,22 @@ msgstr "タイムステップ："
 msgid "Timestamp:"
 msgstr "タイムスタンプ："
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:27
+#: src/dialogs/edit-views/ChartViewEditor.tsx:220
 #: src/dialogs/edit-views/ContainerViewEditor.tsx:16
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:39
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:35
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:36
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:293
 msgid "Title"
 msgstr "タイトル"
 
-#: src/components/toolbar/ToolGroups.tsx:198
+#: src/components/toolbar/ToolGroups.tsx:197
 msgid "Toggle theme"
 msgstr "テーマを切り替え"
 
-#: src/components/toolbar/ToolGroups.tsx:205
+#: src/components/toolbar/ToolGroups.tsx:204
 msgid "Toggle Theme"
 msgstr "テーマを切り替え"
 
-#: src/components/toolbar/MenuBar.tsx:144
+#: src/components/toolbar/MenuBar.tsx:160
 msgid "Tools"
 msgstr "ツール"
 
@@ -669,24 +775,28 @@ msgid "Top"
 msgstr "上"
 
 #: src/dialogs/AgentDetailsDialog.tsx:108
-msgid "Trajectory:"
-msgstr "軌跡："
+#~ msgid "Trajectory:"
+#~ msgstr "軌跡："
+
+#: src/components/ui/EmptyState.tsx:193
+msgid "Try adjusting your search criteria"
+msgstr "検索条件を調整してください。"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:49
 #: src/dialogs/edit-views/BaseViewEditor.tsx:35
 msgid "Type"
 msgstr "タイプ"
 
-#: src/components/toolbar/MenuBar.tsx:84
+#: src/components/toolbar/MenuBar.tsx:100
 #: src/components/toolbar/ToolGroups.tsx:79
 msgid "Undo"
 msgstr "元に戻す"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:129
+#: src/components/scenario/UniformEnvironmentView.tsx:126
 msgid "Uniform Environment"
 msgstr "均一環境"
 
-#: src/components/toolbar/ToolGroups.tsx:176
+#: src/components/toolbar/ToolGroups.tsx:175
 msgid "Update View Layout"
 msgstr "ビューレイアウトを更新"
 
@@ -698,7 +808,7 @@ msgstr "ファイルをアップロード"
 msgid "Version"
 msgstr "バージョン"
 
-#: src/components/toolbar/MenuBar.tsx:110
+#: src/components/toolbar/MenuBar.tsx:126
 msgid "View"
 msgstr "表示"
 
@@ -706,7 +816,7 @@ msgstr "表示"
 msgid "View and manage snapshot"
 msgstr "スナップショットを表示・管理"
 
-#: src/dialogs/AgentDetailsDialog.tsx:134
+#: src/dialogs/AgentDetailsDialog.tsx:122
 msgid "View detailed information about the selected agent"
 msgstr "選択したエージェントの詳細情報を表示"
 
@@ -714,16 +824,21 @@ msgstr "選択したエージェントの詳細情報を表示"
 msgid "View Docs"
 msgstr "ドキュメントを見る"
 
+#: src/dialogs/SettingsDialog.tsx:163
+#: src/dialogs/SettingsDialog.tsx:180
+msgid "Warning"
+msgstr "警告"
+
 #: src/dialogs/edit-views/BaseViewEditor.tsx:65
 msgid "Width"
 msgstr "幅"
 
-#: src/components/toolbar/MenuBar.tsx:118
-#: src/components/toolbar/ToolGroups.tsx:155
+#: src/components/toolbar/MenuBar.tsx:134
+#: src/components/toolbar/ToolGroups.tsx:154
 msgid "Zoom In"
 msgstr "拡大"
 
-#: src/components/toolbar/MenuBar.tsx:121
-#: src/components/toolbar/ToolGroups.tsx:159
+#: src/components/toolbar/MenuBar.tsx:137
+#: src/components/toolbar/ToolGroups.tsx:158
 msgid "Zoom Out"
 msgstr "縮小"

@@ -13,35 +13,38 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:273
+msgid "(No options available)"
+msgstr "(No options available)"
+
 #. placeholder {0}: filteredAgents.length
 #. placeholder {1}: agentsList.length
-#: src/components/scenario/UniformEnvironmentView.tsx:131
+#: src/components/scenario/UniformEnvironmentView.tsx:128
 msgid "{0} / {1} agents"
 msgstr "{0} / {1} agents"
 
-#. placeholder {0}: agent.trajectory?.length
 #: src/dialogs/AgentDetailsDialog.tsx:109
-msgid "{0} points recorded"
-msgstr "{0} points recorded"
+#~ msgid "{0} points recorded"
+#~ msgstr "{0} points recorded"
 
 #: src/dialogs/AboutDialog.tsx:73
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap Contributors"
 
-#: src/components/toolbar/ToolGroups.tsx:212
+#: src/components/toolbar/ToolGroups.tsx:211
 msgid "About"
 msgstr "About"
 
-#: src/components/toolbar/MenuBar.tsx:185
+#: src/components/toolbar/MenuBar.tsx:201
 #: src/dialogs/AboutDialog.tsx:18
 msgid "About TenSnap"
 msgstr "About TenSnap"
 
-#: src/components/toolbar/ToolGroups.tsx:149
+#: src/components/toolbar/ToolGroups.tsx:148
 msgid "Adjust Mode"
 msgstr "Adjust Mode"
 
-#: src/dialogs/AgentDetailsDialog.tsx:131
+#: src/dialogs/AgentDetailsDialog.tsx:119
 msgid "Agent Details"
 msgstr "Agent Details"
 
@@ -49,57 +52,78 @@ msgstr "Agent Details"
 #~ msgid "Agents:"
 #~ msgstr "Agents:"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:146
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:336
 msgid "Allow Runtime Change"
 msgstr "Allow Runtime Change"
 
-#: src/dialogs/SettingsDialog.tsx:203
+#: src/dialogs/SettingsDialog.tsx:225
 msgid "Apply"
 msgstr "Apply"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:68
-#: src/dialogs/SettingsDialog.tsx:178
+#: src/dialogs/SettingsDialog.tsx:200
 msgid "Backend URL"
 msgstr "Backend URL"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:17
+#: src/components/view/ContainerViewComponent.tsx:100
+msgid "Button"
+msgstr "Button"
+
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:16
 msgid "Button Text"
 msgstr "Button Text"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:71
 #: ../tensnap-web-utils/src/file-system/ExportDialog.tsx:164
 #: src/dialogs/CreateNewProjectDialog.tsx:101
-#: src/dialogs/EditViewDialog.tsx:91
+#: src/dialogs/edit-views/EditViewDialog.tsx:186
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/dialogs/SettingsDialog.tsx:186
+#: src/dialogs/SettingsDialog.tsx:208
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "Change the WebSocket server URL for the current project. The connection will be reestablished."
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:39
+#: src/components/view/ContainerViewComponent.tsx:118
+msgid "Chart"
+msgstr "Chart"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:130
+msgid "Chart Data"
+msgstr "Chart Data"
+
+#: src/dialogs/edit-views/ChartViewEditor.tsx:232
 msgid "Chart Group ID"
 msgstr "Chart Group ID"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:60
+#: src/dialogs/edit-views/ChartViewEditor.tsx:252
 msgid "Chart Group Label"
 msgstr "Chart Group Label"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:75
+#: src/dialogs/edit-views/ChartViewEditor.tsx:264
 msgid "Chart Series"
 msgstr "Chart Series"
 
-#: src/components/project/RightPanel.tsx:100
+#: src/components/project/RightPanel.tsx:86
 msgid "Clear All"
 msgstr "Clear All"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:61
+#: src/components/scenario/UniformEnvironmentView.tsx:59
+#: src/components/ui/EmptyState.tsx:196
 msgid "Clear search"
 msgstr "Clear search"
 
+#: src/components/project/RightPanel.tsx:96
+msgid "Click \"Take Snapshot\" to create one."
+msgstr "Click \"Take Snapshot\" to create one."
+
+#: src/dialogs/SettingsDialog.tsx:156
+msgid "Client Message Validation"
+msgstr "Client Message Validation"
+
 #: src/dialogs/AboutDialog.tsx:80
-#: src/dialogs/AgentDetailsDialog.tsx:179
-#: src/dialogs/SettingsDialog.tsx:213
+#: src/dialogs/AgentDetailsDialog.tsx:165
+#: src/dialogs/SettingsDialog.tsx:235
 msgid "Close"
 msgstr "Close"
 
@@ -108,7 +132,7 @@ msgstr "Close"
 msgid "Close {0}"
 msgstr "Close {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:154
+#: src/dialogs/AgentDetailsDialog.tsx:142
 msgid "Color:"
 msgstr "Color:"
 
@@ -124,9 +148,19 @@ msgstr "Connected"
 msgid "Connection failed, will retry automatically"
 msgstr "Connection failed, will retry automatically"
 
-#: src/components/toolbar/MenuBar.tsx:94
+#: src/components/view/ContainerViewComponent.tsx:124
+msgid "Container"
+msgstr "Container"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:170
+#: src/components/project/ViewContextMenuRenderer.tsx:177
+#: src/components/toolbar/MenuBar.tsx:110
 msgid "Copy"
 msgstr "Copy"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:181
+msgid "Copy As Bitmap"
+msgstr "Copy As Bitmap"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:78
 #: src/dialogs/CreateNewProjectDialog.tsx:108
@@ -141,31 +175,31 @@ msgstr "Create New Item"
 msgid "Create New Project"
 msgstr "Create New Project"
 
-#: src/dialogs/AgentDetailsDialog.tsx:170
+#: src/dialogs/AgentDetailsDialog.tsx:156
 msgid "Custom Data:"
 msgstr "Custom Data:"
 
-#: src/components/toolbar/MenuBar.tsx:91
+#: src/components/toolbar/MenuBar.tsx:107
 msgid "Cut"
 msgstr "Cut"
 
-#: src/dialogs/SettingsDialog.tsx:118
+#: src/dialogs/SettingsDialog.tsx:122
 msgid "Dark"
 msgstr "Dark"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:49
+#: src/dialogs/edit-views/ChartViewEditor.tsx:241
 msgid "Data Points"
 msgstr "Data Points"
 
-#: src/dialogs/AgentDetailsDialog.tsx:164
+#: src/dialogs/AgentDetailsDialog.tsx:152
 msgid "default"
 msgstr "default"
 
-#: src/components/view/DraggableView.tsx:157
+#: src/components/project/ViewContextMenuRenderer.tsx:199
 msgid "Delete"
 msgstr "Delete"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:148
+#: src/dialogs/SnapshotDetailDialog.tsx:169
 msgid "Delete Snapshot"
 msgstr "Delete Snapshot"
 
@@ -173,7 +207,11 @@ msgstr "Delete Snapshot"
 msgid "Directory"
 msgstr "Directory"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:35
+#: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:280
+msgid "Directory is empty"
+msgstr "Directory is empty"
+
+#: src/dialogs/edit-views/BaseViewEditor.tsx:103
 msgid "Disabled"
 msgstr "Disabled"
 
@@ -181,7 +219,7 @@ msgstr "Disabled"
 msgid "Disconnected"
 msgstr "Disconnected"
 
-#: src/components/toolbar/MenuBar.tsx:175
+#: src/components/toolbar/MenuBar.tsx:191
 msgid "Documentation"
 msgstr "Documentation"
 
@@ -189,21 +227,25 @@ msgstr "Documentation"
 msgid "Documentation:"
 msgstr "Documentation:"
 
-#: ../tensnap-web-utils/src/file-system/EmptyState.tsx:20
+#: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:283
+msgid "Drag files here"
+msgstr "Drag files here"
+
+#: src/components/ui/EmptyState.tsx:160
 msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
-#: src/components/toolbar/MenuBar.tsx:76
-#: src/components/view/DraggableView.tsx:150
+#: src/components/project/ViewContextMenuRenderer.tsx:191
+#: src/components/toolbar/MenuBar.tsx:92
 msgid "Edit"
 msgstr "Edit"
 
-#: src/dialogs/EditViewDialog.tsx:76
+#: src/dialogs/edit-views/EditViewDialog.tsx:171
 msgid "Edit View"
 msgstr "Edit View"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:73
-#: src/dialogs/SettingsDialog.tsx:183
+#: src/dialogs/SettingsDialog.tsx:205
 msgid "Enter backend WebSocket server address"
 msgstr "Enter backend WebSocket server address"
 
@@ -215,15 +257,23 @@ msgstr "Enter directory name"
 msgid "Enter file name"
 msgstr "Enter file name"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:51
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:240
+msgid "Enum Options"
+msgstr "Enum Options"
+
+#: src/components/view/ContainerViewComponent.tsx:112
+msgid "Environment"
+msgstr "Environment"
+
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:48
 msgid "Environment ID"
 msgstr "Environment ID"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:72
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:68
 msgid "Environment Label"
 msgstr "Environment Label"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:61
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:57
 msgid "Environment Type"
 msgstr "Environment Type"
 
@@ -231,12 +281,17 @@ msgstr "Environment Type"
 #~ msgid "Environments"
 #~ msgstr "Environments"
 
-#: src/components/project/RightPanel.tsx:132
+#: src/components/project/RightPanel.tsx:121
 #: src/dialogs/SnapshotDetailDialog.tsx:104
 msgid "Environments:"
 msgstr "Environments:"
 
-#: src/components/toolbar/MenuBar.tsx:67
+#: src/dialogs/SettingsDialog.tsx:166
+#: src/dialogs/SettingsDialog.tsx:183
+msgid "Error"
+msgstr "Error"
+
+#: src/components/toolbar/MenuBar.tsx:83
 msgid "Exit"
 msgstr "Exit"
 
@@ -268,12 +323,12 @@ msgstr "Failed to load: {error}"
 msgid "Failed to reconnect"
 msgstr "Failed to reconnect"
 
-#: src/dialogs/SettingsDialog.tsx:72
+#: src/dialogs/SettingsDialog.tsx:76
 msgid "Failed to update project URL"
 msgstr "Failed to update project URL"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:54
-#: src/components/toolbar/MenuBar.tsx:31
+#: src/components/toolbar/MenuBar.tsx:47
 msgid "File"
 msgstr "File"
 
@@ -289,15 +344,15 @@ msgstr "File"
 msgid "Force reconnect to server"
 msgstr "Force reconnect to server"
 
-#: src/components/toolbar/MenuBar.tsx:135
+#: src/components/toolbar/MenuBar.tsx:151
 msgid "Fullscreen"
 msgstr "Fullscreen"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:106
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:92
 msgid "Grid Height"
 msgstr "Grid Height"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:88
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:79
 msgid "Grid Width"
 msgstr "Grid Width"
 
@@ -309,7 +364,7 @@ msgstr "Heading:"
 msgid "Height"
 msgstr "Height"
 
-#: src/components/toolbar/MenuBar.tsx:167
+#: src/components/toolbar/MenuBar.tsx:183
 msgid "Help"
 msgstr "Help"
 
@@ -321,7 +376,7 @@ msgstr "Hide Bottom Panel"
 msgid "Hide Right Panel"
 msgstr "Hide Right Panel"
 
-#: src/dialogs/AgentDetailsDialog.tsx:146
+#: src/dialogs/AgentDetailsDialog.tsx:134
 msgid "Icon:"
 msgstr "Icon:"
 
@@ -329,12 +384,12 @@ msgstr "Icon:"
 msgid "ID"
 msgstr "ID"
 
-#: src/dialogs/AgentDetailsDialog.tsx:139
+#: src/dialogs/AgentDetailsDialog.tsx:127
 #: src/dialogs/SnapshotDetailDialog.tsx:83
 msgid "ID:"
 msgstr "ID:"
 
-#: src/components/toolbar/MenuBar.tsx:178
+#: src/components/toolbar/MenuBar.tsx:194
 msgid "Keyboard Shortcuts"
 msgstr "Keyboard Shortcuts"
 
@@ -343,7 +398,7 @@ msgstr "Keyboard Shortcuts"
 #~ msgid "Label"
 #~ msgstr "Label"
 
-#: src/dialogs/SettingsDialog.tsx:125
+#: src/dialogs/SettingsDialog.tsx:129
 msgid "Language"
 msgstr "Language"
 
@@ -355,7 +410,7 @@ msgstr "Left"
 msgid "License:"
 msgstr "License:"
 
-#: src/dialogs/SettingsDialog.tsx:118
+#: src/dialogs/SettingsDialog.tsx:122
 msgid "Light"
 msgstr "Light"
 
@@ -363,11 +418,11 @@ msgstr "Light"
 msgid "Loading..."
 msgstr "Loading..."
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:99
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:55
 msgid "Maximum Value"
 msgstr "Maximum Value"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:83
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:47
 msgid "Minimum Value"
 msgstr "Minimum Value"
 
@@ -380,7 +435,7 @@ msgid "Name"
 msgstr "Name"
 
 #: ../tensnap-web-utils/src/file-system/ActionButtons.tsx:42
-#: src/components/toolbar/MenuBar.tsx:42
+#: src/components/toolbar/MenuBar.tsx:58
 msgid "New"
 msgstr "New"
 
@@ -392,11 +447,19 @@ msgstr "New File"
 msgid "New Tab"
 msgstr "New Tab"
 
+#: src/components/view/ContainerViewComponent.tsx:94
+msgid "New View"
+msgstr "New View"
+
 #: src/components/ui/Pagination.tsx:95
 msgid "Next page"
 msgstr "Next page"
 
-#: src/dialogs/SettingsDialog.tsx:63
+#: src/components/ui/EmptyState.tsx:209
+msgid "No {itemName} available"
+msgstr "No {itemName} available"
+
+#: src/dialogs/SettingsDialog.tsx:67
 msgid "No active project"
 msgstr "No active project"
 
@@ -408,23 +471,40 @@ msgstr "No agents found matching your search"
 msgid "No agents in this environment"
 msgstr "No agents in this environment"
 
-#: src/components/project/RightPanel.tsx:23
-msgid "No scenario data loaded."
-msgstr "No scenario data loaded."
+#: src/components/project/MainViewRenderer.tsx:29
+msgid "No main view available."
+msgstr "No main view available."
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:123
+#: src/components/ui/EmptyState.tsx:192
+msgid "No results found"
+msgstr "No results found"
+
+#: src/components/project/RightPanel.tsx:23
+#~ msgid "No scenario data loaded."
+#~ msgstr "No scenario data loaded."
+
+#: src/dialogs/edit-views/ChartViewEditor.tsx:143
 msgid "No series available"
 msgstr "No series available"
 
+#: src/components/project/RightPanel.tsx:95
+msgid "No snapshots yet."
+msgstr "No snapshots yet."
+
 #: src/components/project/RightPanel.tsx:107
-msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
-msgstr "No snapshots yet. Click \"Take Snapshot\" to create one."
+#~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
+#~ msgstr "No snapshots yet. Click \"Take Snapshot\" to create one."
 
 #: src/dialogs/AgentDetailsDialog.tsx:92
 msgid "Not positioned"
 msgstr "Not positioned"
 
-#: src/components/toolbar/MenuBar.tsx:48
+#: src/dialogs/SettingsDialog.tsx:160
+#: src/dialogs/SettingsDialog.tsx:177
+msgid "Off"
+msgstr "Off"
+
+#: src/components/toolbar/MenuBar.tsx:64
 #: src/components/toolbar/ToolGroups.tsx:59
 msgid "Open File"
 msgstr "Open File"
@@ -433,27 +513,40 @@ msgstr "Open File"
 #~ msgid "Open Folder"
 #~ msgstr "Open Folder"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:157
+msgid "Options"
+msgstr "Options"
+
+#: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:284
+#: src/components/ui/EmptyState.tsx:163
+msgid "Or click to browse"
+msgstr "Or click to browse"
+
 #: src/dialogs/CreateNewProjectDialog.tsx:84
 msgid "Or select a built-in model that runs in the browser:"
 msgstr "Or select a built-in model that runs in the browser:"
 
 #: ../tensnap-web-utils/src/file-system/EmptyState.tsx:21
-msgid "Or use the \"Upload Files\" button above"
-msgstr "Or use the \"Upload Files\" button above"
+#~ msgid "Or use the \"Upload Files\" button above"
+#~ msgstr "Or use the \"Upload Files\" button above"
 
 #: src/components/ui/Pagination.tsx:83
 msgid "Page {pageNum}"
 msgstr "Page {pageNum}"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:47
+#: src/components/view/ContainerViewComponent.tsx:106
+msgid "Parameter"
+msgstr "Parameter"
+
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:303
 msgid "Parameter ID"
 msgstr "Parameter ID"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:68
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:315
 msgid "Parameter Label"
 msgstr "Parameter Label"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:57
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:29
 msgid "Parameter Type"
 msgstr "Parameter Type"
 
@@ -461,13 +554,17 @@ msgstr "Parameter Type"
 msgid "Parameters"
 msgstr "Parameters"
 
-#: src/components/project/RightPanel.tsx:140
+#: src/components/project/RightPanel.tsx:129
 msgid "Parameters:"
 msgstr "Parameters:"
 
-#: src/components/toolbar/MenuBar.tsx:97
+#: src/components/toolbar/MenuBar.tsx:113
 msgid "Paste"
 msgstr "Paste"
+
+#: src/components/project/MainViewRenderer.tsx:30
+msgid "Please create or open a project to get started."
+msgstr "Please create or open a project to get started."
 
 #: src/dialogs/AgentDetailsDialog.tsx:72
 #: src/dialogs/AgentDetailsDialog.tsx:89
@@ -478,11 +575,11 @@ msgstr "Position:"
 msgid "Previous page"
 msgstr "Previous page"
 
-#: src/dialogs/SettingsDialog.tsx:173
+#: src/dialogs/SettingsDialog.tsx:195
 msgid "Project Settings"
 msgstr "Project Settings"
 
-#: src/dialogs/SettingsDialog.tsx:69
+#: src/dialogs/SettingsDialog.tsx:73
 msgid "Project URL updated successfully"
 msgstr "Project URL updated successfully"
 
@@ -494,7 +591,7 @@ msgstr "Reconnect"
 msgid "Reconnected successfully"
 msgstr "Reconnected successfully"
 
-#: src/components/toolbar/MenuBar.tsx:87
+#: src/components/toolbar/MenuBar.tsx:103
 #: src/components/toolbar/ToolGroups.tsx:85
 msgid "Redo"
 msgstr "Redo"
@@ -508,20 +605,20 @@ msgid "Repository:"
 msgstr "Repository:"
 
 #: src/components/toolbar/ToolGroups.tsx:123
-#: src/dialogs/EditViewDialog.tsx:85
-#: src/dialogs/SettingsDialog.tsx:196
+#: src/dialogs/edit-views/EditViewDialog.tsx:180
+#: src/dialogs/SettingsDialog.tsx:218
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/scenario/GraphEnvironmentView.tsx:114
+#: src/components/scenario/GraphEnvironmentView.tsx:124
 msgid "Reset View"
 msgstr "Reset View"
 
-#: src/components/toolbar/MenuBar.tsx:124
+#: src/components/toolbar/MenuBar.tsx:140
 msgid "Reset Zoom"
 msgstr "Reset Zoom"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:151
+#: src/dialogs/SnapshotDetailDialog.tsx:172
 msgid "Restore Snapshot"
 msgstr "Restore Snapshot"
 
@@ -529,29 +626,33 @@ msgstr "Restore Snapshot"
 msgid "Retry"
 msgstr "Retry"
 
-#: src/components/toolbar/MenuBar.tsx:55
+#: src/components/toolbar/MenuBar.tsx:71
 #: src/components/toolbar/ToolGroups.tsx:64
-#: src/dialogs/EditViewDialog.tsx:88
+#: src/dialogs/edit-views/EditViewDialog.tsx:183
 msgid "Save"
 msgstr "Save"
 
-#: src/components/toolbar/MenuBar.tsx:62
+#: src/components/project/ViewContextMenuRenderer.tsx:163
+msgid "Save As CSV"
+msgstr "Save As CSV"
+
+#: src/components/toolbar/MenuBar.tsx:78
 msgid "Save As..."
 msgstr "Save As..."
 
-#: src/dialogs/SettingsDialog.tsx:146
+#: src/dialogs/SettingsDialog.tsx:142
 msgid "Save Format"
 msgstr "Save Format"
 
 #: src/components/project/RightPanel.tsx:20
-msgid "Scenario Properties"
-msgstr "Scenario Properties"
+#~ msgid "Scenario Properties"
+#~ msgstr "Scenario Properties"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:137
+#: src/components/scenario/UniformEnvironmentView.tsx:134
 msgid "Search agents by ID, color, or icon..."
 msgstr "Search agents by ID, color, or icon..."
 
-#: src/components/toolbar/MenuBar.tsx:101
+#: src/components/toolbar/MenuBar.tsx:117
 msgid "Select All"
 msgstr "Select All"
 
@@ -559,9 +660,13 @@ msgstr "Select All"
 msgid "Select export format"
 msgstr "Select export format"
 
-#: src/components/toolbar/MenuBar.tsx:156
-#: src/components/toolbar/ToolGroups.tsx:217
-#: src/dialogs/SettingsDialog.tsx:98
+#: src/dialogs/SettingsDialog.tsx:173
+msgid "Server Message Validation"
+msgstr "Server Message Validation"
+
+#: src/components/toolbar/MenuBar.tsx:172
+#: src/components/toolbar/ToolGroups.tsx:216
+#: src/dialogs/SettingsDialog.tsx:102
 msgid "Settings"
 msgstr "Settings"
 
@@ -569,7 +674,7 @@ msgstr "Settings"
 msgid "Show Bottom Panel"
 msgstr "Show Bottom Panel"
 
-#: src/components/toolbar/MenuBar.tsx:128
+#: src/components/toolbar/MenuBar.tsx:144
 msgid "Show Grid"
 msgstr "Show Grid"
 
@@ -577,11 +682,11 @@ msgstr "Show Grid"
 msgid "Show Right Panel"
 msgstr "Show Right Panel"
 
-#: src/components/toolbar/MenuBar.tsx:131
+#: src/components/toolbar/MenuBar.tsx:147
 msgid "Show Toolbar"
 msgstr "Show Toolbar"
 
-#: src/dialogs/AgentDetailsDialog.tsx:163
+#: src/dialogs/AgentDetailsDialog.tsx:151
 msgid "Size:"
 msgstr "Size:"
 
@@ -589,7 +694,7 @@ msgstr "Size:"
 msgid "Snapshot Details"
 msgstr "Snapshot Details"
 
-#: src/components/project/RightPanel.tsx:81
+#: src/components/project/RightPanel.tsx:67
 msgid "Snapshots"
 msgstr "Snapshots"
 
@@ -602,7 +707,7 @@ msgid "Start/Stop"
 msgstr "Start/Stop"
 
 #: src/components/toolbar/ToolGroups.tsx:118
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:115
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:63
 msgid "Step"
 msgstr "Step"
 
@@ -610,16 +715,16 @@ msgstr "Step"
 msgid "Stop"
 msgstr "Stop"
 
-#: src/components/toolbar/ToolGroups.tsx:168
+#: src/components/toolbar/ToolGroups.tsx:167
 msgid "Synchronize State"
 msgstr "Synchronize State"
 
-#: src/dialogs/SettingsDialog.tsx:104
+#: src/dialogs/SettingsDialog.tsx:108
 msgid "System Settings"
 msgstr "System Settings"
 
-#: src/components/project/RightPanel.tsx:90
-#: src/components/toolbar/ToolGroups.tsx:163
+#: src/components/project/RightPanel.tsx:76
+#: src/components/toolbar/ToolGroups.tsx:162
 msgid "Take Snapshot"
 msgstr "Take Snapshot"
 
@@ -627,15 +732,16 @@ msgstr "Take Snapshot"
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 
-#: src/dialogs/SettingsDialog.tsx:107
+#: src/dialogs/SettingsDialog.tsx:111
 msgid "Theme"
 msgstr "Theme"
 
-#: ../tensnap-web-utils/src/file-system/EmptyState.tsx:17
+#: src/components/ui/EmptyState.tsx:181
+#: src/components/ui/EmptyState.tsx:220
 msgid "This directory is empty"
 msgstr "This directory is empty"
 
-#: src/components/project/RightPanel.tsx:126
+#: src/components/project/RightPanel.tsx:115
 #: src/components/project/StatusBar.tsx:68
 #: src/dialogs/SnapshotDetailDialog.tsx:97
 msgid "Time Step:"
@@ -645,22 +751,22 @@ msgstr "Time Step:"
 msgid "Timestamp:"
 msgstr "Timestamp:"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:27
+#: src/dialogs/edit-views/ChartViewEditor.tsx:220
 #: src/dialogs/edit-views/ContainerViewEditor.tsx:16
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:39
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:35
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:36
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:293
 msgid "Title"
 msgstr "Title"
 
-#: src/components/toolbar/ToolGroups.tsx:198
+#: src/components/toolbar/ToolGroups.tsx:197
 msgid "Toggle theme"
 msgstr "Toggle theme"
 
-#: src/components/toolbar/ToolGroups.tsx:205
+#: src/components/toolbar/ToolGroups.tsx:204
 msgid "Toggle Theme"
 msgstr "Toggle Theme"
 
-#: src/components/toolbar/MenuBar.tsx:144
+#: src/components/toolbar/MenuBar.tsx:160
 msgid "Tools"
 msgstr "Tools"
 
@@ -669,24 +775,28 @@ msgid "Top"
 msgstr "Top"
 
 #: src/dialogs/AgentDetailsDialog.tsx:108
-msgid "Trajectory:"
-msgstr "Trajectory:"
+#~ msgid "Trajectory:"
+#~ msgstr "Trajectory:"
+
+#: src/components/ui/EmptyState.tsx:193
+msgid "Try adjusting your search criteria"
+msgstr "Try adjusting your search criteria"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:49
 #: src/dialogs/edit-views/BaseViewEditor.tsx:35
 msgid "Type"
 msgstr "Type"
 
-#: src/components/toolbar/MenuBar.tsx:84
+#: src/components/toolbar/MenuBar.tsx:100
 #: src/components/toolbar/ToolGroups.tsx:79
 msgid "Undo"
 msgstr "Undo"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:129
+#: src/components/scenario/UniformEnvironmentView.tsx:126
 msgid "Uniform Environment"
 msgstr "Uniform Environment"
 
-#: src/components/toolbar/ToolGroups.tsx:176
+#: src/components/toolbar/ToolGroups.tsx:175
 msgid "Update View Layout"
 msgstr "Update View Layout"
 
@@ -698,7 +808,7 @@ msgstr "Upload Files"
 msgid "Version"
 msgstr "Version"
 
-#: src/components/toolbar/MenuBar.tsx:110
+#: src/components/toolbar/MenuBar.tsx:126
 msgid "View"
 msgstr "View"
 
@@ -706,7 +816,7 @@ msgstr "View"
 msgid "View and manage snapshot"
 msgstr "View and manage snapshot"
 
-#: src/dialogs/AgentDetailsDialog.tsx:134
+#: src/dialogs/AgentDetailsDialog.tsx:122
 msgid "View detailed information about the selected agent"
 msgstr "View detailed information about the selected agent"
 
@@ -714,16 +824,21 @@ msgstr "View detailed information about the selected agent"
 msgid "View Docs"
 msgstr "View Docs"
 
+#: src/dialogs/SettingsDialog.tsx:163
+#: src/dialogs/SettingsDialog.tsx:180
+msgid "Warning"
+msgstr "Warning"
+
 #: src/dialogs/edit-views/BaseViewEditor.tsx:65
 msgid "Width"
 msgstr "Width"
 
-#: src/components/toolbar/MenuBar.tsx:118
-#: src/components/toolbar/ToolGroups.tsx:155
+#: src/components/toolbar/MenuBar.tsx:134
+#: src/components/toolbar/ToolGroups.tsx:154
 msgid "Zoom In"
 msgstr "Zoom In"
 
-#: src/components/toolbar/MenuBar.tsx:121
-#: src/components/toolbar/ToolGroups.tsx:159
+#: src/components/toolbar/MenuBar.tsx:137
+#: src/components/toolbar/ToolGroups.tsx:158
 msgid "Zoom Out"
 msgstr "Zoom Out"
