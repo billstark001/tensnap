@@ -73,7 +73,7 @@ export function ChartView(props: ChartViewProps) {
     result: Array<NativeDataPoint>;
   } | null>(null);
 
-  // 优化的数据处理函数
+  // 优化的数据处理函数 - 使用ref避免闭包泄漏
   const processData = useCallback((data: Array<NativeDataPoint>, max: number | undefined): Array<NativeDataPoint> => {
     // 检查缓存是否有效
     const cached = lastProcessedDataRef.current;
@@ -97,21 +97,28 @@ export function ChartView(props: ChartViewProps) {
     };
 
     return result;
-  }, []);
+  }, []); // 移除不必要的依赖，使用ref保证数据新鲜度
 
   // 使用throttle创建节流更新函数
   const throttledUpdateRef = useRef<ReturnType<typeof throttle> | null>(null);
+  
+  // 使用ref存储最新的maxDataPoints避免闭包问题
+  const maxDataPointsRef = useRef(maxDataPoints);
+  useEffect(() => {
+    maxDataPointsRef.current = maxDataPoints;
+  }, [maxDataPoints]);
 
-  // 创建节流函数（仅在依赖变化时重建）
+  // 创建节流函数（仅在updateInterval变化时重建）
   useEffect(() => {
     // 清理旧的throttle函数
     if (throttledUpdateRef.current) {
       throttledUpdateRef.current.cancel();
+      throttledUpdateRef.current = null;
     }
 
-    // 创建新的throttle函数
+    // 创建新的throttle函数 - 移除processData依赖避免频繁重建
     throttledUpdateRef.current = throttle((data: Array<NativeDataPoint>) => {
-      const processed = processData(data, maxDataPoints);
+      const processed = processData(data, maxDataPointsRef.current);
       setDisplayData(processed);
       setDataVersion((v) => (v + 1) | 0);
     }, updateInterval);
@@ -120,9 +127,10 @@ export function ChartView(props: ChartViewProps) {
       // 组件卸载时清理
       if (throttledUpdateRef.current) {
         throttledUpdateRef.current.cancel();
+        throttledUpdateRef.current = null;
       }
     };
-  }, [updateInterval, maxDataPoints, processData, setDisplayData, setDataVersion]);
+  }, [updateInterval, processData]); // 移除不必要的setState依赖
 
   // 数据更新处理
   useEffect(() => {

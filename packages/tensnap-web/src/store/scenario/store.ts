@@ -52,6 +52,13 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
     const { updateLayout = true, preserveExisting = false } = options || {};
     const state = get();
 
+    if (!preserveExisting && data.removedEnvironmentIds) {
+      const { removeEnvironment } = state;
+      for (const envId of data.removedEnvironmentIds) {
+        removeEnvironment(envId);
+      }
+    }
+
     const environments = mergeEnvironments(state.environments, data, preserveExisting);
     const parameters = mergeParameters(state.parameters, data, preserveExisting);
     const charts = mergeCharts(state.charts, data, preserveExisting);
@@ -79,6 +86,30 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
         )
       });
     }
+  },
+
+  clearAll: () => {
+    const state = get();
+
+    state.environments.forEach(env => {
+      if (env.type === 'grid') {
+        (env as any).agentTraces = {};
+      }
+      env.agents = {};
+    });
+    state.environments.clear();
+    state.parameters.clear();
+    state.charts.clearAll();
+
+    set({
+      snapshots: [],
+      logs: [],
+      lastLogs: undefined,
+    });
+
+    state.viewUpdateTrigger.reset();
+    state.parameterUpdateTrigger.reset();
+    state.environmentUpdateTrigger.reset();
   },
 }));
 

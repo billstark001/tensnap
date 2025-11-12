@@ -522,13 +522,35 @@ export class GraphVisualizer {
   }
 
   public destroy(): void {
+    // Stop and clean up simulation
     if (this.simulation) {
       this.simulation.stop();
       this.simulation.on('tick', null);
+      // Remove all forces to prevent memory leaks
+      this.simulation.force('link', null);
+      this.simulation.force('charge', null);
+      this.simulation.force('center', null);
+      this.simulation.force('collision', null);
+      this.simulation.force('componentConstraint', null);
+      this.simulation = null;
     }
 
-    this.svg.selectAll('*').on('.drag', null);
-    this.svg.selectAll('*').on('dblclick', null);
+    // Remove all event handlers from nodes
+    this.container.selectAll('.nodes g')
+      .on('.drag', null)
+      .on('dblclick', null);
+
+    // Remove zoom behavior
     this.svg.on('.zoom', null);
+
+    // Clear all data references
+    this.nodesData = [];
+    this.edgesData = [];
+    
+    // Clear callback references
+    this.onNodeDoubleClick = null;
+
+    // Remove all SVG content to break circular references
+    this.svg.selectAll('*').remove();
   }
 }

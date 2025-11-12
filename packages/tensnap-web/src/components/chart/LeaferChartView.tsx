@@ -81,6 +81,7 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
     if (!isReady || !chartRef.current || !containerRef.current) return;
 
     let isCleanedUp = false;
+    let resizeObserver: ResizeObserver | null = null;
     const chartInstance = chartRef.current;
     const containerElement = containerRef.current;
 
@@ -95,13 +96,15 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
       }
     };
 
-    const resizeObserver = new ResizeObserver(handleResize);
-
+    resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(containerElement);
 
     return () => {
       isCleanedUp = true;
-      resizeObserver.disconnect();
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
     };
   }, [isReady]);
 

@@ -3,6 +3,9 @@ import { EnvironmentsSlice, ScenarioStore } from '../types';
 import { Agent, AgentTrajectoryPoint, GridAgent } from '@/types/model';
 import { InstantiatedGridEnvironment } from '../environment';
 
+// 为无限长度轨迹设置安全上限，防止内存无限增长
+const MAX_TRAJECTORY_POINTS = 32768;
+
 export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, ScenarioStore> = (_, get) => ({
   environments: new Map(),
 
@@ -20,6 +23,24 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
     env.id = newId;
     environments.delete(id);
     environments.set(newId, env);
+    set();
+  },
+
+  removeEnvironment: (id) => {
+    const { environments, log, environmentUpdateTrigger: { set } } = get();
+    const env = environments.get(id);
+    if (!env) {
+      log(`Environment with id ${id} not found.`, 'warning');
+      return;
+    }
+    
+    // 显式清理环境中的所有引用以防止内存泄漏
+    if (env.type === 'grid') {
+      (env as InstantiatedGridEnvironment).agentTraces = {};
+    }
+    env.agents = {};
+    
+    environments.delete(id);
     set();
   },
   
@@ -116,10 +137,13 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
                 traceArr.splice(0, traceArr.length - trajectory_length - 1);
               }
             } else {
-              // infinite length, optimize for identical points
+              // infinite length with safety limit to prevent unbounded memory growth
               const lastElement = traceArr[traceArr.length - 1];
-              if (!lastElement || lastElement.x !== x && lastElement.y !== y) {
+              if (!lastElement || lastElement.x !== x || lastElement.y !== y) {
                 traceArr.push(currentTrajectoryPoint);
+                if (traceArr.length > MAX_TRAJECTORY_POINTS) {
+                  traceArr.splice(0, traceArr.length - MAX_TRAJECTORY_POINTS);
+                }
               }
             }
           }

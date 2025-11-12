@@ -140,6 +140,11 @@ export const createNumpyBackground = (numpyData: NumpyArrayData): HTMLImageEleme
   img.style.setProperty('image-rendering', '-moz-crisp-edges', '');
   img.style.setProperty('image-rendering', 'crisp-edges', '');
   img.src = canvas.toDataURL();
+
+  // Clean up temporary canvas to prevent memory leak
+  canvas.width = 0;
+  canvas.height = 0;
+
   return img;
 };
 
@@ -162,4 +167,9 @@ export const renderNumpyBackground = (
 
   // Draw scaled image to main canvas
   ctx.drawImage(tempCanvas, 0, 0, canvasWidth, canvasHeight);
+
+  // Clean up temporary canvas to prevent memory leak
+  ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+  tempCanvas.width = 0;
+  tempCanvas.height = 0;
 };

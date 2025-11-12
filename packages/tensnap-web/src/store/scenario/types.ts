@@ -38,6 +38,7 @@ export interface TimeSlice {
 export interface EnvironmentsSlice {
   environments: Map<EnvironmentId, InstantiatedEnvironment>;
   renameEnvironment: (id: EnvironmentId, newId: EnvironmentId) => void;
+  removeEnvironment: (id: EnvironmentId) => void;
   updateEnvironment: (id: EnvironmentId, props: Partial<PureEnvironment>, agents?: Agent[]) => void;
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data?: Partial<Agent>, operation?: AgentUpdateOperation }[]) => void;
 }
@@ -68,7 +69,7 @@ export interface ChartsSlice {
 export interface SnapshotsSlice {
   snapshots: Snapshot[];
   maxSnapshots: number;
-  addSnapshot: (snapshot: SnapshotMetadata) => void;
+  addSnapshot: (snapshot?: SnapshotMetadata) => void;
   removeSnapshot: (id: string) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
@@ -95,6 +96,7 @@ export interface CoreSlice {
   parameterUpdateTrigger: UpdateTriggerState;
   dump: () => SimulationState;
   setData: (data: SetDataPayload, options?: SetDataOptions) => void;
+  clearAll: () => void;
 }
 
 export type ScenarioStore = ConnectionSlice &

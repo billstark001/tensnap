@@ -63,6 +63,10 @@ export class GridVisualizer {
   private coordOffset: GridEnvironmentCoordOffset = 'int';
   private gridStrokeColor: string = '#80808050';
   private currentBlobUrl: string | null = null;
+  private blobCleanupTimeoutRef: ReturnType<typeof setTimeout> | null = null;
+  
+  // Maximum trajectory points per agent to prevent memory bloat
+  private static readonly MAX_TRAJECTORY_POINTS = 1000;
 
   // Event callbacks
   private onAgentClick?: (agent: GridAgent, event: any) => void;
@@ -112,15 +116,26 @@ export class GridVisualizer {
 
     // Cache the result with LRU-like eviction
     if (GridVisualizer.CSS_COLOR_CACHE.size >= GridVisualizer.CACHE_MAX_SIZE) {
-      // Remove oldest entry (first in map)
-      const firstKey = GridVisualizer.CSS_COLOR_CACHE.keys().next().value;
-      if (firstKey !== undefined) {
-        GridVisualizer.CSS_COLOR_CACHE.delete(firstKey);
+      // Remove multiple oldest entries to reduce eviction frequency
+      const entriesToRemove = Math.floor(GridVisualizer.CACHE_MAX_SIZE * 0.2);
+      const iterator = GridVisualizer.CSS_COLOR_CACHE.keys();
+      for (let i = 0; i < entriesToRemove; i++) {
+        const key = iterator.next().value;
+        if (key !== undefined) {
+          GridVisualizer.CSS_COLOR_CACHE.delete(key);
+        }
       }
     }
     GridVisualizer.CSS_COLOR_CACHE.set(value, isValid);
 
     return isValid;
+  }
+
+  /**
+   * Clear the static CSS color cache - useful for memory management in long-running apps
+   */
+  public static clearColorCache(): void {
+    GridVisualizer.CSS_COLOR_CACHE.clear();
   }
 
   private calculateShapes(env: { width: number; height: number }, width: number, height: number): ShapeCache {
@@ -471,6 +486,12 @@ export class GridVisualizer {
     const bgLayer = this.layers.bg;
     if (!bgLayer) return;
 
+    // Clear any pending blob cleanup timeout
+    if (this.blobCleanupTimeoutRef) {
+      clearTimeout(this.blobCleanupTimeoutRef);
+      this.blobCleanupTimeoutRef = null;
+    }
+
     // Save old blob URL for later cleanup
     const oldBlobUrl = this.currentBlobUrl;
 
@@ -488,10 +509,11 @@ export class GridVisualizer {
       });
       
       // Revoke old blob URL after new image is loaded and rendered
-      // Use longer delay to ensure image is fully loaded and painted
+      // Use timeout to ensure image is fully loaded and painted
       if (oldBlobUrl && oldBlobUrl !== newUrl) {
-        setTimeout(() => {
+        this.blobCleanupTimeoutRef = setTimeout(() => {
           URL.revokeObjectURL(oldBlobUrl);
+          this.blobCleanupTimeoutRef = null;
         }, 200);
       }
       
@@ -503,8 +525,9 @@ export class GridVisualizer {
       
       // Revoke old blob URL when clearing background
       if (oldBlobUrl) {
-        setTimeout(() => {
+        this.blobCleanupTimeoutRef = setTimeout(() => {
           URL.revokeObjectURL(oldBlobUrl);
+          this.blobCleanupTimeoutRef = null;
         }, 200);
       }
     }
@@ -582,8 +605,17 @@ export class GridVisualizer {
   public updateTrajectories(trajectories: Record<string, AgentTrajectoryPoint[]>): void {
     if (!this.layers.trajectories) return;
 
-    // Store trajectory data for later rebuilding
-    this.trajectoryData = trajectories;
+    // Store trajectory data for later rebuilding, but limit the number of points
+    this.trajectoryData = {};
+    Object.entries(trajectories).forEach(([agentId, points]) => {
+      if (points && points.length > 0) {
+        // Keep only the most recent MAX_TRAJECTORY_POINTS to prevent memory bloat
+        const trimmedPoints = points.length > GridVisualizer.MAX_TRAJECTORY_POINTS
+          ? points.slice(-GridVisualizer.MAX_TRAJECTORY_POINTS)
+          : points;
+        this.trajectoryData[agentId] = trimmedPoints;
+      }
+    });
 
     // Remove trajectories for agents no longer present
     const currentAgentIds = new Set(Object.keys(trajectories).map(String));
@@ -595,7 +627,7 @@ export class GridVisualizer {
     });
 
     // Update trajectories incrementally
-    Object.entries(trajectories).forEach(([agentId, points]) => {
+    Object.entries(this.trajectoryData).forEach(([agentId, points]) => {
       if (points && points.length > 0) {
         const agent = this.agentCache[agentId];
         this.updateAgentTrajectory(agentId, points, agent?.trajectory_color);
@@ -604,17 +636,55 @@ export class GridVisualizer {
   }
 
   public destroy(): void {
+    // Clear any pending blob cleanup timeout
+    if (this.blobCleanupTimeoutRef) {
+      clearTimeout(this.blobCleanupTimeoutRef);
+      this.blobCleanupTimeoutRef = null;
+    }
+
     // Clean up current blob URL immediately on destroy
     if (this.currentBlobUrl) {
       URL.revokeObjectURL(this.currentBlobUrl);
       this.currentBlobUrl = null;
     }
     
-    this.resizeObserver?.disconnect();
-    this.leafer?.destroy();
-    this.leafer = null;
-    this.layers = {};
+    // Disconnect resize observer
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+
+    // Remove all event handlers from agent shapes
+    this.agentShapes.forEach((cached) => {
+      cached.shape.off();
+      cached.group.remove();
+    });
     this.agentShapes.clear();
+
+    // Remove all trajectory groups
+    this.trajectoryCache.forEach((cached) => {
+      cached.group.remove();
+    });
     this.trajectoryCache.clear();
+
+    // Clear trajectory data
+    this.trajectoryData = {};
+
+    // Destroy leafer instance and clear layers
+    if (this.leafer) {
+      this.leafer.destroy();
+      this.leafer = null;
+    }
+    this.layers = {};
+
+    // Destroy canvas and clear container
+    this.container.innerHTML = '';
+
+    // Clear agent cache
+    this.agentCache = {};
+
+    // Clear event callbacks
+    this.onAgentClick = undefined;
+    this.onAgentContextMenu = undefined;
   }
 }

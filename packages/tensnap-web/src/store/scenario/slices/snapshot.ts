@@ -20,7 +20,13 @@ export const createSnapshotsSlice: CreateStoreFunction<SnapshotsSlice, ScenarioS
       }
     }
 
+    const dateNow = Date.now();
+    const dateNowStr = new Date(dateNow).toLocaleString();
+
     const snapshot: Snapshot = {
+      id: `snapshot-${dateNowStr}`,
+      timestamp: dateNow,
+      timeStep: currentTime,
       ...snapshotMetadata,
       environments: Array.from(environments.values()).map(serializeEnvironment),
       parameters: Array.from(parameters.values()).filter(p => p.type !== 'action'),

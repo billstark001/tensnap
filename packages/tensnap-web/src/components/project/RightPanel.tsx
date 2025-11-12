@@ -11,7 +11,6 @@ import { EmptyState } from '../ui/EmptyState';
 export const RightPanel = () => {
 
   const snapshots = useScenarioStore((store) => store.snapshots);
-  const currentTime = useScenarioStore((store) => store.currentTime) ?? 0;
   const addSnapshot = useScenarioStore((store) => store.addSnapshot);
   const clearSnapshots = useScenarioStore((store) => store.clearSnapshots);
   const removeSnapshot = useScenarioStore((store) => store.removeSnapshot);
@@ -21,11 +20,7 @@ export const RightPanel = () => {
   const toast = useToast();
 
   const handleTakeSnapshot = () => {
-    addSnapshot?.({
-      id: `snapshot-${Date.now()}`,
-      timestamp: Date.now(),
-      timeStep: currentTime,
-    });
+    addSnapshot?.();
   };
 
   const handleClearSnapshots = () => {

@@ -24,6 +24,7 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
   const [svgSize, setSvgSize] = useState({ width: 600, height: 600 });
   const lastEnvironmentIdRef = useRef<string | number | null>(null);
   const fitViewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   // Observe container size changes
   useEffect(() => {
@@ -36,12 +37,14 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
       }
     }, 16);
 
-    const resizeObserver = new ResizeObserver(throttledResize);
-
-    resizeObserver.observe(containerRef.current);
+    resizeObserverRef.current = new ResizeObserver(throttledResize);
+    resizeObserverRef.current.observe(containerRef.current);
 
     return () => {
-      resizeObserver.disconnect();
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
     };
   }, []);
 

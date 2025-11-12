@@ -128,7 +128,6 @@ export function SimulationControlTools() {
 }
 
 export function ViewTools() {
-  const currentTime = useScenarioStore((store) => store.currentTime) ?? 0;
   const addSnapshot = useScenarioStore((store) => store.addSnapshot);
   const dump = useScenarioStore((store) => store.dump);
   const updateMainViewLayout = useScenarioStore((store) => store.updateMainViewLayout);
@@ -137,11 +136,7 @@ export function ViewTools() {
   const { _ } = useLingui();
 
   const handleTakeSnapshot = () => {
-    addSnapshot?.({
-      id: `snapshot-${Date.now()}`,
-      timestamp: Date.now(),
-      timeStep: currentTime,
-    });
+    addSnapshot?.();
   };
 
   const { isAdjusting, setIsAdjusting } = useSettingsStore();

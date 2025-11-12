@@ -668,10 +668,31 @@ export class LeaferLineChart {
 
   // Clean up resources
   public destroy(): void {
+    // Remove all event handlers
+    if (this.app) {
+      this.app.off('pointer.move');
+      this.app.off('pointer.leave');
+    }
+
+    // Clear all data structures
+    this.data = [];
+    this.lineGroups.clear();
+    this.dataPointPositions.clear();
+
+    // Clear all layer references
+    this.chartGroup = null;
+    this.gridGroup = null;
+    this.axisGroup = null;
+    this.legendGroup = null;
+    this.tooltipGroup = null;
+
+    // Destroy Leafer app instance
     if (this.app) {
       this.app.destroy();
       this.app = null;
     }
-    this.lineGroups.clear();
+
+    // Clear container content
+    this.container.innerHTML = '';
   }
 }

@@ -56,7 +56,13 @@ const copySvgAsBitmap = async (svgElement: SVGSVGElement) => {
 
   URL.revokeObjectURL(url);
 
-  return await copyCanvas(canvas);
+  const result = await copyCanvas(canvas);
+
+  ctx?.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.width = 0;
+  canvas.height = 0;
+
+  return result;
 };
 
 

@@ -215,6 +215,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     projects[index].useWebSocketStore.getState().destroy();
+    projects[index].useScenarioStore.getState().clearAll();
+
     projects.splice(index, 1);
 
     const newActiveIndex = activeIndex === null || activeIndex < projects.length
@@ -239,7 +241,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     // 使用 WebSocket store 的 changeUrl 方法
     await project.useWebSocketStore.getState().changeUrl(newUrl, stateSyncRequest);
-    
+
     // 更新项目的 URL 属性
     project.url = newUrl;
   },
