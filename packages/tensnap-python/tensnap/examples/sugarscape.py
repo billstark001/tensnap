@@ -1,15 +1,11 @@
-from typing import List, Tuple, cast
+from typing import Tuple, cast
 
 from mesa import Agent, Model, DataCollector
 from mesa.space import MultiGrid
 
-# 移除 RandomActivation 导入，因为调度器已被弃用
 import numpy as np
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 from tensnap import bind_mesa_grid_agent, bind_datacollector, bind_mesa_grid_environment
-from tensnap.utils import img_to_npy_bytes
 
 
 @bind_mesa_grid_agent(color=True)
@@ -180,9 +176,9 @@ class Sugarscape(Model):
     @property
     def background(self):
         img = np.zeros((self.grid.height, self.grid.width, 3), dtype=np.uint8)
-        img[self.sugar == 0] = [139, 69, 19]  # Brown for no sugar
-        img[self.sugar == 1] = [222, 184, 135]  # Light brown for low sugar
-        img[self.sugar == 2] = [345, 222, 107]  # Light green for medium sugar
-        img[self.sugar == 3] = [34, 139, 34]  # Green for high sugar
+        img[self.sugar == 0] = [109, 59, 19]  # Brown for no sugar
+        img[self.sugar == 1] = [92, 104, 135]  # Light brown for low sugar
+        img[self.sugar == 2] = [85, 160, 107]  # Light green for medium sugar
+        img[self.sugar == 3] = [34, 200, 54]  # Green for high sugar
         img[self.sugar >= 4] = [0, 255, 0]  # Bright green for max sugar
         return img

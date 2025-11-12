@@ -1,7 +1,4 @@
-export interface NumpyData {
-  data: Float32Array | Uint8Array | Int32Array | Float64Array | Int16Array | BigInt64Array;
-  shape: number[];
-}
+import { NumpyArrayData } from "./npy-parser";
 
 const validateShape = (shape: number[], expectedChannels: number[] = [1, 3, 4]) => {
   if (shape.length !== 3) {
@@ -13,26 +10,101 @@ const validateShape = (shape: number[], expectedChannels: number[] = [1, 3, 4]) 
   }
 };
 
-const convertToRGBA = (data: NumpyData['data'], h: number, w: number, c: number): Uint8ClampedArray => {
+// int16 range: -32768 to 32767 -> normalize to 0-255
+const normalizeInt16 = (val: number) => Math.max(0, Math.min(255, Math.floor((val + 32768) / 257.003921568627)));
+// int32 range: -2147483648 to 2147483647 -> normalize to 0-255
+const normalizeInt32 = (val: number) => Math.max(0, Math.min(255, Math.floor((val + 2147483648) / 16843009.00392157)));
+// For floating point types (float32, float64), assume values are in [0, 1] range
+// Values outside this range will be clamped
+const normalizeFloat = (val: number) => Math.max(0, Math.min(255, Math.floor(val * 255)));
+/**
+ * Convert numpy array data to RGBA format based on dtype
+ * - uint8: direct copy (0-255)
+ * - int16/int32: normalize from dtype range to 0-255
+ * - float32/float64: assume normalized [0, 1] range and scale to 0-255
+ */
+const convertToRGBA = (data: NumpyArrayData['data'], h: number, w: number, c: number): Uint8ClampedArray => {
   const pixels = new Uint8ClampedArray(h * w * 4);
+  const totalPixels = h * w;
 
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const dataIndex = y * w * c + x * c;
-      const pixelIndex = (y * w + x) * 4;
-
-      const channels = Array.from({ length: c }, (_, i) =>
-        Math.floor((data[dataIndex + i] as number) * 255)
-      );
-
-      // Map channels to RGBA
-      pixels[pixelIndex] = channels[0]; // R
-      pixels[pixelIndex + 1] = c === 1 ? channels[0] : channels[1]; // G
-      pixels[pixelIndex + 2] = c === 1 ? channels[0] : channels[2]; // B
-      pixels[pixelIndex + 3] = c === 4 ? channels[3] : 255; // A
-    }
+  // Handle BigInt64Array separately
+  if (data instanceof BigInt64Array) {
+    throw new Error('int64 is not supported for image rendering');
   }
 
+  // Fast path for uint8 (most common case)
+  if (data instanceof Uint8Array) {
+    for (let i = 0; i < totalPixels; i++) {
+      const dataIndex = i * c;
+      const pixelIndex = i * 4;
+
+      const r = data[dataIndex];
+      const g = c === 1 ? r : data[dataIndex + 1];
+      const b = c === 1 ? r : data[dataIndex + 2];
+      const a = c === 4 ? data[dataIndex + 3] : 255;
+
+      pixels[pixelIndex] = r;
+      pixels[pixelIndex + 1] = g;
+      pixels[pixelIndex + 2] = b;
+      pixels[pixelIndex + 3] = a;
+    }
+    return pixels;
+  }
+
+  // For integer types (int16, int32), normalize from their range to 0-255
+  if (data instanceof Int16Array) {
+
+    for (let i = 0; i < totalPixels; i++) {
+      const dataIndex = i * c;
+      const pixelIndex = i * 4;
+
+      const r = normalizeInt16(data[dataIndex]);
+      const g = c === 1 ? r : normalizeInt16(data[dataIndex + 1]);
+      const b = c === 1 ? r : normalizeInt16(data[dataIndex + 2]);
+      const a = c === 4 ? normalizeInt16(data[dataIndex + 3]) : 255;
+
+      pixels[pixelIndex] = r;
+      pixels[pixelIndex + 1] = g;
+      pixels[pixelIndex + 2] = b;
+      pixels[pixelIndex + 3] = a;
+    }
+    return pixels;
+  }
+
+  if (data instanceof Int32Array) {
+
+    for (let i = 0; i < totalPixels; i++) {
+      const dataIndex = i * c;
+      const pixelIndex = i * 4;
+
+      const r = normalizeInt32(data[dataIndex]);
+      const g = c === 1 ? r : normalizeInt32(data[dataIndex + 1]);
+      const b = c === 1 ? r : normalizeInt32(data[dataIndex + 2]);
+      const a = c === 4 ? normalizeInt32(data[dataIndex + 3]) : 255;
+
+      pixels[pixelIndex] = r;
+      pixels[pixelIndex + 1] = g;
+      pixels[pixelIndex + 2] = b;
+      pixels[pixelIndex + 3] = a;
+    }
+    return pixels;
+  }
+
+
+  for (let i = 0; i < totalPixels; i++) {
+    const dataIndex = i * c;
+    const pixelIndex = i * 4;
+
+    const r = normalizeFloat(data[dataIndex]);
+    const g = c === 1 ? r : normalizeFloat(data[dataIndex + 1]);
+    const b = c === 1 ? r : normalizeFloat(data[dataIndex + 2]);
+    const a = c === 4 ? normalizeFloat(data[dataIndex + 3]) : 255;
+
+    pixels[pixelIndex] = r;
+    pixels[pixelIndex + 1] = g;
+    pixels[pixelIndex + 2] = b;
+    pixels[pixelIndex + 3] = a;
+  }
   return pixels;
 };
 
@@ -54,7 +126,7 @@ const createCanvasWithImageData = (pixels: Uint8ClampedArray, w: number, h: numb
   return canvas;
 };
 
-export const createNumpyBackground = (numpyData: NumpyData): HTMLImageElement | null => {
+export const createNumpyBackground = (numpyData: NumpyArrayData): HTMLImageElement | null => {
   const { data, shape } = numpyData;
   validateShape(shape);
 
@@ -73,15 +145,11 @@ export const createNumpyBackground = (numpyData: NumpyData): HTMLImageElement | 
 
 export const renderNumpyBackground = (
   ctx: CanvasRenderingContext2D,
-  numpyData: NumpyData,
+  numpyData: NumpyArrayData,
   canvasWidth: number,
   canvasHeight: number
 ): void => {
   const { data, shape } = numpyData;
-
-  if (data instanceof BigInt64Array) {
-    throw new Error('int64 is not implemented');
-  }
 
   validateShape(shape);
 

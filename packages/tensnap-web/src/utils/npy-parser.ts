@@ -1,4 +1,15 @@
 /**
+ * Type definitions for NumPy array data with specific dtype mappings
+ */
+export type NumpyArrayData = 
+  | { data: Uint8Array; shape: number[]; dtype: '|u1' | '<u1' | '>u1'; type: 'uint8' }
+  | { data: Int16Array; shape: number[]; dtype: '<i2' | '>i2'; type: 'int16' }
+  | { data: Int32Array; shape: number[]; dtype: '<i4' | '>i4'; type: 'int32' }
+  | { data: BigInt64Array; shape: number[]; dtype: '<i8' | '>i8'; type: 'int64' }
+  | { data: Float32Array; shape: number[]; dtype: '<f4' | '>f4'; type: 'float32' }
+  | { data: Float64Array; shape: number[]; dtype: '<f8' | '>f8'; type: 'float64' };
+
+/**
  * A robust NPY (NumPy binary format) parser for browser environments
  * Supports uint8, int16, int32, int64, float32, and float64 data types
  */
@@ -243,11 +254,7 @@ export class NPYParser {
   /**
    * Parses complete NPY file and returns data with shape information
    */
-  static parse(buffer: ArrayBuffer): {
-    data: Uint8Array | Int16Array | Int32Array | BigInt64Array | Float32Array | Float64Array;
-    shape: number[];
-    dtype: string;
-  } {
+  static parse(buffer: ArrayBuffer): NumpyArrayData {
     const { shape, dtype, fortranOrder, headerLength } = this.parseHeader(buffer);
     
     // Calculate expected number of elements
@@ -266,7 +273,11 @@ export class NPYParser {
     // Handle Fortran order if needed
     const finalData = this.transposeIfNeeded(data, shape, fortranOrder);
     
-    return { data: finalData, shape, dtype };
+    // Get friendly type name
+    const typeInfo = this.DTYPE_MAP[dtype as keyof typeof this.DTYPE_MAP];
+    const type = typeInfo.name;
+    
+    return { data: finalData, shape, dtype, type } as NumpyArrayData;
   }
   
   /**
