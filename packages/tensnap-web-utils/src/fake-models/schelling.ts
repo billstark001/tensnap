@@ -253,7 +253,8 @@ export class SchellingModel {
   }
 
   getAgentUpdates(full = false): any[] {
-    return (full ? this.agents : this.lastUnsatisfiedAgents ?? []).map(agent => ({
+    const agentsToUpdate = full ? this.agents : this.lastUnsatisfiedAgents ?? [];
+    return agentsToUpdate.map(agent => ({
       id: agent.id,
       data: {
         x: agent.x,
@@ -261,8 +262,8 @@ export class SchellingModel {
         color: this.getAgentColor(agent.type),
         icon: 'circle',
         size: agent.satisfied ? 10 : 6,
-        label: undefined,
-      }
+      },
+      operation: full ? 'create' : 'update',
     }));
   }
 
@@ -277,7 +278,7 @@ export class SchellingModel {
         x: agent.x,
         y: agent.y,
         color: this.getAgentColor(agent.type),
-        icon: 'circle',
+        icon: 'circle' as const,
         size: agent.satisfied ? 10 : 6,
       })),
     };
@@ -419,15 +420,36 @@ export function createSchellingSimulation(config?: Partial<SchellingConfig>): Fa
 
   const sendUpdates = async (timeStep?: number) => {
     const stats = model.getStatistics();
+    const isInitialSync = timeStep === 0;
 
     if (timeStep !== undefined) {
       await send({ type: 'time_step_start', payload: { time: stats.timeStep } });
     }
 
-    await send({
-      type: 'agent_batch_update',
-      payload: { environment_id: 'main', updates: model.getAgentUpdates(timeStep === 0) },
-    });
+    // For initial sync, send environment_update with full agent list
+    if (isInitialSync) {
+      await send({
+        type: 'environment_update',
+        payload: {
+          id: 'main',
+          data: {
+            type: 'grid',
+            width: model['config'].gridWidth,
+            height: model['config'].gridHeight,
+          },
+          agents: model.getAgentUpdates(true).map(u => ({
+            id: u.id,
+            ...u.data,
+          })),
+        },
+      });
+    } else {
+      // For updates, use agent_batch_update
+      await send({
+        type: 'agent_batch_update',
+        payload: { environment_id: 'main', updates: model.getAgentUpdates(false) },
+      });
+    }
 
     await send({
       type: 'chart_update',
@@ -448,9 +470,25 @@ export function createSchellingSimulation(config?: Partial<SchellingConfig>): Fa
     await send({ type: 'time_step_start', payload: { time: timeStep } });
   });
 
-  model.on('step_end', async ({ timeStep }: any) => {
-    await sendUpdates();
-    await send({ type: 'time_step_end', payload: { time: timeStep } });
+  model.on('step_end', async () => {
+    // Send only agent and chart updates, time_step_end is sent by sendUpdates
+    await send({
+      type: 'agent_batch_update',
+      payload: { environment_id: 'main', updates: model.getAgentUpdates(false) },
+    });
+
+    const stats = model.getStatistics();
+    await send({
+      type: 'chart_update',
+      payload: {
+        updates: [
+          { id: 'satisfaction_rate', value: stats.satisfactionRate },
+          { id: 'segregation_index', value: stats.segregationIndex },
+        ],
+      },
+    });
+
+    await send({ type: 'time_step_end', payload: {} });
   });
 
   const handleAction = async (action: string) => {
