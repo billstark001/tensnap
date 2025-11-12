@@ -47,7 +47,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
     def __init__(
         self,
         model_class: type["Model"],
-        model_init_args: dict | None = None,
+        model_init_args: list | None = None,
         model_init_kwargs: dict | None = None,
         agent_iterable_accessor="agents",
         on_model_init: Callable | None = None,
@@ -65,8 +65,9 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         """
         super().__init__(self.model_init_impl, self.model_step_impl)
         self.model_class = model_class
-        self.model_init_args = model_init_args or {}
-        self.model_init_kwargs = model_init_kwargs or {}
+        self.model_init_args = model_init_args or []
+        self.model_init_kwargs_orig = model_init_kwargs or {}
+        self.model_init_kwargs = self.model_init_kwargs_orig.copy()
         self.agent_iterable_accessor = agent_iterable_accessor
         self.on_model_init = on_model_init
         self.on_model_step = on_model_step
@@ -78,7 +79,12 @@ class MesaSimulationHandler(DefaultSimulationHandler):
 
     def init_model(self):
 
-        self.model = self.model_class(**self.model_init_args, **self.model_init_kwargs)
+        if self.model is not None:
+            del self.model.step
+            self.model.__init__(*self.model_init_args, **self.model_init_kwargs)
+            return
+
+        self.model = self.model_class(*self.model_init_args, **self.model_init_kwargs)
 
         if hasattr(self.model.__class__, "_tensnap_bind_datacollector_config"):
             cfg = getattr(self.model.__class__, "_tensnap_bind_datacollector_config")
@@ -86,12 +92,22 @@ class MesaSimulationHandler(DefaultSimulationHandler):
 
     async def model_init_impl(self) -> None:
         assert self.scenario is not None, "Scenario must be initialized before init"
-        
+
         if self.on_model_init:
-            await call_function(self.on_model_init)
+            await call_function(self.on_model_init, self.model)
         else:
+            dumped = self.scenario.server.dump_parameters()
             self._unregister_everything()
+            # modify model_init_kwargs based on dumped parameters
+            for key, value in list(dumped.items()):
+                if key in self.model_init_kwargs_orig:
+                    self.model_init_kwargs[key] = value
+                del dumped[key]
+            # re-initialize model
             self.init_model()
+            # re-register everything
+            for key, value in dumped.items():
+                self.scenario.server.set_parameter(key, value)
             await self.on_registered(self.scenario)
 
         pass
@@ -99,7 +115,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
     async def model_step_impl(self) -> None:
         assert self.model is not None, "Model must be initialized before stepping"
         if self.on_model_step:
-            await call_function(self.on_model_step)
+            await call_function(self.on_model_step, self.model)
         else:
             self.model.step()
         pass
@@ -107,27 +123,33 @@ class MesaSimulationHandler(DefaultSimulationHandler):
     def _unregister_everything(self):
         s = self.scenario
         assert s is not None
-        s.remove_all_actions()
-        s.remove_all_parameters()
-        s.remove_all_environments()
+        s.remove_all_parameters(include_actions=False)
         s.remove_all_charts()
 
     async def on_registered(self, scenario: "SimulationScenario") -> None:
         """Called when the handler is registered with a scenario"""
+        first_register = scenario is not self.scenario
         self.scenario = scenario
 
         assert self.model is not None, "Model must be initialized before registration"
 
-        env_binder = MesaGridEnvironmentBinder(
-            self.model.__class__.__name__,
-            self.model,
-            agent_iterable_accessor=self.agent_iterable_accessor,
-        )
-        self.env_binder = env_binder
+        if first_register:
+            env_binder = MesaGridEnvironmentBinder(
+                self.model.__class__.__name__,
+                self.model,
+                agent_iterable_accessor=self.agent_iterable_accessor,
+            )
+            self.env_binder = env_binder
+            self.scenario.add_environment(env_binder)
+            self.scenario.add_actions({})
 
-        self.scenario.add_environment(env_binder)
-        self.scenario.add_parameters(self.model, cfg_suggest=BindParametersConfig(
-            exclude=['running', 'steps']
-        ))
+        self.scenario.add_parameters(
+            self.model,
+            cfg_suggest=BindParametersConfig(
+                exclude=["running", "steps"],
+                include_private=False,
+            ),
+        )
+        if not self.on_model_init:
+            self.scenario.add_parameters(self.model_init_kwargs)
         self.scenario.add_charts(self.model)
-        self.scenario.add_actions({})

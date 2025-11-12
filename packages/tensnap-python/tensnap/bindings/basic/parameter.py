@@ -15,14 +15,18 @@ from typing import (
     Union,
     Literal,
     Dict,
-    Set,
     TypeAlias,
 )
 from dataclasses import dataclass, asdict, field
 
 import types
-import inspect
 import re
+
+try:
+    from mesa import Model as MesaModel
+except ImportError:
+    MesaModel = None  # type: ignore
+
 
 # region Parameter Classes
 
@@ -305,8 +309,15 @@ class bind:
         return fset
 
 
+_MESA_FIELDS = {
+    "running",
+    "steps",
+}
+
 class BindParametersConfig:
     """Configuration for automatic parameter detection"""
+    
+    
 
     def __init__(
         self,
@@ -329,6 +340,7 @@ class BindParametersConfig:
             self.exclude_re = None
 
         self.include_private = include_private
+        self._exclude_mesa_fields = False
         self.custom_bindings = custom_bindings or {}
 
     def is_included_raw(self, field_name: str) -> bool:
@@ -338,6 +350,9 @@ class BindParametersConfig:
         if self.include_fields:
             if field_name not in self.include_fields:
                 return False
+        if self.include_private is False:
+            if field_name.startswith('_'):
+                return False
         return True
 
     def is_excluded_raw(self, field_name: str) -> bool:
@@ -346,6 +361,10 @@ class BindParametersConfig:
                 return True
         if self.exclude_fields:
             if field_name in self.exclude_fields:
+                return True
+        if self._exclude_mesa_fields:
+            # Exclude common Mesa Model fields
+            if field_name in _MESA_FIELDS:
                 return True
         return False
 
@@ -360,6 +379,8 @@ class BindParametersConfig:
     def __call__(self, cls):
         """Decorator to apply config to a class"""
         cls._tensnap_bind_parameters_config = self  # type: ignore
+        if MesaModel is not None and isinstance(cls, MesaModel):
+            self._exclude_mesa_fields = True
         return cls
 
 
@@ -412,8 +433,6 @@ def get_parameter_metadata_from_namespace(
     actions: List[Tuple[str, Callable | None, ActionParameter]] = []
     for name, value in namespace.items():
         if name.startswith('__') and name.endswith('__'):
-            continue
-        if name.startswith('_') and (cfg_suggest is None or not cfg_suggest.include_private):
             continue
         if cfg_suggest is not None and not cfg_suggest.is_included(name):
             continue

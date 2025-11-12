@@ -65,7 +65,7 @@ def encode_message(
     type_str = msg_type.value
     msg = {"type": type_str, "payload": payload}
     try:
-        
+
         return (
             msgpack.packb(msg, default=msgpack_default, use_bin_type=True)
             if use_msgpack
@@ -137,8 +137,16 @@ class TenSnapServer:
         if param_id in self.parameters:
             del self.parameters[param_id]
 
-    def remove_all_parameters(self) -> None:
-        self.parameters.clear()
+    def remove_all_parameters(self, include_actions = False) -> None:
+        if include_actions:
+            self.parameters.clear()
+            return
+        for param_id in list(self.parameters.keys()):
+            if (
+                param_id in self.parameters
+                and self.parameters[param_id].type != "action"
+            ):
+                del self.parameters[param_id]
 
     def remove_chart(self, chart_id: str) -> None:
         if chart_id in self.charts:
@@ -174,9 +182,17 @@ class TenSnapServer:
         logger.info(f"Client connected from {websocket.remote_address}")
         try:
             async for message in websocket:
-                asyncio.create_task(self._handle_message(websocket, message))
+                try:
+                    await self._handle_message(websocket, message)
+                except Exception as e:
+                    logger.exception(
+                        f"Error handling message from {websocket.remote_address}: {e}"
+                    )
+                    # Continue processing next messages even if one fails
         except ConnectionClosed:
             pass
+        except Exception as e:
+            logger.exception(f"Connection error with {websocket.remote_address}: {e}")
         finally:
             self.clients.discard(websocket)
             logger.info(f"Client disconnected from {websocket.remote_address}")
@@ -195,17 +211,20 @@ class TenSnapServer:
             if msg_type == ClientToServerMessageType.STATE_SYNC.value:
                 await self._handle_state_sync(ws, payload)
             elif msg_type == ClientToServerMessageType.PARAMETER_CHANGE.value:
-                await self._handle_param_change(payload)
+                await self._handle_param_change(ws, payload)
             elif msg_type == ClientToServerMessageType.BUTTON_CLICK.value:
-                await self._handle_button_click(payload)
+                await self._handle_button_click(ws, payload)
             elif msg_type == ClientToServerMessageType.ERROR.value:
                 logger.error(f"Client error: {payload.get('error')}")
             else:
                 logger.warning(f"Unknown message type: {msg_type}")
 
         except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            await self._send_error(ws, str(e))
+            logger.exception(f"Error handling message: {e}")
+            try:
+                await self._send_error(ws, str(e))
+            except Exception as send_error:
+                logger.exception(f"Failed to send error message: {send_error}")
 
     async def _build_sync_response(self, req: "StateSyncRequest"):
         params, envs, charts = await asyncio.gather(
@@ -301,13 +320,33 @@ class TenSnapServer:
             except Exception as e:
                 logger.exception(f"Error setting parameter {param.id}: {e}")
 
+    def get_parameter(self, param_id: str) -> Any:
+        if param_id in self.parameters:
+            param = self.parameters[param_id]
+            return self._get_param_value(param)
+        return None
+
+    def set_parameter(self, param_id: str, value: Any) -> None:
+        if param_id in self.parameters:
+            param = self.parameters[param_id]
+            self._set_param_value(param, value)
+
+    def dump_parameters(self) -> Dict[str, Any]:
+        return {
+            pid: self._get_param_value(param)
+            for pid, param in self.parameters.items()
+            if param.type != "action"
+        }
+
     async def _handle_state_sync(
         self, ws: WebSocketServerProtocol, req: "StateSyncRequest"
     ) -> None:
         response = await self._build_sync_response(req)
         await self._send(ws, ServerToClientMessageType.STATE_SYNC, response)
 
-    async def _handle_param_change(self, payload: Dict[str, Any]) -> None:
+    async def _handle_param_change(
+        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
+    ) -> None:
         pid, value = payload.get("id"), payload.get("value")
         if value is None or pid not in self.parameters:
             return
@@ -322,10 +361,14 @@ class TenSnapServer:
                     param.value = value
             except Exception as e:
                 logger.exception(f"Error setting parameter {pid}: {e}")
+                await self._send_error(ws, f"Error setting parameter {pid}: {e}")
 
-    async def _handle_button_click(self, payload: Dict[str, Any]) -> None:
+    async def _handle_button_click(
+        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
+    ) -> None:
         action = payload.get("action")
         if action not in self.button_handlers:
+            logger.warning(f"No handler found for button action: {action}")
             return
 
         handler = self.button_handlers[action]
@@ -336,6 +379,7 @@ class TenSnapServer:
                 await asyncio.get_event_loop().run_in_executor(None, handler)
         except Exception as e:
             logger.exception(f"Error handling button {action}: {e}")
+            await self._send_error(ws, f"Error handling button {action}: {e}")
 
     async def _broadcast(
         self, msg_type: ServerToClientMessageType, payload: dict
@@ -358,7 +402,10 @@ class TenSnapServer:
             self.clients.discard(ws)
 
     async def _send_error(self, ws: WebSocketServerProtocol, error: str) -> None:
-        await self._send(ws, ServerToClientMessageType.ERROR, {"error": error})
+        try:
+            await self._send(ws, ServerToClientMessageType.ERROR, {"error": error})
+        except Exception as e:
+            logger.exception(f"Failed to send error message to client: {e}")
 
     async def start_time_step(self, time: int) -> None:
         await self._broadcast(ServerToClientMessageType.TIME_STEP_START, {"time": time})

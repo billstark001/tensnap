@@ -170,3 +170,35 @@ def set_{id_name_for_func}({"" if bind_target is not None else "obj, "}value):
 """
     exec(setter_str, ns)
     return ns[f"get_{id_name_for_func}"], ns[f"set_{id_name_for_func}"]
+
+
+def make_dict_getter_and_setter(
+    field_name: str,
+    bind_target: dict | None = None,
+) -> tuple[Callable[[dict[str, Any]], Any], Callable[[dict[str, Any], Any], None]]:
+    """
+    Create getter and setter functions for a given dictionary key.
+
+    Args:
+        field_name: Key name in the dictionary
+    Returns:
+        A tuple containing the getter and setter functions.
+    """
+    field_name_for_func = (
+        field_name.replace(".", "_").replace("[", "_").replace("]", "")
+    )
+    ns = {}
+    if bind_target is not None:
+        ns["obj"] = bind_target
+
+    getter_str = f"""
+def get_{field_name_for_func}({"" if bind_target is not None else "obj"}):
+    return obj["{field_name}"]
+"""
+    setter_str = f"""
+def set_{field_name_for_func}({"" if bind_target is not None else "obj, "}value):
+    obj["{field_name}"] = value
+"""
+    exec(getter_str, ns)
+    exec(setter_str, ns)
+    return ns[f"get_{field_name_for_func}"], ns[f"set_{field_name_for_func}"]

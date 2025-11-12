@@ -15,7 +15,10 @@ from tensnap.models import EnvironmentBinderProtocol
 from tensnap.server import TenSnapServer
 from tensnap.sim_loop import SimulationLoop
 from tensnap.utils.func import call_function
-from tensnap.utils.attr import make_identifier_getter_and_setter
+from tensnap.utils.attr import (
+    make_identifier_getter_and_setter,
+    make_dict_getter_and_setter,
+)
 
 
 class SimulationHandlerProtocol(Protocol):
@@ -39,7 +42,7 @@ class DefaultSimulationHandler:
         self.scenario: "SimulationScenario | None" = None
         self.model_init = model_init
         self.model_step = model_step
-        
+
         self.last_agent_ids: Set[int | str] | None = None
 
     async def on_registered(self, scenario: "SimulationScenario") -> None:
@@ -58,20 +61,23 @@ class DefaultSimulationHandler:
                     name, data=model_updates, agents=agent_updates_raw
                 )
                 continue
-            
+
             await self.scenario.server.update_environment(
-                name, data=model_updates,
+                name,
+                data=model_updates,
             )
-            
-            last_agent_ids = self.last_agent_ids.copy() if self.last_agent_ids is not None else None
+
+            last_agent_ids = (
+                self.last_agent_ids.copy() if self.last_agent_ids is not None else None
+            )
             current_agent_ids: Set[str] = set()
             agent_updates: List[Dict[str, Any]] = []
             for agent_update in agent_updates_raw:
                 agent_data = agent_update.copy()
-                agent_id = agent_data.pop('id')
+                agent_id = agent_data.pop("id")
                 agent_payload = {
-                    'id': agent_id,
-                    'data': agent_data,
+                    "id": agent_id,
+                    "data": agent_data,
                 }
                 current_agent_ids.add(agent_id)
                 if last_agent_ids is None:
@@ -79,15 +85,17 @@ class DefaultSimulationHandler:
                 if agent_id in last_agent_ids:
                     last_agent_ids.remove(agent_id)
                 else:
-                    agent_payload['operation'] = 'create'
-                
+                    agent_payload["operation"] = "create"
+
                 agent_updates.append(agent_payload)
 
             for removed_id in last_agent_ids or []:
-                agent_updates.append({
-                    'id': removed_id,
-                    'operation': 'delete',
-                })
+                agent_updates.append(
+                    {
+                        "id": removed_id,
+                        "operation": "delete",
+                    }
+                )
 
             self.last_agent_ids = current_agent_ids
             await self.scenario.server.update_agents_batch(name, agent_updates)
@@ -179,8 +187,10 @@ class SimulationScenario:
             cls = target.__class__
             charts = get_chart_metadata_from_namespace(vars(cls))  # type: ignore
             for name, func, chart in charts:
+
                 def invoke():
                     return func(target)
+
                 self.server.add_chart(invoke, chart)
 
     def remove_all_charts(self):
@@ -196,9 +206,8 @@ class SimulationScenario:
         )
         if isinstance(target, dict):
             for name, param in parameters:
-                self.server.add_parameter(
-                    param, lambda: target[name], lambda v: target.__setitem__(name, v)
-                )
+                getter, setter = make_dict_getter_and_setter(name, target)
+                self.server.add_parameter(param, getter, setter)
             for name, func, action in actions:
                 self.server.add_action(
                     action, func or (lambda: target[name]()), add_parameter=True
@@ -207,11 +216,7 @@ class SimulationScenario:
         else:
             for name, param in parameters:
                 getter, setter = make_identifier_getter_and_setter(name, target)
-                self.server.add_parameter(
-                    param,
-                    getter,
-                    setter,
-                )
+                self.server.add_parameter(param, getter, setter)
             for name, func, action in actions:
                 self.server.add_action(
                     action,
@@ -219,8 +224,8 @@ class SimulationScenario:
                     add_parameter=True,
                 )
 
-    def remove_all_parameters(self):
-        self.server.remove_all_parameters()
+    def remove_all_parameters(self, include_actions: bool = False):
+        self.server.remove_all_parameters(include_actions=include_actions)
 
     def add_actions(
         self, target: dict[str, Any] | ModuleType | object, register_self: bool = True
