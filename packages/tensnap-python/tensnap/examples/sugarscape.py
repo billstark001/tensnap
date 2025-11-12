@@ -143,12 +143,13 @@ class Sugarscape(Model):
         )
 
     def create_agents(self, agent_count):
+        gw, gh = self.grid.width, self.grid.height
         sequence = np.random.choice(
-            self.grid.width * self.grid.height, (agent_count,), replace=False
+            gw * gh, (agent_count,), replace=False
         )
         for w in sequence:
-            x = w % self.grid.width
-            y = (w - x) // self.grid.height
+            x = w % gw
+            y = (w - x) // gw
             agent = SugarAgent(self)
             self.grid.place_agent(agent, (x, y))
 
