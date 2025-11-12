@@ -181,9 +181,9 @@ class Sugarscape(Model):
     @property
     def background(self):
         img = np.zeros((self.grid.height, self.grid.width, 3), dtype=np.uint8)
-        img[self.sugar == 0] = [109, 59, 19]  # Brown for no sugar
-        img[self.sugar == 1] = [92, 104, 135]  # Light brown for low sugar
-        img[self.sugar == 2] = [85, 160, 107]  # Light green for medium sugar
-        img[self.sugar == 3] = [34, 200, 54]  # Green for high sugar
-        img[self.sugar >= 4] = [0, 255, 0]  # Bright green for max sugar
+        img[(self.sugar == 0).T] = [109, 59, 19]  # Brown for no sugar
+        img[(self.sugar == 1).T] = [92, 104, 135]  # Light brown for low sugar
+        img[(self.sugar == 2).T] = [85, 160, 107]  # Light green for medium sugar
+        img[(self.sugar == 3).T] = [34, 200, 54]  # Green for high sugar
+        img[(self.sugar >= 4).T] = [0, 255, 0]  # Bright green for max sugar
         return img
