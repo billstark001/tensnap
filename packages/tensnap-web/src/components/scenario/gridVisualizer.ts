@@ -62,6 +62,7 @@ export class GridVisualizer {
   private resizeObserver: ResizeObserver | null = null;
   private coordOffset: GridEnvironmentCoordOffset = 'int';
   private gridStrokeColor: string = '#80808050';
+  private currentBlobUrl: string | null = null;
 
   // Event callbacks
   private onAgentClick?: (agent: GridAgent, event: any) => void;
@@ -470,13 +471,13 @@ export class GridVisualizer {
     const bgLayer = this.layers.bg;
     if (!bgLayer) return;
 
-    if (typeof bgLayer.fill === 'object' && !Array.isArray(bgLayer.fill) && bgLayer.fill.type === 'image') {
-      const oldUrl = bgLayer.fill.url;
-      if (oldUrl && oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl);
-      }
-    }
+    // Save old blob URL for later cleanup
+    const oldBlobUrl = this.currentBlobUrl;
+
     if (newUrl) {
+      // Update current blob URL if it's a blob
+      this.currentBlobUrl = newUrl.startsWith('blob:') ? newUrl : null;
+
       // Set image fill with smoothing disabled for pixel-perfect rendering
       bgLayer.set({ 
         fill: { 
@@ -485,10 +486,27 @@ export class GridVisualizer {
           mode: 'stretch'
         } 
       });
+      
+      // Revoke old blob URL after new image is loaded and rendered
+      // Use longer delay to ensure image is fully loaded and painted
+      if (oldBlobUrl && oldBlobUrl !== newUrl) {
+        setTimeout(() => {
+          URL.revokeObjectURL(oldBlobUrl);
+        }, 200);
+      }
+      
       // Re-apply canvas smoothing settings after background update
       setTimeout(() => this.disableCanvasSmoothing(), 0);
     } else {
+      this.currentBlobUrl = null;
       bgLayer.set({ fill: '#00000000' });
+      
+      // Revoke old blob URL when clearing background
+      if (oldBlobUrl) {
+        setTimeout(() => {
+          URL.revokeObjectURL(oldBlobUrl);
+        }, 200);
+      }
     }
   }
 
@@ -586,7 +604,12 @@ export class GridVisualizer {
   }
 
   public destroy(): void {
-    this.updateBackgroundImage(''); // Clean up background image URL
+    // Clean up current blob URL immediately on destroy
+    if (this.currentBlobUrl) {
+      URL.revokeObjectURL(this.currentBlobUrl);
+      this.currentBlobUrl = null;
+    }
+    
     this.resizeObserver?.disconnect();
     this.leafer?.destroy();
     this.leafer = null;
