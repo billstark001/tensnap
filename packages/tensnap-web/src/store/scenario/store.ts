@@ -34,6 +34,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
 
   viewUpdateTrigger: createUpdateTriggerStoreFunction(x => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })), () => get().viewUpdateTrigger, null!),
   parameterUpdateTrigger: createUpdateTriggerStoreFunction(x => set((y) => ({ parameterUpdateTrigger: { ...y.parameterUpdateTrigger, ...x } })), () => get().parameterUpdateTrigger, null!),
+  environmentUpdateTrigger: createUpdateTriggerStoreFunction(x => set((y) => ({ environmentUpdateTrigger: { ...y.environmentUpdateTrigger, ...x } })), () => get().environmentUpdateTrigger, null!),
 
   dump: () => {
     const store = get();

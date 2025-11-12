@@ -91,6 +91,7 @@ export interface LogsSlice {
 // 核心切片（包含 dump 和 setData）
 export interface CoreSlice {
   viewUpdateTrigger: UpdateTriggerState;
+  environmentUpdateTrigger: UpdateTriggerState;
   parameterUpdateTrigger: UpdateTriggerState;
   dump: () => SimulationState;
   setData: (data: SetDataPayload, options?: SetDataOptions) => void;

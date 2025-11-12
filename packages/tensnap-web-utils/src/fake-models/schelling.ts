@@ -7,21 +7,14 @@
  * Based on Thomas Schelling's work on racial segregation (1969, 1971).
  */
 
-// Type definitions to avoid circular dependency
-export interface WSMessage<T = any> {
-  type: string;
-  payload: T;
-}
+import type {
+  Environment,
+  Parameter,
+  ChartGroupMetadata,
+  GridEnvironment,
+} from 'tensnap-web';
 
-export interface FakeWebSocketOptions {
-  metadata?: {
-    name: string;
-    description: string;
-  },
-  onMessage?: (message: WSMessage) => void;
-  onSendMessageFuncReady?: (sendFunc: (message: WSMessage) => void, wsManager: any) => void;
-  connectDelay?: number;
-}
+import { BaseSimulationManager, createFakeWebSocketOptions, FakeWebSocketOptions } from './common';
 
 export interface SchellingConfig {
   gridWidth: number;
@@ -267,16 +260,17 @@ export class SchellingModel {
     }));
   }
 
-  getEnvironmentState() {
+  getEnvironmentState(): GridEnvironment {
     return {
       id: 'main',
-      type: 'grid',
+      type: 'grid' as const,
       width: this.config.gridWidth,
       height: this.config.gridHeight,
       agents: this.agents.map(agent => ({
         id: agent.id,
         x: agent.x,
         y: agent.y,
+        heading: 0,
         color: this.getAgentColor(agent.type),
         icon: 'circle' as const,
         size: agent.satisfied ? 10 : 6,
@@ -350,7 +344,165 @@ export class SchellingModel {
     this.lastUnsatisfiedAgents = undefined;
     this.grid = [];
   }
+
+  getIsRunning(): boolean {
+    return this.isRunning;
+  }
+
+  getConfig(): SchellingConfig {
+    return { ...this.config };
+  }
+
+  updateConfig(updates: Partial<SchellingConfig>) {
+    Object.assign(this.config, updates);
+    if ('similarityThreshold' in updates) {
+      this.updateAllSatisfaction();
+    }
+  }
 }
+
+// #region Simulation Manager
+
+class SchellingSimulationManager extends BaseSimulationManager {
+  private model: SchellingModel;
+
+  constructor(config: SchellingConfig) {
+    super({
+      name: 'Schelling Segregation Model',
+      description: 'Demonstrates how individual preferences for similar neighbors lead to large-scale segregation patterns.',
+    });
+
+    this.model = new SchellingModel(config);
+    this.setupEventHandlers();
+  }
+
+  private setupEventHandlers() {
+    this.model.on('step_start', async ({ timeStep }: any) => {
+      await this.sendTimeStepStart(timeStep);
+    });
+
+    this.model.on('step_end', async () => {
+      await this.sendAgentBatchUpdate({
+        environment_id: 'main',
+        updates: this.model.getAgentUpdates(false),
+      });
+
+      const stats = this.model.getStatistics();
+      await this.sendChartUpdate({
+        updates: [
+          { id: 'satisfaction_rate', value: stats.satisfactionRate },
+          { id: 'segregation_index', value: stats.segregationIndex },
+        ],
+      });
+
+      await this.sendTimeStepEnd();
+    });
+  }
+
+  protected getParameters(): Parameter[] {
+    const config = this.model.getConfig();
+
+    const numberParams: Parameter[] = [
+      { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
+      { id: 'moveDistance', type: 'number', label: 'Move Distance', value: config.moveDistance, min: 1, max: 10, step: 1, allowRuntimeChange: true },
+      { id: 'gridWidth', type: 'number', label: 'Grid Width', value: config.gridWidth, min: 10, max: 100, step: 1, allowRuntimeChange: false },
+      { id: 'gridHeight', type: 'number', label: 'Grid Height', value: config.gridHeight, min: 10, max: 100, step: 1, allowRuntimeChange: false },
+      { id: 'numAgentsType1', type: 'number', label: 'Number of Type 1 Agents', value: config.numAgentsType1, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+      { id: 'numAgentsType2', type: 'number', label: 'Number of Type 2 Agents', value: config.numAgentsType2, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+    ];
+
+    const actionButtons: Parameter[] = ['start', 'stop', 'step', 'reset', 'start_stop'].map(id => ({
+      id,
+      type: 'action' as const,
+      label: id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('/'),
+      allowRuntimeChange: true,
+    }));
+
+    return [...numberParams, ...actionButtons];
+  }
+
+  protected getEnvironments(): Environment[] {
+    return [this.model.getEnvironmentState()];
+  }
+
+  protected getCharts(): ChartGroupMetadata[] {
+    return [
+      { id: 'satisfaction_rate', label: 'Satisfaction Rate', color: '#2ecc71' },
+      { id: 'segregation_index', label: 'Segregation Index', color: '#e74c3c' },
+    ];
+  }
+
+  protected async handleParameterChange(id: string, value: any): Promise<void> {
+    const config = this.model.getConfig();
+    if (id in config) {
+      this.model.updateConfig({ [id]: value });
+    }
+  }
+
+  protected async handleButtonClick(action: string): Promise<void> {
+    const actions: { [key: string]: () => void | Promise<void> } = {
+      start: () => this.model.start(),
+      stop: () => this.model.stop(),
+      step: () => this.model.step(),
+      reset: async () => {
+        this.model.reset();
+        await this.sendChartUpdate({
+          operations: [
+            { id: 'satisfaction_rate', operation: 'clear' },
+            { id: 'segregation_index', operation: 'clear' },
+          ],
+        });
+        await this.sendInitialData();
+      },
+      start_stop: () => this.model.getIsRunning() ? this.model.stop() : this.model.start(),
+    };
+    await actions[action]?.();
+  }
+
+  protected async initialize(): Promise<void> {
+    this.model.initialize();
+  }
+
+  protected async cleanup(): Promise<void> {
+    this.model.destroy();
+  }
+
+  private async sendInitialData(): Promise<void> {
+    // Send environment with full agent list
+    await this.sendEnvironmentUpdate({
+      id: 'main',
+      data: {
+        type: 'grid',
+        width: this.model.getConfig().gridWidth,
+        height: this.model.getConfig().gridHeight,
+      },
+      agents: this.model.getEnvironmentState().agents,
+    });
+    // await this.sendAgentBatchUpdate({
+    //   environment_id: 'main',
+    //   updates: this.model.getAgentUpdates(true),
+    // });
+
+    // Send initial chart data
+    const stats = this.model.getStatistics();
+    await this.sendChartUpdate({
+      updates: [
+        { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
+        { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
+      ],
+    });
+  }
+
+  public async onReady(
+    sendFunc: (message: any) => void,
+    wsManager: any
+  ): Promise<void> {
+    await super.onReady(sendFunc, wsManager);
+    await this.sendInitialData();
+  }
+}
+
+// #endregion
 
 /**
  * Create a fake WebSocket simulation for the Schelling model
@@ -365,168 +517,6 @@ export function createSchellingSimulation(config?: Partial<SchellingConfig>): Fa
     moveDistance: 10,
   };
 
-  const model = new SchellingModel({ ...defaultConfig, ...config });
-  model.initialize();
-
-  let sendFunc: ((message: WSMessage) => void) | undefined;
-
-  const send = async (message: WSMessage) => {
-    if (sendFunc) {
-      sendFunc(window.structuredClone(message));
-      await Promise.resolve();
-    } else {
-      console.warn('Send function not ready yet.', message);
-    }
-  };
-
-  const actionButtons = ['start', 'stop', 'step', 'reset', 'start_stop'].map(id => ({
-    id,
-    type: 'action',
-    label: id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('/'),
-    allowRuntimeChange: true,
-  }));
-
-  const charts = [
-    { id: 'satisfaction_rate', label: 'Satisfaction Rate', color: '#2ecc71' },
-    { id: 'segregation_index', label: 'Segregation Index', color: '#e74c3c' },
-  ];
-
-  const sendStateSync = async () => {
-    await send({
-      type: 'state_sync',
-      payload: {
-        mode: 'full',
-        added_parameters: [...model.getParameters(), ...actionButtons],
-        removed_parameters: [],
-        updated_parameters: [],
-        added_environments: [model.getEnvironmentState()],
-        removed_environments: [],
-        updated_environments: [],
-        added_charts: charts,
-        removed_charts: [],
-        updated_charts: [],
-      },
-    });
-  };
-
-  const clearCharts = async () => {
-    await send({
-      type: 'chart_update',
-      payload: {
-        operations: charts.map(({ id }) => ({ id, operation: 'clear' })),
-      },
-    });
-  };
-
-  const sendUpdates = async (timeStep?: number) => {
-    const stats = model.getStatistics();
-    const isInitialSync = timeStep === 0;
-
-    if (timeStep !== undefined) {
-      await send({ type: 'time_step_start', payload: { time: stats.timeStep } });
-    }
-
-    // For initial sync, send environment_update with full agent list
-    if (isInitialSync) {
-      await send({
-        type: 'environment_update',
-        payload: {
-          id: 'main',
-          data: {
-            type: 'grid',
-            width: model['config'].gridWidth,
-            height: model['config'].gridHeight,
-          },
-          agents: model.getAgentUpdates(true).map(u => ({
-            id: u.id,
-            ...u.data,
-          })),
-        },
-      });
-    } else {
-      // For updates, use agent_batch_update
-      await send({
-        type: 'agent_batch_update',
-        payload: { environment_id: 'main', updates: model.getAgentUpdates(false) },
-      });
-    }
-
-    await send({
-      type: 'chart_update',
-      payload: {
-        updates: [
-          { id: 'satisfaction_rate', value: stats.satisfactionRate },
-          { id: 'segregation_index', value: stats.segregationIndex },
-        ],
-      },
-    });
-
-    if (timeStep !== undefined) {
-      await send({ type: 'time_step_end', payload: { time: stats.timeStep } });
-    }
-  };
-
-  model.on('step_start', async ({ timeStep }: any) => {
-    await send({ type: 'time_step_start', payload: { time: timeStep } });
-  });
-
-  model.on('step_end', async () => {
-    // Send only agent and chart updates, time_step_end is sent by sendUpdates
-    await send({
-      type: 'agent_batch_update',
-      payload: { environment_id: 'main', updates: model.getAgentUpdates(false) },
-    });
-
-    const stats = model.getStatistics();
-    await send({
-      type: 'chart_update',
-      payload: {
-        updates: [
-          { id: 'satisfaction_rate', value: stats.satisfactionRate },
-          { id: 'segregation_index', value: stats.segregationIndex },
-        ],
-      },
-    });
-
-    await send({ type: 'time_step_end', payload: {} });
-  });
-
-  const handleAction = async (action: string) => {
-    const actions: { [key: string]: () => void } = {
-      start: () => model.start(),
-      stop: () => model.stop(),
-      step: () => model.step(),
-      reset: () => {
-        model.reset();
-        clearCharts().then(() => sendUpdates(0));
-      },
-      start_stop: () => model['isRunning'] ? model.stop() : model.start(),
-    };
-    actions[action]?.();
-  };
-
-  return {
-    onMessage: (message: WSMessage) => {
-      if (message.type === 'parameter_change') {
-        const { id, value } = message.payload;
-        model.updateParameter(id, value);
-      } else if (message.type === 'button_click') {
-        handleAction(message.payload.action);
-      }
-    },
-
-    onSendMessageFuncReady: async (send_func, wsManager) => {
-      sendFunc = send_func;
-      await sendStateSync();
-      await sendUpdates(0);
-      wsManager.on('disconnected', () => model.destroy());
-    },
-
-    connectDelay: 100,
-
-    metadata: {
-      name: 'Schelling Segregation Model',
-      description: 'Demonstrates how individual preferences for similar neighbors lead to large-scale segregation patterns.',
-    },
-  };
+  const manager = new SchellingSimulationManager({ ...defaultConfig, ...config });
+  return createFakeWebSocketOptions(manager);
 }

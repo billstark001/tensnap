@@ -7,7 +7,7 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
   environments: new Map(),
 
   renameEnvironment: (id, newId) => {
-    const { environments, log, parameterUpdateTrigger: { set } } = get();
+    const { environments, log, environmentUpdateTrigger: { set } } = get();
     const env = environments.get(id);
     if (!env) {
       log(`Environment with id ${id} not found.`, 'warning');
@@ -24,7 +24,7 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
   },
   
   updateEnvironment: (id, propsUpdate, agentsUpdate) => {
-    const { environments, log, parameterUpdateTrigger: { set } } = get();
+    const { environments, log, environmentUpdateTrigger: { set } } = get();
     const env = environments.get(id);
     if (!env) {
       log(`Environment with id ${id} not found.`, 'warning');
@@ -46,7 +46,7 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
 
   updateAgents: (envId, updates) => {
     if (!updates || updates.length === 0) return;
-    const { environments, log, parameterUpdateTrigger: { set }, currentTime } = get();
+    const { environments, log, environmentUpdateTrigger: { set }, currentTime } = get();
     const env = environments.get(envId);
     if (!env) {
       log(`Environment with id ${envId} not found.`, 'warning');

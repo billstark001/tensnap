@@ -4,7 +4,7 @@ import { Providers } from './Providers';
 import { App } from './App';
 
 import './styles/global.css';
-import { InBrowserFilePicker, createSchellingSimulation } from 'tensnap-web-utils';
+import { InBrowserFilePicker, createSchellingSimulation, createWolfSheepSimulation } from 'tensnap-web-utils';
 import { WebSocketManagerFake } from './websocket/fake';
 import { initI18n, detectLocale, isValidLocale, i18n } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
@@ -18,6 +18,7 @@ if (!window.structuredClone) {
 
 // Register fake models for development/testing
 WebSocketManagerFake.setGlobalOptions('fake:schelling', createSchellingSimulation() as any);
+WebSocketManagerFake.setGlobalOptions('fake:wolf-sheep', createWolfSheepSimulation() as any);
 
 function isDarkMode() {
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
