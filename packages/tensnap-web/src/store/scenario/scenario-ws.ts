@@ -16,6 +16,7 @@ export function unregisterEventHandlers(wsManager: WebSocketManager) {
   wsManager.off('state_sync');
   wsManager.off('chart_update');
   wsManager.off('log');
+  wsManager.off('error');
 }
 
 export function registerEventHandlers(
