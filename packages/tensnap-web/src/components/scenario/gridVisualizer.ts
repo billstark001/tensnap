@@ -145,6 +145,7 @@ export class GridVisualizer {
       view: this.container,
       width: canvasWidth,
       height: canvasHeight,
+      pixelRatio: window.devicePixelRatio || 1,
     });
 
     // Initialize layers in correct order: bg -> grid -> trajectories -> agents
@@ -162,8 +163,7 @@ export class GridVisualizer {
     this.setupResizeObserver();
 
     // Disable image smoothing on the underlying canvas for pixel-perfect rendering
-    // Use setTimeout to ensure canvas is created
-    setTimeout(() => this.disableCanvasSmoothing(), 0);
+    this.disableCanvasSmoothing();
   }
 
   private setupResizeObserver(): void {
@@ -180,6 +180,8 @@ export class GridVisualizer {
     this.refreshAllAgents();
     // Rebuild all trajectories with new cell size
     this.rebuildAllTrajectories();
+    // Re-apply canvas smoothing settings after resize
+    this.disableCanvasSmoothing();
   }
 
   private rebuildAllTrajectories(): void {
@@ -208,11 +210,27 @@ export class GridVisualizer {
     if (this.leafer) {
       const x = (width - canvasWidth) / 2;
       const y = (height - canvasHeight) / 2;
-      this.leafer.set({ width: canvasWidth + x, height: canvasHeight + y, x, y });
+      this.leafer.set({ 
+        width: canvasWidth + x, 
+        height: canvasHeight + y, 
+        x, 
+        y,
+        pixelRatio: window.devicePixelRatio || 1
+      });
     }
 
     if (this.layers.bg) {
       this.layers.bg.set({ width: canvasWidth, height: canvasHeight });
+      // Ensure background image rendering mode is preserved after resize
+      const currentFill = this.layers.bg.fill;
+      if (typeof currentFill === 'object' && !Array.isArray(currentFill) && currentFill.type === 'image') {
+        this.layers.bg.set({ 
+          fill: { 
+            ...currentFill,
+            mode: 'stretch'
+          } 
+        });
+      }
     }
   }
 
@@ -307,10 +325,14 @@ export class GridVisualizer {
   private async loadImageAsync(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve) => {
       const img = new Image();
-      // Disable image smoothing for pixel-perfect rendering
+      // Disable image smoothing for pixel-perfect rendering across all browsers
       img.style.imageRendering = 'pixelated';
+      img.style.setProperty('image-rendering', '-webkit-optimize-contrast', '');
+      img.style.setProperty('image-rendering', '-webkit-crisp-edges', '');
       img.style.setProperty('image-rendering', '-moz-crisp-edges', '');
       img.style.setProperty('image-rendering', 'crisp-edges', '');
+      // Additional Safari-specific attributes
+      img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
       img.src = src;
     });
@@ -323,7 +345,16 @@ export class GridVisualizer {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.imageSmoothingEnabled = false;
+        // Safari-specific properties
+        (ctx as any).webkitImageSmoothingEnabled = false;
+        (ctx as any).mozImageSmoothingEnabled = false;
+        (ctx as any).msImageSmoothingEnabled = false;
       }
+      // Set CSS style for pixel-perfect rendering
+      canvas.style.imageRendering = 'pixelated';
+      canvas.style.setProperty('image-rendering', '-webkit-crisp-edges', '');
+      canvas.style.setProperty('image-rendering', '-moz-crisp-edges', '');
+      canvas.style.setProperty('image-rendering', 'crisp-edges', '');
     }
   }
 
@@ -360,8 +391,17 @@ export class GridVisualizer {
 
     // Render only new points (incremental)
     const startIdx = Math.max(0, cached.lastRenderedIndex);
-    let maxTime = trajectoryPoints[trajectoryPoints.length - 1]?.time ?? startIdx;
-    for (let i = trajectoryPoints.length - 2; i > - 1; --i) {
+    const maxTime = trajectoryPoints[trajectoryPoints.length - 1]?.time ?? startIdx;
+    
+    // If trajectory has less than 2 points, clear all lines
+    if (trajectoryPoints.length < 2) {
+      cached.group.clear();
+      cached.lastRenderedIndex = maxTime;
+      return;
+    }
+
+    // Iterate from end to start to add new trajectory segments
+    for (let i = trajectoryPoints.length - 2; i >= 0; --i) {
       const p1 = trajectoryPoints[i];
       const p2 = trajectoryPoints[i + 1];
 
@@ -370,7 +410,6 @@ export class GridVisualizer {
         break;
       }
 
-      
       const x1 = p1.x * cellSize;
       const y1 = p1.y * cellSize;
       const x2 = p2.x * cellSize;
@@ -386,12 +425,14 @@ export class GridVisualizer {
       });
 
       cached.group.add(line);
-      if (cached.group.children.length > trajectoryPoints.length) {
-        const linesToRemove = cached.group.children.slice(0, cached.group.children.length - trajectoryPoints.length);
-        for (const l of linesToRemove) {
-          cached.group.remove(l);
-        }
-      }
+    }
+
+    // Limit the number of trajectory segments to prevent memory issues
+    const maxSegments = trajectoryPoints.length - 1;
+    if (cached.group.children.length > maxSegments) {
+      const toRemove = cached.group.children.length - maxSegments;
+      const linesToRemove = cached.group.children.slice(0, toRemove);
+      linesToRemove.forEach(l => cached.group.remove(l));
     }
 
     // Update last rendered index
@@ -436,7 +477,16 @@ export class GridVisualizer {
       }
     }
     if (newUrl) {
-      bgLayer.set({ fill: { type: 'image', url: newUrl } });
+      // Set image fill with smoothing disabled for pixel-perfect rendering
+      bgLayer.set({ 
+        fill: { 
+          type: 'image', 
+          url: newUrl,
+          mode: 'stretch'
+        } 
+      });
+      // Re-apply canvas smoothing settings after background update
+      setTimeout(() => this.disableCanvasSmoothing(), 0);
     } else {
       bgLayer.set({ fill: '#00000000' });
     }
@@ -478,6 +528,8 @@ export class GridVisualizer {
       const rect = this.container.getBoundingClientRect();
       this.setCanvasSize(rect.width, rect.height);
       this.updateGridSize();
+      // Re-apply canvas smoothing settings after dimension change
+      this.disableCanvasSmoothing();
     }
 
     void this.updateBackground(envProps.background);

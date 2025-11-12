@@ -14,4 +14,16 @@ export const useToast = () => {
     warning,
     info,
   };
-}
+};
+
+export const getToastState = () => {
+  const { success, error, warning, info } = useToastStore.getState();
+  return {
+    success,
+    error,
+    warning,
+    info,
+  };
+};
+
+

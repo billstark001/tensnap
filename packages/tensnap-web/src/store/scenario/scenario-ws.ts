@@ -1,7 +1,8 @@
 import { WebSocketManager } from "@/websocket";
 import { ScenarioStore, SetDataPayload } from "./store";
-import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartUpdatePayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload } from "@/types/api";
+import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartUpdatePayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload, ErrorPayload } from "@/types/api";
 import { StoreApi, UseBoundStore } from "zustand";
+import { getToastState } from "../toast";
 
 /**
  * Cleanup function to remove all event handlers
@@ -137,5 +138,11 @@ export function registerEventHandlers(
   wsManager.on('log', (payload: LogPayload) => {
     const { log } = useStore.getState();
     log(payload);
+  });
+
+  wsManager.on('error', (payload: ErrorPayload) => {
+    const toast = getToastState();
+    const message = payload.error || 'An unknown error occurred.';
+    toast.error("Error from server", message);
   });
 }

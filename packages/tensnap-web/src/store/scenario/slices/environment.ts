@@ -112,8 +112,8 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
             if (trajectory_length > 0) {
               // finite
               traceArr.push(currentTrajectoryPoint);
-              if (traceArr.length > trajectory_length) {
-                traceArr.splice(0, traceArr.length - trajectory_length);
+              if (traceArr.length > trajectory_length + 1) {
+                traceArr.splice(0, traceArr.length - trajectory_length - 1);
               }
             } else {
               // infinite length, optimize for identical points
