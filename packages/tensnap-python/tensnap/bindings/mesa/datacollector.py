@@ -52,21 +52,39 @@ def get_registered_agent_collectors(datacollector: "DataCollector") -> list[str]
 
 
 def make_latest_data_accessor(
-    reporter_key: str,
+    reporter_keys: list[str],
     datacollector_key: str = "datacollector",
 ):
     _closure_datacollector_key = datacollector_key
-    _closure_reporter_key = reporter_key
+    _closure_reporter_keys = reporter_keys.copy()
 
-    def f(self: "Model") -> Any:
-        dc: 'DataCollector' = cast(
-            'DataCollector', getattr(self, _closure_datacollector_key)
+    if len(_closure_reporter_keys) == 1:
+        key = _closure_reporter_keys[0]
+
+        def f_single(self: "Model") -> Any:
+            dc: "DataCollector" = cast(
+                "DataCollector", getattr(self, _closure_datacollector_key)
+            )
+            values = dc.model_vars.get(key, None)
+            if values:
+                return values[-1]
+
+            return None
+
+        return f_single
+
+    def f(self: "Model") -> Dict[str, Any]:
+        dc: "DataCollector" = cast(
+            "DataCollector", getattr(self, _closure_datacollector_key)
         )
-        values = dc.model_vars.get(_closure_reporter_key, None)
-        if values:
-            return values[-1]
-
-        return None
+        result: Dict[str, Any] = {}
+        for key in _closure_reporter_keys:
+            values = dc.model_vars.get(key, None)
+            if values:
+                result[key] = values[-1]
+            else:
+                result[key] = None
+        return result
 
     return f
 
@@ -158,7 +176,7 @@ class BindDataCollectorConfig:
         func_id = 0
         for group_name, reporters in model_groups.items():
             func = make_latest_data_accessor(
-                reporter_key=reporter,
+                reporter_keys=reporters,
                 datacollector_key=self.collector_key,
             )
             chart_group_metadata = ChartGroupMetadata(
@@ -180,6 +198,7 @@ class BindDataCollectorConfig:
             func_id += 1
 
         self.func_injected = True
+
 
 # name alias
 bind_datacollector = BindDataCollectorConfig

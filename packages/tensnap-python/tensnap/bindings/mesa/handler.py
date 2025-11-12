@@ -2,7 +2,7 @@
 """Mesa-specific SimulationHandler implementation"""
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, List
 
 from tensnap.utils.func import call_function
 from tensnap.scenario import DefaultSimulationHandler, call_function
@@ -75,6 +75,9 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         self.model: "Model | None" = None
         self.env_binder: "MesaGridEnvironmentBinder | None" = None
 
+        self.auto_added_parameters: List[str] = []
+        self.auto_added_charts: List[str] = []
+
         self.init_model()
 
     def init_model(self):
@@ -123,8 +126,10 @@ class MesaSimulationHandler(DefaultSimulationHandler):
     def _unregister_everything(self):
         s = self.scenario
         assert s is not None
-        s.remove_all_parameters(include_actions=False)
-        s.remove_all_charts()
+        s.remove_parameters(self.auto_added_parameters)
+        s.remove_charts(self.auto_added_charts)
+        self.auto_added_parameters = []
+        self.auto_added_charts = []
 
     async def on_registered(self, scenario: "SimulationScenario") -> None:
         """Called when the handler is registered with a scenario"""
@@ -143,7 +148,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
             self.scenario.add_environment(env_binder)
             self.scenario.add_actions({})
 
-        self.scenario.add_parameters(
+        p1, _ = self.scenario.add_parameters(
             self.model,
             cfg_suggest=BindParametersConfig(
                 exclude=["running", "steps"],
@@ -151,5 +156,8 @@ class MesaSimulationHandler(DefaultSimulationHandler):
             ),
         )
         if not self.on_model_init:
-            self.scenario.add_parameters(self.model_init_kwargs)
-        self.scenario.add_charts(self.model)
+            p2, _ = self.scenario.add_parameters(self.model_init_kwargs)
+            p1.extend(p2)
+        self.auto_added_parameters = p1
+
+        self.auto_added_charts = self.scenario.add_charts(self.model)

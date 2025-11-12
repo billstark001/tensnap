@@ -21,6 +21,17 @@ from tensnap.utils.attr import (
 )
 
 
+def create_chart_invoke_function(func: Callable, target: Any):
+    _func = func
+    _target = target
+
+    def invoke():
+        ret = _func(_target)
+        return ret
+
+    return invoke
+
+
 class SimulationHandlerProtocol(Protocol):
 
     async def on_registered(self, scenario: "SimulationScenario") -> None: ...
@@ -174,6 +185,7 @@ class SimulationScenario:
         self.server.remove_all_environments()
 
     def add_charts(self, target: dict[str, Any] | ModuleType | object):
+        added_ids: List[str] = []
         target_dict = None
         if isinstance(target, ModuleType) or hasattr(target, "__dict__"):
             target_dict = vars(target)
@@ -183,15 +195,18 @@ class SimulationScenario:
             charts = get_chart_metadata_from_namespace(target_dict)
             for _, func, chart in charts:
                 self.server.add_chart(func, chart)
+                added_ids.append(chart.id)
         if hasattr(target, "__class__"):
             cls = target.__class__
             charts = get_chart_metadata_from_namespace(vars(cls))  # type: ignore
             for name, func, chart in charts:
+                self.server.add_chart(create_chart_invoke_function(func, target), chart)
+                added_ids.append(chart.id)
+        return added_ids
 
-                def invoke():
-                    return func(target)
-
-                self.server.add_chart(invoke, chart)
+    def remove_charts(self, chart_ids: List[str]):
+        for chart_id in chart_ids:
+            self.server.remove_chart(chart_id)
 
     def remove_all_charts(self):
         self.server.remove_all_charts()
@@ -201,6 +216,8 @@ class SimulationScenario:
         target: dict[str, Any] | ModuleType | object,
         cfg_suggest: BindParametersConfig | None = None,
     ):
+        added_parameter_ids: List[str] = []
+        added_action_ids: List[str] = []
         parameters, actions = get_parameter_metadata_from_object(
             target, cfg_suggest=cfg_suggest
         )
@@ -208,21 +225,29 @@ class SimulationScenario:
             for name, param in parameters:
                 getter, setter = make_dict_getter_and_setter(name, target)
                 self.server.add_parameter(param, getter, setter)
+                added_parameter_ids.append(param.id)
             for name, func, action in actions:
                 self.server.add_action(
                     action, func or (lambda: target[name]()), add_parameter=True
                 )
-            return
+                added_action_ids.append(action.id)
         else:
             for name, param in parameters:
                 getter, setter = make_identifier_getter_and_setter(name, target)
                 self.server.add_parameter(param, getter, setter)
+                added_parameter_ids.append(param.id)
             for name, func, action in actions:
                 self.server.add_action(
                     action,
                     func or (lambda: getattr(target, name)()),
                     add_parameter=True,
                 )
+                added_action_ids.append(action.id)
+        return added_parameter_ids, added_action_ids
+
+    def remove_parameters(self, parameter_ids: List[str]):
+        for parameter_id in parameter_ids:
+            self.server.remove_parameter(parameter_id)
 
     def remove_all_parameters(self, include_actions: bool = False):
         self.server.remove_all_parameters(include_actions=include_actions)
