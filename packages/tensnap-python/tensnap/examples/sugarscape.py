@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 from tensnap import bind_mesa_grid_agent, bind_datacollector, bind_mesa_grid_environment
 from tensnap.utils import img_to_npy_bytes
 
-@bind_mesa_grid_agent(color=True, x="x", y="y")
+
+@bind_mesa_grid_agent(color=True)
 class SugarAgent(Agent):
 
     model: "Sugarscape"
@@ -25,20 +26,13 @@ class SugarAgent(Agent):
         green = int(255 * (sugar_level / 50.0))
         color = f"#{red:02x}{green:02x}00"
         return color
-      
-    @property
-    def x(self) -> int: # to convert non-serializable np.int64
-        return int(self.pos[0])
-
-    @property
-    def y(self) -> int:
-        return int(self.pos[1])
 
     def __init__(self, model: "Sugarscape"):
         super().__init__(model)
-        self.metabolism = float(np.random.uniform(1, 4))
-        self.vision = int(np.random.randint(1, 6))
-        self.sugar = float(np.random.uniform(5, 25))
+        # 使用模型中配置的范围参数
+        self.metabolism = float(np.random.uniform(*model.metabolism_range))
+        self.vision = int(np.random.randint(*model.vision_range))
+        self.sugar = float(np.random.uniform(*model.initial_sugar_range))
 
     def move(self):
         neighbors_sugar = list(
@@ -105,11 +99,38 @@ def sugar_field_circular(width: int, height: int):
 @bind_datacollector()
 @bind_mesa_grid_environment(background=True)
 class Sugarscape(Model):
-    def __init__(self, width: int, height: int, agent_count: int, seed=None):
-        super().__init__(seed=seed)  # 必须调用 super().__init__()
-        self.grid = MultiGrid(width, height, True)
-        self.sugar = sugar_field_circular(width, height)
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        agent_count: int,
+        seed=None,
+        grid_type: str = "circular",
+        sugar_growth_rate: int = 1,
+        metabolism_range: Tuple[float, float] = (1.0, 4.0),
+        vision_range: Tuple[int, int] = (1, 6),
+        initial_sugar_range: Tuple[float, float] = (5.0, 25.0),
+        torus: bool = True,
+    ):
+        super().__init__(seed=seed)
+        self.grid = MultiGrid(width, height, torus)
+        
+        # 根据grid_type选择糖田生成方式
+        if grid_type == "random":
+            self.sugar = sugar_field_random(width, height)
+        elif grid_type == "circular":
+            self.sugar = sugar_field_circular(width, height)
+        else:
+            raise ValueError(f"Unknown grid_type: {grid_type}. Must be 'random' or 'circular'")
+        
         self.sugar_max = np.copy(self.sugar)
+        self.sugar_growth_rate = sugar_growth_rate
+        
+        # 保存智能体属性范围，供创建智能体时使用
+        self.metabolism_range = metabolism_range
+        self.vision_range = vision_range
+        self.initial_sugar_range = initial_sugar_range
+        
         self.create_agents(agent_count)
 
         self.datacollector = DataCollector(
@@ -132,7 +153,10 @@ class Sugarscape(Model):
 
     def step(self):
         self.agents.shuffle_do("step")
-        self.sugar[self.sugar < self.sugar_max] += 1
+        # 使用配置的糖增长速率
+        self.sugar[self.sugar < self.sugar_max] += self.sugar_growth_rate
+        # 确保糖值不超过最大值
+        self.sugar = np.minimum(self.sugar, self.sugar_max)
         self.datacollector.collect(self)
 
     def get_population(self) -> float:
@@ -152,7 +176,7 @@ class Sugarscape(Model):
             total_vision = sum(cast(SugarAgent, a).vision for a in self.agents)
             return float(total_vision / len(self.agents))
         return 0.0
-      
+
     @property
     def background(self):
         img = np.zeros((self.grid.height, self.grid.width, 3), dtype=np.uint8)
@@ -161,35 +185,4 @@ class Sugarscape(Model):
         img[self.sugar == 2] = [345, 222, 107]  # Light green for medium sugar
         img[self.sugar == 3] = [34, 139, 34]  # Green for high sugar
         img[self.sugar >= 4] = [0, 255, 0]  # Bright green for max sugar
-        return img_to_npy_bytes(img)
-
-
-def plot_model(model: Sugarscape):
-    # Extracting sugar levels from the model
-    sugar = model.sugar
-    agent_positions = [cast("SugarAgent", agent).pos for agent in model.agents]
-
-    # Creating a plot
-    plt.figure(figsize=(8, 8))
-
-    # Plotting sugar distribution
-    plt.imshow(8 - sugar, vmin=0, vmax=8)
-
-    # Plotting agent positions
-    agents_x = [pos[0] for pos in agent_positions]
-    agents_y = [pos[1] for pos in agent_positions]
-    agents_colors = [cast("SugarAgent", agent).sugar for agent in model.agents]
-    plt.scatter(
-        agents_x,
-        agents_y,
-        c=agents_colors,
-        marker="o",
-        s=10,
-        label="Agents",
-        cmap="viridis",
-    )
-
-    plt.title(f"Sugarscape Model at Step {model.steps}")  # 使用 model.steps
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+        return img

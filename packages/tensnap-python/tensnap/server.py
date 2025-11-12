@@ -18,6 +18,7 @@ from enum import Enum
 from collections import defaultdict
 
 from .utils.ws import BatchedMessageQueue
+from .utils.object import json_default, msgpack_default, find_objects_by_error
 from .bindings.basic import (
     Parameter,
     ActionParameter,
@@ -63,11 +64,19 @@ def encode_message(
 ) -> str | bytes:
     type_str = msg_type.value
     msg = {"type": type_str, "payload": payload}
-    return (
-        msgpack.packb(msg, use_bin_type=True)
-        if use_msgpack
-        else json.dumps(msg, separators=(",", ":"))
-    )  # type: ignore
+    try:
+        
+        return (
+            msgpack.packb(msg, default=msgpack_default, use_bin_type=True)
+            if use_msgpack
+            else json.dumps(msg, default=json_default, separators=(",", ":"))
+        )  # type: ignore
+    except TypeError as e:
+        e_str = e.args[0] if e.args else str(e)
+        err_obj = find_objects_by_error(payload, e_str)
+        raise TypeError(
+            f"Failed to serialize message of type {msg_type}: {e_str}. Problematic object(s): {err_obj}"
+        ) from e
 
 
 def convert_env_state(env: "EnvironmentBinderProtocol") -> Dict[str, Any]:

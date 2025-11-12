@@ -3,6 +3,7 @@ import { GridAgent, AgentIcon, AgentId, GridEnvironmentCoordOffset, AgentTraject
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
+import { detectFileFormat } from '@/utils/format-detector';
 
 interface GridEnvironmentProps {
   width: number;
@@ -60,10 +61,15 @@ export class GridVisualizer {
   private envProps: GridEnvironmentProps;
   private resizeObserver: ResizeObserver | null = null;
   private coordOffset: GridEnvironmentCoordOffset = 'int';
+  private gridStrokeColor: string = '#80808050';
 
   // Event callbacks
   private onAgentClick?: (agent: GridAgent, event: any) => void;
   private onAgentContextMenu?: (agent: GridAgent, event: any) => void;
+
+  // CSS color validation cache for high-frequency checks
+  private static readonly CSS_COLOR_CACHE = new Map<string, boolean>();
+  private static readonly CACHE_MAX_SIZE = 100;
 
   constructor(container: HTMLElement, envProps: GridEnvironmentProps) {
     this.container = container;
@@ -71,6 +77,49 @@ export class GridVisualizer {
     this.coordOffset = envProps.coordOffset || 'int';
     this.shapeCache = this.calculateShapes(envProps, container.clientWidth, container.clientHeight);
     this.initialize();
+  }
+
+  /**
+   * High-performance CSS color validation with caching.
+   * Supports: named colors, hex (#RGB, #RRGGBB, #RRGGBBAA), rgb/rgba, hsl/hsla.
+   */
+  private isCssColor(value: string): boolean {
+    // Check cache first
+    const cached = GridVisualizer.CSS_COLOR_CACHE.get(value);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    // Fast path: check common patterns without regex
+    const firstChar = value[0];
+    let isValid = false;
+
+    if (firstChar === '#') {
+      // Hex color: #RGB, #RRGGBB, #RRGGBBAA
+      const len = value.length;
+      isValid = (len === 4 || len === 7 || len === 9) && /^#[0-9a-fA-F]+$/.test(value);
+    } else if (firstChar === 'r') {
+      // rgb/rgba
+      isValid = /^rgba?\s*\(/.test(value);
+    } else if (firstChar === 'h') {
+      // hsl/hsla
+      isValid = /^hsla?\s*\(/.test(value);
+    } else if (firstChar >= 'a' && firstChar <= 'z') {
+      // Named colors (e.g., 'red', 'transparent')
+      isValid = /^[a-z]+$/.test(value);
+    }
+
+    // Cache the result with LRU-like eviction
+    if (GridVisualizer.CSS_COLOR_CACHE.size >= GridVisualizer.CACHE_MAX_SIZE) {
+      // Remove oldest entry (first in map)
+      const firstKey = GridVisualizer.CSS_COLOR_CACHE.keys().next().value;
+      if (firstKey !== undefined) {
+        GridVisualizer.CSS_COLOR_CACHE.delete(firstKey);
+      }
+    }
+    GridVisualizer.CSS_COLOR_CACHE.set(value, isValid);
+
+    return isValid;
   }
 
   private calculateShapes(env: { width: number; height: number }, width: number, height: number): ShapeCache {
@@ -99,7 +148,7 @@ export class GridVisualizer {
     });
 
     // Initialize layers in correct order: bg -> grid -> trajectories -> agents
-    this.layers.bg = new Rect({ width: canvasWidth, height: canvasHeight, fill: '#f0f0f0', cornerSmoothing: 0 });
+    this.layers.bg = new Rect({ width: canvasWidth, height: canvasHeight, fill: '#00000000', cornerSmoothing: 0 });
     this.layers.grid = new Group();
     this.layers.trajectories = new Group();
     this.layers.agents = new Group();
@@ -178,14 +227,14 @@ export class GridVisualizer {
     for (let i = 0; i <= width; i++) {
       gridGroup.add(new Line({
         points: [i * cellSize, 0, i * cellSize, canvasHeight],
-        stroke: '#dddddd',
+        stroke: this.gridStrokeColor,
         strokeWidth: 1
       }));
     }
     for (let j = 0; j <= height; j++) {
       gridGroup.add(new Line({
         points: [0, j * cellSize, canvasWidth, j * cellSize],
-        stroke: '#dddddd',
+        stroke: this.gridStrokeColor,
         strokeWidth: 1
       }));
     }
@@ -358,25 +407,62 @@ export class GridVisualizer {
     this.onAgentClick = handlers.onAgentClick;
     this.onAgentContextMenu = handlers.onAgentContextMenu;
   }
+  
+  private async parseUint8ArrayBackground(background: Uint8Array): Promise<string> {
+    const format = detectFileFormat(background);
+    if (format === 'npy') {
+      const parsed = NPYParser.parse(uint8ArrayToArrayBuffer(background));
+      const bgImg = createNumpyBackground(parsed);
+      if (!bgImg) {
+        throw new Error('Failed to create background image from NPY data');
+      }
+      return bgImg.src;
+    }
+    if (format === 'png' || format === 'jpeg' || format === 'bmp') {
+      const blob = new Blob([background as any], { type: `image/${format}` });
+      return URL.createObjectURL(blob);
+    }
+    throw new Error('Unsupported background format');
+  }
+
+  private updateBackgroundImage(newUrl: string): void {
+    const bgLayer = this.layers.bg;
+    if (!bgLayer) return;
+
+    if (typeof bgLayer.fill === 'object' && !Array.isArray(bgLayer.fill) && bgLayer.fill.type === 'image') {
+      const oldUrl = bgLayer.fill.url;
+      if (oldUrl && oldUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldUrl);
+      }
+    }
+    if (newUrl) {
+      bgLayer.set({ fill: { type: 'image', url: newUrl } });
+    } else {
+      bgLayer.set({ fill: '#00000000' });
+    }
+  }
 
   public async updateBackground(background?: string | Uint8Array): Promise<void> {
     const bgLayer = this.layers.bg;
     if (!bgLayer) return;
 
     if (typeof background === 'string') {
-      const img = await this.loadImageAsync(background);
-      bgLayer.set({ fill: { type: 'image', url: img.src } });
-    } else if (background instanceof Uint8Array) {
-      const parsed = NPYParser.parse(uint8ArrayToArrayBuffer(background));
-      const bgImg = createNumpyBackground(parsed);
-      if (bgImg) {
-        await this.loadImageAsync(bgImg.src);
-        bgLayer.set({ fill: { type: 'image', url: bgImg.src } });
+      // Fast path: check if it's a CSS color value
+      if (this.isCssColor(background)) {
+        bgLayer.set({ fill: background });
       } else {
-        bgLayer.set({ fill: '#f0f0f0' });
+        // It's an image URL
+        const img = await this.loadImageAsync(background);
+        this.updateBackgroundImage(img.src);
       }
+    } else if (background instanceof Uint8Array) {
+      // Binary data (NPY, PNG, JPEG, etc.)
+      const parsed = await this.parseUint8ArrayBackground(background);
+      const img = await this.loadImageAsync(parsed);
+      this.updateBackgroundImage(img.src);
     } else {
-      bgLayer.set({ fill: '#f0f0f0' });
+      // No background provided, use default
+      bgLayer.set({ fill: '#00000000' });
     }
   }
 
@@ -448,6 +534,7 @@ export class GridVisualizer {
   }
 
   public destroy(): void {
+    this.updateBackgroundImage(''); // Clean up background image URL
     this.resizeObserver?.disconnect();
     this.leafer?.destroy();
     this.leafer = null;

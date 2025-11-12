@@ -79,11 +79,13 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 #### Install System Dependencies
 
 **macOS:**
+
 ```bash
 xcode-select --install
 ```
 
 **Linux (Ubuntu/Debian):**
+
 ```bash
 sudo apt update
 sudo apt install libwebkit2gtk-4.0-dev \
@@ -250,6 +252,7 @@ Docker support is planned for easier deployment. Watch the repository for update
 ### Issue: `pnpm: command not found`
 
 **Solution**: Install pnpm globally:
+
 ```bash
 npm install -g pnpm
 ```
@@ -257,6 +260,7 @@ npm install -g pnpm
 ### Issue: Python version mismatch
 
 **Solution**: Use pyenv to manage Python versions:
+
 ```bash
 pyenv install 3.10
 pyenv local 3.10
@@ -269,11 +273,13 @@ pyenv local 3.10
 ### Issue: Port 8765 already in use
 
 **Solution**: Change the port in your simulation:
+
 ```python
 server = TenSnapServer(port=8766)  # Use different port
 ```
 
 Or set environment variable:
+
 ```bash
 TENSNAP_SERVER_PORT=8766 python your_simulation.py
 ```

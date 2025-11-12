@@ -22,8 +22,6 @@ from tensnap import (
     bind_graph_agent,
     chart,
 )
-from tensnap.utils import img_to_npy_bytes
-
 
 class State(IntEnum):
     """Enumeration for agent health states."""
@@ -206,8 +204,7 @@ class GridEnvironment(Environment):
     def background(self):
         """Get the background image representing agent states."""
         img = self.get_status_image()
-        img_bytes = img_to_npy_bytes(img)
-        return img_bytes
+        return img
 
 
 @bind_graph_environment(edges="graph.edges")
