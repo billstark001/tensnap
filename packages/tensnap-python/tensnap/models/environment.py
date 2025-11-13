@@ -1,4 +1,3 @@
-# tensnap/models/environment.py
 """Environment models for TenSnap simulations"""
 
 from collections.abc import Callable
@@ -6,7 +5,6 @@ from typing import (
     TypeAlias,
     Any,
     Generic,
-    NotRequired,
     Protocol,
     TypedDict,
     TypeVar,
@@ -16,6 +14,7 @@ from typing import (
     Tuple,
     Dict,
 )
+from typing_extensions import NotRequired
 
 import networkx as nx
 

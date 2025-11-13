@@ -61,9 +61,9 @@ class DefaultSimulationHandler:
         self.scenario = scenario
 
     async def send_updates(self, replace_agents: bool = False) -> None:
+        """Send environment and agent updates to the server"""
         if not self.scenario:
             return
-        """Send environment and agent updates to the server"""
         for name, env in self.scenario.env_binders.items():
             model_updates = env.get_model_dict()
             agent_updates_raw = env.get_agent_list()

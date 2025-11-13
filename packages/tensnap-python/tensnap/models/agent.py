@@ -1,13 +1,12 @@
-# tensnap/models/agent.py
 """Agent model for TenSnap simulations"""
 
 from collections.abc import Callable
 from typing import (
     TYPE_CHECKING,
     Any,
-    NotRequired,
     TypedDict,
 )
+from typing_extensions import NotRequired
 
 from tensnap.utils.attr import make_dict_accessor
 

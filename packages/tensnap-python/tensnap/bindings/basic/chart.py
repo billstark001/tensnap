@@ -11,8 +11,8 @@ from typing import (
     Dict,
     Tuple,
     TypedDict,
-    NotRequired,
 )
+from typing_extensions import NotRequired
 
 from dataclasses import dataclass
 

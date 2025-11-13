@@ -1,4 +1,3 @@
-# tensnap/models/communication.py
 """Communication models for WebSocket interactions"""
 
 from typing import Any, Literal

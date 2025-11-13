@@ -1,7 +1,6 @@
-# tensnap/bindings/mesa/accessors.py
 """Mesa 3-compatible accessor TypedDict definitions"""
 
-from typing import TypedDict, NotRequired, Any
+from typing import Any
 
 from tensnap.models.environment import (
     make_grid_environment_accessor,
