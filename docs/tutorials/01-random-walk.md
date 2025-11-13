@@ -170,11 +170,19 @@ grid = GridEnvironmentBinder(
 
 ## Step 6: Define Interactive Controls and Charts
 
+There are 5 preset actions in the Python binding's simulation handler:
+
+- Start (`start`)
+- Stop (`stop`)
+- Step (`step`)
+- Start/Stop (`start_stop`)
+- Reset (`reset`)
+
+These 5 preset actions are also preserved words. They might be triggered by the toolbar's buttons. Since they can fulfill all the purpose of this model, we don't need to add any new actions.
+
+We want to add the following 2 charts to track the average distance and population.
+
 ```python
-@action("reset", "Reset Simulation")
-async def reset():
-    """Reset button handler"""
-    simulation.initialize()
 
 @chart("avg_distance", "Average Distance from Center", color="#e74c3c")
 def track_distance() -> float:
@@ -208,7 +216,6 @@ async def main():
     )
     
     print(f"Random Walk Simulation starting on ws://localhost:8765")
-    print("Open your browser to http://localhost:3200")
     await scenario.run()
 
 if __name__ == "__main__":
@@ -217,20 +224,15 @@ if __name__ == "__main__":
 
 ## Step 8: Run Your Simulation
 
-1. **Start the Web Interface** (in one terminal):
-
-   ```bash
-   cd tensnap
-   pnpm dev:web
-   ```
-
-2. **Run Your Simulation** (in another terminal):
+1. **Run Your Simulation** (in another terminal):
 
    ```bash
    python random_walk.py
    ```
 
-3. **Open Browser**: Navigate to `http://localhost:3200`
+2. **Open Browser**: Navigate to `https://tensnap.netlify.app`
+
+3. In case the online instance is down, you may clone the repository, run `pnpm dev:web` and access `localhost:3200` as well.
 
 ## What You Should See
 

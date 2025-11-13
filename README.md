@@ -16,6 +16,14 @@
 
 ### Installation
 
+Installing Python bindings from PyPI:
+
+```bash
+pip install tensnap
+```
+
+Installing Python bindings from source code (for advanced users):
+
 ```bash
 # Clone the repository
 git clone https://github.com/billstark001/tensnap.git
@@ -25,8 +33,13 @@ cd tensnap
 cd packages/tensnap-python
 pip install -e .
 
+```
+
+Installing Node.js dependencies for frontend development (for advanced users):
+
+```bash
+
 # Install JavaScript dependencies
-cd ../..
 pnpm install
 ```
 
@@ -41,6 +54,8 @@ pnpm dev:py:flock
 ```
 
 Then open your browser to `http://localhost:3200` and watch the agents interact!
+
+- The [Netlify instance](https://tensnap.netlify.app) is also available at `https://tensnap.netlify.app`. You may access the site to avoid local deployment.
 
 ## 📚 Documentation
 
@@ -79,7 +94,6 @@ Here's a simple agent-based model with TenSnap:
 from tensnap import (
     SimulationScenario,
     GridEnvironmentBinder,
-    BindParametersConfig,
     bind_grid_agent,
     bind_grid_environment,
     chart,
