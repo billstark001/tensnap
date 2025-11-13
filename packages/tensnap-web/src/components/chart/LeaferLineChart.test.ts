@@ -8,6 +8,7 @@ jest.mock('leafer-ui', () => ({
     resize: jest.fn(),
     destroy: jest.fn(),
     on: jest.fn(),
+    off: jest.fn(),
   })),
   Group: jest.fn().mockImplementation(() => ({
     add: jest.fn(),
