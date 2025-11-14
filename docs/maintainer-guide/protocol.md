@@ -60,7 +60,7 @@ Marks simulation step end.
 
 #### `environment_update`
 
-Updates environment state with optional full agent list.
+Updates environment state with optional full agent list and tile list.
 
 ```typescript
 {
@@ -77,7 +77,8 @@ Updates environment state with optional full agent list.
       edges?: Array<Edge>,         // Graph only
       background?: string          // Grid only (hex-encoded)
     },
-    agents?: Array<Agent>          // Optional full replacement
+    agents?: Array<Agent>,         // Optional full replacement
+    tiles?: Array<Tile>            // Optional full replacement
   }
 }
 ```
@@ -120,6 +121,51 @@ Updates multiple agents efficiently.
     updates: Array<{
       id: string | number,
       data?: { /* agent properties */ },
+      operation?: "create" | "delete" | "update"  // default 'update'
+    }>
+  }
+}
+```
+
+#### `tile_update`
+
+Updates a single tile.
+
+```typescript
+{
+  type: "tile_update",
+  payload: {
+    environment_id: string,
+    tile_id: string | number,
+    data?: {
+      x: number,
+      y: number,
+      color?: string,
+      size?: number,
+      icon?: string,
+      shape?: string,
+      layer?: number,        // Z-index for rendering order
+      opacity?: number,      // 0.0 to 1.0
+      rotation?: number,     // In radians
+      // ... custom properties
+    },
+    operation?: "create" | "delete" | "update"  // default 'update'
+  }
+}
+```
+
+#### `tile_batch_update`
+
+Updates multiple tiles efficiently.
+
+```typescript
+{
+  type: "tile_batch_update",
+  payload: {
+    environment_id: string,
+    updates: Array<{
+      id: string | number,
+      data?: { /* tile properties */ },
       operation?: "create" | "delete" | "update"  // default 'update'
     }>
   }
@@ -252,6 +298,7 @@ interface Environment {
   type: "grid" | "graph" | "uniform";
   label?: string;
   agents: Agent[];
+  tiles?: Tile[];                    // Optional tile list
   
   // Grid-specific
   width?: number;
@@ -285,6 +332,24 @@ interface Agent {
   color?: string;
   icon?: "arrow" | "circle" | "square" | "triangle";
   size?: number;
+  data?: Record<string, any>;
+}
+```
+
+### Tile
+
+```typescript
+interface Tile {
+  id: string | number;
+  x: number;                      // Required position
+  y: number;                      // Required position
+  color?: string;
+  icon?: "circle" | "square" | "triangle" | string;
+  size?: number;
+  shape?: string;                 // Custom shape identifier
+  layer?: number;                 // Z-index for rendering order
+  opacity?: number;               // 0.0 to 1.0
+  rotation?: number;              // In radians
   data?: Record<string, any>;
 }
 ```

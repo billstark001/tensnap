@@ -221,8 +221,9 @@ Encoding: MessagePack (binary) or JSON
 **Server → Client**:
 
 - `time_step_start/end` - Step boundaries
-- `environment_update` - Full environment state with grid trajectory/coordinate config
+- `environment_update` - Full environment state with grid trajectory/coordinate config, tiles
 - `agent_batch_update` - Incremental agent changes with create/delete/update operations
+- `tile_batch_update` - Incremental tile changes with create/delete/update operations
 - `chart_update` - Chart data/operations
 - `state_sync` - Differential sync response
 - `log` - Server logs
@@ -261,15 +262,54 @@ Supports hot-reload and multi-client sync.
    - Send `time_step_start`
    - Execute model code
    - Send `agent_batch_update` (with create/delete/update operations)
+   - Send `tile_batch_update` (optional, for tile updates)
    - Send `chart_update`
    - Send `time_step_end`
-4. Frontend updates visualization with trajectories and coordinate transformations in real-time
+4. Frontend updates visualization with agents, tiles, trajectories and coordinate transformations in real-time
 
 ### Parameter Change
 
 1. User adjusts control → `parameter_change` message
 2. Backend calls setter, updates internal value
 3. Model uses new value on next step
+
+## Tiles (地物)
+
+Tiles are stationary objects with fixed coordinates and custom rendering behavior. They complement agents and can partially replace background rendering.
+
+### Tile Characteristics
+
+- **Fixed Position**: Tiles have x, y coordinates but are typically stationary or infrequently updated
+- **Custom Rendering**: Support for color, size, icon, shape, layer (z-index), opacity, rotation
+- **Use Cases**:
+  - Environmental features (grass, water, roads, buildings)
+  - Static obstacles or terrain
+  - Graph edges visualization
+  - Sparse spatial data representation
+- **Performance**: Efficient updates via batch operations, rendered on separate layer
+
+### Tile API
+
+Tiles are added to environments similarly to agents:
+
+```python
+# Define tile accessor
+tile_accessor = make_grid_tile_accessor(
+    id="id", x="x", y="y", 
+    color=True, size=True, layer=True
+)
+
+# Add to environment binder
+binder = GridEnvironmentBinder(
+    id="main",
+    environment=model,
+    agent_iterable_accessor='agents',
+    tile_iterable_accessor='tiles',
+    tile_accessor=tile_accessor
+)
+```
+
+Updates sent via `tile_batch_update` messages with create/delete/update operations.
 
 ## Performance
 
