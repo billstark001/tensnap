@@ -1,4 +1,4 @@
-import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartGroupMetadata, ChartUpdateOperation } from "./model";
+import { Agent, AgentId, Tile, TileId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartGroupMetadata, ChartUpdateOperation } from "./model";
 
 //#region Message Types
 
@@ -9,6 +9,8 @@ export type ServerToClientMessageType =
   | 'environment_update'
   | 'agent_update'
   | 'agent_batch_update'
+  | 'tile_update'
+  | 'tile_batch_update'
   | 'chart_update'
   | 'state_sync'
   | 'log'
@@ -68,9 +70,11 @@ export interface EnvironmentUpdatePayload {
   id: EnvironmentId;
   data: PureEnvironment;
   agents?: Agent[]; // Optional full agent list to replace existing agents
+  tiles?: Tile[]; // Optional full tile list to replace existing tiles
 }
 
 export type AgentUpdateOperation = 'create' | 'delete' | 'update';
+export type TileUpdateOperation = 'create' | 'delete' | 'update';
 
 // agent_update
 export interface AgentUpdatePayload {
@@ -87,6 +91,24 @@ export interface AgentBatchUpdatePayload {
     id: AgentId;
     data?: Agent;
     operation?: AgentUpdateOperation; // default to update
+  }>;
+}
+
+// tile_update
+export interface TileUpdatePayload {
+  environment_id: EnvironmentId;
+  tile_id: TileId;
+  data?: Tile;
+  operation?: TileUpdateOperation; // default to update
+}
+
+// tile_batch_update
+export interface TileBatchUpdatePayload {
+  environment_id: EnvironmentId;
+  updates: Array<{
+    id: TileId;
+    data?: Tile;
+    operation?: TileUpdateOperation; // default to update
   }>;
 }
 
@@ -165,6 +187,8 @@ export type ServerToClientPayload =
   | EnvironmentUpdatePayload
   | AgentUpdatePayload
   | AgentBatchUpdatePayload
+  | TileUpdatePayload
+  | TileBatchUpdatePayload
   | ChartUpdatePayload
   | StateSyncResponse
   | LogPayload

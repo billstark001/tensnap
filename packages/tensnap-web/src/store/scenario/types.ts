@@ -1,8 +1,8 @@
-import { Environment, Parameter, Snapshot, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartMetadata, ChartUpdateOperation, ChartGroupMetadata, SimulationState, PureEnvironment, ChartGroup } from '../../types/model';
+import { Environment, Parameter, Snapshot, EnvironmentId, Agent, SnapshotMetadata, AgentId, TileId, Tile, ChartUpdateData, ChartMetadata, ChartUpdateOperation, ChartGroupMetadata, SimulationState, PureEnvironment, ChartGroup } from '../../types/model';
 import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
 import { InstantiatedEnvironment } from './environment';
-import { AgentUpdateOperation, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
+import { AgentUpdateOperation, TileUpdateOperation, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
 import { InstantiatedChartStorage } from './chart';
 import { UpdateTriggerState } from '../update-trigger';
 
@@ -39,8 +39,9 @@ export interface EnvironmentsSlice {
   environments: Map<EnvironmentId, InstantiatedEnvironment>;
   renameEnvironment: (id: EnvironmentId, newId: EnvironmentId) => void;
   removeEnvironment: (id: EnvironmentId) => void;
-  updateEnvironment: (id: EnvironmentId, props: Partial<PureEnvironment>, agents?: Agent[]) => void;
+  updateEnvironment: (id: EnvironmentId, props: Partial<PureEnvironment>, agents?: Agent[], tiles?: Tile[]) => void;
   updateAgents: (id: EnvironmentId, updates: { id: AgentId; data?: Partial<Agent>, operation?: AgentUpdateOperation }[]) => void;
+  updateTiles: (id: EnvironmentId, updates: { id: TileId; data?: Partial<Tile>, operation?: TileUpdateOperation }[]) => void;
 }
 
 // 参数管理切片

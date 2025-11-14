@@ -1,9 +1,13 @@
 
 export type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
 
+export type TileIcon = 'circle' | 'square' | 'triangle' | string;
+
 export type EnvironmentType = 'grid' | 'graph' | 'uniform';
 
 export type AgentId = string | number;
+
+export type TileId = string | number;
 
 export type EnvironmentId = string;
 
@@ -22,11 +26,26 @@ export interface Agent {
   data?: Record<string, any>;
 }
 
+export interface Tile {
+  id: TileId;
+  x: number;
+  y: number;
+  color?: string;
+  icon?: TileIcon;
+  size?: number;
+  shape?: string;
+  layer?: number;  // Z-index for rendering order
+  opacity?: number;  // 0.0 to 1.0
+  rotation?: number;  // In radians
+  data?: Record<string, any>;
+}
+
 export interface EnvironmentBase {
   id: EnvironmentId;
   type: EnvironmentType;
   label?: string;
   agents: Agent[];
+  tiles?: Tile[];
 }
 
 // #region Grid Environment
@@ -37,6 +56,10 @@ export interface GridAgent extends Agent {
   heading: number;
   trajectory_length?: number;
   trajectory_color?: string;
+}
+
+export interface GridTile extends Tile {
+  // Grid tiles have all base tile properties
 }
 
 export type GridEnvironmentCoordOffset = 'int' | 'float';
@@ -54,6 +77,7 @@ export interface GridEnvironment extends PureGridEnvironment, EnvironmentBase {
   id: EnvironmentId;
   type: 'grid';
   agents: GridAgent[];
+  tiles?: GridTile[];
 }
 
 // #endregion
@@ -63,6 +87,10 @@ export interface GridEnvironment extends PureGridEnvironment, EnvironmentBase {
 export interface GraphAgent extends Agent {
   x?: number;
   y?: number;
+}
+
+export interface GraphTile extends Tile {
+  // Graph tiles have all base tile properties
 }
 
 export interface GraphEdge {
@@ -82,6 +110,7 @@ export interface GraphEnvironment extends PureGraphEnvironment, EnvironmentBase 
   id: EnvironmentId;
   type: 'graph';
   agents: GraphAgent[];
+  tiles?: GraphTile[];
 }
 
 // #endregion
@@ -92,6 +121,10 @@ export interface UniformAgent extends Agent {
   // no additional properties for now
 }
 
+export interface UniformTile extends Tile {
+  // Uniform tiles have all base tile properties
+}
+
 export interface PureUniformEnvironment {
   // no additional properties for now
 }
@@ -100,6 +133,7 @@ export interface UniformEnvironment extends PureUniformEnvironment, EnvironmentB
   id: EnvironmentId;
   type: 'uniform';
   agents: UniformAgent[];
+  tiles?: UniformTile[];
 }
 
 

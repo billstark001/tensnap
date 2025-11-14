@@ -1,6 +1,6 @@
 import { CreateStoreFunction } from '@/utils/zustand';
 import { EnvironmentsSlice, ScenarioStore } from '../types';
-import { Agent, AgentTrajectoryPoint, GridAgent } from '@/types/model';
+import { Agent, AgentTrajectoryPoint, GridAgent, Tile } from '@/types/model';
 import { InstantiatedGridEnvironment } from '../environment';
 
 // 为无限长度轨迹设置安全上限，防止内存无限增长
@@ -44,7 +44,7 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
     set();
   },
   
-  updateEnvironment: (id, propsUpdate, agentsUpdate) => {
+  updateEnvironment: (id, propsUpdate, agentsUpdate, tilesUpdate) => {
     const { environments, log, environmentUpdateTrigger: { set } } = get();
     const env = environments.get(id);
     if (!env) {
@@ -57,8 +57,14 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
       ? Object.fromEntries(agentsUpdate.map(a => [a.id, a]))
       : env.agents;
 
+    // replace all tiles if tilesUpdate is provided
+    const newTiles = tilesUpdate 
+      ? Object.fromEntries(tilesUpdate.map(t => [t.id, t]))
+      : env.tiles;
+
     Object.assign(env.props, propsUpdate);
     env.agents = newAgents;
+    env.tiles = newTiles;
     if (env.type === 'grid' && agentsUpdate) {
       (env as InstantiatedGridEnvironment).agentTraces = {};
     }
@@ -152,6 +158,52 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
 
     }
     env.agents = agents;
+    set();
+  },
+
+  updateTiles: (envId, updates) => {
+    if (!updates || updates.length === 0) return;
+    const { environments, log, environmentUpdateTrigger: { set } } = get();
+    const env = environments.get(envId);
+    if (!env) {
+      log(`Environment with id ${envId} not found.`, 'warning');
+      return;
+    }
+    
+    const { tiles } = env;
+    for (const { id, data, operation } of updates) {
+      let currentTile = tiles[id];
+      if (operation === 'create') {
+        if (!data) {
+          log(`Newly created tile with id ${id} is not supplied with tile data.`, 'warning');
+        }
+        const newTile: Tile = {
+          id,
+          x: 0,
+          y: 0,
+          ...data
+        };
+        tiles[id] = newTile;
+        currentTile = newTile;
+      } else if (operation === 'delete') {
+        if (!currentTile) {
+          log(`Tile with id ${id} not found in ${env.type} environment ${envId}.`, 'warning');
+          continue;
+        }
+        Object.assign(currentTile, data);
+        delete tiles[id];
+      } else {
+        if (!currentTile) {
+          log(`Tile with id ${id} not found in ${env.type} environment ${envId}.`, 'warning');
+          continue;
+        }
+        if (data?.id && data?.id !== currentTile.id) {
+          log(`Tile with id ${id} is being updated with a different id.`, 'warning');
+        }
+        Object.assign(currentTile, data);
+      }
+    }
+    env.tiles = tiles;
     set();
   },
 });

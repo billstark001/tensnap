@@ -1,6 +1,6 @@
 import { WebSocketManager } from "@/websocket";
 import { ScenarioStore, SetDataPayload } from "./store";
-import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, StateSyncResponse, ChartUpdatePayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload, ErrorPayload } from "@/types/api";
+import { EnvironmentUpdatePayload, AgentUpdatePayload, AgentBatchUpdatePayload, TileUpdatePayload, TileBatchUpdatePayload, StateSyncResponse, ChartUpdatePayload, TimeStepStartPayload, TimeStepEndPayload, LogPayload, ErrorPayload } from "@/types/api";
 import { StoreApi, UseBoundStore } from "zustand";
 import { getToastState } from "../toast";
 
@@ -13,6 +13,8 @@ export function unregisterEventHandlers(wsManager: WebSocketManager) {
   wsManager.off('environment_update');
   wsManager.off('agent_update');
   wsManager.off('agent_batch_update');
+  wsManager.off('tile_update');
+  wsManager.off('tile_batch_update');
   wsManager.off('state_sync');
   wsManager.off('chart_update');
   wsManager.off('log');
@@ -35,8 +37,8 @@ export function registerEventHandlers(
   });
 
   wsManager.on('environment_update', (payload: EnvironmentUpdatePayload) => {
-    const { id, data, agents } = payload;
-    useStore.getState().updateEnvironment(id, data, agents);
+    const { id, data, agents, tiles } = payload;
+    useStore.getState().updateEnvironment(id, data, agents, tiles);
   });
 
   wsManager.on('agent_update', (payload: AgentUpdatePayload) => {
@@ -50,6 +52,22 @@ export function registerEventHandlers(
   wsManager.on('agent_batch_update', (payload: AgentBatchUpdatePayload) => {
     const { environment_id, updates } = payload;
     useStore.getState().updateAgents(
+      environment_id,
+      updates.map(({ id, data, operation }) => ({ id, data, operation }))
+    );
+  });
+
+  wsManager.on('tile_update', (payload: TileUpdatePayload) => {
+    const { environment_id, tile_id, data } = payload;
+    useStore.getState().updateTiles(
+      environment_id,
+      [{ id: tile_id, data }]
+    );
+  });
+
+  wsManager.on('tile_batch_update', (payload: TileBatchUpdatePayload) => {
+    const { environment_id, updates } = payload;
+    useStore.getState().updateTiles(
       environment_id,
       updates.map(({ id, data, operation }) => ({ id, data, operation }))
     );
