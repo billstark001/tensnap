@@ -1,5 +1,5 @@
 import { Rect, Ellipse, Polygon, Line, Group, Leafer, ILeafer, PointerEvent, UI } from 'leafer-ui';
-import { GridAgent, AgentIcon, AgentId, GridEnvironmentCoordOffset, AgentTrajectoryPoint } from '@/types/model';
+import { GridAgent, AgentIcon, AgentId, GridEnvironmentCoordOffset, AgentTrajectoryPoint, Tile, TileId, TileIcon } from '@/types/model';
 import { NPYParser } from '@/utils/npy-parser';
 import { createNumpyBackground } from '@/utils/numpy-renderer';
 import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
@@ -29,6 +29,16 @@ interface AgentShape {
   color: string;
 }
 
+interface TileShape {
+  group: Group;
+  shape: UI;
+  tile: Tile;
+  icon: TileIcon;
+  size: number;
+  color: string;
+  layer: number;
+}
+
 interface TrajectoryCache {
   group: Group;
   lastRenderedIndex: number;
@@ -52,9 +62,11 @@ const SHAPE_CLASSES: Record<AgentIcon, typeof UI> = {
 export class GridVisualizer {
   private container: HTMLElement;
   private leafer: ILeafer | null = null;
-  private layers: { bg?: Rect; grid?: Group; trajectories?: Group; agents?: Group } = {};
+  private layers: { bg?: Rect; grid?: Group; tiles?: Group; trajectories?: Group; agents?: Group } = {};
   private agentCache: Record<AgentId, GridAgent> = {};
   private agentShapes: Map<string, AgentShape> = new Map();
+  private tileCache: Record<TileId, Tile> = {};
+  private tileShapes: Map<string, TileShape> = new Map();
   private trajectoryCache: Map<string, TrajectoryCache> = new Map();
   private trajectoryData: Record<string, AgentTrajectoryPoint[]> = {};
   private shapeCache: ShapeCache;
@@ -164,14 +176,16 @@ export class GridVisualizer {
       pixelRatio: window.devicePixelRatio || 1,
     });
 
-    // Initialize layers in correct order: bg -> grid -> trajectories -> agents
+    // Initialize layers in correct order: bg -> grid -> tiles -> trajectories -> agents
     this.layers.bg = new Rect({ width: canvasWidth, height: canvasHeight, fill: '#00000000', cornerSmoothing: 0 });
     this.layers.grid = new Group();
+    this.layers.tiles = new Group();
     this.layers.trajectories = new Group();
     this.layers.agents = new Group();
 
     this.leafer.add(this.layers.bg);
     this.leafer.add(this.layers.grid);
+    this.leafer.add(this.layers.tiles);
     this.leafer.add(this.layers.trajectories);
     this.leafer.add(this.layers.agents);
 
@@ -194,6 +208,7 @@ export class GridVisualizer {
     this.setCanvasSize(rect.width, rect.height);
     this.updateGridSize();
     this.refreshAllAgents();
+    this.refreshAllTiles();
     // Rebuild all trajectories with new cell size
     this.rebuildAllTrajectories();
     // Re-apply canvas smoothing settings after resize
@@ -335,6 +350,71 @@ export class GridVisualizer {
   private refreshAllAgents(): void {
     Object.values(this.agentCache).forEach(agent => {
       this.updateAgentDisplay(agent);
+    });
+  }
+
+  private updateTileDisplay(tile: Tile): void {
+    if (tile.x === undefined || tile.y === undefined) return;
+
+    const { cellSize } = this.shapeCache;
+    const tileId = String(tile.id);
+    const icon = (tile.icon || 'square') as TileIcon;
+    const size = (tile.size || 10) * (cellSize / 10);
+    const posDiff = this.coordOffset === 'int' ? cellSize / 2 : 0;
+    const x = tile.x * cellSize + posDiff;
+    const y = tile.y * cellSize + posDiff;
+    const color = tile.color || '#888888';
+    const rotation = tile.rotation ? (tile.rotation * 180 / Math.PI) : 0;
+    const opacity = tile.opacity !== undefined ? tile.opacity : 1.0;
+    const layer = tile.layer || 0;
+
+    let cached = this.tileShapes.get(tileId);
+
+    if (cached) {
+      // Update existing
+      cached.group.set({ x, y, rotation, opacity });
+      if (cached.icon !== icon || cached.size !== size) {
+        // For standard icons, use SHAPE_CONFIGS
+        if (icon in SHAPE_CONFIGS) {
+          cached.shape.set(SHAPE_CONFIGS[icon as AgentIcon]?.(size));
+        }
+        cached.icon = icon;
+        cached.size = size;
+      }
+      if (cached.color !== color) {
+        cached.shape.set({ fill: color });
+        cached.color = color;
+      }
+      if (cached.layer !== layer) {
+        // Re-order in the layer
+        cached.group.zIndex = layer;
+        cached.layer = layer;
+      }
+      cached.tile = tile;
+    } else {
+      // Create new
+      const group = new Group({ x, y, rotation, opacity, zIndex: layer });
+      const shape = this.createTileShape(icon, size, color);
+
+      group.add(shape);
+
+      this.layers.tiles?.add(group);
+      this.tileShapes.set(tileId, { group, shape, icon, tile, size, color, layer });
+    }
+  }
+
+  private createTileShape(icon: TileIcon, size: number, color: string): UI {
+    // For standard icons, use the same shapes as agents
+    if (icon in SHAPE_CONFIGS) {
+      return this.createShape(icon as AgentIcon, size, color);
+    }
+    // For custom shapes, default to square
+    return new Rect({ width: size, height: size, x: -size / 2, y: -size / 2, fill: color, cornerSmoothing: 0 });
+  }
+
+  private refreshAllTiles(): void {
+    Object.values(this.tileCache).forEach(tile => {
+      this.updateTileDisplay(tile);
     });
   }
 
@@ -602,6 +682,26 @@ export class GridVisualizer {
     this.refreshAllAgents();
   }
 
+  public updateTiles(tiles: Record<string, Tile>): void {
+    const tilesGroup = this.layers.tiles;
+    if (!tilesGroup) return;
+
+    const currentTileIds = new Set(Object.keys(tiles).map(String));
+    const previousTileIds = new Set(this.tileShapes.keys());
+
+    // Remove deleted tiles
+    previousTileIds.forEach(id => {
+      if (!currentTileIds.has(id)) {
+        this.tileShapes.get(id)?.group.remove();
+        this.tileShapes.delete(id);
+      }
+    });
+
+    // Update or create tiles
+    this.tileCache = tiles;
+    this.refreshAllTiles();
+  }
+
   public updateTrajectories(trajectories: Record<string, AgentTrajectoryPoint[]>): void {
     if (!this.layers.trajectories) return;
 
@@ -661,6 +761,12 @@ export class GridVisualizer {
     });
     this.agentShapes.clear();
 
+    // Remove all tile shapes
+    this.tileShapes.forEach((cached) => {
+      cached.group.remove();
+    });
+    this.tileShapes.clear();
+
     // Remove all trajectory groups
     this.trajectoryCache.forEach((cached) => {
       cached.group.remove();
@@ -682,6 +788,8 @@ export class GridVisualizer {
 
     // Clear agent cache
     this.agentCache = {};
+    // Clear tile cache
+    this.tileCache = {};
 
     // Clear event callbacks
     this.onAgentClick = undefined;

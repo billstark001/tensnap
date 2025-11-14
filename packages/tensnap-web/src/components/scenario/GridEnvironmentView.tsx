@@ -11,7 +11,7 @@ interface GridEnvironmentViewProps {
 }
 
 export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironmentViewProps) {
-  const { props: envProps, agents: agentsProps, agentTraces: traceProps } = environment;
+  const { props: envProps, agents: agentsProps, tiles: tilesProps, agentTraces: traceProps } = environment;
   const containerRef = useRef<HTMLDivElement>(null);
   const visualizerRef = useRef<GridVisualizer | null>(null);
 
@@ -55,6 +55,11 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
   useEffect(() => {
     visualizerRef.current?.updateAgents(agentsProps);
   }, [agentsProps, updateTrigger]);
+
+  // Update tiles
+  useEffect(() => {
+    visualizerRef.current?.updateTiles(tilesProps);
+  }, [tilesProps, updateTrigger]);
 
   // Update trajectories
   useEffect(() => {
