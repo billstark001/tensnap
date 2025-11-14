@@ -33,6 +33,20 @@ from .agent import (
     make_grid_agent_accessor,
     make_uniform_agent_accessor,
 )
+from .tile import (
+    TileModelDict,
+    GridTileModelDict,
+    GraphTileModelDict,
+    UniformTileModelDict,
+    TileAccessorDict,
+    GridTileAccessorDict,
+    GraphTileAccessorDict,
+    UniformTileAccessorDict,
+    make_tile_accessor,
+    make_grid_tile_accessor,
+    make_graph_tile_accessor,
+    make_uniform_tile_accessor,
+)
 
 
 # region Environment Model Dicts
@@ -233,6 +247,8 @@ class EnvironmentBinderProtocol(Protocol):
 
     def get_agent_list(self) -> list[dict[str, Any]]: ...
 
+    def get_tile_list(self) -> list[dict[str, Any]]: ...
+
 
 class BindAccessorConfigProtocol(Protocol):
     def get_accessor(self) -> Callable[[Any], Any]: ...
@@ -256,6 +272,10 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
         agent_iterable_accessor: str | bool = 'agents',
         agent_accessor: (
             Callable[[Any], UniformAgentModelDict] | UniformAgentAccessorDict | None
+        ) = None,
+        tile_iterable_accessor: str | bool | None = None,
+        tile_accessor: (
+            Callable[[Any], UniformTileModelDict] | UniformTileAccessorDict | None
         ) = None,
     ):
         self.id = id
@@ -289,6 +309,23 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
                 agent_iterable_accessor if isinstance(agent_iterable_accessor, str) else 'agents'
             )
 
+        # Handle tile_accessor
+        if tile_accessor is None:
+            self.tile_accessor = None
+        elif callable(tile_accessor):
+            self.tile_accessor = tile_accessor
+        else:
+            # It's a TypedDict, create accessor from it
+            self.tile_accessor = make_uniform_tile_accessor(**tile_accessor)
+            
+        # Handle tile_iterable_accessor
+        if not tile_iterable_accessor:
+            self.tile_iterable_accessor = None
+        else:
+            self.tile_iterable_accessor = make_identifier_getter(
+                tile_iterable_accessor if isinstance(tile_iterable_accessor, str) else 'tiles'
+            )
+
     def get_model_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization"""
         return cast(dict[str, Any], self.environment_accessor(self.environment))
@@ -308,14 +345,35 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
             ret.append(agent_dict)
         return ret
 
+    def get_tile_list(self) -> list[dict[str, Any]]:
+        if not self.tile_iterable_accessor:
+            return []
+        tile_list = self.tile_iterable_accessor(self.environment)
+        if not tile_list:
+            return []
+        
+        ret: list[dict[str, Any]] = []
+        for tile in tile_list:
+            if self.tile_accessor is None:
+                self._create_tile_accessor(tile)
+            tile_dict = cast(dict[str, Any], self.tile_accessor(tile)) # type: ignore
+            ret.append(tile_dict)
+        return ret
+
     def _get_config_key(self, env: TEnv) -> str:
         return "_tensnap_bind_accessor_config_uniform"
 
     def _get_agent_config_key(self, agent: T) -> str:
         return "_tensnap_bind_accessor_config_uniform"
 
+    def _get_tile_config_key(self, tile: T) -> str:
+        return "_tensnap_bind_accessor_config_uniform_tile"
+
     def _get_default_agent_accessor(self):
         return make_uniform_agent_accessor(id="id")
+
+    def _get_default_tile_accessor(self):
+        return make_uniform_tile_accessor(id="id")
 
     def _get_default_environment_accessor(self):
         return make_uniform_environment_accessor(id=self.id)
@@ -339,6 +397,16 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
         else:
             self.agent_accessor = self._get_default_agent_accessor()
 
+    def _create_tile_accessor(self, tile: T):
+        cfg_key = self._get_tile_config_key(tile)
+        if hasattr(tile, cfg_key):
+            accessor_config = cast(
+                BindAccessorConfigProtocol, getattr(tile, cfg_key)
+            )
+            self.tile_accessor = accessor_config.get_accessor()
+        else:
+            self.tile_accessor = self._get_default_tile_accessor()
+
     def set_environment(self, environment: TEnv) -> None:
         """Set the environment object"""
         self.environment = environment
@@ -358,6 +426,10 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
         agent_accessor: (
             Callable[[Any], GridAgentModelDict] | GridAgentAccessorDict | None
         ) = None,
+        tile_iterable_accessor: str | bool | None = None,
+        tile_accessor: (
+            Callable[[Any], GridTileModelDict] | GridTileAccessorDict | None
+        ) = None,
     ):
         # Handle environment_accessor
         if environment_accessor is None:
@@ -375,7 +447,15 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
         else:
             agent_acc = make_grid_agent_accessor(**agent_accessor)
 
-        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc)
+        # Handle tile_accessor
+        if tile_accessor is None:
+            tile_acc = None
+        elif callable(tile_accessor):
+            tile_acc = tile_accessor
+        else:
+            tile_acc = make_grid_tile_accessor(**tile_accessor)
+
+        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc, tile_iterable_accessor, tile_acc)
 
     def _get_config_key(self, env: TEnv) -> str:
         return "_tensnap_bind_accessor_config_grid"
@@ -383,8 +463,14 @@ class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
     def _get_agent_config_key(self, agent: T) -> str:
         return "_tensnap_bind_accessor_config_grid"
 
+    def _get_tile_config_key(self, tile: T) -> str:
+        return "_tensnap_bind_accessor_config_grid_tile"
+
     def _get_default_agent_accessor(self):
         return make_grid_agent_accessor(id="id")
+
+    def _get_default_tile_accessor(self):
+        return make_grid_tile_accessor(id="id")
 
     def _get_default_environment_accessor(self):
         return make_grid_environment_accessor(id=self.id)
@@ -406,6 +492,10 @@ class GraphEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
         ) = None,
         edge_accessor: (
             Callable[[Any], GraphEdgeDict] | GraphEdgeAccessorNXDict | None
+        ) = None,
+        tile_iterable_accessor: str | bool | None = None,
+        tile_accessor: (
+            Callable[[Any], GraphTileModelDict] | GraphTileAccessorDict | None
         ) = None,
     ):
         # Handle environment_accessor
@@ -436,7 +526,15 @@ class GraphEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
             self.is_nx_edge_accessor = True
             self.edge_accessor = make_graph_edge_accessor_nx(**edge_accessor)
 
-        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc)
+        # Handle tile_accessor
+        if tile_accessor is None:
+            tile_acc = None
+        elif callable(tile_accessor):
+            tile_acc = tile_accessor
+        else:
+            tile_acc = make_graph_tile_accessor(**tile_accessor)
+
+        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc, tile_iterable_accessor, tile_acc)
 
     def _get_config_key(self, env: TEnv) -> str:
         return "_tensnap_bind_accessor_config_graph"
@@ -444,8 +542,14 @@ class GraphEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
     def _get_agent_config_key(self, agent: T) -> str:
         return "_tensnap_bind_accessor_config_graph"
 
+    def _get_tile_config_key(self, tile: T) -> str:
+        return "_tensnap_bind_accessor_config_graph_tile"
+
     def _get_default_agent_accessor(self):
         return make_graph_agent_accessor(id="id")
+
+    def _get_default_tile_accessor(self):
+        return make_graph_tile_accessor(id="id")
 
     def _get_default_environment_accessor(self):
         return make_graph_environment_accessor(id=self.id)

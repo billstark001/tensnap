@@ -42,6 +42,14 @@ class EnvironmentStateWithAgentsOmitted(TypedDict):
     edges: NotRequired[list[GraphEdgeDict]]  # For graph environments
 
 
+class TileUpdateOperation(TypedDict):
+    """Operation type for tile updates"""
+    
+    id: str | int
+    data: NotRequired[dict[str, Any]]
+    operation: NotRequired[Literal["create", "delete", "update"]]  # default 'update'
+
+
 class StateSyncRequest(TypedDict):
     parameters: list[ParameterState]
     environments: list[EnvironmentStateWithAgentsOmitted]

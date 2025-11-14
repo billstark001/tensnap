@@ -46,6 +46,8 @@ class ServerToClientMessageType(Enum):
     ENVIRONMENT_UPDATE = "environment_update"
     AGENT_UPDATE = "agent_update"
     AGENT_BATCH_UPDATE = "agent_batch_update"
+    TILE_UPDATE = "tile_update"
+    TILE_BATCH_UPDATE = "tile_batch_update"
     CHART_UPDATE = "chart_update"
     STATE_SYNC = "state_sync"
     LOG = "log"
@@ -82,6 +84,7 @@ def encode_message(
 def convert_env_state(env: "EnvironmentBinderProtocol") -> Dict[str, Any]:
     env_dict = env.get_model_dict()
     env_dict["agents"] = env.get_agent_list()
+    env_dict["tiles"] = env.get_tile_list()
     return env_dict
 
 
@@ -492,10 +495,11 @@ class TenSnapServer:
         env_id: Union[str, int],
         data: Dict[str, Any] | None = None,
         agents: List[Dict[str, Any]] | None = None,
+        tiles: List[Dict[str, Any]] | None = None,
     ) -> None:
         await self._broadcast(
             ServerToClientMessageType.ENVIRONMENT_UPDATE,
-            {"id": env_id, "data": data, "agents": agents},
+            {"id": env_id, "data": data, "agents": agents, "tiles": tiles},
         )
 
     async def update_agent(
@@ -511,6 +515,24 @@ class TenSnapServer:
     ) -> None:
         await self._broadcast(
             ServerToClientMessageType.AGENT_BATCH_UPDATE,
+            {"environment_id": env_id, "updates": updates},
+        )
+
+    async def update_tile(
+        self, env_id: Union[str, int], tile_id: Union[str, int], data: Dict[str, Any]
+    ) -> None:
+        """Update a single tile in an environment"""
+        await self._broadcast(
+            ServerToClientMessageType.TILE_UPDATE,
+            {"environment_id": env_id, "tile_id": tile_id, "data": data},
+        )
+
+    async def update_tiles_batch(
+        self, env_id: Union[str, int], updates: List[Dict[str, Any]]
+    ) -> None:
+        """Update multiple tiles in an environment efficiently"""
+        await self._broadcast(
+            ServerToClientMessageType.TILE_BATCH_UPDATE,
             {"environment_id": env_id, "updates": updates},
         )
 

@@ -27,6 +27,20 @@ from .environment import (
     make_grid_environment_accessor,
     make_uniform_environment_accessor,
 )
+from .tile import (
+    TileModelDict,
+    GridTileModelDict,
+    GraphTileModelDict,
+    UniformTileModelDict,
+    TileAccessorDict,
+    GridTileAccessorDict,
+    GraphTileAccessorDict,
+    UniformTileAccessorDict,
+    make_tile_accessor,
+    make_grid_tile_accessor,
+    make_graph_tile_accessor,
+    make_uniform_tile_accessor,
+)
 from .types import (
     EnvironmentStateWithAgentsOmitted,
     LogPayload,
