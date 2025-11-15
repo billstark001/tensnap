@@ -44,12 +44,12 @@ TenSnap aims to:
 
 - [GitHub Repository](https://github.com/billstark001/tensnap)
 - [Report Issues](https://github.com/billstark001/tensnap/issues)
-- [Example Models](../packages/tensnap-python/tensnap/examples/)
+- [Example Models](../examples/python/ and examples/python_mesa/)
 
 ## Getting Help
 
 - Check the [User Guide](./user-guide/user-guide.md) for common questions
-- Look at the [Examples](../packages/tensnap-python/tensnap/examples/) for practical implementations
+- Look at the [Examples](../examples/python/ and examples/python_mesa/) for practical implementations
 - Open an issue on [GitHub](https://github.com/billstark001/tensnap/issues) for bugs or feature requests
 
 ## License

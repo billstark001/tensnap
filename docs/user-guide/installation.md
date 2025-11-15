@@ -135,8 +135,12 @@ This should start a development server, default at `http://localhost:3200`. Conf
 ### Run Example Simulation
 
 ```bash
-# From repository root
+# From repository root (using pnpm script)
 pnpm dev:py:flock
+
+# Or run directly from examples directory
+cd examples/python
+python flock_viz.py
 ```
 
 This will start the flocking simulation and open the web interface.

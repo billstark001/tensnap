@@ -48,9 +48,20 @@ pnpm dev:web  # Starts at http://localhost:3000
 **Python simulation examples:**
 
 ```bash
+# Using pnpm scripts from repository root
 pnpm dev:py:flock      # Flocking behavior
 pnpm dev:py:hk         # Hegselmann-Krause opinion dynamics
 pnpm dev:py:sirs:grid  # SIRS epidemic on grid
+pnpm dev:py:cgol       # Conway's Game of Life (Mesa)
+pnpm dev:py:sugarscape # Sugarscape (Mesa)
+pnpm dev:py:mushroom   # Mushroom foraging (Mesa)
+
+# Or run directly from examples directory
+cd examples/python
+python flock_viz.py
+
+cd examples/python_mesa
+python cgol_viz.py
 ```
 
 **Tauri desktop app:**
@@ -64,6 +75,9 @@ pnpm dev:tauri
 ```
 tensnap/
 ├── docs/                    # Documentation
+├── examples/
+│   ├── python/              # Python examples (non-Mesa)
+│   └── python_mesa/         # Python examples (Mesa-based)
 ├── packages/
 │   ├── tensnap-python/      # Python backend (WebSocket server)
 │   ├── tensnap-web/         # Web frontend (React + Vite)

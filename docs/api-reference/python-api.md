@@ -1041,4 +1041,5 @@ scenario.add_actions(globals())
 - [Protocol Documentation](../maintainer-guide/protocol.md) - WebSocket protocol specification
 - [Architecture Overview](../maintainer-guide/architecture.md) - System architecture
 - [Getting Started Guide](../user-guide/getting-started.md) - User guide
-- [Examples](../../packages/tensnap-python/tensnap/examples/) - Complete example simulations
+- [Python Examples](../../examples/python/) - Standard Python examples
+- [Mesa Examples](../../examples/python_mesa/) - Mesa-based examples

@@ -34,11 +34,15 @@ TenSnap comes with several example simulations. Let's run the flocking simulatio
 # From the root directory
 pnpm install  # Install JavaScript dependencies
 pnpm dev:py:flock  # Run the flock example
+
+# Or run directly from examples directory
+cd examples/python
+python flock_viz.py
 ```
 
 This will:
 1. Start a WebSocket server on port 8765
-2. Open your browser to the TenSnap web interface
+2. Open your browser to the TenSnap web interface (or use https://tensnap.netlify.app)
 3. Connect to the simulation automatically
 
 ### 3. Interact with the Simulation
@@ -155,5 +159,5 @@ pip install -e .
 If you encounter issues:
 
 1. Check the [User Guide](./user-guide.md) for detailed explanations
-2. Look at [example code](../../packages/tensnap-python/tensnap/examples/) for reference
+2. Look at example code: [Python examples](../../examples/python/) and [Mesa examples](../../examples/python_mesa/)
 3. Open an issue on [GitHub](https://github.com/billstark001/tensnap/issues)
