@@ -1,9 +1,12 @@
-# tensnap/examples/hk_viz.py
+# examples/python/hk_viz.py
 """TenSnap visualization for the Hegselmann-Krause opinion dynamics model"""
 
 import asyncio
 import os
 import numpy as np
+
+# Configure import path (pip-installed vs source)
+import import_config  # noqa: F401
 
 from tensnap import (
     chart,
@@ -12,7 +15,7 @@ from tensnap import (
     SimulationScenario,
 )
 
-from .hk import DiscreteHKModel
+from hk import DiscreteHKModel
 
 
 # Setup global state

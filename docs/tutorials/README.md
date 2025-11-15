@@ -69,12 +69,17 @@ If you have specific goals:
 
 ## Example Models
 
-The `packages/tensnap-python/tensnap/examples/` directory contains complete, working examples:
+The `examples/` directory contains complete, working examples:
 
+**Standard Python Examples** (`examples/python/`):
 - **flock.py / flock_viz.py** - Flocking/boids simulation
 - **hk.py / hk_viz.py** - Hegselmann-Krause opinion dynamics
-- **mushroom.py / mushroom_viz.py** - Mushroom fairy ring growth
-- **sugarscape.py** - Sugarscape resource collection model
+- **sirs.py / sirs_viz_*.py** - SIRS epidemic model
+
+**Mesa-Based Examples** (`examples/python_mesa/`):
+- **cgol.py / cgol_viz.py** - Conway's Game of Life
+- **mushroom.py / mushroom_viz.py** - Mushroom foraging simulation
+- **sugarscape.py / sugarscape_viz.py** - Sugarscape resource collection model
 
 These examples demonstrate best practices and can serve as templates for your own models.
 
@@ -82,7 +87,7 @@ These examples demonstrate best practices and can serve as templates for your ow
 
 - **[User Guide](../user-guide/user-guide.md)** - Comprehensive feature documentation
 - **[Python API Reference](../api-reference/python-api.md)** - Complete API documentation
-- **[GitHub Examples](https://github.com/billstark001/tensnap/tree/main/packages/tensnap-python/tensnap/examples)** - Browse code online
+- **[GitHub Examples](https://github.com/billstark001/tensnap/tree/main/examples/)** - Browse code online
 
 ## Contributing Tutorials
 

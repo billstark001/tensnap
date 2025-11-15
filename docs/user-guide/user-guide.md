@@ -669,5 +669,6 @@ def test_simulation_step():
 
 - **[Tutorials](../tutorials/)** - Follow detailed examples
 - **[Python API Reference](../api-reference/python-api.md)** - Complete API documentation
-- **[Examples](../../packages/tensnap-python/tensnap/examples/)** - Study example implementations
+- **[Python Examples](../../examples/python/)** - Standard Python examples
+- **[Mesa Examples](../../examples/python_mesa/)** - Mesa-based examples
 - **[Protocol Documentation](../maintainer-guide/protocol.md)** - Understand the WebSocket protocol

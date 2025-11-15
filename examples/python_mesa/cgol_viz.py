@@ -2,12 +2,15 @@ import asyncio
 import os
 from typing import cast
 
+# Configure import path (pip-installed vs source)
+import import_config  # noqa: F401
+
 from tensnap import SimulationScenario
 from tensnap.bindings.mesa import (
     MesaSimulationHandler,
 )
 
-from .cgol import GameOfLife
+from cgol import GameOfLife
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))

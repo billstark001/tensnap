@@ -26,11 +26,12 @@ asyncio.run(scenario.run())
 
 ## Examples
 
-Check the `examples/` directory for complete simulations:
+Example simulations are now located in the repository root:
 
-- `flock.py` - Flocking behavior
-- `sirs.py` - SIRS epidemic model
-- `sugarscape.py` - Sugarscape economic model
+- `examples/python/` - Standard Python examples (flock, hk, sirs)
+- `examples/python_mesa/` - Mesa-based examples (cgol, sugarscape, mushroom)
+
+See the README files in each directory for details on running the examples.
 
 ## Documentation
 

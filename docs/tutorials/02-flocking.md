@@ -469,11 +469,11 @@ You've learned:
 ## Next Steps
 
 - **Tutorial 3: Predator-Prey Dynamics** - Learn about agent lifecycle and multiple agent types
-- Explore [examples/sugarscape.py](../../packages/tensnap-python/tensnap/examples/sugarscape.py) for resource competition
-- Check out [examples/hk_viz.py](../../packages/tensnap-python/tensnap/examples/hk_viz.py) for network-based dynamics
+- Explore [examples/sugarscape.py](../../examples/python_mesa/sugarscape.py) for resource competition
+- Check out [examples/hk_viz.py](../../examples/python/hk_viz.py) for network-based dynamics
 
 ## References
 
 - Reynolds, C. W. (1987). "Flocks, herds and schools: A distributed behavioral model"
-- [Complete flock example](../../packages/tensnap-python/tensnap/examples/flock_viz.py)
+- [Complete flock example](../../examples/python/flock_viz.py)
 - [User Guide](../user-guide/user-guide.md)

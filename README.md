@@ -53,6 +53,10 @@ pnpm dev:web
 
 # Run flocking simulation (in another terminal)
 pnpm dev:py:flock
+
+# Or run directly from the examples directory
+cd examples/python
+python flock_viz.py
 ```
 
 Then open your browser to `http://localhost:3200` and watch the agents interact!
@@ -217,7 +221,8 @@ TenSnap was developed to address the gap between NetLogo's excellent interactive
 ## 🔗 Links
 
 - **[Documentation](./docs/)** - Complete documentation
-- **[Examples](./packages/tensnap-python/tensnap/examples/)** - Example simulations
+- **[Python Examples](./examples/python/)** - Standard Python examples
+- **[Mesa Examples](./examples/python_mesa/)** - Mesa-based examples
 - **[Issues](https://github.com/billstark001/tensnap/issues)** - Report bugs or request features
 - **[Discussions](https://github.com/billstark001/tensnap/discussions)** - Ask questions and share ideas
 

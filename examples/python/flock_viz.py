@@ -1,8 +1,11 @@
-# tensnap/examples/flock_viz.py
+# examples/python/flock_viz.py
 """TenSnap visualization for the flocking simulation"""
 
 import asyncio
 import os
+
+# Configure import path (pip-installed vs source)
+import import_config  # noqa: F401
 
 from tensnap import (
     chart,
@@ -11,7 +14,7 @@ from tensnap import (
     GridEnvironmentBinder,
 )
 
-from .flock import FlockSimulation, FlockConfig
+from flock import FlockSimulation, FlockConfig
 
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port)

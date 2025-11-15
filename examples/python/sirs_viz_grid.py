@@ -1,27 +1,32 @@
 import asyncio
 import os
 
+# Configure import path (pip-installed vs source)
+import import_config  # noqa: F401
+
 from tensnap import (
+    chart,
     SimulationScenario,
-    GraphEnvironmentBinder,
+    GridEnvironmentBinder,
 )
 
 # Import the pure simulation logic
-from .sirs import SIRSSimulation, ERNetworkEnvironment
+from sirs import SIRSSimulation, GridEnvironment
 
 
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
-scenario = SimulationScenario(port=server_port)
+scenario = SimulationScenario(port=server_port, use_msgpack=True)
 
 beta = 0.3  # Infection rate
 gamma = 0.1  # Recovery rate
 xi = 0.05  # Loss of immunity rate
-env = ERNetworkEnvironment(num_agents=100, connection_prob=0.05)
+env = GridEnvironment(rows=40, cols=40)
 model = SIRSSimulation(env, beta, gamma, xi, initial_infected=5)
 
-graph = GraphEnvironmentBinder(
-    id="sirs_graph",
+grid = GridEnvironmentBinder(
+    id="sirs_grid",
     environment=env,
+    agent_iterable_accessor=False,
 )
 
 
@@ -34,7 +39,7 @@ async def main():
         model.step,
     )
 
-    scenario.add_environment(graph)
+    scenario.add_environment(grid)
     scenario.add_charts(model)
     scenario.add_parameters(model)
     scenario.add_parameters(env)

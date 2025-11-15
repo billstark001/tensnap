@@ -312,7 +312,7 @@ def track_total_distance() -> float:
 
 ## Complete Code
 
-The complete code for this tutorial is available at: [examples/random_walk.py](../../packages/tensnap-python/tensnap/examples/) (if created)
+The complete code for this tutorial can be adapted from the available examples in [examples/python/](../../examples/python/)
 
 ## Next Steps
 
@@ -320,7 +320,7 @@ Congratulations! You've built your first TenSnap simulation. Next, try:
 
 - **[Tutorial 2: Flocking Behavior](./02-flocking.md)** - Learn about agent interactions
 - Explore the [User Guide](../user-guide/user-guide.md) for more features
-- Check out more [examples](../../packages/tensnap-python/tensnap/examples/)
+- Check out more examples: [Python examples](../../examples/python/) and [Mesa examples](../../examples/python_mesa/)
 
 ## Troubleshooting
 
