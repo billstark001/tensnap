@@ -12,7 +12,7 @@ from mushroom import ForagingModel, Hunter, Patch
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
-scenario = SimulationScenario(port=server_port)
+scenario = SimulationScenario(port=server_port, use_msgpack=True)
 
 handler: MesaSimulationHandler | None = None
 
@@ -40,14 +40,11 @@ def mushroom_stats_chart() -> dict:
     if model:
         red_count = 0
         yellow_count = 0
-        for x in range(model.grid.width):
-            for y in range(model.grid.height):
-                patch = model.patch_grid[x][y]
-                if patch.color == "red":
-                    red_count += 1
-                elif patch.color == "yellow":
-                    yellow_count += 1
-        
+        for patch in model.agents_by_type[Patch]:
+            if patch.color == "red":  # type: ignore
+                red_count += 1
+            elif patch.color == "yellow":  # type: ignore
+                yellow_count += 1
         return {
             "red_mushrooms": red_count,
             "collected_mushrooms": yellow_count,
@@ -62,7 +59,7 @@ def hunter_efficiency_chart() -> float:
     assert isinstance(handler.model, ForagingModel)
     model = handler.model
     if model:
-        hunters = [a for a in model.agents if isinstance(a, Hunter)]
+        hunters = [a for a in model.hunters if isinstance(a, Hunter)]
         if hunters:
             avg_time = sum(h.time_since_last_found for h in hunters) / len(hunters)
             return avg_time
@@ -82,12 +79,15 @@ async def main() -> None:
             "patches_per_cluster": PATCHES_PER_CLUSTER,
             "num_turtles": NUM_HUNTERS,
         },
+        agent_iterable_accessor="hunters",
     )
 
     await scenario.register_handler(handler)
     scenario.add_charts(globals())
 
-    print(f"TenSnap Mushroom Foraging visualization starting on ws://localhost:{server_port}")
+    print(
+        f"TenSnap Mushroom Foraging visualization starting on ws://localhost:{server_port}"
+    )
     await scenario.run()
 
 
