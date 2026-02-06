@@ -1,0 +1,44 @@
+{
+  "name": "tensnap-web-core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Core rendering and state management for TenSnap - framework-agnostic",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./chart": "./src/chart/index.ts",
+    "./store": "./src/store/index.ts",
+    "./types": "./src/types/index.ts",
+    "./utils": "./src/utils/index.ts"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:browser": "node scripts/browser-test.js",
+    "benchmark": "node scripts/benchmark.js",
+    "lint": "echo 'Linting not configured yet'",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "leafer-ui": "^1.10.0",
+    "d3": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.10.0",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
+    "playwright": "^1.49.1",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "tensnap",
+    "visualization",
+    "agent-based-modeling",
+    "chart",
+    "state-management"
+  ]
+}
