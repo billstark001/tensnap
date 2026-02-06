@@ -185,6 +185,9 @@ importers:
       react-split:
         specifier: ^2.0.14
         version: 2.0.14(react@19.2.0)
+      tensnap-web-core:
+        specifier: workspace:*
+        version: link:../tensnap-web-core
       zod:
         specifier: ^4.1.12
         version: 4.1.12

@@ -192,9 +192,32 @@ tensnap/
 ├── packages/
 │   ├── tensnap-python/          # Python bindings
 │   ├── tensnap-web/             # Web frontend (React)
+│   ├── tensnap-web-core/        # Core rendering & state (framework-agnostic)
+│   ├── tensnap-web-utils/       # Shared web utilities
 │   └── tensnap-tauri/           # Desktop app (Tauri)
 └── docs/                        # Documentation
 ```
+
+### Package Responsibilities
+
+- **tensnap-python**: Python API for connecting simulations to TenSnap
+- **tensnap-web**: React-based web interface with full UI components
+- **tensnap-web-core**: Framework-agnostic core for rendering and state management (no React/Zustand dependencies)
+- **tensnap-web-utils**: Shared utilities for web packages
+- **tensnap-tauri**: Desktop application wrapper
+
+The core package (`tensnap-web-core`) provides:
+- High-performance chart rendering using Leafer-UI
+- Grid, graph, and uniform environment visualizers
+- Lightweight state management system
+- Type-safe data models
+- Utility functions for data processing
+
+This allows for:
+- Independent testing and benchmarking of core functionality
+- Reuse in different frameworks or Node.js environments
+- Clear separation between UI and business logic
+
 
 ## 🤝 Contributing
 
