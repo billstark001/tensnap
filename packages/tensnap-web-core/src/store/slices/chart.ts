@@ -1,5 +1,5 @@
-import { CreateStoreFunction } from '@/utils/zustand';
-import { ChartsSlice, ScenarioStore } from '../types';
+import { CreateStoreFunction } from '../state-manager';
+import { ChartsSlice, ScenarioStore } from '../core-types';
 import { InstantiatedChartStorage } from '../chart';
 
 export const createChartsSlice: CreateStoreFunction<ChartsSlice, ScenarioStore> = (set, get) => ({

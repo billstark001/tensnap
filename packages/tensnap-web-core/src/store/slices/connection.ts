@@ -1,5 +1,5 @@
-import { CreateStoreFunction } from '@/utils/zustand';
-import { ConnectionSlice } from '../types';
+import { CreateStoreFunction } from '../state-manager';
+import { ConnectionSlice } from '../core-types';
 
 export const createConnectionSlice: CreateStoreFunction<ConnectionSlice> = (set) => ({
   connected: false,

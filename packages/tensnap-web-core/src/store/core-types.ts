@@ -33,7 +33,7 @@ export interface SetDataOptions {
 }
 
 // Agent update operation types
-export type AgentUpdateOperation = 'add' | 'update' | 'remove';
+export type AgentUpdateOperation = 'add' | 'update' | 'remove' | 'create' | 'delete';
 
 // Log types
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
@@ -50,8 +50,9 @@ export interface NormalizedLogPayload extends Required<LogPayload> {
 
 // Update trigger state
 export interface UpdateTriggerState {
-  counter: number;
-  timestamp: number;
+  value: any;
+  set: () => void;
+  reset: () => void;
 }
 
 // Connection state slice

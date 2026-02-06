@@ -1,5 +1,5 @@
-import { CreateStoreFunction } from '@/utils/zustand';
-import { ParametersSlice, ScenarioStore } from '../types';
+import { CreateStoreFunction } from '../state-manager';
+import { ParametersSlice, ScenarioStore } from '../core-types';
 
 export const createParametersSlice: CreateStoreFunction<ParametersSlice, ScenarioStore> = (_, get) => ({
   parameters: new Map(),

@@ -1,6 +1,6 @@
-import { CreateStoreFunction } from '@/utils/zustand';
-import { EnvironmentsSlice, ScenarioStore } from '../types';
-import { Agent, AgentTrajectoryPoint, GridAgent } from '@/types/model';
+import { CreateStoreFunction } from '../state-manager';
+import { EnvironmentsSlice, ScenarioStore } from '../core-types';
+import { Agent, AgentTrajectoryPoint, GridAgent } from '../../types/model';
 import { InstantiatedGridEnvironment } from '../environment';
 
 // 为无限长度轨迹设置安全上限，防止内存无限增长

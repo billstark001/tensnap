@@ -1,5 +1,5 @@
-import { CreateStoreFunction } from '@/utils/zustand';
-import { TimeSlice } from '../types';
+import { CreateStoreFunction } from '../state-manager';
+import { TimeSlice } from '../core-types';
 
 export const createTimeSlice: CreateStoreFunction<TimeSlice> = (set) => ({
   currentTime: 0,

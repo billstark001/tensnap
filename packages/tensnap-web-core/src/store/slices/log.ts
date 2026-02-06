@@ -1,6 +1,6 @@
-import { CreateStoreFunction } from '@/utils/zustand';
-import { LogsSlice } from '../types';
-import { LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
+import { CreateStoreFunction } from '../state-manager';
+import { LogsSlice } from '../core-types';
+import { LogLevel, LogPayload, NormalizedLogPayload } from '../core-types';
 
 const MAX_LOG_ENTRIES = 1000;
 
@@ -10,8 +10,8 @@ export const createLogsSlice: CreateStoreFunction<LogsSlice> = (set) => ({
 
   log: (payload: string | LogPayload, level: LogLevel = 'info') => {
     const normalizedPayload: NormalizedLogPayload = typeof payload === 'string'
-      ? { level, message: payload, timestamp: Date.now() }
-      : { level: 'info', ...payload, timestamp: payload.timestamp || Date.now() };
+      ? { id: `log-${Date.now()}-${Math.random()}`, level, message: payload, timestamp: Date.now() }
+      : { id: `log-${Date.now()}-${Math.random()}`, level: 'info', ...payload, timestamp: payload.timestamp || Date.now() };
 
     set((state) => {
       const newLogs = [...state.logs, normalizedPayload];

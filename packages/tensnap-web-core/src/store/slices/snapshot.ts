@@ -1,7 +1,7 @@
-import { CreateStoreFunction } from '@/utils/zustand';
-import { SnapshotsSlice, ScenarioStore } from '../types';
+import { CreateStoreFunction } from '../state-manager';
+import { SnapshotsSlice, ScenarioStore } from '../core-types';
 import { serializeEnvironment } from '../environment';
-import { Snapshot, SnapshotChartData } from '@/types/model';
+import { Snapshot, SnapshotChartData } from '../../types/model';
 
 export const createSnapshotsSlice: CreateStoreFunction<SnapshotsSlice, ScenarioStore> = (set, get) => ({
   snapshots: [],
