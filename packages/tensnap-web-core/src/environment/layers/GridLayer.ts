@@ -143,7 +143,6 @@ export class GridLayer extends BaseLayer implements IBoundedLayer {
     const { width: cols, height: rows, strokeColor = '#808080' } = this._envData;
     if (cols <= 0 || rows <= 0) return;
 
-    const container = this.getContainerSize();
     const scale = this.calculateViewportScale(this._viewport);
     
     // Calculate pixel size per cell

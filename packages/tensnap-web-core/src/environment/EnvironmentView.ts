@@ -224,7 +224,7 @@ export class EnvironmentView {
   // -------------------------------------------------------------------------
 
   /** @deprecated Use fitToScene() instead */
-  fitToView(padding = 40, duration = 750): void {
+  fitToView(padding = 40, _duration = 750): void {
     this.fitToScene(padding / this._containerSize.width);
   }
 
