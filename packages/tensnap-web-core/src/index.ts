@@ -5,6 +5,6 @@
  */
 
 export * from './chart';
-export * from './store';
-export * from './types';
+export * from './environment';
+export * from './parameter';
 export * from './utils';

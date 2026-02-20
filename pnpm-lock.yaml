@@ -61,7 +61,7 @@ importers:
     devDependencies:
       '@lingui/vite-plugin':
         specifier: ^5.5.2
-        version: 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))
+        version: 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))
       '@tauri-apps/cli':
         specifier: ^2.9.3
         version: 2.9.3
@@ -82,10 +82,10 @@ importers:
         version: 1.17.4(babel-plugin-macros@3.1.0)
       '@vanilla-extract/vite-plugin':
         specifier: ^5.1.1
-        version: 5.1.1(@types/node@24.10.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))
+        version: 5.1.1(@types/node@25.3.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))
       '@vitejs/plugin-react':
         specifier: ^5.1.0
-        version: 5.1.0(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))
+        version: 5.1.0(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))
       babel-plugin-macros:
         specifier: ^3.1.0
         version: 3.1.0
@@ -103,7 +103,7 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^7.2.2
-        version: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)
+        version: 7.2.2(@types/node@25.3.0)(jiti@2.6.1)
 
   packages/tensnap-web:
     dependencies:
@@ -200,7 +200,7 @@ importers:
         version: 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)
       '@lingui/vite-plugin':
         specifier: ^5.5.2
-        version: 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))
+        version: 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1
@@ -230,16 +230,16 @@ importers:
         version: 1.17.4(babel-plugin-macros@3.1.0)
       '@vanilla-extract/vite-plugin':
         specifier: ^5.1.1
-        version: 5.1.1(@types/node@24.10.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))
+        version: 5.1.1(@types/node@25.3.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))
       '@vitejs/plugin-react':
         specifier: ^5.1.0
-        version: 5.1.0(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))
+        version: 5.1.0(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))
       babel-plugin-macros:
         specifier: ^3.1.0
         version: 3.1.0
       vite:
         specifier: ^7.2.2
-        version: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)
+        version: 7.2.2(@types/node@25.3.0)(jiti@2.6.1)
 
   packages/tensnap-web-core:
     dependencies:
@@ -247,8 +247,8 @@ importers:
         specifier: ^7.9.0
         version: 7.9.0
       leafer-ui:
-        specifier: ^1.10.0
-        version: 1.10.0
+        specifier: ^2.0.1
+        version: 2.0.1
     devDependencies:
       '@types/d3':
         specifier: ^7.4.3
@@ -257,20 +257,20 @@ importers:
         specifier: ^30.0.0
         version: 30.0.0
       '@types/node':
-        specifier: ^24.10.0
-        version: 24.10.0
+        specifier: ^25.3.0
+        version: 25.3.0
       jest:
         specifier: ^30.2.0
-        version: 30.2.0(@types/node@24.10.0)(babel-plugin-macros@3.1.0)
+        version: 30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0)
       jest-environment-jsdom:
         specifier: ^30.2.0
         version: 30.2.0
       playwright:
-        specifier: ^1.49.1
-        version: 1.58.1
+        specifier: ^1.58.2
+        version: 1.58.2
       ts-jest:
-        specifier: ^29.4.5
-        version: 29.4.5(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@24.10.0)(babel-plugin-macros@3.1.0))(typescript@5.9.3)
+        specifier: ^29.4.6
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0))(typescript@5.9.3)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -975,143 +975,287 @@ packages:
       '@leafer-ui/interface': ^1.10.0
       '@leafer/interface': ^1.10.0
 
+  '@leafer-in/interface@2.0.1':
+    resolution: {integrity: sha512-nR4YKbhyW6rIMn7f+3Tpkg7UbERS44A7ZMU23X/WTY2HN4FMmSY3lBrAhLuj1lcNXX1BXS07z4oVjEFA7ku1og==}
+    peerDependencies:
+      '@leafer-ui/interface': ^2.0.1
+      '@leafer/interface': ^2.0.1
+
   '@leafer-ui/app@1.10.0':
     resolution: {integrity: sha512-pk+rd1FHlZvSbfmgajq6oeGR+Xc33I5WjFZivy/NMnjky8GHiLPxZxSQOf5JVB0VoZfhegzh8qED/loCJqhwIg==}
+
+  '@leafer-ui/app@2.0.1':
+    resolution: {integrity: sha512-FHdQ1L5T3jy6BeBwbWQQtm59AaSs+PJ6oFNCp6+Ed3j0v361moThSeHXxFIS1V9bk0oStFvPj4QvBpsUkCtBWg==}
 
   '@leafer-ui/bounds@1.10.0':
     resolution: {integrity: sha512-Eo4B7PCprXpHULG1BdbYkZAPir30/3JvfJhBufAelur/cYonjAtJC//d6H6yh5y7xqeVssUgDDE3Fn4aft+zaw==}
 
+  '@leafer-ui/bounds@2.0.1':
+    resolution: {integrity: sha512-7Pe6GqmNHZykKLm6drAaH1EjfHWW2jMNgfGx6VMSCTJp89+PTYPUFjHURec7G24XLf/sZQ+tVk+YrXyMVaZ4mg==}
+
   '@leafer-ui/color@1.10.0':
     resolution: {integrity: sha512-Hf6LpDw66iciwAW6nvcuC24M2E76xFiDIrIYCXTf81rHKnCPKtbsZkmhj5OqD5I/FKazq+EQxMuHslVnsRKSrA==}
+
+  '@leafer-ui/color@2.0.1':
+    resolution: {integrity: sha512-+TRLEkNafrTSsdhfC7N+YtHBDuMWQTL5glyS0CWp/S8BUnUT/IhBdzOKXrVnS1CjXYO6XXNH8tZ+NG55pw0zSg==}
 
   '@leafer-ui/core@1.10.0':
     resolution: {integrity: sha512-YdieHxkrEt6knlyY+YR7jfyUPh4uq+JaqBdG30ODVC8ipCxiJJ5/DGJxTNpqaAaG99kHxP0QhCx0618CMHn3/w==}
 
+  '@leafer-ui/core@2.0.1':
+    resolution: {integrity: sha512-vbT4DYMc2FJAg+HEKYU15NvJo9KiBMfx+3sj5l8MrFKpPC6lfYRPWqNTbzfkRd4Rqs6fYEKRIPnWLEX9DB0cRw==}
+
   '@leafer-ui/data@1.10.0':
     resolution: {integrity: sha512-p12OYTUucZoqiMF+ufsy5DJN5XX4A++6h1J9917hgo+6ORrmT4ggbuqLMk/Mkf9qAj9p92Y0S1vaqUiM99ezFQ==}
+
+  '@leafer-ui/data@2.0.1':
+    resolution: {integrity: sha512-2FYtFqX5sPpGYhw8rYWAYQ15lDQAXYIpnnwXeh6JRBruen8jMNfoaOxzk3JXtfje6cWJqjxMFx+sn7VDNTilyQ==}
 
   '@leafer-ui/decorator@1.10.0':
     resolution: {integrity: sha512-3LTMYbQNxVZYfSYLTvQwf61nwPWMbgROUYB3OfYKIW43SvKsdWywsiJKONwasaNpDGLcb+llqMHMvPSX0U5+XA==}
 
+  '@leafer-ui/decorator@2.0.1':
+    resolution: {integrity: sha512-RhzkLO0Zuk+VnxW450eF6oxnpUcxOv2fIoxbD+vaU5qfYkos6lDVdwWD+/1JxljsbhS9wPsuc3Csz+8L+ZvyXg==}
+
   '@leafer-ui/display-module@1.10.0':
     resolution: {integrity: sha512-l7AOXDayZ/0SsolJ9nIuVuRZAbpEHlobmqB4AyrWIYHCBSFzQPr3ogVEK200T2B3U1235U8fOaHAWyoCheDirg==}
+
+  '@leafer-ui/display-module@2.0.1':
+    resolution: {integrity: sha512-KGQQ8fhVOFqjvew5xTW2u0Jbk2TpgTBBB7d0OFLsMGnwJ1I6MA5Zsrlu4zm069uf+TUQykxrVJXacUYc4nubXg==}
 
   '@leafer-ui/display@1.10.0':
     resolution: {integrity: sha512-YiVdTWTahxA2IBFZNb3HW0FvnhpUOGwZgXYvojS93z5Wc19N6kCr101q3nS1sf0a1aCDP88cAlbMBfRUCcFJsQ==}
 
+  '@leafer-ui/display@2.0.1':
+    resolution: {integrity: sha512-LnucBopIvGuMxM43rY5AFvRtjNEfEK36w/EI8WniYo15MggHx6y38zLgBYd0TrWVJkiY3TPc0n3tQ7o1ZsTTQA==}
+
   '@leafer-ui/draw@1.10.0':
     resolution: {integrity: sha512-oZ2IUaY20IHkODhxhfBT1iutkN9lKM9H4OZhLL5EBNOJjObCvACAmRdsxPV2vl2Y6+XkYr9YDEDB8t0nKxf0cQ==}
+
+  '@leafer-ui/draw@2.0.1':
+    resolution: {integrity: sha512-DQYgD3+WS3EdKy6bAC4Lsi5Fg0Mh8OrLszPJb5a/mFXlt2XzMm5RU1dhwlkwBgRyIdxQNqWVCBZt3rYzoOqB+w==}
 
   '@leafer-ui/effect@1.10.0':
     resolution: {integrity: sha512-TWQURYvm8lswhvD2mnd3j7NWLZTpKLeeIVRl8cnFQ6Ny4c8lXyZXOo32+QUl9e5srpzxOrzUr+B8jfCPMBEVsA==}
 
+  '@leafer-ui/effect@2.0.1':
+    resolution: {integrity: sha512-brMj/nX0Pgy1D0HM2fsInlrqbf1q5K4nRnWLNXg/m7zrgcuy8TCFPsoOQ1XiOev976FPrrU5dgQG/IT7CnSD+g==}
+
   '@leafer-ui/event@1.10.0':
     resolution: {integrity: sha512-e0XMpCedx32iNC0/+guAR3wq1etYWECaRMxS5u5XvODY0jeNj3PmSrx80cKV0FzCkR83cL2vCtMPrC46PDCmGw==}
+
+  '@leafer-ui/event@2.0.1':
+    resolution: {integrity: sha512-OnciFHebi8jcZGkaRdHhl/CaqbDPp5C8poSakwh1rV8Tcn84APzNYbZq5UlsJr9Z+wWjz5JiFltwIuMr7HHseg==}
 
   '@leafer-ui/external@1.10.0':
     resolution: {integrity: sha512-Bzr8Fp5LpcsLY/9AuQSZo8ZL1nFcjV1j0zZOS2f19oCwYCHNX7K+ddNNJ8BSKAaX3brKw/IVB79bIs2UTihopg==}
 
+  '@leafer-ui/external@2.0.1':
+    resolution: {integrity: sha512-CMT3DSFLRbrwrm0GpX7aFlz9VbiNAVkXa5y/Do2zMLaV4kFDRjqTqHugl6U2/aTwGRpRThWxo+cZQm9T1u7FOw==}
+
   '@leafer-ui/hit@1.10.0':
     resolution: {integrity: sha512-p8q4366nGsaiulp0uwX1jtZMMtePJV+D+8aPbrD4WrZB0GMU507a9a7mxPbS/p7Cw3OrAC4UG9OBuzhY9V9sRw==}
+
+  '@leafer-ui/hit@2.0.1':
+    resolution: {integrity: sha512-v3FtBpOd5IRCMfoQmNLLuEUThLV7d0lJgfhfdtExYjRHyZhzVZ08mIvipUbqre43VvSxrR4HQeRGBBx0q6NHVw==}
 
   '@leafer-ui/interaction-web@1.10.0':
     resolution: {integrity: sha512-8c+8c6Dhsh7uUvLWRu/ahoQ6pw8n6vbam84+KNT3Vofw4KHN38/xi7mVpThfBEPP4QlUAQMbg3pClrBEe2htMA==}
 
+  '@leafer-ui/interaction-web@2.0.1':
+    resolution: {integrity: sha512-QmZ6RyITO7YHRGLW6aUw3nd1uOQZcXxViK/ZfYrUhOxos0A4REaquISMzKmSRY61GPBA+v48dinuRZpy8uqRIg==}
+
   '@leafer-ui/interaction@1.10.0':
     resolution: {integrity: sha512-KJIiEXqBnCouMUwxPII8cl9qHxoZ5qQfW71bVyOIyjzRDXH6WR937XLzPnIo/bh8h+bTAb27iy663DaA/vNnqg==}
+
+  '@leafer-ui/interaction@2.0.1':
+    resolution: {integrity: sha512-O44muyfGzoTa2Nh2UVuOrlXnTyMct+x182L3IWxwWSxeYKdoHUlLGslCscfAhukASvJpmGPBNGPVWD5gA7B3Xg==}
 
   '@leafer-ui/interface@1.10.0':
     resolution: {integrity: sha512-EX8YqsML37W4wP7wcuKc0mIYgdARvH1Ao5gmjH0jccVXz5LP5W86PQfPbdBfxHVqT+ffBB/KEyLiU2YGnNB1mw==}
 
+  '@leafer-ui/interface@2.0.1':
+    resolution: {integrity: sha512-SYNVEXYvPEPddBFfqX00ReD3dKeIGmeFNz0DLFI4gu2jnrBRs3BmCVxL6XU5J59FPLT2mzuTQvqdKWctasD9ZQ==}
+
   '@leafer-ui/paint@1.10.0':
     resolution: {integrity: sha512-aPdYocWcrvnxwlEcjcf0Xi53iwK7ADNgm1SSDPK+ocPgcwK6eWNxGPOANGlO1YByN2rUtyY2RQ+6iXGiQzgh0g==}
+
+  '@leafer-ui/paint@2.0.1':
+    resolution: {integrity: sha512-Mnl+IVSttzNU1FLIaYZgtfLKBv/XwHTbIpcW0NnCVy4Dbam6kByWbjM0NVaIynmUN4CV5kqlySaGb2EFotlQHw==}
 
   '@leafer-ui/partner@1.10.0':
     resolution: {integrity: sha512-XsS3Uif0VmWs8vIEYpcf4o4s5LErigWlphG7ajns9iV67+papTn6pM7wHh49DNe3pJ8rj9fXb1b/Ki4FUFpcXA==}
 
+  '@leafer-ui/partner@2.0.1':
+    resolution: {integrity: sha512-ERBfjoRWcstIGpTKAbc66ykCRMVY/qrbXFt2YZJBmRrbM2gkIYOfMqg+oLFb8JWPkqKbOj/ByVxUkfESEDYkww==}
+
   '@leafer-ui/render@1.10.0':
     resolution: {integrity: sha512-1m4Qw74Od84ey4gQu2v7YM/+OS5GZwYd2tkzEpOGLmINQdNrBuEfgI8oaTaZYLKiFPrDeZlkmbh3ri4Z/v2cLg==}
+
+  '@leafer-ui/render@2.0.1':
+    resolution: {integrity: sha512-zwkjuBxHfoXSWhHG3ygEvwDXg6EA8kOP4HoNYTGf2JwG8gHnp4yAgLqAPUz9hxNMbgWJmtOpjXdQ01G/DeoGgA==}
 
   '@leafer-ui/text@1.10.0':
     resolution: {integrity: sha512-IuaMo4EBg+mQ3wgUyWk7E1j3u58zLt/rUt4mKeZrILR0ZQ717/84GSPF3OXTZJP3Ja8OcZMemoETbFpA5iHfZg==}
 
+  '@leafer-ui/text@2.0.1':
+    resolution: {integrity: sha512-PpaXFkIcHm5s/e9fjAgjO92fzulCle9L9CHUbQTb9hJ9fMd2VyOFpUJjWZiJ/DPpDLcnQWCkunaRUHP3pkEkEg==}
+
   '@leafer-ui/web@1.10.0':
     resolution: {integrity: sha512-1eGOYhjM90DVpvIvmrkhZ6SQ9KCii7jcFaKVmdwLISH9VuncIJjWJi1dhARsIQQoDJFwkfzQKWJgMsL8OgP3hw==}
+
+  '@leafer-ui/web@2.0.1':
+    resolution: {integrity: sha512-P8GyYoIR5IirxPmWG+TwKqbZPlk9aG7orm+g/pN5TETObAgRK7g+A3kqn/7fzldL02Zq83LnTyxZ82UisdQTvg==}
 
   '@leafer/canvas-web@1.10.0':
     resolution: {integrity: sha512-9RwbX+nhyc9fjNJKAvZwJYIiHv4Hhbmm8L2QXBWinCqAGgUWDizRnkbvfzydpI/NyZ6x9oUczCrFnH/YkMHNnA==}
 
+  '@leafer/canvas-web@2.0.1':
+    resolution: {integrity: sha512-M5mdy48DMwMTAHRUpJCn5geD+SSNCARfv293JwAk0LS55WSv03huqeXilWkQBvqyinUHu0UhbFwbxSaMa84Nwg==}
+
   '@leafer/canvas@1.10.0':
     resolution: {integrity: sha512-LN7WOwS0o9SSSRMgdMp7MGMWW96J96iGWZuPJX0YHzJhp7IQ7SovO73EOkG7MHArk3SBEMamnezCftnYIgmIxw==}
+
+  '@leafer/canvas@2.0.1':
+    resolution: {integrity: sha512-uKQLSflmBWx7uov0gD0Sy0XuwJUI1mKxmnzyLm7EMnA933vH2un9IImUeFiEBEeagDwNCODWvSrtkCfkE5zwmA==}
 
   '@leafer/core@1.10.0':
     resolution: {integrity: sha512-20OM2ztRfuU3slPRqwU0Go8pPOFfvl3qA8fa0lsyj0UfyXh1j4z3bSiVMHIARy/h4uYjO44bEVAS3hAtFin2Kg==}
 
+  '@leafer/core@2.0.1':
+    resolution: {integrity: sha512-sJ14owCSYMGrlwuCef/BHIVB2038hHojFwjcY0yjI67iq+wCXiF0l/IyQefZDe74hM6Gtt3BLLCK7VVD1vz4Wg==}
+
   '@leafer/data@1.10.0':
     resolution: {integrity: sha512-P8XngY/svBd65rq4T6+7kFyz3SL6So1Us16JDivAF94I68hhdvTFn+J7gW2HdFMR/SpPC6y78JcrcTHmR2MwCw==}
+
+  '@leafer/data@2.0.1':
+    resolution: {integrity: sha512-6H/a4EGtGKuDFjtLS2TnxQrvBRvuKqU5IRVkbLoih0G/l0N+LA0wHXjDnunDEiCIvXqG0lZddUvL/HGEZ7NCzA==}
 
   '@leafer/debug@1.10.0':
     resolution: {integrity: sha512-CQ0Oxg8yeYqkFTHhhwYhUGFMRMqNBFg7ufXTGLhYtFP44cEbcGQLJFq85o1lsgaAFLqxCNBeQZthKP5CmfUyLQ==}
 
+  '@leafer/debug@2.0.1':
+    resolution: {integrity: sha512-W/BrR1e17zAo5p1mfyZuP/CGWsm3+d2y87ap0mJwk+tKeTl4rNtcBku0OLoTkfioIe7GP4VwJPH+R903Xt01jw==}
+
   '@leafer/decorator@1.10.0':
     resolution: {integrity: sha512-IsGg/GUlbTYuIJSnB1vlNk1vsKxzGlcNxe5CTRnNs3XnswEHXGsi8m6RuTZ1x+WGXAIddgJIFK1ajCd6dv0JqQ==}
+
+  '@leafer/decorator@2.0.1':
+    resolution: {integrity: sha512-RNrb7iE8HCt4Ju0kEDSfmGEjNBcY53oXTGCE7lWW6TXYm5tPvw+ebqtFzututic/YwvSm41g0KmlyCqAoNgF8Q==}
 
   '@leafer/display-module@1.10.0':
     resolution: {integrity: sha512-etXhlEv/00/QABQHQ02Gzl4Cv7Wo4816DwzOn8/ATbHRONnY7uyuMJ7++yfcN8/1cKdXMlx85AdWr4pZiPNi0Q==}
 
+  '@leafer/display-module@2.0.1':
+    resolution: {integrity: sha512-gAvopqBTU/4E9w6JGvV3IdKCD7Gs3El4hF7ktfCkHnIl6d4w/bjVEOtV4MiOP+RjmZaQustaT7HUaSY1N2GslA==}
+
   '@leafer/display@1.10.0':
     resolution: {integrity: sha512-/Jx2sd4tMwlt8pA5FG8dTfIp/Y3CdNEwtYqnZkiKQibQdlWQOUy1iEcz0VEwSYuYk3lpD8dG9ir+9MZGRxei9w==}
+
+  '@leafer/display@2.0.1':
+    resolution: {integrity: sha512-3gskbZY0Jt08/dVDl7jQxJxYIzjq4M0QOPPt3ADMZvIJe27JOCJjI0YY9Fxk1pQDAg3ucSKMw3WyWLQXvtyXWA==}
 
   '@leafer/event@1.10.0':
     resolution: {integrity: sha512-SF//zOJUbwr01F9X4HM8q3TjLoJh4Pt98SCFda8HHNzXGNLeo3KPbTcjZvp0GMZFigf8E2/X6UAzsMn/IR4hNQ==}
 
+  '@leafer/event@2.0.1':
+    resolution: {integrity: sha512-0JB8tILtNeldODq9jQJxJgEQBa4WLtdzMdshss24QwOI2prQjiIz029J0g/z5eFvqWdqBX5l+azhzl8Hf3lB5A==}
+
   '@leafer/file@1.10.0':
     resolution: {integrity: sha512-O1zwjWwH/5oYKytQMOxUV90926o7sMv/h2YM6sykpvtoQAzVDJb++cFEqI9Ckwa7s/uLo3GjLFi0EmFyy9BAMQ==}
+
+  '@leafer/file@2.0.1':
+    resolution: {integrity: sha512-Uk+x61xRdxDwVDe42CAXJd03iHPwun99h6ufjlFvypFQbIe9WnIEtqMjw13WIF8lkUokt2n0UfEZlXf8V8imcQ==}
 
   '@leafer/helper@1.10.0':
     resolution: {integrity: sha512-/k3gcVS1P9KiU8XddTwkuyeGJhj7FqvmAoj7uV7Hwl0cGrK/7ldlrZJwntOcaTNdMuDlGxI0CXgMhkzM7GnP9Q==}
 
+  '@leafer/helper@2.0.1':
+    resolution: {integrity: sha512-iVKNG3PoulLTKaXxvSMnyW6Cn2KIElkcCIdHTiw1T2DI+hTFQc83dPBXtSUlMKMZeAF4fEOk0BDr6G1rOpUHXQ==}
+
   '@leafer/image-web@1.10.0':
     resolution: {integrity: sha512-2iASBLvqzEjjlB0Su6e+Y2/hJonKAEJXFnZrZY2Hxm2Wb3X5cMGgNHY3iDdz8UZ8U6paBzwR5mcO7jHRqol9CA==}
+
+  '@leafer/image-web@2.0.1':
+    resolution: {integrity: sha512-nAWl3qO8sA9QQThcyXz7YQ5q53sSEFmxL0lhtnq479q1TJL/GiA1sjenQGcVhHmtkMYcOr1RVWDsHL5E4fNDqw==}
 
   '@leafer/image@1.10.0':
     resolution: {integrity: sha512-ZzLkWCtHkH6X0ddTuhuIhmsVyVN2FYjut2l4UJv0NHOF6BLAZ24y9TrU/spttz+hTpM6fCE5bKCpzuYJOZs7SA==}
 
+  '@leafer/image@2.0.1':
+    resolution: {integrity: sha512-RN8co4A4jADlAKhCXjaQVVjAbhFsB5iqIrR6QSSXrgjLUaAAcLVj63SY/q2H8j/iEtzb3gjiq9g8iqInGc3Jyg==}
+
   '@leafer/interface@1.10.0':
     resolution: {integrity: sha512-j598jCJxVQpekJGH0GqMJiEDDo/BjJJBH06hYvE0+bqkuKYfuUOkJ8X3ZifpxopdkVPCFPjAOnqOEt7ThGAJwA==}
+
+  '@leafer/interface@2.0.1':
+    resolution: {integrity: sha512-Gp4v6wBqQNm/vW6ykVyBMukgZ3OcGNx5l8Vr2gQfdlMmFUOI7hm7P3rTvy/L5HPc1psY1LYNc4/S1mWK3r+uxg==}
 
   '@leafer/layout@1.10.0':
     resolution: {integrity: sha512-wuFvshjTdO9PGpacrHzaNbN/7FmjoapmlOqI4DOesaRM/6WDM6AR0jRZSkwfgh6Ej4Rq5P1F3F5xcNk/i3jVNA==}
 
+  '@leafer/layout@2.0.1':
+    resolution: {integrity: sha512-04Dg3YUQLiD5HFzdtW05bHxrDbnTofTBQ+BqCciv0/mr+dkwgPUjufJkMwwJt39ZHGzc7gW39XHI7Q+E1BI9ng==}
+
   '@leafer/layouter@1.10.0':
     resolution: {integrity: sha512-sJSed0htpM/F+cJRt9C3qkI+P+kqY0LttyKOlFOCZFX6WhNMsraq27gACWh4IX2W64ymnhGpX8gizffD/rb3OQ==}
+
+  '@leafer/layouter@2.0.1':
+    resolution: {integrity: sha512-py92S6Cx/y8MFINx45VzXRLbakqbOaCSBBw75U5ZOsGek2LrkWtZPs1W2Kf+rwTE5La6Pr2935Bte3cdYHWVGA==}
 
   '@leafer/list@1.10.0':
     resolution: {integrity: sha512-05XEqh+UvyhKFmcBVZDHXCTI4OSazcPYYItoXsKTG5lr9ySQfz/nUGy7H1y7SJSqJP60K3rL1zzIj8JVHp+IAg==}
 
+  '@leafer/list@2.0.1':
+    resolution: {integrity: sha512-rtR8FxMZYStqQ1PK4tst4yPjKxHFvxZ0/uSrMarRRSzPjqKLIeINelfLoiDd0gy85lc/Q/VtDNnmkVvGhiaJ/w==}
+
   '@leafer/math@1.10.0':
     resolution: {integrity: sha512-Vh+yWUNiHY+CnNcYH2ok9rn49qf4zjQqqUTJwimwUWw+mMBiyDtrNPPedOmq+6p/BSnS2S2qkZMYPsfBP3ierQ==}
+
+  '@leafer/math@2.0.1':
+    resolution: {integrity: sha512-8Yg6T9mkyIaaMlx0wQD5/bsiUtl3UfB66kKf+AHqPXvjibdNBKDax4EJaVacsnFirrP/68gI084WCwMdgefDDQ==}
 
   '@leafer/partner@1.10.0':
     resolution: {integrity: sha512-t/EZfXMU8cTyXx45TV+2GSpXgZ81mZtbQVuQh5ufN6ICUAXt1IRFz/Y9rJwpHSbjs8SFHH0KgTYkJL3pgNutjg==}
 
+  '@leafer/partner@2.0.1':
+    resolution: {integrity: sha512-p7anMULXQ6zK9+FR/Nn1xAj5cbBCzOMb0YGkFHhD8jIVN8otlsd2/Tv2pd60+gn9yr5DIYruGm9/Ql98JKWwfA==}
+
   '@leafer/path@1.10.0':
     resolution: {integrity: sha512-FibwM7rxwTMlYuR0vKOZeNBnPVTKOInRScKvMrgTaVdqn2ffNdhhcgV2pPeVglawUBSzeVKCxt71lkxcwhkg7w==}
+
+  '@leafer/path@2.0.1':
+    resolution: {integrity: sha512-I5UyieKm4XA/FJ5LFNjBeKKi4GBF2BaWf5IDRF86Uu08sxF08dOBCAD3cxOVZ8U9+6r6Wd/UC9eRXrv3eQcUGA==}
 
   '@leafer/platform@1.10.0':
     resolution: {integrity: sha512-upmDtz8PN2xW5cPS1SIOPUMTClgkhr7YL8vUr18GxZjj0x5Q3GHb0cla5GLJ2+Jss/RkOXzxTMN0hzh0UVkc8g==}
 
+  '@leafer/platform@2.0.1':
+    resolution: {integrity: sha512-O543RuW/yrXDhNE8GhupvysKIFu3nqTK0VVATzsBYCTNp50yUTMvEowpdiS48c9ErHqpyQVAqXbB/lOX1BJjCQ==}
+
   '@leafer/renderer@1.10.0':
     resolution: {integrity: sha512-Zxbz/bVAWVArybZ5LsQ7DgpkE4KGRBdG3IeVEy9L3UbVXH9t1sq2MtLJit0I5xYErIZ0HG+/Pn4EUP1wKIpIqQ==}
+
+  '@leafer/renderer@2.0.1':
+    resolution: {integrity: sha512-20DwcwvzMCD/RRptzHHP/4q1KXnZOPxZ7ZawYf+7dku5d+Oveg74Yw+5P+cLKcZRvdArrzNTvwpqAiVkWonljQ==}
 
   '@leafer/selector@1.10.0':
     resolution: {integrity: sha512-75G0DSR8eifxlIQcQGvmgvbtFD2quHGBhrP00u1bFEPqM0I7oNc02pZVYxP9kxJDhzmmUbWu+GCE5lTQdkVeSQ==}
 
+  '@leafer/selector@2.0.1':
+    resolution: {integrity: sha512-HlDhSW7oXyTHNKiZnyRIRlx0T5kz4AIM1+HV2/nyX2eM3SaWh68Vu+gbAY0nI0AzusTMlni81hTluLHxDvYI+A==}
+
   '@leafer/task@1.10.0':
     resolution: {integrity: sha512-gCzbKK/TWO73QvdA7tnjP2I8wNTUaln8jBqMlTfgsHuIwUVDw0eQUZ8AJCbffB3nHmJxaQXXpacC1XGyfDXuZA==}
 
+  '@leafer/task@2.0.1':
+    resolution: {integrity: sha512-qhdq4UgUuOTdcLGVPfvtVRSCXsxmSWneIaVQW5WcYUnB4w4nSWxQOzUYvHUbYptQHLsOQnP4lDkjfW6u2HzrmQ==}
+
   '@leafer/watcher@1.10.0':
     resolution: {integrity: sha512-qiiJXMb1+T8xRnERmhD/a65yf6msLva4LrUouKgSfNk4oeZ3lGQI1mmtlvuvrV0eVOKRSrgmlTy4ZPKedTGI2g==}
+
+  '@leafer/watcher@2.0.1':
+    resolution: {integrity: sha512-0ZQOSzZIfzdXdpYatqAjHoPZe5JazLLBaxD1GW9i7/YFQUYtbZklefJ3SLD4sbqcTPeMFhAwz/60w1sD+bvlsA==}
 
   '@lingui/babel-plugin-extract-messages@5.5.2':
     resolution: {integrity: sha512-b28GCdzUqAUCdWUdkn99SckJV//ZTvvBSlV5r8EE1G8y1DMckUvehb0FAg2nDScMK7EfMf0WOovC7IkLu8XQuw==}
@@ -2066,6 +2210,9 @@ packages:
 
   '@types/node@24.10.0':
     resolution: {integrity: sha512-qzQZRBqkFsYyaSWXuEHc2WR9c0a0CXwiE5FWUvn7ZM+vdy1uZLfCunD38UzhuB7YN/J11ndbDBcTmOdxJo9Q7A==}
+
+  '@types/node@25.3.0':
+    resolution: {integrity: sha512-4K3bqJpXpqfg2XKGK9bpDTc6xO/xoUP/RBWS7AtRMug6zZFaRekiLzjVtAoZMquxoAbzBvy5nxQ7veS5eYzf8A==}
 
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
@@ -3383,6 +3530,9 @@ packages:
   leafer-ui@1.10.0:
     resolution: {integrity: sha512-sOUPgy+UQ6zwDebyPWnCVWahL3G4Ldtw2I6CauE6smquz3lmoWHB53Ip9X3V5PitaxW8VKVbjohhDma71qEwAg==}
 
+  leafer-ui@2.0.1:
+    resolution: {integrity: sha512-lVCsRHrR2hsHyEhz28qq2haG5muxq9t0FwPJSAnzt2g2K/ZiwBr1DTi1g/87Yj3F7V+K4eZdgXcYSMKxOv/rfQ==}
+
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
     engines: {node: '>=6'}
@@ -3652,13 +3802,13 @@ packages:
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
 
-  playwright-core@1.58.1:
-    resolution: {integrity: sha512-bcWzOaTxcW+VOOGBCQgnaKToLJ65d6AqfLVKEWvexyS3AS6rbXl+xdpYRMGSRBClPvyj44njOWoxjNdL/H9UNg==}
+  playwright-core@1.58.2:
+    resolution: {integrity: sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==}
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.58.1:
-    resolution: {integrity: sha512-+2uTZHxSCcxjvGc5C891LrS1/NlxglGxzrC4seZiVjcYVQfUa87wBL6rTDqzGjuoWNjnBzRqKmF6zRYGMvQUaQ==}
+  playwright@1.58.2:
+    resolution: {integrity: sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4033,6 +4183,33 @@ packages:
       jest-util:
         optional: true
 
+  ts-jest@29.4.6:
+    resolution: {integrity: sha512-fSpWtOO/1AjSNQguk43hb/JCo16oJDnMJf3CdEGNkqsEX3t0KX96xvyX1D7PfLCpVoKu4MfVrqUkFyblYoY4lA==}
+    engines: {node: ^14.15.0 || ^16.10.0 || ^18.0.0 || >=20.0.0}
+    hasBin: true
+    peerDependencies:
+      '@babel/core': '>=7.0.0-beta.0 <8'
+      '@jest/transform': ^29.0.0 || ^30.0.0
+      '@jest/types': ^29.0.0 || ^30.0.0
+      babel-jest: ^29.0.0 || ^30.0.0
+      esbuild: '*'
+      jest: ^29.0.0 || ^30.0.0
+      jest-util: ^29.0.0 || ^30.0.0
+      typescript: '>=4.3 <6'
+    peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      '@jest/transform':
+        optional: true
+      '@jest/types':
+        optional: true
+      babel-jest:
+        optional: true
+      esbuild:
+        optional: true
+      jest-util:
+        optional: true
+
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
@@ -4067,6 +4244,9 @@ packages:
 
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
+
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
   unrs-resolver@1.11.1:
     resolution: {integrity: sha512-bSjt9pjaEBnNiGgc9rUiHGKv5l4/TGzDmYw3RhnkJGtLhbnnA/5qJj7x3dNDCRx/PJxu774LlH8lCOlB4hEfKg==}
@@ -4960,20 +5140,40 @@ snapshots:
       '@leafer-ui/interface': 1.10.0
       '@leafer/interface': 1.10.0
 
+  '@leafer-in/interface@2.0.1(@leafer-ui/interface@2.0.1)(@leafer/interface@2.0.1)':
+    dependencies:
+      '@leafer-ui/interface': 2.0.1
+      '@leafer/interface': 2.0.1
+
   '@leafer-ui/app@1.10.0':
     dependencies:
       '@leafer-ui/data': 1.10.0
       '@leafer-ui/display': 1.10.0
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/app@2.0.1':
+    dependencies:
+      '@leafer-ui/data': 2.0.1
+      '@leafer-ui/display': 2.0.1
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/bounds@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
+
+  '@leafer-ui/bounds@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
 
   '@leafer-ui/color@1.10.0':
     dependencies:
       '@leafer-ui/draw': 1.10.0
       '@leafer/core': 1.10.0
+
+  '@leafer-ui/color@2.0.1':
+    dependencies:
+      '@leafer-ui/draw': 2.0.1
+      '@leafer/core': 2.0.1
 
   '@leafer-ui/core@1.10.0':
     dependencies:
@@ -4983,20 +5183,43 @@ snapshots:
       '@leafer-ui/hit': 1.10.0
       '@leafer-ui/interaction': 1.10.0
 
+  '@leafer-ui/core@2.0.1':
+    dependencies:
+      '@leafer-ui/app': 2.0.1
+      '@leafer-ui/draw': 2.0.1
+      '@leafer-ui/event': 2.0.1
+      '@leafer-ui/hit': 2.0.1
+      '@leafer-ui/interaction': 2.0.1
+
   '@leafer-ui/data@1.10.0':
     dependencies:
       '@leafer-ui/external': 1.10.0
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/data@2.0.1':
+    dependencies:
+      '@leafer-ui/external': 2.0.1
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/decorator@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
+
+  '@leafer-ui/decorator@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
 
   '@leafer-ui/display-module@1.10.0':
     dependencies:
       '@leafer-ui/bounds': 1.10.0
       '@leafer-ui/data': 1.10.0
       '@leafer-ui/render': 1.10.0
+
+  '@leafer-ui/display-module@2.0.1':
+    dependencies:
+      '@leafer-ui/bounds': 2.0.1
+      '@leafer-ui/data': 2.0.1
+      '@leafer-ui/render': 2.0.1
 
   '@leafer-ui/display@1.10.0':
     dependencies:
@@ -5006,6 +5229,14 @@ snapshots:
       '@leafer-ui/external': 1.10.0
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/display@2.0.1':
+    dependencies:
+      '@leafer-ui/data': 2.0.1
+      '@leafer-ui/decorator': 2.0.1
+      '@leafer-ui/display-module': 2.0.1
+      '@leafer-ui/external': 2.0.1
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/draw@1.10.0':
     dependencies:
       '@leafer-ui/decorator': 1.10.0
@@ -5014,28 +5245,59 @@ snapshots:
       '@leafer-ui/external': 1.10.0
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/draw@2.0.1':
+    dependencies:
+      '@leafer-ui/decorator': 2.0.1
+      '@leafer-ui/display': 2.0.1
+      '@leafer-ui/display-module': 2.0.1
+      '@leafer-ui/external': 2.0.1
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/effect@1.10.0':
     dependencies:
       '@leafer-ui/draw': 1.10.0
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/effect@2.0.1':
+    dependencies:
+      '@leafer-ui/draw': 2.0.1
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/event@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/event@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/external@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
+
+  '@leafer-ui/external@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
 
   '@leafer-ui/hit@1.10.0':
     dependencies:
       '@leafer-ui/draw': 1.10.0
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/hit@2.0.1':
+    dependencies:
+      '@leafer-ui/draw': 2.0.1
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/interaction-web@1.10.0':
     dependencies:
       '@leafer-ui/core': 1.10.0
       '@leafer/core': 1.10.0
+
+  '@leafer-ui/interaction-web@2.0.1':
+    dependencies:
+      '@leafer-ui/core': 2.0.1
+      '@leafer/core': 2.0.1
 
   '@leafer-ui/interaction@1.10.0':
     dependencies:
@@ -5043,14 +5305,29 @@ snapshots:
       '@leafer-ui/event': 1.10.0
       '@leafer/core': 1.10.0
 
+  '@leafer-ui/interaction@2.0.1':
+    dependencies:
+      '@leafer-ui/draw': 2.0.1
+      '@leafer-ui/event': 2.0.1
+      '@leafer/core': 2.0.1
+
   '@leafer-ui/interface@1.10.0':
     dependencies:
       '@leafer/interface': 1.10.0
+
+  '@leafer-ui/interface@2.0.1':
+    dependencies:
+      '@leafer/interface': 2.0.1
 
   '@leafer-ui/paint@1.10.0':
     dependencies:
       '@leafer-ui/draw': 1.10.0
       '@leafer/core': 1.10.0
+
+  '@leafer-ui/paint@2.0.1':
+    dependencies:
+      '@leafer-ui/draw': 2.0.1
+      '@leafer/core': 2.0.1
 
   '@leafer-ui/partner@1.10.0':
     dependencies:
@@ -5060,13 +5337,29 @@ snapshots:
       '@leafer-ui/paint': 1.10.0
       '@leafer-ui/text': 1.10.0
 
+  '@leafer-ui/partner@2.0.1':
+    dependencies:
+      '@leafer-ui/color': 2.0.1
+      '@leafer-ui/draw': 2.0.1
+      '@leafer-ui/effect': 2.0.1
+      '@leafer-ui/paint': 2.0.1
+      '@leafer-ui/text': 2.0.1
+
   '@leafer-ui/render@1.10.0':
     dependencies:
       '@leafer-ui/external': 1.10.0
 
+  '@leafer-ui/render@2.0.1':
+    dependencies:
+      '@leafer-ui/external': 2.0.1
+
   '@leafer-ui/text@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
+
+  '@leafer-ui/text@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
 
   '@leafer-ui/web@1.10.0':
     dependencies:
@@ -5082,9 +5375,27 @@ snapshots:
       '@leafer/interface': 1.10.0
       '@leafer/partner': 1.10.0
 
+  '@leafer-ui/web@2.0.1':
+    dependencies:
+      '@leafer-in/interface': 2.0.1(@leafer-ui/interface@2.0.1)(@leafer/interface@2.0.1)
+      '@leafer-ui/core': 2.0.1
+      '@leafer-ui/draw': 2.0.1
+      '@leafer-ui/interaction-web': 2.0.1
+      '@leafer-ui/interface': 2.0.1
+      '@leafer-ui/partner': 2.0.1
+      '@leafer/canvas-web': 2.0.1
+      '@leafer/core': 2.0.1
+      '@leafer/image-web': 2.0.1
+      '@leafer/interface': 2.0.1
+      '@leafer/partner': 2.0.1
+
   '@leafer/canvas-web@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
+
+  '@leafer/canvas-web@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
 
   '@leafer/canvas@1.10.0':
     dependencies:
@@ -5095,6 +5406,16 @@ snapshots:
       '@leafer/math': 1.10.0
       '@leafer/path': 1.10.0
       '@leafer/platform': 1.10.0
+
+  '@leafer/canvas@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+      '@leafer/file': 2.0.1
+      '@leafer/list': 2.0.1
+      '@leafer/math': 2.0.1
+      '@leafer/path': 2.0.1
+      '@leafer/platform': 2.0.1
 
   '@leafer/core@1.10.0':
     dependencies:
@@ -5115,18 +5436,50 @@ snapshots:
       '@leafer/platform': 1.10.0
       '@leafer/task': 1.10.0
 
+  '@leafer/core@2.0.1':
+    dependencies:
+      '@leafer/canvas': 2.0.1
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+      '@leafer/decorator': 2.0.1
+      '@leafer/display': 2.0.1
+      '@leafer/display-module': 2.0.1
+      '@leafer/event': 2.0.1
+      '@leafer/file': 2.0.1
+      '@leafer/helper': 2.0.1
+      '@leafer/image': 2.0.1
+      '@leafer/layout': 2.0.1
+      '@leafer/list': 2.0.1
+      '@leafer/math': 2.0.1
+      '@leafer/path': 2.0.1
+      '@leafer/platform': 2.0.1
+      '@leafer/task': 2.0.1
+
   '@leafer/data@1.10.0': {}
+
+  '@leafer/data@2.0.1': {}
 
   '@leafer/debug@1.10.0':
     dependencies:
       '@leafer/data': 1.10.0
       '@leafer/math': 1.10.0
 
+  '@leafer/debug@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/math': 2.0.1
+
   '@leafer/decorator@1.10.0':
     dependencies:
       '@leafer/data': 1.10.0
       '@leafer/debug': 1.10.0
       '@leafer/platform': 1.10.0
+
+  '@leafer/decorator@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+      '@leafer/platform': 2.0.1
 
   '@leafer/display-module@1.10.0':
     dependencies:
@@ -5135,6 +5488,14 @@ snapshots:
       '@leafer/event': 1.10.0
       '@leafer/helper': 1.10.0
       '@leafer/math': 1.10.0
+
+  '@leafer/display-module@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+      '@leafer/event': 2.0.1
+      '@leafer/helper': 2.0.1
+      '@leafer/math': 2.0.1
 
   '@leafer/display@1.10.0':
     dependencies:
@@ -5149,12 +5510,32 @@ snapshots:
       '@leafer/math': 1.10.0
       '@leafer/platform': 1.10.0
 
+  '@leafer/display@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+      '@leafer/decorator': 2.0.1
+      '@leafer/display-module': 2.0.1
+      '@leafer/event': 2.0.1
+      '@leafer/helper': 2.0.1
+      '@leafer/image': 2.0.1
+      '@leafer/layout': 2.0.1
+      '@leafer/math': 2.0.1
+      '@leafer/platform': 2.0.1
+
   '@leafer/event@1.10.0':
     dependencies:
       '@leafer/data': 1.10.0
       '@leafer/decorator': 1.10.0
       '@leafer/math': 1.10.0
       '@leafer/platform': 1.10.0
+
+  '@leafer/event@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/decorator': 2.0.1
+      '@leafer/math': 2.0.1
+      '@leafer/platform': 2.0.1
 
   '@leafer/file@1.10.0':
     dependencies:
@@ -5163,15 +5544,32 @@ snapshots:
       '@leafer/platform': 1.10.0
       '@leafer/task': 1.10.0
 
+  '@leafer/file@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+      '@leafer/platform': 2.0.1
+      '@leafer/task': 2.0.1
+
   '@leafer/helper@1.10.0':
     dependencies:
       '@leafer/data': 1.10.0
       '@leafer/math': 1.10.0
       '@leafer/platform': 1.10.0
 
+  '@leafer/helper@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/math': 2.0.1
+      '@leafer/platform': 2.0.1
+
   '@leafer/image-web@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
+
+  '@leafer/image-web@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
 
   '@leafer/image@1.10.0':
     dependencies:
@@ -5181,7 +5579,17 @@ snapshots:
       '@leafer/platform': 1.10.0
       '@leafer/task': 1.10.0
 
+  '@leafer/image@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/file': 2.0.1
+      '@leafer/math': 2.0.1
+      '@leafer/platform': 2.0.1
+      '@leafer/task': 2.0.1
+
   '@leafer/interface@1.10.0': {}
+
+  '@leafer/interface@2.0.1': {}
 
   '@leafer/layout@1.10.0':
     dependencies:
@@ -5190,13 +5598,28 @@ snapshots:
       '@leafer/math': 1.10.0
       '@leafer/platform': 1.10.0
 
+  '@leafer/layout@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/helper': 2.0.1
+      '@leafer/math': 2.0.1
+      '@leafer/platform': 2.0.1
+
   '@leafer/layouter@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
 
+  '@leafer/layouter@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
+
   '@leafer/list@1.10.0': {}
 
+  '@leafer/list@2.0.1': {}
+
   '@leafer/math@1.10.0': {}
+
+  '@leafer/math@2.0.1': {}
 
   '@leafer/partner@1.10.0':
     dependencies:
@@ -5206,35 +5629,73 @@ snapshots:
       '@leafer/selector': 1.10.0
       '@leafer/watcher': 1.10.0
 
+  '@leafer/partner@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
+      '@leafer/layouter': 2.0.1
+      '@leafer/renderer': 2.0.1
+      '@leafer/selector': 2.0.1
+      '@leafer/watcher': 2.0.1
+
   '@leafer/path@1.10.0':
     dependencies:
       '@leafer/data': 1.10.0
       '@leafer/debug': 1.10.0
       '@leafer/math': 1.10.0
 
+  '@leafer/path@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+      '@leafer/math': 2.0.1
+
   '@leafer/platform@1.10.0':
     dependencies:
       '@leafer/data': 1.10.0
       '@leafer/debug': 1.10.0
 
+  '@leafer/platform@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/debug': 2.0.1
+
   '@leafer/renderer@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
 
+  '@leafer/renderer@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
+
   '@leafer/selector@1.10.0':
     dependencies:
       '@leafer/core': 1.10.0
+
+  '@leafer/selector@2.0.1':
+    dependencies:
+      '@leafer/core': 2.0.1
 
   '@leafer/task@1.10.0':
     dependencies:
       '@leafer/debug': 1.10.0
       '@leafer/math': 1.10.0
 
+  '@leafer/task@2.0.1':
+    dependencies:
+      '@leafer/debug': 2.0.1
+      '@leafer/math': 2.0.1
+
   '@leafer/watcher@1.10.0':
     dependencies:
       '@leafer/data': 1.10.0
       '@leafer/event': 1.10.0
       '@leafer/list': 1.10.0
+
+  '@leafer/watcher@2.0.1':
+    dependencies:
+      '@leafer/data': 2.0.1
+      '@leafer/event': 2.0.1
+      '@leafer/list': 2.0.1
 
   '@lingui/babel-plugin-extract-messages@5.5.2': {}
 
@@ -5337,11 +5798,11 @@ snapshots:
       '@lingui/babel-plugin-lingui-macro': 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)
       babel-plugin-macros: 3.1.0
 
-  '@lingui/vite-plugin@5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))':
+  '@lingui/vite-plugin@5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))':
     dependencies:
       '@lingui/cli': 5.5.2(babel-plugin-macros@3.1.0)(typescript@5.9.3)
       '@lingui/conf': 5.5.2(typescript@5.9.3)
-      vite: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)
+      vite: 7.2.2(@types/node@25.3.0)(jiti@2.6.1)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -6199,6 +6660,10 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
+  '@types/node@25.3.0':
+    dependencies:
+      undici-types: 7.18.2
+
   '@types/parse-json@4.0.2': {}
 
   '@types/react-dom@19.2.2(@types/react@19.2.2)':
@@ -6379,12 +6844,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vanilla-extract/compiler@0.3.1(@types/node@24.10.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)':
+  '@vanilla-extract/compiler@0.3.1(@types/node@25.3.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)':
     dependencies:
       '@vanilla-extract/css': 1.17.4(babel-plugin-macros@3.1.0)
       '@vanilla-extract/integration': 8.0.4(babel-plugin-macros@3.1.0)
-      vite: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)
-      vite-node: 3.2.4(@types/node@24.10.0)(jiti@2.6.1)
+      vite: 7.2.2(@types/node@25.3.0)(jiti@2.6.1)
+      vite-node: 3.2.4(@types/node@25.3.0)(jiti@2.6.1)
     transitivePeerDependencies:
       - '@types/node'
       - babel-plugin-macros
@@ -6435,11 +6900,11 @@ snapshots:
 
   '@vanilla-extract/private@1.0.9': {}
 
-  '@vanilla-extract/vite-plugin@5.1.1(@types/node@24.10.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))':
+  '@vanilla-extract/vite-plugin@5.1.1(@types/node@25.3.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))':
     dependencies:
-      '@vanilla-extract/compiler': 0.3.1(@types/node@24.10.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)
+      '@vanilla-extract/compiler': 0.3.1(@types/node@25.3.0)(babel-plugin-macros@3.1.0)(jiti@2.6.1)
       '@vanilla-extract/integration': 8.0.4(babel-plugin-macros@3.1.0)
-      vite: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)
+      vite: 7.2.2(@types/node@25.3.0)(jiti@2.6.1)
     transitivePeerDependencies:
       - '@types/node'
       - babel-plugin-macros
@@ -6455,7 +6920,7 @@ snapshots:
       - tsx
       - yaml
 
-  '@vitejs/plugin-react@5.1.0(vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1))':
+  '@vitejs/plugin-react@5.1.0(vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1))':
     dependencies:
       '@babel/core': 7.28.5
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.28.5)
@@ -6463,7 +6928,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.43
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
-      vite: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)
+      vite: 7.2.2(@types/node@25.3.0)(jiti@2.6.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -7448,6 +7913,25 @@ snapshots:
       - supports-color
       - ts-node
 
+  jest-cli@30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0):
+    dependencies:
+      '@jest/core': 30.2.0(babel-plugin-macros@3.1.0)
+      '@jest/test-result': 30.2.0
+      '@jest/types': 30.2.0
+      chalk: 4.1.2
+      exit-x: 0.2.2
+      import-local: 3.2.0
+      jest-config: 30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0)
+      jest-util: 30.2.0
+      jest-validate: 30.2.0
+      yargs: 17.7.2
+    transitivePeerDependencies:
+      - '@types/node'
+      - babel-plugin-macros
+      - esbuild-register
+      - supports-color
+      - ts-node
+
   jest-config@30.2.0(@types/node@24.10.0)(babel-plugin-macros@3.1.0):
     dependencies:
       '@babel/core': 7.28.5
@@ -7476,6 +7960,38 @@ snapshots:
       strip-json-comments: 3.1.1
     optionalDependencies:
       '@types/node': 24.10.0
+    transitivePeerDependencies:
+      - babel-plugin-macros
+      - supports-color
+
+  jest-config@30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0):
+    dependencies:
+      '@babel/core': 7.28.5
+      '@jest/get-type': 30.1.0
+      '@jest/pattern': 30.0.1
+      '@jest/test-sequencer': 30.2.0
+      '@jest/types': 30.2.0
+      babel-jest: 30.2.0(@babel/core@7.28.5)
+      chalk: 4.1.2
+      ci-info: 4.3.1
+      deepmerge: 4.3.1
+      glob: 10.4.5
+      graceful-fs: 4.2.11
+      jest-circus: 30.2.0(babel-plugin-macros@3.1.0)
+      jest-docblock: 30.2.0
+      jest-environment-node: 30.2.0
+      jest-regex-util: 30.0.1
+      jest-resolve: 30.2.0
+      jest-runner: 30.2.0
+      jest-util: 30.2.0
+      jest-validate: 30.2.0
+      micromatch: 4.0.8
+      parse-json: 5.2.0
+      pretty-format: 30.2.0
+      slash: 3.0.0
+      strip-json-comments: 3.1.1
+    optionalDependencies:
+      '@types/node': 25.3.0
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -7731,6 +8247,19 @@ snapshots:
       - supports-color
       - ts-node
 
+  jest@30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0):
+    dependencies:
+      '@jest/core': 30.2.0(babel-plugin-macros@3.1.0)
+      '@jest/types': 30.2.0
+      import-local: 3.2.0
+      jest-cli: 30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0)
+    transitivePeerDependencies:
+      - '@types/node'
+      - babel-plugin-macros
+      - esbuild-register
+      - supports-color
+      - ts-node
+
   jiti@2.6.1: {}
 
   js-sha256@0.10.1: {}
@@ -7808,6 +8337,19 @@ snapshots:
       '@leafer/core': 1.10.0
       '@leafer/interface': 1.10.0
       '@leafer/partner': 1.10.0
+
+  leafer-ui@2.0.1:
+    dependencies:
+      '@leafer-in/interface': 2.0.1(@leafer-ui/interface@2.0.1)(@leafer/interface@2.0.1)
+      '@leafer-ui/core': 2.0.1
+      '@leafer-ui/draw': 2.0.1
+      '@leafer-ui/interaction-web': 2.0.1
+      '@leafer-ui/interface': 2.0.1
+      '@leafer-ui/partner': 2.0.1
+      '@leafer-ui/web': 2.0.1
+      '@leafer/core': 2.0.1
+      '@leafer/interface': 2.0.1
+      '@leafer/partner': 2.0.1
 
   leven@3.1.0: {}
 
@@ -8049,11 +8591,11 @@ snapshots:
       mlly: 1.8.0
       pathe: 2.0.3
 
-  playwright-core@1.58.1: {}
+  playwright-core@1.58.2: {}
 
-  playwright@1.58.1:
+  playwright@1.58.2:
     dependencies:
-      playwright-core: 1.58.1
+      playwright-core: 1.58.2
     optionalDependencies:
       fsevents: 2.3.2
 
@@ -8424,6 +8966,26 @@ snapshots:
       babel-jest: 30.2.0(@babel/core@7.28.5)
       jest-util: 30.2.0
 
+  ts-jest@29.4.6(@babel/core@7.28.5)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.5))(jest-util@30.2.0)(jest@30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0))(typescript@5.9.3):
+    dependencies:
+      bs-logger: 0.2.6
+      fast-json-stable-stringify: 2.1.0
+      handlebars: 4.7.8
+      jest: 30.2.0(@types/node@25.3.0)(babel-plugin-macros@3.1.0)
+      json5: 2.2.3
+      lodash.memoize: 4.1.2
+      make-error: 1.3.6
+      semver: 7.7.3
+      type-fest: 4.41.0
+      typescript: 5.9.3
+      yargs-parser: 21.1.1
+    optionalDependencies:
+      '@babel/core': 7.28.5
+      '@jest/transform': 30.2.0
+      '@jest/types': 30.2.0
+      babel-jest: 30.2.0(@babel/core@7.28.5)
+      jest-util: 30.2.0
+
   tslib@2.8.1: {}
 
   type-check@0.4.0:
@@ -8444,6 +9006,8 @@ snapshots:
     optional: true
 
   undici-types@7.16.0: {}
+
+  undici-types@7.18.2: {}
 
   unrs-resolver@1.11.1:
     dependencies:
@@ -8502,13 +9066,13 @@ snapshots:
       '@types/istanbul-lib-coverage': 2.0.6
       convert-source-map: 2.0.0
 
-  vite-node@3.2.4(@types/node@24.10.0)(jiti@2.6.1):
+  vite-node@3.2.4(@types/node@25.3.0)(jiti@2.6.1):
     dependencies:
       cac: 6.7.14
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)
+      vite: 7.2.2(@types/node@25.3.0)(jiti@2.6.1)
     transitivePeerDependencies:
       - '@types/node'
       - jiti
@@ -8523,7 +9087,7 @@ snapshots:
       - tsx
       - yaml
 
-  vite@7.2.2(@types/node@24.10.0)(jiti@2.6.1):
+  vite@7.2.2(@types/node@25.3.0)(jiti@2.6.1):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -8532,7 +9096,7 @@ snapshots:
       rollup: 4.53.1
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 24.10.0
+      '@types/node': 25.3.0
       fsevents: 2.3.3
       jiti: 2.6.1
 

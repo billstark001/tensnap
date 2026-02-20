@@ -5,9 +5,9 @@
  * Opens a blank page and provides interfaces for performance testing
  */
 
-const { chromium } = require('playwright');
-const path = require('path');
-const fs = require('fs');
+import { chromium } from 'playwright';
+import { join } from 'path';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 
 const HTML_TEMPLATE = `
 <!DOCTYPE html>
@@ -51,10 +51,10 @@ const HTML_TEMPLATE = `
 
 async function runBrowserTests() {
   console.log('Starting browser tests...');
-  const tempDir = path.join(process.cwd(), '.tmp');
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-  const htmlPath = path.join(tempDir, 'test.html');
-  fs.writeFileSync(htmlPath, HTML_TEMPLATE);
+  const tempDir = join(process.cwd(), '.tmp');
+  if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
+  const htmlPath = join(tempDir, 'test.html');
+  writeFileSync(htmlPath, HTML_TEMPLATE);
   const browser = await chromium.launch({ headless: false });
   const page = await browser.newPage();
   await page.goto(`file://${htmlPath}`);
