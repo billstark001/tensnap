@@ -4,12 +4,18 @@
  * Root canvas host.  Holds a single Leafer instance, manages Layer z-ordering,
  * and propagates throttled resize events to all registered layers.
  *
- * Layers are kept in a sorted list (ascending zIndex).  When the container
- * resizes, each layer receives `onViewportChange(width, height)`.
+ * Coordinate system: +x right, +y up (origin at bottom-left of scene).
+ *
+ * Viewport represents the visible rendering area in scene coordinates.
+ * Layers should only update their group transform to respond to viewport changes,
+ * not modify internal element states.
+ *
+ * Scene bounds are calculated from all IBoundedLayer implementations.
+ * EnvironmentView provides methods to reset viewport to fit the scene.
  */
 
 import { Leafer } from 'leafer-ui';
-import { Viewport } from './types';
+import { Viewport, SceneBounds, IBoundedLayer } from './types';
 import { throttle, disableCanvasSmoothing } from './utils';
 
 export interface IResizableLayer {
@@ -26,6 +32,7 @@ export class EnvironmentView {
   readonly leafer: Leafer;
 
   private _viewport: Viewport;
+  private _containerSize: { width: number; height: number };
   private layers: IResizableLayer[] = [];
   private resizeObserver: ResizeObserver;
 
@@ -41,15 +48,23 @@ export class EnvironmentView {
     this.container = container;
 
     const rect = container.getBoundingClientRect();
-    this._viewport = {
+    this._containerSize = {
       width: rect.width || container.clientWidth,
       height: rect.height || container.clientHeight,
     };
 
+    // Initialize viewport to show origin with container dimensions
+    this._viewport = {
+      x: 0,
+      y: 0,
+      width: this._containerSize.width,
+      height: this._containerSize.height,
+    };
+
     this.leafer = new Leafer({
       view: container,
-      width: this._viewport.width,
-      height: this._viewport.height,
+      width: this._containerSize.width,
+      height: this._containerSize.height,
       type: options.type ?? 'design',
       pixelRatio: options.pixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1),
     });
@@ -69,20 +84,98 @@ export class EnvironmentView {
     return { ...this._viewport };
   }
 
-  /** Programmatically resize the canvas (also notifies all layers). */
-  setViewport(width: number, height: number): void {
-    this._viewport = { width, height };
-    this.leafer.set({ width, height });
-    this._applyCanvasSmoothing();
+  /** 
+   * Set the viewport to a specific region of the scene.
+   * This defines what portion of the scene is visible.
+   */
+  setViewport(x: number, y: number, width: number, height: number): void {
+    this._viewport = { x, y, width, height };
     this._notifyLayers();
   }
 
+  /**
+   * Reset viewport to cover the entire scene based on all bounded layers.
+   * Calculates scene bounds once and fits viewport to it.
+   */
+  fitToScene(padding = 0.1): void {
+    const bounds = this.calculateSceneBounds();
+    if (!bounds) {
+      // No bounded layers, just center on origin
+      this.setViewport(
+        -this._containerSize.width / 2,
+        -this._containerSize.height / 2,
+        this._containerSize.width,
+        this._containerSize.height
+      );
+      return;
+    }
+
+    const sceneWidth = bounds.maxX - bounds.minX;
+    const sceneHeight = bounds.maxY - bounds.minY;
+    
+    // Add padding
+    const paddingX = sceneWidth * padding;
+    const paddingY = sceneHeight * padding;
+    
+    const x = bounds.minX - paddingX;
+    const y = bounds.minY - paddingY;
+    const width = sceneWidth + 2 * paddingX;
+    const height = sceneHeight + 2 * paddingY;
+
+    this.setViewport(x, y, width, height);
+  }
+
+  /**
+   * Calculate the bounding box of all content in the scene.
+   * Queries all IBoundedLayer implementations.
+   */
+  calculateSceneBounds(): SceneBounds | null {
+    const boundedLayers = this.layers.filter(
+      (layer): layer is IResizableLayer & IBoundedLayer => 
+        'getSceneBounds' in layer && typeof (layer as any).getSceneBounds === 'function'
+    );
+
+    if (boundedLayers.length === 0) return null;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const layer of boundedLayers) {
+      const bounds = layer.getSceneBounds();
+      if (!bounds) continue;
+
+      minX = Math.min(minX, bounds.minX);
+      maxX = Math.max(maxX, bounds.maxX);
+      minY = Math.min(minY, bounds.minY);
+      maxY = Math.max(maxY, bounds.maxY);
+    }
+
+    if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+      return null;
+    }
+
+    return { minX, maxX, minY, maxY };
+  }
+
+  /** 
+   * Update container size (when container resizes).
+   * Maintains viewport scene coordinates but updates the rendering resolution.
+   */
   private _onResize(): void {
     const rect = this.container.getBoundingClientRect();
     const w = rect.width || this.container.clientWidth;
     const h = rect.height || this.container.clientHeight;
-    if (w === this._viewport.width && h === this._viewport.height) return;
-    this.setViewport(w, h);
+    
+    if (w === this._containerSize.width && h === this._containerSize.height) return;
+    
+    this._containerSize = { width: w, height: h };
+    this.leafer.set({ width: w, height: h });
+    this._applyCanvasSmoothing();
+    
+    // Viewport coordinates stay the same, layers will adjust their rendering
+    this._notifyLayers();
   }
 
   // -------------------------------------------------------------------------
@@ -127,11 +220,12 @@ export class EnvironmentView {
   }
 
   // -------------------------------------------------------------------------
-  // Zoom / fit helpers (delegates to Leafer)
+  // Legacy compatibility
   // -------------------------------------------------------------------------
 
+  /** @deprecated Use fitToScene() instead */
   fitToView(padding = 40, duration = 750): void {
-    (this.leafer as any).zoomToFit?.(undefined, padding, duration);
+    this.fitToScene(padding / this._containerSize.width);
   }
 
   // -------------------------------------------------------------------------
