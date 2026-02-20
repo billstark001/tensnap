@@ -186,13 +186,13 @@ class Patch implements IPatch {
   }
 }
 
-interface World {
+export interface World {
   width: number;
   height: number;
 }
 
 // Main Model Class
-class WolfSheepModel {
+export class WolfSheepModel {
   private sheep: Sheep[] = [];
   private wolves: Wolf[] = [];
   private patches: Patch[][] = [];

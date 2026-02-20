@@ -139,4 +139,104 @@ export class AgentStorage extends BaseStorage<AgentStorageData> {
       agent.fy = fy;
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Individual CRUD operations (maintain stable references)
+  // -------------------------------------------------------------------------
+
+  /** Add a single agent. If it exists, updates it in place. */
+  addAgent(agent: RenderableAgent): void {
+    const existing = this._data.agents.get(agent.id);
+    if (existing) {
+      // Update existing agent in place to maintain reference stability
+      Object.assign(existing, agent);
+    } else {
+      this._data.agents.set(agent.id, { ...agent });
+    }
+    this.notify();
+  }
+
+  /** Add multiple agents efficiently. */
+  addAgents(agents: Iterable<RenderableAgent>): void {
+    for (const agent of agents) {
+      const existing = this._data.agents.get(agent.id);
+      if (existing) {
+        Object.assign(existing, agent);
+      } else {
+        this._data.agents.set(agent.id, { ...agent });
+      }
+    }
+    this.notify();
+  }
+
+  /** Update an existing agent by ID. Creates if doesn't exist. */
+  updateAgent(id: AgentId, updates: Partial<RenderableAgent>): void {
+    const existing = this._data.agents.get(id);
+    if (existing) {
+      Object.assign(existing, updates);
+    } else {
+      this._data.agents.set(id, { id, ...updates } as RenderableAgent);
+    }
+    this.notify();
+  }
+
+  /** Update multiple agents efficiently. */
+  updateAgents(updates: Array<{ id: AgentId; data: Partial<RenderableAgent> }>): void {
+    for (const { id, data } of updates) {
+      const existing = this._data.agents.get(id);
+      if (existing) {
+        Object.assign(existing, data);
+      } else {
+        this._data.agents.set(id, { id, ...data } as RenderableAgent);
+      }
+    }
+    this.notify();
+  }
+
+  /** Remove a single agent by ID. */
+  removeAgent(id: AgentId): void {
+    if (this._data.agents.delete(id)) {
+      this._data.trajectories.delete(String(id));
+      this.notify();
+    }
+  }
+
+  /** Remove multiple agents efficiently. */
+  removeAgents(ids: Iterable<AgentId>): void {
+    let changed = false;
+    for (const id of ids) {
+      if (this._data.agents.delete(id)) {
+        this._data.trajectories.delete(String(id));
+        changed = true;
+      }
+    }
+    if (changed) this.notify();
+  }
+
+  /** Get a single agent by ID. */
+  getAgent(id: AgentId): RenderableAgent | undefined {
+    return this._data.agents.get(id);
+  }
+
+  /** Check if an agent exists. */
+  hasAgent(id: AgentId): boolean {
+    return this._data.agents.has(id);
+  }
+
+  /** Get all agent IDs. */
+  getAgentIds(): AgentId[] {
+    return Array.from(this._data.agents.keys());
+  }
+
+  /** Get number of agents. */
+  getAgentCount(): number {
+    return this._data.agents.size;
+  }
+
+  /** Clear all agents. */
+  clearAgents(): void {
+    this._data.agents.clear();
+    this._data.trajectories.clear();
+    this.notify();
+  }
 }
