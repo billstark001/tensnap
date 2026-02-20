@@ -1,8 +1,10 @@
 /**
  * environment/layers/BackgroundLayer.ts
  *
- * Renders a single `Rect` that fills the canvas with either a CSS color
+ * Renders a single `Rect` that fills the visible viewport with either a CSS color
  * or an image (stretch-fit).
+ *
+ * Can optionally report scene bounds for the background area.
  *
  * Default z-index: 0
  */
@@ -11,20 +13,39 @@ import { Rect } from 'leafer-ui';
 import { BaseLayer } from './BaseLayer';
 import { EnvironmentView } from '../EnvironmentView';
 import { BackgroundStorage, BackgroundData } from '../storages/BackgroundStorage';
-import { Viewport } from '../types';
+import { Viewport, SceneBounds, OriginMode, IBoundedLayer } from '../types';
 
-export class BackgroundLayer extends BaseLayer {
+export interface BackgroundLayerConfig {
+  /** 
+   * Scene bounds for this background layer.
+   * If provided, the layer will report these bounds to EnvironmentView.
+   */
+  sceneBounds?: SceneBounds;
+  /**
+   * Origin mode for the background.
+   * Default: 'bottom-left'
+   */
+  originMode?: OriginMode;
+}
+
+export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
   readonly defaultZIndex = 0;
 
   private readonly bg: Rect;
+  private readonly config: BackgroundLayerConfig;
 
-  constructor(view: EnvironmentView, storage?: BackgroundStorage) {
+  constructor(
+    view: EnvironmentView,
+    storage?: BackgroundStorage,
+    config: BackgroundLayerConfig = {}
+  ) {
     super(view);
-    const { width, height } = view.viewport;
+    this.config = config;
 
+    const container = this.getContainerSize();
     this.bg = new Rect({
-      width,
-      height,
+      width: container.width,
+      height: container.height,
       fill: '#00000000',
       cornerSmoothing: 0,
     });
@@ -38,11 +59,33 @@ export class BackgroundLayer extends BaseLayer {
   }
 
   // -------------------------------------------------------------------------
+  // IBoundedLayer implementation
+  // -------------------------------------------------------------------------
+
+  getSceneBounds(): SceneBounds | null {
+    return this.config.sceneBounds || null;
+  }
+
+  getOriginMode(): OriginMode {
+    return this.config.originMode || 'bottom-left';
+  }
+
+  // -------------------------------------------------------------------------
   // Viewport
   // -------------------------------------------------------------------------
 
-  onViewportChange({ width, height }: Viewport): void {
-    this.bg.set({ width, height });
+  onViewportChange(viewport: Viewport): void {
+    // Apply viewport transformation to group
+    this.applyViewportTransform(viewport);
+    
+    // Update rect to fill the viewport
+    this.bg.set({
+      x: viewport.x,
+      y: viewport.y,
+      width: viewport.width,
+      height: viewport.height,
+    });
+    
     // Preserve image fill mode after resize
     const fill = this.bg.fill as any;
     if (fill?.type === 'image') {
