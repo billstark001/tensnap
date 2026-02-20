@@ -8,10 +8,10 @@
 
 import { BaseStorage } from './BaseStorage';
 import { isCssColor } from '../utils/color';
-import { NPYParser } from '@/utils/npy-parser';
-import { createNumpyBackground } from '@/utils/numpy-renderer';
-import { uint8ArrayToArrayBuffer } from '@/utils/msgpack';
-import { detectFileFormat } from '@/utils/format-detector';
+import { NPYParser } from '../../utils/npy-parser';
+import { createNumpyBackground } from '../../utils/numpy-renderer';
+import { uint8ArrayToArrayBuffer } from '../../utils/msgpack';
+import { detectFileFormat } from '../../utils/format-detector';
 
 // ---------------------------------------------------------------------------
 // Data type

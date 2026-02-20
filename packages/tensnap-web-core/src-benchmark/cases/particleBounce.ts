@@ -1,0 +1,129 @@
+/**
+ * cases/particleBounce.ts
+ *
+ * Benchmark: EnvironmentView with N free-flying particles that bounce off walls.
+ *
+ * Each tick:
+ *   - Update particle positions using velocity (basic Euler integration)
+ *   - Reflect velocity when a particle hits a boundary
+ *   - Call agentStorage.setAgents() to trigger re-render
+ */
+
+import { EnvironmentView } from 'tensnap-web-core/environment';
+import { AgentStorage } from 'tensnap-web-core/environment';
+import { AgentLayer } from 'tensnap-web-core/environment';
+import { RenderableAgent } from 'tensnap-web-core/environment';
+import { BenchmarkCase } from '../types';
+
+interface Config {
+  /** Number of particles. */
+  particleCount: number;
+  /** Canvas width. */
+  width: number;
+  /** Canvas height. */
+  height: number;
+  /** Max initial speed (px/frame). */
+  maxSpeed: number;
+}
+
+interface Particle extends RenderableAgent {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+const PARTICLE_COLORS = [
+  '#4fc3f7', '#81c784', '#ffb74d', '#f48fb1',
+  '#ce93d8', '#80cbc4', '#fff176', '#ef9a9a',
+];
+
+export function createParticleBounceCase(partial: Partial<Config> = {}): BenchmarkCase {
+  const cfg: Config = {
+    particleCount: partial.particleCount ?? 200,
+    width: partial.width ?? 800,
+    height: partial.height ?? 500,
+    maxSpeed: partial.maxSpeed ?? 4,
+  };
+
+  let view: EnvironmentView | null = null;
+  let agentStorage: AgentStorage | null = null;
+  let host: HTMLElement | null = null;
+  let particles: Particle[] = [];
+
+  function initParticles(): Particle[] {
+    return Array.from({ length: cfg.particleCount }, (_, i) => ({
+      id: `p_${i}`,
+      x: Math.random() * cfg.width,
+      y: Math.random() * cfg.height,
+      vx: (Math.random() * 2 - 1) * cfg.maxSpeed,
+      vy: (Math.random() * 2 - 1) * cfg.maxSpeed,
+      icon: 'circle' as const,
+      size: 8,
+      color: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
+    }));
+  }
+
+  function stepParticles(): void {
+    const W = cfg.width;
+    const H = cfg.height;
+    const R = 4; // effective radius for bounce boundary
+
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < R) { p.x = R; p.vx = Math.abs(p.vx); }
+      else if (p.x > W - R) { p.x = W - R; p.vx = -Math.abs(p.vx); }
+
+      if (p.y < R) { p.y = R; p.vy = Math.abs(p.vy); }
+      else if (p.y > H - R) { p.y = H - R; p.vy = -Math.abs(p.vy); }
+    }
+  }
+
+  return {
+    name: 'EnvironmentView (particle bounce)',
+    config: cfg as unknown as Record<string, unknown>,
+
+    setup(container) {
+      host = document.createElement('div');
+      host.style.cssText = `
+        width: ${cfg.width}px; height: ${cfg.height}px;
+        overflow: hidden;
+      `;
+      container.appendChild(host);
+
+      view = new EnvironmentView(host, {
+        type: 'custom',
+        pixelRatio: 1,
+        throttleMs: 0,
+      });
+      view.setViewport(cfg.width, cfg.height);
+
+      agentStorage = new AgentStorage();
+      const agentLayer = new AgentLayer(view, agentStorage, {
+        clickable: false,
+        draggable: false,
+      });
+      view.addLayer(agentLayer);
+
+      particles = initParticles();
+      agentStorage.setAgents(particles);
+    },
+
+    tick() {
+      stepParticles();
+      agentStorage!.setAgents(particles);
+    },
+
+    teardown() {
+      view?.destroy();
+      host?.remove();
+      view = null;
+      agentStorage = null;
+      host = null;
+      particles = [];
+    },
+  };
+}

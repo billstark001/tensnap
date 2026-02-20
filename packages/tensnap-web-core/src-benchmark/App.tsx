@@ -1,0 +1,472 @@
+import { signal, computed } from '@preact/signals';
+import { useRef } from 'preact/hooks';
+import { BenchmarkStats } from './types';
+import { runBenchmark, resultsToJson, resultsToMarkdown } from './runner';
+import { createLineChartCase } from './cases/lineChart';
+import { createParticleBounceCase } from './cases/particleBounce';
+import { createSpringGraphCase } from './cases/springGraph';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const running = signal(false);
+const progressText = signal('');
+const results = signal<BenchmarkStats[]>([]);
+const copyStatus = signal<'idle' | 'json' | 'md'>('idle');
+
+const frameCount = signal(150);
+const warmupCount = signal(10);
+
+const enableLineChart = signal(true);
+const enableParticle = signal(true);
+const enableSpring = signal(true);
+
+const hasResults = computed(() => results.value.length > 0);
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function download(filename: string, content: string, mime = 'text/plain') {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function handleRun(containerRef: HTMLElement) {
+  if (running.value) return;
+  running.value = true;
+  results.value = [];
+
+  const cases = [
+    enableLineChart.value && createLineChartCase(),
+    enableParticle.value && createParticleBounceCase(),
+    enableSpring.value && createSpringGraphCase(),
+  ].filter(Boolean) as ReturnType<typeof createLineChartCase>[];
+
+  if (cases.length === 0) {
+    running.value = false;
+    progressText.value = 'Please select at least one benchmark.';
+    return;
+  }
+
+  const allResults: BenchmarkStats[] = [];
+  for (let ci = 0; ci < cases.length; ci++) {
+    const bc = cases[ci];
+    progressText.value = `Running [${ci + 1}/${cases.length}] ${bc.name}…`;
+
+    const res = await runBenchmark(
+      bc,
+      containerRef,
+      frameCount.value,
+      warmupCount.value,
+      (done, total) => {
+        progressText.value = `[${ci + 1}/${cases.length}] ${bc.name} — ${done}/${total} frames`;
+      }
+    );
+    allResults.push(res);
+  }
+
+  results.value = allResults;
+  progressText.value = 'Done!';
+  running.value = false;
+}
+
+async function copyText(text: string, which: 'json' | 'md') {
+  await navigator.clipboard.writeText(text);
+  copyStatus.value = which;
+  setTimeout(() => { copyStatus.value = 'idle'; }, 1500);
+}
+
+// ─── Components ───────────────────────────────────────────────────────────────
+function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | null } }) {
+  return (
+    <div style={styles.panel}>
+      <h2 style={styles.panelTitle}>Configuration</h2>
+
+      <label style={styles.label}>
+        Frames per benchmark
+        <input
+          type="number"
+          min={10}
+          max={1000}
+          value={frameCount.value}
+          disabled={running.value}
+          onInput={(e) => { frameCount.value = Number((e.target as HTMLInputElement).value); }}
+          style={styles.input}
+        />
+      </label>
+
+      <label style={styles.label}>
+        Warmup frames
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={warmupCount.value}
+          disabled={running.value}
+          onInput={(e) => { warmupCount.value = Number((e.target as HTMLInputElement).value); }}
+          style={styles.input}
+        />
+      </label>
+
+      <div style={{ marginTop: 16 }}>
+        <p style={styles.sectionLabel}>Cases to run</p>
+        {[
+          { sig: enableLineChart, label: 'LineChartView (multi-line)' },
+          { sig: enableParticle, label: 'EnvironmentView (particle bounce)' },
+          { sig: enableSpring, label: 'EnvironmentView (E-R spring graph)' },
+        ].map(({ sig, label }) => (
+          <label key={label} style={styles.checkLabel}>
+            <input
+              type="checkbox"
+              checked={sig.value}
+              disabled={running.value}
+              onChange={() => { sig.value = !sig.value; }}
+              style={{ marginRight: 8, accentColor: '#6ee7b7' }}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+
+      <button
+        onClick={() => containerRef.current && handleRun(containerRef.current)}
+        disabled={running.value}
+        style={{ ...styles.button, ...(running.value ? styles.buttonDisabled : {}) }}
+      >
+        {running.value ? 'Running…' : 'Run Benchmarks'}
+      </button>
+
+      {progressText.value && (
+        <p style={styles.progressText}>{progressText.value}</p>
+      )}
+    </div>
+  );
+}
+
+function ResultsTable() {
+  if (!hasResults.value) {
+    return (
+      <div style={styles.emptyState}>
+        <p style={{ color: '#888', fontSize: 14 }}>
+          No results yet. Configure and click <strong>Run Benchmarks</strong>.
+        </p>
+      </div>
+    );
+  }
+
+  const rows = results.value;
+  const jsonStr = resultsToJson(rows);
+  const mdStr = resultsToMarkdown(rows);
+
+  return (
+    <div>
+      <div style={styles.tableWrapper}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              {['Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'FPS'].map(
+                (h) => <th key={h} style={styles.th}>{h}</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+                <td style={{ ...styles.td, fontWeight: 600 }}>{r.caseName}</td>
+                <td style={styles.tdNum}>{r.frames}</td>
+                <td style={styles.tdNum}>{r.meanMs}</td>
+                <td style={styles.tdNum}>{r.medianMs}</td>
+                <td style={styles.tdNum}>{r.minMs}</td>
+                <td style={styles.tdNum}>{r.maxMs}</td>
+                <td style={styles.tdNum}>{r.p95Ms}</td>
+                <td style={{ ...styles.tdNum, color: fpsColor(r.fps) }}>{r.fps}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={styles.exportRow}>
+        {/* Copy JSON */}
+        <button
+          style={styles.exportBtn}
+          onClick={() => copyText(jsonStr, 'json')}
+        >
+          {copyStatus.value === 'json' ? '✓ Copied!' : 'Copy JSON'}
+        </button>
+
+        {/* Download JSON */}
+        <button
+          style={styles.exportBtn}
+          onClick={() => download('benchmark-results.json', jsonStr, 'application/json')}
+        >
+          Download JSON
+        </button>
+
+        {/* Copy Markdown */}
+        <button
+          style={styles.exportBtn}
+          onClick={() => copyText(mdStr, 'md')}
+        >
+          {copyStatus.value === 'md' ? '✓ Copied!' : 'Copy Markdown'}
+        </button>
+
+        {/* Download Markdown */}
+        <button
+          style={styles.exportBtn}
+          onClick={() => download('benchmark-results.md', mdStr, 'text/markdown')}
+        >
+          Download Markdown
+        </button>
+      </div>
+
+      {/* Raw JSON preview */}
+      <details style={styles.details}>
+        <summary style={{ cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
+          Raw JSON
+        </summary>
+        <pre style={styles.pre}>{jsonStr}</pre>
+      </details>
+
+      {/* Markdown preview */}
+      <details style={styles.details}>
+        <summary style={{ cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
+          Markdown
+        </summary>
+        <pre style={styles.pre}>{mdStr}</pre>
+      </details>
+    </div>
+  );
+}
+
+function fpsColor(fps: number): string {
+  if (fps >= 50) return '#6ee7b7';
+  if (fps >= 30) return '#fcd34d';
+  return '#f87171';
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+export function App() {
+  const containerRef = useRef<HTMLElement | null>(null);
+
+  return (
+    <div style={styles.root}>
+      <header style={styles.header}>
+        <h1 style={styles.title}>TenSnap Web Core — Benchmark Suite</h1>
+        <p style={styles.subtitle}>
+          Measures per-frame render latency using <code>requestAnimationFrame</code>.
+          One event-loop turn is yielded after each frame.
+        </p>
+      </header>
+
+      <main style={styles.main}>
+        <ConfigPanel containerRef={containerRef} />
+        <section style={styles.results}>
+          <h2 style={styles.panelTitle}>Results</h2>
+          <ResultsTable />
+        </section>
+      </main>
+
+      {/* Visible container for benchmark canvases */}
+      <section style={styles.canvasSection}>
+        <h2 style={styles.panelTitle}>Live Preview</h2>
+        <div
+          ref={(el) => { containerRef.current = el; }}
+          style={styles.canvasContainer}
+        />
+      </section>
+    </div>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const styles: Record<string, import('preact').JSX.CSSProperties> = {
+  root: {
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    background: '#0f0f13',
+    color: '#e0e0e0',
+  },
+  header: {
+    padding: '24px 32px 16px',
+    borderBottom: '1px solid #2a2a35',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: '#f3f4f6',
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: '#9ca3af',
+  },
+  main: {
+    display: 'flex',
+    flexDirection: 'row',
+    gap: 24,
+    padding: '24px 32px',
+    flex: 1,
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  panel: {
+    background: '#1a1a22',
+    border: '1px solid #2a2a35',
+    borderRadius: 10,
+    padding: '20px 24px',
+    minWidth: 280,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  results: {
+    flex: 1,
+    background: '#1a1a22',
+    border: '1px solid #2a2a35',
+    borderRadius: 10,
+    padding: '20px 24px',
+    minWidth: 300,
+  },
+  panelTitle: {
+    fontSize: 15,
+    fontWeight: 600,
+    color: '#c7d2fe',
+    marginBottom: 4,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    color: '#9ca3af',
+    marginBottom: 8,
+  },
+  label: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    fontSize: 13,
+    color: '#d1d5db',
+  },
+  input: {
+    background: '#0f0f18',
+    border: '1px solid #3a3a50',
+    borderRadius: 6,
+    color: '#e0e0e0',
+    padding: '5px 10px',
+    fontSize: 13,
+    outline: 'none',
+    width: '100%',
+  },
+  checkLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: 13,
+    color: '#d1d5db',
+    marginBottom: 6,
+    cursor: 'pointer',
+  },
+  button: {
+    marginTop: 8,
+    padding: '9px 18px',
+    background: '#4f46e5',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontWeight: 600,
+    fontSize: 14,
+    transition: 'background 0.2s',
+  },
+  buttonDisabled: {
+    background: '#374151',
+    cursor: 'not-allowed',
+    color: '#9ca3af',
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#6ee7b7',
+    wordBreak: 'break-all',
+    marginTop: 4,
+  },
+  tableWrapper: {
+    overflowX: 'auto',
+    marginBottom: 16,
+  },
+  table: {
+    borderCollapse: 'collapse',
+    width: '100%',
+    fontSize: 13,
+  },
+  th: {
+    background: '#232330',
+    color: '#9ca3af',
+    padding: '8px 14px',
+    textAlign: 'left',
+    borderBottom: '1px solid #2a2a35',
+    whiteSpace: 'nowrap',
+  },
+  td: {
+    padding: '7px 14px',
+    borderBottom: '1px solid #1e1e28',
+    color: '#e0e0e0',
+  },
+  tdNum: {
+    padding: '7px 14px',
+    borderBottom: '1px solid #1e1e28',
+    textAlign: 'right',
+    color: '#e0e0e0',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  rowEven: {},
+  rowOdd: { background: '#181820' },
+  exportRow: {
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  exportBtn: {
+    padding: '6px 14px',
+    background: '#232330',
+    border: '1px solid #3a3a50',
+    borderRadius: 7,
+    color: '#d1d5db',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 500,
+  },
+  canvasSection: {
+    background: '#1a1a22',
+    borderTop: '1px solid #2a2a35',
+    padding: '20px 32px',
+  },
+  canvasContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginTop: 12,
+    minHeight: 40,
+  },
+  emptyState: {
+    padding: '40px 0',
+    textAlign: 'center',
+  },
+  details: {
+    marginBottom: 12,
+  },
+  pre: {
+    background: '#0f0f18',
+    border: '1px solid #2a2a35',
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 11,
+    color: '#9ca3af',
+    overflowX: 'auto',
+    maxHeight: 300,
+    overflow: 'auto',
+    marginTop: 8,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-all',
+  },
+};
