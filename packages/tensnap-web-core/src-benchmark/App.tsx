@@ -1,10 +1,15 @@
 import { signal, computed } from '@preact/signals';
 import { useRef } from 'preact/hooks';
-import { BenchmarkStats } from './types';
+import { BenchmarkStats, BenchmarkCase } from './types';
 import { runBenchmark, resultsToJson, resultsToMarkdown } from './runner';
-import { createLineChartCase } from './cases/lineChart';
-import { createParticleBounceCase } from './cases/particleBounce';
-import { createSpringGraphCase } from './cases/springGraph';
+import { 
+  lineChartVariations,
+  particleBounceVariations,
+  springGraphVariations,
+  getAllVariations,
+} from './cases/variations';
+import { createSchellingCase, schellingVariations } from './cases/schellingModel';
+import { createWolfSheepCase, wolfSheepVariations } from './cases/wolfSheepModel';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const running = signal(false);
@@ -15,9 +20,17 @@ const copyStatus = signal<'idle' | 'json' | 'md'>('idle');
 const frameCount = signal(150);
 const warmupCount = signal(10);
 
+// Enable/disable existing cases
 const enableLineChart = signal(true);
 const enableParticle = signal(true);
 const enableSpring = signal(true);
+
+// Enable/disable model cases
+const enableSchelling = signal(true);
+const enableWolfSheep = signal(true);
+
+// Enable variations mode
+const enableVariations = signal(false);
 
 const hasResults = computed(() => results.value.length > 0);
 
@@ -37,11 +50,46 @@ async function handleRun(containerRef: HTMLElement) {
   running.value = true;
   results.value = [];
 
-  const cases = [
-    enableLineChart.value && createLineChartCase(),
-    enableParticle.value && createParticleBounceCase(),
-    enableSpring.value && createSpringGraphCase(),
-  ].filter(Boolean) as ReturnType<typeof createLineChartCase>[];
+  let cases: BenchmarkCase[] = [];
+
+  if (enableVariations.value) {
+    // Run all variations of selected cases
+    const allVars = getAllVariations();
+    for (const variation of allVars) {
+      if (variation.name === 'LineChart' && enableLineChart.value) {
+        cases.push(...variation.cases);
+      } else if (variation.name === 'ParticleBounce' && enableParticle.value) {
+        cases.push(...variation.cases);
+      } else if (variation.name === 'SpringGraph' && enableSpring.value) {
+        cases.push(...variation.cases);
+      }
+    }
+    
+    // Add model variations
+    if (enableSchelling.value) {
+      cases.push(...schellingVariations);
+    }
+    if (enableWolfSheep.value) {
+      cases.push(...wolfSheepVariations);
+    }
+  } else {
+    // Run single default configuration of each selected case
+    if (enableLineChart.value) {
+      cases.push(lineChartVariations.cases[1]); // medium config
+    }
+    if (enableParticle.value) {
+      cases.push(particleBounceVariations.cases[1]); // medium config
+    }
+    if (enableSpring.value) {
+      cases.push(springGraphVariations.cases[1]); // medium config
+    }
+    if (enableSchelling.value) {
+      cases.push(schellingVariations[1]); // medium config
+    }
+    if (enableWolfSheep.value) {
+      cases.push(wolfSheepVariations[1]); // medium config
+    }
+  }
 
   if (cases.length === 0) {
     running.value = false;
@@ -115,6 +163,8 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
           { sig: enableLineChart, label: 'LineChartView (multi-line)' },
           { sig: enableParticle, label: 'EnvironmentView (particle bounce)' },
           { sig: enableSpring, label: 'EnvironmentView (E-R spring graph)' },
+          { sig: enableSchelling, label: 'Schelling Segregation Model' },
+          { sig: enableWolfSheep, label: 'Wolf-Sheep Predation Model' },
         ].map(({ sig, label }) => (
           <label key={label} style={styles.checkLabel}>
             <input
@@ -127,6 +177,22 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
             {label}
           </label>
         ))}
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <label style={styles.checkLabel}>
+          <input
+            type="checkbox"
+            checked={enableVariations.value}
+            disabled={running.value}
+            onChange={() => { enableVariations.value = !enableVariations.value; }}
+            style={{ marginRight: 8, accentColor: '#fbbf24' }}
+          />
+          <strong>Run all parameter variations</strong>
+        </label>
+        <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, marginLeft: 24 }}>
+          When enabled, runs 3-4 configurations of each selected case
+        </p>
       </div>
 
       <button
