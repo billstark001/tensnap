@@ -110,12 +110,20 @@ export class EdgeLayer extends BaseLayer {
 
   onViewportChange(viewport: Viewport): void {
     this._viewport = viewport;
+    
+    // Apply viewport transformation to the group
+    // This handles all coordinate conversion and Y-flip
+    this.applyViewportTransform(viewport);
+    
+    // Update d3-force center to scene origin (0, 0)
+    // In scene coordinates, we typically want forces centered at origin
     if (this._simulation) {
       this._simulation.force(
         'center',
-        d3.forceCenter(viewport.width / 2, viewport.height / 2)
+        d3.forceCenter(0, 0)  // Scene origin
       );
-      this._simulation.alpha(0.1).restart();
+      // Gentle reheat to adjust to new viewport without disrupting layout
+      this._simulation.alpha(0.05).restart();
     }
   }
 
@@ -250,7 +258,8 @@ export class EdgeLayer extends BaseLayer {
   private _initSimulation(
     config: import('../types/env').GraphEnvConfig
   ): void {
-    const { width, height } = this._viewport;
+    // Simulation operates in scene coordinates
+    // Center force pulls towards scene origin (0, 0)
     const linkDist = config.linkDistance ?? 80;
     const charge = config.chargeStrength ?? -300;
     const collision = config.collisionRadius ?? 25;
@@ -260,12 +269,12 @@ export class EdgeLayer extends BaseLayer {
         'link',
         d3
           .forceLink<SimNode, SimLink>()
-          .id((d) => String(d.id))
+          .id((d: SimNode) => String(d.id))
           .distance(linkDist)
       )
       .force('charge', d3.forceManyBody().strength(charge))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide<SimNode>().radius((_d) => collision))
+      .force('center', d3.forceCenter(0, 0))  // Scene origin
+      .force('collision', d3.forceCollide<SimNode>().radius((_d: SimNode) => collision))
       .on('tick', () => this._tick());
   }
 
@@ -281,7 +290,7 @@ export class EdgeLayer extends BaseLayer {
     (this._simulation.force('charge') as d3.ForceManyBody<SimNode>)
       ?.strength(charge);
     (this._simulation.force('collision') as d3.ForceCollide<SimNode>)
-      ?.radius((_d) => collision);
+      ?.radius((_d: SimNode) => collision);
   }
 
   // -------------------------------------------------------------------------
@@ -369,28 +378,36 @@ export class EdgeLayer extends BaseLayer {
     const components = this._findComponents(nodes, edges);
 
     if (components.length <= 1) {
-      // Single component — scatter around center
+      // Single component — scatter around scene origin (0, 0)
       nodes.forEach((node) => {
         if (node.x == null || node.y == null) {
-          const { width, height } = this._viewport;
-          node.x = width / 2 + (Math.random() - 0.5) * 200;
-          node.y = height / 2 + (Math.random() - 0.5) * 200;
+          // Scatter in scene coordinates around origin
+          node.x = (Math.random() - 0.5) * 200;
+          node.y = (Math.random() - 0.5) * 200;
         }
       });
       return;
     }
 
-    // Multiple components — arrange in a grid
+    // Multiple components — arrange in a grid around origin
     const spacing = 120;
     const cols = Math.ceil(Math.sqrt(components.length));
-    const { width, height } = this._viewport;
-    const cellW = (width - spacing) / cols;
-    const cellH = (height - spacing) / Math.ceil(components.length / cols);
+    const rows = Math.ceil(components.length / cols);
+    
+    // Calculate grid dimensions in scene space
+    const cellW = 300;  // Scene units per cell
+    const cellH = 300;
+    const gridWidth = cols * cellW + spacing;
+    const gridHeight = rows * cellH + spacing;
 
     components.forEach((comp, idx) => {
-      const cx = spacing / 2 + (idx % cols) * cellW + cellW / 2;
-      const cy = spacing / 2 + Math.floor(idx / cols) * cellH + cellH / 2;
+      // Position relative to origin
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      const cx = -gridWidth / 2 + spacing / 2 + col * cellW + cellW / 2;
+      const cy = -gridHeight / 2 + spacing / 2 + row * cellH + cellH / 2;
       const r = Math.min(cellW, cellH) / 4;
+      
       comp.forEach((node) => {
         if (node.x == null || node.y == null) {
           const a = Math.random() * 2 * Math.PI;
