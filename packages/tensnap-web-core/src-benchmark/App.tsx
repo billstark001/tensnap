@@ -8,8 +8,8 @@ import {
   springGraphVariations,
   getAllVariations,
 } from './cases/variations';
-import { createSchellingCase, schellingVariations } from './cases/schellingModel';
-import { createWolfSheepCase, wolfSheepVariations } from './cases/wolfSheepModel';
+import { schellingVariations } from './cases/schellingModel';
+import { wolfSheepVariations } from './cases/wolfSheepModel';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const running = signal(false);
@@ -17,7 +17,7 @@ const progressText = signal('');
 const results = signal<BenchmarkStats[]>([]);
 const copyStatus = signal<'idle' | 'json' | 'md'>('idle');
 
-const frameCount = signal(150);
+const frameCount = signal(300);
 const warmupCount = signal(10);
 
 // Enable/disable existing cases

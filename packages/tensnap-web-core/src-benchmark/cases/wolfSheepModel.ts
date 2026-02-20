@@ -72,7 +72,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
 
     const patches = model!.getPatches();
     const grassAgents: RenderableAgent[] = [];
-    
+
     for (let y = 0; y < patches.length; y++) {
       for (let x = 0; x < patches[y].length; x++) {
         const patch = patches[y][x];
@@ -88,7 +88,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
         }
       }
     }
-    
+
     return grassAgents;
   }
 
@@ -216,7 +216,6 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
 
       // Initialize environment view
       view = new EnvironmentView(envContainer, {
-        type: 'grid',
         pixelRatio: 1,
         throttleMs: 0,
       });
@@ -269,7 +268,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
     tick() {
       // Run one step of the model
       const canContinue = model!.go();
-      
+
       // Update grass layer
       updateGrassAgents();
 
@@ -280,9 +279,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
       updateStats();
 
       // Stop if model indicates end
-      if (!canContinue) {
-        return false;
-      }
+      return canContinue;
     },
 
     teardown() {
@@ -323,8 +320,8 @@ export const wolfSheepVariations = [
   createWolfSheepCase({
     gridWidth: 50,
     gridHeight: 50,
-    initialNumberSheep: 100,
-    initialNumberWolves: 50,
+    initialNumberSheep: 400,
+    initialNumberWolves: 150,
     sheepGainFromFood: 4,
     wolfGainFromFood: 20,
     grassRegrowthTime: 30,
@@ -335,8 +332,8 @@ export const wolfSheepVariations = [
   createWolfSheepCase({
     gridWidth: 70,
     gridHeight: 70,
-    initialNumberSheep: 200,
-    initialNumberWolves: 100,
+    initialNumberSheep: 800,
+    initialNumberWolves: 400,
     sheepGainFromFood: 4,
     wolfGainFromFood: 20,
     grassRegrowthTime: 25,

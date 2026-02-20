@@ -17,7 +17,9 @@
       "tensnap-web-core/chart": ["src/chart/index.ts"],
       "tensnap-web-core/environment": ["src/environment/index.ts"],
       "tensnap-web-core/parameter": ["src/parameter/index.ts"],
-      "tensnap-web-core/utils": ["src/utils/index.ts"]
+      "tensnap-web-core/utils": ["src/utils/index.ts"],
+      "tensnap-web-utils/fake-models/wolf-sheep": ["../tensnap-web-utils/src/fake-models/wolf-sheep.ts"],
+      "tensnap-web-utils/fake-models/schelling": ["../tensnap-web-utils/src/fake-models/schelling.ts"]
     }
   },
   "include": ["src", "src-benchmark"]

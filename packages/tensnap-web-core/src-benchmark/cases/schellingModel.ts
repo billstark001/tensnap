@@ -135,7 +135,6 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
 
       // Initialize environment view
       view = new EnvironmentView(envContainer, {
-        type: 'grid',
         pixelRatio: 1,
         throttleMs: 0,
       });
@@ -211,9 +210,9 @@ export const schellingVariations = [
   createSchellingCase({
     gridWidth: 30,
     gridHeight: 30,
-    numAgentsType1: 200,
-    numAgentsType2: 200,
-    similarityThreshold: 0.3,
+    numAgentsType1: 400,
+    numAgentsType2: 400,
+    similarityThreshold: 0.8,
     moveDistance: 8,
     envWidth: 500,
     envHeight: 500,
@@ -222,9 +221,9 @@ export const schellingVariations = [
   createSchellingCase({
     gridWidth: 40,
     gridHeight: 40,
-    numAgentsType1: 500,
-    numAgentsType2: 500,
-    similarityThreshold: 0.4,
+    numAgentsType1: 700,
+    numAgentsType2: 700,
+    similarityThreshold: 0.85,
     moveDistance: 10,
     envWidth: 600,
     envHeight: 600,
@@ -233,9 +232,9 @@ export const schellingVariations = [
   createSchellingCase({
     gridWidth: 60,
     gridHeight: 60,
-    numAgentsType1: 1200,
-    numAgentsType2: 1200,
-    similarityThreshold: 0.5,
+    numAgentsType1: 1500,
+    numAgentsType2: 1500,
+    similarityThreshold: 1,
     moveDistance: 15,
     envWidth: 800,
     envHeight: 800,
