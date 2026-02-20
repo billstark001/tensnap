@@ -91,7 +91,7 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
 
       view = new EnvironmentView(host, {
         type: 'custom',
-        pixelRatio: 1,
+        pixelRatio: window.devicePixelRatio ?? 1,
         throttleMs: 0,
       });
       view.setViewport(cfg.width, cfg.height);
@@ -126,6 +126,18 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
     },
 
     tick(frameIndex) {
+      // Sync local `nodes` with simulation-updated positions so that
+      // perturbations are applied relative to the current layout, not
+      // stale initial positions.  Without this, setAgents() would push
+      // the old coordinates to AgentLayer and nodes would appear erratic.
+      const currentAgents = agentStorage!.getData().agents;
+      nodes = nodes.map((n) => {
+        const cur = currentAgents.get(n.id);
+        return cur != null && cur.x != null && cur.y != null
+          ? { ...n, x: cur.x, y: cur.y }
+          : n;
+      });
+
       // Perturb a random subset of nodes to reheat the d3 simulation
       const perturbCount = Math.max(1, Math.floor(cfg.nodeCount * cfg.perturbFraction));
       const perturbedNodes = nodes.map((n) => ({ ...n }));

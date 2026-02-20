@@ -16,6 +16,8 @@ export default defineConfig({
       'tensnap-web-core/parameter': path.resolve(__dirname, 'src/parameter/index.ts'),
       'tensnap-web-core/utils': path.resolve(__dirname, 'src/utils/index.ts'),
       'tensnap-web-core': path.resolve(__dirname, 'src/index.ts'),
+      'tensnap-web-utils/fake-models/wolf-sheep': path.resolve(__dirname, '../tensnap-web-utils/src/fake-models/wolf-sheep.ts'),
+      'tensnap-web-utils/fake-models/schelling': path.resolve(__dirname, '../tensnap-web-utils/src/fake-models/schelling.ts'),
     },
   },
   build: {

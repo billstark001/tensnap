@@ -168,13 +168,46 @@ export class EdgeLayer extends BaseLayer {
   }
 
   private _onAgentData(/* data: AgentStorageData */): void {
-    // AgentStorage changed externally (e.g. new agents added).
-    // Rebuild simulation nodes to include new agents.
+    // AgentStorage changed externally (e.g. new agents added or positions updated).
     const agentData = this._agentStorage.getData().agents;
-    const prevNodeMap = new Map(this._simNodes.map((n) => [n.id, n]));
+    const existingNodeMap = new Map(this._simNodes.map((n) => [n.id, n]));
 
+    const agentIds = [...agentData.keys()];
+    const sameSet =
+      agentIds.length === this._simNodes.length &&
+      agentIds.every((id) => existingNodeMap.has(id));
+
+    if (sameSet) {
+      // Fast path: mutate existing SimNode objects in-place so that all
+      // _simLinks / _edgeShapes references remain valid.  The simulation
+      // dynamics (x/y/vx/vy/fx/fy) are preserved — only visual/app
+      // properties are refreshed from the incoming agent data.
+      for (const agent of agentData.values()) {
+        const node = existingNodeMap.get(agent.id)!;
+        const prevX = node.x;
+        const prevY = node.y;
+        const prevVx = node.vx;
+        const prevVy = node.vy;
+        const prevFx = node.fx;
+        const prevFy = node.fy;
+        Object.assign(node, agent);
+        node.x = agent.x ?? prevX;
+        node.y = agent.y ?? prevY;
+        node.vx = prevVx ?? 0;
+        node.vy = prevVy ?? 0;
+        node.fx = prevFx ?? null;
+        node.fy = prevFy ?? null;
+      }
+      if (this._simulation) {
+        this._simulation.alpha(0.1).restart();
+      }
+      return;
+    }
+
+    // Slow path: agent set changed — rebuild nodes, re-resolve link references,
+    // and recreate edge shapes so everything is consistent.
     this._simNodes = [...agentData.values()].map((agent) => {
-      const prev = prevNodeMap.get(agent.id);
+      const prev = existingNodeMap.get(agent.id);
       return {
         ...agent,
         x: prev?.x ?? agent.x,
@@ -186,10 +219,28 @@ export class EdgeLayer extends BaseLayer {
       } as SimNode;
     });
 
+    // Re-resolve _simLinks to point at the new SimNode objects so that both
+    // d3 and _tick() see correct positions.
+    const nodeMap = new Map(this._simNodes.map((n) => [n.id, n]));
+    this._simLinks = this._simLinks.map((link) => {
+      const srcId = EdgeStorage.resolveId(link.source as Parameters<typeof EdgeStorage.resolveId>[0]);
+      const tgtId = EdgeStorage.resolveId(link.target as Parameters<typeof EdgeStorage.resolveId>[0]);
+      return {
+        ...link,
+        source: nodeMap.get(srcId) ?? link.source,
+        target: nodeMap.get(tgtId) ?? link.target,
+      };
+    }) as SimLink[];
+
     if (this._simulation) {
       this._simulation.nodes(this._simNodes);
+      (this._simulation.force('link') as d3.ForceLink<SimNode, SimLink>)
+        ?.links(this._simLinks);
       this._simulation.alpha(0.1).restart();
     }
+
+    // Rebuild canvas shapes so they hold refs to the updated _simLinks.
+    this._syncEdgeShapes();
   }
 
   // -------------------------------------------------------------------------
