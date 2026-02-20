@@ -40,6 +40,9 @@ import {
   AgentIcon,
   TrajectoryPoint,
   GridCoordOffset,
+  SceneBounds,
+  OriginMode,
+  IBoundedLayer,
 } from '../types';
 import {
   SHAPE_CONFIGS,
@@ -62,6 +65,16 @@ export interface AgentLayerConfig {
   contextMenuable?: boolean;
   /** Grid coordinate offset mode.  Used when gridEnvStorage is provided. */
   coordOffset?: GridCoordOffset;
+  /**
+   * Origin mode for agent positioning.
+   * Default: 'bottom-left'
+   */
+  originMode?: OriginMode;
+  /**
+   * Fixed scene bounds (for graph mode).
+   * If not provided, bounds are calculated dynamically from agent positions.
+   */
+  sceneBounds?: SceneBounds;
 
   // Interaction callbacks
   onAgentClick?: (agent: RenderableAgent, event: any) => void;
@@ -97,7 +110,7 @@ interface TrajectoryCacheEntry {
 // AgentLayer
 // ---------------------------------------------------------------------------
 
-export class AgentLayer extends BaseLayer {
+export class AgentLayer extends BaseLayer implements IBoundedLayer {
   readonly defaultZIndex = 30;
 
   private readonly _trajGroup: Group;
@@ -109,7 +122,9 @@ export class AgentLayer extends BaseLayer {
 
   private _viewport: Viewport;
   private _gridEnv: GridEnvData | null = null;
-  private readonly _cfg: Required<AgentLayerConfig>;
+  private readonly _cfg: Required<Omit<AgentLayerConfig, 'sceneBounds'>> & {
+    sceneBounds?: SceneBounds;
+  };
 
   /** Currently dragging agent id (graph mode only). */
   private _draggingId: AgentId | null = null;
@@ -130,6 +145,8 @@ export class AgentLayer extends BaseLayer {
       clickable: true,
       contextMenuable: false,
       coordOffset: 'int',
+      originMode: 'bottom-left',
+      sceneBounds: config.sceneBounds,
       onAgentClick: () => undefined,
       onAgentContextMenu: () => undefined,
       onAgentDoubleClick: () => undefined,
@@ -160,18 +177,96 @@ export class AgentLayer extends BaseLayer {
   }
 
   // -------------------------------------------------------------------------
+  // IBoundedLayer implementation
+  // -------------------------------------------------------------------------
+
+  getSceneBounds(): SceneBounds | null {
+    // If fixed bounds provided in config, use them
+    if (this._cfg.sceneBounds) {
+      return this._cfg.sceneBounds;
+    }
+
+    // Grid mode: use grid dimensions
+    if (this._gridEnv) {
+      const { width: cols, height: rows } = this._gridEnv;
+      if (cols <= 0 || rows <= 0) return null;
+
+      if (this._cfg.originMode === 'center') {
+        return {
+          minX: -cols / 2,
+          maxX: cols / 2,
+          minY: -rows / 2,
+          maxY: rows / 2,
+        };
+      } else {
+        // bottom-left
+        return {
+          minX: 0,
+          maxX: cols,
+          minY: 0,
+          maxY: rows,
+        };
+      }
+    }
+
+    // Graph mode: calculate from agent positions
+    if (this._cachedAgents.size === 0) return null;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    this._cachedAgents.forEach((agent) => {
+      const x = agent.x ?? 0;
+      const y = agent.y ?? 0;
+      const size = agent.size ?? 20;
+      const halfSize = size / 2;
+
+      minX = Math.min(minX, x - halfSize);
+      maxX = Math.max(maxX, x + halfSize);
+      minY = Math.min(minY, y - halfSize);
+      maxY = Math.max(maxY, y + halfSize);
+    });
+
+    if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+      return null;
+    }
+
+    // Add some padding
+    const paddingX = (maxX - minX) * 0.1;
+    const paddingY = (maxY - minY) * 0.1;
+
+    return {
+      minX: minX - paddingX,
+      maxX: maxX + paddingX,
+      minY: minY - paddingY,
+      maxY: maxY + paddingY,
+    };
+  }
+
+  getOriginMode(): OriginMode {
+    return this._cfg.originMode;
+  }
+
+  // -------------------------------------------------------------------------
   // Viewport
   // -------------------------------------------------------------------------
 
   onViewportChange(viewport: Viewport): void {
     this._viewport = viewport;
-    // Rebuild trajectories with new cellSize
+    
+    // Apply viewport transformation to the group
+    // This handles all coordinate conversion and Y-flip
+    this.applyViewportTransform(viewport);
+    
+    // In the new system, agents are in scene coordinates
+    // The group transform handles viewport-to-screen conversion
+    // We don't need to reposition individual agents
+    
+    // However, we do need to update trajectory rendering
+    // because trajectories depend on viewport scale for line widths
     this._rebuildAllTrajectories();
-    // Reposition all agents
-    this._agentShapes.forEach((_, id) => {
-      const agent = this._getStoredAgent(id);
-      if (agent) this._updateAgentPosition(agent);
-    });
   }
 
   // -------------------------------------------------------------------------
@@ -220,56 +315,38 @@ export class AgentLayer extends BaseLayer {
   // Coordinate transform
   // -------------------------------------------------------------------------
 
-  private _cellSize(): number {
-    if (!this._gridEnv) return 1; // graph mode — no scaling
-    const { cellSize } = this._computeGridViewport();
-    return cellSize;
-  }
-
-  private _computeGridViewport(): {
-    cellSize: number;
-    canvasWidth: number;
-    canvasHeight: number;
-  } {
-    const { width, height } = this._viewport;
-    const cols = this._gridEnv?.width ?? 1;
-    const rows = this._gridEnv?.height ?? 1;
-    const cw = width / cols;
-    const ch = height / rows;
-    const cellSize = Math.max(Math.min(cw, ch), 4);
-    return {
-      cellSize,
-      canvasWidth: cellSize * cols,
-      canvasHeight: cellSize * rows,
-    };
-  }
-
-  /** Convert agent data to canvas-pixel {x, y, rotation, pixelSize}. */
-  private _toCanvasCoords(agent: RenderableAgent): {
+  /** Convert agent data to scene coordinates {x, y, rotation, size}. */
+  private _toSceneCoords(agent: RenderableAgent): {
     x: number;
     y: number;
     rotation: number;
-    pixelSize: number;
+    size: number;
   } {
     if (this._gridEnv) {
-      const { cellSize } = this._computeGridViewport();
+      // Grid mode: positions are in grid cells (0, 1, 2, ...)
+      // Coordinates are in scene space (grid cell units)
       const coordOffset = agent.heading !== undefined
         ? (this._cfg.coordOffset ?? 'int')
         : this._cfg.coordOffset;
-      const posDiff = coordOffset === 'int' ? cellSize / 2 : 0;
+      
+      // Center offset: place at cell center (0.5, 1.5, 2.5, ...)
+      // Int offset: place at cell corner (0, 1, 2, ...)
+      const posDiff = coordOffset === 'int' ? 0.5 : 0;
+      
       return {
-        x: (agent.x ?? 0) * cellSize + posDiff,
-        y: (agent.y ?? 0) * cellSize + posDiff,
+        x: (agent.x ?? 0) + posDiff,
+        y: (agent.y ?? 0) + posDiff,
         rotation: agent.heading ? (agent.heading * 180) / Math.PI : 0,
-        pixelSize: (agent.size ?? 10) * (cellSize / 10),
+        size: agent.size ?? 1, // Size in grid cells
       };
     }
-    // Graph / absolute mode
+    
+    // Graph mode: positions are in scene units (arbitrary coordinates)
     return {
       x: agent.x ?? 0,
       y: agent.y ?? 0,
       rotation: 0,
-      pixelSize: agent.size ?? 20,
+      size: agent.size ?? 20, // Absolute size in scene units
     };
   }
 
@@ -278,13 +355,13 @@ export class AgentLayer extends BaseLayer {
   // -------------------------------------------------------------------------
 
   private _createAgent(agent: RenderableAgent): void {
-    const coords = this._toCanvasCoords(agent);
+    const coords = this._toSceneCoords(agent);
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? '#69b3a2';
 
     const ShapeCls = SHAPE_CLASSES[icon];
     const shape: UI = new ShapeCls({
-      ...SHAPE_CONFIGS[icon](coords.pixelSize),
+      ...SHAPE_CONFIGS[icon](coords.size),
       fill: color,
     });
 
@@ -293,7 +370,7 @@ export class AgentLayer extends BaseLayer {
 
     let label: Text | null = null;
     if (this._cfg.showLabel) {
-      label = createAgentLabel(agent.id, coords.pixelSize);
+      label = createAgentLabel(agent.id, coords.size);
       group.add(label);
     }
 
@@ -327,7 +404,7 @@ export class AgentLayer extends BaseLayer {
       shape,
       label,
       icon,
-      size: coords.pixelSize,
+      size: coords.size,
       color,
     });
   }
@@ -336,7 +413,7 @@ export class AgentLayer extends BaseLayer {
     const entry = this._agentShapes.get(agent.id);
     if (!entry) return;
 
-    const coords = this._toCanvasCoords(agent);
+    const coords = this._toSceneCoords(agent);
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? '#69b3a2';
 
@@ -347,21 +424,21 @@ export class AgentLayer extends BaseLayer {
     }
 
     // Update shape dimensions if icon or size changed
-    if (entry.icon !== icon || entry.size !== coords.pixelSize) {
-      entry.shape.set(SHAPE_CONFIGS[icon](coords.pixelSize));
+    if (entry.icon !== icon || entry.size !== coords.size) {
+      entry.shape.set(SHAPE_CONFIGS[icon](coords.size));
       entry.icon = icon;
-      entry.size = coords.pixelSize;
+      entry.size = coords.size;
     }
 
     // Update label
     if (entry.label) {
-      const fontSize = Math.max(8, coords.pixelSize * 0.6);
+      const fontSize = Math.max(8, coords.size * 0.6);
       entry.label.set({
         text: String(agent.id),
         fontSize,
-        x: -coords.pixelSize,
+        x: -coords.size,
         y: -fontSize / 2,
-        width: coords.pixelSize * 2,
+        width: coords.size * 2,
         height: fontSize,
       });
     }
@@ -370,7 +447,7 @@ export class AgentLayer extends BaseLayer {
   private _updateAgentPosition(agent: RenderableAgent): void {
     const entry = this._agentShapes.get(agent.id);
     if (!entry) return;
-    const coords = this._toCanvasCoords(agent);
+    const coords = this._toSceneCoords(agent);
     entry.group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
   }
 
@@ -419,16 +496,22 @@ export class AgentLayer extends BaseLayer {
     points: TrajectoryPoint[],
     color?: string
   ): void {
-    const cellSize = this._gridEnv ? this._cellSize() : 1;
-    const posDiff = this._gridEnv && this._cfg.coordOffset === 'int' ? cellSize / 2 : 0;
+    // In scene coordinates:
+    // - Grid mode: trajectories in grid cell units (just like agent positions)
+    // - Graph mode: trajectories in scene units
     const trajectoryColor = color ?? 'rgba(66, 133, 244, 0.5)';
+    
+    // Calculate stroke width based on viewport scale
+    const scale = this.calculateViewportScale(this._viewport);
+    const avgScale = (Math.abs(scale.scaleX) + Math.abs(scale.scaleY)) / 2;
+    const strokeWidth = Math.max(0.1, 2 / avgScale); // 2 pixels in scene units
 
     let cached = this._trajectoryCache.get(agentId);
 
     if (!cached || cached.color !== trajectoryColor) {
       if (cached) cached.group.remove();
       cached = {
-        group: new Group({ x: posDiff, y: posDiff }),
+        group: new Group(),
         lastRenderedIndex: -1,
         color: trajectoryColor,
       };
@@ -443,6 +526,9 @@ export class AgentLayer extends BaseLayer {
     }
 
     const startIdx = Math.max(0, cached.lastRenderedIndex);
+    
+    // Offset for grid mode (same as agents)
+    const coordOffset = this._cfg.coordOffset === 'int' ? 0.5 : 0;
 
     for (let i = points.length - 2; i >= 0; --i) {
       const p1 = points[i];
@@ -450,14 +536,18 @@ export class AgentLayer extends BaseLayer {
       if (p2.time <= startIdx) break;
 
       const lineColor = p1.color ?? trajectoryColor;
+      
+      // Trajectory points are in same coordinate system as agents
+      // Grid mode: grid cell coordinates
+      // Graph mode: scene coordinates
       cached.group.add(
         new Line({
           points: [
-            p1.x * cellSize, p1.y * cellSize,
-            p2.x * cellSize, p2.y * cellSize,
+            p1.x + coordOffset, p1.y + coordOffset,
+            p2.x + coordOffset, p2.y + coordOffset,
           ],
           stroke: lineColor,
-          strokeWidth: Math.max(1, cellSize * 0.15),
+          strokeWidth,
         })
       );
     }
@@ -467,7 +557,7 @@ export class AgentLayer extends BaseLayer {
     const children = cached.group.children;
     if (children.length > maxSegs) {
       const excess = children.length - maxSegs;
-      children.slice(0, excess).forEach((c) => cached!.group.remove(c));
+      children.slice(0, excess).forEach((c: any) => cached!.group.remove(c));
     }
 
     cached.lastRenderedIndex = points[points.length - 1]?.time ?? startIdx;
