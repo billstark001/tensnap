@@ -110,6 +110,8 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
       const agentLayer = new AgentLayer(view, agentStorage, {
         clickable: false,
         draggable: false,
+        coordOffset: 'float',
+        sceneBounds: { width: cfg.width, height: cfg.height },
       });
       view.addLayer(agentLayer);
 
