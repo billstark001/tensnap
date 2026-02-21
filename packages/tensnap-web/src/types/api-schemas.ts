@@ -1,82 +1,49 @@
 import { z } from 'zod';
 
-// Agent schemas
+// ---------------------------------------------------------------------------
+// Shared primitives
+// ---------------------------------------------------------------------------
+
+export const AgentIdSchema = z.union([z.string(), z.number()]);
+
 export const AgentIconSchema = z.enum(['arrow', 'circle', 'square', 'triangle']);
 
+// ---------------------------------------------------------------------------
+// Agent
+// ---------------------------------------------------------------------------
+
 export const AgentSchema = z.object({
-  id: z.union([z.string(), z.number()]),
+  id: AgentIdSchema,
   color: z.string().optional(),
   icon: AgentIconSchema.optional(),
   size: z.number().optional(),
   data: z.record(z.string(), z.any()).optional(),
 });
 
-// Grid environment schemas
-export const GridAgentSchema = AgentSchema.extend({
-  x: z.number(),
-  y: z.number(),
-  heading: z.number(),
-});
+export const AgentDiffSchema = z.object({ id: AgentIdSchema }).passthrough();
 
-export const GridEnvironmentCoordOffsetSchema = z.enum(['int', 'float']);
+// ---------------------------------------------------------------------------
+// Edge
+// ---------------------------------------------------------------------------
 
-export const PureGridEnvironmentSchema = z.object({
-  width: z.number(),
-  height: z.number(),
-  coord_offset: GridEnvironmentCoordOffsetSchema.optional(),
-  background: z.union([z.instanceof(Uint8Array), z.string()]).optional(),
-});
-
-export const GridEnvironmentSchema = PureGridEnvironmentSchema.extend({
-  id: z.string(),
-  type: z.literal('grid'),
-  label: z.string().optional(),
-  agents: z.array(GridAgentSchema),
-});
-
-// Graph environment schemas
-export const GraphAgentSchema = AgentSchema.extend({
-  x: z.number().optional(),
-  y: z.number().optional(),
-});
-
-export const GraphEdgeSchema = z.object({
-  source: z.union([z.string(), z.number()]),
-  target: z.union([z.string(), z.number()]),
+export const EdgeDataSchema = z.object({
+  source: AgentIdSchema,
+  target: AgentIdSchema,
   directed: z.boolean().optional(),
   style: z.enum(['solid', 'dashed', 'dotted']).optional(),
   width: z.number().optional(),
   color: z.string().optional(),
-});
+}).passthrough();
 
-export const PureGraphEnvironmentSchema = z.object({
-  edges: z.array(GraphEdgeSchema),
-});
+export const EdgeDiffSchema = z.object({
+  source: AgentIdSchema,
+  target: AgentIdSchema,
+}).passthrough();
 
-export const GraphEnvironmentSchema = PureGraphEnvironmentSchema.extend({
-  id: z.string(),
-  type: z.literal('graph'),
-  label: z.string().optional(),
-  agents: z.array(GraphAgentSchema),
-});
+// ---------------------------------------------------------------------------
+// Parameter
+// ---------------------------------------------------------------------------
 
-// Uniform environment schemas
-export const PureUniformEnvironmentSchema = z.object({});
-
-export const UniformEnvironmentSchema = PureUniformEnvironmentSchema.extend({
-  id: z.string(),
-  type: z.literal('uniform'),
-  label: z.string().optional(),
-  agents: z.array(AgentSchema),
-});
-
-export const EnvironmentSchema = z.union([
-  GridEnvironmentSchema,
-  GraphEnvironmentSchema,
-  UniformEnvironmentSchema,
-]);
-
-// Parameter schemas
 export const NumberParameterSchema = z.object({
   id: z.string(),
   type: z.literal('number'),
@@ -95,13 +62,6 @@ export const EnumParameterSchema = z.object({
   value: z.string(),
   options: z.array(z.string()),
   labels: z.record(z.string(), z.string()).optional(),
-  allowRuntimeChange: z.boolean().optional(),
-});
-
-export const ActionParameterSchema = z.object({
-  id: z.string(),
-  type: z.literal('action'),
-  label: z.string(),
   allowRuntimeChange: z.boolean().optional(),
 });
 
@@ -124,12 +84,25 @@ export const StringParameterSchema = z.object({
 export const ParameterSchema = z.union([
   NumberParameterSchema,
   EnumParameterSchema,
-  ActionParameterSchema,
   BooleanParameterSchema,
   StringParameterSchema,
 ]);
 
-// Chart schemas
+// ---------------------------------------------------------------------------
+// Action
+// ---------------------------------------------------------------------------
+
+export const ActionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  continuous: z.boolean().optional(),
+  allowRuntimeChange: z.boolean().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Chart
+// ---------------------------------------------------------------------------
+
 export const ChartMetadataSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -151,38 +124,90 @@ export const ChartUpdateOperationSchema = z.object({
   operation: z.literal('clear'),
 });
 
-// Payload schemas
-export const TimeStepStartPayloadSchema = z.object({
-  time: z.number(),
-});
+// ---------------------------------------------------------------------------
+// Server → Client payload schemas
+// ---------------------------------------------------------------------------
 
-export const TimeStepEndPayloadSchema = z.object({
+export const MetadataUpdatePayloadSchema = z.object({
   time: z.number().optional(),
-});
+}).passthrough();
 
-export const EnvironmentUpdatePayloadSchema = z.object({
+export const ActionEndPayloadSchema = z.object({
   id: z.string(),
-  data: z.union([PureGridEnvironmentSchema, PureGraphEnvironmentSchema, PureUniformEnvironmentSchema]),
-  agents: z.array(AgentSchema).optional(),
+  continue: z.boolean().optional(),
 });
 
-export const AgentUpdateOperationSchema = z.enum(['create', 'delete', 'update']);
+export const ActionDeletePayloadSchema = z.object({ id: z.string() });
+
+export const EnvCreatePayloadSchema = z.object({
+  id: z.string(),
+  type: z.enum(['uniform', '2d']),
+});
+
+export const EnvDeletePayloadSchema = z.object({ id: z.string() });
+
+export const EnvLayerCreatePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  layer_type: z.string(),
+  data: z.record(z.string(), z.any()).optional(),
+});
+
+export const EnvLayerUpdatePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  data: z.record(z.string(), z.any()),
+});
+
+export const EnvLayerDeletePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+});
+
+export const AgentCreatePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  agents: z.array(AgentSchema),
+});
 
 export const AgentUpdatePayloadSchema = z.object({
-  environment_id: z.string(),
-  agent_id: z.union([z.string(), z.number()]),
-  data: AgentSchema.optional(),
-  operation: AgentUpdateOperationSchema.optional(),
+  env_id: z.string(),
+  layer_id: z.string(),
+  agents: z.array(AgentDiffSchema),
 });
 
-export const AgentBatchUpdatePayloadSchema = z.object({
-  environment_id: z.string(),
-  updates: z.array(z.object({
-    id: z.union([z.string(), z.number()]),
-    data: AgentSchema.optional(),
-    operation: AgentUpdateOperationSchema.optional(),
-  })),
+export const AgentDeletePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  ids: z.array(AgentIdSchema),
 });
+
+export const EdgeCreatePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  edges: z.array(EdgeDataSchema),
+});
+
+export const EdgeUpdatePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  edges: z.array(EdgeDiffSchema),
+});
+
+export const EdgeDeletePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  edges: z.array(z.object({ source: AgentIdSchema, target: AgentIdSchema })),
+});
+
+export const ParameterDeletePayloadSchema = z.object({ id: z.string() });
+
+export const ParameterSyncPayloadSchema = z.object({
+  id: z.string(),
+  value: z.any(),
+});
+
+export const ChartDeletePayloadSchema = z.object({ id: z.string() });
 
 export const ChartUpdatePayloadSchema = z.object({
   updates: z.array(ChartUpdateDataSchema).optional(),
@@ -199,27 +224,20 @@ export const LogPayloadSchema = z.object({
   data: z.any().optional(),
 });
 
-export const StateSyncResponseSchema = z.object({
-  mode: z.enum(['full', 'incremental']).optional(),
-  
-  added_parameters: z.array(ParameterSchema),
-  removed_parameters: z.array(z.string()),
-  updated_parameters: z.array(ParameterSchema),
+export const ErrorPayloadSchema = z.object({ error: z.string() });
 
-  added_environments: z.array(EnvironmentSchema),
-  removed_environments: z.array(z.string()),
-  updated_environments: z.array(EnvironmentSchema),
-
-  added_charts: z.array(ChartGroupMetadataSchema),
-  removed_charts: z.array(z.string()),
-  updated_charts: z.array(ChartGroupMetadataSchema),
-
-  clear_charts: z.union([z.boolean(), z.array(z.string())]).optional(),
-});
+// ---------------------------------------------------------------------------
+// Client → Server payload schemas
+// ---------------------------------------------------------------------------
 
 export const StateSyncRequestSchema = z.object({
   parameters: z.array(ParameterSchema),
-  environments: z.array(z.any()), // Environment without agents - simplified for now
+  actions: z.array(ActionSchema),
+  envs: z.array(z.object({
+    id: z.string(),
+    type: z.string(),
+    layers: z.array(z.object({ layer_id: z.string(), layer_type: z.string() })),
+  })),
   charts: z.array(ChartMetadataSchema),
 });
 
@@ -228,24 +246,40 @@ export const ParameterChangePayloadSchema = z.object({
   value: z.any(),
 });
 
-export const ButtonClickPayloadSchema = z.object({
-  action: z.string(),
+export const ActionStartPayloadSchema = z.object({
+  id: z.string(),
+  continuous: z.boolean().optional(),
 });
 
-export const ErrorPayloadSchema = z.object({
-  error: z.string(),
-});
+// ---------------------------------------------------------------------------
+// Full message schemas
+// ---------------------------------------------------------------------------
 
-// Message schemas
 export const ServerToClientMessageSchema = z.object({
   type: z.enum([
-    'time_step_start',
-    'time_step_end',
-    'environment_update',
+    'metadata_update',
+    'action_end',
+    'action_create',
+    'action_update',
+    'action_delete',
+    'env_create',
+    'env_delete',
+    'env_layer_create',
+    'env_layer_update',
+    'env_layer_delete',
+    'agent_create',
     'agent_update',
-    'agent_batch_update',
+    'agent_delete',
+    'edge_create',
+    'edge_update',
+    'edge_delete',
+    'parameter_create',
+    'parameter_update',
+    'parameter_delete',
+    'parameter_sync',
+    'chart_create',
     'chart_update',
-    'state_sync',
+    'chart_delete',
     'log',
     'error',
   ]),
@@ -257,39 +291,47 @@ export const ClientToServerMessageSchema = z.object({
   type: z.enum([
     'state_sync',
     'parameter_change',
-    'button_click',
+    'action_start',
     'error',
   ]),
   payload: z.any(),
   timestamp: z.number().optional(),
 });
 
-// Helper type to validate payloads based on message type
+// ---------------------------------------------------------------------------
+// Helper: payload schema by message type
+// ---------------------------------------------------------------------------
+
 export const getPayloadSchema = (type: string) => {
   switch (type) {
-    case 'time_step_start':
-      return TimeStepStartPayloadSchema;
-    case 'time_step_end':
-      return TimeStepEndPayloadSchema;
-    case 'environment_update':
-      return EnvironmentUpdatePayloadSchema;
-    case 'agent_update':
-      return AgentUpdatePayloadSchema;
-    case 'agent_batch_update':
-      return AgentBatchUpdatePayloadSchema;
-    case 'chart_update':
-      return ChartUpdatePayloadSchema;
-    case 'state_sync':
-      return type === 'state_sync' ? StateSyncResponseSchema : StateSyncRequestSchema;
-    case 'log':
-      return LogPayloadSchema;
-    case 'parameter_change':
-      return ParameterChangePayloadSchema;
-    case 'button_click':
-      return ButtonClickPayloadSchema;
-    case 'error':
-      return ErrorPayloadSchema;
-    default:
-      return z.any();
+    case 'metadata_update': return MetadataUpdatePayloadSchema;
+    case 'action_end': return ActionEndPayloadSchema;
+    case 'action_create': return ActionSchema;
+    case 'action_update': return ActionSchema;
+    case 'action_delete': return ActionDeletePayloadSchema;
+    case 'env_create': return EnvCreatePayloadSchema;
+    case 'env_delete': return EnvDeletePayloadSchema;
+    case 'env_layer_create': return EnvLayerCreatePayloadSchema;
+    case 'env_layer_update': return EnvLayerUpdatePayloadSchema;
+    case 'env_layer_delete': return EnvLayerDeletePayloadSchema;
+    case 'agent_create': return AgentCreatePayloadSchema;
+    case 'agent_update': return AgentUpdatePayloadSchema;
+    case 'agent_delete': return AgentDeletePayloadSchema;
+    case 'edge_create': return EdgeCreatePayloadSchema;
+    case 'edge_update': return EdgeUpdatePayloadSchema;
+    case 'edge_delete': return EdgeDeletePayloadSchema;
+    case 'parameter_create': return ParameterSchema;
+    case 'parameter_update': return ParameterSchema;
+    case 'parameter_delete': return ParameterDeletePayloadSchema;
+    case 'parameter_sync': return ParameterSyncPayloadSchema;
+    case 'chart_create': return ChartGroupMetadataSchema;
+    case 'chart_update': return ChartUpdatePayloadSchema;
+    case 'chart_delete': return ChartDeletePayloadSchema;
+    case 'log': return LogPayloadSchema;
+    case 'error': return ErrorPayloadSchema;
+    case 'state_sync': return StateSyncRequestSchema;
+    case 'parameter_change': return ParameterChangePayloadSchema;
+    case 'action_start': return ActionStartPayloadSchema;
+    default: return z.any();
   }
 };

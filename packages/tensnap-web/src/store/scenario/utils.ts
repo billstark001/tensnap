@@ -1,4 +1,4 @@
-import { ChartGroup, ChartGroupMetadata, ChartMetadata, Environment, EnvironmentId, Parameter } from "@/types/model"
+import { ChartGroup, ChartGroupMetadata, ChartMetadata, Environment, EnvironmentId, Parameter, Action } from "@/types/model"
 import { InstantiatedEnvironment, instantiateEnvironment } from "./environment";
 import { ChartStorage, instantiateChartMetadata, sanitizeParameter } from 'tensnap-web-core';
 import { SetDataPayload } from "./types";
@@ -8,16 +8,18 @@ export type ParsedScenarioContent = {
   environments: Environment[];
   charts: ChartGroup[];
   parameters: Parameter[];
+  actions?: Action[];
 };
 
 export type InstantiatedScenarioContent = {
   environments: Map<EnvironmentId, InstantiatedEnvironment>;
   charts: ChartStorage;
   parameters: Map<string, Parameter>;
+  actions: Map<string, Action>;
 };
 
 export function instantiateScenarioContent(parsed: ParsedScenarioContent): InstantiatedScenarioContent {
-  const { environments, charts, parameters } = parsed;
+  const { environments, charts, parameters, actions = [] } = parsed;
   const instantiatedEnvironments: Map<EnvironmentId, InstantiatedEnvironment> = new Map();
   for (const env of environments) {
     instantiatedEnvironments.set(env.id, instantiateEnvironment(env));
@@ -28,12 +30,18 @@ export function instantiateScenarioContent(parsed: ParsedScenarioContent): Insta
     instantiatedParameters.set(param.id, sanitizeParameter(param, false));
   }
 
+  const instantiatedActions = new Map<string, Action>();
+  for (const action of actions) {
+    instantiatedActions.set(action.id, action);
+  }
+
   const instantiatedCharts = new ChartStorage(charts);
 
   return {
     environments: instantiatedEnvironments,
     charts: instantiatedCharts,
     parameters: instantiatedParameters,
+    actions: instantiatedActions,
   };
 }
 

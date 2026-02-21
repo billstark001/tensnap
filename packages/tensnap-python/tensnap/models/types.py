@@ -44,29 +44,9 @@ class EnvironmentStateWithAgentsOmitted(TypedDict):
 
 class StateSyncRequest(TypedDict):
     parameters: list[ParameterState]
-    environments: list[EnvironmentStateWithAgentsOmitted]
+    actions: list[dict]
+    envs: list[dict]
     charts: list[ChartMetadataDict]
-
-
-class StateSyncResponse(TypedDict):
-
-    mode: NotRequired[Literal["full", "incremental"]]
-
-    added_parameters: list[ParameterState]
-    removed_parameters: list[str]
-    updated_parameters: list[ParameterState]
-
-    added_environments: list[EnvironmentStateWithAgentsOmitted]
-    removed_environments: list[str | int]
-    updated_environments: list[EnvironmentStateWithAgentsOmitted]
-
-    added_charts: list[ChartGroupMetadataDict]
-    removed_charts: list[str]
-    updated_charts: list[ChartGroupMetadataDict]
-
-    clear_charts: NotRequired[
-        bool | list[str]
-    ]  # true means clear all charts, string[] means clear specific charts by IDs
 
 
 class LogPayload(TypedDict):

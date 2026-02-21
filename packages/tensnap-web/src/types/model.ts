@@ -8,6 +8,7 @@ export type AgentId = string | number;
 export type EnvironmentId = string;
 
 import type { Parameter } from 'tensnap-web-core';
+import type { Action } from 'tensnap-web-core';
 import type { ChartGroup } from 'tensnap-web-core';
 
 export interface AgentTrajectoryPoint {
@@ -111,17 +112,17 @@ export type PureEnvironment = PureGridEnvironment | PureGraphEnvironment | PureU
 
 export type Environment = GridEnvironment | GraphEnvironment | UniformEnvironment;
 
-// #region Parameters — sourced from tensnap-web-core
+// #region Parameters & Actions — sourced from tensnap-web-core
 
 export type {
   ParameterType,
   ParameterBase,
   NumberParameter,
   EnumParameter,
-  ActionParameter,
   BooleanParameter,
   StringParameter,
   Parameter,
+  Action,
 } from 'tensnap-web-core';
 
 // #endregion
@@ -153,6 +154,7 @@ export interface SimulationState {
   currentTime: number;
   environments: Environment[];
   parameters: Parameter[];
+  actions: Action[];
   charts: ChartGroup[];
   snapshots: Snapshot[];
 }
@@ -179,6 +181,7 @@ export const defaultSimulationState = (): SimulationState => ({
   currentTime: 0,
   environments: [],
   parameters: [],
+  actions: [],
   charts: [],
   snapshots: [],
 });

@@ -8,8 +8,8 @@
  */
 
 import type {
-  Environment,
   Parameter,
+  Action,
   ChartGroupMetadata,
   GridEnvironment,
 } from 'tensnap-web';
@@ -491,14 +491,24 @@ class SchellingSimulationManager extends BaseSimulationManager {
 
   private setupEventHandlers() {
     this.model.on('step_start', async ({ timeStep }: any) => {
-      await this.sendTimeStepStart(timeStep);
+      await this.sendMetadataUpdate({ time: timeStep });
     });
 
     this.model.on('step_end', async () => {
-      await this.sendAgentBatchUpdate({
-        environment_id: 'main',
-        updates: this.model.getAgentUpdates(false),
-      });
+      // Use flat-diff agent_update for incremental changes
+      const updates = this.model.getAgentUpdates(false);
+      if (updates.length > 0) {
+        const creates = updates.filter((u: any) => u.operation === 'create');
+        const deletes = updates.filter((u: any) => u.operation === 'delete');
+        const diffs = updates.filter((u: any) => !u.operation);
+
+        if (creates.length > 0)
+          await this.sendAgentCreate({ env_id: 'main', layer_id: '', agents: creates.map(({ operation: _, ...a }: any) => a) });
+        if (diffs.length > 0)
+          await this.sendAgentUpdate({ env_id: 'main', layer_id: '', agents: diffs.map(({ id, data }: any) => ({ id, ...data })) });
+        if (deletes.length > 0)
+          await this.sendAgentDelete({ env_id: 'main', layer_id: '', ids: deletes.map((u: any) => u.id) });
+      }
 
       const stats = this.model.getStatistics();
       await this.sendChartUpdate({
@@ -507,15 +517,13 @@ class SchellingSimulationManager extends BaseSimulationManager {
           { id: 'segregation_index', value: stats.segregationIndex },
         ],
       });
-
-      await this.sendTimeStepEnd();
     });
   }
 
   protected getParameters(): Parameter[] {
     const config = this.model.getConfig();
 
-    const numberParams: Parameter[] = [
+    return [
       { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
       { id: 'moveDistance', type: 'number', label: 'Move Distance', value: config.moveDistance, min: 1, max: 10, step: 1, allowRuntimeChange: true },
       { id: 'gridWidth', type: 'number', label: 'Grid Width', value: config.gridWidth, min: 10, max: 100, step: 1, allowRuntimeChange: false },
@@ -523,19 +531,18 @@ class SchellingSimulationManager extends BaseSimulationManager {
       { id: 'numAgentsType1', type: 'number', label: 'Number of Type 1 Agents', value: config.numAgentsType1, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
       { id: 'numAgentsType2', type: 'number', label: 'Number of Type 2 Agents', value: config.numAgentsType2, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
     ];
+  }
 
-    const actionButtons: Parameter[] = ['start', 'stop', 'step', 'reset', 'start_stop'].map(id => ({
+  protected getActions(): Action[] {
+    return ['start', 'stop', 'step', 'reset', 'start_stop'].map(id => ({
       id,
-      type: 'action' as const,
       label: id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('/'),
       allowRuntimeChange: true,
     }));
-
-    return [...numberParams, ...actionButtons];
   }
 
-  protected getEnvironments(): Environment[] {
-    return [this.model.getEnvironmentState()];
+  protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
+    return [{ id: 'main', type: '2d' }];
   }
 
   protected getCharts(): ChartGroupMetadata[] {
@@ -552,7 +559,7 @@ class SchellingSimulationManager extends BaseSimulationManager {
     }
   }
 
-  protected async handleButtonClick(action: string): Promise<void> {
+  protected async handleActionStart(action: string): Promise<void> {
     const actions: { [key: string]: () => void | Promise<void> } = {
       start: () => this.model.start(),
       stop: () => this.model.stop(),
@@ -581,21 +588,20 @@ class SchellingSimulationManager extends BaseSimulationManager {
   }
 
   private async sendInitialData(): Promise<void> {
-    // Send environment with full agent list
-    await this.sendEnvironmentUpdate({
-      id: 'main',
-      data: {
-        type: 'grid',
-        width: this.model.getConfig().gridWidth,
-        height: this.model.getConfig().gridHeight,
-      },
-      agents: this.model.getEnvironmentState().agents,
+    const config = this.model.getConfig();
+    // Create env layer with grid metadata
+    await this.sendEnvLayerCreate({
+      env_id: 'main',
+      layer_id: '',
+      layer_type: 'grid',
+      data: { type: 'grid', width: config.gridWidth, height: config.gridHeight },
     });
-    // await this.sendAgentBatchUpdate({
-    //   environment_id: 'main',
-    //   updates: this.model.getAgentUpdates(true),
-    // });
-
+    // Send all agents
+    const env: GridEnvironment = this.model.getEnvironmentState();
+    const agents = Object.values(env.agents ?? {});
+    if (agents.length > 0) {
+      await this.sendAgentCreate({ env_id: 'main', layer_id: '', agents });
+    }
     // Send initial chart data
     const stats = this.model.getStatistics();
     await this.sendChartUpdate({

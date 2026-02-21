@@ -3,7 +3,7 @@ import { createWebSocketStore, WebSocketStore } from "./websocket";
 import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
-import { ChartGroup, ChartMetadata, Environment, SimulationState } from "@/types/model";
+import { ChartGroup, ChartMetadata, SimulationState } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
@@ -24,8 +24,6 @@ export interface ProjectContextScheme extends ProjectSettings {
   useUndoRedoStore: UseBoundStore<StoreApi<UndoRedoState<ScenarioStore>>>;
 }
 
-const stripAgents = ({ agents, ...rest }: Environment): Omit<Environment, 'agents'> => rest;
-
 const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
   const seen = new Set<string>();
   const metadata: ChartMetadata[] = [];
@@ -43,12 +41,15 @@ const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
 };
 
 export const createStateSyncRequestFromStore = (store?: SimulationState): StateSyncRequest => {
-  const { parameters = [], environments = [], charts = [] } = store || {};
-  // Filter out disabled items - we don't send them in state sync requests
-  // This ensures the server knows about only active items
+  const { parameters = [], actions = [], environments = [], charts = [] } = store || {};
   return {
     parameters,
-    environments: environments.map(stripAgents),
+    actions,
+    envs: environments.map(env => ({
+      id: env.id,
+      type: env.type,
+      layers: [],
+    })),
     charts: getAllChartMetadata(charts),
   };
 };
@@ -147,8 +148,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       : decode(new Uint8Array(fileContent.content));
 
     const { scenario, mainView, url } = parsedContent;
-    const { environments, charts, parameters, ...restScenario } = scenario;
-    const instantiated = instantiateScenarioContent({ environments, charts, parameters });
+    const { environments, charts, parameters, actions, ...restScenario } = scenario;
+    const instantiated = instantiateScenarioContent({ environments, charts, parameters, actions });
 
     const newProject = createProject(url, filepath);
     newProject.useScenarioStore.setState({

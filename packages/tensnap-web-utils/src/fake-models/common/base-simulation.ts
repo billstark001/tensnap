@@ -1,6 +1,6 @@
 /**
  * Base class for managing fake WebSocket simulations
- * 
+ *
  * Provides common functionality for:
  * - Message sending with type safety
  * - State synchronization
@@ -11,20 +11,20 @@
 import type {
   ServerToClientMessage,
   ClientToServerMessage,
-  Environment,
   Parameter,
+  Action,
   ChartGroupMetadata,
-  TimeStepStartPayload,
-  TimeStepEndPayload,
-  EnvironmentUpdatePayload,
+  MetadataUpdatePayload,
+  AgentCreatePayload,
   AgentUpdatePayload,
-  AgentBatchUpdatePayload,
+  AgentDeletePayload,
+  EnvCreatePayload,
+  EnvLayerCreatePayload,
   ChartUpdatePayload,
-  StateSyncResponse,
   LogPayload,
   StateSyncRequest,
   ParameterChangePayload,
-  ButtonClickPayload,
+  ActionStartPayload,
 } from 'tensnap-web';
 
 import { SimulationMetadata } from './types';
@@ -32,7 +32,7 @@ import { SimulationMetadata } from './types';
 type EventHandler = (...args: any[]) => void;
 
 /**
- * Base simulation manager that handles WebSocket communication
+ * Base simulation manager that handles WebSocket communication (v0.2 protocol)
  */
 export abstract class BaseSimulationManager {
   protected sendFunc?: (message: ServerToClientMessage) => void;
@@ -41,6 +41,11 @@ export abstract class BaseSimulationManager {
   private isDestroyed = false;
 
   constructor(protected metadata?: SimulationMetadata) {}
+
+  /** Get simulation metadata (used by the WebSocket adapter) */
+  public getMetadata(): SimulationMetadata | undefined {
+    return this.metadata;
+  }
 
   // #region Event Management
 
@@ -71,12 +76,8 @@ export abstract class BaseSimulationManager {
 
   // #region Message Sending
 
-  /**
-   * Send a message to the client
-   */
   protected async send(message: ServerToClientMessage): Promise<void> {
     if (this.isDestroyed) {
-      console.warn('Cannot send message: simulation is destroyed');
       return;
     }
 
@@ -87,165 +88,105 @@ export abstract class BaseSimulationManager {
     }
   }
 
-  /**
-   * Send time_step_start message
-   */
-  protected async sendTimeStepStart(time: number): Promise<void> {
-    await this.send({
-      type: 'time_step_start',
-      payload: { time } as TimeStepStartPayload,
-    });
+  /** Send metadata_update (replaces time_step_start + time_step_end) */
+  protected async sendMetadataUpdate(payload: MetadataUpdatePayload): Promise<void> {
+    await this.send({ type: 'metadata_update', payload });
   }
 
-  /**
-   * Send time_step_end message
-   */
-  protected async sendTimeStepEnd(time?: number): Promise<void> {
-    await this.send({
-      type: 'time_step_end',
-      payload: { time } as TimeStepEndPayload,
-    });
+  /** Send env_create */
+  protected async sendEnvCreate(payload: EnvCreatePayload): Promise<void> {
+    await this.send({ type: 'env_create', payload });
   }
 
-  /**
-   * Send environment_update message
-   */
-  protected async sendEnvironmentUpdate(
-    payload: EnvironmentUpdatePayload
-  ): Promise<void> {
-    await this.send({
-      type: 'environment_update',
-      payload,
-    });
+  /** Send env_layer_create */
+  protected async sendEnvLayerCreate(payload: EnvLayerCreatePayload): Promise<void> {
+    await this.send({ type: 'env_layer_create', payload });
   }
 
-  /**
-   * Send agent_update message
-   */
+  /** Send env_layer_update */
+  protected async sendEnvLayerUpdate(payload: import('tensnap-web').EnvLayerUpdatePayload): Promise<void> {
+    await this.send({ type: 'env_layer_update', payload });
+  }
+
+  /** Send agent_create */
+  protected async sendAgentCreate(payload: AgentCreatePayload): Promise<void> {
+    await this.send({ type: 'agent_create', payload });
+  }
+
+  /** Send agent_update */
   protected async sendAgentUpdate(payload: AgentUpdatePayload): Promise<void> {
-    await this.send({
-      type: 'agent_update',
-      payload,
-    });
+    await this.send({ type: 'agent_update', payload });
   }
 
-  /**
-   * Send agent_batch_update message
-   */
-  protected async sendAgentBatchUpdate(
-    payload: AgentBatchUpdatePayload
-  ): Promise<void> {
-    await this.send({
-      type: 'agent_batch_update',
-      payload,
-    });
+  /** Send agent_delete */
+  protected async sendAgentDelete(payload: AgentDeletePayload): Promise<void> {
+    await this.send({ type: 'agent_delete', payload });
   }
 
-  /**
-   * Send chart_update message
-   */
+  /** Send chart_update */
   protected async sendChartUpdate(payload: ChartUpdatePayload): Promise<void> {
-    await this.send({
-      type: 'chart_update',
-      payload,
-    });
+    await this.send({ type: 'chart_update', payload });
   }
 
-  /**
-   * Send state_sync message
-   */
-  protected async sendStateSync(payload: StateSyncResponse): Promise<void> {
-    await this.send({
-      type: 'state_sync',
-      payload,
-    });
-  }
-
-  /**
-   * Send log message
-   */
+  /** Send log message */
   protected async sendLog(payload: LogPayload): Promise<void> {
-    await this.send({
-      type: 'log',
-      payload,
-    });
+    await this.send({ type: 'log', payload });
   }
 
   // #endregion
 
-  // #region Abstract Methods - Must be implemented by subclasses
+  // #region Abstract Methods
 
-  /**
-   * Get all parameters for the simulation
-   */
+  /** Get all parameters for the simulation */
   protected abstract getParameters(): Parameter[];
 
-  /**
-   * Get all environments for the simulation
-   */
-  protected abstract getEnvironments(): Environment[];
+  /** Get all actions for the simulation */
+  protected abstract getActions(): Action[];
 
-  /**
-   * Get all chart metadata for the simulation
-   */
+  /** Get all environments for the simulation */
+  protected abstract getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }>;
+
+  /** Get all chart metadata for the simulation */
   protected abstract getCharts(): ChartGroupMetadata[];
 
-  /**
-   * Handle parameter change from client
-   */
-  protected abstract handleParameterChange(
-    id: string,
-    value: any
-  ): void | Promise<void>;
+  /** Handle parameter change from client */
+  protected abstract handleParameterChange(id: string, value: any): void | Promise<void>;
 
-  /**
-   * Handle button click from client
-   */
-  protected abstract handleButtonClick(action: string): void | Promise<void>;
+  /** Handle action_start from client */
+  protected abstract handleActionStart(id: string, continuous?: boolean): void | Promise<void>;
 
-  /**
-   * Initialize the simulation
-   */
+  /** Initialize the simulation */
   protected abstract initialize(): void | Promise<void>;
 
-  /**
-   * Clean up resources
-   */
+  /** Clean up resources */
   protected abstract cleanup(): void | Promise<void>;
 
   // #endregion
 
   // #region State Synchronization
 
-  /**
-   * Send full state synchronization
-   */
+  /** Send initial state using individual CUD messages */
   protected async sendFullStateSync(): Promise<void> {
-    const response: StateSyncResponse = {
-      mode: 'full',
-      added_parameters: this.getParameters(),
-      removed_parameters: [],
-      updated_parameters: [],
-      added_environments: this.getEnvironments(),
-      removed_environments: [],
-      updated_environments: [],
-      added_charts: this.getCharts(),
-      removed_charts: [],
-      updated_charts: [],
-    };
-
-    await this.sendStateSync(response);
+    // Parameters
+    for (const param of this.getParameters()) {
+      await this.send({ type: 'parameter_create', payload: param });
+    }
+    // Actions
+    for (const action of this.getActions()) {
+      await this.send({ type: 'action_create', payload: action });
+    }
+    // Environments
+    for (const env of this.getEnvironments()) {
+      await this.send({ type: 'env_create', payload: env });
+    }
+    // Charts
+    for (const chart of this.getCharts()) {
+      await this.send({ type: 'chart_create', payload: chart });
+    }
   }
 
-  /**
-   * Handle state sync request from client
-   * Override this if you need custom differential sync logic
-   */
-  protected async handleStateSync(
-    _request: StateSyncRequest
-  ): Promise<void> {
-    // For now, just send full state
-    // In a more sophisticated implementation, you could compute diffs
+  /** Handle state sync request from client */
+  protected async handleStateSync(_request: StateSyncRequest): Promise<void> {
     await this.sendFullStateSync();
   }
 
@@ -253,9 +194,6 @@ export abstract class BaseSimulationManager {
 
   // #region Message Handling
 
-  /**
-   * Handle incoming message from client
-   */
   public handleMessage(message: ClientToServerMessage): void {
     if (this.isDestroyed) {
       return;
@@ -272,9 +210,9 @@ export abstract class BaseSimulationManager {
         break;
       }
 
-      case 'button_click': {
-        const { action } = message.payload as ButtonClickPayload;
-        this.handleButtonClick(action);
+      case 'action_start': {
+        const { id, continuous } = message.payload as ActionStartPayload;
+        this.handleActionStart(id, continuous);
         break;
       }
 
@@ -287,9 +225,6 @@ export abstract class BaseSimulationManager {
 
   // #region Lifecycle Management
 
-  /**
-   * Called when the WebSocket connection is ready
-   */
   public async onReady(
     sendFunc: (message: ServerToClientMessage) => void,
     wsManager: any
@@ -297,49 +232,21 @@ export abstract class BaseSimulationManager {
     this.sendFunc = sendFunc;
     this.wsManager = wsManager;
 
-    // Set up disconnection handler
     if (wsManager?.on) {
       wsManager.on('disconnected', () => this.destroy());
     }
 
-    // Initialize the simulation
     await this.initialize();
-
-    // Send initial state
     await this.sendFullStateSync();
   }
 
-  /**
-   * Destroy the simulation and clean up resources
-   */
-  public async destroy(): Promise<void> {
-    if (this.isDestroyed) {
-      return;
-    }
-
+  public destroy(): void {
+    if (this.isDestroyed) return;
     this.isDestroyed = true;
-    await this.cleanup();
+    this.cleanup();
     this.eventHandlers.clear();
     this.sendFunc = undefined;
     this.wsManager = undefined;
-  }
-
-  // #endregion
-
-  // #region Utility Methods
-
-  /**
-   * Check if simulation is destroyed
-   */
-  protected isSimulationDestroyed(): boolean {
-    return this.isDestroyed;
-  }
-
-  /**
-   * Get simulation metadata
-   */
-  public getMetadata(): SimulationMetadata | undefined {
-    return this.metadata;
   }
 
   // #endregion

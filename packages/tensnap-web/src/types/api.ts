@@ -1,16 +1,42 @@
-import { Agent, AgentId, ChartUpdateData, ChartMetadata, Environment, EnvironmentId, Parameter, PureEnvironment, ChartGroupMetadata, ChartUpdateOperation } from "./model";
+import {
+  Agent,
+  AgentId,
+  ChartUpdateData,
+  ChartMetadata,
+  EnvironmentId,
+  Parameter,
+  Action,
+  ChartGroupMetadata,
+  ChartUpdateOperation,
+} from "./model";
 
 //#region Message Types
 
 // Server to client message types
 export type ServerToClientMessageType =
-  | 'time_step_start'
-  | 'time_step_end'
-  | 'environment_update'
+  | 'metadata_update'
+  | 'action_end'
+  | 'action_create'
+  | 'action_update'
+  | 'action_delete'
+  | 'env_create'
+  | 'env_delete'
+  | 'env_layer_create'
+  | 'env_layer_update'
+  | 'env_layer_delete'
+  | 'agent_create'
   | 'agent_update'
-  | 'agent_batch_update'
+  | 'agent_delete'
+  | 'edge_create'
+  | 'edge_update'
+  | 'edge_delete'
+  | 'parameter_create'
+  | 'parameter_update'
+  | 'parameter_delete'
+  | 'parameter_sync'
+  | 'chart_create'
   | 'chart_update'
-  | 'state_sync'
+  | 'chart_delete'
   | 'log'
   | 'error';
 
@@ -18,7 +44,7 @@ export type ServerToClientMessageType =
 export type ClientToServerMessageType =
   | 'state_sync'
   | 'parameter_change'
-  | 'button_click'
+  | 'action_start'
   | 'error';
 
 // All message types
@@ -28,21 +54,18 @@ export type WSMessageType = ServerToClientMessageType | ClientToServerMessageTyp
 
 //#region Base Message Structures
 
-// Generic message structure
 export interface WSMessage<T = any> {
   type: WSMessageType;
   payload: T;
   timestamp?: number;
 }
 
-// Server to client message structure
 export interface ServerToClientMessage<T = any> {
   type: ServerToClientMessageType;
   payload: T;
   timestamp?: number;
 }
 
-// Client to server message structure
 export interface ClientToServerMessage<T = any> {
   type: ClientToServerMessageType;
   payload: T;
@@ -53,101 +76,161 @@ export interface ClientToServerMessage<T = any> {
 
 //#region Payload Definitions
 
-// time_step_start - time parameter is required
-export interface TimeStepStartPayload {
-  time: number;
-}
+// ---------------------------------------------------------------------------
+// Server → Client
+// ---------------------------------------------------------------------------
 
-// time_step_end - time parameter is optional, used for frontend validation
-export interface TimeStepEndPayload {
+/** metadata_update — replaces time_step_start + time_step_end */
+export interface MetadataUpdatePayload {
   time?: number;
+  [key: string]: any;
 }
 
-// environment_update
-export interface EnvironmentUpdatePayload {
+/** action_end — sent after an action finishes executing */
+export interface ActionEndPayload {
+  id: string;
+  /** Explicit false stops a continuous loop; anything else continues. */
+  continue?: boolean;
+}
+
+/** action_create / action_update */
+export type ActionCUPayload = Action;
+
+/** action_delete */
+export interface ActionDeletePayload {
+  id: string;
+}
+
+/** env_create */
+export interface EnvCreatePayload {
   id: EnvironmentId;
-  data: PureEnvironment;
-  agents?: Agent[]; // Optional full agent list to replace existing agents
+  type: 'uniform' | '2d';
 }
 
-export type AgentUpdateOperation = 'create' | 'delete' | 'update';
+/** env_delete */
+export interface EnvDeletePayload {
+  id: EnvironmentId;
+}
 
-// agent_update
+/** env_layer_create */
+export interface EnvLayerCreatePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+  layer_type: string;
+  data?: Record<string, any>;
+}
+
+/** env_layer_update */
+export interface EnvLayerUpdatePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+  data: Record<string, any>;
+}
+
+/** env_layer_delete */
+export interface EnvLayerDeletePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+}
+
+/** agent_create */
+export interface AgentCreatePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+  agents: Agent[];
+}
+
+/** agent_update — flat diff: { id, ...changedFields } */
+export type AgentDiff = { id: AgentId } & Record<string, any>;
+
 export interface AgentUpdatePayload {
-  environment_id: EnvironmentId;
-  agent_id: AgentId;
-  data?: Agent;
-  operation?: AgentUpdateOperation; // default to update
+  env_id: EnvironmentId;
+  layer_id: string;
+  agents: AgentDiff[];
 }
 
-// agent_batch_update
-export interface AgentBatchUpdatePayload {
-  environment_id: EnvironmentId;
-  updates: Array<{
-    id: AgentId;
-    data?: Agent;
-    operation?: AgentUpdateOperation; // default to update
-  }>;
+/** agent_delete */
+export interface AgentDeletePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+  ids: AgentId[];
 }
 
-// chart_update
+/** edge_create */
+export interface EdgeCreatePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+  edges: EdgeData[];
+}
+
+export interface EdgeData {
+  source: AgentId;
+  target: AgentId;
+  directed?: boolean;
+  style?: 'solid' | 'dashed' | 'dotted';
+  width?: number;
+  color?: string;
+  [key: string]: any;
+}
+
+/** edge_update — flat diff: { source, target, ...changedFields } */
+export type EdgeDiff = { source: AgentId; target: AgentId } & Record<string, any>;
+
+export interface EdgeUpdatePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+  edges: EdgeDiff[];
+}
+
+/** edge_delete */
+export interface EdgeDeletePayload {
+  env_id: EnvironmentId;
+  layer_id: string;
+  edges: Array<{ source: AgentId; target: AgentId }>;
+}
+
+/** parameter_create / parameter_update */
+export type ParameterCUPayload = Parameter;
+
+/** parameter_delete */
+export interface ParameterDeletePayload {
+  id: string;
+}
+
+/** parameter_sync — server-initiated value correction */
+export interface ParameterSyncPayload {
+  id: string;
+  value: any;
+}
+
+/** chart_create */
+export type ChartCreatePayload = ChartGroupMetadata;
+
+/** chart_delete */
+export interface ChartDeletePayload {
+  id: string;
+}
+
+/** chart_update — data update (unchanged from v0.1) */
 export type ChartUpdatePayload = {
   updates?: ChartUpdateData[];
   operations?: ChartUpdateOperation[];
-}
+};
 
 // log
-
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'critical';
+
 export interface LogPayload {
   message: string;
-  level?: LogLevel; // default is 'info'
+  level?: LogLevel;
   target?: string;
   timestamp?: number;
   data?: any;
 }
 
-
 export interface NormalizedLogPayload extends LogPayload {
-  level: LogLevel; // default is 'info'
+  level: LogLevel;
   timestamp: number;
-}
-
-
-// state_sync - Unified state synchronization (request and response)
-export interface StateSyncRequest {
-  parameters: Parameter[];  // Parameter ID list
-  environments: Omit<Environment, 'agents'>[];  // Environment ID list
-  charts: ChartMetadata[];  // Chart ID list, only for telling if the chart exists, with group structure excluded
-}
-
-export interface StateSyncResponse {
-  mode?: 'full' | 'incremental'; // Default is 'full'
-
-  added_parameters: Parameter[];
-  removed_parameters: string[];
-  updated_parameters: Parameter[];
-
-  added_environments: Environment[];
-  removed_environments: EnvironmentId[];
-  updated_environments: Environment[];
-
-  added_charts: ChartGroupMetadata[];
-  removed_charts: string[];
-  updated_charts: ChartGroupMetadata[];
-
-  clear_charts?: boolean | string[]; // true means clear all charts, string[] means clear specific charts by IDs
-}
-
-// parameter_change
-export interface ParameterChangePayload {
-  id: string;
-  value: any;
-}
-
-// button_click
-export interface ButtonClickPayload {
-  action: string;
 }
 
 // error
@@ -155,18 +238,60 @@ export interface ErrorPayload {
   error: string;
 }
 
+// ---------------------------------------------------------------------------
+// Client → Server
+// ---------------------------------------------------------------------------
+
+/** state_sync — client sends its full state; server replies with CUD messages */
+export interface StateSyncRequest {
+  parameters: Parameter[];
+  actions: Action[];
+  envs: Array<{
+    id: EnvironmentId;
+    type: string;
+    layers: Array<{ layer_id: string; layer_type: string }>;
+  }>;
+  charts: ChartMetadata[];
+}
+
+/** parameter_change */
+export interface ParameterChangePayload {
+  id: string;
+  value: any;
+}
+
+/** action_start */
+export interface ActionStartPayload {
+  id: string;
+  continuous?: boolean;
+}
+
 //#endregion
 
-//#region Server to Client Message Types
+//#region Server to Client Union Types
 
 export type ServerToClientPayload =
-  | TimeStepStartPayload
-  | TimeStepEndPayload
-  | EnvironmentUpdatePayload
+  | MetadataUpdatePayload
+  | ActionEndPayload
+  | ActionCUPayload
+  | ActionDeletePayload
+  | EnvCreatePayload
+  | EnvDeletePayload
+  | EnvLayerCreatePayload
+  | EnvLayerUpdatePayload
+  | EnvLayerDeletePayload
+  | AgentCreatePayload
   | AgentUpdatePayload
-  | AgentBatchUpdatePayload
+  | AgentDeletePayload
+  | EdgeCreatePayload
+  | EdgeUpdatePayload
+  | EdgeDeletePayload
+  | ParameterCUPayload
+  | ParameterDeletePayload
+  | ParameterSyncPayload
+  | ChartCreatePayload
   | ChartUpdatePayload
-  | StateSyncResponse
+  | ChartDeletePayload
   | LogPayload
   | ErrorPayload;
 
@@ -174,14 +299,13 @@ export type ServerToClientWSMessage = ServerToClientMessage<ServerToClientPayloa
 
 //#endregion
 
-//#region Client to Server Message Types
+//#region Client to Server Union Types
 
 export type ClientToServerPayload =
   | StateSyncRequest
   | ParameterChangePayload
-  | ButtonClickPayload;
+  | ActionStartPayload;
 
 export type ClientToServerWSMessage = ClientToServerMessage<ClientToServerPayload>;
 
 //#endregion
-

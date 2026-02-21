@@ -115,7 +115,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
                 <div key={param.id} className={styles.parameterItem}>
                   <span className={styles.parameterLabel}>{param.label}:</span>
                   <span className={styles.parameterValue}>
-                    {param.type === 'action' ? '-' : String(param.value)}
+                    {String((param as { value?: any }).value ?? '-')}
                   </span>
                 </div>
               ))}

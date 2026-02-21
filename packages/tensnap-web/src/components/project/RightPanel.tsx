@@ -51,7 +51,6 @@ export const RightPanel = () => {
 
   const truncateParameters = (snapshot: Snapshot, maxLength: number = 50) => {
     const paramStr = snapshot.parameters
-      .filter(p => p.type !== 'action')
       .map(p => `${p.label}: ${p.value}`)
       .join(', ');
 

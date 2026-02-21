@@ -28,10 +28,8 @@ from .bindings.basic import (
     categorize_charts,
 )
 from .models import (
-    StateSyncResponse,
     LogPayload,
     ParameterState,
-    EnvironmentStateWithAgentsOmitted,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,13 +39,29 @@ if TYPE_CHECKING:
 
 
 class ServerToClientMessageType(Enum):
-    TIME_STEP_START = "time_step_start"
-    TIME_STEP_END = "time_step_end"
-    ENVIRONMENT_UPDATE = "environment_update"
+    METADATA_UPDATE = "metadata_update"
+    ACTION_END = "action_end"
+    ACTION_CREATE = "action_create"
+    ACTION_UPDATE = "action_update"
+    ACTION_DELETE = "action_delete"
+    ENV_CREATE = "env_create"
+    ENV_DELETE = "env_delete"
+    ENV_LAYER_CREATE = "env_layer_create"
+    ENV_LAYER_UPDATE = "env_layer_update"
+    ENV_LAYER_DELETE = "env_layer_delete"
+    AGENT_CREATE = "agent_create"
     AGENT_UPDATE = "agent_update"
-    AGENT_BATCH_UPDATE = "agent_batch_update"
+    AGENT_DELETE = "agent_delete"
+    EDGE_CREATE = "edge_create"
+    EDGE_UPDATE = "edge_update"
+    EDGE_DELETE = "edge_delete"
+    PARAMETER_CREATE = "parameter_create"
+    PARAMETER_UPDATE = "parameter_update"
+    PARAMETER_DELETE = "parameter_delete"
+    PARAMETER_SYNC = "parameter_sync"
+    CHART_CREATE = "chart_create"
     CHART_UPDATE = "chart_update"
-    STATE_SYNC = "state_sync"
+    CHART_DELETE = "chart_delete"
     LOG = "log"
     ERROR = "error"
 
@@ -55,7 +69,7 @@ class ServerToClientMessageType(Enum):
 class ClientToServerMessageType(Enum):
     STATE_SYNC = "state_sync"
     PARAMETER_CHANGE = "parameter_change"
-    BUTTON_CLICK = "button_click"
+    ACTION_START = "action_start"
     ERROR = "error"
 
 
@@ -212,8 +226,8 @@ class TenSnapServer:
                 await self._handle_state_sync(ws, payload)
             elif msg_type == ClientToServerMessageType.PARAMETER_CHANGE.value:
                 await self._handle_param_change(ws, payload)
-            elif msg_type == ClientToServerMessageType.BUTTON_CLICK.value:
-                await self._handle_button_click(ws, payload)
+            elif msg_type == ClientToServerMessageType.ACTION_START.value:
+                await self._handle_action_start(ws, payload)
             elif msg_type == ClientToServerMessageType.ERROR.value:
                 logger.error(f"Client error: {payload.get('error')}")
             else:
@@ -225,26 +239,6 @@ class TenSnapServer:
                 await self._send_error(ws, str(e))
             except Exception as send_error:
                 logger.exception(f"Failed to send error message: {send_error}")
-
-    async def _build_sync_response(self, req: "StateSyncRequest"):
-        params, envs, charts = await asyncio.gather(
-            self._compute_parameter_deltas(req.get("parameters", [])),
-            self._compute_environment_deltas(req.get("environments", [])),
-            self._compute_chart_deltas(req.get("charts", [])),
-        )
-
-        return StateSyncResponse(
-            mode="incremental",
-            added_parameters=params["added"],
-            removed_parameters=params["removed"],
-            updated_parameters=params["updated"],
-            added_environments=envs["added"],
-            removed_environments=envs["removed"],
-            updated_environments=envs["updated"],
-            added_charts=charts["added"],
-            removed_charts=charts["removed"],
-            updated_charts=charts["updated"],
-        )
 
     async def _compute_parameter_deltas(self, req: List[ParameterState]):
         client_ids = set(x["id"] for x in req)
@@ -263,9 +257,6 @@ class TenSnapServer:
             # Check for type or other metadata changed
             if param_client["type"] != param.type:
                 updated_set.add(pid)
-                continue
-            # Skip action parameters
-            if param.type == "action":
                 continue
             # Check for value changes
             client_value = param_client.get("value")
@@ -289,8 +280,9 @@ class TenSnapServer:
         return categorize_charts(req, server_charts)
 
     async def _compute_environment_deltas(
-        self, req: List[EnvironmentStateWithAgentsOmitted]
+        self, req: List[Dict[str, Any]]
     ) -> Dict[str, List]:
+        """req is now a list of { id, type, layers } dicts (v0.2 StateSyncRequest.envs)."""
         client_ids = set(x["id"] for x in req)
         server_ids = set(self.environments.keys())
 
@@ -310,10 +302,10 @@ class TenSnapServer:
                 return param.getter()
             except Exception as e:
                 logger.error(f"Error getting parameter {param.id}: {e}")
-        return None if param.type == "action" else param.value
+        return param.value
 
     def _set_param_value(self, param: "Parameter", value: Any) -> None:
-        if param.setter and param.type != "action":
+        if param.setter:
             try:
                 param.setter(value)
                 param.value = value
@@ -335,14 +327,61 @@ class TenSnapServer:
         return {
             pid: self._get_param_value(param)
             for pid, param in self.parameters.items()
-            if param.type != "action"
         }
 
     async def _handle_state_sync(
         self, ws: WebSocketServerProtocol, req: "StateSyncRequest"
     ) -> None:
-        response = await self._build_sync_response(req)
-        await self._send(ws, ServerToClientMessageType.STATE_SYNC, response)
+        """v0.2: respond to state_sync with individual CUD messages."""
+        params, envs, charts = await asyncio.gather(
+            self._compute_parameter_deltas(req.get("parameters", [])),
+            self._compute_environment_deltas(req.get("envs", [])),
+            self._compute_chart_deltas(req.get("charts", [])),
+        )
+
+        # Parameters
+        for param_dict in params["added"]:
+            await self._send(ws, ServerToClientMessageType.PARAMETER_CREATE, param_dict)
+        for param_id in params["removed"]:
+            await self._send(ws, ServerToClientMessageType.PARAMETER_DELETE, {"id": param_id})
+        for param_dict in params["updated"]:
+            await self._send(ws, ServerToClientMessageType.PARAMETER_UPDATE, param_dict)
+
+        # Environments (create env + layer + agents)
+        for env_state in envs["added"]:
+            env_id = env_state["id"]
+            env_type = env_state.get("type", "uniform")
+            v2_type = "2d" if env_type in ("grid", "graph") else "uniform"
+            await self._send(ws, ServerToClientMessageType.ENV_CREATE, {"id": env_id, "type": v2_type})
+            await self._send(ws, ServerToClientMessageType.ENV_LAYER_CREATE, {
+                "env_id": env_id, "layer_id": "", "layer_type": env_type,
+                "data": {k: v for k, v in env_state.items() if k not in ("id", "type", "agents")},
+            })
+            if env_state.get("agents"):
+                await self._send(ws, ServerToClientMessageType.AGENT_CREATE, {
+                    "env_id": env_id, "layer_id": "", "agents": env_state["agents"],
+                })
+        for env_id in envs["removed"]:
+            await self._send(ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id})
+        for env_state in envs["updated"]:
+            env_id = env_state["id"]
+            env_type = env_state.get("type", "uniform")
+            await self._send(ws, ServerToClientMessageType.ENV_LAYER_UPDATE, {
+                "env_id": env_id, "layer_id": "",
+                "data": {k: v for k, v in env_state.items() if k not in ("id", "type", "agents")},
+            })
+            if env_state.get("agents") is not None:
+                await self._send(ws, ServerToClientMessageType.AGENT_CREATE, {
+                    "env_id": env_id, "layer_id": "", "agents": env_state["agents"],
+                })
+
+        # Charts
+        for chart_dict in charts["added"]:
+            await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
+        for chart_id in charts["removed"]:
+            await self._send(ws, ServerToClientMessageType.CHART_DELETE, {"id": chart_id})
+        for chart_dict in charts["updated"]:
+            await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
 
     async def _handle_param_change(
         self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
@@ -357,29 +396,34 @@ class TenSnapServer:
                 await asyncio.get_event_loop().run_in_executor(
                     None, param.setter, value
                 )
-                if param.type != "action":
-                    param.value = value
+                param.value = value
             except Exception as e:
                 logger.exception(f"Error setting parameter {pid}: {e}")
                 await self._send_error(ws, f"Error setting parameter {pid}: {e}")
 
-    async def _handle_button_click(
+    async def _handle_action_start(
         self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
     ) -> None:
-        action = payload.get("action")
+        action = payload.get("id")
         if action not in self.button_handlers:
-            logger.warning(f"No handler found for button action: {action}")
+            logger.warning(f"No handler found for action: {action}")
             return
 
         handler = self.button_handlers[action]
         try:
             if asyncio.iscoroutinefunction(handler):
-                await handler()
+                result = await handler()
             else:
-                await asyncio.get_event_loop().run_in_executor(None, handler)
+                result = await asyncio.get_event_loop().run_in_executor(None, handler)
+            # Send action_end; result can be False to stop a continuous loop
+            continue_flag = None if result is None else bool(result)
+            end_payload: Dict[str, Any] = {"id": action}
+            if continue_flag is not None:
+                end_payload["continue"] = continue_flag
+            await self._send(ws, ServerToClientMessageType.ACTION_END, end_payload)
         except Exception as e:
-            logger.exception(f"Error handling button {action}: {e}")
-            await self._send_error(ws, f"Error handling button {action}: {e}")
+            logger.exception(f"Error handling action {action}: {e}")
+            await self._send_error(ws, f"Error handling action {action}: {e}")
 
     async def _broadcast(
         self, msg_type: ServerToClientMessageType, payload: dict
@@ -408,11 +452,13 @@ class TenSnapServer:
             logger.exception(f"Failed to send error message to client: {e}")
 
     async def start_time_step(self, time: int) -> None:
-        await self._broadcast(ServerToClientMessageType.TIME_STEP_START, {"time": time})
+        await self._broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": time})
 
     async def end_time_step(self, time: Optional[int] = None) -> None:
-        payload = {"time": time} if time is not None else {}
-        await self._broadcast(ServerToClientMessageType.TIME_STEP_END, payload)
+        # In v0.2, metadata_update replaces both time_step_start and time_step_end.
+        # This method is kept for backward compatibility with scenario.py and sim_loop.py.
+        if time is not None:
+            await self._broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": time})
 
     async def update_charts(self, time: Optional[int] = None) -> None:
         if not self.charts:
@@ -431,7 +477,6 @@ class TenSnapServer:
             await self._broadcast(
                 ServerToClientMessageType.CHART_UPDATE, {"updates": updates}
             )
-
     async def clear_charts(self, chart_ids: Optional[List[str]] = None) -> None:
         if not self.charts:
             return
@@ -493,26 +538,64 @@ class TenSnapServer:
         data: Dict[str, Any] | None = None,
         agents: List[Dict[str, Any]] | None = None,
     ) -> None:
-        await self._broadcast(
-            ServerToClientMessageType.ENVIRONMENT_UPDATE,
-            {"id": env_id, "data": data, "agents": agents},
-        )
+        # v0.2: send env_layer_update for metadata, then agent_create for agent list
+        if data:
+            await self._broadcast(
+                ServerToClientMessageType.ENV_LAYER_UPDATE,
+                {"env_id": env_id, "layer_id": "", "data": data},
+            )
+        if agents is not None:
+            await self._broadcast(
+                ServerToClientMessageType.AGENT_CREATE,
+                {"env_id": env_id, "layer_id": "", "agents": agents},
+            )
 
     async def update_agent(
         self, env_id: Union[str, int], agent_id: Union[str, int], data: Dict[str, Any]
     ) -> None:
+        diff = {"id": agent_id, **data}
         await self._broadcast(
             ServerToClientMessageType.AGENT_UPDATE,
-            {"environment_id": env_id, "agent_id": agent_id, "data": data},
+            {"env_id": env_id, "layer_id": "", "agents": [diff]},
         )
 
     async def update_agents_batch(
         self, env_id: Union[str, int], updates: List[Dict[str, Any]]
     ) -> None:
-        await self._broadcast(
-            ServerToClientMessageType.AGENT_BATCH_UPDATE,
-            {"environment_id": env_id, "updates": updates},
-        )
+        """Send agent CUD operations using v0.2 agent_create/agent_update/agent_delete."""
+        creates: List[Dict[str, Any]] = []
+        diffs: List[Dict[str, Any]] = []
+        deletes: List[Any] = []
+
+        for item in updates:
+            op = item.get("operation")
+            agent_id = item.get("id")
+            if op == "create":
+                agent_data = {k: v for k, v in item.items() if k != "operation"}
+                creates.append(agent_data)
+            elif op == "delete":
+                deletes.append(agent_id)
+            else:
+                # update (default): use flat diff
+                diff_data = item.get("data") or {}
+                diff = {"id": agent_id, **diff_data}
+                diffs.append(diff)
+
+        if creates:
+            await self._broadcast(
+                ServerToClientMessageType.AGENT_CREATE,
+                {"env_id": env_id, "layer_id": "", "agents": creates},
+            )
+        if diffs:
+            await self._broadcast(
+                ServerToClientMessageType.AGENT_UPDATE,
+                {"env_id": env_id, "layer_id": "", "agents": diffs},
+            )
+        if deletes:
+            await self._broadcast(
+                ServerToClientMessageType.AGENT_DELETE,
+                {"env_id": env_id, "layer_id": "", "ids": deletes},
+            )
 
     async def _background_maintenance(self) -> None:
         while self._running:

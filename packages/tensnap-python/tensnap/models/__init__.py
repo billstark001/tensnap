@@ -32,5 +32,4 @@ from .types import (
     LogPayload,
     ParameterState,
     StateSyncRequest,
-    StateSyncResponse,
 )

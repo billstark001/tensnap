@@ -145,7 +145,6 @@ const FallbackRenderer: React.FC<{ parameter: Parameter }> = ({ parameter }) => 
 const renderers: Record<ParameterType, React.FC<{ parameter: Parameter; onChange: (value: any) => void }> | null> = {
   number: SliderParameterControl as any,
   enum: EnumParameterControl as any,
-  action: null,
   boolean: SwitchParameterControl as any,
   string: StringParameterControl as any,
 };

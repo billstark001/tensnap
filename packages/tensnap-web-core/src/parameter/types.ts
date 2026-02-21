@@ -1,5 +1,5 @@
 
-export type ParameterType = 'number' | 'enum' | 'action' | 'boolean' | 'string';
+export type ParameterType = 'number' | 'enum' | 'boolean' | 'string';
 
 export interface ParameterBase {
   id: string;
@@ -23,10 +23,6 @@ export interface EnumParameter extends ParameterBase {
   labels?: Record<string, string>;
 }
 
-export interface ActionParameter extends ParameterBase {
-  type: 'action';
-}
-
 export interface BooleanParameter extends ParameterBase {
   type: 'boolean';
   value: boolean;
@@ -37,4 +33,17 @@ export interface StringParameter extends ParameterBase {
   value: string;
 }
 
-export type Parameter = NumberParameter | EnumParameter | ActionParameter | BooleanParameter | StringParameter;
+export type Parameter = NumberParameter | EnumParameter | BooleanParameter | StringParameter;
+
+// ---------------------------------------------------------------------------
+// Action — separate from Parameter since v0.2
+// ---------------------------------------------------------------------------
+
+/** An action button registered by the server. */
+export interface Action {
+  id: string;
+  label: string;
+  /** Whether the client should keep firing action_start after each action_end. */
+  continuous?: boolean;
+  allowRuntimeChange?: boolean;
+}

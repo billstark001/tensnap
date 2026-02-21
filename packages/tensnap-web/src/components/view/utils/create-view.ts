@@ -1,7 +1,7 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
 import {
   Parameter,
-  ActionParameter,
+  Action,
   BooleanParameter,
 } from '@/types/model';
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata, Point } from '../types';
@@ -65,18 +65,18 @@ export function createVerticalContainer(
 // #region View creation from objects
 
 /**
- * Creates a button view from an action parameter
- * @param parameter The action parameter object (required)
+ * Creates a button view from an action
+ * @param action The action object (required)
  * @param position The position for the view (optional, defaults to 0,0)
  */
 export function createButtonView(
-  parameter: ActionParameter,
+  action: Action,
   position?: Point,
   randomId = true,
 ): ButtonView {
   const { x = 0, y = 0 } = position || {};
   return {
-    id: randomId ? generateUniqueId() : `button-${parameter.id}`,
+    id: randomId ? generateUniqueId() : `button-${action.id}`,
     type: 'button',
     left: x,
     top: y,
@@ -85,8 +85,8 @@ export function createButtonView(
     expanded: true,
     disabled: false,
     data: {
-      id: parameter.id,
-      text: parameter.label,
+      id: action.id,
+      text: action.label,
     },
   };
 }
@@ -178,10 +178,10 @@ export function createEnvironmentView(
 
 
 /**
- * Creates views for buttons from parameters
+ * Creates views for actions (buttons)
  */
-export function createButtonViews(parameters: ActionParameter[]): ButtonView[] {
-  return parameters.map((param) => createButtonView(param, undefined, false));
+export function createButtonViews(actions: Action[]): ButtonView[] {
+  return actions.map((action) => createButtonView(action, undefined, false));
 }
 
 /**

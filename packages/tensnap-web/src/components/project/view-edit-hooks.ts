@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { AnyView, ContainerView } from '@/types/ui';
 import { useScenarioStore } from '@/store/scenario/store';
-import { Parameter, Environment, ChartGroup, ActionParameter, BooleanParameter } from '@/types/model';
+import { Parameter, Environment, ChartGroup, Action, BooleanParameter } from '@/types/model';
 import { findAndDeleteView, findAndUpdateView, findAndAddView } from '../view/utils/container';
 import {
   createButtonView,
@@ -12,10 +12,9 @@ import {
 import { generateUniqueId } from '@/utils/common';
 import { ViewContextScheme } from '../view/useViewContext';
 
-export function createActionParameter(): ActionParameter {
+export function createAction(): Action {
   return {
     id: generateUniqueId(),
-    type: 'action',
     label: 'New Button',
     allowRuntimeChange: false,
   };
@@ -65,6 +64,7 @@ export function useCreateView(props: {
 }) {
   const { onViewUpdate } = props;
   const setData = useScenarioStore((store) => store.setData);
+  const upsertAction = useScenarioStore((store) => store.upsertAction);
 
   /**
    * Creates a new view and its associated object
@@ -75,13 +75,13 @@ export function useCreateView(props: {
     container: ContainerView
   ) => {
     let newView: AnyView;
-    let newObject: Parameter | Environment | ChartGroup | null = null;
+    let newObject: Parameter | Environment | ChartGroup | Action | null = null;
 
     switch (type) {
       case 'button': {
-        const parameter = createActionParameter();
-        newView = createButtonView(parameter, position);
-        newObject = parameter;
+        const action = createAction();
+        newView = createButtonView(action, position);
+        newObject = action;
         break;
       }
       case 'parameter': {
@@ -112,7 +112,9 @@ export function useCreateView(props: {
 
     // Add the associated object
     if (newObject) {
-      if (type === 'button' || type === 'parameter') {
+      if (type === 'button') {
+        upsertAction?.(newObject as Action);
+      } else if (type === 'parameter') {
         setData?.({ parameters: [newObject as Parameter] }, { updateLayout: false, preserveExisting: true });
       } else if (type === 'environment') {
         setData?.({ environments: [newObject as Environment] }, { updateLayout: false, preserveExisting: true });
@@ -128,7 +130,7 @@ export function useCreateView(props: {
         }, { updateLayout: false, preserveExisting: true });
       }
     }
-  }, [onViewUpdate, setData]);
+  }, [onViewUpdate, setData, upsertAction]);
 
   return { createView };
 }

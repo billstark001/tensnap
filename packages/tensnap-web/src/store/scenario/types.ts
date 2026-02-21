@@ -1,8 +1,8 @@
-import { Environment, Parameter, Snapshot, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartMetadata, ChartUpdateOperation, ChartGroupMetadata, SimulationState, PureEnvironment, ChartGroup } from '../../types/model';
+import { Environment, Parameter, Action, Snapshot, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartMetadata, ChartUpdateOperation, ChartGroupMetadata, SimulationState, PureEnvironment, ChartGroup } from '../../types/model';
 import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
 import { InstantiatedEnvironment } from './environment';
-import { AgentUpdateOperation, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
+import { AgentDiff, EdgeData, EdgeDiff, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
 import { ChartStorage } from 'tensnap-web-core';
 import { UpdateTriggerState } from '../update-trigger';
 
@@ -30,8 +30,15 @@ export interface ConnectionSlice {
 // 时间管理切片
 export interface TimeSlice {
   currentTime: number;
-  isInTimeStep: boolean;
-  setCurrentTime: (time: number | null | undefined, isInTimeStep: boolean) => void;
+  setCurrentTime: (time: number) => void;
+}
+
+// Action管理切片
+export interface ActionsSlice {
+  actions: Map<string, Action>;
+  upsertAction: (action: Action) => void;
+  deleteAction: (id: string) => void;
+  handleActionEnd: (id: string, continueFlag?: boolean) => void;
 }
 
 // 环境管理切片
@@ -39,8 +46,18 @@ export interface EnvironmentsSlice {
   environments: Map<EnvironmentId, InstantiatedEnvironment>;
   renameEnvironment: (id: EnvironmentId, newId: EnvironmentId) => void;
   removeEnvironment: (id: EnvironmentId) => void;
+  createEnv: (id: EnvironmentId, type: 'uniform' | '2d') => void;
+  deleteEnv: (id: EnvironmentId) => void;
   updateEnvironment: (id: EnvironmentId, props: Partial<PureEnvironment>, agents?: Agent[]) => void;
-  updateAgents: (id: EnvironmentId, updates: { id: AgentId; data?: Partial<Agent>, operation?: AgentUpdateOperation }[]) => void;
+  createEnvLayer: (envId: EnvironmentId, layerId: string, layerType: string, data?: Record<string, any>) => void;
+  updateEnvLayer: (envId: EnvironmentId, layerId: string, data: Record<string, any>) => void;
+  deleteEnvLayer: (envId: EnvironmentId, layerId: string) => void;
+  createAgents: (envId: EnvironmentId, layerId: string, agents: Agent[]) => void;
+  updateAgents: (envId: EnvironmentId, layerId: string, agents: AgentDiff[]) => void;
+  deleteAgents: (envId: EnvironmentId, layerId: string, ids: AgentId[]) => void;
+  createEdges: (envId: EnvironmentId, layerId: string, edges: EdgeData[]) => void;
+  updateEdges: (envId: EnvironmentId, layerId: string, edges: EdgeDiff[]) => void;
+  deleteEdges: (envId: EnvironmentId, layerId: string, edges: Array<{ source: AgentId; target: AgentId }>) => void;
 }
 
 // 参数管理切片
@@ -49,6 +66,9 @@ export interface ParametersSlice {
   renameParameter: (id: string, newId: string) => void;
   updateParameterValue: (id: string, value: any) => void;
   updateParameterProps: (id: string, propsUpdate: Partial<Parameter>) => void;
+  upsertParameter: (param: Parameter) => void;
+  deleteParameter: (id: string) => void;
+  syncParameterValue: (id: string, value: any) => void;
 }
 
 // 图表管理切片
@@ -63,6 +83,8 @@ export interface ChartsSlice {
   moveChartMetadata: (metadataId: string, fromGroupId: string, toGroupId: string, options?: { copy?: boolean }) => void;
   addChartData: (updates: ChartUpdateData[]) => void;
   executeChartOperations: (operations: ChartUpdateOperation[]) => void;
+  upsertChart: (chart: ChartGroupMetadata) => void;
+  deleteChart: (id: string) => void;
 }
 
 // 快照管理切片
@@ -101,6 +123,7 @@ export interface CoreSlice {
 
 export type ScenarioStore = ConnectionSlice &
   TimeSlice &
+  ActionsSlice &
   EnvironmentsSlice &
   ParametersSlice &
   ChartsSlice &

@@ -10,7 +10,8 @@ import { useSettingsStore } from './settings';
 
 const createEmptyStateSyncRequest = (): StateSyncRequest => ({
   parameters: [],
-  environments: [],
+  actions: [],
+  envs: [],
   charts: [],
 });
 
@@ -87,7 +88,7 @@ export const createWebSocketStore = (
         abortController: null // 连接成功后清理 AbortController
       });
       useScenarioStore.getState().setConnected(true);
-      const stateCount = (state?.environments.length ?? 0)
+      const stateCount = (state?.envs.length ?? 0)
         + (state?.parameters.length ?? 0)
         + (state?.charts.length ?? 0);
       if (stateCount == 0) {
@@ -193,10 +194,11 @@ export const createWebSocketStore = (
     let currentState = state;
     if (!currentState) {
       const scenarioState = useScenarioStore.getState().dump();
-      const { parameters = [], environments = [], charts = [] } = scenarioState;
+      const { parameters = [], actions = [], environments = [], charts = [] } = scenarioState;
       currentState = {
         parameters,
-        environments: environments.map(({ agents, ...rest }) => rest),
+        actions,
+        envs: environments.map(env => ({ id: env.id, type: env.type, layers: [] })),
         charts: charts.flatMap(group => Object.values(group.metadataDict)),
       };
     }

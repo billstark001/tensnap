@@ -23,16 +23,17 @@ export const createViewsSlice: CreateStoreFunction<ViewsSlice, ScenarioStore> = 
   },
 
   updateMainViewLayout: () => {
-    const { environments, parameters, charts, mainView } = get();
+    const { environments, parameters, actions, charts, mainView } = get();
     const environmentsArray = Array.from(environments.values()).map(getEnvironmentMetadata);
-    
+
     set({
       mainView: createAutoLayout(
         mainView,
         environmentsArray,
         Array.from(parameters.values()),
         charts.getGroupList(),
-        { disableMissingViews: true }
+        { disableMissingViews: true },
+        Array.from(actions.values()),
       )
     });
   },

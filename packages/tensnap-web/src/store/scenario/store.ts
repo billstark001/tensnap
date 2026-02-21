@@ -3,6 +3,7 @@ import { ScenarioStore, SetDataPayload, SetDataOptions } from './types';
 import { createStoreContext } from '@/utils/zustand';
 import { createConnectionSlice } from './slices/connection';
 import { createTimeSlice } from './slices/time';
+import { createActionsSlice } from './slices/action';
 import { createEnvironmentsSlice } from './slices/environment';
 import { createParametersSlice } from './slices/parameter';
 import { createChartsSlice } from './slices/chart';
@@ -25,6 +26,7 @@ const getEnvironmentMetadata = (env: any) => ({
 export const createScenarioStore = () => create<ScenarioStore>((set, get, store) => ({
   ...createConnectionSlice(set as any, get, store),
   ...createTimeSlice(set as any, get, store),
+  ...createActionsSlice(set as any, get, store),
   ...createEnvironmentsSlice(set as any, get, store),
   ...createParametersSlice(set as any, get, store),
   ...createChartsSlice(set as any, get, store),
@@ -43,6 +45,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
       currentTime: store.currentTime,
       environments: Array.from(store.environments.values()).map(serializeEnvironment),
       parameters: structuredClone(Array.from(store.parameters.values())),
+      actions: structuredClone(Array.from(store.actions.values())),
       charts: structuredClone(store.charts.getGroupList()),
       snapshots: structuredClone(store.snapshots),
     };
@@ -82,7 +85,8 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
           activeEnvironments,
           activeParameters,
           activeCharts,
-          { disableMissingViews: preserveExisting }
+          { disableMissingViews: preserveExisting },
+          Array.from(state.actions.values()),
         )
       });
     }
@@ -99,6 +103,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
     });
     state.environments.clear();
     state.parameters.clear();
+    state.actions.clear();
     state.charts.clearAll();
 
     set({

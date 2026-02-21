@@ -397,9 +397,8 @@ export class WolfSheepModel {
 // #region WebSocket Simulation
 
 import type {
-  Environment,
-  GridEnvironment,
   Parameter,
+  Action,
   ChartGroupMetadata,
   GridAgent,
 } from 'tensnap-web';
@@ -482,55 +481,19 @@ class WolfSheepSimulationManager extends BaseSimulationManager {
       allowRuntimeChange: true,
     };
 
-    const actionButtons: Parameter[] = ['start', 'stop', 'step', 'reset', 'start_stop'].map(id => ({
+    return [modelVersionParam, ...numberParams, booleanParam];
+  }
+
+  protected getActions(): Action[] {
+    return ['start', 'stop', 'step', 'reset', 'start_stop'].map(id => ({
       id,
-      type: 'action' as const,
       label: id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('/'),
       allowRuntimeChange: true,
     }));
-
-    return [modelVersionParam, ...numberParams, booleanParam, ...actionButtons];
   }
 
-  protected getEnvironments(): Environment[] {
-    const sheep = Array.from(this.model.getSheep());
-    const wolves = Array.from(this.model.getWolves());
-
-    const agents: GridAgent[] = [
-      ...sheep.map(s => ({
-        id: `sheep_${sheep.indexOf(s)}`,
-        x: s.position.x,
-        y: s.position.y,
-        heading: (s.heading * Math.PI) / 180,
-        color: s.config.color,
-        icon: 'circle' as const,
-        size: s.config.size,
-      })),
-      ...wolves.map(w => ({
-        id: `wolf_${wolves.indexOf(w)}`,
-        x: w.position.x,
-        y: w.position.y,
-        heading: (w.heading * Math.PI) / 180,
-        color: w.config.color,
-        icon: 'circle' as const,
-        size: w.config.size,
-      })),
-    ];
-
-    const env: GridEnvironment = {
-      id: 'main',
-      type: 'grid',
-      width: this.worldSize.width,
-      height: this.worldSize.height,
-      coord_offset: 'float',
-      agents,
-    };
-
-    if (this.grassBackground) {
-      env.background = this.grassBackground;
-    }
-
-    return [env];
+  protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
+    return [{ id: 'main', type: '2d' }];
   }
 
   protected getCharts(): ChartGroupMetadata[] {
@@ -548,7 +511,7 @@ class WolfSheepSimulationManager extends BaseSimulationManager {
     }
   }
 
-  protected async handleButtonClick(action: string): Promise<void> {
+  protected async handleActionStart(action: string): Promise<void> {
     const actions: { [key: string]: () => void | Promise<void> } = {
       start: () => this.start(),
       stop: () => this.stop(),
@@ -591,30 +554,55 @@ class WolfSheepSimulationManager extends BaseSimulationManager {
     }
   }
 
+  private getAgentList(): GridAgent[] {
+    const sheep = Array.from(this.model.getSheep());
+    const wolves = Array.from(this.model.getWolves());
+    return [
+      ...sheep.map(s => ({
+        id: `sheep_${sheep.indexOf(s)}`,
+        x: s.position.x,
+        y: s.position.y,
+        heading: (s.heading * Math.PI) / 180,
+        color: s.config.color,
+        icon: 'circle' as const,
+        size: s.config.size,
+      })),
+      ...wolves.map(w => ({
+        id: `wolf_${wolves.indexOf(w)}`,
+        x: w.position.x,
+        y: w.position.y,
+        heading: (w.heading * Math.PI) / 180,
+        color: w.config.color,
+        icon: 'circle' as const,
+        size: w.config.size,
+      })),
+    ];
+  }
+
   private async step(): Promise<void> {
     const timeStep = this.model.getTicks();
-    await this.sendTimeStepStart(timeStep);
+    await this.sendMetadataUpdate({ time: timeStep });
 
     const canContinue = this.model.go();
     if (!canContinue) {
       this.stop();
     }
 
-    // Update grass background after model step
     this.updateGrassBackground();
 
-    // Send updates
-    const env = this.getEnvironments()[0] as GridEnvironment;
-    await this.sendEnvironmentUpdate({
-      id: 'main',
+    // Full agent refresh each step (simplest approach for fake model)
+    const agents = this.getAgentList();
+    await this.sendAgentDelete({ env_id: 'main', layer_id: '', ids: [] }); // noop clears nothing
+    await this.sendEnvLayerUpdate({
+      env_id: 'main', layer_id: '',
       data: {
-        type: 'grid',
-        width: env.width,
-        height: env.height,
+        width: this.worldSize.width,
+        height: this.worldSize.height,
         background: this.grassBackground,
       },
-      agents: env.agents,
     });
+    // replace all agents
+    await this.sendAgentCreate({ env_id: 'main', layer_id: '', agents });
 
     await this.sendChartUpdate({
       updates: [
@@ -623,8 +611,6 @@ class WolfSheepSimulationManager extends BaseSimulationManager {
         { id: 'grass_count', value: this.model.getGrassCount() },
       ],
     });
-
-    await this.sendTimeStepEnd(timeStep + 1);
   }
 
   private start(): void {
@@ -643,18 +629,20 @@ class WolfSheepSimulationManager extends BaseSimulationManager {
   }
 
   private async sendInitialData(): Promise<void> {
-    const env = this.getEnvironments()[0] as GridEnvironment;
-    await this.sendEnvironmentUpdate({
-      id: 'main',
+    await this.sendEnvLayerCreate({
+      env_id: 'main',
+      layer_id: '',
+      layer_type: 'grid',
       data: {
-        type: 'grid',
-        width: env.width,
-        height: env.height,
+        width: this.worldSize.width,
+        height: this.worldSize.height,
         background: this.grassBackground,
       },
-      agents: env.agents,
     });
-
+    const agents = this.getAgentList();
+    if (agents.length > 0) {
+      await this.sendAgentCreate({ env_id: 'main', layer_id: '', agents });
+    }
     await this.sendChartUpdate({
       updates: [
         { id: 'sheep_count', value: this.model.getSheepCount(), time: 0 },

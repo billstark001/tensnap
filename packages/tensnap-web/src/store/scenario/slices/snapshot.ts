@@ -29,7 +29,7 @@ export const createSnapshotsSlice: CreateStoreFunction<SnapshotsSlice, ScenarioS
       timeStep: currentTime,
       ...snapshotMetadata,
       environments: Array.from(environments.values()).map(serializeEnvironment),
-      parameters: Array.from(parameters.values()).filter(p => p.type !== 'action'),
+      parameters: Array.from(parameters.values()),
       chartData,
     };
 

@@ -1,5 +1,5 @@
 import { ContainerView, AnyView } from '@/types/ui';
-import { Parameter, ActionParameter, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from '@/types/model';
+import { Parameter, Action, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from '@/types/model';
 import { pack } from '@/utils/layout/pack';
 import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '../constants';
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '../types';
@@ -75,6 +75,10 @@ function getParameterSignature(param: { id: string, type?: string }): string {
   return `param:${param.type}:${param.id}`;
 }
 
+function getActionSignature(action: { id: string }): string {
+  return `param:action:${action.id}`;
+}
+
 function getEnvironmentSignature(env: ObjectWithEnvironmentMetadata): string {
   return `env:${env.type}:${env.id}`;
 }
@@ -115,9 +119,10 @@ export interface CreateAutoLayoutOptions {
  * Creates or updates the auto layout for views based on the current state of objects
  * @param currentView The current view to update (or undefined to create new)
  * @param environments List of all active environments
- * @param parameters List of all active parameters  
+ * @param parameters List of all active parameters
  * @param charts List of all active charts
  * @param options Layout options
+ * @param actions List of all active actions (buttons)
  * @returns Updated container view
  */
 export function createAutoLayout(
@@ -125,7 +130,8 @@ export function createAutoLayout(
   environments: ObjectWithEnvironmentMetadata[],
   parameters: Parameter[],
   charts: ObjectWithChartMetadata[],
-  options: CreateAutoLayoutOptions = {}
+  options: CreateAutoLayoutOptions = {},
+  actions: Action[] = [],
 ): ContainerView {
   const { inPlace = false, disableMissingViews = false } = options;
   const view = currentView
@@ -134,6 +140,7 @@ export function createAutoLayout(
 
   const statesFound = new Map<string, boolean>();
 
+  actions.forEach(a => statesFound.set(getActionSignature(a), false));
   parameters.forEach(p => statesFound.set(getParameterSignature(p), false));
   environments.forEach(e => statesFound.set(getEnvironmentSignature(e), false));
   charts.forEach(c => statesFound.set(getChartSignature(c), false));
@@ -146,7 +153,7 @@ export function createAutoLayout(
     const sign = v.type === 'parameter' ? getParameterSignature(v.data) :
       v.type === 'environment' ? getEnvironmentSignature(v.data as ObjectWithEnvironmentMetadata) :
         v.type === 'chart' ? getChartSignature(v.data as ObjectWithChartMetadata) :
-          v.type === 'button' ? getParameterSignature({ id: v.data.id, type: 'action' }) : undefined;
+          v.type === 'button' ? getActionSignature({ id: v.data.id }) : undefined;
     if (!sign) {
       return false;
     }
@@ -185,22 +192,20 @@ export function createAutoLayout(
     view.views.push(parametersContainer);
   }
 
-  // Separate parameters into buttons and other types
-  const [newButtonParameters, newOtherParameters] = parameters.reduce(
-    ([actions, others], param) => {
-      if (!statesFound.get(getParameterSignature(param))) {
-        (param.type === 'action' ? actions : others).push(param as any);
-      }
-      return [actions, others];
-    }, [[], []] as [ActionParameter[], (NumberParameter | EnumParameter | BooleanParameter | StringParameter)[]]
-  );
+  // Actions (buttons) - now separate from parameters
+  const newActions = actions.filter(a => !statesFound.get(getActionSignature(a)));
+
+  // Parameters (no longer include actions)
+  const newOtherParameters = parameters.filter(
+    param => !statesFound.get(getParameterSignature(param))
+  ) as (NumberParameter | EnumParameter | BooleanParameter | StringParameter)[];
 
   let rootViewNeedsAdjust = false;
 
   // Process buttons container
   // Add new button views if any
-  if (newButtonParameters.length > 0) {
-    const newButtonViews = createButtonViews(newButtonParameters);
+  if (newActions.length > 0) {
+    const newButtonViews = createButtonViews(newActions);
     buttonsContainer.views.push(...newButtonViews);
     rootViewNeedsAdjust = true;
   }

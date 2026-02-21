@@ -1,6 +1,6 @@
 import { CreateStoreFunction } from '@/utils/zustand';
 import { ChartsSlice, ScenarioStore } from '../types';
-import { ChartStorage } from 'tensnap-web-core';
+import { ChartStorage, instantiateChartMetadata } from 'tensnap-web-core';
 
 export const createChartsSlice: CreateStoreFunction<ChartsSlice, ScenarioStore> = (set, get) => ({
   charts: new ChartStorage(),
@@ -64,5 +64,23 @@ export const createChartsSlice: CreateStoreFunction<ChartsSlice, ScenarioStore> 
           : charts.clearMetas([id]);
       }
     }
+  },
+
+  /** Create or fully replace a chart group. */
+  upsertChart: (chart) => {
+    const { charts } = get();
+    charts.addGroup(instantiateChartMetadata(chart), true);
+    set({ charts });
+  },
+
+  /** Remove a chart group. */
+  deleteChart: (id) => {
+    const { charts, log } = get();
+    if (!charts.hasGroup(id)) {
+      log(`Chart with id ${id} not found.`, 'warning');
+      return;
+    }
+    charts.removeGroup(id);
+    set({ charts });
   },
 });
