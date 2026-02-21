@@ -35,7 +35,7 @@
     "preact": "^10.28.4",
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
-    "vite": "^7.2.2"
+    "vite": "^7.3.1"
   },
   "keywords": [
     "tensnap",
