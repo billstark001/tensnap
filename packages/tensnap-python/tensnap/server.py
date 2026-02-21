@@ -13,7 +13,8 @@ import base64
 import json
 import logging
 import datetime
-from websockets.server import WebSocketServerProtocol, serve
+from websockets.asyncio.server import serve, ServerConnection
+from websockets.protocol import State as WebSocketState
 from websockets.exceptions import ConnectionClosed
 import msgpack
 from enum import Enum
@@ -23,7 +24,7 @@ from .utils.ws import BatchedMessageQueue
 from .utils.object import json_default, msgpack_default, find_objects_by_error
 from .bindings.basic import (
     Parameter,
-    ActionParameter,
+    ActionMetadata,
     ChartGroupMetadata,
     ChartMetadataDict,
     ChartGroupMetadataDict,
@@ -112,9 +113,10 @@ class TenSnapServer:
         self.host, self.port = host, port
         self.use_msgpack = use_msgpack
 
-        self.clients: set[WebSocketServerProtocol] = set()
+        self.clients: set[ServerConnection] = set()
         self.environments: Dict[str, "EnvironmentBinderProtocol"] = {}
         self.parameters: Dict[str, "Parameter"] = {}
+        self.actions: Dict[str, ActionMetadata] = {}
         self.charts: Dict[str, Tuple["ChartGroupMetadata", Callable]] = {}
         self.button_handlers: Dict[str, Callable] = {}
         # Assets: id → { id, hash, mime, size, label, data }
@@ -140,13 +142,14 @@ class TenSnapServer:
 
     def add_action(
         self,
-        action_parameter: ActionParameter,
+        action: ActionMetadata,
         handler: Callable,
-        add_parameter: bool = True,
     ) -> None:
-        if add_parameter:
-            self.add_parameter(action_parameter)
-        self.button_handlers[action_parameter.id] = handler
+        """Register an action (v0.2).  Actions are stored separately from
+        parameters and sent via ``action_create`` messages.
+        """
+        self.actions[action.id] = action
+        self.button_handlers[action.id] = handler
 
     def remove_environment(self, env_id: Union[str, int]) -> None:
         if env_id in self.environments:
@@ -159,16 +162,11 @@ class TenSnapServer:
         if param_id in self.parameters:
             del self.parameters[param_id]
 
-    def remove_all_parameters(self, include_actions = False) -> None:
-        if include_actions:
-            self.parameters.clear()
-            return
-        for param_id in list(self.parameters.keys()):
-            if (
-                param_id in self.parameters
-                and self.parameters[param_id].type != "action"
-            ):
-                del self.parameters[param_id]
+    def remove_all_parameters(self, include_actions: bool = False) -> None:
+        """Remove all parameters.  ``include_actions`` is ignored (kept for
+        backward compatibility) — actions are now in a separate store.
+        """
+        self.parameters.clear()
 
     def remove_chart(self, chart_id: str) -> None:
         if chart_id in self.charts:
@@ -180,26 +178,23 @@ class TenSnapServer:
     def remove_action(
         self,
         action_id: str,
-        remove_parameter: bool = True,
+        remove_parameter: bool = True,  # kept for backward compat, ignored
     ) -> None:
-        if action_id in self.button_handlers:
-            del self.button_handlers[action_id]
-        if remove_parameter:
-            self.remove_parameter(action_id)
+        self.actions.pop(action_id, None)
+        self.button_handlers.pop(action_id, None)
 
-    def remove_all_actions(self, remove_parameters: bool = True) -> None:
+    def remove_all_actions(
+        self, remove_parameters: bool = True
+    ) -> None:  # noqa: ARG002
+        """Remove all actions and their handlers.
+
+        ``remove_parameters`` is kept for backward compatibility but is
+        ignored; actions are no longer stored in ``self.parameters``.
+        """
+        self.actions.clear()
         self.button_handlers.clear()
-        if remove_parameters:
-            for action_id in list(self.parameters.keys()):
-                if (
-                    action_id in self.parameters
-                    and self.parameters[action_id].type == "action"
-                ):
-                    del self.parameters[action_id]
 
-    async def handle_client(
-        self, websocket: WebSocketServerProtocol, path: str
-    ) -> None:
+    async def handle_client(self, websocket: ServerConnection) -> None:
         self.clients.add(websocket)
         logger.info(f"Client connected from {websocket.remote_address}")
         try:
@@ -220,7 +215,7 @@ class TenSnapServer:
             logger.info(f"Client disconnected from {websocket.remote_address}")
 
     async def _handle_message(
-        self, ws: WebSocketServerProtocol, msg: Union[str, bytes]
+        self, ws: ServerConnection, msg: Union[str, bytes]
     ) -> None:
         try:
             data = (
@@ -249,6 +244,34 @@ class TenSnapServer:
                 await self._send_error(ws, str(e))
             except Exception as send_error:
                 logger.exception(f"Failed to send error message: {send_error}")
+
+    async def _compute_action_deltas(self, req: List[Dict[str, Any]]):
+        """Compute action CUD operations vs the client's reported actions."""
+        client_ids = {x["id"] for x in req}
+        server_ids = set(self.actions.keys())
+
+        added = server_ids - client_ids
+        removed = client_ids - server_ids
+        common_ids = server_ids & client_ids
+
+        # Detect metadata changes for common actions
+        req_dict = {x["id"]: x for x in req}
+        updated = set()
+        for aid in common_ids:
+            a = self.actions[aid]
+            c = req_dict[aid]
+            if (
+                c.get("label") != a.label
+                or c.get("continuous") != a.continuous
+                or c.get("allowRuntimeChange", True) != a.allow_runtime_change
+            ):
+                updated.add(aid)
+
+        return {
+            "added": [self.actions[i].to_dict() for i in added],
+            "removed": list(removed),
+            "updated": [self.actions[i].to_dict() for i in updated],
+        }
 
     async def _compute_parameter_deltas(self, req: List[ParameterState]):
         client_ids = set(x["id"] for x in req)
@@ -335,8 +358,7 @@ class TenSnapServer:
 
     def dump_parameters(self) -> Dict[str, Any]:
         return {
-            pid: self._get_param_value(param)
-            for pid, param in self.parameters.items()
+            pid: self._get_param_value(param) for pid, param in self.parameters.items()
         }
 
     async def broadcast_param_sync(self, param_id: str, value: Any) -> None:
@@ -347,20 +369,33 @@ class TenSnapServer:
         )
 
     async def _handle_state_sync(
-        self, ws: WebSocketServerProtocol, req: "StateSyncRequest"
+        self, ws: ServerConnection, req: "StateSyncRequest"
     ) -> None:
         """v0.2: respond to state_sync with individual CUD messages."""
-        params, envs, charts = await asyncio.gather(
+        params, actions, envs, charts = await asyncio.gather(
             self._compute_parameter_deltas(req.get("parameters", [])),
+            self._compute_action_deltas(req.get("actions", [])),
             self._compute_environment_deltas(req.get("envs", [])),
             self._compute_chart_deltas(req.get("charts", [])),
         )
+
+        # Actions (action_create / action_update / action_delete)
+        for action_dict in actions["added"]:
+            await self._send(ws, ServerToClientMessageType.ACTION_CREATE, action_dict)
+        for action_id in actions["removed"]:
+            await self._send(
+                ws, ServerToClientMessageType.ACTION_DELETE, {"id": action_id}
+            )
+        for action_dict in actions["updated"]:
+            await self._send(ws, ServerToClientMessageType.ACTION_UPDATE, action_dict)
 
         # Parameters
         for param_dict in params["added"]:
             await self._send(ws, ServerToClientMessageType.PARAM_CREATE, param_dict)
         for param_id in params["removed"]:
-            await self._send(ws, ServerToClientMessageType.PARAM_DELETE, {"id": param_id})
+            await self._send(
+                ws, ServerToClientMessageType.PARAM_DELETE, {"id": param_id}
+            )
         for param_dict in params["updated"]:
             await self._send(ws, ServerToClientMessageType.PARAM_UPDATE, param_dict)
 
@@ -369,39 +404,76 @@ class TenSnapServer:
             env_id = env_state["id"]
             env_type = env_state.get("type", "uniform")
             v2_type = "2d" if env_type in ("grid", "graph") else "uniform"
-            await self._send(ws, ServerToClientMessageType.ENV_CREATE, {"id": env_id, "type": v2_type})
-            await self._send(ws, ServerToClientMessageType.ENV_LAYER_CREATE, {
-                "env_id": env_id, "layer_id": "", "layer_type": env_type,
-                "data": {k: v for k, v in env_state.items() if k not in ("id", "type", "agents")},
-            })
+            await self._send(
+                ws,
+                ServerToClientMessageType.ENV_CREATE,
+                {"id": env_id, "type": v2_type},
+            )
+            await self._send(
+                ws,
+                ServerToClientMessageType.ENV_LAYER_CREATE,
+                {
+                    "env_id": env_id,
+                    "layer_id": "",
+                    "layer_type": env_type,
+                    "data": {
+                        k: v
+                        for k, v in env_state.items()
+                        if k not in ("id", "type", "agents")
+                    },
+                },
+            )
             if env_state.get("agents"):
-                await self._send(ws, ServerToClientMessageType.AGENT_CREATE, {
-                    "env_id": env_id, "layer_id": "", "agents": env_state["agents"],
-                })
+                await self._send(
+                    ws,
+                    ServerToClientMessageType.AGENT_CREATE,
+                    {
+                        "env_id": env_id,
+                        "layer_id": "",
+                        "agents": env_state["agents"],
+                    },
+                )
         for env_id in envs["removed"]:
             await self._send(ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id})
         for env_state in envs["updated"]:
             env_id = env_state["id"]
             env_type = env_state.get("type", "uniform")
-            await self._send(ws, ServerToClientMessageType.ENV_LAYER_UPDATE, {
-                "env_id": env_id, "layer_id": "",
-                "data": {k: v for k, v in env_state.items() if k not in ("id", "type", "agents")},
-            })
+            await self._send(
+                ws,
+                ServerToClientMessageType.ENV_LAYER_UPDATE,
+                {
+                    "env_id": env_id,
+                    "layer_id": "",
+                    "data": {
+                        k: v
+                        for k, v in env_state.items()
+                        if k not in ("id", "type", "agents")
+                    },
+                },
+            )
             if env_state.get("agents") is not None:
-                await self._send(ws, ServerToClientMessageType.AGENT_CREATE, {
-                    "env_id": env_id, "layer_id": "", "agents": env_state["agents"],
-                })
+                await self._send(
+                    ws,
+                    ServerToClientMessageType.AGENT_CREATE,
+                    {
+                        "env_id": env_id,
+                        "layer_id": "",
+                        "agents": env_state["agents"],
+                    },
+                )
 
         # Charts
         for chart_dict in charts["added"]:
             await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
         for chart_id in charts["removed"]:
-            await self._send(ws, ServerToClientMessageType.CHART_DELETE, {"id": chart_id})
+            await self._send(
+                ws, ServerToClientMessageType.CHART_DELETE, {"id": chart_id}
+            )
         for chart_dict in charts["updated"]:
             await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
 
     async def _handle_param_change(
-        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
+        self, ws: ServerConnection, payload: Dict[str, Any]
     ) -> None:
         pid, value = payload.get("id"), payload.get("value")
         if value is None or pid not in self.parameters:
@@ -419,7 +491,7 @@ class TenSnapServer:
                 await self._send_error(ws, f"Error setting parameter {pid}: {e}")
 
     async def _handle_action_start(
-        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
+        self, ws: ServerConnection, payload: Dict[str, Any]
     ) -> None:
         action = payload.get("id")
         if action not in self.button_handlers:
@@ -452,7 +524,7 @@ class TenSnapServer:
 
     async def _send(
         self,
-        ws: WebSocketServerProtocol,
+        ws: ServerConnection,
         msg_type: ServerToClientMessageType,
         payload: Any,
     ) -> None:
@@ -462,7 +534,7 @@ class TenSnapServer:
             logger.exception(f"Error sending message to client: {e}")
             self.clients.discard(ws)
 
-    async def _send_error(self, ws: WebSocketServerProtocol, error: str) -> None:
+    async def _send_error(self, ws: ServerConnection, error: str) -> None:
         try:
             await self._send(ws, ServerToClientMessageType.ERROR, {"error": error})
         except Exception as e:
@@ -475,7 +547,9 @@ class TenSnapServer:
         # In v0.2, metadata_update replaces both time_step_start and time_step_end.
         # This method is kept for backward compatibility with scenario.py and sim_loop.py.
         if time is not None:
-            await self._broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": time})
+            await self._broadcast(
+                ServerToClientMessageType.METADATA_UPDATE, {"time": time}
+            )
 
     async def update_charts(self, time: Optional[int] = None) -> None:
         if not self.charts:
@@ -494,6 +568,7 @@ class TenSnapServer:
             await self._broadcast(
                 ServerToClientMessageType.CHART_UPDATE, {"updates": updates}
             )
+
     async def clear_charts(self, chart_ids: Optional[List[str]] = None) -> None:
         if not self.charts:
             return
@@ -651,10 +726,22 @@ class TenSnapServer:
         # Announce metadata first
         await self._broadcast(
             ServerToClientMessageType.ASSET_META,
-            {"assets": [{"id": asset_id, "hash": h, "mime": mime, "size": len(data), "label": label}]},
+            {
+                "assets": [
+                    {
+                        "id": asset_id,
+                        "hash": h,
+                        "mime": mime,
+                        "size": len(data),
+                        "label": label,
+                    }
+                ]
+            },
         )
         # Then push the actual data (base64 for JSON, raw bytes for msgpack)
-        encoded: Union[str, bytes] = base64.b64encode(data).decode("ascii") if not self.use_msgpack else data
+        encoded: Union[str, bytes] = (
+            base64.b64encode(data).decode("ascii") if not self.use_msgpack else data
+        )
         await self._broadcast(
             ServerToClientMessageType.ASSET_DATA,
             {"id": asset_id, "hash": h, "mime": mime, "data": encoded},
@@ -670,7 +757,7 @@ class TenSnapServer:
         )
 
     async def _handle_asset_sync(
-        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
+        self, ws: ServerConnection, payload: Dict[str, Any]
     ) -> None:
         """Client reports which assets it holds (id → hash).
         Respond with data for any asset the client is missing or has stale.
@@ -687,14 +774,21 @@ class TenSnapServer:
                 await self._send(
                     ws,
                     ServerToClientMessageType.ASSET_DATA,
-                    {"id": asset_id, "hash": asset["hash"], "mime": asset["mime"], "data": encoded},
+                    {
+                        "id": asset_id,
+                        "hash": asset["hash"],
+                        "mime": asset["mime"],
+                        "data": encoded,
+                    },
                 )
 
     async def _background_maintenance(self) -> None:
         while self._running:
             try:
                 await self._queue.flush()
-                self.clients = {c for c in self.clients if not c.closed}
+                self.clients = {
+                    c for c in self.clients if c.state == WebSocketState.OPEN
+                }
                 await asyncio.sleep(0.1)
             except Exception as e:
                 logger.error(f"Error in background maintenance: {e}")

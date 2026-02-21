@@ -7,7 +7,7 @@ from tensnap.scenario import (
     SimulationHandlerProtocol,
     DefaultSimulationHandler,
 )
-from tensnap.bindings.basic import NumberParameter, ActionParameter, chart, action, bind
+from tensnap.bindings.basic import NumberParameter, ActionMetadata, chart, action, bind
 
 
 class TestSimulationScenario:

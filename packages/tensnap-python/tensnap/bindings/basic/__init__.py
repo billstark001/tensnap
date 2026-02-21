@@ -9,7 +9,6 @@ from .parameter import (
     BooleanParameter,
     StringParameter,
     EnumParameter,
-    ActionParameter,
     Parameter,
     BindParametersConfig,
     bind,
@@ -31,6 +30,7 @@ from .chart import (
 )
 
 from .action import (
+    ActionMetadata,
     action,
     get_action_metadata_from_namespace,
 )
@@ -54,3 +54,4 @@ from .accessor import (
     bind_grid_environment,
     bind_graph_environment,
 )
+

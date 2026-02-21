@@ -8,7 +8,7 @@ Supersedes the v0.1 protocol once fully implemented.
 ### Key Design Changes from v0.1
 
 | Concern | v0.1 | v0.2 |
-|---|---|---|
+| --- | --- | --- |
 | Actions | `action` parameter type + `button_click` | Standalone `Action` entity + `action_start`/`action_end` |
 | Simulation loop control | Server manages event loop | Client drives loop via `continuous` flag on `action_start` |
 | Environment updates | Monolithic `environment_update` | Fine-grained `env_*` / `env_layer_*` / `agent_*` / `edge_*` |
@@ -472,24 +472,36 @@ All other action IDs are user-defined.
 
 Layers are extensible via a registry. The **frontend does not distinguish
 between "grid" and "graph" environments** — the distinction lives entirely
-inside layer types. An environment is simply a container (`type: "uniform"|"2d"`)
-that holds one or more named layers.
+inside layer types. An environment is simply a container (`type: "uniform"|"2d"`).
+Uniform environments do not require layers. Layers are currently only applicable to 2D environments.
+
+Layer-based designs increase the degrees of freedom in declaring environments. For instance,
+
+- A Schelling segregation model operating within a grid: one agent layer or one background layer rendering a bitmap representing each location
+- A Deffuant model operating within a network: one agent layer + one edge layer, with the server not transmitting agent positions, allowing spring layout to control placement autonomously
+- A model simulating real-life human interactions + multiple social media identities: one agent layer + multiple edge layers, with the server transmitting agent positions
+- A US power grid model: A US map image background layer + an agent layer + an edge layer, with the server transmitting agent positions and edges disabling D3's spring layout via parameters
+- A hypergraph: An agent layer + a handwritten hyperedge layer (plugin support currently unnecessary, merely illustrating the concept)
+
+Translated with DeepL.com (free version)
 
 Each layer type registration includes:
 
 | Field | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `layer_type` | ✓ | Unique string identifier |
 | Metadata schema | optional | Zod schema for the `data` field in `env_layer_create`/`env_layer_update` |
 | Entity schema | optional | Zod schema for entities sent via `agent_create`/`agent_update` and/or `edge_create`/`edge_update`. Use only for layer types that carry large numbers of entities. Scalar/singleton data (e.g. a background image URL) lives in the layer metadata, not as entities. |
 
 ### Built-in Layer Types
 
+The layer definitions align with `tensnap-web-core/environment/layers`.
+
 | `layer_type` | Entity kind | Description |
-|---|---|---|
-| `entity` | agents (optional) | Generic 2-D entity layer; `data` is empty. Agents carry `x`, `y`, and optional `heading`. |
+| --- | --- | --- |
+| `agent` | agents (optional) | Generic agents carrying `x`, `y`, and optional `heading`. |
+| `edge` | edges (optional) | Generic directed or undirected edges (`source` -> `target`).  Agents related to the edge layer may have no fixed positions (layout is computed client-side via `d3-force`). |
 | `grid` | — | Reference grid lines overlay; `data` contains spacing/color parameters. No entities. |
-| `graph` | agents + edges | Force-directed layout; `data` contains d3-force parameters. Agents have no fixed positions (layout is computed client-side). |
 | `background` | — | Solid color or image fill; background is stored in layer `data.background` (CSS color, URL, or asset reference `{ asset_id, interpolation }`). No entities. |
 
 ### Entity Schema vs. Metadata

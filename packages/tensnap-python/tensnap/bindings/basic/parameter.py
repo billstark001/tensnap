@@ -30,8 +30,10 @@ except ImportError:
 
 # region Parameter Classes
 
-ParameterType = Literal["number", "enum", "action", "boolean", "string"]
-ParameterTypeWithoutAction = Literal["number", "enum", "boolean", "string"]
+ParameterType = Literal["number", "enum", "boolean", "string"]
+# Kept for backward compatibility — identical to ParameterType now that
+# "action" has been promoted to the standalone Action entity (v0.2).
+ParameterTypeWithoutAction = ParameterType
 
 
 @dataclass
@@ -102,15 +104,6 @@ class EnumParameter(ParameterBase):
 
 
 @dataclass
-class ActionParameter(ParameterBase):
-    type: Literal["action"] = "action"
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ActionParameter":
-        return cls(**data)
-
-
-@dataclass
 class BooleanParameter(ParameterBase):
     type: Literal["boolean"] = "boolean"
     value: bool = False
@@ -131,7 +124,7 @@ class StringParameter(ParameterBase):
 
 
 Parameter: TypeAlias = Union[
-    NumberParameter, EnumParameter, ActionParameter, BooleanParameter, StringParameter
+    NumberParameter, EnumParameter, BooleanParameter, StringParameter
 ]
 
 
@@ -178,8 +171,6 @@ def create_parameter(
                 "labels": labels,
             }
         )
-    elif type == "action":
-        return ActionParameter.from_dict(common_data)
     elif type == "boolean":
         return BooleanParameter.from_dict(
             {
@@ -428,21 +419,21 @@ def get_field_metadata(cls: "type"):
 def get_parameter_metadata_from_namespace(
     namespace: Dict[str, Any], cfg_suggest: Optional[BindParametersConfig] = None
 ):
-    """Find all parameter-decorated functions in a given namespace"""
+    """Find all parameter-decorated functions in a given namespace.
+
+    Returns (parameters, actions) where *actions* is always an empty list —
+    action discovery is now handled by
+    ``get_action_metadata_from_namespace`` in ``action.py``.
+    """
     parameters: List[Tuple[str, Parameter]] = []
-    actions: List[Tuple[str, Callable | None, ActionParameter]] = []
+    actions: list = []  # kept for backward-compatible call sites; always empty
     for name, value in namespace.items():
         if name.startswith('__') and name.endswith('__'):
             continue
         if cfg_suggest is not None and not cfg_suggest.is_included(name):
             continue
         if isinstance(value, bind):
-            if value.metadata.type == "action":
-                actions.append(
-                    (name, value.fget, value.metadata)
-                )
-            else:
-                parameters.append((name, value.metadata))
+            parameters.append((name, value.metadata))
         elif isinstance(value, (int, float, bool, str)) or value is None:
             val_type = (
                 isinstance(value, bool)

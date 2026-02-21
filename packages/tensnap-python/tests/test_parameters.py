@@ -4,12 +4,14 @@ import pytest
 from tensnap.bindings.basic import (
     NumberParameter,
     EnumParameter,
-    ActionParameter,
     BooleanParameter,
     StringParameter,
+    ActionMetadata,
     bind,
     BindParametersConfig,
     get_parameter_metadata_from_object,
+    get_action_metadata_from_namespace,
+    action,
 )
 from tensnap.bindings.basic.parameter import create_parameter
 
@@ -70,13 +72,20 @@ class TestParameterClasses:
         assert param.type == "string"
         assert param.value == "test"
 
-    def test_action_parameter(self):
-        """Test ActionParameter creation"""
-        param = ActionParameter(id="start", label="Start Simulation")
+    def test_action_metadata(self):
+        """Test ActionMetadata creation (v0.2 standalone action)"""
+        metadata = ActionMetadata(id="start", label="Start Simulation")
 
-        assert param.id == "start"
-        assert param.type == "action"
-        assert param.label == "Start Simulation"
+        assert metadata.id == "start"
+        assert metadata.label == "Start Simulation"
+        assert metadata.continuous is False
+        assert metadata.allow_runtime_change is True
+
+        wire = metadata.to_dict()
+        assert wire["id"] == "start"
+        assert wire["label"] == "Start Simulation"
+        assert "continuous" in wire
+        assert "allowRuntimeChange" in wire
 
     def test_parameter_label_auto_generation(self):
         """Test automatic label generation from ID"""
@@ -111,10 +120,6 @@ class TestParameterClasses:
         str_param = create_parameter(id="name", type="string", value="test")
         assert isinstance(str_param, StringParameter)
         assert str_param.value == "test"
-
-        # Test action parameter
-        action_param = create_parameter(id="start", type="action")
-        assert isinstance(action_param, ActionParameter)
 
 
 class TestBindDecorator:

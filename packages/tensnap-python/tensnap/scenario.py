@@ -228,7 +228,7 @@ class SimulationScenario:
                 added_parameter_ids.append(param.id)
             for name, func, action in actions:
                 self.server.add_action(
-                    action, func or (lambda: target[name]()), add_parameter=True
+                    action, func or (lambda: target[name]())
                 )
                 added_action_ids.append(action.id)
         else:
@@ -240,7 +240,6 @@ class SimulationScenario:
                 self.server.add_action(
                     action,
                     func or (lambda: getattr(target, name)()),
-                    add_parameter=True,
                 )
                 added_action_ids.append(action.id)
         return added_parameter_ids, added_action_ids
@@ -263,12 +262,12 @@ class SimulationScenario:
                 if self.handler:
                     await self.handler.on_reset()
 
-            self.server.add_action(reset._tensnap_action, reset, add_parameter=True)
+            self.server.add_action(reset._tensnap_action, reset)
         if isinstance(target, dict):
             actions = get_action_metadata_from_namespace(target)
             for name, func, action in actions:
                 self.server.add_action(
-                    action, func or (lambda: target[name]()), add_parameter=True
+                    action, func or (lambda: target[name]())
                 )
             return
         if isinstance(target, ModuleType) or (
@@ -279,7 +278,6 @@ class SimulationScenario:
                 self.server.add_action(
                     action,
                     func or (lambda: getattr(target, name)()),
-                    add_parameter=True,
                 )
             return
         if hasattr(target, "__class__"):
@@ -287,7 +285,7 @@ class SimulationScenario:
             actions = get_action_metadata_from_namespace(vars(cls))  # type: ignore
             for name, _, action in actions:
                 self.server.add_action(
-                    action, getattr(target, name), add_parameter=True
+                    action, getattr(target, name)
                 )
 
     def remove_all_actions(self, remove_parameters: bool = True):

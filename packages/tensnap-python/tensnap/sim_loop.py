@@ -221,9 +221,8 @@ class SimulationLoop:
         
         # Add default control buttons
         for func in [self.start, self.stop, self.toggle, self.step_once]:
-            param = func._tensnap_action  # type: ignore
+            metadata = func._tensnap_action  # type: ignore
             server.add_action(
-                action_parameter=param,
+                action=metadata,
                 handler=func,
-                add_parameter=True,
             )

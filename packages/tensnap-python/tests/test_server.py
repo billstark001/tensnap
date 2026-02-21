@@ -10,7 +10,7 @@ from tensnap.server import (
     ServerToClientMessageType,
     ClientToServerMessageType,
 )
-from tensnap.bindings.basic import NumberParameter, ActionParameter, ChartGroupMetadata
+from tensnap.bindings.basic import NumberParameter, ActionMetadata, ChartGroupMetadata
 from tensnap.models import GridEnvironmentBinder
 
 
@@ -19,27 +19,27 @@ class TestMessageEncoding:
 
     def test_encode_message_json(self):
         """Test JSON message encoding"""
-        msg_type = ServerToClientMessageType.TIME_STEP_START
+        msg_type = ServerToClientMessageType.METADATA_UPDATE
         payload = {"time": 10}
         result = encode_message(msg_type, payload, use_msgpack=False)
 
         assert isinstance(result, str)
         decoded = json.loads(result)
-        assert decoded["type"] == "time_step_start"
+        assert decoded["type"] == "metadata_update"
         assert decoded["payload"]["time"] == 10
 
     def test_encode_message_msgpack(self):
         """Test MessagePack encoding"""
         import msgpack
 
-        msg_type = ServerToClientMessageType.ENVIRONMENT_UPDATE
-        payload = {"id": "env1", "data": {"x": 5}}
+        msg_type = ServerToClientMessageType.ENV_LAYER_UPDATE
+        payload = {"env_id": "env1", "layer_id": "", "data": {"x": 5}}
         result = encode_message(msg_type, payload, use_msgpack=True)
 
         assert isinstance(result, bytes)
         decoded = msgpack.unpackb(result, raw=False)
-        assert decoded["type"] == "environment_update"
-        assert decoded["payload"]["id"] == "env1"
+        assert decoded["type"] == "env_layer_update"
+        assert decoded["payload"]["env_id"] == "env1"
 
 
 class TestTenSnapServer:
@@ -58,6 +58,7 @@ class TestTenSnapServer:
         assert len(server.clients) == 0
         assert len(server.environments) == 0
         assert len(server.parameters) == 0
+        assert len(server.actions) == 0
         assert len(server.charts) == 0
 
     def test_add_environment(self, server: TenSnapServer):
@@ -163,17 +164,19 @@ class TestTenSnapServer:
         assert "test_chart" not in server.charts
 
     def test_add_action(self, server: TenSnapServer):
-        """Test adding an action to the server"""
-        action_param = ActionParameter(id="test_action", label="Test Action")
+        """Test adding an action to the server (v0.2 — stored separately from parameters)"""
+        action_meta = ActionMetadata(id="test_action", label="Test Action")
 
         handler_called = {"value": False}
 
         def handler():
             handler_called["value"] = True
 
-        server.add_action(action_param, handler, add_parameter=True)
+        server.add_action(action_meta, handler)
 
-        assert "test_action" in server.parameters
+        # v0.2: actions are in server.actions, NOT in server.parameters
+        assert "test_action" in server.actions
+        assert "test_action" not in server.parameters
         assert "test_action" in server.button_handlers
 
         # Test handler can be called
@@ -182,32 +185,32 @@ class TestTenSnapServer:
 
     def test_remove_action(self, server: TenSnapServer):
         """Test removing an action from the server"""
-        action_param = ActionParameter(id="test_action", label="Test")
+        action_meta = ActionMetadata(id="test_action", label="Test")
         handler = lambda: None
 
-        server.add_action(action_param, handler, add_parameter=True)
+        server.add_action(action_meta, handler)
+        assert "test_action" in server.actions
         assert "test_action" in server.button_handlers
-        assert "test_action" in server.parameters
 
-        server.remove_action("test_action", remove_parameter=True)
+        server.remove_action("test_action")
+        assert "test_action" not in server.actions
         assert "test_action" not in server.button_handlers
-        assert "test_action" not in server.parameters
 
     def test_dump_parameters(self, server: TenSnapServer):
-        """Test dumping all parameter values"""
+        """Test dumping all parameter values — actions must not appear"""
         param1 = NumberParameter(id="param1", value=10.0)
         param2 = NumberParameter(id="param2", value=20.0)
-        action = ActionParameter(id="action1")
+        action_meta = ActionMetadata(id="action1")
 
         server.add_parameter(param1)
         server.add_parameter(param2)
-        server.add_parameter(action)
+        server.add_action(action_meta, lambda: None)
 
         dump = server.dump_parameters()
 
         assert "param1" in dump
         assert "param2" in dump
-        assert "action1" not in dump  # Actions should not be dumped
+        assert "action1" not in dump  # Actions are stored separately; must not appear
         assert dump["param1"] == 10.0
         assert dump["param2"] == 20.0
 
@@ -219,7 +222,7 @@ class TestTenSnapServer:
         mock_client.closed = False
         server.clients.add(mock_client)
 
-        await server._broadcast(ServerToClientMessageType.TIME_STEP_START, {"time": 5})
+        await server._broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": 5})
 
         # Flush the queue
         await server._queue.flush()
@@ -295,6 +298,31 @@ class TestTenSnapServer:
         assert len(result["updated"]) == 0
 
     @pytest.mark.asyncio
+    async def test_compute_action_deltas(self, server: TenSnapServer):
+        """Test computing action deltas for state sync (v0.2)"""
+        action1 = ActionMetadata(id="start", label="Start")
+        action2 = ActionMetadata(id="stop", label="Stop")
+
+        server.add_action(action1, lambda: None)
+        server.add_action(action2, lambda: None)
+
+        # Client has only "start"
+        client_state = [
+            {
+                "id": "start",
+                "label": "Start",
+                "continuous": False,
+                "allowRuntimeChange": True,
+            }
+        ]
+        result = await server._compute_action_deltas(client_state)
+
+        assert len(result["added"]) == 1
+        assert result["added"][0]["id"] == "stop"
+        assert len(result["removed"]) == 0
+        assert len(result["updated"]) == 0
+
+    @pytest.mark.asyncio
     async def test_handle_param_change(self, server: TenSnapServer):
         """Test handling parameter change from client"""
         test_value = {"val": 10.0}
@@ -312,18 +340,18 @@ class TestTenSnapServer:
         assert test_value["val"] == 25.0
 
     @pytest.mark.asyncio
-    async def test_handle_button_click(self, server: TenSnapServer):
-        """Test handling button click from client"""
+    async def test_handle_action_start(self, server: TenSnapServer):
+        """Test handling action_start from client (v0.2)"""
         clicked = {"value": False}
 
         def handler():
             clicked["value"] = True
 
-        action = ActionParameter(id="test_action")
-        server.add_action(action, handler)
+        action_meta = ActionMetadata(id="test_action")
+        server.add_action(action_meta, handler)
 
         mock_ws = AsyncMock()
 
-        await server._handle_button_click(mock_ws, {"action": "test_action"})
+        await server._handle_action_start(mock_ws, {"id": "test_action"})
 
         assert clicked["value"] is True
