@@ -32,3 +32,30 @@ export interface ChartConfig {
     left?: number;
   };
 }
+
+export interface ChartMetadata {
+  id: string;
+  label: string;
+  color?: string;
+}
+
+export interface ChartGroupMetadata extends ChartMetadata {
+  dataList?: ChartMetadata[];
+}
+
+export interface NativeDataPoint {
+  time: number;
+  [key: string]: any;
+}
+
+export interface ChartGroup {
+  id: string;
+  label: string;
+  metadataDict: Record<string, ChartMetadata>;
+  data: NativeDataPoint[];
+}
+export interface ChartUpdateData {
+  id: string;
+  time?: number;
+  value: any;
+}

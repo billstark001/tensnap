@@ -41,7 +41,7 @@ const AnchoredParameterView = ({ id }: { id: string }) => {
 const AnchoredChartView = ({ id }: { id: string }) => {
   useScenarioStore((store) => store.isInTimeStep); // subscribe to time step changes
   const charts = useScenarioStore((store) => store.charts);
-  const chartGroup = charts?.allChartGroups.get(id);
+  const chartGroup = charts?.getGroup(id);
   if (!chartGroup) return <div>Chart not found: {id}</div>;
 
   return <ChartView chartGroup={chartGroup} />;

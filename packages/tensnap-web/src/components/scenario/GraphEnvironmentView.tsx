@@ -1,11 +1,19 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { GraphAgent } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { InstantiatedGraphEnvironment } from '@/store/scenario/environment';
-import { GraphVisualizer, GraphData } from './graphVisualizer';
 import { Trans } from '@lingui/react/macro';
-import { throttle } from '@/utils';
+import {
+  EnvironmentView,
+  AgentStorage,
+  EdgeStorage,
+  BackgroundStorage,
+  AgentLayer,
+  EdgeLayer,
+  BackgroundLayer,
+  RenderableAgent,
+} from 'tensnap-web-core';
 
 interface GraphEnvironmentViewProps {
   environment: InstantiatedGraphEnvironment;
@@ -13,113 +21,87 @@ interface GraphEnvironmentViewProps {
 }
 
 export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnvironmentViewProps) {
-
   const { id, agents, props } = environment;
 
-
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const visualizerRef = useRef<GraphVisualizer | null>(null);
-  const [selectedNode, setSelectedNode] = useState<GraphAgent | null>(null);
-  const [svgSize, setSvgSize] = useState({ width: 600, height: 600 });
-  const lastEnvironmentIdRef = useRef<string | number | null>(null);
-  const fitViewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const envViewRef = useRef<EnvironmentView | null>(null);
+  const agentStorageRef = useRef<AgentStorage | null>(null);
+  const edgeStorageRef = useRef<EdgeStorage | null>(null);
+  const agentLayerRef = useRef<AgentLayer | null>(null);
 
-  // Observe container size changes
+  // Keep latest agents map in a ref so the click handler always sees current data
+  const agentsRef = useRef(agents);
+  agentsRef.current = agents;
+
+  const [selectedNode, setSelectedNode] = useState<GraphAgent | null>(null);
+
+  const handleAgentClick = useCallback((agent: RenderableAgent) => {
+    const found = agentsRef.current[agent.id];
+    if (found) setSelectedNode(found as GraphAgent);
+  }, []);
+
+  // Initialize view once
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const throttledResize = throttle((entries: ResizeObserverEntry[]) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        setSvgSize({ width, height });
-      }
-    }, 16);
+    const view = new EnvironmentView(containerRef.current, {
+      type: 'design',
+      enablePan: true,
+      enableTouchZoom: true,
+      enableWheelZoom: true,
+    });
+    const agentStorage = new AgentStorage();
+    const edgeStorage = new EdgeStorage();
+    const bgStorage = new BackgroundStorage();
 
-    resizeObserverRef.current = new ResizeObserver(throttledResize);
-    resizeObserverRef.current.observe(containerRef.current);
-
-    return () => {
-      if (resizeObserverRef.current) {
-        resizeObserverRef.current.disconnect();
-        resizeObserverRef.current = null;
-      }
-    };
-  }, []);
-
-  // Initialize visualizer (only once)
-  useEffect(() => {
-    if (!svgRef.current) return;
-
-    visualizerRef.current = new GraphVisualizer(svgRef.current, {
-      width: svgSize.width,
-      height: svgSize.height,
+    const bgLayer = new BackgroundLayer(view, bgStorage);
+    const edgeLayer = new EdgeLayer(view, edgeStorage, agentStorage);
+    const agentLayer = new AgentLayer(view, agentStorage, {
+      ...edgeLayer.buildDragHandlers(),
+      draggable: true,
+      showLabel: false,
+      clickable: true,
+      originMode: 'center',
+      coordOffset: 'float',
+      onAgentDoubleClick: handleAgentClick,
     });
 
-    visualizerRef.current.setNodeClickHandler((node) => {
-      setSelectedNode(node);
-    });
+    view.addLayer(bgLayer);
+    view.addLayer(edgeLayer);
+    view.addLayer(agentLayer);
+
+    envViewRef.current = view;
+    agentStorageRef.current = agentStorage;
+    edgeStorageRef.current = edgeStorage;
+    agentLayerRef.current = agentLayer;
 
     return () => {
-      if (visualizerRef.current) {
-        visualizerRef.current.destroy();
-        visualizerRef.current = null;
-      }
+      view.destroy();
+      bgStorage.destroy();
+      envViewRef.current = null;
+      agentStorageRef.current = null;
+      edgeStorageRef.current = null;
+      agentLayerRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update visualizer size when container size changes
+  // Update graph data when environment changes
   useEffect(() => {
-    if (visualizerRef.current) {
-      visualizerRef.current.updateSize(svgSize.width, svgSize.height);
-    }
-  }, [svgSize.width, svgSize.height]);
-
-  // Update graph data
-  useEffect(() => {
-    if (!visualizerRef.current) return;
-
-    const shouldReinitialize = lastEnvironmentIdRef.current !== id;
-    lastEnvironmentIdRef.current = id;
-
-    const graphData: GraphData = {
-      nodes: Object.values(agents),
-      edges: props.edges,
-    };
-
-    visualizerRef.current.update(graphData, shouldReinitialize);
-
-    // Clear any existing timeout
-    if (fitViewTimeoutRef.current) {
-      clearTimeout(fitViewTimeoutRef.current);
-    }
-
-    // Fit view after simulation settles
-    fitViewTimeoutRef.current = setTimeout(() => {
-      if (visualizerRef.current) {
-        visualizerRef.current.fitViewToGraph();
-      }
-      fitViewTimeoutRef.current = null;
-    }, 1000);
-
-    return () => {
-      if (fitViewTimeoutRef.current) {
-        clearTimeout(fitViewTimeoutRef.current);
-        fitViewTimeoutRef.current = null;
-      }
-    };
+    const agentStorage = agentStorageRef.current;
+    const edgeStorage = edgeStorageRef.current;
+    if (!agentStorage || !edgeStorage) return;
+    agentStorage.updateAgents(Object.values(agents));
+    edgeStorage.setEdges(props.edges as any);
   }, [id, agents, props.edges, updateTrigger]);
 
-  const resetView = () => {
-    if (visualizerRef.current) {
-      visualizerRef.current.fitViewToGraph();
-    }
-  };
+  const resetView = useCallback(() => {
+    envViewRef.current?.fitToScene({ padding: 0.05 });
+  }, []);
 
   return (
-    <div ref={containerRef} className={styles.container}>
-      <svg ref={svgRef} width={svgSize.width} height={svgSize.height} className={styles.svg} />
+    <div className={styles.container}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       <button className={styles.resetButton} onClick={resetView}>
         <Trans>Reset View</Trans>
       </button>

@@ -43,7 +43,7 @@ def update_hk_visualization(hk_model: DiscreteHKModel) -> None:
                     if opinion < -0.33
                     else "#3498DB" if opinion > 0.33 else "#F39C12"
                 ),
-                "size": 16 + abs(opinion) * 10,
+                "size": 0.8 + abs(opinion) * 0.6,
             }
         )
 

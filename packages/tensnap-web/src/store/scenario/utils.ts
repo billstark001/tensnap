@@ -1,7 +1,6 @@
 import { ChartGroup, ChartGroupMetadata, ChartMetadata, Environment, EnvironmentId, Parameter } from "@/types/model"
 import { InstantiatedEnvironment, instantiateEnvironment } from "./environment";
-import { instantiateChartMetadata, InstantiatedChartStorage } from "./chart";
-import { sanitizeParameter } from "./parameter";
+import { ChartStorage, instantiateChartMetadata, sanitizeParameter } from 'tensnap-web-core';
 import { SetDataPayload } from "./types";
 
 
@@ -13,7 +12,7 @@ export type ParsedScenarioContent = {
 
 export type InstantiatedScenarioContent = {
   environments: Map<EnvironmentId, InstantiatedEnvironment>;
-  charts: InstantiatedChartStorage;
+  charts: ChartStorage;
   parameters: Map<string, Parameter>;
 };
 
@@ -29,7 +28,7 @@ export function instantiateScenarioContent(parsed: ParsedScenarioContent): Insta
     instantiatedParameters.set(param.id, sanitizeParameter(param, false));
   }
 
-  const instantiatedCharts = new InstantiatedChartStorage(charts);
+  const instantiatedCharts = new ChartStorage(charts);
 
   return {
     environments: instantiatedEnvironments,
@@ -91,15 +90,15 @@ export function mergeParameters(
 }
 
 export function mergeCharts(
-  current: InstantiatedChartStorage,
+  current: ChartStorage,
   data: SetDataPayload,
   preserveExisting: boolean
-): InstantiatedChartStorage {
+): ChartStorage {
   if (data.charts === undefined && data.removedChartIds === undefined && data.clearCharts === undefined) {
     return current;
   }
 
-  const newCharts = preserveExisting ? current.shallowCopy() : new InstantiatedChartStorage([]);
+  const newCharts = preserveExisting ? current.shallowCopy() : new ChartStorage();
   const removedChartIdsSet = new Set(data.removedChartIds || []);
   const clearAllCharts = data.clearCharts === true;
   const clearChartIdsSet = new Set<string>(
@@ -115,24 +114,24 @@ export function mergeCharts(
 
   if (!preserveExisting) {
     for (const chartId of removedChartIdsSet) {
-      newCharts.removeChartGroup(chartId) || newCharts.removeChartMetadata(chartId);
+      newCharts.removeGroup(chartId) || newCharts.removeMeta(chartId);
     }
   }
 
   for (const chartGroupMeta of chartGroupMetadata) {
-    newCharts.addChartGroup(instantiateChartMetadata(chartGroupMeta), true);
+    newCharts.addGroup(instantiateChartMetadata(chartGroupMeta), true);
   }
 
   for (const chartMeta of chartMetadata) {
-    newCharts.upsertChartMetadata(chartMeta);
+    newCharts.upsertMeta(chartMeta);
   }
 
   if (clearAllCharts) {
     newCharts.clearAll();
   } else if (clearChartIdsSet.size > 0) {
-    const clearedGroupIds = newCharts.clearByGroup(Array.from(clearChartIdsSet));
+    const clearedGroupIds = newCharts.clearGroups(Array.from(clearChartIdsSet));
     clearedGroupIds.forEach(id => clearChartIdsSet.delete(id));
-    newCharts.clearByMetadata(Array.from(clearChartIdsSet));
+    newCharts.clearMetas(Array.from(clearChartIdsSet));
   }
 
   return newCharts;

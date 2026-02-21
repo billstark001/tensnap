@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { LeaferLineChart } from './LeaferLineChart';
-import { ChartDataPoint, ChartConfig } from './types';
+import { LineChartView } from 'tensnap-web-core';
+import type { ChartDataPoint, ChartConfig } from 'tensnap-web-core';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';
 import * as styles from './LeaferChartView.css';
@@ -17,11 +17,11 @@ export interface LeaferChartViewRef {
   getCanvasBlob: () => Promise<Blob | null>;
 }
 
-// React binding for LeaferLineChart
+// React binding for LineChartView (renamed from LeaferLineChart)
 export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewProps>((props, ref) => {
   const { data, dataVersion, config, className, style } = props;
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<LeaferLineChart | null>(null);
+  const chartRef = useRef<LineChartView | null>(null);
   const [isReady, setIsReady] = useState(false);
   const theme = useSettingsStore((state) => state.theme);
 
@@ -38,7 +38,7 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
   // Initialize chart on mount
   useEffect(() => {
     if (containerRef.current && !chartRef.current) {
-      chartRef.current = new LeaferLineChart(containerRef.current, config);
+      chartRef.current = new LineChartView(containerRef.current, config);
       chartRef.current.resize(
         containerRef.current.clientWidth,
         containerRef.current.clientHeight
@@ -78,44 +78,28 @@ export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewPro
 
   // Handle container resize
   useEffect(() => {
-    if (!isReady || !chartRef.current || !containerRef.current) return;
+    if (!containerRef.current || !isReady) return;
 
-    let isCleanedUp = false;
-    let resizeObserver: ResizeObserver | null = null;
-    const chartInstance = chartRef.current;
-    const containerElement = containerRef.current;
-
-    const handleResize = (entries: ResizeObserverEntry[]) => {
-      if (isCleanedUp) return;
-      
+    const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        if (chartInstance && width > 0 && height > 0) {
-          chartInstance.resize(width, height);
+        if (chartRef.current && width > 0 && height > 0) {
+          chartRef.current.resize(width, height);
         }
       }
-    };
+    });
 
-    resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(containerElement);
-
-    return () => {
-      isCleanedUp = true;
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-        resizeObserver = null;
-      }
-    };
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
   }, [isReady]);
 
   return (
     <div
       ref={containerRef}
-      className={clsx(
-        className,
-        styles.chartContainer,
-      )}
+      className={clsx(styles.chartContainer, className)}
       style={style}
     />
   );
 });
+
+LeaferChartView.displayName = 'LeaferChartView';

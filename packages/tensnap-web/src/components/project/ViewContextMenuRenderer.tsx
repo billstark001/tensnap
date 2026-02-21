@@ -8,67 +8,13 @@ import { AnyView } from "@/types/ui";
 import { useViewContext } from "../view/useViewContext";
 import { useToast } from "@/store/toast";
 import { useScenarioStore } from "@/store/scenario/store";
-import { exportToCSV } from "@/store/scenario/chart";
+import { exportToCSV } from "tensnap-web-core";
 import { useUpdateAndDeleteView } from "./view-edit-hooks";
-
-
-
-const copyCanvas = async (canvas: HTMLCanvasElement) => {
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob((blob) => {
-      resolve(blob);
-    });
-  });
-  if (blob) {
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'image/png': blob }),
-    ]);
-    return true;
-  }
-  return false;
-};
-
-const copySVG = async (svgElement: SVGSVGElement) => {
-  const serializer = new XMLSerializer();
-  const svgString = serializer.serializeToString(svgElement);
-  const blob = new Blob([svgString], { type: 'image/svg+xml' });
-  const clipboardItem = new ClipboardItem({ 'image/svg+xml': blob });
-  await navigator.clipboard.write([clipboardItem]);
-  return true;
-};
-
-const copySvgAsBitmap = async (svgElement: SVGSVGElement) => {
-  const serializer = new XMLSerializer();
-  const svgString = serializer.serializeToString(svgElement);
-
-  const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-
-  const img = new Image();
-  img.src = url;
-  await img.decode();
-
-  const canvas = document.createElement("canvas");
-  canvas.width = svgElement.viewBox.baseVal.width || svgElement.width.baseVal.value || 200;
-  canvas.height = svgElement.viewBox.baseVal.height || svgElement.height.baseVal.value || 200;
-  const ctx = canvas.getContext("2d");
-  ctx!.drawImage(img, 0, 0);
-
-  URL.revokeObjectURL(url);
-
-  const result = await copyCanvas(canvas);
-
-  ctx?.clearRect(0, 0, canvas.width, canvas.height);
-  canvas.width = 0;
-  canvas.height = 0;
-
-  return result;
-};
-
+import { copyCanvas } from "@/utils/data";
 
 export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
-  const { view, type, dataType, parentView, children, node } = props;
+  const { view, type, parentView, children, node } = props;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
@@ -90,39 +36,6 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
     updateView(updatedView, objectData);
   }, [updateView]);
 
-  const handleCopySVG = useCallback(async () => {
-    if (!node) return;
-    const svgElement = node.querySelector('svg');
-    if (svgElement) {
-      try {
-        if (await copySVG(svgElement)) {
-          toast.success('SVG copied to clipboard!');
-        } else {
-          toast.error('Failed to copy SVG to clipboard.');
-        }
-      } catch (error) {
-        toast.error('Failed to copy SVG to clipboard.', String(error));
-      }
-    }
-  }, [node, toast.success, toast.error]);
-
-
-  const handleCopySVGAsBitmap = useCallback(async () => {
-    if (!node) return;
-    const svgElement = node.querySelector('svg');
-    if (svgElement) {
-      try {
-        if (await copySvgAsBitmap(svgElement)) {
-          toast.success('SVG copied to clipboard!');
-        } else {
-          toast.error('Failed to copy SVG to clipboard.');
-        }
-      } catch (error) {
-        toast.error('Failed to copy SVG to clipboard.', String(error));
-      }
-    }
-  }, [node, toast.success, toast.error]);
-
   const handleCopyCanvas = useCallback(async () => {
     if (!node) return;
     const canvasElement = node.querySelector('canvas');
@@ -141,7 +54,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
   const handleSaveChartAsCSV = useCallback(async () => {
     if (!charts) return;
-    const chartGroup = charts.allChartGroups.get((view.data as any)?.id);
+    const chartGroup = charts.getGroup((view.data as any)?.id);
     if (!chartGroup) {
       toast.error('Chart not found.');
       return;
@@ -164,23 +77,12 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
           </ContextMenu.Item>
         )}
 
-        {(type === 'chart' || (type === 'environment' && dataType !== 'graph')) && (
+        {(type === 'chart' || type === 'environment') && (
           <ContextMenu.Item onSelect={handleCopyCanvas}>
             <ClipboardCopy />
             <Trans>Copy</Trans>
           </ContextMenu.Item>
         )}
-
-        {(type === 'environment' && dataType === 'graph') && (<>
-          <ContextMenu.Item onSelect={handleCopySVG}>
-            <ClipboardCopy />
-            <Trans>Copy</Trans>
-          </ContextMenu.Item>
-          <ContextMenu.Item onSelect={handleCopySVGAsBitmap}>
-            <ClipboardCopy />
-            <Trans>Copy As Bitmap</Trans>
-          </ContextMenu.Item>
-        </>)}
 
         <ContextMenu.Separator />
 

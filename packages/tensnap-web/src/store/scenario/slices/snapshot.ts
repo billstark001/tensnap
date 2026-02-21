@@ -11,10 +11,10 @@ export const createSnapshotsSlice: CreateStoreFunction<SnapshotsSlice, ScenarioS
     const { environments, parameters, charts, currentTime } = get();
 
     const chartData: SnapshotChartData[] = [];
-    const allMetadata = charts.getAllChartMetadata();
+    const allMetadata = charts.getAllMeta();
 
     for (const meta of allMetadata) {
-      const value = charts.getValueAtTime(meta.id, currentTime);
+      const value = charts.getValueAt(meta.id, currentTime);
       if (value !== undefined) {
         chartData.push({ id: meta.id, value });
       }

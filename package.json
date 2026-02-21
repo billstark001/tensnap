@@ -8,6 +8,7 @@
   "scripts": {
     "dev:web": "pnpm --filter tensnap-web dev",
     "build:web": "pnpm --filter tensnap-web build",
+    "preview:web": "pnpm --filter tensnap-web preview",
     "test:web": "pnpm --filter tensnap-web test",
     "dev:tauri": "pnpm --filter tensnap-tauri dev",
     "build:tauri": "pnpm --filter tensnap-tauri build",
@@ -23,16 +24,16 @@
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
+    "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.10.0",
-    "eslint": "^9.39.1",
-    "eslint-plugin-jest": "^29.0.1",
+    "@types/node": "^25.3.0",
+    "eslint": "^10.0.1",
+    "eslint-plugin-jest": "^29.15.0",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
+    "eslint-plugin-react-refresh": "^0.5.0",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
-    "ts-jest": "^29.4.5",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3"
   },
   "engines": {

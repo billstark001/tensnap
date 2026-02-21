@@ -2,7 +2,7 @@ import { Line, Text, Group, Leafer, Rect, Ellipse } from 'leafer-ui';
 import { ChartDataPoint, ChartConfig } from './types';
 
 // Chart rendering class optimized for high-frequency updates
-export class LeaferLineChart {
+export class LineChartView {
   private app: Leafer | null = null;
   private container: HTMLElement;
   private config: ChartConfig;
@@ -590,7 +590,7 @@ export class LeaferLineChart {
 
     // Calculate available width for legend
     const availableWidth = chartWidth;
-    
+
     // Measure each legend item width
     const items = this.config.lines.map((lineConfig) => {
       // Approximate text width (rough estimation: char count * 6px)

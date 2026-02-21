@@ -1,0 +1,137 @@
+/**
+ * cases/variations.ts
+ *
+ * Parameter variations for existing benchmark cases.
+ * Each case has multiple configurations to test different performance scenarios.
+ */
+
+import { createLineChartCase } from './lineChart';
+import { createParticleBounceCase } from './particleBounce';
+import { createSpringGraphCase } from './springGraph';
+import { BenchmarkCase } from '../types';
+
+export interface CaseVariation {
+  name: string;
+  description: string;
+  cases: BenchmarkCase[];
+}
+
+/**
+ * Line Chart Variations
+ * Tests different line counts and data point densities
+ */
+export const lineChartVariations: CaseVariation = {
+  name: 'LineChart',
+  description: 'Multi-line chart rendering with varying complexity',
+  cases: [
+    createLineChartCase({
+      lineCount: 10,
+      pointCount: 30,
+      width: 600,
+      height: 300,
+    }),
+    createLineChartCase({
+      lineCount: 20,
+      pointCount: 60,
+      width: 600,
+      height: 300,
+    }),
+    createLineChartCase({
+      lineCount: 50,
+      pointCount: 100,
+      width: 600,
+      height: 300,
+    }),
+    createLineChartCase({
+      lineCount: 100,
+      pointCount: 200,
+      width: 800,
+      height: 400,
+    }),
+  ],
+};
+
+/**
+ * Particle Bounce Variations
+ * Tests different particle counts and speeds
+ */
+export const particleBounceVariations: CaseVariation = {
+  name: 'ParticleBounce',
+  description: 'Free-flying particles with collision detection',
+  cases: [
+    createParticleBounceCase({
+      particleCount: 100,
+      width: 80,
+      height: 50,
+      maxSpeed: 0.4,
+    }),
+    createParticleBounceCase({
+      particleCount: 1000,
+      width: 80,
+      height: 50,
+      maxSpeed: 0.5,
+    }),
+    createParticleBounceCase({
+      particleCount: 10000,
+      width: 80,
+      height: 50,
+      maxSpeed: 0.6,
+    }),
+    createParticleBounceCase({
+      particleCount: 20000,
+      width: 100,
+      height: 60,
+      maxSpeed: 0.6,
+    }),
+  ],
+};
+
+/**
+ * Spring Graph Variations
+ * Tests different graph sizes and densities
+ */
+export const springGraphVariations: CaseVariation = {
+  name: 'SpringGraph',
+  description: 'Force-directed graph layout with d3-force',
+  cases: [
+    createSpringGraphCase({
+      nodeCount: 50,
+      edgeProbability: 0.2,
+      width: 600,
+      height: 600,
+      perturbFraction: 0.1,
+    }),
+    createSpringGraphCase({
+      nodeCount: 200,
+      edgeProbability: 0.1,
+      width: 600,
+      height: 600,
+      perturbFraction: 0.1,
+    }),
+    createSpringGraphCase({
+      nodeCount: 500,
+      edgeProbability: 0.08,
+      width: 700,
+      height: 700,
+      perturbFraction: 0.08,
+    }),
+    createSpringGraphCase({
+      nodeCount: 1000,
+      edgeProbability: 0.03,
+      width: 800,
+      height: 800,
+      perturbFraction: 0.05,
+    }),
+  ],
+};
+
+/**
+ * Get all variations for testing
+ */
+export function getAllVariations(): CaseVariation[] {
+  return [
+    lineChartVariations,
+    particleBounceVariations,
+    springGraphVariations,
+  ];
+}

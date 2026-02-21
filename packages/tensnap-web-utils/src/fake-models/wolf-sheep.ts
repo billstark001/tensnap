@@ -75,7 +75,7 @@ class Sheep extends Turtle {
       {
         shape: "sheep",
         color: "white",
-        size: 10,
+        size: 1,
         labelColor: "blue"
       },
       world
@@ -113,7 +113,7 @@ class Wolf extends Turtle {
       {
         shape: "wolf",
         color: "black",
-        size: 10,
+        size: 1,
         labelColor: "red"
       },
       world
@@ -186,13 +186,13 @@ class Patch implements IPatch {
   }
 }
 
-interface World {
+export interface World {
   width: number;
   height: number;
 }
 
 // Main Model Class
-class WolfSheepModel {
+export class WolfSheepModel {
   private sheep: Sheep[] = [];
   private wolves: Wolf[] = [];
   private patches: Patch[][] = [];
@@ -522,6 +522,7 @@ class WolfSheepSimulationManager extends BaseSimulationManager {
       type: 'grid',
       width: this.worldSize.width,
       height: this.worldSize.height,
+      coord_offset: 'float',
       agents,
     };
 

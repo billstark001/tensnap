@@ -1,13 +1,13 @@
-import { Parameter, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from "@/types/model";
+import { Parameter, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from "./types";
 
-interface RangeHint {
+export interface RangeHint {
   value: number;
   min?: number;
   max?: number;
   step?: number;
 }
 
-interface EstimatedRange {
+export interface EstimatedRange {
   min: number;
   max: number;
   step: number;
@@ -66,13 +66,13 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
     const convertedMin = toPowerOfTen(validMin);
     const convertedMax = toPowerOfTen(validMax, true);
     const convertedStep = toPowerOfTen(validStep);
-    
+
     // 确保 step 不会大于 min 的绝对值（当 min 不为 0 时）
     let finalStep = convertedStep;
     if (convertedMin !== 0 && Math.abs(convertedMin) < convertedStep) {
       finalStep = toPowerOfTen(Math.abs(convertedMin));
     }
-    
+
     return {
       min: convertedMin,
       max: convertedMax,
@@ -167,7 +167,7 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
   if (estimatedMin !== 0 && Math.abs(estimatedMin) < estimatedStep) {
     estimatedStep = toPowerOfTen(Math.abs(estimatedMin));
   }
-  
+
   // 同时也要确保 step 合理，不能太大导致无法在范围内滑动
   const range = estimatedMax - estimatedMin;
   if (estimatedStep > range / 2) {

@@ -31,7 +31,7 @@ export const createViewsSlice: CreateStoreFunction<ViewsSlice, ScenarioStore> = 
         mainView,
         environmentsArray,
         Array.from(parameters.values()),
-        charts.getGroups(),
+        charts.getGroupList(),
         { disableMissingViews: true }
       )
     });
