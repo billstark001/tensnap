@@ -3,8 +3,12 @@ import react from '@vitejs/plugin-react';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import { lingui } from '@lingui/vite-plugin';
 import path from 'path';
+import pkg from './package.json';
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react({
       babel: {

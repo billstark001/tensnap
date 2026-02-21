@@ -25,7 +25,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
             TenSnap
           </h2>
           <p className={dialogStyles.aboutVersion}>
-            <Trans>Version</Trans> 0.1.0
+            <Trans>Version</Trans> {__APP_VERSION__}
           </p>
         </div>
 
