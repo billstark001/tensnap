@@ -61,9 +61,10 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
       if (isCssColor(background)) {
         this._setResolved({ kind: 'color', value: background });
       } else {
-        // Image URL — resolve via Image() to confirm it loads.
+        // Image URL (including blob-URLs from AssetStore) — resolve via Image().
         const img = await loadImageAsync(background, interpolation);
-        this._setResolved({ kind: 'image', url: img.src, isBlob: false, interpolation });
+        const isBlob = background.startsWith('blob:');
+        this._setResolved({ kind: 'image', url: img.src, isBlob, interpolation });
       }
       return;
     }
@@ -72,6 +73,23 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
     const url = await parseUint8ArrayBackground(background, interpolation);
     const img = await loadImageAsync(url, interpolation);
     this._setResolved({ kind: 'image', url: img.src, isBlob: url.startsWith('blob:'), interpolation });
+  }
+
+  /**
+   * Set the background from a pre-resolved asset URL (e.g. a blob-URL from AssetStore).
+   * The URL is treated as already-resolved — no Image() load is performed.
+   * Pass `undefined` or `null` to clear the background.
+   */
+  setBackgroundUrl(
+    url: string | undefined | null,
+    interpolation: ImageInterpolation = 'nearest',
+  ): void {
+    if (!url) {
+      this._setResolved(null);
+      return;
+    }
+    const isBlob = url.startsWith('blob:');
+    this._setResolved({ kind: 'image', url, isBlob, interpolation });
   }
 
   destroy(): void {

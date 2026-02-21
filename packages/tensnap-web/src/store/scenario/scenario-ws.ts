@@ -22,11 +22,15 @@ import {
   ChartCreatePayload,
   ChartUpdatePayload,
   ChartDeletePayload,
+  AssetMetaPayload,
+  AssetDataPayload,
+  AssetDeletePayload,
   LogPayload,
   ErrorPayload,
 } from "@/types/api";
 import { StoreApi, UseBoundStore } from "zustand";
 import { getToastState } from "../toast";
+import type { UseAssetStore } from "../asset";
 
 /**
  * Cleanup function to remove all event handlers
@@ -48,13 +52,16 @@ export function unregisterEventHandlers(wsManager: WebSocketManager) {
   wsManager.off('edge_create');
   wsManager.off('edge_update');
   wsManager.off('edge_delete');
-  wsManager.off('parameter_create');
-  wsManager.off('parameter_update');
-  wsManager.off('parameter_delete');
-  wsManager.off('parameter_sync');
+  wsManager.off('param_create');
+  wsManager.off('param_update');
+  wsManager.off('param_delete');
+  wsManager.off('param_sync');
   wsManager.off('chart_create');
   wsManager.off('chart_update');
   wsManager.off('chart_delete');
+  wsManager.off('asset_meta');
+  wsManager.off('asset_data');
+  wsManager.off('asset_delete');
   wsManager.off('log');
   wsManager.off('error');
 }
@@ -62,6 +69,7 @@ export function unregisterEventHandlers(wsManager: WebSocketManager) {
 export function registerEventHandlers(
   wsManager: WebSocketManager,
   useStore: UseBoundStore<StoreApi<ScenarioStore>>,
+  useAssets: UseAssetStore,
 ) {
   // Clear any existing handlers first to prevent duplicates
   unregisterEventHandlers(wsManager);
@@ -147,19 +155,19 @@ export function registerEventHandlers(
   });
 
   // -- Parameters --
-  wsManager.on('parameter_create', (payload: ParameterCUPayload) => {
+  wsManager.on('param_create', (payload: ParameterCUPayload) => {
     useStore.getState().upsertParameter(payload);
   });
 
-  wsManager.on('parameter_update', (payload: ParameterCUPayload) => {
+  wsManager.on('param_update', (payload: ParameterCUPayload) => {
     useStore.getState().upsertParameter(payload);
   });
 
-  wsManager.on('parameter_delete', (payload: ParameterDeletePayload) => {
+  wsManager.on('param_delete', (payload: ParameterDeletePayload) => {
     useStore.getState().deleteParameter(payload.id);
   });
 
-  wsManager.on('parameter_sync', (payload: ParameterSyncPayload) => {
+  wsManager.on('param_sync', (payload: ParameterSyncPayload) => {
     useStore.getState().syncParameterValue(payload.id, payload.value);
   });
 
@@ -177,6 +185,25 @@ export function registerEventHandlers(
 
   wsManager.on('chart_delete', (payload: ChartDeletePayload) => {
     useStore.getState().deleteChart(payload.id);
+  });
+
+  // -- Assets --
+  wsManager.on('asset_meta', (payload: AssetMetaPayload) => {
+    const needIds = useAssets.getState().receiveMeta(payload.assets);
+    if (needIds.length > 0) {
+      // Tell the server which assets we already have, so it can send missing data
+      const heldHashes = useAssets.getState().getHeldHashes();
+      wsManager.send({ type: 'asset_sync', payload: { assets: heldHashes } });
+    }
+  });
+
+  wsManager.on('asset_data', (payload: AssetDataPayload) => {
+    const { id, hash, mime, data } = payload;
+    useAssets.getState().receiveData(id, hash, mime, data);
+  });
+
+  wsManager.on('asset_delete', (payload: AssetDeletePayload) => {
+    useAssets.getState().deleteAssets(payload.ids);
   });
 
   // -- Log / Error --

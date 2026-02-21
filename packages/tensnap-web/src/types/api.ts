@@ -30,21 +30,25 @@ export type ServerToClientMessageType =
   | 'edge_create'
   | 'edge_update'
   | 'edge_delete'
-  | 'parameter_create'
-  | 'parameter_update'
-  | 'parameter_delete'
-  | 'parameter_sync'
+  | 'param_create'
+  | 'param_update'
+  | 'param_delete'
+  | 'param_sync'
   | 'chart_create'
   | 'chart_update'
   | 'chart_delete'
+  | 'asset_meta'
+  | 'asset_data'
+  | 'asset_delete'
   | 'log'
   | 'error';
 
 // Client to server message types
 export type ClientToServerMessageType =
   | 'state_sync'
-  | 'parameter_change'
+  | 'param_change'
   | 'action_start'
+  | 'asset_sync'
   | 'error';
 
 // All message types
@@ -189,15 +193,15 @@ export interface EdgeDeletePayload {
   edges: Array<{ source: AgentId; target: AgentId }>;
 }
 
-/** parameter_create / parameter_update */
+/** param_create / param_update */
 export type ParameterCUPayload = Parameter;
 
-/** parameter_delete */
+/** param_delete */
 export interface ParameterDeletePayload {
   id: string;
 }
 
-/** parameter_sync — server-initiated value correction */
+/** param_sync — server-initiated value correction */
 export interface ParameterSyncPayload {
   id: string;
   value: any;
@@ -239,6 +243,51 @@ export interface ErrorPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Assets
+// ---------------------------------------------------------------------------
+
+export type AssetId = string;
+
+/** Metadata descriptor for a single asset (no binary data). */
+export interface AssetMeta {
+  id: AssetId;
+  /** Content hash (e.g. first 16 hex chars of SHA-256). Used to detect staleness. */
+  hash: string;
+  /** MIME type, e.g. "image/png", "image/svg+xml", "application/octet-stream". */
+  mime: string;
+  /** Byte size of the raw data. */
+  size: number;
+  /** Optional human-readable label. */
+  label?: string;
+}
+
+/** asset_meta — server announces one or more available assets (no binary data). */
+export interface AssetMetaPayload {
+  assets: AssetMeta[];
+}
+
+/** asset_data — server sends the actual binary data for an asset.
+ *  In JSON mode `data` is a base-64 string; in msgpack mode a Uint8Array. */
+export interface AssetDataPayload {
+  id: AssetId;
+  hash: string;
+  mime: string;
+  data: string | Uint8Array;
+}
+
+/** asset_delete — server removes one or more assets from the client cache. */
+export interface AssetDeletePayload {
+  ids: AssetId[];
+}
+
+/** asset_sync — client tells server which assets it already has (id → hash).
+ *  Server responds with asset_data for any missing or outdated assets. */
+export interface AssetSyncPayload {
+  /** Map of asset id to the hash the client currently holds. */
+  assets: Record<AssetId, string>;
+}
+
+// ---------------------------------------------------------------------------
 // Client → Server
 // ---------------------------------------------------------------------------
 
@@ -254,7 +303,7 @@ export interface StateSyncRequest {
   charts: ChartMetadata[];
 }
 
-/** parameter_change */
+/** param_change */
 export interface ParameterChangePayload {
   id: string;
   value: any;
@@ -265,6 +314,9 @@ export interface ActionStartPayload {
   id: string;
   continuous?: boolean;
 }
+
+/** asset_sync — client reports which assets it already holds (id → hash) */
+// AssetSyncPayload is defined above in the Assets section.
 
 //#endregion
 
@@ -292,6 +344,9 @@ export type ServerToClientPayload =
   | ChartCreatePayload
   | ChartUpdatePayload
   | ChartDeletePayload
+  | AssetMetaPayload
+  | AssetDataPayload
+  | AssetDeletePayload
   | LogPayload
   | ErrorPayload;
 
@@ -304,7 +359,8 @@ export type ServerToClientWSMessage = ServerToClientMessage<ServerToClientPayloa
 export type ClientToServerPayload =
   | StateSyncRequest
   | ParameterChangePayload
-  | ActionStartPayload;
+  | ActionStartPayload
+  | AssetSyncPayload;
 
 export type ClientToServerWSMessage = ClientToServerMessage<ClientToServerPayload>;
 

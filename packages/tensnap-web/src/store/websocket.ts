@@ -6,6 +6,7 @@ import { StateSyncRequest, WSMessage } from '@/types/api';
 import { registerEventHandlers, unregisterEventHandlers } from './scenario/scenario-ws';
 import { WebSocketConnectionError, wsConnected, wsDisconnected, WebSocketManagerImpl, WebSocketManager, WebSocketManagerFake } from '@/websocket';
 import { useSettingsStore } from './settings';
+import type { UseAssetStore } from './asset';
 
 
 const createEmptyStateSyncRequest = (): StateSyncRequest => ({
@@ -38,7 +39,8 @@ export interface WebSocketStore {
 }
 
 export const createWebSocketStore = (
-  useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>
+  useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>,
+  useAssetStore: UseAssetStore,
 ) => create<WebSocketStore>((set, get) => ({
   id: generateUniqueId(),
   wsManager: null,
@@ -105,7 +107,7 @@ export const createWebSocketStore = (
     wsManager.on(wsDisconnected, onDisconnected);
 
     // 设置消息处理器
-    registerEventHandlers(wsManager, useScenarioStore);
+    registerEventHandlers(wsManager, useScenarioStore, useAssetStore);
 
     set({
       wsManager,

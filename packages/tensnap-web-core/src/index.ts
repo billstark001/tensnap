@@ -8,3 +8,4 @@ export * from './chart';
 export * from './environment';
 export * from './parameter';
 export * from './utils';
+export * from './asset';

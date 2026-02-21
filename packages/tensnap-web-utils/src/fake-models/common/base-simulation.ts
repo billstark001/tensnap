@@ -169,7 +169,7 @@ export abstract class BaseSimulationManager {
   protected async sendFullStateSync(): Promise<void> {
     // Parameters
     for (const param of this.getParameters()) {
-      await this.send({ type: 'parameter_create', payload: param });
+      await this.send({ type: 'param_create', payload: param });
     }
     // Actions
     for (const action of this.getActions()) {
@@ -204,7 +204,7 @@ export abstract class BaseSimulationManager {
         this.handleStateSync(message.payload as StateSyncRequest);
         break;
 
-      case 'parameter_change': {
+      case 'param_change': {
         const { id, value } = message.payload as ParameterChangePayload;
         this.handleParameterChange(id, value);
         break;

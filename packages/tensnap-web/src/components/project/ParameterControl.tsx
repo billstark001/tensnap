@@ -159,7 +159,7 @@ export function ParameterControl({ parameter, showLabel = false }: ParameterCont
   const onChange = useCallback(
     (value: any) => {
       sendMessage?.<ParameterChangePayload>({
-        type: 'parameter_change',
+        type: 'param_change',
         payload: { id: parameterId, value },
       });
       updateParameter?.(parameterId, value);

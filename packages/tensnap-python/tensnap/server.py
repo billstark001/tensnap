@@ -8,6 +8,8 @@ broadcasting simulation updates to connected clients.
 from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple, Set
 
 import asyncio
+import hashlib
+import base64
 import json
 import logging
 import datetime
@@ -55,21 +57,25 @@ class ServerToClientMessageType(Enum):
     EDGE_CREATE = "edge_create"
     EDGE_UPDATE = "edge_update"
     EDGE_DELETE = "edge_delete"
-    PARAMETER_CREATE = "parameter_create"
-    PARAMETER_UPDATE = "parameter_update"
-    PARAMETER_DELETE = "parameter_delete"
-    PARAMETER_SYNC = "parameter_sync"
+    PARAM_CREATE = "param_create"
+    PARAM_UPDATE = "param_update"
+    PARAM_DELETE = "param_delete"
+    PARAM_SYNC = "param_sync"
     CHART_CREATE = "chart_create"
     CHART_UPDATE = "chart_update"
     CHART_DELETE = "chart_delete"
+    ASSET_META = "asset_meta"
+    ASSET_DATA = "asset_data"
+    ASSET_DELETE = "asset_delete"
     LOG = "log"
     ERROR = "error"
 
 
 class ClientToServerMessageType(Enum):
     STATE_SYNC = "state_sync"
-    PARAMETER_CHANGE = "parameter_change"
+    PARAM_CHANGE = "param_change"
     ACTION_START = "action_start"
+    ASSET_SYNC = "asset_sync"
     ERROR = "error"
 
 
@@ -111,6 +117,8 @@ class TenSnapServer:
         self.parameters: Dict[str, "Parameter"] = {}
         self.charts: Dict[str, Tuple["ChartGroupMetadata", Callable]] = {}
         self.button_handlers: Dict[str, Callable] = {}
+        # Assets: id → { id, hash, mime, size, label, data }
+        self._assets: Dict[str, Dict[str, Any]] = {}
         self._running = False
         self._queue = BatchedMessageQueue()
         self._bg_task = None
@@ -224,10 +232,12 @@ class TenSnapServer:
 
             if msg_type == ClientToServerMessageType.STATE_SYNC.value:
                 await self._handle_state_sync(ws, payload)
-            elif msg_type == ClientToServerMessageType.PARAMETER_CHANGE.value:
+            elif msg_type == ClientToServerMessageType.PARAM_CHANGE.value:
                 await self._handle_param_change(ws, payload)
             elif msg_type == ClientToServerMessageType.ACTION_START.value:
                 await self._handle_action_start(ws, payload)
+            elif msg_type == ClientToServerMessageType.ASSET_SYNC.value:
+                await self._handle_asset_sync(ws, payload)
             elif msg_type == ClientToServerMessageType.ERROR.value:
                 logger.error(f"Client error: {payload.get('error')}")
             else:
@@ -329,6 +339,13 @@ class TenSnapServer:
             for pid, param in self.parameters.items()
         }
 
+    async def broadcast_param_sync(self, param_id: str, value: Any) -> None:
+        """Broadcast a param_sync message to notify clients of a server-side value change."""
+        await self._broadcast(
+            ServerToClientMessageType.PARAM_SYNC,
+            {"id": param_id, "value": value},
+        )
+
     async def _handle_state_sync(
         self, ws: WebSocketServerProtocol, req: "StateSyncRequest"
     ) -> None:
@@ -341,11 +358,11 @@ class TenSnapServer:
 
         # Parameters
         for param_dict in params["added"]:
-            await self._send(ws, ServerToClientMessageType.PARAMETER_CREATE, param_dict)
+            await self._send(ws, ServerToClientMessageType.PARAM_CREATE, param_dict)
         for param_id in params["removed"]:
-            await self._send(ws, ServerToClientMessageType.PARAMETER_DELETE, {"id": param_id})
+            await self._send(ws, ServerToClientMessageType.PARAM_DELETE, {"id": param_id})
         for param_dict in params["updated"]:
-            await self._send(ws, ServerToClientMessageType.PARAMETER_UPDATE, param_dict)
+            await self._send(ws, ServerToClientMessageType.PARAM_UPDATE, param_dict)
 
         # Environments (create env + layer + agents)
         for env_state in envs["added"]:
@@ -596,6 +613,82 @@ class TenSnapServer:
                 ServerToClientMessageType.AGENT_DELETE,
                 {"env_id": env_id, "layer_id": "", "ids": deletes},
             )
+
+    # -------------------------------------------------------------------------
+    # Asset management
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_asset_hash(data: bytes) -> str:
+        """First 16 hex chars of SHA-256 of the raw data."""
+        return hashlib.sha256(data).hexdigest()[:16]
+
+    async def publish_asset(
+        self,
+        asset_id: str,
+        data: bytes,
+        mime: str,
+        label: Optional[str] = None,
+    ) -> None:
+        """Register an asset and broadcast its metadata + data to all clients.
+
+        If an asset with the same id and hash already exists, nothing is sent.
+        """
+        h = self._compute_asset_hash(data)
+        existing = self._assets.get(asset_id)
+        if existing and existing["hash"] == h:
+            return  # unchanged
+
+        self._assets[asset_id] = {
+            "id": asset_id,
+            "hash": h,
+            "mime": mime,
+            "size": len(data),
+            "label": label,
+            "data": data,
+        }
+
+        # Announce metadata first
+        await self._broadcast(
+            ServerToClientMessageType.ASSET_META,
+            {"assets": [{"id": asset_id, "hash": h, "mime": mime, "size": len(data), "label": label}]},
+        )
+        # Then push the actual data (base64 for JSON, raw bytes for msgpack)
+        encoded: Union[str, bytes] = base64.b64encode(data).decode("ascii") if not self.use_msgpack else data
+        await self._broadcast(
+            ServerToClientMessageType.ASSET_DATA,
+            {"id": asset_id, "hash": h, "mime": mime, "data": encoded},
+        )
+
+    async def delete_asset(self, asset_id: str) -> None:
+        """Remove an asset from the cache and notify all clients."""
+        if asset_id in self._assets:
+            del self._assets[asset_id]
+        await self._broadcast(
+            ServerToClientMessageType.ASSET_DELETE,
+            {"ids": [asset_id]},
+        )
+
+    async def _handle_asset_sync(
+        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
+    ) -> None:
+        """Client reports which assets it holds (id → hash).
+        Respond with data for any asset the client is missing or has stale.
+        """
+        client_hashes: Dict[str, str] = payload.get("assets", {})
+        for asset_id, asset in self._assets.items():
+            client_hash = client_hashes.get(asset_id)
+            if client_hash != asset["hash"]:
+                encoded: Union[str, bytes] = (
+                    base64.b64encode(asset["data"]).decode("ascii")
+                    if not self.use_msgpack
+                    else asset["data"]
+                )
+                await self._send(
+                    ws,
+                    ServerToClientMessageType.ASSET_DATA,
+                    {"id": asset_id, "hash": asset["hash"], "mime": asset["mime"], "data": encoded},
+                )
 
     async def _background_maintenance(self) -> None:
         while self._running:

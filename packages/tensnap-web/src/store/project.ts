@@ -11,6 +11,7 @@ import { StateSyncRequest } from "@/types/api";
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { instantiateScenarioContent } from "./scenario/utils";
 import { getFileSystemState } from "./file-system/provider";
+import { createAssetStore, UseAssetStore } from "./asset";
 
 export interface ProjectSettings {
   url: string;
@@ -22,6 +23,8 @@ export interface ProjectContextScheme extends ProjectSettings {
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useWebSocketStore: UseBoundStore<StoreApi<WebSocketStore>>;
   useUndoRedoStore: UseBoundStore<StoreApi<UndoRedoState<ScenarioStore>>>;
+  /** Project-level asset cache (one per project). */
+  useAssetStore: UseAssetStore;
 }
 
 const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
@@ -56,7 +59,8 @@ export const createStateSyncRequestFromStore = (store?: SimulationState): StateS
 
 const createProject = (url: string, filepath: string | null = null): ProjectContextScheme => {
   const useScenarioStore = createScenarioStore();
-  const useWebSocketStore = createWebSocketStore(useScenarioStore);
+  const useAssetStore = createAssetStore();
+  const useWebSocketStore = createWebSocketStore(useScenarioStore, useAssetStore);
   const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
   return {
@@ -66,6 +70,7 @@ const createProject = (url: string, filepath: string | null = null): ProjectCont
     useScenarioStore,
     useWebSocketStore,
     useUndoRedoStore,
+    useAssetStore,
   };
 };
 

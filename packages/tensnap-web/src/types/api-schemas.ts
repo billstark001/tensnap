@@ -227,6 +227,37 @@ export const LogPayloadSchema = z.object({
 export const ErrorPayloadSchema = z.object({ error: z.string() });
 
 // ---------------------------------------------------------------------------
+// Asset payload schemas
+// ---------------------------------------------------------------------------
+
+export const AssetMetaSchema = z.object({
+  id: z.string(),
+  hash: z.string(),
+  mime: z.string(),
+  size: z.number(),
+  label: z.string().optional(),
+});
+
+export const AssetMetaPayloadSchema = z.object({
+  assets: z.array(AssetMetaSchema),
+});
+
+export const AssetDataPayloadSchema = z.object({
+  id: z.string(),
+  hash: z.string(),
+  mime: z.string(),
+  data: z.union([z.string(), z.instanceof(Uint8Array)]),
+});
+
+export const AssetDeletePayloadSchema = z.object({
+  ids: z.array(z.string()),
+});
+
+export const AssetSyncPayloadSchema = z.object({
+  assets: z.record(z.string(), z.string()),
+});
+
+// ---------------------------------------------------------------------------
 // Client → Server payload schemas
 // ---------------------------------------------------------------------------
 
@@ -273,13 +304,16 @@ export const ServerToClientMessageSchema = z.object({
     'edge_create',
     'edge_update',
     'edge_delete',
-    'parameter_create',
-    'parameter_update',
-    'parameter_delete',
-    'parameter_sync',
+    'param_create',
+    'param_update',
+    'param_delete',
+    'param_sync',
     'chart_create',
     'chart_update',
     'chart_delete',
+    'asset_meta',
+    'asset_data',
+    'asset_delete',
     'log',
     'error',
   ]),
@@ -290,8 +324,9 @@ export const ServerToClientMessageSchema = z.object({
 export const ClientToServerMessageSchema = z.object({
   type: z.enum([
     'state_sync',
-    'parameter_change',
+    'param_change',
     'action_start',
+    'asset_sync',
     'error',
   ]),
   payload: z.any(),
@@ -320,18 +355,22 @@ export const getPayloadSchema = (type: string) => {
     case 'edge_create': return EdgeCreatePayloadSchema;
     case 'edge_update': return EdgeUpdatePayloadSchema;
     case 'edge_delete': return EdgeDeletePayloadSchema;
-    case 'parameter_create': return ParameterSchema;
-    case 'parameter_update': return ParameterSchema;
-    case 'parameter_delete': return ParameterDeletePayloadSchema;
-    case 'parameter_sync': return ParameterSyncPayloadSchema;
+    case 'param_create': return ParameterSchema;
+    case 'param_update': return ParameterSchema;
+    case 'param_delete': return ParameterDeletePayloadSchema;
+    case 'param_sync': return ParameterSyncPayloadSchema;
     case 'chart_create': return ChartGroupMetadataSchema;
     case 'chart_update': return ChartUpdatePayloadSchema;
     case 'chart_delete': return ChartDeletePayloadSchema;
+    case 'asset_meta': return AssetMetaPayloadSchema;
+    case 'asset_data': return AssetDataPayloadSchema;
+    case 'asset_delete': return AssetDeletePayloadSchema;
     case 'log': return LogPayloadSchema;
     case 'error': return ErrorPayloadSchema;
     case 'state_sync': return StateSyncRequestSchema;
-    case 'parameter_change': return ParameterChangePayloadSchema;
+    case 'param_change': return ParameterChangePayloadSchema;
     case 'action_start': return ActionStartPayloadSchema;
+    case 'asset_sync': return AssetSyncPayloadSchema;
     default: return z.any();
   }
 };

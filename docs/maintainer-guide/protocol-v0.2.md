@@ -14,8 +14,10 @@ Supersedes the v0.1 protocol once fully implemented.
 | Environment updates | Monolithic `environment_update` | Fine-grained `env_*` / `env_layer_*` / `agent_*` / `edge_*` |
 | Agent batch format | `{ id, data: {...} }` | `{ id, ...diff }` (flat diff) |
 | Timestep signaling | `time_step_start` / `time_step_end` | Single `metadata_update` |
-| Parameter values | `parameter_change` (client only) | `parameter_change` (client→server) + `parameter_sync` (server→client) |
+| Parameter wire names | `parameter_*` / `parameter_change` | `param_*` / `param_change` (TypeScript types unchanged) |
+| Parameter values | client-only `parameter_change` | `param_change` (C→S) + `param_sync` (S→C) |
 | State sync direction | Bidirectional | Client→Server only; server replies with CUD messages |
+| Asset sharing | none | `asset_meta` / `asset_data` / `asset_delete` (S→C) + `asset_sync` (C→S) |
 
 ### Protocol Characteristics
 
@@ -256,37 +258,37 @@ Delete edges from a layer (batch).
 }
 ```
 
-### `parameter_create`
+### `param_create`
 
 Register a new parameter control.
 
 ```typescript
-{ type: "parameter_create", payload: Parameter }
+{ type: "param_create", payload: Parameter }
 ```
 
-### `parameter_update`
+### `param_update`
 
 Update parameter definition (metadata, not value).
 
 ```typescript
-{ type: "parameter_update", payload: Parameter }
+{ type: "param_update", payload: Parameter }
 ```
 
-### `parameter_delete`
+### `param_delete`
 
 Remove a parameter control.
 
 ```typescript
-{ type: "parameter_delete", payload: { id: string } }
+{ type: "param_delete", payload: { id: string } }
 ```
 
-### `parameter_sync`
+### `param_sync`
 
 Server-initiated value correction. Sent when the server modifies a parameter
 value programmatically, or when it rejects the value the client just sent.
 
 ```typescript
-{ type: "parameter_sync", payload: { id: string, value: any } }
+{ type: "param_sync", payload: { id: string, value: any } }
 ```
 
 ### `chart_create`
@@ -334,6 +336,40 @@ Push new data points or chart operations (unchanged from v0.1).
 { type: "error", payload: { error: string } }
 ```
 
+### `asset_meta`
+
+Announces one or more available assets. No binary data is included — the
+client should respond with `asset_sync` to request any assets it is missing.
+
+```typescript
+{
+  type: "asset_meta",
+  payload: {
+    assets: Array<{ id: string, hash: string, mime: string, size: number, label?: string }>
+  }
+}
+```
+
+### `asset_data`
+
+Delivers the binary data for a single asset. In JSON mode `data` is base-64;
+in msgpack mode it is a raw `Uint8Array`.
+
+```typescript
+{
+  type: "asset_data",
+  payload: { id: string, hash: string, mime: string, data: string | Uint8Array }
+}
+```
+
+### `asset_delete`
+
+Removes one or more assets from the client cache.
+
+```typescript
+{ type: "asset_delete", payload: { ids: string[] } }
+```
+
 ---
 
 ## Client → Server Messages
@@ -364,14 +400,14 @@ instead.
 }
 ```
 
-### `parameter_change`
+### `param_change`
 
 Sent immediately after the user drags a slider or changes a value. The client
 optimistically assumes success; if the server rejects it, it replies with
-`parameter_sync`.
+`param_sync`.
 
 ```typescript
-{ type: "parameter_change", payload: { id: string, value: any } }
+{ type: "param_change", payload: { id: string, value: any } }
 ```
 
 ### `action_start`
@@ -386,6 +422,21 @@ client wants to keep firing the action until it receives `action_end` with
   payload: {
     id: string
     continuous?: boolean   // default false
+  }
+}
+```
+
+### `asset_sync`
+
+Sent after receiving `asset_meta`. The client reports which assets it already
+holds (keyed by id, value is the client's current hash). The server sends
+`asset_data` for any asset the client is missing or has stale.
+
+```typescript
+{
+  type: "asset_sync",
+  payload: {
+    assets: Record<AssetId, string>   // id → hash the client currently holds
   }
 }
 ```
@@ -419,19 +470,121 @@ All other action IDs are user-defined.
 
 ## Layer Registry
 
-Layers are extensible via a registry. Each backend registers:
+Layers are extensible via a registry. The **frontend does not distinguish
+between "grid" and "graph" environments** — the distinction lives entirely
+inside layer types. An environment is simply a container (`type: "uniform"|"2d"`)
+that holds one or more named layers.
 
-- A unique `layer_type` string.
-- Metadata schema (for `env_layer_create`/`env_layer_update` `data` field).
-- Agent schema (for `agent_create`/`agent_update`).
-- Edge schema (for `edge_create`/`edge_update`), if applicable.
+Each layer type registration includes:
 
-Built-in layer types:
+| Field | Required | Description |
+|---|---|---|
+| `layer_type` | ✓ | Unique string identifier |
+| Metadata schema | optional | Zod schema for the `data` field in `env_layer_create`/`env_layer_update` |
+| Entity schema | optional | Zod schema for entities sent via `agent_create`/`agent_update` and/or `edge_create`/`edge_update`. Use only for layer types that carry large numbers of entities. Scalar/singleton data (e.g. a background image URL) lives in the layer metadata, not as entities. |
 
-| `layer_type` | Description |
-|---|---|
-| `grid` | 2-D grid; `data` contains `width`, `height`, `coord_offset`, `background` |
-| `graph` | Force-directed graph; `data` contains layout parameters |
+### Built-in Layer Types
+
+| `layer_type` | Entity kind | Description |
+|---|---|---|
+| `entity` | agents (optional) | Generic 2-D entity layer; `data` is empty. Agents carry `x`, `y`, and optional `heading`. |
+| `grid` | — | Reference grid lines overlay; `data` contains spacing/color parameters. No entities. |
+| `graph` | agents + edges | Force-directed layout; `data` contains d3-force parameters. Agents have no fixed positions (layout is computed client-side). |
+| `background` | — | Solid color or image fill; background is stored in layer `data.background` (CSS color, URL, or asset reference `{ asset_id, interpolation }`). No entities. |
+
+### Entity Schema vs. Metadata
+
+- **Metadata** (layer `data` field): use for a small number of scalar values
+  or a single image/URL. Always sent whole on `env_layer_update`.
+- **Entity schema** (optional registration): use when a layer holds a large,
+  growing collection of items (agents, edges, hyperedges, …) that benefit from
+  incremental CUD updates. Register the schema at layer type registration time.
+
+### Asset Reference in Layer Data
+
+When a background image comes from the project asset store, set it using:
+
+```typescript
+// env_layer_create / env_layer_update data field
+{
+  background: { asset_id: "my-bg-001", interpolation: "nearest" }
+}
+```
+
+The client resolves `asset_id` to a blob-URL via the project `AssetStore`.
+
+---
+
+## Asset Protocol
+
+Assets are reusable binary or text resources (PNG/JPEG images, SVGs,
+numpy arrays, etc.) shared across layers. They are identified by server-computed
+IDs. The client caches assets and avoids re-downloading unchanged ones using
+content hashes.
+
+### Lifecycle
+
+```
+Server                              Client
+  │                                   │
+  ├── asset_meta ──────────────────►  │  (announce: id, hash, mime, size)
+  │                                   │  (client checks local cache)
+  │◄─────────────────── asset_sync ──►│  (client reports held id→hash pairs)
+  ├── asset_data ──────────────────►  │  (only missing / stale assets)
+  │                                   │
+  │  ... asset changes ...            │
+  ├── asset_data ──────────────────►  │  (proactive push for updated asset)
+  │                                   │
+  ├── asset_delete ────────────────►  │  (remove asset from cache)
+```
+
+### `asset_meta` (S→C)
+
+```typescript
+{
+  type: "asset_meta",
+  payload: {
+    assets: Array<{
+      id: string         // server-computed stable id
+      hash: string       // first-16-hex-chars of SHA-256
+      mime: string       // e.g. "image/png", "image/svg+xml"
+      size: number       // byte size
+      label?: string
+    }>
+  }
+}
+```
+
+### `asset_data` (S→C)
+
+```typescript
+{
+  type: "asset_data",
+  payload: {
+    id: string
+    hash: string
+    mime: string
+    data: string | Uint8Array   // base-64 string (JSON) or raw bytes (msgpack)
+  }
+}
+```
+
+### `asset_delete` (S→C)
+
+```typescript
+{ type: "asset_delete", payload: { ids: string[] } }
+```
+
+### `asset_sync` (C→S)
+
+```typescript
+{
+  type: "asset_sync",
+  payload: {
+    assets: Record<string, string>   // id → hash the client currently holds
+  }
+}
+```
 
 ---
 
@@ -450,7 +603,8 @@ interface Action {
 
 ### Parameter
 
-`action` is no longer a parameter type.
+`action` is no longer a parameter type. Wire-protocol names use `param_*`
+(e.g. `param_create`); TypeScript interface names retain the `Parameter` prefix.
 
 ```typescript
 type ParameterType = "number" | "enum" | "boolean" | "string";
@@ -462,6 +616,18 @@ interface Parameter {
   allowRuntimeChange?: boolean;
   value?: any;
   // type-specific fields unchanged
+}
+```
+
+### AssetMeta
+
+```typescript
+interface AssetMeta {
+  id: string;
+  hash: string;     // first 16 hex chars of SHA-256
+  mime: string;
+  size: number;
+  label?: string;
 }
 ```
 

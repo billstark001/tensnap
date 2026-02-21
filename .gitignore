@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 *.local
+package-lock.json
 
 # Production
 dist/
