@@ -51,7 +51,9 @@ export const createStateSyncRequestFromStore = (store?: SimulationState): StateS
     envs: environments.map(env => ({
       id: env.id,
       type: env.type,
-      layers: [],
+      layers: Object.entries((env as any).layers ?? {}).map(
+        ([layer_id, layer]: [string, any]) => ({ layer_id, layer_type: layer.layer_type })
+      ),
     })),
     charts: getAllChartMetadata(charts),
   };

@@ -40,15 +40,21 @@ frontend can speak v0.2.
 
 ---
 
-## Milestone 3 — Layer Registry & Plugin API
+## Milestone 3 [COMPLETED] — Layer Registry & Plugin API
 
 **Goal**: make the layer system extensible from outside the core package.
 
-- [ ] Define `LayerRegistry` API in `tensnap-web-core`
-- [ ] Register built-in layer types
-- [ ] Fully implement all layers' communication, state management and serialization
-- [ ] Expose `registerLayerType(type, schemas)` for third-party layers
-- [ ] Document plugin authoring guide
+- [x] Define `LayerRegistry` API in `tensnap-web` package
+      (`packages/tensnap-web/src/store/scenario/layer-registry.ts`)
+- [x] Register built-in layer types (`agent`, `edge`, `grid`, `background`)
+      with Zod metadata and entity schemas
+- [x] Fully implement all layers' communication, state management and serialization
+      — `InstantiatedEnvironment.layers` now tracks per-protocol-layer state;
+      `createEnvLayer`/`updateEnvLayer`/`deleteEnvLayer` validate against registry schemas;
+      `state_sync` serialization reports actual layer data
+- [x] Expose `registerLayerType(type, schemas)` for third-party layers
+      (re-exported from `tensnap-web/index.ts`)
+- [x] Document plugin authoring guide (`docs/maintainer-guide/plugin-authoring.md`)
 
 ---
 

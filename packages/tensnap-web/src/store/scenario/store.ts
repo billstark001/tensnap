@@ -100,6 +100,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
         (env as any).agentTraces = {};
       }
       env.agents = {};
+      env.layers = {};
     });
     state.environments.clear();
     state.parameters.clear();

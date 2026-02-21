@@ -80,3 +80,6 @@ export type {
 
 // Re-export store
 
+// Layer Registry — public API for registering custom layer types
+export { layerRegistry, registerLayerType } from './src/store/scenario/layer-registry';
+export type { LayerTypeDefinition, LayerValidationResult, LayerRegistryClass } from './src/store/scenario/layer-registry';

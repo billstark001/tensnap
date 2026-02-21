@@ -3,6 +3,7 @@ import { EnvironmentsSlice, ScenarioStore } from '../types';
 import { AgentTrajectoryPoint, GridAgent } from '@/types/model';
 import { AgentDiff, EdgeData, EdgeDiff } from '@/types/api';
 import { InstantiatedGridEnvironment } from '../environment';
+import { layerRegistry } from '../layer-registry';
 
 // 为无限长度轨迹设置安全上限，防止内存无限增长
 const MAX_TRAJECTORY_POINTS = 32768;
@@ -40,6 +41,7 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
       (env as InstantiatedGridEnvironment).agentTraces = {};
     }
     env.agents = {};
+    env.layers = {};
 
     environments.delete(id);
     set();
@@ -57,8 +59,10 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
     const newEnv: any = {
       id,
       type: internalType,
+      label: typeof id === 'string' ? id : `env-${internalType}-${id}`,
       agents: {},
       props: {},
+      layers: {},
       ...(internalType === 'grid' ? { agentTraces: {} } : {}),
     };
     environments.set(id, newEnv);
@@ -69,38 +73,90 @@ export const createEnvironmentsSlice: CreateStoreFunction<EnvironmentsSlice, Sce
     get().removeEnvironment(id);
   },
 
-  /** Update the layer metadata (e.g., grid width/height). */
-  createEnvLayer: (envId, _layerId, _layerType, data) => {
+  /** Create a new layer within an environment. */
+  createEnvLayer: (envId, layerId, layerType, data) => {
     const { environments, log, environmentUpdateTrigger: { set } } = get();
     const env = environments.get(envId);
     if (!env) {
       log(`Environment with id ${envId} not found.`, 'warning');
       return;
     }
+
+    // Validate metadata against the registered schema (advisory only).
+    const validatedData = data ?? {};
+    const validation = layerRegistry.validateMetadata(layerType, validatedData);
+    if (!validation.success) {
+      log(
+        `[LayerRegistry] Metadata validation warning for layer_type "${layerType}" ` +
+        `(env: ${envId}, layer: ${layerId}): ${validation.error}`,
+        'warning'
+      );
+    }
+
+    // Track the layer in env.layers.
+    if (!env.layers) env.layers = {};
+    env.layers[layerId] = {
+      layer_type: layerType,
+      data: validatedData,
+    };
+
+    // Merge metadata into env.props for backward compatibility with
+    // existing rendering components (GridEnvironmentView etc.).
     if (data) {
       Object.assign(env.props, data);
     }
     set();
   },
 
-  updateEnvLayer: (envId, _layerId, data) => {
+  /** Update layer metadata. */
+  updateEnvLayer: (envId, layerId, data) => {
     const { environments, log, environmentUpdateTrigger: { set } } = get();
     const env = environments.get(envId);
     if (!env) {
       log(`Environment with id ${envId} not found.`, 'warning');
       return;
     }
+
+    const layer = env.layers?.[layerId];
+    if (layer) {
+      // Validate against the registered schema (advisory only).
+      const validation = layerRegistry.validateMetadata(layer.layer_type, data);
+      if (!validation.success) {
+        log(
+          `[LayerRegistry] Metadata validation warning for layer_type "${layer.layer_type}" ` +
+          `(env: ${envId}, layer: ${layerId}): ${validation.error}`,
+          'warning'
+        );
+      }
+      Object.assign(layer.data, data);
+    } else {
+      // Layer not yet tracked (e.g. from legacy state); auto-register as unknown.
+      if (!env.layers) env.layers = {};
+      env.layers[layerId] = { layer_type: 'unknown', data: { ...data } };
+    }
+
+    // Keep env.props in sync for backward compatibility.
     Object.assign(env.props, data);
     set();
   },
 
-  deleteEnvLayer: (envId, _layerId) => {
+  /** Delete a layer and clear its entity data. */
+  deleteEnvLayer: (envId, layerId) => {
     const { environments, log, environmentUpdateTrigger: { set } } = get();
     const env = environments.get(envId);
     if (!env) {
       log(`Environment with id ${envId} not found.`, 'warning');
       return;
     }
+
+    // Remove the layer entry.
+    if (env.layers) {
+      delete env.layers[layerId];
+    }
+
+    // Clear agent/edge data for the deleted layer.
+    // (Currently agents/edges are stored flat at the env level;
+    //  clearing them all is the safest backward-compatible action.)
     env.agents = {};
     if (env.type === 'grid') {
       (env as InstantiatedGridEnvironment).agentTraces = {};

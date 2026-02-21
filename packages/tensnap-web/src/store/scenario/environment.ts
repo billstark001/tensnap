@@ -6,12 +6,30 @@ import {
   UniformAgent
   } from "../../types/model";
 
+/**
+ * Represents a single protocol layer within an instantiated environment.
+ * Tracks the layer type string, its current metadata, and optionally
+ * per-layer entity collections for agent/edge layers.
+ */
+export interface InstantiatedLayer {
+  /** Registered layer_type string (e.g. "agent", "edge", "grid", "background"). */
+  layer_type: string;
+  /** Layer metadata as received via env_layer_create / env_layer_update. */
+  data: Record<string, any>;
+}
+
 export interface InstantiatedEnvironment {
   id: EnvironmentId;
   type: EnvironmentType;
   label: string;
   props: PureEnvironment;
   agents: Record<AgentId, Agent>;
+  /**
+   * Per-protocol-layer registry: layer_id → InstantiatedLayer.
+   * Populated by createEnvLayer / updateEnvLayer / deleteEnvLayer store actions.
+   * Used for state_sync serialization and layer-type validation.
+   */
+  layers: Record<string, InstantiatedLayer>;
 }
 
 export interface InstantiatedGridEnvironment extends InstantiatedEnvironment {
@@ -50,6 +68,7 @@ export function instantiateEnvironment(env: Environment): InstantiatedEnvironmen
     label,
     props,
     agents: agentsMap,
+    layers: {},
   };
 
   if (type === 'grid') {

@@ -200,7 +200,13 @@ export const createWebSocketStore = (
       currentState = {
         parameters,
         actions,
-        envs: environments.map(env => ({ id: env.id, type: env.type, layers: [] })),
+        envs: environments.map(env => ({
+          id: env.id,
+          type: env.type,
+          layers: Object.entries((env as any).layers ?? {}).map(
+            ([layer_id, layer]: [string, any]) => ({ layer_id, layer_type: layer.layer_type })
+          ),
+        })),
         charts: charts.flatMap(group => Object.values(group.metadataDict)),
       };
     }
