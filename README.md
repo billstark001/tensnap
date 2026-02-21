@@ -206,19 +206,6 @@ tensnap/
 - **tensnap-web-utils**: Shared utilities for web packages
 - **tensnap-tauri**: Desktop application wrapper
 
-The core package (`tensnap-web-core`) provides:
-- High-performance chart rendering using Leafer-UI
-- Grid, graph, and uniform environment visualizers
-- Lightweight state management system
-- Type-safe data models
-- Utility functions for data processing
-
-This allows for:
-- Independent testing and benchmarking of core functionality
-- Reuse in different frameworks or Node.js environments
-- Clear separation between UI and business logic
-
-
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](./docs/maintainer-guide/contributing.md) for details on:
