@@ -49,6 +49,27 @@ export interface RenderableAgent {
   data?: Record<string, unknown>;
 }
 
+
+export type AgentDelta = {
+  /** Newly added or updated agents. */
+  added: RenderableAgent[];
+  /** Agents that were removed (snapshot at removal time). */
+  updated: RenderableAgent[];
+  /** Agents that were removed (snapshot at removal time). */
+  removed: AgentId[];
+  /**
+   * True when the entire agent set was replaced (setAgents / clearAgents).
+   * Consumers should treat `added` as the new full snapshot and discard
+   * any previously cached state.
+   */
+  replaced?: false;
+} | {
+  added?: undefined;
+  updated?: undefined;
+  removed?: undefined;
+  replaced: true;
+}
+
 export interface AgentStorageData {
   agents: Map<AgentId, RenderableAgent>;
   trajectories: Map<string, TrajectoryPoint[]>;
@@ -60,7 +81,7 @@ export interface AgentStorageData {
 
 const DEFAULT_MAX_TRAJECTORY = 1000;
 
-export class AgentStorage extends BaseStorage<AgentStorageData> {
+export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   private readonly _maxTrajectoryPoints: number;
 
   constructor(maxTrajectoryPoints = DEFAULT_MAX_TRAJECTORY) {
@@ -77,7 +98,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData> {
     const map: Map<AgentId, RenderableAgent> = new Map();
     for (const a of agents) map.set(a.id, { ...a });
     this._data = { ...this._data, agents: map };
-    this.notify();
+    this.notify({ replaced: true });
   }
 
   /** Replace trajectory data (automatically trims to max points) and notify. */
@@ -93,7 +114,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData> {
       );
     }
     this._data = { ...this._data, trajectories: map };
-    this.notify();
+    this.notify({ replaced: true });
   }
 
   // -------------------------------------------------------------------------
@@ -125,7 +146,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData> {
    * Typically called once per d3 tick.
    */
   flushPositions(): void {
-    this.notify();
+    this.notify({ replaced: true });
   }
 
   // -------------------------------------------------------------------------
@@ -153,64 +174,98 @@ export class AgentStorage extends BaseStorage<AgentStorageData> {
     } else {
       this._data.agents.set(agent.id, { ...agent });
     }
-    this.notify();
+    this.notify({ added: [agent], updated: [], removed: [] });
   }
 
   /** Add multiple agents efficiently. */
   addAgents(agents: Iterable<RenderableAgent>): void {
+    const added: RenderableAgent[] = [];
     for (const agent of agents) {
       const existing = this._data.agents.get(agent.id);
       if (existing) {
         Object.assign(existing, agent);
       } else {
         this._data.agents.set(agent.id, { ...agent });
+        added.push(agent);
       }
     }
-    this.notify();
+    if (added.length > 0) {
+      this.notify({ added, updated: [], removed: [] });
+    }
   }
 
   /** Update an existing agent by ID. Creates if doesn't exist. */
   updateAgent(id: AgentId, updates: Partial<RenderableAgent>): void {
+    const delta: AgentDelta = { added: [], updated: [], removed: [] };
     const existing = this._data.agents.get(id);
     if (existing) {
       Object.assign(existing, updates);
+      delta.updated.push(existing);
     } else {
-      this._data.agents.set(id, { id, ...updates } as RenderableAgent);
+      const newAgent = { id, ...updates } as RenderableAgent;
+      this._data.agents.set(id, newAgent);
+      delta.added.push(newAgent);
     }
-    this.notify();
+    this.notify(delta);
   }
 
   /** Update multiple agents efficiently. */
-  updateAgents(updates: Array<{ id: AgentId; data: Partial<RenderableAgent> }>): void {
+  updateAgents(updates: Array<Partial<RenderableAgent> & { id: AgentId }>): void {
+    const delta: AgentDelta = { added: [], updated: [], removed: [] };
+    for (const { id, ...data } of updates) {
+      const existing = this._data.agents.get(id);
+      if (existing) {
+        Object.assign(existing, data);
+        delta.updated.push(existing);
+      } else {
+        const newAgent = { id, ...data } as RenderableAgent;
+        this._data.agents.set(id, newAgent);
+        delta.added.push(newAgent);
+      }
+    }
+    if (delta.added.length > 0 || delta.updated.length > 0) {
+      this.notify(delta);
+    }
+  }
+
+  /** Update multiple agents efficiently. */
+  updateAgents2(updates: Array<{ id: AgentId; data: Partial<RenderableAgent> }>): void {
+    const delta: AgentDelta = { added: [], updated: [], removed: [] };
     for (const { id, data } of updates) {
       const existing = this._data.agents.get(id);
       if (existing) {
         Object.assign(existing, data);
+        delta.updated.push(existing);
       } else {
-        this._data.agents.set(id, { id, ...data } as RenderableAgent);
+        const newAgent = { id, ...data } as RenderableAgent;
+        this._data.agents.set(id, newAgent);
+        delta.added.push(newAgent);
       }
     }
-    this.notify();
+    if (delta.added.length > 0 || delta.updated.length > 0) {
+      this.notify(delta);
+    }
   }
 
   /** Remove a single agent by ID. */
   removeAgent(id: AgentId): void {
     if (this._data.agents.delete(id)) {
       this._data.trajectories.delete(String(id));
-      this.notify();
+      this.notify({ added: [], updated: [], removed: [id] });
     }
   }
 
   /** Remove multiple agents efficiently. */
   removeAgents(ids: Iterable<AgentId>): void {
     let changed = false;
-    for (const id of ids) {
+    const removed = Array.from(ids);
+    for (const id of removed) {
       if (this._data.agents.delete(id)) {
         this._data.trajectories.delete(String(id));
         changed = true;
       }
     }
-    if (changed) this.notify();
+    if (changed) this.notify({ added: [], updated: [], removed });
   }
 
   /** Get a single agent by ID. */
@@ -237,6 +292,6 @@ export class AgentStorage extends BaseStorage<AgentStorageData> {
   clearAgents(): void {
     this._data.agents.clear();
     this._data.trajectories.clear();
-    this.notify();
+    this.notify({ replaced: true });
   }
 }

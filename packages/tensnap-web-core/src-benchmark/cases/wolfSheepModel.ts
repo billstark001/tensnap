@@ -82,7 +82,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
             x,
             y,
             icon: 'square' as const,
-            size: 10,
+            size: 1,
             color: '#7EC850',
           });
         }
@@ -113,7 +113,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
             x,
             y,
             icon: 'square' as const,
-            size: 10,
+            size: 1,
             color: '#7EC850',
           });
         } else if (patch.color !== 'green' && exists) {
@@ -141,7 +141,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
         y: s.position.y,
         heading: (s.heading * Math.PI) / 180,
         icon: 'circle' as const,
-        size: 8,
+        size: 1,
         color: '#FFFFFF',
       } as RenderableAgent)),
       ...wolves.map((w: any, idx: number) => ({
@@ -150,7 +150,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
         y: w.position.y,
         heading: (w.heading * Math.PI) / 180,
         icon: 'circle' as const,
-        size: 8,
+        size: 1,
         color: '#000000',
       } as RenderableAgent)),
     ];
@@ -216,10 +216,8 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
 
       // Initialize environment view
       view = new EnvironmentView(envContainer, {
-        pixelRatio: 1,
         throttleMs: 0,
       });
-      view.setViewport(cfg.envWidth, cfg.envHeight);
 
       gridStorage = new GridEnvStorage({
         width: modelConfig.gridWidth,
@@ -240,10 +238,13 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
       animalStorage = new AgentStorage();
       const animalLayer = new AgentLayer(view, animalStorage, {
         clickable: false,
+        coordOffset: 'float',
       }, gridStorage);
       animalLayer.setZIndex(20); // Animals on top
       view.addLayer(animalLayer);
       animalStorage.setAgents(convertAnimalsToRenderable());
+
+      view.fitToScene(0.05);
 
       // Initialize chart
       chart = new LineChartView(chartContainer, {
@@ -330,8 +331,8 @@ export const wolfSheepVariations = [
   }),
   // Large world, many animals
   createWolfSheepCase({
-    gridWidth: 70,
-    gridHeight: 70,
+    gridWidth: 100,
+    gridHeight: 100,
     initialNumberSheep: 800,
     initialNumberWolves: 400,
     sheepGainFromFood: 4,

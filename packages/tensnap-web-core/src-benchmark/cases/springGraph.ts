@@ -42,11 +42,14 @@ function buildERGraph(n: number, p: number, W: number, H: number): {
   nodes: RenderableAgent[];
   edges: GraphEdge[];
 } {
+  // Nodes are initialised in scene coordinates centred at the origin (0, 0).
+  // EdgeLayer's d3-force centre force is fixed at the scene origin, so the
+  // initial layout must be centred there too; otherwise nodes drift to a corner.
   const nodes: RenderableAgent[] = Array.from({ length: n }, (_, i) => ({
     id: `n_${i}`,
-    x: (0.1 + 0.8 * Math.random()) * W,
-    y: (0.1 + 0.8 * Math.random()) * H,
-    size: 14,
+    x: (Math.random() - 0.5) * W * 0.8,
+    y: (Math.random() - 0.5) * H * 0.8,
+    size: 1,
     icon: 'circle' as const,
     color: NODE_COLORS[i % NODE_COLORS.length],
   }));
@@ -90,20 +93,13 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
       container.appendChild(host);
 
       view = new EnvironmentView(host, {
-        type: 'custom',
-        pixelRatio: window.devicePixelRatio ?? 1,
         throttleMs: 0,
       });
-      view.setViewport(cfg.width, cfg.height);
 
       agentStorage = new AgentStorage();
-      edgeStorage = new EdgeStorage([], {
-        linkDistance: 60,
-        chargeStrength: -200,
-        collisionRadius: 20,
-      });
+      edgeStorage = new EdgeStorage([]);
 
-      const edgeLayer = new EdgeLayer(view, edgeStorage, agentStorage);
+      const edgeLayer = new EdgeLayer(view, edgeStorage, agentStorage, );
       const agentLayer = new AgentLayer(view, agentStorage, {
         ...edgeLayer.buildDragHandlers(),
         draggable: false,
@@ -123,6 +119,8 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
       nodes = ns;
       agentStorage.setAgents(nodes);
       edgeStorage.setEdges(edges);
+
+      view.fitToScene();
     },
 
     tick(frameIndex) {
@@ -153,6 +151,7 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
       agentStorage!.setAgents(nodes);
 
       // Silence the unused-variable warning in strict mode
+      view?.fitToScene();
       void frameIndex;
     },
 

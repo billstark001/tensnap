@@ -109,7 +109,6 @@ export class EnvironmentView {
       );
       return;
     }
-
     const sceneWidth = bounds.maxX - bounds.minX;
     const sceneHeight = bounds.maxY - bounds.minY;
     

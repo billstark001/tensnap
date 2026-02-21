@@ -17,7 +17,7 @@
 
 import { Group } from 'leafer-ui';
 import { IResizableLayer } from '../EnvironmentView';
-import { Viewport, Unsubscribe, IStorage } from '../types';
+import { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
 import { EnvironmentView } from '../EnvironmentView';
 
 export abstract class BaseLayer implements IResizableLayer {
@@ -120,9 +120,9 @@ export abstract class BaseLayer implements IResizableLayer {
    * Subscribe to a storage and automatically unsubscribe on `destroy()`.
    * Returns the unsubscribe function if you need to detach manually.
    */
-  protected registerStorage<T>(
-    storage: IStorage<T>,
-    handler: (data: T) => void
+  protected registerStorage<T, TDelta>(
+    storage: IStorage<T, TDelta>,
+    handler: StorageListener<T, TDelta>
   ): Unsubscribe {
     const unsub = storage.subscribe(handler);
     this._unsubscribes.push(unsub);

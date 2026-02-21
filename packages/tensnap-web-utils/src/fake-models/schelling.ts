@@ -17,6 +17,8 @@ import type {
 import { BaseSimulationManager, createFakeWebSocketOptions, FakeWebSocketOptions } from './common';
 
 export interface SchellingConfig {
+  agentSize?: number;
+  agentSizeUnsatisfied?: number;
   gridWidth: number;
   gridHeight: number;
   numAgentsType1: number;
@@ -34,7 +36,7 @@ interface Agent {
 }
 
 export class SchellingModel {
-  private config: SchellingConfig;
+  private config: Required<SchellingConfig>;
   private agents: Agent[] = [];
   private lastUnsatisfiedAgents: Agent[] | undefined = undefined;
   private grid: (Agent | null)[][];
@@ -52,7 +54,11 @@ export class SchellingModel {
   ] as const;
 
   constructor(config: SchellingConfig) {
-    this.config = config;
+    this.config = {
+      agentSize: 1,
+      agentSizeUnsatisfied: (config.agentSize ?? 1) * 0.6,
+      ...config,
+    };
     this.grid = this.createEmptyGrid();
   }
 
@@ -245,16 +251,28 @@ export class SchellingModel {
     return SchellingModel.AGENT_TYPES.find(t => t.type === type)?.color ?? '#000000';
   }
 
-  getAgentUpdates(full = false): any[] {
+  getAgentUpdates(full = false): {
+    id: string;
+    data: {
+      id: string;
+      x: number;
+      y: number;
+      color: string;
+      icon: 'circle';
+      size: number;
+    };
+    operation: 'create' | 'update';
+  }[] {
     const agentsToUpdate = full ? this.agents : this.lastUnsatisfiedAgents ?? [];
     return agentsToUpdate.map(agent => ({
       id: agent.id,
       data: {
+        id: agent.id,
         x: agent.x,
         y: agent.y,
         color: this.getAgentColor(agent.type),
         icon: 'circle',
-        size: agent.satisfied ? 10 : 6,
+        size: agent.satisfied ? this.config.agentSize : this.config.agentSizeUnsatisfied,
       },
       operation: full ? 'create' : 'update',
     }));
@@ -273,7 +291,7 @@ export class SchellingModel {
         heading: 0,
         color: this.getAgentColor(agent.type),
         icon: 'circle' as const,
-        size: agent.satisfied ? 10 : 6,
+        size: agent.satisfied ? this.config.agentSize : this.config.agentSizeUnsatisfied,
       })),
     };
   }

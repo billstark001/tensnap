@@ -11,9 +11,9 @@
 
 import { StorageListener, IMutableStorage, Unsubscribe } from '../types';
 
-export class BaseStorage<T> implements IMutableStorage<T> {
+export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta> {
   protected _data: T;
-  private readonly _listeners = new Set<StorageListener<T>>();
+  private readonly _listeners = new Set<StorageListener<T, TDelta>>();
 
   constructor(initialData: T) {
     this._data = initialData;
@@ -27,7 +27,7 @@ export class BaseStorage<T> implements IMutableStorage<T> {
     return this._data;
   }
 
-  subscribe(listener: StorageListener<T>): Unsubscribe {
+  subscribe(listener: StorageListener<T, TDelta>): Unsubscribe {
     this._listeners.add(listener);
     return () => this._listeners.delete(listener);
   }
@@ -62,15 +62,15 @@ export class BaseStorage<T> implements IMutableStorage<T> {
   }
 
   /** Manually fire all listeners with the current data. */
-  notify(): void {
-    this._notify();
+  notify(delta?: TDelta): void {
+    this._notify(delta);
   }
 
   // -------------------------------------------------------------------------
   // Internal
   // -------------------------------------------------------------------------
 
-  private _notify(): void {
-    this._listeners.forEach((l) => l(this._data));
+  private _notify(delta?: TDelta): void {
+    this._listeners.forEach((l) => l(this._data, delta));
   }
 }

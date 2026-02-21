@@ -1,8 +1,8 @@
-import { signal, computed } from '@preact/signals';
+import { signal, computed, effect } from '@preact/signals';
 import { useRef } from 'preact/hooks';
 import { BenchmarkStats, BenchmarkCase } from './types';
 import { runBenchmark, resultsToJson, resultsToMarkdown } from './runner';
-import { 
+import {
   lineChartVariations,
   particleBounceVariations,
   springGraphVariations,
@@ -11,28 +11,94 @@ import {
 import { schellingVariations } from './cases/schellingModel';
 import { wolfSheepVariations } from './cases/wolfSheepModel';
 
+// ─── Persistence ─────────────────────────────────────────────────────────────
+const LS_KEY = 'tensnap-benchmark-config';
+
+interface PersistedConfig {
+  frameCount: number;
+  warmupCount: number;
+  enableLineChart: boolean;
+  enableParticle: boolean;
+  enableSpring: boolean;
+  enableSchelling: boolean;
+  enableWolfSheep: boolean;
+  enableVariations: boolean;
+}
+
+const DEFAULTS: PersistedConfig = {
+  frameCount: 300,
+  warmupCount: 10,
+  enableLineChart: true,
+  enableParticle: true,
+  enableSpring: true,
+  enableSchelling: true,
+  enableWolfSheep: true,
+  enableVariations: false,
+};
+
+function loadConfig(): PersistedConfig {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+  } catch { }
+  return { ...DEFAULTS };
+}
+
+function saveConfig(cfg: PersistedConfig) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(cfg));
+  } catch { }
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
+const _initial = loadConfig();
+
 const running = signal(false);
 const progressText = signal('');
 const results = signal<BenchmarkStats[]>([]);
 const copyStatus = signal<'idle' | 'json' | 'md'>('idle');
 
-const frameCount = signal(300);
-const warmupCount = signal(10);
+const frameCount = signal(_initial.frameCount);
+const warmupCount = signal(_initial.warmupCount);
 
 // Enable/disable existing cases
-const enableLineChart = signal(true);
-const enableParticle = signal(true);
-const enableSpring = signal(true);
+const enableLineChart = signal(_initial.enableLineChart);
+const enableParticle = signal(_initial.enableParticle);
+const enableSpring = signal(_initial.enableSpring);
 
 // Enable/disable model cases
-const enableSchelling = signal(true);
-const enableWolfSheep = signal(true);
+const enableSchelling = signal(_initial.enableSchelling);
+const enableWolfSheep = signal(_initial.enableWolfSheep);
 
 // Enable variations mode
-const enableVariations = signal(false);
+const enableVariations = signal(_initial.enableVariations);
 
 const hasResults = computed(() => results.value.length > 0);
+
+// Persist config changes to localStorage
+effect(() => {
+  saveConfig({
+    frameCount: frameCount.value,
+    warmupCount: warmupCount.value,
+    enableLineChart: enableLineChart.value,
+    enableParticle: enableParticle.value,
+    enableSpring: enableSpring.value,
+    enableSchelling: enableSchelling.value,
+    enableWolfSheep: enableWolfSheep.value,
+    enableVariations: enableVariations.value,
+  });
+});
+
+function resetConfig() {
+  frameCount.value = DEFAULTS.frameCount;
+  warmupCount.value = DEFAULTS.warmupCount;
+  enableLineChart.value = DEFAULTS.enableLineChart;
+  enableParticle.value = DEFAULTS.enableParticle;
+  enableSpring.value = DEFAULTS.enableSpring;
+  enableSchelling.value = DEFAULTS.enableSchelling;
+  enableWolfSheep.value = DEFAULTS.enableWolfSheep;
+  enableVariations.value = DEFAULTS.enableVariations;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function download(filename: string, content: string, mime = 'text/plain') {
@@ -64,7 +130,7 @@ async function handleRun(containerRef: HTMLElement) {
         cases.push(...variation.cases);
       }
     }
-    
+
     // Add model variations
     if (enableSchelling.value) {
       cases.push(...schellingVariations);
@@ -195,13 +261,23 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
         </p>
       </div>
 
-      <button
-        onClick={() => containerRef.current && handleRun(containerRef.current)}
-        disabled={running.value}
-        style={{ ...styles.button, ...(running.value ? styles.buttonDisabled : {}) }}
-      >
-        {running.value ? 'Running…' : 'Run Benchmarks'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button
+          onClick={() => containerRef.current && handleRun(containerRef.current)}
+          disabled={running.value}
+          style={{ ...styles.button, marginTop: 0, flex: 1, ...(running.value ? styles.buttonDisabled : {}) }}
+        >
+          {running.value ? 'Running…' : 'Run Benchmarks'}
+        </button>
+        <button
+          onClick={resetConfig}
+          disabled={running.value}
+          style={{ ...styles.button, marginTop: 0, background: '#374151', ...(running.value ? styles.buttonDisabled : { background: '#374151' }) }}
+          title="Reset all settings to defaults"
+        >
+          Reset
+        </button>
+      </div>
 
       {progressText.value && (
         <p style={styles.progressText}>{progressText.value}</p>

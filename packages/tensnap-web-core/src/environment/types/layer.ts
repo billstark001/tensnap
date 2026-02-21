@@ -8,16 +8,16 @@ import { SceneBounds, OriginMode } from './viewport';
 
 export type Unsubscribe = () => void;
 
-export type StorageListener<T> = (data: T) => void;
+export type StorageListener<T, TDelta> = (data: T, delta?: TDelta) => void;
 
 /** A read-only view of a storage a layer can subscribe to. */
-export interface IStorage<T = unknown> {
-  subscribe(listener: StorageListener<T>): Unsubscribe;
+export interface IStorage<T = unknown, TDelta = unknown> {
+  subscribe(listener: StorageListener<T, TDelta>): Unsubscribe;
   getData(): T;
 }
 
 /** A mutable storage. Layers that write back use this. */
-export interface IMutableStorage<T = unknown> extends IStorage<T> {
+export interface IMutableStorage<T = unknown, TDelta = unknown> extends IStorage<T, TDelta> {
   setData(data: T): void;
 }
 

@@ -74,7 +74,7 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
     // Get agents that changed in the last step
     const updates = model!.getAgentUpdates(false);
     return updates.map(u => ({
-      id: u.id,
+      // id: u.id,
       ...u.data,
       icon: 'circle' as const,
     } as RenderableAgent));
@@ -135,10 +135,8 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
 
       // Initialize environment view
       view = new EnvironmentView(envContainer, {
-        pixelRatio: 1,
         throttleMs: 0,
       });
-      view.setViewport(cfg.envWidth, cfg.envHeight);
 
       agentStorage = new AgentStorage();
       gridStorage = new GridEnvStorage({
@@ -150,6 +148,8 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
         clickable: false,
       }, gridStorage);
       view.addLayer(agentLayer);
+
+      view.fitToScene(0);
 
       // Set initial agents
       agentStorage.setAgents(convertAgentsToRenderable());
@@ -178,7 +178,7 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
       // Use incremental update - only update changed agents
       const changedAgents = getChangedAgents();
       if (changedAgents.length > 0) {
-        agentStorage!.updateAgents(changedAgents.map(a => ({ id: a.id, data: a })));
+        agentStorage!.updateAgents(changedAgents);
       }
 
       // Update statistics chart

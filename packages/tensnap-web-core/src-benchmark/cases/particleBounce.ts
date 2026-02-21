@@ -95,11 +95,9 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
       container.appendChild(host);
 
       view = new EnvironmentView(host, {
-        type: 'custom',
-        pixelRatio: 1,
         throttleMs: 0,
       });
-      view.setViewport(cfg.width, cfg.height);
+      view.setViewport(0, 0, cfg.width, cfg.height);
 
       agentStorage = new AgentStorage();
       const agentLayer = new AgentLayer(view, agentStorage, {
@@ -114,7 +112,7 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
 
     tick() {
       stepParticles();
-      agentStorage!.setAgents(particles);
+      agentStorage!.updateAgents(particles);
     },
 
     teardown() {
