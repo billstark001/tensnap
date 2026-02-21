@@ -13,6 +13,7 @@ import {
   AgentStorage,
   GridEnvStorage,
   AgentLayer,
+  GridLayer,
 } from 'tensnap-web-core/environment';
 import { LineChartView } from 'tensnap-web-core/chart';
 import { RenderableAgent } from 'tensnap-web-core/environment';
@@ -139,15 +140,16 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
       });
 
       agentStorage = new AgentStorage();
-      gridStorage = new GridEnvStorage({
-        width: modelConfig.gridWidth,
-        height: modelConfig.gridHeight,
-      });
+      gridStorage = new GridEnvStorage();
 
       const agentLayer = new AgentLayer(view, agentStorage, {
         clickable: false,
-      }, gridStorage);
+        sceneBounds: { width: modelConfig.gridWidth, height: modelConfig.gridHeight },
+      });
       view.addLayer(agentLayer);
+
+      const gridLayer = new GridLayer(view, gridStorage);
+      view.addLayer(gridLayer);
 
       view.fitToScene(0);
 
@@ -230,10 +232,21 @@ export const schellingVariations = [
   }),
   // Large grid, high density
   createSchellingCase({
-    gridWidth: 60,
-    gridHeight: 60,
-    numAgentsType1: 1500,
-    numAgentsType2: 1500,
+    gridWidth: 80,
+    gridHeight: 80,
+    numAgentsType1: 2500,
+    numAgentsType2: 2500,
+    similarityThreshold: 1,
+    moveDistance: 15,
+    envWidth: 800,
+    envHeight: 800,
+  }),
+  // Large grid, high density
+  createSchellingCase({
+    gridWidth: 120,
+    gridHeight: 120,
+    numAgentsType1: 5800,
+    numAgentsType2: 5800,
     similarityThreshold: 1,
     moveDistance: 15,
     envWidth: 800,

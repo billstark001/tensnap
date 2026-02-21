@@ -63,11 +63,23 @@ export type AgentDelta = {
    * any previously cached state.
    */
   replaced?: false;
+  positionsFlushed?: false;
 } | {
   added?: undefined;
   updated?: undefined;
   removed?: undefined;
   replaced: true;
+  positionsFlushed?: false;
+} | {
+  added?: undefined;
+  updated?: undefined;
+  removed?: undefined;
+  replaced?: false;
+  /**
+   * True when only positions/velocities were updated via mergePositions().
+   * Consumers should only refresh node coordinates — no structural changes.
+   */
+  positionsFlushed: true;
 }
 
 export interface AgentStorageData {
@@ -144,9 +156,12 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /**
    * Fire listeners after a batch of `mergePositions` calls.
    * Typically called once per d3 tick.
+   *
+   * Uses the lightweight `positionsFlushed` delta so consumers only update
+   * node coordinates instead of tearing down and rebuilding all nodes.
    */
   flushPositions(): void {
-    this.notify({ replaced: true });
+    this.notify({ positionsFlushed: true });
   }
 
   // -------------------------------------------------------------------------
@@ -180,17 +195,19 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /** Add multiple agents efficiently. */
   addAgents(agents: Iterable<RenderableAgent>): void {
     const added: RenderableAgent[] = [];
+    const updated: RenderableAgent[] = [];
     for (const agent of agents) {
       const existing = this._data.agents.get(agent.id);
       if (existing) {
         Object.assign(existing, agent);
+        updated.push(existing);
       } else {
         this._data.agents.set(agent.id, { ...agent });
         added.push(agent);
       }
     }
-    if (added.length > 0) {
-      this.notify({ added, updated: [], removed: [] });
+    if (added.length > 0 || updated.length > 0) {
+      this.notify({ added, updated, removed: [] });
     }
   }
 
@@ -228,7 +245,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     }
   }
 
-  /** Update multiple agents efficiently. */
+  /** Update multiple agents efficiently. Supports different data structures. */
   updateAgents2(updates: Array<{ id: AgentId; data: Partial<RenderableAgent> }>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     for (const { id, data } of updates) {

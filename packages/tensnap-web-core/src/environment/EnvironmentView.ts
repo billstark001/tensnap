@@ -22,6 +22,12 @@ export interface IResizableLayer {
   readonly zIndex: number;
   /** Called (throttled) when the container size changes. */
   onViewportChange(viewport: Viewport): void;
+  /**
+   * Remove this layer's Leafer subtree from its current parent and re-add it
+   * to `parent`.  Called by EnvironmentView._sortAndReattach to enforce
+   * z-index ordering (Leafer renders children in insertion order).
+   */
+  reattachTo(parent: Leafer): void;
   destroy(): void;
 }
 
@@ -111,11 +117,11 @@ export class EnvironmentView {
     }
     const sceneWidth = bounds.maxX - bounds.minX;
     const sceneHeight = bounds.maxY - bounds.minY;
-    
+
     // Add padding
     const paddingX = sceneWidth * padding;
     const paddingY = sceneHeight * padding;
-    
+
     const x = bounds.minX - paddingX;
     const y = bounds.minY - paddingY;
     const width = sceneWidth + 2 * paddingX;
@@ -130,7 +136,7 @@ export class EnvironmentView {
    */
   calculateSceneBounds(): SceneBounds | null {
     const boundedLayers = this.layers.filter(
-      (layer): layer is IResizableLayer & IBoundedLayer => 
+      (layer): layer is IResizableLayer & IBoundedLayer =>
         'getSceneBounds' in layer && typeof (layer as any).getSceneBounds === 'function'
     );
 
@@ -166,13 +172,13 @@ export class EnvironmentView {
     const rect = this.container.getBoundingClientRect();
     const w = rect.width || this.container.clientWidth;
     const h = rect.height || this.container.clientHeight;
-    
+
     if (w === this._containerSize.width && h === this._containerSize.height) return;
-    
+
     this._containerSize = { width: w, height: h };
     this.leafer.set({ width: w, height: h });
     this._applyCanvasSmoothing();
-    
+
     // Viewport coordinates stay the same, layers will adjust their rendering
     this._notifyLayers();
   }
@@ -200,6 +206,11 @@ export class EnvironmentView {
   /** Re-sort all layer groups by zIndex and re-add to Leafer in order. */
   private _sortAndReattach(): void {
     this.layers.sort((a, b) => a.zIndex - b.zIndex);
+    // Leafer renders children in insertion order, so remove all and re-add
+    // in the newly sorted order to guarantee correct z-ordering.
+    for (const layer of this.layers) {
+      layer.reattachTo(this.leafer);
+    }
   }
 
   private _notifyLayers(): void {

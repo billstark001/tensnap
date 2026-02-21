@@ -9,7 +9,7 @@
  *   - Call agentStorage.setAgents() to trigger re-render
  */
 
-import { EnvironmentView } from 'tensnap-web-core/environment';
+import { EnvironmentView, GridEnvStorage, GridLayer } from 'tensnap-web-core/environment';
 import { AgentStorage } from 'tensnap-web-core/environment';
 import { AgentLayer } from 'tensnap-web-core/environment';
 import { RenderableAgent } from 'tensnap-web-core/environment';
@@ -18,10 +18,12 @@ import { BenchmarkCase } from '../types';
 interface Config {
   /** Number of particles. */
   particleCount: number;
-  /** Canvas width. */
+  /** Environment width. */
   width: number;
-  /** Canvas height. */
+  /** Environment height. */
   height: number;
+  /* Canvas scale factor (px per scene unit). */
+  canvasScale: number;
   /** Max initial speed (px/frame). */
   maxSpeed: number;
 }
@@ -42,8 +44,9 @@ const PARTICLE_COLORS = [
 export function createParticleBounceCase(partial: Partial<Config> = {}): BenchmarkCase {
   const cfg: Config = {
     particleCount: partial.particleCount ?? 200,
-    width: partial.width ?? 800,
-    height: partial.height ?? 500,
+    width: partial.width ?? 80,
+    height: partial.height ?? 50,
+    canvasScale: partial.canvasScale ?? 10,
     maxSpeed: partial.maxSpeed ?? 4,
   };
 
@@ -60,7 +63,7 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
       vx: (Math.random() * 2 - 1) * cfg.maxSpeed,
       vy: (Math.random() * 2 - 1) * cfg.maxSpeed,
       icon: 'circle' as const,
-      size: 8,
+      size: 1,
       color: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
     }));
   }
@@ -68,7 +71,7 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
   function stepParticles(): void {
     const W = cfg.width;
     const H = cfg.height;
-    const R = 4; // effective radius for bounce boundary
+    const R = 0.5; // effective radius for bounce boundary
 
     for (const p of particles) {
       p.x += p.vx;
@@ -89,7 +92,7 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
     setup(container) {
       host = document.createElement('div');
       host.style.cssText = `
-        width: ${cfg.width}px; height: ${cfg.height}px;
+        width: ${cfg.width * cfg.canvasScale}px; height: ${cfg.height * cfg.canvasScale}px;
         overflow: hidden;
       `;
       container.appendChild(host);
@@ -98,6 +101,10 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
         throttleMs: 0,
       });
       view.setViewport(0, 0, cfg.width, cfg.height);
+
+      const gridEnvStorage = new GridEnvStorage();
+      const gridLayer = new GridLayer(view, gridEnvStorage);
+      view.addLayer(gridLayer);
 
       agentStorage = new AgentStorage();
       const agentLayer = new AgentLayer(view, agentStorage, {

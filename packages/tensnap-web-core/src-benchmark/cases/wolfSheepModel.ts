@@ -13,6 +13,7 @@ import {
   AgentStorage,
   GridEnvStorage,
   AgentLayer,
+  GridLayer,
 } from 'tensnap-web-core/environment';
 import { LineChartView } from 'tensnap-web-core/chart';
 import { RenderableAgent } from 'tensnap-web-core/environment';
@@ -219,17 +220,18 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
         throttleMs: 0,
       });
 
-      gridStorage = new GridEnvStorage({
-        width: modelConfig.gridWidth,
-        height: modelConfig.gridHeight,
-      });
+      gridStorage = new GridEnvStorage();
+      const gridLayer = new GridLayer(view, gridStorage);
+      gridLayer.setZIndex(15);
+      view.addLayer(gridLayer);
 
       // Create two agent layers: one for grass, one for animals
       if (modelConfig.modelVersion === 'sheep-wolves-grass') {
         grassStorage = new AgentStorage();
         const grassLayer = new AgentLayer(view, grassStorage, {
           clickable: false,
-        }, gridStorage);
+          sceneBounds: { width: modelConfig.gridWidth, height: modelConfig.gridHeight },
+        });
         grassLayer.setZIndex(10); // Grass at bottom
         view.addLayer(grassLayer);
         grassStorage.setAgents(initGrassAgents());
@@ -239,7 +241,8 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
       const animalLayer = new AgentLayer(view, animalStorage, {
         clickable: false,
         coordOffset: 'float',
-      }, gridStorage);
+        sceneBounds: { width: modelConfig.gridWidth, height: modelConfig.gridHeight },
+      });
       animalLayer.setZIndex(20); // Animals on top
       view.addLayer(animalLayer);
       animalStorage.setAgents(convertAnimalsToRenderable());

@@ -30,7 +30,6 @@ import {
   AgentStorageData,
   RenderableAgent,
 } from '../storages/AgentStorage';
-import { GridEnvStorage, GridEnvData } from '../storages/GridEnvStorage';
 import {
   Viewport,
   AgentId,
@@ -85,7 +84,7 @@ export interface AgentLayerConfig {
   /** Origin mode for agent positioning. Default: 'bottom-left'. */
   originMode?: OriginMode;
   /** Fixed scene bounds (graph mode). Calculated dynamically when omitted. */
-  sceneBounds?: SceneBounds;
+  sceneBounds?: SceneBounds | Partial<Viewport>;
 
   onAgentClick?: (agent: RenderableAgent, event: any) => void;
   onAgentContextMenu?: (agent: RenderableAgent, event: any) => void;
@@ -109,9 +108,12 @@ interface AgentShapeEntry {
 }
 
 interface TrajectoryCacheEntry {
-  group: Group;
+  /** Single polyline that draws the entire trajectory. */
+  line: Line;
   lastRenderedIndex: number;
   color: string;
+  /** Flat coordinate array [x0,y0, x1,y1, …] feeding the polyline. */
+  flatPoints: number[];
 }
 
 // #endregion
@@ -130,9 +132,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   private readonly _cfg: ResolvedConfig;
 
   private _viewport: Viewport;
-  private _gridEnv: GridEnvData | null = null;
   private _cachedAgents = new Map<AgentId, RenderableAgent>();
-  private _trajectoryData = new Map<string, TrajectoryPoint[]>();
   private _draggingId: AgentId | null = null;
 
   // #endregion
@@ -143,10 +143,10 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     view: EnvironmentView,
     agentStorage: AgentStorage,
     config: AgentLayerConfig = {},
-    gridEnvStorage?: GridEnvStorage,
   ) {
     super(view);
     this._viewport = view.viewport;
+
 
     this._cfg = {
       draggable: false,
@@ -162,7 +162,22 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       onDragMove: NOOP,
       onDragEnd: NOOP,
       ...config,
+      sceneBounds: undefined,
     };
+
+    if (config.sceneBounds) {
+      if ('width' in config.sceneBounds || 'height' in config.sceneBounds) {
+        const { x = 0, y = 0, width = 1, height = 1 } = config.sceneBounds;
+        this._cfg.sceneBounds = {
+          minX: x,
+          maxX: x + width,
+          minY: y,
+          maxY: y + height,
+        };
+      } else {
+        this._cfg.sceneBounds = config.sceneBounds as SceneBounds;
+      }
+    }
 
     this.group.add(this._trajGroup);
     this.group.add(this._agentsGroup);
@@ -170,13 +185,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     this.registerStorage(agentStorage, (data, delta) => this._onAgentData(data, delta));
     this._onAgentData(agentStorage.getData());
 
-    if (gridEnvStorage) {
-      this._gridEnv = gridEnvStorage.getData();
-      this.registerStorage(gridEnvStorage, (env) => {
-        this._gridEnv = env;
-        this._onAgentData(agentStorage.getData());
-      });
-    }
   }
 
   // #endregion
@@ -185,14 +193,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   getSceneBounds(): SceneBounds | null {
     if (this._cfg.sceneBounds) return this._cfg.sceneBounds;
-
-    if (this._gridEnv) {
-      const { width: cols, height: rows } = this._gridEnv;
-      if (cols <= 0 || rows <= 0) return null;
-      return this._cfg.originMode === 'center'
-        ? { minX: -cols / 2, maxX: cols / 2, minY: -rows / 2, maxY: rows / 2 }
-        : { minX: 0, maxX: cols, minY: 0, maxY: rows };
-    }
 
     return this._boundsFromAgents();
   }
@@ -229,7 +229,9 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   onViewportChange(viewport: Viewport): void {
     this._viewport = viewport;
     this.applyViewportTransform(viewport);
-    this._rebuildAllTrajectories();
+    // Trajectory points are in scene coordinates — no rebuild needed;
+    // only re-set the stroke width so lines keep a constant pixel thickness.
+    this._updateTrajStrokeWidths();
   }
 
   // #endregion
@@ -238,7 +240,13 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   private _onAgentData(data: AgentStorageData, delta: AgentDelta = { replaced: true }): void {
     this._cachedAgents = data.agents;
-    this._trajectoryData = data.trajectories;
+
+    // Fast path: only node positions changed (d3-force tick).
+    // Skip structural changes and trajectory sync to avoid per-frame allocation storms.
+    if (delta.positionsFlushed) {
+      this._flushPositionsOnly(data.agents);
+      return;
+    }
 
     if (delta.replaced) {
       this._clearAgents();
@@ -262,6 +270,20 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     }
   }
 
+  /**
+   * Tight loop that only updates group x/y/rotation from agent positions.
+   * Called every d3-force tick via `flushPositions()`.
+   * Avoids all color/icon/size checks, trajectory syncing, and GC-heavy operations.
+   */
+  private _flushPositionsOnly(agents: Map<AgentId, RenderableAgent>): void {
+    agents.forEach((agent, id) => {
+      const entry = this._agentShapes.get(id);
+      if (!entry) return;
+      const coords = this._toSceneCoords(agent);
+      entry.group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
+    });
+  }
+
   // #endregion
 
   // #region Coordinate Transform
@@ -272,17 +294,13 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   }
 
   private _toSceneCoords(agent: RenderableAgent) {
-    if (this._gridEnv) {
-      const off = this._posOffset;
-      return {
-        x: (agent.x ?? 0) + off,
-        y: (agent.y ?? 0) + off,
-        rotation: agent.heading ? (agent.heading * 180) / Math.PI : 0,
-        size: agent.size ?? 1,
-      };
-    }
-    // Graph mode: size defaults to 1 (diameter = 1 scene-unit; see DEFAULT_GRAPH_CONFIG)
-    return { x: agent.x ?? 0, y: agent.y ?? 0, rotation: 0, size: agent.size ?? 1 };
+    const off = this._posOffset;
+    return {
+      x: (agent.x ?? 0) + off,
+      y: (agent.y ?? 0) + off,
+      rotation: agent.heading ? (agent.heading * 180) / Math.PI : 0,
+      size: agent.size ?? 1,
+    };
   }
 
   /** Trajectory stroke width in scene units — renders at a constant pixel width regardless of zoom. */
@@ -325,15 +343,18 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? DEFAULT_AGENT_COLOR;
 
-    if (entry.color !== color) {
-      entry.shape.set({ fill: color });
-      entry.color = color;
-    }
+    // Batch shape appearance changes into a single set() call
+    const shapeUpdates: Record<string, unknown> = {};
     if (entry.icon !== icon || entry.size !== coords.size) {
-      entry.shape.set(SHAPE_CONFIGS[icon](coords.size));
+      Object.assign(shapeUpdates, SHAPE_CONFIGS[icon](coords.size));
       entry.icon = icon;
       entry.size = coords.size;
     }
+    if (entry.color !== color) {
+      shapeUpdates.fill = color;
+      entry.color = color;
+    }
+    if (Object.keys(shapeUpdates).length) entry.shape.set(shapeUpdates);
     if (entry.label) {
       const fs = Math.max(8, coords.size * 0.6);
       entry.label.set({
@@ -353,6 +374,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const entry = this._agentShapes.get(id);
     if (!entry) return;
     entry.shape.off?.();
+    entry.group.off?.();
     entry.group.remove();
     this._agentShapes.delete(id);
     this._removeTrajectory(String(id));
@@ -361,10 +383,11 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   private _clearAgents(): void {
     for (const entry of this._agentShapes.values()) {
       entry.shape.off?.();
-      entry.group.remove();
+      entry.group.off?.();
     }
     this._agentShapes.clear();
-    for (const cached of this._trajectoryCache.values()) cached.group.remove();
+    this._agentsGroup.clear();  // bulk-remove all agent groups in one call
+    for (const cached of this._trajectoryCache.values()) cached.line.remove();
     this._trajectoryCache.clear();
   }
 
@@ -428,61 +451,63 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   // #region Trajectory
 
+  /**
+   * Replace a per-agent trajectory with a single polyline `Line` whose
+   * `points` array contains all trajectory coordinates.
+   *
+   * Complexity per call: O(P) array allocation, 1 Leafer `set()` call —
+   * vs. the previous O(P) individual `Line` objects.
+   */
   private _updateTrajectory(agentId: string, points: TrajectoryPoint[], color?: string): void {
     const trajColor = color ?? DEFAULT_TRAJ_COLOR;
     const strokeWidth = this._trajStrokeWidth();
-    const off = this._gridEnv ? this._posOffset : 0;
+    const off = this._posOffset;
 
     let cached = this._trajectoryCache.get(agentId);
     if (!cached || cached.color !== trajColor) {
-      cached?.group.remove();
-      cached = { group: new Group(), lastRenderedIndex: -1, color: trajColor };
-      this._trajGroup.add(cached.group);
+      cached?.line.remove();
+      const line = new Line({ stroke: trajColor, strokeWidth, points: [] });
+      cached = { line, lastRenderedIndex: -1, color: trajColor, flatPoints: [] };
+      this._trajGroup.add(line);
       this._trajectoryCache.set(agentId, cached);
     }
 
     if (points.length < 2) {
-      cached.group.clear();
+      if (cached.flatPoints.length > 0) {
+        cached.flatPoints = [];
+        cached.line.set({ points: [] });
+      }
       cached.lastRenderedIndex = points[points.length - 1]?.time ?? -1;
       return;
     }
 
-    const startIdx = Math.max(0, cached.lastRenderedIndex);
-
-    for (let i = points.length - 2; i >= 0; --i) {
-      const p1 = points[i], p2 = points[i + 1];
-      if (p2.time <= startIdx) break;
-      cached.group.add(new Line({
-        points: [p1.x + off, p1.y + off, p2.x + off, p2.y + off],
-        stroke: p1.color ?? trajColor,
-        strokeWidth,
-      }));
+    // Build a flat [x0,y0, x1,y1, …] array — one polyline replaces N-1 Line objects
+    const n = points.length;
+    const flatPoints = new Array<number>(n * 2);
+    for (let i = 0; i < n; i++) {
+      flatPoints[i * 2] = points[i].x + off;
+      flatPoints[i * 2 + 1] = points[i].y + off;
     }
-
-    // Trim excess segments to cap memory use
-    const { children } = cached.group;
-    const excess = children.length - (points.length - 1);
-    if (excess > 0) children.slice(0, excess).forEach((c: any) => cached!.group.remove(c));
-
-    cached.lastRenderedIndex = points[points.length - 1]?.time ?? startIdx;
+    cached.flatPoints = flatPoints;
+    cached.line.set({ points: flatPoints, strokeWidth });
+    cached.lastRenderedIndex = points[n - 1]?.time ?? -1;
   }
 
   private _removeTrajectory(agentId: string): void {
     const cached = this._trajectoryCache.get(agentId);
     if (!cached) return;
-    cached.group.remove();
+    cached.line.remove();
     this._trajectoryCache.delete(agentId);
   }
 
-  private _rebuildAllTrajectories(): void {
+  /**
+   * Refresh stroke widths for all cached polylines after a viewport scale
+   * change. Points are already in scene coordinates so no rebuild is needed.
+   */
+  private _updateTrajStrokeWidths(): void {
+    const strokeWidth = this._trajStrokeWidth();
     for (const cached of this._trajectoryCache.values()) {
-      cached.group.clear();
-      cached.lastRenderedIndex = -1;
-    }
-    for (const [id, points] of this._trajectoryData) {
-      if (points?.length) {
-        this._updateTrajectory(id, points, this._cachedAgents.get(id as AgentId)?.trajectoryColor);
-      }
+      cached.line.set({ strokeWidth });
     }
   }
 

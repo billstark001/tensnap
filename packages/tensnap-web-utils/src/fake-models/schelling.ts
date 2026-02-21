@@ -39,7 +39,23 @@ export class SchellingModel {
   private config: Required<SchellingConfig>;
   private agents: Agent[] = [];
   private lastUnsatisfiedAgents: Agent[] | undefined = undefined;
-  private grid: (Agent | null)[][];
+
+  /**
+   * Flat 1D grid: index = y * gridWidth + x.
+   * Eliminates the outer-array pointer dereference of a 2D layout.
+   */
+  private grid: (Agent | null)[] = [];
+
+  /**
+   * Empty-spots pool: O(1) random sampling, O(1) add/remove.
+   * Deletion uses swap-and-pop backed by an index map.
+   */
+  private emptySpots: number[] = [];
+  private emptySpotIndexMap: Map<number, number> = new Map();
+
+  /** Incremental tracking avoids O(N) filter on every step. */
+  private unsatisfiedSet: Set<Agent> = new Set();
+
   private timeStep: number = 0;
   private isRunning: boolean = false;
   private intervalId: number | null = null;
@@ -47,10 +63,9 @@ export class SchellingModel {
   private satisfiedCount: number = 0;
   private segregationIndex: number = 0;
 
-  // Agent type configurations
   private static readonly AGENT_TYPES = [
     { type: 1, color: '#3498db', prefix: 'agent1' },
-    { type: 2, color: '#e74c3c', prefix: 'agent2' }
+    { type: 2, color: '#e74c3c', prefix: 'agent2' },
   ] as const;
 
   constructor(config: SchellingConfig) {
@@ -59,10 +74,10 @@ export class SchellingModel {
       agentSizeUnsatisfied: (config.agentSize ?? 1) * 0.6,
       ...config,
     };
-    this.grid = this.createEmptyGrid();
   }
 
-  // Event handling
+  // ── Event handling ──────────────────────────────────────────────────────────
+
   on(event: string, handler: Function) {
     (this.eventHandlers[event] ??= []).push(handler);
   }
@@ -77,46 +92,48 @@ export class SchellingModel {
     this.eventHandlers[event]?.forEach(handler => handler(...args));
   }
 
-  // Grid operations
-  private createEmptyGrid(): (Agent | null)[][] {
-    return Array(this.config.gridHeight).fill(null).map(() =>
-      Array(this.config.gridWidth).fill(null)
-    );
+  // ── Empty-spots pool ────────────────────────────────────────────────────────
+
+  /** O(1) insertion. */
+  private addEmptySpot(enc: number): void {
+    this.emptySpotIndexMap.set(enc, this.emptySpots.length);
+    this.emptySpots.push(enc);
   }
 
-  private getEmptySpots(): [number, number][] {
-    const spots: [number, number][] = [];
-    for (let y = 0; y < this.config.gridHeight; y++) {
-      for (let x = 0; x < this.config.gridWidth; x++) {
-        if (this.grid[y][x] === null) {
-          spots.push([x, y]);
-        }
-      }
-    }
-    return spots;
+  /** O(1) removal via swap-and-pop. */
+  private removeEmptySpot(enc: number): void {
+    const idx = this.emptySpotIndexMap.get(enc)!;
+    const last = this.emptySpots[this.emptySpots.length - 1];
+    this.emptySpots[idx] = last;
+    this.emptySpotIndexMap.set(last, idx);
+    this.emptySpots.pop();
+    this.emptySpotIndexMap.delete(enc);
   }
 
-  private isValidPosition(x: number, y: number): boolean {
-    return x >= 0 && x < this.config.gridWidth && y >= 0 && y < this.config.gridHeight;
-  }
+  // ── Initialization ──────────────────────────────────────────────────────────
 
-  // Initialization
   initialize() {
     this.agents = [];
     this.lastUnsatisfiedAgents = undefined;
-    this.grid = this.createEmptyGrid();
+    this.unsatisfiedSet = new Set();
     this.timeStep = 0;
     this.satisfiedCount = 0;
     this.segregationIndex = 0;
 
-    // Create agents for both types
+    const { gridWidth: W, gridHeight: H } = this.config;
+    const size = W * H;
+    this.grid = new Array(size).fill(null);
+
+    // Pre-fill the pool with every encoded position
+    this.emptySpots = Array.from({ length: size }, (_, i) => i);
+    this.emptySpotIndexMap = new Map(this.emptySpots.map((enc, i) => [enc, i]));
+
     const agentCounts = [this.config.numAgentsType1, this.config.numAgentsType2];
     SchellingModel.AGENT_TYPES.forEach(({ type, prefix }, index) => {
       for (let i = 0; i < agentCounts[index]; i++) {
         const agent: Agent = {
           id: `${prefix}_${i}`,
-          x: 0,
-          y: 0,
+          x: 0, y: 0,
           type: type as 1 | 2,
           satisfied: false,
         };
@@ -129,111 +146,200 @@ export class SchellingModel {
   }
 
   private placeAgentRandomly(agent: Agent): boolean {
-    const emptySpots = this.getEmptySpots();
-    if (emptySpots.length === 0) return false;
-
-    const [x, y] = emptySpots[Math.floor(Math.random() * emptySpots.length)];
-    agent.x = x;
-    agent.y = y;
-    this.grid[y][x] = agent;
+    if (this.emptySpots.length === 0) return false;
+    const enc = this.emptySpots[(Math.random() * this.emptySpots.length) | 0];
+    const W = this.config.gridWidth;
+    agent.x = enc % W;
+    agent.y = (enc / W) | 0;
+    this.grid[enc] = agent;
+    this.removeEmptySpot(enc);
     return true;
   }
 
-  // Neighbor analysis
-  private getNeighbors(x: number, y: number): Agent[] {
-    const neighbors: Agent[] = [];
+  // ── Neighbour analysis ──────────────────────────────────────────────────────
+
+  /**
+   * Inlined Moore-neighbourhood similarity ratio.
+   * No intermediate Agent[] allocation; row offset hoisted out of inner loop;
+   * self-skip via `(dx | dy) === 0` (true only when both are 0).
+   */
+  private calculateSimilarityRatio(agent: Agent, x = agent.x, y = agent.y): number {
+    const { gridWidth: W, gridHeight: H } = this.config;
+    const grid = this.grid;
+    const t = agent.type;
+    let total = 0, similar = 0;
+
     for (let dy = -1; dy <= 1; dy++) {
+      const ny = y + dy;
+      if (ny < 0 || ny >= H) continue;
+      const rowOff = ny * W;
       for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const nx = x + dx, ny = y + dy;
-        if (this.isValidPosition(nx, ny) && this.grid[ny][nx]) {
-          neighbors.push(this.grid[ny][nx]!);
-        }
+        if ((dx | dy) === 0) continue;
+        const nx = x + dx;
+        if (nx < 0 || nx >= W) continue;
+        const n = grid[rowOff + nx];
+        if (n !== null) { total++; if (n.type === t) similar++; }
       }
     }
-    return neighbors;
-  }
 
-  private calculateSimilarityRatio(agent: Agent, x: number = agent.x, y: number = agent.y): number {
-    const neighbors = this.getNeighbors(x, y);
-    if (neighbors.length === 0) return 1;
-    const similarCount = neighbors.filter(n => n.type === agent.type).length;
-    return similarCount / neighbors.length;
+    return total === 0 ? 1 : similar / total;
   }
 
   private calculateSatisfaction(agent: Agent): boolean {
     return this.calculateSimilarityRatio(agent) >= this.config.similarityThreshold;
   }
 
-  private updateAllSatisfaction() {
+  // ── Satisfaction tracking ───────────────────────────────────────────────────
+
+  /** Full O(N) rebuild — only at initialization or similarity-threshold change. */
+  private updateAllSatisfaction(): void {
     this.satisfiedCount = 0;
+    this.unsatisfiedSet.clear();
     for (const agent of this.agents) {
       agent.satisfied = this.calculateSatisfaction(agent);
-      if (agent.satisfied) this.satisfiedCount++;
-    }
-  }
-
-  private calculateSegregationIndex(): number {
-    let totalSimilarity = 0, count = 0;
-    for (const agent of this.agents) {
-      const neighbors = this.getNeighbors(agent.x, agent.y);
-      if (neighbors.length > 0) {
-        totalSimilarity += this.calculateSimilarityRatio(agent);
-        count++;
+      if (agent.satisfied) {
+        this.satisfiedCount++;
+      } else {
+        this.unsatisfiedSet.add(agent);
       }
     }
-    return count > 0 ? totalSimilarity / count : 0;
   }
 
-  // Agent movement
-  private moveAgent(agent: Agent): boolean {
-    const candidates = this.findCandidateLocations(agent);
-    if (candidates.length === 0) return false;
+  /**
+   * Incremental O(9) update after a move.
+   * Recalculates satisfaction for every occupant in the 3×3 neighbourhood of
+   * (x, y) and keeps satisfiedCount / unsatisfiedSet in sync.
+   */
+  private updateSatisfactionAt(x: number, y: number): void {
+    const { gridWidth: W, gridHeight: H, similarityThreshold: thresh } = this.config;
+    const grid = this.grid;
 
-    this.grid[agent.y][agent.x] = null;
-    const [newX, newY] = candidates[Math.floor(Math.random() * candidates.length)];
-    agent.x = newX;
-    agent.y = newY;
-    this.grid[newY][newX] = agent;
-    return true;
-  }
+    for (let dy = -1; dy <= 1; dy++) {
+      const ny = y + dy;
+      if (ny < 0 || ny >= H) continue;
+      const rowOff = ny * W;
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        if (nx < 0 || nx >= W) continue;
+        const agent = grid[rowOff + nx];
+        if (agent === null) continue;
 
-  private findCandidateLocations(agent: Agent): [number, number][] {
-    const satisfyingSpots: [number, number][] = [];
-
-    for (let y = 0; y < this.config.gridHeight; y++) {
-      for (let x = 0; x < this.config.gridWidth; x++) {
-        if (this.grid[y][x] !== null) continue;
-
-        const ratio = this.calculateSimilarityRatio(agent, x, y);
-        if (ratio >= this.config.similarityThreshold) {
-          const distance = Math.abs(x - agent.x) + Math.abs(y - agent.y);
-          if (distance <= this.config.moveDistance) {
-            satisfyingSpots.push([x, y]);
+        const nowSatisfied = this.calculateSimilarityRatio(agent) >= thresh;
+        if (agent.satisfied !== nowSatisfied) {
+          agent.satisfied = nowSatisfied;
+          if (nowSatisfied) {
+            this.satisfiedCount++;
+            this.unsatisfiedSet.delete(agent);
+          } else {
+            this.satisfiedCount--;
+            this.unsatisfiedSet.add(agent);
           }
         }
       }
     }
-
-    return satisfyingSpots.length > 0 ? satisfyingSpots : this.getEmptySpots();
   }
 
-  // Simulation step
+  private calculateSegregationIndex(): number {
+    const { gridWidth: W, gridHeight: H } = this.config;
+    const grid = this.grid;
+    let totalSimilarity = 0, count = 0;
+
+    for (const { x, y, type } of this.agents) {
+      let total = 0, similar = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= H) continue;
+        const rowOff = ny * W;
+        for (let dx = -1; dx <= 1; dx++) {
+          if ((dx | dy) === 0) continue;
+          const nx = x + dx;
+          if (nx < 0 || nx >= W) continue;
+          const n = grid[rowOff + nx];
+          if (n !== null) { total++; if (n.type === type) similar++; }
+        }
+      }
+      if (total > 0) { totalSimilarity += similar / total; count++; }
+    }
+
+    return count > 0 ? totalSimilarity / count : 0;
+  }
+
+  // ── Agent movement ──────────────────────────────────────────────────────────
+
+  private moveAgent(agent: Agent): boolean {
+    const candidates = this.findCandidateLocations(agent);
+    if (candidates.length === 0) return false;
+
+    const W = this.config.gridWidth;
+    const oldEnc = agent.y * W + agent.x;
+    // Capture newEnc before any pool mutation (safe even when candidates === this.emptySpots)
+    const newEnc = candidates[(Math.random() * candidates.length) | 0];
+
+    this.grid[oldEnc] = null;
+    this.addEmptySpot(oldEnc);
+    this.grid[newEnc] = agent;
+    this.removeEmptySpot(newEnc);
+
+    const oldX = agent.x, oldY = agent.y;
+    agent.x = newEnc % W;
+    agent.y = (newEnc / W) | 0;
+
+    // O(9) incremental update for each affected neighbourhood
+    this.updateSatisfactionAt(oldX, oldY);
+    this.updateSatisfactionAt(agent.x, agent.y);
+
+    return true;
+  }
+
+  /**
+   * Candidate search restricted to the Manhattan-distance diamond of radius
+   * moveDistance: O(d²) instead of O(W×H).
+   *
+   * Fallback returns this.emptySpots directly (no copy); newEnc is captured
+   * before the pool is mutated in moveAgent, so this is safe.
+   */
+  private findCandidateLocations(agent: Agent): number[] {
+    const { moveDistance: d, similarityThreshold: thresh, gridWidth: W, gridHeight: H } = this.config;
+    const { x, y } = agent;
+    const grid = this.grid;
+    const satisfying: number[] = [];
+
+    for (let dy = -d; dy <= d; dy++) {
+      const ny = y + dy;
+      if (ny < 0 || ny >= H) continue;
+      const rowOff = ny * W;
+      const maxDx = d - Math.abs(dy);
+      for (let dx = -maxDx; dx <= maxDx; dx++) {
+        const nx = x + dx;
+        if (nx < 0 || nx >= W) continue;
+        const enc = rowOff + nx;
+        if (grid[enc] !== null) continue;
+        if (this.calculateSimilarityRatio(agent, nx, ny) >= thresh) {
+          satisfying.push(enc);
+        }
+      }
+    }
+
+    return satisfying.length > 0 ? satisfying : this.emptySpots;
+  }
+
+  // ── Simulation step ─────────────────────────────────────────────────────────
+
   step() {
     this.lastUnsatisfiedAgents = undefined;
     this.emit('step_start', { timeStep: this.timeStep });
 
-    const unsatisfiedAgents = this.agents.filter(a => !a.satisfied);
-    this.shuffleArray(unsatisfiedAgents);
+    // O(U) snapshot instead of O(N) filter; satisfaction is maintained incrementally
+    const unsatisfied = Array.from(this.unsatisfiedSet);
+    this.shuffleArray(unsatisfied);
 
-    const moveCount = Math.min(unsatisfiedAgents.length, Math.ceil(unsatisfiedAgents.length * 0.3));
+    const moveCount = Math.ceil(unsatisfied.length * 0.3);
     for (let i = 0; i < moveCount; i++) {
-      this.moveAgent(unsatisfiedAgents[i]);
+      this.moveAgent(unsatisfied[i]);
     }
 
-    this.updateAllSatisfaction();
     this.segregationIndex = this.calculateSegregationIndex();
-    this.lastUnsatisfiedAgents = unsatisfiedAgents;
+    this.lastUnsatisfiedAgents = unsatisfied;
 
     this.emit('step_end', { timeStep: this.timeStep });
     this.timeStep++;
@@ -241,26 +347,20 @@ export class SchellingModel {
 
   private shuffleArray<T>(array: T[]): void {
     for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = (Math.random() * (i + 1)) | 0;
       [array[i], array[j]] = [array[j], array[i]];
     }
   }
 
-  // Data access
+  // ── Data access ─────────────────────────────────────────────────────────────
+
   private getAgentColor(type: 1 | 2): string {
     return SchellingModel.AGENT_TYPES.find(t => t.type === type)?.color ?? '#000000';
   }
 
   getAgentUpdates(full = false): {
     id: string;
-    data: {
-      id: string;
-      x: number;
-      y: number;
-      color: string;
-      icon: 'circle';
-      size: number;
-    };
+    data: { id: string; x: number; y: number; color: string; icon: 'circle'; size: number };
     operation: 'create' | 'update';
   }[] {
     const agentsToUpdate = full ? this.agents : this.lastUnsatisfiedAgents ?? [];
@@ -317,25 +417,23 @@ export class SchellingModel {
       step?: number;
       allowRuntimeChange: boolean;
     }> = [
-        { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
-        { id: 'moveDistance', type: 'number', label: 'Move Distance', min: 1, max: 10, step: 1, allowRuntimeChange: true },
-        { id: 'gridWidth', type: 'number', label: 'Grid Width', min: 10, max: 100, step: 1, allowRuntimeChange: false },
-        { id: 'gridHeight', type: 'number', label: 'Grid Height', min: 10, max: 100, step: 1, allowRuntimeChange: false },
-        { id: 'numAgentsType1', type: 'number', label: 'Number of Type 1 Agents', min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-        { id: 'numAgentsType2', type: 'number', label: 'Number of Type 2 Agents', min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-      ];
-
+      { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
+      { id: 'moveDistance', type: 'number', label: 'Move Distance', min: 1, max: 10, step: 1, allowRuntimeChange: true },
+      { id: 'gridWidth', type: 'number', label: 'Grid Width', min: 10, max: 100, step: 1, allowRuntimeChange: false },
+      { id: 'gridHeight', type: 'number', label: 'Grid Height', min: 10, max: 100, step: 1, allowRuntimeChange: false },
+      { id: 'numAgentsType1', type: 'number', label: 'Number of Type 1 Agents', min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+      { id: 'numAgentsType2', type: 'number', label: 'Number of Type 2 Agents', min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+    ];
     return paramDefs.map(p => ({ ...p, value: this.config[p.id as keyof SchellingConfig] }));
   }
 
   updateParameter(id: string, value: any) {
-    this.config[id as keyof SchellingConfig] = value;
-    if (id === 'similarityThreshold') {
-      this.updateAllSatisfaction();
-    }
+    (this.config as any)[id] = value;
+    if (id === 'similarityThreshold') this.updateAllSatisfaction();
   }
 
-  // Simulation control
+  // ── Simulation control ──────────────────────────────────────────────────────
+
   start() {
     if (this.isRunning) return;
     this.isRunning = true;
@@ -361,21 +459,18 @@ export class SchellingModel {
     this.agents = [];
     this.lastUnsatisfiedAgents = undefined;
     this.grid = [];
+    this.emptySpots = [];
+    this.emptySpotIndexMap.clear();
+    this.unsatisfiedSet.clear();
   }
 
-  getIsRunning(): boolean {
-    return this.isRunning;
-  }
+  getIsRunning(): boolean { return this.isRunning; }
 
-  getConfig(): SchellingConfig {
-    return { ...this.config };
-  }
+  getConfig(): SchellingConfig { return { ...this.config }; }
 
   updateConfig(updates: Partial<SchellingConfig>) {
     Object.assign(this.config, updates);
-    if ('similarityThreshold' in updates) {
-      this.updateAllSatisfaction();
-    }
+    if ('similarityThreshold' in updates) this.updateAllSatisfaction();
   }
 }
 

@@ -15,7 +15,7 @@
  * Coordinate system: +x right, +y up (origin at bottom-left).
  */
 
-import { Group } from 'leafer-ui';
+import { Group, Leafer } from 'leafer-ui';
 import { IResizableLayer } from '../EnvironmentView';
 import { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
 import { EnvironmentView } from '../EnvironmentView';
@@ -56,6 +56,11 @@ export abstract class BaseLayer implements IResizableLayer {
 
   setZIndex(z: number): void {
     this._zIndex = z;
+  }
+
+  reattachTo(parent: Leafer): void {
+    parent.remove(this.group);
+    parent.add(this.group);
   }
 
   // -------------------------------------------------------------------
