@@ -8,7 +8,7 @@ import { AnyView } from "@/types/ui";
 import { useViewContext } from "../view/useViewContext";
 import { useToast } from "@/store/toast";
 import { useScenarioStore } from "@/store/scenario/store";
-import { exportToCSV } from "@/store/scenario/chart";
+import { exportToCSV } from "tensnap-web-core";
 import { useUpdateAndDeleteView } from "./view-edit-hooks";
 
 
@@ -141,7 +141,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
   const handleSaveChartAsCSV = useCallback(async () => {
     if (!charts) return;
-    const chartGroup = charts.allChartGroups.get((view.data as any)?.id);
+    const chartGroup = charts.getGroup((view.data as any)?.id);
     if (!chartGroup) {
       toast.error('Chart not found.');
       return;

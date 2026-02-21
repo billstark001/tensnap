@@ -7,6 +7,9 @@ export type AgentId = string | number;
 
 export type EnvironmentId = string;
 
+import type { Parameter } from 'tensnap-web-core';
+import type { ChartGroup } from 'tensnap-web-core';
+
 export interface AgentTrajectoryPoint {
   x: number;
   y: number;
@@ -102,101 +105,44 @@ export interface UniformEnvironment extends PureUniformEnvironment, EnvironmentB
   agents: UniformAgent[];
 }
 
-
 // #endregion
 
 export type PureEnvironment = PureGridEnvironment | PureGraphEnvironment | PureUniformEnvironment;
 
 export type Environment = GridEnvironment | GraphEnvironment | UniformEnvironment;
 
-// #region Parameters
+// #region Parameters — sourced from tensnap-web-core
 
-
-export type ParameterType = 'number' | 'enum' | 'action' | 'boolean' | 'string';
-
-export interface ParameterBase {
-  id: string;
-  type: ParameterType;
-  label: string;
-  allowRuntimeChange?: boolean;
-}
-
-export interface NumberParameter extends ParameterBase {
-  type: 'number';
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-}
-
-export interface EnumParameter extends ParameterBase {
-  type: 'enum';
-  value: string;
-  options: string[];
-  labels?: Record<string, string>;
-}
-
-export interface ActionParameter extends ParameterBase {
-  type: 'action';
-}
-
-export interface BooleanParameter extends ParameterBase {
-  type: 'boolean';
-  value: boolean;
-}
-
-export interface StringParameter extends ParameterBase {
-  type: 'string';
-  value: string;
-}
-
-export type Parameter = NumberParameter | EnumParameter | ActionParameter | BooleanParameter | StringParameter;
-
+export type {
+  ParameterType,
+  ParameterBase,
+  NumberParameter,
+  EnumParameter,
+  ActionParameter,
+  BooleanParameter,
+  StringParameter,
+  Parameter,
+} from 'tensnap-web-core';
 
 // #endregion
 
-// #region Charts
+// #region Charts — sourced from tensnap-web-core
 
-export interface ChartMetadata {
-  id: string;
-  label: string;
-  color?: string;
-}
+export type {
+  ChartMetadata,
+  ChartGroupMetadata,
+  NativeDataPoint,
+  ChartGroup,
+  ChartUpdateData,
+} from 'tensnap-web-core';
 
-export interface ChartGroupMetadata extends ChartMetadata {
-  dataList?: ChartMetadata[];
-}
-
+// Protocol-specific chart operation types (not in web-core)
 export type ChartUpdateOperationType = 'clear';
-
-export interface ChartUpdateData {
-  id: string;
-  time?: number;
-  value: any;
-}
 
 export interface ChartUpdateOperation {
   id: string;
   operation: ChartUpdateOperationType;
 }
-
-export interface NativeDataPoint {
-  time: number;
-  [key: string]: any;
-}
-
-export interface ChartGroup {
-  id: string;
-  label: string;
-  metadataDict: Record<string, ChartMetadata>;
-  data: NativeDataPoint[];
-}
-
-// #endregion
-
-// #region Logs
-
-// TODO
 
 // #endregion
 

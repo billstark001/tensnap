@@ -44,7 +44,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
         const env = environments?.get(anchoredView.data.id);
         setLocalObjectData(env ? { ...env } : null);
       } else if (view.type === 'chart') {
-        const chart = charts?.allChartGroups.get(anchoredView.data.id);
+        const chart = charts?.getGroup(anchoredView.data.id);
         setLocalObjectData(chart ? { ...chart } : null);
       }
     } else {
@@ -127,7 +127,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
         const env = environments?.get(anchoredView.data.id);
         setLocalObjectData(env ? { ...env } : null);
       } else if (view.type === 'chart') {
-        const chart = charts?.allChartGroups.get(anchoredView.data.id);
+        const chart = charts?.getGroup(anchoredView.data.id);
         setLocalObjectData(chart ? { ...chart } : null);
       }
     }

@@ -3,7 +3,7 @@ import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
 import { InstantiatedEnvironment } from './environment';
 import { AgentUpdateOperation, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
-import { InstantiatedChartStorage } from './chart';
+import { ChartStorage } from 'tensnap-web-core';
 import { UpdateTriggerState } from '../update-trigger';
 
 export interface SetDataPayload {
@@ -53,7 +53,7 @@ export interface ParametersSlice {
 
 // 图表管理切片
 export interface ChartsSlice {
-  charts: InstantiatedChartStorage;
+  charts: ChartStorage;
   updateChartProps: (id: string, propsUpdate: Partial<Pick<ChartGroup, 'label'>>) => void;
   addChartMetadata: (groupId: string, metadata: ChartMetadata) => void;
   renameChartGroup: (groupId: string, newId: string) => void;

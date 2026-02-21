@@ -1,85 +1,135 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { GridAgent } from '@/types/model';
+import { GridAgent, AgentTrajectoryPoint } from '@/types/model';
 import * as styles from './GridEnvironmentView.css';
 import { InstantiatedGridEnvironment } from '@/store/scenario/environment';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
-import { GridVisualizer } from './gridVisualizer';
+import { Trans } from '@lingui/react/macro';
+import {
+  EnvironmentView,
+  AgentStorage,
+  BackgroundStorage,
+  AgentLayer,
+  BackgroundLayer,
+  RenderableAgent,
+  TrajectoryPoint,
+} from 'tensnap-web-core';
 
 interface GridEnvironmentViewProps {
   environment: InstantiatedGridEnvironment;
   updateTrigger?: any;
 }
 
+/** Convert web model GridAgent to web-core RenderableAgent */
+function toRenderableAgent(agent: GridAgent): RenderableAgent {
+  return {
+    id: agent.id,
+    x: agent.x,
+    y: agent.y,
+    heading: agent.heading,
+    color: agent.color,
+    icon: agent.icon,
+    size: agent.size,
+    trajectoryColor: agent.trajectory_color,
+    data: agent.data as Record<string, unknown>,
+  };
+}
+
+/** Convert web model AgentTrajectoryPoint to web-core TrajectoryPoint */
+function toTrajectoryPoint(pt: AgentTrajectoryPoint): TrajectoryPoint {
+  return { x: pt.x, y: pt.y, time: pt.time, color: pt.color };
+}
+
 export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironmentViewProps) {
   const { props: envProps, agents: agentsProps, agentTraces: traceProps } = environment;
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const visualizerRef = useRef<GridVisualizer | null>(null);
+  const envViewRef = useRef<EnvironmentView | null>(null);
+  const agentStorageRef = useRef<AgentStorage | null>(null);
+  const bgStorageRef = useRef<BackgroundStorage | null>(null);
+
+  // Keep latest agents map in a ref so the click handler always sees current data
+  const agentsRef = useRef(agentsProps);
+  agentsRef.current = agentsProps;
 
   const [selectedAgent, setSelectedAgent] = useState<GridAgent | null>(null);
 
-  const handleAgentClick = useCallback((agent: GridAgent) => {
-    setSelectedAgent(agent);
+  const handleAgentClick = useCallback((agent: RenderableAgent) => {
+    const found = agentsRef.current[agent.id];
+    if (found) setSelectedAgent(found as GridAgent);
   }, []);
 
-  // Initialize visualizer
+  // Initialize view once
   useEffect(() => {
     if (!containerRef.current) return;
 
-    visualizerRef.current = new GridVisualizer(containerRef.current, {
-      width: envProps.width,
-      height: envProps.height,
-      background: envProps.background,
-    });
+    const view = new EnvironmentView(containerRef.current, { type: 'design' });
+    const agentStorage = new AgentStorage();
+    const bgStorage = new BackgroundStorage();
 
-    visualizerRef.current.setEventHandlers({
+    const bgLayer = new BackgroundLayer(view, bgStorage);
+    const agentLayer = new AgentLayer(view, agentStorage, {
+      clickable: true,
+      coordOffset: envProps.coord_offset ?? 'int',
+      originMode: 'bottom-left',
       onAgentClick: handleAgentClick,
     });
 
+    view.addLayer(bgLayer);
+    view.addLayer(agentLayer);
+
+    envViewRef.current = view;
+    agentStorageRef.current = agentStorage;
+    bgStorageRef.current = bgStorage;
+
     return () => {
-      visualizerRef.current?.destroy();
-      visualizerRef.current = null;
+      view.destroy();
+      bgStorage.destroy();
+      envViewRef.current = null;
+      agentStorageRef.current = null;
+      bgStorageRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update environment properties
+  // Update background when env props change
   useEffect(() => {
-    visualizerRef.current?.updateEnvironment({
-      width: envProps.width,
-      height: envProps.height,
-      coordOffset: envProps.coord_offset,
-      background: envProps.background,
-    });
-  }, [envProps.width, envProps.height, envProps.background, envProps.coord_offset]);
+    bgStorageRef.current?.setBackground(envProps.background);
+  }, [envProps.background]);
 
   // Update agents
   useEffect(() => {
-    visualizerRef.current?.updateAgents(agentsProps);
+    const agentStorage = agentStorageRef.current;
+    if (!agentStorage) return;
+    const renderableAgents = Object.values(agentsProps).map(toRenderableAgent);
+    agentStorage.setAgents(renderableAgents);
   }, [agentsProps, updateTrigger]);
 
   // Update trajectories
   useEffect(() => {
-    if (traceProps) {
-      visualizerRef.current?.updateTrajectories(traceProps);
+    const agentStorage = agentStorageRef.current;
+    if (!agentStorage || !traceProps) return;
+    const converted: Record<string, TrajectoryPoint[]> = {};
+    for (const [id, pts] of Object.entries(traceProps)) {
+      converted[id] = pts.map(toTrajectoryPoint);
     }
+    agentStorage.setTrajectories(converted);
   }, [traceProps, updateTrigger]);
 
-  // Update event handlers
-  useEffect(() => {
-    visualizerRef.current?.setEventHandlers({
-      onAgentClick: handleAgentClick,
-    });
-  }, [handleAgentClick]);
+  const resetView = useCallback(() => {
+    envViewRef.current?.fitToScene();
+  }, []);
 
   return (
     <div className={styles.container}>
-      <div ref={containerRef} className={styles.canvasContainer} />
-
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <button className={styles.resetButton} onClick={resetView}>
+        <Trans>Reset View</Trans>
+      </button>
       <AgentDetailsDialog
         agentType='grid'
         agent={selectedAgent}
         onClose={() => setSelectedAgent(null)}
       />
-
     </div>
   );
 }

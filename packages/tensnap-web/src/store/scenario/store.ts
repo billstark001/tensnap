@@ -43,7 +43,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
       currentTime: store.currentTime,
       environments: Array.from(store.environments.values()).map(serializeEnvironment),
       parameters: structuredClone(Array.from(store.parameters.values())),
-      charts: structuredClone(store.charts.getGroups()),
+      charts: structuredClone(store.charts.getGroupList()),
       snapshots: structuredClone(store.snapshots),
     };
   },
@@ -74,7 +74,7 @@ export const createScenarioStore = () => create<ScenarioStore>((set, get, store)
         .filter(env => !removedEnvIds.has(env.id))
         .map(getEnvironmentMetadata);
       const activeParameters = Array.from(parameters.values()).filter(p => !removedParamIds.has(p.id));
-      const activeCharts = charts.getGroups().filter(c => !removedChartIds.has(c.id));
+      const activeCharts = charts.getGroupList().filter(c => !removedChartIds.has(c.id));
 
       set({
         mainView: createAutoLayout(

@@ -56,7 +56,7 @@ export class ChartStorage {
     for (const g of groups) this.addGroup(g);
   }
 
-  // ── Snapshot ──────────────────────────────────────────────────────────────────
+  // #region Snapshot ──────────────────────────────────────────────────────────────────
 
   shallowCopy(): ChartStorage {
     const copy = new ChartStorage();
@@ -66,7 +66,8 @@ export class ChartStorage {
     return copy;
   }
 
-  // ── Internal: registration ────────────────────────────────────────────────────
+  // #endregion
+  // #region Internal: registration ────────────────────────────────────────────────────
 
   private _register(metaId: string, meta: ChartMetadata, group: ChartGroup): void {
     mapGetOrInit(this.metaMap, metaId).push(meta);
@@ -96,7 +97,8 @@ export class ChartStorage {
     }
   }
 
-  // ── Internal: data helpers ────────────────────────────────────────────────────
+  // #endregion
+  // #region Internal: data helpers ────────────────────────────────────────────────────
 
   private _extractPoints(data: NativeDataPoint[], metaId: string): NativeDataPoint[] {
     return data
@@ -135,10 +137,15 @@ export class ChartStorage {
     }
   }
 
-  // ── Groups ────────────────────────────────────────────────────────────────────
+  // #endregion
+  // #region Groups ────────────────────────────────────────────────────────────────────
 
   hasGroup(groupId: string): boolean {
     return this.groups.has(groupId);
+  }
+
+  getGroup(groupId: string): ChartGroup | undefined {
+    return this.groups.get(groupId);
   }
 
   addGroup(group: ChartGroup, upsert = false): void {
@@ -192,7 +199,8 @@ export class ChartStorage {
     return [...this.groups.values()];
   }
 
-  // ── Metadata ──────────────────────────────────────────────────────────────────
+  // #endregion
+  // #region Metadata ──────────────────────────────────────────────────────────────────
 
   upsertMeta(meta: ChartMetadata): void {
     const existing = this.metaMap.get(meta.id);
@@ -340,6 +348,11 @@ export class ChartStorage {
     return [...this.metaMap.keys()];
   }
 
+  /** Returns all groups that contain the given metadata ID. */
+  getGroupsForMeta(metaId: string): ChartGroup[] {
+    return this.metaGroups.get(metaId) ?? [];
+  }
+
   getAllMeta(): ChartMetadata[] {
     const seen = new Set<string>();
     const result: ChartMetadata[] = [];
@@ -351,7 +364,8 @@ export class ChartStorage {
     return result;
   }
 
-  // ── Queries ───────────────────────────────────────────────────────────────────
+  // #endregion
+  // #region Queries ───────────────────────────────────────────────────────────────────
 
   /**
    * Returns all data points for a metadata ID merged across groups, sorted by
@@ -385,7 +399,8 @@ export class ChartStorage {
     return best;
   }
 
-  // ── Data mutation ─────────────────────────────────────────────────────────────
+  // #endregion
+  // #region Data mutation ─────────────────────────────────────────────────────────────
 
   push(currentTime: number, points: ChartUpdateData[], warn: WarnFn = console.warn): void {
     this.pushBuffer.forEach(m => m.clear());
@@ -473,6 +488,8 @@ export class ChartStorage {
 
     return cleared;
   }
+
+  // #endregion
 }
 
 // #endregion
