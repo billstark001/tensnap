@@ -35,6 +35,8 @@ export interface GraphEnvConfig {
   linkDistance?: number;
   /** d3-force charge strength (negative = repulsion). */
   chargeStrength?: number;
+  /** d3-force centering strength. */
+  centeringStrength?: number;
   /** d3-force collision radius. */
   collisionRadius?: number;
   /** Maximum distance between connected components before constraint kicks in. */

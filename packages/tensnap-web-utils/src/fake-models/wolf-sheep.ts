@@ -75,7 +75,7 @@ class Sheep extends Turtle {
       {
         shape: "sheep",
         color: "white",
-        size: 10,
+        size: 1,
         labelColor: "blue"
       },
       world
@@ -113,7 +113,7 @@ class Wolf extends Turtle {
       {
         shape: "wolf",
         color: "black",
-        size: 10,
+        size: 1,
         labelColor: "red"
       },
       world

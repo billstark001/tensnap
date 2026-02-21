@@ -57,6 +57,7 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
       showLabel: false,
       clickable: true,
       originMode: 'center',
+      coordOffset: 'float',
       onAgentDoubleClick: handleAgentClick,
     });
 
@@ -85,23 +86,12 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
     const agentStorage = agentStorageRef.current;
     const edgeStorage = edgeStorageRef.current;
     if (!agentStorage || !edgeStorage) return;
-
-    const renderableAgents: RenderableAgent[] = Object.values(agents).map(a => ({
-      id: a.id,
-      x: (a as any).x,
-      y: (a as any).y,
-      color: a.color,
-      icon: a.icon,
-      size: a.size,
-      data: a.data as Record<string, unknown>,
-    }));
-
-    agentStorage.setAgents(renderableAgents);
+    agentStorage.updateAgents(Object.values(agents));
     edgeStorage.setEdges(props.edges as any);
   }, [id, agents, props.edges, updateTrigger]);
 
   const resetView = useCallback(() => {
-    envViewRef.current?.fitToScene();
+    envViewRef.current?.fitToScene({ padding: 0.05 });
   }, []);
 
   return (

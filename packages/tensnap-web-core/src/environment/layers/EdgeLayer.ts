@@ -25,7 +25,7 @@
 import * as d3 from 'd3';
 import { Line, Polygon } from 'leafer-ui';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView } from '../EnvironmentView';
+import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import { EdgeDelta, EdgeStorage, EdgeStorageData } from '../storages/EdgeStorage';
 import { AgentStorage, RenderableAgent } from '../storages/AgentStorage';
 import { AgentLayerConfig } from './AgentLayer';
@@ -45,11 +45,11 @@ interface EdgeShapeEntry {
   link: SimLink;
 }
 
-/** Tuned for nodes with diameter 1 and average edge distance 3. */
 const DEFAULT_GRAPH_CONFIG: Required<GraphEnvConfig> = {
-  linkDistance: 2,
-  chargeStrength: -15,
-  collisionRadius: 0.5,  // radius = diameter / 2
+  linkDistance: 4,
+  chargeStrength: -2,
+  centeringStrength: 0.1,
+  collisionRadius: 2,
   maxComponentDistance: 4,
   componentSpacing: 5,
 };
@@ -92,7 +92,7 @@ export class EdgeLayer extends BaseLayer {
 
     this._initSimulation();
     this.registerStorage(edgeStorage, (data, delta) => this._onEdgeData(data, delta));
-    this.registerStorage(agentStorage, () => { if (!this._ticking) this._onAgentData(); });
+    this.registerStorage(agentStorage, (_data, delta) => { if (!this._ticking && !delta?.positionsFlushed) this._onAgentData(); });
     this._onEdgeData(edgeStorage.getData());
   }
 
@@ -121,8 +121,8 @@ export class EdgeLayer extends BaseLayer {
 
   // #region Viewport
 
-  onViewportChange(viewport: Viewport): void {
-    this.applyViewportTransform(viewport);
+  onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
+    this.applyViewportTransform(viewport, fitMode);
     this._simulation?.alpha(0.05).restart();
   }
 
@@ -167,6 +167,7 @@ export class EdgeLayer extends BaseLayer {
   private _fullEdgeRebuild(edges: ReadonlyMap<string, GraphEdge>): void {
     this._rebuildSimNodes(this._agentStorage.getData().agents);
     this._assignInitialPositions(this._simNodes, edges);
+    this._pushSimPositions();
 
     this._simLinkMap.clear();
     for (const edge of edges.values()) {
@@ -197,6 +198,9 @@ export class EdgeLayer extends BaseLayer {
     } else {
       // Slow path: rebuild node set; patch existing SimLink references in-place.
       this._rebuildSimNodes(agents);
+      // Assign initial positions to new nodes before pushing them back, to prevent
+      // a one-frame flicker where AgentLayer renders all agents at (0, 0).
+      this._assignInitialPositions(this._simNodes, this._simLinkMap as ReadonlyMap<string, GraphEdge>);
       for (const link of this._simLinks) {
         const srcId = EdgeStorage.resolveId(link.source as Parameters<typeof EdgeStorage.resolveId>[0]);
         const tgtId = EdgeStorage.resolveId(link.target as Parameters<typeof EdgeStorage.resolveId>[0]);
@@ -205,6 +209,8 @@ export class EdgeLayer extends BaseLayer {
       }
       this._simulation?.nodes(this._simNodes);
       this._syncLinkForce();
+      // Push positions synchronously so AgentLayer updates before the browser paints.
+      this._pushSimPositions();
     }
 
     this._simulation?.alpha(0.1).restart();
@@ -219,21 +225,24 @@ export class EdgeLayer extends BaseLayer {
   }
 
   private _initSimulation(): void {
-    const { linkDistance, chargeStrength, collisionRadius } = this._simConfig;
+    const { linkDistance, chargeStrength, collisionRadius, centeringStrength } = this._simConfig;
     this._simulation = d3
       .forceSimulation<SimNode>()
       .force('link', d3.forceLink<SimNode, SimLink>().id(d => String(d.id)).distance(linkDistance))
       .force('charge', d3.forceManyBody<SimNode>().strength(chargeStrength))
-      .force('center', d3.forceCenter(0, 0))
+      .force('x', d3.forceX<SimNode>(0).strength(centeringStrength))
+      .force('y', d3.forceY<SimNode>(0).strength(centeringStrength))
       .force('collision', d3.forceCollide<SimNode>().radius(collisionRadius))
       .on('tick', () => this._tick());
   }
 
   private _reconfigureSimulation(): void {
-    const { linkDistance, chargeStrength, collisionRadius } = this._simConfig;
+    const { linkDistance, chargeStrength, collisionRadius, centeringStrength } = this._simConfig;
     this._linkForce?.distance(linkDistance);
     (this._simulation?.force('charge') as d3.ForceManyBody<SimNode>)?.strength(chargeStrength);
     (this._simulation?.force('collision') as d3.ForceCollide<SimNode>)?.radius(collisionRadius);
+    (this._simulation?.force('x') as d3.ForceX<SimNode>)?.strength(centeringStrength);
+    (this._simulation?.force('y') as d3.ForceY<SimNode>)?.strength(centeringStrength);
   }
 
   /** Rebuild _simLinks from _simLinkMap and push to the link force. */
@@ -246,6 +255,25 @@ export class EdgeLayer extends BaseLayer {
 
   // #region Tick
 
+  /**
+   * Write current SimNode positions back to AgentStorage immediately.
+   * Calling `flushPositions()` causes AgentLayer to update group coordinates
+   * in the same synchronous call stack, before the browser paints — eliminating
+   * the one-frame flicker where all agents appear at (0, 0).
+   */
+  private _pushSimPositions(): void {
+    const positions = new Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>();
+    for (const n of this._simNodes) {
+      if (n.x != null && n.y != null) {
+        positions.set(n.id, { x: n.x, y: n.y, vx: n.vx ?? 0, vy: n.vy ?? 0 });
+      }
+    }
+    if (positions.size > 0) {
+      this._agentStorage.mergePositions(positions);
+      this._agentStorage.flushPositions();
+    }
+  }
+
   private _tick(): void {
     this._ticking = true;
 
@@ -257,10 +285,10 @@ export class EdgeLayer extends BaseLayer {
       const dx = tgt.x - src.x;
       const dy = tgt.y - src.y;
       const dist = Math.hypot(dx, dy) || 1;
-      const x1 = src.x + (dx / dist) * ((src.size ?? 20) / 2);
-      const y1 = src.y + (dy / dist) * ((src.size ?? 20) / 2);
-      const x2 = tgt.x - (dx / dist) * ((tgt.size ?? 20) / 2);
-      const y2 = tgt.y - (dy / dist) * ((tgt.size ?? 20) / 2);
+      const x1 = src.x + (dx / dist) * ((src.size ?? 1) / 2);
+      const y1 = src.y + (dy / dist) * ((src.size ?? 1) / 2);
+      const x2 = tgt.x - (dx / dist) * ((tgt.size ?? 1) / 2);
+      const y2 = tgt.y - (dy / dist) * ((tgt.size ?? 1) / 2);
 
       line.set({ points: [x1, y1, x2, y2] });
       if (arrowhead) arrowhead.set({ x: x2, y: y2, rotation: Math.atan2(dy, dx) * 180 / Math.PI });

@@ -36,7 +36,7 @@
 
 import { Line } from 'leafer-ui';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView } from '../EnvironmentView';
+import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import { GridEnvStorage, GridEnvData } from '../storages/GridEnvStorage';
 import { Viewport } from '../types';
 
@@ -71,7 +71,6 @@ export class GridLayer extends BaseLayer {
   readonly defaultZIndex = 10;
 
   private _envData: GridEnvData;
-  private _viewport: Viewport;
 
   constructor(
     view: EnvironmentView,
@@ -81,7 +80,6 @@ export class GridLayer extends BaseLayer {
     super(view);
 
     this._envData = storage.getData();
-    this._viewport = view.viewport;
 
     this.registerStorage(storage, (data) => {
       this._envData = data;
@@ -91,9 +89,8 @@ export class GridLayer extends BaseLayer {
 
   // ── IResizableLayer ─────────────────────────────────────────────────────────
 
-  onViewportChange(viewport: Viewport): void {
-    this._viewport = viewport;
-    this.applyViewportTransform(viewport);
+  onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
+    this.applyViewportTransform(viewport, fitMode); // updates this._viewport and this._fitMode
     this._rebuild();
   }
 
@@ -147,7 +144,7 @@ export class GridLayer extends BaseLayer {
 
     if (xRatio <= 1 || yRatio <= 1) return;
 
-    const scale = this.calculateViewportScale(this._viewport);
+    const scale = this.calculateViewportScale(this._viewport, this._fitMode);
     const { x: viewLeft, y: viewBottom, width: viewW, height: viewH } = this._viewport;
     const viewRight = viewLeft + viewW;
     const viewTop = viewBottom + viewH;

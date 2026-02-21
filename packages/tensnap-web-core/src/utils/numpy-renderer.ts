@@ -1,4 +1,5 @@
 import { NumpyArrayData } from "./npy-parser";
+import { ImageInterpolation } from '../environment/storages/BackgroundStorage';
 
 const validateShape = (shape: number[], expectedChannels: number[] = [1, 3, 4]) => {
   if (shape.length !== 3) {
@@ -126,7 +127,10 @@ const createCanvasWithImageData = (pixels: Uint8ClampedArray, w: number, h: numb
   return canvas;
 };
 
-export const createNumpyBackground = (numpyData: NumpyArrayData): HTMLImageElement | null => {
+export const createNumpyBackground = (
+  numpyData: NumpyArrayData,
+  interpolation: ImageInterpolation = 'nearest',
+): HTMLImageElement | null => {
   const { data, shape } = numpyData;
   validateShape(shape);
 
@@ -135,10 +139,13 @@ export const createNumpyBackground = (numpyData: NumpyArrayData): HTMLImageEleme
   const canvas = createCanvasWithImageData(pixels, w, h);
 
   const img = new Image();
-  // Disable image smoothing at image level
-  img.style.imageRendering = 'pixelated';
-  img.style.setProperty('image-rendering', '-moz-crisp-edges', '');
-  img.style.setProperty('image-rendering', 'crisp-edges', '');
+  if (interpolation === 'nearest') {
+    img.style.imageRendering = 'pixelated';
+    img.style.setProperty('image-rendering', '-moz-crisp-edges', '');
+    img.style.setProperty('image-rendering', 'crisp-edges', '');
+  } else {
+    img.style.imageRendering = 'auto';
+  }
   img.src = canvas.toDataURL();
 
   // Clean up temporary canvas to prevent memory leak

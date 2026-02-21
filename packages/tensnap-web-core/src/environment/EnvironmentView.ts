@@ -21,7 +21,7 @@ import { throttle, disableCanvasSmoothing } from './utils';
 export interface IResizableLayer {
   readonly zIndex: number;
   /** Called (throttled) when the container size changes. */
-  onViewportChange(viewport: Viewport): void;
+  onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void;
   /**
    * Remove this layer's Leafer subtree from its current parent and re-add it
    * to `parent`.  Called by EnvironmentView._sortAndReattach to enforce
@@ -31,6 +31,17 @@ export interface IResizableLayer {
   destroy(): void;
 }
 
+export type EnvironmentViewFitMode = 'stretch' | 'contain' | 'cover';
+
+export interface FitToSceneOptions {
+  /** 
+   * Optional padding around the scene bounds, as a fraction of the viewport size (default: 0.1).
+   * For example, 0.1 adds 10% of the viewport width/height as padding on all sides.
+   */
+  padding?: number;
+  paddingUnit?: 'fraction' | 'pixels';
+}
+
 const DEFAULT_RESIZE_THROTTLE_MS = 100;
 
 export class EnvironmentView {
@@ -38,6 +49,7 @@ export class EnvironmentView {
   readonly leafer: Leafer;
 
   private _viewport: Viewport;
+  private _fitMode: EnvironmentViewFitMode = 'contain';
   private _containerSize: { width: number; height: number };
   private layers: IResizableLayer[] = [];
   private resizeObserver: ResizeObserver;
@@ -47,6 +59,7 @@ export class EnvironmentView {
     options: {
       /** Leafer canvas type — 'design' enables built-in pan/zoom. */
       type?: 'design' | 'board' | 'document' | 'custom';
+      fitMode?: EnvironmentViewFitMode;
       throttleMs?: number;
       pixelRatio?: number;
     } = {}
@@ -60,6 +73,7 @@ export class EnvironmentView {
     };
 
     // Initialize viewport to show origin with container dimensions
+    this._fitMode = options.fitMode ?? 'contain';
     this._viewport = {
       x: 0,
       y: 0,
@@ -90,6 +104,10 @@ export class EnvironmentView {
     return { ...this._viewport };
   }
 
+  get fitMode(): EnvironmentViewFitMode {
+    return this._fitMode;
+  }
+
   /** 
    * Set the viewport to a specific region of the scene.
    * This defines what portion of the scene is visible.
@@ -99,19 +117,29 @@ export class EnvironmentView {
     this._notifyLayers();
   }
 
+  setFitMode(mode: EnvironmentViewFitMode): void {
+    this._fitMode = mode;
+    // Re-apply current viewport to update layer transforms with new fit mode
+    this._notifyLayers();
+  }
+
   /**
    * Reset viewport to cover the entire scene based on all bounded layers.
    * Calculates scene bounds once and fits viewport to it.
    */
-  fitToScene(padding = 0.1): void {
+  fitToScene(options: FitToSceneOptions = { padding: 0.1, paddingUnit: 'fraction' }): void {
+    const { padding = 0.1, paddingUnit = 'fraction' } = options;
     const bounds = this.calculateSceneBounds();
     if (!bounds) {
       // No bounded layers, just center on origin
+      let { width = 1, height = 1 } = this._containerSize;
+      if (width === 0) width = 1;
+      if (height === 0) height = 1;
       this.setViewport(
-        -this._containerSize.width / 2,
-        -this._containerSize.height / 2,
-        this._containerSize.width,
-        this._containerSize.height
+        -width / 2,
+        -height / 2,
+        width,
+        height
       );
       return;
     }
@@ -119,8 +147,8 @@ export class EnvironmentView {
     const sceneHeight = bounds.maxY - bounds.minY;
 
     // Add padding
-    const paddingX = sceneWidth * padding;
-    const paddingY = sceneHeight * padding;
+    const paddingX = paddingUnit === 'fraction' ? sceneWidth * padding : padding;
+    const paddingY = paddingUnit === 'fraction' ? sceneHeight * padding : padding;
 
     const x = bounds.minX - paddingX;
     const y = bounds.minY - paddingY;
@@ -195,7 +223,7 @@ export class EnvironmentView {
     this.layers.push(layer);
     this._sortAndReattach();
     // Immediately deliver current viewport
-    layer.onViewportChange({ ...this._viewport });
+    layer.onViewportChange({ ...this._viewport }, this._fitMode);
   }
 
   removeLayer(layer: IResizableLayer): void {
@@ -215,7 +243,7 @@ export class EnvironmentView {
 
   private _notifyLayers(): void {
     const vp = { ...this._viewport };
-    this.layers.forEach((l) => l.onViewportChange(vp));
+    this.layers.forEach((l) => l.onViewportChange(vp, this._fitMode));
   }
 
   // -------------------------------------------------------------------------
@@ -235,7 +263,7 @@ export class EnvironmentView {
 
   /** @deprecated Use fitToScene() instead */
   fitToView(padding = 40, _duration = 750): void {
-    this.fitToScene(padding / this._containerSize.width);
+    this.fitToScene({ padding: padding / this._containerSize.width, paddingUnit: 'fraction' });
   }
 
   // -------------------------------------------------------------------------

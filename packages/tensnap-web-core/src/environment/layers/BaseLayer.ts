@@ -16,7 +16,7 @@
  */
 
 import { Group, Leafer } from 'leafer-ui';
-import { IResizableLayer } from '../EnvironmentView';
+import { EnvironmentViewFitMode, IResizableLayer } from '../EnvironmentView';
 import { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
 import { EnvironmentView } from '../EnvironmentView';
 
@@ -33,9 +33,13 @@ export abstract class BaseLayer implements IResizableLayer {
   protected readonly view: EnvironmentView;
   private _zIndex: number;
   private readonly _unsubscribes: Unsubscribe[] = [];
+  protected _viewport: Viewport;
+  protected _fitMode: EnvironmentViewFitMode;
 
   constructor(view: EnvironmentView) {
     this.view = view;
+    this._viewport = view.viewport;
+    this._fitMode = view.fitMode;
     // zIndex is set lazily to defaultZIndex after construction
     this._zIndex = -1; // sentinel; resolved on first addLayer
     this.group = new Group();
@@ -80,14 +84,24 @@ export abstract class BaseLayer implements IResizableLayer {
 
   /**
    * Calculate the scale from scene coordinates to pixels.
-   * Used to transform viewport to pixel space.
+   * For 'contain' and 'cover', returns a uniform scale (scaleX === scaleY).
+   * For 'stretch', returns independent per-axis scales.
    */
-  protected calculateViewportScale(viewport: Viewport): { scaleX: number; scaleY: number } {
+  protected calculateViewportScale(
+    viewport: Viewport,
+    fitMode: EnvironmentViewFitMode = this._fitMode
+  ): { scaleX: number; scaleY: number } {
     const container = this.getContainerSize();
-    return {
-      scaleX: container.width / viewport.width,
-      scaleY: container.height / viewport.height,
-    };
+    const rawX = container.width / viewport.width;
+    const rawY = container.height / viewport.height;
+    if (fitMode === 'contain') {
+      const s = Math.min(rawX, rawY);
+      return { scaleX: s, scaleY: s };
+    } else if (fitMode === 'cover') {
+      const s = Math.max(rawX, rawY);
+      return { scaleX: s, scaleY: s };
+    }
+    return { scaleX: rawX, scaleY: rawY };
   }
 
   /**
@@ -96,19 +110,25 @@ export abstract class BaseLayer implements IResizableLayer {
    * 
    * Note: Leafer-UI uses top-left origin, so we need to flip Y.
    */
-  protected applyViewportTransform(viewport: Viewport): void {
+  protected applyViewportTransform(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
+    this._viewport = viewport;
+    this._fitMode = fitMode;
     const container = this.getContainerSize();
-    const scale = this.calculateViewportScale(viewport);
+    const scale = this.calculateViewportScale(viewport, fitMode);
     
-    // Transform: translate to origin, scale, flip Y, translate to viewport position
-    // For +y up coordinate system, we need to:
-    // 1. Scale to pixel space
-    // 2. Flip Y axis (multiply y by -1)
-    // 3. Translate viewport position
-    
-    const offsetX = -viewport.x * scale.scaleX;
-    const offsetY = container.height + viewport.y * scale.scaleY;
-    
+    // For contain/cover, center the rendered area inside the container.
+    // padX/padY are positive for contain (letterbox/pillarbox) and
+    // negative for cover (the scene overflows, we center the overflow).
+    const renderedWidth = viewport.width * scale.scaleX;
+    const renderedHeight = viewport.height * scale.scaleY;
+    const padX = (container.width - renderedWidth) / 2;
+    const padY = (container.height - renderedHeight) / 2;
+
+    // Transform: scale + flip Y, then translate so the viewport's bottom-left
+    // corner maps to pixel (padX, container.height - padY).
+    const offsetX = padX - viewport.x * scale.scaleX;
+    const offsetY = container.height - padY + viewport.y * scale.scaleY;
+
     this.group.set({
       x: offsetX,
       y: offsetY,
@@ -139,7 +159,7 @@ export abstract class BaseLayer implements IResizableLayer {
   // -------------------------------------------------------------------
 
   /** Called by EnvironmentView when viewport changes. */
-  abstract onViewportChange(viewport: Viewport): void;
+  abstract onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void;
 
   destroy(): void {
     this._unsubscribes.forEach((u) => u());

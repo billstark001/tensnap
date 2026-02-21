@@ -54,9 +54,9 @@ export function createAgentLabel(id: string | number, size: number): Text {
   });
 }
 
-export function createArrowhead(color: string): Polygon {
+export function createArrowhead(color: string, size: number = 1): Polygon {
   return new Polygon({
-    points: [0, 0, -8, 4, -8, -4],
+    points: [0, 0, -size, size / 2, -size, -size / 2],
     fill: color,
     rotation: 0,
   });

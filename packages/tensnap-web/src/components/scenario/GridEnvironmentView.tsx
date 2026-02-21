@@ -12,6 +12,8 @@ import {
   BackgroundLayer,
   RenderableAgent,
   TrajectoryPoint,
+  GridEnvStorage,
+  GridLayer,
 } from 'tensnap-web-core';
 
 interface GridEnvironmentViewProps {
@@ -46,6 +48,10 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
   const envViewRef = useRef<EnvironmentView | null>(null);
   const agentStorageRef = useRef<AgentStorage | null>(null);
   const bgStorageRef = useRef<BackgroundStorage | null>(null);
+  const gridStorageRef = useRef<GridEnvStorage | null>(null);
+
+  const bgLayerRef = useRef<BackgroundLayer | null>(null);
+  const agentLayerRef = useRef<AgentLayer | null>(null);
 
   // Keep latest agents map in a ref so the click handler always sees current data
   const agentsRef = useRef(agentsProps);
@@ -65,21 +71,30 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
     const view = new EnvironmentView(containerRef.current, { type: 'design' });
     const agentStorage = new AgentStorage();
     const bgStorage = new BackgroundStorage();
+    const gridStorage = new GridEnvStorage();
 
-    const bgLayer = new BackgroundLayer(view, bgStorage);
+    const bgLayer = new BackgroundLayer(view, bgStorage, {
+      sceneBounds: { width: envProps.width, height: envProps.height },
+    });
     const agentLayer = new AgentLayer(view, agentStorage, {
       clickable: true,
       coordOffset: envProps.coord_offset ?? 'int',
+      sceneBounds: { width: envProps.width, height: envProps.height },
       originMode: 'bottom-left',
       onAgentClick: handleAgentClick,
     });
+    const gridLayer = new GridLayer(view, gridStorage);
 
     view.addLayer(bgLayer);
     view.addLayer(agentLayer);
+    view.addLayer(gridLayer);
 
     envViewRef.current = view;
     agentStorageRef.current = agentStorage;
     bgStorageRef.current = bgStorage;
+    gridStorageRef.current = gridStorage;
+    bgLayerRef.current = bgLayer;
+    agentLayerRef.current = agentLayer;
 
     return () => {
       view.destroy();
@@ -87,6 +102,8 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       envViewRef.current = null;
       agentStorageRef.current = null;
       bgStorageRef.current = null;
+      bgLayerRef.current = null;
+      agentLayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -116,8 +133,14 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
   }, [traceProps, updateTrigger]);
 
   const resetView = useCallback(() => {
-    envViewRef.current?.fitToScene();
-  }, []);
+    envViewRef.current?.fitToScene({ padding: 0 });
+  }, [envViewRef.current]);
+
+  useEffect(() => {
+    bgLayerRef.current?.setSceneBounds(envProps);
+    agentLayerRef.current?.setSceneBounds(envProps);
+    envViewRef.current?.fitToScene({ padding: 0 });
+  }, [envProps.width, envProps.height]);
 
   return (
     <div className={styles.container}>

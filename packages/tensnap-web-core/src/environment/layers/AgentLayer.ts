@@ -23,7 +23,7 @@ import {
   DragEvent as LeaferDragEvent,
 } from 'leafer-ui';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView } from '../EnvironmentView';
+import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import {
   AgentDelta,
   AgentStorage,
@@ -131,7 +131,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   private readonly _trajectoryCache = new Map<string, TrajectoryCacheEntry>();
   private readonly _cfg: ResolvedConfig;
 
-  private _viewport: Viewport;
   private _cachedAgents = new Map<AgentId, RenderableAgent>();
   private _draggingId: AgentId | null = null;
 
@@ -145,8 +144,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     config: AgentLayerConfig = {},
   ) {
     super(view);
-    this._viewport = view.viewport;
-
 
     this._cfg = {
       draggable: false,
@@ -166,17 +163,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     };
 
     if (config.sceneBounds) {
-      if ('width' in config.sceneBounds || 'height' in config.sceneBounds) {
-        const { x = 0, y = 0, width = 1, height = 1 } = config.sceneBounds;
-        this._cfg.sceneBounds = {
-          minX: x,
-          maxX: x + width,
-          minY: y,
-          maxY: y + height,
-        };
-      } else {
-        this._cfg.sceneBounds = config.sceneBounds as SceneBounds;
-      }
+      this.setSceneBounds(config.sceneBounds);
     }
 
     this.group.add(this._trajGroup);
@@ -195,6 +182,20 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     if (this._cfg.sceneBounds) return this._cfg.sceneBounds;
 
     return this._boundsFromAgents();
+  }
+
+  setSceneBounds(bounds: SceneBounds | Partial<Viewport>): void {
+    if ('width' in bounds || 'height' in bounds) {
+      const { x = 0, y = 0, width = 1, height = 1 } = bounds;
+      this._cfg.sceneBounds = {
+        minX: x,
+        maxX: x + width,
+        minY: y,
+        maxY: y + height,
+      };
+    } else {
+      this._cfg.sceneBounds = { ...bounds as SceneBounds };
+    }
   }
 
   getOriginMode(): OriginMode {
@@ -226,9 +227,8 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   // #region Viewport
 
-  onViewportChange(viewport: Viewport): void {
-    this._viewport = viewport;
-    this.applyViewportTransform(viewport);
+  onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
+    this.applyViewportTransform(viewport, fitMode);
     // Trajectory points are in scene coordinates — no rebuild needed;
     // only re-set the stroke width so lines keep a constant pixel thickness.
     this._updateTrajStrokeWidths();
@@ -305,7 +305,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   /** Trajectory stroke width in scene units — renders at a constant pixel width regardless of zoom. */
   private _trajStrokeWidth(): number {
-    const s = this.calculateViewportScale(this._viewport);
+    const s = this.calculateViewportScale(this._viewport, this._fitMode);
     const avg = (Math.abs(s.scaleX) + Math.abs(s.scaleY)) / 2;
     return Math.max(0.1, TRAJ_STROKE_PX / avg);
   }

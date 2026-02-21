@@ -17,9 +17,12 @@ import { detectFileFormat } from '../../utils/format-detector';
 // Data type
 // ---------------------------------------------------------------------------
 
+/** Image interpolation mode: 'nearest' = pixelated, 'linear' = smooth. */
+export type ImageInterpolation = 'nearest' | 'linear';
+
 export type BackgroundValue =
   | { kind: 'color'; value: string }
-  | { kind: 'image'; url: string; isBlob: boolean };
+  | { kind: 'image'; url: string; isBlob: boolean; interpolation: ImageInterpolation };
 
 export type BackgroundData = BackgroundValue | null;
 
@@ -43,8 +46,12 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
   /**
    * Accept raw background input, resolve it asynchronously, and notify.
    * The caller does not need to await — resolution happens in the background.
+   * @param interpolation Image interpolation mode. Defaults to 'nearest'.
    */
-  async setBackground(background: string | Uint8Array | undefined): Promise<void> {
+  async setBackground(
+    background: string | Uint8Array | undefined,
+    interpolation: ImageInterpolation = 'nearest',
+  ): Promise<void> {
     if (background === undefined || background === null) {
       this._setResolved(null);
       return;
@@ -55,16 +62,16 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
         this._setResolved({ kind: 'color', value: background });
       } else {
         // Image URL — resolve via Image() to confirm it loads.
-        const img = await loadImageAsync(background);
-        this._setResolved({ kind: 'image', url: img.src, isBlob: false });
+        const img = await loadImageAsync(background, interpolation);
+        this._setResolved({ kind: 'image', url: img.src, isBlob: false, interpolation });
       }
       return;
     }
 
     // Uint8Array — detect format and decode
-    const url = await parseUint8ArrayBackground(background);
-    const img = await loadImageAsync(url);
-    this._setResolved({ kind: 'image', url: img.src, isBlob: url.startsWith('blob:') });
+    const url = await parseUint8ArrayBackground(background, interpolation);
+    const img = await loadImageAsync(url, interpolation);
+    this._setResolved({ kind: 'image', url: img.src, isBlob: url.startsWith('blob:'), interpolation });
   }
 
   destroy(): void {
@@ -108,21 +115,32 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
 // Module-level helpers
 // ---------------------------------------------------------------------------
 
-export async function loadImageAsync(src: string): Promise<HTMLImageElement> {
+export async function loadImageAsync(
+  src: string,
+  interpolation: ImageInterpolation = 'nearest',
+): Promise<HTMLImageElement> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.style.imageRendering = 'pixelated';
+    if (interpolation === 'nearest') {
+      img.style.imageRendering = 'pixelated';
+      img.style.setProperty('image-rendering', 'crisp-edges', '');
+    } else {
+      img.style.imageRendering = 'auto';
+    }
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.src = src;
   });
 }
 
-async function parseUint8ArrayBackground(data: Uint8Array): Promise<string> {
+async function parseUint8ArrayBackground(
+  data: Uint8Array,
+  interpolation: ImageInterpolation = 'nearest',
+): Promise<string> {
   const format = detectFileFormat(data);
   if (format === 'npy') {
     const parsed = NPYParser.parse(uint8ArrayToArrayBuffer(data));
-    const bgImg = createNumpyBackground(parsed);
+    const bgImg = createNumpyBackground(parsed, interpolation);
     if (!bgImg) throw new Error('Failed to render NPY background');
     return bgImg.src;
   }
