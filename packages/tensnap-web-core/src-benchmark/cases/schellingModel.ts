@@ -151,7 +151,7 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
       const gridLayer = new GridLayer(view, gridStorage);
       view.addLayer(gridLayer);
 
-      view.fitToScene(0);
+      view.fitToScene({ padding: 0 });
 
       // Set initial agents
       agentStorage.setAgents(convertAgentsToRenderable());

@@ -522,6 +522,7 @@ class WolfSheepSimulationManager extends BaseSimulationManager {
       type: 'grid',
       width: this.worldSize.width,
       height: this.worldSize.height,
+      coord_offset: 'float',
       agents,
     };
 

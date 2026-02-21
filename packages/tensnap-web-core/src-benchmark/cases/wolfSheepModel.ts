@@ -247,7 +247,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
       view.addLayer(animalLayer);
       animalStorage.setAgents(convertAnimalsToRenderable());
 
-      view.fitToScene(0.05);
+      view.fitToScene({ padding: 0.05 });
 
       // Initialize chart
       chart = new LineChartView(chartContainer, {

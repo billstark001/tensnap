@@ -413,7 +413,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     if (cfg.draggable) this._attachDrag(group, id);
 
     group.on(LeaferPointerEvent.DOUBLE_TAP, (e: any) => {
-      e.stop();
+      e?.stop();
       const a = this._cachedAgents.get(id);
       if (a) cfg.onAgentDoubleClick(a);
     });
@@ -427,7 +427,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const { onDragStart, onDragMove, onDragEnd } = this._cfg;
 
     group.on(LeaferDragEvent.START, (e: LeaferDragEvent) => {
-      e.stop();
+      e?.stop();
       this._draggingId = id;
       const agent = this._cachedAgents.get(id);
       onDragStart(id, agent?.x ?? 0, agent?.y ?? 0);
@@ -435,13 +435,13 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
     group.on(LeaferDragEvent.DRAG, (e: LeaferDragEvent) => {
       if (this._draggingId !== id) return;
-      e.stop();
+      e?.stop();
       onDragMove(id, e.moveX, e.moveY);
     });
 
     group.on(LeaferDragEvent.END, (e: LeaferDragEvent) => {
       if (this._draggingId !== id) return;
-      e.stop();
+      e?.stop();
       this._draggingId = null;
       onDragEnd(id);
     });

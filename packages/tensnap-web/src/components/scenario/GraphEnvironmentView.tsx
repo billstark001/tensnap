@@ -44,7 +44,12 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const view = new EnvironmentView(containerRef.current, { type: 'design' });
+    const view = new EnvironmentView(containerRef.current, {
+      type: 'design',
+      enablePan: true,
+      enableTouchZoom: true,
+      enableWheelZoom: true,
+    });
     const agentStorage = new AgentStorage();
     const edgeStorage = new EdgeStorage();
     const bgStorage = new BackgroundStorage();
