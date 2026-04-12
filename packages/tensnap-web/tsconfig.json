@@ -10,16 +10,15 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "tensnap-web-core": ["../tensnap-web-core/src/index.ts"],
-      "tensnap-web-core/*": ["../tensnap-web-core/src/*"],
-      "tensnap-web-utils": ["../tensnap-web-utils/src/index.ts"],
-      "tensnap-web-utils/*": ["../tensnap-web-utils/src/*"],
-      "tensnap-web-utils/file-system": ["../tensnap-web-utils/src/file-system/index.ts"],
-      "tensnap-web-utils/adapters": ["../tensnap-web-utils/src/adapters/index.ts"],
-      "tensnap-web-utils/adapters/*": ["../tensnap-web-utils/src/adapters/*"]
+      "@/*": ["./src/*"],
+      "@tensnap/core": ["../core/src/index.ts"],
+      "@tensnap/core/*": ["../core/src/*"],
+      "@tensnap/web-adapter": ["../web-adapter/src/index.ts"],
+      "@tensnap/web-adapter/*": ["../web-adapter/src/*"],
+      "@tensnap/web-adapter/file-system": ["../web-adapter/src/file-system/index.ts"],
+      "@tensnap/web-adapter/adapters": ["../web-adapter/src/adapters/index.ts"],
+      "@tensnap/web-adapter/adapters/*": ["../web-adapter/src/adapters/*"]
     }
   },
   "include": ["src", "adapters.ts"],

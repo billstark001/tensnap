@@ -13,7 +13,7 @@ import {
   EdgeLayer,
   BackgroundLayer,
   RenderableAgent,
-} from 'tensnap-web-core';
+} from '@tensnap/core';
 
 interface GraphEnvironmentViewProps {
   environment: InstantiatedGraphEnvironment;

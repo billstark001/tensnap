@@ -14,7 +14,7 @@ import {
   TrajectoryPoint,
   GridEnvStorage,
   GridLayer,
-} from 'tensnap-web-core';
+} from '@tensnap/core';
 
 interface GridEnvironmentViewProps {
   environment: InstantiatedGridEnvironment;

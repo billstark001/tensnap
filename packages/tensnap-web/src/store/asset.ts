@@ -12,7 +12,7 @@
  */
 
 import { create, StoreApi, UseBoundStore } from 'zustand';
-import { AssetStore, AssetId, AssetMeta, ResolvedAsset } from 'tensnap-web-core';
+import { AssetStore, AssetId, AssetMeta, ResolvedAsset } from '@tensnap/core';
 
 // ---------------------------------------------------------------------------
 // Store type

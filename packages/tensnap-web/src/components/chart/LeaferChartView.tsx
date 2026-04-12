@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { LineChartView } from 'tensnap-web-core';
-import type { ChartDataPoint, ChartConfig } from 'tensnap-web-core';
+import { LineChartView } from '@tensnap/core';
+import type { ChartDataPoint, ChartConfig } from '@tensnap/core';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';
 import * as styles from './LeaferChartView.css';

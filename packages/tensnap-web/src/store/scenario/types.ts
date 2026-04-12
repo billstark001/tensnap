@@ -3,7 +3,7 @@ import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
 import { InstantiatedEnvironment } from './environment';
 import { AgentDiff, EdgeData, EdgeDiff, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
-import { ChartStorage } from 'tensnap-web-core';
+import { ChartStorage } from '@tensnap/core';
 import { UpdateTriggerState } from '../update-trigger';
 
 export interface SetDataPayload {

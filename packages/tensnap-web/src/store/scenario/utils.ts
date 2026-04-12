@@ -1,6 +1,6 @@
 import { ChartGroup, ChartGroupMetadata, ChartMetadata, Environment, EnvironmentId, Parameter, Action } from "@/types/model"
 import { InstantiatedEnvironment, instantiateEnvironment } from "./environment";
-import { ChartStorage, instantiateChartMetadata, sanitizeParameter } from 'tensnap-web-core';
+import { ChartStorage, instantiateChartMetadata, sanitizeParameter } from '@tensnap/core';
 import { SetDataPayload } from "./types";
 
 

@@ -1,606 +1,638 @@
-# TenSnap WebSocket Protocol v0.2
+# TenSnap Protocol v0.2
 
-Draft specification for the redesigned communication protocol.
-Supersedes the v0.1 protocol once fully implemented.
+Current draft specification for the renderer/simulator protocol and the core-owned Scenario model.
 
-## Overview
-
-### Key Design Changes from v0.1
-
-| Concern | v0.1 | v0.2 |
-| --- | --- | --- |
-| Actions | `action` parameter type + `button_click` | Standalone `Action` entity + `action_start`/`action_end` |
-| Simulation loop control | Server manages event loop | Client drives loop via `continuous` flag on `action_start` |
-| Environment updates | Monolithic `environment_update` | Fine-grained `env_*` / `env_layer_*` / `agent_*` / `edge_*` |
-| Agent batch format | `{ id, data: {...} }` | `{ id, ...diff }` (flat diff) |
-| Timestep signaling | `time_step_start` / `time_step_end` | Single `metadata_update` |
-| Parameter wire names | `parameter_*` / `parameter_change` | `param_*` / `param_change` (TypeScript types unchanged) |
-| Parameter values | client-only `parameter_change` | `param_change` (C→S) + `param_sync` (S→C) |
-| State sync direction | Bidirectional | Client→Server only; server replies with CUD messages |
-| Asset sharing | none | `asset_meta` / `asset_data` / `asset_delete` (S→C) + `asset_sync` (C→S) |
-
-### Protocol Characteristics
-
-- **Transport**: WebSocket (RFC 6455)
-- **Serialization**: MessagePack (binary) or JSON (text)
-- **Communication**: Bidirectional (client ↔ server)
-- **Connection**: Persistent with automatic reconnection
+This document is the source of truth for the ongoing refactor. It supersedes the older client/server framing and any package layout that still refers to tensnap-web-core.
 
 ---
 
-## Message Format
+## Scope
 
-```json
-{ "type": "message_type", "payload": { /* type-specific data */ } }
+Protocol v0.2 defines:
+
+- the wire format between a simulator and a renderer
+- the canonical message families and payload shapes
+- the ownership boundary for state synchronization
+- the relationship between transport, protocol, and Scenario
+
+Protocol v0.2 does not define:
+
+- a specific WebSocket implementation
+- browser-specific state stores
+- React, Zustand, or view/project UI details
+
+Those concerns sit above the protocol layer.
+
+---
+
+## Package Ownership
+
+The refactor moves protocol and scenario ownership into @tensnap/core.
+
+### `@tensnap/core`
+
+- canonical protocol types, schemas, and codecs
+- transport abstraction interfaces
+- Scenario state model
+- layer registry for scenario-layer semantics
+- rendering primitives shared by renderer implementations
+
+### `@tensnap/web`
+
+- browser renderer application
+- project/view management
+- WebSocket transport implementation for browser mode
+- UI state management and component integration
+
+### Future simulator-side or agent-side packages
+
+- concrete transport implementations outside the browser
+- simulator runtime bindings
+- protocol usage on the non-renderer side
+
+---
+
+## Naming
+
+Protocol v0.2 uses renderer/simulator terminology.
+
+| Old term | New term |
+| --- | --- |
+| client | renderer |
+| server | simulator |
+| server → client | simulator → renderer |
+| client → server | renderer → simulator |
+
+Deprecated compatibility aliases may still exist temporarily in TypeScript exports while the web package finishes migrating, but they are not normative for new code or documentation.
+
+---
+
+## Architectural Model
+
+### Scenario ownership
+
+Scenario is owned by the renderer.
+
+The simulator is the authoritative producer of simulation updates, but the renderer maintains an in-memory Scenario instance representing the synchronized view of simulator state.
+
+Scenario in @tensnap/core is intentionally:
+
+- transport-agnostic
+- UI-framework-agnostic
+- EventTarget-based
+- state-oriented rather than rendering-object-oriented
+
+Scenario does not own Leafer instances, DOM nodes, React state, or Zustand stores.
+
+### Rendering ownership
+
+Rendering objects live outside Scenario.
+
+Renderer code subscribes to Scenario events and maps Scenario state into rendering layers, charts, asset usage, and project UI.
+
+### Transport ownership
+
+@tensnap/core exposes transport interfaces only.
+
+Concrete implementations such as browser WebSocket transports belong in consumer packages like @tensnap/web or a future node-side package.
+
+---
+
+## Encoding
+
+- transport: persistent bidirectional stream, typically WebSocket
+- serialization: JSON or MessagePack
+- envelope shape: identical across encodings
+
+JSON is used for text transports and debugging.
+
+MessagePack is used for more efficient binary transport, especially when payloads include typed binary content such as asset data.
+
+---
+
+## Envelope
+
+Every protocol message uses the same envelope shape:
+
+```typescript
+{
+  type: string;
+  payload: unknown;
+  timestamp?: number;
+}
+```
+
+- `type` identifies the message family
+- `payload` is validated against the schema for that family
+- `timestamp` is optional and transport-neutral
+
+---
+
+## Message Directions
+
+### Simulator → Renderer
+
+These messages mutate renderer-side Scenario state.
+
+```typescript
+type SimulatorToRendererMessageType =
+  | 'metadata_update'
+  | 'action_end'
+  | 'action_create'
+  | 'action_update'
+  | 'action_delete'
+  | 'env_create'
+  | 'env_delete'
+  | 'env_layer_create'
+  | 'env_layer_update'
+  | 'env_layer_delete'
+  | 'agent_create'
+  | 'agent_update'
+  | 'agent_delete'
+  | 'edge_create'
+  | 'edge_update'
+  | 'edge_delete'
+  | 'param_create'
+  | 'param_update'
+  | 'param_delete'
+  | 'param_sync'
+  | 'chart_create'
+  | 'chart_update'
+  | 'chart_delete'
+  | 'asset_meta'
+  | 'asset_data'
+  | 'asset_delete'
+  | 'log'
+  | 'error';
+```
+
+### Renderer → Simulator
+
+These messages express renderer intent or state summary.
+
+```typescript
+type RendererToSimulatorMessageType =
+  | 'state_sync'
+  | 'param_change'
+  | 'action_start'
+  | 'asset_sync'
+  | 'error';
 ```
 
 ---
 
-## Server → Client Messages
+## Simulator → Renderer Messages
 
 ### `metadata_update`
 
-Replaces `time_step_start` and `time_step_end`. Carries the current simulation
-time and any other extensible metadata.
+Carries scenario-wide metadata, including time.
 
 ```typescript
 {
-  type: "metadata_update",
+  type: 'metadata_update',
   payload: {
-    time?: number        // current simulation timestep
-    // reserved for future metadata fields
+    time?: number;
+    [key: string]: unknown;
   }
 }
+```
+
+This replaces the older split between time_step_start and time_step_end.
+
+### `action_create` / `action_update` / `action_delete`
+
+Registers and maintains renderer-visible actions.
+
+```typescript
+interface Action {
+  id: string;
+  label: string;
+  continuous?: boolean;
+  allowRuntimeChange?: boolean;
+}
+```
+
+`action_delete` uses:
+
+```typescript
+{ type: 'action_delete', payload: { id: string } }
 ```
 
 ### `action_end`
 
-Sent after the server finishes executing an action. For **continuous** actions
-the client uses the `continue` flag to decide whether to keep firing
-`action_start`. If `continue` is explicitly `false` the loop stops; any other
-value (including absent) is treated as "keep going".
+Signals completion of a simulator action execution.
 
 ```typescript
 {
-  type: "action_end",
+  type: 'action_end',
   payload: {
-    id: string           // action id that finished
-    continue?: boolean   // explicit false → stop continuous loop
+    id: string;
+    continue?: boolean;
   }
 }
 ```
 
-### `action_create`
+When a renderer started a continuous action loop, explicit `continue: false` stops the loop. Any other value means the renderer may continue.
 
-Register a new action button on the client.
+### `env_create` / `env_delete`
+
+Creates or deletes a scenario environment container.
 
 ```typescript
 {
-  type: "action_create",
+  type: 'env_create',
   payload: {
-    id: string
-    label: string
-    continuous?: boolean          // hint: does this action make sense in continuous mode?
-    allowRuntimeChange?: boolean  // default true
+    id: string;
+    type: 'uniform' | '2d';
   }
 }
 ```
 
-### `action_update`
+`2d` covers both grid-like and graph-like spatial scenes. The actual rendering semantics are expressed through layers.
 
-Update metadata of an existing action.
+### `env_layer_create` / `env_layer_update` / `env_layer_delete`
 
-```typescript
-{
-  type: "action_update",
-  payload: { id: string, label?: string, continuous?: boolean, allowRuntimeChange?: boolean }
-}
-```
-
-### `action_delete`
-
-Remove an action button from the client.
-
-```typescript
-{ type: "action_delete", payload: { id: string } }
-```
-
-### `env_create`
-
-Create a new environment container.
+Creates and updates environment-local layers.
 
 ```typescript
 {
-  type: "env_create",
+  type: 'env_layer_create',
   payload: {
-    id: string
-    type: "uniform" | "2d"    // "2d" covers both grid and graph layouts
+    env_id: string;
+    layer_id: string;
+    layer_type: string;
+    data?: Record<string, unknown>;
   }
 }
 ```
 
-### `env_delete`
-
-Remove an environment and all its layers.
-
-```typescript
-{ type: "env_delete", payload: { id: string } }
-```
-
-### `env_layer_create`
-
-Create a layer within an environment. Layers carry spatial/structural metadata
-but not agent data.
-
 ```typescript
 {
-  type: "env_layer_create",
+  type: 'env_layer_update',
   payload: {
-    env_id: string
-    layer_id: string              // empty string for the single layer of a uniform env
-    layer_type: string            // registered layer type, e.g. "grid", "graph"
-    data?: Record<string, any>    // layer metadata (no agents)
+    env_id: string;
+    layer_id: string;
+    data: Record<string, unknown>;
   }
 }
 ```
 
-### `env_layer_update`
-
-Update layer metadata (not agent data).
-
 ```typescript
 {
-  type: "env_layer_update",
+  type: 'env_layer_delete',
   payload: {
-    env_id: string
-    layer_id: string
-    data: Record<string, any>
+    env_id: string;
+    layer_id: string;
   }
 }
 ```
 
-### `env_layer_delete`
+Layer metadata is whole-object metadata, not incremental entity diffs.
 
-Delete a layer.
+### `agent_create` / `agent_update` / `agent_delete`
 
-```typescript
-{ type: "env_layer_delete", payload: { env_id: string, layer_id: string } }
-```
-
-### `agent_create`
-
-Create agents in a layer (batch).
+Creates and updates agent entities within a layer.
 
 ```typescript
 {
-  type: "agent_create",
+  type: 'agent_create',
   payload: {
-    env_id: string
-    layer_id: string
-    agents: Agent[]
+    env_id: string;
+    layer_id: string;
+    agents: Agent[];
   }
 }
 ```
 
-### `agent_update`
-
-Update agents in a layer (batch, flat diff). Each item is the agent id plus
-only the fields that changed, merged flat into a single object.
-
 ```typescript
 {
-  type: "agent_update",
+  type: 'agent_update',
   payload: {
-    env_id: string
-    layer_id: string
-    agents: Array<{ id: AgentId, [field: string]: any }>
+    env_id: string;
+    layer_id: string;
+    agents: Array<{ id: AgentId; [field: string]: unknown }>;
   }
 }
 ```
 
-### `agent_delete`
-
-Delete agents from a layer (batch).
-
 ```typescript
 {
-  type: "agent_delete",
+  type: 'agent_delete',
   payload: {
-    env_id: string
-    layer_id: string
-    ids: AgentId[]
+    env_id: string;
+    layer_id: string;
+    ids: AgentId[];
   }
 }
 ```
 
-### `edge_create`
+The update form is a flat diff keyed by `id`.
 
-Create edges in a layer (batch).
+### `edge_create` / `edge_update` / `edge_delete`
+
+Creates and updates edge entities within a layer.
 
 ```typescript
 {
-  type: "edge_create",
+  type: 'edge_create',
   payload: {
-    env_id: string
-    layer_id: string
-    edges: Edge[]
+    env_id: string;
+    layer_id: string;
+    edges: EdgeData[];
   }
 }
 ```
 
-### `edge_update`
-
-Update edges in a layer (batch, flat diff). Identity key is `(source, target)`.
-
 ```typescript
 {
-  type: "edge_update",
+  type: 'edge_update',
   payload: {
-    env_id: string
-    layer_id: string
-    edges: Array<{ source: AgentId, target: AgentId, [field: string]: any }>
+    env_id: string;
+    layer_id: string;
+    edges: Array<{ source: AgentId; target: AgentId; [field: string]: unknown }>;
   }
 }
 ```
 
-### `edge_delete`
-
-Delete edges from a layer (batch).
-
 ```typescript
 {
-  type: "edge_delete",
+  type: 'edge_delete',
   payload: {
-    env_id: string
-    layer_id: string
-    edges: Array<{ source: AgentId, target: AgentId }>
+    env_id: string;
+    layer_id: string;
+    edges: Array<{ source: AgentId; target: AgentId }>;
   }
 }
 ```
 
-### `param_create`
+The identity key is currently `(source, target)`.
 
-Register a new parameter control.
+### `param_create` / `param_update` / `param_delete`
 
-```typescript
-{ type: "param_create", payload: Parameter }
-```
+Registers and maintains renderer-visible parameters.
 
-### `param_update`
-
-Update parameter definition (metadata, not value).
+`param_create` and `param_update` both carry a full `Parameter` object.
 
 ```typescript
-{ type: "param_update", payload: Parameter }
-```
-
-### `param_delete`
-
-Remove a parameter control.
-
-```typescript
-{ type: "param_delete", payload: { id: string } }
+{ type: 'param_delete', payload: { id: string } }
 ```
 
 ### `param_sync`
 
-Server-initiated value correction. Sent when the server modifies a parameter
-value programmatically, or when it rejects the value the client just sent.
-
-```typescript
-{ type: "param_sync", payload: { id: string, value: any } }
-```
-
-### `chart_create`
-
-Register a new chart.
-
-```typescript
-{ type: "chart_create", payload: ChartGroupMetadata }
-```
-
-### `chart_delete`
-
-Remove a chart.
-
-```typescript
-{ type: "chart_delete", payload: { id: string } }
-```
-
-### `chart_update`
-
-Push new data points or chart operations (unchanged from v0.1).
+Pushes a simulator-side value correction to the renderer.
 
 ```typescript
 {
-  type: "chart_update",
+  type: 'param_sync',
   payload: {
-    updates?: Array<{ id: string, time?: number, value: any }>
-    operations?: Array<{ id: string, operation: "clear" }>
+    id: string;
+    value: unknown;
   }
 }
+```
+
+This is the simulator-to-renderer correction path after optimistic renderer-side edits.
+
+### `chart_create` / `chart_update` / `chart_delete`
+
+Registers and mutates charts.
+
+`chart_create` carries `ChartGroupMetadata`.
+
+`chart_update` carries incremental data and operations:
+
+```typescript
+{
+  type: 'chart_update',
+  payload: {
+    updates?: Array<{ id: string; time?: number; value: unknown }>;
+    operations?: Array<{ id: string; operation: 'clear' }>;
+  }
+}
+```
+
+`chart_delete` uses:
+
+```typescript
+{ type: 'chart_delete', payload: { id: string } }
+```
+
+### `asset_meta` / `asset_data` / `asset_delete`
+
+Maintains the renderer-side asset cache.
+
+`asset_meta` announces asset descriptors without sending bytes.
+
+```typescript
+{
+  type: 'asset_meta',
+  payload: {
+    assets: Array<{
+      id: string;
+      hash: string;
+      mime: string;
+      size: number;
+      label?: string;
+    }>;
+  }
+}
+```
+
+`asset_data` sends bytes for one asset.
+
+```typescript
+{
+  type: 'asset_data',
+  payload: {
+    id: string;
+    hash: string;
+    mime: string;
+    data: string | Uint8Array;
+  }
+}
+```
+
+JSON mode uses base64 strings. MessagePack mode uses raw bytes.
+
+`asset_delete` removes cached assets.
+
+```typescript
+{ type: 'asset_delete', payload: { ids: string[] } }
 ```
 
 ### `log`
 
+Diagnostic log event.
+
 ```typescript
 {
-  type: "log",
-  payload: { level: "debug"|"info"|"warning"|"error"|"critical", message: string, timestamp?: number }
+  type: 'log',
+  payload: {
+    message: string;
+    level?: 'debug' | 'info' | 'warning' | 'error' | 'critical';
+    target?: string;
+    timestamp?: number;
+    data?: unknown;
+  }
 }
 ```
 
 ### `error`
 
-```typescript
-{ type: "error", payload: { error: string } }
-```
-
-### `asset_meta`
-
-Announces one or more available assets. No binary data is included — the
-client should respond with `asset_sync` to request any assets it is missing.
+Protocol-level or runtime error.
 
 ```typescript
-{
-  type: "asset_meta",
-  payload: {
-    assets: Array<{ id: string, hash: string, mime: string, size: number, label?: string }>
-  }
-}
-```
-
-### `asset_data`
-
-Delivers the binary data for a single asset. In JSON mode `data` is base-64;
-in msgpack mode it is a raw `Uint8Array`.
-
-```typescript
-{
-  type: "asset_data",
-  payload: { id: string, hash: string, mime: string, data: string | Uint8Array }
-}
-```
-
-### `asset_delete`
-
-Removes one or more assets from the client cache.
-
-```typescript
-{ type: "asset_delete", payload: { ids: string[] } }
+{ type: 'error', payload: { error: string } }
 ```
 
 ---
 
-## Client → Server Messages
+## Renderer → Simulator Messages
 
 ### `state_sync`
 
-Sent on connect and on reconnect. The client reports its full in-memory state
-so the server can issue the appropriate CUD messages to bring the client up to
-date. The server must **not** reply with a `state_sync` message; it uses
-individual `*_create` / `*_update` / `*_delete` / `parameter_sync` messages
-instead.
+Sent by the renderer when connecting or reconnecting.
 
-> **Discussion**: Removing the server→client `state_sync` keeps the protocol
-> asymmetric and easier to reason about (server is the source of truth). The
-> tradeoff is that the server must orchestrate several messages in response to a
-> single request. For most implementations a simple "delete all then re-create"
-> strategy is sufficient and avoids diffing complexity.
+It describes the renderer's current in-memory state summary so the simulator can decide what to recreate, update, or delete.
 
 ```typescript
 {
-  type: "state_sync",
+  type: 'state_sync',
   payload: {
-    parameters: Parameter[]               // current client parameters
-    actions: Action[]                     // current client actions
-    envs: Array<{ id: string, type: string, layers: Array<{ layer_id: string, layer_type: string }> }>
-    charts: ChartMetadata[]
+    parameters: Parameter[];
+    actions: Action[];
+    envs: Array<{
+      id: string;
+      type: string;
+      layers: Array<{ layer_id: string; layer_type: string }>;
+    }>;
+    charts: ChartMetadata[];
   }
 }
 ```
 
+The simulator does not answer with a reverse `state_sync`. It replies by emitting the corresponding create, update, and delete messages.
+
 ### `param_change`
 
-Sent immediately after the user drags a slider or changes a value. The client
-optimistically assumes success; if the server rejects it, it replies with
-`param_sync`.
+Signals a renderer-side parameter edit.
 
 ```typescript
-{ type: "param_change", payload: { id: string, value: any } }
+{ type: 'param_change', payload: { id: string; value: unknown } }
 ```
 
 ### `action_start`
 
-Replaces `button_click`. The `continuous` flag tells the server whether the
-client wants to keep firing the action until it receives `action_end` with
-`continue: false`.
+Starts one action execution.
 
 ```typescript
 {
-  type: "action_start",
+  type: 'action_start',
   payload: {
-    id: string
-    continuous?: boolean   // default false
+    id: string;
+    continuous?: boolean;
   }
 }
 ```
 
+`continuous` requests a renderer-driven loop rather than a simulator-owned loop.
+
 ### `asset_sync`
 
-Sent after receiving `asset_meta`. The client reports which assets it already
-holds (keyed by id, value is the client's current hash). The server sends
-`asset_data` for any asset the client is missing or has stale.
+Reports the renderer's currently held asset hashes.
 
 ```typescript
 {
-  type: "asset_sync",
+  type: 'asset_sync',
   payload: {
-    assets: Record<AssetId, string>   // id → hash the client currently holds
+    assets: Record<string, string>;
   }
 }
 ```
 
 ### `error`
 
+Renderer-to-simulator error report.
+
 ```typescript
-{ type: "error", payload: { error: string } }
+{ type: 'error', payload: { error: string } }
 ```
 
 ---
 
 ## Simulation Loop Contract
 
-The simulation loop is now **client-driven**:
+Protocol v0.2 makes continuous execution renderer-driven.
 
-1. Client sends `action_start` with `continuous: true` (e.g. user presses "Run").
-2. Server executes one step and sends `action_end` with `continue: true` (or absent).
-3. Client sends the next `action_start` immediately.
-4. When the simulation is "done" the server sends `action_end` with `continue: false`.
-5. Client stops. The server never needs to maintain its own loop.
+Sequence:
 
-Only two action IDs are reserved:
+1. Renderer sends `action_start` with `continuous: true`.
+2. Simulator executes one step.
+3. Simulator sends all resulting state mutations.
+4. Simulator sends `action_end`.
+5. Renderer decides whether to send the next `action_start`.
 
-- `init` — initializes the simulation (non-continuous)
-- `step` — advances one timestep (used for both "step once" and continuous "run")
+The stop condition is `action_end` with `continue: false`.
 
-All other action IDs are user-defined.
+This keeps the simulator simpler:
+
+- no long-running implicit event loop in the transport layer
+- explicit step boundaries on the wire
+- easier reconnection and renderer ownership of playback semantics
+
+Reserved action ids:
+
+- `init`
+- `step`
+
+All other action ids are application-defined.
 
 ---
 
 ## Layer Registry
 
-Layers are extensible via a registry. The **frontend does not distinguish
-between "grid" and "graph" environments** — the distinction lives entirely
-inside layer types. An environment is simply a container (`type: "uniform"|"2d"`).
-Uniform environments do not require layers. Layers are currently only applicable to 2D environments.
+Layer semantics are defined by a registry in @tensnap/core/scenario.
 
-Layer-based designs increase the degrees of freedom in declaring environments. For instance,
+Each layer type may declare:
 
-- A Schelling segregation model operating within a grid: one agent layer or one background layer rendering a bitmap representing each location
-- A Deffuant model operating within a network: one agent layer + one edge layer, with the server not transmitting agent positions, allowing spring layout to control placement autonomously
-- A model simulating real-life human interactions + multiple social media identities: one agent layer + multiple edge layers, with the server transmitting agent positions
-- A US power grid model: A US map image background layer + an agent layer + an edge layer, with the server transmitting agent positions and edges disabling D3's spring layout via parameters
-- A hypergraph: An agent layer + a handwritten hyperedge layer (plugin support currently unnecessary, merely illustrating the concept)
+- `layer_type`
+- optional metadata schema
+- optional entity schema
+- optional entity diff schema
+- whether it owns agents
+- whether it owns edges
 
-Translated with DeepL.com (free version)
+Built-in registrations currently include:
 
-Each layer type registration includes:
+- `agent`
+- `edge`
+- `grid`
+- `background`
 
-| Field | Required | Description |
-| --- | --- | --- |
-| `layer_type` | ✓ | Unique string identifier |
-| Metadata schema | optional | Zod schema for the `data` field in `env_layer_create`/`env_layer_update` |
-| Entity schema | optional | Zod schema for entities sent via `agent_create`/`agent_update` and/or `edge_create`/`edge_update`. Use only for layer types that carry large numbers of entities. Scalar/singleton data (e.g. a background image URL) lives in the layer metadata, not as entities. |
-
-### Built-in Layer Types
-
-The layer definitions align with `tensnap-web-core/environment/layers`.
-
-| `layer_type` | Entity kind | Description |
-| --- | --- | --- |
-| `agent` | agents (optional) | Generic agents carrying `x`, `y`, and optional `heading`. |
-| `edge` | edges (optional) | Generic directed or undirected edges (`source` -> `target`).  Agents related to the edge layer may have no fixed positions (layout is computed client-side via `d3-force`). |
-| `grid` | — | Reference grid lines overlay; `data` contains spacing/color parameters. No entities. |
-| `background` | — | Solid color or image fill; background is stored in layer `data.background` (CSS color, URL, or asset reference `{ asset_id, interpolation }`). No entities. |
-
-### Entity Schema vs. Metadata
-
-- **Metadata** (layer `data` field): use for a small number of scalar values
-  or a single image/URL. Always sent whole on `env_layer_update`.
-- **Entity schema** (optional registration): use when a layer holds a large,
-  growing collection of items (agents, edges, hyperedges, …) that benefit from
-  incremental CUD updates. Register the schema at layer type registration time.
-
-### Asset Reference in Layer Data
-
-When a background image comes from the project asset store, set it using:
-
-```typescript
-// env_layer_create / env_layer_update data field
-{
-  background: { asset_id: "my-bg-001", interpolation: "nearest" }
-}
-```
-
-The client resolves `asset_id` to a blob-URL via the project `AssetStore`.
+The registry is used to validate scenario-layer payloads independently of the transport implementation.
 
 ---
 
-## Asset Protocol
+## Asset References in Layer Metadata
 
-Assets are reusable binary or text resources (PNG/JPEG images, SVGs,
-numpy arrays, etc.) shared across layers. They are identified by server-computed
-IDs. The client caches assets and avoids re-downloading unchanged ones using
-content hashes.
+Layer metadata may reference assets indirectly rather than embedding raw bytes.
 
-### Lifecycle
-
-```
-Server                              Client
-  │                                   │
-  ├── asset_meta ──────────────────►  │  (announce: id, hash, mime, size)
-  │                                   │  (client checks local cache)
-  │◄─────────────────── asset_sync ──►│  (client reports held id→hash pairs)
-  ├── asset_data ──────────────────►  │  (only missing / stale assets)
-  │                                   │
-  │  ... asset changes ...            │
-  ├── asset_data ──────────────────►  │  (proactive push for updated asset)
-  │                                   │
-  ├── asset_delete ────────────────►  │  (remove asset from cache)
-```
-
-### `asset_meta` (S→C)
+Example:
 
 ```typescript
 {
-  type: "asset_meta",
-  payload: {
-    assets: Array<{
-      id: string         // server-computed stable id
-      hash: string       // first-16-hex-chars of SHA-256
-      mime: string       // e.g. "image/png", "image/svg+xml"
-      size: number       // byte size
-      label?: string
-    }>
+  background: {
+    asset_id: 'background-001',
+    interpolation: 'nearest'
   }
 }
 ```
 
-### `asset_data` (S→C)
-
-```typescript
-{
-  type: "asset_data",
-  payload: {
-    id: string
-    hash: string
-    mime: string
-    data: string | Uint8Array   // base-64 string (JSON) or raw bytes (msgpack)
-  }
-}
-```
-
-### `asset_delete` (S→C)
-
-```typescript
-{ type: "asset_delete", payload: { ids: string[] } }
-```
-
-### `asset_sync` (C→S)
-
-```typescript
-{
-  type: "asset_sync",
-  payload: {
-    assets: Record<string, string>   // id → hash the client currently holds
-  }
-}
-```
+The renderer resolves `asset_id` through its AssetStore-backed cache.
 
 ---
 
-## Data Types
+## Core Data Types
 
 ### Action
 
@@ -615,19 +647,38 @@ interface Action {
 
 ### Parameter
 
-`action` is no longer a parameter type. Wire-protocol names use `param_*`
-(e.g. `param_create`); TypeScript interface names retain the `Parameter` prefix.
+```typescript
+type ParameterType = 'number' | 'enum' | 'boolean' | 'string';
+```
+
+`action` is no longer a parameter type.
+
+### Agent
+
+Agent create payloads use full records. Agent update payloads use flat diffs.
 
 ```typescript
-type ParameterType = "number" | "enum" | "boolean" | "string";
+interface Agent {
+  id: AgentId;
+  color?: string;
+  icon?: 'arrow' | 'circle' | 'square' | 'triangle';
+  size?: number;
+  data?: Record<string, unknown>;
+  [layerSpecificField: string]: unknown;
+}
+```
 
-interface Parameter {
-  id: string;
-  type: ParameterType;
-  label: string;
-  allowRuntimeChange?: boolean;
-  value?: any;
-  // type-specific fields unchanged
+### EdgeData
+
+```typescript
+interface EdgeData {
+  source: AgentId;
+  target: AgentId;
+  directed?: boolean;
+  style?: 'solid' | 'dashed' | 'dotted';
+  width?: number;
+  color?: string;
+  [key: string]: unknown;
 }
 ```
 
@@ -636,43 +687,31 @@ interface Parameter {
 ```typescript
 interface AssetMeta {
   id: string;
-  hash: string;     // first 16 hex chars of SHA-256
+  hash: string;
   mime: string;
   size: number;
   label?: string;
 }
 ```
 
-### Agent (flat diff form used in `agent_update`)
+---
 
-```typescript
-// create / full form
-interface Agent {
-  id: AgentId;
-  color?: string;
-  icon?: "arrow" | "circle" | "square" | "triangle";
-  size?: number;
-  data?: Record<string, any>;
-  // layer-specific fields (x, y, heading, …) included inline
-}
+## Implementation Notes
 
-// update diff — id plus only changed fields, flat
-type AgentDiff = { id: AgentId } & Partial<Omit<Agent, "id">>;
-```
+The current refactor state is:
 
-### ChartGroupMetadata (unchanged from v0.1)
+- protocol types and schemas live in @tensnap/core
+- protocol codecs support both JSON and MessagePack
+- Scenario lives in @tensnap/core and extends EventTarget
+- transport is abstracted in @tensnap/core
+- browser WebSocket integration remains in @tensnap/web during the next migration phase
 
-```typescript
-interface ChartGroupMetadata {
-  id: string; label: string; color?: string;
-  dataList?: Array<{ id: string; label: string; color?: string }>;
-}
-```
+Temporary compatibility exports may remain in TypeScript for older server/client naming, but new code should use renderer/simulator names exclusively.
 
 ---
 
 ## References
 
-- [Architecture Documentation](./architecture.md)
-- [Roadmap](./roadmap.md)
-- [v0.1 Protocol (current)](./protocol.md)
+- [architecture.md](./architecture.md)
+- [roadmap.md](./roadmap.md)
+- [protocol.md](./protocol.md)

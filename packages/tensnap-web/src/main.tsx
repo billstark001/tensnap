@@ -4,11 +4,11 @@ import { Providers } from './Providers';
 import { App } from './App';
 
 import './styles/global.css';
-import { InBrowserFilePicker, createSchellingSimulation, createWolfSheepSimulation } from 'tensnap-web-utils';
+import { InBrowserFilePicker, createSchellingSimulation, createWolfSheepSimulation } from '@tensnap/web-adapter';
 import { WebSocketManagerFake } from './websocket/fake';
 import { initI18n, detectLocale, isValidLocale, i18n } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
-import { IndexedDBFileSystemAdapter } from 'tensnap-web-utils/adapters';
+import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
 import { I18nProvider } from '@lingui/react';
 
 

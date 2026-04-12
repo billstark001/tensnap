@@ -7,9 +7,9 @@ export type AgentId = string | number;
 
 export type EnvironmentId = string;
 
-import type { Parameter } from 'tensnap-web-core';
-import type { Action } from 'tensnap-web-core';
-import type { ChartGroup } from 'tensnap-web-core';
+import type { Parameter } from '@tensnap/core';
+import type { Action } from '@tensnap/core';
+import type { ChartGroup } from '@tensnap/core';
 
 export interface AgentTrajectoryPoint {
   x: number;
@@ -112,7 +112,7 @@ export type PureEnvironment = PureGridEnvironment | PureGraphEnvironment | PureU
 
 export type Environment = GridEnvironment | GraphEnvironment | UniformEnvironment;
 
-// #region Parameters & Actions — sourced from tensnap-web-core
+// #region Parameters & Actions — sourced from @tensnap/core
 
 export type {
   ParameterType,
@@ -123,11 +123,11 @@ export type {
   StringParameter,
   Parameter,
   Action,
-} from 'tensnap-web-core';
+} from '@tensnap/core';
 
 // #endregion
 
-// #region Charts — sourced from tensnap-web-core
+// #region Charts — sourced from @tensnap/core
 
 export type {
   ChartMetadata,
@@ -135,7 +135,7 @@ export type {
   NativeDataPoint,
   ChartGroup,
   ChartUpdateData,
-} from 'tensnap-web-core';
+} from '@tensnap/core';
 
 // Protocol-specific chart operation types (not in web-core)
 export type ChartUpdateOperationType = 'clear';

@@ -1,6 +1,6 @@
 import { CreateStoreFunction } from '@/utils/zustand';
 import { ChartsSlice, ScenarioStore } from '../types';
-import { ChartStorage, instantiateChartMetadata } from 'tensnap-web-core';
+import { ChartStorage, instantiateChartMetadata } from '@tensnap/core';
 
 export const createChartsSlice: CreateStoreFunction<ChartsSlice, ScenarioStore> = (set, get) => ({
   charts: new ChartStorage(),

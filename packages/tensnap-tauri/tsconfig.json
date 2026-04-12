@@ -23,7 +23,6 @@
     "noFallthroughCasesInSwitch": true,
     
     /* Path mapping */
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "tensnap-web/*": ["../tensnap-web/*"],
