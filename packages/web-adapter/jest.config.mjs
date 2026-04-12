@@ -5,7 +5,7 @@ export default {
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^tensnap-web/(.*)$': '<rootDir>/../tensnap-web/src/$1',
+    '^@tensnap/web/(.*)$': '<rootDir>/../tensnap-web/src/$1',
     '\\.css$': 'identity-obj-proxy',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.mjs'],

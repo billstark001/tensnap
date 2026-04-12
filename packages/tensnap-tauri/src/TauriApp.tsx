@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Providers } from 'tensnap-web/Providers';
+import { Providers } from '@tensnap/web/Providers';
 import { TauriFileSystemAdapter, TauriFilePicker } from './adapters';
-import { registerFileSystemAdapter, registerFileSystemPicker } from 'tensnap-web/store/file-system/provider';
-import { detectLocale, initI18n, isValidLocale } from 'tensnap-web/i18n';
+import { registerFileSystemAdapter, registerFileSystemPicker } from '@tensnap/web/store/file-system/provider';
+import { detectLocale, initI18n, isValidLocale } from '@tensnap/web/i18n';
 import { useTauriMenuEvents } from './hooks/useTauriMenuEvents';
-import { App } from 'tensnap-web/index';
+import { App } from '@tensnap/web/index';
 import { getOsName } from './adapters/common';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useSettingsStore } from 'tensnap-web/src/store/settings';
+import { useSettingsStore } from '@tensnap/web/src/store/settings';
 
 const TauriMenuEventsLoader = () => {
   useTauriMenuEvents();

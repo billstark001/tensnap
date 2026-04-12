@@ -1,8 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { GraphAgent } from '@/types/model';
+import { GraphAgent, GraphEdge } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
-import { InstantiatedGraphEnvironment } from '@/store/scenario/environment';
 import { Trans } from '@lingui/react/macro';
 import {
   EnvironmentView,
@@ -16,12 +15,16 @@ import {
 } from '@tensnap/core';
 
 interface GraphEnvironmentViewProps {
-  environment: InstantiatedGraphEnvironment;
+  environment: {
+    id: string;
+    agents: Record<string | number, GraphAgent>;
+    edges: GraphEdge[];
+  };
   updateTrigger?: any;
 }
 
 export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnvironmentViewProps) {
-  const { id, agents, props } = environment;
+  const { id, agents, edges } = environment;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const envViewRef = useRef<EnvironmentView | null>(null);
@@ -91,9 +94,9 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
     const agentStorage = agentStorageRef.current;
     const edgeStorage = edgeStorageRef.current;
     if (!agentStorage || !edgeStorage) return;
-    agentStorage.updateAgents(Object.values(agents));
-    edgeStorage.setEdges(props.edges as any);
-  }, [id, agents, props.edges, updateTrigger]);
+    agentStorage.setAgents(Object.values(agents));
+    edgeStorage.setEdges(edges as any);
+  }, [id, agents, edges, updateTrigger]);
 
   const resetView = useCallback(() => {
     envViewRef.current?.fitToScene({ padding: 0.05 });

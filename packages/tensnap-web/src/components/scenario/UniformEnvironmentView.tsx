@@ -1,7 +1,6 @@
 // UniformEnvironmentView.tsx
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { UniformAgent } from '@/types/model';
-import { InstantiatedUniformEnvironment } from '@/store/scenario/environment';
+import { Agent as UniformAgent } from '@/types/model';
 import { Pagination } from '@/components/ui/Pagination';
 import { AgentDetailsDialog, createIconElement } from '../../dialogs/AgentDetailsDialog';
 import * as styles from './UniformEnvironmentView.css';
@@ -11,7 +10,9 @@ import { useLingui } from '@lingui/react';
 import { EmptyState } from '../ui/EmptyState';
 
 interface UniformEnvironmentViewProps {
-  environment: InstantiatedUniformEnvironment;
+  environment: {
+    agents: Record<string | number, UniformAgent>;
+  };
 }
 
 const AGENTS_PER_PAGE = 12;

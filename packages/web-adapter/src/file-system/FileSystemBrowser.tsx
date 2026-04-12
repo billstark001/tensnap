@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { DirectoryEntry, FileSystemAdapter } from 'tensnap-web/types/file';
+import { DirectoryEntry, FileSystemAdapter } from '@tensnap/web/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
@@ -8,8 +8,7 @@ import { normalizePath, joinPath, validateName, readFileContent } from './utils'
 import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 import { ExportDialog } from './ExportDialog';
-import { Trans } from '@lingui/react/macro';
-import { EmptyState } from 'tensnap-web/components/ui/EmptyState';
+import { EmptyState } from '@tensnap/web/components/ui/EmptyState';
 
 export interface FileSystemBrowserProps {
   fileSystem: FileSystemAdapter;
@@ -262,14 +261,14 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       {/* 内容区域 */}
       <div className={styles.browserContent}>
         {loading && (
-          <div className={styles.loadingState}><Trans>Loading...</Trans></div>
+          <div className={styles.loadingState}>Loading...</div>
         )}
 
         {error && (
           <div className={styles.errorState}>
-            <div><Trans>Failed to load: {error}</Trans></div>
+            <div>Failed to load: {error}</div>
             <button className={styles.actionButton} onClick={refreshCurrentDirectory}>
-              <Trans>Retry</Trans>
+              Retry
             </button>
           </div>
         )}
@@ -277,11 +276,11 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         {!loading && !error && directoryContents.length === 0 && (
           <EmptyState 
             icon="📂"
-            title={<Trans>Directory is empty</Trans>}
+            title="Directory is empty"
             upload={allowUpload ? {
               isDragOver: isDragOver,
-              uploadText: <Trans>Drag files here</Trans>,
-              uploadHint: <Trans>Or click to browse</Trans>,
+              uploadText: 'Drag files here',
+              uploadHint: 'Or click to browse',
             } : undefined}
           />
         )}

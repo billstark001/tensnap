@@ -6,7 +6,7 @@
  */
 
 import JSZip from 'jszip';
-import { FileSystemAdapter } from 'tensnap-web/types/file';
+import { FileSystemAdapter } from '@tensnap/web/types/file';
 
 export interface ExportOptions {
   format: 'json' | 'zip';

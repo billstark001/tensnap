@@ -20,7 +20,7 @@ import { RenderableAgent } from '@tensnap/core/environment';
 import { BenchmarkCase } from '../types';
 
 // Import the model from web-utils
-import { SchellingModel, SchellingConfig } from '@tensnap/web-adapter/fake-models/schelling';
+import { SchellingModel, SchellingConfig } from '@tensnap/web-adapter/models/schelling';
 
 interface BenchmarkConfig extends Partial<SchellingConfig> {
   /** Canvas width for environment view */

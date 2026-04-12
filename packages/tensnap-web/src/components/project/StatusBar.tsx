@@ -1,5 +1,5 @@
 import { useScenarioStore } from '@/store/scenario/store';
-import { useWebSocketStore } from '@/store/websocket';
+import { useTransportStore } from '@/store/transport';
 import { useToast } from '@/store/toast';
 import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
@@ -26,15 +26,15 @@ export function StatusBar({
   const toast = useToast();
   const connected = useScenarioStore((store) => store.connected);
   const currentTime = useScenarioStore((store) => store.currentTime);
-  const websocketStore = useWebSocketStore();
+  const transportStore = useTransportStore();
   
   const [isReconnecting, setIsReconnecting] = useState(false);
 
-  const reconnect = websocketStore?.reconnect;
-  const isConnecting = websocketStore?.isConnecting ?? false;
+  const reconnect = transportStore?.reconnect;
+  const isConnecting = transportStore?.isConnecting ?? false;
 
   const handleReconnect = useCallback(async () => {
-    if (isReconnecting || isConnecting || !reconnect || !websocketStore) return;
+    if (isReconnecting || isConnecting || !reconnect || !transportStore) return;
     
     setIsReconnecting(true);
     try {
@@ -44,7 +44,7 @@ export function StatusBar({
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // 检查实际的连接状态
-      const isNowConnected = websocketStore.isConnected();
+      const isNowConnected = transportStore.isConnected();
       
       if (isNowConnected) {
         toast.success(_(msg`Reconnected successfully`));
@@ -58,7 +58,7 @@ export function StatusBar({
     } finally {
       setIsReconnecting(false);
     }
-  }, [reconnect, isReconnecting, isConnecting, websocketStore, toast, _]);
+  }, [reconnect, isReconnecting, isConnecting, transportStore, toast, _]);
 
   return (
     <div className={styles.statusBar}>

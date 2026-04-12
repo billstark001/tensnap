@@ -36,12 +36,12 @@ The repository is currently between foundational extraction and renderer integra
   - transport interfaces
 - `@tensnap/web/src/types/api.ts` and `api-schemas.ts` now re-export protocol definitions from `@tensnap/core`
 - renderer/simulator terminology is the canonical naming in new core APIs
-
-### Not Yet Landed
-
 - full renderer-side migration from web-local Scenario logic to `@tensnap/core/scenario`
 - full removal of compatibility aliases using server/client terminology
 - migration of browser WebSocket handling to the new transport abstractions
+
+### Not Yet Landed
+
 - migration of python and example code to the new package boundaries and naming
 - documentation cleanup outside the protocol and roadmap documents
 

@@ -6,13 +6,13 @@ import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import Form from '@/components/ui/Form';
 import { createDialogStore } from '@/utils/zustand';
-import { FakeModelInfo, WebSocketManagerFake } from '@/websocket';
+import { listBuiltinModels, makeInMemoryConnectionId } from '@/transport';
 import * as styles from './CreateNewProjectDialog.css';
 
 
 const FakeModelCard: React.FC<{
-  model: FakeModelInfo;
-  onSelect: (model: FakeModelInfo) => void;
+  model: { id: string; name: string; description: string };
+  onSelect: (model: { id: string; name: string; description: string }) => void;
 }> = ({ model, onSelect }) => (
   <div
     onClick={() => onSelect(model)}
@@ -57,7 +57,7 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
     }
   }, [handleCreateItem]);
 
-  const fakeModels = useMemo(() => WebSocketManagerFake.listRegisteredModels(), []);
+  const fakeModels = useMemo(() => listBuiltinModels(), []);
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange} size='lg'>
@@ -85,10 +85,10 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
           </h4>
           {fakeModels.map((model) => (
             <FakeModelCard
-              key={model.url}
+              key={model.id}
               model={model}
               onSelect={() => {
-                onCreateItem(model.url);
+                onCreateItem(makeInMemoryConnectionId(model.id));
                 onOpenChange?.(false);
               }}
             />

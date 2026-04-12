@@ -85,6 +85,9 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      '@types/d3':
+        specifier: ^7.4.3
+        version: 7.4.3
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
@@ -108,15 +111,15 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.10.1
         version: 2.10.1
+      '@tensnap/web':
+        specifier: workspace:*
+        version: link:../tensnap-web
       react:
         specifier: ^19.2.5
         version: 19.2.5
       react-dom:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
-      tensnap-web:
-        specifier: workspace:*
-        version: link:../tensnap-web
     devDependencies:
       '@lingui/vite-plugin':
         specifier: ^5.9.5
@@ -141,7 +144,7 @@ importers:
         version: 1.20.1(babel-plugin-macros@3.1.0)
       '@vanilla-extract/vite-plugin':
         specifier: ^5.2.2
-        version: 5.2.2(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))
+        version: 5.2.2(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(lightningcss@1.32.0)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))
       '@vitejs/plugin-react':
         specifier: ^6.0.1
         version: 6.0.1(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))
@@ -292,16 +295,22 @@ importers:
         version: 1.20.1(babel-plugin-macros@3.1.0)
       '@vanilla-extract/vite-plugin':
         specifier: ^5.2.2
-        version: 5.2.2(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))
+        version: 5.2.2(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(lightningcss@1.32.0)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))
       '@vitejs/plugin-react':
         specifier: ^6.0.1
         version: 6.0.1(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))
       babel-plugin-macros:
         specifier: ^3.1.0
         version: 3.1.0
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       vite:
         specifier: ^8.0.8
         version: 8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@25.6.0)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   packages/web-adapter:
     dependencies:
@@ -335,6 +344,9 @@ importers:
       '@tensnap/core':
         specifier: workspace:*
         version: link:../core
+      '@tensnap/web':
+        specifier: workspace:*
+        version: link:../tensnap-web
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -353,9 +365,6 @@ importers:
       react-dom:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
-      tensnap-web:
-        specifier: workspace:*
-        version: link:../tensnap-web
     devDependencies:
       '@jest/globals':
         specifier: ^30.3.0
@@ -7537,7 +7546,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vanilla-extract/compiler@0.7.0(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)':
+  '@vanilla-extract/compiler@0.7.0(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(lightningcss@1.32.0)':
     dependencies:
       '@vanilla-extract/css': 1.20.1(babel-plugin-macros@3.1.0)
       '@vanilla-extract/integration': 8.0.10(babel-plugin-macros@3.1.0)
@@ -7594,9 +7603,9 @@ snapshots:
 
   '@vanilla-extract/private@1.0.9': {}
 
-  '@vanilla-extract/vite-plugin@5.2.2(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))':
+  '@vanilla-extract/vite-plugin@5.2.2(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(lightningcss@1.32.0)(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1))':
     dependencies:
-      '@vanilla-extract/compiler': 0.7.0(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)
+      '@vanilla-extract/compiler': 0.7.0(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(esbuild@0.27.3)(jiti@2.6.1)(lightningcss@1.32.0)
       '@vanilla-extract/integration': 8.0.10(babel-plugin-macros@3.1.0)
       vite: 8.0.8(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1)
     transitivePeerDependencies:

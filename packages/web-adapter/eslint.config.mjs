@@ -39,15 +39,15 @@ export default [
           patterns: [
             {
               group: [
-                'tensnap-web',
-                'tensnap-web/*',
-                '!tensnap-web/types/*',
-                '!tensnap-web/styles/*',
-                '!tensnap-web/utils/*',
-                '!tensnap-web/components/ui/*',
+                '@tensnap/web',
+                '@tensnap/web/*',
+                '!@tensnap/web/types/*',
+                '!@tensnap/web/styles/*',
+                '!@tensnap/web/utils/*',
+                '!@tensnap/web/components/ui/*',
               ],
               message:
-                'web-utils can only import from tensnap-web/types/*, tensnap-web/styles/*, tensnap-web/utils/*, tensnap-web/components/ui/*',
+                'web-adapter can only import from @tensnap/web/types/*, @tensnap/web/styles/*, @tensnap/web/utils/*, @tensnap/web/components/ui/*',
             },
           ],
         },

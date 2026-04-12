@@ -228,7 +228,7 @@ export class EdgeLayer extends BaseLayer {
     const { linkDistance, chargeStrength, collisionRadius, centeringStrength } = this._simConfig;
     this._simulation = d3
       .forceSimulation<SimNode>()
-      .force('link', d3.forceLink<SimNode, SimLink>().id(d => String(d.id)).distance(linkDistance))
+      .force('link', d3.forceLink<SimNode, SimLink>().id((d: SimNode) => String(d.id)).distance(linkDistance))
       .force('charge', d3.forceManyBody<SimNode>().strength(chargeStrength))
       .force('x', d3.forceX<SimNode>(0).strength(centeringStrength))
       .force('y', d3.forceY<SimNode>(0).strength(centeringStrength))

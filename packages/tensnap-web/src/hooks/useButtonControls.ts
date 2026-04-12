@@ -1,20 +1,21 @@
-import { useWebSocketStore } from "@/store/websocket";
-import { ActionStartPayload } from "@/types/api";
+import { useTransportStore } from "@/store/transport";
+import { useScenarioStore } from '@/store/scenario/store';
 import { useCallback } from "react";
 
 
 
 export function useButtonControls() {
-  const sendMessage = useWebSocketStore((state) => state.sendMessage);
+  const sendMessage = useTransportStore((state) => state.sendMessage);
+  const createActionStartMessage = useScenarioStore((state) => state.createActionStartMessage);
 
   const handleButtonAction = useCallback(
     (action: string, continuous?: boolean) => {
-      sendMessage?.<ActionStartPayload>({
-        type: 'action_start',
-        payload: { id: action, ...(continuous !== undefined ? { continuous } : {}) },
-      });
+      if (!sendMessage || !createActionStartMessage) {
+        return;
+      }
+      sendMessage?.(createActionStartMessage(action, continuous));
     },
-    [sendMessage]
+    [createActionStartMessage, sendMessage]
   );
 
   return {

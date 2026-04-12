@@ -3,7 +3,7 @@ import {
   ServerToClientMessageSchema, 
   ClientToServerMessageSchema,
   getPayloadSchema 
-} from '@/types/api-schemas';
+} from '@tensnap/core';
 
 export type ValidationLevel = 'off' | 'warning' | 'error';
 export type MessageDirection = 'client-to-server' | 'server-to-client';

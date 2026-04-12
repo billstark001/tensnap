@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useCallback, useState, useRef, ReactNode } from 'react';
-import * as Dialog from 'tensnap-web/components/ui/Dialog';
+import * as Dialog from '@tensnap/web/components/ui/Dialog';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from 'tensnap-web/types/file';
+import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web/types/file';
 import * as styles from './FileSystemBrowser.css';
 
 export interface FilePickerContextValue {

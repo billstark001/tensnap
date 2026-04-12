@@ -11,6 +11,8 @@ export interface TransportEventMap {
 }
 
 export interface ISimulatorTransport {
+  readonly connectionId: string;
+  readonly transportKind: string;
   readonly encoding: ProtocolEncoding;
   readonly connectionState: TransportConnectionState;
   readonly isConnected: boolean;

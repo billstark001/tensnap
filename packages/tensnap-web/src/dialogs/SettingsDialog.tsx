@@ -47,7 +47,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   // 同步当前项目的 URL
   useEffect(() => {
     if (activeProject) {
-      const currentUrl = activeProject.useWebSocketStore.getState().url || '';
+      const currentUrl = activeProject.useTransportStore.getState().connectionId || '';
       setBackendUrl(currentUrl);
       setHasProjectChanges(false);
     } else {
@@ -58,7 +58,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   const handleBackendUrlChange = useCallback((value: string) => {
     setBackendUrl(value);
-    const currentUrl = activeProject?.useWebSocketStore.getState().url || '';
+    const currentUrl = activeProject?.useTransportStore.getState().connectionId || '';
     setHasProjectChanges(value !== currentUrl);
   }, [activeProject]);
 
@@ -80,7 +80,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   const handleProjectSettingsReset = useCallback(() => {
     if (activeProject) {
-      const currentUrl = activeProject.useWebSocketStore.getState().url || '';
+      const currentUrl = activeProject.useTransportStore.getState().connectionId || '';
       setBackendUrl(currentUrl);
     } else {
       setBackendUrl('');

@@ -19,7 +19,7 @@
 文件系统浏览器组件，提供完整的文件浏览、管理功能。
 
 ```tsx
-import { FileSystemBrowser } from 'tensnap-web-utils/file-system';
+import { FileSystemBrowser } from "@tensnap/web-utils/file-system';
 
 <FileSystemBrowser
   fileSystem={myFileSystemAdapter}
@@ -45,7 +45,7 @@ import { FileSystemBrowser } from 'tensnap-web-utils/file-system';
 文件选择器上下文提供者，在应用根部提供文件选择功能。
 
 ```tsx
-import { FilePickerProvider, useFilePicker } from 'tensnap-web-utils/file-system';
+import { FilePickerProvider, useFilePicker } from "@tensnap/web-utils/file-system';
 
 function App() {
   return (
@@ -83,7 +83,7 @@ function YourComponent() {
 独立的文件选择器类，可在非 React 环境或需要独立实例时使用。
 
 ```tsx
-import { InBrowserFilePicker } from 'tensnap-web-utils/file-system';
+import { InBrowserFilePicker } from "@tensnap/web-utils/file-system';
 
 // 创建一个隐藏的容器元素
 const container = document.createElement('div');
@@ -111,7 +111,7 @@ await picker.cleanup();
 导出对话框组件，支持将文件系统内容导出为 JSON 或 ZIP 格式。
 
 ```tsx
-import { ExportDialog } from 'tensnap-web-utils/file-system';
+import { ExportDialog } from "@tensnap/web-utils/file-system';
 
 const [showExport, setShowExport] = useState(false);
 
@@ -150,7 +150,7 @@ import {
   validateName,        // 验证文件/目录名
   readFileContent,     // 从 File 对象读取内容
   calculateChecksum    // 计算校验和
-} from 'tensnap-web-utils/file-system';
+} from "@tensnap/web-utils/file-system';
 
 // 示例
 console.log(formatFileSize(1024)); // "1.0 KB"
@@ -179,8 +179,8 @@ import {
   useFilePicker,
   FileSystemBrowser,
   ExportDialog
-} from 'tensnap-web-utils/file-system';
-import { IndexedDBAdapter } from 'tensnap-web-utils/adapters/indexeddb';
+} from "@tensnap/web-utils/file-system';
+import { IndexedDBAdapter } from "@tensnap/web-utils/adapters/indexeddb';
 
 // 创建文件系统适配器
 const fileSystem = new IndexedDBAdapter('my-app-fs');

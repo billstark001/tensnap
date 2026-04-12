@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
 import { BooleanParameter, EnumParameter, Parameter, ParameterType, NumberParameter, StringParameter } from '../../types/model';
 import { useScenarioStore } from '../../store/scenario/store';
-import { useWebSocketStore } from '@/store/websocket';
-import { ParameterChangePayload } from '@/types/api';
+import { useTransportStore } from '@/store/transport';
 import * as styles from './ParameterControl.css';
 import * as Switch from '@radix-ui/react-switch';
 import * as Select from '@/components/ui/Select';
@@ -150,21 +149,22 @@ const renderers: Record<ParameterType, React.FC<{ parameter: Parameter; onChange
 };
 
 export function ParameterControl({ parameter, showLabel = false }: ParameterControlProps) {
-  const sendMessage = useWebSocketStore((state) => state.sendMessage);
-  const updateParameter = useScenarioStore((state) => state.updateParameterValue);
+  const sendMessage = useTransportStore((state) => state.sendMessage);
+  const createParamChangeMessage = useScenarioStore((state) => state.createParamChangeMessage);
+  const applyMessage = useScenarioStore((state) => state.applyMessage);
   useScenarioStore((state) => state.parameterUpdateTrigger.value);
 
   const parameterId = parameter.id;
 
   const onChange = useCallback(
     (value: any) => {
-      sendMessage?.<ParameterChangePayload>({
-        type: 'param_change',
-        payload: { id: parameterId, value },
-      });
-      updateParameter?.(parameterId, value);
+      if (!sendMessage || !createParamChangeMessage || !applyMessage) {
+        return;
+      }
+      sendMessage?.(createParamChangeMessage(parameterId, value));
+      applyMessage({ type: 'param_sync', payload: { id: parameterId, value } });
     },
-    [parameterId, sendMessage, updateParameter]
+    [applyMessage, createParamChangeMessage, parameterId, sendMessage]
   );
 
   const Renderer = renderers[parameter.type] || FallbackRenderer;

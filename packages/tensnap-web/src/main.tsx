@@ -4,21 +4,26 @@ import { Providers } from './Providers';
 import { App } from './App';
 
 import './styles/global.css';
-import { InBrowserFilePicker, createSchellingSimulation, createWolfSheepSimulation } from '@tensnap/web-adapter';
-import { WebSocketManagerFake } from './websocket/fake';
+import { InBrowserFilePicker, getBuiltinModelEntries } from '@tensnap/web-adapter';
 import { initI18n, detectLocale, isValidLocale, i18n } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
 import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
 import { I18nProvider } from '@lingui/react';
+import { registerBuiltinModels } from './transport';
 
 
 if (!window.structuredClone) {
   window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
 }
 
-// Register fake models for development/testing
-WebSocketManagerFake.setGlobalOptions('fake:schelling', createSchellingSimulation() as any);
-WebSocketManagerFake.setGlobalOptions('fake:wolf-sheep', createWolfSheepSimulation() as any);
+registerBuiltinModels(
+  getBuiltinModelEntries().map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    description: entry.description,
+    create: entry.createTransport,
+  }))
+);
 
 function isDarkMode() {
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;

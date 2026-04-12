@@ -31,7 +31,7 @@ import { useSettingsStore } from '@/store/settings';
 import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
-import { useWebSocketStore } from '@/store/websocket';
+import { useTransportStore } from '@/store/transport';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 
@@ -132,7 +132,7 @@ export function ViewTools() {
   const dump = useScenarioStore((store) => store.dump);
   const updateMainViewLayout = useScenarioStore((store) => store.updateMainViewLayout);
 
-  const websocketStore = useWebSocketStore();
+  const transportStore = useTransportStore();
   const { _ } = useLingui();
 
   const handleTakeSnapshot = () => {
@@ -165,7 +165,7 @@ export function ViewTools() {
       <ToolButton
         icon={<RefreshCcw size={16} />}
         tooltip={_(msg`Synchronize State`)}
-        onClick={() => dump ? websocketStore?.sendMessage({
+        onClick={() => dump ? transportStore?.sendMessage({
           type: 'state_sync',
           payload: createStateSyncRequestFromStore(dump()),
         }) : undefined}

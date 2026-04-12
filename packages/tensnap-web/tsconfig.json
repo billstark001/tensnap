@@ -12,6 +12,8 @@
     "noEmit": true,
     "paths": {
       "@/*": ["./src/*"],
+      "@tensnap/web": ["./index.ts"],
+      "@tensnap/web/*": ["./src/*"],
       "@tensnap/core": ["../core/src/index.ts"],
       "@tensnap/core/*": ["../core/src/*"],
       "@tensnap/web-adapter": ["../web-adapter/src/index.ts"],

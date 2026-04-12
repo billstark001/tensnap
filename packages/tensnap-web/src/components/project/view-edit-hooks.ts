@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { AnyView, ContainerView } from '@/types/ui';
 import { useScenarioStore } from '@/store/scenario/store';
-import { Parameter, Environment, ChartGroup, Action, BooleanParameter } from '@/types/model';
+import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
+import { EditableEnvironmentDraft } from '@/store/scenario/store';
 import { findAndDeleteView, findAndUpdateView, findAndAddView } from '../view/utils/container';
 import {
   createButtonView,
@@ -48,12 +49,11 @@ export function createChartGroup(): ChartGroup {
 /**
  * Creates a new grid environment
  */
-export function createGridEnvironment(): Environment {
+export function createGridEnvironment(): EditableEnvironmentDraft {
   return {
     id: generateUniqueId(),
     type: 'grid',
     label: 'New Environment',
-    agents: [],
     width: 10,
     height: 10,
   };
@@ -75,7 +75,7 @@ export function useCreateView(props: {
     container: ContainerView
   ) => {
     let newView: AnyView;
-    let newObject: Parameter | Environment | ChartGroup | Action | null = null;
+    let newObject: Parameter | EditableEnvironmentDraft | ChartGroup | Action | null = null;
 
     switch (type) {
       case 'button': {
@@ -117,7 +117,7 @@ export function useCreateView(props: {
       } else if (type === 'parameter') {
         setData?.({ parameters: [newObject as Parameter] }, { updateLayout: false, preserveExisting: true });
       } else if (type === 'environment') {
-        setData?.({ environments: [newObject as Environment] }, { updateLayout: false, preserveExisting: true });
+        setData?.({ environments: [newObject as EditableEnvironmentDraft] }, { updateLayout: false, preserveExisting: true });
       } else if (type === 'chart') {
         // For charts, we need to create a ChartGroupMetadata
         const chartGroup = newObject as ChartGroup;
@@ -145,11 +145,13 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
 
   // Store actions
   const setData = useScenarioStore((store) => store.setData);
+  const updateActionProps = useScenarioStore((store) => store.updateActionProps);
 
   const updateParameterProps = useScenarioStore((store) => store.updateParameterProps);
   const updateEnvironment = useScenarioStore((store) => store.updateEnvironment);
   const updateChartProps = useScenarioStore((store) => store.updateChartProps);
 
+  const renameAction = useScenarioStore((store) => store.renameAction);
   const renameParameter = useScenarioStore((store) => store.renameParameter);
   const renameEnvironment = useScenarioStore((store) => store.renameEnvironment);
   const renameChartGroup = useScenarioStore((store) => store.renameChartGroup);
@@ -183,7 +185,9 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
     // Delete the associated object
     if (view && view.type !== 'container') {
       const objectId = view.data.id;
-      if (view.type === 'button' || view.type === 'parameter') {
+      if (view.type === 'button') {
+        setData?.({ removedActionIds: [objectId] }, { updateLayout: false, preserveExisting: true });
+      } else if (view.type === 'parameter') {
         setData?.({ removedParameterIds: [objectId] }, { updateLayout: false, preserveExisting: true });
       } else if (view.type === 'environment') {
         setData?.({ removedEnvironmentIds: [objectId] }, { updateLayout: false, preserveExisting: true });
@@ -211,7 +215,14 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
 
     // Update the associated object data if provided
     if (objectData) {
-      if (updatedView.type === 'parameter' || updatedView.type === 'button') {
+      if (updatedView.type === 'button') {
+        const { id, ...props } = objectData;
+        if (origId && origId !== id) {
+          renameAction?.(origId, id);
+          newId = id;
+        }
+        updateActionProps?.(id, props);
+      } else if (updatedView.type === 'parameter') {
         const { id, ...props } = objectData;
         if (origId && origId !== id) {
           renameParameter?.(origId, id);
@@ -237,7 +248,7 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
 
     findAndUpdateView(updateRoot, viewId, newId != null ? { ...rest, data: { ...data, id: newId } } : rest);
     onViewUpdate?.(updateRoot.id, updateRoot);
-  }, [parentView, onViewUpdate, updateParameterProps, updateEnvironment, updateChartProps]);
+  }, [parentView, onViewUpdate, renameAction, renameChartGroup, renameEnvironment, renameParameter, updateActionProps, updateChartProps, updateEnvironment, updateParameterProps]);
 
   return {
     deleteView,

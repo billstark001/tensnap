@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { GridAgent, AgentTrajectoryPoint } from '@/types/model';
 import * as styles from './GridEnvironmentView.css';
-import { InstantiatedGridEnvironment } from '@/store/scenario/environment';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react/macro';
 import {
@@ -17,7 +16,12 @@ import {
 } from '@tensnap/core';
 
 interface GridEnvironmentViewProps {
-  environment: InstantiatedGridEnvironment;
+  environment: {
+    id: string;
+    props: Record<string, any>;
+    agents: Record<string | number, GridAgent>;
+    agentTraces: Record<string, AgentTrajectoryPoint[]>;
+  };
   updateTrigger?: any;
 }
 

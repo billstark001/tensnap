@@ -3,13 +3,12 @@ import { Trans } from '@lingui/react/macro';
 import Form from '@/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
-import { PureGridEnvironment } from '@/types/model';
-import { InstantiatedEnvironment } from '@/store/scenario/environment';
+import { ScenarioEnvironmentState } from '@tensnap/core';
 import * as styles from './EditViews.css';
 
 interface EnvironmentViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
-  objectData: InstantiatedEnvironment | null;
+  objectData: ScenarioEnvironmentState | null;
   onObjectChange: (field: string, value: any) => void;
 }
 
@@ -29,6 +28,9 @@ const parseIntInput = (value: string, fallback: number = 0, min?: number): numbe
 };
 
 export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ view, objectData: env, onChange, onObjectChange }) => {
+  const gridLayer = env ? [...env.layers.values()].find((layer) => layer.layerType === 'grid') : null;
+  const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, any>;
+
   return (
     <>
       <BaseViewFields view={view} onChange={onChange} />
@@ -69,22 +71,22 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
             <Form.Input
               id="env-label"
               type="text"
-              value={env.label || ''}
-              onChange={(e) => onObjectChange('label', e.target.value)}
+              value={view.data.title || ''}
+              onChange={(e) => onChange('data.title', e.target.value)}
             />
           </Form.Field>
 
-          {env.type === 'grid' && (
+          {env.type === '2d' && gridLayer && (
             <Form.FieldGroup columns={2}>
               <Form.Field label={<Trans>Grid Width</Trans>} htmlFor="grid-width">
                 <Form.Input
                   id="grid-width"
                   type="number"
                   min="1"
-                  value={(env.props as PureGridEnvironment).width}
+                  value={gridMetadata.width ?? 0}
                   onChange={(e) => {
-                    const currentWidth = (env.props as PureGridEnvironment).width;
-                    onObjectChange('props.width', parseIntInput(e.target.value, currentWidth, 1));
+                    const currentWidth = gridMetadata.width ?? 1;
+                    onObjectChange('grid.width', parseIntInput(e.target.value, currentWidth, 1));
                   }}
                 />
               </Form.Field>
@@ -94,10 +96,10 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                   id="grid-height"
                   type="number"
                   min="1"
-                  value={(env.props as PureGridEnvironment).height}
+                  value={gridMetadata.height ?? 0}
                   onChange={(e) => {
-                    const currentHeight = (env.props as PureGridEnvironment).height;
-                    onObjectChange('props.height', parseIntInput(e.target.value, currentHeight, 1));
+                    const currentHeight = gridMetadata.height ?? 1;
+                    onObjectChange('grid.height', parseIntInput(e.target.value, currentHeight, 1));
                   }}
                 />
               </Form.Field>

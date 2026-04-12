@@ -4,13 +4,12 @@ import { UniformEnvironmentView } from '../scenario/UniformEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from '../scenario/ChartView';
 import { ScenarioStore, useScenarioStore } from '../../store/scenario/store';
-import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment } from '@/store/scenario/environment';
-import { EnvironmentId } from '@/types/model';
+import { getEnvironmentDisplayType, toGraphEnvironmentViewModel, toGridEnvironmentViewModel, toUniformEnvironmentViewModel } from '../scenario/environment-adapter';
 import { useToast } from '@/store/toast';
 import { AnchoredViewRendererType } from '../view/types';
 
 
-const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
+const AnchoredEnvironmentView = ({ id }: { id: string }) => {
 
   const environments = useScenarioStore((store) => store.environments) ?? new Map() as ScenarioStore['environments'];
   const updateTrigger = useScenarioStore((store) => store.environmentUpdateTrigger.value);
@@ -19,12 +18,14 @@ const AnchoredEnvironmentView = ({ id }: { id: EnvironmentId }) => {
   if (!environment) return <div>Environment not found: {id}</div>;
 
 
-  if (environment.type === 'grid') {
-    return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} updateTrigger={updateTrigger} />;
-  } else if (environment.type === 'graph') {
-    return <GraphEnvironmentView environment={environment as InstantiatedGraphEnvironment} updateTrigger={updateTrigger} />;
-  } else if (environment.type === 'uniform') {
-    return <UniformEnvironmentView environment={environment as InstantiatedUniformEnvironment} />;
+  const displayType = getEnvironmentDisplayType(environment);
+
+  if (displayType === 'grid') {
+    return <GridEnvironmentView environment={toGridEnvironmentViewModel(environment)} updateTrigger={updateTrigger} />;
+  } else if (displayType === 'graph') {
+    return <GraphEnvironmentView environment={toGraphEnvironmentViewModel(environment)} updateTrigger={updateTrigger} />;
+  } else if (displayType === 'uniform') {
+    return <UniformEnvironmentView environment={toUniformEnvironmentViewModel(environment)} />;
   } else {
     return <div>Unsupported environment type: {environment.type}</div>;
   }

@@ -16,7 +16,7 @@ Framework-agnostic core rendering package for TenSnap. Depends only on `leafer-u
 ### Line chart
 
 ```typescript
-import { LineChartView, ChartDataPoint } from 'tensnap-web-core/chart';
+import { LineChartView, ChartDataPoint } from "@tensnap/web-core/chart';
 
 const chart = new LineChartView(container, {
   lines: [
@@ -41,7 +41,7 @@ import {
   AgentStorage, EdgeStorage, BackgroundStorage,
   BackgroundLayer, EdgeLayer, AgentLayer,
   RenderableAgent, GraphEdge,
-} from 'tensnap-web-core/environment';
+} from "@tensnap/web-core/environment';
 
 const view       = new EnvironmentView(container);
 const agentStore = new AgentStorage();
@@ -67,7 +67,7 @@ import {
   EnvironmentView,
   GridEnvStorage, AgentStorage, BackgroundStorage,
   BackgroundLayer, GridLayer, AgentLayer,
-} from 'tensnap-web-core/environment';
+} from "@tensnap/web-core/environment';
 
 const view        = new EnvironmentView(container);
 const gridStore   = new GridEnvStorage({ width: 50, height: 50 });

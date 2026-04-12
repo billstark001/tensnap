@@ -14,8 +14,8 @@
     "paths": {
       "@tensnap/core": ["../core/src/index.ts"],
       "@tensnap/core/*": ["../core/src/*"],
-      "@tensnap/web-adapter/fake-models/wolf-sheep": ["../web-adapter/src/fake-models/wolf-sheep.ts"],
-      "@tensnap/web-adapter/fake-models/schelling": ["../web-adapter/src/fake-models/schelling.ts"]
+      "@tensnap/web-adapter/models/wolf-sheep": ["../web-adapter/src/models/wolf-sheep.ts"],
+      "@tensnap/web-adapter/models/schelling": ["../web-adapter/src/models/schelling.ts"]
     }
   },
   "include": ["src"]

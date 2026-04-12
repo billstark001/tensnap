@@ -3,13 +3,16 @@
  * 
  * Utility package for TenSnap web applications, including:
  * - File system UI components for demo and testing purposes
- * - Fake models for development and testing
- * - WebSocket mock server for development
+ * - In-memory transport adapters for built-in simulation models
  * - Other development and debugging utilities
  */
 
 // Export all file system UI components
 export * from './file-system';
 
-// Export fake models and picker
-export * from './fake-models';
+// Export pure simulation models
+export * from './models';
+
+// Export in-memory transport and protocol model adapters
+export * from './transport';
+export * from './model-adapters';

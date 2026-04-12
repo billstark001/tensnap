@@ -336,4 +336,29 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     this._data.trajectories.clear();
     this.notify({ replaced: true });
   }
+
+  /** Read-only view of the current agent map. */
+  get agents(): ReadonlyMap<AgentId, RenderableAgent> {
+    return this._data.agents;
+  }
+
+  /**
+   * Append a single trajectory point for an agent (without replacing the full set).
+   * Automatically trims to `maxPoints` if provided (defaults to the storage constructor limit).
+   * Does NOT emit a notification — call `notify()` or a mutation method afterwards.
+   */
+  appendTrajectoryPoint(
+    agentId: AgentId,
+    point: TrajectoryPoint,
+    maxPoints?: number,
+  ): void {
+    const key = String(agentId);
+    const existing = this._data.trajectories.get(key) ?? [];
+    const limit = maxPoints !== undefined ? maxPoints : this._maxTrajectoryPoints;
+    const pts = [...existing, point];
+    if (limit > 0 && pts.length > limit) {
+      pts.splice(0, pts.length - limit);
+    }
+    this._data.trajectories.set(key, pts);
+  }
 }

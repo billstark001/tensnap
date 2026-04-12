@@ -16,8 +16,8 @@ export default defineConfig({
       '@tensnap/core/transport': path.resolve(__dirname, '../core/src/transport/index.ts'),
       '@tensnap/core/utils': path.resolve(__dirname, '../core/src/utils/index.ts'),
       '@tensnap/core': path.resolve(__dirname, '../core/src/index.ts'),
-      '@tensnap/web-adapter/fake-models/wolf-sheep': path.resolve(__dirname, '../web-adapter/src/fake-models/wolf-sheep.ts'),
-      '@tensnap/web-adapter/fake-models/schelling': path.resolve(__dirname, '../web-adapter/src/fake-models/schelling.ts'),
+      '@tensnap/web-adapter/models/wolf-sheep': path.resolve(__dirname, '../web-adapter/src/models/wolf-sheep.ts'),
+      '@tensnap/web-adapter/models/schelling': path.resolve(__dirname, '../web-adapter/src/models/schelling.ts'),
     },
   },
   build: {

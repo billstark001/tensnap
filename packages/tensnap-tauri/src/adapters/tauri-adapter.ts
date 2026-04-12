@@ -5,7 +5,7 @@ import {
   type DirectoryEntry,
   type FileSystemStats,
   FileSystemAdapter
-} from 'tensnap-web/types/file';
+} from '@tensnap/web/types/file';
 import { invoke } from '@tauri-apps/api/core';
 
 interface TauriFileMetadata {

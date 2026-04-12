@@ -20,7 +20,7 @@ import { RenderableAgent } from '@tensnap/core/environment';
 import { BenchmarkCase } from '../types';
 
 // Import the model from web-utils
-import { WolfSheepModel, WolfSheepConfig, World } from '@tensnap/web-adapter/fake-models/wolf-sheep';
+import { WolfSheepModel, WolfSheepConfig, World } from '@tensnap/web-adapter/models/wolf-sheep';
 
 interface BenchmarkConfig extends Partial<WolfSheepConfig> {
   /** Canvas width for environment view */

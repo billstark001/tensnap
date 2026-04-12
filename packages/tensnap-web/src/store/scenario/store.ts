@@ -1,123 +1,408 @@
 import { create } from 'zustand';
-import { ScenarioStore, SetDataPayload, SetDataOptions } from './types';
 import { createStoreContext } from '@/utils/zustand';
-import { createConnectionSlice } from './slices/connection';
-import { createTimeSlice } from './slices/time';
-import { createActionsSlice } from './slices/action';
-import { createEnvironmentsSlice } from './slices/environment';
-import { createParametersSlice } from './slices/parameter';
-import { createChartsSlice } from './slices/chart';
-import { createSnapshotsSlice } from './slices/snapshot';
-import { createViewsSlice } from './slices/view';
-import { createLogsSlice } from './slices/log';
-import { mergeEnvironments, mergeParameters, mergeCharts } from './utils';
-import { serializeEnvironment } from './environment';
-import { createAutoLayout } from '@/components/view/utils/pack';
+import { createDefaultRootLayout, createAutoLayout } from '@/components/view/utils/pack';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
+import { getToastState } from '../toast';
+import {
+  Action,
+  ChartStorage,
+  GridEnvStorage,
+  NormalizedLogPayload,
+  Parameter,
+  Scenario,
+  ScenarioEnvironmentState,
+  ScenarioSnapshot,
+  SimulatorToRendererMessage,
+} from '@tensnap/core';
+import { EditableEnvironmentDraft, ScenarioStore, SnapshotDraft } from './types';
 
-const getEnvironmentMetadata = (env: any) => ({
-  id: env.id,
-  type: env.type,
-  label: env.label,
-  width: env.props?.width,
-  height: env.props?.height,
-});
+const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot) => void) => {
+  const snapshot = scenario.dump();
+  mutate(snapshot);
+  scenario.load(snapshot);
+};
 
-export const createScenarioStore = () => create<ScenarioStore>((set, get, store) => ({
-  ...createConnectionSlice(set as any, get, store),
-  ...createTimeSlice(set as any, get, store),
-  ...createActionsSlice(set as any, get, store),
-  ...createEnvironmentsSlice(set as any, get, store),
-  ...createParametersSlice(set as any, get, store),
-  ...createChartsSlice(set as any, get, store),
-  ...createSnapshotsSlice(set as any, get, store),
-  ...createViewsSlice(set as any, get, store),
-  ...createLogsSlice(set as any, get, store),
+const upsertEditableEnvironment = (snapshot: ScenarioSnapshot, draft: EditableEnvironmentDraft) => {
+  const nextId = draft.id;
+  const nextType = draft.type === 'grid' ? '2d' : 'uniform';
+  const existing = snapshot.environments.find((env) => env.id === nextId);
+  if (existing) {
+    existing.type = nextType;
+    const gridLayer = existing.layers.find((layer) => layer.layerType === 'grid');
+    if (gridLayer && draft.type === 'grid') {
+      gridLayer.metadata = {
+        ...gridLayer.metadata,
+        width: draft.width ?? gridLayer.metadata.width,
+        height: draft.height ?? gridLayer.metadata.height,
+      };
+    }
+    return;
+  }
 
-  viewUpdateTrigger: createUpdateTriggerStoreFunction(x => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })), () => get().viewUpdateTrigger, null!),
-  parameterUpdateTrigger: createUpdateTriggerStoreFunction(x => set((y) => ({ parameterUpdateTrigger: { ...y.parameterUpdateTrigger, ...x } })), () => get().parameterUpdateTrigger, null!),
-  environmentUpdateTrigger: createUpdateTriggerStoreFunction(x => set((y) => ({ environmentUpdateTrigger: { ...y.environmentUpdateTrigger, ...x } })), () => get().environmentUpdateTrigger, null!),
+  snapshot.environments.push({
+    id: nextId,
+    type: nextType,
+    layers: draft.type === 'grid'
+      ? [{
+        id: `${nextId}-grid`,
+        layerType: 'grid',
+        metadata: { width: draft.width ?? 10, height: draft.height ?? 10 },
+        storageSnapshot: {},
+      }, {
+        id: `${nextId}-agents`,
+        layerType: 'agent',
+        metadata: {},
+        storageSnapshot: { agents: [], trajectories: [] },
+      }]
+      : [{
+        id: `${nextId}-agents`,
+        layerType: 'agent',
+        metadata: {},
+        storageSnapshot: { agents: [], trajectories: [] },
+      }],
+  });
+};
 
-  dump: () => {
-    const store = get();
+const getEnvironmentMetadata = (env: ScenarioEnvironmentState) => {
+  const gridLayer = [...env.layers.values()].find((layer) => layer.storage instanceof GridEnvStorage);
+  const gridData = gridLayer?.metadata as Record<string, unknown> | undefined;
+  return {
+    id: env.id,
+    type: env.type,
+    label: env.id,
+    width: typeof gridData?.width === 'number' ? gridData.width : undefined,
+    height: typeof gridData?.height === 'number' ? gridData.height : undefined,
+  };
+};
+
+const subscribeScenario = (
+  scenario: Scenario,
+  onChange: () => void,
+  onEnvironmentChange: () => void,
+  onParameterChange: () => void,
+  onAssetChange: () => void,
+) => {
+  const rerender = () => onChange();
+  const rerenderEnv = () => {
+    onEnvironmentChange();
+    onChange();
+  };
+  const rerenderParam = () => {
+    onParameterChange();
+    onChange();
+  };
+
+  const handlers: Array<[string, EventListener]> = [
+    ['metadata:update', rerender],
+    ['action:end', rerender],
+    ['action:create', rerender],
+    ['action:update', rerender],
+    ['action:delete', rerender],
+    ['env:create', rerenderEnv],
+    ['env:delete', rerenderEnv],
+    ['layer:create', rerenderEnv],
+    ['layer:update', rerenderEnv],
+    ['layer:delete', rerenderEnv],
+    ['agent:create', rerenderEnv],
+    ['agent:update', rerenderEnv],
+    ['agent:delete', rerenderEnv],
+    ['edge:create', rerenderEnv],
+    ['edge:update', rerenderEnv],
+    ['edge:delete', rerenderEnv],
+    ['param:create', rerenderParam],
+    ['param:update', rerenderParam],
+    ['param:delete', rerenderParam],
+    ['param:sync', rerenderParam],
+    ['chart:create', rerender],
+    ['chart:update', rerender],
+    ['chart:delete', rerender],
+    ['asset:meta', (() => { onAssetChange(); onChange(); }) as EventListener],
+    ['asset:data', (() => { onAssetChange(); onChange(); }) as EventListener],
+    ['asset:delete', (() => { onAssetChange(); onChange(); }) as EventListener],
+    ['log', rerender],
+    ['reset', rerender],
+  ];
+
+  handlers.forEach(([type, handler]) => scenario.addEventListener(type, handler));
+  const unsubscribeAssets = scenario.assets.subscribe(() => onAssetChange());
+
+  return () => {
+    handlers.forEach(([type, handler]) => scenario.removeEventListener(type, handler));
+    unsubscribeAssets();
+  };
+};
+
+const annotateSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): ScenarioSnapshot => {
+  const timestamp = draft?.timestamp ?? Date.now();
+  const id = draft?.id ?? `snapshot-${timestamp}`;
+  return {
+    ...snapshot,
+    metadata: {
+      ...snapshot.metadata,
+      id,
+      timestamp,
+    },
+  };
+};
+
+export const createScenarioStore = () => {
+  const scenario = new Scenario();
+
+  const useStore = create<ScenarioStore>((set, get) => {
     return {
-      connected: false,
-      currentTime: store.currentTime,
-      environments: Array.from(store.environments.values()).map(serializeEnvironment),
-      parameters: structuredClone(Array.from(store.parameters.values())),
-      actions: structuredClone(Array.from(store.actions.values())),
-      charts: structuredClone(store.charts.getGroupList()),
-      snapshots: structuredClone(store.snapshots),
-    };
-  },
-
-  setData: (data: SetDataPayload, options?: SetDataOptions) => {
-    const { updateLayout = true, preserveExisting = false } = options || {};
-    const state = get();
-
-    if (!preserveExisting && data.removedEnvironmentIds) {
-      const { removeEnvironment } = state;
-      for (const envId of data.removedEnvironmentIds) {
-        removeEnvironment(envId);
-      }
-    }
-
-    const environments = mergeEnvironments(state.environments, data, preserveExisting);
-    const parameters = mergeParameters(state.parameters, data, preserveExisting);
-    const charts = mergeCharts(state.charts, data, preserveExisting);
-
-    set({ environments, parameters, charts });
-
-    if (updateLayout) {
-      const removedEnvIds = new Set(data.removedEnvironmentIds || []);
-      const removedParamIds = new Set(data.removedParameterIds || []);
-      const removedChartIds = new Set(data.removedChartIds || []);
-
-      const activeEnvironments = Array.from(environments.values())
-        .filter(env => !removedEnvIds.has(env.id))
-        .map(getEnvironmentMetadata);
-      const activeParameters = Array.from(parameters.values()).filter(p => !removedParamIds.has(p.id));
-      const activeCharts = charts.getGroupList().filter(c => !removedChartIds.has(c.id));
-
-      set({
-        mainView: createAutoLayout(
-          state.mainView,
-          activeEnvironments,
-          activeParameters,
-          activeCharts,
-          { disableMissingViews: preserveExisting },
-          Array.from(state.actions.values()),
-        )
-      });
-    }
-  },
-
-  clearAll: () => {
-    const state = get();
-
-    state.environments.forEach(env => {
-      if (env.type === 'grid') {
-        (env as any).agentTraces = {};
-      }
-      env.agents = {};
-      env.layers = {};
-    });
-    state.environments.clear();
-    state.parameters.clear();
-    state.actions.clear();
-    state.charts.clearAll();
-
-    set({
+      scenario,
       snapshots: [],
-      logs: [],
-      lastLogs: undefined,
-    });
+      maxSnapshots: 32,
+      mainView: createDefaultRootLayout(),
+      connected: false,
+      _revision: 0,
+      _assetRevision: 0,
+      viewUpdateTrigger: createUpdateTriggerStoreFunction(
+        (x) => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })),
+        () => get().viewUpdateTrigger,
+        null!,
+      ),
+      environmentUpdateTrigger: createUpdateTriggerStoreFunction(
+        (x) => set((y) => ({ environmentUpdateTrigger: { ...y.environmentUpdateTrigger, ...x } })),
+        () => get().environmentUpdateTrigger,
+        null!,
+      ),
+      parameterUpdateTrigger: createUpdateTriggerStoreFunction(
+        (x) => set((y) => ({ parameterUpdateTrigger: { ...y.parameterUpdateTrigger, ...x } })),
+        () => get().parameterUpdateTrigger,
+        null!,
+      ),
 
-    state.viewUpdateTrigger.reset();
-    state.parameterUpdateTrigger.reset();
-    state.environmentUpdateTrigger.reset();
-  },
-}));
+      setConnected: (connected) => set({ connected }),
+
+      setMainView: (view) => {
+        if (typeof view === 'function') {
+          set((state) => ({ mainView: view(state.mainView) }));
+        } else {
+          set({ mainView: view });
+        }
+      },
+
+      updateMainViewLayout: () => {
+        const state = get();
+        set({
+          mainView: createAutoLayout(
+            state.mainView,
+            Array.from(state.scenario.environments.values()).map(getEnvironmentMetadata),
+            Array.from(state.scenario.parameters.values()),
+            state.scenario.charts.getGroupList(),
+            { disableMissingViews: true },
+            Array.from(state.scenario.actions.values()),
+          ),
+        });
+      },
+
+      applyMessage: (message: SimulatorToRendererMessage) => {
+        try {
+          scenario.apply(message);
+        } catch (error) {
+          const toast = getToastState();
+          toast.error('Scenario apply failed', error instanceof Error ? error.message : String(error));
+        }
+      },
+
+      dump: () => scenario.dump(),
+
+      load: (snapshot) => {
+        scenario.load(snapshot);
+        set((state) => ({ _revision: state._revision + 1 }));
+      },
+
+      clearAll: () => {
+        scenario.reset();
+        set({
+          connected: false,
+          snapshots: [],
+        });
+      },
+
+      setData: (payload, options) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          if (payload.removedActionIds?.length) {
+            snapshot.actions = snapshot.actions.filter((action) => !payload.removedActionIds?.includes(action.id));
+          }
+          if (payload.removedParameterIds?.length) {
+            snapshot.parameters = snapshot.parameters.filter((parameter) => !payload.removedParameterIds?.includes(parameter.id));
+          }
+          if (payload.removedEnvironmentIds?.length) {
+            snapshot.environments = snapshot.environments.filter((environment) => !payload.removedEnvironmentIds?.includes(environment.id));
+          }
+          if (payload.removedChartIds?.length) {
+            snapshot.charts = snapshot.charts.filter((chart) => !payload.removedChartIds?.includes(chart.id));
+          }
+
+          for (const parameter of payload.parameters ?? []) {
+            const index = snapshot.parameters.findIndex((current) => current.id === parameter.id);
+            if (index >= 0) snapshot.parameters[index] = structuredClone(parameter);
+            else snapshot.parameters.push(structuredClone(parameter));
+          }
+
+          for (const environment of payload.environments ?? []) {
+            upsertEditableEnvironment(snapshot, environment);
+          }
+
+          for (const chart of payload.charts ?? []) {
+            const index = snapshot.charts.findIndex((group) => group.id === chart.id);
+            const nextChart = {
+              id: chart.id,
+              label: chart.label,
+              metadataDict: Object.fromEntries((chart.dataList ?? []).map((item) => [item.id, item])),
+              data: index >= 0 ? snapshot.charts[index].data : [],
+            };
+            if (index >= 0) snapshot.charts[index] = nextChart;
+            else snapshot.charts.push(nextChart);
+          }
+        });
+
+        if (options?.updateLayout !== false) {
+          get().updateMainViewLayout();
+        }
+      },
+
+      upsertAction: (action) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const index = snapshot.actions.findIndex((current) => current.id === action.id);
+          if (index >= 0) snapshot.actions[index] = structuredClone(action);
+          else snapshot.actions.push(structuredClone(action));
+        });
+      },
+
+      updateActionProps: (id, props) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const action = snapshot.actions.find((current) => current.id === id);
+          if (action) Object.assign(action, props);
+        });
+      },
+
+      renameAction: (id, newId) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const action = snapshot.actions.find((current) => current.id === id);
+          if (action) action.id = newId;
+        });
+      },
+
+      updateParameterProps: (id, props) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const parameter = snapshot.parameters.find((current) => current.id === id);
+          if (parameter) Object.assign(parameter, props);
+        });
+      },
+
+      renameParameter: (id, newId) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const parameter = snapshot.parameters.find((current) => current.id === id);
+          if (parameter) parameter.id = newId;
+        });
+      },
+
+      updateEnvironment: (id, props) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const environment = snapshot.environments.find((current) => current.id === id);
+          if (!environment) return;
+          const gridLayer = environment.layers.find((layer) => layer.layerType === 'grid');
+          if (gridLayer) {
+            gridLayer.metadata = { ...gridLayer.metadata, ...props };
+          }
+        });
+      },
+
+      renameEnvironment: (id, newId) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const environment = snapshot.environments.find((current) => current.id === id);
+          if (environment) environment.id = newId;
+        });
+      },
+
+      updateChartProps: (id, props) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const chart = snapshot.charts.find((current) => current.id === id);
+          if (chart) Object.assign(chart, props);
+        });
+      },
+
+      renameChartGroup: (id, newId) => {
+        mutateSnapshot(scenario, (snapshot) => {
+          const chart = snapshot.charts.find((current) => current.id === id);
+          if (chart) chart.id = newId;
+        });
+      },
+
+      createStateSyncMessage: () => scenario.createStateSyncMessage(),
+      createParamChangeMessage: (id, value) => scenario.createParamChangeMessage(id, value),
+      createActionStartMessage: (id, continuous) => scenario.createActionStartMessage(id, continuous),
+      createAssetSyncMessage: () => scenario.createAssetSyncMessage(),
+
+      addSnapshot: (draft) => {
+        const snapshot = annotateSnapshot(scenario.dump(), draft);
+        set((state) => {
+          const snapshots = [...state.snapshots, snapshot];
+          if (state.maxSnapshots !== -1 && snapshots.length > state.maxSnapshots) {
+            snapshots.splice(0, snapshots.length - state.maxSnapshots);
+          }
+          return { snapshots };
+        });
+      },
+
+      removeSnapshot: (id) => set((state) => ({
+        snapshots: state.snapshots.filter((snapshot) => String(snapshot.metadata.id ?? '') !== id),
+      })),
+
+      clearSnapshots: () => set({ snapshots: [] }),
+
+      setMaxSnapshots: (max) => set({ maxSnapshots: max }),
+
+      get currentTime() {
+        return scenario.time ?? 0;
+      },
+
+      get environments(): ReadonlyMap<string, ScenarioEnvironmentState> {
+        return scenario.environments;
+      },
+
+      get parameters(): ReadonlyMap<string, Parameter> {
+        return scenario.parameters;
+      },
+
+      get actions(): ReadonlyMap<string, Action> {
+        return scenario.actions;
+      },
+
+      get charts(): ChartStorage {
+        return scenario.charts;
+      },
+
+      get logs(): readonly NormalizedLogPayload[] {
+        return scenario.logs;
+      },
+
+      get lastLogs(): NormalizedLogPayload | undefined {
+        return scenario.logs[scenario.logs.length - 1];
+      },
+    };
+  });
+
+  const unsubscribeScenario = subscribeScenario(
+    scenario,
+    () => useStore.setState((state) => ({ _revision: state._revision + 1 })),
+    () => useStore.setState((state) => ({
+      _revision: state._revision + 1,
+      environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
+    })),
+    () => useStore.setState((state) => ({
+      _revision: state._revision + 1,
+      parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
+    })),
+    () => useStore.setState((state) => ({ _assetRevision: state._assetRevision + 1 })),
+  );
+  void unsubscribeScenario;
+
+  return useStore;
+};
 
 export const {
   Provider: ScenarioStoreProvider,

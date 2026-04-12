@@ -1,10 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import * as Dialog from 'tensnap-web/components/ui/Dialog';
-import * as Form from 'tensnap-web/components/ui/Form';
-import { DialogOpenProps, useCallbackRef } from 'tensnap-web/utils';
-import { FileSystemAdapter } from 'tensnap-web/types/file';
+import * as Dialog from '@tensnap/web/components/ui/Dialog';
+import * as Form from '@tensnap/web/components/ui/Form';
+import { DialogOpenProps, useCallbackRef } from '@tensnap/web/utils';
+import { FileSystemAdapter } from '@tensnap/web/types/file';
 import { exportDirectory } from './export-utils';
-import { Trans } from '@lingui/react/macro';
 
 export interface ExportOption {
   key: string;
@@ -99,7 +98,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         {title}
       </Dialog.Title>
       <Dialog.Description>
-        <Trans>Export path: {currentPath}</Trans>
+        Export path: {currentPath}
       </Dialog.Description>
 
       <div>
@@ -117,7 +116,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
         <Form.FieldSet>
           <Form.Label>
-            <Trans>Select export format</Trans>
+            Select export format
           </Form.Label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {allOptions.map((option) => (
@@ -153,7 +152,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             textAlign: 'center', 
             color: '#666666' 
           }}>
-            <Trans>Exporting, please wait...</Trans>
+            Exporting, please wait...
           </div>
         )}
       </div>
@@ -161,7 +160,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       <Dialog.Footer>
         <Dialog.Close asChild>
           <Dialog.Button disabled={exporting}>
-            <Trans>Cancel</Trans>
+            Cancel
           </Dialog.Button>
         </Dialog.Close>
       </Dialog.Footer>

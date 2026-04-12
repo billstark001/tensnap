@@ -2,6 +2,7 @@ import { AssetStore } from '../asset';
 import { ChartStorage } from '../chart/ChartStorage';
 import { instantiateChartMetadata } from '../chart/utils';
 import { AgentStorage, BackgroundStorage, BaseStorage, EdgeStorage, GridEnvStorage } from '../environment/storages';
+import type { GridAgent, TrajectoryPoint } from '../environment';
 import type { Action, Parameter } from '../parameter';
 import { sanitizeParameter } from '../parameter';
 import type {
@@ -397,6 +398,7 @@ export class Scenario extends EventTarget {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'agent');
     const storage = this.requireStorage(layer, AgentStorage, 'agent');
     storage.updateAgents(payload.agents.map(cloneValue) as Array<{ id: string | number } & Record<string, unknown>>);
+    this.updateGridTrajectories(payload.env_id, storage, payload.agents);
     this.emit('agent:update', cloneValue(payload));
   }
 
@@ -405,6 +407,46 @@ export class Scenario extends EventTarget {
     const storage = this.requireStorage(layer, AgentStorage, 'agent');
     storage.removeAgents(payload.ids);
     this.emit('agent:delete', cloneValue(payload));
+  }
+
+  private updateGridTrajectories(
+    envId: string,
+    agentStorage: AgentStorage,
+    updates: AgentUpdatePayload['agents'],
+  ): void {
+    const environment = this.environmentsState.get(envId);
+    if (!environment || environment.type !== '2d') return;
+
+    const gridLayer = [...environment.layers.values()].find(
+      (candidate) => candidate.layerType === 'grid',
+    );
+    if (!(gridLayer?.storage instanceof GridEnvStorage)) return;
+
+    const gridData = gridLayer.storage.getData();
+    const currentTime = typeof this.metadataState.time === 'number' ? this.metadataState.time : 0;
+
+    for (const update of updates) {
+      const agent = agentStorage.getAgent(update.id);
+      if (!agent) continue;
+
+      const gridAgent = agent as GridAgent;
+      if (gridAgent.x === undefined || gridAgent.y === undefined) continue;
+
+      const trajectoryLength = gridAgent.trajectory_length ?? (gridData as Record<string, unknown>).trajectory_length;
+      if (!trajectoryLength) continue;
+
+      const point: TrajectoryPoint = {
+        x: gridAgent.x,
+        y: gridAgent.y,
+        time: currentTime,
+        color: gridAgent.trajectory_color ?? (gridData as Record<string, string | undefined>).trajectory_color,
+      };
+
+      const maxPoints = typeof trajectoryLength === 'number' && trajectoryLength > 0
+        ? trajectoryLength + 1
+        : undefined;
+      agentStorage.appendTrajectoryPoint(update.id, point, maxPoints);
+    }
   }
 
   private createEdges(payload: EdgeCreatePayload): void {

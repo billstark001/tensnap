@@ -12,9 +12,11 @@
     "./adapters": "./src/adapters/index.ts",
     "./adapters/memory": "./src/adapters/memory-adapter.ts",
     "./adapters/indexeddb": "./src/adapters/indexeddb-adapter.ts",
-    "./fake-models": "./src/fake-models/index.ts",
-    "./fake-models/wolf-sheep": "./src/fake-models/wolf-sheep.ts",
-    "./fake-models/schelling": "./src/fake-models/schelling.ts"
+    "./transport": "./src/transport/index.ts",
+    "./model-adapters": "./src/model-adapters/index.ts",
+    "./models": "./src/models/index.ts",
+    "./models/wolf-sheep": "./src/models/wolf-sheep.ts",
+    "./models/schelling": "./src/models/schelling.ts"
   },
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --maxWorkers=1",
@@ -41,7 +43,7 @@
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "tensnap-web": "workspace:*"
+    "@tensnap/web": "workspace:*"
   },
   "devDependencies": {
     "@jest/globals": "^30.3.0",

@@ -1,5 +1,5 @@
 import { style } from '@vanilla-extract/css';
-import { vars } from 'tensnap-web/styles/global.css';
+import { vars } from '@tensnap/web/styles/global.css';
 
 export const browserContainer = style({
   display: 'flex',

@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
-import { lingui } from '@lingui/vite-plugin';
 import path from 'path';
 import pkg from './package.json';
 
@@ -15,14 +14,18 @@ export default defineConfig({
         plugins: ['macros'],
       },
     }),
-    lingui(),
     vanillaExtractPlugin()
   ],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      'tensnap-web-utils': path.resolve(__dirname, '../tensnap-web-utils/src/'),
-    },
+    alias: [
+      { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, './src/$1') },
+      { find: /^@tensnap\/web$/, replacement: path.resolve(__dirname, './index.ts') },
+      { find: /^@tensnap\/web\/(.*)$/, replacement: path.resolve(__dirname, './src/$1') },
+      { find: /^@tensnap\/web-adapter$/, replacement: path.resolve(__dirname, '../web-adapter/src/index.ts') },
+      { find: /^@tensnap\/web-adapter\/file-system$/, replacement: path.resolve(__dirname, '../web-adapter/src/file-system/index.ts') },
+      { find: /^@tensnap\/web-adapter\/adapters$/, replacement: path.resolve(__dirname, '../web-adapter/src/adapters/index.ts') },
+      { find: /^@tensnap\/web-adapter\/adapters\/(.*)$/, replacement: path.resolve(__dirname, '../web-adapter/src/adapters/$1') },
+    ],
   },
   server: {
     port: 3200,

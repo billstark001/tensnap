@@ -1,20 +1,26 @@
 import { encode, decode } from '@msgpack/msgpack';
 import { generateUniqueId } from '@/utils/common';
-import { WSMessage } from '@/types/api';
+import {
+  AnyProtocolMessage,
+  ISimulatorTransport,
+  RendererToSimulatorMessage,
+  TransportConnectionState,
+  TransportEventHandler,
+  TransportEventMap,
+} from '@tensnap/core';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
-import { wsConnected, wsDisconnected } from './constants';
-import { EventHandler, WebSocketManager } from './types';
 import { validateClientMessage, validateServerMessage, ValidationLevel } from '@/utils/validation';
 
 
-export class WebSocketManagerImpl implements WebSocketManager {
+export class WebSocketManagerImpl implements ISimulatorTransport {
 
   readonly id: string;
+  readonly transportKind = 'websocket';
 
   private ws: WebSocket | null = null;
   private manualDisconnect = false; // Indicates if disconnect was intentional
 
-  private messageHandlers: Map<string | symbol, Set<EventHandler>> = new Map();
+  private messageHandlers: Map<keyof TransportEventMap, Set<TransportEventHandler<any>>> = new Map();
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -92,7 +98,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
         this.ws = new WebSocket(this.url);
         this.ws.binaryType = 'arraybuffer';
 
-        this.ws.onopen = (event) => {
+        this.ws.onopen = () => {
           // Check if aborted or destroyed during connection establishment
           if (this.abortController?.signal.aborted || this.isDestroyed) {
             this.manualDisconnect = true;
@@ -117,7 +123,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
           settlePromise(() => resolve());
           
           if (!this.isDestroyed) {
-            this.emit(wsConnected, event);
+            this.emit('open', undefined);
           }
         };
 
@@ -143,7 +149,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
             this.scheduleReconnect();
           }
           if (!this.isDestroyed) {
-            this.emit(wsDisconnected, event);
+            this.emit('close', undefined);
           }
         };
       } catch (error) {
@@ -169,10 +175,10 @@ export class WebSocketManagerImpl implements WebSocketManager {
 
   private async handleMessage(data: ArrayBuffer | string) {
     try {
-      let message: WSMessage;
+      let message: AnyProtocolMessage;
 
       if (data instanceof ArrayBuffer) {
-        message = decode(data) as WSMessage;
+        message = decode(data) as AnyProtocolMessage;
       } else {
         const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
         message = JSON.parse(text);
@@ -187,13 +193,14 @@ export class WebSocketManagerImpl implements WebSocketManager {
         }
       }
 
-      this.emit(message.type, message.payload);
+      this.emit('message', message);
     } catch (error) {
       console.error(`${this.id}: Error handling message:`, error);
+      this.emit('error', error);
     }
   }
 
-  private emit<T = any>(type: string | symbol, payload: T) {
+  private emit<K extends keyof TransportEventMap>(type: K, payload: TransportEventMap[K]) {
     const handlers = this.messageHandlers.get(type);
     if (handlers) {
       handlers.forEach(handler => {
@@ -206,14 +213,14 @@ export class WebSocketManagerImpl implements WebSocketManager {
     }
   }
 
-  on<T = any>(type: string | symbol, handler: EventHandler<T>) {
+  on<K extends keyof TransportEventMap>(type: K, handler: TransportEventHandler<TransportEventMap[K]>) {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, new Set());
     }
     this.messageHandlers.get(type)!.add(handler);
   }
 
-  off<T = any>(type: string | symbol, handler?: EventHandler<T>) {
+  off<K extends keyof TransportEventMap>(type: K, handler?: TransportEventHandler<TransportEventMap[K]>) {
     if (handler) {
       // Remove specific handler
       const handlers = this.messageHandlers.get(type);
@@ -229,7 +236,7 @@ export class WebSocketManagerImpl implements WebSocketManager {
     }
   }
 
-  send(message: WSMessage) {
+  send(message: RendererToSimulatorMessage) {
     // Validate client message if validation is enabled
     if (this.clientMessageValidation !== 'off') {
       const validation = validateClientMessage(message, this.clientMessageValidation);
@@ -334,7 +341,15 @@ export class WebSocketManagerImpl implements WebSocketManager {
     return !this.isDestroyed && this.ws?.readyState === WebSocket.OPEN;
   }
 
-  get connectionState(): 'connecting' | 'open' | 'closing' | 'closed' | 'destroyed' {
+  get connectionId(): string {
+    return this.url;
+  }
+
+  get encoding(): 'json' | 'msgpack' {
+    return this.useMsgPack ? 'msgpack' : 'json';
+  }
+
+  get connectionState(): TransportConnectionState {
     if (this.isDestroyed) return 'destroyed';
     if (!this.ws) return 'closed';
 

@@ -7,12 +7,7 @@
  * Based on Thomas Schelling's work on racial segregation (1969, 1971).
  */
 
-import type {
-  Parameter,
-  Action,
-  ChartGroupMetadata,
-  GridAgent,
-} from '@tensnap/core';
+import type { GridAgent } from '@tensnap/core';
 
 interface SimpleGridEnv {
   id: string;
@@ -21,8 +16,6 @@ interface SimpleGridEnv {
   height: number;
   agents: GridAgent[];
 }
-
-import { BaseSimulationManager, createFakeWebSocketOptions, FakeWebSocketOptions } from './common';
 
 export interface SchellingConfig {
   agentSize?: number;
@@ -480,170 +473,4 @@ export class SchellingModel {
     Object.assign(this.config, updates);
     if ('similarityThreshold' in updates) this.updateAllSatisfaction();
   }
-}
-
-// #region Simulation Manager
-
-class SchellingSimulationManager extends BaseSimulationManager {
-  private model: SchellingModel;
-
-  constructor(config: SchellingConfig) {
-    super({
-      name: 'Schelling Segregation Model',
-      description: 'Demonstrates how individual preferences for similar neighbors lead to large-scale segregation patterns.',
-    });
-
-    this.model = new SchellingModel(config);
-    this.setupEventHandlers();
-  }
-
-  private setupEventHandlers() {
-    this.model.on('step_start', async ({ timeStep }: any) => {
-      await this.sendMetadataUpdate({ time: timeStep });
-    });
-
-    this.model.on('step_end', async () => {
-      // Use flat-diff agent_update for incremental changes
-      const updates = this.model.getAgentUpdates(false);
-      if (updates.length > 0) {
-        const creates = updates.filter((u: any) => u.operation === 'create');
-        const deletes = updates.filter((u: any) => u.operation === 'delete');
-        const diffs = updates.filter((u: any) => !u.operation);
-
-        if (creates.length > 0)
-          await this.sendAgentCreate({ env_id: 'main', layer_id: '', agents: creates.map(({ operation: _, ...a }: any) => a) });
-        if (diffs.length > 0)
-          await this.sendAgentUpdate({ env_id: 'main', layer_id: '', agents: diffs.map(({ id, data }: any) => ({ id, ...data })) });
-        if (deletes.length > 0)
-          await this.sendAgentDelete({ env_id: 'main', layer_id: '', ids: deletes.map((u: any) => u.id) });
-      }
-
-      const stats = this.model.getStatistics();
-      await this.sendChartUpdate({
-        updates: [
-          { id: 'satisfaction_rate', value: stats.satisfactionRate },
-          { id: 'segregation_index', value: stats.segregationIndex },
-        ],
-      });
-    });
-  }
-
-  protected getParameters(): Parameter[] {
-    const config = this.model.getConfig();
-
-    return [
-      { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
-      { id: 'moveDistance', type: 'number', label: 'Move Distance', value: config.moveDistance, min: 1, max: 10, step: 1, allowRuntimeChange: true },
-      { id: 'gridWidth', type: 'number', label: 'Grid Width', value: config.gridWidth, min: 10, max: 100, step: 1, allowRuntimeChange: false },
-      { id: 'gridHeight', type: 'number', label: 'Grid Height', value: config.gridHeight, min: 10, max: 100, step: 1, allowRuntimeChange: false },
-      { id: 'numAgentsType1', type: 'number', label: 'Number of Type 1 Agents', value: config.numAgentsType1, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-      { id: 'numAgentsType2', type: 'number', label: 'Number of Type 2 Agents', value: config.numAgentsType2, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-    ];
-  }
-
-  protected getActions(): Action[] {
-    return ['start', 'stop', 'step', 'reset', 'start_stop'].map(id => ({
-      id,
-      label: id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('/'),
-      allowRuntimeChange: true,
-    }));
-  }
-
-  protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
-    return [{ id: 'main', type: '2d' }];
-  }
-
-  protected getCharts(): ChartGroupMetadata[] {
-    return [
-      { id: 'satisfaction_rate', label: 'Satisfaction Rate', color: '#2ecc71' },
-      { id: 'segregation_index', label: 'Segregation Index', color: '#e74c3c' },
-    ];
-  }
-
-  protected async handleParameterChange(id: string, value: any): Promise<void> {
-    const config = this.model.getConfig();
-    if (id in config) {
-      this.model.updateConfig({ [id]: value });
-    }
-  }
-
-  protected async handleActionStart(action: string): Promise<void> {
-    const actions: { [key: string]: () => void | Promise<void> } = {
-      start: () => this.model.start(),
-      stop: () => this.model.stop(),
-      step: () => this.model.step(),
-      reset: async () => {
-        this.model.reset();
-        await this.sendChartUpdate({
-          operations: [
-            { id: 'satisfaction_rate', operation: 'clear' },
-            { id: 'segregation_index', operation: 'clear' },
-          ],
-        });
-        await this.sendInitialData();
-      },
-      start_stop: () => this.model.getIsRunning() ? this.model.stop() : this.model.start(),
-    };
-    await actions[action]?.();
-  }
-
-  protected async initialize(): Promise<void> {
-    this.model.initialize();
-  }
-
-  protected async cleanup(): Promise<void> {
-    this.model.destroy();
-  }
-
-  private async sendInitialData(): Promise<void> {
-    const config = this.model.getConfig();
-    // Create env layer with grid metadata
-    await this.sendEnvLayerCreate({
-      env_id: 'main',
-      layer_id: '',
-      layer_type: 'grid',
-      data: { type: 'grid', width: config.gridWidth, height: config.gridHeight },
-    });
-    // Send all agents
-    const env: SimpleGridEnv = this.model.getEnvironmentState();
-    const agents = Object.values(env.agents ?? {});
-    if (agents.length > 0) {
-      await this.sendAgentCreate({ env_id: 'main', layer_id: '', agents });
-    }
-    // Send initial chart data
-    const stats = this.model.getStatistics();
-    await this.sendChartUpdate({
-      updates: [
-        { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
-        { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
-      ],
-    });
-  }
-
-  public async onReady(
-    sendFunc: (message: any) => void,
-    wsManager: any
-  ): Promise<void> {
-    await super.onReady(sendFunc, wsManager);
-    await this.sendInitialData();
-  }
-}
-
-// #endregion
-
-/**
- * Create a fake WebSocket simulation for the Schelling model
- */
-export function createSchellingSimulation(config?: Partial<SchellingConfig>): FakeWebSocketOptions {
-  const defaultConfig: SchellingConfig = {
-    gridWidth: 50,
-    gridHeight: 50,
-    numAgentsType1: 600,
-    numAgentsType2: 600,
-    similarityThreshold: 0.4,
-    moveDistance: 10,
-  };
-
-  const manager = new SchellingSimulationManager({ ...defaultConfig, ...config });
-  return createFakeWebSocketOptions(manager);
 }

@@ -3,7 +3,8 @@ import * as styles from './RightPanel.css';
 import { Trans } from '@lingui/react/macro';
 import { Camera, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Snapshot } from '@/types/model';
+import { ScenarioSnapshot } from '@tensnap/core';
+import { getSnapshotIdentity } from '@/types/model';
 import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
 import { useToast } from '@/store/toast';
 import { EmptyState } from '../ui/EmptyState';
@@ -15,7 +16,7 @@ export const RightPanel = () => {
   const clearSnapshots = useScenarioStore((store) => store.clearSnapshots);
   const removeSnapshot = useScenarioStore((store) => store.removeSnapshot);
 
-  const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<ScenarioSnapshot | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const toast = useToast();
 
@@ -27,14 +28,14 @@ export const RightPanel = () => {
     clearSnapshots?.();
   };
 
-  const handleSnapshotClick = (snapshot: Snapshot) => {
+  const handleSnapshotClick = (snapshot: ScenarioSnapshot) => {
     setSelectedSnapshot(snapshot);
     setDialogOpen(true);
   };
 
   const handleDeleteSnapshot = () => {
     if (selectedSnapshot) {
-      removeSnapshot?.(selectedSnapshot.id);
+      removeSnapshot?.(getSnapshotIdentity(selectedSnapshot).id);
       setDialogOpen(false);
       setSelectedSnapshot(null);
     }
@@ -42,14 +43,14 @@ export const RightPanel = () => {
 
   const handleRestoreSnapshot = () => {
     // TODO: Implement restore functionality
-    toast.info('Restore snapshot', `ID: ${selectedSnapshot?.id}`);
+    toast.info('Restore snapshot', `ID: ${selectedSnapshot ? getSnapshotIdentity(selectedSnapshot).id : ''}`);
   };
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
 
-  const truncateParameters = (snapshot: Snapshot, maxLength: number = 50) => {
+  const truncateParameters = (snapshot: ScenarioSnapshot, maxLength: number = 50) => {
     const paramStr = snapshot.parameters
       .map(p => `${p.label}: ${p.value}`)
       .join(', ');
@@ -96,16 +97,18 @@ export const RightPanel = () => {
           />
         ) : (
           <div className={styles.snapshotList}>
-            {snapshots.map((snapshot) => (
+            {snapshots.map((snapshot) => {
+              const identity = getSnapshotIdentity(snapshot);
+              return (
               <div
-                key={snapshot.id}
+                key={identity.id}
                 className={styles.snapshotItem}
                 onClick={() => handleSnapshotClick(snapshot)}
               >
                 <div className={styles.snapshotHeader}>
-                  <span className={styles.snapshotId}>{snapshot.id}</span>
+                  <span className={styles.snapshotId}>{identity.id}</span>
                   <span className={styles.snapshotTime}>
-                    {formatDate(snapshot.timestamp)}
+                    {formatDate(identity.timestamp)}
                   </span>
                 </div>
                 <div className={styles.snapshotInfo}>
@@ -113,7 +116,7 @@ export const RightPanel = () => {
                     <span className={styles.snapshotLabel}>
                       <Trans>Time Step:</Trans>
                     </span>
-                    <span className={styles.snapshotValue}>{snapshot.timeStep}</span>
+                    <span className={styles.snapshotValue}>{String(snapshot.metadata.time ?? '-')}</span>
                   </div>
                   <div className={styles.snapshotInfoRow}>
                     <span className={styles.snapshotLabel}>
@@ -133,7 +136,8 @@ export const RightPanel = () => {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

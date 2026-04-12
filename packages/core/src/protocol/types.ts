@@ -276,24 +276,3 @@ export type RendererToSimulatorPayload =
 export type SimulatorToRendererWSMessage = SimulatorToRendererMessage<SimulatorToRendererPayload>;
 export type RendererToSimulatorWSMessage = RendererToSimulatorMessage<RendererToSimulatorPayload>;
 export type AnyProtocolMessage = SimulatorToRendererWSMessage | RendererToSimulatorWSMessage;
-
-/** @deprecated Use SimulatorToRendererMessageType. */
-export type ServerToClientMessageType = SimulatorToRendererMessageType;
-/** @deprecated Use RendererToSimulatorMessageType. */
-export type ClientToServerMessageType = RendererToSimulatorMessageType;
-/** @deprecated Use ProtocolMessageType. */
-export type WSMessageType = ProtocolMessageType;
-/** @deprecated Use ProtocolMessage. */
-export type WSMessage<T = unknown> = ProtocolMessage<ProtocolMessageType, T>;
-/** @deprecated Use SimulatorToRendererMessage. */
-export type ServerToClientMessage<T = unknown> = SimulatorToRendererMessage<T>;
-/** @deprecated Use RendererToSimulatorMessage. */
-export type ClientToServerMessage<T = unknown> = RendererToSimulatorMessage<T>;
-/** @deprecated Use SimulatorToRendererPayload. */
-export type ServerToClientPayload = SimulatorToRendererPayload;
-/** @deprecated Use RendererToSimulatorPayload. */
-export type ClientToServerPayload = RendererToSimulatorPayload;
-/** @deprecated Use SimulatorToRendererWSMessage. */
-export type ServerToClientWSMessage = SimulatorToRendererWSMessage;
-/** @deprecated Use RendererToSimulatorWSMessage. */
-export type ClientToServerWSMessage = RendererToSimulatorWSMessage;

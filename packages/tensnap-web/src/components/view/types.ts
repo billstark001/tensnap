@@ -1,6 +1,5 @@
 import { AnchoredView, AnyView, ContainerView } from "@/types/ui";
 import { ComponentType, PropsWithChildren } from "react";
-import { EnvironmentId, EnvironmentType } from '@/types/model';
 
 /**
  * Point type for positioning
@@ -14,8 +13,8 @@ export type Point = {
  * Metadata for environment objects used in view creation
  */
 export type ObjectWithEnvironmentMetadata = {
-  id: EnvironmentId;
-  type: EnvironmentType;
+  id: string;
+  type: 'grid' | 'graph' | 'uniform' | '2d';
   label?: string;
   width?: number;
   height?: number;

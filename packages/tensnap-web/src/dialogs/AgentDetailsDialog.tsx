@@ -1,15 +1,15 @@
 import * as Dialog from '@/components/ui/Dialog';
-import { GridAgent, GraphAgent, UniformAgent, AgentIcon, EnvironmentType } from '@/types/model';
+import { Agent, GridAgent, GraphAgent, AgentIcon } from '@/types/model';
 import * as styles from './AgentDetailsDialog.css';
 import clsx from 'clsx';
 import { Trans } from '@lingui/react/macro';
 
 // Union type for all agent types
-export type AnyAgent = GridAgent | GraphAgent | UniformAgent;
+export type AnyAgent = GridAgent | GraphAgent | Agent;
 
 interface AgentDetailsDialogProps {
   agent: AnyAgent | null;
-  agentType?: EnvironmentType;
+  agentType?: 'grid' | 'graph' | 'uniform';
   onClose: () => void;
   open?: boolean;
 }
