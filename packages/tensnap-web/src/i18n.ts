@@ -1,5 +1,15 @@
 import { i18n } from '@lingui/core';
 
+export type LocaleMessages = Record<string, string>;
+type LocaleLoader = () => Promise<{ messages: LocaleMessages }>;
+
+export interface LocaleCatalogRegistration {
+  name: string;
+  loaders: Partial<Record<Locale, LocaleLoader>>;
+}
+
+const localeCatalogs = new Map<string, LocaleCatalogRegistration>();
+
 export const locales = {
   en: 'English',
   zh: '中文',
@@ -9,6 +19,29 @@ export const locales = {
 export type Locale = keyof typeof locales;
 
 export const defaultLocale: Locale = 'en';
+
+export function registerLocaleCatalog(registration: LocaleCatalogRegistration): void {
+  localeCatalogs.set(registration.name, registration);
+}
+
+export function unregisterLocaleCatalog(name: string): void {
+  localeCatalogs.delete(name);
+}
+
+async function loadRegisteredLocaleMessages(locale: Locale): Promise<void> {
+  for (const registration of localeCatalogs.values()) {
+    const loader = registration.loaders[locale];
+    if (!loader) {
+      continue;
+    }
+    try {
+      const { messages } = await loader();
+      i18n.load(locale, messages);
+    } catch (error) {
+      console.warn(`[i18n] Failed to load catalog "${registration.name}" for locale "${locale}"`, error);
+    }
+  }
+}
 
 /**
  * Type guard to check if a string is a valid locale
@@ -55,8 +88,12 @@ export function detectLocale(): Locale {
  * Load and activate a locale
  */
 export async function activateLocale(locale: string) {
+  if (!isValidLocale(locale)) {
+    throw new Error(`Unsupported locale: ${locale}`);
+  }
   const { messages } = await import(`./locales/${locale}/messages.mjs`);
   i18n.load(locale, messages);
+  await loadRegisteredLocaleMessages(locale);
   i18n.activate(locale);
 }
 

@@ -4,23 +4,19 @@
   "private": true,
   "type": "module",
   "description": "Web utilities for TenSnap including filesystem UI and development tools",
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    ".": "./index.ts",
+    ".": "./src/index.ts",
     "./file-system": "./src/file-system/index.ts",
     "./adapters": "./src/adapters/index.ts",
-    "./adapters/memory": "./src/adapters/memory-adapter.ts",
-    "./adapters/indexeddb": "./src/adapters/indexeddb-adapter.ts",
     "./transport": "./src/transport/index.ts",
     "./model-adapters": "./src/model-adapters/index.ts",
-    "./models": "./src/models/index.ts",
-    "./models/wolf-sheep": "./src/models/wolf-sheep.ts",
-    "./models/schelling": "./src/models/schelling.ts"
+    "./models": "./src/models/index.ts"
   },
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --maxWorkers=1",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch --maxWorkers=1",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "clean": "rm -rf dist node_modules",
     "i18n:extract": "lingui extract",
@@ -46,16 +42,16 @@
     "@tensnap/web": "workspace:*"
   },
   "devDependencies": {
-    "@jest/globals": "^30.3.0",
-    "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.58.1",
-    "@typescript-eslint/parser": "^8.58.1",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
     "@vanilla-extract/css": "^1.20.1",
+    "@vitest/coverage-v8": "^4.1.4",
     "fake-indexeddb": "^6.2.5",
-    "identity-obj-proxy": "^3.0.0"
+    "jsdom": "^29.0.2",
+    "vitest": "^4.1.4"
   },
   "peerDependencies": {
     "react": "^18.2.0",

@@ -508,7 +508,7 @@ def test_environment_with_fixture(sample_environment):
 
 ### JavaScript Testing
 
-Use Jest and React Testing Library:
+Use Vitest and React Testing Library:
 
 ```typescript
 // src/components/ParameterSlider.test.tsx
@@ -516,7 +516,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ParameterSlider } from './ParameterSlider';
 
 describe('ParameterSlider', () => {
-  const mockOnChange = jest.fn();
+  const mockOnChange = vi.fn();
   
   it('renders with correct label', () => {
     render(

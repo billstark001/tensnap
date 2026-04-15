@@ -96,7 +96,7 @@ Storage classes are reactive data containers. Layers subscribe to them and re-re
 ## Testing & Benchmarks
 
 ```bash
-# Jest unit tests
+# Vitest unit tests
 pnpm test
 
 # Interactive browser benchmarks (Vite dev server)

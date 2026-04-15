@@ -8,7 +8,7 @@ import { normalizePath, joinPath, validateName, readFileContent } from './utils'
 import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 import { ExportDialog } from './ExportDialog';
-import { EmptyState } from '@tensnap/web/components/ui/EmptyState';
+import { EmptyState } from '@tensnap/web/components/ui';
 
 export interface FileSystemBrowserProps {
   fileSystem: FileSystemAdapter;

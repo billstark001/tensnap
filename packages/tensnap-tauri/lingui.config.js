@@ -4,8 +4,8 @@ module.exports = {
   sourceLocale: 'en',
   catalogs: [
     {
-      path: '<rootDir>/../tensnap-web/src/locales/{locale}/messages',
-      include: ['src', '../tensnap-web/src', '../web-adapter/src'],
+      path: '<rootDir>/src/locales/{locale}/messages',
+      include: ['src'],
       exclude: ['**/node_modules/**'],
     },
   ],

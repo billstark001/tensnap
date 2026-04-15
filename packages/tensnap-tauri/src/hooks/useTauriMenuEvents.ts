@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { useFileOperations } from '@tensnap/web/src/components/toolbar/useFileOperations';
-import { useSettingsStore } from '@tensnap/web/src/store/settings';
+import { useFileOperations } from '@tensnap/web/hooks';
+import { useSettingsStore } from '@tensnap/web/store';
 
 export const useTauriMenuEvents = () => {
   const {

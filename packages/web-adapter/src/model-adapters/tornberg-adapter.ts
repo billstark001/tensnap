@@ -13,8 +13,6 @@ const PARTISAN_LAYER = 'partisan';
 
 export class TornbergAdapter extends BaseModelAdapter {
   private state: TornbergState;
-  private running = false;
-  private timer: number | null = null;
 
   constructor(private readonly config: TornbergConfig) {
     super({
@@ -39,7 +37,12 @@ export class TornbergAdapter extends BaseModelAdapter {
   }
 
   protected getActions(): Action[] {
-    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => ({ id, label: id, allowRuntimeChange: true }));
+    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => ({
+      id,
+      label: id,
+      allowRuntimeChange: true,
+      continuous: id === 'start' || id === 'start_stop',
+    }));
   }
 
   protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
@@ -57,19 +60,28 @@ export class TornbergAdapter extends BaseModelAdapter {
     // Runtime parameter changes are intentionally disabled for this adapter.
   }
 
-  protected async handleActionStart(id: string): Promise<void> {
-    if (id === 'start') this.start();
-    if (id === 'stop') this.stop();
-    if (id === 'step') await this.stepOnce();
+  protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
+    let shouldContinue = false;
+
+    if (id === 'start') shouldContinue = await this.stepOnce();
+    if (id === 'stop') shouldContinue = false;
+    if (id === 'step') {
+      await this.stepOnce();
+      shouldContinue = false;
+    }
     if (id === 'reset') {
-      this.stop();
       this.state = initializeTornberg(this.config);
       await this.sendInitialData();
+      shouldContinue = false;
     }
     if (id === 'start_stop') {
-      if (this.running) this.stop();
-      else this.start();
+      shouldContinue = await this.stepOnce();
     }
+
+    await this.sendActionEnd({
+      id,
+      continue: !!continuous && shouldContinue,
+    });
   }
 
   protected async initialize(): Promise<void> {
@@ -77,7 +89,7 @@ export class TornbergAdapter extends BaseModelAdapter {
   }
 
   protected async cleanup(): Promise<void> {
-    this.stop();
+    // no-op
   }
 
   protected async sendInitialData(): Promise<void> {
@@ -117,7 +129,7 @@ export class TornbergAdapter extends BaseModelAdapter {
     });
   }
 
-  private async stepOnce(): Promise<void> {
+  private async stepOnce(): Promise<boolean> {
     const time = this.state.totalUpdates;
     await this.sendMetadataUpdate({ time });
     stepTornberg(this.state);
@@ -127,23 +139,7 @@ export class TornbergAdapter extends BaseModelAdapter {
       { id: 'sorting', value: computeSorting(this.state), time: this.state.totalUpdates },
       { id: 'updates', value: this.state.totalUpdates, time: this.state.totalUpdates },
     ] });
-  }
-
-  private start(): void {
-    if (this.running) return;
-    this.running = true;
-    this.timer = window.setInterval(() => {
-      void this.stepOnce();
-    }, 45);
-  }
-
-  private stop(): void {
-    if (!this.running) return;
-    this.running = false;
-    if (this.timer !== null) {
-      window.clearInterval(this.timer);
-      this.timer = null;
-    }
+    return true;
   }
 }
 

@@ -6,11 +6,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [
-    react({
-      babel: {
-        plugins: ['macros'],
-      },
-    }),
+    react(),
     lingui(),
     vanillaExtractPlugin(),
   ],

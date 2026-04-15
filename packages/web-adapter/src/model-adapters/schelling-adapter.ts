@@ -7,8 +7,6 @@ const AGENT_LAYER = 'agents';
 
 export class SchellingAdapter extends BaseModelAdapter {
   private model: SchellingModel;
-  private running = false;
-  private timer: number | null = null;
 
   constructor(config: SchellingConfig) {
     super({
@@ -32,11 +30,15 @@ export class SchellingAdapter extends BaseModelAdapter {
   }
 
   protected getActions(): Action[] {
-    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => ({
-      id,
-      label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
-      allowRuntimeChange: true,
-    }));
+    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => {
+      const continuous = id === 'start' || id === 'start_stop';
+      return {
+        id,
+        label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
+        allowRuntimeChange: true,
+        continuous,
+      };
+    });
   }
 
   protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
@@ -54,23 +56,32 @@ export class SchellingAdapter extends BaseModelAdapter {
     this.model.updateParameter(id, value);
   }
 
-  protected async handleActionStart(id: string): Promise<void> {
-    if (id === 'start') this.start();
-    if (id === 'stop') this.stop();
-    if (id === 'step') await this.stepOnce();
+  protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
+    let shouldContinue = false;
+
+    if (id === 'start') shouldContinue = await this.stepOnce();
+    if (id === 'stop') shouldContinue = false;
+    if (id === 'step') {
+      await this.stepOnce();
+      shouldContinue = false;
+    }
     if (id === 'reset') {
-      this.stop();
       this.model.reset();
       await this.sendInitialData();
       await this.sendChartUpdate({ operations: [
         { id: 'satisfaction_rate', operation: 'clear' },
         { id: 'segregation_index', operation: 'clear' },
       ] });
+      shouldContinue = false;
     }
     if (id === 'start_stop') {
-      if (this.running) this.stop();
-      else this.start();
+      shouldContinue = await this.stepOnce();
     }
+
+    await this.sendActionEnd({
+      id,
+      continue: !!continuous && shouldContinue,
+    });
   }
 
   protected async initialize(): Promise<void> {
@@ -78,7 +89,6 @@ export class SchellingAdapter extends BaseModelAdapter {
   }
 
   protected async cleanup(): Promise<void> {
-    this.stop();
     this.model.destroy();
   }
 
@@ -110,7 +120,7 @@ export class SchellingAdapter extends BaseModelAdapter {
     return agents;
   }
 
-  private async stepOnce(): Promise<void> {
+  private async stepOnce(): Promise<boolean> {
     const before = this.model.getStatistics().timeStep;
     this.model.step();
     await this.sendMetadataUpdate({ time: before });
@@ -130,27 +140,7 @@ export class SchellingAdapter extends BaseModelAdapter {
       { id: 'satisfaction_rate', value: stats.satisfactionRate, time: stats.timeStep },
       { id: 'segregation_index', value: stats.segregationIndex, time: stats.timeStep },
     ] });
-  }
-
-  private start(): void {
-    if (this.running) {
-      return;
-    }
-    this.running = true;
-    this.timer = window.setInterval(() => {
-      void this.stepOnce();
-    }, 60);
-  }
-
-  private stop(): void {
-    if (!this.running) {
-      return;
-    }
-    this.running = false;
-    if (this.timer !== null) {
-      window.clearInterval(this.timer);
-      this.timer = null;
-    }
+    return true;
   }
 }
 

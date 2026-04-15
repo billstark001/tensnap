@@ -1,8 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "types": ["vitest/globals"],
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["../tensnap-web/src/*"],
       "@tensnap/web": ["../tensnap-web/index.ts"],
       "@tensnap/web/*": ["../tensnap-web/src/*"],
       "@tensnap/core": ["../core/src/index.ts"],

@@ -10,8 +10,6 @@ type AnimalObj = { position: { x: number; y: number }; heading: number; config: 
 export class WolfSheepAdapter extends BaseModelAdapter {
   private model: WolfSheepModel;
   private worldSize: { width: number; height: number };
-  private running = false;
-  private intervalId: number | null = null;
   private animalIdMap = new WeakMap<object, string>();
   private nextSheepId = 0;
   private nextWolfId = 0;
@@ -45,11 +43,15 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   }
 
   protected getActions(): Action[] {
-    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => ({
-      id,
-      label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
-      allowRuntimeChange: true,
-    }));
+    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => {
+      const continuous = id === 'start' || id === 'start_stop';
+      return {
+        id,
+        label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
+        allowRuntimeChange: true,
+        continuous,
+      };
+    });
   }
 
   protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
@@ -71,13 +73,21 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     }
   }
 
-  protected async handleActionStart(id: string): Promise<void> {
+  protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
+    let shouldContinue = false;
+
     const actionMap: Record<string, () => Promise<void> | void> = {
-      start: () => this.start(),
-      stop: () => this.stop(),
-      step: () => this.stepOnce(),
+      start: async () => {
+        shouldContinue = await this.stepOnce();
+      },
+      stop: () => {
+        shouldContinue = false;
+      },
+      step: async () => {
+        await this.stepOnce();
+        shouldContinue = false;
+      },
       reset: async () => {
-        this.stop();
         this.model.reset();
         this.animalIdMap = new WeakMap();
         this.nextSheepId = 0;
@@ -90,10 +100,18 @@ export class WolfSheepAdapter extends BaseModelAdapter {
           { id: 'wolf_count', operation: 'clear' },
           { id: 'grass_count', operation: 'clear' },
         ] });
+        shouldContinue = false;
       },
-      start_stop: () => (this.running ? this.stop() : this.start()),
+      start_stop: async () => {
+        shouldContinue = await this.stepOnce();
+      },
     };
     await actionMap[id]?.();
+
+    await this.sendActionEnd({
+      id,
+      continue: !!continuous && shouldContinue,
+    });
   }
 
   protected async initialize(): Promise<void> {
@@ -102,7 +120,6 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   }
 
   protected async cleanup(): Promise<void> {
-    this.stop();
     this.model.destroy();
   }
 
@@ -190,7 +207,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     ];
   }
 
-  private async stepOnce(): Promise<void> {
+  private async stepOnce(): Promise<boolean> {
     const time = this.model.getTicks();
     await this.sendMetadataUpdate({ time });
 
@@ -236,30 +253,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
 
     this.capturePatchSnapshot();
 
-    if (!canContinue) {
-      this.stop();
-    }
-  }
-
-  private start(): void {
-    if (this.running) {
-      return;
-    }
-    this.running = true;
-    this.intervalId = window.setInterval(() => {
-      void this.stepOnce();
-    }, 60);
-  }
-
-  private stop(): void {
-    if (!this.running) {
-      return;
-    }
-    this.running = false;
-    if (this.intervalId !== null) {
-      window.clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
+    return canContinue;
   }
 }
 

@@ -1,16 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { lingui } from '@lingui/vite-plugin';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import path from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    react({
-      babel: {
-        plugins: ['macros'],
-      },
-    }),
+    react(),
+    lingui(),
     vanillaExtractPlugin(),
   ],
 
@@ -29,16 +27,8 @@ export default defineConfig({
 
   resolve: {
     alias: [
-      { find: /^@tensnap\/web\/index$/, replacement: path.resolve(__dirname, '../tensnap-web/index.ts') },
-      { find: /^@tensnap\/web\/src\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
-      { find: /^@tensnap\/web\/Providers$/, replacement: path.resolve(__dirname, '../tensnap-web/src/Providers.tsx') },
-      { find: /^@tensnap\/web\/App$/, replacement: path.resolve(__dirname, '../tensnap-web/src/App.tsx') },
-      { find: /^@tensnap\/web\/i18n$/, replacement: path.resolve(__dirname, '../tensnap-web/src/i18n.ts') },
-      { find: /^@tensnap\/web\/store\/file-system\/adapter$/, replacement: path.resolve(__dirname, '../tensnap-web/src/store/file-system/adapter.ts') },
-      { find: /^@tensnap\/web\/store\/file-system\/provider$/, replacement: path.resolve(__dirname, '../tensnap-web/src/store/file-system/provider.tsx') },
-      { find: /^@tensnap\/web\/store\/file-system\/store$/, replacement: path.resolve(__dirname, '../tensnap-web/src/store/file-system/store.ts') },
-      { find: /^@tensnap\/web\/types\/file$/, replacement: path.resolve(__dirname, '../tensnap-web/src/types/file.ts') },
       { find: /^@tensnap\/web$/, replacement: path.resolve(__dirname, '../tensnap-web/index.ts') },
+      { find: /^@tensnap\/web\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
       { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
     ],
   },

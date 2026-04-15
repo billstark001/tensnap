@@ -44,6 +44,7 @@ export default [
                 '!@tensnap/web/types/*',
                 '!@tensnap/web/styles/*',
                 '!@tensnap/web/utils/*',
+                '!@tensnap/web/components/ui',
                 '!@tensnap/web/components/ui/*',
               ],
               message:

@@ -5,7 +5,7 @@ module.exports = {
   catalogs: [
     {
       path: '<rootDir>/src/locales/{locale}/messages',
-      include: ['src', '../web-adapter/src'],
+      include: ['src'],
       exclude: ['**/node_modules/**'],
     },
   ],

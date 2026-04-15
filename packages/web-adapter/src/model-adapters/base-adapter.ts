@@ -1,5 +1,6 @@
 import type {
   Action,
+  ActionEndPayload,
   ActionStartPayload,
   AgentCreatePayload,
   AgentDeletePayload,
@@ -126,6 +127,10 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
 
   protected async sendLog(payload: LogPayload): Promise<void> {
     await this.send({ type: 'log', payload });
+  }
+
+  protected async sendActionEnd(payload: ActionEndPayload): Promise<void> {
+    await this.send({ type: 'action_end', payload });
   }
 
   private async sendFullStateSync(): Promise<void> {

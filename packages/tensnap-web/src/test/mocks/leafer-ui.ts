@@ -1,4 +1,4 @@
-// Mock leafer-ui for Jest test environment (no canvas required)
+// Mock leafer-ui for Vitest test environment (no canvas required)
 const noop = () => {};
 const mockClass = class {
   constructor(..._args: any[]) {}
