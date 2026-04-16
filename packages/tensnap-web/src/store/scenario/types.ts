@@ -13,6 +13,7 @@ import {
   ParameterChangePayload,
   ActionStartPayload,
   NormalizedLogPayload,
+  ScreenshotResponsePayload,
 } from '@tensnap/core';
 import { ContainerView } from '../../types/ui';
 import { UpdateTriggerState } from '../update-trigger';
@@ -29,6 +30,8 @@ export interface EditableEnvironmentDraft {
   width?: number;
   height?: number;
 }
+
+export type ScreenshotCaptureHandler = (format: 'png' | 'jpeg', quality?: number) => Promise<Blob | null>;
 
 export interface SetDataPayload {
   environments?: EditableEnvironmentDraft[];
@@ -75,6 +78,11 @@ export interface ScenarioStore {
   createParamChangeMessage: (id: string, value: unknown) => RendererToSimulatorMessage<ParameterChangePayload>;
   createActionStartMessage: (id: string, continuous?: boolean) => RendererToSimulatorMessage<ActionStartPayload>;
   createAssetSyncMessage: () => RendererToSimulatorMessage<{ assets: Record<string, string> }>;
+  createScreenshotResponseMessage: (payload: ScreenshotResponsePayload) => RendererToSimulatorMessage<ScreenshotResponsePayload>;
+
+  registerScreenshotCapture: (id: string, handler: ScreenshotCaptureHandler) => void;
+  unregisterScreenshotCapture: (id: string) => void;
+  getScreenshotCapture: (id: string) => ScreenshotCaptureHandler | undefined;
 
   addSnapshot: (draft?: SnapshotDraft) => void;
   removeSnapshot: (id: string) => void;

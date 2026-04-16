@@ -13,8 +13,9 @@ import {
   ScenarioEnvironmentState,
   ScenarioSnapshot,
   SimulatorToRendererMessage,
+  ScreenshotResponsePayload,
 } from '@tensnap/core';
-import { EditableEnvironmentDraft, ScenarioStore, SnapshotDraft } from './types';
+import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft } from './types';
 
 const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot) => void) => {
   const snapshot = scenario.dump();
@@ -147,6 +148,7 @@ const annotateSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): Sc
 
 export const createScenarioStore = () => {
   const scenario = new Scenario();
+  const screenshotCaptures = new Map<string, ScreenshotCaptureHandler>();
 
   const useStore = create<ScenarioStore>((set, get) => {
     return {
@@ -336,6 +338,19 @@ export const createScenarioStore = () => {
       createParamChangeMessage: (id, value) => scenario.createParamChangeMessage(id, value),
       createActionStartMessage: (id, continuous) => scenario.createActionStartMessage(id, continuous),
       createAssetSyncMessage: () => scenario.createAssetSyncMessage(),
+      createScreenshotResponseMessage: (payload: ScreenshotResponsePayload) => scenario.createScreenshotResponseMessage(payload),
+
+      registerScreenshotCapture: (id: string, handler: ScreenshotCaptureHandler) => {
+        screenshotCaptures.set(id, handler);
+      },
+
+      unregisterScreenshotCapture: (id: string) => {
+        screenshotCaptures.delete(id);
+      },
+
+      getScreenshotCapture: (id: string) => {
+        return screenshotCaptures.get(id);
+      },
 
       addSnapshot: (draft) => {
         const snapshot = annotateSnapshot(scenario.dump(), draft);

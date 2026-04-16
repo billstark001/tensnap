@@ -224,6 +224,21 @@ export const AssetSyncPayloadSchema = z.object({
   assets: z.record(z.string(), z.string()),
 });
 
+export const ScreenshotRequestPayloadSchema = z.object({
+  request_id: z.string(),
+  env_id: z.string().optional(),
+  chart_id: z.string().optional(),
+  format: z.enum(['png', 'jpeg']).optional(),
+  quality: z.number().min(0).max(1).optional(),
+});
+
+export const ScreenshotResponsePayloadSchema = z.object({
+  request_id: z.string(),
+  data: z.union([z.string(), z.instanceof(Uint8Array)]).optional(),
+  mime: z.string().optional(),
+  error: z.string().optional(),
+});
+
 export const StateSyncRequestSchema = z.object({
   parameters: z.array(ParameterSchema),
   actions: z.array(ActionSchema),
@@ -273,6 +288,7 @@ export const SimulatorToRendererMessageSchema = z.object({
     'asset_meta',
     'asset_data',
     'asset_delete',
+    'screenshot_request',
     'log',
     'error',
   ]),
@@ -286,6 +302,7 @@ export const RendererToSimulatorMessageSchema = z.object({
     'param_change',
     'action_start',
     'asset_sync',
+    'screenshot_response',
     'error',
   ]),
   payload: z.unknown(),
@@ -325,6 +342,8 @@ export const getPayloadSchema = (type: string) => {
     case 'asset_meta': return AssetMetaPayloadSchema;
     case 'asset_data': return AssetDataPayloadSchema;
     case 'asset_delete': return AssetDeletePayloadSchema;
+    case 'screenshot_request': return ScreenshotRequestPayloadSchema;
+    case 'screenshot_response': return ScreenshotResponsePayloadSchema;
     case 'log': return LogPayloadSchema;
     case 'error': return ErrorPayloadSchema;
     case 'state_sync': return StateSyncRequestSchema;

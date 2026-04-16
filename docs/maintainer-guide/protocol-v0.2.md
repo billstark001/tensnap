@@ -6,6 +6,52 @@ This document is the source of truth for the ongoing refactor. It supersedes the
 
 ---
 
+## Changes from v0.1
+
+Protocol v0.2 restructures v0.1 around the principle that the **renderer owns session state** and the **simulator is a stateless step executor**. The key design changes are:
+
+### Terminology
+
+All references to "client" / "server" are replaced by "renderer" / "simulator" to clarify that the protocol is not tied to a browser/server deployment topology.
+
+### Environment model
+
+v0.1 used a single `environment_update` message embedding agent lists, grid config, edges, and background data within one flat payload. v0.2 separates this into an explicit **environment → layer** hierarchy with dedicated `env_create`, `env_layer_create`, `env_layer_update`, and `env_layer_delete` messages. Each layer has a registered `layer_type` that determines its metadata schema and entity storage.
+
+### Agent and edge lifecycle
+
+v0.1 combined create / update / delete into `agent_update` and `agent_batch_update` with an `operation` discriminator field. v0.2 uses separate `agent_create`, `agent_update`, and `agent_delete` message types. Edges, which were implicit in the environment payload in v0.1, now have their own `edge_create`, `edge_update`, `edge_delete` message family.
+
+### Time and metadata
+
+v0.1 framed time progression with `time_step_start` and `time_step_end` messages. v0.2 collapses both into `metadata_update`, which carries `time` alongside arbitrary scenario-wide metadata.
+
+### Action system
+
+v0.1 used `button_click` to trigger actions. v0.2 introduces a full action lifecycle: `action_create` / `action_update` / `action_delete` for definition, `action_start` (renderer → simulator) and `action_end` (simulator → renderer) for execution. Continuous loops are now **renderer-driven**: the renderer decides whether to send the next `action_start` after receiving `action_end`.
+
+### Parameter management
+
+v0.1 used `parameter_change` and handled parameter definition exclusively through `state_sync`. v0.2 renames this to `param_change` and adds `param_create` / `param_update` / `param_delete` / `param_sync` so the simulator can manage parameter lifecycle incrementally. The `action` parameter type from v0.1 is removed; actions are now a separate concept.
+
+### State synchronization
+
+v0.1 `state_sync` responded with a differential payload (`added_*` / `removed_*` / `updated_*`). v0.2 simplifies this: the renderer sends its current state summary and the simulator replays the necessary `*_create` / `*_update` / `*_delete` messages. No dedicated response message type is needed.
+
+### Chart lifecycle
+
+v0.1 only had `chart_update`. v0.2 adds `chart_create` and `chart_delete` for explicit chart lifecycle management.
+
+### Asset system
+
+v0.2 introduces `asset_meta`, `asset_data`, `asset_delete` (simulator → renderer) and `asset_sync` (renderer → simulator) to support efficient binary asset transfer with content-addressed caching.
+
+### Screenshot capture
+
+v0.2 adds `screenshot_request` (simulator → renderer) and `screenshot_response` (renderer → simulator) to allow the simulator to request rendered image capture from the renderer.
+
+---
+
 ## Scope
 
 Protocol v0.2 defines:
@@ -162,6 +208,7 @@ type SimulatorToRendererMessageType =
   | 'asset_meta'
   | 'asset_data'
   | 'asset_delete'
+  | 'screenshot_request'
   | 'log'
   | 'error';
 ```
@@ -176,6 +223,7 @@ type RendererToSimulatorMessageType =
   | 'param_change'
   | 'action_start'
   | 'asset_sync'
+  | 'screenshot_response'
   | 'error';
 ```
 
@@ -485,6 +533,29 @@ Protocol-level or runtime error.
 { type: 'error', payload: { error: string } }
 ```
 
+### `screenshot_request`
+
+Requests a rendered image capture from the renderer.
+
+The `request_id` is maintained by the simulator. The renderer does not validate uniqueness.
+
+```typescript
+{
+  type: 'screenshot_request',
+  payload: {
+    request_id: string;
+    env_id?: string;
+    chart_id?: string;
+    format?: 'png' | 'jpeg';
+    quality?: number;
+  }
+}
+```
+
+Exactly one of `env_id` or `chart_id` should be specified to identify the capture target.
+
+`format` defaults to `'png'`. `quality` is a `0`–`1` hint used only for `'jpeg'`.
+
 ---
 
 ## Renderer → Simulator Messages
@@ -558,6 +629,26 @@ Renderer-to-simulator error report.
 { type: 'error', payload: { error: string } }
 ```
 
+### `screenshot_response`
+
+Returns a captured image to the simulator.
+
+```typescript
+{
+  type: 'screenshot_response',
+  payload: {
+    request_id: string;
+    data?: string | Uint8Array;
+    mime?: string;
+    error?: string;
+  }
+}
+```
+
+If the renderer supports the requested screenshot, `data` contains the image bytes and `mime` indicates the content type. JSON mode uses base64-encoded strings; MessagePack mode uses raw `Uint8Array`.
+
+If the renderer does not support the request, `data` is omitted and `error` describes the reason.
+
 ---
 
 ## Simulation Loop Contract
@@ -604,10 +695,10 @@ Each layer type may declare:
 
 Built-in registrations currently include:
 
-- `agent`
-- `edge`
-- `grid`
-- `background`
+- `agent` — owns agents; metadata includes `width`, `height`, `coord_offset`, `trajectory_length`, `trajectory_color`
+- `edge` — owns edges; metadata includes force-layout parameters (`linkDistance`, `chargeStrength`, etc.) and an optional `agent_layer_id` referencing the associated agent layer
+- `grid` — grid coordinate frame; metadata includes `xOrigin`, `xUnit`, `xInterval`, `xRatio`, `yOrigin`, `yUnit`, `yInterval`, `yRatio`, `strokeColor`
+- `background` — background image layer; metadata includes `background` (hex string, `Uint8Array`, or `{ asset_id, interpolation? }`) and `interpolation` (`'nearest'` | `'linear'`)
 
 The registry is used to validate scenario-layer payloads independently of the transport implementation.
 
@@ -628,11 +719,23 @@ Example:
 }
 ```
 
-The renderer resolves `asset_id` through its AssetStore-backed cache.
+The renderer resolves `asset_id` through its asset cache.
 
 ---
 
 ## Core Data Types
+
+### AgentId
+
+```typescript
+type AgentId = string | number;
+```
+
+### AgentIcon
+
+```typescript
+type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
+```
 
 ### Action
 
@@ -653,15 +756,56 @@ type ParameterType = 'number' | 'enum' | 'boolean' | 'string';
 
 `action` is no longer a parameter type.
 
+```typescript
+interface NumberParameter {
+  id: string;
+  type: 'number';
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  allowRuntimeChange?: boolean;
+}
+
+interface EnumParameter {
+  id: string;
+  type: 'enum';
+  label: string;
+  value: string;
+  options: string[];
+  labels?: Record<string, string>;
+  allowRuntimeChange?: boolean;
+}
+
+interface BooleanParameter {
+  id: string;
+  type: 'boolean';
+  label: string;
+  value: boolean;
+  allowRuntimeChange?: boolean;
+}
+
+interface StringParameter {
+  id: string;
+  type: 'string';
+  label: string;
+  value: string;
+  allowRuntimeChange?: boolean;
+}
+
+type Parameter = NumberParameter | EnumParameter | BooleanParameter | StringParameter;
+```
+
 ### Agent
 
-Agent create payloads use full records. Agent update payloads use flat diffs.
+Agent create payloads use full records. Agent update payloads are flat diffs keyed by `id`.
 
 ```typescript
 interface Agent {
   id: AgentId;
   color?: string;
-  icon?: 'arrow' | 'circle' | 'square' | 'triangle';
+  icon?: AgentIcon;
   size?: number;
   data?: Record<string, unknown>;
   [layerSpecificField: string]: unknown;
@@ -682,6 +826,34 @@ interface EdgeData {
 }
 ```
 
+### ChartMetadata
+
+```typescript
+interface ChartMetadata {
+  id: string;
+  label: string;
+  color?: string;
+}
+```
+
+### ChartGroupMetadata
+
+```typescript
+interface ChartGroupMetadata extends ChartMetadata {
+  dataList?: ChartMetadata[];
+}
+```
+
+### ChartUpdateData
+
+```typescript
+interface ChartUpdateData {
+  id: string;
+  time?: number;
+  value: unknown;
+}
+```
+
 ### AssetMeta
 
 ```typescript
@@ -691,6 +863,29 @@ interface AssetMeta {
   mime: string;
   size: number;
   label?: string;
+}
+```
+
+### ScreenshotRequestPayload
+
+```typescript
+interface ScreenshotRequestPayload {
+  request_id: string;
+  env_id?: string;
+  chart_id?: string;
+  format?: 'png' | 'jpeg';
+  quality?: number;
+}
+```
+
+### ScreenshotResponsePayload
+
+```typescript
+interface ScreenshotResponsePayload {
+  request_id: string;
+  data?: string | Uint8Array;
+  mime?: string;
+  error?: string;
 }
 ```
 
@@ -705,6 +900,7 @@ The current refactor state is:
 - Scenario lives in @tensnap/core and extends EventTarget
 - transport is abstracted in @tensnap/core
 - browser WebSocket integration remains in @tensnap/web during the next migration phase
+- screenshot capture registry lives in @tensnap/web's ScenarioStore; rendering components register their capture functions via `registerScreenshotCapture`
 
 Temporary compatibility exports may remain in TypeScript for older server/client naming, but new code should use renderer/simulator names exclusively.
 
@@ -714,4 +910,4 @@ Temporary compatibility exports may remain in TypeScript for older server/client
 
 - [architecture.md](./architecture.md)
 - [roadmap.md](./roadmap.md)
-- [protocol.md](./protocol.md)
+- [protocol.md](./protocol-v0.1.md)

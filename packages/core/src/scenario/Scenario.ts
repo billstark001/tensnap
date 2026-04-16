@@ -36,6 +36,8 @@ import type {
   ParameterSyncPayload,
   RendererToSimulatorMessage,
   ScenarioEnvironmentType,
+  ScreenshotRequestPayload,
+  ScreenshotResponsePayload,
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '../protocol';
@@ -206,6 +208,9 @@ export class Scenario extends EventTarget {
       case 'asset_delete':
         this.deleteAssets(message.payload as AssetDeletePayload);
         return;
+      case 'screenshot_request':
+        this.emit('screenshot:request', message.payload as ScreenshotRequestPayload);
+        return;
       case 'log':
         this.appendLog(message.payload as LogPayload);
         return;
@@ -246,6 +251,10 @@ export class Scenario extends EventTarget {
 
   createAssetSyncMessage(): RendererToSimulatorMessage<{ assets: Record<string, string> }> {
     return { type: 'asset_sync', payload: { assets: this.assetState.getHeldHashes() } };
+  }
+
+  createScreenshotResponseMessage(payload: ScreenshotResponsePayload): RendererToSimulatorMessage<ScreenshotResponsePayload> {
+    return { type: 'screenshot_response', payload };
   }
 
   dump(): ScenarioSnapshot {

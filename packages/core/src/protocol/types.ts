@@ -49,6 +49,7 @@ export type SimulatorToRendererMessageType =
   | 'asset_meta'
   | 'asset_data'
   | 'asset_delete'
+  | 'screenshot_request'
   | 'log'
   | 'error';
 
@@ -57,6 +58,7 @@ export type RendererToSimulatorMessageType =
   | 'param_change'
   | 'action_start'
   | 'asset_sync'
+  | 'screenshot_response'
   | 'error';
 
 export type ProtocolMessageType = SimulatorToRendererMessageType | RendererToSimulatorMessageType;
@@ -217,6 +219,21 @@ export interface AssetSyncPayload {
   assets: Record<AssetId, string>;
 }
 
+export interface ScreenshotRequestPayload {
+  request_id: string;
+  env_id?: string;
+  chart_id?: string;
+  format?: 'png' | 'jpeg';
+  quality?: number;
+}
+
+export interface ScreenshotResponsePayload {
+  request_id: string;
+  data?: string | Uint8Array;
+  mime?: string;
+  error?: string;
+}
+
 export interface StateSyncRequest {
   parameters: Parameter[];
   actions: Action[];
@@ -263,6 +280,7 @@ export type SimulatorToRendererPayload =
   | AssetMetaPayload
   | AssetDataPayload
   | AssetDeletePayload
+  | ScreenshotRequestPayload
   | LogPayload
   | ErrorPayload;
 
@@ -271,6 +289,7 @@ export type RendererToSimulatorPayload =
   | ParameterChangePayload
   | ActionStartPayload
   | AssetSyncPayload
+  | ScreenshotResponsePayload
   | ErrorPayload;
 
 export type SimulatorToRendererWSMessage = SimulatorToRendererMessage<SimulatorToRendererPayload>;

@@ -26,6 +26,7 @@ import type {
   ParameterChangePayload,
   ParameterSyncPayload,
   ScenarioEnvironmentType,
+  ScreenshotRequestPayload,
   StateSyncRequest,
 } from '../protocol';
 
@@ -98,6 +99,7 @@ export interface ScenarioEventDetailMap {
   'asset:meta': AssetMetaPayload;
   'asset:data': AssetDataPayload;
   'asset:delete': AssetDeletePayload;
+  'screenshot:request': ScreenshotRequestPayload;
   log: NormalizedLogPayload;
   reset: undefined;
 }

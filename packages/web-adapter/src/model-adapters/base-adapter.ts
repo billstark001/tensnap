@@ -15,6 +15,8 @@ import type {
   Parameter,
   ParameterChangePayload,
   RendererToSimulatorMessage,
+  ScreenshotRequestPayload,
+  ScreenshotResponsePayload,
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '@tensnap/core';
@@ -69,6 +71,11 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
       case 'action_start': {
         const payload = msg.payload as ActionStartPayload;
         await this.handleActionStart(payload.id, payload.continuous);
+        break;
+      }
+      case 'screenshot_response': {
+        const payload = msg.payload as ScreenshotResponsePayload;
+        this.handleScreenshotResponse?.(payload);
         break;
       }
       default:
@@ -132,6 +139,12 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   protected async sendActionEnd(payload: ActionEndPayload): Promise<void> {
     await this.send({ type: 'action_end', payload });
   }
+
+  protected async sendScreenshotRequest(payload: ScreenshotRequestPayload): Promise<void> {
+    await this.send({ type: 'screenshot_request', payload });
+  }
+
+  protected handleScreenshotResponse?(payload: ScreenshotResponsePayload): void;
 
   private async sendFullStateSync(): Promise<void> {
     for (const parameter of this.getParameters()) {
