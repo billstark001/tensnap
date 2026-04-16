@@ -1,5 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { t } from '@lingui/macro';
 import * as styles from './FileSystemBrowser.css';
 
 export interface ActionButtonsProps {
@@ -32,13 +33,13 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         onClick={onRefresh}
         disabled={loading}
       >
-        Refresh
+        {t`Refresh`}
       </button>
       <button 
         className={styles.actionButton}
         onClick={onCreate}
       >
-        New
+        {t`New`}
       </button>
       {allowUpload && (
         <button 
@@ -46,12 +47,12 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           onClick={handleUploadClick}
           disabled={loading}
         >
-          Upload Files
+          {t`Upload Files`}
         </button>
       )}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button className={styles.actionButton}>More Actions</button>
+          <button className={styles.actionButton}>{t`More Actions`}</button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className={styles.dropdownContent}>
@@ -59,7 +60,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
               className={styles.dropdownItem}
               onClick={() => onExport()}
             >
-              Export
+              {t`Export`}
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>

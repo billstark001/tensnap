@@ -16,3 +16,6 @@ export * from './models';
 // Export in-memory transport and protocol model adapters
 export * from './transport';
 export * from './model-adapters';
+
+// Export i18n registration
+export * from './i18n/register-catalog';

@@ -1,4 +1,4 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import LightningFS from '@isomorphic-git/lightning-fs';
 import * as PathUtils from './utils/path';
 import {
   type FileMetadata,
@@ -29,134 +29,230 @@ class FileSystemError extends Error {
   }
 }
 
-interface FileSystemDB extends DBSchema {
-  files: {
-    key: string;
-    value: FileContent;
-    indexes: {
-      'by-path': string;
-      'by-parent': string;
-      'by-modified': Date;
-    };
-  };
-  directories: {
-    key: string;
-    value: DirectoryMetadata;
-    indexes: {
-      'by-path': string;
-      'by-parent': string;
-      'by-modified': Date;
-    };
-  };
-  metadata: {
-    key: string;
-    value: any;
-  };
+type ContentType = 'text' | 'binary';
+
+interface PersistedFileMeta {
+  createdAt: string;
+  mimeType: string;
+  tags?: string[];
+  description?: string;
+  contentType: ContentType;
+}
+
+interface PersistedDirMeta {
+  createdAt: string;
+}
+
+interface PersistedMetadata {
+  files: Record<string, PersistedFileMeta>;
+  directories: Record<string, PersistedDirMeta>;
+}
+
+const METADATA_FILE_PATH = '/.tensnap-meta.json';
+const DEFAULT_MIME_TYPE = 'application/octet-stream';
+
+function inferMimeType(path: string): string {
+  const normalizedPath = path.toLowerCase();
+  if (normalizedPath.endsWith('.json')) return 'application/json';
+  if (normalizedPath.endsWith('.md')) return 'text/markdown';
+  if (normalizedPath.endsWith('.txt')) return 'text/plain';
+  if (normalizedPath.endsWith('.csv')) return 'text/csv';
+  if (normalizedPath.endsWith('.yaml') || normalizedPath.endsWith('.yml')) return 'application/x-yaml';
+  return DEFAULT_MIME_TYPE;
+}
+
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(data).buffer;
+}
+
+function toFileSystemError(
+  error: unknown,
+  fallbackMessage: string,
+  path?: string,
+  operation?: string,
+): FileSystemError {
+  const fsError = error as Error & { code?: string };
+  const code = fsError?.code;
+
+  if (code === 'EEXIST') {
+    return new FileSystemError('Path already exists', 'PATH_EXISTS', path, operation);
+  }
+  if (code === 'ENOENT') {
+    return new FileSystemError('Path not found', 'NOT_FOUND', path, operation);
+  }
+  if (code === 'ENOTEMPTY') {
+    return new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path, operation);
+  }
+  if (code === 'ENOTDIR' || code === 'EISDIR') {
+    return new FileSystemError('Invalid path type for operation', 'INVALID_OPERATION', path, operation);
+  }
+
+  return new FileSystemError(fallbackMessage, 'STORAGE_ERROR', path, operation);
 }
 
 export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
-  private db: IDBPDatabase<FileSystemDB> | null = null;
+  private fs: InstanceType<typeof LightningFS> | null = null;
+  private metadata: PersistedMetadata = { files: {}, directories: {} };
   private readonly dbName: string;
-  private readonly version = 2; // Incremented for schema changes
 
   constructor(dbName: string = 'tensnap-filesystem') {
     super();
     this.dbName = dbName;
   }
 
-  // 统一的错误处理装饰器
   private async safeExecute<T>(
     operation: () => Promise<T>,
     errorMessage: string,
     errorCode: FileSystemErrorType['code'] = 'STORAGE_ERROR',
-    path?: string
+    path?: string,
+    operationName?: string,
   ): Promise<T> {
     try {
       await this.ensureInitialized();
       return await operation();
     } catch (error) {
       if (error instanceof FileSystemError) throw error;
-      if (error instanceof Error && error.name === 'ConstraintError') {
-        throw new FileSystemError('Path already exists', 'PATH_EXISTS', path);
+      if (errorCode !== 'STORAGE_ERROR') {
+        throw new FileSystemError(errorMessage, errorCode, path, operationName);
       }
-      throw new FileSystemError(errorMessage, errorCode, path);
+      throw toFileSystemError(error, errorMessage, path, operationName);
     }
   }
 
-  private async ensureInitialized(): Promise<void> {
-    if (!this.db) {
-      throw new FileSystemError('IndexedDB not initialized', 'STORAGE_ERROR');
+  private ensureInitialized(): void {
+    if (!this.fs) {
+      throw new FileSystemError('IndexedDB filesystem not initialized', 'STORAGE_ERROR');
     }
+  }
+
+  private get fsPromises(): InstanceType<typeof LightningFS>['promises'] {
+    this.ensureInitialized();
+    return this.fs!.promises;
+  }
+
+  private async loadMetadata(): Promise<void> {
+    try {
+      const raw = await this.fsPromises.readFile(METADATA_FILE_PATH, 'utf8');
+      const parsed = JSON.parse(raw) as PersistedMetadata;
+      this.metadata = {
+        files: parsed.files ?? {},
+        directories: parsed.directories ?? {},
+      };
+    } catch {
+      this.metadata = { files: {}, directories: {} };
+      await this.persistMetadata();
+    }
+  }
+
+  private async persistMetadata(): Promise<void> {
+    const payload = JSON.stringify(this.metadata);
+    await this.fsPromises.writeFile(METADATA_FILE_PATH, payload, 'utf8');
+  }
+
+  private createFileMetadata(path: string, stat: { size: number; mtimeMs: number }): FileMetadata {
+    const parentPath = PathUtils.getParentPath(path);
+    const name = path.split('/').pop() || '';
+    const persisted = this.metadata.files[path];
+    const createdAt = persisted?.createdAt ? new Date(persisted.createdAt) : new Date(stat.mtimeMs);
+    const modifiedAt = new Date(stat.mtimeMs);
+
+    return {
+      name,
+      path,
+      parentPath,
+      size: stat.size,
+      mimeType: persisted?.mimeType ?? inferMimeType(path),
+      createdAt,
+      modifiedAt,
+      tags: persisted?.tags,
+      description: persisted?.description,
+    };
+  }
+
+  private createDirectoryMetadata(path: string, stat: { mtimeMs: number }): DirectoryMetadata {
+    const parentPath = PathUtils.getParentPath(path);
+    const name = path.split('/').pop() || '';
+    const persisted = this.metadata.directories[path];
+    const createdAt = persisted?.createdAt ? new Date(persisted.createdAt) : new Date(stat.mtimeMs);
+    const modifiedAt = new Date(stat.mtimeMs);
+
+    return {
+      name,
+      path,
+      parentPath,
+      createdAt,
+      modifiedAt,
+    };
+  }
+
+  private async collectEntries(path: string): Promise<DirectoryEntry[]> {
+    const normalizedPath = PathUtils.normalizePath(path);
+    const names = await this.fsPromises.readdir(normalizedPath);
+
+    const entries = await Promise.all(
+      names.map(async (name) => {
+        const childPath = normalizedPath === '/' ? `/${name}` : `${normalizedPath}/${name}`;
+
+        if (childPath === METADATA_FILE_PATH) {
+          return null;
+        }
+
+        const stat = await this.fsPromises.stat(childPath);
+        if (stat.isDirectory()) {
+          return {
+            type: 'directory' as const,
+            ...this.createDirectoryMetadata(childPath, stat),
+          };
+        }
+
+        return {
+          type: 'file' as const,
+          ...this.createFileMetadata(childPath, stat),
+        };
+      }),
+    );
+
+    return entries.filter((entry): entry is DirectoryEntry => entry !== null);
+  }
+
+  private async walk(path: string): Promise<DirectoryEntry[]> {
+    const directEntries = await this.collectEntries(path);
+    const nested = await Promise.all(
+      directEntries
+        .filter((entry) => entry.type === 'directory')
+        .map((entry) => this.walk(entry.path)),
+    );
+
+    return [...directEntries, ...nested.flat()];
   }
 
   async initialize(): Promise<void> {
-    if (this.db) return;
+    if (this.fs) return;
 
-    this.db = await openDB<FileSystemDB>(this.dbName, this.version, {
-      upgrade(db, oldVersion) {
-        // Files store
-        if (!db.objectStoreNames.contains('files')) {
-          const filesStore = db.createObjectStore('files', { keyPath: 'metadata.path' });
-          filesStore.createIndex('by-path', 'metadata.path', { unique: true });
-          filesStore.createIndex('by-parent', 'metadata.parentPath');
-          filesStore.createIndex('by-modified', 'metadata.modifiedAt');
-        }
-
-        // Directories store
-        if (!db.objectStoreNames.contains('directories')) {
-          const directoriesStore = db.createObjectStore('directories', { keyPath: 'path' });
-          directoriesStore.createIndex('by-path', 'path', { unique: true });
-          directoriesStore.createIndex('by-parent', 'parentPath');
-          directoriesStore.createIndex('by-modified', 'modifiedAt');
-        }
-
-        // Metadata store
-        if (!db.objectStoreNames.contains('metadata')) {
-          db.createObjectStore('metadata', { keyPath: 'key' });
-        }
-
-        // Remove old stores if they exist (cleanup from version 1)
-        if (oldVersion < 2) {
-          // Safely try to delete old stores
-          try {
-            if ((db as any).objectStoreNames.contains('fileHistory')) {
-              (db as any).deleteObjectStore('fileHistory');
-            }
-            if ((db as any).objectStoreNames.contains('directoryHistory')) {
-              (db as any).deleteObjectStore('directoryHistory');
-            }
-          } catch (error) {
-            // Ignore errors if stores don't exist
-          }
-        }
-      },
-    });
-
-    await this.ensureRootDirectory();
-  }
-
-  async cleanup(): Promise<void> {
-    this.db?.close();
-    this.db = null;
-  }
-
-  private async ensureRootDirectory(): Promise<void> {
-    const rootDir: DirectoryMetadata = {
-      name: '',
-      path: '/',
-      parentPath: '',
-      createdAt: new Date(),
-      modifiedAt: new Date()
-    };
+    this.fs = new LightningFS(this.dbName);
+    await this.loadMetadata();
 
     try {
-      await this.db!.put('directories', rootDir);
-    } catch (error) {
-      // Root directory might already exist
+      await this.fsPromises.mkdir('/');
+    } catch {
+      // Root already exists.
+    }
+
+    if (!this.metadata.directories['/']) {
+      this.metadata.directories['/'] = { createdAt: new Date().toISOString() };
+      await this.persistMetadata();
     }
   }
 
-  // File operations
+  async cleanup(): Promise<void> {
+    if (this.fs) {
+      await this.persistMetadata();
+      await this.fs.promises.flush();
+    }
+    this.fs = null;
+    this.metadata = { files: {}, directories: {} };
+  }
+
   async writeFile(
     path: string,
     content: ArrayBuffer | string,
@@ -169,72 +265,89 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
 
       const normalizedPath = PathUtils.normalizePath(path);
       const parentPath = PathUtils.getParentPath(normalizedPath);
-      const fileName = normalizedPath.split('/').pop() || '';
 
-      // Ensure parent directory exists
       if (parentPath !== '/' && !await this.directoryExists(parentPath)) {
         throw new FileSystemError(`Parent directory ${parentPath} does not exist`, 'NOT_FOUND', path);
       }
 
-      const now = new Date();
-      const checksum = PathUtils.calculateChecksum(content);
-      const size = typeof content === 'string' ? new Blob([content]).size : content.byteLength;
+      const existingCreatedAt = this.metadata.files[normalizedPath]?.createdAt;
+      const contentType: ContentType = typeof content === 'string' ? 'text' : 'binary';
+      const writable = typeof content === 'string' ? content : new Uint8Array(content);
 
-      // Check if file exists (for updating)
-      const existingFile = await this.readFile(normalizedPath);
+      await this.fsPromises.writeFile(normalizedPath, writable);
+      const stat = await this.fsPromises.stat(normalizedPath);
 
-      const fileMetadata: FileMetadata = {
-        name: fileName,
-        path: normalizedPath,
-        parentPath,
-        size,
-        mimeType: metadata?.mimeType || 'application/octet-stream',
-        createdAt: existingFile?.metadata.createdAt || now,
-        modifiedAt: now,
+      this.metadata.files[normalizedPath] = {
+        createdAt: existingCreatedAt ?? new Date().toISOString(),
+        mimeType: metadata?.mimeType || inferMimeType(normalizedPath),
         tags: metadata?.tags,
-        description: metadata?.description
+        description: metadata?.description,
+        contentType,
       };
+      await this.persistMetadata();
 
-      const file: FileContent = {
+      const fileMetadata = this.createFileMetadata(normalizedPath, stat);
+      const storedContent = contentType === 'text'
+        ? await this.fsPromises.readFile(normalizedPath, 'utf8')
+        : toArrayBuffer(await this.fsPromises.readFile(normalizedPath));
+
+      return {
         metadata: fileMetadata,
-        content,
-        checksum
+        content: storedContent,
+        checksum: PathUtils.calculateChecksum(storedContent),
       };
-
-      await this.db!.put('files', file);
-      return file;
-    }, 'Failed to write file', 'STORAGE_ERROR', path);
+    }, 'Failed to write file', 'STORAGE_ERROR', path, 'writeFile');
   }
 
   async readFile(path: string): Promise<FileContent | null> {
-    return this.safeExecute(
-      () => this.db!.get('files', PathUtils.normalizePath(path)).then(file => file || null),
-      'Failed to read file',
-      'STORAGE_ERROR',
-      path
-    );
+    return this.safeExecute(async () => {
+      const normalizedPath = PathUtils.normalizePath(path);
+
+      try {
+        const fileMeta = this.metadata.files[normalizedPath];
+        const contentType = fileMeta?.contentType ?? 'binary';
+
+        const content = contentType === 'text'
+          ? await this.fsPromises.readFile(normalizedPath, 'utf8')
+          : toArrayBuffer(await this.fsPromises.readFile(normalizedPath));
+        const stat = await this.fsPromises.stat(normalizedPath);
+        const metadata = this.createFileMetadata(normalizedPath, stat);
+
+        return {
+          metadata,
+          content,
+          checksum: PathUtils.calculateChecksum(content),
+        };
+      } catch (error) {
+        const fsError = error as Error & { code?: string };
+        if (fsError?.code === 'ENOENT') {
+          return null;
+        }
+        throw error;
+      }
+    }, 'Failed to read file', 'STORAGE_ERROR', path, 'readFile');
   }
 
   async deleteFile(path: string): Promise<void> {
     return this.safeExecute(async () => {
       const normalizedPath = PathUtils.normalizePath(path);
-      const file = await this.readFile(normalizedPath);
 
-      if (!file) {
-        throw new FileSystemError(`File not found at ${normalizedPath}`, 'NOT_FOUND', path);
-      }
-
-      await this.db!.delete('files', normalizedPath);
-    }, 'Failed to delete file', 'STORAGE_ERROR', path);
+      await this.fsPromises.unlink(normalizedPath);
+      delete this.metadata.files[normalizedPath];
+      await this.persistMetadata();
+    }, 'Failed to delete file', 'STORAGE_ERROR', path, 'deleteFile');
   }
 
   async fileExists(path: string): Promise<boolean> {
     const normalizedPath = PathUtils.normalizePath(path);
-    const file = await this.readFile(normalizedPath);
-    return file !== null;
+    try {
+      const stat = await this.fsPromises.stat(normalizedPath);
+      return stat.isFile();
+    } catch {
+      return false;
+    }
   }
 
-  // Directory operations
   async createDirectory(path: string, allowExist = false): Promise<DirectoryMetadata> {
     return this.safeExecute(async () => {
       if (!PathUtils.validatePath(path)) {
@@ -245,8 +358,8 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
 
       if (await this.directoryExists(normalizedPath)) {
         if (allowExist) {
-          const dir = await this.db!.get('directories', normalizedPath);
-          return dir!;
+          const stat = await this.fsPromises.stat(normalizedPath);
+          return this.createDirectoryMetadata(normalizedPath, stat);
         }
         throw new FileSystemError(`Directory already exists at ${normalizedPath}`, 'PATH_EXISTS', path);
       }
@@ -256,28 +369,22 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
         throw new FileSystemError(`Parent directory ${parentPath} does not exist`, 'NOT_FOUND', path);
       }
 
-      const now = new Date();
-      const dirName = normalizedPath.split('/').pop() || '';
+      await this.fsPromises.mkdir(normalizedPath);
+      const stat = await this.fsPromises.stat(normalizedPath);
 
-      const directory: DirectoryMetadata = {
-        name: dirName,
-        path: normalizedPath,
-        parentPath,
-        createdAt: now,
-        modifiedAt: now
+      this.metadata.directories[normalizedPath] = {
+        createdAt: this.metadata.directories[normalizedPath]?.createdAt ?? new Date().toISOString(),
       };
+      await this.persistMetadata();
 
-      await this.db!.put('directories', directory);
-      return directory;
-    }, 'Failed to create directory', 'STORAGE_ERROR', path);
+      return this.createDirectoryMetadata(normalizedPath, stat);
+    }, 'Failed to create directory', 'STORAGE_ERROR', path, 'createDirectory');
   }
 
   async deleteDirectory(path: string, recursive = false): Promise<void> {
     return this.safeExecute(async () => {
       const normalizedPath = PathUtils.normalizePath(path);
-      const directory = await this.db!.get('directories', normalizedPath);
-
-      if (!directory) {
+      if (!await this.directoryExists(normalizedPath)) {
         throw new FileSystemError(`Directory not found at ${normalizedPath}`, 'NOT_FOUND', path);
       }
 
@@ -286,65 +393,59 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       }
 
       if (recursive) {
-        const contents = await this.list(normalizedPath);
+        const contents = await this.walk(normalizedPath);
+        contents.sort((a, b) => b.path.length - a.path.length);
+
         for (const entry of contents) {
           if (entry.type === 'file') {
             await this.deleteFile(entry.path);
           } else {
-            await this.deleteDirectory(entry.path, true);
+            await this.fsPromises.rmdir(entry.path);
+            delete this.metadata.directories[entry.path];
           }
         }
+
+        await this.fsPromises.rmdir(normalizedPath);
       } else {
-        // Check if directory is empty
-        const contents = await this.list(normalizedPath);
+        const contents = await this.collectEntries(normalizedPath);
         if (contents.length > 0) {
           throw new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path);
         }
+        await this.fsPromises.rmdir(normalizedPath);
       }
 
-      await this.db!.delete('directories', normalizedPath);
-    }, 'Failed to delete directory', 'STORAGE_ERROR', path);
+      delete this.metadata.directories[normalizedPath];
+      await this.persistMetadata();
+    }, 'Failed to delete directory', 'STORAGE_ERROR', path, 'deleteDirectory');
   }
 
   async list(path: string): Promise<DirectoryEntry[]> {
-    return this.safeExecute(async () => {
-      const normalizedPath = PathUtils.normalizePath(path);
-
-      // Get files and directories in parallel
-      const [files, directories] = await Promise.all([
-        this.db!.getAllFromIndex('files', 'by-parent', normalizedPath),
-        this.db!.getAllFromIndex('directories', 'by-parent', normalizedPath)
-      ]);
-
-      const entries: DirectoryEntry[] = [
-        ...directories.filter(dir => dir.path !== '/').map(dir => ({ type: 'directory' as const, ...dir })),
-        ...files.map(file => ({ type: 'file' as const, ...file.metadata })),
-      ];
-
-      return entries;
-    }, 'Failed to list directory contents');
+    return this.safeExecute(
+      () => this.collectEntries(path),
+      'Failed to list directory contents',
+      'STORAGE_ERROR',
+      path,
+      'list',
+    );
   }
 
   async directoryExists(path: string): Promise<boolean> {
     const normalizedPath = PathUtils.normalizePath(path);
-    const directory = await this.db!.get('directories', normalizedPath);
-    return directory !== null;
+    try {
+      const stat = await this.fsPromises.stat(normalizedPath);
+      return stat.isDirectory();
+    } catch {
+      return false;
+    }
   }
 
-  // File system operations
   async getStats(): Promise<FileSystemStats> {
     return this.safeExecute(async () => {
-      const files = await this.db!.getAll('files');
-      const directories = await this.db!.getAll('directories');
+      const allEntries = await this.walk('/');
+      const files = allEntries.filter((entry) => entry.type === 'file');
+      const directories = allEntries.filter((entry) => entry.type === 'directory');
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
-      const totalSize = files.reduce((sum, file) => {
-        const size = typeof file.content === 'string'
-          ? new Blob([file.content]).size
-          : file.content.byteLength;
-        return sum + size;
-      }, 0);
-
-      // Get storage quota if available
       let storageQuota: number | undefined;
       let storageUsed: number | undefined;
 
@@ -353,19 +454,18 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
           const estimate = await navigator.storage.estimate();
           storageQuota = estimate.quota;
           storageUsed = estimate.usage;
-        } catch (error) {
-          // Ignore quota estimation errors
+        } catch {
+          // Ignore quota estimation errors.
         }
       }
 
       return {
         totalFiles: files.length,
-        totalDirectories: directories.length - 1, // Exclude root
+        totalDirectories: directories.length,
         totalSize,
         storageQuota,
         storageUsed
       };
-    }, 'Failed to get file system stats');
+    }, 'Failed to get file system stats', 'STORAGE_ERROR', undefined, 'getStats');
   }
-
 }

@@ -17,7 +17,7 @@ export function formatFileSize(bytes: number): string {
  * 格式化日期
  */
 export function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -85,12 +85,12 @@ export function parseBreadcrumbs(path: string): Array<{ name: string; path: stri
   const normalized = normalizePath(path);
   
   if (normalized === '/') {
-    return [{ name: '根目录', path: '/' }];
+    return [{ name: '/', path: '/' }];
   }
   
   const parts = normalized.split('/').filter(Boolean);
   const breadcrumbs: Array<{ name: string; path: string }> = [
-    { name: '根目录', path: '/' }
+    { name: '/', path: '/' }
   ];
   
   let currentPath = '';
@@ -110,19 +110,19 @@ export function parseBreadcrumbs(path: string): Array<{ name: string; path: stri
  */
 export function validateName(name: string): { valid: boolean; error?: string } {
   if (!name || name.trim() === '') {
-    return { valid: false, error: '名称不能为空' };
+    return { valid: false, error: 'Name cannot be empty' };
   }
   
   // 检查非法字符
   const invalidChars = /[<>:"|?*\/\\]/;
   if (invalidChars.test(name)) {
-    return { valid: false, error: '名称包含非法字符' };
+    return { valid: false, error: 'Name contains invalid characters' };
   }
   
   // 检查保留名称
   const reserved = ['.', '..'];
   if (reserved.includes(name.trim())) {
-    return { valid: false, error: '名称不能为保留字符' };
+    return { valid: false, error: 'Name cannot be a reserved keyword' };
   }
   
   return { valid: true };

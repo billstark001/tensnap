@@ -23,7 +23,7 @@
     "i18n:compile": "lingui compile"
   },
   "dependencies": {
-    "@tensnap/core": "workspace:*",
+    "@isomorphic-git/lightning-fs": "^4.6.2",
     "@lingui/cli": "^5.9.5",
     "@lingui/core": "^5.9.5",
     "@lingui/macro": "^5.9.5",
@@ -33,13 +33,13 @@
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
+    "@tensnap/core": "workspace:*",
+    "@tensnap/web": "workspace:*",
     "clsx": "^2.1.1",
-    "idb": "^8.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "@tensnap/web": "workspace:*"
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",

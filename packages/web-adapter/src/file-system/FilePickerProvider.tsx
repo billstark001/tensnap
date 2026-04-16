@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback, useState, useRef, ReactNode } from 'react';
 import { Dialog } from '@tensnap/web/components/ui';
+import { t } from '@lingui/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
 import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web/types/file';
 import * as styles from './FileSystemBrowser.css';
@@ -139,8 +140,8 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
   };
 
   const dialogTitle = pickerState.options.title || 
-    (pickerState.options.mode === 'save' ? '保存文件' : 
-     pickerState.options.multiSelect ? '选择文件' : '打开文件');
+    (pickerState.options.mode === 'save' ? t`Save File` : 
+     pickerState.options.multiSelect ? t`Select Files` : t`Open File`);
 
   const { mode, multiSelect } = pickerState.options;
   const showSelectionBar = !multiSelect; // 单选模式下显示选择栏
@@ -158,7 +159,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
           {dialogTitle}
         </Dialog.Title>
         <Dialog.Description>
-          {pickerState.options.multiSelect && `已选择 ${selectedItems.length} 个文件`}
+          {pickerState.options.multiSelect && t`Selected ${selectedItems.length} files`}
         </Dialog.Description>
 
         <Dialog.Body>
@@ -175,14 +176,14 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
           {showSelectionBar && (
             <div className={styles.selectionBar}>
               <label className={styles.selectionBarLabel}>
-                {mode === 'save' ? '文件名:' : '选择的文件:'}
+                {mode === 'save' ? t`File name:` : t`Selected file:`}
               </label>
               <input
                 type="text"
                 className={styles.selectionBarInput}
                 value={inputFileName}
                 onChange={(e) => setInputFileName(e.target.value)}
-                placeholder={mode === 'save' ? '输入文件名' : '未选择文件'}
+                placeholder={mode === 'save' ? t`Enter file name` : t`No file selected`}
                 readOnly={mode !== 'save'}
                 disabled={mode !== 'save'}
               />
@@ -191,7 +192,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
           <div className={styles.selectionBarButtons}>
             <Dialog.Close asChild>
               <Dialog.Button onClick={handleCancel}>
-                取消
+                {t`Cancel`}
               </Dialog.Button>
             </Dialog.Close>
             <Dialog.Button 
@@ -199,7 +200,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
               onClick={handleConfirm}
               disabled={!canConfirm}
             >
-              {mode === 'save' ? '保存' : multiSelect ? `确认选择 (${selectedItems.length})` : '打开'}
+              {mode === 'save' ? t`Save` : multiSelect ? t`Confirm Selection (${selectedItems.length})` : t`Open`}
             </Dialog.Button>
           </div>
         </Dialog.Footer>

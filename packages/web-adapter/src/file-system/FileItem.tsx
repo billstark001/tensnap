@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { t } from '@lingui/macro';
 import { DirectoryEntry } from '@tensnap/web/types/file';
 import { formatFileSize, formatDate } from './utils';
 import * as styles from './FileSystemBrowser.css';
@@ -38,7 +39,7 @@ export const FileItem: React.FC<FileItemProps> = ({
   // 格式化详情信息
   const detailsText = entry.type === 'file' 
     ? `${formatFileSize(entry.size)} • ${formatDate(entry.modifiedAt)}`
-    : `目录 • ${formatDate(entry.modifiedAt)}`;
+    : `${t`Directory`} • ${formatDate(entry.modifiedAt)}`;
 
   return (
     <div
@@ -61,7 +62,7 @@ export const FileItem: React.FC<FileItemProps> = ({
             <button 
               className={styles.itemActionButton}
               onClick={(e) => e.stopPropagation()}
-              aria-label="操作菜单"
+              aria-label={t`Action menu`}
             >
               ⋮
             </button>
@@ -72,7 +73,7 @@ export const FileItem: React.FC<FileItemProps> = ({
                 className={styles.dropdownItemDanger}
                 onClick={handleDeleteClick}
               >
-                删除
+                {t`Delete`}
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>

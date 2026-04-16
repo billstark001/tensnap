@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { t } from '@lingui/macro';
 import { parseBreadcrumbs } from './utils';
 import * as styles from './FileSystemBrowser.css';
 
@@ -22,7 +23,7 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
             className={index === breadcrumbs.length - 1 ? styles.breadcrumbCurrent : styles.breadcrumbItem}
             onClick={() => onNavigate(crumb.path)}
           >
-            {crumb.name}
+            {crumb.path === '/' ? t`Root` : crumb.name}
           </span>
         </React.Fragment>
       ))}

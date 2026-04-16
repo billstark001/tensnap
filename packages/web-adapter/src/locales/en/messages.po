@@ -6,3 +6,218 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/file-system/FileItem.tsx:65
+msgid "Action menu"
+msgstr "Action menu"
+
+#. placeholder {0}: entry.name
+#: src/file-system/FileSystemBrowser.tsx:213
+msgid "Are you sure you want to delete \"{0}\"?"
+msgstr "Are you sure you want to delete \"{0}\"?"
+
+#. placeholder {0}: entry.name
+#: src/file-system/FileSystemBrowser.tsx:212
+msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
+msgstr "Are you sure you want to delete \"{0}\"? This will delete all nested content."
+
+#: src/file-system/CreateDialog.tsx:67
+#: src/file-system/ExportDialog.tsx:163
+#: src/file-system/FilePickerProvider.tsx:195
+msgid "Cancel"
+msgstr "Cancel"
+
+#. placeholder {0}: selectedItems.length
+#: src/file-system/FilePickerProvider.tsx:203
+msgid "Confirm Selection ({0})"
+msgstr "Confirm Selection ({0})"
+
+#: src/file-system/CreateDialog.tsx:74
+msgid "Create"
+msgstr "Create"
+
+#: src/file-system/CreateDialog.tsx:41
+msgid "Create New Item"
+msgstr "Create New Item"
+
+#: src/file-system/FileItem.tsx:76
+msgid "Delete"
+msgstr "Delete"
+
+#: src/file-system/CreateDialog.tsx:51
+#: src/file-system/FileItem.tsx:42
+msgid "Directory"
+msgstr "Directory"
+
+#: src/file-system/FileSystemBrowser.tsx:284
+msgid "Directory is empty"
+msgstr "Directory is empty"
+
+#: src/file-system/FileSystemBrowser.tsx:287
+msgid "Drag files here"
+msgstr "Drag files here"
+
+#: src/file-system/CreateDialog.tsx:60
+msgid "Enter directory name"
+msgstr "Enter directory name"
+
+#: src/file-system/CreateDialog.tsx:60
+#: src/file-system/FilePickerProvider.tsx:186
+msgid "Enter file name"
+msgstr "Enter file name"
+
+#: src/file-system/ActionButtons.tsx:63
+msgid "Export"
+msgstr "Export"
+
+#: src/file-system/ExportDialog.tsx:67
+msgid "Export as JSON file with all file contents and metadata"
+msgstr "Export as JSON file with all file contents and metadata"
+
+#: src/file-system/ExportDialog.tsx:74
+msgid "Export as ZIP compressed file, preserving directory structure"
+msgstr "Export as ZIP compressed file, preserving directory structure"
+
+#: src/file-system/ExportDialog.tsx:29
+msgid "Export Options"
+msgstr "Export Options"
+
+#: src/file-system/ExportDialog.tsx:101
+msgid "Export path"
+msgstr "Export path"
+
+#: src/file-system/ExportDialog.tsx:155
+msgid "Exporting, please wait..."
+msgstr "Exporting, please wait..."
+
+#: src/file-system/FileSystemBrowser.tsx:201
+msgid "Failed to create item"
+msgstr "Failed to create item"
+
+#: src/file-system/FileSystemBrowser.tsx:230
+msgid "Failed to delete item"
+msgstr "Failed to delete item"
+
+#: src/file-system/ExportDialog.tsx:91
+msgid "Failed to execute export option"
+msgstr "Failed to execute export option"
+
+#: src/file-system/ExportDialog.tsx:57
+msgid "Failed to export"
+msgstr "Failed to export"
+
+#: src/file-system/FileSystemBrowser.tsx:274
+msgid "Failed to load"
+msgstr "Failed to load"
+
+#: src/file-system/FileSystemBrowser.tsx:59
+msgid "Failed to load directory"
+msgstr "Failed to load directory"
+
+#: src/file-system/FileSystemBrowser.tsx:144
+msgid "Failed to upload files"
+msgstr "Failed to upload files"
+
+#: src/file-system/CreateDialog.tsx:50
+msgid "File"
+msgstr "File"
+
+#: src/file-system/FilePickerProvider.tsx:179
+msgid "File name:"
+msgstr "File name:"
+
+#: src/file-system/FileSystemBrowser.tsx:179
+#: src/file-system/FileSystemBrowser.tsx:180
+msgid "Invalid name"
+msgstr "Invalid name"
+
+#: src/file-system/ExportDialog.tsx:66
+msgid "JSON Format"
+msgstr "JSON Format"
+
+#: src/file-system/FileSystemBrowser.tsx:269
+msgid "Loading..."
+msgstr "Loading..."
+
+#: src/file-system/ActionButtons.tsx:55
+msgid "More Actions"
+msgstr "More Actions"
+
+#: src/file-system/CreateDialog.tsx:55
+msgid "Name"
+msgstr "Name"
+
+#: src/file-system/ActionButtons.tsx:42
+msgid "New"
+msgstr "New"
+
+#: src/file-system/FilePickerProvider.tsx:186
+msgid "No file selected"
+msgstr "No file selected"
+
+#: src/file-system/FilePickerProvider.tsx:203
+msgid "Open"
+msgstr "Open"
+
+#: src/file-system/FilePickerProvider.tsx:144
+msgid "Open File"
+msgstr "Open File"
+
+#: src/file-system/FileSystemBrowser.tsx:288
+msgid "Or click to browse"
+msgstr "Or click to browse"
+
+#: src/file-system/ActionButtons.tsx:36
+msgid "Refresh"
+msgstr "Refresh"
+
+#: src/file-system/FileSystemBrowser.tsx:276
+msgid "Retry"
+msgstr "Retry"
+
+#: src/file-system/Breadcrumbs.tsx:26
+msgid "Root"
+msgstr "Root"
+
+#: src/file-system/FilePickerProvider.tsx:203
+msgid "Save"
+msgstr "Save"
+
+#: src/file-system/FilePickerProvider.tsx:143
+msgid "Save File"
+msgstr "Save File"
+
+#: src/file-system/ExportDialog.tsx:119
+msgid "Select export format"
+msgstr "Select export format"
+
+#: src/file-system/FilePickerProvider.tsx:144
+msgid "Select Files"
+msgstr "Select Files"
+
+#. placeholder {0}: selectedItems.length
+#: src/file-system/FilePickerProvider.tsx:162
+msgid "Selected {0} files"
+msgstr "Selected {0} files"
+
+#: src/file-system/FilePickerProvider.tsx:179
+msgid "Selected file:"
+msgstr "Selected file:"
+
+#: src/file-system/CreateDialog.tsx:45
+msgid "Type"
+msgstr "Type"
+
+#: src/file-system/ActionButtons.tsx:50
+msgid "Upload Files"
+msgstr "Upload Files"
+
+#: src/file-system/ExportDialog.tsx:73
+msgid "ZIP Archive"
+msgstr "ZIP Archive"

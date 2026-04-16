@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Dialog, Form } from '@tensnap/web/components/ui';
+import { t } from '@lingui/macro';
 import { DialogOpenProps, useCallbackRef } from '@tensnap/web/utils';
 import { FileSystemAdapter } from '@tensnap/web/types/file';
 import { exportDirectory } from './export-utils';
@@ -25,7 +26,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   onOpenChange: _onOpenChange,
   fileSystem,
   currentPath = '/',
-  title = "导出选项",
+  title = t`Export Options`,
   customOptions = [],
   showDefaultOptions = true
 }) => {
@@ -53,7 +54,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       onOpenChange(false);
     } catch (err) {
       console.error('Failed to export directory:', err);
-      setError((err as Error).message || '导出失败');
+      setError((err as Error).message || t`Failed to export`);
     } finally {
       setExporting(false);
     }
@@ -62,15 +63,15 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const defaultOptions: ExportOption[] = [
     {
       key: 'json',
-      title: 'JSON Format',
-      description: 'Export as JSON file with all file contents and metadata',
+      title: t`JSON Format`,
+      description: t`Export as JSON file with all file contents and metadata`,
       format: 'json',
       handler: () => handleExportDirectory('json')
     },
     {
       key: 'zip',
-      title: 'ZIP Archive',
-      description: 'Export as ZIP compressed file, preserving directory structure',
+      title: t`ZIP Archive`,
+      description: t`Export as ZIP compressed file, preserving directory structure`,
       format: 'zip',
       handler: () => handleExportDirectory('zip')
     }
@@ -87,7 +88,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       await option.handler();
     } catch (err) {
       console.error(`Failed to execute export option ${option.key}:`, err);
-      setError((err as Error).message || '执行失败');
+      setError((err as Error).message || t`Failed to execute export option`);
     }
   }, [exporting]);
 
@@ -97,7 +98,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         {title}
       </Dialog.Title>
       <Dialog.Description>
-        Export path: {currentPath}
+        {t`Export path`}: {currentPath}
       </Dialog.Description>
 
       <div>
@@ -115,7 +116,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
         <Form.FieldSet>
           <Form.Label>
-            Select export format
+            {t`Select export format`}
           </Form.Label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {allOptions.map((option) => (
@@ -151,7 +152,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             textAlign: 'center', 
             color: '#666666' 
           }}>
-            Exporting, please wait...
+            {t`Exporting, please wait...`}
           </div>
         )}
       </div>
@@ -159,7 +160,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       <Dialog.Footer>
         <Dialog.Close asChild>
           <Dialog.Button disabled={exporting}>
-            Cancel
+            {t`Cancel`}
           </Dialog.Button>
         </Dialog.Close>
       </Dialog.Footer>

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { t } from '@lingui/macro';
 import { DirectoryEntry, FileSystemAdapter } from '@tensnap/web/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
@@ -55,7 +56,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       setDirectoryContentsRaw(entries);
     } catch (err) {
       console.error('Failed to load directory:', err);
-      setError((err as Error).message || '加载目录失败');
+      setError((err as Error).message || t`Failed to load directory`);
       setDirectoryContentsRaw([]);
     } finally {
       setLoading(false);
@@ -140,7 +141,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       await refreshCurrentDirectory();
     } catch (err) {
       console.error('Failed to upload files:', err);
-      setError((err as Error).message || '上传文件失败');
+      setError((err as Error).message || t`Failed to upload files`);
     } finally {
       setLoading(false);
     }
@@ -175,8 +176,8 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     // 验证名称
     const validation = validateName(itemName);
     if (!validation.valid) {
-      setError(validation.error || '无效的名称');
-      throw new Error(validation.error || '无效的名称');
+      setError(validation.error || t`Invalid name`);
+      throw new Error(validation.error || t`Invalid name`);
     }
 
     setLoading(true);
@@ -197,7 +198,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       await refreshCurrentDirectory();
     } catch (err) {
       console.error('Failed to create item:', err);
-      const errorMsg = (err as Error).message || '创建失败';
+      const errorMsg = (err as Error).message || t`Failed to create item`;
       setError(errorMsg);
       throw err;
     } finally {
@@ -207,7 +208,11 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
   // 删除操作
   const handleDeleteItem = useCallback(async (entry: DirectoryEntry) => {
-    if (!confirm(`确定要删除 "${entry.name}" 吗？${entry.type === 'directory' ? '这将删除其中的所有内容。' : ''}`)) {
+    const message = entry.type === 'directory'
+      ? t`Are you sure you want to delete "${entry.name}"? This will delete all nested content.`
+      : t`Are you sure you want to delete "${entry.name}"?`;
+
+    if (!confirm(message)) {
       return;
     }
 
@@ -222,7 +227,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       await refreshCurrentDirectory();
     } catch (err) {
       console.error('Failed to delete item:', err);
-      setError((err as Error).message || '删除失败');
+      setError((err as Error).message || t`Failed to delete item`);
     } finally {
       setLoading(false);
     }
@@ -261,14 +266,14 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       {/* 内容区域 */}
       <div className={styles.browserContent}>
         {loading && (
-          <div className={styles.loadingState}>Loading...</div>
+          <div className={styles.loadingState}>{t`Loading...`}</div>
         )}
 
         {error && (
           <div className={styles.errorState}>
-            <div>Failed to load: {error}</div>
+            <div>{t`Failed to load`}: {error}</div>
             <button className={styles.actionButton} onClick={refreshCurrentDirectory}>
-              Retry
+              {t`Retry`}
             </button>
           </div>
         )}
@@ -276,11 +281,11 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         {!loading && !error && directoryContents.length === 0 && (
           <EmptyState 
             icon="📂"
-            title="Directory is empty"
+            title={t`Directory is empty`}
             upload={allowUpload ? {
               isDragOver: isDragOver,
-              uploadText: 'Drag files here',
-              uploadHint: 'Or click to browse',
+              uploadText: t`Drag files here`,
+              uploadHint: t`Or click to browse`,
             } : undefined}
           />
         )}

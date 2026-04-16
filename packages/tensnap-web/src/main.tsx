@@ -4,7 +4,7 @@ import { Providers } from './Providers';
 import { App } from './App';
 
 import './styles/global.css';
-import { InBrowserFilePicker, getBuiltinModelEntries } from '@tensnap/web-adapter';
+import { InBrowserFilePicker, getBuiltinModelEntries, registerWebAdapterLocaleCatalog } from '@tensnap/web-adapter';
 import { initI18n, detectLocale, isValidLocale, i18n } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
 import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
@@ -38,6 +38,7 @@ const savedLocale = localStorage.getItem('locale');
 const initialLocale = (savedLocale && isValidLocale(savedLocale)) ? savedLocale : detectLocale();
 
 (async () => {
+  registerWebAdapterLocaleCatalog();
   await initI18n(initialLocale);
 
   // Register available file system adapters
