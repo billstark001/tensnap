@@ -21,7 +21,7 @@ export function MainViewRenderer() {
 
   const { createView } = useCreateView({ onViewUpdate: onUpdate });
 
-  const { handleButtonAction } = useButtonControls();
+  const { handleButtonAction, isRunning } = useButtonControls();
 
   if (!mainView) {
     return <EmptyState
@@ -41,6 +41,7 @@ export function MainViewRenderer() {
       AnchoredViewRenderer={AnchoredViewRenderer}
       ViewContextMenuRenderer={ViewContextMenuRenderer}
       onButtonAction={handleButtonAction}
+      isRunning={isRunning}
     />
   );
 }

@@ -1,6 +1,6 @@
 import { useTransportStore } from "@/store/transport";
 import { useScenarioStore } from '@/store/scenario/store';
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActionEndPayload } from '@tensnap/core';
 import { SimulationLoopController } from '@/store/simulation-loop';
 
@@ -13,6 +13,7 @@ export function useButtonControls() {
   const scenario = useScenarioStore((state) => state.scenario);
 
   const loopControllerRef = useRef<SimulationLoopController | null>(null);
+  const [runningActions, setRunningActions] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     if (!sendMessage || !createActionStartMessage || !scenario) {
@@ -25,6 +26,13 @@ export function useButtonControls() {
     const handleActionEnd = (event: Event) => {
       const detail = (event as CustomEvent<ActionEndPayload>).detail;
       loopControllerRef.current?.handleActionEnd(detail);
+      if (detail.continue === false) {
+        setRunningActions((prev) => {
+          const next = new Set(prev);
+          next.delete(detail.id);
+          return next;
+        });
+      }
     };
 
     scenario.addEventListener('action:end', handleActionEnd);
@@ -33,6 +41,7 @@ export function useButtonControls() {
       scenario.removeEventListener('action:end', handleActionEnd);
       loopControllerRef.current?.dispose();
       loopControllerRef.current = null;
+      setRunningActions(new Set());
     };
   }, [scenario, sendMessage, createActionStartMessage]);
 
@@ -49,14 +58,21 @@ export function useButtonControls() {
       if (isContinuous && loopController) {
         if (loopController.isRunning(action)) {
           loopController.stop(action);
+          setRunningActions((prev) => {
+            const next = new Set(prev);
+            next.delete(action);
+            return next;
+          });
           return;
         }
         loopController.start(action);
+        setRunningActions((prev) => new Set([...prev, action]));
         return;
       }
 
       if (loopController) {
         loopController.stop();
+        setRunningActions(new Set());
       }
 
       sendMessage(createActionStartMessage(action, false));
@@ -64,8 +80,14 @@ export function useButtonControls() {
     [actions, createActionStartMessage, sendMessage]
   );
 
+  const isRunning = useCallback(
+    (id: string) => runningActions.has(id),
+    [runningActions]
+  );
+
   return {
-    handleButtonAction
+    handleButtonAction,
+    isRunning,
   };
 
 }

@@ -87,6 +87,7 @@ export function createButtonView(
     data: {
       id: action.id,
       text: action.label,
+      continuous: action.continuous,
     },
   };
 }
