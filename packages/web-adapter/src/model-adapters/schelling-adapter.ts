@@ -103,6 +103,7 @@ export class SchellingAdapter extends BaseModelAdapter {
     await this.sendAgentCreate({ env_id: 'main', layer_id: AGENT_LAYER, agents: allAgents });
 
     const stats = this.model.getStatistics();
+    await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: [
       { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
       { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
@@ -121,9 +122,9 @@ export class SchellingAdapter extends BaseModelAdapter {
   }
 
   private async stepOnce(): Promise<boolean> {
-    const before = this.model.getStatistics().timeStep;
     this.model.step();
-    await this.sendMetadataUpdate({ time: before });
+    const stats = this.model.getStatistics();
+    await this.sendMetadataUpdate({ time: stats.timeStep });
 
     const updates = this.model.getAgentUpdates(false);
     const create = updates.filter((x) => x.operation === 'create').map((x) => x.data);
@@ -135,7 +136,6 @@ export class SchellingAdapter extends BaseModelAdapter {
       await this.sendAgentUpdate({ env_id: 'main', layer_id: AGENT_LAYER, agents: change });
     }
 
-    const stats = this.model.getStatistics();
     await this.sendChartUpdate({ updates: [
       { id: 'satisfaction_rate', value: stats.satisfactionRate, time: stats.timeStep },
       { id: 'segregation_index', value: stats.segregationIndex, time: stats.timeStep },

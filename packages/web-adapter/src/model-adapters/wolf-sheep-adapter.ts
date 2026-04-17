@@ -141,6 +141,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     const animals = this.buildAnimalAgents();
     this.previousAnimalIds = new Set<string | number>(animals.map((a) => a.id));
     await this.sendAgentCreate({ env_id: 'main', layer_id: ANIMAL_LAYER, agents: animals });
+    await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: this.getChartUpdates(0) });
   }
 
@@ -208,10 +209,9 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   }
 
   private async stepOnce(): Promise<boolean> {
+    const canContinue = this.model.go();
     const time = this.model.getTicks();
     await this.sendMetadataUpdate({ time });
-
-    const canContinue = this.model.go();
     const terrainUpdates = this.buildTerrainAgents(false);
     if (terrainUpdates.length > 0) {
       await this.sendAgentUpdate({

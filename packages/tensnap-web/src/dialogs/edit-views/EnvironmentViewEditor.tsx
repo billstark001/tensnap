@@ -28,7 +28,12 @@ const parseIntInput = (value: string, fallback: number = 0, min?: number): numbe
 };
 
 export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ view, objectData: env, onChange, onObjectChange }) => {
-  const gridLayer = env ? [...env.layers.values()].find((layer) => layer.layerType === 'grid') : null;
+  const gridLayer = env
+    ? [...env.layers.values()].find((layer) => (
+      layer.layerType === 'grid'
+      || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
+    ))
+    : null;
   const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, any>;
 
   return (
@@ -67,15 +72,6 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
             </Form.Field>
           </Form.FieldGroup>
 
-          <Form.Field label={<Trans>Environment Label</Trans>} htmlFor="env-label">
-            <Form.Input
-              id="env-label"
-              type="text"
-              value={view.data.title || ''}
-              onChange={(e) => onChange('data.title', e.target.value)}
-            />
-          </Form.Field>
-
           {env.type === '2d' && gridLayer && (
             <Form.FieldGroup columns={2}>
               <Form.Field label={<Trans>Grid Width</Trans>} htmlFor="grid-width">
@@ -86,7 +82,7 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                   value={gridMetadata.width ?? 0}
                   onChange={(e) => {
                     const currentWidth = gridMetadata.width ?? 1;
-                    onObjectChange('grid.width', parseIntInput(e.target.value, currentWidth, 1));
+                    onObjectChange('width', parseIntInput(e.target.value, currentWidth, 1));
                   }}
                 />
               </Form.Field>
@@ -99,7 +95,7 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                   value={gridMetadata.height ?? 0}
                   onChange={(e) => {
                     const currentHeight = gridMetadata.height ?? 1;
-                    onObjectChange('grid.height', parseIntInput(e.target.value, currentHeight, 1));
+                    onObjectChange('height', parseIntInput(e.target.value, currentHeight, 1));
                   }}
                 />
               </Form.Field>

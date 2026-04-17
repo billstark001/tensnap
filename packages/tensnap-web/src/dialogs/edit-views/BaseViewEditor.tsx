@@ -66,8 +66,9 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
           <Form.Input
             id="view-width"
             type="number"
+            min={1}
             value={view.width}
-            onChange={(e) => onChange('width', parseNumberInput(e.target.value, view.width))}
+            onChange={(e) => onChange('width', Math.max(1, parseNumberInput(e.target.value, view.width)))}
           />
         </Form.Field>
 
@@ -75,8 +76,9 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
           <Form.Input
             id="view-height"
             type="number"
+            min={1}
             value={view.height}
-            onChange={(e) => onChange('height', parseNumberInput(e.target.value, view.height))}
+            onChange={(e) => onChange('height', Math.max(1, parseNumberInput(e.target.value, view.height)))}
           />
         </Form.Field>
       </Form.FieldGroup>

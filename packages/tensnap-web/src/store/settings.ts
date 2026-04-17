@@ -4,6 +4,7 @@ import type { Locale } from '@/i18n';
 
 type Theme = 'light' | 'dark';
 type ValidationLevel = 'off' | 'warning' | 'error';
+export type RenderTriggerMode = 'auto' | 'setTimeout' | 'requestAnimationFrame';
 
 interface SettingsStore {
 
@@ -19,6 +20,10 @@ interface SettingsStore {
   theme: Theme;
   saveFormat: 'json' | 'msgpack';
   locale: Locale;
+  renderTriggerMode: RenderTriggerMode;
+  maxRenderFps: number;
+  runtimeTps: number | null;
+  runtimeMspt: number | null;
   
   // Validation settings
   clientMessageValidation: ValidationLevel;
@@ -30,6 +35,9 @@ interface SettingsStore {
   setLocale: (locale: Locale) => void;
   setClientMessageValidation: (level: ValidationLevel) => void;
   setServerMessageValidation: (level: ValidationLevel) => void;
+  setRenderTriggerMode: (mode: RenderTriggerMode) => void;
+  setMaxRenderFps: (fps: number) => void;
+  setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -69,6 +77,26 @@ export const useSettingsStore = create<SettingsStore>()(
       return (saved as Locale) || 'en';
     })(),
 
+    renderTriggerMode: (() => {
+      const saved = localStorage.getItem('renderTriggerMode');
+      if (saved === 'setTimeout' || saved === 'requestAnimationFrame' || saved === 'auto') {
+        return saved;
+      }
+      return 'auto';
+    })(),
+
+    maxRenderFps: (() => {
+      const saved = localStorage.getItem('maxRenderFps');
+      const parsed = saved ? Number(saved) : NaN;
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        return Math.floor(parsed);
+      }
+      return 60;
+    })(),
+
+    runtimeTps: null,
+    runtimeMspt: null,
+
     // Initialize validation settings from localStorage
     clientMessageValidation: (() => {
       const saved = localStorage.getItem('clientMessageValidation');
@@ -104,6 +132,19 @@ export const useSettingsStore = create<SettingsStore>()(
 
     setServerMessageValidation: (level: ValidationLevel) => {
       set({ serverMessageValidation: level });
+    },
+
+    setRenderTriggerMode: (mode: RenderTriggerMode) => {
+      set({ renderTriggerMode: mode });
+    },
+
+    setMaxRenderFps: (fps: number) => {
+      const next = Number.isFinite(fps) ? Math.max(0, Math.floor(fps)) : 60;
+      set({ maxRenderFps: next });
+    },
+
+    setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => {
+      set({ runtimeTps: metrics.tps, runtimeMspt: metrics.mspt });
     },
   }))
 );
@@ -141,5 +182,19 @@ useSettingsStore.subscribe(
   (state) => state.serverMessageValidation,
   (level) => {
     localStorage.setItem('serverMessageValidation', level);
+  }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.renderTriggerMode,
+  (mode) => {
+    localStorage.setItem('renderTriggerMode', mode);
+  }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.maxRenderFps,
+  (fps) => {
+    localStorage.setItem('maxRenderFps', String(fps));
   }
 );

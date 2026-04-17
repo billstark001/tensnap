@@ -31,11 +31,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     locale,
     clientMessageValidation,
     serverMessageValidation,
+    renderTriggerMode,
+    maxRenderFps,
     setSaveFormat,
     toggleTheme,
     setLocale,
     setClientMessageValidation,
     setServerMessageValidation,
+    setRenderTriggerMode,
+    setMaxRenderFps,
   } = useSettingsStore();
 
   const { activeProject, activeIndex, changeUrl } = useProjectStore();
@@ -183,6 +187,41 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <Trans>Error</Trans>
                 </Select.Item>
               </Select.Root>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Render Trigger</Trans></label>
+            <div className={styles.settingControl}>
+              <Select.Root value={renderTriggerMode} onValueChange={(value) => setRenderTriggerMode(value as 'auto' | 'setTimeout' | 'requestAnimationFrame')}>
+                <Select.Item value="auto">
+                  <Trans>Auto</Trans>
+                </Select.Item>
+                <Select.Item value="setTimeout">
+                  setTimeout
+                </Select.Item>
+                <Select.Item value="requestAnimationFrame">
+                  requestAnimationFrame
+                </Select.Item>
+              </Select.Root>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Max TPS</Trans></label>
+            <div className={styles.settingControl}>
+              <div>
+                <Form.Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={maxRenderFps}
+                  onChange={(e) => setMaxRenderFps(Number(e.target.value))}
+                />
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                  <Trans>0 means unlimited</Trans>
+                </div>
+              </div>
             </div>
           </div>
         </div>

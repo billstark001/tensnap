@@ -353,9 +353,10 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     maxPoints?: number,
   ): void {
     const key = String(agentId);
-    const existing = this._data.trajectories.get(key) ?? [];
+    const existing = this._data.trajectories.get(key);
     const limit = maxPoints !== undefined ? maxPoints : this._maxTrajectoryPoints;
-    const pts = [...existing, point];
+    const pts = existing ? existing : [];
+    pts.push(point);
     if (limit > 0 && pts.length > limit) {
       pts.splice(0, pts.length - limit);
     }

@@ -1,5 +1,6 @@
 import { useTransportStore } from "@/store/transport";
 import { useScenarioStore } from '@/store/scenario/store';
+import { useSettingsStore } from '@/store/settings';
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActionEndPayload } from '@tensnap/core';
 import { SimulationLoopController } from '@/store/simulation-loop';
@@ -11,6 +12,9 @@ export function useButtonControls() {
   const createActionStartMessage = useScenarioStore((state) => state.createActionStartMessage);
   const actions = useScenarioStore((state) => state.actions);
   const scenario = useScenarioStore((state) => state.scenario);
+  const renderTriggerMode = useSettingsStore((state) => state.renderTriggerMode);
+  const maxRenderFps = useSettingsStore((state) => state.maxRenderFps);
+  const setRuntimeMetrics = useSettingsStore((state) => state.setRuntimeMetrics);
 
   const loopControllerRef = useRef<SimulationLoopController | null>(null);
   const [runningActions, setRunningActions] = useState<ReadonlySet<string>>(new Set());
@@ -21,7 +25,11 @@ export function useButtonControls() {
     }
 
     loopControllerRef.current?.dispose();
-    loopControllerRef.current = new SimulationLoopController(sendMessage, createActionStartMessage);
+    loopControllerRef.current = new SimulationLoopController(sendMessage, createActionStartMessage, {
+      mode: renderTriggerMode,
+      maxTps: maxRenderFps,
+      onMetricsChange: setRuntimeMetrics,
+    });
 
     const handleActionEnd = (event: Event) => {
       const detail = (event as CustomEvent<ActionEndPayload>).detail;
@@ -42,8 +50,9 @@ export function useButtonControls() {
       loopControllerRef.current?.dispose();
       loopControllerRef.current = null;
       setRunningActions(new Set());
+      setRuntimeMetrics({ tps: null, mspt: null });
     };
-  }, [scenario, sendMessage, createActionStartMessage]);
+  }, [scenario, sendMessage, createActionStartMessage, renderTriggerMode, maxRenderFps, setRuntimeMetrics]);
 
   const handleButtonAction = useCallback(
     (action: string, continuous?: boolean) => {

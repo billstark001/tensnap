@@ -28,7 +28,6 @@ import { useFileOperations } from './useFileOperations';
 import { ToolButton } from './ToolButton';
 import { createStateSyncRequestFromStore } from '@/store/project';
 import { useSettingsStore } from '@/store/settings';
-import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
@@ -181,7 +180,7 @@ export function ViewTools() {
 
 export function SettingTools() {
   const {
-    settingsDialogOpen, setSettingsDialogOpen,
+    setSettingsDialogOpen,
     aboutDialogOpen, setAboutDialogOpen,
     theme, toggleTheme,
   } = useSettingsStore();
@@ -217,7 +216,6 @@ export function SettingTools() {
         onClick={() => setSettingsDialogOpen(true)}
       />
 
-      <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
       <AboutDialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen} />
     </ToolGroupContainer>
   );

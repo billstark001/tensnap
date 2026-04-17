@@ -78,20 +78,50 @@ const getEnvironmentMetadata = (env: ScenarioEnvironmentState) => {
 
 const subscribeScenario = (
   scenario: Scenario,
-  onChange: () => void,
-  onEnvironmentChange: () => void,
-  onParameterChange: () => void,
-  onAssetChange: () => void,
+  applyBatch: (flags: {
+    changed: boolean;
+    environmentChanged: boolean;
+    parameterChanged: boolean;
+    assetChanged: boolean;
+  }) => void,
 ) => {
-  const rerender = () => onChange();
-  const rerenderEnv = () => {
-    onEnvironmentChange();
-    onChange();
+  const pending = {
+    changed: false,
+    environmentChanged: false,
+    parameterChanged: false,
+    assetChanged: false,
   };
-  const rerenderParam = () => {
-    onParameterChange();
-    onChange();
+  let queued = false;
+
+  const flush = () => {
+    queued = false;
+    applyBatch({
+      changed: pending.changed,
+      environmentChanged: pending.environmentChanged,
+      parameterChanged: pending.parameterChanged,
+      assetChanged: pending.assetChanged,
+    });
+    pending.changed = false;
+    pending.environmentChanged = false;
+    pending.parameterChanged = false;
+    pending.assetChanged = false;
   };
+
+  const schedule = (updates: Partial<typeof pending>) => {
+    if (updates.changed) pending.changed = true;
+    if (updates.environmentChanged) pending.environmentChanged = true;
+    if (updates.parameterChanged) pending.parameterChanged = true;
+    if (updates.assetChanged) pending.assetChanged = true;
+    if (!queued) {
+      queued = true;
+      queueMicrotask(flush);
+    }
+  };
+
+  const rerender = () => schedule({ changed: true });
+  const rerenderEnv = () => schedule({ changed: true, environmentChanged: true });
+  const rerenderParam = () => schedule({ changed: true, parameterChanged: true });
+  const rerenderAsset = () => schedule({ changed: true, assetChanged: true });
 
   const handlers: Array<[string, EventListener]> = [
     ['metadata:update', rerender],
@@ -111,15 +141,17 @@ const subscribeScenario = (
     ['chart:create', rerender],
     ['chart:update', rerender],
     ['chart:delete', rerender],
-    ['asset:meta', (() => { onAssetChange(); onChange(); }) as EventListener],
-    ['asset:data', (() => { onAssetChange(); onChange(); }) as EventListener],
-    ['asset:delete', (() => { onAssetChange(); onChange(); }) as EventListener],
+    ['asset:meta', rerenderAsset as EventListener],
+    ['asset:data', rerenderAsset as EventListener],
+    ['asset:delete', rerenderAsset as EventListener],
     ['log', rerender],
     ['reset', rerender],
   ];
 
   handlers.forEach(([type, handler]) => scenario.addEventListener(type, handler));
-  const unsubscribeAssets = scenario.assets.subscribe(() => onAssetChange());
+  const unsubscribeAssets = scenario.assets.subscribe(() => {
+    schedule({ assetChanged: true });
+  });
 
   return () => {
     handlers.forEach(([type, handler]) => scenario.removeEventListener(type, handler));
@@ -153,7 +185,7 @@ export const createScenarioStore = () => {
       connected: false,
       _revision: 0,
       _assetRevision: 0,
-      currentTime: 0,
+      currentTime: null,
       viewUpdateTrigger: createUpdateTriggerStoreFunction(
         (x) => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })),
         () => get().viewUpdateTrigger,
@@ -207,7 +239,7 @@ export const createScenarioStore = () => {
 
       load: (snapshot) => {
         scenario.load(snapshot);
-        set((state) => ({ _revision: state._revision + 1, currentTime: scenario.time ?? 0 }));
+        set((state) => ({ _revision: state._revision + 1, currentTime: scenario.time ?? null }));
       },
 
       clearAll: () => {
@@ -215,7 +247,7 @@ export const createScenarioStore = () => {
         set({
           connected: false,
           snapshots: [],
-          currentTime: 0,
+          currentTime: null,
         });
       },
 
@@ -395,16 +427,22 @@ export const createScenarioStore = () => {
 
   const unsubscribeScenario = subscribeScenario(
     scenario,
-    () => useStore.setState((state) => ({ _revision: state._revision + 1, currentTime: scenario.time ?? 0 })),
-    () => useStore.setState((state) => ({
-      _revision: state._revision + 1,
-      environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
-    })),
-    () => useStore.setState((state) => ({
-      _revision: state._revision + 1,
-      parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
-    })),
-    () => useStore.setState((state) => ({ _assetRevision: state._assetRevision + 1 })),
+    ({ changed, environmentChanged, parameterChanged, assetChanged }) => {
+      useStore.setState((state) => {
+        const next = {
+          _revision: changed ? state._revision + 1 : state._revision,
+          currentTime: changed ? (scenario.time ?? null) : state.currentTime,
+          _assetRevision: assetChanged ? state._assetRevision + 1 : state._assetRevision,
+          environmentUpdateTrigger: environmentChanged
+            ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }
+            : state.environmentUpdateTrigger,
+          parameterUpdateTrigger: parameterChanged
+            ? { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 }
+            : state.parameterUpdateTrigger,
+        };
+        return next;
+      });
+    },
   );
   void unsubscribeScenario;
 

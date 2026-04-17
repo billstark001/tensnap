@@ -22,7 +22,7 @@ const NewSeriesForm: React.FC<{
   onCancel: () => void;
 }> = ({ formData, onUpdate, onConfirm, onCancel }) => (
   <div className={styles.seriesItem} style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}>
-    <input
+    <Form.Input
       type="color"
       value={formData.color}
       onChange={(e) => onUpdate({ color: e.target.value })}
@@ -98,7 +98,7 @@ const SeriesItem: React.FC<{
   onRemove: () => void;
 }> = ({ metadata, isEditing, onUpdateColor, onUpdateMetadata, onUpdateId, onToggleEdit, onRemove }) => (
   <div className={styles.seriesItem}>
-    <input
+    <Form.Input
       type="color"
       value={metadata.color || '#000000'}
       onChange={(e) => onUpdateColor(e.target.value)}

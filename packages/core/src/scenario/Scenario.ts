@@ -418,7 +418,7 @@ export class Scenario extends EventTarget {
     storage.addAgents(
       payload.agents.map((agent) => normalizeAgentPayload(agent as { id: string | number } & Record<string, unknown>))
     );
-    this.emit('agent:create', cloneValue(payload));
+    this.emit('agent:create', payload);
   }
 
   private updateAgents(payload: AgentUpdatePayload): void {
@@ -438,14 +438,14 @@ export class Scenario extends EventTarget {
       )
     );
     this.updateGridTrajectories(payload.env_id, storage, payload.agents);
-    this.emit('agent:update', cloneValue(payload));
+    this.emit('agent:update', payload);
   }
 
   private deleteAgents(payload: AgentDeletePayload): void {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'agent');
     const storage = this.requireStorage(layer, AgentStorage, 'agent');
     storage.removeAgents(payload.ids);
-    this.emit('agent:delete', cloneValue(payload));
+    this.emit('agent:delete', payload);
   }
 
   private updateGridTrajectories(

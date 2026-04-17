@@ -1,10 +1,11 @@
 import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import { useToast } from '@/store/toast';
+import { useSettingsStore } from '@/store/settings';
 import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
-import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw } from 'lucide-react';
+import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw, Wrench } from 'lucide-react';
 import { useState, useCallback } from 'react';
 
 import * as styles from './StatusBar.css';
@@ -26,6 +27,9 @@ export function StatusBar({
   const toast = useToast();
   const connected = useScenarioStore((store) => store.connected);
   const currentTime = useScenarioStore((store) => store.currentTime);
+  const runtimeTps = useSettingsStore((store) => store.runtimeTps);
+  const runtimeMspt = useSettingsStore((store) => store.runtimeMspt);
+  const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
   const transportStore = useTransportStore();
   
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -65,7 +69,18 @@ export function StatusBar({
       <span className={connected ? styles.statusConnected : styles.statusDisconnected}>
         {connected ? <Trans>Connected</Trans> : <Trans>Disconnected</Trans>}
       </span>
-      <span style={{ marginLeft: '16px' }}><Trans>Time Step:</Trans> {currentTime}</span>
+      <span className={styles.statusMeta}>
+        <span><Trans>Time Step:</Trans></span>
+        <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
+      </span>
+      <span className={styles.statusMeta}>
+        <span><Trans>TPS:</Trans></span>
+        <span className={styles.metricValue}>{runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}</span>
+      </span>
+      <span className={styles.statusMeta}>
+        <span><Trans>MSPT:</Trans></span>
+        <span className={styles.metricValue}>{runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}</span>
+      </span>
       
       <div className={styles.buttonGroup}>
         <button
@@ -83,6 +98,15 @@ export function StatusBar({
             className={isReconnecting || isConnecting ? 'spinning-icon' : ''}
           />
           <span><Trans>Reconnect</Trans></span>
+        </button>
+
+        <button
+          onClick={() => setSettingsDialogOpen(true)}
+          className={styles.toggleButton}
+          title={_(msg`Settings`)}
+        >
+          <Wrench size={16} />
+          <span><Trans>Settings</Trans></span>
         </button>
         <style>{`
           @keyframes spin {

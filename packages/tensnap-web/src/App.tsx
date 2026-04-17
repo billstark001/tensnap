@@ -4,6 +4,8 @@ import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 import { ProjectPanel } from './components/project/ProjectPanel';
 import { MenuBarConfig, MenuBarContext } from './components/toolbar/MenuBar';
+import { SettingsDialog } from './dialogs/SettingsDialog';
+import { useSettingsStore } from './store/settings';
 
 
 export function App(props: Partial<MenuBarConfig>) {
@@ -16,6 +18,9 @@ export function App(props: Partial<MenuBarConfig>) {
     system = 'other'
   } = props;
 
+  const settingsDialogOpen = useSettingsStore((store) => store.settingsDialogOpen);
+  const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
+
   return (
     <div className={styles.appContainer}>
       <MenuBarContext.Provider value={{ environment, system }}>
@@ -23,6 +28,8 @@ export function App(props: Partial<MenuBarConfig>) {
       </MenuBarContext.Provider>
 
       <ProjectPanel />
+
+      <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
 
       {/* Loading Spinner Overlay */}
       {(fileSystemLoading || counterLoading) && (

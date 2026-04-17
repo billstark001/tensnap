@@ -87,6 +87,7 @@ export class AxelrodAdapter extends BaseModelAdapter {
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: CULTURE_LAYER, layer_type: 'grid', data: { width: this.config.width, height: this.config.height } });
     await this.sendAgentCreate({ env_id: 'main', layer_id: GRID_LAYER, agents: this.createGridLayerAgents() });
     await this.sendAgentCreate({ env_id: 'main', layer_id: CULTURE_LAYER, agents: this.createCultureAgents() });
+    await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: [
       { id: 'cultures', value: countCultures(this.state), time: 0 },
       { id: 'updates', value: this.state.totalUpdates, time: 0 },
@@ -132,9 +133,9 @@ export class AxelrodAdapter extends BaseModelAdapter {
   }
 
   private async stepOnce(): Promise<boolean> {
+    stepAxelrod(this.state);
     const time = this.state.totalUpdates;
     await this.sendMetadataUpdate({ time });
-    stepAxelrod(this.state);
 
     const diff = this.createCultureAgents().map((a) => ({ id: a.id, x: a.x, y: a.y, icon: a.icon, size: a.size, color: a.color }));
     await this.sendAgentUpdate({ env_id: 'main', layer_id: CULTURE_LAYER, agents: diff });

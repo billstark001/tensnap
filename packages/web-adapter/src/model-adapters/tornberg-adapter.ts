@@ -97,6 +97,7 @@ export class TornbergAdapter extends BaseModelAdapter {
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, layer_type: 'grid', data: { width: this.config.width, height: this.config.height } });
     await this.sendAgentCreate({ env_id: 'main', layer_id: GRID_LAYER, agents: this.createGridLayerAgents() });
     await this.sendAgentCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, agents: this.createPartisanAgents() });
+    await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: [
       { id: 'sorting', value: computeSorting(this.state), time: 0 },
       { id: 'updates', value: this.state.totalUpdates, time: 0 },
@@ -130,9 +131,9 @@ export class TornbergAdapter extends BaseModelAdapter {
   }
 
   private async stepOnce(): Promise<boolean> {
+    stepTornberg(this.state);
     const time = this.state.totalUpdates;
     await this.sendMetadataUpdate({ time });
-    stepTornberg(this.state);
     const updates = this.createPartisanAgents().map((a) => ({ id: a.id, x: a.x, y: a.y, color: a.color, icon: a.icon, size: a.size }));
     await this.sendAgentUpdate({ env_id: 'main', layer_id: PARTISAN_LAYER, agents: updates });
     await this.sendChartUpdate({ updates: [
