@@ -230,13 +230,13 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     if (this.fs) return;
 
     this.fs = new LightningFS(this.dbName);
-    await this.loadMetadata();
-
     try {
       await this.fsPromises.mkdir('/');
     } catch {
       // Root already exists.
     }
+
+    await this.loadMetadata();
 
     if (!this.metadata.directories['/']) {
       this.metadata.directories['/'] = { createdAt: new Date().toISOString() };

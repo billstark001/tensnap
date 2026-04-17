@@ -34,11 +34,14 @@ import {
   Viewport,
   AgentId,
   AgentIcon,
+  BuiltinAgentIcon,
   TrajectoryPoint,
   GridCoordOffset,
   SceneBounds,
   OriginMode,
+  getAssetIdFromIcon,
   IBoundedLayer,
+  isBuiltinAgentIcon,
 } from '../types';
 import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';
 
@@ -85,6 +88,8 @@ export interface AgentLayerConfig {
   originMode?: OriginMode;
   /** Fixed scene bounds (graph mode). Calculated dynamically when omitted. */
   sceneBounds?: SceneBounds | Partial<Viewport>;
+  /** Resolve an asset-id to URL for `asset:<id>` icons. */
+  resolveAssetUrl?: (assetId: string) => string | null | undefined;
 
   onAgentClick?: (agent: RenderableAgent, event: any) => void;
   onAgentContextMenu?: (agent: RenderableAgent, event: any) => void;
@@ -103,6 +108,7 @@ interface AgentShapeEntry {
   shape: UI;
   label: Text | null;
   icon: AgentIcon;
+  assetUrl: string | null;
   size: number;
   color: string;
 }
@@ -158,6 +164,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       onDragStart: NOOP,
       onDragMove: NOOP,
       onDragEnd: NOOP,
+      resolveAssetUrl: () => null,
       ...config,
       sceneBounds: undefined,
     };
@@ -318,11 +325,9 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const coords = this._toSceneCoords(agent);
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? DEFAULT_AGENT_COLOR;
+    const assetUrl = this._resolveIconAssetUrl(icon);
 
-    const shape: UI = new SHAPE_CLASSES[icon]({
-      ...SHAPE_CONFIGS[icon](coords.size),
-      fill: color,
-    });
+    const shape: UI = this._createShape(icon, coords.size, color, assetUrl);
     const label = this._cfg.showLabel ? createAgentLabel(agent.id, coords.size) : null;
     const group = new Group({ x: coords.x, y: coords.y, rotation: coords.rotation });
 
@@ -331,7 +336,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
     this._bindEvents(shape, group, agent.id);
     this._agentsGroup.add(group);
-    this._agentShapes.set(agent.id, { group, shape, label, icon, size: coords.size, color });
+    this._agentShapes.set(agent.id, { group, shape, label, icon, assetUrl, size: coords.size, color });
   }
 
   /** Merged shape-appearance + position update (the two are always applied together). */
@@ -342,19 +347,46 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const coords = this._toSceneCoords(agent);
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? DEFAULT_AGENT_COLOR;
+    const assetUrl = this._resolveIconAssetUrl(icon);
 
-    // Batch shape appearance changes into a single set() call
-    const shapeUpdates: Record<string, unknown> = {};
-    if (entry.icon !== icon || entry.size !== coords.size) {
-      Object.assign(shapeUpdates, SHAPE_CONFIGS[icon](coords.size));
+    const shapeTypeChanged = entry.icon !== icon || entry.assetUrl !== assetUrl;
+    if (shapeTypeChanged) {
+      const nextShape = this._createShape(icon, coords.size, color, assetUrl);
+      entry.group.remove(entry.shape);
+      entry.shape.off?.();
+      entry.shape = nextShape;
+      entry.group.addAt(nextShape, 0);
+      this._bindEvents(nextShape, entry.group, agent.id);
       entry.icon = icon;
+      entry.assetUrl = assetUrl;
       entry.size = coords.size;
-    }
-    if (entry.color !== color) {
-      shapeUpdates.fill = color;
       entry.color = color;
+    } else {
+      // Batch shape appearance changes into a single set() call.
+      const shapeUpdates: Record<string, unknown> = {};
+      if (entry.size !== coords.size) {
+        if (isBuiltinAgentIcon(icon)) {
+          Object.assign(shapeUpdates, SHAPE_CONFIGS[icon](coords.size));
+        } else {
+          Object.assign(shapeUpdates, SHAPE_CONFIGS.square(coords.size));
+        }
+        entry.size = coords.size;
+      }
+      if (entry.color !== color) {
+        if (entry.assetUrl) {
+          shapeUpdates.fill = {
+            type: 'image',
+            mode: 'cover',
+            url: entry.assetUrl,
+          };
+        } else {
+          shapeUpdates.fill = color;
+        }
+        entry.color = color;
+      }
+      if (Object.keys(shapeUpdates).length) entry.shape.set(shapeUpdates);
     }
-    if (Object.keys(shapeUpdates).length) entry.shape.set(shapeUpdates);
+
     if (entry.label) {
       const fs = Math.max(8, coords.size * 0.6);
       entry.label.set({
@@ -368,6 +400,38 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     }
 
     entry.group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
+  }
+
+  private _resolveIconAssetUrl(icon: AgentIcon | undefined): string | null {
+    const assetId = getAssetIdFromIcon(icon);
+    if (!assetId) {
+      return null;
+    }
+    return this._cfg.resolveAssetUrl(assetId) ?? null;
+  }
+
+  private _createShape(icon: AgentIcon, size: number, color: string, assetUrl: string | null): UI {
+    if (isBuiltinAgentIcon(icon)) {
+      const BuiltinShape = SHAPE_CLASSES[icon as BuiltinAgentIcon];
+      return new BuiltinShape({
+        ...SHAPE_CONFIGS[icon as BuiltinAgentIcon](size),
+        fill: color,
+      });
+    }
+
+    const fill = assetUrl
+      ? {
+        type: 'image',
+        mode: 'cover',
+        url: assetUrl,
+      }
+      : color;
+
+    const Shape = SHAPE_CLASSES.square;
+    return new Shape({
+      ...SHAPE_CONFIGS.square(size),
+      fill,
+    });
   }
 
   private _removeAgent(id: AgentId): void {

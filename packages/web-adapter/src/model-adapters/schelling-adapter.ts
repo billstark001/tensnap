@@ -1,8 +1,7 @@
-import type { Action, ChartGroupMetadata, GridAgent, Parameter } from '@tensnap/core';
+import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
 import { SchellingConfig, SchellingModel } from '../models/schelling';
 import { BaseModelAdapter } from './base-adapter';
 
-const GRID_LAYER = 'grid';
 const AGENT_LAYER = 'agents';
 
 export class SchellingAdapter extends BaseModelAdapter {
@@ -94,10 +93,7 @@ export class SchellingAdapter extends BaseModelAdapter {
 
   protected async sendInitialData(): Promise<void> {
     const config = this.model.getConfig();
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: GRID_LAYER, layer_type: 'grid', data: { width: config.gridWidth, height: config.gridHeight } });
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: AGENT_LAYER, layer_type: 'grid', data: { width: config.gridWidth, height: config.gridHeight } });
-
-    await this.sendAgentCreate({ env_id: 'main', layer_id: GRID_LAYER, agents: this.createGridLayerAgents(config.gridWidth, config.gridHeight) });
 
     const allAgents = this.model.getEnvironmentState().agents;
     await this.sendAgentCreate({ env_id: 'main', layer_id: AGENT_LAYER, agents: allAgents });
@@ -108,17 +104,6 @@ export class SchellingAdapter extends BaseModelAdapter {
       { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
       { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
     ] });
-  }
-
-  private createGridLayerAgents(width: number, height: number): GridAgent[] {
-    const agents: GridAgent[] = [];
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const parity = (x + y) % 2;
-        agents.push({ id: `cell_${x}_${y}`, x, y, heading: 0, icon: 'square', size: 1, color: parity === 0 ? '#f1f3f5' : '#e9ecef' });
-      }
-    }
-    return agents;
   }
 
   private async stepOnce(): Promise<boolean> {

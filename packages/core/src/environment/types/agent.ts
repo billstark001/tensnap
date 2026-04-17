@@ -11,7 +11,37 @@
 
 export type AgentId = string | number;
 
-export type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
+export const BUILTIN_AGENT_ICONS = [
+  'arrow',
+  'circle',
+  'square',
+  'triangle',
+  'diamond',
+  'star',
+  'hexagon',
+  'cross',
+  'plus',
+  'pentagon',
+] as const;
+
+export type BuiltinAgentIcon = typeof BUILTIN_AGENT_ICONS[number];
+export type AssetAgentIcon = `asset:${string}`;
+export type AgentIcon = BuiltinAgentIcon | AssetAgentIcon;
+
+export function isBuiltinAgentIcon(icon: string | undefined | null): icon is BuiltinAgentIcon {
+  return !!icon && (BUILTIN_AGENT_ICONS as readonly string[]).includes(icon);
+}
+
+export function isAssetAgentIcon(icon: string | undefined | null): icon is AssetAgentIcon {
+  return !!icon && icon.startsWith('asset:') && icon.length > 'asset:'.length;
+}
+
+export function getAssetIdFromIcon(icon: string | undefined | null): string | null {
+  if (!isAssetAgentIcon(icon)) {
+    return null;
+  }
+  return icon.slice('asset:'.length);
+}
 
 // ---------------------------------------------------------------------------
 // Base agent

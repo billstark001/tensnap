@@ -67,6 +67,12 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
   ): Promise<T> => {
     const { adapter } = get();
     if (!adapter) throw new Error('File system not initialized');
+    if (!get().initialized) {
+      await get().initialize();
+      if (!get().initialized) {
+        throw new Error(get().error ?? 'File system initialization failed');
+      }
+    }
 
     set({ loading: true, error: null });
     try {
@@ -87,6 +93,12 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
   const withErrorHandling = async <T>(operation: () => Promise<T>): Promise<T> => {
     const { adapter } = get();
     if (!adapter) throw new Error('File system not initialized');
+    if (!get().initialized) {
+      await get().initialize();
+      if (!get().initialized) {
+        throw new Error(get().error ?? 'File system initialization failed');
+      }
+    }
 
     try {
       return await operation();
@@ -123,8 +135,9 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
           get().refreshStats()
         ]);
       } catch (error) {
-        handleError(error);
+        const errorMessage = handleError(error);
         set({ loading: false });
+        throw new Error(errorMessage);
       }
     },
 

@@ -12,19 +12,31 @@ interface AgentDetailsDialogProps {
   agentType?: 'grid' | 'graph' | 'uniform';
   onClose: () => void;
   open?: boolean;
+  resolveAssetUrl?: (assetId: string) => string | undefined;
 }
 
 // Helper function to create icon elements
 export const createIconElement = (
   icon: AgentIcon | undefined | null,
   size: number,
-  color: string
+  color: string,
+  assetUrl?: string
 ) => {
   const commonStyle = {
     width: `${size}px`,
     height: `${size}px`,
     color,
   };
+
+  if (icon?.startsWith('asset:') && assetUrl) {
+    return (
+      <img
+        src={assetUrl}
+        alt={icon}
+        style={{ width: `${size}px`, height: `${size}px`, objectFit: 'contain' }}
+      />
+    );
+  }
 
   switch (icon) {
     case 'arrow':
@@ -52,6 +64,42 @@ export const createIconElement = (
             borderBottom: `${size}px solid ${color}`,
           }}
         />
+      );
+    case 'diamond':
+      return (
+        <div className={clsx(styles.iconWrapper, styles.iconSquare)} style={commonStyle}>
+          ◆
+        </div>
+      );
+    case 'star':
+      return (
+        <div className={clsx(styles.iconWrapper, styles.iconSquare)} style={commonStyle}>
+          ★
+        </div>
+      );
+    case 'hexagon':
+      return (
+        <div className={clsx(styles.iconWrapper, styles.iconSquare)} style={commonStyle}>
+          ⬢
+        </div>
+      );
+    case 'cross':
+      return (
+        <div className={clsx(styles.iconWrapper, styles.iconSquare)} style={commonStyle}>
+          ✕
+        </div>
+      );
+    case 'plus':
+      return (
+        <div className={clsx(styles.iconWrapper, styles.iconSquare)} style={commonStyle}>
+          ✚
+        </div>
+      );
+    case 'pentagon':
+      return (
+        <div className={clsx(styles.iconWrapper, styles.iconSquare)} style={commonStyle}>
+          ⬟
+        </div>
       );
     default: // circle
       return (
@@ -104,6 +152,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     onClose,
     open,
     agentType = 'uniform',
+    resolveAssetUrl,
   } = props;
 
   const isOpen = open ?? !!agent;
@@ -112,6 +161,8 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
 
   const size = agent.size || 16;
   const color = agent.color || '#666666';
+  const assetId = agent.icon?.startsWith('asset:') ? agent.icon.slice('asset:'.length) : null;
+  const assetUrl = assetId ? resolveAssetUrl?.(assetId) : undefined;
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -133,7 +184,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
         <div className={styles.detailRow}>
           <span className={styles.detailLabel}><Trans>Icon:</Trans></span>
           <div className={styles.agentIcon}>
-            {createIconElement(agent.icon, size, color)}
+            {createIconElement(agent.icon, size, color, assetUrl)}
           </div>
           {agent.icon || 'circle'}
         </div>

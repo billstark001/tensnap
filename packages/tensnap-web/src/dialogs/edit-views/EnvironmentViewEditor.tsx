@@ -34,7 +34,21 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
       || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
     ))
     : null;
+  const agentLayer = env
+    ? [...env.layers.values()].find((layer) => layer.layerType === 'agent')
+    : null;
   const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, any>;
+  const agentMetadata = (agentLayer?.metadata ?? {}) as Record<string, any>;
+  const coordOffset = agentMetadata.coord_offset === 'float' ? 'float' : 'int';
+  const showGrid = gridMetadata.show_grid !== false;
+  const backgroundColor = typeof gridMetadata.background_color === 'string' ? gridMetadata.background_color : '#ffffff';
+
+  const layersMetadataPreview = env
+    ? [...env.layers.values()]
+      .map((layer) => ({ id: layer.id, type: layer.layerType, metadata: layer.metadata ?? {} }))
+      .map((item) => `${item.id} (${item.type})\n${JSON.stringify(item.metadata, null, 2)}`)
+      .join('\n\n')
+    : '';
 
   return (
     <>
@@ -73,33 +87,78 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
           </Form.FieldGroup>
 
           {env.type === '2d' && gridLayer && (
-            <Form.FieldGroup columns={2}>
-              <Form.Field label={<Trans>Grid Width</Trans>} htmlFor="grid-width">
-                <Form.Input
-                  id="grid-width"
-                  type="number"
-                  min="1"
-                  value={gridMetadata.width ?? 0}
-                  onChange={(e) => {
-                    const currentWidth = gridMetadata.width ?? 1;
-                    onObjectChange('width', parseIntInput(e.target.value, currentWidth, 1));
-                  }}
-                />
+            <>
+              <Form.FieldGroup columns={2}>
+                <Form.Field label={<Trans>Grid Width</Trans>} htmlFor="grid-width">
+                  <Form.Input
+                    id="grid-width"
+                    type="number"
+                    min="1"
+                    value={gridMetadata.width ?? 0}
+                    onChange={(e) => {
+                      const currentWidth = gridMetadata.width ?? 1;
+                      onObjectChange('width', parseIntInput(e.target.value, currentWidth, 1));
+                    }}
+                  />
+                </Form.Field>
+
+                <Form.Field label={<Trans>Grid Height</Trans>} htmlFor="grid-height">
+                  <Form.Input
+                    id="grid-height"
+                    type="number"
+                    min="1"
+                    value={gridMetadata.height ?? 0}
+                    onChange={(e) => {
+                      const currentHeight = gridMetadata.height ?? 1;
+                      onObjectChange('height', parseIntInput(e.target.value, currentHeight, 1));
+                    }}
+                  />
+                </Form.Field>
+              </Form.FieldGroup>
+
+              <Form.Field label={<Trans>Agent Coordinate Offset</Trans>} htmlFor="coord-offset">
+                <Form.Select
+                  id="coord-offset"
+                  value={coordOffset}
+                  onChange={(e) => onObjectChange('coord_offset', e.target.value)}
+                >
+                  <option value="int"><Trans>int (cell center +0.5)</Trans></option>
+                  <option value="float"><Trans>float (no offset)</Trans></option>
+                </Form.Select>
               </Form.Field>
 
-              <Form.Field label={<Trans>Grid Height</Trans>} htmlFor="grid-height">
-                <Form.Input
-                  id="grid-height"
-                  type="number"
-                  min="1"
-                  value={gridMetadata.height ?? 0}
-                  onChange={(e) => {
-                    const currentHeight = gridMetadata.height ?? 1;
-                    onObjectChange('height', parseIntInput(e.target.value, currentHeight, 1));
-                  }}
+              <Form.FieldGroup columns={2}>
+                <Form.Field label={<Trans>Background Color</Trans>} htmlFor="background-color">
+                  <Form.Input
+                    id="background-color"
+                    type="color"
+                    value={backgroundColor}
+                    onChange={(e) => onObjectChange('background_color', e.target.value)}
+                  />
+                </Form.Field>
+
+                <Form.Field label={<Trans>Show Grid Lines</Trans>} htmlFor="show-grid">
+                  <Form.Select
+                    id="show-grid"
+                    value={showGrid ? 'true' : 'false'}
+                    onChange={(e) => onObjectChange('show_grid', e.target.value === 'true')}
+                  >
+                    <option value="true"><Trans>Visible</Trans></option>
+                    <option value="false"><Trans>Hidden</Trans></option>
+                  </Form.Select>
+                </Form.Field>
+              </Form.FieldGroup>
+
+              <Form.Field label={<Trans>Layers Metadata</Trans>} htmlFor="env-layers-metadata">
+                <Form.Textarea
+                  id="env-layers-metadata"
+                  rows={10}
+                  value={layersMetadataPreview}
+                  disabled
+                  className={styles.disabledField}
                 />
               </Form.Field>
-            </Form.FieldGroup>
+            </>
           )}
         </>
       )}

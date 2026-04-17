@@ -4,6 +4,43 @@ import { BaseModelAdapter } from './base-adapter';
 
 const TERRAIN_LAYER = 'terrain';
 const ANIMAL_LAYER = 'animals';
+const SHEEP_ASSET_ID = 'wolf-sheep:sheep';
+const WOLF_ASSET_ID = 'wolf-sheep:wolf';
+const SHEEP_ICON: `asset:${string}` = `asset:${SHEEP_ASSET_ID}`;
+const WOLF_ICON: `asset:${string}` = `asset:${WOLF_ASSET_ID}`;
+
+const SHEEP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <g fill="#f4f4f4" stroke="#3a3a3a" stroke-width="2">
+    <ellipse cx="32" cy="34" rx="18" ry="13" />
+    <circle cx="20" cy="28" r="7" />
+    <circle cx="30" cy="24" r="7" />
+    <circle cx="41" cy="26" r="7" />
+    <circle cx="46" cy="36" r="7" />
+    <circle cx="34" cy="42" r="7" />
+    <circle cx="22" cy="40" r="7" />
+  </g>
+  <g fill="#2f2f2f">
+    <ellipse cx="49" cy="34" rx="7" ry="6" />
+    <circle cx="52" cy="32" r="1.2" fill="#f5f5f5" />
+    <rect x="19" y="45" width="4" height="10" rx="2" />
+    <rect x="29" y="45" width="4" height="10" rx="2" />
+    <rect x="39" y="45" width="4" height="10" rx="2" />
+  </g>
+</svg>`;
+
+const WOLF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <g fill="#4f5563" stroke="#1d2128" stroke-width="2">
+    <path d="M8 39l8-11 5 4 7-8 12 5 8-3 8 10-7 9-11 4-13-2-9 5-8-3z" />
+    <path d="M42 20l6-8 4 10z" />
+    <path d="M31 21l5-9 2 10z" />
+  </g>
+  <g fill="#171a20">
+    <circle cx="47" cy="31" r="1.5" fill="#f1f4fa" />
+    <path d="M53 35l4 2-4 2z" />
+    <path d="M18 46l6 0" stroke="#171a20" stroke-width="3" stroke-linecap="round" />
+    <path d="M28 48l6 0" stroke="#171a20" stroke-width="3" stroke-linecap="round" />
+  </g>
+</svg>`;
 
 type AnimalObj = { position: { x: number; y: number }; heading: number; config: { color: string; size: number } };
 
@@ -124,6 +161,8 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   }
 
   protected async sendInitialData(): Promise<void> {
+    await this.registerAnimalAssets();
+
     await this.sendEnvLayerCreate({
       env_id: 'main',
       layer_id: TERRAIN_LAYER,
@@ -185,7 +224,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
         y: s.position.y,
         heading: (s.heading * Math.PI) / 180,
         color: '#f1f1f1',
-        icon: 'circle' as const,
+        icon: SHEEP_ICON,
         size: s.config.size,
       })),
       ...wolves.map((w) => ({
@@ -194,10 +233,16 @@ export class WolfSheepAdapter extends BaseModelAdapter {
         y: w.position.y,
         heading: (w.heading * Math.PI) / 180,
         color: '#111111',
-        icon: 'circle' as const,
+        icon: WOLF_ICON,
         size: w.config.size,
       })),
     ];
+  }
+
+  private async registerAnimalAssets(): Promise<void> {
+    const encoder = new TextEncoder();
+    await this.registerAsset(SHEEP_ASSET_ID, 'image/svg+xml', encoder.encode(SHEEP_SVG), 'Sheep');
+    await this.registerAsset(WOLF_ASSET_ID, 'image/svg+xml', encoder.encode(WOLF_SVG), 'Wolf');
   }
 
   private getChartUpdates(time?: number): Array<{ id: string; value: number; time?: number }> {

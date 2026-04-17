@@ -3,6 +3,7 @@ import { GraphAgent } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react/macro';
+import { useScenarioStore } from '@/store/scenario/store';
 import {
   EnvironmentView,
   AgentStorage,
@@ -24,6 +25,8 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
   const containerRef = useRef<HTMLDivElement>(null);
   const envViewRef = useRef<EnvironmentView | null>(null);
   const agentStoragesRef = useRef<AgentStorage[]>([]);
+  const scenario = useScenarioStore((store) => store.scenario);
+  const assetRevision = useScenarioStore((store) => store._assetRevision);
 
   const [selectedNode, setSelectedNode] = useState<GraphAgent | null>(null);
 
@@ -89,6 +92,7 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
         clickable: true,
         originMode: 'center',
         coordOffset: 'float',
+        resolveAssetUrl: (assetId) => scenario?.assets.getUrl(assetId),
         onAgentDoubleClick: handleAgentClick,
       });
       view.addLayer(agentLayer);
@@ -104,7 +108,7 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
       envViewRef.current = null;
       agentStoragesRef.current = [];
     };
-  }, [environment, updateTrigger, handleAgentClick]);
+  }, [environment, updateTrigger, assetRevision, handleAgentClick, scenario]);
 
   const resetView = useCallback(() => {
     envViewRef.current?.fitToScene({ padding: 0.05 });
@@ -119,6 +123,7 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
       <AgentDetailsDialog
         agentType="graph"
         agent={selectedNode}
+        resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
         onClose={() => setSelectedNode(null)}
       />
     </div>

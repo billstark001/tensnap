@@ -334,9 +334,52 @@ export const createScenarioStore = () => {
         mutateSnapshot(scenario, (snapshot) => {
           const environment = snapshot.environments.find((current) => current.id === id);
           if (!environment) return;
-          const gridLayer = environment.layers.find((layer) => layer.layerType === 'grid');
-          if (gridLayer) {
-            gridLayer.metadata = { ...gridLayer.metadata, ...props };
+
+          const entries = Object.entries(props);
+          if (entries.length === 0) {
+            return;
+          }
+
+          const dimensionKeys = new Set(['width', 'height']);
+          const agentMetaKeys = new Set(['coord_offset']);
+          const gridMetaKeys = new Set(['show_grid', 'background_color']);
+
+          for (const layer of environment.layers) {
+            const nextMetadata = { ...(layer.metadata ?? {}) };
+            let changed = false;
+
+            for (const [key, value] of entries) {
+              if (dimensionKeys.has(key)) {
+                if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
+                  nextMetadata[key] = value;
+                  changed = true;
+                }
+                continue;
+              }
+
+              if (agentMetaKeys.has(key)) {
+                if (layer.layerType === 'agent') {
+                  nextMetadata[key] = value;
+                  changed = true;
+                }
+                continue;
+              }
+
+              if (gridMetaKeys.has(key)) {
+                if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
+                  nextMetadata[key] = value;
+                  changed = true;
+                }
+                continue;
+              }
+
+              nextMetadata[key] = value;
+              changed = true;
+            }
+
+            if (changed) {
+              layer.metadata = nextMetadata;
+            }
           }
         });
       },

@@ -36,6 +36,43 @@ export const headerButtons = style({
   marginTop: vars.space.sm,
 });
 
+export const tabRow = style({
+  display: 'flex',
+  gap: vars.space.xs,
+  marginTop: vars.space.sm,
+});
+
+export const tabButton = style({
+  border: `1px solid ${vars.color.inputBorder}`,
+  backgroundColor: 'transparent',
+  color: vars.color.foreground,
+  borderRadius: vars.radius.sm,
+  padding: `${vars.space.xs} ${vars.space.sm}`,
+  cursor: 'pointer',
+  fontSize: vars.fontSize.sm,
+  selectors: {
+    '&:hover': {
+      backgroundColor: vars.color.inputHoverBackground,
+    },
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkInputBorder,
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkInputHoverBackground,
+    },
+  },
+});
+
+export const tabButtonActive = style([
+  tabButton,
+  {
+    backgroundColor: vars.color.primary,
+    borderColor: vars.color.primary,
+    color: 'white',
+  },
+]);
+
 export const headerButton = style({
   display: 'flex',
   alignItems: 'center',
@@ -148,6 +185,79 @@ export const snapshotInfo = style({
   display: 'flex',
   flexDirection: 'column',
   gap: vars.space.xs,
+});
+
+export const assetPreviewWrapper = style({
+  width: '100%',
+  height: '96px',
+  borderRadius: vars.radius.sm,
+  border: `1px dashed ${vars.color.inputBorder}`,
+  backgroundColor: vars.color.inputHoverBackground,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: vars.space.sm,
+  overflow: 'hidden',
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkInputBorder,
+      backgroundColor: vars.color.darkInputHoverBackground,
+    },
+  },
+});
+
+export const assetPreviewImage = style({
+  width: '72px',
+  height: '72px',
+  objectFit: 'contain',
+});
+
+export const assetFilterInput = style({
+  width: '100%',
+  border: `1px solid ${vars.color.inputBorder}`,
+  borderRadius: vars.radius.sm,
+  padding: `${vars.space.xs} ${vars.space.sm}`,
+  marginBottom: vars.space.sm,
+  backgroundColor: vars.color.inputBackground,
+  color: vars.color.foreground,
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkInputBorder,
+      backgroundColor: vars.color.darkInputBackground,
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const assetHeaderActions = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.space.xs,
+});
+
+export const assetCopyButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '24px',
+  height: '24px',
+  border: `1px solid ${vars.color.inputBorder}`,
+  borderRadius: vars.radius.sm,
+  backgroundColor: 'transparent',
+  color: vars.color.foreground,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      backgroundColor: vars.color.inputHoverBackground,
+    },
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkInputBorder,
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkInputHoverBackground,
+    },
+  },
 });
 
 export const snapshotInfoRow = style({

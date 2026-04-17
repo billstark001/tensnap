@@ -1,7 +1,20 @@
 import { z } from 'zod';
 
 export const AgentIdSchema = z.union([z.string(), z.number()]);
-export const AgentIconSchema = z.enum(['arrow', 'circle', 'square', 'triangle']);
+export const BuiltinAgentIconSchema = z.enum([
+  'arrow',
+  'circle',
+  'square',
+  'triangle',
+  'diamond',
+  'star',
+  'hexagon',
+  'cross',
+  'plus',
+  'pentagon',
+]);
+export const AssetAgentIconSchema = z.string().regex(/^asset:.+$/);
+export const AgentIconSchema = z.union([BuiltinAgentIconSchema, AssetAgentIconSchema]);
 
 export const AgentSchema = z.object({
   id: AgentIdSchema,

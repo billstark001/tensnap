@@ -2,11 +2,11 @@ import type { Action, ChartGroupMetadata, GridAgent, Parameter } from '@tensnap/
 import { AxelrodConfig, AxelrodState, countCultures, initializeAxelrod, stepAxelrod } from '../models/axelrod';
 import { BaseModelAdapter } from './base-adapter';
 
-const GRID_LAYER = 'grid';
 const CULTURE_LAYER = 'culture';
 
 export class AxelrodAdapter extends BaseModelAdapter {
   private state: AxelrodState;
+  private stepCount = 0;
 
   constructor(private readonly config: AxelrodConfig) {
     super({
@@ -61,6 +61,7 @@ export class AxelrodAdapter extends BaseModelAdapter {
     }
     if (id === 'reset') {
       this.state = initializeAxelrod(this.config);
+      this.stepCount = 0;
       await this.sendInitialData();
       shouldContinue = false;
     }
@@ -76,6 +77,7 @@ export class AxelrodAdapter extends BaseModelAdapter {
 
   protected async initialize(): Promise<void> {
     this.state = initializeAxelrod(this.config);
+    this.stepCount = 0;
   }
 
   protected async cleanup(): Promise<void> {
@@ -83,33 +85,13 @@ export class AxelrodAdapter extends BaseModelAdapter {
   }
 
   protected async sendInitialData(): Promise<void> {
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: GRID_LAYER, layer_type: 'grid', data: { width: this.config.width, height: this.config.height } });
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: CULTURE_LAYER, layer_type: 'grid', data: { width: this.config.width, height: this.config.height } });
-    await this.sendAgentCreate({ env_id: 'main', layer_id: GRID_LAYER, agents: this.createGridLayerAgents() });
     await this.sendAgentCreate({ env_id: 'main', layer_id: CULTURE_LAYER, agents: this.createCultureAgents() });
     await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: [
       { id: 'cultures', value: countCultures(this.state), time: 0 },
       { id: 'updates', value: this.state.totalUpdates, time: 0 },
     ] });
-  }
-
-  private createGridLayerAgents(): GridAgent[] {
-    const cells: GridAgent[] = [];
-    for (let r = 0; r < this.config.height; r++) {
-      for (let c = 0; c < this.config.width; c++) {
-        cells.push({
-          id: `g_${r}_${c}`,
-          x: c,
-          y: r,
-          heading: 0,
-          icon: 'square',
-          size: 1,
-          color: (r + c) % 2 === 0 ? '#f8f9fa' : '#eef2f7',
-        });
-      }
-    }
-    return cells;
   }
 
   private createCultureAgents(): GridAgent[] {
@@ -134,14 +116,15 @@ export class AxelrodAdapter extends BaseModelAdapter {
 
   private async stepOnce(): Promise<boolean> {
     stepAxelrod(this.state);
-    const time = this.state.totalUpdates;
+    this.stepCount += 1;
+    const time = this.stepCount;
     await this.sendMetadataUpdate({ time });
 
     const diff = this.createCultureAgents().map((a) => ({ id: a.id, x: a.x, y: a.y, icon: a.icon, size: a.size, color: a.color }));
     await this.sendAgentUpdate({ env_id: 'main', layer_id: CULTURE_LAYER, agents: diff });
     await this.sendChartUpdate({ updates: [
-      { id: 'cultures', value: countCultures(this.state), time: this.state.totalUpdates },
-      { id: 'updates', value: this.state.totalUpdates, time: this.state.totalUpdates },
+      { id: 'cultures', value: countCultures(this.state), time },
+      { id: 'updates', value: this.state.totalUpdates, time },
     ] });
     return true;
   }

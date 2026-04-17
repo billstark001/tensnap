@@ -3,6 +3,7 @@ import { GridAgent } from '@/types/model';
 import * as styles from './GridEnvironmentView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react/macro';
+import { useScenarioStore } from '@/store/scenario/store';
 import {
   EnvironmentView,
   AgentStorage,
@@ -28,6 +29,8 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
   const agentLayersRef = useRef<AgentLayer[]>([]);
 
   const [selectedAgent, setSelectedAgent] = useState<GridAgent | null>(null);
+  const scenario = useScenarioStore((store) => store.scenario);
+  const assetRevision = useScenarioStore((store) => store._assetRevision);
 
   const resolveSceneBounds = useCallback((): { width: number; height: number } | undefined => {
     for (const layer of environment.layers.values()) {
@@ -62,10 +65,33 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       enableWheelZoom: true,
     });
     const sceneBounds = resolveSceneBounds();
+    const layers = [...environment.layers.values()];
+    const metadataSource = layers.find((layer) => (
+      layer.layerType === 'grid'
+      || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
+    ));
+    const viewMetadata = (metadataSource?.metadata ?? {}) as Record<string, unknown>;
+    const showGrid = viewMetadata.show_grid !== false;
+    const backgroundColor = typeof viewMetadata.background_color === 'string'
+      ? viewMetadata.background_color
+      : null;
 
     const nextAgentStorages: AgentStorage[] = [];
     const nextBackgroundLayers: BackgroundLayer[] = [];
     const nextAgentLayers: AgentLayer[] = [];
+
+    const hasBackgroundStorage = layers.some((layer) => layer.storage instanceof BackgroundStorage);
+    if (!hasBackgroundStorage && backgroundColor) {
+      const syntheticBackgroundStorage = new BackgroundStorage();
+      void syntheticBackgroundStorage.setBackground(backgroundColor);
+      const bgLayer = new BackgroundLayer(
+        view,
+        syntheticBackgroundStorage,
+        sceneBounds ? { sceneBounds } : undefined,
+      );
+      view.addLayer(bgLayer);
+      nextBackgroundLayers.push(bgLayer);
+    }
 
     for (const layer of environment.layers.values()) {
       if (layer.storage instanceof BackgroundStorage) {
@@ -80,8 +106,10 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       }
 
       if (layer.storage instanceof GridEnvStorage) {
-        const gridLayer = new GridLayer(view, layer.storage);
-        view.addLayer(gridLayer);
+        if (showGrid) {
+          const gridLayer = new GridLayer(view, layer.storage);
+          view.addLayer(gridLayer);
+        }
         continue;
       }
 
@@ -95,6 +123,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
           coordOffset: layer.metadata.coord_offset === 'float' ? 'float' : 'int',
           sceneBounds: layerSceneBounds,
           originMode: 'bottom-left',
+          resolveAssetUrl: (assetId) => scenario?.assets.getUrl(assetId),
           onAgentClick: handleAgentClick,
         });
         view.addLayer(agentLayer);
@@ -117,7 +146,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       backgroundLayersRef.current = [];
       agentLayersRef.current = [];
     };
-  }, [environment, updateTrigger, handleAgentClick, resolveSceneBounds]);
+  }, [environment, updateTrigger, assetRevision, handleAgentClick, resolveSceneBounds, scenario]);
 
   const resetView = useCallback(() => {
     envViewRef.current?.fitToScene({ padding: 0 });
@@ -139,6 +168,7 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       <AgentDetailsDialog
         agentType='grid'
         agent={selectedAgent}
+        resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
         onClose={() => setSelectedAgent(null)}
       />
     </div>

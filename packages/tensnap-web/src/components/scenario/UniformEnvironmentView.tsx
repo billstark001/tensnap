@@ -9,6 +9,7 @@ import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '../ui/EmptyState';
 import { AgentStorage, ScenarioEnvironmentState } from '@tensnap/core';
+import { useScenarioStore } from '@/store/scenario/store';
 
 interface UniformEnvironmentViewProps {
   environment: ScenarioEnvironmentState;
@@ -20,18 +21,22 @@ const AGENTS_PER_PAGE = 12;
 // Agent card component
 const AgentCard = ({
   agent,
+  resolveAssetUrl,
   onClick,
 }: {
   agent: UniformAgent;
+  resolveAssetUrl: (assetId: string) => string | undefined;
   onClick: () => void;
 }) => {
   const size = agent.size || 16;
   const color = agent.color || '#666666';
+  const assetId = agent.icon?.startsWith('asset:') ? agent.icon.slice('asset:'.length) : null;
+  const assetUrl = assetId ? resolveAssetUrl(assetId) : undefined;
 
   return (
     <div className={styles.agentCard} onClick={onClick}>
       <div className={styles.agentIcon}>
-        {createIconElement(agent.icon, size, color)}
+        {createIconElement(agent.icon, size, color, assetUrl)}
       </div>
       <div className={styles.agentInfo}>
         <div className={styles.agentId}>#{agent.id}</div>
@@ -71,6 +76,8 @@ export function UniformEnvironmentView({
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [agentsList, setAgentsList] = useState<UniformAgent[]>([]);
+  const scenario = useScenarioStore((store) => store.scenario);
+  useScenarioStore((store) => store._assetRevision);
 
   useEffect(() => {
     const storages = [...environment.layers.values()]
@@ -170,6 +177,7 @@ export function UniformEnvironmentView({
               <AgentCard
                 key={agent.id}
                 agent={agent}
+                resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
                 onClick={() => handleAgentClick(agent)}
               />
             ))}
@@ -183,7 +191,11 @@ export function UniformEnvironmentView({
         </>
       )}
 
-      <AgentDetailsDialog agent={selectedAgent} onClose={handleCloseDialog} />
+      <AgentDetailsDialog
+        agent={selectedAgent}
+        resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
+        onClose={handleCloseDialog}
+      />
     </div>
   );
 }

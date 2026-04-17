@@ -173,7 +173,7 @@ export class SimulationLoopController {
     const intervalMs = this.getMinIntervalMs();
     handle.lastDispatchAt = now;
     handle.nextDueAt = intervalMs > 0
-      ? Math.max(handle.nextDueAt + intervalMs, now + intervalMs)
+      ? Math.max(handle.nextDueAt + intervalMs, now)
       : now;
     this.sendMessage(this.createActionStartMessage(actionId, true));
   }
