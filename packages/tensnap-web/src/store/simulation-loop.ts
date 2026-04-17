@@ -125,7 +125,7 @@ export class SimulationLoopController {
       return;
     }
     const now = performance.now();
-    const delayMs = Math.max(0, handle.nextDueAt - now);
+    const delayMs = Math.max(1, handle.nextDueAt - now);
     const timeoutId = window.setTimeout(() => {
       const handle = this.activeLoops.get(actionId);
       if (!handle) {
