@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { GraphAgent, GraphEdge } from '@/types/model';
+import { GraphAgent } from '@/types/model';
 import * as styles from './GraphEnvironmentView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react/macro';
@@ -12,38 +12,33 @@ import {
   EdgeLayer,
   BackgroundLayer,
   RenderableAgent,
+  ScenarioEnvironmentState,
 } from '@tensnap/core';
 
 interface GraphEnvironmentViewProps {
-  environment: {
-    id: string;
-    agents: Record<string | number, GraphAgent>;
-    edges: GraphEdge[];
-  };
-  updateTrigger?: any;
+  environment: ScenarioEnvironmentState;
+  updateTrigger?: number;
 }
 
 export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnvironmentViewProps) {
-  const { id, agents, edges } = environment;
-
   const containerRef = useRef<HTMLDivElement>(null);
   const envViewRef = useRef<EnvironmentView | null>(null);
-  const agentStorageRef = useRef<AgentStorage | null>(null);
-  const edgeStorageRef = useRef<EdgeStorage | null>(null);
-  const agentLayerRef = useRef<AgentLayer | null>(null);
-
-  // Keep latest agents map in a ref so the click handler always sees current data
-  const agentsRef = useRef(agents);
-  agentsRef.current = agents;
+  const agentStoragesRef = useRef<AgentStorage[]>([]);
 
   const [selectedNode, setSelectedNode] = useState<GraphAgent | null>(null);
 
   const handleAgentClick = useCallback((agent: RenderableAgent) => {
-    const found = agentsRef.current[agent.id];
-    if (found) setSelectedNode(found as GraphAgent);
+    for (const storage of agentStoragesRef.current) {
+      const found = storage.getAgent(agent.id);
+      if (found) {
+        setSelectedNode(found as GraphAgent);
+        return;
+      }
+    }
+    setSelectedNode(agent as GraphAgent);
   }, []);
 
-  // Initialize view once
+  // Rebuild layers only when structure changes; node/edge updates flow via storage subscriptions.
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -53,50 +48,63 @@ export function GraphEnvironmentView({ environment, updateTrigger }: GraphEnviro
       enableTouchZoom: true,
       enableWheelZoom: true,
     });
-    const agentStorage = new AgentStorage();
-    const edgeStorage = new EdgeStorage();
-    const bgStorage = new BackgroundStorage();
+    const layerStates = [...environment.layers.values()];
+    const agentStorageByLayerId = new Map<string, AgentStorage>();
+    const agentStorages: AgentStorage[] = [];
 
-    const bgLayer = new BackgroundLayer(view, bgStorage);
-    const edgeLayer = new EdgeLayer(view, edgeStorage, agentStorage);
-    const agentLayer = new AgentLayer(view, agentStorage, {
-      ...edgeLayer.buildDragHandlers(),
-      draggable: true,
-      showLabel: false,
-      clickable: true,
-      originMode: 'center',
-      coordOffset: 'float',
-      onAgentDoubleClick: handleAgentClick,
-    });
+    for (const layer of layerStates) {
+      if (layer.storage instanceof BackgroundStorage) {
+        view.addLayer(new BackgroundLayer(view, layer.storage));
+      }
+      if (layer.storage instanceof AgentStorage) {
+        agentStorageByLayerId.set(layer.id, layer.storage);
+        agentStorages.push(layer.storage);
+      }
+    }
 
-    view.addLayer(bgLayer);
-    view.addLayer(edgeLayer);
-    view.addLayer(agentLayer);
+    let firstEdgeLayer: EdgeLayer | null = null;
+    for (const layer of layerStates) {
+      if (!(layer.storage instanceof EdgeStorage)) {
+        continue;
+      }
+      const linkedAgentStorage = (
+        (layer.agentLayerRef && agentStorageByLayerId.get(layer.agentLayerRef))
+        ?? agentStorages[0]
+      );
+      if (!linkedAgentStorage) {
+        continue;
+      }
+      const edgeLayer = new EdgeLayer(view, layer.storage, linkedAgentStorage);
+      view.addLayer(edgeLayer);
+      if (!firstEdgeLayer) {
+        firstEdgeLayer = edgeLayer;
+      }
+    }
+
+    for (const storage of agentStorages) {
+      const agentLayer = new AgentLayer(view, storage, {
+        ...(firstEdgeLayer ? firstEdgeLayer.buildDragHandlers() : {}),
+        draggable: true,
+        showLabel: false,
+        clickable: true,
+        originMode: 'center',
+        coordOffset: 'float',
+        onAgentDoubleClick: handleAgentClick,
+      });
+      view.addLayer(agentLayer);
+    }
+
+    view.fitToScene({ padding: 0.05 });
 
     envViewRef.current = view;
-    agentStorageRef.current = agentStorage;
-    edgeStorageRef.current = edgeStorage;
-    agentLayerRef.current = agentLayer;
+    agentStoragesRef.current = agentStorages;
 
     return () => {
       view.destroy();
-      bgStorage.destroy();
       envViewRef.current = null;
-      agentStorageRef.current = null;
-      edgeStorageRef.current = null;
-      agentLayerRef.current = null;
+      agentStoragesRef.current = [];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Update graph data when environment changes
-  useEffect(() => {
-    const agentStorage = agentStorageRef.current;
-    const edgeStorage = edgeStorageRef.current;
-    if (!agentStorage || !edgeStorage) return;
-    agentStorage.setAgents(Object.values(agents));
-    edgeStorage.setEdges(edges as any);
-  }, [id, agents, edges, updateTrigger]);
+  }, [environment, updateTrigger, handleAgentClick]);
 
   const resetView = useCallback(() => {
     envViewRef.current?.fitToScene({ padding: 0.05 });

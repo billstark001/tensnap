@@ -8,11 +8,11 @@ import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '../ui/EmptyState';
+import { AgentStorage, ScenarioEnvironmentState } from '@tensnap/core';
 
 interface UniformEnvironmentViewProps {
-  environment: {
-    agents: Record<string | number, UniformAgent>;
-  };
+  environment: ScenarioEnvironmentState;
+  updateTrigger?: number;
 }
 
 const AGENTS_PER_PAGE = 12;
@@ -65,13 +65,33 @@ const EmptyAgentState = ({
 // Main component
 export function UniformEnvironmentView({
   environment,
+  updateTrigger,
 }: UniformEnvironmentViewProps) {
-  const { agents } = environment;
   const [selectedAgent, setSelectedAgent] = useState<UniformAgent | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [agentsList, setAgentsList] = useState<UniformAgent[]>([]);
 
-  const agentsList = useMemo(() => Object.values(agents), [agents]);
+  useEffect(() => {
+    const storages = [...environment.layers.values()]
+      .filter((layer) => layer.storage instanceof AgentStorage)
+      .map((layer) => layer.storage as AgentStorage);
+
+    const collectAgents = () => {
+      const merged: UniformAgent[] = [];
+      for (const storage of storages) {
+        merged.push(...Array.from(storage.getData().agents.values()) as UniformAgent[]);
+      }
+      setAgentsList(merged);
+    };
+
+    collectAgents();
+    const unsubscribers = storages.map((storage) => storage.subscribe(() => collectAgents()));
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [environment, updateTrigger]);
 
   const filteredAgents = useMemo(() => {
     if (!searchTerm.trim()) return agentsList;

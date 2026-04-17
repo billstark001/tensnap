@@ -61,6 +61,14 @@ function getInterpolation(value: unknown): 'nearest' | 'linear' {
   return value === 'linear' ? 'linear' : 'nearest';
 }
 
+function normalizeAgentPayload<T extends { id: string | number } & Record<string, unknown>>(agent: T): T {
+  const normalized = cloneValue(agent) as T & { trajectoryColor?: unknown; trajectory_color?: unknown };
+  if (normalized.trajectoryColor === undefined && typeof normalized.trajectory_color === 'string') {
+    normalized.trajectoryColor = normalized.trajectory_color;
+  }
+  return normalized as T;
+}
+
 export interface ScenarioOptions {
   charts?: ChartStorage;
   assets?: AssetStore;
@@ -398,15 +406,37 @@ export class Scenario extends EventTarget {
 
   private createAgents(payload: AgentCreatePayload): void {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'agent');
+    const previousLayerType = layer.layerType;
     const storage = this.requireStorage(layer, AgentStorage, 'agent');
-    storage.addAgents(payload.agents.map(cloneValue));
+    if (previousLayerType !== layer.layerType) {
+      this.emit('layer:update', {
+        env_id: payload.env_id,
+        layer_id: payload.layer_id,
+        data: cloneValue(layer.metadata),
+      });
+    }
+    storage.addAgents(
+      payload.agents.map((agent) => normalizeAgentPayload(agent as { id: string | number } & Record<string, unknown>))
+    );
     this.emit('agent:create', cloneValue(payload));
   }
 
   private updateAgents(payload: AgentUpdatePayload): void {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'agent');
+    const previousLayerType = layer.layerType;
     const storage = this.requireStorage(layer, AgentStorage, 'agent');
-    storage.updateAgents(payload.agents.map(cloneValue) as Array<{ id: string | number } & Record<string, unknown>>);
+    if (previousLayerType !== layer.layerType) {
+      this.emit('layer:update', {
+        env_id: payload.env_id,
+        layer_id: payload.layer_id,
+        data: cloneValue(layer.metadata),
+      });
+    }
+    storage.updateAgents(
+      payload.agents.map(
+        (agent) => normalizeAgentPayload(agent as { id: string | number } & Record<string, unknown>)
+      )
+    );
     this.updateGridTrajectories(payload.env_id, storage, payload.agents);
     this.emit('agent:update', cloneValue(payload));
   }
@@ -444,11 +474,17 @@ export class Scenario extends EventTarget {
       const trajectoryLength = gridAgent.trajectory_length ?? (gridData as Record<string, unknown>).trajectory_length;
       if (!trajectoryLength) continue;
 
+      const trajectoryColor = (
+        (gridAgent as GridAgent & { trajectoryColor?: string }).trajectoryColor
+        ?? gridAgent.trajectory_color
+        ?? (gridData as Record<string, string | undefined>).trajectory_color
+      );
+
       const point: TrajectoryPoint = {
         x: gridAgent.x,
         y: gridAgent.y,
         time: currentTime,
-        color: gridAgent.trajectory_color ?? (gridData as Record<string, string | undefined>).trajectory_color,
+        color: trajectoryColor,
       };
 
       const maxPoints = typeof trajectoryLength === 'number' && trajectoryLength > 0
@@ -460,21 +496,45 @@ export class Scenario extends EventTarget {
 
   private createEdges(payload: EdgeCreatePayload): void {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'edge');
+    const previousLayerType = layer.layerType;
     const storage = this.requireStorage(layer, EdgeStorage, 'edge');
+    if (previousLayerType !== layer.layerType) {
+      this.emit('layer:update', {
+        env_id: payload.env_id,
+        layer_id: payload.layer_id,
+        data: cloneValue(layer.metadata),
+      });
+    }
     storage.addEdges(payload.edges.map(cloneValue));
     this.emit('edge:create', cloneValue(payload));
   }
 
   private updateEdges(payload: EdgeUpdatePayload): void {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'edge');
+    const previousLayerType = layer.layerType;
     const storage = this.requireStorage(layer, EdgeStorage, 'edge');
+    if (previousLayerType !== layer.layerType) {
+      this.emit('layer:update', {
+        env_id: payload.env_id,
+        layer_id: payload.layer_id,
+        data: cloneValue(layer.metadata),
+      });
+    }
     storage.updateEdges(payload.edges.map(cloneValue));
     this.emit('edge:update', cloneValue(payload));
   }
 
   private deleteEdges(payload: EdgeDeletePayload): void {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'edge');
+    const previousLayerType = layer.layerType;
     const storage = this.requireStorage(layer, EdgeStorage, 'edge');
+    if (previousLayerType !== layer.layerType) {
+      this.emit('layer:update', {
+        env_id: payload.env_id,
+        layer_id: payload.layer_id,
+        data: cloneValue(layer.metadata),
+      });
+    }
     storage.removeEdgePairs(payload.edges.map(cloneValue));
     this.emit('edge:delete', cloneValue(payload));
   }

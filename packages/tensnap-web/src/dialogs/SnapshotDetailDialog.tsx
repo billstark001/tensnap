@@ -2,30 +2,47 @@ import React, { useMemo } from 'react';
 import * as Dialog from '@/components/ui/Dialog';
 import { DialogOpenProps } from '@/utils/react';
 import { Trans } from '@lingui/react/macro';
-import { ScenarioEnvironmentSnapshot, ScenarioSnapshot } from '@tensnap/core';
+import { Scenario, ScenarioEnvironmentSnapshot, ScenarioSnapshot } from '@tensnap/core';
 import { getSnapshotIdentity } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import clsx from 'clsx';
 import { GridEnvironmentView } from '../components/scenario/GridEnvironmentView';
 import { GraphEnvironmentView } from '../components/scenario/GraphEnvironmentView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
-import { getEnvironmentDisplayType, toGraphEnvironmentViewModel, toGridEnvironmentViewModel, toUniformEnvironmentViewModel } from '../components/scenario/environment-adapter';
+import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
 
 
 const EnvironmentRenderer = (props: {
   environment: ScenarioEnvironmentSnapshot;
 }) => {
   const { environment } = props;
-  const displayType = useMemo(() => getEnvironmentDisplayType(environment), [environment]);
+  const liveEnvironment = useMemo(() => {
+    const scenario = new Scenario();
+    scenario.load({
+      metadata: {},
+      actions: [],
+      parameters: [],
+      environments: [environment],
+      charts: [],
+      logs: [],
+    });
+    return scenario.getEnvironment(environment.id);
+  }, [environment]);
+
+  if (!liveEnvironment) {
+    return <div>Environment not found: {environment.id}</div>;
+  }
+
+  const displayType = useMemo(() => getEnvironmentDisplayType(liveEnvironment), [liveEnvironment]);
 
   if (displayType === 'grid') {
-    return <GridEnvironmentView environment={toGridEnvironmentViewModel(environment)} />;
+    return <GridEnvironmentView environment={liveEnvironment} />;
   }
   if (displayType === 'graph') {
-    return <GraphEnvironmentView environment={toGraphEnvironmentViewModel(environment)} />;
+    return <GraphEnvironmentView environment={liveEnvironment} />;
   }
   if (displayType === 'uniform') {
-    return <UniformEnvironmentView environment={toUniformEnvironmentViewModel(environment)} />;
+    return <UniformEnvironmentView environment={liveEnvironment} />;
   }
 
   return <div>Unsupported environment type: {environment.type}</div>;

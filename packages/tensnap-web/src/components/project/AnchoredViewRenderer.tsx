@@ -4,7 +4,7 @@ import { UniformEnvironmentView } from '../scenario/UniformEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from '../scenario/ChartView';
 import { ScenarioStore, useScenarioStore } from '../../store/scenario/store';
-import { getEnvironmentDisplayType, toGraphEnvironmentViewModel, toGridEnvironmentViewModel, toUniformEnvironmentViewModel } from '../scenario/environment-adapter';
+import { getEnvironmentDisplayType } from '../scenario/environment-adapter';
 import { useToast } from '@/store/toast';
 import { AnchoredViewRendererType } from '../view/types';
 
@@ -21,11 +21,11 @@ const AnchoredEnvironmentView = ({ id }: { id: string }) => {
   const displayType = getEnvironmentDisplayType(environment);
 
   if (displayType === 'grid') {
-    return <GridEnvironmentView environment={toGridEnvironmentViewModel(environment)} updateTrigger={updateTrigger} />;
+    return <GridEnvironmentView environment={environment} updateTrigger={updateTrigger} />;
   } else if (displayType === 'graph') {
-    return <GraphEnvironmentView environment={toGraphEnvironmentViewModel(environment)} updateTrigger={updateTrigger} />;
+    return <GraphEnvironmentView environment={environment} updateTrigger={updateTrigger} />;
   } else if (displayType === 'uniform') {
-    return <UniformEnvironmentView environment={toUniformEnvironmentViewModel(environment)} />;
+    return <UniformEnvironmentView environment={environment} updateTrigger={updateTrigger} />;
   } else {
     return <div>Unsupported environment type: {environment.type}</div>;
   }

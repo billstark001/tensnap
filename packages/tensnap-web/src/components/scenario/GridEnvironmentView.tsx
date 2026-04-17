@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { GridAgent, AgentTrajectoryPoint } from '@/types/model';
+import { GridAgent } from '@/types/model';
 import * as styles from './GridEnvironmentView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react/macro';
@@ -10,65 +10,48 @@ import {
   AgentLayer,
   BackgroundLayer,
   RenderableAgent,
-  TrajectoryPoint,
   GridEnvStorage,
   GridLayer,
+  ScenarioEnvironmentState,
 } from '@tensnap/core';
 
 interface GridEnvironmentViewProps {
-  environment: {
-    id: string;
-    props: Record<string, any>;
-    agents: Record<string | number, GridAgent>;
-    agentTraces: Record<string, AgentTrajectoryPoint[]>;
-  };
-  updateTrigger?: any;
-}
-
-/** Convert web model GridAgent to web-core RenderableAgent */
-function toRenderableAgent(agent: GridAgent): RenderableAgent {
-  return {
-    id: agent.id,
-    x: agent.x,
-    y: agent.y,
-    heading: agent.heading,
-    color: agent.color,
-    icon: agent.icon,
-    size: agent.size,
-    trajectoryColor: agent.trajectory_color,
-    data: agent.data as Record<string, unknown>,
-  };
-}
-
-/** Convert web model AgentTrajectoryPoint to web-core TrajectoryPoint */
-function toTrajectoryPoint(pt: AgentTrajectoryPoint): TrajectoryPoint {
-  return { x: pt.x, y: pt.y, time: pt.time, color: pt.color };
+  environment: ScenarioEnvironmentState;
+  updateTrigger?: number;
 }
 
 export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironmentViewProps) {
-  const { props: envProps, agents: agentsProps, agentTraces: traceProps } = environment;
-
   const containerRef = useRef<HTMLDivElement>(null);
   const envViewRef = useRef<EnvironmentView | null>(null);
-  const agentStorageRef = useRef<AgentStorage | null>(null);
-  const bgStorageRef = useRef<BackgroundStorage | null>(null);
-  const gridStorageRef = useRef<GridEnvStorage | null>(null);
-
-  const bgLayerRef = useRef<BackgroundLayer | null>(null);
-  const agentLayerRef = useRef<AgentLayer | null>(null);
-
-  // Keep latest agents map in a ref so the click handler always sees current data
-  const agentsRef = useRef(agentsProps);
-  agentsRef.current = agentsProps;
+  const agentStoragesRef = useRef<AgentStorage[]>([]);
+  const backgroundLayersRef = useRef<BackgroundLayer[]>([]);
+  const agentLayersRef = useRef<AgentLayer[]>([]);
 
   const [selectedAgent, setSelectedAgent] = useState<GridAgent | null>(null);
 
+  const resolveSceneBounds = useCallback((): { width: number; height: number } | undefined => {
+    for (const layer of environment.layers.values()) {
+      const width = layer.metadata.width;
+      const height = layer.metadata.height;
+      if (typeof width === 'number' && typeof height === 'number') {
+        return { width, height };
+      }
+    }
+    return undefined;
+  }, [environment]);
+
   const handleAgentClick = useCallback((agent: RenderableAgent) => {
-    const found = agentsRef.current[agent.id];
-    if (found) setSelectedAgent(found as GridAgent);
+    for (const storage of agentStoragesRef.current) {
+      const found = storage.getAgent(agent.id);
+      if (found) {
+        setSelectedAgent(found as GridAgent);
+        return;
+      }
+    }
+    setSelectedAgent(agent as GridAgent);
   }, []);
 
-  // Initialize view once
+  // Rebuild layers when environment structure changes. Per-step updates flow via storage subscriptions.
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -78,78 +61,74 @@ export function GridEnvironmentView({ environment, updateTrigger }: GridEnvironm
       enableTouchZoom: true,
       enableWheelZoom: true,
     });
-    const agentStorage = new AgentStorage();
-    const bgStorage = new BackgroundStorage();
-    const gridStorage = new GridEnvStorage();
+    const sceneBounds = resolveSceneBounds();
 
-    const bgLayer = new BackgroundLayer(view, bgStorage, {
-      sceneBounds: { width: envProps.width, height: envProps.height },
-    });
-    const agentLayer = new AgentLayer(view, agentStorage, {
-      clickable: true,
-      coordOffset: envProps.coord_offset ?? 'int',
-      sceneBounds: { width: envProps.width, height: envProps.height },
-      originMode: 'bottom-left',
-      onAgentClick: handleAgentClick,
-    });
-    const gridLayer = new GridLayer(view, gridStorage);
+    const nextAgentStorages: AgentStorage[] = [];
+    const nextBackgroundLayers: BackgroundLayer[] = [];
+    const nextAgentLayers: AgentLayer[] = [];
 
-    view.addLayer(bgLayer);
-    view.addLayer(agentLayer);
-    view.addLayer(gridLayer);
+    for (const layer of environment.layers.values()) {
+      if (layer.storage instanceof BackgroundStorage) {
+        const bgLayer = new BackgroundLayer(
+          view,
+          layer.storage,
+          sceneBounds ? { sceneBounds } : undefined,
+        );
+        view.addLayer(bgLayer);
+        nextBackgroundLayers.push(bgLayer);
+        continue;
+      }
+
+      if (layer.storage instanceof GridEnvStorage) {
+        const gridLayer = new GridLayer(view, layer.storage);
+        view.addLayer(gridLayer);
+        continue;
+      }
+
+      if (layer.storage instanceof AgentStorage) {
+        const layerSceneBounds = (
+          typeof layer.metadata.width === 'number' && typeof layer.metadata.height === 'number'
+        ) ? { width: layer.metadata.width, height: layer.metadata.height } : sceneBounds;
+
+        const agentLayer = new AgentLayer(view, layer.storage, {
+          clickable: true,
+          coordOffset: layer.metadata.coord_offset === 'float' ? 'float' : 'int',
+          sceneBounds: layerSceneBounds,
+          originMode: 'bottom-left',
+          onAgentClick: handleAgentClick,
+        });
+        view.addLayer(agentLayer);
+        nextAgentLayers.push(agentLayer);
+        nextAgentStorages.push(layer.storage);
+      }
+    }
+
+    view.fitToScene({ padding: 0 });
 
     envViewRef.current = view;
-    agentStorageRef.current = agentStorage;
-    bgStorageRef.current = bgStorage;
-    gridStorageRef.current = gridStorage;
-    bgLayerRef.current = bgLayer;
-    agentLayerRef.current = agentLayer;
+    agentStoragesRef.current = nextAgentStorages;
+    backgroundLayersRef.current = nextBackgroundLayers;
+    agentLayersRef.current = nextAgentLayers;
 
     return () => {
       view.destroy();
-      bgStorage.destroy();
       envViewRef.current = null;
-      agentStorageRef.current = null;
-      bgStorageRef.current = null;
-      bgLayerRef.current = null;
-      agentLayerRef.current = null;
+      agentStoragesRef.current = [];
+      backgroundLayersRef.current = [];
+      agentLayersRef.current = [];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Update background when env props change
-  useEffect(() => {
-    bgStorageRef.current?.setBackground(envProps.background);
-  }, [envProps.background]);
-
-  // Update agents
-  useEffect(() => {
-    const agentStorage = agentStorageRef.current;
-    if (!agentStorage) return;
-    const renderableAgents = Object.values(agentsProps).map(toRenderableAgent);
-    agentStorage.setAgents(renderableAgents);
-  }, [agentsProps, updateTrigger]);
-
-  // Update trajectories
-  useEffect(() => {
-    const agentStorage = agentStorageRef.current;
-    if (!agentStorage || !traceProps) return;
-    const converted: Record<string, TrajectoryPoint[]> = {};
-    for (const [id, pts] of Object.entries(traceProps)) {
-      converted[id] = pts.map(toTrajectoryPoint);
-    }
-    agentStorage.setTrajectories(converted);
-  }, [traceProps, updateTrigger]);
+  }, [environment, updateTrigger, handleAgentClick, resolveSceneBounds]);
 
   const resetView = useCallback(() => {
     envViewRef.current?.fitToScene({ padding: 0 });
-  }, [envViewRef.current]);
+  }, []);
 
   useEffect(() => {
-    bgLayerRef.current?.setSceneBounds(envProps);
-    agentLayerRef.current?.setSceneBounds(envProps);
-    envViewRef.current?.fitToScene({ padding: 0 });
-  }, [envProps.width, envProps.height]);
+    const bounds = resolveSceneBounds();
+    if (!bounds) return;
+    backgroundLayersRef.current.forEach((layer) => layer.setSceneBounds(bounds));
+    agentLayersRef.current.forEach((layer) => layer.setSceneBounds(bounds));
+  }, [resolveSceneBounds, updateTrigger]);
 
   return (
     <div className={styles.container}>
