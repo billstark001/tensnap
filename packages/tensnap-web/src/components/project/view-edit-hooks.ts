@@ -246,7 +246,12 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
       }
     }
 
-    findAndUpdateView(updateRoot, viewId, newId != null ? { ...rest, data: { ...data, id: newId } } : rest);
+    const updates: Partial<AnyView> = {
+      ...rest,
+      data: newId != null ? { ...data, id: newId } : data,
+    } as Partial<AnyView>;
+
+    findAndUpdateView(updateRoot, viewId, updates);
     onViewUpdate?.(updateRoot.id, updateRoot);
   }, [parentView, onViewUpdate, renameAction, renameChartGroup, renameEnvironment, renameParameter, updateActionProps, updateChartProps, updateEnvironment, updateParameterProps]);
 

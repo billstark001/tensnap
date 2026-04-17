@@ -10,6 +10,47 @@ import { ParameterViewEditor } from './ParameterViewEditor';
 import { ChartViewEditor } from './ChartViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup } from '@/types/model';
+import type { ScenarioEnvironmentState } from '@tensnap/core';
+
+type EditableEnvironmentData = {
+  id: string;
+  type: string;
+  width?: number;
+  height?: number;
+  coord_offset?: string;
+  show_grid?: boolean;
+  background_color?: string;
+};
+
+const getEditableEnvironmentData = (environments: ReadonlyMap<string, ScenarioEnvironmentState> | undefined, id: string): EditableEnvironmentData | null => {
+  if (!environments) {
+    return null;
+  }
+
+  const env = environments.get(id);
+  if (!env) {
+    return null;
+  }
+
+  const layers = [...env.layers.values()];
+  const gridLayer = layers.find((layer) => (
+    layer.layerType === 'grid'
+    || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
+  ));
+  const agentLayer = layers.find((layer) => layer.layerType === 'agent');
+  const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, unknown>;
+  const agentMetadata = (agentLayer?.metadata ?? {}) as Record<string, unknown>;
+
+  return {
+    id: env.id,
+    type: env.type,
+    width: typeof gridMetadata.width === 'number' ? gridMetadata.width : undefined,
+    height: typeof gridMetadata.height === 'number' ? gridMetadata.height : undefined,
+    coord_offset: typeof agentMetadata.coord_offset === 'string' ? agentMetadata.coord_offset : undefined,
+    show_grid: typeof gridMetadata.show_grid === 'boolean' ? gridMetadata.show_grid : undefined,
+    background_color: typeof gridMetadata.background_color === 'string' ? gridMetadata.background_color : undefined,
+  };
+};
 
 interface EditViewDialogProps extends DialogOpenProps {
   view: AnyView;
@@ -31,6 +72,10 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   const charts = useScenarioStore((store) => store.charts);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     setLocalView({ ...view });
     setHasChanges(false);
 
@@ -41,8 +86,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
         const param = parameters?.get(anchoredView.data.id);
         setLocalObjectData(param ? { ...param } : null);
       } else if (view.type === 'environment') {
-        const env = environments?.get(anchoredView.data.id);
-        setLocalObjectData(env ? { ...env } : null);
+        setLocalObjectData(getEditableEnvironmentData(environments, anchoredView.data.id));
       } else if (view.type === 'chart') {
         const chart = charts?.getGroup(anchoredView.data.id);
         setLocalObjectData(chart ? { ...chart } : null);
@@ -50,7 +94,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     } else {
       setLocalObjectData(null);
     }
-  }, [view, open, parameters, environments, charts]);
+  }, [view, open]);
 
   const handleChange = useCallback((field: string, value: any) => {
     setLocalView((prev) => {
@@ -124,8 +168,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
         const param = parameters?.get(anchoredView.data.id);
         setLocalObjectData(param ? { ...param } : null);
       } else if (view.type === 'environment') {
-        const env = environments?.get(anchoredView.data.id);
-        setLocalObjectData(env ? { ...env } : null);
+        setLocalObjectData(getEditableEnvironmentData(environments, anchoredView.data.id));
       } else if (view.type === 'chart') {
         const chart = charts?.getGroup(anchoredView.data.id);
         setLocalObjectData(chart ? { ...chart } : null);

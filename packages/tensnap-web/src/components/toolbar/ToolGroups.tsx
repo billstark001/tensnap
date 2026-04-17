@@ -98,12 +98,6 @@ export function SimulationControlTools() {
     <ToolGroupContainer>
       <ToolButton
         icon={<Play size={16} />}
-        tooltip={_(msg`Start/Stop`)}
-        isActive={true}
-        onClick={() => handleButtonAction('start_stop')}
-      />
-      <ToolButton
-        icon={<Play size={16} />}
         tooltip={_(msg`Start`)}
         onClick={() => handleButtonAction('start')}
       />

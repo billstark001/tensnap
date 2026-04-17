@@ -27,11 +27,11 @@ export class AxelrodAdapter extends BaseModelAdapter {
   }
 
   protected getActions(): Action[] {
-    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => ({
+    return ['start', 'step', 'reset'].map((id) => ({
       id,
       label: id,
       allowRuntimeChange: true,
-      continuous: id === 'start' || id === 'start_stop',
+      continuous: id === 'start',
     }));
   }
 
@@ -54,7 +54,6 @@ export class AxelrodAdapter extends BaseModelAdapter {
     let shouldContinue = false;
 
     if (id === 'start') shouldContinue = await this.stepOnce();
-    if (id === 'stop') shouldContinue = false;
     if (id === 'step') {
       await this.stepOnce();
       shouldContinue = false;
@@ -64,9 +63,6 @@ export class AxelrodAdapter extends BaseModelAdapter {
       this.stepCount = 0;
       await this.sendInitialData();
       shouldContinue = false;
-    }
-    if (id === 'start_stop') {
-      shouldContinue = await this.stepOnce();
     }
 
     await this.sendActionEnd({

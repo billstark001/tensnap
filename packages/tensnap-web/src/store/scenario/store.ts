@@ -373,8 +373,7 @@ export const createScenarioStore = () => {
                 continue;
               }
 
-              nextMetadata[key] = value;
-              changed = true;
+              continue;
             }
 
             if (changed) {

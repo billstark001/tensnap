@@ -80,8 +80,8 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   }
 
   protected getActions(): Action[] {
-    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => {
-      const continuous = id === 'start' || id === 'start_stop';
+    return ['start', 'step', 'reset'].map((id) => {
+      const continuous = id === 'start';
       return {
         id,
         label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
@@ -117,9 +117,6 @@ export class WolfSheepAdapter extends BaseModelAdapter {
       start: async () => {
         shouldContinue = await this.stepOnce();
       },
-      stop: () => {
-        shouldContinue = false;
-      },
       step: async () => {
         await this.stepOnce();
         shouldContinue = false;
@@ -138,9 +135,6 @@ export class WolfSheepAdapter extends BaseModelAdapter {
           { id: 'grass_count', operation: 'clear' },
         ] });
         shouldContinue = false;
-      },
-      start_stop: async () => {
-        shouldContinue = await this.stepOnce();
       },
     };
     await actionMap[id]?.();

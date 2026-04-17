@@ -29,8 +29,8 @@ export class SchellingAdapter extends BaseModelAdapter {
   }
 
   protected getActions(): Action[] {
-    return ['start', 'stop', 'step', 'reset', 'start_stop'].map((id) => {
-      const continuous = id === 'start' || id === 'start_stop';
+    return ['start', 'step', 'reset'].map((id) => {
+      const continuous = id === 'start';
       return {
         id,
         label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
@@ -59,7 +59,6 @@ export class SchellingAdapter extends BaseModelAdapter {
     let shouldContinue = false;
 
     if (id === 'start') shouldContinue = await this.stepOnce();
-    if (id === 'stop') shouldContinue = false;
     if (id === 'step') {
       await this.stepOnce();
       shouldContinue = false;
@@ -72,9 +71,6 @@ export class SchellingAdapter extends BaseModelAdapter {
         { id: 'segregation_index', operation: 'clear' },
       ] });
       shouldContinue = false;
-    }
-    if (id === 'start_stop') {
-      shouldContinue = await this.stepOnce();
     }
 
     await this.sendActionEnd({

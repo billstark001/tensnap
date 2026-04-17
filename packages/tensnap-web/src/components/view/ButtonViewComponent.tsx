@@ -22,7 +22,7 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
         isDisabled && styles.buttonViewDisabled,
         running && styles.buttonViewRunning,
       )}
-      onClick={isDisabled ? undefined : () => onButtonAction(view.data.id)}
+      onClick={isDisabled ? undefined : () => onButtonAction(view.data.id, view.data.continuous)}
     >
       {isContinuous && (running ? <Pause size={14} /> : <Play size={14} />)}
       {(view as ButtonView).data.text}

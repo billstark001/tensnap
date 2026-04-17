@@ -5,7 +5,7 @@ import { AnchoredViewRendererType, Point, ViewContextMenuRendererType } from "./
 
 export type ViewContextScheme = {
   isAdjusting: boolean,
-  onButtonAction: (id: string) => void,
+  onButtonAction: (id: string, continuous?: boolean) => void,
   isRunning: (id: string) => boolean,
   AnchoredViewRenderer: AnchoredViewRendererType,
   ViewContextMenuRenderer: ViewContextMenuRendererType,

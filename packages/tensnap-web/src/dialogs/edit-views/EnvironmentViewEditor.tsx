@@ -3,12 +3,21 @@ import { Trans } from '@lingui/react/macro';
 import Form from '@/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
-import { ScenarioEnvironmentState } from '@tensnap/core';
 import * as styles from './EditViews.css';
+
+type EditableEnvironmentData = {
+  id: string;
+  type: string;
+  width?: number;
+  height?: number;
+  coord_offset?: string;
+  show_grid?: boolean;
+  background_color?: string;
+};
 
 interface EnvironmentViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
-  objectData: ScenarioEnvironmentState | null;
+  objectData: EditableEnvironmentData | null;
   onObjectChange: (field: string, value: any) => void;
 }
 
@@ -28,27 +37,9 @@ const parseIntInput = (value: string, fallback: number = 0, min?: number): numbe
 };
 
 export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ view, objectData: env, onChange, onObjectChange }) => {
-  const gridLayer = env
-    ? [...env.layers.values()].find((layer) => (
-      layer.layerType === 'grid'
-      || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
-    ))
-    : null;
-  const agentLayer = env
-    ? [...env.layers.values()].find((layer) => layer.layerType === 'agent')
-    : null;
-  const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, any>;
-  const agentMetadata = (agentLayer?.metadata ?? {}) as Record<string, any>;
-  const coordOffset = agentMetadata.coord_offset === 'float' ? 'float' : 'int';
-  const showGrid = gridMetadata.show_grid !== false;
-  const backgroundColor = typeof gridMetadata.background_color === 'string' ? gridMetadata.background_color : '#ffffff';
-
-  const layersMetadataPreview = env
-    ? [...env.layers.values()]
-      .map((layer) => ({ id: layer.id, type: layer.layerType, metadata: layer.metadata ?? {} }))
-      .map((item) => `${item.id} (${item.type})\n${JSON.stringify(item.metadata, null, 2)}`)
-      .join('\n\n')
-    : '';
+  const coordOffset = env?.coord_offset === 'float' ? 'float' : 'int';
+  const showGrid = env?.show_grid !== false;
+  const backgroundColor = typeof env?.background_color === 'string' ? env.background_color : '#ffffff';
 
   return (
     <>
@@ -86,7 +77,7 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
             </Form.Field>
           </Form.FieldGroup>
 
-          {env.type === '2d' && gridLayer && (
+          {env.type === '2d' && (
             <>
               <Form.FieldGroup columns={2}>
                 <Form.Field label={<Trans>Grid Width</Trans>} htmlFor="grid-width">
@@ -94,9 +85,9 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                     id="grid-width"
                     type="number"
                     min="1"
-                    value={gridMetadata.width ?? 0}
+                    value={env.width ?? 0}
                     onChange={(e) => {
-                      const currentWidth = gridMetadata.width ?? 1;
+                      const currentWidth = env.width ?? 1;
                       onObjectChange('width', parseIntInput(e.target.value, currentWidth, 1));
                     }}
                   />
@@ -107,9 +98,9 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                     id="grid-height"
                     type="number"
                     min="1"
-                    value={gridMetadata.height ?? 0}
+                    value={env.height ?? 0}
                     onChange={(e) => {
-                      const currentHeight = gridMetadata.height ?? 1;
+                      const currentHeight = env.height ?? 1;
                       onObjectChange('height', parseIntInput(e.target.value, currentHeight, 1));
                     }}
                   />
@@ -153,7 +144,7 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                 <Form.Textarea
                   id="env-layers-metadata"
                   rows={10}
-                  value={layersMetadataPreview}
+                  value={JSON.stringify(env, null, 2)}
                   disabled
                   className={styles.disabledField}
                 />

@@ -22,6 +22,15 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({ view, onChan
         />
       </Form.Field>
 
+      <Form.Field label={<Trans>Continuous</Trans>} htmlFor="button-continuous">
+        <Form.Input
+          id="button-continuous"
+          type="checkbox"
+          checked={view.data.continuous ?? false}
+          onChange={(e) => onChange('data.continuous', e.target.checked)}
+        />
+      </Form.Field>
+
     </>
   );
 };
