@@ -100,6 +100,62 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     this.dbName = dbName;
   }
 
+  private isMissingObjectStoreError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const maybeError = error as { name?: string; message?: string };
+    if (maybeError.name === 'NotFoundError') {
+      return true;
+    }
+
+    return /object stores? (was )?not found/i.test(maybeError.message ?? '');
+  }
+
+  private deleteIndexedDB(databaseName: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (typeof indexedDB === 'undefined') {
+        resolve();
+        return;
+      }
+
+      const request = indexedDB.deleteDatabase(databaseName);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error ?? new Error(`Failed to delete IndexedDB database: ${databaseName}`));
+      request.onblocked = () => {
+        // Best-effort cleanup. If another tab blocks deletion, continue and let retry decide.
+        resolve();
+      };
+    });
+  }
+
+  private async recoverCorruptedLightningFSState(): Promise<void> {
+    this.fs = null;
+    this.metadata = { files: {}, directories: {} };
+
+    await Promise.allSettled([
+      this.deleteIndexedDB(this.dbName),
+      this.deleteIndexedDB(`${this.dbName}_lock`),
+    ]);
+  }
+
+  private async bootstrapFileSystem(): Promise<void> {
+    this.fs = new LightningFS(this.dbName);
+    try {
+      await this.fsPromises.mkdir('/');
+    } catch {
+      // Root already exists.
+    }
+
+    await this.loadMetadata();
+
+    if (!this.metadata.directories['/']) {
+      this.metadata.directories['/'] = { createdAt: new Date().toISOString() };
+      await this.persistMetadata();
+    }
+  }
+
   private async safeExecute<T>(
     operation: () => Promise<T>,
     errorMessage: string,
@@ -229,18 +285,31 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
   async initialize(): Promise<void> {
     if (this.fs) return;
 
-    this.fs = new LightningFS(this.dbName);
     try {
-      await this.fsPromises.mkdir('/');
-    } catch {
-      // Root already exists.
-    }
+      await this.bootstrapFileSystem();
+    } catch (error) {
+      if (!this.isMissingObjectStoreError(error)) {
+        this.fs = null;
+        throw error;
+      }
 
-    await this.loadMetadata();
+      await this.recoverCorruptedLightningFSState();
+      try {
+        await this.bootstrapFileSystem();
+      } catch (retryError) {
+        this.fs = null;
 
-    if (!this.metadata.directories['/']) {
-      this.metadata.directories['/'] = { createdAt: new Date().toISOString() };
-      await this.persistMetadata();
+        if (this.isMissingObjectStoreError(retryError)) {
+          throw new FileSystemError(
+            'IndexedDB schema is incompatible. Please close other tabs of this app and retry.',
+            'STORAGE_ERROR',
+            undefined,
+            'initialize',
+          );
+        }
+
+        throw retryError;
+      }
     }
   }
 
