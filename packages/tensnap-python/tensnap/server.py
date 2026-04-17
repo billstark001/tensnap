@@ -540,16 +540,8 @@ class TenSnapServer:
         except Exception as e:
             logger.exception(f"Failed to send error message to client: {e}")
 
-    async def start_time_step(self, time: int) -> None:
-        await self._broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": time})
-
-    async def end_time_step(self, time: Optional[int] = None) -> None:
-        # In v0.2, metadata_update replaces both time_step_start and time_step_end.
-        # This method is kept for backward compatibility with scenario.py and sim_loop.py.
-        if time is not None:
-            await self._broadcast(
-                ServerToClientMessageType.METADATA_UPDATE, {"time": time}
-            )
+    async def update_metadata(self, payload: Dict[str, Any]) -> None:
+        await self._broadcast(ServerToClientMessageType.METADATA_UPDATE, payload)
 
     async def update_charts(self, time: Optional[int] = None) -> None:
         if not self.charts:

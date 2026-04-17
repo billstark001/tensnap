@@ -116,31 +116,28 @@ class DefaultSimulationHandler:
         if not s:
             return
 
-        await s.server.start_time_step(step)
+        await s.server.update_metadata({"time": step})
         await self.send_updates(replace_agents=replace_agents)
         await s.server.update_charts(step)
-        await s.server.end_time_step(step)
 
     async def on_step(self, step: int) -> None:
         s = self.scenario
         if not s:
             return
 
-        await s.server.start_time_step(step)
+        await s.server.update_metadata({"time": step})
 
         if self.model_step is not None:
             await call_function(self.model_step)
 
         await self.send_updates()
         await s.server.update_charts(step)
-        await s.server.end_time_step(step)
 
     async def on_reset(self) -> None:
         if not self.scenario:
             return
 
-        await self.scenario.sim_manager.stop()
-        self.scenario.sim_manager.time_step = 0
+        self.scenario.sim_manager.reset_clock()
         if self.model_init is not None:
             await call_function(self.model_init)
         await self.scenario.server.clear_charts()

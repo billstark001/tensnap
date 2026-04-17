@@ -203,8 +203,6 @@ class TestSimulationScenario:
 
         # Should have default actions from sim_manager
         assert "start" in scenario.server.button_handlers
-        assert "stop" in scenario.server.button_handlers
-        assert "start_stop" in scenario.server.button_handlers
         assert "step" in scenario.server.button_handlers
         assert "reset" in scenario.server.button_handlers
 
@@ -330,16 +328,14 @@ class TestDefaultSimulationHandler:
 
         scenario.add_environment(env)
 
-        scenario.server.start_time_step = AsyncMock()
-        scenario.server.end_time_step = AsyncMock()
+        scenario.server.update_metadata = AsyncMock()
         scenario.server.update_environment = AsyncMock()
         scenario.server.update_agents_batch = AsyncMock()
         scenario.server.update_charts = AsyncMock()
 
         await handler.on_start(0)
 
-        scenario.server.start_time_step.assert_called_with(0)
-        scenario.server.end_time_step.assert_called_with(0)
+        scenario.server.update_metadata.assert_called_with({"time": 0})
 
     @pytest.mark.asyncio
     async def test_on_step(
@@ -355,8 +351,7 @@ class TestDefaultSimulationHandler:
 
         handler.model_step = model_step
 
-        scenario.server.start_time_step = AsyncMock()
-        scenario.server.end_time_step = AsyncMock()
+        scenario.server.update_metadata = AsyncMock()
         scenario.server.update_environment = AsyncMock()
         scenario.server.update_agents_batch = AsyncMock()
         scenario.server.update_charts = AsyncMock()
@@ -379,10 +374,9 @@ class TestDefaultSimulationHandler:
 
         handler.model_init = model_init
 
-        scenario.sim_manager.stop = AsyncMock()
+        scenario.sim_manager.reset_clock = Mock()
         scenario.server.clear_charts = AsyncMock()
-        scenario.server.start_time_step = AsyncMock()
-        scenario.server.end_time_step = AsyncMock()
+        scenario.server.update_metadata = AsyncMock()
         scenario.server.update_environment = AsyncMock()
         scenario.server.update_agents_batch = AsyncMock()
         scenario.server.update_charts = AsyncMock()
