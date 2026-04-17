@@ -159,6 +159,7 @@ export const createScenarioStore = () => {
       connected: false,
       _revision: 0,
       _assetRevision: 0,
+      currentTime: 0,
       viewUpdateTrigger: createUpdateTriggerStoreFunction(
         (x) => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })),
         () => get().viewUpdateTrigger,
@@ -212,7 +213,7 @@ export const createScenarioStore = () => {
 
       load: (snapshot) => {
         scenario.load(snapshot);
-        set((state) => ({ _revision: state._revision + 1 }));
+        set((state) => ({ _revision: state._revision + 1, currentTime: scenario.time ?? 0 }));
       },
 
       clearAll: () => {
@@ -220,6 +221,7 @@ export const createScenarioStore = () => {
         set({
           connected: false,
           snapshots: [],
+          currentTime: 0,
         });
       },
 
@@ -371,10 +373,6 @@ export const createScenarioStore = () => {
 
       setMaxSnapshots: (max) => set({ maxSnapshots: max }),
 
-      get currentTime() {
-        return scenario.time ?? 0;
-      },
-
       get environments(): ReadonlyMap<string, ScenarioEnvironmentState> {
         return scenario.environments;
       },
@@ -403,7 +401,7 @@ export const createScenarioStore = () => {
 
   const unsubscribeScenario = subscribeScenario(
     scenario,
-    () => useStore.setState((state) => ({ _revision: state._revision + 1 })),
+    () => useStore.setState((state) => ({ _revision: state._revision + 1, currentTime: scenario.time ?? 0 })),
     () => useStore.setState((state) => ({
       _revision: state._revision + 1,
       environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },

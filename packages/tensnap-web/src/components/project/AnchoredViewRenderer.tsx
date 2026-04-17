@@ -40,7 +40,10 @@ const AnchoredParameterView = ({ id }: { id: string }) => {
 };
 
 const AnchoredChartView = ({ id }: { id: string }) => {
-  useScenarioStore((store) => store.currentTime); // subscribe to time step changes
+  // Subscribe to _revision instead of currentTime: currentTime is a getter that gets
+  // inlined as a stale value by Zustand's Object.assign after the first setState, so
+  // it never changes. _revision is an explicit counter that increments every step.
+  useScenarioStore((store) => store._revision);
   const charts = useScenarioStore((store) => store.charts);
   const chartGroup = charts?.getGroup(id);
   if (!chartGroup) return <div>Chart not found: {id}</div>;

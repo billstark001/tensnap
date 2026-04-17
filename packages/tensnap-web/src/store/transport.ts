@@ -65,8 +65,17 @@ export const createTransportStore = (
     const onOpen = () => {
       set({ isConnecting: false, connectionError: null, abortController: null });
       useScenarioStore.getState().setConnected(true);
-      if (!state || ((state.parameters.length + state.actions.length + state.envs.length + state.charts.length) === 0)) {
+      const isEmptyState = !state || ((state.parameters.length + state.actions.length + state.envs.length + state.charts.length) === 0);
+      if (isEmptyState) {
         transport.send(useScenarioStore.getState().createStateSyncMessage());
+      }
+      // For in-memory transports with no pre-existing scenario state, auto-trigger layout
+      // after all initial messages have been delivered (they arrive as microtasks, so a
+      // macrotask-level setTimeout(0) fires only after the full initial sync is done).
+      if (transport.transportKind === 'inmemory' && isEmptyState) {
+        setTimeout(() => {
+          useScenarioStore.getState().updateMainViewLayout();
+        }, 0);
       }
     };
 

@@ -29,15 +29,24 @@ const getLayerByType = (environment: AnyEnvironment, layerType: string) => {
 };
 
 const getAgentStorageSnapshot = (environment: AnyEnvironment) => {
-  const layer = getLayerByType(environment, 'agent');
-  if (!layer) return { agents: [], trajectories: [] };
-  if ('storage' in layer && layer.storage instanceof AgentStorage) {
-    return layer.storage.dump();
+  // Merge agents from ALL 'agent' type layers (models like wolf-sheep have separate layers
+  // for terrain patches and animals; both end up as 'agent' layers after requireStorage coercion).
+  const agentLayers = getLayers(environment).filter((l) => l.layerType === 'agent');
+  const agents: Array<GridAgent | GraphAgent> = [];
+  const trajectories: Array<{ id: string; points: any[] }> = [];
+  for (const layer of agentLayers) {
+    let snapshot: { agents?: GridAgent[] | GraphAgent[]; trajectories?: Array<{ id: string; points: any[] }> } | null = null;
+    if ('storage' in layer && layer.storage instanceof AgentStorage) {
+      snapshot = layer.storage.dump();
+    } else if ('storageSnapshot' in layer) {
+      snapshot = layer.storageSnapshot as { agents?: GridAgent[] | GraphAgent[]; trajectories?: Array<{ id: string; points: any[] }> };
+    }
+    if (snapshot) {
+      agents.push(...(snapshot.agents ?? []));
+      trajectories.push(...(snapshot.trajectories ?? []));
+    }
   }
-  if ('storageSnapshot' in layer) {
-    return layer.storageSnapshot as { agents?: GridAgent[] | GraphAgent[]; trajectories?: Array<{ id: string; points: any[] }> };
-  }
-  return { agents: [], trajectories: [] };
+  return { agents, trajectories };
 };
 
 const getEdgeStorageSnapshot = (environment: AnyEnvironment) => {
@@ -56,13 +65,21 @@ export const getEnvironmentDisplayType = (environment: AnyEnvironment): 'grid' |
   if (environment.type === 'uniform') return 'uniform';
   if (getLayerByType(environment, 'grid')) return 'grid';
   if (getLayerByType(environment, 'edge')) return 'graph';
-  return 'uniform';
+  // For '2d' environments without layers yet (e.g. during initial load before layer messages
+  // arrive), default to 'grid' rather than 'uniform' to avoid misclassification.
+  return (environment as ScenarioEnvironmentState).type === 'uniform' ? 'uniform' : 'grid';
 };
 
 export const toGridEnvironmentViewModel = (environment: AnyEnvironment) => {
   const agentSnapshot = getAgentStorageSnapshot(environment);
+  // Prefer dedicated 'grid' layer for metadata (grid lines). Fall back to any layer that
+  // carries width/height (happens when adapters use 'grid' layer_type for agent layers,
+  // which Scenario.requireStorage coerces to 'agent' while preserving the metadata).
   const gridLayer = getLayerByType(environment, 'grid');
-  const metadata = (gridLayer?.metadata ?? {}) as Record<string, unknown>;
+  const metadataLayer = gridLayer ?? getLayers(environment).find(
+    (l) => typeof ((l.metadata ?? ({} as Record<string, unknown>)) as Record<string, unknown>).width === 'number',
+  );
+  const metadata = ((metadataLayer as LiveLayer | SnapshotLayer | undefined)?.metadata ?? {}) as Record<string, unknown>;
   return {
     id: environment.id,
     props: metadata,

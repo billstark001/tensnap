@@ -89,7 +89,7 @@ export interface ScenarioStore {
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;
 
-  get currentTime(): number;
+  currentTime: number;
   get environments(): ReadonlyMap<string, ScenarioEnvironmentState>;
   get parameters(): ReadonlyMap<string, Parameter>;
   get actions(): ReadonlyMap<string, Action>;
