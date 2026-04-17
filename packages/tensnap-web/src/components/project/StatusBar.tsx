@@ -2,7 +2,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import { useToast } from '@/store/toast';
 import { Trans } from '@lingui/react/macro';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw } from 'lucide-react';
 import { useState, useCallback } from 'react';

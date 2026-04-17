@@ -5,7 +5,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { AgentDetailsDialog, createIconElement } from '../../dialogs/AgentDetailsDialog';
 import * as styles from './UniformEnvironmentView.css';
 import { Trans } from '@lingui/react/macro';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '../ui/EmptyState';
 

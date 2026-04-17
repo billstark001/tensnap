@@ -5,7 +5,7 @@ import * as Switch from '@radix-ui/react-switch';
 import { DialogOpenProps } from '@/utils/react';
 import { useSettingsStore } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';

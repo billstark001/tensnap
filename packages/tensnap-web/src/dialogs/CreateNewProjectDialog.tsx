@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import * as Dialog from '@/components/ui/Dialog';
 import { DialogOpenProps } from '@/utils/react';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import Form from '@/components/ui/Form';

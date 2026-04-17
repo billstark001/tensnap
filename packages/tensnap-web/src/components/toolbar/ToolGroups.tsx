@@ -32,7 +32,7 @@ import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
