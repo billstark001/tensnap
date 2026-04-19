@@ -10,6 +10,8 @@
     "build:web": "pnpm --filter @tensnap/web build",
     "preview:web": "pnpm --filter @tensnap/web preview",
     "test:web": "pnpm --filter @tensnap/web test",
+    "dev:agent": "pnpm --filter @tensnap/agent dev",
+    "test:agent": "pnpm --filter @tensnap/agent test",
     "dev:benchmark": "pnpm --filter @tensnap/benchmark dev",
     "build:benchmark": "pnpm --filter @tensnap/benchmark build",
     "dev:tauri": "pnpm --filter @tensnap/tauri dev",
@@ -28,10 +30,10 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
-    "eslint": "^10.2.0",
-    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint": "^10.2.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=18.0.0",
