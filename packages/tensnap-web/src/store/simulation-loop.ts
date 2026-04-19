@@ -13,6 +13,7 @@ type ActiveLoopHandle = {
   rafId: number | null;
   lastDispatchAt: number;
   nextDueAt: number;
+  completedCount: number;
 };
 
 export type RuntimeMetrics = {
@@ -60,6 +61,7 @@ export class SimulationLoopController {
       rafId: null,
       lastDispatchAt: now,
       nextDueAt: now + intervalMs,
+      completedCount: 0,
     });
     this.sendMessage(this.createActionStartMessage(actionId, true));
   }
@@ -90,7 +92,11 @@ export class SimulationLoopController {
     const handle = this.activeLoops.get(actionId);
     const now = performance.now();
     const actionDurationMs = handle ? Math.max(0, now - handle.lastDispatchAt) : null;
-    this.markFrame(now, actionDurationMs);
+    const shouldMeasureDuration = handle ? handle.completedCount > 0 : false;
+    this.markFrame(now, shouldMeasureDuration ? actionDurationMs : null);
+    if (handle) {
+      handle.completedCount += 1;
+    }
 
     if (payload.continue === false) {
       this.stop(actionId);
@@ -159,10 +165,8 @@ export class SimulationLoopController {
       return;
     }
 
-    // If already overdue when scheduling, dispatch immediately instead of waiting one extra RAF frame.
-    const now = performance.now();
-    if (now >= handle.nextDueAt) {
-      this.dispatchActionStart(actionId, now, handle);
+    // Always yield at least one frame boundary in RAF mode to avoid starvation at high/unlimited TPS.
+    if (handle.rafId != null) {
       return;
     }
 
@@ -173,7 +177,7 @@ export class SimulationLoopController {
     const intervalMs = this.getMinIntervalMs();
     handle.lastDispatchAt = now;
     handle.nextDueAt = intervalMs > 0
-      ? Math.max(handle.nextDueAt + intervalMs, now)
+      ? now + intervalMs
       : now;
     this.sendMessage(this.createActionStartMessage(actionId, true));
   }

@@ -6,12 +6,12 @@ function waitFrame(): Promise<DOMHighResTimeStamp> {
 }
 
 /**
- * Run a benchmark case for `frames` frames.
+ * Run a benchmark case for `frames` ticks.
  *
- * Protocol per frame:
+ * Protocol per tick:
  *   1. `tick(i)` — update data (computation)
  *   2. `requestAnimationFrame` — yield to browser to paint
- *   3. record elapsed since step 1 start
+ *   3. record compute time and wall-clock throughput
  *
  * The first `warmupFrames` frames are discarded.
  */
@@ -34,26 +34,30 @@ export async function runBenchmark(
 
   // --- measured run ---
   const timings: number[] = [];
+  const runStartedAt = performance.now();
 
   for (let i = 0; i < frames; i++) {
     const t0 = performance.now();
     benchCase.tick(i);
+    const computeElapsed = performance.now() - t0;
+    timings.push(computeElapsed);
     await waitFrame();
-    const elapsed = performance.now() - t0;
-    timings.push(elapsed);
     onProgress?.(i + 1, frames);
   }
+  const runEndedAt = performance.now();
+  const runDurationMs = Math.max(1, runEndedAt - runStartedAt);
 
   // --- teardown ---
   await benchCase.teardown();
 
-  return computeStats(benchCase.name, benchCase.config, timings);
+  return computeStats(benchCase.name, benchCase.config, timings, runDurationMs);
 }
 
 function computeStats(
   caseName: string,
   config: Record<string, unknown>,
-  timings: number[]
+  timings: number[],
+  runDurationMs: number,
 ): BenchmarkStats {
   const sorted = [...timings].sort((a, b) => a - b);
   const n = sorted.length;
@@ -65,7 +69,7 @@ function computeStats(
   const p95 = sorted[Math.floor(n * 0.95)];
   const min = sorted[0];
   const max = sorted[n - 1];
-  const fps = 1000 / mean;
+  const tps = (n * 1000) / runDurationMs;
 
   return {
     caseName,
@@ -77,7 +81,7 @@ function computeStats(
     minMs: Math.round(min * 100) / 100,
     maxMs: Math.round(max * 100) / 100,
     p95Ms: Math.round(p95 * 100) / 100,
-    fps: Math.round(fps * 10) / 10,
+    tps: Math.round(tps * 10) / 10,
     timings: timings.map((v) => Math.round(v * 100) / 100),
   };
 }
@@ -93,14 +97,14 @@ export function resultsToMarkdown(results: BenchmarkStats[]): string {
   const header = `# TenSnap Web Core — Benchmark Results\n\n_Generated: ${date}_\n\n`;
 
   const tableHeader = [
-    '| Case | Frames | Mean (ms) | Median (ms) | Min (ms) | Max (ms) | p95 (ms) | FPS |',
+    '| Case | Frames | Mean (ms) | Median (ms) | Min (ms) | Max (ms) | p95 (ms) | TPS |',
     '|------|-------:|----------:|------------:|---------:|---------:|---------:|----:|',
   ].join('\n');
 
   const rows = results
     .map(
       (r) =>
-        `| ${r.caseName} | ${r.frames} | ${r.meanMs} | ${r.medianMs} | ${r.minMs} | ${r.maxMs} | ${r.p95Ms} | ${r.fps} |`
+        `| ${r.caseName} | ${r.frames} | ${r.meanMs} | ${r.medianMs} | ${r.minMs} | ${r.maxMs} | ${r.p95Ms} | ${r.tps} |`
     )
     .join('\n');
 

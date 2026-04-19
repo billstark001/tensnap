@@ -1,7 +1,7 @@
 /** Single frame timing result in milliseconds. */
 export interface FrameTiming {
   frameIndex: number;
-  elapsed: number; // ms for this frame (update + render wait)
+  elapsed: number; // ms for this tick (compute only)
 }
 
 /** Aggregated statistics for a benchmark case. */
@@ -15,8 +15,8 @@ export interface BenchmarkStats {
   minMs: number;
   maxMs: number;
   p95Ms: number;
-  fps: number;
-  timings: number[]; // raw per-frame elapsed ms
+  tps: number;
+  timings: number[]; // raw per-tick compute elapsed ms
 }
 
 export interface BenchmarkCase {

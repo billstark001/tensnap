@@ -307,7 +307,7 @@ function ResultsTable() {
         <table style={styles.table}>
           <thead>
             <tr>
-              {['Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'FPS'].map(
+              {['Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'TPS'].map(
                 (h) => <th key={h} style={styles.th}>{h}</th>
               )}
             </tr>
@@ -322,7 +322,7 @@ function ResultsTable() {
                 <td style={styles.tdNum}>{r.minMs}</td>
                 <td style={styles.tdNum}>{r.maxMs}</td>
                 <td style={styles.tdNum}>{r.p95Ms}</td>
-                <td style={{ ...styles.tdNum, color: fpsColor(r.fps) }}>{r.fps}</td>
+                <td style={{ ...styles.tdNum, color: tpsColor(r.tps) }}>{r.tps}</td>
               </tr>
             ))}
           </tbody>
@@ -382,9 +382,9 @@ function ResultsTable() {
   );
 }
 
-function fpsColor(fps: number): string {
-  if (fps >= 50) return '#6ee7b7';
-  if (fps >= 30) return '#fcd34d';
+function tpsColor(tps: number): string {
+  if (tps >= 50) return '#6ee7b7';
+  if (tps >= 30) return '#fcd34d';
   return '#f87171';
 }
 
@@ -397,8 +397,8 @@ export function App() {
       <header style={styles.header}>
         <h1 style={styles.title}>TenSnap Web Core — Benchmark Suite</h1>
         <p style={styles.subtitle}>
-          Measures per-frame render latency using <code>requestAnimationFrame</code>.
-          One event-loop turn is yielded after each frame.
+          Measures per-tick compute latency (MSPT) and effective TPS while yielding one
+          <code>requestAnimationFrame</code> turn after each tick.
         </p>
       </header>
 
