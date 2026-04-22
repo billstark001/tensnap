@@ -94,7 +94,7 @@ interface LayerTypeDefinition {
 | `agent` | ✓ | — | Agents with optional `x`, `y`, `heading` (grid or free-form). |
 | `edge` | — | ✓ | Directed/undirected edges with d3-force layout. |
 | `grid` | — | — | Parametric multi-scale grid overlay (no entities). |
-| `background` | — | — | CSS color or image fill; data contains `background` and optional `interpolation`. |
+| `background` | — | — | Background source layer; `background` accepts CSS color / explicit URL / data URL strings, `Uint8Array` bytes, or `{ asset_id, interpolation? }`, plus optional layer-level `interpolation`. |
 
 Built-in types are registered automatically at module load time. You may
 **overwrite** a built-in type by calling `registerLayerType` with the same

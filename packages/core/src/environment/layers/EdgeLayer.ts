@@ -23,7 +23,7 @@
  */
 
 import * as d3 from 'd3';
-import { Line, Polygon } from 'leafer-ui';
+import { Line, Polygon } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import { EdgeDelta, EdgeStorage, EdgeStorageData } from '../storages/EdgeStorage';

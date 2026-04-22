@@ -12,11 +12,7 @@
     "noEmit": true,
     "types": ["vitest/globals"],
     "paths": {
-      "@/*": ["./src/*"],
-      "@tensnap/core": ["../core/src/index.ts"],
-      "@tensnap/core/*": ["../core/src/*"],
-      "@tensnap/web-adapter": ["../web-adapter/src/index.ts"],
-      "@tensnap/web-adapter/*": ["../web-adapter/src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "adapters.ts"],

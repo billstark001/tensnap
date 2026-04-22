@@ -1,6 +1,6 @@
 // UniformEnvironmentView.css.ts
 import { style } from '@vanilla-extract/css';
-import { vars } from '@/styles/global.css';
+import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const container = style({
   position: 'relative',

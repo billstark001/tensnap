@@ -1,8 +1,16 @@
-import { registerLocaleCatalog } from '@tensnap/web/i18n';
+type LocaleMessages = Record<string, string>;
+type LocaleLoader = () => Promise<{ messages: LocaleMessages }>;
+
+export interface LocaleCatalogRegistration {
+  name: string;
+  loaders: Partial<Record<'en' | 'zh' | 'ja', LocaleLoader>>;
+}
+
+type RegisterLocaleCatalog = (registration: LocaleCatalogRegistration) => void;
 
 let registered = false;
 
-export function registerWebAdapterLocaleCatalog(): void {
+export function registerWebAdapterLocaleCatalog(registerLocaleCatalog: RegisterLocaleCatalog): void {
   if (registered) {
     return;
   }

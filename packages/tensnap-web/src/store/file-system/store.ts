@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FileSystemAdapter } from '@/types/file';
+import { FileSystemAdapter } from '@tensnap/web-common/types/file';
 import type {
   FileMetadata,
   FileContent,
@@ -8,7 +8,7 @@ import type {
   FileSystemStats,
   FilePickerOptions,
   FileSystemPicker
-} from '@/types/file';
+} from '@tensnap/web-common/types/file';
 
 export interface FileSystemState {
   // Adapter management

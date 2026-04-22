@@ -2,14 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["vitest/globals"],
-    "paths": {
-      "@/*": ["../tensnap-web/src/*"],
-      "@tensnap/web": ["../tensnap-web/index.ts"],
-      "@tensnap/web/*": ["../tensnap-web/src/*"],
-      "@tensnap/core": ["../core/src/index.ts"],
-      "@tensnap/core/*": ["../core/src/*"]
-    },
-    "jsx": "react-jsx",
+    "jsx": "react-jsx"
   },
   "include": ["./src"],
   "exclude": ["node_modules", "dist"]

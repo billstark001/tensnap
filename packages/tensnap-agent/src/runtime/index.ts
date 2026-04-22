@@ -1,3 +1,5 @@
+import './leafer-runtime';
+
 export * from './AgentRuntime';
 export * from './NodeCanvasEnvironmentPainter';
 export * from './context';

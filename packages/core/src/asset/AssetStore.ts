@@ -18,6 +18,8 @@
  *   6. Server sends `asset_delete` → store revokes blob URLs and removes entries.
  */
 
+import { decodeBinaryString } from '../utils/binary';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -128,12 +130,13 @@ export class AssetStore {
    * Receive raw asset data from the server and resolve it.
    * For image/* mime types a blob-URL is created.
    * For text/* types the data is decoded to a string.
+   * String inputs may be either bare base64 or explicit base64 data URLs.
    * For all other types the raw Uint8Array is stored.
    */
   async receiveData(id: AssetId, hash: string, mime: string, raw: string | Uint8Array): Promise<void> {
-    // Decode base64 string → Uint8Array if needed
+    // Decode JSON-side base64/data-URL strings into bytes before resolving by mime.
     const bytes: Uint8Array =
-      typeof raw === 'string' ? _base64ToUint8Array(raw) : raw;
+      typeof raw === 'string' ? decodeBinaryString(raw).bytes : raw;
 
     let url: string | Uint8Array;
 
@@ -215,17 +218,4 @@ export class AssetStore {
       this._blobUrls.delete(id);
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-function _base64ToUint8Array(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
 }

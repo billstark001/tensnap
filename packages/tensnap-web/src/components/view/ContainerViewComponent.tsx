@@ -8,7 +8,7 @@ import { viewConstants } from './constants';
 import cx from 'clsx';
 import { ViewProps } from './types';
 import { useViewContext } from './useViewContext';
-import ContextMenu from '../ui/ContextMenu';
+import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';
 
 interface ContainerViewComponentProps extends ViewProps<ContainerView> {

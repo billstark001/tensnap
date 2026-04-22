@@ -9,7 +9,7 @@
  * Default z-index: 0
  */
 
-import { Rect } from 'leafer-ui';
+import { Rect } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import { BackgroundStorage, BackgroundData } from '../storages/BackgroundStorage';

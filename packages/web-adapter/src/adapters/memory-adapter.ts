@@ -7,7 +7,7 @@ import {
   type FileSystemStats,
   type FileSystemError as FileSystemErrorType,
   FileSystemAdapter
-} from '@tensnap/web/types/file';
+} from '@tensnap/web-common/types/file';
 
 class FileSystemError extends Error {
   public code: FileSystemErrorType['code'];

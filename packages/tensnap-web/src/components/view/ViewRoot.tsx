@@ -12,7 +12,7 @@ import { ContainerView } from '@/types/ui';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import { nestedOverlapCollisionDetection } from './utils/collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
-import { useCallbackRef } from '@/utils/react';
+import { useCallbackRef } from '@tensnap/web-common/react';
 import { ViewProps } from './types';
 import { viewConstants } from './constants';
 import { Guidelines } from './GuideLines';

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { FileSystemAdapter, FileSystemAdapterFactory, FileSystemPicker } from '@/types/file';
+import { FileSystemAdapter, FileSystemAdapterFactory, FileSystemPicker } from '@tensnap/web-common/types/file';
 import { createFileSystemStore } from './store';
 import { createUpdateTriggerStore } from '../update-trigger';
 

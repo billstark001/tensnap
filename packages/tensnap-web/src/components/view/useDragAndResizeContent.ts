@@ -5,7 +5,7 @@ import {
   DragMoveEvent,
 } from '@dnd-kit/core';
 import { ContainerView, AnyView } from '@/types/ui';
-import { useCallbackRef, useThrottled } from '@/utils/react';
+import { useCallbackRef, useThrottled } from '@tensnap/web-common/react';
 import { findAndAddView, findAndDeleteView } from './utils/container';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';

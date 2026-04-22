@@ -1,0 +1,46 @@
+{
+  "name": "@tensnap/web-common",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components/ui": "./src/components/ui/index.ts",
+    "./components/ui/Dialog": "./src/components/ui/Dialog.tsx",
+    "./components/ui/Form": "./src/components/ui/Form.tsx",
+    "./components/ui/Select": "./src/components/ui/Select.tsx",
+    "./components/ui/ContextMenu": "./src/components/ui/ContextMenu.tsx",
+    "./components/ui/Toast": "./src/components/ui/Toast.tsx",
+    "./components/ui/Pagination": "./src/components/ui/Pagination.tsx",
+    "./components/ui/EmptyState": "./src/components/ui/EmptyState.tsx",
+    "./types/file": "./src/types/file.ts",
+    "./react": "./src/react.ts",
+    "./styles/global.css": "./src/styles/global.css.ts"
+  },
+  "scripts": {
+    "test": "echo 'No tests'",
+    "lint": "echo 'No lint configured'",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "@lingui/macro": "^5.9.5",
+    "@lingui/react": "^5.9.5",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-toast": "^1.2.15",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.8.0",
+    "react": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@vanilla-extract/css": "^1.20.1"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  }
+}

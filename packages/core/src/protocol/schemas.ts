@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import { isEncodedBinaryString } from '../utils/binary';
+
+const BinaryPayloadStringSchema = z.string().refine(
+  (value) => isEncodedBinaryString(value),
+  'Expected a base64 string or a base64 data URL for binary payload data.',
+);
+
+const BinaryPayloadDataSchema = z.union([BinaryPayloadStringSchema, z.instanceof(Uint8Array)]);
 
 export const AgentIdSchema = z.union([z.string(), z.number()]);
 export const BuiltinAgentIconSchema = z.enum([
@@ -226,7 +234,7 @@ export const AssetDataPayloadSchema = z.object({
   id: z.string(),
   hash: z.string(),
   mime: z.string(),
-  data: z.union([z.string(), z.instanceof(Uint8Array)]),
+  data: BinaryPayloadDataSchema,
 });
 
 export const AssetDeletePayloadSchema = z.object({
@@ -247,7 +255,7 @@ export const ScreenshotRequestPayloadSchema = z.object({
 
 export const ScreenshotResponsePayloadSchema = z.object({
   request_id: z.string(),
-  data: z.union([z.string(), z.instanceof(Uint8Array)]).optional(),
+  data: BinaryPayloadDataSchema.optional(),
   mime: z.string().optional(),
   error: z.string().optional(),
 });

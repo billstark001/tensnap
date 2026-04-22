@@ -6,6 +6,11 @@ import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import { NodeCanvasEnvironmentPainter } from './NodeCanvasEnvironmentPainter';
 
 const tempPaths: string[] = [];
+const onePixelPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==';
+const svgDataUrl = `data:image/svg+xml;base64,${Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="#ef4444"/></svg>',
+  'utf8',
+).toString('base64')}`;
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -71,5 +76,98 @@ describe('NodeCanvasEnvironmentPainter', () => {
     expect((artifacts?.[0].data as Uint8Array).byteLength).toBeGreaterThan(0);
     expect(typeof artifacts?.[0].path).toBe('string');
     expect(await exists(artifacts?.[0].path as string)).toBe(true);
+  });
+
+  it('accepts explicit data-url background strings', async () => {
+    const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}-data-url`);
+    tempPaths.push(outputDir);
+
+    const painter = new NodeCanvasEnvironmentPainter({ capturesDir: outputDir });
+    const snapshot: ScenarioSnapshot = {
+      metadata: { time: 1 },
+      actions: [],
+      parameters: [],
+      charts: [],
+      logs: [],
+      environments: [
+        {
+          id: 'main',
+          type: '2d',
+          layers: [
+            {
+              id: '',
+              layerType: 'agent',
+              metadata: {
+                width: 2,
+                height: 2,
+                coord_offset: 'int',
+                background: svgDataUrl,
+              },
+              storageSnapshot: {
+                agents: [],
+                trajectories: [],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const artifacts = await painter.render({
+      at: new Date().toISOString(),
+      reason: 'data-url-background',
+      trigger: 'explicit',
+      snapshot,
+      options: { envId: 'main', width: 64, height: 64, includeData: true },
+      assets: {},
+    });
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts?.[0].data).toBeInstanceOf(Uint8Array);
+  });
+
+  it('does not guess bare base64 strings as mixed-field backgrounds', async () => {
+    const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}-bare-base64`);
+    tempPaths.push(outputDir);
+
+    const painter = new NodeCanvasEnvironmentPainter({ capturesDir: outputDir });
+    const snapshot: ScenarioSnapshot = {
+      metadata: { time: 1 },
+      actions: [],
+      parameters: [],
+      charts: [],
+      logs: [],
+      environments: [
+        {
+          id: 'main',
+          type: '2d',
+          layers: [
+            {
+              id: '',
+              layerType: 'agent',
+              metadata: {
+                width: 2,
+                height: 2,
+                coord_offset: 'int',
+                background: onePixelPngBase64,
+              },
+              storageSnapshot: {
+                agents: [],
+                trajectories: [],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    await expect(painter.render({
+      at: new Date().toISOString(),
+      reason: 'bare-base64-background',
+      trigger: 'explicit',
+      snapshot,
+      options: { envId: 'main', width: 64, height: 64, includeData: true },
+      assets: {},
+    })).rejects.toThrow();
   });
 });

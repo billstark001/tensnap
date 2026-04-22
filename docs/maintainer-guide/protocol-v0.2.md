@@ -154,6 +154,15 @@ JSON is used for text transports and debugging.
 
 MessagePack is used for more efficient binary transport, especially when payloads include typed binary content such as asset data.
 
+For semantic binary fields, encoding is field-specific rather than wrapper-based:
+
+- `asset_data.payload.data`
+- `screenshot_response.payload.data`
+
+In MessagePack mode these fields carry raw binary bytes.
+
+In JSON mode these fields carry base64 data URLs so ordinary strings remain unambiguous and decoders can normalize them back into `Uint8Array` values without heuristic guessing.
+
 ---
 
 ## Envelope
@@ -698,7 +707,7 @@ Built-in registrations currently include:
 - `agent` — owns agents; metadata includes `width`, `height`, `coord_offset`, `trajectory_length`, `trajectory_color`
 - `edge` — owns edges; metadata includes force-layout parameters (`linkDistance`, `chargeStrength`, etc.) and an optional `agent_layer_id` referencing the associated agent layer
 - `grid` — grid coordinate frame; metadata includes `xOrigin`, `xUnit`, `xInterval`, `xRatio`, `yOrigin`, `yUnit`, `yInterval`, `yRatio`, `strokeColor`
-- `background` — background image layer; metadata includes `background` (hex string, `Uint8Array`, or `{ asset_id, interpolation? }`) and `interpolation` (`'nearest'` | `'linear'`)
+- `background` — background image layer; metadata includes `background` as either a CSS color or explicit URL/data URL string, a `Uint8Array` with image/NPY bytes, or an asset reference `{ asset_id, interpolation? }`, plus optional layer-level `interpolation` (`'nearest'` | `'linear'`)
 
 The registry is used to validate scenario-layer payloads independently of the transport implementation.
 
@@ -720,6 +729,8 @@ Example:
 ```
 
 The renderer resolves `asset_id` through its asset cache.
+
+Bare base64 strings are reserved for semantic binary transport fields such as `asset_data.data` and `screenshot_response.data`; layer metadata should use explicit URLs, data URLs, typed bytes, or asset references instead of heuristic base64 strings.
 
 ---
 

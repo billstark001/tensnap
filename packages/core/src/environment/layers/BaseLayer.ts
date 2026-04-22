@@ -15,7 +15,7 @@
  * Coordinate system: +x right, +y up (origin at bottom-left).
  */
 
-import { Group, Leafer } from 'leafer-ui';
+import { Group, Leafer } from '@leafer-ui/core';
 import { EnvironmentViewFitMode, IResizableLayer } from '../EnvironmentView';
 import { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
 import { EnvironmentView } from '../EnvironmentView';

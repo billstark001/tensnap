@@ -27,8 +27,6 @@ export default defineConfig({
 
   resolve: {
     alias: [
-      { find: /^@tensnap\/web$/, replacement: path.resolve(__dirname, '../tensnap-web/index.ts') },
-      { find: /^@tensnap\/web\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
       { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
     ],
   },

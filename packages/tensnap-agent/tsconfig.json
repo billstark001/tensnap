@@ -8,11 +8,7 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["node", "vitest/globals"],
-    "paths": {
-      "@tensnap/core": ["../core/src/index.ts"],
-      "@tensnap/core/*": ["../core/src/*"]
-    }
+    "types": ["node", "vitest/globals"]
   },
   "include": ["src"]
 }

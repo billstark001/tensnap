@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { t } from '@lingui/macro';
-import { DirectoryEntry } from '@tensnap/web/types/file';
+import { DirectoryEntry } from '@tensnap/web-common/types/file';
 import { formatFileSize, formatDate } from './utils';
 import * as styles from './FileSystemBrowser.css';
 

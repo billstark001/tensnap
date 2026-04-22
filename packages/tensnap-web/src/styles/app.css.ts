@@ -1,5 +1,5 @@
 import { style, keyframes } from '@vanilla-extract/css';
-import { vars } from './global.css';
+import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const appContainer = style({
   height: '100vh',

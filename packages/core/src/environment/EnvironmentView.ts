@@ -10,7 +10,7 @@
  * Scene bounds are calculated from all IBoundedLayer implementations.
  */
 
-import { Leafer } from 'leafer-ui';
+import { Leafer } from '@leafer-ui/core';
 import { Viewport, SceneBounds, IBoundedLayer } from './types';
 import { throttle, disableCanvasSmoothing } from './utils';
 

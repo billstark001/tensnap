@@ -1,5 +1,5 @@
 import { style, styleVariants } from '@vanilla-extract/css';
-import { vars } from './global.css';
+import { vars } from '@tensnap/web-common/styles/global.css';
 
 // 基础样式
 export const toolbar = style({

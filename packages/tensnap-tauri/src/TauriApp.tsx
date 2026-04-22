@@ -75,7 +75,7 @@ export const TauriApp: React.FC = () => {
     };
 
     initialize();
-  }, []);
+  }, [setTheme]);
 
   if (!isReady) {
     return (

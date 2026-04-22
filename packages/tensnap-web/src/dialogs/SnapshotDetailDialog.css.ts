@@ -1,5 +1,5 @@
 import { globalStyle, style } from '@vanilla-extract/css';
-import { vars } from '@/styles/global.css';
+import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const detailContainer = style({
   height: '100%',

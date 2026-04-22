@@ -21,7 +21,7 @@ import {
   Line,
   PointerEvent as LeaferPointerEvent,
   DragEvent as LeaferDragEvent,
-} from 'leafer-ui';
+} from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import {

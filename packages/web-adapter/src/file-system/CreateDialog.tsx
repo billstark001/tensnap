@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { Dialog, Form } from '@tensnap/web/components/ui';
+import { Dialog, Form } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/macro';
 
-import { DialogOpenProps, useCallbackRef } from '@tensnap/web/utils';
+import { DialogOpenProps, useCallbackRef } from '@tensnap/web-common/react';
 
 export interface CreateDialogProps extends DialogOpenProps {
   onCreateItem: (name: string, type: 'file' | 'directory') => Promise<void>;

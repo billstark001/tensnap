@@ -1,4 +1,4 @@
-import { vars } from "@/styles/global.css";
+import { vars } from "../../styles/global.css";
 import { globalStyle, style } from "@vanilla-extract/css";
 
 export const contextMenu = style({

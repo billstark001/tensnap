@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { t } from '@lingui/macro';
-import { DirectoryEntry, FileSystemAdapter } from '@tensnap/web/types/file';
+import { DirectoryEntry, FileSystemAdapter } from '@tensnap/web-common/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
@@ -9,7 +9,7 @@ import { normalizePath, joinPath, validateName, readFileContent } from './utils'
 import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 import { ExportDialog } from './ExportDialog';
-import { EmptyState } from '@tensnap/web/components/ui';
+import { EmptyState } from '@tensnap/web-common/components/ui';
 
 export interface FileSystemBrowserProps {
   fileSystem: FileSystemAdapter;

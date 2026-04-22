@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import * as Dialog from '@/components/ui/Dialog';
-import { DialogOpenProps } from '@/utils/react';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
+import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 import { Scenario, ScenarioEnvironmentSnapshot, ScenarioSnapshot } from '@tensnap/core';
 import { getSnapshotIdentity } from '@/types/model';

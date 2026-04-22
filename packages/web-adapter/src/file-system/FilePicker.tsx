@@ -1,6 +1,6 @@
 import { ComponentType, PropsWithChildren, useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { FileMetadata, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web/types/file';
+import { FileMetadata, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web-common/types/file';
 import { FilePickerProvider, useFilePicker } from "./FilePickerProvider";
 
 /**

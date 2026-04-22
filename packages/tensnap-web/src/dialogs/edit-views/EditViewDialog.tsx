@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import * as Dialog from '@/components/ui/Dialog';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@/types/ui';
 import { Trans } from '@lingui/react/macro';
-import { DialogOpenProps } from '@/utils/react';
+import { DialogOpenProps } from '@tensnap/web-common/react';
 import { ButtonViewEditor } from './ButtonViewEditor';
 import { ContainerViewEditor } from './ContainerViewEditor';
 import { EnvironmentViewEditor } from './EnvironmentViewEditor';

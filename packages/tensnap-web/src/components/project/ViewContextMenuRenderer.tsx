@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import ContextMenu from "../ui/ContextMenu";
+import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { ViewContextMenuRendererType } from "../view/types";
 import { ClipboardCopy, Edit, Sheet, Trash2 } from "lucide-react";
 import { EditViewDialog } from "@/dialogs/edit-views/EditViewDialog";

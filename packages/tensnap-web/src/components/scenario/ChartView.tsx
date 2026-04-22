@@ -3,7 +3,7 @@ import * as styles from './ChartView.css';
 import { ChartGroup, NativeDataPoint } from '@/types/model';
 import { LeaferChartView } from '@/components/chart';
 import type { ChartConfig, LeaferChartViewRef } from '@/components/chart';
-import { throttle } from '@/utils/react';
+import { throttle } from '@tensnap/web-common/react';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [

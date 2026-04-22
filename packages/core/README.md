@@ -1,6 +1,8 @@
 # tensnap-web-core
 
-Framework-agnostic core rendering package for TenSnap. Depends only on `leafer-ui` and `d3`.
+Framework-agnostic core rendering package for TenSnap. Depends on `@leafer-ui/core` and `d3`.
+
+Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`, and node-side renderers import `@leafer-ui/node`.
 
 ## Modules
 

@@ -34,7 +34,7 @@
  *   - GridEnvStorage — supplies all axis parameters and stroke color
  */
 
-import { Line } from 'leafer-ui';
+import { Line } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import { GridEnvStorage, GridEnvData } from '../storages/GridEnvStorage';

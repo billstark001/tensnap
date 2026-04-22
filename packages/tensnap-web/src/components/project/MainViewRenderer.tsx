@@ -5,7 +5,7 @@ import { AnchoredViewRenderer } from "./AnchoredViewRenderer";
 import { useSettingsStore } from "@/store/settings";
 import { ViewContextMenuRenderer } from "./ViewContextMenuRenderer";
 import { useCreateView } from "./view-edit-hooks";
-import { EmptyState } from "../ui/EmptyState";
+import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
 import { Trans } from "@lingui/react/macro";
 import { Radar } from "lucide-react";
 

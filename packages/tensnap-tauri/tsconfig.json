@@ -25,9 +25,7 @@
     
     /* Path mapping */
     "paths": {
-      "@/*": ["../tensnap-web/src/*"],
-      "@tensnap/web": ["../tensnap-web/index.ts"],
-      "@tensnap/web/*": ["../tensnap-web/src/*"]
+      "@/*": ["../tensnap-web/src/*"]
     }
   },
   "include": ["src"],

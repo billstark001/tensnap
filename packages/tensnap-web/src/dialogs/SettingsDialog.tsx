@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import * as Dialog from '@/components/ui/Dialog';
-import * as Select from '@/components/ui/Select';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
+import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
-import { DialogOpenProps } from '@/utils/react';
+import { DialogOpenProps } from '@tensnap/web-common/react';
 import { useSettingsStore } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
 import { msg } from '@lingui/macro';
@@ -12,7 +12,7 @@ import { activateLocale, locales, isValidLocale } from '@/i18n';
 import { useToast } from '@/store/toast';
 
 import * as styles from './SettingsDialog.css';
-import Form from '@/components/ui/Form';
+import Form from '@tensnap/web-common/components/ui/Form';
 
 export interface SettingsDialogProps extends DialogOpenProps {
 

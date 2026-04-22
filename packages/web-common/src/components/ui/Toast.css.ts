@@ -1,5 +1,5 @@
 import { style, keyframes } from '@vanilla-extract/css';
-import { vars } from '@/styles/global.css';
+import { vars } from '../../styles/global.css';
 
 const slideIn = keyframes({
   from: {

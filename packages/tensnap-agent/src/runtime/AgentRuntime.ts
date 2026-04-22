@@ -359,7 +359,7 @@ export class AgentRuntime extends EventEmitter {
 
       this.session.sendScreenshotResponse({
         request_id: payload.request_id,
-        data: Buffer.from(artifact.data).toString('base64'),
+        data: new Uint8Array(artifact.data),
         mime: artifact.mime,
       });
     } catch (error) {

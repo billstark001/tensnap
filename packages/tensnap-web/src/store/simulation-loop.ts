@@ -4,6 +4,10 @@ import type { RenderTriggerMode } from './settings';
 const DEFAULT_MAX_TPS = 60;
 const METRIC_WINDOW_MS = 1000;
 const METRIC_EMIT_INTERVAL_MS = 250;
+const RAF_CALIBRATION_SAMPLE_COUNT = 6;
+const RAF_ESTIMATE_MAX_AGE_MS = 2000;
+const RAF_OBSERVATION_MAX_INTERVAL_MS = 250;
+const RAF_SELECTION_EPSILON_MS = 0.5;
 
 export type ActionStartFactory = (id: string, continuous?: boolean) => RendererToSimulatorMessage;
 export type MessageSender = (message: RendererToSimulatorMessage) => void;
@@ -34,6 +38,12 @@ export class SimulationLoopController {
   private readonly onMetricsChange?: (metrics: RuntimeMetrics) => void;
   private readonly frameTimestamps: number[] = [];
   private readonly frameDurations: Array<{ timestamp: number; durationMs: number }> = [];
+  private rafEstimateMs: number | null = null;
+  private rafEstimateUpdatedAt = 0;
+  private rafCalibrationId: number | null = null;
+  private rafCalibrationLastTimestamp: number | null = null;
+  private rafCalibrationSamplesRemaining = 0;
+  private lastObservedRafTimestamp: number | null = null;
   private lastMetricsEmitAt = 0;
 
   constructor(
@@ -78,6 +88,8 @@ export class SimulationLoopController {
       this.clearSchedule(key);
     }
     this.activeLoops.clear();
+    this.stopRafCalibration();
+    this.lastObservedRafTimestamp = null;
     this.frameTimestamps.length = 0;
     this.frameDurations.length = 0;
     this.onMetricsChange?.({ tps: null, mspt: null });
@@ -116,7 +128,7 @@ export class SimulationLoopController {
       return;
     }
 
-    const mode = this.resolveMode();
+    const mode = this.resolveMode(this.getMinIntervalMs());
     if (mode === 'requestAnimationFrame') {
       this.scheduleWithRaf(actionId);
       return;
@@ -150,6 +162,8 @@ export class SimulationLoopController {
       if (!handle) {
         return;
       }
+
+      this.recordObservedRafInterval(now);
 
       if (now >= handle.nextDueAt) {
         handle.rafId = null;
@@ -196,6 +210,70 @@ export class SimulationLoopController {
       window.cancelAnimationFrame(handle.rafId);
       handle.rafId = null;
     }
+  }
+
+  private recordObservedRafInterval(now: number): void {
+    if (this.lastObservedRafTimestamp != null) {
+      this.updateRafEstimate(now - this.lastObservedRafTimestamp, now);
+    }
+    this.lastObservedRafTimestamp = now;
+  }
+
+  private updateRafEstimate(intervalMs: number, now: number): void {
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0 || intervalMs > RAF_OBSERVATION_MAX_INTERVAL_MS) {
+      return;
+    }
+
+    this.rafEstimateMs = this.rafEstimateMs == null
+      ? intervalMs
+      : (this.rafEstimateMs * 3 + intervalMs) / 4;
+    this.rafEstimateUpdatedAt = now;
+  }
+
+  private ensureRafCalibration(now: number): void {
+    if (typeof window.requestAnimationFrame !== 'function') {
+      return;
+    }
+
+    if (this.rafCalibrationId != null) {
+      return;
+    }
+
+    if (this.rafEstimateMs != null && now - this.rafEstimateUpdatedAt <= RAF_ESTIMATE_MAX_AGE_MS) {
+      return;
+    }
+
+    this.rafCalibrationLastTimestamp = null;
+    this.rafCalibrationSamplesRemaining = RAF_CALIBRATION_SAMPLE_COUNT;
+
+    const calibrate = (timestamp: number) => {
+      if (this.rafCalibrationLastTimestamp != null) {
+        this.updateRafEstimate(timestamp - this.rafCalibrationLastTimestamp, timestamp);
+        this.rafCalibrationSamplesRemaining -= 1;
+      }
+
+      this.rafCalibrationLastTimestamp = timestamp;
+
+      if (this.rafCalibrationSamplesRemaining <= 0 || this.activeLoops.size === 0) {
+        this.rafCalibrationId = null;
+        this.rafCalibrationLastTimestamp = null;
+        this.rafCalibrationSamplesRemaining = 0;
+        return;
+      }
+
+      this.rafCalibrationId = window.requestAnimationFrame(calibrate);
+    };
+
+    this.rafCalibrationId = window.requestAnimationFrame(calibrate);
+  }
+
+  private stopRafCalibration(): void {
+    if (this.rafCalibrationId != null) {
+      window.cancelAnimationFrame(this.rafCalibrationId);
+      this.rafCalibrationId = null;
+    }
+    this.rafCalibrationLastTimestamp = null;
+    this.rafCalibrationSamplesRemaining = 0;
   }
 
   private markFrame(now: number, actionDurationMs: number | null): void {
@@ -248,9 +326,28 @@ export class SimulationLoopController {
     this.onMetricsChange({ tps, mspt });
   }
 
-  private resolveMode(): Exclude<RenderTriggerMode, 'auto'> {
+  private resolveMode(intervalMs: number): Exclude<RenderTriggerMode, 'auto'> {
     if (this.mode === 'auto') {
-      return typeof window.requestAnimationFrame === 'function'
+      if (typeof window.requestAnimationFrame !== 'function') {
+        return 'setTimeout';
+      }
+
+      if (intervalMs <= 0) {
+        return 'setTimeout';
+      }
+
+      const now = performance.now();
+      this.ensureRafCalibration(now);
+
+      if (this.rafEstimateMs == null) {
+        return 'setTimeout';
+      }
+
+      if (now - this.rafEstimateUpdatedAt > RAF_ESTIMATE_MAX_AGE_MS) {
+        this.ensureRafCalibration(now);
+      }
+
+      return intervalMs + RAF_SELECTION_EPSILON_MS >= this.rafEstimateMs
         ? 'requestAnimationFrame'
         : 'setTimeout';
     }

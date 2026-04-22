@@ -4,6 +4,9 @@
  * Environment configuration types.
  */
 
+import type { ImageInterpolation } from '../storages/BackgroundStorage';
+import type { BackgroundSource } from './background';
+
 /** How grid coordinates map to canvas pixels.
  * - 'int'   → agent at (x, y) is centered in cell (x, y)  [integer coords]
  * - 'float' → agent at (x, y) is placed at pixel (x * cellSize, y * cellSize)
@@ -20,7 +23,8 @@ export interface GridEnvConfig {
   /** Number of rows. */
   height: number;
   coordOffset?: GridCoordOffset;
-  background?: string | Uint8Array;
+  background?: BackgroundSource;
+  interpolation?: ImageInterpolation;
   /** Default trajectory trail length (≤0 means unlimited). */
   trajectoryLength?: number;
   trajectoryColor?: string;

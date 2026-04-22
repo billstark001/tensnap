@@ -1,7 +1,8 @@
-import { encode, decode } from '@msgpack/msgpack';
 import { generateUniqueId } from '@/utils/common';
 import {
   AnyProtocolMessage,
+  decodeProtocolMessage,
+  encodeProtocolMessage,
   ISimulatorTransport,
   RendererToSimulatorMessage,
   TransportConnectionState,
@@ -175,14 +176,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
 
   private async handleMessage(data: ArrayBuffer | string) {
     try {
-      let message: AnyProtocolMessage;
-
-      if (data instanceof ArrayBuffer) {
-        message = decode(data) as AnyProtocolMessage;
-      } else {
-        const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
-        message = JSON.parse(text);
-      }
+      const message = decodeProtocolMessage(data) as AnyProtocolMessage;
 
       // Validate server message if validation is enabled
       if (this.serverMessageValidation !== 'off') {
@@ -247,12 +241,8 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     }
 
     if (this.ws?.readyState === WebSocket.OPEN) {
-      if (this.useMsgPack) {
-        const encoded = encode(message);
-        this.ws.send(encoded);
-      } else {
-        this.ws.send(JSON.stringify(message));
-      }
+      const encoded = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding);
+      this.ws.send(typeof encoded === 'string' ? encoded : new Uint8Array(encoded));
     } else {
       console.warn(`${this.id}: WebSocket not connected`);
     }

@@ -1,4 +1,4 @@
-import { Line, Text, Group, Leafer, Rect, Ellipse } from 'leafer-ui';
+import { Line, Text, Group, Leafer, Rect, Ellipse } from '@leafer-ui/core';
 import { ChartDataPoint, ChartConfig } from './types';
 
 // Chart rendering class optimized for high-frequency updates

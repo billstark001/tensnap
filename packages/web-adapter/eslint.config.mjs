@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import globals from 'globals';
 import typescript from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -6,7 +7,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 
 export default [
   {
-    ignores: ['dist', 'node_modules'],
+    ignores: ['dist', 'node_modules', 'src/locales/**/*.mjs'],
   },
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
@@ -15,8 +16,8 @@ export default [
       sourceType: 'module',
       parser: tsParser,
       globals: {
-        browser: true,
-        es2021: true,
+        ...globals.browser,
+        ...globals.es2021,
       },
     },
     plugins: {
@@ -38,21 +39,23 @@ export default [
         {
           patterns: [
             {
-              group: [
-                '@tensnap/web',
-                '@tensnap/web/*',
-                '!@tensnap/web/types/*',
-                '!@tensnap/web/styles/*',
-                '!@tensnap/web/utils/*',
-                '!@tensnap/web/components/ui',
-                '!@tensnap/web/components/ui/*',
-              ],
-              message:
-                'web-adapter can only import from @tensnap/web/types/*, @tensnap/web/styles/*, @tensnap/web/utils/*, @tensnap/web/components/ui/*',
+              group: ['@tensnap/web', '@tensnap/web/*'],
+              message: 'web-adapter must not import from @tensnap/web.',
             },
           ],
         },
       ],
+      'no-undef': 'off',
+    },
+  },
+  {
+    files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.es2021,
+        ...globals.vitest,
+      },
     },
   },
 ];

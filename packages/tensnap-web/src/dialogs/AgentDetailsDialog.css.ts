@@ -1,5 +1,5 @@
 import { style } from '@vanilla-extract/css';
-import { vars } from '@/styles/global.css';
+import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const detailRow = style({
   margin: '8px 0',

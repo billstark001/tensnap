@@ -1,6 +1,7 @@
 import { AssetStore } from '../asset';
 import { ChartStorage } from '../chart/ChartStorage';
 import { instantiateChartMetadata } from '../chart/utils';
+import { isBackgroundAssetReference } from '../environment/types';
 import { AgentStorage, BackgroundStorage, BaseStorage, EdgeStorage, GridEnvStorage } from '../environment/storages';
 import type { GridAgent, TrajectoryPoint } from '../environment';
 import type { Action, Parameter } from '../parameter';
@@ -693,12 +694,9 @@ export class Scenario extends EventTarget {
         return;
       }
 
-      if (typeof background === 'object' && background !== null && 'asset_id' in background) {
-        const assetId = (background as { asset_id?: unknown }).asset_id;
-        if (typeof assetId === 'string') {
-          layer.storage.setBackgroundUrl(this.assetState.getUrl(assetId), interpolation);
-          return;
-        }
+      if (isBackgroundAssetReference(background)) {
+        layer.storage.setBackgroundUrl(this.assetState.getUrl(background.asset_id), interpolation);
+        return;
       }
     }
   }
@@ -708,10 +706,10 @@ export class Scenario extends EventTarget {
       for (const layer of environment.layers.values()) {
         if (!(layer.storage instanceof BackgroundStorage)) continue;
         const background = layer.metadata.background;
-        if (typeof background !== 'object' || background === null || !('asset_id' in background)) continue;
-        if ((background as { asset_id?: unknown }).asset_id !== assetId) continue;
+        if (!isBackgroundAssetReference(background)) continue;
+        if (background.asset_id !== assetId) continue;
         const interpolation = getInterpolation(
-          (background as { interpolation?: unknown }).interpolation ?? layer.metadata.interpolation,
+          background.interpolation ?? layer.metadata.interpolation,
         );
         layer.storage.setBackgroundUrl(this.assetState.getUrl(assetId), interpolation);
       }

@@ -1,5 +1,5 @@
 import React, { forwardRef, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes } from 'react';
-import * as formStyles from '@/components/ui/Form.css';
+import * as formStyles from './Form.css';
 import clsx from 'clsx';
 
 // Form Root Component

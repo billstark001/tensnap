@@ -4,8 +4,8 @@ import { useScenarioStore } from '../../store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import * as styles from './ParameterControl.css';
 import * as Switch from '@radix-ui/react-switch';
-import * as Select from '@/components/ui/Select';
-import { useThrottled } from '@/utils';
+import * as Select from '@tensnap/web-common/components/ui/Select';
+import { useThrottled } from '@tensnap/web-common/react';
 
 interface ParameterControlProps {
   parameter: Parameter;

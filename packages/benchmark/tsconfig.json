@@ -10,12 +10,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "preact",
-    "paths": {
-      "@tensnap/core": ["../core/src/index.ts"],
-      "@tensnap/core/*": ["../core/src/*"],
-      "@tensnap/web-adapter/models": ["../web-adapter/src/models/index.ts"]
-    }
+    "jsxImportSource": "preact"
   },
   "include": ["src"]
 }

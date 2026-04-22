@@ -1,5 +1,10 @@
 import { z, ZodType } from 'zod';
 import { AgentStorage, BackgroundStorage, EdgeStorage, GridEnvStorage } from '../environment/storages';
+import {
+  BackgroundAssetReferenceSchema,
+  BackgroundInterpolationSchema,
+  BackgroundSourceSchema,
+} from '../environment/types';
 import { AgentDiffSchema, AgentSchema, EdgeDataSchema, EdgeDiffSchema } from '../protocol';
 
 export interface LayerStorage {
@@ -101,16 +106,16 @@ const GridLayerMetadataSchema = z.object({
 }).loose();
 
 const BackgroundLayerMetadataSchema = z.object({
-  background: z.union([
-    z.string(),
-    z.instanceof(Uint8Array),
-    z.object({
-      asset_id: z.string(),
-      interpolation: z.enum(['nearest', 'linear']).optional(),
-    }),
-  ]).optional(),
-  interpolation: z.enum(['nearest', 'linear']).optional(),
+  background: BackgroundSourceSchema.optional(),
+  interpolation: BackgroundInterpolationSchema.optional(),
 }).loose();
+
+export {
+  BackgroundAssetReferenceSchema,
+  BackgroundInterpolationSchema,
+  BackgroundLayerMetadataSchema,
+  BackgroundSourceSchema,
+};
 
 registerLayerType({
   layer_type: 'agent',

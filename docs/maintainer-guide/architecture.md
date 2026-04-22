@@ -173,6 +173,12 @@ Binders accept environment objects and use accessor functions/metadata to extrac
 
 **Tech Stack**: React 18, TypeScript, Zustand, Vite, Leafer UI, Recharts
 
+`@tensnap/core` keeps the shared drawing logic but depends only on `@leafer-ui/core`.
+Runtime-specific platform packages are imported by consumer packages:
+
+- `@tensnap/web` and `@tensnap/benchmark` import `leafer-ui`
+- `@tensnap/agent` imports `@leafer-ui/node`
+
 ### State Management (Zustand)
 
 Store organized into slices:

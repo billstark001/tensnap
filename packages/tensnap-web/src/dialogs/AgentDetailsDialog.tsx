@@ -1,4 +1,4 @@
-import * as Dialog from '@/components/ui/Dialog';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import { Agent, GridAgent, GraphAgent, AgentIcon } from '@/types/model';
 import * as styles from './AgentDetailsDialog.css';
 import clsx from 'clsx';

@@ -126,10 +126,6 @@ function sanitizeFileName(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'scene';
 }
 
-function looksLikeBase64(value: string): boolean {
-  return /^[A-Za-z0-9+/=\s]+$/.test(value) && value.length % 4 === 0;
-}
-
 function normalizeViewport(viewport: Viewport): Viewport {
   const width = Math.max(viewport.width, 1e-6);
   const height = Math.max(viewport.height, 1e-6);
@@ -252,10 +248,6 @@ async function loadCanvasImageSource(input: CanvasImageSource): Promise<Awaited<
     const response = await fetch(input.source);
     const bytes = Buffer.from(await response.arrayBuffer());
     return loadImage(bytes);
-  }
-
-  if (looksLikeBase64(input.source)) {
-    return loadImage(Buffer.from(input.source.replace(/\s+/g, ''), 'base64'));
   }
 
   return loadImage(input.source);

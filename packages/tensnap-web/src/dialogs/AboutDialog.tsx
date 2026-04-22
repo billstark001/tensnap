@@ -1,7 +1,7 @@
 import React from 'react';
-import * as Dialog from '@/components/ui/Dialog';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as dialogStyles from './AboutDialog.css';
-import { DialogOpenProps } from '@/utils/react';
+import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 
 export interface AboutDialogProps extends DialogOpenProps {

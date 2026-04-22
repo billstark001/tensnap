@@ -48,27 +48,12 @@ async function handleScreenshotRequest(
     }
 
     const mime = blob.type || (format === 'jpeg' ? 'image/jpeg' : 'image/png');
-
-    if (transport.encoding === 'msgpack') {
-      const buffer = await blob.arrayBuffer();
-      transport.send(store.createScreenshotResponseMessage({
-        request_id: payload.request_id,
-        data: new Uint8Array(buffer),
-        mime,
-      }));
-    } else {
-      const buffer = await blob.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      transport.send(store.createScreenshotResponseMessage({
-        request_id: payload.request_id,
-        data: btoa(binary),
-        mime,
-      }));
-    }
+    const buffer = await blob.arrayBuffer();
+    transport.send(store.createScreenshotResponseMessage({
+      request_id: payload.request_id,
+      data: new Uint8Array(buffer),
+      mime,
+    }));
   } catch (err) {
     transport.send(store.createScreenshotResponseMessage({
       request_id: payload.request_id,

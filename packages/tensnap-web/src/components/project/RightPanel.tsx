@@ -7,7 +7,7 @@ import { AssetMeta, ScenarioSnapshot } from '@tensnap/core';
 import { getSnapshotIdentity } from '@/types/model';
 import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
 import { useToast } from '@/store/toast';
-import { EmptyState } from '../ui/EmptyState';
+import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
 
 export const RightPanel = () => {
   const scenario = useScenarioStore((store) => store.scenario);

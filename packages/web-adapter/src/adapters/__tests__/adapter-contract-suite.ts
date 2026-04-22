@@ -1,4 +1,4 @@
-import type { FileSystemAdapter } from '@tensnap/web/types/file';
+import type { FileSystemAdapter } from '@tensnap/web-common/types/file';
 
 type AdapterFactoryResult = {
   adapter: FileSystemAdapter;
