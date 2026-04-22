@@ -15,6 +15,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # ActionMetadata — standalone Action entity (v0.2)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ActionMetadata:
     """Metadata for a standalone action (v0.2 protocol).
@@ -56,6 +57,7 @@ class ActionMetadata:
 # ---------------------------------------------------------------------------
 # @action decorator
 # ---------------------------------------------------------------------------
+
 
 def action(
     id: Optional[str] = None,
@@ -102,11 +104,14 @@ def action(
 # Namespace scanner
 # ---------------------------------------------------------------------------
 
-def get_action_metadata_from_namespace(namespace: Dict[str, Any]) -> List[Tuple[str, Callable, ActionMetadata]]:
+
+def get_action_metadata_from_namespace(
+    namespace: Dict[str, Any],
+) -> List[Tuple[str, Callable, ActionMetadata]]:
     """Find all @action-decorated callables in a dict/namespace."""
     actions: List[Tuple[str, Callable, ActionMetadata]] = []
     for name, attr in namespace.items():
-        if name.startswith('__') and name.endswith('__'):
+        if name.startswith("__") and name.endswith("__"):
             continue
         if callable(attr) and hasattr(attr, "_tensnap_action"):
             metadata = getattr(attr, "_tensnap_action")

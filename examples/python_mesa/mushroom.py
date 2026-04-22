@@ -1,3 +1,5 @@
+#region Imports
+
 from typing import Tuple, List, cast
 
 import random
@@ -5,6 +7,10 @@ import mesa
 import numpy as np
 
 from tensnap import bind_mesa_grid_agent, bind_mesa_grid_environment
+
+#endregion
+
+#region Agents
 
 
 @bind_mesa_grid_agent(heading=True, color=True, trajectory_length=True, icon=True)
@@ -57,12 +63,33 @@ class Hunter(mesa.Agent):
 
 
 class Patch(mesa.Agent):
+    icon = "square"
+    size = 1.0
+
     def __init__(self, model):
         super().__init__(model)
         self.color = "white"
 
+    def to_agent_state(self) -> dict[str, object]:
+        assert self.pos is not None
+        x, y = cast(Tuple[int, int], self.pos)
+        return {
+            "id": f"patch:{x}:{y}",
+            "x": x,
+            "y": y,
+            "icon": self.icon,
+            "size": self.size,
+            "color": self.color,
+            "data": {"mushroom_state": self.color},
+        }
 
-@bind_mesa_grid_environment(background=True, coord_offset=True)
+
+#endregion
+
+#region Model
+
+
+@bind_mesa_grid_environment(coord_offset=True)
 class ForagingModel(mesa.Model):
 
     grid: "mesa.space.SingleGrid"
@@ -116,26 +143,14 @@ class ForagingModel(mesa.Model):
         for hunter in hunters_copy:
             hunter.search()
 
-    @property
-    def background(self) -> np.ndarray:
-        """返回当前环境的背景图片数组 (height, width, 3) uint8"""
-        return self.get_patch_image()
-
-    def get_patch_image(self) -> np.ndarray:
-        """生成当前patches状态的图片数组 (height, width, 3) uint8"""
-        img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-
-        color_map = {
-            "white": (255, 255, 255),
-            "red": (255, 0, 0),
-            "yellow": (255, 255, 0),
-        }
-
+    def get_patch_layer_agents(self) -> list[dict[str, object]]:
+        """Expose the patch field as a dedicated square-agent layer."""
+        ret: list[dict[str, object]] = []
         for x in range(self.width):
             for y in range(self.height):
                 patch: Patch = self.grid[x, y]  # type: ignore
                 if patch:
-                    color = color_map.get(patch.color, (255, 255, 255))
-                    img[y, x] = color
+                    ret.append(patch.to_agent_state())
+        return ret
 
-        return img
+#endregion

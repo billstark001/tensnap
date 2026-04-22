@@ -9,6 +9,8 @@ import import_config  # noqa: F401
 
 from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
+from tensnap.bindings.mesa.handler import MesaGridEnvironmentBinder
+from tensnap.models import EnvironmentLayerState, EnvironmentState
 
 from sugarscape import SugarAgent, Sugarscape
 
@@ -22,6 +24,43 @@ handler: MesaSimulationHandler | None = None
 MODEL_WIDTH = 50
 MODEL_HEIGHT = 50
 AGENT_COUNT = 400
+
+
+class SugarscapeEnvironmentBinder(MesaGridEnvironmentBinder):
+    """Render the sugar field as a dedicated agent layer beneath the moving Mesa agents."""
+
+    environment: Sugarscape
+
+    def get_state(self) -> EnvironmentState:
+        base_state = super().get_state()
+        sugar_layer: EnvironmentLayerState = {
+            "layer_id": "sugar",
+            "layer_type": "agent",
+            "agents": self.environment.get_sugar_layer_agents(),
+        }
+        return {
+            "id": base_state["id"],
+            "type": base_state["type"],
+            "layers": [sugar_layer, *base_state["layers"]],
+        }
+
+
+class SugarscapeSimulationHandler(MesaSimulationHandler):
+    async def on_registered(self, scenario: SimulationScenario) -> None:
+        first_register = scenario is not self.scenario
+        await super().on_registered(scenario)
+
+        if not first_register or self.model is None:
+            return
+
+        assert self.env_binder is not None
+        scenario.remove_environment(self.env_binder.id)
+        self.env_binder = SugarscapeEnvironmentBinder(
+            self.model.__class__.__name__,
+            self.model,
+            agent_iterable_accessor=self.agent_iterable_accessor,
+        )
+        scenario.add_environment(self.env_binder)
 
 
 @chart(
@@ -51,9 +90,9 @@ def resource_metrics_chart() -> dict:
 
 # Main function
 async def main() -> None:
-    # Create Mesa simulation handler
+    # The custom handler keeps Mesa's convenience API while exposing the sugar field as a dedicated resource layer.
     global handler
-    handler = MesaSimulationHandler(
+    handler = SugarscapeSimulationHandler(
         model_class=Sugarscape,
         model_init_kwargs={
             "width": MODEL_WIDTH,

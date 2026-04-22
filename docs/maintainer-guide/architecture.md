@@ -24,6 +24,8 @@ TenSnap separates simulation logic, communication, and visualization:
 - **Real-time**: Optimized for fast updates with many agents
 - **Flexible APIs**: High-level decorators to low-level protocol access
 
+Protocol v0.2 note: Python-side `GridEnvironmentBinder` and `GraphEnvironmentBinder*` are now compatibility-oriented shortcut APIs. The canonical synchronized state is always `uniform` or `2d` plus explicit layers; graph edges are no longer treated as environment-level payload.
+
 ## API Levels
 
 ### High-Level (Decorator-Based Binding)
@@ -122,7 +124,7 @@ Features:
 - Batched message queue for efficiency
 - MessagePack/JSON serialization
 - Async I/O with non-blocking operations
-- State sync with differential updates
+- State sync by replaying canonical env/layer/entity messages against the renderer's state summary
 
 **`sim_loop.py`** - Simulation execution manager with operation queue.
 
@@ -142,17 +144,17 @@ Agent decorators:
 
 Environment decorators:
 
-- `@bind_grid_environment()` - Grid environments with width, height, coordinate offset, background, trajectories
-- `@bind_graph_environment()` - Graph topologies
+- `@bind_grid_environment()` - Grid-oriented shortcut that lowers to a canonical `2d` environment with layer metadata
+- `@bind_graph_environment()` - Graph-oriented shortcut that lowers to a canonical `2d` environment with an explicit edge layer
 - `@bind_uniform_environment()` - Basic environments
 
 **Binder Classes**: Explicit adapters connecting user models to TenSnap protocol.
 
-- `GridEnvironmentBinder` - 2D grid with coordinate offset control and trajectory rendering
-- `GraphEnvironmentBinderNX` - NetworkX graph integration
+- `GridEnvironmentBinder` - Grid-oriented convenience wrapper over a canonical `2d` environment
+- `GraphEnvironmentBinderNX` - NetworkX graph integration via canonical `2d` + edge-layer state
 - `UniformEnvironmentBinder` - Simple agent list
 
-Binders accept environment objects and use accessor functions/metadata to extract agent/environment properties.
+Binders accept environment objects and use accessor functions/metadata to extract agent/environment properties. Internally they now expose canonical layer-oriented state to the transport layer, even when the public API still uses grid/graph terminology.
 
 **Mesa 3 Integration**: Dedicated binding support for Mesa 3 framework.
 

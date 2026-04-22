@@ -65,6 +65,8 @@ Try these interactions:
 
 The flock example demonstrates TenSnap's key features:
 
+`GridEnvironmentBinder` is still the recommended shortcut for grid-style examples, but under protocol v0.2 it now synchronizes as a canonical `2d` environment with explicit layer metadata.
+
 ```python
 # Import TenSnap components
 from tensnap import (

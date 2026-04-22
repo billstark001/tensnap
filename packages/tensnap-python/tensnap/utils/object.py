@@ -8,6 +8,7 @@ from io import BytesIO
 
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -230,40 +231,40 @@ def _test_and_match(
 def detect_file_type(data: bytes) -> str:
     """
     Detect file type from byte content by checking magic numbers.
-    
+
     Args:
         data: Byte content to analyze
-        
+
     Returns:
         MIME type string (e.g., 'image/png', 'application/octet-stream')
     """
     if len(data) == 0:
         return "application/octet-stream"
-    
+
     # Check for NPY format (magic: \x93NUMPY)
-    if data[:6] == b'\x93NUMPY':
+    if data[:6] == b"\x93NUMPY":
         return "application/x-npy"
-    
+
     # Check for PNG format (magic: \x89PNG\r\n\x1a\n)
-    if data[:8] == b'\x89PNG\r\n\x1a\n':
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
         return "image/png"
-    
+
     # Check for JPEG format (magic: \xff\xd8\xff)
-    if data[:3] == b'\xff\xd8\xff':
+    if data[:3] == b"\xff\xd8\xff":
         return "image/jpeg"
-    
+
     # Check for BMP format (magic: BM)
-    if data[:2] == b'BM':
+    if data[:2] == b"BM":
         return "image/bmp"
-    
+
     # Check for GIF format (magic: GIF87a or GIF89a)
-    if data[:6] in (b'GIF87a', b'GIF89a'):
+    if data[:6] in (b"GIF87a", b"GIF89a"):
         return "image/gif"
-    
+
     # Check for WebP format (magic: RIFF....WEBP)
-    if len(data) >= 12 and data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
-    
+
     # Default to octet-stream
     return "application/octet-stream"
 
@@ -271,23 +272,25 @@ def detect_file_type(data: bytes) -> str:
 def msgpack_default(obj: Any) -> Any:
     """
     Default function for msgpack serialization.
-    
+
     Handles:
     - 0-dimensional numpy scalars: converts to Python number
     - numpy arrays: serializes to NPY byte stream
-    
+
     Args:
         obj: Object to serialize
-        
+
     Returns:
         Serializable representation
-        
+
     Raises:
         TypeError: If object cannot be serialized
     """
     if not HAS_NUMPY:
-        raise TypeError(f"Object of type {type(obj).__name__} is not msgpack serializable")
-    
+        raise TypeError(
+            f"Object of type {type(obj).__name__} is not msgpack serializable"
+        )
+
     # Handle numpy types
     if isinstance(obj, np.ndarray):
         # Check if it's a 0-dimensional array (scalar)
@@ -299,29 +302,29 @@ def msgpack_default(obj: Any) -> Any:
             buffer = BytesIO()
             np.save(buffer, obj)
             return buffer.getvalue()
-    
+
     # Handle numpy scalar types
     if isinstance(obj, np.generic):
         return obj.item()
-    
+
     raise TypeError(f"Object of type {type(obj).__name__} is not msgpack serializable")
 
 
 def json_default(obj: Any) -> Any:
     """
     Default function for JSON serialization.
-    
+
     Handles:
     - 0-dimensional numpy scalars: converts to Python number
     - numpy arrays: serializes to NPY byte stream, then to data URL
     - bytes/bytearray: detects file type and converts to data URL with base64 encoding
-    
+
     Args:
         obj: Object to serialize
-        
+
     Returns:
         JSON-serializable representation
-        
+
     Raises:
         TypeError: If object cannot be serialized
     """
@@ -329,12 +332,12 @@ def json_default(obj: Any) -> Any:
     if isinstance(obj, (bytes, bytearray)):
         data = bytes(obj)
         mime_type = detect_file_type(data)
-        b64_data = base64.b64encode(data).decode('ascii')
+        b64_data = base64.b64encode(data).decode("ascii")
         return f"data:{mime_type};base64,{b64_data}"
-    
+
     if not HAS_NUMPY:
         raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
-    
+
     # Handle numpy types
     if isinstance(obj, np.ndarray):
         # Check if it's a 0-dimensional array (scalar)
@@ -347,11 +350,11 @@ def json_default(obj: Any) -> Any:
             np.save(buffer, obj)
             npy_bytes = buffer.getvalue()
             # Convert to data URL
-            b64_data = base64.b64encode(npy_bytes).decode('ascii')
+            b64_data = base64.b64encode(npy_bytes).decode("ascii")
             return f"data:application/x-npy;base64,{b64_data}"
-    
+
     # Handle numpy scalar types
     if isinstance(obj, np.generic):
         return obj.item()
-    
+
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")

@@ -1,3 +1,5 @@
+#region Imports
+
 import asyncio
 import os
 from typing import cast
@@ -7,8 +9,14 @@ import import_config  # noqa: F401
 
 from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
+from tensnap.bindings.mesa.handler import MesaGridEnvironmentBinder
+from tensnap.models import EnvironmentLayerState, EnvironmentState
 
 from mushroom import ForagingModel, Hunter, Patch
+
+#endregion
+
+#region Setup
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
@@ -22,6 +30,52 @@ MODEL_HEIGHT = 50
 NUM_CLUSTERS = 4
 PATCHES_PER_CLUSTER = 20
 NUM_HUNTERS = 2
+
+#endregion
+
+#region Custom Handler
+
+
+class MushroomEnvironmentBinder(MesaGridEnvironmentBinder):
+    """Expose mushroom patches as a dedicated layer beneath the moving hunters."""
+
+    environment: ForagingModel
+
+    def get_state(self) -> EnvironmentState:
+        base_state = super().get_state()
+        patch_layer: EnvironmentLayerState = {
+            "layer_id": "patches",
+            "layer_type": "agent",
+            "agents": self.environment.get_patch_layer_agents(),
+        }
+        return {
+            "id": base_state["id"],
+            "type": base_state["type"],
+            "layers": [patch_layer, *base_state["layers"]],
+        }
+
+
+class MushroomSimulationHandler(MesaSimulationHandler):
+    async def on_registered(self, scenario: SimulationScenario) -> None:
+        first_register = scenario is not self.scenario
+        await super().on_registered(scenario)
+
+        if not first_register or self.model is None:
+            return
+
+        assert self.env_binder is not None
+        scenario.remove_environment(self.env_binder.id)
+        self.env_binder = MushroomEnvironmentBinder(
+            self.model.__class__.__name__,
+            self.model,
+            agent_iterable_accessor=self.agent_iterable_accessor,
+        )
+        scenario.add_environment(self.env_binder)
+
+
+#endregion
+
+#region Charts
 
 
 @chart(
@@ -66,11 +120,15 @@ def hunter_efficiency_chart() -> float:
     return 0.0
 
 
-# Main function
+#endregion
+
+#region Main
+
+
 async def main() -> None:
-    # Create Mesa simulation handler
+    # The custom handler keeps the moving hunters and mushroom field in separate inspectable layers.
     global handler
-    handler = MesaSimulationHandler(
+    handler = MushroomSimulationHandler(
         model_class=ForagingModel,
         model_init_kwargs={
             "width": MODEL_WIDTH,
@@ -93,3 +151,5 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+#endregion

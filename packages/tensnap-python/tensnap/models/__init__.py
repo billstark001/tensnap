@@ -14,6 +14,8 @@ from .agent import (
 )
 from .environment import (
     EnvironmentBinderProtocol,
+    EnvironmentLayerState,
+    EnvironmentState,
     GraphEdgeDict,
     UniformEnvironmentBinder,
     GridEnvironmentBinder,
@@ -31,5 +33,6 @@ from .types import (
     EnvironmentStateWithAgentsOmitted,
     LogPayload,
     ParameterState,
+    StateSyncLayerSummary,
     StateSyncRequest,
 )

@@ -415,6 +415,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (group === 'scene' && command === 'snapshot') {
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/scene/snapshot'), null, 2));
+    return;
+  }
+
   if (group === 'scene' && command === 'sync') {
     const { baseUrl } = await requireRuntime(parsed);
     console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }), null, 2));
@@ -503,6 +509,140 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (group === 'chart' && command === 'list') {
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/charts'), null, 2));
+    return;
+  }
+
+  if (group === 'chart' && command === 'get') {
+    const [chartId] = rest;
+    if (!chartId) {
+      throw new Error('Usage: tensnap-agent chart get <chart-id>');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`), null, 2));
+    return;
+  }
+
+  if (group === 'asset' && command === 'list') {
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/assets'), null, 2));
+    return;
+  }
+
+  if (group === 'wait' && command === 'action-end') {
+    const [actionId] = rest;
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/wait/action-end', {
+        method: 'POST',
+        body: JSON.stringify({
+          id: actionId,
+          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
+        }),
+      }),
+      null,
+      2,
+    ));
+    return;
+  }
+
+  if (group === 'wait' && command === 'time') {
+    const [rawTime] = rest;
+    if (rawTime === undefined) {
+      throw new Error('Usage: tensnap-agent wait time <time> [--comparison <op>] [--timeout-ms <ms>]');
+    }
+    const time = Number(rawTime);
+    if (Number.isNaN(time)) {
+      throw new Error('Time must be a valid number.');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/wait/time', {
+        method: 'POST',
+        body: JSON.stringify({
+          time,
+          comparison: getStringFlag(parsed, 'comparison'),
+          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
+        }),
+      }),
+      null,
+      2,
+    ));
+    return;
+  }
+
+  if (group === 'wait' && command === 'chart') {
+    const [chartId, rawValue] = rest;
+    if (!chartId || rawValue === undefined) {
+      throw new Error('Usage: tensnap-agent wait chart <chart-id> <value> [--comparison <op>] [--at-time <time>] [--timeout-ms <ms>]');
+    }
+    const value = Number(rawValue);
+    if (Number.isNaN(value)) {
+      throw new Error('Chart wait value must be a valid number.');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/wait/chart', {
+        method: 'POST',
+        body: JSON.stringify({
+          id: chartId,
+          value,
+          comparison: getStringFlag(parsed, 'comparison'),
+          atTime: getNumberFlag(parsed, 'at-time'),
+          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
+        }),
+      }),
+      null,
+      2,
+    ));
+    return;
+  }
+
+  if (group === 'wait' && command === 'metadata') {
+    const [path, rawValue] = rest;
+    if (!path) {
+      throw new Error('Usage: tensnap-agent wait metadata <path> [json-value] [--comparison <op>] [--timeout-ms <ms>]');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/wait/metadata', {
+        method: 'POST',
+        body: JSON.stringify({
+          path,
+          value: rawValue === undefined ? undefined : parseJsonValue(rawValue),
+          comparison: getStringFlag(parsed, 'comparison'),
+          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
+        }),
+      }),
+      null,
+      2,
+    ));
+    return;
+  }
+
+  if (group === 'experiment' && command === 'run') {
+    const rawSpec = rest.join(' ').trim();
+    if (!rawSpec) {
+      throw new Error('Usage: tensnap-agent experiment run <json-spec>');
+    }
+    const spec = parseJsonValue(rawSpec);
+    if (typeof spec !== 'object' || spec === null || Array.isArray(spec)) {
+      throw new Error('Experiment spec must be a JSON object.');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/experiment/run', {
+        method: 'POST',
+        body: JSON.stringify(spec),
+      }),
+      null,
+      2,
+    ));
+    return;
+  }
+
   if (group === 'stream' && command === 'events') {
     await streamEvents(parsed);
     return;
@@ -514,12 +654,21 @@ async function main(): Promise<void> {
     '  tensnap-agent runtime status',
     '  tensnap-agent runtime render-trigger manual|action-end',
     '  tensnap-agent scene inspect',
+    '  tensnap-agent scene snapshot',
     '  tensnap-agent scene start|step|reset',
     '  tensnap-agent scene render [reason] [--env <env-id>] [--width <px>] [--height <px>] [--viewport <json>] [--output <path>]',
     '  tensnap-agent param list',
     '  tensnap-agent param set <parameter-id> <json-value>',
     '  tensnap-agent action list',
     '  tensnap-agent action run <action-id> [--continuous]',
+    '  tensnap-agent chart list',
+    '  tensnap-agent chart get <chart-id>',
+    '  tensnap-agent asset list',
+    '  tensnap-agent wait action-end [action-id] [--timeout-ms <ms>]',
+    '  tensnap-agent wait time <time> [--comparison <op>] [--timeout-ms <ms>]',
+    '  tensnap-agent wait chart <chart-id> <value> [--comparison <op>] [--at-time <time>] [--timeout-ms <ms>]',
+    '  tensnap-agent wait metadata <path> [json-value] [--comparison <op>] [--timeout-ms <ms>]',
+    '  tensnap-agent experiment run <json-spec>',
     '  tensnap-agent stream events',
   ].join('\n'));
 }

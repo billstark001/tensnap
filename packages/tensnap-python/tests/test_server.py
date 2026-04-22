@@ -11,7 +11,7 @@ from tensnap.server import (
     ClientToServerMessageType,
 )
 from tensnap.bindings.basic import NumberParameter, ActionMetadata, ChartGroupMetadata
-from tensnap.models import GridEnvironmentBinder
+from tensnap.models import GridEnvironmentBinder, GraphEnvironmentBinder
 
 
 class TestMessageEncoding:
@@ -40,6 +40,16 @@ class TestMessageEncoding:
         decoded = msgpack.unpackb(result, raw=False)
         assert decoded["type"] == "env_layer_update"
         assert decoded["payload"]["env_id"] == "env1"
+
+    def test_encode_message_screenshot_request_json(self):
+        """Test JSON screenshot request encoding"""
+        msg_type = ServerToClientMessageType.SCREENSHOT_REQUEST
+        payload = {"request_id": "shot-1", "env_id": "main"}
+        result = encode_message(msg_type, payload, use_msgpack=False)
+
+        decoded = json.loads(result)
+        assert decoded["type"] == "screenshot_request"
+        assert decoded["payload"]["request_id"] == "shot-1"
 
 
 class TestTenSnapServer:
@@ -244,6 +254,139 @@ class TestTenSnapServer:
         await server._queue.flush()
 
         assert mock_client.send.called
+
+    @pytest.mark.asyncio
+    async def test_state_sync_replays_layered_graph_environment(
+        self, server: TenSnapServer
+    ):
+        """State sync should replay graph binders as 2d env + edge layer."""
+
+        class GraphEnv:
+            def __init__(self):
+                self.edges = [
+                    {"source": 1, "target": 2},
+                    {"source": 2, "target": 3},
+                ]
+                self.agents = [{"id": 1}, {"id": 2}, {"id": 3}]
+
+        binder = GraphEnvironmentBinder(
+            id="graph_env",
+            environment=GraphEnv(),
+            agent_accessor=lambda agent: agent,
+        )
+        server.add_environment(binder)
+
+        mock_ws = AsyncMock()
+        await server._handle_state_sync(
+            mock_ws,
+            {
+                "parameters": [],
+                "actions": [],
+                "envs": [
+                    {
+                        "id": "graph_env",
+                        "type": "2d",
+                        "layers": [
+                            {"layer_id": "agents", "layer_type": "agent"},
+                            {"layer_id": "edges", "layer_type": "edge"},
+                        ],
+                    }
+                ],
+                "charts": [],
+            },
+        )
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_ws.send.await_args_list
+        ]
+        assert any(
+            msg["type"] == "edge_create"
+            and msg["payload"]["layer_id"] == "edges"
+            and len(msg["payload"]["edges"]) == 2
+            for msg in sent_messages
+        )
+        assert any(
+            msg["type"] == "env_layer_create" and msg["payload"]["layer_type"] == "edge"
+            for msg in sent_messages
+        )
+
+    @pytest.mark.asyncio
+    async def test_publish_asset_uses_data_url_in_json_mode(
+        self, server: TenSnapServer
+    ):
+        """Asset payloads should use explicit data URLs in JSON mode."""
+        mock_client = AsyncMock()
+        mock_client.closed = False
+        server.clients.add(mock_client)
+
+        await server.publish_asset(
+            "icon",
+            b"hello",
+            "text/plain",
+            label="Greeting",
+        )
+        await server._queue.flush()
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_client.send.await_args_list
+        ]
+        asset_data_messages = [
+            msg for msg in sent_messages if msg["type"] == "asset_data"
+        ]
+        assert len(asset_data_messages) == 1
+        assert asset_data_messages[0]["payload"]["data"].startswith(
+            "data:text/plain;base64,"
+        )
+
+    @pytest.mark.asyncio
+    async def test_asset_sync_uses_data_url_in_json_mode(self, server: TenSnapServer):
+        """Asset sync responses should also use explicit data URLs in JSON mode."""
+        await server.publish_asset("icon", b"hello", "text/plain")
+
+        mock_ws = AsyncMock()
+        await server._handle_asset_sync(mock_ws, {"assets": {}})
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_ws.send.await_args_list
+        ]
+        assert len(sent_messages) == 1
+        assert sent_messages[0]["type"] == "asset_data"
+        assert sent_messages[0]["payload"]["data"].startswith("data:text/plain;base64,")
+
+    @pytest.mark.asyncio
+    async def test_request_screenshot_round_trip(self, server: TenSnapServer):
+        """Server should send screenshot_request and resolve the matching screenshot_response."""
+        mock_ws = AsyncMock()
+        server.clients.add(mock_ws)
+
+        task = asyncio.create_task(
+            server.request_screenshot(env_id="main", request_id="shot-1", timeout=1)
+        )
+        await asyncio.sleep(0)
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_ws.send.await_args_list
+        ]
+        assert sent_messages[0]["type"] == "screenshot_request"
+        assert sent_messages[0]["payload"] == {"request_id": "shot-1", "env_id": "main"}
+
+        await server._handle_message(
+            mock_ws,
+            json.dumps(
+                {
+                    "type": "screenshot_response",
+                    "payload": {
+                        "request_id": "shot-1",
+                        "mime": "image/png",
+                        "data": "data:image/png;base64,AAAA",
+                    },
+                }
+            ),
+        )
+
+        response = await task
+        assert response["request_id"] == "shot-1"
+        assert response["mime"] == "image/png"
 
     @pytest.mark.asyncio
     async def test_update_charts(self, server: TenSnapServer):

@@ -29,6 +29,8 @@ A flocking simulation implementing three behavioral rules (Reynolds' Boids):
 
 You'll observe emergent flocking behavior as individual agents follow simple local rules.
 
+Protocol note: this tutorial keeps the grid-oriented decorator and binder names for readability, but the synchronized protocol state is now canonical `2d` plus layers, not a separate backend `grid` environment type.
+
 ## Step 1: Project Setup
 
 Create `flocking.py`:

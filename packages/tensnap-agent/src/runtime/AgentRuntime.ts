@@ -9,8 +9,15 @@ import { AgentSession } from '../session/AgentSession';
 import { getReservedSceneActionId, type SceneReservedAction } from '../session/reserved-actions';
 import type {
   ActionRunOptions,
+  ChartSeriesSnapshot,
   ConnectOptions,
+  ExperimentRunRequest,
+  ExperimentRunResult,
+  ExperimentWaitRequest,
+  ExperimentWaitResult,
   SceneRenderOptions,
+  SceneAssetSummary,
+  SceneSnapshotInspection,
   RenderSettings,
   RenderTriggerMode,
   RuntimeControlFile,
@@ -19,6 +26,15 @@ import type {
   RuntimePhase,
   RuntimeStatus,
   SceneSummary,
+  WaitComparisonOperator,
+  WaitForChartOptions,
+  WaitForChartResult,
+  WaitForActionEndOptions,
+  WaitForActionEndResult,
+  WaitForMetadataOptions,
+  WaitForMetadataResult,
+  WaitForTimeOptions,
+  WaitForTimeResult,
 } from '../types';
 import {
   appendRuntimeLog,
@@ -35,6 +51,76 @@ export interface AgentRuntimeOptions {
   controlPort?: number | null;
   encoding?: ProtocolEncoding;
   render?: Partial<RenderSettings>;
+}
+
+function cloneValue<T>(value: T): T {
+  return structuredClone(value);
+}
+
+function valuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+}
+
+function compareValues(actual: unknown, comparison: WaitComparisonOperator, expected: unknown): boolean {
+  if (comparison === 'eq') {
+    return valuesEqual(actual, expected);
+  }
+
+  if (comparison === 'neq') {
+    return !valuesEqual(actual, expected);
+  }
+
+  if (typeof actual !== typeof expected) {
+    return false;
+  }
+
+  if (typeof actual !== 'number' && typeof actual !== 'string') {
+    return false;
+  }
+
+  switch (comparison) {
+    case 'gt':
+      return actual > (expected as number | string);
+    case 'gte':
+      return actual >= (expected as number | string);
+    case 'lt':
+      return actual < (expected as number | string);
+    case 'lte':
+      return actual <= (expected as number | string);
+    default:
+      return false;
+  }
+}
+
+function getValueAtPath(source: unknown, path: string): unknown {
+  if (!path.trim()) {
+    return source;
+  }
+
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (current === undefined || current === null) {
+      return undefined;
+    }
+
+    if (Array.isArray(current)) {
+      const index = Number(segment);
+      return Number.isInteger(index) ? current[index] : undefined;
+    }
+
+    if (typeof current === 'object') {
+      return (current as Record<string, unknown>)[segment];
+    }
+
+    return undefined;
+  }, source);
 }
 
 export class AgentRuntime extends EventEmitter {
@@ -165,6 +251,26 @@ export class AgentRuntime extends EventEmitter {
     return this.session.getSceneSummary();
   }
 
+  inspectSnapshot(): SceneSnapshotInspection {
+    return {
+      snapshot: this.session.getSnapshot(),
+      charts: this.session.listChartSeries(),
+      assets: this.session.listAssets(),
+    };
+  }
+
+  listChartSeries(): ChartSeriesSnapshot[] {
+    return this.session.listChartSeries();
+  }
+
+  getChartSeries(id: string): ChartSeriesSnapshot | null {
+    return this.session.getChartSeries(id);
+  }
+
+  listAssets(): SceneAssetSummary[] {
+    return this.session.listAssets();
+  }
+
   listParameters() {
     return this.session.getParameters();
   }
@@ -204,6 +310,235 @@ export class AgentRuntime extends EventEmitter {
 
   async runReservedAction(alias: SceneReservedAction, options: ActionRunOptions = {}): Promise<void> {
     await this.runAction(getReservedSceneActionId(alias), options);
+  }
+
+  async waitForActionEnd(options: WaitForActionEndOptions = {}): Promise<WaitForActionEndResult> {
+    this.assertConnected();
+
+    return await new Promise<WaitForActionEndResult>((resolve, reject) => {
+      const onActionEnd = (payload: ActionEndPayload): void => {
+        if (options.id && payload.id !== options.id) {
+          return;
+        }
+        cleanup();
+        resolve(structuredClone(payload));
+      };
+
+      const onClose = (): void => {
+        cleanup();
+        reject(new Error('Runtime disconnected while waiting for action_end.'));
+      };
+
+      const onError = (error: unknown): void => {
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
+      const timeoutId = typeof options.timeoutMs === 'number'
+        ? setTimeout(() => {
+            cleanup();
+            reject(
+              new Error(
+                options.id
+                  ? `Timed out waiting for action_end '${options.id}'.`
+                  : 'Timed out waiting for action_end.',
+              ),
+            );
+          }, options.timeoutMs)
+        : null;
+
+      const cleanup = (): void => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        this.session.off('action-end', onActionEnd);
+        this.session.off('close', onClose);
+        this.session.off('error', onError);
+      };
+
+      this.session.on('action-end', onActionEnd);
+      this.session.on('close', onClose);
+      this.session.on('error', onError);
+    });
+  }
+
+  async waitForTime(options: WaitForTimeOptions): Promise<WaitForTimeResult> {
+    const comparison = options.comparison ?? 'gte';
+    return await this.waitForStateCondition(
+      () => {
+        const actualTime = this.session.scenario.time;
+        if (typeof actualTime !== 'number') {
+          return undefined;
+        }
+        if (!compareValues(actualTime, comparison, options.time)) {
+          return undefined;
+        }
+        return {
+          kind: 'time' as const,
+          comparison,
+          expectedTime: options.time,
+          actualTime,
+        };
+      },
+      options.timeoutMs,
+      `time ${comparison} ${options.time}`,
+    );
+  }
+
+  async waitForChart(options: WaitForChartOptions): Promise<WaitForChartResult> {
+    const comparison = options.comparison ?? 'gte';
+    return await this.waitForStateCondition(
+      () => {
+        const actualValue = typeof options.atTime === 'number'
+          ? this.session.scenario.charts.getValueAt(options.id, options.atTime)
+          : this.session.getChartSeries(options.id)?.points.at(-1)?.[options.id];
+
+        if (typeof actualValue !== 'number') {
+          return undefined;
+        }
+        if (!compareValues(actualValue, comparison, options.value)) {
+          return undefined;
+        }
+        return {
+          kind: 'chart' as const,
+          id: options.id,
+          comparison,
+          expectedValue: options.value,
+          actualValue,
+          atTime: options.atTime,
+        };
+      },
+      options.timeoutMs,
+      `chart ${options.id} ${comparison} ${options.value}`,
+    );
+  }
+
+  async waitForMetadata(options: WaitForMetadataOptions): Promise<WaitForMetadataResult> {
+    const comparison = options.comparison ?? 'eq';
+    return await this.waitForStateCondition(
+      () => {
+        const actualValue = getValueAtPath(this.session.getSnapshot().metadata, options.path);
+        if (comparison === 'exists') {
+          if (actualValue === undefined) {
+            return undefined;
+          }
+          return {
+            kind: 'metadata' as const,
+            path: options.path,
+            comparison,
+            actualValue: cloneValue(actualValue),
+          };
+        }
+
+        if (!compareValues(actualValue, comparison, options.value)) {
+          return undefined;
+        }
+        return {
+          kind: 'metadata' as const,
+          path: options.path,
+          comparison,
+          expectedValue: cloneValue(options.value),
+          actualValue: cloneValue(actualValue),
+        };
+      },
+      options.timeoutMs,
+      `metadata ${options.path} ${comparison}`,
+    );
+  }
+
+  async runExperiment(request: ExperimentRunRequest): Promise<ExperimentRunResult> {
+    this.assertConnected();
+
+    const startedAt = new Date().toISOString();
+    const waits: ExperimentWaitResult[] = [];
+    const parametersApplied: Array<{ id: string; value: unknown }> = [];
+    const collect = {
+      scene: true,
+      snapshot: true,
+      ...(request.collect ?? {}),
+    };
+
+    const resetConfig =
+      request.reset === false
+        ? null
+        : request.reset === true || request.reset === undefined
+          ? { enabled: true, actionId: getReservedSceneActionId('reset') }
+          : {
+              enabled: request.reset.enabled !== false,
+              actionId: request.reset.actionId ?? getReservedSceneActionId('reset'),
+              continuous: request.reset.continuous,
+              timeoutMs: request.reset.timeoutMs,
+            };
+
+    if (resetConfig?.enabled) {
+      const resetWait = this.waitForActionEnd({
+        id: resetConfig.actionId,
+        timeoutMs: resetConfig.timeoutMs,
+      });
+      await this.runAction(resetConfig.actionId, { continuous: resetConfig.continuous });
+      waits.push({ kind: 'action-end', payload: await resetWait });
+    }
+
+    for (const [id, value] of Object.entries(request.parameters ?? {})) {
+      await this.setParameter(id, value);
+      parametersApplied.push({ id, value: cloneValue(value) });
+    }
+
+    if (request.action) {
+      const actionWait = request.action.waitForEnd === false
+        ? null
+        : this.waitForActionEnd({
+            id: request.action.id,
+            timeoutMs: request.action.timeoutMs,
+          });
+      await this.runAction(request.action.id, { continuous: request.action.continuous });
+      if (actionWait) {
+        waits.push({ kind: 'action-end', payload: await actionWait });
+      }
+    }
+
+    for (const waitRequest of request.waits ?? []) {
+      waits.push(await this.executeExperimentWait(waitRequest));
+    }
+
+    const renderArtifacts = request.render
+      ? await this.requestRender(
+          request.render,
+          request.render.reason ?? request.label ?? 'experiment',
+        )
+      : undefined;
+
+    const result: ExperimentRunResult = {
+      label: request.label,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      parametersApplied,
+      waits,
+    };
+
+    if (collect.scene) {
+      result.scene = this.inspectScene();
+    }
+    if (collect.snapshot) {
+      result.snapshot = this.inspectSnapshot();
+    }
+    if (renderArtifacts?.length) {
+      result.renderArtifacts = renderArtifacts;
+    }
+
+    await this.log('info', 'experiment', 'Experiment run completed.', {
+      label: request.label,
+      parametersApplied: parametersApplied.map((entry) => entry.id),
+      waitKinds: waits.map((entry) => entry.kind),
+      renderArtifactCount: renderArtifacts?.length ?? 0,
+    });
+    this.emitRuntimeEvent('experiment.completed', {
+      label: request.label,
+      waitCount: waits.length,
+      renderArtifactCount: renderArtifacts?.length ?? 0,
+    });
+
+    return result;
   }
 
   async requestRender(options: SceneRenderOptions = {}, reason = 'manual'): Promise<RenderArtifact[]> {
@@ -375,6 +710,78 @@ export class AgentRuntime extends EventEmitter {
     if (!this.session.isConnected) {
       throw new Error('Runtime is not connected to a simulator.');
     }
+  }
+
+  private async executeExperimentWait(request: ExperimentWaitRequest): Promise<ExperimentWaitResult> {
+    switch (request.kind) {
+      case 'action-end':
+        return {
+          kind: 'action-end',
+          payload: await this.waitForActionEnd(request),
+        };
+      case 'time':
+        return await this.waitForTime(request);
+      case 'chart':
+        return await this.waitForChart(request);
+      case 'metadata':
+        return await this.waitForMetadata(request);
+      default:
+        throw new Error(`Unsupported wait kind: ${(request as { kind?: string }).kind ?? 'unknown'}`);
+    }
+  }
+
+  private async waitForStateCondition<T>(
+    evaluate: () => T | undefined,
+    timeoutMs: number | undefined,
+    description: string,
+  ): Promise<T> {
+    this.assertConnected();
+
+    const immediate = evaluate();
+    if (immediate !== undefined) {
+      return cloneValue(immediate);
+    }
+
+    return await new Promise<T>((resolve, reject) => {
+      const onMessage = (): void => {
+        const matched = evaluate();
+        if (matched === undefined) {
+          return;
+        }
+        cleanup();
+        resolve(cloneValue(matched));
+      };
+
+      const onClose = (): void => {
+        cleanup();
+        reject(new Error(`Runtime disconnected while waiting for ${description}.`));
+      };
+
+      const onError = (error: unknown): void => {
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
+      const timeoutId = typeof timeoutMs === 'number'
+        ? setTimeout(() => {
+            cleanup();
+            reject(new Error(`Timed out waiting for ${description}.`));
+          }, timeoutMs)
+        : null;
+
+      const cleanup = (): void => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        this.session.off('message', onMessage);
+        this.session.off('close', onClose);
+        this.session.off('error', onError);
+      };
+
+      this.session.on('message', onMessage);
+      this.session.on('close', onClose);
+      this.session.on('error', onError);
+    });
   }
 
   private setPhase(phase: RuntimePhase): void {

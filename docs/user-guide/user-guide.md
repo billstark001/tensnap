@@ -34,26 +34,22 @@ TenSnap consists of three main components:
 ### Key Components
 
 - **Server**: `TenSnapServer` - Manages WebSocket connections and broadcasts updates
-- **Environments**: `GridEnvironmentModel`, `GraphEnvironmentModel` - Spatial contexts for agents
-- **Agents**: `AgentModel` - Individual entities in your simulation
+- **Environment binders**: `GridEnvironmentBinder`, `GraphEnvironmentBinder`, `GraphEnvironmentBinderNX` - Connect your model objects to TenSnap's canonical wire format
+- **Agent accessors / decorators**: `make_grid_agent_accessor()`, `make_graph_agent_accessor_nx()`, `@bind_grid_agent()` - Describe which fields from your objects should be synchronized
 - **Parameters**: Configurable values exposed to the UI (sliders, dropdowns, toggles)
 - **Charts**: Real-time data visualization
 - **Buttons**: Trigger actions in your simulation
 
 ## Building Your First Model
 
-### Step 1: Set Up the Server
+### Step 1: Set Up the Scenario
 
 ```python
-from tensnap import TenSnapServer, GridEnvironmentModel, AgentModel
+from tensnap import SimulationScenario
 import asyncio
 
-# Create server instance
-server = TenSnapServer(port=8765)
-
-# Create environment
-grid = GridEnvironmentModel(id="main", width=50, height=50)
-server.add_environment(grid)
+# Create scenario instance
+scenario = SimulationScenario(port=8765)
 ```
 
 ### Step 2: Define Your Model Logic
@@ -85,27 +81,27 @@ class MySimulation:
 ### Step 3: Connect to TenSnap
 
 ```python
-from tensnap.sim_loop import SimulationManager
+from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
 
-# Create simulation manager
-sim_manager = SimulationManager(step_interval=0.05)
+# Bind your model to a canonical 2d environment
+grid = GridEnvironmentBinder(
+    id="main",
+    environment=my_simulation,
+    agent_iterable_accessor="agents",
+    agent_accessor=make_grid_agent_accessor(
+        id="id",
+        heading=True,
+        color=True,
+        icon=True,
+    ),
+)
+scenario.add_environment(grid)
 
-# Define step handler
-async def on_step(step: int):
-    await server.start_time_step(step)
-    
-    # Run your simulation logic
-    my_simulation.step()
-    
-    # Update visualization
-    updates = grid.generate_agent_updates()
-    await server.update_agents_batch("main", updates)
-    
-    await server.end_time_step(step)
-
-# Connect
-sim_manager.on_step = on_step
-sim_manager.register_to(server)
+# Register init/step handlers
+await scenario.register_model_handler(
+    init_func=my_simulation.initialize,
+    step_func=my_simulation.step,
+)
 ```
 
 ### Step 4: Run the Server
@@ -113,7 +109,7 @@ sim_manager.register_to(server)
 ```python
 async def main():
     print("Starting TenSnap server on ws://localhost:8765")
-    await server.run()
+    await scenario.run()
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -123,86 +119,99 @@ if __name__ == "__main__":
 
 ### Grid Environments
 
-Grid environments provide a 2D spatial context for agents:
+Grid-oriented simulations are usually connected through `GridEnvironmentBinder` plus an agent accessor or `@bind_grid_agent()` metadata:
 
 ```python
-from tensnap import GridEnvironmentModel, AgentModel
+from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
 
-# Create grid
-grid = GridEnvironmentModel(
+class Bird:
+    def __init__(self):
+        self.id = "agent_1"
+        self.x = 50.0
+        self.y = 50.0
+        self.heading = 0.0
+        self.color = "#FF5733"
+        self.icon = "circle"
+        self.size = 10
+
+grid = GridEnvironmentBinder(
     id="world",
-    width=100,
-    height=100
+    environment=my_model,
+    agent_iterable_accessor="birds",
+    agent_accessor=make_grid_agent_accessor(
+        id="id",
+        heading=True,
+        color=True,
+        icon=True,
+        size=True,
+    ),
 )
-
-# Add agents to grid
-agent = AgentModel(
-    id="agent_1",
-    x=50.0,
-    y=50.0,
-    heading=0.0,      # Direction in radians
-    color="#FF5733",  # Hex color
-    icon="circle",    # Icon type: circle, square, arrow, etc.
-    size=10           # Size in pixels
-)
-grid.add_agent(agent)
 ```
 
-#### Background Images
+The synchronized agent payloads are plain dictionaries derived from your Python objects, not mutable `AgentModel` instances.
 
-Display NumPy arrays as grid backgrounds:
+#### Resource Layers
+
+For protocol v0.2, prefer representing terrain, sugar fields, heatmaps, or per-cell state as a dedicated layer of square agents instead of baking the field into a NumPy background image.
 
 ```python
-import numpy as np
-
-# Create background data (e.g., heatmap, terrain)
-background = np.random.rand(100, 100)
-grid.set_background(background)
+def build_sugar_layer(model):
+    cells = []
+    for x in range(model.grid.width):
+        for y in range(model.grid.height):
+            sugar = int(model.sugar[(x, y)])
+            cells.append(
+                {
+                    "id": f"sugar:{x}:{y}",
+                    "x": x,
+                    "y": y,
+                    "icon": "square",
+                    "size": 1.0,
+                    "color": sugar_to_color(sugar),
+                    "data": {"sugar": sugar},
+                }
+            )
+    return {
+        "layer_id": "sugar",
+        "layer_type": "agent",
+        "agents": cells,
+    }
 ```
+
+Legacy local `background` shortcuts can still be convenient for quick experiments, but layered agents are easier to diff, inspect, and compose with other layers.
 
 ### Graph Environments
 
-Graph environments represent network structures:
+Graph-oriented simulations are typically backed by your own graph structure and exposed with `GraphEnvironmentBinder` or `GraphEnvironmentBinderNX`:
 
 ```python
-from tensnap import GraphEnvironmentModel
+import networkx as nx
+from tensnap import GraphEnvironmentBinderNX
 
-# Create graph
-graph = GraphEnvironmentModel(id="network")
+graph = nx.Graph()
+graph.add_node("node_1", x=0, y=0, color="#3498db")
+graph.add_node("node_2", x=100, y=100, color="#e74c3c")
+graph.add_edge("node_1", "node_2", weight=1.0, color="#95a5a6")
 
-# Add nodes
-graph.add_node(id="node_1", x=0, y=0, color="#3498db")
-graph.add_node(id="node_2", x=100, y=100, color="#e74c3c")
-
-# Add edges
-graph.add_edge(
-    source="node_1",
-    target="node_2",
-    weight=1.0,
-    color="#95a5a6"
-)
-
-# Agents can be attached to nodes or edges
-agent = AgentModel(id="agent_1", node_id="node_1")
-graph.add_agent(agent)
+graph_env = GraphEnvironmentBinderNX(id="network", graph=graph)
 ```
 
 ### Agent Properties
 
-Agents support various visual properties:
+The most common synchronized agent fields are still the same; they just come from your source objects or accessors rather than a mutable `AgentModel` class:
 
 ```python
-agent = AgentModel(
-    id="unique_id",
-    x=25.0,            # X position
-    y=30.0,            # Y position
-    heading=1.57,      # Heading in radians (0 = right, π/2 = up)
-    color="#FF5733",   # Hex color string
-    icon="arrow",      # Visual representation
-    size=12,           # Size in pixels
-    label="Agent 1",   # Optional text label
-    node_id=None       # For graph environments
-)
+agent_state = {
+    "id": "unique_id",
+    "x": 25.0,            # X position
+    "y": 30.0,            # Y position
+    "heading": 1.57,      # Heading in radians (0 = right, π/2 = up)
+    "color": "#FF5733",   # Hex color string
+    "icon": "arrow",      # Visual representation
+    "size": 12,           # Size in pixels
+    "label": "Agent 1",   # Optional text label
+    "node_id": None       # For graph-oriented layouts
+}
 ```
 
 #### Available Icons
@@ -215,28 +224,33 @@ agent = AgentModel(
 
 ### Efficient Agent Updates
 
-Use `update_source` for automatic property syncing:
+Binders re-read your source objects on every sync, so you usually update your own model objects directly instead of mutating a TenSnap-side mirror object:
 
 ```python
+from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+
 class Bird:
     def __init__(self):
+        self.id = "bird_1"
         self.x = 0.0
         self.y = 0.0
         self.heading = 0.0
 
 bird = Bird()
 
-# Agent automatically reads from bird object
-agent = AgentModel(
-    id="bird_1",
-    x=bird.x,
-    y=bird.y,
-    heading=bird.heading,
-    update_source=bird  # Auto-sync properties
+binder = GridEnvironmentBinder(
+    id="birds",
+    environment={"birds": [bird], "width": 50, "height": 50},
+    agent_iterable_accessor="birds",
+    environment_accessor={"width": "width", "height": "height"},
+    agent_accessor=make_grid_agent_accessor(id="id", heading=True),
 )
 
-# Updates happen automatically
-grid.generate_agent_updates()  # Reads from bird.x, bird.y, bird.heading
+bird.x = 10.0
+bird.y = 5.0
+
+# Binder reads the current object state whenever it serializes.
+current_agents = binder.get_agent_list()
 ```
 
 ## Parameters and Controls
@@ -406,36 +420,33 @@ def track_deaths():
 
 ## Simulation Management
 
-### SimulationManager
+### SimulationLoop
 
-Manages simulation timing and execution:
+For low-level control, `SimulationLoop` registers the default `start` and `step` actions that the renderer can trigger:
 
 ```python
-from tensnap.sim_loop import SimulationManager
+from tensnap import SimulationLoop
 
-# Create manager with desired step interval
-sim_manager = SimulationManager(step_interval=0.05)  # 50ms per step
+# Create loop with desired step interval metadata
+sim_loop = SimulationLoop(
+    on_start=initialize_model,
+    on_step=advance_model,
+    step_interval=0.05,
+)
 
-# Define step handler
-async def on_step(step: int):
-    # Your simulation logic
-    pass
-
-sim_manager.on_step = on_step
-
-# Control simulation
-await sim_manager.start()  # Begin simulation
-await sim_manager.stop()   # Pause simulation
-await sim_manager.step()   # Execute single step
+# Register default start / step actions on the server
+sim_loop.register_to(server)
 
 # Access state
-current_step = sim_manager.time_step
-is_running = sim_manager.is_running
+current_step = sim_loop.time_step
+
+# Reset local clock when your simulation resets
+sim_loop.reset_clock()
 ```
 
 ### Manual Simulation Control
 
-Without SimulationManager, control timing yourself:
+Without `SimulationLoop`, control timing yourself:
 
 ```python
 async def run_simulation():
@@ -592,17 +603,17 @@ updates = grid.generate_agent_updates()  # Only returns changed agents
 Display multiple environments simultaneously:
 
 ```python
-# Create multiple environments
-habitat = GridEnvironmentModel(id="habitat", width=50, height=50)
-resource_map = GridEnvironmentModel(id="resources", width=50, height=50)
+from tensnap import GridEnvironmentBinder
+
+# Create multiple binders
+habitat = GridEnvironmentBinder(id="habitat", environment=habitat_model)
+resource_map = GridEnvironmentBinder(id="resources", environment=resource_model)
 
 # Register both
 server.add_environment(habitat)
 server.add_environment(resource_map)
 
-# Update independently
-await server.update_environment("habitat")
-await server.update_environment("resources")
+# Each binder is serialized independently during sync / updates.
 ```
 
 ## Best Practices
@@ -610,7 +621,7 @@ await server.update_environment("resources")
 ### Performance Optimization
 
 1. **Use Batch Updates**: Prefer `update_agents_batch()` over individual updates
-2. **Limit Update Frequency**: Use appropriate `step_interval` in SimulationManager
+2. **Limit Update Frequency**: Use an appropriate `step_interval` in `SimulationLoop` or `SimulationScenario`
 3. **Minimize Data Transfer**: Only send changed agent properties
 4. **Use update_source**: Let TenSnap automatically read agent properties
 

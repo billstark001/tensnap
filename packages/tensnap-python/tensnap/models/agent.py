@@ -50,6 +50,7 @@ class GraphAgentModelDict(AgentModelDict):
 # TypedDicts for accessor parameters
 class UniformAgentAccessorDict(TypedDict):
     """Type definition for uniform agent accessor parameters"""
+
     id: str
     color: NotRequired[str | bool | None]
     icon: NotRequired[str | bool | None]
@@ -59,6 +60,7 @@ class UniformAgentAccessorDict(TypedDict):
 
 class GridAgentAccessorDict(UniformAgentAccessorDict):
     """Type definition for grid agent accessor parameters"""
+
     x: str
     y: str
     heading: NotRequired[str | bool | None]
@@ -68,6 +70,7 @@ class GridAgentAccessorDict(UniformAgentAccessorDict):
 
 class GraphAgentAccessorNXDict(TypedDict):
     """Type definition for graph agent accessor parameters"""
+
     x: NotRequired[str | bool | None]
     y: NotRequired[str | bool | None]
     color: NotRequired[str | bool | None]
@@ -76,10 +79,13 @@ class GraphAgentAccessorNXDict(TypedDict):
     data: NotRequired[str | bool | None]
     auto_collect_data: NotRequired[bool]
 
+
 class GraphAgentAccessorDict(UniformAgentAccessorDict):
     """Type definition for graph agent accessor parameters"""
+
     x: NotRequired[str | bool | None]
     y: NotRequired[str | bool | None]
+
 
 def _a(
     map_fields: dict[str, str],
@@ -133,9 +139,13 @@ def make_grid_agent_accessor(
     if heading is not None and heading is not False:
         map_fields["heading"] = "heading" if heading is True else heading
     if trajectory_length is not None and trajectory_length is not False:
-        map_fields["trajectory_length"] = "trajectory_length" if trajectory_length is True else trajectory_length
+        map_fields["trajectory_length"] = (
+            "trajectory_length" if trajectory_length is True else trajectory_length
+        )
     if trajectory_color is not None and trajectory_color is not False:
-        map_fields["trajectory_color"] = "trajectory_color" if trajectory_color is True else trajectory_color
+        map_fields["trajectory_color"] = (
+            "trajectory_color" if trajectory_color is True else trajectory_color
+        )
     _a(map_fields, color, icon, size, data)
     return make_dict_accessor([], map_fields, {})  # type: ignore
 

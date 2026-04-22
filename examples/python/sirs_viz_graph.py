@@ -22,6 +22,7 @@ xi = 0.05  # Loss of immunity rate
 env = ERNetworkEnvironment(num_agents=100, connection_prob=0.05)
 model = SIRSSimulation(env, beta, gamma, xi, initial_infected=5)
 
+# GraphEnvironmentBinder is a graph-oriented shortcut; protocol sync now uses a canonical 2d environment with an explicit edge layer.
 graph = GraphEnvironmentBinder(
     id="sirs_graph",
     environment=env,

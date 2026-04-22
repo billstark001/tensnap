@@ -281,6 +281,7 @@ class TestDefaultSimulationHandler:
         handler = DefaultSimulationHandler()
         assert handler.scenario is None
         assert handler.last_agent_ids is None
+        assert handler.last_environment_states == {}
 
     @pytest.mark.asyncio
     async def test_on_registered(self, scenario: SimulationScenario):
@@ -302,17 +303,30 @@ class TestDefaultSimulationHandler:
         env.id = "test_env"
         env.get_model_dict = Mock(return_value={"x": 10})
         env.get_agent_list = Mock(return_value=[{"id": "agent1", "x": 5, "y": 5}])
+        env.get_state = Mock(
+            return_value={
+                "id": "test_env",
+                "type": "uniform",
+                "layers": [
+                    {
+                        "layer_id": "agents",
+                        "layer_type": "agent",
+                        "data": {"x": 10},
+                        "agents": [{"id": "agent1", "x": 5, "y": 5}],
+                    }
+                ],
+            }
+        )
 
         scenario.add_environment(env)
 
         # Mock the server methods
-        scenario.server.update_environment = AsyncMock()
-        scenario.server.update_agents_batch = AsyncMock()
+        scenario.server.update_environment_state = AsyncMock()
+        scenario.server.delete_environment_state = AsyncMock()
 
         await handler.send_updates(replace_agents=False)
 
-        scenario.server.update_environment.assert_called()
-        scenario.server.update_agents_batch.assert_called()
+        scenario.server.update_environment_state.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_on_start(
@@ -325,12 +339,15 @@ class TestDefaultSimulationHandler:
         env.id = "test_env"
         env.get_model_dict = Mock(return_value={})
         env.get_agent_list = Mock(return_value=[])
+        env.get_state = Mock(
+            return_value={"id": "test_env", "type": "uniform", "layers": []}
+        )
 
         scenario.add_environment(env)
 
         scenario.server.update_metadata = AsyncMock()
-        scenario.server.update_environment = AsyncMock()
-        scenario.server.update_agents_batch = AsyncMock()
+        scenario.server.update_environment_state = AsyncMock()
+        scenario.server.delete_environment_state = AsyncMock()
         scenario.server.update_charts = AsyncMock()
 
         await handler.on_start(0)
@@ -352,8 +369,8 @@ class TestDefaultSimulationHandler:
         handler.model_step = model_step
 
         scenario.server.update_metadata = AsyncMock()
-        scenario.server.update_environment = AsyncMock()
-        scenario.server.update_agents_batch = AsyncMock()
+        scenario.server.update_environment_state = AsyncMock()
+        scenario.server.delete_environment_state = AsyncMock()
         scenario.server.update_charts = AsyncMock()
 
         await handler.on_step(1)
@@ -377,8 +394,8 @@ class TestDefaultSimulationHandler:
         scenario.sim_manager.reset_clock = Mock()
         scenario.server.clear_charts = AsyncMock()
         scenario.server.update_metadata = AsyncMock()
-        scenario.server.update_environment = AsyncMock()
-        scenario.server.update_agents_batch = AsyncMock()
+        scenario.server.update_environment_state = AsyncMock()
+        scenario.server.delete_environment_state = AsyncMock()
         scenario.server.update_charts = AsyncMock()
 
         await handler.on_reset()

@@ -16,6 +16,7 @@ from enum import IntEnum
 
 from tensnap import (
     bind_parameters,
+    bind_grid_agent,
     bind_uniform_agent,
     bind_grid_environment,
     bind_graph_environment,
@@ -31,6 +32,7 @@ class State(IntEnum):
     RECOVERED = 2
 
 
+@bind_grid_agent(x="grid_x", y="grid_y", color=True, icon=True, size=True)
 @bind_graph_agent(color=True)
 @bind_uniform_agent(color=True)
 class Agent:
@@ -52,6 +54,11 @@ class Agent:
         """
         self.id = agent_id
         self.state = initial_state
+        self.grid_x = 0
+        self.grid_y = 0
+
+    icon = "square"
+    size = 0.95
 
     @property
     def color(self) -> str:
@@ -133,15 +140,7 @@ class WellMixedEnvironment(Environment):
         """
         return [i for i in range(self.num_agents) if i != agent_id]
 
-
-color_rgb_np_array_map = {
-    State.SUSCEPTIBLE: np.array([0, 0, 255], dtype=np.uint8),
-    State.INFECTED: np.array([255, 0, 0], dtype=np.uint8),
-    State.RECOVERED: np.array([0, 255, 0], dtype=np.uint8),
-}
-
-
-@bind_grid_environment(width="rows", height="cols", background=True)
+@bind_grid_environment(width="rows", height="cols")
 @bind_parameters(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
@@ -191,21 +190,6 @@ class GridEnvironment(Environment):
                 neighbors.append(self._coords_to_id(new_row, new_col))
 
         return neighbors
-
-    def get_status_image(self):
-        """Get a 2D array representing the current states of agents in the grid."""
-        status_image = np.zeros((self.rows, self.cols, 3), dtype=np.uint8)
-        for agent_id in range(self.num_agents):
-            row, col = self._id_to_coords(agent_id)
-            status_image[row, col] = color_rgb_np_array_map[self.agents[agent_id].state]
-        return status_image
-
-    @property
-    def background(self):
-        """Get the background image representing agent states."""
-        img = self.get_status_image()
-        return img
-
 
 @bind_graph_environment(edges="graph.edges")
 @bind_parameters(include=["num_agents", "connection_prob"])
@@ -291,6 +275,12 @@ class SIRSSimulation:
         self.agents = [Agent(i) for i in range(self.environment.num_agents)]
         self.environment.agents = self.agents
         self.environment.init()
+
+        if isinstance(self.environment, GridEnvironment):
+            for agent in self.agents:
+                row, col = self.environment._id_to_coords(agent.id)
+                agent.grid_x = col
+                agent.grid_y = row
 
         # Randomly select initial infected agents
         initial_infected_ids = np.random.choice(

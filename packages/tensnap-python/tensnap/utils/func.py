@@ -1,4 +1,3 @@
-
 from typing import Callable, Awaitable, TypeVar, Union
 from typing_extensions import ParamSpec
 
@@ -18,4 +17,3 @@ async def call_function(
         return await func(*args, **kwargs)  # type: ignore
     else:
         return func(*args, **kwargs)  # type: ignore
-

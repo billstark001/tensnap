@@ -1,6 +1,8 @@
+# region Imports
+
 from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Protocol, Set, List, Dict
+from typing import Any, Protocol, Dict, List
 
 from tensnap.bindings.basic import (
     BindParametersConfig,
@@ -11,14 +13,22 @@ from tensnap.bindings.basic import (
 from tensnap.bindings.basic import (
     action as action_decorator,
 )
-from tensnap.models import EnvironmentBinderProtocol
+from tensnap.models import EnvironmentBinderProtocol, EnvironmentState
 from tensnap.server import TenSnapServer
 from tensnap.sim_loop import SimulationLoop
 from tensnap.utils.func import call_function
+from tensnap.utils.environment_state import (
+    build_environment_state,
+    clone_environment_state,
+)
 from tensnap.utils.attr import (
     make_identifier_getter_and_setter,
     make_dict_getter_and_setter,
 )
+
+# endregion
+
+# region Helpers
 
 
 def create_chart_invoke_function(func: Callable, target: Any):
@@ -32,6 +42,11 @@ def create_chart_invoke_function(func: Callable, target: Any):
     return invoke
 
 
+# endregion
+
+# region Protocols
+
+
 class SimulationHandlerProtocol(Protocol):
 
     async def on_registered(self, scenario: "SimulationScenario") -> None: ...
@@ -41,6 +56,11 @@ class SimulationHandlerProtocol(Protocol):
     async def on_step(self, step: int) -> None: ...
 
     async def on_reset(self) -> None: ...
+
+
+# endregion
+
+# region Default Handler
 
 
 class DefaultSimulationHandler:
@@ -54,62 +74,39 @@ class DefaultSimulationHandler:
         self.model_init = model_init
         self.model_step = model_step
 
-        self.last_agent_ids: Set[int | str] | None = None
+        self.last_agent_ids = None
+        self.last_environment_states: Dict[str, EnvironmentState] = {}
 
     async def on_registered(self, scenario: "SimulationScenario") -> None:
         """Called when the handler is registered with a scenario"""
         self.scenario = scenario
+        self.last_environment_states = {}
 
     async def send_updates(self, replace_agents: bool = False) -> None:
-        """Send environment and agent updates to the server"""
+        """Send layer-oriented environment updates to the server."""
         if not self.scenario:
             return
+        next_states: Dict[str, EnvironmentState] = {}
         for name, env in self.scenario.env_binders.items():
-            model_updates = env.get_model_dict()
-            agent_updates_raw = env.get_agent_list()
-            if replace_agents:
-                await self.scenario.server.update_environment(
-                    name, data=model_updates, agents=agent_updates_raw
-                )
-                continue
-
-            await self.scenario.server.update_environment(
-                name,
-                data=model_updates,
+            current_state = self._get_environment_state(env)
+            previous_state = (
+                None if replace_agents else self.last_environment_states.get(name)
             )
-
-            last_agent_ids = (
-                self.last_agent_ids.copy() if self.last_agent_ids is not None else None
+            await self.scenario.server.update_environment_state(
+                current_state,
+                previous_state,
             )
-            current_agent_ids: Set[str] = set()
-            agent_updates: List[Dict[str, Any]] = []
-            for agent_update in agent_updates_raw:
-                agent_data = agent_update.copy()
-                agent_id = agent_data.pop("id")
-                agent_payload = {
-                    "id": agent_id,
-                    "data": agent_data,
-                }
-                current_agent_ids.add(agent_id)
-                if last_agent_ids is None:
-                    continue
-                if agent_id in last_agent_ids:
-                    last_agent_ids.remove(agent_id)
-                else:
-                    agent_payload["operation"] = "create"
+            next_states[name] = clone_environment_state(current_state)
 
-                agent_updates.append(agent_payload)
+        for removed_env_id in self.last_environment_states.keys() - next_states.keys():
+            await self.scenario.server.delete_environment_state(removed_env_id)
 
-            for removed_id in last_agent_ids or []:
-                agent_updates.append(
-                    {
-                        "id": removed_id,
-                        "operation": "delete",
-                    }
-                )
+        self.last_environment_states = next_states
 
-            self.last_agent_ids = current_agent_ids
-            await self.scenario.server.update_agents_batch(name, agent_updates)
+    def _get_environment_state(
+        self, env: EnvironmentBinderProtocol
+    ) -> EnvironmentState:
+        return build_environment_state(env)
 
     async def on_start(self, step: int, replace_agents: bool = False) -> None:
         s = self.scenario
@@ -142,6 +139,10 @@ class DefaultSimulationHandler:
             await call_function(self.model_init)
         await self.scenario.server.clear_charts()
         await self.on_start(0, replace_agents=True)
+
+    # endregion
+
+    # region Scenario
 
 
 class SimulationScenario:
@@ -224,9 +225,7 @@ class SimulationScenario:
                 self.server.add_parameter(param, getter, setter)
                 added_parameter_ids.append(param.id)
             for name, func, action in actions:
-                self.server.add_action(
-                    action, func or (lambda: target[name]())
-                )
+                self.server.add_action(action, func or (lambda: target[name]()))
                 added_action_ids.append(action.id)
         else:
             for name, param in parameters:
@@ -263,9 +262,7 @@ class SimulationScenario:
         if isinstance(target, dict):
             actions = get_action_metadata_from_namespace(target)
             for name, func, action in actions:
-                self.server.add_action(
-                    action, func or (lambda: target[name]())
-                )
+                self.server.add_action(action, func or (lambda: target[name]()))
             return
         if isinstance(target, ModuleType) or (
             hasattr(target, "__dict__") and not hasattr(target, "__class__")
@@ -281,9 +278,7 @@ class SimulationScenario:
             cls = target.__class__
             actions = get_action_metadata_from_namespace(vars(cls))  # type: ignore
             for name, _, action in actions:
-                self.server.add_action(
-                    action, getattr(target, name)
-                )
+                self.server.add_action(action, getattr(target, name))
 
     def remove_all_actions(self, remove_parameters: bool = True):
         self.server.remove_all_actions(remove_parameters=remove_parameters)

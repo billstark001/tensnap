@@ -13,6 +13,11 @@ from tensnap.bindings.basic import (
 from .environment import GraphEdgeDict
 
 
+class StateSyncLayerSummary(TypedDict):
+    layer_id: str
+    layer_type: str
+
+
 class ParameterState(TypedDict):
     """Parameter state for communication"""
 
@@ -20,8 +25,8 @@ class ParameterState(TypedDict):
     type: ParameterType
     label: str
     allow_runtime_change: bool
-    
-    value: NotRequired[Any] # 客户端缓存的上次值
+
+    value: NotRequired[Any]  # last value cached by the renderer
     min: NotRequired[float]
     max: NotRequired[float]
     step: NotRequired[float]
@@ -32,20 +37,14 @@ class EnvironmentStateWithAgentsOmitted(TypedDict):
     """Environment state for communication"""
 
     id: str
-    type: Literal["grid", "graph", "uniform"]
-    label: str
-
-    width: NotRequired[int]  # For grid environments
-    height: NotRequired[int]  # For grid environments
-    background: NotRequired[str]  # Hex-encoded numpy array for grid backgrounds
-    
-    edges: NotRequired[list[GraphEdgeDict]]  # For graph environments
+    type: Literal["uniform", "2d"]
+    layers: list[StateSyncLayerSummary]
 
 
 class StateSyncRequest(TypedDict):
     parameters: list[ParameterState]
     actions: list[dict]
-    envs: list[dict]
+    envs: list[EnvironmentStateWithAgentsOmitted]
     charts: list[ChartMetadataDict]
 
 

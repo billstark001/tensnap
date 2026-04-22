@@ -23,6 +23,7 @@ server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port)
 
 model = DiscreteHKModel(n_agents=50, confidence_bound=0.3, k_random=3)
+# GraphEnvironmentBinderNX is a NetworkX-friendly shortcut; protocol sync now uses canonical 2d + edge-layer state.
 graph_env = GraphEnvironmentBinderNX(
     id="opinion_network",
     graph=model.graph,

@@ -66,7 +66,9 @@ class ParameterBase:
             d["allowRuntimeChange"] = val
         return d
 
-    def instantiate(self, getter: Callable | None = None, setter: Callable | None = None) -> "Parameter":
+    def instantiate(
+        self, getter: Callable | None = None, setter: Callable | None = None
+    ) -> "Parameter":
         ret = create_parameter(**asdict(self))
         ret.getter = getter
         ret.setter = setter
@@ -193,6 +195,7 @@ def create_parameter(
 
 # region Binding Utilities
 
+
 class bind:
 
     @overload
@@ -305,10 +308,9 @@ _MESA_FIELDS = {
     "steps",
 }
 
+
 class BindParametersConfig:
     """Configuration for automatic parameter detection"""
-    
-    
 
     def __init__(
         self,
@@ -342,7 +344,7 @@ class BindParametersConfig:
             if field_name not in self.include_fields:
                 return False
         if self.include_private is False:
-            if field_name.startswith('_'):
+            if field_name.startswith("_"):
                 return False
         return True
 
@@ -376,6 +378,7 @@ class BindParametersConfig:
 
 
 bind_parameters = BindParametersConfig  # Alias
+
 
 def create_getter_and_setter(
     target: Union[Dict[str, Any], object, types.ModuleType],
@@ -428,7 +431,7 @@ def get_parameter_metadata_from_namespace(
     parameters: List[Tuple[str, Parameter]] = []
     actions: list = []  # kept for backward-compatible call sites; always empty
     for name, value in namespace.items():
-        if name.startswith('__') and name.endswith('__'):
+        if name.startswith("__") and name.endswith("__"):
             continue
         if cfg_suggest is not None and not cfg_suggest.is_included(name):
             continue
@@ -473,7 +476,7 @@ def get_parameter_metadata_from_object(
         # this also overrides annotated config
         field_metadata = get_field_metadata(cls)
         for field_name, field_info in field_metadata.items():
-            if field_name.startswith('__') and field_name.endswith('__'):
+            if field_name.startswith("__") and field_name.endswith("__"):
                 continue
             if cfg_suggest is not None and not cfg_suggest.is_included(field_name):
                 continue
@@ -484,7 +487,7 @@ def get_parameter_metadata_from_object(
         # 3. fetch instance metadata
         keys_fetched = set(name for name, *_ in parameters + actions)
         for name in dir(obj):
-            if name.startswith('__') and name.endswith('__'):
+            if name.startswith("__") and name.endswith("__"):
                 continue
             if name in keys_fetched:
                 continue
@@ -507,5 +510,6 @@ def get_parameter_metadata_from_object(
         return parameters, actions
 
     raise ValueError("Unsupported object type for parameter metadata extraction")
+
 
 # endregion

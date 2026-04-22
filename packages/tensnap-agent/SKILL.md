@@ -7,7 +7,9 @@ Use this skill when you need an automation agent to drive a TenSnap simulator th
 - You need to connect to a running simulator and inspect the current scene state.
 - You need to trigger reserved simulator actions such as `start`, `step`, or `reset`.
 - You need to change parameters from an agent workflow.
+- You need to wait on action completion, time, chart values, or scene metadata before continuing.
 - You need an environment render, optionally for a specific viewport.
+- You need to run a structured experiment spec that combines parameter changes, actions, waits, and optional renders.
 - You need a long-lived local runtime instead of a one-shot WebSocket client.
 
 ## Runtime Model
@@ -114,10 +116,40 @@ Useful event families:
 - `action.start.requested`, `action.end`
 - `render.requested`, `render.failed`, `render.trigger.updated`
 
+## Waits And Experiments
+
+Wait for the current or named action to complete:
+
+```bash
+pnpm --filter @tensnap/agent dev -- wait action-end --context demo
+pnpm --filter @tensnap/agent dev -- wait action-end start --context demo --timeout-ms 60000
+```
+
+Wait for simulation time or a chart threshold:
+
+```bash
+pnpm --filter @tensnap/agent dev -- wait time 100 --context demo --comparison gte
+pnpm --filter @tensnap/agent dev -- wait chart infected 25 --context demo --comparison lte
+```
+
+Wait for scene metadata to reach a value:
+
+```bash
+pnpm --filter @tensnap/agent dev -- wait metadata metadata.time 100 --context demo --comparison gte
+```
+
+Run an experiment spec in one request:
+
+```bash
+pnpm --filter @tensnap/agent dev -- experiment run '{"label":"baseline","parameters":{"infection_rate":0.35},"action":{"id":"start","continuous":true},"waits":[{"kind":"time","time":100,"comparison":"gte"}],"render":{"reason":"baseline","envId":"main"}}' --context demo
+```
+
 ## Operational Guidance
 
 - Prefer `scene inspect` before mutating parameters or actions, so the agent has the current ids.
 - Prefer reserved scene actions when they exist, because they carry simulator semantics directly.
+- Prefer `wait ...` commands over ad-hoc polling when the workflow depends on a time step, chart threshold, or action boundary.
+- Prefer `experiment run` when a workflow would otherwise need several sequential CLI calls and intermediate bookkeeping.
 - Use `manual` render trigger when you need to separate simulation stepping from image capture.
 - Use `action-end` render trigger when a downstream workflow expects every action to produce a new image.
 - If multiple environments exist and no `--env` is provided, the painter may emit one artifact per environment.

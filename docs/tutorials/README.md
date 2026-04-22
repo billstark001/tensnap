@@ -22,7 +22,7 @@ Step-by-step tutorials to help you learn TenSnap by building real simulations.
    - Multiple agent types
    - Agent lifecycle (birth/death)
    - Population tracking with charts
-   - Background visualization
+   - Layered field and resource visualization
 
 4. **[Network Dynamics](./04-network-simulation.md)** - Work with graph environments
    - Graph/network visualization

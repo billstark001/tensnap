@@ -5,6 +5,9 @@ Main server implementation for handling WebSocket connections and
 broadcasting simulation updates to connected clients.
 """
 
+# region Imports
+
+from copy import deepcopy
 from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple, Set
 
 import asyncio
@@ -13,6 +16,7 @@ import base64
 import json
 import logging
 import datetime
+from uuid import uuid4
 from websockets.asyncio.server import serve, ServerConnection
 from websockets.protocol import State as WebSocketState
 from websockets.exceptions import ConnectionClosed
@@ -21,6 +25,16 @@ from enum import Enum
 from collections import defaultdict
 
 from .utils.ws import BatchedMessageQueue
+from .utils.environment_state import (
+    agent_diff,
+    build_environment_state,
+    copied_layer_agents,
+    copied_layer_edges,
+    edge_diff,
+    layer_agents,
+    layer_edges,
+    layer_metadata,
+)
 from .utils.object import json_default, msgpack_default, find_objects_by_error
 from .bindings.basic import (
     Parameter,
@@ -38,7 +52,16 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from .models import EnvironmentBinderProtocol, StateSyncRequest
+    from .models import (
+        EnvironmentBinderProtocol,
+        EnvironmentState,
+        EnvironmentStateWithAgentsOmitted,
+        StateSyncRequest,
+    )
+
+# endregion
+
+# region Message Types
 
 
 class ServerToClientMessageType(Enum):
@@ -68,6 +91,7 @@ class ServerToClientMessageType(Enum):
     ASSET_META = "asset_meta"
     ASSET_DATA = "asset_data"
     ASSET_DELETE = "asset_delete"
+    SCREENSHOT_REQUEST = "screenshot_request"
     LOG = "log"
     ERROR = "error"
 
@@ -77,7 +101,13 @@ class ClientToServerMessageType(Enum):
     PARAM_CHANGE = "param_change"
     ACTION_START = "action_start"
     ASSET_SYNC = "asset_sync"
+    SCREENSHOT_RESPONSE = "screenshot_response"
     ERROR = "error"
+
+
+# endregion
+
+# region Serialization Helpers
 
 
 def encode_message(
@@ -100,10 +130,14 @@ def encode_message(
         ) from e
 
 
-def convert_env_state(env: "EnvironmentBinderProtocol") -> Dict[str, Any]:
-    env_dict = env.get_model_dict()
-    env_dict["agents"] = env.get_agent_list()
-    return env_dict
+def _encode_binary_data_url(data: bytes, mime: str) -> str:
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+# endregion
+
+# region Server
 
 
 class TenSnapServer:
@@ -121,6 +155,9 @@ class TenSnapServer:
         self.button_handlers: Dict[str, Callable] = {}
         # Assets: id → { id, hash, mime, size, label, data }
         self._assets: Dict[str, Dict[str, Any]] = {}
+        self._pending_screenshot_requests: Dict[str, asyncio.Future[Dict[str, Any]]] = (
+            {}
+        )
         self._running = False
         self._queue = BatchedMessageQueue()
         self._bg_task = None
@@ -233,6 +270,8 @@ class TenSnapServer:
                 await self._handle_action_start(ws, payload)
             elif msg_type == ClientToServerMessageType.ASSET_SYNC.value:
                 await self._handle_asset_sync(ws, payload)
+            elif msg_type == ClientToServerMessageType.SCREENSHOT_RESPONSE.value:
+                await self._handle_screenshot_response(payload)
             elif msg_type == ClientToServerMessageType.ERROR.value:
                 logger.error(f"Client error: {payload.get('error')}")
             else:
@@ -313,7 +352,7 @@ class TenSnapServer:
         return categorize_charts(req, server_charts)
 
     async def _compute_environment_deltas(
-        self, req: List[Dict[str, Any]]
+        self, req: List["EnvironmentStateWithAgentsOmitted"]
     ) -> Dict[str, List]:
         """req is now a list of { id, type, layers } dicts (v0.2 StateSyncRequest.envs)."""
         client_ids = set(x["id"] for x in req)
@@ -324,10 +363,265 @@ class TenSnapServer:
         updated = server_ids & client_ids
 
         return {
-            "added": [convert_env_state(self.environments[i]) for i in added],
+            "added": [build_environment_state(self.environments[i]) for i in added],
             "removed": list(removed),
-            "updated": [convert_env_state(self.environments[i]) for i in updated],
+            "updated": [build_environment_state(self.environments[i]) for i in updated],
         }
+
+    async def _send_environment_snapshot(
+        self,
+        ws: ServerConnection,
+        env_state: "EnvironmentState",
+        client_env_state: Optional["EnvironmentStateWithAgentsOmitted"] = None,
+    ) -> None:
+        env_id = env_state["id"]
+        recreate_env = (
+            client_env_state is None or client_env_state["type"] != env_state["type"]
+        )
+
+        if recreate_env and client_env_state is not None:
+            await self._send(ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id})
+
+        if recreate_env:
+            await self._send(
+                ws,
+                ServerToClientMessageType.ENV_CREATE,
+                {"id": env_id, "type": env_state["type"]},
+            )
+
+        client_layers = (
+            {layer["layer_id"]: layer for layer in client_env_state["layers"]}
+            if client_env_state
+            else {}
+        )
+        current_layers = {layer["layer_id"]: layer for layer in env_state["layers"]}
+
+        for removed_layer_id in client_layers.keys() - current_layers.keys():
+            await self._send(
+                ws,
+                ServerToClientMessageType.ENV_LAYER_DELETE,
+                {"env_id": env_id, "layer_id": removed_layer_id},
+            )
+
+        for layer in env_state["layers"]:
+            layer_id = layer["layer_id"]
+            if layer_id in client_layers:
+                await self._send(
+                    ws,
+                    ServerToClientMessageType.ENV_LAYER_DELETE,
+                    {"env_id": env_id, "layer_id": layer_id},
+                )
+
+            payload: Dict[str, Any] = {
+                "env_id": env_id,
+                "layer_id": layer_id,
+                "layer_type": layer["layer_type"],
+            }
+            metadata = layer_metadata(layer)
+            if metadata:
+                payload["data"] = metadata
+            await self._send(ws, ServerToClientMessageType.ENV_LAYER_CREATE, payload)
+
+            agents = copied_layer_agents(layer)
+            if agents:
+                await self._send(
+                    ws,
+                    ServerToClientMessageType.AGENT_CREATE,
+                    {
+                        "env_id": env_id,
+                        "layer_id": layer_id,
+                        "agents": agents,
+                    },
+                )
+            edges = copied_layer_edges(layer)
+            if edges:
+                await self._send(
+                    ws,
+                    ServerToClientMessageType.EDGE_CREATE,
+                    {
+                        "env_id": env_id,
+                        "layer_id": layer_id,
+                        "edges": edges,
+                    },
+                )
+
+    async def delete_environment_state(self, env_id: str) -> None:
+        await self._broadcast(ServerToClientMessageType.ENV_DELETE, {"id": env_id})
+
+    async def update_environment_state(
+        self,
+        env_state: "EnvironmentState",
+        previous_state: Optional["EnvironmentState"] = None,
+    ) -> None:
+        env_id = env_state["id"]
+
+        if previous_state is None:
+            await self._broadcast(
+                ServerToClientMessageType.ENV_CREATE,
+                {"id": env_id, "type": env_state["type"]},
+            )
+            for layer in env_state["layers"]:
+                payload: Dict[str, Any] = {
+                    "env_id": env_id,
+                    "layer_id": layer["layer_id"],
+                    "layer_type": layer["layer_type"],
+                }
+                metadata = layer_metadata(layer)
+                if metadata:
+                    payload["data"] = metadata
+                await self._broadcast(
+                    ServerToClientMessageType.ENV_LAYER_CREATE, payload
+                )
+                agents = copied_layer_agents(layer)
+                if agents:
+                    await self._broadcast(
+                        ServerToClientMessageType.AGENT_CREATE,
+                        {
+                            "env_id": env_id,
+                            "layer_id": layer["layer_id"],
+                            "agents": agents,
+                        },
+                    )
+                edges = copied_layer_edges(layer)
+                if edges:
+                    await self._broadcast(
+                        ServerToClientMessageType.EDGE_CREATE,
+                        {
+                            "env_id": env_id,
+                            "layer_id": layer["layer_id"],
+                            "edges": edges,
+                        },
+                    )
+            return
+
+        if previous_state["type"] != env_state["type"]:
+            await self.delete_environment_state(env_id)
+            await self.update_environment_state(env_state, None)
+            return
+
+        previous_layers = {
+            layer["layer_id"]: layer for layer in previous_state["layers"]
+        }
+        current_layers = {layer["layer_id"]: layer for layer in env_state["layers"]}
+
+        for removed_layer_id in previous_layers.keys() - current_layers.keys():
+            await self._broadcast(
+                ServerToClientMessageType.ENV_LAYER_DELETE,
+                {"env_id": env_id, "layer_id": removed_layer_id},
+            )
+
+        for layer in env_state["layers"]:
+            layer_id = layer["layer_id"]
+            previous_layer = previous_layers.get(layer_id)
+            if (
+                previous_layer is None
+                or previous_layer["layer_type"] != layer["layer_type"]
+            ):
+                if previous_layer is not None:
+                    await self._broadcast(
+                        ServerToClientMessageType.ENV_LAYER_DELETE,
+                        {"env_id": env_id, "layer_id": layer_id},
+                    )
+                await self.update_environment_state(
+                    {
+                        "id": env_id,
+                        "type": env_state["type"],
+                        "layers": [layer],
+                    },
+                    None,
+                )
+                continue
+
+            metadata = layer_metadata(layer)
+            previous_metadata = layer_metadata(previous_layer)
+            if metadata != previous_metadata:
+                await self._broadcast(
+                    ServerToClientMessageType.ENV_LAYER_UPDATE,
+                    {
+                        "env_id": env_id,
+                        "layer_id": layer_id,
+                        "data": metadata,
+                    },
+                )
+
+            previous_agents = {
+                agent["id"]: agent for agent in layer_agents(previous_layer)
+            }
+            current_agents = {agent["id"]: agent for agent in layer_agents(layer)}
+            if current_agents or previous_agents:
+                creates = [
+                    deepcopy(agent)
+                    for agent_id, agent in current_agents.items()
+                    if agent_id not in previous_agents
+                ]
+                updates = []
+                for agent_id, agent in current_agents.items():
+                    if agent_id not in previous_agents:
+                        continue
+                    diff = agent_diff(agent, previous_agents[agent_id])
+                    if len(diff) > 1:
+                        updates.append(diff)
+                deletes = [
+                    agent_id
+                    for agent_id in previous_agents.keys() - current_agents.keys()
+                ]
+
+                if creates:
+                    await self._broadcast(
+                        ServerToClientMessageType.AGENT_CREATE,
+                        {"env_id": env_id, "layer_id": layer_id, "agents": creates},
+                    )
+                if updates:
+                    await self._broadcast(
+                        ServerToClientMessageType.AGENT_UPDATE,
+                        {"env_id": env_id, "layer_id": layer_id, "agents": updates},
+                    )
+                if deletes:
+                    await self._broadcast(
+                        ServerToClientMessageType.AGENT_DELETE,
+                        {"env_id": env_id, "layer_id": layer_id, "ids": deletes},
+                    )
+
+            previous_edges = {
+                (edge["source"], edge["target"]): edge
+                for edge in layer_edges(previous_layer)
+            }
+            current_edges = {
+                (edge["source"], edge["target"]): edge for edge in layer_edges(layer)
+            }
+            if current_edges or previous_edges:
+                creates = [
+                    deepcopy(edge)
+                    for edge_key, edge in current_edges.items()
+                    if edge_key not in previous_edges
+                ]
+                updates = []
+                for edge_key, edge in current_edges.items():
+                    if edge_key not in previous_edges:
+                        continue
+                    diff = edge_diff(edge, previous_edges[edge_key])
+                    if len(diff) > 2:
+                        updates.append(diff)
+                deletes = [
+                    {"source": source, "target": target}
+                    for source, target in previous_edges.keys() - current_edges.keys()
+                ]
+
+                if creates:
+                    await self._broadcast(
+                        ServerToClientMessageType.EDGE_CREATE,
+                        {"env_id": env_id, "layer_id": layer_id, "edges": creates},
+                    )
+                if updates:
+                    await self._broadcast(
+                        ServerToClientMessageType.EDGE_UPDATE,
+                        {"env_id": env_id, "layer_id": layer_id, "edges": updates},
+                    )
+                if deletes:
+                    await self._broadcast(
+                        ServerToClientMessageType.EDGE_DELETE,
+                        {"env_id": env_id, "layer_id": layer_id, "edges": deletes},
+                    )
 
     def _get_param_value(self, param: "Parameter") -> Any:
         if param.getter:
@@ -378,6 +672,7 @@ class TenSnapServer:
             self._compute_environment_deltas(req.get("envs", [])),
             self._compute_chart_deltas(req.get("charts", [])),
         )
+        client_env_map = {env["id"]: env for env in req.get("envs", [])}
 
         # Actions (action_create / action_update / action_delete)
         for action_dict in actions["added"]:
@@ -399,68 +694,17 @@ class TenSnapServer:
         for param_dict in params["updated"]:
             await self._send(ws, ServerToClientMessageType.PARAM_UPDATE, param_dict)
 
-        # Environments (create env + layer + agents)
+        # Environments (full layer-oriented snapshot replay)
         for env_state in envs["added"]:
-            env_id = env_state["id"]
-            env_type = env_state.get("type", "uniform")
-            v2_type = "2d" if env_type in ("grid", "graph") else "uniform"
-            await self._send(
-                ws,
-                ServerToClientMessageType.ENV_CREATE,
-                {"id": env_id, "type": v2_type},
-            )
-            await self._send(
-                ws,
-                ServerToClientMessageType.ENV_LAYER_CREATE,
-                {
-                    "env_id": env_id,
-                    "layer_id": "",
-                    "layer_type": env_type,
-                    "data": {
-                        k: v
-                        for k, v in env_state.items()
-                        if k not in ("id", "type", "agents")
-                    },
-                },
-            )
-            if env_state.get("agents"):
-                await self._send(
-                    ws,
-                    ServerToClientMessageType.AGENT_CREATE,
-                    {
-                        "env_id": env_id,
-                        "layer_id": "",
-                        "agents": env_state["agents"],
-                    },
-                )
+            await self._send_environment_snapshot(ws, env_state)
         for env_id in envs["removed"]:
             await self._send(ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id})
         for env_state in envs["updated"]:
-            env_id = env_state["id"]
-            env_type = env_state.get("type", "uniform")
-            await self._send(
+            await self._send_environment_snapshot(
                 ws,
-                ServerToClientMessageType.ENV_LAYER_UPDATE,
-                {
-                    "env_id": env_id,
-                    "layer_id": "",
-                    "data": {
-                        k: v
-                        for k, v in env_state.items()
-                        if k not in ("id", "type", "agents")
-                    },
-                },
+                env_state,
+                client_env_map.get(env_state["id"]),
             )
-            if env_state.get("agents") is not None:
-                await self._send(
-                    ws,
-                    ServerToClientMessageType.AGENT_CREATE,
-                    {
-                        "env_id": env_id,
-                        "layer_id": "",
-                        "agents": env_state["agents"],
-                    },
-                )
 
         # Charts
         for chart_dict in charts["added"]:
@@ -519,7 +763,7 @@ class TenSnapServer:
     ) -> None:
         if self.clients:
             await self._queue.add(
-                self.clients, encode_message(msg_type, payload, self.use_msgpack)
+                self.clients, encode_message(msg_type, payload, self.use_msgpack)  # type: ignore
             )
 
     async def _send(
@@ -634,6 +878,102 @@ class TenSnapServer:
                 {"env_id": env_id, "layer_id": "", "agents": agents},
             )
 
+    async def update_edges_batch(
+        self, env_id: Union[str, int], layer_id: str, updates: List[Dict[str, Any]]
+    ) -> None:
+        creates: List[Dict[str, Any]] = []
+        diffs: List[Dict[str, Any]] = []
+        deletes: List[Dict[str, Any]] = []
+
+        for item in updates:
+            op = item.get("operation")
+            if op == "create":
+                creates.append({k: v for k, v in item.items() if k != "operation"})
+            elif op == "delete":
+                deletes.append({"source": item["source"], "target": item["target"]})
+            else:
+                diff_data = item.get("data") or {}
+                diffs.append(
+                    {
+                        "source": item["source"],
+                        "target": item["target"],
+                        **diff_data,
+                    }
+                )
+
+        if creates:
+            await self._broadcast(
+                ServerToClientMessageType.EDGE_CREATE,
+                {"env_id": env_id, "layer_id": layer_id, "edges": creates},
+            )
+        if diffs:
+            await self._broadcast(
+                ServerToClientMessageType.EDGE_UPDATE,
+                {"env_id": env_id, "layer_id": layer_id, "edges": diffs},
+            )
+        if deletes:
+            await self._broadcast(
+                ServerToClientMessageType.EDGE_DELETE,
+                {"env_id": env_id, "layer_id": layer_id, "edges": deletes},
+            )
+
+    async def request_screenshot(
+        self,
+        env_id: Optional[str] = None,
+        chart_id: Optional[str] = None,
+        *,
+        request_id: Optional[str] = None,
+        format: str = "png",
+        quality: Optional[float] = None,
+        timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Request a rendered screenshot from a connected renderer and await the first response."""
+
+        if (env_id is None) == (chart_id is None):
+            raise ValueError("Exactly one of env_id or chart_id must be specified.")
+        if format not in {"png", "jpeg"}:
+            raise ValueError("format must be 'png' or 'jpeg'.")
+        if quality is not None and not 0 <= quality <= 1:
+            raise ValueError("quality must be between 0 and 1.")
+        if not self.clients:
+            raise RuntimeError(
+                "Cannot request screenshot without any connected renderer."
+            )
+
+        resolved_request_id = request_id or uuid4().hex
+        if resolved_request_id in self._pending_screenshot_requests:
+            raise ValueError(
+                f"Screenshot request '{resolved_request_id}' is already pending."
+            )
+
+        payload: Dict[str, Any] = {"request_id": resolved_request_id}
+        if env_id is not None:
+            payload["env_id"] = env_id
+        if chart_id is not None:
+            payload["chart_id"] = chart_id
+        if format != "png":
+            payload["format"] = format
+        if quality is not None:
+            payload["quality"] = quality
+
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[Dict[str, Any]] = loop.create_future()
+        self._pending_screenshot_requests[resolved_request_id] = future
+
+        try:
+            for client in list(self.clients):
+                await self._send(
+                    client, ServerToClientMessageType.SCREENSHOT_REQUEST, payload
+                )
+
+            if timeout is None:
+                return await future
+            return await asyncio.wait_for(future, timeout)
+        finally:
+            pending = self._pending_screenshot_requests.get(resolved_request_id)
+            if pending is future:
+                self._pending_screenshot_requests.pop(resolved_request_id, None)
+
     async def update_agent(
         self, env_id: Union[str, int], agent_id: Union[str, int], data: Dict[str, Any]
     ) -> None:
@@ -732,7 +1072,7 @@ class TenSnapServer:
         )
         # Then push the actual data (base64 for JSON, raw bytes for msgpack)
         encoded: Union[str, bytes] = (
-            base64.b64encode(data).decode("ascii") if not self.use_msgpack else data
+            _encode_binary_data_url(data, mime) if not self.use_msgpack else data
         )
         await self._broadcast(
             ServerToClientMessageType.ASSET_DATA,
@@ -759,7 +1099,7 @@ class TenSnapServer:
             client_hash = client_hashes.get(asset_id)
             if client_hash != asset["hash"]:
                 encoded: Union[str, bytes] = (
-                    base64.b64encode(asset["data"]).decode("ascii")
+                    _encode_binary_data_url(asset["data"], asset["mime"])
                     if not self.use_msgpack
                     else asset["data"]
                 )
@@ -773,6 +1113,22 @@ class TenSnapServer:
                         "data": encoded,
                     },
                 )
+
+    async def _handle_screenshot_response(self, payload: Dict[str, Any]) -> None:
+        request_id = payload.get("request_id")
+        if not request_id:
+            logger.warning("Received screenshot_response without request_id.")
+            return
+
+        future = self._pending_screenshot_requests.get(request_id)
+        if future is None:
+            logger.warning(
+                f"Received screenshot_response for unknown request_id: {request_id}"
+            )
+            return
+
+        if not future.done():
+            future.set_result(deepcopy(payload))
 
     async def _background_maintenance(self) -> None:
         while self._running:
@@ -804,3 +1160,6 @@ class TenSnapServer:
 
     def stop(self) -> None:
         self._running = False
+
+
+# endregion

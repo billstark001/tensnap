@@ -28,6 +28,8 @@ A simple simulation where agents perform random walks on a 2D grid. You'll be ab
 - Watch agents move in real-time
 - Track average agent distance from origin
 
+Protocol note: this tutorial uses `@bind_grid_environment()` and `GridEnvironmentBinder()` as convenient grid-oriented APIs. Under protocol v0.2 they now emit a canonical `2d` environment with explicit layers rather than a distinct backend `grid` environment type.
+
 ## Step 1: Project Setup
 
 Create a new Python file called `random_walk.py`:

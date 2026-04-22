@@ -22,7 +22,7 @@ MODEL_HEIGHT = 50
 
 # Main function
 async def main() -> None:
-    # Create Mesa simulation handler
+    # MesaSimulationHandler now syncs through the canonical 2d/layer environment model under the hood.
     handler = MesaSimulationHandler(
         model_class=GameOfLife,
         model_init_kwargs={"width": MODEL_WIDTH, "height": MODEL_HEIGHT},

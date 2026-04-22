@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 
 class MesaGridEnvironmentBinder(GridEnvironmentBinder):
+    """Mesa convenience wrapper over the canonical 2d/grid-layer environment binder."""
 
     def __init__(self, id: str, environment: Any, agent_iterable_accessor="agents"):
         super().__init__(

@@ -23,11 +23,8 @@ xi = 0.05  # Loss of immunity rate
 env = GridEnvironment(rows=40, cols=40)
 model = SIRSSimulation(env, beta, gamma, xi, initial_infected=5)
 
-grid = GridEnvironmentBinder(
-    id="sirs_grid",
-    environment=env,
-    agent_iterable_accessor=False,
-)
+# GridEnvironmentBinder remains a local shortcut, but the wire sync now carries explicit grid agents instead of an image background.
+grid = GridEnvironmentBinder(id="sirs_grid", environment=env)
 
 
 async def main():

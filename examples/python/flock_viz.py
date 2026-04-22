@@ -22,6 +22,7 @@ scenario = SimulationScenario(port=server_port)
 config = FlockConfig()
 model = FlockSimulation(config)
 
+# GridEnvironmentBinder remains a convenient local API; on the wire it now lowers to a canonical 2d environment with layers.
 grid = GridEnvironmentBinder(
     id="main",
     environment=model,

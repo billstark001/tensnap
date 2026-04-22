@@ -1,11 +1,14 @@
 import io
+
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
 try:
     import PIL.Image
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False

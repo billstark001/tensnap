@@ -12,7 +12,13 @@ import type {
 import { Scenario, type ScenarioSnapshot } from '@tensnap/core/scenario';
 import { getReservedSceneActionAlias, getReservedSceneActionId, type SceneReservedAction } from './reserved-actions';
 import { NodeWebSocketTransport } from './NodeWebSocketTransport';
-import type { ActionSummary, SceneEnvironmentSummary, SceneSummary } from '../types';
+import type {
+  ActionSummary,
+  ChartSeriesSnapshot,
+  SceneAssetSummary,
+  SceneEnvironmentSummary,
+  SceneSummary,
+} from '../types';
 import type { RenderAssetSource } from '../runtime/painter';
 
 export interface SessionConnectOptions {
@@ -115,6 +121,38 @@ export class AgentSession extends EventEmitter {
     return this.scenario.charts.getAllMeta().map(cloneValue);
   }
 
+  listChartSeries(): ChartSeriesSnapshot[] {
+    return this.getCharts().map((metadata) => ({
+      id: metadata.id,
+      metadata,
+      points: (this.scenario.charts.getData(metadata.id) ?? []).map(cloneValue),
+    }));
+  }
+
+  getChartSeries(id: string): ChartSeriesSnapshot | null {
+    const metadata = this.getCharts().find((chart) => chart.id === id);
+    if (!metadata) {
+      return null;
+    }
+
+    return {
+      id,
+      metadata,
+      points: (this.scenario.charts.getData(id) ?? []).map(cloneValue),
+    };
+  }
+
+  listAssets(): SceneAssetSummary[] {
+    return this.scenario.assets.listMeta().map((meta) => {
+      const resolved = this.scenario.assets.get(meta.id);
+      return {
+        ...cloneValue(meta),
+        resolved: Boolean(resolved),
+        valueType: !resolved ? 'pending' : typeof resolved.url === 'string' ? 'string' : 'bytes',
+      };
+    });
+  }
+
   getSceneSummary(): SceneSummary {
     const snapshot = this.getSnapshot();
     return {
@@ -124,6 +162,7 @@ export class AgentSession extends EventEmitter {
       parameters: this.getParameters(),
       actions: this.getActions(),
       charts: this.getCharts(),
+      assets: this.listAssets(),
       logs: this.scenario.logs.map(cloneValue),
     };
   }

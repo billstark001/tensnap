@@ -187,7 +187,7 @@ Included in the monorepo:
 
 ## Optional Dependencies
 
-### For NumPy Array Visualization
+### For Numerical Models Or Preprocessing
 
 ```bash
 pip install numpy>=1.24.0

@@ -16,6 +16,8 @@ Complete reference documentation for the TenSnap Python bindings after the major
 
 The recommended way to use TenSnap is through the `SimulationScenario` API, which provides a high-level interface for managing simulations.
 
+`GridEnvironmentBinder`, `GraphEnvironmentBinder`, `GraphEnvironmentBinderNX`, `@bind_grid_environment()`, and `@bind_graph_environment()` remain convenient local binding APIs. On the wire they now lower to the protocol v0.2 canonical model: environment `type` is always `uniform` or `2d`, while grid and graph semantics are expressed through layers.
+
 ```python
 import asyncio
 from tensnap import (
@@ -104,6 +106,8 @@ scenario = SimulationScenario(
 ##### `add_environment(env: EnvironmentModel)`
 
 Register an environment binder with the scenario.
+
+For protocol v0.2, environment binders are transport-side sugar. `GridEnvironmentBinder` emits a canonical `2d` environment with a grid layer; graph binders emit a canonical `2d` environment with explicit agent and edge layers.
 
 ```python
 from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
@@ -422,10 +426,10 @@ server = TenSnapServer(
 Register an environment with the server.
 
 ```python
-from tensnap import GridEnvironmentModel
+from tensnap import GridEnvironmentBinder
 
-grid = GridEnvironmentModel(id="main", width=50, height=50)
-server.add_environment(grid)
+binder = GridEnvironmentBinder(id="main", environment=my_model)
+server.add_environment(binder)
 ```
 
 ##### `add_parameter(param: Parameter, getter: Callable = None, setter: Callable = None)`
@@ -584,269 +588,198 @@ await server.log_message("error", "Critical error occurred")
 
 ## Models
 
-### AgentModel
+TenSnap's Python package currently exposes low-level model shapes as TypedDicts and accessor outputs. It does **not** expose mutable `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel` runtime classes.
 
-Represents an individual agent in the simulation.
+For most users, `GridEnvironmentBinder`, `GraphEnvironmentBinder`, `GraphEnvironmentBinderNX`, and the decorator/accessor helpers are the correct public API.
+
+### Agent State Dictionaries
+
+Agent state is represented as plain dictionaries produced by decorators such as `@bind_grid_agent()` or helpers such as `make_grid_agent_accessor()`.
 
 ```python
-from tensnap import AgentModel
+from tensnap import make_grid_agent_accessor
 
-agent = AgentModel(
-    id="agent_1",
-    x=25.0,
-    y=30.0,
-    heading=0.0,
-    color="#FF5733",
-    icon="circle",
-    size=10,
-    label=None,
-    node_id=None
+class Bird:
+    def __init__(self):
+        self.id = "agent_1"
+        self.x = 25.0
+        self.y = 30.0
+        self.heading = 0.0
+        self.color = "#FF5733"
+        self.icon = "circle"
+        self.size = 10
+
+accessor = make_grid_agent_accessor(
+    id="id",
+    heading=True,
+    color=True,
+    icon=True,
+    size=True,
 )
+
+agent_state = accessor(Bird())
 ```
 
-#### Constructor Parameters
+#### Common Fields
 
 - `id` (str): Unique identifier for the agent
 - `x` (float): X-coordinate position
 - `y` (float): Y-coordinate position
 - `heading` (float, optional): Direction in radians (0 = right, π/2 = up)
-- `color` (str, default="#000000"): Hex color code
-- `icon` (str, default="circle"): Visual icon type ("circle", "arrow", "square", etc.)
-- `size` (int, default=10): Size in pixels
-- `label` (str, optional): Text label displayed near agent
-- `node_id` (str, optional): For graph environments, the node this agent is on
+- `color` (str, optional): Hex color code
+- `icon` (str, optional): Visual icon type (`circle`, `arrow`, `square`, etc.)
+- `size` (int | float, optional): Visual size
+- `label` (str, optional): Text label displayed near the agent
+- `node_id` (str, optional): For graph-oriented layouts, the node the agent is attached to
 
-#### Properties
+#### Exported Types
 
-All constructor parameters are accessible as properties and can be modified:
+- `AgentModelDict`
+- `GridAgentModelDict`
+- `GraphAgentModelDict`
+- `UniformAgentModelDict`
 
 ```python
-agent.x = 50.0
-agent.color = "#00FF00"
-current_heading = agent.heading
+from tensnap import GridAgentModelDict
+
+agent_state: GridAgentModelDict = {
+    "id": "agent_1",
+    "x": 25.0,
+    "y": 30.0,
+    "heading": 0.0,
+}
 ```
 
-#### Methods
+### PureGridEnvironmentModel
 
-##### `to_dict() -> dict`
-
-Convert agent to dictionary representation for serialization.
+Low-level grid environment metadata is represented as a plain dictionary, usually produced by `make_grid_environment_accessor()`.
 
 ```python
-agent_dict = agent.to_dict()
-# {'id': 'agent_1', 'x': 25.0, 'y': 30.0, ...}
-```
+from tensnap import make_grid_environment_accessor
 
-##### `update_from(source: object, mapping: dict = None)`
+class GridModel:
+    width = 100
+    height = 100
+    coord_offset = "float"
 
-Update agent properties from another object.
-
-```python
-class Bird:
-    def __init__(self):
-        self.x = 10
-        self.y = 20
-        self.heading = 1.57
-
-bird = Bird()
-agent.update_from(bird)  # Automatically maps matching attributes
-```
-
-### GridEnvironmentModel
-
-2D grid-based spatial environment for agents.
-
-```python
-from tensnap import GridEnvironmentModel
-
-grid = GridEnvironmentModel(
+accessor = make_grid_environment_accessor(
     id="main",
-    width=100,
-    height=100
+    width="width",
+    height="height",
+    coord_offset=True,
 )
+
+grid_meta = accessor(GridModel())
 ```
 
-#### Constructor Parameters
+#### Common Fields
 
-- `id` (str | int): Unique identifier for this environment
+- `id` (str | int): Unique identifier for the environment
+- `type` (`grid` in the local compatibility view): Local grid-oriented metadata shape
 - `width` (int): Grid width in cells
 - `height` (int): Grid height in cells
+- `coord_offset` (optional): Coordinate offset mode
+- `background` (legacy local shortcut): Optional background payload for quick local bindings. For protocol-facing models, prefer dedicated square-agent layers or a custom `get_state()` that emits extra layers.
 
-#### Properties
+#### Exported Types
 
-- `agents` (list[AgentModel]): List of agents in this environment
-- `background` (np.ndarray | None): Background image data (NumPy array)
-
-#### Methods
-
-##### `add_agent(agent: AgentModel)`
-
-Add an agent to the environment.
+- `PureGridEnvironmentModel`
+- `EnvironmentLayerState`
+- `EnvironmentState`
 
 ```python
-agent = AgentModel(id="a1", x=10, y=20)
-grid.add_agent(agent)
+from tensnap import PureGridEnvironmentModel
+
+grid_meta: PureGridEnvironmentModel = {
+    "id": "main",
+    "type": "grid",
+    "width": 100,
+    "height": 100,
+}
 ```
 
-##### `remove_agent(agent_id: str)`
+##### Layered Field Visualization
 
-Remove an agent by ID.
+For heatmaps, terrain, resource fields, or cell-state views, the recommended v0.2 representation is an additional layer of square agents rather than a serialized NumPy image.
 
 ```python
-grid.remove_agent("a1")
+def build_resource_layer(width: int, height: int, values: list[list[int]]):
+    return {
+        "layer_id": "resources",
+        "layer_type": "agent",
+        "agents": [
+            {
+                "id": f"resource:{x}:{y}",
+                "x": x,
+                "y": y,
+                "icon": "square",
+                "size": 1.0,
+                "color": color_for_value(values[x][y]),
+                "data": {"value": values[x][y]},
+            }
+            for x in range(width)
+            for y in range(height)
+        ],
+    }
 ```
 
-##### `set_background(array: np.ndarray)`
+This keeps the wire model inspectable and lets you stack resource, agent, and edge layers without overloading a single background field.
 
-Set background image from NumPy array. Useful for heatmaps or terrain visualization.
+### PureGraphEnvironmentModel
+
+Low-level graph metadata is also represented as a plain dictionary. In practice, you will usually bind your graph with `GraphEnvironmentBinder` or `GraphEnvironmentBinderNX` instead of constructing this shape by hand.
 
 ```python
-import numpy as np
-
-# Create heatmap
-heatmap = np.random.rand(100, 100)
-grid.set_background(heatmap)
+graph_meta = {
+    "id": "network",
+    "type": "graph",
+    "edges": [
+        {"source": "node_1", "target": "node_2", "weight": 1.0},
+    ],
+}
 ```
 
-##### `clear_background()`
+#### Common Fields
 
-Remove background image.
+- `id` (str | int): Unique identifier for the environment
+- `type` (`graph` in the local compatibility view): Local graph-oriented metadata shape
+- `edges` (list[GraphEdgeDict]): Edge list used by graph binders
 
-```python
-grid.clear_background()
-```
+#### Exported Types
 
-##### `generate_agent_updates() -> list[dict]`
+- `PureGraphEnvironmentModel`
+- `GraphEdgeDict`
 
-Generate update dictionaries for all agents that have changed since last call.
+### Canonical Layered State
 
-```python
-# Automatically detects changed agents
-updates = grid.generate_agent_updates()
-await server.update_agents_batch("main", updates)
-```
-
-##### `get_model_dict() -> dict`
-
-Get environment metadata as dictionary.
+At the transport boundary, binders now lower to canonical `EnvironmentState` payloads whose environment `type` is always `uniform` or `2d`, with grid and graph semantics expressed via layers.
 
 ```python
-env_dict = grid.get_model_dict()
-```
+from tensnap import EnvironmentState
 
-##### `get_agent_list(is_update: bool = False) -> list[dict]`
-
-Get agent data as list of dictionaries.
-
-```python
-agents = grid.get_agent_list()
-```
-
-### GraphEnvironmentModel
-
-Network/graph-based environment for agents.
-
-```python
-from tensnap import GraphEnvironmentModel
-
-graph = GraphEnvironmentModel(id="network")
-```
-
-#### Constructor Parameters
-
-- `id` (str | int): Unique identifier for this environment
-
-#### Properties
-
-- `agents` (list[AgentModel]): List of agents
-- `nodes` (list[GraphNode]): List of graph nodes
-- `edges` (list[GraphEdge]): List of graph edges
-
-#### Methods
-
-##### `add_node(id: str, x: float, y: float, **kwargs)`
-
-Add a node to the graph.
-
-```python
-graph.add_node(
-    id="node_1",
-    x=0,
-    y=0,
-    color="#3498db",
-    size=20,
-    label="Node 1"
-)
-```
-
-**Parameters:**
-- `id` (str): Unique node identifier
-- `x` (float): X-coordinate for visualization
-- `y` (float): Y-coordinate for visualization
-- `color` (str, optional): Hex color code
-- `size` (int, optional): Node size in pixels
-- `label` (str, optional): Node label
-
-##### `remove_node(node_id: str)`
-
-Remove a node and all connected edges.
-
-```python
-graph.remove_node("node_1")
-```
-
-##### `add_edge(source: str, target: str, **kwargs)`
-
-Add an edge between two nodes.
-
-```python
-graph.add_edge(
-    source="node_1",
-    target="node_2",
-    weight=1.0,
-    color="#95a5a6",
-    directed=True
-)
-```
-
-**Parameters:**
-- `source` (str): Source node ID
-- `target` (str): Target node ID
-- `weight` (float, optional): Edge weight
-- `color` (str, optional): Hex color code
-- `directed` (bool, optional): Whether edge is directed
-
-##### `remove_edge(source: str, target: str)`
-
-Remove an edge between two nodes.
-
-```python
-graph.remove_edge("node_1", "node_2")
-```
-
-##### `add_agent(agent: AgentModel)`
-
-Add an agent to the graph. Agent should have `node_id` set.
-
-```python
-agent = AgentModel(id="a1", node_id="node_1", x=0, y=0)
-graph.add_agent(agent)
-```
-
-##### `generate_agent_updates() -> list[dict]`
-
-Generate update dictionaries for changed agents.
-
-```python
-updates = graph.generate_agent_updates()
-await server.update_agents_batch("network", updates)
+state: EnvironmentState = {
+    "id": "main",
+    "type": "2d",
+    "layers": [
+        {"layer_id": "grid", "layer_type": "grid", "data": {"width": 100, "height": 100}},
+        {"layer_id": "agents", "layer_type": "agent", "agents": []},
+    ],
+}
 ```
 
 ## Environment Binders
 
+All Python environment binders now target the same protocol v0.2 ownership model:
+
+- Environment `type` is `uniform` or `2d`
+- Grid metadata lives in a layer, not in a distinct environment type
+- Graph connectivity lives in an edge layer, not in the environment payload itself
+
+The grid and graph binder names are retained as convenience wrappers around that canonical representation.
+
 ### GridEnvironmentBinder
 
-Connects a grid-based simulation model to TenSnap, automatically syncing agent states.
+Connects a grid-based simulation model to TenSnap, automatically syncing agent states. On the wire this becomes a canonical `2d` environment with a `grid` layer.
 
 ```python
 from tensnap import GridEnvironmentBinder, make_grid_agent_accessor

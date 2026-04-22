@@ -46,6 +46,11 @@ class TestUniformEnvironmentBinder:
         assert model_dict["id"] == "test_env"
         assert model_dict["type"] == "uniform"
 
+        state = binder.get_state()
+        assert state["id"] == "test_env"
+        assert state["type"] == "uniform"
+        assert state["layers"] == [{"layer_id": "agents", "layer_type": "agent"}]
+
     def test_get_agent_list(self):
         """Test getting agent list"""
 
@@ -135,6 +140,14 @@ class TestGridEnvironmentBinder:
         assert model_dict["width"] == 10
         assert model_dict["height"] == 15
 
+        state = binder.get_state()
+        assert state["id"] == "grid_env"
+        assert state["type"] == "2d"
+        assert state["layers"][0]["layer_id"] == "grid"
+        assert state["layers"][0]["layer_type"] == "grid"
+        assert "data" in state["layers"][0]
+        assert state["layers"][0]["data"] == {"width": 10, "height": 15}
+
     def test_grid_agents_with_position(self):
         """Test grid agents with position information"""
 
@@ -206,6 +219,13 @@ class TestGraphEnvironmentBinder:
         assert model_dict["type"] == "graph"
         assert len(model_dict["edges"]) == 2
 
+        state = binder.get_state()
+        assert state["id"] == "graph_env"
+        assert state["type"] == "2d"
+        assert [layer["layer_type"] for layer in state["layers"]] == ["agent", "edge"]
+        assert "edges" in state["layers"][1]
+        assert state["layers"][1]["edges"] == model_dict["edges"]
+
     def test_graph_agents(self):
         """Test graph agents"""
 
@@ -265,6 +285,11 @@ class TestGraphEnvironmentBinderNX:
         assert model_dict["id"] == "nx_graph"
         assert model_dict["type"] == "graph"
         assert len(model_dict["edges"]) == 2
+
+        state = binder.get_state()
+        assert state["id"] == "nx_graph"
+        assert state["type"] == "2d"
+        assert [layer["layer_type"] for layer in state["layers"]] == ["agent", "edge"]
 
     def test_directed_graph(self):
         """Test with directed graph"""
