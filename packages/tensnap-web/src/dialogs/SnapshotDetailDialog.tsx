@@ -6,8 +6,7 @@ import { Scenario, ScenarioEnvironmentSnapshot, ScenarioSnapshot } from '@tensna
 import { getSnapshotIdentity } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import clsx from 'clsx';
-import { GridEnvironmentView } from '../components/scenario/GridEnvironmentView';
-import { GraphEnvironmentView } from '../components/scenario/GraphEnvironmentView';
+import { Environment2DView } from '../components/scenario/Environment2DView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
 import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
 
@@ -28,18 +27,14 @@ const EnvironmentRenderer = (props: {
     });
     return scenario.getEnvironment(environment.id);
   }, [environment]);
+  const displayType = liveEnvironment ? getEnvironmentDisplayType(liveEnvironment) : null;
 
   if (!liveEnvironment) {
     return <div>Environment not found: {environment.id}</div>;
   }
 
-  const displayType = useMemo(() => getEnvironmentDisplayType(liveEnvironment), [liveEnvironment]);
-
-  if (displayType === 'grid') {
-    return <GridEnvironmentView environment={liveEnvironment} />;
-  }
-  if (displayType === 'graph') {
-    return <GraphEnvironmentView environment={liveEnvironment} />;
+  if (displayType === '2d') {
+    return <Environment2DView environment={liveEnvironment} />;
   }
   if (displayType === 'uniform') {
     return <UniformEnvironmentView environment={liveEnvironment} />;

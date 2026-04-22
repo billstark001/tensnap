@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
-import { NodeCanvasEnvironmentPainter } from './NodeCanvasEnvironmentPainter';
+import { collectEnvironment, NodeCanvasEnvironmentPainter } from './NodeCanvasEnvironmentPainter';
 
 const tempPaths: string[] = [];
 const onePixelPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==';
@@ -169,5 +169,43 @@ describe('NodeCanvasEnvironmentPainter', () => {
       options: { envId: 'main', width: 64, height: 64, includeData: true },
       assets: {},
     })).rejects.toThrow();
+  });
+
+  it('keeps coord_offset scoped to each agent layer', () => {
+    const snapshot: ScenarioSnapshot = {
+      metadata: {},
+      actions: [],
+      parameters: [],
+      charts: [],
+      logs: [],
+      environments: [
+        {
+          id: 'main',
+          type: '2d',
+          layers: [
+            {
+              id: 'agents-int',
+              layerType: 'agent',
+              metadata: { coord_offset: 'int' },
+              storageSnapshot: { agents: [{ id: 'a', x: 0, y: 0 }], trajectories: [] },
+            },
+            {
+              id: 'agents-float',
+              layerType: 'agent',
+              metadata: { coord_offset: 'float' },
+              storageSnapshot: { agents: [{ id: 'b', x: 1, y: 1 }], trajectories: [] },
+            },
+          ],
+        },
+      ],
+    };
+
+    const aggregated = collectEnvironment(snapshot.environments[0]);
+
+    expect(aggregated.agentLayers).toHaveLength(2);
+    expect(aggregated.agentLayers.map((layer) => ({ id: layer.id, coordOffset: layer.coordOffset }))).toEqual([
+      { id: 'agents-int', coordOffset: 'int' },
+      { id: 'agents-float', coordOffset: 'float' },
+    ]);
   });
 });

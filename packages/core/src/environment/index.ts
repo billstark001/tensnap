@@ -29,7 +29,6 @@
  *   const bgLayer     = new BackgroundLayer(view, bgStore);
  *   const edgeLayer   = new EdgeLayer(view, edgeStore, agentStore);
  *   const agentLayer  = new AgentLayer(view, agentStore, {
- *     showLabel: true,
  *     ...edgeLayer.buildDragHandlers(),
  *   });
  *

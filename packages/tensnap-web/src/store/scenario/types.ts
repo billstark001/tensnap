@@ -6,6 +6,7 @@ import {
   ScenarioSnapshot,
   ScenarioEnvironmentState,
   ChartStorage,
+  ChartGroup,
   ChartGroupMetadata,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
@@ -25,7 +26,7 @@ export interface SnapshotDraft {
 
 export interface EditableEnvironmentDraft {
   id: string;
-  type: 'grid' | 'uniform';
+  type: '2d' | 'uniform';
   label?: string;
   width?: number;
   height?: number;
@@ -71,7 +72,7 @@ export interface ScenarioStore {
   renameParameter: (id: string, newId: string) => void;
   updateEnvironment: (id: string, props: Record<string, unknown>) => void;
   renameEnvironment: (id: string, newId: string) => void;
-  updateChartProps: (id: string, props: { label?: string }) => void;
+  updateChartProps: (id: string, props: Partial<ChartGroup>) => void;
   renameChartGroup: (id: string, newId: string) => void;
 
   createStateSyncMessage: () => RendererToSimulatorMessage<StateSyncRequest>;

@@ -1,6 +1,7 @@
 // UniformEnvironmentView.tsx
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Agent as UniformAgent } from '@/types/model';
+import { AnchoredView } from '@/types/ui';
 import { Pagination } from '@tensnap/web-common/components/ui/Pagination';
 import { AgentDetailsDialog, createIconElement } from '../../dialogs/AgentDetailsDialog';
 import * as styles from './UniformEnvironmentView.css';
@@ -14,6 +15,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 interface UniformEnvironmentViewProps {
   environment: ScenarioEnvironmentState;
   updateTrigger?: number;
+  view?: AnchoredView;
 }
 
 const AGENTS_PER_PAGE = 12;

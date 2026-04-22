@@ -10,47 +10,7 @@ import { ParameterViewEditor } from './ParameterViewEditor';
 import { ChartViewEditor } from './ChartViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup } from '@/types/model';
-import type { ScenarioEnvironmentState } from '@tensnap/core';
-
-type EditableEnvironmentData = {
-  id: string;
-  type: string;
-  width?: number;
-  height?: number;
-  coord_offset?: string;
-  show_grid?: boolean;
-  background_color?: string;
-};
-
-const getEditableEnvironmentData = (environments: ReadonlyMap<string, ScenarioEnvironmentState> | undefined, id: string): EditableEnvironmentData | null => {
-  if (!environments) {
-    return null;
-  }
-
-  const env = environments.get(id);
-  if (!env) {
-    return null;
-  }
-
-  const layers = [...env.layers.values()];
-  const gridLayer = layers.find((layer) => (
-    layer.layerType === 'grid'
-    || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
-  ));
-  const agentLayer = layers.find((layer) => layer.layerType === 'agent');
-  const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, unknown>;
-  const agentMetadata = (agentLayer?.metadata ?? {}) as Record<string, unknown>;
-
-  return {
-    id: env.id,
-    type: env.type,
-    width: typeof gridMetadata.width === 'number' ? gridMetadata.width : undefined,
-    height: typeof gridMetadata.height === 'number' ? gridMetadata.height : undefined,
-    coord_offset: typeof agentMetadata.coord_offset === 'string' ? agentMetadata.coord_offset : undefined,
-    show_grid: typeof gridMetadata.show_grid === 'boolean' ? gridMetadata.show_grid : undefined,
-    background_color: typeof gridMetadata.background_color === 'string' ? gridMetadata.background_color : undefined,
-  };
-};
+import { getEditableEnvironmentData } from './environment-editor-model';
 
 interface EditViewDialogProps extends DialogOpenProps {
   view: AnyView;
@@ -71,12 +31,17 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   const environments = useScenarioStore((store) => store.environments);
   const charts = useScenarioStore((store) => store.charts);
 
+  const cloneView = useCallback((nextView: AnyView): AnyView => ({
+    ...nextView,
+    data: nextView.data ? structuredClone(nextView.data) : nextView.data,
+  }), []);
+
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    setLocalView({ ...view });
+    setLocalView(cloneView(view));
     setHasChanges(false);
 
     // Load the associated object data for anchored views
@@ -94,51 +59,57 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     } else {
       setLocalObjectData(null);
     }
-  }, [view, open]);
+  }, [cloneView, view, open, parameters, environments, charts]);
+
+  const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+
+  const setNestedValue = useCallback((target: Record<string, any>, path: string[], value: any): boolean => {
+    if (path.some((part) => dangerousKeys.includes(part))) {
+      console.warn('Attempted to set dangerous property:', path.join('.'));
+      return false;
+    }
+
+    let current: Record<string, any> = target;
+    for (let index = 0; index < path.length - 1; index += 1) {
+      const part = path[index];
+      if (!Object.prototype.hasOwnProperty.call(current, part) || typeof current[part] !== 'object' || current[part] === null) {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+
+    const lastPart = path[path.length - 1];
+    current[lastPart] = value;
+    return true;
+  }, []);
 
   const handleChange = useCallback((field: string, value: any) => {
     setLocalView((prev) => {
-      const updated = { ...prev };
+      const updated = cloneView(prev);
       if (field.startsWith('data.')) {
         const dataField = field.substring(5);
-        updated.data = { ...prev.data, [dataField]: value };
+        const nextData = structuredClone(prev.data ?? {});
+        if (!setNestedValue(nextData as Record<string, any>, dataField.split('.'), value)) {
+          return prev;
+        }
+        updated.data = nextData as typeof prev.data;
       } else {
         (updated as any)[field] = value;
       }
       return updated;
     });
     setHasChanges(true);
-  }, []);
+  }, [cloneView, setNestedValue]);
 
   const handleObjectChange = useCallback((field: string, value: any) => {
     setLocalObjectData((prev: any) => {
       if (!prev) return null;
       const updated = { ...prev };
       if (field.includes('.')) {
-        const parts = field.split('.');
-        
-        // Guard against prototype pollution
-        const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
-        if (parts.some(part => dangerousKeys.includes(part))) {
-          console.warn('Attempted to set dangerous property:', field);
+        if (!setNestedValue(updated, field.split('.'), value)) {
           return prev;
         }
-        
-        let current: any = updated;
-        for (let i = 0; i < parts.length - 1; i++) {
-          const part = parts[i];
-          if (!Object.prototype.hasOwnProperty.call(current, part)) {
-            current[part] = {};
-          }
-          current = current[part];
-        }
-        const lastPart = parts[parts.length - 1];
-        if (!dangerousKeys.includes(lastPart)) {
-          current[lastPart] = value;
-        }
       } else {
-        // Guard against prototype pollution
-        const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
         if (!dangerousKeys.includes(field)) {
           (updated as any)[field] = value;
         } else {
@@ -149,16 +120,16 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
       return updated;
     });
     setHasChanges(true);
-  }, []);
+  }, [dangerousKeys, setNestedValue]);
 
   const handleSave = useCallback(() => {
-    onSave(localView, localObjectData);
+    onSave(localView, localView.type === 'environment' ? undefined : localObjectData);
     setHasChanges(false);
     onOpenChange?.(false);
   }, [localView, localObjectData, onSave, onOpenChange]);
 
   const handleReset = useCallback(() => {
-    setLocalView(view);
+    setLocalView(cloneView(view));
     setHasChanges(false);
     
     // Reset object data
@@ -174,7 +145,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
         setLocalObjectData(chart ? { ...chart } : null);
       }
     }
-  }, [view, parameters, environments, charts]);
+  }, [cloneView, view, parameters, environments, charts]);
 
   const renderEditor = () => {
     switch (localView.type) {

@@ -43,6 +43,7 @@ import {
   IBoundedLayer,
   isBuiltinAgentIcon,
 } from '../types';
+import { getCoordOffsetValue } from '../utils';
 import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';
 
 // #region Constants & Defaults
@@ -297,7 +298,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   /** Cell-center offset in grid mode: 0.5 for 'int', 0 for 'center'. */
   private get _posOffset(): number {
-    return this._cfg.coordOffset === 'int' ? 0.5 : 0;
+    return getCoordOffsetValue(this._cfg.coordOffset);
   }
 
   private _toSceneCoords(agent: RenderableAgent) {

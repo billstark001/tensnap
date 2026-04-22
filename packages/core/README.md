@@ -54,7 +54,6 @@ view.addLayer(new BackgroundLayer(view, bgStore));
 const edgeLayer = new EdgeLayer(view, edgeStore, agentStore);
 view.addLayer(edgeLayer);
 view.addLayer(new AgentLayer(view, agentStore, {
-  showLabel: true,
   ...edgeLayer.buildDragHandlers(),
 }));
 

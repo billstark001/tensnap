@@ -47,12 +47,12 @@ export function createChartGroup(): ChartGroup {
 }
 
 /**
- * Creates a new grid environment
+ * Creates a new 2D environment
  */
-export function createGridEnvironment(): EditableEnvironmentDraft {
+export function create2DEnvironment(): EditableEnvironmentDraft {
   return {
     id: generateUniqueId(),
-    type: 'grid',
+    type: '2d',
     label: 'New Environment',
     width: 10,
     height: 10,
@@ -75,7 +75,7 @@ export function useCreateView(props: {
     container: ContainerView
   ) => {
     let newView: AnyView;
-    let newObject: Parameter | EditableEnvironmentDraft | ChartGroup | Action | null = null;
+    let newObject: Parameter | EditableEnvironmentDraft | ChartGroup | Action | null;
 
     switch (type) {
       case 'button': {
@@ -97,7 +97,7 @@ export function useCreateView(props: {
         break;
       }
       case 'environment': {
-        const environment = createGridEnvironment();
+        const environment = create2DEnvironment();
         newView = createEnvironmentView(environment, position);
         newObject = environment;
         break;
@@ -207,7 +207,8 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
     }
 
     // Update the view
-    const { id: viewId, type: _, data, ...rest } = updatedView;
+  const { id: viewId, data, ...rest } = updatedView;
+  delete (rest as Partial<AnyView>).type;
     delete (rest as any).views;
 
     const origId = (data as any)?.id;

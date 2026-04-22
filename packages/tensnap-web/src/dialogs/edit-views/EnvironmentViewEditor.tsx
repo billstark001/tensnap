@@ -4,16 +4,7 @@ import Form from '@tensnap/web-common/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import * as styles from './EditViews.css';
-
-type EditableEnvironmentData = {
-  id: string;
-  type: string;
-  width?: number;
-  height?: number;
-  coord_offset?: string;
-  show_grid?: boolean;
-  background_color?: string;
-};
+import type { EditableEnvironmentData } from './environment-editor-model';
 
 interface EnvironmentViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
@@ -21,25 +12,42 @@ interface EnvironmentViewEditorProps extends BaseViewEditorProps {
   onObjectChange: (field: string, value: any) => void;
 }
 
-// Helper function to parse integer input safely
-const parseIntInput = (value: string, fallback: number = 0, min?: number): number => {
-  if (value === '' || value === '-') {
-    return fallback;
+const formatMetadataValue = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value == null) return '';
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
   }
-  const parsed = parseInt(value, 10);
-  if (isNaN(parsed)) {
-    return fallback;
-  }
-  if (min !== undefined && parsed < min) {
-    return min;
-  }
-  return parsed;
 };
 
-export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ view, objectData: env, onChange, onObjectChange }) => {
-  const coordOffset = env?.coord_offset === 'float' ? 'float' : 'int';
-  const showGrid = env?.show_grid !== false;
-  const backgroundColor = typeof env?.background_color === 'string' ? env.background_color : '#ffffff';
+const ReadOnlyMetadataField = ({ id, label, value }: { id: string; label: string; value: unknown }) => {
+  const textValue = formatMetadataValue(value);
+  if (textValue.length > 60 || textValue.includes('\n')) {
+    return (
+      <Form.Field label={label} htmlFor={id}>
+        <Form.Textarea id={id} rows={Math.min(6, Math.max(3, textValue.split('\n').length))} value={textValue} disabled className={styles.disabledField} />
+      </Form.Field>
+    );
+  }
+
+  return (
+    <Form.Field label={label} htmlFor={id}>
+      <Form.Input id={id} type="text" value={textValue} disabled className={styles.disabledField} />
+    </Form.Field>
+  );
+};
+
+export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ view, objectData: env, onChange }) => {
+  const rendererOverrides = view.data.rendererOverrides?.environment2d;
+  const showGridOverride = rendererOverrides?.showGrid === undefined
+    ? 'inherit'
+    : rendererOverrides.showGrid
+      ? 'true'
+      : 'false';
+  const fallbackBackgroundColor = rendererOverrides?.fallbackBackgroundColor ?? '';
 
   return (
     <>
@@ -62,7 +70,8 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
                 id="env-id"
                 type="text"
                 value={env.id}
-                onChange={(e) => onObjectChange('id', e.target.value)}
+                disabled
+                className={styles.disabledField}
               />
             </Form.Field>
 
@@ -77,79 +86,107 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
             </Form.Field>
           </Form.FieldGroup>
 
+          <Form.Field label={<Trans>Display Type</Trans>} htmlFor="env-display-type">
+            <Form.Input
+              id="env-display-type"
+              type="text"
+              value={env.displayType}
+              disabled
+              className={styles.disabledField}
+            />
+          </Form.Field>
+
           {env.type === '2d' && (
             <>
-              <Form.FieldGroup columns={2}>
-                <Form.Field label={<Trans>Grid Width</Trans>} htmlFor="grid-width">
-                  <Form.Input
-                    id="grid-width"
-                    type="number"
-                    min="1"
-                    value={env.width ?? 0}
-                    onChange={(e) => {
-                      const currentWidth = env.width ?? 1;
-                      onObjectChange('width', parseIntInput(e.target.value, currentWidth, 1));
-                    }}
-                  />
-                </Form.Field>
-
-                <Form.Field label={<Trans>Grid Height</Trans>} htmlFor="grid-height">
-                  <Form.Input
-                    id="grid-height"
-                    type="number"
-                    min="1"
-                    value={env.height ?? 0}
-                    onChange={(e) => {
-                      const currentHeight = env.height ?? 1;
-                      onObjectChange('height', parseIntInput(e.target.value, currentHeight, 1));
-                    }}
-                  />
-                </Form.Field>
-              </Form.FieldGroup>
-
-              <Form.Field label={<Trans>Agent Coordinate Offset</Trans>} htmlFor="coord-offset">
-                <Form.Select
-                  id="coord-offset"
-                  value={coordOffset}
-                  onChange={(e) => onObjectChange('coord_offset', e.target.value)}
-                >
-                  <option value="int"><Trans>int (cell center +0.5)</Trans></option>
-                  <option value="float"><Trans>float (no offset)</Trans></option>
-                </Form.Select>
-              </Form.Field>
-
-              <Form.FieldGroup columns={2}>
-                <Form.Field label={<Trans>Background Color</Trans>} htmlFor="background-color">
-                  <Form.Input
-                    id="background-color"
-                    type="color"
-                    value={backgroundColor}
-                    onChange={(e) => onObjectChange('background_color', e.target.value)}
-                  />
-                </Form.Field>
-
-                <Form.Field label={<Trans>Show Grid Lines</Trans>} htmlFor="show-grid">
+              <Form.FieldSet>
+                <Form.Label><Trans>Renderer Overrides</Trans></Form.Label>
+                <Form.Field label={<Trans>Grid Lines</Trans>} htmlFor="renderer-show-grid">
                   <Form.Select
-                    id="show-grid"
-                    value={showGrid ? 'true' : 'false'}
-                    onChange={(e) => onObjectChange('show_grid', e.target.value === 'true')}
+                    id="renderer-show-grid"
+                    value={showGridOverride}
+                    onChange={(e) => onChange(
+                      'data.rendererOverrides.environment2d.showGrid',
+                      e.target.value === 'inherit' ? undefined : e.target.value === 'true',
+                    )}
                   >
-                    <option value="true"><Trans>Visible</Trans></option>
-                    <option value="false"><Trans>Hidden</Trans></option>
+                    <option value="inherit"><Trans>Follow simulator / renderer default</Trans></option>
+                    <option value="true"><Trans>Force visible</Trans></option>
+                    <option value="false"><Trans>Force hidden</Trans></option>
                   </Form.Select>
                 </Form.Field>
-              </Form.FieldGroup>
 
-              <Form.Field label={<Trans>Layers Metadata</Trans>} htmlFor="env-layers-metadata">
-                <Form.Textarea
-                  id="env-layers-metadata"
-                  rows={10}
-                  value={JSON.stringify(env, null, 2)}
-                  disabled
-                  className={styles.disabledField}
-                />
-              </Form.Field>
+                <Form.Field label={<Trans>Fallback Background Color</Trans>} htmlFor="renderer-background-color">
+                  <Form.Input
+                    id="renderer-background-color"
+                    type="text"
+                    value={fallbackBackgroundColor}
+                    placeholder="#ffffff"
+                    onChange={(e) => onChange(
+                      'data.rendererOverrides.environment2d.fallbackBackgroundColor',
+                      e.target.value || undefined,
+                    )}
+                  />
+                </Form.Field>
+                <div className={styles.infoText}>
+                  <Trans>These values are local renderer overrides. They do not modify simulator metadata.</Trans>
+                </div>
+              </Form.FieldSet>
+
+              <Form.FieldSet>
+                <Form.Label><Trans>2D Layer Metadata</Trans></Form.Label>
+                {env.layers.length > 0 ? env.layers.map((layer) => (
+                  <details key={layer.id} open style={{ marginBottom: '12px' }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+                      {layer.layerType} - {layer.id}
+                    </summary>
+                    {layer.groups.length > 0 ? layer.groups.map((group) => (
+                      <div key={`${layer.id}-${group.title}`} style={{ marginBottom: '12px' }}>
+                        <div className={styles.infoText} style={{ marginBottom: '6px', fontWeight: 600 }}>
+                          {group.title}
+                        </div>
+                        {group.entries.map(({ key, value }) => (
+                          <ReadOnlyMetadataField
+                            key={`${layer.id}-${key}`}
+                            id={`env-${layer.id}-${key}`}
+                            label={key}
+                            value={value}
+                          />
+                        ))}
+                      </div>
+                    )) : (
+                      <div className={styles.infoText}><Trans>No metadata on this layer.</Trans></div>
+                    )}
+                  </details>
+                )) : (
+                  <div className={styles.infoText}><Trans>No layers available.</Trans></div>
+                )}
+              </Form.FieldSet>
             </>
+          )}
+
+          {env.type === 'uniform' && (
+            <Form.FieldSet>
+              <Form.Label><Trans>Uniform Layer Metadata</Trans></Form.Label>
+              {env.layers.length > 0 ? env.layers.map((layer) => (
+                <details key={layer.id} open style={{ marginBottom: '12px' }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+                    {layer.layerType} - {layer.id}
+                  </summary>
+                  {layer.groups.length > 0 ? layer.groups.map((group) => group.entries.map(({ key, value }) => (
+                    <ReadOnlyMetadataField
+                      key={`${layer.id}-${key}`}
+                      id={`env-${layer.id}-${key}`}
+                      label={key}
+                      value={value}
+                    />
+                  ))) : (
+                    <div className={styles.infoText}><Trans>No metadata on this layer.</Trans></div>
+                  )}
+                </details>
+              )) : (
+                <div className={styles.infoText}><Trans>No layers available.</Trans></div>
+              )}
+            </Form.FieldSet>
           )}
         </>
       )}

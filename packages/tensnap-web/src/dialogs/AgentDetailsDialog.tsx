@@ -9,7 +9,7 @@ export type AnyAgent = GridAgent | GraphAgent | Agent;
 
 interface AgentDetailsDialogProps {
   agent: AnyAgent | null;
-  agentType?: 'grid' | 'graph' | 'uniform';
+  agentType?: '2d' | 'uniform';
   onClose: () => void;
   open?: boolean;
   resolveAssetUrl?: (assetId: string) => string | undefined;
@@ -112,13 +112,16 @@ export const createIconElement = (
 
 // Component to render position information
 const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps, 'agent' | 'agentType'>) => {
-  if (agentType === 'grid') {
-    const agent = _agent as GridAgent;
+  if (agentType === '2d') {
+    const agent = _agent as GridAgent | GraphAgent;
     return (
       <div className={styles.positionInfo}>
         <div className={styles.detailRow}>
           <span className={styles.detailLabel}><Trans>Position:</Trans></span>
-          ({agent.x?.toFixed(4)}, {agent.y?.toFixed(4)})
+          {agent.x !== undefined && agent.y !== undefined
+            ? `(${agent.x.toFixed(4)}, ${agent.y.toFixed(4)})`
+            : <Trans>Not positioned</Trans>
+          }
         </div>
         {agent.heading !== undefined && (
           <div className={styles.headingInfo}>
@@ -126,19 +129,6 @@ const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps
             {(agent.heading * 180 / Math.PI).toFixed(2)}°
           </div>
         )}
-      </div>
-    );
-  }
-
-  if (agentType === 'graph') {
-    const agent = _agent as GraphAgent;
-    return (
-      <div className={styles.detailRow}>
-        <span className={styles.detailLabel}><Trans>Position:</Trans></span>
-        {agent.x !== undefined && agent.y !== undefined
-          ? `(${agent.x.toFixed(2)}, ${agent.y.toFixed(2)})`
-          : <Trans>Not positioned</Trans>
-        }
       </div>
     );
   }

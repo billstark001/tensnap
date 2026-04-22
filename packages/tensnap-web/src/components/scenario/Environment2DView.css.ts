@@ -5,12 +5,7 @@ export const container = style({
   position: 'relative',
   width: '100%',
   height: '100%',
-  display: 'flex',
-  padding: 0,
-});
-
-export const svg = style({
-  
+  overflow: 'auto',
 });
 
 export const resetButton = style({
@@ -24,7 +19,7 @@ export const resetButton = style({
   cursor: 'pointer',
   fontSize: '12px',
   color: vars.color.foreground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkInputBackground,

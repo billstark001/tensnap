@@ -14,7 +14,7 @@ export type Point = {
  */
 export type ObjectWithEnvironmentMetadata = {
   id: string;
-  type: 'grid' | 'graph' | 'uniform' | '2d';
+  type: '2d' | 'uniform';
   label?: string;
   width?: number;
   height?: number;

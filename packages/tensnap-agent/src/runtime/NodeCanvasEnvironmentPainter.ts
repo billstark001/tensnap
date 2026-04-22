@@ -5,6 +5,7 @@ import type { RenderableAgent, AgentStorageSnapshot } from '../../../core/src/en
 import type { BackgroundData } from '../../../core/src/environment/storages/BackgroundStorage';
 import type { EdgeStorageSnapshot } from '../../../core/src/environment/storages/EdgeStorage';
 import type { GridEnvData } from '../../../core/src/environment/storages/GridEnvStorage';
+import { applyCoordOffset, getCoordOffsetValue } from '../../../core/src/environment/utils/coords';
 import {
   getAssetIdFromIcon,
   isBuiltinAgentIcon,
@@ -32,15 +33,21 @@ interface AggregatedEnvironment {
   type: string;
   width?: number;
   height?: number;
-  coordOffset: 'int' | 'float';
-  trajectoryLength?: number;
-  trajectoryColor?: string;
   grid: GridEnvData;
   background: BackgroundData | null;
   backgroundSource: unknown;
+  agentLayers: AggregatedAgentLayer[];
+  agents: RenderableAgent[];
+  edges: GraphEdge[];
+}
+
+interface AggregatedAgentLayer {
+  id: string;
+  coordOffset: 'int' | 'float';
+  trajectoryLength?: number;
+  trajectoryColor?: string;
   agents: RenderableAgent[];
   trajectories: Array<{ id: string; points: TrajectoryPoint[] }>;
-  edges: GraphEdge[];
 }
 
 interface CanvasImageSource {
@@ -160,16 +167,15 @@ function worldBoundsFromAgents(agents: RenderableAgent[]): Viewport {
   };
 }
 
-function collectEnvironment(environment: ScenarioEnvironmentSnapshot): AggregatedEnvironment {
+export function collectEnvironment(environment: ScenarioEnvironmentSnapshot): AggregatedEnvironment {
   const aggregated: AggregatedEnvironment = {
     id: environment.id,
     type: environment.type,
-    coordOffset: 'int',
     grid: {},
     background: null,
     backgroundSource: undefined,
+    agentLayers: [],
     agents: [],
-    trajectories: [],
     edges: [],
   };
 
@@ -181,16 +187,6 @@ function collectEnvironment(environment: ScenarioEnvironmentSnapshot): Aggregate
     if (typeof metadata.height === 'number') {
       aggregated.height = metadata.height;
     }
-    if (metadata.coord_offset === 'float') {
-      aggregated.coordOffset = 'float';
-    }
-    if (typeof metadata.trajectory_length === 'number') {
-      aggregated.trajectoryLength = metadata.trajectory_length;
-    }
-    if (typeof metadata.trajectory_color === 'string') {
-      aggregated.trajectoryColor = metadata.trajectory_color;
-    }
-
     if (typeof metadata.background !== 'undefined') {
       aggregated.backgroundSource = metadata.background;
     }
@@ -200,13 +196,19 @@ function collectEnvironment(environment: ScenarioEnvironmentSnapshot): Aggregate
     }
 
     if (isAgentStorageSnapshot(layer.storageSnapshot)) {
-      aggregated.agents.push(...layer.storageSnapshot.agents.map((agent) => ({ ...agent })));
-      aggregated.trajectories.push(
-        ...layer.storageSnapshot.trajectories.map((trajectory) => ({
+      const agentLayer: AggregatedAgentLayer = {
+        id: layer.id,
+        coordOffset: metadata.coord_offset === 'float' ? 'float' : 'int',
+        trajectoryLength: typeof metadata.trajectory_length === 'number' ? metadata.trajectory_length : undefined,
+        trajectoryColor: typeof metadata.trajectory_color === 'string' ? metadata.trajectory_color : undefined,
+        agents: layer.storageSnapshot.agents.map((agent) => ({ ...agent })),
+        trajectories: layer.storageSnapshot.trajectories.map((trajectory) => ({
           id: trajectory.id,
           points: trajectory.points.map((point) => ({ ...point })),
         })),
-      );
+      };
+      aggregated.agentLayers.push(agentLayer);
+      aggregated.agents.push(...agentLayer.agents.map((agent) => ({ ...agent })));
     }
 
     if (isEdgeStorageSnapshot(layer.storageSnapshot)) {
@@ -590,27 +592,30 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     viewport: Viewport,
     environment: AggregatedEnvironment,
   ): void {
-    if (!environment.trajectories.length) {
+    if (!environment.agentLayers.some((layer) => layer.trajectories.length > 0)) {
       return;
     }
 
     context.save();
     context.lineWidth = 2;
-    for (const trajectory of environment.trajectories) {
-      if (trajectory.points.length < 2) {
-        continue;
-      }
-      context.strokeStyle = trajectory.points.find((point) => point.color)?.color ?? environment.trajectoryColor ?? 'rgba(66, 133, 244, 0.5)';
-      context.beginPath();
-      trajectory.points.forEach((point, index) => {
-        const canvasPoint = this.worldToCanvas(canvasWidth, canvasHeight, viewport, point.x, point.y);
-        if (index === 0) {
-          context.moveTo(canvasPoint.x, canvasPoint.y);
-        } else {
-          context.lineTo(canvasPoint.x, canvasPoint.y);
+    for (const layer of environment.agentLayers) {
+      const offset = getCoordOffsetValue(layer.coordOffset);
+      for (const trajectory of layer.trajectories) {
+        if (trajectory.points.length < 2) {
+          continue;
         }
-      });
-      context.stroke();
+        context.strokeStyle = trajectory.points.find((point) => point.color)?.color ?? layer.trajectoryColor ?? 'rgba(66, 133, 244, 0.5)';
+        context.beginPath();
+        trajectory.points.forEach((point, index) => {
+          const canvasPoint = this.worldToCanvas(canvasWidth, canvasHeight, viewport, point.x + offset, point.y + offset);
+          if (index === 0) {
+            context.moveTo(canvasPoint.x, canvasPoint.y);
+          } else {
+            context.lineTo(canvasPoint.x, canvasPoint.y);
+          }
+        });
+        context.stroke();
+      }
     }
     context.restore();
   }
@@ -623,36 +628,38 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     environment: AggregatedEnvironment,
     request: RenderRequest,
   ): Promise<void> {
-    for (const agent of environment.agents) {
-      if (agent.x === undefined || agent.y === undefined) {
-        continue;
-      }
-
-      const offset = environment.coordOffset === 'int' ? 0.5 : 0;
-      const worldPoint = this.worldToCanvas(canvasWidth, canvasHeight, viewport, agent.x + offset, agent.y + offset);
-      const sizeInScene = agent.size ?? 1;
-      const pixelSize = Math.max(4, sizeInScene * Math.min(worldPoint.scaleX, worldPoint.scaleY));
-      const icon = typeof agent.icon === 'string' ? agent.icon : 'circle';
-      const color = agent.color ?? '#69b3a2';
-
-      context.save();
-      context.translate(worldPoint.x, worldPoint.y);
-      context.rotate(-(agent.heading ?? 0));
-
-      if (typeof icon === 'string' && isBuiltinAgentIcon(icon)) {
-        this.fillBuiltinShape(context, icon, pixelSize, color);
-      } else {
-        const assetId = getAssetIdFromIcon(typeof icon === 'string' ? icon : undefined);
-        const asset = assetId ? request.assets[assetId] : undefined;
-        if (asset) {
-          const image = await loadCanvasImageSource({ source: asset.source, mime: asset.mime });
-          context.drawImage(image, -pixelSize / 2, -pixelSize / 2, pixelSize, pixelSize);
-        } else {
-          this.fillBuiltinShape(context, 'circle', pixelSize, color);
+    for (const layer of environment.agentLayers) {
+      for (const agent of layer.agents) {
+        if (agent.x === undefined || agent.y === undefined) {
+          continue;
         }
-      }
 
-      context.restore();
+        const scenePoint = applyCoordOffset(agent.x, agent.y, layer.coordOffset);
+        const worldPoint = this.worldToCanvas(canvasWidth, canvasHeight, viewport, scenePoint.x, scenePoint.y);
+        const sizeInScene = agent.size ?? 1;
+        const pixelSize = Math.max(4, sizeInScene * Math.min(worldPoint.scaleX, worldPoint.scaleY));
+        const icon = typeof agent.icon === 'string' ? agent.icon : 'circle';
+        const color = agent.color ?? '#69b3a2';
+
+        context.save();
+        context.translate(worldPoint.x, worldPoint.y);
+        context.rotate(-(agent.heading ?? 0));
+
+        if (typeof icon === 'string' && isBuiltinAgentIcon(icon)) {
+          this.fillBuiltinShape(context, icon, pixelSize, color);
+        } else {
+          const assetId = getAssetIdFromIcon(typeof icon === 'string' ? icon : undefined);
+          const asset = assetId ? request.assets[assetId] : undefined;
+          if (asset) {
+            const image = await loadCanvasImageSource({ source: asset.source, mime: asset.mime });
+            context.drawImage(image, -pixelSize / 2, -pixelSize / 2, pixelSize, pixelSize);
+          } else {
+            this.fillBuiltinShape(context, 'circle', pixelSize, color);
+          }
+        }
+
+        context.restore();
+      }
     }
   }
 

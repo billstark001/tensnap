@@ -1,5 +1,4 @@
-import { GridEnvironmentView } from '../scenario/GridEnvironmentView';
-import { GraphEnvironmentView } from '../scenario/GraphEnvironmentView';
+import { Environment2DView } from '../scenario/Environment2DView';
 import { UniformEnvironmentView } from '../scenario/UniformEnvironmentView';
 import { ParameterControl } from './ParameterControl';
 import { ChartView } from '../scenario/ChartView';
@@ -7,9 +6,10 @@ import { ScenarioStore, useScenarioStore } from '../../store/scenario/store';
 import { getEnvironmentDisplayType } from '../scenario/environment-adapter';
 import { useToast } from '@/store/toast';
 import { AnchoredViewRendererType } from '../view/types';
+import { AnchoredView } from '@/types/ui';
 
 
-const AnchoredEnvironmentView = ({ id }: { id: string }) => {
+const AnchoredEnvironmentView = ({ id, view }: { id: string; view: AnchoredView }) => {
 
   const environments = useScenarioStore((store) => store.environments) ?? new Map() as ScenarioStore['environments'];
   const updateTrigger = useScenarioStore((store) => store.environmentUpdateTrigger.value);
@@ -20,12 +20,10 @@ const AnchoredEnvironmentView = ({ id }: { id: string }) => {
 
   const displayType = getEnvironmentDisplayType(environment);
 
-  if (displayType === 'grid') {
-    return <GridEnvironmentView environment={environment} updateTrigger={updateTrigger} />;
-  } else if (displayType === 'graph') {
-    return <GraphEnvironmentView environment={environment} updateTrigger={updateTrigger} />;
+  if (displayType === '2d') {
+    return <Environment2DView environment={environment} updateTrigger={updateTrigger} view={view} />;
   } else if (displayType === 'uniform') {
-    return <UniformEnvironmentView environment={environment} updateTrigger={updateTrigger} />;
+    return <UniformEnvironmentView environment={environment} updateTrigger={updateTrigger} view={view} />;
   } else {
     return <div>Unsupported environment type: {environment.type}</div>;
   }
@@ -51,12 +49,12 @@ const AnchoredChartView = ({ id }: { id: string }) => {
   return <ChartView chartGroup={chartGroup} />;
 }
 
-export const AnchoredViewRenderer: AnchoredViewRendererType = ({ type, id }) => {
+export const AnchoredViewRenderer: AnchoredViewRendererType = ({ type, id, view }) => {
 
   const toast = useToast();
   switch (type) {
     case 'environment': {
-      return <AnchoredEnvironmentView id={id} />;
+      return <AnchoredEnvironmentView id={id} view={view as AnchoredView} />;
     }
 
     case 'parameter': {

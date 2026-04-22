@@ -14,6 +14,7 @@ import {
   ScenarioSnapshot,
   SimulatorToRendererMessage,
   ScreenshotResponsePayload,
+  sanitizeParameter,
 } from '@tensnap/core';
 import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft } from './types';
 
@@ -25,12 +26,11 @@ const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot)
 
 const upsertEditableEnvironment = (snapshot: ScenarioSnapshot, draft: EditableEnvironmentDraft) => {
   const nextId = draft.id;
-  const nextType = draft.type === 'grid' ? '2d' : 'uniform';
   const existing = snapshot.environments.find((env) => env.id === nextId);
   if (existing) {
-    existing.type = nextType;
+    existing.type = draft.type;
     const gridLayer = existing.layers.find((layer) => layer.layerType === 'grid');
-    if (gridLayer && draft.type === 'grid') {
+    if (gridLayer && draft.type === '2d') {
       gridLayer.metadata = {
         ...gridLayer.metadata,
         width: draft.width ?? gridLayer.metadata.width,
@@ -42,8 +42,8 @@ const upsertEditableEnvironment = (snapshot: ScenarioSnapshot, draft: EditableEn
 
   snapshot.environments.push({
     id: nextId,
-    type: nextType,
-    layers: draft.type === 'grid'
+    type: draft.type,
+    layers: draft.type === '2d'
       ? [{
         id: `${nextId}-grid`,
         layerType: 'grid',
@@ -177,6 +177,24 @@ export const createScenarioStore = () => {
   const screenshotCaptures = new Map<string, ScreenshotCaptureHandler>();
 
   const useStore = create<ScenarioStore>((set, get) => {
+    const bumpScenarioState = (flags?: {
+      environmentChanged?: boolean;
+      parameterChanged?: boolean;
+      assetChanged?: boolean;
+    }) => {
+      set((state) => ({
+        _revision: state._revision + 1,
+        currentTime: scenario.time ?? null,
+        _assetRevision: flags?.assetChanged ? state._assetRevision + 1 : state._assetRevision,
+        environmentUpdateTrigger: flags?.environmentChanged
+          ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }
+          : state.environmentUpdateTrigger,
+        parameterUpdateTrigger: flags?.parameterChanged
+          ? { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 }
+          : state.parameterUpdateTrigger,
+      }));
+    };
+
     return {
       scenario,
       snapshots: [],
@@ -303,105 +321,139 @@ export const createScenarioStore = () => {
       },
 
       updateActionProps: (id, props) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const action = snapshot.actions.find((current) => current.id === id);
-          if (action) Object.assign(action, props);
-        });
+        const action = scenario.getAction(id);
+        if (!action) return;
+        Object.assign(action, structuredClone(props));
+        bumpScenarioState();
       },
 
       renameAction: (id, newId) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const action = snapshot.actions.find((current) => current.id === id);
-          if (action) action.id = newId;
-        });
+        if (id === newId) return;
+        const actionMap = scenario.actions as Map<string, Action>;
+        const action = actionMap.get(id);
+        if (!action || actionMap.has(newId)) return;
+        actionMap.delete(id);
+        action.id = newId;
+        actionMap.set(newId, action);
+        bumpScenarioState();
       },
 
       updateParameterProps: (id, props) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const parameter = snapshot.parameters.find((current) => current.id === id);
-          if (parameter) Object.assign(parameter, props);
-        });
+        const parameter = scenario.getParameter(id);
+        if (!parameter) return;
+        Object.assign(parameter, structuredClone(props));
+        sanitizeParameter(parameter, true);
+        bumpScenarioState({ parameterChanged: true });
       },
 
       renameParameter: (id, newId) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const parameter = snapshot.parameters.find((current) => current.id === id);
-          if (parameter) parameter.id = newId;
-        });
+        if (id === newId) return;
+        const parameterMap = scenario.parameters as Map<string, Parameter>;
+        const parameter = parameterMap.get(id);
+        if (!parameter || parameterMap.has(newId)) return;
+        parameterMap.delete(id);
+        parameter.id = newId;
+        parameterMap.set(newId, parameter);
+        bumpScenarioState({ parameterChanged: true });
       },
 
       updateEnvironment: (id, props) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const environment = snapshot.environments.find((current) => current.id === id);
-          if (!environment) return;
+        const environment = scenario.getEnvironment(id);
+        if (!environment) return;
 
-          const entries = Object.entries(props);
-          if (entries.length === 0) {
-            return;
-          }
+        const entries = Object.entries(props);
+        if (entries.length === 0) {
+          return;
+        }
 
-          const dimensionKeys = new Set(['width', 'height']);
-          const agentMetaKeys = new Set(['coord_offset']);
-          const gridMetaKeys = new Set(['show_grid', 'background_color']);
+        const dimensionKeys = new Set(['width', 'height']);
+        const agentMetaKeys = new Set(['coord_offset']);
+        const gridMetaKeys = new Set(['show_grid', 'background_color']);
 
-          for (const layer of environment.layers) {
-            const nextMetadata = { ...(layer.metadata ?? {}) };
-            let changed = false;
+        for (const layer of environment.layers.values()) {
+          const data: Record<string, unknown> = {};
 
-            for (const [key, value] of entries) {
-              if (dimensionKeys.has(key)) {
-                if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
-                  nextMetadata[key] = value;
-                  changed = true;
-                }
-                continue;
+          for (const [key, value] of entries) {
+            if (dimensionKeys.has(key)) {
+              if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
+                data[key] = structuredClone(value);
               }
-
-              if (agentMetaKeys.has(key)) {
-                if (layer.layerType === 'agent') {
-                  nextMetadata[key] = value;
-                  changed = true;
-                }
-                continue;
-              }
-
-              if (gridMetaKeys.has(key)) {
-                if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
-                  nextMetadata[key] = value;
-                  changed = true;
-                }
-                continue;
-              }
-
               continue;
             }
 
-            if (changed) {
-              layer.metadata = nextMetadata;
+            if (agentMetaKeys.has(key)) {
+              if (layer.layerType === 'agent') {
+                data[key] = structuredClone(value);
+              }
+              continue;
+            }
+
+            if (gridMetaKeys.has(key)) {
+              if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
+                data[key] = structuredClone(value);
+              }
+              continue;
             }
           }
-        });
+
+          if (Object.keys(data).length === 0) {
+            continue;
+          }
+
+          scenario.apply({
+            type: 'env_layer_update',
+            payload: { env_id: id, layer_id: layer.id, data },
+          });
+        }
       },
 
       renameEnvironment: (id, newId) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const environment = snapshot.environments.find((current) => current.id === id);
-          if (environment) environment.id = newId;
-        });
+        if (id === newId) return;
+        const environmentMap = scenario.environments as Map<string, ScenarioEnvironmentState>;
+        const environment = environmentMap.get(id);
+        if (!environment || environmentMap.has(newId)) return;
+        environmentMap.delete(id);
+        environment.id = newId;
+        environmentMap.set(newId, environment);
+        bumpScenarioState({ environmentChanged: true });
       },
 
       updateChartProps: (id, props) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const chart = snapshot.charts.find((current) => current.id === id);
-          if (chart) Object.assign(chart, props);
-        });
+        const chart = scenario.charts.getGroup(id);
+        if (!chart) return;
+
+        const nextLabel = props.label;
+        if (typeof nextLabel === 'string') {
+          chart.label = nextLabel;
+        }
+
+        const nextMetadataDict = props.metadataDict;
+        if (nextMetadataDict && typeof nextMetadataDict === 'object') {
+          const currentMetaIds = new Set(Object.keys(chart.metadataDict));
+          const updatedMetadataDict = structuredClone(nextMetadataDict) as typeof chart.metadataDict;
+
+          for (const metaId of currentMetaIds) {
+            if (!(metaId in updatedMetadataDict)) {
+              scenario.charts.removeMetaFromGroup(metaId, id);
+            }
+          }
+
+          for (const [metaId, meta] of Object.entries(updatedMetadataDict)) {
+            if (metaId in chart.metadataDict) {
+              scenario.charts.updateMeta(metaId, meta);
+            } else {
+              scenario.charts.addMeta(id, meta);
+            }
+          }
+        }
+
+        bumpScenarioState();
       },
 
       renameChartGroup: (id, newId) => {
-        mutateSnapshot(scenario, (snapshot) => {
-          const chart = snapshot.charts.find((current) => current.id === id);
-          if (chart) chart.id = newId;
-        });
+        if (id === newId) return;
+        if (!scenario.charts.renameGroup(id, newId, () => { })) return;
+        bumpScenarioState();
       },
 
       createStateSyncMessage: () => scenario.createStateSyncMessage(),
