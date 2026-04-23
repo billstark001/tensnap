@@ -56,7 +56,7 @@ export class ChartStorage {
     for (const g of groups) this.addGroup(g);
   }
 
-  // #region Snapshot ──────────────────────────────────────────────────────────────────
+  // #region Snapshot 
 
   shallowCopy(): ChartStorage {
     const copy = new ChartStorage();
@@ -95,7 +95,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Internal: registration ────────────────────────────────────────────────────
+  // #region Internal: registration 
 
   private _register(metaId: string, meta: ChartMetadata, group: ChartGroup): void {
     mapGetOrInit(this.metaMap, metaId).push(meta);
@@ -126,7 +126,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Internal: data helpers ────────────────────────────────────────────────────
+  // #region Internal: data helpers 
 
   private _extractPoints(data: NativeDataPoint[], metaId: string): NativeDataPoint[] {
     return data
@@ -166,7 +166,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Groups ────────────────────────────────────────────────────────────────────
+  // #region Groups 
 
   hasGroup(groupId: string): boolean {
     return this.groups.has(groupId);
@@ -228,7 +228,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Metadata ──────────────────────────────────────────────────────────────────
+  // #region Metadata 
 
   upsertMeta(meta: ChartMetadata): void {
     const existing = this.metaMap.get(meta.id);
@@ -393,7 +393,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Queries ───────────────────────────────────────────────────────────────────
+  // #region Queries 
 
   /**
    * Returns all data points for a metadata ID merged across groups, sorted by
@@ -428,7 +428,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Data mutation ─────────────────────────────────────────────────────────────
+  // #region Data mutation 
 
   push(currentTime: number, points: ChartUpdateData[], warn: WarnFn = console.warn): void {
     this.pushBuffer.forEach(m => m.clear());

@@ -1,159 +1,95 @@
-"""Tests for environment binders"""
+"""Tests for canonical environment binders."""
 
-import pytest
 import networkx as nx
+
 from tensnap.models import (
-    UniformEnvironmentBinder,
-    GridEnvironmentBinder,
     GraphEnvironmentBinder,
     GraphEnvironmentBinderNX,
+    GridEnvironmentBinder,
+    UniformEnvironmentBinder,
 )
 
 
 class TestUniformEnvironmentBinder:
-    """Test UniformEnvironmentBinder functionality"""
-
     def test_basic_initialization(self):
-        """Test basic uniform environment initialization"""
-
         class SimpleEnv:
             def __init__(self):
                 self.agents = []
 
         env = SimpleEnv()
-        binder = UniformEnvironmentBinder(
-            id="test_env",
-            environment=env,
-        )
+        binder = UniformEnvironmentBinder(id="test_env", environment=env)
 
         assert binder.id == "test_env"
         assert binder.environment == env
 
-    def test_get_model_dict(self):
-        """Test getting model dictionary"""
-
+    def test_get_state_exposes_agent_layer(self):
         class SimpleEnv:
             def __init__(self):
                 self.agents = []
 
-        env = SimpleEnv()
-        binder = UniformEnvironmentBinder(
-            id="test_env",
-            environment=env,
-        )
+        state = UniformEnvironmentBinder(id="test_env", environment=SimpleEnv()).get_state()
 
-        model_dict = binder.get_model_dict()
-        assert model_dict["id"] == "test_env"
-        assert model_dict["type"] == "uniform"
+        assert state == {
+            "id": "test_env",
+            "type": "uniform",
+            "layers": [{"layer_id": "agents", "layer_type": "agent"}],
+        }
 
-        state = binder.get_state()
-        assert state["id"] == "test_env"
-        assert state["type"] == "uniform"
-        assert state["layers"] == [{"layer_id": "agents", "layer_type": "agent"}]
-
-    def test_get_agent_list(self):
-        """Test getting agent list"""
-
+    def test_get_state_serializes_agents(self):
         class SimpleAgent:
-            def __init__(self, id, x, y):
-                self.id = id
+            def __init__(self, agent_id, x, y):
+                self.id = agent_id
                 self.x = x
                 self.y = y
 
         class SimpleEnv:
             def __init__(self):
-                self.agents = [
-                    SimpleAgent(1, 10, 20),
-                    SimpleAgent(2, 30, 40),
-                ]
+                self.agents = [SimpleAgent(1, 10, 20), SimpleAgent(2, 30, 40)]
 
-        env = SimpleEnv()
-        binder = UniformEnvironmentBinder(
-            id="test_env",
-            environment=env,
-        )
+        state = UniformEnvironmentBinder(id="test_env", environment=SimpleEnv()).get_state()
+        agents = state["layers"][0].get("agents", [])
 
-        agent_list = binder.get_agent_list()
-        assert len(agent_list) == 2
-        assert agent_list[0]["id"] == 1
+        assert len(agents) == 2
+        assert agents[0]["id"] == 1
 
     def test_set_environment(self):
-        """Test setting a new environment"""
+        class SimpleAgent:
+            def __init__(self, agent_id):
+                self.id = agent_id
 
         class SimpleEnv:
-            def __init__(self, value):
-                self.value = value
-                self.agents = []
+            def __init__(self, agent_id):
+                self.agents = [SimpleAgent(agent_id)]
 
-        env1 = SimpleEnv(1)
-        binder = UniformEnvironmentBinder(
-            id="test_env",
-            environment=env1,
-        )
+        binder = UniformEnvironmentBinder(id="test_env", environment=SimpleEnv(1))
+        binder.set_environment(SimpleEnv(2))
 
-        assert binder.environment.value == 1
-
-        env2 = SimpleEnv(2)
-        binder.set_environment(env2)
-
-        assert binder.environment.value == 2
+        state = binder.get_state()
+        agents = state["layers"][0].get("agents", [])
+        assert agents[0]["id"] == 2
 
 
 class TestGridEnvironmentBinder:
-    """Test GridEnvironmentBinder functionality"""
-
-    def test_initialization(self):
-        """Test grid environment initialization"""
-
-        class GridEnv:
-            def __init__(self):
-                self.width = 10
-                self.height = 10
-                self.agents = []
-
-        env = GridEnv()
-        binder = GridEnvironmentBinder(
-            id="grid_env",
-            environment=env,
-        )
-
-        assert binder.id == "grid_env"
-
-    def test_get_model_dict_with_grid(self):
-        """Test getting grid model dictionary"""
-
+    def test_grid_state_includes_metadata(self):
         class GridEnv:
             def __init__(self):
                 self.width = 10
                 self.height = 15
                 self.agents = []
 
-        env = GridEnv()
-        binder = GridEnvironmentBinder(
-            id="grid_env",
-            environment=env,
-        )
+        state = GridEnvironmentBinder(id="grid_env", environment=GridEnv()).get_state()
+        layer = state["layers"][0]
 
-        model_dict = binder.get_model_dict()
-        assert model_dict["id"] == "grid_env"
-        assert model_dict["type"] == "grid"
-        assert model_dict["width"] == 10
-        assert model_dict["height"] == 15
-
-        state = binder.get_state()
         assert state["id"] == "grid_env"
         assert state["type"] == "2d"
-        assert state["layers"][0]["layer_id"] == "grid"
-        assert state["layers"][0]["layer_type"] == "grid"
-        assert "data" in state["layers"][0]
-        assert state["layers"][0]["data"] == {"width": 10, "height": 15}
+        assert layer["layer_id"] == "grid"
+        assert layer["layer_type"] == "grid"
+        assert layer.get("data") == {"width": 10, "height": 15}
 
-    def test_grid_agents_with_position(self):
-        """Test grid agents with position information"""
-
+    def test_grid_state_serializes_agents(self):
         class GridAgent:
-            def __init__(self, id, x, y):
-                self.id = id
+            def __init__(self, agent_id, x, y):
+                self.id = agent_id
                 self.x = x
                 self.y = y
 
@@ -161,236 +97,113 @@ class TestGridEnvironmentBinder:
             def __init__(self):
                 self.width = 10
                 self.height = 10
-                self.agents = [
-                    GridAgent(1, 5, 5),
-                    GridAgent(2, 8, 3),
-                ]
+                self.agents = [GridAgent(1, 5, 5), GridAgent(2, 8, 3)]
 
-        env = GridEnv()
-        binder = GridEnvironmentBinder(
-            id="grid_env",
-            environment=env,
-        )
+        state = GridEnvironmentBinder(id="grid_env", environment=GridEnv()).get_state()
+        agents = state["layers"][0].get("agents", [])
 
-        agent_list = binder.get_agent_list()
-        assert len(agent_list) == 2
-        assert agent_list[0]["x"] == 5
-        assert agent_list[0]["y"] == 5
+        assert len(agents) == 2
+        assert agents[0]["x"] == 5
+        assert agents[0]["y"] == 5
 
 
 class TestGraphEnvironmentBinder:
-    """Test GraphEnvironmentBinder functionality"""
-
-    def test_initialization(self):
-        """Test graph environment initialization"""
-
+    def test_graph_state_includes_agent_and_edge_layers(self):
         class GraphEnv:
             def __init__(self):
-                self.edges = []
+                self.edges = [{"source": 1, "target": 2}, {"source": 2, "target": 3}]
                 self.agents = []
 
-        env = GraphEnv()
-        binder = GraphEnvironmentBinder(
-            id="graph_env",
-            environment=env,
-        )
+        state = GraphEnvironmentBinder(id="graph_env", environment=GraphEnv()).get_state()
 
-        assert binder.id == "graph_env"
-
-    def test_get_model_dict_with_edges(self):
-        """Test getting graph model with edges"""
-
-        class GraphEnv:
-            def __init__(self):
-                self.edges = [
-                    {"source": 1, "target": 2},
-                    {"source": 2, "target": 3},
-                ]
-                self.agents = []
-
-        env = GraphEnv()
-        binder = GraphEnvironmentBinder(
-            id="graph_env",
-            environment=env,
-        )
-
-        model_dict = binder.get_model_dict()
-        assert model_dict["id"] == "graph_env"
-        assert model_dict["type"] == "graph"
-        assert len(model_dict["edges"]) == 2
-
-        state = binder.get_state()
         assert state["id"] == "graph_env"
         assert state["type"] == "2d"
         assert [layer["layer_type"] for layer in state["layers"]] == ["agent", "edge"]
-        assert "edges" in state["layers"][1]
-        assert state["layers"][1]["edges"] == model_dict["edges"]
+        assert len(state["layers"][1].get("edges", [])) == 2
 
-    def test_graph_agents(self):
-        """Test graph agents"""
-
+    def test_graph_state_serializes_agents(self):
         class GraphAgent:
-            def __init__(self, id):
-                self.id = id
+            def __init__(self, agent_id):
+                self.id = agent_id
 
         class GraphEnv:
             def __init__(self):
                 self.edges = []
-                self.agents = [
-                    GraphAgent(1),
-                    GraphAgent(2),
-                    GraphAgent(3),
-                ]
+                self.agents = [GraphAgent(1), GraphAgent(2), GraphAgent(3)]
 
-        env = GraphEnv()
-        binder = GraphEnvironmentBinder(
-            id="graph_env",
-            environment=env,
-        )
+        state = GraphEnvironmentBinder(id="graph_env", environment=GraphEnv()).get_state()
+        agents = state["layers"][0].get("agents", [])
 
-        agent_list = binder.get_agent_list()
-        assert len(agent_list) == 3
-        assert agent_list[0]["id"] == 1
+        assert len(agents) == 3
+        assert agents[0]["id"] == 1
 
 
 class TestGraphEnvironmentBinderNX:
-    """Test NetworkX graph binder functionality"""
-
     def test_initialization_with_graph(self):
-        """Test initialization with NetworkX graph"""
-        G = nx.Graph()
-        G.add_edge(1, 2)
-        G.add_edge(2, 3)
+        graph = nx.Graph()
+        graph.add_edge(1, 2)
+        graph.add_edge(2, 3)
 
-        binder = GraphEnvironmentBinderNX(
-            id="nx_graph",
-            graph=G,
-        )
+        binder = GraphEnvironmentBinderNX(id="nx_graph", graph=graph)
 
         assert binder.id == "nx_graph"
-        assert binder.graph == G
+        assert binder.graph == graph
 
-    def test_get_model_dict_with_nx_graph(self):
-        """Test getting model dict from NetworkX graph"""
-        G = nx.Graph()
-        G.add_edge(1, 2)
-        G.add_edge(2, 3)
+    def test_networkx_state_includes_nodes_and_edges(self):
+        graph = nx.Graph()
+        graph.add_node(1, x=10, y=20)
+        graph.add_node(2, x=30, y=40)
+        graph.add_edge(1, 2)
 
-        binder = GraphEnvironmentBinderNX(
-            id="nx_graph",
-            graph=G,
-        )
+        state = GraphEnvironmentBinderNX(id="nx_graph", graph=graph).get_state()
 
-        model_dict = binder.get_model_dict()
-        assert model_dict["id"] == "nx_graph"
-        assert model_dict["type"] == "graph"
-        assert len(model_dict["edges"]) == 2
-
-        state = binder.get_state()
         assert state["id"] == "nx_graph"
         assert state["type"] == "2d"
-        assert [layer["layer_type"] for layer in state["layers"]] == ["agent", "edge"]
+        assert len(state["layers"][0].get("agents", [])) == 2
+        assert len(state["layers"][1].get("edges", [])) == 1
 
-    def test_directed_graph(self):
-        """Test with directed graph"""
-        G = nx.DiGraph()
-        G.add_edge(1, 2)
-        G.add_edge(2, 3)
+    def test_directed_graph_edges_marked_directed(self):
+        graph = nx.DiGraph()
+        graph.add_edge(1, 2)
+        graph.add_edge(2, 3)
 
-        binder = GraphEnvironmentBinderNX(
-            id="directed_graph",
-            graph=G,
-        )
+        state = GraphEnvironmentBinderNX(id="directed_graph", graph=graph).get_state()
+        edges = state["layers"][1].get("edges", [])
 
-        model_dict = binder.get_model_dict()
-        edges = model_dict["edges"]
-        # Directed edges should have directed=True
         assert all(edge.get("directed", False) for edge in edges)
-
-    def test_get_agent_list_from_nodes(self):
-        """Test getting agents from graph nodes"""
-        G = nx.Graph()
-        G.add_node(1, x=10, y=20)
-        G.add_node(2, x=30, y=40)
-        G.add_edge(1, 2)
-
-        binder = GraphEnvironmentBinderNX(
-            id="nx_graph",
-            graph=G,
-        )
-
-        agent_list = binder.get_agent_list()
-        assert len(agent_list) == 2
-        assert agent_list[0]["id"] == 1
-
-    def test_edge_attributes(self):
-        """Test edges with custom attributes"""
-        G = nx.Graph()
-        G.add_edge(1, 2, weight=5.0, color="red")
-
-        binder = GraphEnvironmentBinderNX(
-            id="nx_graph",
-            graph=G,
-        )
-
-        model_dict = binder.get_model_dict()
-        edges = model_dict["edges"]
-        assert len(edges) == 1
-        assert edges[0]["source"] == 1
-        assert edges[0]["target"] == 2
 
 
 class TestEnvironmentAccessorDicts:
-    """Test environment accessor dictionary configurations"""
-
     def test_grid_environment_with_accessor_dict(self):
-        """Test grid environment with accessor dictionary"""
-
         class GridEnv:
             def __init__(self):
                 self.w = 10
                 self.h = 15
                 self.agents = []
 
-        env = GridEnv()
-        binder = GridEnvironmentBinder(
+        state = GridEnvironmentBinder(
             id="grid_env",
-            environment=env,
-            environment_accessor={
-                "id": "grid_env",
-                "width": "w",
-                "height": "h",
-            },
-        )
+            environment=GridEnv(),
+            environment_accessor={"id": "grid_env", "width": "w", "height": "h"},
+        ).get_state()
 
-        model_dict = binder.get_model_dict()
-        assert model_dict["width"] == 10
-        assert model_dict["height"] == 15
+        assert state["layers"][0].get("data") == {"width": 10, "height": 15}
 
     def test_graph_environment_with_accessor_dict(self):
-        """Test graph environment with accessor dictionary"""
-
         class GraphEnv:
             def __init__(self):
-                self.connections = []
+                self.connections = [{"source": 1, "target": 2}]
                 self.agents = []
 
-        env = GraphEnv()
-        binder = GraphEnvironmentBinder(
+        state = GraphEnvironmentBinder(
             id="graph_env",
-            environment=env,
-            environment_accessor={
-                "id": "graph_env",
-                "edges": "connections",
-            },
-        )
+            environment=GraphEnv(),
+            environment_accessor={"id": "graph_env", "edges": "connections"},
+        ).get_state()
 
-        model_dict = binder.get_model_dict()
-        assert "edges" in model_dict
+        assert state["layers"][1].get("edges") == [{"source": 1, "target": 2}]
 
     def test_agent_accessor_dict(self):
-        """Test agent accessor dictionary"""
-
         class Agent:
             def __init__(self, agent_id, pos_x, pos_y):
                 self.agent_id = agent_id
@@ -401,23 +214,16 @@ class TestEnvironmentAccessorDicts:
             def __init__(self):
                 self.width = 10
                 self.height = 10
-                self.agents = [
-                    Agent(1, 5, 5),
-                ]
+                self.agents = [Agent(1, 5, 5)]
 
-        env = GridEnv()
-        binder = GridEnvironmentBinder(
+        state = GridEnvironmentBinder(
             id="grid_env",
-            environment=env,
-            agent_accessor={
-                "id": "agent_id",
-                "x": "pos_x",
-                "y": "pos_y",
-            },
-        )
+            environment=GridEnv(),
+            agent_accessor={"id": "agent_id", "x": "pos_x", "y": "pos_y"},
+        ).get_state()
+        agents = state["layers"][0].get("agents", [])
 
-        agent_list = binder.get_agent_list()
-        assert len(agent_list) == 1
-        assert agent_list[0]["id"] == 1
-        assert agent_list[0]["x"] == 5
-        assert agent_list[0]["y"] == 5
+        assert len(agents) == 1
+        assert agents[0]["id"] == 1
+        assert agents[0]["x"] == 5
+        assert agents[0]["y"] == 5

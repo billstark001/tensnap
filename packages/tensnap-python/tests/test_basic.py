@@ -1,6 +1,5 @@
 """Basic tests for tensnap package."""
 
-import pytest
 import tensnap
 
 
@@ -10,7 +9,12 @@ def test_package_import():
 
 
 def test_package_version():
-    """Test that the package has a version attribute."""
-    # This is a placeholder test
-    # Add actual version test when __version__ is defined
-    assert hasattr(tensnap, "__version__") or True
+    """Test that the package exports the expected version string."""
+    assert tensnap.__version__ == "0.2.0"
+
+
+def test_quick_start_import_path():
+    """The published quick-start import path should stay executable."""
+    scenario = tensnap.SimulationScenario(port=8765)
+
+    assert isinstance(scenario, tensnap.SimulationScenario)

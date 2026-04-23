@@ -84,7 +84,8 @@ class MesaSimulationHandler(DefaultSimulationHandler):
     def init_model(self):
 
         if self.model is not None:
-            del self.model.step
+            if "step" in vars(self.model):
+                del self.model.step
             self.model.__init__(*self.model_init_args, **self.model_init_kwargs)
             return
 
@@ -102,17 +103,19 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         else:
             dumped = self.scenario.server.dump_parameters()
             self._unregister_everything()
+            replayed_parameters: dict[str, Any] = {}
             # modify model_init_kwargs based on dumped parameters
-            for key, value in list(dumped.items()):
+            for key, value in dumped.items():
                 if key in self.model_init_kwargs_orig:
                     self.model_init_kwargs[key] = value
-                del dumped[key]
+                else:
+                    replayed_parameters[key] = value
             # re-initialize model
             self.init_model()
             # re-register everything
-            for key, value in dumped.items():
-                self.scenario.server.set_parameter(key, value)
             await self.on_registered(self.scenario)
+            for key, value in replayed_parameters.items():
+                self.scenario.server.set_parameter(key, value)
 
         pass
 

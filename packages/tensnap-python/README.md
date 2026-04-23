@@ -11,13 +11,13 @@ pip install tensnap
 ## Quick Start
 
 ```python
-from tensnap import Scenario
+from tensnap import SimulationScenario
 import asyncio
 
 # Create a scenario
-scenario = Scenario(name="my-simulation", port=8765)
+scenario = SimulationScenario(port=8765)
 
-# Define your model logic
+# Register your environments, parameters, charts, and handlers
 # See examples/ directory for complete examples
 
 # Run the server

@@ -4,6 +4,7 @@ import pytest
 import asyncio
 import json
 from unittest.mock import Mock, AsyncMock
+from websockets.protocol import State
 from tensnap.server import (
     TenSnapServer,
     encode_message,
@@ -76,8 +77,13 @@ class TestTenSnapServer:
         # Create a mock environment
         env = Mock()
         env.id = "test_env"
-        env.get_model_dict = Mock(return_value={"id": "test_env", "type": "grid"})
-        env.get_agent_list = Mock(return_value=[])
+        env.get_state = Mock(
+            return_value={
+                "id": "test_env",
+                "type": "2d",
+                "layers": [{"layer_id": "grid", "layer_type": "grid"}],
+            }
+        )
 
         server.add_environment(env)
 
@@ -88,8 +94,7 @@ class TestTenSnapServer:
         """Test removing an environment from the server"""
         env = Mock()
         env.id = "test_env"
-        env.get_model_dict = Mock(return_value={})
-        env.get_agent_list = Mock(return_value=[])
+        env.get_state = Mock(return_value={"id": "test_env", "type": "uniform", "layers": []})
 
         server.add_environment(env)
         assert "test_env" in server.environments
@@ -229,7 +234,7 @@ class TestTenSnapServer:
         """Test broadcasting messages to clients"""
         # Mock client
         mock_client = AsyncMock()
-        mock_client.closed = False
+        mock_client.state = State.OPEN
         server.clients.add(mock_client)
 
         await server._broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": 5})
@@ -241,19 +246,137 @@ class TestTenSnapServer:
         assert mock_client.send.called
 
     @pytest.mark.asyncio
-    async def test_update_environment(self, server: TenSnapServer):
-        """Test updating environment data"""
+    async def test_update_layer_metadata(self, server: TenSnapServer):
+        """Layer-scoped metadata helpers should preserve the caller's layer id."""
         mock_client = AsyncMock()
-        mock_client.closed = False
+        mock_client.state = State.OPEN
         server.clients.add(mock_client)
 
-        await server.update_environment(
-            "env1", data={"x": 10, "y": 20}, agents=[{"id": 1, "x": 5}]
-        )
+        await server.update_layer_metadata("env1", "grid", {"x": 10, "y": 20})
 
         await server._queue.flush()
 
-        assert mock_client.send.called
+        sent_message = json.loads(mock_client.send.await_args_list[0].args[0])
+        assert sent_message == {
+            "type": "env_layer_update",
+            "payload": {"env_id": "env1", "layer_id": "grid", "data": {"x": 10, "y": 20}},
+        }
+
+    @pytest.mark.asyncio
+    async def test_update_layer_agents(self, server: TenSnapServer):
+        """Layer-scoped agent helpers should preserve the caller's layer id."""
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        server.clients.add(mock_client)
+
+        await server.update_layer_agents(
+            "env1",
+            "agents",
+            creates=[{"id": 1, "x": 1}],
+            updates=[{"id": 1, "x": 2}],
+            deletes=[1],
+        )
+        await server._queue.flush()
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_client.send.await_args_list
+        ]
+
+        assert [msg["type"] for msg in sent_messages] == [
+            "agent_create",
+            "agent_update",
+            "agent_delete",
+        ]
+        assert all(msg["payload"]["layer_id"] == "agents" for msg in sent_messages)
+
+    @pytest.mark.asyncio
+    async def test_update_layer_edges(self, server: TenSnapServer):
+        """Layer-scoped edge helpers should preserve the caller's layer id."""
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        server.clients.add(mock_client)
+
+        await server.update_layer_edges(
+            "env1",
+            "edges",
+            creates=[{"source": 1, "target": 2}],
+            updates=[{"source": 2, "target": 3, "color": "#ff0000"}],
+            deletes=[{"source": 3, "target": 4}],
+        )
+        await server._queue.flush()
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_client.send.await_args_list
+        ]
+
+        assert [msg["type"] for msg in sent_messages] == [
+            "edge_create",
+            "edge_update",
+            "edge_delete",
+        ]
+        assert all(msg["payload"]["layer_id"] == "edges" for msg in sent_messages)
+
+    @pytest.mark.asyncio
+    async def test_replace_layer_state(self, server: TenSnapServer):
+        """Replacing a layer should recreate it with fresh payloads."""
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        server.clients.add(mock_client)
+
+        await server.replace_layer_state(
+            "env1",
+            {
+                "layer_id": "patches",
+                "layer_type": "agent",
+                "data": {"width": 2, "height": 2},
+                "agents": [{"id": "patch:0:0", "x": 0, "y": 0}],
+            },
+        )
+        await server._queue.flush()
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_client.send.await_args_list
+        ]
+
+        assert [msg["type"] for msg in sent_messages] == [
+            "env_layer_delete",
+            "env_layer_create",
+            "agent_create",
+        ]
+        assert sent_messages[1]["payload"]["layer_id"] == "patches"
+        assert sent_messages[1]["payload"]["data"] == {"width": 2, "height": 2}
+
+    @pytest.mark.asyncio
+    async def test_replace_environment_layers(self, server: TenSnapServer):
+        """Replacing environment layers should recreate the environment snapshot."""
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        server.clients.add(mock_client)
+
+        await server.replace_environment_layers(
+            "env1",
+            "2d",
+            [
+                {
+                    "layer_id": "agents",
+                    "layer_type": "agent",
+                    "agents": [{"id": "agent1", "x": 1, "y": 2}],
+                }
+            ],
+        )
+        await server._queue.flush()
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_client.send.await_args_list
+        ]
+
+        assert [msg["type"] for msg in sent_messages] == [
+            "env_delete",
+            "env_create",
+            "env_layer_create",
+            "agent_create",
+        ]
+        assert sent_messages[1]["payload"] == {"id": "env1", "type": "2d"}
 
     @pytest.mark.asyncio
     async def test_state_sync_replays_layered_graph_environment(
@@ -316,7 +439,7 @@ class TestTenSnapServer:
     ):
         """Asset payloads should use explicit data URLs in JSON mode."""
         mock_client = AsyncMock()
-        mock_client.closed = False
+        mock_client.state = State.OPEN
         server.clients.add(mock_client)
 
         await server.publish_asset(
@@ -337,6 +460,18 @@ class TestTenSnapServer:
         assert asset_data_messages[0]["payload"]["data"].startswith(
             "data:text/plain;base64,"
         )
+
+    @pytest.mark.asyncio
+    async def test_queue_close_flushes_pending_messages(self, server: TenSnapServer):
+        """Closing the queue should still deliver already-enqueued messages."""
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        server.clients.add(mock_client)
+
+        await server._broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": 5})
+        await server._queue.close()
+
+        assert mock_client.send.called
 
     @pytest.mark.asyncio
     async def test_asset_sync_uses_data_url_in_json_mode(self, server: TenSnapServer):

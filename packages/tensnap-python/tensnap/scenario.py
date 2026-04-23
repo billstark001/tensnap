@@ -18,7 +18,6 @@ from tensnap.server import TenSnapServer
 from tensnap.sim_loop import SimulationLoop
 from tensnap.utils.func import call_function
 from tensnap.utils.environment_state import (
-    build_environment_state,
     clone_environment_state,
 )
 from tensnap.utils.attr import (
@@ -106,7 +105,7 @@ class DefaultSimulationHandler:
     def _get_environment_state(
         self, env: EnvironmentBinderProtocol
     ) -> EnvironmentState:
-        return build_environment_state(env)
+        return clone_environment_state(env.get_state())
 
     async def on_start(self, step: int, replace_agents: bool = False) -> None:
         s = self.scenario

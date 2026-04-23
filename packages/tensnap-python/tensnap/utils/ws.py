@@ -48,7 +48,7 @@ class BatchedMessageQueue:
 
     async def flush(self) -> None:
         """Public flush method that respects the lock."""
-        if self._closed:
+        if self._closed and not self._queue:
             return
         await self._trigger_flush()
         if self._flush_task:
@@ -111,11 +111,9 @@ class BatchedMessageQueue:
 
     async def close(self) -> None:
         """Gracefully close the queue and flush remaining messages."""
+        await self.flush()
         async with self._lock:
             self._closed = True
-
-        # Flush any remaining messages
-        await self.flush()
         if self._flush_task and not self._flush_task.done():
             try:
                 await asyncio.wait_for(self._flush_task, timeout=5.0)

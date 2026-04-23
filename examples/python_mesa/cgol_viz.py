@@ -14,7 +14,7 @@ from cgol import GameOfLife
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
-scenario = SimulationScenario(port=server_port)
+scenario = SimulationScenario(port=server_port, use_msgpack=True)
 
 # Model configuration
 MODEL_WIDTH = 50

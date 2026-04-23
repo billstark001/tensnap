@@ -204,3 +204,41 @@ async def test_mushroom_example_emits_patch_resource_layer():
     assert env_create["payload"]["id"] == "ForagingModel"
     assert patch_layer["payload"]["layer_type"] == "agent"
     assert len(patch_agents["payload"]["agents"]) == 50 * 50
+
+
+@pytest.mark.asyncio
+async def test_sugarscape_example_emits_sugar_resource_layer():
+    script = REPO_ROOT / "examples" / "python_mesa" / "sugarscape_viz.py"
+    port = _get_free_port()
+    proc = await _start_example(script, port)
+
+    try:
+        await _wait_for_server(proc, port)
+        messages = await _collect_state_sync_messages(
+            port,
+            lambda collected: any(
+                msg["type"] == "agent_create"
+                and msg["payload"].get("env_id") == "Sugarscape"
+                and msg["payload"].get("layer_id") == "sugar"
+                for msg in collected
+            ),
+        )
+    finally:
+        await _stop_process(proc)
+
+    env_create = next(msg for msg in messages if msg["type"] == "env_create")
+    sugar_layer = next(
+        msg
+        for msg in messages
+        if msg["type"] == "env_layer_create" and msg["payload"]["layer_id"] == "sugar"
+    )
+    sugar_agents = next(
+        msg
+        for msg in messages
+        if msg["type"] == "agent_create" and msg["payload"].get("layer_id") == "sugar"
+    )
+
+    assert env_create["payload"]["type"] == "2d"
+    assert env_create["payload"]["id"] == "Sugarscape"
+    assert sugar_layer["payload"]["layer_type"] == "agent"
+    assert len(sugar_agents["payload"]["agents"]) == 50 * 50

@@ -17,7 +17,8 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[Architecture Overview](./maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./maintainer-guide/contributing.md)** - How to contribute to TenSnap
-- **[Protocol Documentation](./maintainer-guide/protocol.md)** - WebSocket protocol specification
+- **[Protocol v0.2](./maintainer-guide/protocol-v0.2.md)** - Current WebSocket protocol specification
+- **[Python Audit for v0.2](./maintainer-guide/python-audit-v0.2.md)** - Audit of Python runtime, tests, and examples against the layered protocol model
 - **[Internationalization (i18n)](./maintainer-guide/i18n.md)** - Translation and localization guide
 
 ## What is TenSnap?

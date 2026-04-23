@@ -1,4 +1,4 @@
-#region Imports
+# region Imports
 
 import asyncio
 import os
@@ -14,9 +14,9 @@ from tensnap.models import EnvironmentLayerState, EnvironmentState
 
 from mushroom import ForagingModel, Hunter, Patch
 
-#endregion
+# endregion
 
-#region Setup
+# region Setup
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
@@ -31,9 +31,9 @@ NUM_CLUSTERS = 4
 PATCHES_PER_CLUSTER = 20
 NUM_HUNTERS = 2
 
-#endregion
+# endregion
 
-#region Custom Handler
+# region Custom Handler
 
 
 class MushroomEnvironmentBinder(MesaGridEnvironmentBinder):
@@ -73,9 +73,9 @@ class MushroomSimulationHandler(MesaSimulationHandler):
         scenario.add_environment(self.env_binder)
 
 
-#endregion
+# endregion
 
-#region Charts
+# region Charts
 
 
 @chart(
@@ -120,9 +120,9 @@ def hunter_efficiency_chart() -> float:
     return 0.0
 
 
-#endregion
+# endregion
 
-#region Main
+# region Main
 
 
 async def main() -> None:
@@ -152,4 +152,4 @@ async def main() -> None:
 if __name__ == "__main__":
     asyncio.run(main())
 
-#endregion
+# endregion

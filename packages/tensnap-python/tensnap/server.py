@@ -8,7 +8,7 @@ broadcasting simulation updates to connected clients.
 # region Imports
 
 from copy import deepcopy
-from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple, Set
+from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple, Set, cast
 
 import asyncio
 import hashlib
@@ -27,7 +27,7 @@ from collections import defaultdict
 from .utils.ws import BatchedMessageQueue
 from .utils.environment_state import (
     agent_diff,
-    build_environment_state,
+    clone_environment_state,
     copied_layer_agents,
     copied_layer_edges,
     edge_diff,
@@ -53,11 +53,14 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .models import (
+        EnvironmentLayerState,
         EnvironmentBinderProtocol,
         EnvironmentState,
         EnvironmentStateWithAgentsOmitted,
+        GraphEdgeDict,
         StateSyncRequest,
     )
+    from .models.environment import CanonicalEnvironmentType
 
 # endregion
 
@@ -363,9 +366,9 @@ class TenSnapServer:
         updated = server_ids & client_ids
 
         return {
-            "added": [build_environment_state(self.environments[i]) for i in added],
+            "added": [clone_environment_state(self.environments[i].get_state()) for i in added],
             "removed": list(removed),
-            "updated": [build_environment_state(self.environments[i]) for i in updated],
+            "updated": [clone_environment_state(self.environments[i].get_state()) for i in updated],
         }
 
     async def _send_environment_snapshot(
@@ -860,62 +863,109 @@ class TenSnapServer:
             logger.exception(f"Error getting chart data for {chart.id}: {e}")
             raise
 
-    async def update_environment(
+    async def update_layer_metadata(
         self,
         env_id: Union[str, int],
-        data: Dict[str, Any] | None = None,
-        agents: List[Dict[str, Any]] | None = None,
+        layer_id: str,
+        data: Dict[str, Any],
     ) -> None:
-        # v0.2: send env_layer_update for metadata, then agent_create for agent list
-        if data:
-            await self._broadcast(
-                ServerToClientMessageType.ENV_LAYER_UPDATE,
-                {"env_id": env_id, "layer_id": "", "data": data},
-            )
-        if agents is not None:
+        await self._broadcast(
+            ServerToClientMessageType.ENV_LAYER_UPDATE,
+            {"env_id": env_id, "layer_id": layer_id, "data": data},
+        )
+
+    async def update_layer_agents(
+        self,
+        env_id: Union[str, int],
+        layer_id: str,
+        *,
+        creates: Optional[List[Dict[str, Any]]] = None,
+        updates: Optional[List[Dict[str, Any]]] = None,
+        deletes: Optional[List[Any]] = None,
+    ) -> None:
+        if creates:
             await self._broadcast(
                 ServerToClientMessageType.AGENT_CREATE,
-                {"env_id": env_id, "layer_id": "", "agents": agents},
+                {"env_id": env_id, "layer_id": layer_id, "agents": creates},
+            )
+        if updates:
+            await self._broadcast(
+                ServerToClientMessageType.AGENT_UPDATE,
+                {"env_id": env_id, "layer_id": layer_id, "agents": updates},
+            )
+        if deletes:
+            await self._broadcast(
+                ServerToClientMessageType.AGENT_DELETE,
+                {"env_id": env_id, "layer_id": layer_id, "ids": deletes},
             )
 
-    async def update_edges_batch(
-        self, env_id: Union[str, int], layer_id: str, updates: List[Dict[str, Any]]
+    async def update_layer_edges(
+        self,
+        env_id: Union[str, int],
+        layer_id: str,
+        *,
+        creates: Optional[List["GraphEdgeDict"]] = None,
+        updates: Optional[List["GraphEdgeDict"]] = None,
+        deletes: Optional[List["GraphEdgeDict"]] = None,
     ) -> None:
-        creates: List[Dict[str, Any]] = []
-        diffs: List[Dict[str, Any]] = []
-        deletes: List[Dict[str, Any]] = []
-
-        for item in updates:
-            op = item.get("operation")
-            if op == "create":
-                creates.append({k: v for k, v in item.items() if k != "operation"})
-            elif op == "delete":
-                deletes.append({"source": item["source"], "target": item["target"]})
-            else:
-                diff_data = item.get("data") or {}
-                diffs.append(
-                    {
-                        "source": item["source"],
-                        "target": item["target"],
-                        **diff_data,
-                    }
-                )
-
         if creates:
             await self._broadcast(
                 ServerToClientMessageType.EDGE_CREATE,
                 {"env_id": env_id, "layer_id": layer_id, "edges": creates},
             )
-        if diffs:
+        if updates:
             await self._broadcast(
                 ServerToClientMessageType.EDGE_UPDATE,
-                {"env_id": env_id, "layer_id": layer_id, "edges": diffs},
+                {"env_id": env_id, "layer_id": layer_id, "edges": updates},
             )
         if deletes:
             await self._broadcast(
                 ServerToClientMessageType.EDGE_DELETE,
                 {"env_id": env_id, "layer_id": layer_id, "edges": deletes},
             )
+
+    async def replace_layer_state(
+        self,
+        env_id: Union[str, int],
+        layer_state: "EnvironmentLayerState",
+    ) -> None:
+        layer_id = layer_state["layer_id"]
+        payload: Dict[str, Any] = {
+            "env_id": env_id,
+            "layer_id": layer_id,
+            "layer_type": layer_state["layer_type"],
+        }
+        if "data" in layer_state and layer_state["data"]:
+            payload["data"] = layer_state["data"]
+
+        await self._broadcast(
+            ServerToClientMessageType.ENV_LAYER_DELETE,
+            {"env_id": env_id, "layer_id": layer_id},
+        )
+        await self._broadcast(ServerToClientMessageType.ENV_LAYER_CREATE, payload)
+        await self.update_layer_agents(
+            env_id,
+            layer_id,
+            creates=layer_state.get("agents"),
+        )
+        await self.update_layer_edges(
+            env_id,
+            layer_id,
+            creates=layer_state.get("edges"),
+        )
+
+    async def replace_environment_layers(
+        self,
+        env_id: Union[str, int],
+        env_type: "CanonicalEnvironmentType",
+        layers: List["EnvironmentLayerState"],
+    ) -> None:
+        env_id_str = str(env_id)
+        await self.delete_environment_state(env_id_str)
+        await self.update_environment_state(
+            {"id": env_id_str, "type": env_type, "layers": layers},
+            None,
+        )
 
     async def request_screenshot(
         self,
@@ -974,52 +1024,6 @@ class TenSnapServer:
             if pending is future:
                 self._pending_screenshot_requests.pop(resolved_request_id, None)
 
-    async def update_agent(
-        self, env_id: Union[str, int], agent_id: Union[str, int], data: Dict[str, Any]
-    ) -> None:
-        diff = {"id": agent_id, **data}
-        await self._broadcast(
-            ServerToClientMessageType.AGENT_UPDATE,
-            {"env_id": env_id, "layer_id": "", "agents": [diff]},
-        )
-
-    async def update_agents_batch(
-        self, env_id: Union[str, int], updates: List[Dict[str, Any]]
-    ) -> None:
-        """Send agent CUD operations using v0.2 agent_create/agent_update/agent_delete."""
-        creates: List[Dict[str, Any]] = []
-        diffs: List[Dict[str, Any]] = []
-        deletes: List[Any] = []
-
-        for item in updates:
-            op = item.get("operation")
-            agent_id = item.get("id")
-            if op == "create":
-                agent_data = {k: v for k, v in item.items() if k != "operation"}
-                creates.append(agent_data)
-            elif op == "delete":
-                deletes.append(agent_id)
-            else:
-                # update (default): use flat diff
-                diff_data = item.get("data") or {}
-                diff = {"id": agent_id, **diff_data}
-                diffs.append(diff)
-
-        if creates:
-            await self._broadcast(
-                ServerToClientMessageType.AGENT_CREATE,
-                {"env_id": env_id, "layer_id": "", "agents": creates},
-            )
-        if diffs:
-            await self._broadcast(
-                ServerToClientMessageType.AGENT_UPDATE,
-                {"env_id": env_id, "layer_id": "", "agents": diffs},
-            )
-        if deletes:
-            await self._broadcast(
-                ServerToClientMessageType.AGENT_DELETE,
-                {"env_id": env_id, "layer_id": "", "ids": deletes},
-            )
 
     # -------------------------------------------------------------------------
     # Asset management

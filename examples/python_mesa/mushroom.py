@@ -1,4 +1,4 @@
-#region Imports
+# region Imports
 
 from typing import Tuple, List, cast
 
@@ -8,9 +8,9 @@ import numpy as np
 
 from tensnap import bind_mesa_grid_agent, bind_mesa_grid_environment
 
-#endregion
+# endregion
 
-#region Agents
+# region Agents
 
 
 @bind_mesa_grid_agent(heading=True, color=True, trajectory_length=True, icon=True)
@@ -18,7 +18,7 @@ class Hunter(mesa.Agent):
 
     icon = "arrow"
     trajectory_length = 10
-    color = 'blue'
+    color = "blue"
 
     model: "ForagingModel"
     pos: Tuple[float, float]
@@ -84,17 +84,17 @@ class Patch(mesa.Agent):
         }
 
 
-#endregion
+# endregion
 
-#region Model
+# region Model
 
 
 @bind_mesa_grid_environment(coord_offset=True)
 class ForagingModel(mesa.Model):
 
     grid: "mesa.space.SingleGrid"
-    
-    coord_offset = 'float'
+
+    coord_offset = "float"
 
     def __init__(
         self, width=50, height=50, num_clusters=4, patches_per_cluster=20, num_turtles=2
@@ -106,11 +106,14 @@ class ForagingModel(mesa.Model):
         self.num_clusters = num_clusters
         self.running = True
         self.hunters: List[Hunter] = []
+        self.patches: List[Patch] = []
 
-        # create patches - 批量创建并存储在网格中
+        # Create patches once and keep direct references for layer serialization.
         for x in range(width):
             for y in range(height):
-                self.grid.place_agent(Patch(self), (x, y))
+                patch = Patch(self)
+                self.grid.place_agent(patch, (x, y))
+                self.patches.append(patch)
 
         # plant mushrooms - 优化蘑菇种植
         for _ in range(num_clusters):
@@ -145,12 +148,7 @@ class ForagingModel(mesa.Model):
 
     def get_patch_layer_agents(self) -> list[dict[str, object]]:
         """Expose the patch field as a dedicated square-agent layer."""
-        ret: list[dict[str, object]] = []
-        for x in range(self.width):
-            for y in range(self.height):
-                patch: Patch = self.grid[x, y]  # type: ignore
-                if patch:
-                    ret.append(patch.to_agent_state())
-        return ret
+        return [patch.to_agent_state() for patch in self.patches]
 
-#endregion
+
+# endregion

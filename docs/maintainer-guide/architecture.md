@@ -101,7 +101,7 @@ server.add_parameter(param, getter=lambda: model.speed, setter=lambda v: setattr
 Direct message control:
 
 ```python
-await server.update_agents_batch("main", updates)
+await server.update_layer_agents("main", "agents", updates=updates)
 await server.update_charts(time_step)
 ```
 

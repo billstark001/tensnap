@@ -250,7 +250,8 @@ bird.x = 10.0
 bird.y = 5.0
 
 # Binder reads the current object state whenever it serializes.
-current_agents = binder.get_agent_list()
+current_state = binder.get_state()
+current_agents = current_state["layers"][0].get("agents", [])
 ```
 
 ## Parameters and Controls
@@ -459,7 +460,7 @@ async def run_simulation():
         
         # Update visualization
         updates = grid.generate_agent_updates()
-        await server.update_agents_batch("main", updates)
+        await server.update_layer_agents("main", "agents", updates=updates)
         
         await server.end_time_step(step)
         step += 1
@@ -585,7 +586,7 @@ For performance with many agents:
 updates = [agent.to_update() for agent in simulation.agents]
 
 # Send in single batch
-await server.update_agents_batch("main", updates)
+await server.update_layer_agents("main", "agents", updates=updates)
 ```
 
 ### State Synchronization
@@ -620,7 +621,7 @@ server.add_environment(resource_map)
 
 ### Performance Optimization
 
-1. **Use Batch Updates**: Prefer `update_agents_batch()` over individual updates
+1. **Use Layer-Scoped Batch Updates**: Prefer `update_layer_agents()` over individual updates and always provide the target `layer_id`
 2. **Limit Update Frequency**: Use an appropriate `step_interval` in `SimulationLoop` or `SimulationScenario`
 3. **Minimize Data Transfer**: Only send changed agent properties
 4. **Use update_source**: Let TenSnap automatically read agent properties
@@ -652,7 +653,7 @@ async def on_step(step: int):
         await server.start_time_step(step)
         simulation.step()
         updates = grid.generate_agent_updates()
-        await server.update_agents_batch("main", updates)
+        await server.update_layer_agents("main", "agents", updates=updates)
         await server.end_time_step(step)
     except Exception as e:
         logger.error(f"Error in step {step}: {e}")

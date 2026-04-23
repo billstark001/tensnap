@@ -34,8 +34,13 @@ class TestSimulationScenario:
         """Test adding an environment to the scenario"""
         env = Mock()
         env.id = "test_env"
-        env.get_model_dict = Mock(return_value={"id": "test_env", "type": "grid"})
-        env.get_agent_list = Mock(return_value=[])
+        env.get_state = Mock(
+            return_value={
+                "id": "test_env",
+                "type": "2d",
+                "layers": [{"layer_id": "grid", "layer_type": "grid"}],
+            }
+        )
 
         scenario.add_environment(env)
 
@@ -47,8 +52,7 @@ class TestSimulationScenario:
         """Test removing an environment from the scenario"""
         env = Mock()
         env.id = "test_env"
-        env.get_model_dict = Mock(return_value={})
-        env.get_agent_list = Mock(return_value=[])
+        env.get_state = Mock(return_value={"id": "test_env", "type": "uniform", "layers": []})
 
         scenario.add_environment(env)
         assert "test_env" in scenario.env_binders
@@ -61,13 +65,11 @@ class TestSimulationScenario:
         """Test removing all environments"""
         env1 = Mock()
         env1.id = "env1"
-        env1.get_model_dict = Mock(return_value={})
-        env1.get_agent_list = Mock(return_value=[])
+        env1.get_state = Mock(return_value={"id": "env1", "type": "uniform", "layers": []})
 
         env2 = Mock()
         env2.id = "env2"
-        env2.get_model_dict = Mock(return_value={})
-        env2.get_agent_list = Mock(return_value=[])
+        env2.get_state = Mock(return_value={"id": "env2", "type": "uniform", "layers": []})
 
         scenario.add_environment(env1)
         scenario.add_environment(env2)
@@ -301,8 +303,6 @@ class TestDefaultSimulationHandler:
         # Add a mock environment
         env = Mock()
         env.id = "test_env"
-        env.get_model_dict = Mock(return_value={"x": 10})
-        env.get_agent_list = Mock(return_value=[{"id": "agent1", "x": 5, "y": 5}])
         env.get_state = Mock(
             return_value={
                 "id": "test_env",
@@ -337,8 +337,6 @@ class TestDefaultSimulationHandler:
 
         env = Mock()
         env.id = "test_env"
-        env.get_model_dict = Mock(return_value={})
-        env.get_agent_list = Mock(return_value=[])
         env.get_state = Mock(
             return_value={"id": "test_env", "type": "uniform", "layers": []}
         )

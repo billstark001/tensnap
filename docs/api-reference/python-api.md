@@ -547,16 +547,69 @@ Signal the end of a simulation time step.
 await server.end_time_step(step)
 ```
 
-##### `async update_agents_batch(env_id: str | int, updates: list[dict])`
+##### `async update_layer_metadata(env_id: str | int, layer_id: str, data: dict[str, Any])`
 
-Send batch agent updates for an environment.
+Send a metadata update for one explicit layer.
 
 ```python
-updates = [
-    {"id": "agent1", "x": 10.5, "y": 20.3},
-    {"id": "agent2", "x": 15.1, "y": 18.7, "color": "#ff0000"}
-]
-await server.update_agents_batch("main", updates)
+await server.update_layer_metadata(
+    "main",
+    "grid",
+    {"width": 50, "height": 50},
+)
+```
+
+##### `async update_layer_agents(env_id: str | int, layer_id: str, *, creates=None, updates=None, deletes=None)`
+
+Send layer-scoped agent creates, updates, and deletes.
+
+```python
+await server.update_layer_agents(
+    "main",
+    "agents",
+    creates=[{"id": "agent1", "x": 10.5, "y": 20.3}],
+    updates=[{"id": "agent2", "x": 15.1, "y": 18.7, "color": "#ff0000"}],
+    deletes=["agent3"],
+)
+```
+
+##### `async update_layer_edges(env_id: str | int, layer_id: str, *, creates=None, updates=None, deletes=None)`
+
+Send layer-scoped edge creates, updates, and deletes.
+
+```python
+await server.update_layer_edges(
+    "main",
+    "edges",
+    creates=[{"source": "a", "target": "b", "color": "#666666"}],
+)
+```
+
+##### `async replace_layer_state(env_id: str | int, layer_state: EnvironmentLayerState)`
+
+Replace one existing layer by deleting and recreating it.
+
+```python
+await server.replace_layer_state(
+    "main",
+    {
+        "layer_id": "patches",
+        "layer_type": "agent",
+        "agents": [{"id": "patch:0:0", "x": 0, "y": 0, "icon": "square"}],
+    },
+)
+```
+
+##### `async replace_environment_layers(env_id: str | int, env_type: Literal["uniform", "2d"], layers: list[EnvironmentLayerState])`
+
+Recreate an environment snapshot from a new list of layers.
+
+```python
+await server.replace_environment_layers(
+    "main",
+    "2d",
+    [{"layer_id": "agents", "layer_type": "agent", "agents": updates}],
+)
 ```
 
 ##### `async update_charts(time: int = None)`
