@@ -27,6 +27,7 @@ import type {
   ParameterSyncPayload,
   ScenarioEnvironmentType,
   ScreenshotRequestPayload,
+  StateSyncBoundaryPayload,
   StateSyncRequest,
 } from '../protocol';
 
@@ -74,6 +75,8 @@ export interface ScenarioSnapshot {
 
 export interface ScenarioEventDetailMap {
   'metadata:update': MetadataUpdatePayload;
+  'state_sync:begin': StateSyncBoundaryPayload;
+  'state_sync:end': StateSyncBoundaryPayload;
   'action:end': ActionEndPayload;
   'action:create': Action;
   'action:update': Action;
@@ -107,9 +110,9 @@ export interface ScenarioEventDetailMap {
 export type ScenarioEventType = keyof ScenarioEventDetailMap;
 
 export interface ScenarioMessageFactory {
-  createStateSyncMessage(): { type: 'state_sync'; payload: StateSyncRequest };
+  createStateSyncMessage(requestId?: string): { type: 'state_sync'; payload: StateSyncRequest };
   createParamChangeMessage(id: string, value: unknown): { type: 'param_change'; payload: ParameterChangePayload };
-  createActionStartMessage(id: string, continuous?: boolean): { type: 'action_start'; payload: ActionStartPayload };
+  createActionStartMessage(id: string, continuous?: boolean, tickId?: string): { type: 'action_start'; payload: ActionStartPayload };
   createAssetSyncMessage(): { type: 'asset_sync'; payload: { assets: Record<string, string> } };
 }
 

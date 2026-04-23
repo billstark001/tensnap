@@ -2,6 +2,7 @@ import { SetStateAction } from 'react';
 import {
   Action,
   Parameter,
+  StateSyncBoundaryPayload,
   Scenario,
   ScenarioSnapshot,
   ScenarioEnvironmentState,
@@ -18,6 +19,14 @@ import {
 } from '@tensnap/core';
 import { ContainerView } from '../../types/ui';
 import { UpdateTriggerState } from '../update-trigger';
+
+export type StateSyncPhase = 'idle' | 'requested' | 'receiving';
+
+export interface StateSyncStatus {
+  requestId: string | null;
+  phase: StateSyncPhase;
+  autoLayoutOnComplete: boolean;
+}
 
 export interface SnapshotDraft {
   id?: string;
@@ -50,6 +59,7 @@ export interface ScenarioStore {
   maxSnapshots: number;
   mainView: ContainerView;
   connected: boolean;
+  stateSync: StateSyncStatus;
   _revision: number;
   _assetRevision: number;
   viewUpdateTrigger: UpdateTriggerState;
@@ -57,6 +67,10 @@ export interface ScenarioStore {
   parameterUpdateTrigger: UpdateTriggerState;
 
   setConnected: (connected: boolean) => void;
+  prepareStateSync: (requestId: string, options?: { autoLayoutOnComplete?: boolean }) => void;
+  handleStateSyncBoundary: (phase: 'begin' | 'end', payload: StateSyncBoundaryPayload) => void;
+  resetStateSync: () => void;
+  isMainViewAutoLayoutCandidate: () => boolean;
   setMainView: (view: SetStateAction<ContainerView>) => void;
   updateMainViewLayout: () => void;
 
@@ -75,9 +89,9 @@ export interface ScenarioStore {
   updateChartProps: (id: string, props: Partial<ChartGroup>) => void;
   renameChartGroup: (id: string, newId: string) => void;
 
-  createStateSyncMessage: () => RendererToSimulatorMessage<StateSyncRequest>;
+  createStateSyncMessage: (requestId?: string) => RendererToSimulatorMessage<StateSyncRequest>;
   createParamChangeMessage: (id: string, value: unknown) => RendererToSimulatorMessage<ParameterChangePayload>;
-  createActionStartMessage: (id: string, continuous?: boolean) => RendererToSimulatorMessage<ActionStartPayload>;
+  createActionStartMessage: (id: string, continuous?: boolean, tickId?: string) => RendererToSimulatorMessage<ActionStartPayload>;
   createAssetSyncMessage: () => RendererToSimulatorMessage<{ assets: Record<string, string> }>;
   createScreenshotResponseMessage: (payload: ScreenshotResponsePayload) => RendererToSimulatorMessage<ScreenshotResponsePayload>;
 

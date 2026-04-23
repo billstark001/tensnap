@@ -52,6 +52,11 @@ function attachConnectedTransport(session: any, onSend?: (message: any) => void)
 
 
 function applySessionMessage(session: any, message: any): void {
+  if (typeof session.handleMessage === 'function') {
+    session.handleMessage(message);
+    return;
+  }
+
   session.scenario.apply(message);
   session.emit('message', message);
 }
@@ -169,7 +174,10 @@ describe('RuntimeControlServer', () => {
       });
 
       setTimeout(() => {
-        session.emit('action-end', { id: 'step', continue: true });
+        applySessionMessage(session as any, {
+          type: 'action_end',
+          payload: { id: 'step', continue: true },
+        });
       }, 20);
 
       const response = await responsePromise;
@@ -268,7 +276,10 @@ describe('RuntimeControlServer', () => {
 
       if (message.payload.id === 'reset') {
         setTimeout(() => {
-          session.emit('action-end', { id: 'reset', continue: true });
+          applySessionMessage(session as any, {
+            type: 'action_end',
+            payload: { id: 'reset', continue: true },
+          });
         }, 10);
         return;
       }
@@ -283,7 +294,10 @@ describe('RuntimeControlServer', () => {
             type: 'chart_update',
             payload: { updates: [{ id: 'alive', time: 10, value: 5 }] },
           });
-          session.emit('action-end', { id: 'start', continue: false });
+          applySessionMessage(session as any, {
+            type: 'action_end',
+            payload: { id: 'start', continue: false },
+          });
         }, 10);
       }
     });
@@ -342,8 +356,22 @@ describe('RuntimeControlServer', () => {
         { type: 'param_change', payload: { id: 'speed', value: 2 } },
       ]);
       expect(sentMessages.filter((message) => message.type === 'action_start')).toEqual([
-        { type: 'action_start', payload: { id: 'reset', continuous: undefined } },
-        { type: 'action_start', payload: { id: 'start', continuous: undefined } },
+        expect.objectContaining({
+          type: 'action_start',
+          payload: expect.objectContaining({
+            id: 'reset',
+            continuous: false,
+            tick_id: expect.any(String),
+          }),
+        }),
+        expect.objectContaining({
+          type: 'action_start',
+          payload: expect.objectContaining({
+            id: 'start',
+            continuous: false,
+            tick_id: expect.any(String),
+          }),
+        }),
       ]);
     } finally {
       await server.close();

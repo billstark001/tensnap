@@ -36,7 +36,7 @@ v0.1 used `parameter_change` and handled parameter definition exclusively throug
 
 ### State synchronization
 
-v0.1 `state_sync` responded with a differential payload (`added_*` / `removed_*` / `updated_*`). v0.2 simplifies this: the renderer sends its current state summary and the simulator replays the necessary `*_create` / `*_update` / `*_delete` messages. No dedicated response message type is needed.
+v0.1 `state_sync` responded with a differential payload (`added_*` / `removed_*` / `updated_*`). v0.2 simplifies this: the renderer sends its current state summary and the simulator replays the necessary `*_create` / `*_update` / `*_delete` messages. The replay is bracketed by additive `state_sync_begin` / `state_sync_end` messages so reconnect and initial sync can be treated as an explicit transaction rather than inferred from timing gaps.
 
 ### Chart lifecycle
 
@@ -192,6 +192,8 @@ These messages mutate renderer-side Scenario state.
 ```typescript
 type SimulatorToRendererMessageType =
   | 'metadata_update'
+  | 'state_sync_begin'
+  | 'state_sync_end'
   | 'action_end'
   | 'action_create'
   | 'action_update'
@@ -256,6 +258,21 @@ Carries scenario-wide metadata, including time.
 
 This replaces the older split between time_step_start and time_step_end.
 
+### `state_sync_begin` / `state_sync_end`
+
+Brackets a simulator replay triggered by `state_sync`.
+
+```typescript
+{
+  type: 'state_sync_begin' | 'state_sync_end',
+  payload: {
+    request_id?: string;
+  }
+}
+```
+
+`request_id` is renderer-generated when present. Simulators should echo it verbatim so transports can correlate reconnect and initial-sync transactions without making Scenario itself aware of transport session state.
+
 ### `action_create` / `action_update` / `action_delete`
 
 Registers and maintains renderer-visible actions.
@@ -284,12 +301,23 @@ Signals completion of a simulator action execution.
   type: 'action_end',
   payload: {
     id: string;
+    tick_id?: string;
     continue?: boolean;
+    timings?: {
+      simulate_ms?: number;
+      communicate_ms?: number;
+      render_ms?: number;
+      [key: string]: number | undefined;
+    };
   }
 }
 ```
 
 When a renderer started a continuous action loop, explicit `continue: false` stops the loop. Any other value means the renderer may continue.
+
+`tick_id` is renderer-generated when the action was dispatched by a runtime that tracks in-flight ticks. Simulators should echo it back untouched.
+
+`timings` is additive and optional. It is intended for per-tick instrumentation and may be partially populated by either side.
 
 ### `env_create` / `env_delete`
 
@@ -579,6 +607,7 @@ It describes the renderer's current in-memory state summary so the simulator can
 {
   type: 'state_sync',
   payload: {
+    request_id?: string;
     parameters: Parameter[];
     actions: Action[];
     envs: Array<{
@@ -592,6 +621,8 @@ It describes the renderer's current in-memory state summary so the simulator can
 ```
 
 The simulator does not answer with a reverse `state_sync`. It replies by emitting the corresponding create, update, and delete messages.
+
+When the renderer needs to correlate a specific replay transaction, it should include `request_id`. The simulator should mirror that value in `state_sync_begin` and `state_sync_end`.
 
 ### `param_change`
 
@@ -610,12 +641,15 @@ Starts one action execution.
   type: 'action_start',
   payload: {
     id: string;
+    tick_id?: string;
     continuous?: boolean;
   }
 }
 ```
 
 `continuous` requests a renderer-driven loop rather than a simulator-owned loop.
+
+`tick_id` is optional and lets the renderer runtime correlate `action_end` with a particular in-flight dispatch.
 
 ### `asset_sync`
 
@@ -679,6 +713,16 @@ This keeps the simulator simpler:
 - no long-running implicit event loop in the transport layer
 - explicit step boundaries on the wire
 - easier reconnection and renderer ownership of playback semantics
+
+### Timing bucket definitions
+
+The protocol reserves three canonical timing buckets for per-tick diagnostics:
+
+- `simulate_ms`: simulator-side model advancement and action handler execution
+- `communicate_ms`: simulator snapshot or encode work, transport delivery, and renderer decode or apply work up to the point where render can begin
+- `render_ms`: renderer-side scene or DOM commit after state application
+
+The wire format does not require a single side to populate all three buckets at once. Producers may report only the portion they can measure, and a shared runtime may assemble a full per-tick view later.
 
 Reserved action ids:
 

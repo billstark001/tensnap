@@ -9,6 +9,7 @@ import type {
   ScreenshotResponsePayload,
   SimulatorToRendererMessage,
 } from '@tensnap/core/protocol';
+import { PipelineRuntime } from '@tensnap/core/runtime';
 import { Scenario, type ScenarioSnapshot } from '@tensnap/core/scenario';
 import { getReservedSceneActionAlias, getReservedSceneActionId, type SceneReservedAction } from './reserved-actions';
 import { NodeWebSocketTransport } from './NodeWebSocketTransport';
@@ -42,6 +43,7 @@ function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneEnvironmentSumm
 export class AgentSession extends EventEmitter {
   readonly scenario = new Scenario();
 
+  private readonly runtime = new PipelineRuntime();
   private transport: NodeWebSocketTransport | null = null;
   private currentUrl: string | null = null;
   private currentEncoding: ProtocolEncoding = 'msgpack';
@@ -61,6 +63,7 @@ export class AgentSession extends EventEmitter {
   async connect(options: SessionConnectOptions): Promise<void> {
     this.destroyTransport();
     this.scenario.reset();
+    this.runtime.reset();
 
     const transport = new NodeWebSocketTransport(options.url, options.encoding ?? 'msgpack');
     this.transport = transport;
@@ -83,11 +86,14 @@ export class AgentSession extends EventEmitter {
 
   destroy(): void {
     this.destroyTransport();
+    this.runtime.reset();
     this.removeAllListeners();
   }
 
   requestStateSync(): void {
-    this.send(this.scenario.createStateSyncMessage());
+    const requestId = this.createRuntimeRequestId('sync');
+    this.runtime.requestStateSync(requestId);
+    this.send(this.scenario.createStateSyncMessage(requestId));
   }
 
   setParameter(id: string, value: unknown): void {
@@ -95,7 +101,25 @@ export class AgentSession extends EventEmitter {
   }
 
   runAction(id: string, continuous?: boolean): void {
-    this.send(this.scenario.createActionStartMessage(id, continuous));
+    this.runtime.enqueue(id, { continuous: continuous ?? false });
+    this.flushRuntimeCommands();
+  }
+
+  cancelContinuousActions(actionId?: string): void {
+    this.runtime.cancel(actionId);
+  }
+
+  markActionRendered(payload: Pick<ActionEndPayload, 'id' | 'tick_id'>): boolean {
+    const task = this.resolveRuntimeTask(payload);
+    if (!task) {
+      return false;
+    }
+
+    const rendered = this.runtime.markTaskRendered(task.id);
+    if (rendered) {
+      this.flushRuntimeCommands();
+    }
+    return rendered;
   }
 
   runReservedAction(alias: SceneReservedAction, continuous?: boolean): void {
@@ -199,6 +223,15 @@ export class AgentSession extends EventEmitter {
   private handleMessage(message: SimulatorToRendererMessage): void {
     this.scenario.apply(message);
 
+    if (message.type === 'state_sync_begin') {
+      this.runtime.recordStateSyncBoundary('begin', message.payload);
+    }
+
+    if (message.type === 'state_sync_end') {
+      this.runtime.recordStateSyncBoundary('end', message.payload);
+      this.flushRuntimeCommands();
+    }
+
     if (message.type === 'asset_meta') {
       this.send(this.scenario.createAssetSyncMessage());
     }
@@ -208,10 +241,57 @@ export class AgentSession extends EventEmitter {
     }
 
     if (message.type === 'action_end') {
-      this.emit('action-end', message.payload as ActionEndPayload);
+      const payload = message.payload as ActionEndPayload;
+      const task = this.resolveRuntimeTask(payload);
+      if (task) {
+        this.runtime.completeTask(task.id, {
+          continue: payload.continue,
+          timings: payload.timings,
+        });
+        this.runtime.markTaskApplied(task.id);
+      }
+      this.emit('action-end', payload);
     }
 
     this.emit('message', message);
+  }
+
+  private resolveRuntimeTask(payload: Pick<ActionEndPayload, 'id' | 'tick_id'>) {
+    const activeTask = this.runtime.peekActiveTask();
+    if (!activeTask) {
+      return null;
+    }
+
+    if (payload.tick_id) {
+      return activeTask.id === payload.tick_id ? activeTask : null;
+    }
+
+    return activeTask.key === payload.id ? activeTask : null;
+  }
+
+  private flushRuntimeCommands(): void {
+    const commands = this.runtime.consumeCommands();
+    for (const command of commands) {
+      if (command.type !== 'dispatch') {
+        continue;
+      }
+
+      this.send(
+        this.scenario.createActionStartMessage(
+          command.task.key,
+          command.task.continuous,
+          command.task.id,
+        ),
+      );
+    }
+  }
+
+  private createRuntimeRequestId(prefix: string): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
   private send(message: RendererToSimulatorMessage): void {
@@ -230,5 +310,6 @@ export class AgentSession extends EventEmitter {
     this.transport.destroy();
     this.transport = null;
     this.currentUrl = null;
+    this.runtime.reset();
   }
 }

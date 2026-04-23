@@ -39,6 +39,7 @@ import type {
   ScenarioEnvironmentType,
   ScreenshotRequestPayload,
   ScreenshotResponsePayload,
+  StateSyncBoundaryPayload,
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '../protocol';
@@ -142,6 +143,12 @@ export class Scenario extends EventTarget {
       case 'metadata_update':
         this.applyMetadata(message.payload as MetadataUpdatePayload);
         return;
+      case 'state_sync_begin':
+        this.emit('state_sync:begin', message.payload as StateSyncBoundaryPayload);
+        return;
+      case 'state_sync_end':
+        this.emit('state_sync:end', message.payload as StateSyncBoundaryPayload);
+        return;
       case 'action_end':
         this.emit('action:end', message.payload as ActionEndPayload);
         return;
@@ -231,10 +238,11 @@ export class Scenario extends EventTarget {
     }
   }
 
-  createStateSyncMessage(): RendererToSimulatorMessage<StateSyncRequest> {
+  createStateSyncMessage(requestId?: string): RendererToSimulatorMessage<StateSyncRequest> {
     return {
       type: 'state_sync',
       payload: {
+        request_id: requestId,
         parameters: [...this.parametersState.values()].map(cloneValue),
         actions: [...this.actionsState.values()].map(cloneValue),
         envs: [...this.environmentsState.values()].map((environment) => ({
@@ -254,8 +262,8 @@ export class Scenario extends EventTarget {
     return { type: 'param_change', payload: { id, value } };
   }
 
-  createActionStartMessage(id: string, continuous?: boolean): RendererToSimulatorMessage<ActionStartPayload> {
-    return { type: 'action_start', payload: { id, continuous } };
+  createActionStartMessage(id: string, continuous?: boolean, tickId?: string): RendererToSimulatorMessage<ActionStartPayload> {
+    return { type: 'action_start', payload: { id, continuous, tick_id: tickId } };
   }
 
   createAssetSyncMessage(): RendererToSimulatorMessage<{ assets: Record<string, string> }> {

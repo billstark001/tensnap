@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
 import { createDefaultRootLayout, createAutoLayout } from '@/components/view/utils/pack';
+import { AnyView, ContainerView } from '@/types/ui';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { getToastState } from '../toast';
 import {
@@ -12,11 +13,12 @@ import {
   Scenario,
   ScenarioEnvironmentState,
   ScenarioSnapshot,
+  StateSyncBoundaryPayload,
   SimulatorToRendererMessage,
   ScreenshotResponsePayload,
   sanitizeParameter,
 } from '@tensnap/core';
-import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft } from './types';
+import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft, StateSyncStatus } from './types';
 
 const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot) => void) => {
   const snapshot = scenario.dump();
@@ -74,6 +76,41 @@ const getEnvironmentMetadata = (env: ScenarioEnvironmentState) => {
     width: typeof gridData?.width === 'number' ? gridData.width : undefined,
     height: typeof gridData?.height === 'number' ? gridData.height : undefined,
   };
+};
+
+const createIdleStateSyncStatus = (): StateSyncStatus => ({
+  requestId: null,
+  phase: 'idle',
+  autoLayoutOnComplete: false,
+});
+
+const defaultMainView = createDefaultRootLayout();
+
+const isDefaultMainViewLayout = (view: ContainerView) => (
+  view.id === defaultMainView.id
+  && view.type === defaultMainView.type
+  && view.left === defaultMainView.left
+  && view.top === defaultMainView.top
+  && view.width === defaultMainView.width
+  && view.height === defaultMainView.height
+  && view.views.length === 0
+  && view.data?.title === defaultMainView.data.title
+);
+
+const hasMeaningfulMainViewContent = (view: AnyView): boolean => {
+  if (view.type !== 'container') {
+    return !view.disabled;
+  }
+  return view.views.some((child) => hasMeaningfulMainViewContent(child));
+};
+
+const isMainViewAutoLayoutCandidate = (view: ContainerView): boolean => (
+  isDefaultMainViewLayout(view) || !hasMeaningfulMainViewContent(view)
+);
+
+const matchesActiveStateSync = (activeRequestId: string | null, requestId?: string) => {
+  if (!activeRequestId) return false;
+  return requestId === undefined || requestId === activeRequestId;
 };
 
 const subscribeScenario = (
@@ -201,6 +238,7 @@ export const createScenarioStore = () => {
       maxSnapshots: 32,
       mainView: createDefaultRootLayout(),
       connected: false,
+      stateSync: createIdleStateSyncStatus(),
       _revision: 0,
       _assetRevision: 0,
       currentTime: null,
@@ -221,6 +259,43 @@ export const createScenarioStore = () => {
       ),
 
       setConnected: (connected) => set({ connected }),
+
+      prepareStateSync: (requestId, options) => set({
+        stateSync: {
+          requestId,
+          phase: 'requested',
+          autoLayoutOnComplete: options?.autoLayoutOnComplete ?? get().isMainViewAutoLayoutCandidate(),
+        },
+      }),
+
+      handleStateSyncBoundary: (phase, payload: StateSyncBoundaryPayload) => {
+        const activeStateSync = get().stateSync;
+        if (!matchesActiveStateSync(activeStateSync.requestId, payload.request_id)) {
+          return;
+        }
+
+        if (phase === 'begin') {
+          if (activeStateSync.phase !== 'receiving') {
+            set({
+              stateSync: {
+                ...activeStateSync,
+                phase: 'receiving',
+              },
+            });
+          }
+          return;
+        }
+
+        const shouldAutoLayout = activeStateSync.autoLayoutOnComplete && get().isMainViewAutoLayoutCandidate();
+        set({ stateSync: createIdleStateSyncStatus() });
+        if (shouldAutoLayout) {
+          get().updateMainViewLayout();
+        }
+      },
+
+      resetStateSync: () => set({ stateSync: createIdleStateSyncStatus() }),
+
+      isMainViewAutoLayoutCandidate: () => isMainViewAutoLayoutCandidate(get().mainView),
 
       setMainView: (view) => {
         if (typeof view === 'function') {
@@ -257,7 +332,11 @@ export const createScenarioStore = () => {
 
       load: (snapshot) => {
         scenario.load(snapshot);
-        set((state) => ({ _revision: state._revision + 1, currentTime: scenario.time ?? null }));
+        set((state) => ({
+          _revision: state._revision + 1,
+          currentTime: scenario.time ?? null,
+          stateSync: createIdleStateSyncStatus(),
+        }));
       },
 
       clearAll: () => {
@@ -266,6 +345,7 @@ export const createScenarioStore = () => {
           connected: false,
           snapshots: [],
           currentTime: null,
+          stateSync: createIdleStateSyncStatus(),
         });
       },
 
@@ -456,9 +536,9 @@ export const createScenarioStore = () => {
         bumpScenarioState();
       },
 
-      createStateSyncMessage: () => scenario.createStateSyncMessage(),
+      createStateSyncMessage: (requestId) => scenario.createStateSyncMessage(requestId),
       createParamChangeMessage: (id, value) => scenario.createParamChangeMessage(id, value),
-      createActionStartMessage: (id, continuous) => scenario.createActionStartMessage(id, continuous),
+      createActionStartMessage: (id, continuous, tickId) => scenario.createActionStartMessage(id, continuous, tickId),
       createAssetSyncMessage: () => scenario.createAssetSyncMessage(),
       createScreenshotResponseMessage: (payload: ScreenshotResponsePayload) => scenario.createScreenshotResponseMessage(payload),
 

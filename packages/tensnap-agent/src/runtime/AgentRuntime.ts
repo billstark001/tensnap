@@ -297,6 +297,9 @@ export class AgentRuntime extends EventEmitter {
 
   async runAction(id: string, options: ActionRunOptions = {}): Promise<void> {
     this.assertConnected();
+    if (!options.continuous) {
+      this.session.cancelContinuousActions();
+    }
     this.session.runAction(id, options.continuous);
     await this.log('info', 'action', 'Action requested.', {
       id,
@@ -641,24 +644,28 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private async handleActionEnd(payload: ActionEndPayload): Promise<void> {
-    await writeSceneSnapshot(this.context, this.session.getSnapshot());
-    await this.log('info', 'action', 'Action completed.', payload);
-    this.emitRuntimeEvent('action.end', payload);
+    try {
+      await writeSceneSnapshot(this.context, this.session.getSnapshot());
+      await this.log('info', 'action', 'Action completed.', payload);
+      this.emitRuntimeEvent('action.end', payload);
 
-    if (this.control.render.trigger === 'action-end') {
-      const request = this.createRenderRequest({}, `action-end:${payload.id}`, 'action-end');
-      const artifacts = await this.runPainters(request);
+      if (this.control.render.trigger === 'action-end') {
+        const request = this.createRenderRequest({}, `action-end:${payload.id}`, 'action-end');
+        const artifacts = await this.runPainters(request);
 
-      await this.log('info', 'render', 'Auto render executed after action_end.', {
-        actionId: payload.id,
-        artifactCount: artifacts.length,
-      });
-      this.emitRuntimeEvent('render.requested', {
-        reason: `action-end:${payload.id}`,
-        trigger: 'action-end',
-        painterCount: this.painters.size,
-        artifactCount: artifacts.length,
-      });
+        await this.log('info', 'render', 'Auto render executed after action_end.', {
+          actionId: payload.id,
+          artifactCount: artifacts.length,
+        });
+        this.emitRuntimeEvent('render.requested', {
+          reason: `action-end:${payload.id}`,
+          trigger: 'action-end',
+          painterCount: this.painters.size,
+          artifactCount: artifacts.length,
+        });
+      }
+    } finally {
+      this.session.markActionRendered(payload);
     }
   }
 

@@ -8,6 +8,21 @@ import { WebSocketConnectionError, WebSocketManagerImpl } from '@/transport';
 import { useSettingsStore } from './settings';
 import { resolveTransport } from '@/transport/registry';
 
+const getStateSyncItemCount = (state?: StateSyncRequest) => (
+  (state?.parameters.length ?? 0)
+  + (state?.actions.length ?? 0)
+  + (state?.envs.length ?? 0)
+  + (state?.charts.length ?? 0)
+);
+
+const buildStateSyncPayload = (state: StateSyncRequest | undefined, requestId: string): StateSyncRequest => ({
+  request_id: requestId,
+  parameters: state?.parameters ?? [],
+  actions: state?.actions ?? [],
+  envs: state?.envs ?? [],
+  charts: state?.charts ?? [],
+});
+
 export interface TransportStore {
   id: string;
   transport: ISimulatorTransport | null;
@@ -30,7 +45,28 @@ export interface TransportStore {
 
 export const createTransportStore = (
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>,
-) => create<TransportStore>((set, get) => ({
+) => create<TransportStore>((set, get) => {
+  const dispatchStateSync = (transport: ISimulatorTransport, state?: StateSyncRequest) => {
+    const requestId = generateUniqueId();
+    const scenarioStore = useScenarioStore.getState();
+    const payload = buildStateSyncPayload(
+      state ?? scenarioStore.createStateSyncMessage(requestId).payload,
+      requestId,
+    );
+
+    scenarioStore.prepareStateSync(requestId, {
+      autoLayoutOnComplete: scenarioStore.isMainViewAutoLayoutCandidate(),
+    });
+    transport.send({ type: 'state_sync', payload });
+
+    if (transport.transportKind === 'inmemory') {
+      setTimeout(() => {
+        useScenarioStore.getState().handleStateSyncBoundary('end', { request_id: requestId });
+      }, 0);
+    }
+  };
+
+  return ({
   id: generateUniqueId(),
   transport: null,
   connectionId: null,
@@ -48,6 +84,7 @@ export const createTransportStore = (
       unregisterEventHandlers(currentTransport);
       currentTransport.destroy();
     }
+    useScenarioStore.getState().resetStateSync();
 
     const abortController = new AbortController();
     const transport = typeof transportOrUrl === 'string'
@@ -65,22 +102,15 @@ export const createTransportStore = (
     const onOpen = () => {
       set({ isConnecting: false, connectionError: null, abortController: null });
       useScenarioStore.getState().setConnected(true);
-      const isEmptyState = !state || ((state.parameters.length + state.actions.length + state.envs.length + state.charts.length) === 0);
+      const isEmptyState = !state || getStateSyncItemCount(state) === 0;
       if (isEmptyState) {
-        transport.send(useScenarioStore.getState().createStateSyncMessage());
-      }
-      // For in-memory transports with no pre-existing scenario state, auto-trigger layout
-      // after all initial messages have been delivered (they arrive as microtasks, so a
-      // macrotask-level setTimeout(0) fires only after the full initial sync is done).
-      if (transport.transportKind === 'inmemory' && isEmptyState) {
-        setTimeout(() => {
-          useScenarioStore.getState().updateMainViewLayout();
-        }, 0);
+        dispatchStateSync(transport);
       }
     };
 
     const onClose = () => {
       useScenarioStore.getState().setConnected(false);
+      useScenarioStore.getState().resetStateSync();
     };
 
     transport.on('open', onOpen);
@@ -97,15 +127,17 @@ export const createTransportStore = (
         unregisterEventHandlers(transport);
         transport.destroy();
         set({ transport: null });
+        useScenarioStore.getState().resetStateSync();
         throw new Error('Connection was aborted');
       }
-      if (state && (state.parameters.length + state.actions.length + state.envs.length + state.charts.length) > 0) {
-        transport.send({ type: 'state_sync', payload: state });
+      if (state && getStateSyncItemCount(state) > 0) {
+        dispatchStateSync(transport, state);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
       set({ isConnecting: false, connectionError: errorMessage, abortController: null });
       useScenarioStore.getState().setConnected(false);
+      useScenarioStore.getState().resetStateSync();
 
       if (transport.transportKind === 'websocket' && error instanceof WebSocketConnectionError) {
         console.log('Initial connection failed, will auto-reconnect');
@@ -130,8 +162,12 @@ export const createTransportStore = (
   },
 
   requestStateSync: (currentState) => {
-    const { sendMessage } = get();
-    sendMessage({ type: 'state_sync', payload: currentState ?? { parameters: [], actions: [], envs: [], charts: [] } });
+    const { transport } = get();
+    if (!transport) {
+      console.warn('Transport not connected');
+      return;
+    }
+    dispatchStateSync(transport, currentState);
   },
 
   disconnect: () => {
@@ -145,6 +181,7 @@ export const createTransportStore = (
       transport.destroy();
       set({ transport: null });
       useScenarioStore.getState().setConnected(false);
+      useScenarioStore.getState().resetStateSync();
     }
   },
 
@@ -180,6 +217,7 @@ export const createTransportStore = (
       abortController: null,
     });
     useScenarioStore.getState().setConnected(false);
+    useScenarioStore.getState().resetStateSync();
   },
 
   abortConnection: () => {
@@ -187,9 +225,11 @@ export const createTransportStore = (
     if (abortController) {
       abortController.abort();
       set({ isConnecting: false, connectionError: 'Connection aborted by user', abortController: null });
+      useScenarioStore.getState().resetStateSync();
     }
   },
-}));
+  });
+});
 
 export const {
   Provider: TransportStoreProvider,

@@ -124,9 +124,21 @@ export const MetadataUpdatePayloadSchema = z.object({
   time: z.number().optional(),
 }).loose();
 
+export const StateSyncBoundaryPayloadSchema = z.object({
+  request_id: z.string().optional(),
+});
+
+export const TickTimingBreakdownSchema = z.object({
+  simulate_ms: z.number().nonnegative().optional(),
+  communicate_ms: z.number().nonnegative().optional(),
+  render_ms: z.number().nonnegative().optional(),
+}).catchall(z.number().nonnegative());
+
 export const ActionEndPayloadSchema = z.object({
   id: z.string(),
+  tick_id: z.string().optional(),
   continue: z.boolean().optional(),
+  timings: TickTimingBreakdownSchema.optional(),
 });
 
 export const ActionDeletePayloadSchema = z.object({ id: z.string() });
@@ -261,6 +273,7 @@ export const ScreenshotResponsePayloadSchema = z.object({
 });
 
 export const StateSyncRequestSchema = z.object({
+  request_id: z.string().optional(),
   parameters: z.array(ParameterSchema),
   actions: z.array(ActionSchema),
   envs: z.array(z.object({
@@ -278,12 +291,15 @@ export const ParameterChangePayloadSchema = z.object({
 
 export const ActionStartPayloadSchema = z.object({
   id: z.string(),
+  tick_id: z.string().optional(),
   continuous: z.boolean().optional(),
 });
 
 export const SimulatorToRendererMessageSchema = z.object({
   type: z.enum([
     'metadata_update',
+    'state_sync_begin',
+    'state_sync_end',
     'action_end',
     'action_create',
     'action_update',
@@ -338,6 +354,8 @@ export const AnyProtocolMessageSchema = z.union([
 export const getPayloadSchema = (type: string) => {
   switch (type) {
     case 'metadata_update': return MetadataUpdatePayloadSchema;
+    case 'state_sync_begin': return StateSyncBoundaryPayloadSchema;
+    case 'state_sync_end': return StateSyncBoundaryPayloadSchema;
     case 'action_end': return ActionEndPayloadSchema;
     case 'action_create': return ActionSchema;
     case 'action_update': return ActionSchema;

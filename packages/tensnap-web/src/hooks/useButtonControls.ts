@@ -1,97 +1,97 @@
 import { useTransportStore } from "@/store/transport";
 import { useScenarioStore } from '@/store/scenario/store';
 import { useSettingsStore } from '@/store/settings';
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ActionEndPayload } from '@tensnap/core';
-import { SimulationLoopController } from '@/store/simulation-loop';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createIdleLoopState, SimulationLoopController } from '@/store/simulation-loop';
+
+type ActionEventSource = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;
+
+const controllerCache = new WeakMap<ActionEventSource, SimulationLoopController>();
 
 
+const getSimulationLoopController = (scenario: ActionEventSource): SimulationLoopController => {
+  let controller = controllerCache.get(scenario);
+  if (!controller) {
+    controller = new SimulationLoopController(scenario);
+    controllerCache.set(scenario, controller);
+  }
+  return controller;
+};
 
 export function useButtonControls() {
   const sendMessage = useTransportStore((state) => state.sendMessage);
   const createActionStartMessage = useScenarioStore((state) => state.createActionStartMessage);
   const actions = useScenarioStore((state) => state.actions);
   const scenario = useScenarioStore((state) => state.scenario);
+  const stateSync = useScenarioStore((state) => state.stateSync);
   const renderTriggerMode = useSettingsStore((state) => state.renderTriggerMode);
+  const maxTps = useSettingsStore((state) => state.maxTps);
   const maxRenderFps = useSettingsStore((state) => state.maxRenderFps);
   const setRuntimeMetrics = useSettingsStore((state) => state.setRuntimeMetrics);
 
-  const loopControllerRef = useRef<SimulationLoopController | null>(null);
-  const [runningActions, setRunningActions] = useState<ReadonlySet<string>>(new Set());
+  const loopController = useMemo(() => {
+    if (!scenario) {
+      return null;
+    }
+    return getSimulationLoopController(scenario);
+  }, [scenario]);
+
+  const [loopState, setLoopState] = useState(createIdleLoopState);
 
   useEffect(() => {
-    if (!sendMessage || !createActionStartMessage || !scenario) {
+    if (!loopController) {
+      setLoopState(createIdleLoopState());
       return;
     }
 
-    loopControllerRef.current?.dispose();
-    loopControllerRef.current = new SimulationLoopController(sendMessage, createActionStartMessage, {
-      mode: renderTriggerMode,
-      maxTps: maxRenderFps,
-      onMetricsChange: setRuntimeMetrics,
+    const release = loopController.retain();
+    const unsubscribe = loopController.subscribe(() => {
+      setLoopState(loopController.getState());
     });
-
-    const handleActionEnd = (event: Event) => {
-      const detail = (event as CustomEvent<ActionEndPayload>).detail;
-      loopControllerRef.current?.handleActionEnd(detail);
-      if (detail.continue === false) {
-        setRunningActions((prev) => {
-          const next = new Set(prev);
-          next.delete(detail.id);
-          return next;
-        });
-      }
-    };
-
-    scenario.addEventListener('action:end', handleActionEnd);
+    setLoopState(loopController.getState());
 
     return () => {
-      scenario.removeEventListener('action:end', handleActionEnd);
-      loopControllerRef.current?.dispose();
-      loopControllerRef.current = null;
-      setRunningActions(new Set());
-      setRuntimeMetrics({ tps: null, mspt: null });
+      unsubscribe();
+      release();
     };
-  }, [scenario, sendMessage, createActionStartMessage, renderTriggerMode, maxRenderFps, setRuntimeMetrics]);
+  }, [loopController]);
+
+  useEffect(() => {
+    loopController?.updateOptions({
+      sendMessage,
+      createActionStartMessage,
+      mode: renderTriggerMode,
+      maxTps,
+      maxRenderFps,
+      onMetricsChange: setRuntimeMetrics,
+    });
+  }, [loopController, sendMessage, createActionStartMessage, renderTriggerMode, maxTps, maxRenderFps, setRuntimeMetrics]);
+
+  useEffect(() => {
+    if (!loopController || !stateSync) {
+      return;
+    }
+
+    loopController.syncStateSync(stateSync);
+  }, [loopController, stateSync]);
 
   const handleButtonAction = useCallback(
     (action: string, continuous?: boolean) => {
-      if (!sendMessage || !createActionStartMessage) {
+      if (!loopController?.canDispatch()) {
         return;
       }
 
       const actionMeta = actions?.get(action);
       const isContinuous = continuous ?? actionMeta?.continuous ?? false;
-      const loopController = loopControllerRef.current;
 
-      if (isContinuous && loopController) {
-        if (loopController.isRunning(action)) {
-          loopController.stop(action);
-          setRunningActions((prev) => {
-            const next = new Set(prev);
-            next.delete(action);
-            return next;
-          });
-          return;
-        }
-        loopController.start(action);
-        setRunningActions((prev) => new Set([...prev, action]));
-        return;
-      }
-
-      if (loopController) {
-        loopController.stop();
-        setRunningActions(new Set());
-      }
-
-      sendMessage(createActionStartMessage(action, false));
+      loopController.requestAction(action, isContinuous);
     },
-    [actions, createActionStartMessage, sendMessage]
+    [actions, loopController]
   );
 
   const isRunning = useCallback(
-    (id: string) => runningActions.has(id),
-    [runningActions]
+    (id: string) => loopState.runningActions.has(id),
+    [loopState.runningActions]
   );
 
   return {

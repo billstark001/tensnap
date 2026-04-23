@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './store';
+import { createDefaultRootLayout } from '@/components/view/utils/create-view';
 
 describe('scenario store updates preserve assets', () => {
   beforeEach(() => {
@@ -39,5 +40,41 @@ describe('scenario store updates preserve assets', () => {
 
     expect(state.scenario.assets.getUrl('agent-icon')).toBe('blob:test-asset');
     expect(state.scenario.assets.getHeldHashes()).toEqual({ 'agent-icon': 'hash-1' });
+  });
+
+  it('auto-applies layout when a matching sync ends on a default main view', () => {
+    const useStore = createScenarioStore();
+    const state = useStore.getState();
+
+    state.applyMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
+    state.prepareStateSync('sync-1', { autoLayoutOnComplete: true });
+    state.handleStateSyncBoundary('end', { request_id: 'sync-1' });
+
+    expect(useStore.getState().mainView.views.length).toBeGreaterThan(0);
+    expect(useStore.getState().stateSync.phase).toBe('idle');
+  });
+
+  it('does not auto-apply layout when the main view already has user content', () => {
+    const useStore = createScenarioStore();
+    const state = useStore.getState();
+
+    state.applyMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
+    state.setMainView(createDefaultRootLayout([{
+      id: 'custom-button',
+      type: 'button',
+      left: 10,
+      top: 10,
+      width: 120,
+      height: 40,
+      expanded: true,
+      disabled: false,
+      data: { id: 'custom', text: 'Custom' },
+    }]));
+
+    state.prepareStateSync('sync-2', { autoLayoutOnComplete: true });
+    state.handleStateSyncBoundary('end', { request_id: 'sync-2' });
+
+    expect(useStore.getState().mainView.views).toHaveLength(1);
+    expect(useStore.getState().mainView.views[0].id).toBe('custom-button');
   });
 });

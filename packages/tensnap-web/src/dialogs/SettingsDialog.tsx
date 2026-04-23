@@ -32,6 +32,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     clientMessageValidation,
     serverMessageValidation,
     renderTriggerMode,
+    maxTps,
     maxRenderFps,
     setSaveFormat,
     toggleTheme,
@@ -39,6 +40,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     setClientMessageValidation,
     setServerMessageValidation,
     setRenderTriggerMode,
+    setMaxTps,
     setMaxRenderFps,
   } = useSettingsStore();
 
@@ -209,6 +211,24 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
           <div className={styles.settingItem}>
             <label className={styles.settingLabel}><Trans>Max TPS</Trans></label>
+            <div className={styles.settingControl}>
+              <div>
+                <Form.Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={maxTps}
+                  onChange={(e) => setMaxTps(Number(e.target.value))}
+                />
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                  <Trans>0 means unlimited</Trans>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Max FPS</Trans></label>
             <div className={styles.settingControl}>
               <div>
                 <Form.Input

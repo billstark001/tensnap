@@ -1,4 +1,7 @@
+import { PipelineRuntime } from '@tensnap/core/runtime';
 import { BenchmarkCase, BenchmarkStats } from './types';
+
+const BENCHMARK_TASK_KEY = 'benchmark-frame';
 
 /** Yield one event-loop turn via requestAnimationFrame (browser paint boundary). */
 function waitFrame(): Promise<DOMHighResTimeStamp> {
@@ -22,35 +25,61 @@ export async function runBenchmark(
   warmupFrames = 10,
   onProgress?: (done: number, total: number) => void
 ): Promise<BenchmarkStats> {
-  // --- setup ---
   await benchCase.setup(container);
 
-  // --- warmup ---
-  for (let i = 0; i < warmupFrames; i++) {
-    benchCase.tick(i);
-    await waitFrame();
-    onProgress?.(0, frames); // still 0 real progress during warmup
-  }
-
-  // --- measured run ---
+  const runtime = new PipelineRuntime();
+  const totalFrames = warmupFrames + frames;
   const timings: number[] = [];
-  const runStartedAt = performance.now();
+  let runStartedAt: number | null = null;
+  let frameIndex = 0;
 
-  for (let i = 0; i < frames; i++) {
-    const t0 = performance.now();
-    benchCase.tick(i);
-    const computeElapsed = performance.now() - t0;
-    timings.push(computeElapsed);
-    await waitFrame();
-    onProgress?.(i + 1, frames);
+  runtime.enqueue(BENCHMARK_TASK_KEY, { continuous: true });
+
+  try {
+    while (frameIndex < totalFrames) {
+      const command = runtime.consumeCommands()[0];
+      if (!command || command.type !== 'dispatch') {
+        throw new Error('Benchmark runtime stalled before completing all frames.');
+      }
+
+      const isMeasuredFrame = frameIndex >= warmupFrames;
+      if (isMeasuredFrame && runStartedAt == null) {
+        runStartedAt = performance.now();
+      }
+
+      const t0 = performance.now();
+      benchCase.tick(frameIndex);
+      const computeElapsed = performance.now() - t0;
+      if (isMeasuredFrame) {
+        timings.push(computeElapsed);
+      }
+
+      runtime.completeTask(command.task.id, {
+        continue: frameIndex + 1 < totalFrames,
+      });
+      runtime.markTaskApplied(command.task.id);
+
+      await waitFrame();
+      runtime.markTaskRendered(command.task.id);
+
+      if (isMeasuredFrame) {
+        onProgress?.(frameIndex - warmupFrames + 1, frames);
+      } else {
+        onProgress?.(0, frames);
+      }
+
+      frameIndex += 1;
+    }
+
+    const runEndedAt = performance.now();
+    const runDurationMs = runStartedAt == null
+      ? 1
+      : Math.max(1, runEndedAt - runStartedAt);
+
+    return computeStats(benchCase.name, benchCase.config, timings, runDurationMs);
+  } finally {
+    await benchCase.teardown();
   }
-  const runEndedAt = performance.now();
-  const runDurationMs = Math.max(1, runEndedAt - runStartedAt);
-
-  // --- teardown ---
-  await benchCase.teardown();
-
-  return computeStats(benchCase.name, benchCase.config, timings, runDurationMs);
 }
 
 function computeStats(

@@ -403,6 +403,7 @@ class TestTenSnapServer:
         await server._handle_state_sync(
             mock_ws,
             {
+                "request_id": "sync-1",
                 "parameters": [],
                 "actions": [],
                 "envs": [
@@ -422,6 +423,14 @@ class TestTenSnapServer:
         sent_messages = [
             json.loads(call.args[0]) for call in mock_ws.send.await_args_list
         ]
+        assert sent_messages[0] == {
+            "type": "state_sync_begin",
+            "payload": {"request_id": "sync-1"},
+        }
+        assert sent_messages[-1] == {
+            "type": "state_sync_end",
+            "payload": {"request_id": "sync-1"},
+        }
         assert any(
             msg["type"] == "edge_create"
             and msg["payload"]["layer_id"] == "edges"
@@ -577,7 +586,7 @@ class TestTenSnapServer:
 
     @pytest.mark.asyncio
     async def test_compute_action_deltas(self, server: TenSnapServer):
-        """Test computing action deltas for state sync (v0.2)"""
+        """Test computing action deltas for state sync (v0.2 custom actions)."""
         action1 = ActionMetadata(id="start", label="Start")
         action2 = ActionMetadata(id="stop", label="Stop")
 
@@ -630,6 +639,15 @@ class TestTenSnapServer:
 
         mock_ws = AsyncMock()
 
-        await server._handle_action_start(mock_ws, {"id": "test_action"})
+        await server._handle_action_start(mock_ws, {"id": "test_action", "tick_id": "tick-1"})
 
         assert clicked["value"] is True
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_ws.send.await_args_list
+        ]
+        assert len(sent_messages) == 1
+        assert sent_messages[0]["type"] == "action_end"
+        assert sent_messages[0]["payload"]["id"] == "test_action"
+        assert sent_messages[0]["payload"]["tick_id"] == "tick-1"
+        assert "continue" not in sent_messages[0]["payload"]
+        assert sent_messages[0]["payload"]["timings"]["simulate_ms"] >= 0

@@ -16,6 +16,7 @@ import base64
 import json
 import logging
 import datetime
+import time
 from uuid import uuid4
 from websockets.asyncio.server import serve, ServerConnection
 from websockets.protocol import State as WebSocketState
@@ -69,6 +70,8 @@ if TYPE_CHECKING:
 
 class ServerToClientMessageType(Enum):
     METADATA_UPDATE = "metadata_update"
+    STATE_SYNC_BEGIN = "state_sync_begin"
+    STATE_SYNC_END = "state_sync_end"
     ACTION_END = "action_end"
     ACTION_CREATE = "action_create"
     ACTION_UPDATE = "action_update"
@@ -669,6 +672,17 @@ class TenSnapServer:
         self, ws: ServerConnection, req: "StateSyncRequest"
     ) -> None:
         """v0.2: respond to state_sync with individual CUD messages."""
+        request_id = req.get("request_id")
+        boundary_payload: Dict[str, Any] = {}
+        if request_id is not None:
+            boundary_payload["request_id"] = request_id
+
+        await self._send(
+            ws,
+            ServerToClientMessageType.STATE_SYNC_BEGIN,
+            boundary_payload,
+        )
+
         params, actions, envs, charts = await asyncio.gather(
             self._compute_parameter_deltas(req.get("parameters", [])),
             self._compute_action_deltas(req.get("actions", [])),
@@ -677,47 +691,54 @@ class TenSnapServer:
         )
         client_env_map = {env["id"]: env for env in req.get("envs", [])}
 
-        # Actions (action_create / action_update / action_delete)
-        for action_dict in actions["added"]:
-            await self._send(ws, ServerToClientMessageType.ACTION_CREATE, action_dict)
-        for action_id in actions["removed"]:
-            await self._send(
-                ws, ServerToClientMessageType.ACTION_DELETE, {"id": action_id}
-            )
-        for action_dict in actions["updated"]:
-            await self._send(ws, ServerToClientMessageType.ACTION_UPDATE, action_dict)
+        try:
+            # Actions (action_create / action_update / action_delete)
+            for action_dict in actions["added"]:
+                await self._send(ws, ServerToClientMessageType.ACTION_CREATE, action_dict)
+            for action_id in actions["removed"]:
+                await self._send(
+                    ws, ServerToClientMessageType.ACTION_DELETE, {"id": action_id}
+                )
+            for action_dict in actions["updated"]:
+                await self._send(ws, ServerToClientMessageType.ACTION_UPDATE, action_dict)
 
-        # Parameters
-        for param_dict in params["added"]:
-            await self._send(ws, ServerToClientMessageType.PARAM_CREATE, param_dict)
-        for param_id in params["removed"]:
-            await self._send(
-                ws, ServerToClientMessageType.PARAM_DELETE, {"id": param_id}
-            )
-        for param_dict in params["updated"]:
-            await self._send(ws, ServerToClientMessageType.PARAM_UPDATE, param_dict)
+            # Parameters
+            for param_dict in params["added"]:
+                await self._send(ws, ServerToClientMessageType.PARAM_CREATE, param_dict)
+            for param_id in params["removed"]:
+                await self._send(
+                    ws, ServerToClientMessageType.PARAM_DELETE, {"id": param_id}
+                )
+            for param_dict in params["updated"]:
+                await self._send(ws, ServerToClientMessageType.PARAM_UPDATE, param_dict)
 
-        # Environments (full layer-oriented snapshot replay)
-        for env_state in envs["added"]:
-            await self._send_environment_snapshot(ws, env_state)
-        for env_id in envs["removed"]:
-            await self._send(ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id})
-        for env_state in envs["updated"]:
-            await self._send_environment_snapshot(
+            # Environments (full layer-oriented snapshot replay)
+            for env_state in envs["added"]:
+                await self._send_environment_snapshot(ws, env_state)
+            for env_id in envs["removed"]:
+                await self._send(ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id})
+            for env_state in envs["updated"]:
+                await self._send_environment_snapshot(
+                    ws,
+                    env_state,
+                    client_env_map.get(env_state["id"]),
+                )
+
+            # Charts
+            for chart_dict in charts["added"]:
+                await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
+            for chart_id in charts["removed"]:
+                await self._send(
+                    ws, ServerToClientMessageType.CHART_DELETE, {"id": chart_id}
+                )
+            for chart_dict in charts["updated"]:
+                await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
+        finally:
+            await self._send(
                 ws,
-                env_state,
-                client_env_map.get(env_state["id"]),
+                ServerToClientMessageType.STATE_SYNC_END,
+                boundary_payload,
             )
-
-        # Charts
-        for chart_dict in charts["added"]:
-            await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
-        for chart_id in charts["removed"]:
-            await self._send(
-                ws, ServerToClientMessageType.CHART_DELETE, {"id": chart_id}
-            )
-        for chart_dict in charts["updated"]:
-            await self._send(ws, ServerToClientMessageType.CHART_CREATE, chart_dict)
 
     async def _handle_param_change(
         self, ws: ServerConnection, payload: Dict[str, Any]
@@ -741,11 +762,13 @@ class TenSnapServer:
         self, ws: ServerConnection, payload: Dict[str, Any]
     ) -> None:
         action = payload.get("id")
+        tick_id = payload.get("tick_id")
         if action not in self.button_handlers:
             logger.warning(f"No handler found for action: {action}")
             return
 
         handler = self.button_handlers[action]
+        started_at = time.perf_counter()
         try:
             if asyncio.iscoroutinefunction(handler):
                 result = await handler()
@@ -754,8 +777,13 @@ class TenSnapServer:
             # Send action_end; result can be False to stop a continuous loop
             continue_flag = None if result is None else bool(result)
             end_payload: Dict[str, Any] = {"id": action}
+            if tick_id is not None:
+                end_payload["tick_id"] = tick_id
             if continue_flag is not None:
                 end_payload["continue"] = continue_flag
+            end_payload["timings"] = {
+                "simulate_ms": max(0.0, (time.perf_counter() - started_at) * 1000.0)
+            }
             await self._send(ws, ServerToClientMessageType.ACTION_END, end_payload)
         except Exception as e:
             logger.exception(f"Error handling action {action}: {e}")

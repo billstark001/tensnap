@@ -207,6 +207,10 @@ class TestSimulationScenario:
         assert "start" in scenario.server.button_handlers
         assert "step" in scenario.server.button_handlers
         assert "reset" in scenario.server.button_handlers
+        assert "stop" not in scenario.server.button_handlers
+        assert scenario.server.actions["start"].continuous is True
+        assert scenario.server.actions["step"].continuous is False
+        assert scenario.server.actions["reset"].continuous is False
 
     def test_add_actions_from_object(self, scenario: SimulationScenario):
         """Test adding actions from an object"""

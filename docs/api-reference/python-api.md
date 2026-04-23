@@ -58,13 +58,14 @@ def track_population():
 scenario.add_charts(globals())
 
 # Register handlers
-scenario.register_model_handler(
-    init_func=my_model.initialize,
-    step_func=my_model.step
-)
+scenario.add_actions({})
 
 # Run
 async def main():
+    await scenario.register_model_handler(
+        my_model.initialize,
+        my_model.step,
+    )
     await scenario.run()
 
 if __name__ == "__main__":
@@ -99,11 +100,11 @@ scenario = SimulationScenario(
 
 - `server` (TenSnapServer): Access to underlying WebSocket server
 - `sim_manager` (SimulationLoop): Access to simulation loop manager
-- `env_binders` (Dict[str, EnvironmentModel]): Registered environment binders
+- `env_binders` (Dict[str, EnvironmentBinderProtocol]): Registered environment binders
 
 #### Methods
 
-##### `add_environment(env: EnvironmentModel)`
+##### `add_environment(env: EnvironmentBinderProtocol)`
 
 Register an environment binder with the scenario.
 
@@ -168,6 +169,8 @@ scenario.add_charts(globals())
 
 Automatically register all `@action` decorated functions from a namespace.
 
+`scenario.add_actions({})` also registers the default renderer-driven controls: `start`, `step`, and `reset`. There is no default `stop`; if you need backend-side stop behavior, register an explicit custom action for it.
+
 ```python
 from tensnap import action
 
@@ -176,14 +179,14 @@ async def reset_sim():
     model.initialize()
     # Reset logic here
 
-@action("pause", "Pause")
-def pause_sim():
-    scenario.sim_manager.stop()
+@action("randomize", "Randomize Positions")
+def randomize_positions():
+    model.randomize_positions()
 
 scenario.add_actions(globals())
 ```
 
-##### `register_model_handler(init_func: Callable, step_func: Callable)`
+##### `async register_model_handler(model_init: Callable | None = None, model_step: Callable | None = None)`
 
 Register simulation initialization and step functions that will be called automatically.
 
@@ -196,9 +199,11 @@ def init_simulation():
 def step_simulation():
     model.step()
 
-scenario.register_model_handler(
-    init_func=init_simulation,
-    step_func=step_simulation
+scenario.add_actions({})
+
+await scenario.register_model_handler(
+    model_init=init_simulation,
+    model_step=step_simulation,
 )
 ```
 
@@ -274,7 +279,7 @@ from tensnap.bindings.basic import (
     EnumParameter,
     BooleanParameter,
     StringParameter,
-    ActionParameter
+    ActionMetadata,
 )
 
 # Number parameter (slider)
@@ -304,8 +309,8 @@ debug_param = BooleanParameter(
     value=False
 )
 
-# Action parameter (button)
-reset_param = ActionParameter(
+# Action metadata (button)
+reset_action = ActionMetadata(
     id="reset",
     label="Reset Simulation"
 )
@@ -353,6 +358,7 @@ def calculate_xy():
 ```
 
 **Parameters:**
+
 - `id` (str): Unique chart identifier
 - `label` (str): Display label in UI
 - `color` (str, optional): Hex color code for single charts
@@ -378,15 +384,17 @@ async def reset_simulation():
 def single_step():
     model.step()
 
-# Without explicit ID (uses function name)
-@action()
-def pause():
-    scenario.sim_manager.stop()
+# Explicit backend-side stop remains opt-in rather than a built-in control.
+@action("halt", "Halt Backend")
+def halt_backend():
+    model.stop_requested = True
 ```
 
 **Parameters:**
+
 - `id` (str, optional): Button identifier (defaults to function name)
 - `label` (str, optional): Display label (defaults to formatted function name)
+- `continuous` (bool, default=False): Mark the action as renderer-driven continuous work. The built-in `start` action uses `continuous=True`.
 - `allow_runtime_change` (bool, default=True): Whether button is enabled during runtime
 
 ## Server API (Low-level)
@@ -414,14 +422,14 @@ server = TenSnapServer(
 #### Properties
 
 - `clients` (set[WebSocketServerProtocol]): Set of connected clients
-- `environments` (Dict[str, EnvironmentModel]): Registered environments
+- `environments` (Dict[str, EnvironmentBinderProtocol]): Registered environments
 - `parameters` (Dict[str, Parameter]): Registered parameters
 - `charts` (Dict[str, Tuple[ChartGroupMetadata, Callable]]): Registered charts
 - `button_handlers` (Dict[str, Callable]): Registered action handlers
 
 #### Methods
 
-##### `add_environment(env: EnvironmentModel)`
+##### `add_environment(env: EnvironmentBinderProtocol)`
 
 Register an environment with the server.
 
@@ -476,19 +484,19 @@ def get_population():
 server.add_chart(get_population, chart_meta)
 ```
 
-##### `add_action(action_parameter: ActionParameter, handler: Callable, add_parameter: bool = True)`
+##### `add_action(action: ActionMetadata, handler: Callable)`
 
 Register an action button with its handler function.
 
 ```python
-from tensnap.bindings.basic import ActionParameter
+from tensnap.bindings.basic import ActionMetadata
 
-action = ActionParameter(id="reset", label="Reset")
+action = ActionMetadata(id="reset", label="Reset")
 
 async def reset_handler():
     model.initialize()
 
-server.add_action(action, reset_handler, add_parameter=True)
+server.add_action(action, reset_handler)
 ```
 
 ##### `remove_environment(env_id: str | int)`
@@ -873,6 +881,7 @@ accessor = make_grid_agent_accessor(
 ```
 
 **Parameters:**
+
 - `heading` (bool, default=False): Whether to read heading attribute
 - `color` (bool, default=False): Whether to read color attribute
 - `icon` (bool, default=False): Whether to read icon attribute

@@ -42,6 +42,7 @@ class EnvironmentStateWithAgentsOmitted(TypedDict):
 
 
 class StateSyncRequest(TypedDict):
+    request_id: NotRequired[str]
     parameters: list[ParameterState]
     actions: list[dict]
     envs: list[EnvironmentStateWithAgentsOmitted]

@@ -24,6 +24,8 @@ export type EdgeDiff = { source: AgentId; target: AgentId } & Record<string, unk
 
 export type SimulatorToRendererMessageType =
   | 'metadata_update'
+  | 'state_sync_begin'
+  | 'state_sync_end'
   | 'action_end'
   | 'action_create'
   | 'action_update'
@@ -80,9 +82,22 @@ export interface MetadataUpdatePayload {
   [key: string]: unknown;
 }
 
+export interface StateSyncBoundaryPayload {
+  request_id?: string;
+}
+
+export interface TickTimingBreakdown {
+  simulate_ms?: number;
+  communicate_ms?: number;
+  render_ms?: number;
+  [key: string]: number | undefined;
+}
+
 export interface ActionEndPayload {
   id: string;
+  tick_id?: string;
   continue?: boolean;
+  timings?: TickTimingBreakdown;
 }
 
 export type ActionCUPayload = Action;
@@ -235,6 +250,7 @@ export interface ScreenshotResponsePayload {
 }
 
 export interface StateSyncRequest {
+  request_id?: string;
   parameters: Parameter[];
   actions: Action[];
   envs: Array<{
@@ -252,11 +268,13 @@ export interface ParameterChangePayload {
 
 export interface ActionStartPayload {
   id: string;
+  tick_id?: string;
   continuous?: boolean;
 }
 
 export type SimulatorToRendererPayload =
   | MetadataUpdatePayload
+  | StateSyncBoundaryPayload
   | ActionEndPayload
   | ActionCUPayload
   | ActionDeletePayload

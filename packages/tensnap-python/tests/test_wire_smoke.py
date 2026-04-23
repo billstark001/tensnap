@@ -60,12 +60,14 @@ async def _wait_for_server(proc: asyncio.subprocess.Process, port: int) -> None:
 
 
 async def _collect_state_sync_messages(port: int, until) -> list[dict]:
+    request_id = "sync-smoke"
     async with connect(f"ws://127.0.0.1:{port}") as ws:
         await ws.send(
             json.dumps(
                 {
                     "type": "state_sync",
                     "payload": {
+                        "request_id": request_id,
                         "parameters": [],
                         "actions": [],
                         "envs": [],
@@ -77,6 +79,7 @@ async def _collect_state_sync_messages(port: int, until) -> list[dict]:
 
         deadline = asyncio.get_running_loop().time() + 20
         messages: list[dict] = []
+        saw_target = False
         while asyncio.get_running_loop().time() < deadline:
             message = await asyncio.wait_for(
                 ws.recv(),
@@ -84,7 +87,12 @@ async def _collect_state_sync_messages(port: int, until) -> list[dict]:
             )
             decoded = _decode_message(message)
             messages.append(decoded)
-            if until(messages):
+            saw_target = saw_target or until(messages)
+            if (
+                saw_target
+                and decoded.get("type") == "state_sync_end"
+                and decoded.get("payload", {}).get("request_id") == request_id
+            ):
                 return messages
 
     raise AssertionError("Timed out waiting for expected state_sync messages")
@@ -123,6 +131,8 @@ async def test_graph_example_emits_canonical_layered_wire_output():
     env_create = next(msg for msg in messages if msg["type"] == "env_create")
     layer_creates = [msg for msg in messages if msg["type"] == "env_layer_create"]
 
+    assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
+    assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "sirs_graph"
     assert {msg["payload"]["layer_type"] for msg in layer_creates} >= {"agent", "edge"}
@@ -160,6 +170,8 @@ async def test_mesa_example_emits_canonical_grid_layer_wire_output():
         if msg["type"] == "env_layer_create" and msg["payload"]["layer_type"] == "grid"
     )
 
+    assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
+    assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "GameOfLife"
     assert grid_layer["payload"]["env_id"] == "GameOfLife"
@@ -200,6 +212,8 @@ async def test_mushroom_example_emits_patch_resource_layer():
         if msg["type"] == "agent_create" and msg["payload"].get("layer_id") == "patches"
     )
 
+    assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
+    assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "ForagingModel"
     assert patch_layer["payload"]["layer_type"] == "agent"
@@ -238,6 +252,8 @@ async def test_sugarscape_example_emits_sugar_resource_layer():
         if msg["type"] == "agent_create" and msg["payload"].get("layer_id") == "sugar"
     )
 
+    assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
+    assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "Sugarscape"
     assert sugar_layer["payload"]["layer_type"] == "agent"

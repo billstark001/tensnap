@@ -11,18 +11,38 @@ pip install tensnap
 ## Quick Start
 
 ```python
-from tensnap import SimulationScenario
 import asyncio
 
-# Create a scenario
+from tensnap import (
+    BindParametersConfig,
+    GridEnvironmentBinder,
+    SimulationScenario,
+)
+
+
 scenario = SimulationScenario(port=8765)
+grid = GridEnvironmentBinder(id="main", environment=model)
 
-# Register your environments, parameters, charts, and handlers
-# See examples/ directory for complete examples
 
-# Run the server
-asyncio.run(scenario.run())
+async def main() -> None:
+    scenario.add_environment(grid)
+    scenario.add_parameters(config, BindParametersConfig(exclude="^_.*"))
+    scenario.add_charts(globals())
+    scenario.add_actions({})  # registers default renderer-driven start/step/reset actions
+
+    await scenario.register_model_handler(
+        model.initialize,
+        model.step,
+    )
+
+    await scenario.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
+
+Default controls follow the renderer-driven protocol: `start` is the only built-in continuous action, `step` advances one tick, and `reset` is registered by `SimulationScenario.add_actions({})`. There is no implicit `stop` action; add one explicitly only if your scenario needs backend-side stop behavior.
 
 ## Examples
 

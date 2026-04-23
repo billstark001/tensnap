@@ -1,4 +1,4 @@
-import { AnyProtocolMessage, ErrorPayload, ISimulatorTransport, ScreenshotRequestPayload, SimulatorToRendererMessage } from '@tensnap/core';
+import { AnyProtocolMessage, ErrorPayload, ISimulatorTransport, ScreenshotRequestPayload, SimulatorToRendererMessage, StateSyncBoundaryPayload } from '@tensnap/core';
 import { StoreApi, UseBoundStore } from 'zustand';
 import { ScenarioStore } from './store';
 import { getToastState } from '../toast';
@@ -70,6 +70,16 @@ export function registerEventHandlers(
 
   const handler = (message: AnyProtocolMessage) => {
     if (message.type === 'action_start' || message.type === 'asset_sync' || message.type === 'param_change' || message.type === 'state_sync' || message.type === 'screenshot_response') {
+      return;
+    }
+
+    if (message.type === 'state_sync_begin') {
+      useStore.getState().handleStateSyncBoundary('begin', message.payload as StateSyncBoundaryPayload);
+      return;
+    }
+
+    if (message.type === 'state_sync_end') {
+      useStore.getState().handleStateSyncBoundary('end', message.payload as StateSyncBoundaryPayload);
       return;
     }
 

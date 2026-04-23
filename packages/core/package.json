@@ -12,6 +12,7 @@
     "./environment": "./src/environment/index.ts",
     "./parameter": "./src/parameter/index.ts",
     "./protocol": "./src/protocol/index.ts",
+    "./runtime": "./src/runtime/index.ts",
     "./scenario": "./src/scenario/index.ts",
     "./transport": "./src/transport/index.ts",
     "./utils": "./src/utils/index.ts"

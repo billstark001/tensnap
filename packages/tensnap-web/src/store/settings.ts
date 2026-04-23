@@ -21,6 +21,7 @@ interface SettingsStore {
   saveFormat: 'json' | 'msgpack';
   locale: Locale;
   renderTriggerMode: RenderTriggerMode;
+  maxTps: number;
   maxRenderFps: number;
   runtimeTps: number | null;
   runtimeMspt: number | null;
@@ -36,6 +37,7 @@ interface SettingsStore {
   setClientMessageValidation: (level: ValidationLevel) => void;
   setServerMessageValidation: (level: ValidationLevel) => void;
   setRenderTriggerMode: (mode: RenderTriggerMode) => void;
+  setMaxTps: (fps: number) => void;
   setMaxRenderFps: (fps: number) => void;
   setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => void;
 }
@@ -85,13 +87,22 @@ export const useSettingsStore = create<SettingsStore>()(
       return 'auto';
     })(),
 
+    maxTps: (() => {
+      const saved = localStorage.getItem('maxTps');
+      const parsed = saved ? Number(saved) : NaN;
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        return Math.floor(parsed);
+      }
+      return 300;
+    })(),
+
     maxRenderFps: (() => {
       const saved = localStorage.getItem('maxRenderFps');
       const parsed = saved ? Number(saved) : NaN;
       if (Number.isFinite(parsed) && parsed >= 0) {
         return Math.floor(parsed);
       }
-      return 60;
+      return 120;
     })(),
 
     runtimeTps: null,
@@ -138,8 +149,13 @@ export const useSettingsStore = create<SettingsStore>()(
       set({ renderTriggerMode: mode });
     },
 
+    setMaxTps: (fps: number) => {
+      const next = Number.isFinite(fps) ? Math.max(0, Math.floor(fps)) : 300;
+      set({ maxTps: next });
+    },
+
     setMaxRenderFps: (fps: number) => {
-      const next = Number.isFinite(fps) ? Math.max(0, Math.floor(fps)) : 60;
+      const next = Number.isFinite(fps) ? Math.max(0, Math.floor(fps)) : 120;
       set({ maxRenderFps: next });
     },
 
@@ -189,6 +205,13 @@ useSettingsStore.subscribe(
   (state) => state.renderTriggerMode,
   (mode) => {
     localStorage.setItem('renderTriggerMode', mode);
+  }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.maxTps,
+  (fps) => {
+    localStorage.setItem('maxTps', String(fps));
   }
 );
 

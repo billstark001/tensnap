@@ -287,4 +287,16 @@ describe('Scenario – createStateSyncMessage', () => {
     expect(envList[0].layers).toHaveLength(1);
     expect(envList[0].layers[0].layer_type).toBe('agent');
   });
+
+  it('includes an optional request id for sync correlation', () => {
+    const s = new Scenario();
+    const msg2 = s.createStateSyncMessage('sync-1');
+    expect(msg2.payload.request_id).toBe('sync-1');
+  });
+
+  it('includes an optional tick id for action correlation', () => {
+    const s = new Scenario();
+    const msg2 = s.createActionStartMessage('start', true, 'tick-1');
+    expect(msg2.payload).toEqual({ id: 'start', continuous: true, tick_id: 'tick-1' });
+  });
 });
