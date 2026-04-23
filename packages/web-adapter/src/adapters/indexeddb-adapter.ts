@@ -271,6 +271,27 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     return entries.filter((entry): entry is DirectoryEntry => entry !== null);
   }
 
+  private async ensureDirectoryChain(path: string): Promise<void> {
+    const normalizedPath = PathUtils.normalizePath(path);
+    if (!normalizedPath || normalizedPath === '/') {
+      return;
+    }
+
+    const components = PathUtils.getPathComponents(normalizedPath);
+    let currentPath = '';
+
+    for (const component of components) {
+      currentPath = currentPath ? `${currentPath}/${component}` : `/${component}`;
+      if (await this.directoryExists(currentPath)) {
+        continue;
+      }
+      await this.fsPromises.mkdir(currentPath);
+      this.metadata.directories[currentPath] = {
+        createdAt: this.metadata.directories[currentPath]?.createdAt ?? new Date().toISOString(),
+      };
+    }
+  }
+
   private async walk(path: string): Promise<DirectoryEntry[]> {
     const directEntries = await this.collectEntries(path);
     const nested = await Promise.all(
@@ -335,8 +356,8 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       const normalizedPath = PathUtils.normalizePath(path);
       const parentPath = PathUtils.getParentPath(normalizedPath);
 
-      if (parentPath !== '/' && !await this.directoryExists(parentPath)) {
-        throw new FileSystemError(`Parent directory ${parentPath} does not exist`, 'NOT_FOUND', path);
+      if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
+        await this.ensureDirectoryChain(parentPath);
       }
 
       const existingCreatedAt = this.metadata.files[normalizedPath]?.createdAt;
@@ -434,8 +455,8 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       }
 
       const parentPath = PathUtils.getParentPath(normalizedPath);
-      if (parentPath !== '/' && !await this.directoryExists(parentPath)) {
-        throw new FileSystemError(`Parent directory ${parentPath} does not exist`, 'NOT_FOUND', path);
+      if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
+        await this.ensureDirectoryChain(parentPath);
       }
 
       await this.fsPromises.mkdir(normalizedPath);

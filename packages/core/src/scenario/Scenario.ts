@@ -465,12 +465,16 @@ export class Scenario extends EventTarget {
     const environment = this.environmentsState.get(envId);
     if (!environment || environment.type !== '2d') return;
 
-    const gridLayer = [...environment.layers.values()].find(
-      (candidate) => candidate.layerType === 'grid',
-    );
-    if (!(gridLayer?.storage instanceof GridEnvStorage)) return;
-
-    const gridData = gridLayer.storage.getData();
+    const gridLayer = [...environment.layers.values()].find((candidate) => (
+      candidate.layerType === 'grid'
+      || candidate.storage instanceof GridEnvStorage
+      || typeof candidate.metadata?.trajectory_length === 'number'
+      || typeof candidate.metadata?.trajectory_color === 'string'
+    ));
+    const gridData = gridLayer?.storage instanceof GridEnvStorage
+      ? gridLayer.storage.getData()
+      : undefined;
+    const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, unknown>;
     const currentTime = typeof this.metadataState.time === 'number' ? this.metadataState.time : 0;
 
     for (const update of updates) {
@@ -480,13 +484,18 @@ export class Scenario extends EventTarget {
       const gridAgent = agent as GridAgent;
       if (gridAgent.x === undefined || gridAgent.y === undefined) continue;
 
-      const trajectoryLength = gridAgent.trajectory_length ?? (gridData as Record<string, unknown>).trajectory_length;
+      const trajectoryLength = (
+        gridAgent.trajectory_length
+        ?? (gridData as Record<string, unknown> | undefined)?.trajectory_length
+        ?? gridMetadata.trajectory_length
+      );
       if (!trajectoryLength) continue;
 
       const trajectoryColor = (
         (gridAgent as GridAgent & { trajectoryColor?: string }).trajectoryColor
         ?? gridAgent.trajectory_color
-        ?? (gridData as Record<string, string | undefined>).trajectory_color
+        ?? (gridData as Record<string, string | undefined> | undefined)?.trajectory_color
+        ?? (typeof gridMetadata.trajectory_color === 'string' ? gridMetadata.trajectory_color : undefined)
       );
 
       const point: TrajectoryPoint = {

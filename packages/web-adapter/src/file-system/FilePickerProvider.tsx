@@ -3,6 +3,7 @@ import { Dialog } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
 import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web-common/types/file';
+import { joinPath, validateName } from './utils';
 import * as styles from './FileSystemBrowser.css';
 
 export interface FilePickerContextValue {
@@ -37,6 +38,8 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
 
   const [selectedItems, setSelectedItems] = useState<DirectoryEntry[]>([]);
   const [inputFileName, setInputFileName] = useState<string>('');
+  const [currentDirectory, setCurrentDirectory] = useState<string>('/');
+  const [browserKey, setBrowserKey] = useState(0);
   const resolveRef = useRef<((result: FileMetadata[]) => void) | null>(null);
 
   const openPicker = useCallback((options: FilePickerOptions = {}): Promise<FileMetadata[]> => {
@@ -44,6 +47,8 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       resolveRef.current = resolve;
       setSelectedItems([]);
       setInputFileName('');
+      setCurrentDirectory('/');
+      setBrowserKey((prev) => prev + 1);
       setPickerState({
         isOpen: true,
         options
@@ -62,6 +67,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     });
     setSelectedItems([]);
     setInputFileName('');
+    setCurrentDirectory('/');
   }, []);
 
   const handleCancel = useCallback(() => {
@@ -103,20 +109,22 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
 
   const handleConfirm = useCallback(() => {
     const { mode, multiSelect } = pickerState.options;
+    const fileName = inputFileName.trim();
 
     if (multiSelect) {
       // 多选模式下的确认
       closePicker(selectedItems as FileMetadata[]);
     } else if (mode === 'save') {
       // 保存模式：使用输入的文件名
-      if (!inputFileName.trim()) {
+      const validation = validateName(fileName);
+      if (!validation.valid) {
         return; // 文件名为空时不允许确认
       }
-      // 创建一个临时的 FileMetadata 对象，包含用户输入的文件名
+      const fullPath = joinPath(currentDirectory, fileName);
       const fileMetadata: FileMetadata = {
-        path: inputFileName, // 这里只是文件名，实际路径将由调用者处理
-        name: inputFileName,
-        parentPath: '',
+        path: fullPath,
+        name: fileName,
+        parentPath: currentDirectory,
         size: 0,
         mimeType: 'application/octet-stream',
         createdAt: new Date(),
@@ -129,7 +137,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
         closePicker(selectedItems as FileMetadata[]);
       }
     }
-  }, [pickerState.options, selectedItems, inputFileName, closePicker]);
+  }, [pickerState.options, selectedItems, inputFileName, currentDirectory, closePicker]);
 
   const pickFiles = useCallback((options?: FilePickerOptions): Promise<FileMetadata[]> => {
     return openPicker(options);
@@ -144,10 +152,18 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
      pickerState.options.multiSelect ? t`Select Files` : t`Open File`);
 
   const { mode, multiSelect } = pickerState.options;
+  const saveNameError = mode === 'save' && inputFileName.trim().length > 0
+    ? validateName(inputFileName.trim()).error
+    : undefined;
+  const dialogDescription = mode === 'save'
+    ? (saveNameError ?? t`Current directory: ${currentDirectory}`)
+    : (pickerState.options.multiSelect ? t`Selected ${selectedItems.length} files` : undefined);
   const showSelectionBar = !multiSelect; // 单选模式下显示选择栏
   const canConfirm = multiSelect 
     ? selectedItems.length > 0 
-    : (mode === 'save' ? inputFileName.trim().length > 0 : selectedItems.length > 0);
+    : (mode === 'save'
+        ? inputFileName.trim().length > 0 && validateName(inputFileName.trim()).valid
+        : selectedItems.length > 0);
 
   return (
     <FilePickerContext.Provider value={contextValue}>
@@ -159,14 +175,17 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
           {dialogTitle}
         </Dialog.Title>
         <Dialog.Description>
-          {pickerState.options.multiSelect && t`Selected ${selectedItems.length} files`}
+          {dialogDescription}
         </Dialog.Description>
 
         <Dialog.Body>
           <FileSystemBrowser
+            key={browserKey}
             fileSystem={fileSystem}
+            initialPath={currentDirectory}
             onFileSelect={handleFileSelect}
             onFileDoubleClick={handleFileDoubleClick}
+            onCurrentDirectoryChange={setCurrentDirectory}
             allowUpload={pickerState.options.allowUpload}
             multiSelect={pickerState.options.multiSelect}
           />

@@ -34,8 +34,12 @@ graph_env = GraphEnvironmentBinderNX(
 # Custom update function for automatic visualization updates
 def update_hk_visualization(hk_model: DiscreteHKModel) -> None:
     """Update graph visualization with opinion colors and sizes"""
+    opinions = np.asarray(hk_model.opinions)
+    if opinions.ndim == 0:
+        opinions = np.full(len(hk_model.graph.nodes()), float(opinions))
+
     for node_id in hk_model.graph.nodes():
-        opinion = hk_model.opinions[node_id]
+        opinion = float(opinions[node_id])
         hk_model.graph.nodes[node_id].update(
             {
                 "opinion": opinion,

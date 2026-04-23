@@ -43,15 +43,29 @@ class MushroomEnvironmentBinder(MesaGridEnvironmentBinder):
 
     def get_state(self) -> EnvironmentState:
         base_state = super().get_state()
+        grid_layers = [
+            layer
+            for layer in base_state["layers"]
+            if layer["layer_type"] == "grid"
+        ]
         patch_layer: EnvironmentLayerState = {
             "layer_id": "patches",
             "layer_type": "agent",
+            "data": {"z_index": 35},
             "agents": self.environment.get_patch_layer_agents(),
         }
         return {
             "id": base_state["id"],
             "type": base_state["type"],
-            "layers": [patch_layer, *base_state["layers"]],
+            "layers": [
+                *grid_layers,
+                patch_layer,
+                *[
+                    layer
+                    for layer in base_state["layers"]
+                    if layer["layer_type"] != "grid"
+                ],
+            ],
         }
 
 

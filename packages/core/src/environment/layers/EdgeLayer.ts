@@ -201,11 +201,11 @@ export class EdgeLayer extends BaseLayer {
       // Assign initial positions to new nodes before pushing them back, to prevent
       // a one-frame flicker where AgentLayer renders all agents at (0, 0).
       this._assignInitialPositions(this._simNodes, this._simLinkMap as ReadonlyMap<string, GraphEdge>);
-      for (const link of this._simLinks) {
+      for (const link of this._simLinkMap.values()) {
         const srcId = EdgeStorage.resolveId(link.source as Parameters<typeof EdgeStorage.resolveId>[0]);
         const tgtId = EdgeStorage.resolveId(link.target as Parameters<typeof EdgeStorage.resolveId>[0]);
-        link.source = this._simNodeMap.get(srcId) ?? link.source;
-        link.target = this._simNodeMap.get(tgtId) ?? link.target;
+        link.source = this._simNodeMap.get(srcId) ?? srcId;
+        link.target = this._simNodeMap.get(tgtId) ?? tgtId;
       }
       this._simulation?.nodes(this._simNodes);
       this._syncLinkForce();
@@ -247,7 +247,11 @@ export class EdgeLayer extends BaseLayer {
 
   /** Rebuild _simLinks from _simLinkMap and push to the link force. */
   private _syncLinkForce(): void {
-    this._simLinks = [...this._simLinkMap.values()];
+    this._simLinks = [...this._simLinkMap.values()].filter((link) => {
+      const srcId = EdgeStorage.resolveId(link.source as Parameters<typeof EdgeStorage.resolveId>[0]);
+      const tgtId = EdgeStorage.resolveId(link.target as Parameters<typeof EdgeStorage.resolveId>[0]);
+      return this._simNodeMap.has(srcId) && this._simNodeMap.has(tgtId);
+    });
     this._linkForce?.links(this._simLinks);
   }
 

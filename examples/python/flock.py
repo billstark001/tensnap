@@ -72,6 +72,7 @@ class FlockSimulation:
 
     coord_offset = "float"
     trajectory_length = 5
+    trajectory_color = "#2563EB"
 
     def __init__(self, config: Optional[FlockConfig] = None):
         self.config = config or FlockConfig()

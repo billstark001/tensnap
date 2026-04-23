@@ -52,7 +52,7 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     { hash: string; mime: string; data: Uint8Array; label?: string }
   >();
 
-  constructor(readonly metadata: AdapterMetadata) {}
+  constructor(readonly metadata: AdapterMetadata) { }
 
   get connectionId(): string {
     return `inmemory:${this.metadata.id}`;
@@ -133,6 +133,14 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
 
   protected async sendMetadataUpdate(payload: MetadataUpdatePayload): Promise<void> {
     await this.send({ type: 'metadata_update', payload });
+  }
+
+  protected async sendStateSyncStart(requestId?: string): Promise<void> {
+    await this.send({ type: 'state_sync_begin', payload: requestId ? { request_id: requestId } : {} });
+  }
+
+  protected async sendStateSyncStop(requestId?: string): Promise<void> {
+    await this.send({ type: 'state_sync_end', payload: requestId ? { request_id: requestId } : {} });
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────
@@ -315,74 +323,84 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   }
 
   private async handleStateSync(request: StateSyncRequest): Promise<void> {
-    const currentParams = new Map(this.getParameters().map((p) => [p.id, p]));
-    const currentActions = new Map(this.getActions().map((a) => [a.id, a]));
-    const currentEnvs = new Map(this.getEnvironments().map((e) => [e.id, e]));
-    const currentCharts = new Map(this.getCharts().map((c) => [c.id, c]));
+    await this.sendStateSyncStart(request.request_id);
 
-    // Parameters: delete renderer-only, create sim-only, update shared
-    for (const rp of request.parameters) {
-      if (!currentParams.has(rp.id)) {
-        await this.sendParamDelete({ id: rp.id });
-      }
-    }
-    for (const [id, param] of currentParams) {
-      if (!request.parameters.some((p) => p.id === id)) {
-        await this.sendParamCreate(param);
-      } else {
-        await this.sendParamUpdate(param);
-      }
-    }
+    try {
+      const currentParams = new Map(this.getParameters().map((p) => [p.id, p]));
+      const currentActions = new Map(this.getActions().map((a) => [a.id, a]));
+      const currentEnvs = new Map(this.getEnvironments().map((e) => [e.id, e]));
+      const currentCharts = new Map(this.getCharts().map((c) => [c.id, c]));
 
-    // Actions: delete renderer-only, create sim-only
-    for (const ra of request.actions) {
-      if (!currentActions.has(ra.id)) {
-        await this.sendActionDelete({ id: ra.id });
-      }
-    }
-    for (const [id, action] of currentActions) {
-      if (!request.actions.some((a) => a.id === id)) {
-        await this.sendActionCreate(action);
-      }
-    }
-
-    // Environments: delete renderer-only, delete orphaned layers in shared, create sim-only
-    for (const re of request.envs) {
-      if (currentEnvs.has(re.id)) {
-        // delete all renderer layers for this env so sendInitialData can recreate them fresh
-        for (const rl of re.layers) {
-          await this.sendEnvLayerDelete({ env_id: re.id, layer_id: rl.layer_id });
+      // Parameters: delete renderer-only, create sim-only, update shared
+      for (const rp of request.parameters) {
+        if (!currentParams.has(rp.id)) {
+          await this.sendParamDelete({ id: rp.id });
         }
-      } else {
-        await this.sendEnvDelete({ id: re.id });
       }
-    }
-    for (const [id, env] of currentEnvs) {
-      if (!request.envs.some((e) => e.id === id)) {
-        await this.sendEnvCreate(env);
-      }
-    }
 
-    // Charts: delete renderer-only, create sim-only
-    for (const rc of request.charts) {
-      if (!currentCharts.has(rc.id)) {
-        await this.sendChartDelete({ id: rc.id });
+      for (const [id, param] of currentParams) {
+        if (!request.parameters.some((p) => p.id === id)) {
+          await this.sendParamCreate(param);
+        } else {
+          await this.sendParamUpdate(param);
+        }
       }
-    }
-    for (const [id, chart] of currentCharts) {
-      if (!request.charts.some((c) => c.id === id)) {
-        await this.sendChartCreate(chart);
+
+      // Actions: delete renderer-only, create sim-only
+      for (const ra of request.actions) {
+        if (!currentActions.has(ra.id)) {
+          await this.sendActionDelete({ id: ra.id });
+        }
       }
-    }
 
-    // Re-send all asset metadata so renderer can request missing data
-    for (const [id, entry] of this.assetRegistry) {
-      await this.sendAssetMeta({
-        assets: [{ id, hash: entry.hash, mime: entry.mime, size: entry.data.byteLength, label: entry.label } satisfies AssetMeta],
-      });
-    }
+      for (const [id, action] of currentActions) {
+        if (!request.actions.some((a) => a.id === id)) {
+          await this.sendActionCreate(action);
+        }
+      }
 
-    // Re-send current layer/agent/edge data
-    await this.sendInitialData();
+      // Environments: delete renderer-only, delete orphaned layers in shared, create sim-only
+      for (const re of request.envs) {
+        if (currentEnvs.has(re.id)) {
+          // delete all renderer layers for this env so sendInitialData can recreate them fresh
+          for (const rl of re.layers) {
+            await this.sendEnvLayerDelete({ env_id: re.id, layer_id: rl.layer_id });
+          }
+        } else {
+          await this.sendEnvDelete({ id: re.id });
+        }
+      }
+
+      for (const [id, env] of currentEnvs) {
+        if (!request.envs.some((e) => e.id === id)) {
+          await this.sendEnvCreate(env);
+        }
+      }
+
+      // Charts: delete renderer-only, create sim-only
+      for (const rc of request.charts) {
+        if (!currentCharts.has(rc.id)) {
+          await this.sendChartDelete({ id: rc.id });
+        }
+      }
+
+      for (const [id, chart] of currentCharts) {
+        if (!request.charts.some((c) => c.id === id)) {
+          await this.sendChartCreate(chart);
+        }
+      }
+
+      // Re-send all asset metadata so renderer can request missing data
+      for (const [id, entry] of this.assetRegistry) {
+        await this.sendAssetMeta({
+          assets: [{ id, hash: entry.hash, mime: entry.mime, size: entry.data.byteLength, label: entry.label } satisfies AssetMeta],
+        });
+      }
+
+      // Re-send current layer/agent/edge data
+      await this.sendInitialData();
+    } finally {
+      await this.sendStateSyncStop(request.request_id);
+    }
   }
 }

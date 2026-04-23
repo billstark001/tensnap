@@ -33,6 +33,32 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   private directories = new Map<string, DirectoryMetadata>();
   private initialized = false;
 
+  private async ensureDirectoryChain(path: string): Promise<void> {
+    const normalizedPath = PathUtils.normalizePath(path);
+    if (!normalizedPath || normalizedPath === '/') {
+      return;
+    }
+
+    const components = PathUtils.getPathComponents(normalizedPath);
+    let currentPath = '';
+
+    for (const component of components) {
+      currentPath = currentPath ? `${currentPath}/${component}` : `/${component}`;
+      if (this.directories.has(currentPath)) {
+        continue;
+      }
+
+      const now = new Date();
+      this.directories.set(currentPath, {
+        name: component,
+        path: currentPath,
+        parentPath: PathUtils.getParentPath(currentPath),
+        createdAt: now,
+        modifiedAt: now,
+      });
+    }
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
@@ -70,8 +96,8 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     const fileName = normalizedPath.split('/').pop() || '';
 
     // Ensure parent directory exists
-    if (parentPath !== '/' && !await this.directoryExists(parentPath)) {
-      throw new FileSystemError(`Parent directory ${parentPath} does not exist`, 'NOT_FOUND', path);
+    if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
+      await this.ensureDirectoryChain(parentPath);
     }
 
     const now = new Date();
@@ -140,8 +166,8 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     // Ensure parent directory exists
     const parentPath = PathUtils.getParentPath(normalizedPath);
-    if (parentPath !== '/' && !await this.directoryExists(parentPath)) {
-      throw new FileSystemError(`Parent directory ${parentPath} does not exist`, 'NOT_FOUND', path);
+    if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
+      await this.ensureDirectoryChain(parentPath);
     }
 
     const now = new Date();

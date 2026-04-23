@@ -8,8 +8,10 @@ const testHarness = vi.hoisted(() => {
   const environmentViewInstances: Array<{ fitToScene: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> }> = [];
   const gridLayerCalls: Array<{ storage: unknown }> = [];
   const backgroundLayerCalls: Array<{ storage: { background: string | null }; options?: { sceneBounds?: { width: number; height: number } } }> = [];
-  const edgeLayerCalls: Array<{ storage: unknown; linkedAgentStorage: unknown; config: unknown }> = [];
-  const agentLayerCalls: Array<{ storage: unknown; options: Record<string, unknown>; layer: { setSceneBounds: ReturnType<typeof vi.fn> } }> = [];
+  const edgeLayerCalls: Array<{ storage: unknown; linkedAgentStorage: unknown; config: unknown; layer: { setZIndex: ReturnType<typeof vi.fn> } }> = [];
+  const agentLayerCalls: Array<{ storage: unknown; options: Record<string, unknown>; layer: { setSceneBounds: ReturnType<typeof vi.fn>; setZIndex: ReturnType<typeof vi.fn> } }> = [];
+  const toastError = vi.fn();
+  let edgeLayerError: Error | null = null;
 
   class MockEnvironmentView {
     fitToScene = vi.fn();
@@ -65,8 +67,13 @@ const testHarness = vi.hoisted(() => {
   }
 
   class MockEdgeLayer {
+    setZIndex = vi.fn();
+
     constructor(_view: unknown, storage: unknown, linkedAgentStorage: unknown, config: unknown) {
-      edgeLayerCalls.push({ storage, linkedAgentStorage, config });
+      if (edgeLayerError) {
+        throw edgeLayerError;
+      }
+      edgeLayerCalls.push({ storage, linkedAgentStorage, config, layer: this });
     }
 
     buildDragHandlers() {
@@ -76,6 +83,7 @@ const testHarness = vi.hoisted(() => {
 
   class MockAgentLayer {
     setSceneBounds = vi.fn();
+    setZIndex = vi.fn();
 
     constructor(_view: unknown, storage: unknown, options: Record<string, unknown>) {
       agentLayerCalls.push({ storage, options, layer: this });
@@ -97,6 +105,13 @@ const testHarness = vi.hoisted(() => {
     backgroundLayerCalls,
     edgeLayerCalls,
     agentLayerCalls,
+    toastError,
+    get edgeLayerError() {
+      return edgeLayerError;
+    },
+    set edgeLayerError(value: Error | null) {
+      edgeLayerError = value;
+    },
     MockEnvironmentView,
     MockAgentStorage,
     MockBackgroundStorage,
@@ -112,6 +127,12 @@ const testHarness = vi.hoisted(() => {
 
 vi.mock('@/store/scenario/store', () => ({
   useScenarioStore: (selector: (state: typeof testHarness.mockStore) => unknown) => selector(testHarness.mockStore),
+}));
+
+vi.mock('@/store/toast', () => ({
+  useToast: () => ({
+    error: testHarness.toastError,
+  }),
 }));
 
 vi.mock('@lingui/react', async () => {
@@ -148,6 +169,8 @@ describe('Environment2DView', () => {
     testHarness.backgroundLayerCalls.length = 0;
     testHarness.edgeLayerCalls.length = 0;
     testHarness.agentLayerCalls.length = 0;
+    testHarness.toastError.mockReset();
+    testHarness.edgeLayerError = null;
     testHarness.mockStore._assetRevision = 0;
     testHarness.mockStore.scenario.assets.getUrl.mockReset();
   });
@@ -216,5 +239,81 @@ describe('Environment2DView', () => {
     expect(testHarness.agentLayerCalls[0].options.showLabel).toBe(false);
     expect(testHarness.agentLayerCalls[0].options.onAgentDoubleClick).toEqual(expect.any(Function));
     expect(testHarness.environmentViewInstances[0].fitToScene).toHaveBeenCalledWith({ padding: 0.05 });
+  });
+
+  it('applies explicit layer z-index overrides from metadata', async () => {
+    const lowerLayer = new AgentStorage([{ id: 'patch-1', x: 0, y: 0 }]);
+    const upperLayer = new AgentStorage([{ id: 'hunter-1', x: 1, y: 1 }]);
+
+    render(
+      <Environment2DView
+        environment={{
+          id: 'env-z',
+          type: '2d',
+          layers: new Map([
+            ['patches', { id: 'patches', layerType: 'agent', metadata: { z_index: 35 }, storage: lowerLayer }],
+            ['hunters', { id: 'hunters', layerType: 'agent', metadata: { z_index: 45 }, storage: upperLayer }],
+          ]),
+        } as any}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(testHarness.agentLayerCalls).toHaveLength(2);
+    });
+
+    expect(testHarness.agentLayerCalls[0].layer.setZIndex).toHaveBeenCalledWith(35);
+    expect(testHarness.agentLayerCalls[1].layer.setZIndex).toHaveBeenCalledWith(45);
+  });
+
+  it('assigns stable fallback z-index values to agent layers without metadata', async () => {
+    const lowerLayer = new AgentStorage([{ id: 'patch-1', x: 0, y: 0 }]);
+    const upperLayer = new AgentStorage([{ id: 'hunter-1', x: 1, y: 1 }]);
+
+    render(
+      <Environment2DView
+        environment={{
+          id: 'env-z-fallback',
+          type: '2d',
+          layers: new Map([
+            ['patches', { id: 'patches', layerType: 'agent', metadata: {}, storage: lowerLayer }],
+            ['hunters', { id: 'hunters', layerType: 'agent', metadata: {}, storage: upperLayer }],
+          ]),
+        } as any}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(testHarness.agentLayerCalls).toHaveLength(2);
+    });
+
+    expect(testHarness.agentLayerCalls[0].layer.setZIndex).toHaveBeenCalledWith(40);
+    expect(testHarness.agentLayerCalls[1].layer.setZIndex).toHaveBeenCalledWith(41);
+  });
+
+  it('toasts when environment rendering fails', async () => {
+    testHarness.edgeLayerError = new Error('node not found: missing-agent');
+
+    const agentStorage = new AgentStorage([{ id: 'agent-1', x: 0, y: 0 }]);
+    const edgeStorage = new EdgeStorage();
+
+    render(
+      <Environment2DView
+        environment={{
+          id: 'env-graph-error',
+          type: '2d',
+          layers: new Map([
+            ['agents', { id: 'agents', layerType: 'agent', metadata: {}, storage: agentStorage }],
+            ['edges', { id: 'edges', layerType: 'edge', metadata: {}, storage: edgeStorage, agentLayerRef: 'agents' }],
+          ]),
+        } as any}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(testHarness.toastError).toHaveBeenCalledWith('Environment render failed', 'node not found: missing-agent');
+    });
+
+    expect(testHarness.environmentViewInstances[0].destroy).toHaveBeenCalledTimes(1);
   });
 });

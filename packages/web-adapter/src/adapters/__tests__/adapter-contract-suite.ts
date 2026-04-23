@@ -165,6 +165,14 @@ export function runFileSystemAdapterContractSuite(name: string, createAdapter: A
 
         expect(await adapter.directoryExists('/parent/child')).toBe(true);
       });
+
+      it('should create missing parent directories when writing a file', async () => {
+        await adapter.writeFile('/deep/nested/file.txt', 'content');
+
+        expect(await adapter.directoryExists('/deep')).toBe(true);
+        expect(await adapter.directoryExists('/deep/nested')).toBe(true);
+        expect(await adapter.fileExists('/deep/nested/file.txt')).toBe(true);
+      });
     });
   });
 }

@@ -1,6 +1,7 @@
 import { useTransportStore } from "@/store/transport";
 import { useScenarioStore } from '@/store/scenario/store';
 import { useSettingsStore } from '@/store/settings';
+import type { ActionEndPayload } from '@tensnap/core';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createIdleLoopState, SimulationLoopController } from '@/store/simulation-loop';
 
@@ -23,11 +24,14 @@ export function useButtonControls() {
   const createActionStartMessage = useScenarioStore((state) => state.createActionStartMessage);
   const actions = useScenarioStore((state) => state.actions);
   const scenario = useScenarioStore((state) => state.scenario);
+  const connected = useScenarioStore((state) => state.connected);
   const stateSync = useScenarioStore((state) => state.stateSync);
   const renderTriggerMode = useSettingsStore((state) => state.renderTriggerMode);
   const maxTps = useSettingsStore((state) => state.maxTps);
   const maxRenderFps = useSettingsStore((state) => state.maxRenderFps);
   const setRuntimeMetrics = useSettingsStore((state) => state.setRuntimeMetrics);
+  const setSimulatorMetrics = useSettingsStore((state) => state.setSimulatorMetrics);
+  const clearRuntimeMetrics = useSettingsStore((state) => state.clearRuntimeMetrics);
 
   const loopController = useMemo(() => {
     if (!scenario) {
@@ -68,12 +72,39 @@ export function useButtonControls() {
   }, [loopController, sendMessage, createActionStartMessage, renderTriggerMode, maxTps, maxRenderFps, setRuntimeMetrics]);
 
   useEffect(() => {
+    if (!scenario) {
+      clearRuntimeMetrics();
+      return;
+    }
+
+    const handleActionEnd = ((event: Event) => {
+      const payload = (event as CustomEvent<ActionEndPayload>).detail;
+      setSimulatorMetrics(payload?.timings);
+    }) as EventListener;
+
+    scenario.addEventListener('action:end', handleActionEnd);
+    return () => {
+      scenario.removeEventListener('action:end', handleActionEnd);
+    };
+  }, [scenario, setSimulatorMetrics, clearRuntimeMetrics]);
+
+  useEffect(() => {
+    if (connected) return;
+
+    loopController?.cancel();
+    clearRuntimeMetrics();
+  }, [connected, loopController, clearRuntimeMetrics]);
+
+  useEffect(() => {
     if (!loopController || !stateSync) {
       return;
     }
 
     loopController.syncStateSync(stateSync);
-  }, [loopController, stateSync]);
+    if (stateSync.phase !== 'idle') {
+      clearRuntimeMetrics();
+    }
+  }, [loopController, stateSync, clearRuntimeMetrics]);
 
   const handleButtonAction = useCallback(
     (action: string, continuous?: boolean) => {

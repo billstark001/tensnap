@@ -58,12 +58,6 @@ export const createTransportStore = (
       autoLayoutOnComplete: scenarioStore.isMainViewAutoLayoutCandidate(),
     });
     transport.send({ type: 'state_sync', payload });
-
-    if (transport.transportKind === 'inmemory') {
-      setTimeout(() => {
-        useScenarioStore.getState().handleStateSyncBoundary('end', { request_id: requestId });
-      }, 0);
-    }
   };
 
   return ({

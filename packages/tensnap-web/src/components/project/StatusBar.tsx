@@ -29,6 +29,9 @@ export function StatusBar({
   const currentTime = useScenarioStore((store) => store.currentTime);
   const runtimeTps = useSettingsStore((store) => store.runtimeTps);
   const runtimeMspt = useSettingsStore((store) => store.runtimeMspt);
+  const simulatorMspt = useSettingsStore((store) => store.simulatorMspt);
+  const simulatorCommMs = useSettingsStore((store) => store.simulatorCommMs);
+  const simulatorRenderMs = useSettingsStore((store) => store.simulatorRenderMs);
   const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
   const transportStore = useTransportStore();
   
@@ -81,6 +84,22 @@ export function StatusBar({
         <span><Trans>MSPT:</Trans></span>
         <span className={styles.metricValue}>{runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}</span>
       </span>
+      <span className={styles.statusMeta}>
+        <span><Trans>Sim:</Trans></span>
+        <span className={styles.metricValue}>{simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}</span>
+      </span>
+      {simulatorCommMs != null && (
+        <span className={styles.statusMeta}>
+          <span><Trans>Comm:</Trans></span>
+          <span className={styles.metricValue}>{simulatorCommMs.toFixed(1)}</span>
+        </span>
+      )}
+      {simulatorRenderMs != null && (
+        <span className={styles.statusMeta}>
+          <span><Trans>Srv Render:</Trans></span>
+          <span className={styles.metricValue}>{simulatorRenderMs.toFixed(1)}</span>
+        </span>
+      )}
       
       <div className={styles.buttonGroup}>
         <button

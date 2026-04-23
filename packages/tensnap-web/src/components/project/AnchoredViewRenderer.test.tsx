@@ -33,6 +33,10 @@ vi.mock('../scenario/ChartView', () => ({
   ChartView: () => <div data-testid="chart-view" />,
 }));
 
+vi.mock('../view/ViewErrorBoundary', () => ({
+  ViewErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 vi.mock('@/store/toast', () => ({
   useToast: () => ({ warning: vi.fn() }),
 }));
@@ -69,5 +73,19 @@ describe('AnchoredViewRenderer', () => {
     );
 
     expect(screen.getByTestId('environment-uniform')).toHaveTextContent('env-uniform');
+  });
+
+  it('renders chart views', () => {
+    mockState.charts.getGroup.mockReturnValue({ id: 'chart-1', metadataDict: {}, data: [] });
+
+    render(
+      <AnchoredViewRenderer
+        type="chart"
+        id="chart-1"
+        view={{ id: 'view-3', type: 'chart', data: { id: 'chart-1' } } as any}
+      />,
+    );
+
+    expect(screen.getByTestId('chart-view')).toBeInTheDocument();
   });
 });

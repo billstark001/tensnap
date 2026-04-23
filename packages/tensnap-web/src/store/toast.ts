@@ -1,4 +1,5 @@
 import { createToastStore } from '@/utils/zustand';
+import { useMemo } from 'react';
 
 export const [useToastStore, ToastAnchor] = createToastStore();
 
@@ -8,12 +9,9 @@ export const useToast = () => {
   const warning = useToastStore((store) => store.warning);
   const info = useToastStore((store) => store.info);
 
-  return {
-    success,
-    error,
-    warning,
-    info,
-  };
+  const stableObject = useMemo(() => ({ success, error, warning, info }), [success, error, warning, info]);
+
+  return stableObject;
 };
 
 export const getToastState = () => {

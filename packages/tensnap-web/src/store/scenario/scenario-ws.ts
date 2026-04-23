@@ -83,6 +83,10 @@ export function registerEventHandlers(
       return;
     }
 
+    if (useStore.getState().stateSync.phase === 'requested') {
+      return;
+    }
+
     useStore.getState().applyMessage(message as SimulatorToRendererMessage);
     if (message.type === 'error') {
       const toast = getToastState();

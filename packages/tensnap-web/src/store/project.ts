@@ -75,6 +75,15 @@ const determineFilePath = (basePath: string, format: 'json' | 'msgpack'): string
   return `${basePath}.${format}`;
 };
 
+const getParentDirectory = (path: string): string => {
+  const normalized = path.replace(/\\/g, '/').replace(/\/+/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash <= 0) {
+    return '/';
+  }
+  return normalized.slice(0, lastSlash) || '/';
+};
+
 export interface ProjectStore {
   projects: ProjectContextScheme[];
   activeIndex: number | null;
@@ -195,6 +204,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       ? (checkMsgpackCompatibility(projectFile), uint8ArrayToArrayBuffer(encode(projectFile)))
       : JSON.stringify(projectFile, null, 2); // 添加格式化以提高可读性
 
+    const parentDirectory = getParentDirectory(filepath);
+    if (parentDirectory !== '/') {
+      await fileSystemState.createDirectory(parentDirectory, true);
+    }
     await fileSystemState.writeFile(filepath, content);
     console.log('Project saved to', filepath);
 

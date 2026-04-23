@@ -17,6 +17,7 @@ export interface FileSystemBrowserProps {
   onFileSelect?: (file: DirectoryEntry) => void;
   onFileDoubleClick?: (file: DirectoryEntry) => void;
   onDirectorySelect?: (directory: DirectoryEntry) => void;
+  onCurrentDirectoryChange?: (path: string) => void;
   allowUpload?: boolean;
   multiSelect?: boolean;
   className?: string;
@@ -28,6 +29,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   onFileSelect,
   onFileDoubleClick,
   onDirectorySelect,
+  onCurrentDirectoryChange,
   allowUpload = true,
   multiSelect = false,
   className,
@@ -53,6 +55,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     try {
       const entries = await fileSystem.list(normalizedPath);
       setCurrentDirectoryRaw(normalizedPath);
+      onCurrentDirectoryChange?.(normalizedPath);
       setDirectoryContentsRaw(entries);
     } catch (err) {
       console.error('Failed to load directory:', err);
@@ -61,7 +64,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [fileSystem]);
+  }, [fileSystem, onCurrentDirectoryChange]);
 
   // 初始化：加载初始目录
   useEffect(() => {

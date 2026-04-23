@@ -4,6 +4,7 @@ import * as styles from './Environment2DView.css';
 import { AgentDetailsDialog, type AnyAgent } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react';
 import { useScenarioStore } from '@/store/scenario/store';
+import { useToast } from '@/store/toast';
 import {
   EnvironmentView,
   AgentStorage,
@@ -35,6 +36,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   const [selectedAgent, setSelectedAgent] = useState<AnyAgent | null>(null);
   const scenario = useScenarioStore((store) => store.scenario);
   const assetRevision = useScenarioStore((store) => store._assetRevision);
+  const toast = useToast();
 
   const resolveSceneBounds = useCallback((): { width: number; height: number } | undefined => {
     for (const layer of environment.layers.values()) {
@@ -63,132 +65,155 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       return;
     }
 
-    const nextView = new EnvironmentView(containerRef.current, {
-      type: 'design',
-      enablePan: true,
-      enableTouchZoom: true,
-      enableWheelZoom: true,
-    });
-    const layerStates = [...environment.layers.values()];
-    const sceneBounds = resolveSceneBounds();
-    const metadataSource = layerStates.find((layer) => (
-      layer.layerType === 'grid'
-      || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
-    ));
-    const viewMetadata = (metadataSource?.metadata ?? {}) as Record<string, unknown>;
-    const rendererOverrides = view?.data.rendererOverrides?.environment2d;
-    const showGrid = rendererOverrides?.showGrid ?? (viewMetadata.show_grid !== false);
-    const backgroundColor = typeof rendererOverrides?.fallbackBackgroundColor === 'string'
-      ? rendererOverrides.fallbackBackgroundColor
-      : typeof viewMetadata.background_color === 'string'
-        ? viewMetadata.background_color
-        : null;
-    const hasEdgeLayer = layerStates.some((layer) => layer.storage instanceof EdgeStorage);
+    let nextView: EnvironmentView | null = null;
 
-    const nextAgentStorages: AgentStorage[] = [];
-    const nextBackgroundLayers: BackgroundLayer[] = [];
-    const nextAgentLayers: AgentLayer[] = [];
-    const agentStorageByLayerId = new Map<string, AgentStorage>();
+    try {
+      nextView = new EnvironmentView(containerRef.current, {
+        type: 'design',
+        enablePan: true,
+        enableTouchZoom: true,
+        enableWheelZoom: true,
+      });
+      const layerStates = [...environment.layers.values()];
+      const sceneBounds = resolveSceneBounds();
+      const metadataSource = layerStates.find((layer) => (
+        layer.layerType === 'grid'
+        || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
+      ));
+      const viewMetadata = (metadataSource?.metadata ?? {}) as Record<string, unknown>;
+      const rendererOverrides = view?.data.rendererOverrides?.environment2d;
+      const showGrid = rendererOverrides?.showGrid ?? (viewMetadata.show_grid !== false);
+      const backgroundColor = typeof rendererOverrides?.fallbackBackgroundColor === 'string'
+        ? rendererOverrides.fallbackBackgroundColor
+        : typeof viewMetadata.background_color === 'string'
+          ? viewMetadata.background_color
+          : null;
+      const hasEdgeLayer = layerStates.some((layer) => layer.storage instanceof EdgeStorage);
 
-    const hasBackgroundStorage = layerStates.some((layer) => layer.storage instanceof BackgroundStorage);
-    if (!hasBackgroundStorage && backgroundColor) {
-      const syntheticBackgroundStorage = new BackgroundStorage();
-      void syntheticBackgroundStorage.setBackground(backgroundColor);
-      const backgroundLayer = new BackgroundLayer(
-        nextView,
-        syntheticBackgroundStorage,
-        sceneBounds ? { sceneBounds } : undefined,
-      );
-      nextView.addLayer(backgroundLayer);
-      nextBackgroundLayers.push(backgroundLayer);
-    }
+      const nextAgentStorages: AgentStorage[] = [];
+      const nextBackgroundLayers: BackgroundLayer[] = [];
+      const nextAgentLayers: AgentLayer[] = [];
+      const agentStorageByLayerId = new Map<string, AgentStorage>();
+      let implicitAgentLayerZIndex = 40;
 
-    for (const layer of layerStates) {
-      if (layer.storage instanceof BackgroundStorage) {
+      const hasBackgroundStorage = layerStates.some((layer) => layer.storage instanceof BackgroundStorage);
+      if (!hasBackgroundStorage && backgroundColor) {
+        const syntheticBackgroundStorage = new BackgroundStorage();
+        void syntheticBackgroundStorage.setBackground(backgroundColor);
         const backgroundLayer = new BackgroundLayer(
           nextView,
-          layer.storage,
+          syntheticBackgroundStorage,
           sceneBounds ? { sceneBounds } : undefined,
         );
         nextView.addLayer(backgroundLayer);
         nextBackgroundLayers.push(backgroundLayer);
-        continue;
       }
 
-      if (layer.storage instanceof GridEnvStorage) {
-        if (showGrid) {
-          nextView.addLayer(new GridLayer(nextView, layer.storage));
+      for (const layer of layerStates) {
+        if (layer.storage instanceof BackgroundStorage) {
+          const backgroundLayer = new BackgroundLayer(
+            nextView,
+            layer.storage,
+            sceneBounds ? { sceneBounds } : undefined,
+          );
+          nextView.addLayer(backgroundLayer);
+          nextBackgroundLayers.push(backgroundLayer);
+          continue;
         }
-        continue;
+
+        if (layer.storage instanceof GridEnvStorage) {
+          if (showGrid) {
+            nextView.addLayer(new GridLayer(nextView, layer.storage));
+          }
+          continue;
+        }
+
+        if (layer.storage instanceof AgentStorage) {
+          agentStorageByLayerId.set(layer.id, layer.storage);
+          nextAgentStorages.push(layer.storage);
+        }
       }
 
-      if (layer.storage instanceof AgentStorage) {
-        agentStorageByLayerId.set(layer.id, layer.storage);
-        nextAgentStorages.push(layer.storage);
-      }
-    }
-
-    let firstEdgeLayer: EdgeLayer | null = null;
-    for (const layer of layerStates) {
-      if (!(layer.storage instanceof EdgeStorage)) {
-        continue;
-      }
-      const linkedAgentStorage = (
-        (layer.agentLayerRef && agentStorageByLayerId.get(layer.agentLayerRef))
-        ?? nextAgentStorages[0]
-      );
-      if (!linkedAgentStorage) {
-        continue;
-      }
-      const edgeLayer = new EdgeLayer(nextView, layer.storage, linkedAgentStorage, layer.metadata as GraphEnvConfig);
-      nextView.addLayer(edgeLayer);
-      if (!firstEdgeLayer) {
-        firstEdgeLayer = edgeLayer;
-      }
-    }
-
-    for (const layer of layerStates) {
-      if (!(layer.storage instanceof AgentStorage)) {
-        continue;
+      let firstEdgeLayer: EdgeLayer | null = null;
+      for (const layer of layerStates) {
+        if (!(layer.storage instanceof EdgeStorage)) {
+          continue;
+        }
+        const linkedAgentStorage = (
+          (layer.agentLayerRef && agentStorageByLayerId.get(layer.agentLayerRef))
+          ?? nextAgentStorages[0]
+        );
+        if (!linkedAgentStorage) {
+          continue;
+        }
+        const edgeLayer = new EdgeLayer(nextView, layer.storage, linkedAgentStorage, layer.metadata as GraphEnvConfig);
+        if (typeof layer.metadata?.z_index === 'number') {
+          edgeLayer.setZIndex(layer.metadata.z_index);
+        }
+        nextView.addLayer(edgeLayer);
+        if (!firstEdgeLayer) {
+          firstEdgeLayer = edgeLayer;
+        }
       }
 
-      const layerSceneBounds = (
-        typeof layer.metadata.width === 'number' && typeof layer.metadata.height === 'number'
-      ) ? { width: layer.metadata.width, height: layer.metadata.height } : sceneBounds;
+      for (const layer of layerStates) {
+        if (!(layer.storage instanceof AgentStorage)) {
+          continue;
+        }
 
-      const agentLayer = new AgentLayer(nextView, layer.storage, {
-        ...(hasEdgeLayer && firstEdgeLayer ? firstEdgeLayer.buildDragHandlers() : {}),
-        clickable: true,
-        draggable: hasEdgeLayer,
-        // Labels use the existing scene-unit sizing from AgentLayer; keep that
-        // untouched and require labels to be explicitly enabled elsewhere.
-        showLabel: false,
-        originMode: hasEdgeLayer ? 'center' : 'bottom-left',
-        coordOffset: hasEdgeLayer ? 'float' : layer.metadata.coord_offset === 'float' ? 'float' : 'int',
-        sceneBounds: hasEdgeLayer ? undefined : layerSceneBounds,
-        resolveAssetUrl: (assetId) => scenario?.assets.getUrl(assetId),
-        onAgentClick: hasEdgeLayer ? undefined : handleAgentSelect,
-        onAgentDoubleClick: hasEdgeLayer ? handleAgentSelect : undefined,
-      });
-      nextView.addLayer(agentLayer);
-      nextAgentLayers.push(agentLayer);
-    }
+        const layerSceneBounds = (
+          typeof layer.metadata.width === 'number' && typeof layer.metadata.height === 'number'
+        ) ? { width: layer.metadata.width, height: layer.metadata.height } : sceneBounds;
 
-    nextView.fitToScene({ padding: hasEdgeLayer ? 0.05 : 0 });
+        const agentLayer = new AgentLayer(nextView, layer.storage, {
+          ...(hasEdgeLayer && firstEdgeLayer ? firstEdgeLayer.buildDragHandlers() : {}),
+          clickable: true,
+          draggable: hasEdgeLayer,
+          // Labels use the existing scene-unit sizing from AgentLayer; keep that
+          // untouched and require labels to be explicitly enabled elsewhere.
+          showLabel: false,
+          originMode: hasEdgeLayer ? 'center' : 'bottom-left',
+          coordOffset: hasEdgeLayer ? 'float' : layer.metadata.coord_offset === 'float' ? 'float' : 'int',
+          sceneBounds: hasEdgeLayer ? undefined : layerSceneBounds,
+          resolveAssetUrl: (assetId) => scenario?.assets.getUrl(assetId),
+          onAgentClick: hasEdgeLayer ? undefined : handleAgentSelect,
+          onAgentDoubleClick: hasEdgeLayer ? handleAgentSelect : undefined,
+        });
+        if (typeof layer.metadata?.z_index === 'number') {
+          agentLayer.setZIndex(layer.metadata.z_index);
+        } else {
+          agentLayer.setZIndex(implicitAgentLayerZIndex);
+          implicitAgentLayerZIndex += 1;
+        }
+        nextView.addLayer(agentLayer);
+        nextAgentLayers.push(agentLayer);
+      }
 
-    envViewRef.current = nextView;
-    agentStoragesRef.current = nextAgentStorages;
-    backgroundLayersRef.current = nextBackgroundLayers;
-    agentLayersRef.current = nextAgentLayers;
+      nextView.fitToScene({ padding: hasEdgeLayer ? 0.05 : 0 });
 
-    return () => {
-      nextView.destroy();
+      envViewRef.current = nextView;
+      agentStoragesRef.current = nextAgentStorages;
+      backgroundLayersRef.current = nextBackgroundLayers;
+      agentLayersRef.current = nextAgentLayers;
+
+      const activeView = nextView;
+      return () => {
+        activeView.destroy();
+        envViewRef.current = null;
+        agentStoragesRef.current = [];
+        backgroundLayersRef.current = [];
+        agentLayersRef.current = [];
+      };
+    } catch (error) {
+      nextView?.destroy();
       envViewRef.current = null;
       agentStoragesRef.current = [];
       backgroundLayersRef.current = [];
       agentLayersRef.current = [];
-    };
-  }, [environment, updateTrigger, assetRevision, handleAgentSelect, resolveSceneBounds, scenario, view]);
+      toast.error('Environment render failed', error instanceof Error ? error.message : String(error));
+      return;
+    }
+  }, [environment, updateTrigger, assetRevision, handleAgentSelect, resolveSceneBounds, scenario, toast, view]);
 
   const resetView = useCallback(() => {
     const hasEdgeLayer = [...environment.layers.values()].some((layer) => layer.storage instanceof EdgeStorage);

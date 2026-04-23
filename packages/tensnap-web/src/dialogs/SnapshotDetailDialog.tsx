@@ -9,6 +9,7 @@ import clsx from 'clsx';
 import { Environment2DView } from '../components/scenario/Environment2DView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
 import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
+import { ViewErrorBoundary } from '../components/view/ViewErrorBoundary';
 
 
 const EnvironmentRenderer = (props: {
@@ -34,10 +35,18 @@ const EnvironmentRenderer = (props: {
   }
 
   if (displayType === '2d') {
-    return <Environment2DView environment={liveEnvironment} />;
+    return (
+      <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>
+        <Environment2DView environment={liveEnvironment} />
+      </ViewErrorBoundary>
+    );
   }
   if (displayType === 'uniform') {
-    return <UniformEnvironmentView environment={liveEnvironment} />;
+    return (
+      <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>
+        <UniformEnvironmentView environment={liveEnvironment} />
+      </ViewErrorBoundary>
+    );
   }
 
   return <div>Unsupported environment type: {environment.type}</div>;

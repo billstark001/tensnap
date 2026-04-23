@@ -18,6 +18,7 @@ class Hunter(mesa.Agent):
 
     icon = "arrow"
     trajectory_length = 10
+    trajectory_color = "#1D4ED8"
     color = "blue"
 
     model: "ForagingModel"
