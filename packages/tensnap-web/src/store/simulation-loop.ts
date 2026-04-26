@@ -343,6 +343,10 @@ export class SimulationLoopController {
     this.release();
   }
 
+  reset(): void {
+    this.resetControllerState();
+  }
+
   private release(): void {
     if (this.subscriptions === 0) return;
 
@@ -350,6 +354,10 @@ export class SimulationLoopController {
     if (this.subscriptions > 0) return;
 
     this.scenario.removeEventListener('action:end', this.handleScenarioActionEnd);
+    this.resetControllerState();
+  }
+
+  private resetControllerState(): void {
     this.trigger.reset();
     this.clearRenderCommit();
     this.runtime.reset();

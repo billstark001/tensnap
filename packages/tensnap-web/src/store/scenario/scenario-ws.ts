@@ -83,9 +83,8 @@ export function registerEventHandlers(
       return;
     }
 
-    if (useStore.getState().stateSync.phase === 'requested') {
-      return;
-    }
+    // Live traffic may resume before a requested sync emits its boundary messages.
+    // Dropping those messages wedges the UI after reconnect if the sync never starts.
 
     useStore.getState().applyMessage(message as SimulatorToRendererMessage);
     if (message.type === 'error') {

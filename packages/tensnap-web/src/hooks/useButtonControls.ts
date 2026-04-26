@@ -91,7 +91,7 @@ export function useButtonControls() {
   useEffect(() => {
     if (connected) return;
 
-    loopController?.cancel();
+    loopController?.reset();
     clearRuntimeMetrics();
   }, [connected, loopController, clearRuntimeMetrics]);
 

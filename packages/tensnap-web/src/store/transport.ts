@@ -72,13 +72,15 @@ export const createTransportStore = (
 
   initialize: async (transportOrUrl: ISimulatorTransport | string, state?: StateSyncRequest) => {
     const { transport: currentTransport, abortController: currentAbort } = get();
+    const scenarioStore = useScenarioStore.getState();
 
     if (currentAbort) currentAbort.abort();
+    scenarioStore.setConnected(false);
     if (currentTransport) {
       unregisterEventHandlers(currentTransport);
       currentTransport.destroy();
     }
-    useScenarioStore.getState().resetStateSync();
+    scenarioStore.resetStateSync();
 
     const abortController = new AbortController();
     const transport = typeof transportOrUrl === 'string'
@@ -95,7 +97,7 @@ export const createTransportStore = (
 
     const onOpen = () => {
       set({ isConnecting: false, connectionError: null, abortController: null });
-      useScenarioStore.getState().setConnected(true);
+      scenarioStore.setConnected(true);
       const isEmptyState = !state || getStateSyncItemCount(state) === 0;
       if (isEmptyState) {
         dispatchStateSync(transport);
@@ -103,8 +105,8 @@ export const createTransportStore = (
     };
 
     const onClose = () => {
-      useScenarioStore.getState().setConnected(false);
-      useScenarioStore.getState().resetStateSync();
+      scenarioStore.setConnected(false);
+      scenarioStore.resetStateSync();
     };
 
     transport.on('open', onOpen);
@@ -121,7 +123,7 @@ export const createTransportStore = (
         unregisterEventHandlers(transport);
         transport.destroy();
         set({ transport: null });
-        useScenarioStore.getState().resetStateSync();
+        scenarioStore.resetStateSync();
         throw new Error('Connection was aborted');
       }
       if (state && getStateSyncItemCount(state) > 0) {
@@ -130,8 +132,8 @@ export const createTransportStore = (
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
       set({ isConnecting: false, connectionError: errorMessage, abortController: null });
-      useScenarioStore.getState().setConnected(false);
-      useScenarioStore.getState().resetStateSync();
+      scenarioStore.setConnected(false);
+      scenarioStore.resetStateSync();
 
       if (transport.transportKind === 'websocket' && error instanceof WebSocketConnectionError) {
         console.log('Initial connection failed, will auto-reconnect');

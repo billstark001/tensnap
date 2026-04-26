@@ -152,4 +152,28 @@ describe('SimulationLoopController', () => {
 
     release();
   });
+
+  it('resets in-flight runtime state so reconnect can dispatch again', () => {
+    const scenario = new EventTarget();
+    const sendMessage = vi.fn();
+    const controller = new SimulationLoopController(scenario);
+
+    const release = controller.retain();
+    controller.updateOptions({
+      sendMessage,
+      createActionStartMessage: createMessage,
+      maxTps: 0,
+      mode: 'setTimeout',
+    });
+
+    controller.requestAction('start', true);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    controller.reset();
+    controller.requestAction('start', true);
+
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+
+    release();
+  });
 });
