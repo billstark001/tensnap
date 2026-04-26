@@ -58,7 +58,11 @@ export const groupEnvironmentLayerMetadata = (
     case 'agent':
       return groupEntries(metadata, [
         { title: 'Geometry', keys: ['width', 'height', 'coord_offset'] },
-        { title: 'Trajectory', keys: ['trajectory_length', 'trajectory_color'] },
+      ]);
+    case 'trajectory':
+      return groupEntries(metadata, [
+        { title: 'Trajectory', keys: ['length', 'width', 'color'] },
+        { title: 'Dependencies', keys: ['dependency_layer_ids'] },
       ]);
     case 'grid':
       return groupEntries(metadata, [
@@ -68,7 +72,7 @@ export const groupEnvironmentLayerMetadata = (
       ]);
     case 'edge':
       return groupEntries(metadata, [
-        { title: 'Layout', keys: ['linkDistance', 'chargeStrength', 'centeringStrength', 'collisionRadius', 'maxComponentDistance', 'componentSpacing', 'agent_layer_id'] },
+        { title: 'Layout', keys: ['linkDistance', 'chargeStrength', 'centeringStrength', 'collisionRadius', 'maxComponentDistance', 'componentSpacing', 'dependency_layer_ids'] },
       ]);
     case 'background':
       return groupEntries(metadata, [

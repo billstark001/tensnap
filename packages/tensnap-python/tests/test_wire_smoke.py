@@ -120,7 +120,7 @@ async def test_graph_example_emits_canonical_layered_wire_output():
         messages = await _collect_state_sync_messages(
             port,
             lambda collected: any(
-                msg["type"] == "edge_create"
+                msg["type"] == "item_create"
                 and msg["payload"].get("layer_id") == "edges"
                 for msg in collected
             ),
@@ -137,7 +137,7 @@ async def test_graph_example_emits_canonical_layered_wire_output():
     assert env_create["payload"]["id"] == "sirs_graph"
     assert {msg["payload"]["layer_type"] for msg in layer_creates} >= {"agent", "edge"}
     assert any(
-        msg["type"] == "edge_create"
+        msg["type"] == "item_create"
         and msg["payload"]["env_id"] == "sirs_graph"
         and msg["payload"]["layer_id"] == "edges"
         for msg in messages
@@ -155,7 +155,7 @@ async def test_mesa_example_emits_canonical_grid_layer_wire_output():
         messages = await _collect_state_sync_messages(
             port,
             lambda collected: any(
-                msg["type"] == "agent_create"
+                msg["type"] == "item_create"
                 and msg["payload"].get("env_id") == "GameOfLife"
                 for msg in collected
             ),
@@ -191,7 +191,7 @@ async def test_mushroom_example_emits_patch_resource_layer():
         messages = await _collect_state_sync_messages(
             port,
             lambda collected: any(
-                msg["type"] == "agent_create"
+                msg["type"] == "item_create"
                 and msg["payload"].get("env_id") == "ForagingModel"
                 and msg["payload"].get("layer_id") == "patches"
                 for msg in collected
@@ -209,7 +209,7 @@ async def test_mushroom_example_emits_patch_resource_layer():
     patch_agents = next(
         msg
         for msg in messages
-        if msg["type"] == "agent_create" and msg["payload"].get("layer_id") == "patches"
+        if msg["type"] == "item_create" and msg["payload"].get("layer_id") == "patches"
     )
 
     assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
@@ -217,7 +217,7 @@ async def test_mushroom_example_emits_patch_resource_layer():
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "ForagingModel"
     assert patch_layer["payload"]["layer_type"] == "agent"
-    assert len(patch_agents["payload"]["agents"]) == 50 * 50
+    assert len(patch_agents["payload"]["items"]) == 50 * 50
 
 
 @pytest.mark.asyncio
@@ -231,7 +231,7 @@ async def test_sugarscape_example_emits_sugar_resource_layer():
         messages = await _collect_state_sync_messages(
             port,
             lambda collected: any(
-                msg["type"] == "agent_create"
+                msg["type"] == "item_create"
                 and msg["payload"].get("env_id") == "Sugarscape"
                 and msg["payload"].get("layer_id") == "sugar"
                 for msg in collected
@@ -249,7 +249,7 @@ async def test_sugarscape_example_emits_sugar_resource_layer():
     sugar_agents = next(
         msg
         for msg in messages
-        if msg["type"] == "agent_create" and msg["payload"].get("layer_id") == "sugar"
+        if msg["type"] == "item_create" and msg["payload"].get("layer_id") == "sugar"
     )
 
     assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
@@ -257,4 +257,4 @@ async def test_sugarscape_example_emits_sugar_resource_layer():
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "Sugarscape"
     assert sugar_layer["payload"]["layer_type"] == "agent"
-    assert len(sugar_agents["payload"]["agents"]) == 50 * 50
+    assert len(sugar_agents["payload"]["items"]) == 50 * 50

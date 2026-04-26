@@ -124,12 +124,11 @@ Create the simulation environment:
 ```python
 from tensnap import bind_grid_environment
 
-@bind_grid_environment(coord_offset=True, trajectory_length=True)
+@bind_grid_environment(coord_offset=True)
 class FlockSimulation:
     """Main flocking simulation class"""
     
     coord_offset = "float"  # Use floating-point coordinates
-    trajectory_length = 5   # Show last 5 positions
     
     def __init__(self, config: Optional[FlockConfig] = None):
         self.config = config or FlockConfig()
@@ -454,17 +453,17 @@ def update_bird(self, bird: Bird) -> None:
 
 ### Trajectories Not Showing
 
-- Confirm `trajectory_length=True` in `@bind_grid_environment()`
-- Check that `trajectory_length = 5` is set in the class
-- Ensure `coord_offset="float"` for smooth trails
+- Confirm your environment state includes a `trajectory` layer
+- Check that `data.dependency_layer_ids.agent` points at the moving `agent` layer
+- Set `data.length = 5` on that trajectory layer and keep `coord_offset="float"` on the agent layer for smooth trails
 
 ## Summary
 
 You've learned:
 
 ✅ Implementing multi-agent interaction rules  
-✅ Using `@bind_grid_agent()` with heading and trajectory metadata  
-✅ Configuring environment with `coord_offset` and `trajectory_length`  
+✅ Using `@bind_grid_agent()` with heading metadata  
+✅ Configuring environment with `coord_offset` and an explicit trajectory layer  
 ✅ Measuring emergent system properties  
 ✅ Creating responsive visualizations of collective behavior  
 

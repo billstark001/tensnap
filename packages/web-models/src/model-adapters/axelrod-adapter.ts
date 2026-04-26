@@ -81,8 +81,8 @@ export class AxelrodAdapter extends BaseModelAdapter {
   }
 
   protected async sendInitialData(): Promise<void> {
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: CULTURE_LAYER, layer_type: 'grid', data: { width: this.config.width, height: this.config.height } });
-    await this.sendAgentCreate({ env_id: 'main', layer_id: CULTURE_LAYER, agents: this.createCultureAgents() });
+    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: CULTURE_LAYER, layer_type: 'agent', data: { width: this.config.width, height: this.config.height } });
+    await this.sendItemCreate({ env_id: 'main', layer_id: CULTURE_LAYER, items: this.createCultureAgents() });
     await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: [
       { id: 'cultures', value: countCultures(this.state), time: 0 },
@@ -117,7 +117,7 @@ export class AxelrodAdapter extends BaseModelAdapter {
     await this.sendMetadataUpdate({ time });
 
     const diff = this.createCultureAgents().map((a) => ({ id: a.id, x: a.x, y: a.y, icon: a.icon, size: a.size, color: a.color }));
-    await this.sendAgentUpdate({ env_id: 'main', layer_id: CULTURE_LAYER, agents: diff });
+    await this.sendItemUpdate({ env_id: 'main', layer_id: CULTURE_LAYER, items: diff });
     await this.sendChartUpdate({ updates: [
       { id: 'cultures', value: countCultures(this.state), time },
       { id: 'updates', value: this.state.totalUpdates, time },

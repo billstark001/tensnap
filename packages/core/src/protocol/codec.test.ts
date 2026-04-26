@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { encodeProtocolMessage, decodeProtocolMessage } from './codec';
-import { AssetDataPayloadSchema, ScreenshotResponsePayloadSchema } from './schemas';
+import { AssetDataPayloadSchema, ItemDeletePayloadSchema, ScreenshotResponsePayloadSchema } from './schemas';
 
 describe('protocol binary semantic fields', () => {
   it('encodes JSON binary payloads as data URLs and decodes them back to bytes', () => {
@@ -23,8 +23,12 @@ describe('protocol binary semantic fields', () => {
 
     const decoded = decodeProtocolMessage(encoded);
     expect(decoded.type).toBe('asset_data');
-    expect(decoded.payload.data).toBeInstanceOf(Uint8Array);
-    expect(Array.from(decoded.payload.data as Uint8Array)).toEqual(Array.from(source));
+    if (decoded.type !== 'asset_data') {
+      throw new Error('Expected asset_data payload.');
+    }
+    const assetPayload = decoded.payload as { data: Uint8Array };
+    expect(assetPayload.data).toBeInstanceOf(Uint8Array);
+    expect(Array.from(assetPayload.data)).toEqual(Array.from(source));
   });
 
   it('accepts explicit JSON binary strings and rejects arbitrary text', () => {
@@ -44,6 +48,22 @@ describe('protocol binary semantic fields', () => {
         data: 'data:image/png;base64,AAECAw==',
       });
     }).not.toThrow();
+
+    expect(() => {
+      ItemDeletePayloadSchema.parse({
+        env_id: 'env-1',
+        layer_id: 'agents',
+        items: ['a1', 'a2'],
+      });
+    }).not.toThrow();
+
+    expect(() => {
+      ItemDeletePayloadSchema.parse({
+        env_id: 'env-1',
+        layer_id: 'agents',
+        items: ['a1', { id: 'a2' }],
+      });
+    }).toThrow();
   });
 
   it('normalizes base64 JSON binary payloads back into bytes on decode', () => {
@@ -57,7 +77,11 @@ describe('protocol binary semantic fields', () => {
     }));
 
     expect(decoded.type).toBe('screenshot_response');
-    expect(decoded.payload.data).toBeInstanceOf(Uint8Array);
-    expect(Array.from(decoded.payload.data as Uint8Array)).toEqual([0, 1, 2, 3]);
+    if (decoded.type !== 'screenshot_response') {
+      throw new Error('Expected screenshot_response payload.');
+    }
+    const screenshotPayload = decoded.payload as { data: Uint8Array };
+    expect(screenshotPayload.data).toBeInstanceOf(Uint8Array);
+    expect(Array.from(screenshotPayload.data)).toEqual([0, 1, 2, 3]);
   });
 });

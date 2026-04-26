@@ -22,6 +22,9 @@ import type {
   EnvLayerDeletePayload,
   EnvLayerUpdatePayload,
   ErrorPayload,
+  ItemCreatePayload,
+  ItemDeletePayload,
+  ItemUpdatePayload,
   LogPayload,
   MetadataUpdatePayload,
   Parameter,
@@ -201,32 +204,80 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     await this.send({ type: 'env_layer_delete', payload });
   }
 
+  // ── Generic Items ────────────────────────────────────────────────────────
+
+  protected async sendItemCreate<TItem extends object>(payload: {
+    env_id: string;
+    layer_id: string;
+    items: TItem[];
+  }): Promise<void> {
+    await this.send({ type: 'item_create', payload: payload as ItemCreatePayload });
+  }
+
+  protected async sendItemUpdate<TItem extends object>(payload: {
+    env_id: string;
+    layer_id: string;
+    items: TItem[];
+  }): Promise<void> {
+    await this.send({ type: 'item_update', payload: payload as ItemUpdatePayload });
+  }
+
+  protected async sendItemDelete<TItem extends object>(payload: {
+    env_id: string;
+    layer_id: string;
+    items: TItem[];
+  }): Promise<void> {
+    await this.send({ type: 'item_delete', payload: payload as ItemDeletePayload });
+  }
+
   // ── Agents ───────────────────────────────────────────────────────────────
 
+  /**
+   * @deprecated Use sendItemCreate instead.
+   */
   protected async sendAgentCreate(payload: AgentCreatePayload): Promise<void> {
-    await this.send({ type: 'agent_create', payload });
+    await this.sendItemCreate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.agents });
   }
 
+  /**
+   * @deprecated Use sendItemUpdate instead.
+   */
   protected async sendAgentUpdate(payload: AgentUpdatePayload): Promise<void> {
-    await this.send({ type: 'agent_update', payload });
+    await this.sendItemUpdate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.agents });
   }
 
+  /**
+   * @deprecated Use sendItemDelete instead.
+   */
   protected async sendAgentDelete(payload: AgentDeletePayload): Promise<void> {
-    await this.send({ type: 'agent_delete', payload });
+    await this.sendItemDelete({
+      env_id: payload.env_id,
+      layer_id: payload.layer_id,
+      items: payload.ids.map((id) => ({ id })),
+    });
   }
 
   // ── Edges ────────────────────────────────────────────────────────────────
 
+  /**
+   * @deprecated Use sendItemCreate instead.
+   */
   protected async sendEdgeCreate(payload: EdgeCreatePayload): Promise<void> {
-    await this.send({ type: 'edge_create', payload });
+    await this.sendItemCreate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.edges });
   }
 
+  /**
+   * @deprecated Use sendItemUpdate instead.
+   */
   protected async sendEdgeUpdate(payload: EdgeUpdatePayload): Promise<void> {
-    await this.send({ type: 'edge_update', payload });
+    await this.sendItemUpdate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.edges });
   }
 
+  /**
+   * @deprecated Use sendItemDelete instead.
+   */
   protected async sendEdgeDelete(payload: EdgeDeletePayload): Promise<void> {
-    await this.send({ type: 'edge_delete', payload });
+    await this.sendItemDelete({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.edges });
   }
 
   // ── Charts ───────────────────────────────────────────────────────────────

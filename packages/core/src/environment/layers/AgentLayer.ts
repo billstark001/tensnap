@@ -18,7 +18,6 @@ import {
   Group,
   UI,
   Text,
-  Line,
   PointerEvent as LeaferPointerEvent,
   DragEvent as LeaferDragEvent,
 } from '@leafer-ui/core';
@@ -35,7 +34,6 @@ import {
   AgentId,
   AgentIcon,
   BuiltinAgentIcon,
-  TrajectoryPoint,
   GridCoordOffset,
   SceneBounds,
   OriginMode,
@@ -49,8 +47,6 @@ import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';
 // #region Constants & Defaults
 
 const DEFAULT_AGENT_COLOR = '#69b3a2';
-const DEFAULT_TRAJ_COLOR = 'rgba(66, 133, 244, 0.5)';
-const TRAJ_STROKE_PX = 2;
 const NOOP = () => { };
 
 /**
@@ -114,28 +110,13 @@ interface AgentShapeEntry {
   color: string;
 }
 
-interface TrajectoryCacheEntry {
-  /** Single polyline that draws the entire trajectory. */
-  line: Line;
-  lastRenderedIndex: number;
-  color: string;
-  /** Flat coordinate array [x0,y0, x1,y1, …] feeding the polyline. */
-  flatPoints: number[];
-}
-
-// #endregion
-
-// ---------------------------------------------------------------------------
-
 export class AgentLayer extends BaseLayer implements IBoundedLayer {
   readonly defaultZIndex = 40;
 
   // #region Private fields
 
-  private readonly _trajGroup = new Group();
   private readonly _agentsGroup = new Group();
   private readonly _agentShapes = new Map<AgentId, AgentShapeEntry>();
-  private readonly _trajectoryCache = new Map<string, TrajectoryCacheEntry>();
   private readonly _cfg: ResolvedConfig;
 
   private _cachedAgents = new Map<AgentId, RenderableAgent>();
@@ -174,7 +155,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       this.setSceneBounds(config.sceneBounds);
     }
 
-    this.group.add(this._trajGroup);
     this.group.add(this._agentsGroup);
 
     this.registerStorage(agentStorage, (data, delta) => this._onAgentData(data, delta));
@@ -237,9 +217,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
     this.applyViewportTransform(viewport, fitMode);
-    // Trajectory points are in scene coordinates — no rebuild needed;
-    // only re-set the stroke width so lines keep a constant pixel thickness.
-    this._updateTrajStrokeWidths();
   }
 
   // #endregion
@@ -249,8 +226,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   private _onAgentData(data: AgentStorageData, delta: AgentDelta = { replaced: true }): void {
     this._cachedAgents = data.agents;
 
-    // Fast path: only node positions changed (d3-force tick).
-    // Skip structural changes and trajectory sync to avoid per-frame allocation storms.
     if (delta.positionsFlushed) {
       this._flushPositionsOnly(data.agents);
       return;
@@ -265,16 +240,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       delta.removed.forEach((id) => this._removeAgent(id));
       delta.added.forEach((agent) => this._createAgent(agent));
       delta.updated.forEach((agent) => this._updateAgent(agent));
-    }
-
-    // Sync trajectories — all agents on full replace, changed agents on delta
-    const toSync: RenderableAgent[] = delta.replaced
-      ? [...data.agents.values()]
-      : [...delta.added, ...delta.updated];
-
-    for (const agent of toSync) {
-      const points = data.trajectories.get(String(agent.id));
-      if (points) this._updateTrajectory(String(agent.id), points, agent.trajectoryColor);
     }
   }
 
@@ -310,17 +275,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       size: agent.size ?? 1,
     };
   }
-
-  /** Trajectory stroke width in scene units — renders at a constant pixel width regardless of zoom. */
-  private _trajStrokeWidth(): number {
-    const s = this.calculateViewportScale(this._viewport, this._fitMode);
-    const avg = (Math.abs(s.scaleX) + Math.abs(s.scaleY)) / 2;
-    return Math.max(0.1, TRAJ_STROKE_PX / avg);
-  }
-
-  // #endregion
-
-  // #region Agent CRUD
 
   private _createAgent(agent: RenderableAgent): void {
     const coords = this._toSceneCoords(agent);
@@ -442,7 +396,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     entry.group.off?.();
     entry.group.remove();
     this._agentShapes.delete(id);
-    this._removeTrajectory(String(id));
   }
 
   private _clearAgents(): void {
@@ -451,9 +404,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       entry.group.off?.();
     }
     this._agentShapes.clear();
-    this._agentsGroup.clear();  // bulk-remove all agent groups in one call
-    for (const cached of this._trajectoryCache.values()) cached.line.remove();
-    this._trajectoryCache.clear();
+    this._agentsGroup.clear();
   }
 
   // #endregion
@@ -510,70 +461,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       this._draggingId = null;
       onDragEnd(id);
     });
-  }
-
-  // #endregion
-
-  // #region Trajectory
-
-  /**
-   * Replace a per-agent trajectory with a single polyline `Line` whose
-   * `points` array contains all trajectory coordinates.
-   *
-   * Complexity per call: O(P) array allocation, 1 Leafer `set()` call —
-   * vs. the previous O(P) individual `Line` objects.
-   */
-  private _updateTrajectory(agentId: string, points: TrajectoryPoint[], color?: string): void {
-    const trajColor = color ?? DEFAULT_TRAJ_COLOR;
-    const strokeWidth = this._trajStrokeWidth();
-    const off = this._posOffset;
-
-    let cached = this._trajectoryCache.get(agentId);
-    if (!cached || cached.color !== trajColor) {
-      cached?.line.remove();
-      const line = new Line({ stroke: trajColor, strokeWidth, points: [] });
-      cached = { line, lastRenderedIndex: -1, color: trajColor, flatPoints: [] };
-      this._trajGroup.add(line);
-      this._trajectoryCache.set(agentId, cached);
-    }
-
-    if (points.length < 2) {
-      if (cached.flatPoints.length > 0) {
-        cached.flatPoints = [];
-        cached.line.set({ points: [] });
-      }
-      cached.lastRenderedIndex = points[points.length - 1]?.time ?? -1;
-      return;
-    }
-
-    // Build a flat [x0,y0, x1,y1, …] array — one polyline replaces N-1 Line objects
-    const n = points.length;
-    const flatPoints = new Array<number>(n * 2);
-    for (let i = 0; i < n; i++) {
-      flatPoints[i * 2] = points[i].x + off;
-      flatPoints[i * 2 + 1] = points[i].y + off;
-    }
-    cached.flatPoints = flatPoints;
-    cached.line.set({ points: flatPoints, strokeWidth });
-    cached.lastRenderedIndex = points[n - 1]?.time ?? -1;
-  }
-
-  private _removeTrajectory(agentId: string): void {
-    const cached = this._trajectoryCache.get(agentId);
-    if (!cached) return;
-    cached.line.remove();
-    this._trajectoryCache.delete(agentId);
-  }
-
-  /**
-   * Refresh stroke widths for all cached polylines after a viewport scale
-   * change. Points are already in scene coordinates so no rebuild is needed.
-   */
-  private _updateTrajStrokeWidths(): void {
-    const strokeWidth = this._trajStrokeWidth();
-    for (const cached of this._trajectoryCache.values()) {
-      cached.line.set({ strokeWidth });
-    }
   }
 
   // #endregion

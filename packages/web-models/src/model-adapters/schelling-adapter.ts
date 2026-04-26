@@ -89,10 +89,10 @@ export class SchellingAdapter extends BaseModelAdapter {
 
   protected async sendInitialData(): Promise<void> {
     const config = this.model.getConfig();
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: AGENT_LAYER, layer_type: 'grid', data: { width: config.gridWidth, height: config.gridHeight } });
+    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: AGENT_LAYER, layer_type: 'agent', data: { width: config.gridWidth, height: config.gridHeight } });
 
     const allAgents = this.model.getEnvironmentState().agents;
-    await this.sendAgentCreate({ env_id: 'main', layer_id: AGENT_LAYER, agents: allAgents });
+    await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: allAgents });
 
     const stats = this.model.getStatistics();
     await this.sendMetadataUpdate({ time: 0 });
@@ -111,10 +111,10 @@ export class SchellingAdapter extends BaseModelAdapter {
     const create = updates.filter((x) => x.operation === 'create').map((x) => x.data);
     const change = updates.filter((x) => x.operation === 'update').map((x) => x.data);
     if (create.length > 0) {
-      await this.sendAgentCreate({ env_id: 'main', layer_id: AGENT_LAYER, agents: create });
+      await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: create });
     }
     if (change.length > 0) {
-      await this.sendAgentUpdate({ env_id: 'main', layer_id: AGENT_LAYER, agents: change });
+      await this.sendItemUpdate({ env_id: 'main', layer_id: AGENT_LAYER, items: change });
     }
 
     await this.sendChartUpdate({ updates: [

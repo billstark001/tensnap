@@ -13,7 +13,8 @@
  *    ├─ BackgroundLayer  (z: 0)   ← BackgroundStorage
  *    ├─ GridLayer        (z: 10)  ← GridEnvStorage
  *    ├─ EdgeLayer        (z: 20)  ← EdgeStorage + AgentStorage (read + write-back)
- *    └─ AgentLayer       (z: 30)  ← AgentStorage [+ GridEnvStorage for grid mode]
+ *    ├─ TrajectoryLayer  (z: 30)  ← TrajectoryStorage
+ *    └─ AgentLayer       (z: 40)  ← AgentStorage
  *
  *  Storage classes are reactive data containers; layers subscribe to them.
  *  EdgeLayer drives d3-force and back-writes positions to AgentStorage;
@@ -28,12 +29,17 @@
  *
  *   const bgLayer     = new BackgroundLayer(view, bgStore);
  *   const edgeLayer   = new EdgeLayer(view, edgeStore, agentStore);
+ *   const trailStore  = new TrajectoryStorage();
+ *   const trailLayer  = new TrajectoryLayer(view, trailStore, {
+ *     coordOffset: 'float',
+ *   });
  *   const agentLayer  = new AgentLayer(view, agentStore, {
  *     ...edgeLayer.buildDragHandlers(),
  *   });
  *
  *   view.addLayer(bgLayer);
  *   view.addLayer(edgeLayer);
+ *   view.addLayer(trailLayer);
  *   view.addLayer(agentLayer);
  *
  *   agentStore.setAgents(myAgents);
@@ -48,13 +54,18 @@
  *
  *   const bgLayer     = new BackgroundLayer(view, bgStore);
  *   const gridLayer   = new GridLayer(view, gridStore);
+ *   const trailStore  = new TrajectoryStorage({ length: 10 });
+ *   const trailLayer  = new TrajectoryLayer(view, trailStore, {
+ *     coordOffset: 'int',
+ *   });
  *   const agentLayer  = new AgentLayer(view, agentStore, {
  *     clickable: true,
  *     coordOffset: 'int',
- *   }, gridStore);
+ *   });
  *
  *   view.addLayer(bgLayer);
  *   view.addLayer(gridLayer);
+ *   view.addLayer(trailLayer);
  *   view.addLayer(agentLayer);
  */
 

@@ -840,7 +840,9 @@ The grid and graph binder names are retained as convenience wrappers around that
 
 ### GridEnvironmentBinder
 
-Connects a grid-based simulation model to TenSnap, automatically syncing agent states. On the wire this becomes a canonical `2d` environment with a `grid` layer.
+Connects a grid-based simulation model to TenSnap, automatically syncing agent states. On the wire this becomes a canonical `2d` environment with a `grid` layer plus a separate `agent` layer.
+
+Trajectory rendering is no longer configured through `trajectory_length` or `trajectory_color` on the binder or model. If you need trails, emit an explicit `trajectory` layer with `data.dependency_layer_ids = {"agent": "agents"}` and optional default `length`, `width`, and `color` metadata.
 
 ```python
 from tensnap import GridEnvironmentBinder, make_grid_agent_accessor

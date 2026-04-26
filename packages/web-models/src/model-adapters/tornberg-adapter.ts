@@ -95,8 +95,8 @@ export class TornbergAdapter extends BaseModelAdapter {
   }
 
   protected async sendInitialData(): Promise<void> {
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, layer_type: 'grid', data: { width: this.config.width, height: this.config.height } });
-    await this.sendAgentCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, agents: this.createPartisanAgents() });
+    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, layer_type: 'agent', data: { width: this.config.width, height: this.config.height } });
+    await this.sendItemCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, items: this.createPartisanAgents() });
     await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: [
       { id: 'sorting', value: this.lastSorting, time: 0 },
@@ -131,7 +131,7 @@ export class TornbergAdapter extends BaseModelAdapter {
 
     await this.sendMetadataUpdate({ time });
     const updates = this.createPartisanAgents().map((a) => ({ id: a.id, x: a.x, y: a.y, color: a.color, icon: a.icon, size: a.size }));
-    await this.sendAgentUpdate({ env_id: 'main', layer_id: PARTISAN_LAYER, agents: updates });
+    await this.sendItemUpdate({ env_id: 'main', layer_id: PARTISAN_LAYER, items: updates });
     await this.sendChartUpdate({ updates: [
       { id: 'sorting', value: this.lastSorting, time },
       { id: 'updates', value: this.state.totalUpdates, time },

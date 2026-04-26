@@ -139,10 +139,8 @@ def sugar_field_circular(width: int, height: int):
 
 
 @bind_datacollector()
-@bind_mesa_grid_environment(trajectory_length=True)
+@bind_mesa_grid_environment()
 class Sugarscape(Model):
-
-    trajectory_length = 2
 
     def __init__(
         self,

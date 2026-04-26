@@ -38,13 +38,14 @@ from collections import defaultdict
 
 from .utils.ws import BatchedMessageQueue
 from .utils.environment_state import (
-    agent_diff,
     clone_environment_state,
-    copied_layer_agents,
-    copied_layer_edges,
-    edge_diff,
+    copied_layer_items,
+    item_diff,
+    item_identity_fields,
+    item_identity_key,
+    item_key_payload,
+    layer_items,
     layer_agents,
-    layer_edges,
     layer_metadata,
 )
 from .utils.object import json_default, msgpack_default, find_objects_by_error
@@ -92,6 +93,9 @@ class ServerToClientMessageType(Enum):
     ENV_LAYER_CREATE = "env_layer_create"
     ENV_LAYER_UPDATE = "env_layer_update"
     ENV_LAYER_DELETE = "env_layer_delete"
+    ITEM_CREATE = "item_create"
+    ITEM_UPDATE = "item_update"
+    ITEM_DELETE = "item_delete"
     AGENT_CREATE = "agent_create"
     AGENT_UPDATE = "agent_update"
     AGENT_DELETE = "agent_delete"
@@ -444,26 +448,15 @@ class TenSnapServer:
                 payload["data"] = metadata
             await self._send(ws, ServerToClientMessageType.ENV_LAYER_CREATE, payload)
 
-            agents = copied_layer_agents(layer)
-            if agents:
+            items = copied_layer_items(layer)
+            if items:
                 await self._send(
                     ws,
-                    ServerToClientMessageType.AGENT_CREATE,
+                    ServerToClientMessageType.ITEM_CREATE,
                     {
                         "env_id": env_id,
                         "layer_id": layer_id,
-                        "agents": agents,
-                    },
-                )
-            edges = copied_layer_edges(layer)
-            if edges:
-                await self._send(
-                    ws,
-                    ServerToClientMessageType.EDGE_CREATE,
-                    {
-                        "env_id": env_id,
-                        "layer_id": layer_id,
-                        "edges": edges,
+                        "items": items,
                     },
                 )
 
@@ -494,24 +487,14 @@ class TenSnapServer:
                 await self._broadcast(
                     ServerToClientMessageType.ENV_LAYER_CREATE, payload
                 )
-                agents = copied_layer_agents(layer)
-                if agents:
+                items = copied_layer_items(layer)
+                if items:
                     await self._broadcast(
-                        ServerToClientMessageType.AGENT_CREATE,
+                        ServerToClientMessageType.ITEM_CREATE,
                         {
                             "env_id": env_id,
                             "layer_id": layer["layer_id"],
-                            "agents": agents,
-                        },
-                    )
-                edges = copied_layer_edges(layer)
-                if edges:
-                    await self._broadcast(
-                        ServerToClientMessageType.EDGE_CREATE,
-                        {
-                            "env_id": env_id,
-                            "layer_id": layer["layer_id"],
-                            "edges": edges,
+                            "items": items,
                         },
                     )
             return
@@ -566,83 +549,46 @@ class TenSnapServer:
                     },
                 )
 
-            previous_agents = {
-                agent["id"]: agent for agent in layer_agents(previous_layer)
+            previous_items = {
+                item_identity_key(previous_layer, item): item
+                for item in layer_items(previous_layer)
             }
-            current_agents = {agent["id"]: agent for agent in layer_agents(layer)}
-            if current_agents or previous_agents:
+            current_items = {
+                item_identity_key(layer, item): item for item in layer_items(layer)
+            }
+            if current_items or previous_items:
                 creates = [
-                    deepcopy(agent)
-                    for agent_id, agent in current_agents.items()
-                    if agent_id not in previous_agents
+                    deepcopy(item)
+                    for item_id, item in current_items.items()
+                    if item_id not in previous_items
                 ]
                 updates = []
-                for agent_id, agent in current_agents.items():
-                    if agent_id not in previous_agents:
+                identity_field_count = len(item_identity_fields(layer))
+                for item_id, item in current_items.items():
+                    if item_id not in previous_items:
                         continue
-                    diff = agent_diff(agent, previous_agents[agent_id])
-                    if len(diff) > 1:
+                    diff = item_diff(layer, item, previous_items[item_id])
+                    if len(diff) > identity_field_count:
                         updates.append(diff)
                 deletes = [
-                    agent_id
-                    for agent_id in previous_agents.keys() - current_agents.keys()
+                    item_key_payload(previous_layer, previous_items[item_id])
+                    for item_id in previous_items.keys() - current_items.keys()
                 ]
 
                 if creates:
                     await self._broadcast(
-                        ServerToClientMessageType.AGENT_CREATE,
-                        {"env_id": env_id, "layer_id": layer_id, "agents": creates},
+                        ServerToClientMessageType.ITEM_CREATE,
+                        {"env_id": env_id, "layer_id": layer_id, "items": creates},
                     )
                 if updates:
                     await self._broadcast(
-                        ServerToClientMessageType.AGENT_UPDATE,
-                        {"env_id": env_id, "layer_id": layer_id, "agents": updates},
+                        ServerToClientMessageType.ITEM_UPDATE,
+                        {"env_id": env_id, "layer_id": layer_id, "items": updates},
                     )
                 if deletes:
                     await self._broadcast(
-                        ServerToClientMessageType.AGENT_DELETE,
-                        {"env_id": env_id, "layer_id": layer_id, "ids": deletes},
-                    )
-
-            previous_edges = {
-                (edge["source"], edge["target"]): edge
-                for edge in layer_edges(previous_layer)
-            }
-            current_edges = {
-                (edge["source"], edge["target"]): edge for edge in layer_edges(layer)
-            }
-            if current_edges or previous_edges:
-                creates = [
-                    deepcopy(edge)
-                    for edge_key, edge in current_edges.items()
-                    if edge_key not in previous_edges
-                ]
-                updates = []
-                for edge_key, edge in current_edges.items():
-                    if edge_key not in previous_edges:
-                        continue
-                    diff = edge_diff(edge, previous_edges[edge_key])
-                    if len(diff) > 2:
-                        updates.append(diff)
-                deletes = [
-                    {"source": source, "target": target}
-                    for source, target in previous_edges.keys() - current_edges.keys()
-                ]
-
-                if creates:
-                    await self._broadcast(
-                        ServerToClientMessageType.EDGE_CREATE,
-                        {"env_id": env_id, "layer_id": layer_id, "edges": creates},
-                    )
-                if updates:
-                    await self._broadcast(
-                        ServerToClientMessageType.EDGE_UPDATE,
-                        {"env_id": env_id, "layer_id": layer_id, "edges": updates},
-                    )
-                if deletes:
-                    await self._broadcast(
-                        ServerToClientMessageType.EDGE_DELETE,
-                        {"env_id": env_id, "layer_id": layer_id, "edges": deletes},
+                        ServerToClientMessageType.ITEM_DELETE,
+                        {"env_id": env_id, "layer_id": layer_id, "items": deletes},
                     )
 
     def _get_param_value(self, param: "Parameter") -> Any:
@@ -936,20 +882,38 @@ class TenSnapServer:
         updates: Optional[List[Dict[str, Any]]] = None,
         deletes: Optional[List[Any]] = None,
     ) -> None:
+        """Deprecated: use update_layer_items instead."""
+        await self.update_layer_items(
+            env_id,
+            layer_id,
+            creates=creates,
+            updates=updates,
+            deletes=[{"id": item_id} for item_id in deletes] if deletes else None,
+        )
+
+    async def update_layer_items(
+        self,
+        env_id: Union[str, int],
+        layer_id: str,
+        *,
+        creates: Optional[List[Dict[str, Any]]] = None,
+        updates: Optional[List[Dict[str, Any]]] = None,
+        deletes: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
         if creates:
             await self._broadcast(
-                ServerToClientMessageType.AGENT_CREATE,
-                {"env_id": env_id, "layer_id": layer_id, "agents": creates},
+                ServerToClientMessageType.ITEM_CREATE,
+                {"env_id": env_id, "layer_id": layer_id, "items": creates},
             )
         if updates:
             await self._broadcast(
-                ServerToClientMessageType.AGENT_UPDATE,
-                {"env_id": env_id, "layer_id": layer_id, "agents": updates},
+                ServerToClientMessageType.ITEM_UPDATE,
+                {"env_id": env_id, "layer_id": layer_id, "items": updates},
             )
         if deletes:
             await self._broadcast(
-                ServerToClientMessageType.AGENT_DELETE,
-                {"env_id": env_id, "layer_id": layer_id, "ids": deletes},
+                ServerToClientMessageType.ITEM_DELETE,
+                {"env_id": env_id, "layer_id": layer_id, "items": deletes},
             )
 
     async def update_layer_edges(
@@ -961,21 +925,14 @@ class TenSnapServer:
         updates: Optional[List["GraphEdgeDict"]] = None,
         deletes: Optional[List["GraphEdgeDict"]] = None,
     ) -> None:
-        if creates:
-            await self._broadcast(
-                ServerToClientMessageType.EDGE_CREATE,
-                {"env_id": env_id, "layer_id": layer_id, "edges": creates},
-            )
-        if updates:
-            await self._broadcast(
-                ServerToClientMessageType.EDGE_UPDATE,
-                {"env_id": env_id, "layer_id": layer_id, "edges": updates},
-            )
-        if deletes:
-            await self._broadcast(
-                ServerToClientMessageType.EDGE_DELETE,
-                {"env_id": env_id, "layer_id": layer_id, "edges": deletes},
-            )
+        """Deprecated: use update_layer_items instead."""
+        await self.update_layer_items(
+            env_id,
+            layer_id,
+            creates=cast(Optional[List[Dict[str, Any]]], creates),
+            updates=cast(Optional[List[Dict[str, Any]]], updates),
+            deletes=cast(Optional[List[Dict[str, Any]]], deletes),
+        )
 
     async def replace_layer_state(
         self,
@@ -996,15 +953,10 @@ class TenSnapServer:
             {"env_id": env_id, "layer_id": layer_id},
         )
         await self._broadcast(ServerToClientMessageType.ENV_LAYER_CREATE, payload)
-        await self.update_layer_agents(
+        await self.update_layer_items(
             env_id,
             layer_id,
-            creates=layer_state.get("agents"),
-        )
-        await self.update_layer_edges(
-            env_id,
-            layer_id,
-            creates=layer_state.get("edges"),
+            creates=copied_layer_items(layer_state),
         )
 
     async def replace_environment_layers(

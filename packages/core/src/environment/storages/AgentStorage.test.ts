@@ -137,22 +137,6 @@ describe('AgentStorage – subscriber notifications', () => {
   });
 });
 
-// ── Trajectory ────────────────────────────────────────────────────────────────
-
-describe('AgentStorage – trajectories', () => {
-  it('setTrajectories stores trajectory data', () => {
-    const s = new AgentStorage();
-    s.setTrajectories({ a1: [{ x: 0, y: 0, time: 0 }, { x: 1, y: 1, time: 1 }] });
-    expect(s.getData().trajectories.get('a1')).toHaveLength(2);
-  });
-
-  it('trajectory trimmed to maxTrajectoryPoints', () => {
-    const s = new AgentStorage(3);
-    s.setTrajectories({ a1: [{ x: 0, y: 0, time: 0 }, { x: 1, y: 1, time: 1 }, { x: 2, y: 2, time: 2 }, { x: 3, y: 3, time: 3 }] });
-    expect(s.getData().trajectories.get('a1')).toHaveLength(3);
-  });
-});
-
 // ── dump / load round-trip ────────────────────────────────────────────────────
 
 describe('AgentStorage – dump / load', () => {
@@ -172,16 +156,6 @@ describe('AgentStorage – dump / load', () => {
     const s2 = new AgentStorage();
     s2.load(snap);
     expect(s2.getData().agents.get('a1')).toMatchObject({ x: 10, color: 'red' });
-  });
-
-  it('dump/load round-trips trajectory data', () => {
-    const s = new AgentStorage();
-    s.setTrajectories({ a1: [{ x: 0, y: 0, time: 0 }, { x: 5, y: 5, time: 5 }] });
-    const snap = s.dump();
-
-    const s2 = new AgentStorage();
-    s2.load(snap);
-    expect(s2.getData().trajectories.get('a1')).toHaveLength(2);
   });
 
   it('load with null/undefined snapshot does not throw', () => {

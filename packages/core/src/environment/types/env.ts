@@ -25,9 +25,6 @@ export interface GridEnvConfig {
   coordOffset?: GridCoordOffset;
   background?: BackgroundSource;
   interpolation?: ImageInterpolation;
-  /** Default trajectory trail length (≤0 means unlimited). */
-  trajectoryLength?: number;
-  trajectoryColor?: string;
 }
 
 // ---------------------------------------------------------------------------

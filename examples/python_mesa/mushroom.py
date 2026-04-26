@@ -6,19 +6,23 @@ import random
 import mesa
 import numpy as np
 
-from tensnap import bind_mesa_grid_agent, bind_mesa_grid_environment
+from tensnap import (
+    bind_agent,
+    bind_2d_env,
+    bind_agent_layer,
+    bind_grid_layer,
+    bind_trajectory_layer,
+)
 
 # endregion
 
 # region Agents
 
 
-@bind_mesa_grid_agent(heading=True, color=True, trajectory_length=True, icon=True)
-class Hunter(mesa.Agent):
+@bind_agent(id="unique_id", x="pos[0]", y="pos[1]", heading=True, color=True, icon=True)
+class Hunter(mesa.Agent):  # type: ignore[misc]
 
     icon = "arrow"
-    trajectory_length = 10
-    trajectory_color = "#1D4ED8"
     color = "blue"
 
     model: "ForagingModel"
@@ -29,7 +33,7 @@ class Hunter(mesa.Agent):
         (dx, dy) for dx in range(-1, 2) for dy in range(-1, 2)
     ]
 
-    def __init__(self, model, pos: Tuple[float, float]):
+    def __init__(self, model: "ForagingModel", pos: Tuple[float, float]) -> None:
         super().__init__(model)
         self.pos = pos
         self.time_since_last_found = 999
@@ -40,7 +44,7 @@ class Hunter(mesa.Agent):
         # 优化2：math.pi 替代 np.pi，避免 numpy 属性查找
         return self.heading_arc * math.pi / 180.0
 
-    def search(self):
+    def search(self) -> None:
         # rotate — 同时对角度取模，防止整数无限增长
         if self.time_since_last_found <= 20:
             self.heading_arc = (self.heading_arc + random.randint(-90, 90)) % 360
@@ -77,11 +81,11 @@ class Hunter(mesa.Agent):
             self.time_since_last_found += 1
 
 
-class Patch(mesa.Agent):
+class Patch(mesa.Agent):  # type: ignore[misc]
     icon = "square"
     size = 1.0
 
-    def __init__(self, model):
+    def __init__(self, model: "ForagingModel") -> None:
         super().__init__(model)
         self._color = "white"
         # 优化6：_state 字典只在初始化时构建一次，后续就地更新
@@ -97,7 +101,7 @@ class Patch(mesa.Agent):
             self._color = value
             # 就地更新已有字典，而非重新创建
             self._state["color"] = value
-            cast(dict, self._state["data"])["mushroom_state"] = value
+            cast(dict[str, object], self._state["data"])["mushroom_state"] = value
 
     def _init_state(self) -> None:
         """在 Mesa 完成 pos 赋值后，一次性构建状态字典。"""
@@ -123,16 +127,28 @@ class Patch(mesa.Agent):
 # region Model
 
 
-@bind_mesa_grid_environment(coord_offset=True)
-class ForagingModel(mesa.Model):
+@bind_trajectory_layer(
+    metadata={"length": 10, "color": "#1D4ED8"},
+    dependency_layer_ids={"agent": "hunters"},
+)
+@bind_agent_layer("patches", item_iterable_accessor="get_patch_layer_agents", metadata={"z_index": 35})
+@bind_agent_layer("hunters", item_iterable_accessor="hunters")
+@bind_grid_layer(width="width", height="height", coord_offset=True)
+@bind_2d_env()
+class ForagingModel(mesa.Model):  # type: ignore[misc]
 
     grid: "mesa.space.SingleGrid"
 
     coord_offset = "float"
 
     def __init__(
-        self, width=50, height=50, num_clusters=4, patches_per_cluster=20, num_turtles=2
-    ):
+        self,
+        width: int = 50,
+        height: int = 50,
+        num_clusters: int = 4,
+        patches_per_cluster: int = 20,
+        num_turtles: int = 2,
+    ) -> None:
         super().__init__()
         self.width = width
         self.height = height
@@ -176,7 +192,7 @@ class ForagingModel(mesa.Model):
             turtle = Hunter(self, (float(x), float(y)))
             self.hunters.append(turtle)
 
-    def step(self):
+    def step(self) -> None:
         hunters_copy = self.hunters.copy()
         random.shuffle(hunters_copy)
         for hunter in hunters_copy:

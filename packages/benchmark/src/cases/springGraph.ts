@@ -9,9 +9,9 @@
  *
  * Benchmark tick strategy:
  *   Each tick we slightly perturb a random subset of nodes' positions and
- *   call agentStorage.setAgents(), which causes EdgeLayer to reheat the
- *   d3 simulation (alpha=0.1).  This models a realistic "graph state changed"
- *   scenario and keeps the simulation running throughout the benchmark.
+ *   call agentStorage.updateAgents() for only the changed nodes. This still
+ *   reheats the d3 simulation, but avoids a full agent-map replacement every
+ *   frame.
  */
 
 import { EnvironmentView, AgentStorage, EdgeStorage, AgentLayer, EdgeLayer } from '@tensnap/core/environment';
@@ -124,34 +124,34 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
     },
 
     tick(frameIndex) {
-      // Sync local `nodes` with simulation-updated positions so that
-      // perturbations are applied relative to the current layout, not
-      // stale initial positions.  Without this, setAgents() would push
-      // the old coordinates to AgentLayer and nodes would appear erratic.
       const currentAgents = agentStorage!.getData().agents;
-      nodes = nodes.map((n) => {
-        const cur = currentAgents.get(n.id);
-        return cur != null && cur.x != null && cur.y != null
-          ? { ...n, x: cur.x, y: cur.y }
-          : n;
-      });
-
-      // Perturb a random subset of nodes to reheat the d3 simulation
-      const perturbCount = Math.max(1, Math.floor(cfg.nodeCount * cfg.perturbFraction));
-      const perturbedNodes = nodes.map((n) => ({ ...n }));
-
-      for (let k = 0; k < perturbCount; k++) {
-        const idx = Math.floor(Math.random() * perturbedNodes.length);
-        const n = perturbedNodes[idx];
-        n.x = (n.x ?? 0) + (Math.random() * 20 - 10);
-        n.y = (n.y ?? 0) + (Math.random() * 20 - 10);
+      const perturbCount = Math.min(
+        nodes.length,
+        Math.max(1, Math.floor(cfg.nodeCount * cfg.perturbFraction)),
+      );
+      const perturbedIndexes = new Set<number>();
+      while (perturbedIndexes.size < perturbCount) {
+        perturbedIndexes.add(Math.floor(Math.random() * nodes.length));
       }
 
-      nodes = perturbedNodes;
-      agentStorage!.setAgents(nodes);
+      const updates: Array<Pick<RenderableAgent, 'id' | 'x' | 'y'>> = [];
+      for (const idx of perturbedIndexes) {
+        const node = nodes[idx];
+        if (!node) {
+          continue;
+        }
+        const current = currentAgents.get(node.id);
+        const nextX = (current?.x ?? node.x ?? 0) + (Math.random() * 20 - 10);
+        const nextY = (current?.y ?? node.y ?? 0) + (Math.random() * 20 - 10);
+        node.x = nextX;
+        node.y = nextY;
+        updates.push({ id: node.id, x: nextX, y: nextY });
+      }
 
-      // Silence the unused-variable warning in strict mode
-      view?.fitToScene();
+      if (updates.length > 0) {
+        agentStorage!.updateAgents(updates);
+      }
+
       void frameIndex;
     },
 

@@ -5,6 +5,7 @@ import type { RenderableAgent, AgentStorageSnapshot } from '../../../core/src/en
 import type { BackgroundData } from '../../../core/src/environment/storages/BackgroundStorage';
 import type { EdgeStorageSnapshot } from '../../../core/src/environment/storages/EdgeStorage';
 import type { GridEnvData } from '../../../core/src/environment/storages/GridEnvStorage';
+import type { TrajectoryStorageSnapshot } from '../../../core/src/environment/storages/TrajectoryStorage';
 import { applyCoordOffset, getCoordOffsetValue } from '../../../core/src/environment/utils/coords';
 import {
   getAssetIdFromIcon,
@@ -37,6 +38,7 @@ interface AggregatedEnvironment {
   background: BackgroundData | null;
   backgroundSource: unknown;
   agentLayers: AggregatedAgentLayer[];
+  trajectoryLayers: AggregatedTrajectoryLayer[];
   agents: RenderableAgent[];
   edges: GraphEdge[];
 }
@@ -44,10 +46,16 @@ interface AggregatedEnvironment {
 interface AggregatedAgentLayer {
   id: string;
   coordOffset: 'int' | 'float';
-  trajectoryLength?: number;
-  trajectoryColor?: string;
   agents: RenderableAgent[];
-  trajectories: Array<{ id: string; points: TrajectoryPoint[] }>;
+}
+
+interface AggregatedTrajectoryLayer {
+  id: string;
+  agentLayerId?: string;
+  coordOffset: 'int' | 'float';
+  config: TrajectoryStorageSnapshot['config'];
+  configs: Map<string | number, TrajectoryStorageSnapshot['configs'][number]>;
+  trajectories: TrajectoryStorageSnapshot['trajectories'];
 }
 
 interface CanvasImageSource {
@@ -65,6 +73,15 @@ function isAgentStorageSnapshot(value: unknown): value is AgentStorageSnapshot {
 
 function isEdgeStorageSnapshot(value: unknown): value is EdgeStorageSnapshot {
   return typeof value === 'object' && value !== null && Array.isArray((value as { edges?: unknown[] }).edges);
+}
+
+function isTrajectoryStorageSnapshot(value: unknown): value is TrajectoryStorageSnapshot {
+  return (
+    typeof value === 'object'
+    && value !== null
+    && Array.isArray((value as { configs?: unknown[] }).configs)
+    && Array.isArray((value as { trajectories?: unknown[] }).trajectories)
+  );
 }
 
 function isBackgroundData(value: unknown): value is BackgroundData {
@@ -175,6 +192,7 @@ export function collectEnvironment(environment: ScenarioEnvironmentSnapshot): Ag
     background: null,
     backgroundSource: undefined,
     agentLayers: [],
+    trajectoryLayers: [],
     agents: [],
     edges: [],
   };
@@ -199,16 +217,26 @@ export function collectEnvironment(environment: ScenarioEnvironmentSnapshot): Ag
       const agentLayer: AggregatedAgentLayer = {
         id: layer.id,
         coordOffset: metadata.coord_offset === 'float' ? 'float' : 'int',
-        trajectoryLength: typeof metadata.trajectory_length === 'number' ? metadata.trajectory_length : undefined,
-        trajectoryColor: typeof metadata.trajectory_color === 'string' ? metadata.trajectory_color : undefined,
         agents: layer.storageSnapshot.agents.map((agent) => ({ ...agent })),
+      };
+      aggregated.agentLayers.push(agentLayer);
+      aggregated.agents.push(...agentLayer.agents.map((agent) => ({ ...agent })));
+    }
+
+    if (isTrajectoryStorageSnapshot(layer.storageSnapshot)) {
+      aggregated.trajectoryLayers.push({
+        id: layer.id,
+        agentLayerId: typeof layer.dependencyLayerIds?.agent === 'string' ? layer.dependencyLayerIds.agent : undefined,
+        coordOffset: metadata.coord_offset === 'float' ? 'float' : 'int',
+        config: { ...layer.storageSnapshot.config },
+        configs: new Map(
+          layer.storageSnapshot.configs.map((config) => [config.id, { ...config }]),
+        ),
         trajectories: layer.storageSnapshot.trajectories.map((trajectory) => ({
           id: trajectory.id,
           points: trajectory.points.map((point) => ({ ...point })),
         })),
-      };
-      aggregated.agentLayers.push(agentLayer);
-      aggregated.agents.push(...agentLayer.agents.map((agent) => ({ ...agent })));
+      });
     }
 
     if (isEdgeStorageSnapshot(layer.storageSnapshot)) {
@@ -221,6 +249,15 @@ export function collectEnvironment(environment: ScenarioEnvironmentSnapshot): Ag
 
     if (Array.isArray((metadata as { edges?: unknown[] }).edges)) {
       aggregated.edges.push(...((metadata as { edges: GraphEdge[] }).edges.map((edge) => ({ ...edge }))));
+    }
+  }
+
+  const agentCoordOffsetByLayerId = new Map(
+    aggregated.agentLayers.map((layer) => [layer.id, layer.coordOffset]),
+  );
+  for (const layer of aggregated.trajectoryLayers) {
+    if (layer.agentLayerId) {
+      layer.coordOffset = agentCoordOffsetByLayerId.get(layer.agentLayerId) ?? layer.coordOffset;
     }
   }
 
@@ -592,19 +629,23 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     viewport: Viewport,
     environment: AggregatedEnvironment,
   ): void {
-    if (!environment.agentLayers.some((layer) => layer.trajectories.length > 0)) {
+    if (!environment.trajectoryLayers.some((layer) => layer.trajectories.length > 0)) {
       return;
     }
 
     context.save();
-    context.lineWidth = 2;
-    for (const layer of environment.agentLayers) {
+    for (const layer of environment.trajectoryLayers) {
       const offset = getCoordOffsetValue(layer.coordOffset);
       for (const trajectory of layer.trajectories) {
         if (trajectory.points.length < 2) {
           continue;
         }
-        context.strokeStyle = trajectory.points.find((point) => point.color)?.color ?? layer.trajectoryColor ?? 'rgba(66, 133, 244, 0.5)';
+        const config = layer.configs.get(trajectory.id);
+        context.strokeStyle = trajectory.points.find((point) => point.color)?.color
+          ?? config?.color
+          ?? layer.config.color
+          ?? 'rgba(66, 133, 244, 0.5)';
+        context.lineWidth = Math.max(1, config?.width ?? layer.config.width ?? 2);
         context.beginPath();
         trajectory.points.forEach((point, index) => {
           const canvasPoint = this.worldToCanvas(canvasWidth, canvasHeight, viewport, point.x + offset, point.y + offset);

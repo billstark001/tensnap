@@ -3,18 +3,15 @@ import type { Action, Parameter } from '../parameter';
 import type {
   ActionEndPayload,
   ActionStartPayload,
-  AgentCreatePayload,
-  AgentDeletePayload,
-  AgentUpdatePayload,
+  ItemCreatePayload,
+  ItemDeletePayload,
+  ItemUpdatePayload,
   AssetDataPayload,
   AssetDeletePayload,
   AssetMetaPayload,
   ChartCreatePayload,
   ChartDeletePayload,
   ChartUpdatePayload,
-  EdgeCreatePayload,
-  EdgeDeletePayload,
-  EdgeUpdatePayload,
   EnvCreatePayload,
   EnvDeletePayload,
   EnvLayerCreatePayload,
@@ -36,7 +33,7 @@ export interface ScenarioLayerState {
   layerType: string;
   metadata: Record<string, unknown>;
   storage: ScenarioStorage;
-  agentLayerRef?: string;
+  dependencyLayerIds: Record<string, string>;
 }
 
 export interface ScenarioStorage {
@@ -48,6 +45,7 @@ export interface ScenarioEnvironmentState {
   id: string;
   type: ScenarioEnvironmentType;
   layers: Map<string, ScenarioLayerState>;
+  dependencyGraph: Map<string, Set<string>>;
 }
 
 export interface ScenarioLayerSnapshot {
@@ -55,7 +53,6 @@ export interface ScenarioLayerSnapshot {
   layerType: string;
   metadata: Record<string, unknown>;
   storageSnapshot: unknown;
-  agentLayerRef?: string;
 }
 
 export interface ScenarioEnvironmentSnapshot {
@@ -86,12 +83,9 @@ export interface ScenarioEventDetailMap {
   'layer:create': EnvLayerCreatePayload;
   'layer:update': EnvLayerUpdatePayload;
   'layer:delete': EnvLayerDeletePayload;
-  'agent:create': AgentCreatePayload;
-  'agent:update': AgentUpdatePayload;
-  'agent:delete': AgentDeletePayload;
-  'edge:create': EdgeCreatePayload;
-  'edge:update': EdgeUpdatePayload;
-  'edge:delete': EdgeDeletePayload;
+  'item:create': ItemCreatePayload;
+  'item:update': ItemUpdatePayload;
+  'item:delete': ItemDeletePayload;
   'param:create': Parameter;
   'param:update': Parameter;
   'param:delete': { id: string };

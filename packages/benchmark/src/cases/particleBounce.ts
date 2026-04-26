@@ -6,7 +6,7 @@
  * Each tick:
  *   - Update particle positions using velocity (basic Euler integration)
  *   - Reflect velocity when a particle hits a boundary
- *   - Call agentStorage.setAgents() to trigger re-render
+ *   - Call agentStorage.updateAgents() to trigger re-render
  */
 
 import { EnvironmentView, GridEnvStorage, GridLayer } from '@tensnap/core/environment';

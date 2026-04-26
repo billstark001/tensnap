@@ -20,7 +20,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "echo 'Linting not configured yet'",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm run typecheck",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {

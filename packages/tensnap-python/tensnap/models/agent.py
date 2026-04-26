@@ -5,7 +5,9 @@ from typing import (
     TYPE_CHECKING,
     Any,
     TypedDict,
+    cast,
 )
+
 from typing_extensions import NotRequired
 
 from tensnap.utils.attr import make_dict_accessor
@@ -30,14 +32,20 @@ class UniformAgentModelDict(AgentModelDict):
     pass
 
 
+class GenericAgentModelDict(AgentModelDict):
+    """Generic agent dictionary with optional spatial fields."""
+
+    x: NotRequired[float]
+    y: NotRequired[float]
+    heading: NotRequired[float]
+
+
 class GridAgentModelDict(AgentModelDict):
     """Type definition for Grid Agent Model dictionary representation"""
 
     x: float
     y: float
     heading: float
-    trajectory_length: NotRequired[int | None]
-    trajectory_color: NotRequired[str | None]
 
 
 class GraphAgentModelDict(AgentModelDict):
@@ -58,14 +66,20 @@ class UniformAgentAccessorDict(TypedDict):
     data: NotRequired[str | bool | None]
 
 
+class AgentAccessorDict(UniformAgentAccessorDict):
+    """Generic agent accessor parameters with optional spatial fields."""
+
+    x: NotRequired[str | bool | None]
+    y: NotRequired[str | bool | None]
+    heading: NotRequired[str | bool | None]
+
+
 class GridAgentAccessorDict(UniformAgentAccessorDict):
     """Type definition for grid agent accessor parameters"""
 
     x: str
     y: str
     heading: NotRequired[str | bool | None]
-    trajectory_length: NotRequired[str | bool | None]
-    trajectory_color: NotRequired[str | bool | None]
 
 
 class GraphAgentAccessorNXDict(TypedDict):
@@ -93,7 +107,7 @@ def _a(
     icon: str | bool | None = None,
     size: str | bool | None = None,
     data: str | bool | None = None,
-):
+) -> None:
 
     if color is not None and color is not False:
         map_fields["color"] = "color" if color is True else color
@@ -119,6 +133,29 @@ def make_uniform_agent_accessor(
     return make_dict_accessor([], map_fields, {})  # type: ignore
 
 
+def make_agent_accessor(
+    id: str = "id",
+    x: str | bool | None = None,
+    y: str | bool | None = None,
+    heading: str | bool | None = None,
+    color: str | bool | None = None,
+    icon: str | bool | None = None,
+    size: str | bool | None = None,
+    data: str | bool | None = None,
+) -> Callable[[Any], GenericAgentModelDict]:
+    """Create a generic accessor for agent-like items with optional spatial fields."""
+    map_fields: dict[str, str] = {}
+    map_fields["id"] = id
+    if x is not None and x is not False:
+        map_fields["x"] = "x" if x is True else x
+    if y is not None and y is not False:
+        map_fields["y"] = "y" if y is True else y
+    if heading is not None and heading is not False:
+        map_fields["heading"] = "heading" if heading is True else heading
+    _a(map_fields, color, icon, size, data)
+    return make_dict_accessor([], map_fields, {})  # type: ignore
+
+
 def make_grid_agent_accessor(
     id: str = "id",
     x: str = "x",
@@ -128,8 +165,6 @@ def make_grid_agent_accessor(
     icon: str | bool | None = None,
     size: str | bool | None = None,
     data: str | bool | None = None,
-    trajectory_length: str | bool | None = None,
-    trajectory_color: str | bool | None = None,
 ) -> Callable[[Any], GridAgentModelDict]:
     """Create a function that accesses fields from an AgentModel"""
     map_fields: dict[str, str] = {}
@@ -138,14 +173,6 @@ def make_grid_agent_accessor(
     map_fields["y"] = y
     if heading is not None and heading is not False:
         map_fields["heading"] = "heading" if heading is True else heading
-    if trajectory_length is not None and trajectory_length is not False:
-        map_fields["trajectory_length"] = (
-            "trajectory_length" if trajectory_length is True else trajectory_length
-        )
-    if trajectory_color is not None and trajectory_color is not False:
-        map_fields["trajectory_color"] = (
-            "trajectory_color" if trajectory_color is True else trajectory_color
-        )
     _a(map_fields, color, icon, size, data)
     return make_dict_accessor([], map_fields, {})  # type: ignore
 
@@ -187,15 +214,16 @@ def make_graph_agent_accessor_nx(
         map_fields["y"] = "y" if y is True else y
     _a(map_fields, color, icon, size, data)
 
-    def f(node_id, node_data) -> GraphAgentModelDict:
-        obj = {"id": node_id}
+    def f(node_id: str | int, node_data: dict[str, Any]) -> GraphAgentModelDict:
+        obj: GraphAgentModelDict = {"id": node_id}
+        obj_dict = cast(dict[str, Any], obj)
         for field, mapped_field in map_fields.items():
             if mapped_field in node_data:
-                obj[field] = node_data[mapped_field]
+                obj_dict[field] = node_data[mapped_field]
         if auto_collect_data:
-            obj["data"] = {
+            obj_dict["data"] = {
                 k: v for k, v in node_data.items() if k not in map_fields.values()
             }
-        return obj  # type: ignore
+        return obj
 
     return f

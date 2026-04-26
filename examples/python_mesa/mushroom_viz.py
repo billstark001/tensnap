@@ -9,8 +9,6 @@ import import_config  # noqa: F401
 
 from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
-from tensnap.bindings.mesa.handler import MesaGridEnvironmentBinder
-from tensnap.models import EnvironmentLayerState, EnvironmentState
 
 from mushroom import ForagingModel, Hunter, Patch
 
@@ -33,62 +31,6 @@ NUM_HUNTERS = 2
 
 # endregion
 
-# region Custom Handler
-
-
-class MushroomEnvironmentBinder(MesaGridEnvironmentBinder):
-    """Expose mushroom patches as a dedicated layer beneath the moving hunters."""
-
-    environment: ForagingModel
-
-    def get_state(self) -> EnvironmentState:
-        base_state = super().get_state()
-        grid_layers = [
-            layer
-            for layer in base_state["layers"]
-            if layer["layer_type"] == "grid"
-        ]
-        patch_layer: EnvironmentLayerState = {
-            "layer_id": "patches",
-            "layer_type": "agent",
-            "data": {"z_index": 35},
-            "agents": self.environment.get_patch_layer_agents(),
-        }
-        return {
-            "id": base_state["id"],
-            "type": base_state["type"],
-            "layers": [
-                *grid_layers,
-                patch_layer,
-                *[
-                    layer
-                    for layer in base_state["layers"]
-                    if layer["layer_type"] != "grid"
-                ],
-            ],
-        }
-
-
-class MushroomSimulationHandler(MesaSimulationHandler):
-    async def on_registered(self, scenario: SimulationScenario) -> None:
-        first_register = scenario is not self.scenario
-        await super().on_registered(scenario)
-
-        if not first_register or self.model is None:
-            return
-
-        assert self.env_binder is not None
-        scenario.remove_environment(self.env_binder.id)
-        self.env_binder = MushroomEnvironmentBinder(
-            self.model.__class__.__name__,
-            self.model,
-            agent_iterable_accessor=self.agent_iterable_accessor,
-        )
-        scenario.add_environment(self.env_binder)
-
-
-# endregion
-
 # region Charts
 
 
@@ -100,7 +42,7 @@ class MushroomSimulationHandler(MesaSimulationHandler):
         ("collected_mushrooms", "#F39C12", "Collected Mushrooms"),
     ],
 )
-def mushroom_stats_chart() -> dict:
+def mushroom_stats_chart() -> dict[str, int]:
     """Get mushroom statistics"""
     assert handler is not None
     assert isinstance(handler.model, ForagingModel)
@@ -108,10 +50,10 @@ def mushroom_stats_chart() -> dict:
     if model:
         red_count = 0
         yellow_count = 0
-        for patch in model.agents_by_type[Patch]:
-            if patch.color == "red":  # type: ignore
+        for patch in cast(list[Patch], model.agents_by_type[Patch]):
+            if patch.color == "red":
                 red_count += 1
-            elif patch.color == "yellow":  # type: ignore
+            elif patch.color == "yellow":
                 yellow_count += 1
         return {
             "red_mushrooms": red_count,
@@ -142,7 +84,7 @@ def hunter_efficiency_chart() -> float:
 async def main() -> None:
     # The custom handler keeps the moving hunters and mushroom field in separate inspectable layers.
     global handler
-    handler = MushroomSimulationHandler(
+    handler = MesaSimulationHandler(
         model_class=ForagingModel,
         model_init_kwargs={
             "width": MODEL_WIDTH,

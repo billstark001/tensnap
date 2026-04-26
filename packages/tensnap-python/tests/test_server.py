@@ -328,9 +328,9 @@ class TestTenSnapServer:
         ]
 
         assert [msg["type"] for msg in sent_messages] == [
-            "agent_create",
-            "agent_update",
-            "agent_delete",
+            "item_create",
+            "item_update",
+            "item_delete",
         ]
         assert all(msg["payload"]["layer_id"] == "agents" for msg in sent_messages)
 
@@ -355,9 +355,9 @@ class TestTenSnapServer:
         ]
 
         assert [msg["type"] for msg in sent_messages] == [
-            "edge_create",
-            "edge_update",
-            "edge_delete",
+            "item_create",
+            "item_update",
+            "item_delete",
         ]
         assert all(msg["payload"]["layer_id"] == "edges" for msg in sent_messages)
 
@@ -386,7 +386,7 @@ class TestTenSnapServer:
         assert [msg["type"] for msg in sent_messages] == [
             "env_layer_delete",
             "env_layer_create",
-            "agent_create",
+            "item_create",
         ]
         assert sent_messages[1]["payload"]["layer_id"] == "patches"
         assert sent_messages[1]["payload"]["data"] == {"width": 2, "height": 2}
@@ -419,7 +419,7 @@ class TestTenSnapServer:
             "env_delete",
             "env_create",
             "env_layer_create",
-            "agent_create",
+            "item_create",
         ]
         assert sent_messages[1]["payload"] == {"id": "env1", "type": "2d"}
 
@@ -477,9 +477,9 @@ class TestTenSnapServer:
             "payload": {"request_id": "sync-1"},
         }
         assert any(
-            msg["type"] == "edge_create"
+            msg["type"] == "item_create"
             and msg["payload"]["layer_id"] == "edges"
-            and len(msg["payload"]["edges"]) == 2
+            and len(msg["payload"]["items"]) == 2
             for msg in sent_messages
         )
         assert any(

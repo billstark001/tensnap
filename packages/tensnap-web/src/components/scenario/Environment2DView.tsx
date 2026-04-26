@@ -13,6 +13,8 @@ import {
   BackgroundLayer,
   GridEnvStorage,
   GridLayer,
+  TrajectoryStorage,
+  TrajectoryLayer,
   EdgeStorage,
   EdgeLayer,
   GraphEnvConfig,
@@ -94,6 +96,9 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       const nextBackgroundLayers: BackgroundLayer[] = [];
       const nextAgentLayers: AgentLayer[] = [];
       const agentStorageByLayerId = new Map<string, AgentStorage>();
+      const agentMetadataByLayerId = new Map<string, Record<string, unknown>>();
+      const edgeLayerByAgentLayerId = new Map<string, EdgeLayer>();
+      let implicitTrajectoryLayerZIndex = 30;
       let implicitAgentLayerZIndex = 40;
 
       const hasBackgroundStorage = layerStates.some((layer) => layer.storage instanceof BackgroundStorage);
@@ -130,6 +135,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
 
         if (layer.storage instanceof AgentStorage) {
           agentStorageByLayerId.set(layer.id, layer.storage);
+          agentMetadataByLayerId.set(layer.id, layer.metadata as Record<string, unknown>);
           nextAgentStorages.push(layer.storage);
         }
       }
@@ -139,10 +145,11 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
         if (!(layer.storage instanceof EdgeStorage)) {
           continue;
         }
-        const linkedAgentStorage = (
-          (layer.agentLayerRef && agentStorageByLayerId.get(layer.agentLayerRef))
-          ?? nextAgentStorages[0]
-        );
+        const linkedAgentLayerId = layer.dependencyLayerIds?.agent;
+        if (!linkedAgentLayerId) {
+          continue;
+        }
+        const linkedAgentStorage = agentStorageByLayerId.get(linkedAgentLayerId);
         if (!linkedAgentStorage) {
           continue;
         }
@@ -151,9 +158,40 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
           edgeLayer.setZIndex(layer.metadata.z_index);
         }
         nextView.addLayer(edgeLayer);
+        edgeLayerByAgentLayerId.set(linkedAgentLayerId, edgeLayer);
         if (!firstEdgeLayer) {
           firstEdgeLayer = edgeLayer;
         }
+      }
+
+      for (const layer of layerStates) {
+        if (!(layer.storage instanceof TrajectoryStorage)) {
+          continue;
+        }
+
+        const linkedAgentLayerId = layer.dependencyLayerIds?.agent;
+        if (!linkedAgentLayerId) {
+          continue;
+        }
+
+        const linkedAgentMetadata = agentMetadataByLayerId.get(linkedAgentLayerId);
+        const linkedEdgeLayer = edgeLayerByAgentLayerId.get(linkedAgentLayerId);
+        const trajectoryLayer = new TrajectoryLayer(nextView, layer.storage, {
+          coordOffset: linkedEdgeLayer
+            ? 'float'
+            : linkedAgentMetadata?.coord_offset === 'float'
+              ? 'float'
+              : 'int',
+        });
+
+        if (typeof layer.metadata?.z_index === 'number') {
+          trajectoryLayer.setZIndex(layer.metadata.z_index);
+        } else {
+          trajectoryLayer.setZIndex(implicitTrajectoryLayerZIndex);
+          implicitTrajectoryLayerZIndex += 1;
+        }
+
+        nextView.addLayer(trajectoryLayer);
       }
 
       for (const layer of layerStates) {
@@ -161,23 +199,26 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
           continue;
         }
 
+        const linkedEdgeLayer = edgeLayerByAgentLayerId.get(layer.id);
+        const usesGraphInteraction = Boolean(linkedEdgeLayer);
+
         const layerSceneBounds = (
           typeof layer.metadata.width === 'number' && typeof layer.metadata.height === 'number'
         ) ? { width: layer.metadata.width, height: layer.metadata.height } : sceneBounds;
 
         const agentLayer = new AgentLayer(nextView, layer.storage, {
-          ...(hasEdgeLayer && firstEdgeLayer ? firstEdgeLayer.buildDragHandlers() : {}),
+          ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
           clickable: true,
-          draggable: hasEdgeLayer,
+          draggable: usesGraphInteraction,
           // Labels use the existing scene-unit sizing from AgentLayer; keep that
           // untouched and require labels to be explicitly enabled elsewhere.
           showLabel: false,
-          originMode: hasEdgeLayer ? 'center' : 'bottom-left',
-          coordOffset: hasEdgeLayer ? 'float' : layer.metadata.coord_offset === 'float' ? 'float' : 'int',
-          sceneBounds: hasEdgeLayer ? undefined : layerSceneBounds,
+          originMode: usesGraphInteraction ? 'center' : 'bottom-left',
+          coordOffset: usesGraphInteraction ? 'float' : layer.metadata.coord_offset === 'float' ? 'float' : 'int',
+          sceneBounds: usesGraphInteraction ? undefined : layerSceneBounds,
           resolveAssetUrl: (assetId) => scenario?.assets.getUrl(assetId),
-          onAgentClick: hasEdgeLayer ? undefined : handleAgentSelect,
-          onAgentDoubleClick: hasEdgeLayer ? handleAgentSelect : undefined,
+          onAgentClick: usesGraphInteraction ? undefined : handleAgentSelect,
+          onAgentDoubleClick: usesGraphInteraction ? handleAgentSelect : undefined,
         });
         if (typeof layer.metadata?.z_index === 'number') {
           agentLayer.setZIndex(layer.metadata.z_index);

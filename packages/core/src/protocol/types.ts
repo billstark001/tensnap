@@ -19,6 +19,12 @@ export interface EdgeData {
   [key: string]: unknown;
 }
 
+export type ItemRecord = Record<string, unknown>;
+export type ItemDiff = Record<string, unknown>;
+export type ItemKey = Record<string, unknown>;
+export type PrimitiveItemKey = string | number;
+export type ItemDeleteItems = ItemKey[] | PrimitiveItemKey[];
+
 export type AgentDiff = { id: AgentId } & Record<string, unknown>;
 export type EdgeDiff = { source: AgentId; target: AgentId } & Record<string, unknown>;
 
@@ -35,6 +41,9 @@ export type SimulatorToRendererMessageType =
   | 'env_layer_create'
   | 'env_layer_update'
   | 'env_layer_delete'
+  | 'item_create'
+  | 'item_update'
+  | 'item_delete'
   | 'agent_create'
   | 'agent_update'
   | 'agent_delete'
@@ -133,36 +142,72 @@ export interface EnvLayerDeletePayload {
   layer_id: string;
 }
 
+export interface ItemCreatePayload<TItem extends ItemRecord = ItemRecord> {
+  env_id: EnvironmentId;
+  layer_id: string;
+  items: TItem[];
+}
+
+export interface ItemUpdatePayload<TItem extends ItemDiff = ItemDiff> {
+  env_id: EnvironmentId;
+  layer_id: string;
+  items: TItem[];
+}
+
+export interface ItemDeletePayload<TItems extends ItemDeleteItems = ItemDeleteItems> {
+  env_id: EnvironmentId;
+  layer_id: string;
+  items: TItems;
+}
+
+/**
+ * @deprecated Use ItemCreatePayload with the item_create message instead.
+ */
 export interface AgentCreatePayload {
   env_id: EnvironmentId;
   layer_id: string;
   agents: AgentRecord[];
 }
 
+/**
+ * @deprecated Use ItemUpdatePayload with the item_update message instead.
+ */
 export interface AgentUpdatePayload {
   env_id: EnvironmentId;
   layer_id: string;
   agents: AgentDiff[];
 }
 
+/**
+ * @deprecated Use ItemDeletePayload with the item_delete message instead.
+ */
 export interface AgentDeletePayload {
   env_id: EnvironmentId;
   layer_id: string;
   ids: AgentId[];
 }
 
+/**
+ * @deprecated Use ItemCreatePayload with the item_create message instead.
+ */
 export interface EdgeCreatePayload {
   env_id: EnvironmentId;
   layer_id: string;
   edges: EdgeData[];
 }
 
+/**
+ * @deprecated Use ItemUpdatePayload with the item_update message instead.
+ */
 export interface EdgeUpdatePayload {
   env_id: EnvironmentId;
   layer_id: string;
   edges: EdgeDiff[];
 }
 
+/**
+ * @deprecated Use ItemDeletePayload with the item_delete message instead.
+ */
 export interface EdgeDeletePayload {
   env_id: EnvironmentId;
   layer_id: string;
@@ -283,6 +328,9 @@ export type SimulatorToRendererPayload =
   | EnvLayerCreatePayload
   | EnvLayerUpdatePayload
   | EnvLayerDeletePayload
+  | ItemCreatePayload
+  | ItemUpdatePayload
+  | ItemDeletePayload
   | AgentCreatePayload
   | AgentUpdatePayload
   | AgentDeletePayload

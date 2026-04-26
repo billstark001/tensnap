@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "benchmark": "vite",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm run typecheck",
     "build": "tsc && vite build",
     "clean": "rm -rf dist node_modules"
   },

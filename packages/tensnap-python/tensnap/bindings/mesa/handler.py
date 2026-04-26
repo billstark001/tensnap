@@ -9,6 +9,7 @@ from tensnap.scenario import DefaultSimulationHandler, call_function
 
 from tensnap.models import (
     GridEnvironmentBinder,
+    LayeredEnvironmentBinder,
     make_grid_agent_accessor,
     make_grid_environment_accessor,
 )
@@ -143,11 +144,20 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         assert self.model is not None, "Model must be initialized before registration"
 
         if first_register:
-            env_binder = MesaGridEnvironmentBinder(
-                self.model.__class__.__name__,
-                self.model,
-                agent_iterable_accessor=self.agent_iterable_accessor,
-            )
+            if (
+                hasattr(self.model.__class__, "_tensnap_environment_binding_config")
+                or hasattr(self.model.__class__, "_tensnap_layer_binding_configs")
+            ):
+                env_binder = LayeredEnvironmentBinder(
+                    self.model.__class__.__name__,
+                    self.model,
+                )
+            else:
+                env_binder = MesaGridEnvironmentBinder(
+                    self.model.__class__.__name__,
+                    self.model,
+                    agent_iterable_accessor=self.agent_iterable_accessor,
+                )
             self.env_binder = env_binder
             self.scenario.add_environment(env_binder)
             self.scenario.add_actions({})

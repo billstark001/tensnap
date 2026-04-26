@@ -6,9 +6,9 @@ simulator handles one action_start at a time and returns action_end with
 continue=true/false.
 """
 
-from typing import Callable, Optional, Any, TYPE_CHECKING
-
 import logging
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from .bindings.basic import action
 from .utils.func import call_function
@@ -30,11 +30,11 @@ class SimulationLoop:
 
     def __init__(
         self,
-        on_start: Optional[Callable[[int], Any | None]] = None,
-        on_step: Optional[Callable[[int], Any | None]] = None,
-        on_stop: Optional[Callable[[int], Any | None]] = None,
+        on_start: Callable[[int], Any | None] | None = None,
+        on_step: Callable[[int], Any | None] | None = None,
+        on_stop: Callable[[int], Any | None] | None = None,
         step_interval: float = 0.05,
-    ):
+    ) -> None:
         self.on_start = on_start
         self.on_step = on_step
         self.on_stop = on_stop

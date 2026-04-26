@@ -20,7 +20,7 @@ v0.1 used a single `environment_update` message embedding agent lists, grid conf
 
 ### Agent and edge lifecycle
 
-v0.1 combined create / update / delete into `agent_update` and `agent_batch_update` with an `operation` discriminator field. v0.2 uses separate `agent_create`, `agent_update`, and `agent_delete` message types. Edges, which were implicit in the environment payload in v0.1, now have their own `edge_create`, `edge_update`, `edge_delete` message family.
+v0.1 combined create / update / delete into `agent_update` and `agent_batch_update` with an `operation` discriminator field. v0.2 canonicalizes layer items behind `item_create`, `item_update`, and `item_delete`. The legacy `agent_*` and `edge_*` families remain as sugar, but they lower to the same item router and are no longer the normative protocol surface for new integrations.
 
 ### Time and metadata
 
@@ -203,6 +203,9 @@ type SimulatorToRendererMessageType =
   | 'env_layer_create'
   | 'env_layer_update'
   | 'env_layer_delete'
+  | 'item_create'
+  | 'item_update'
+  | 'item_delete'
   | 'agent_create'
   | 'agent_update'
   | 'agent_delete'
@@ -374,83 +377,50 @@ Creates and updates environment-local layers.
 
 Layer metadata is whole-object metadata, not incremental entity diffs.
 
-### `agent_create` / `agent_update` / `agent_delete`
+### `item_create` / `item_update` / `item_delete`
 
-Creates and updates agent entities within a layer.
+Creates and updates layer-owned items within a layer. The exact item schema and primary key are provided by the layer registry entry for that `layer_type`.
 
 ```typescript
 {
-  type: 'agent_create',
+  type: 'item_create',
   payload: {
     env_id: string;
     layer_id: string;
-    agents: Agent[];
+    items: Array<Record<string, unknown>>;
   }
 }
 ```
 
 ```typescript
 {
-  type: 'agent_update',
+  type: 'item_update',
   payload: {
     env_id: string;
     layer_id: string;
-    agents: Array<{ id: AgentId; [field: string]: unknown }>;
+    items: Array<Record<string, unknown>>;
   }
 }
 ```
 
 ```typescript
 {
-  type: 'agent_delete',
+  type: 'item_delete',
   payload: {
     env_id: string;
     layer_id: string;
-    ids: AgentId[];
+    items: Array<Record<string, unknown>>;
   }
 }
 ```
 
-The update form is a flat diff keyed by `id`.
+For built-in layers:
 
-### `edge_create` / `edge_update` / `edge_delete`
+- `agent` items are keyed by `id`
+- `edge` items are keyed by `(source, target)`
+- `trajectory` items are keyed by `id`
 
-Creates and updates edge entities within a layer.
-
-```typescript
-{
-  type: 'edge_create',
-  payload: {
-    env_id: string;
-    layer_id: string;
-    edges: EdgeData[];
-  }
-}
-```
-
-```typescript
-{
-  type: 'edge_update',
-  payload: {
-    env_id: string;
-    layer_id: string;
-    edges: Array<{ source: AgentId; target: AgentId; [field: string]: unknown }>;
-  }
-}
-```
-
-```typescript
-{
-  type: 'edge_delete',
-  payload: {
-    env_id: string;
-    layer_id: string;
-    edges: Array<{ source: AgentId; target: AgentId }>;
-  }
-}
-```
-
-The identity key is currently `(source, target)`.
+`agent_create` / `agent_update` / `agent_delete` and `edge_create` / `edge_update` / `edge_delete` are compatibility sugar over these same item operations.
 
 ### `param_create` / `param_update` / `param_delete`
 
@@ -741,15 +711,16 @@ Each layer type may declare:
 
 - `layer_type`
 - optional metadata schema
-- optional entity schema
-- optional entity diff schema
-- whether it owns agents
-- whether it owns edges
+- optional item schema
+- optional item diff schema
+- optional primary key fields
+- optional required dependency layer types
 
 Built-in registrations currently include:
 
-- `agent` — owns agents; metadata includes `width`, `height`, `coord_offset`, `trajectory_length`, `trajectory_color`
-- `edge` — owns edges; metadata includes force-layout parameters (`linkDistance`, `chargeStrength`, etc.) and an optional `agent_layer_id` referencing the associated agent layer
+- `agent` — owns agent items; metadata includes `width`, `height`, `coord_offset`
+- `edge` — owns edge items; metadata includes force-layout parameters (`linkDistance`, `chargeStrength`, etc.) and requires `data.dependency_layer_ids.agent`
+- `trajectory` — owns trajectory config items; metadata includes optional global `length`, `width`, `color` and requires `data.dependency_layer_ids.agent`
 - `grid` — grid coordinate frame; metadata includes `xOrigin`, `xUnit`, `xInterval`, `xRatio`, `yOrigin`, `yUnit`, `yInterval`, `yRatio`, `strokeColor`
 - `background` — background image layer; metadata includes `background` as either a CSS color or explicit URL/data URL string, a `Uint8Array` with image/NPY bytes, or an asset reference `{ asset_id, interpolation? }`, plus optional layer-level `interpolation` (`'nearest'` | `'linear'`)
 

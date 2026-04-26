@@ -6,7 +6,13 @@ import math
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
-from tensnap import bind_grid_agent, bind_grid_environment
+from tensnap import (
+    bind_agent,
+    bind_2d_env,
+    bind_agent_layer,
+    bind_grid_layer,
+    bind_trajectory_layer,
+)
 
 
 @dataclass
@@ -23,7 +29,7 @@ class FlockConfig:
     spawn_radius: float = 10.0
 
 
-@bind_grid_agent(size=True, icon=True, color=True, data=True, heading=True)
+@bind_agent(x=True, y=True, size=True, icon=True, color=True, data=True, heading=True)
 class Bird:
     """A single bird agent in the flock"""
 
@@ -47,7 +53,7 @@ class Bird:
         """Get current speed of the bird"""
         return math.sqrt(self.vx * self.vx + self.vy * self.vy)
 
-    def update_position(self, world_width: float, world_height: float):
+    def update_position(self, world_width: float, world_height: float) -> None:
         """Update bird position with boundary wrapping"""
         self.x = (self.x + self.vx) % world_width
         self.y = (self.y + self.vy) % world_height
@@ -66,13 +72,17 @@ class Bird:
         }
 
 
-@bind_grid_environment(coord_offset=True, trajectory_length=True)
+@bind_trajectory_layer(
+    metadata={"length": 5, "color": "#2563EB"},
+    dependency_layer_ids={"agent": "birds"},
+)
+@bind_agent_layer("birds", item_iterable_accessor="birds")
+@bind_grid_layer(width="width", height="height", coord_offset=True)
+@bind_2d_env()
 class FlockSimulation:
     """Main flocking simulation class"""
 
     coord_offset = "float"
-    trajectory_length = 5
-    trajectory_color = "#2563EB"
 
     def __init__(self, config: Optional[FlockConfig] = None):
         self.config = config or FlockConfig()

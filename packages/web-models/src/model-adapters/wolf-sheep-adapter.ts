@@ -160,20 +160,20 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     await this.sendEnvLayerCreate({
       env_id: 'main',
       layer_id: TERRAIN_LAYER,
-      layer_type: 'grid',
+      layer_type: 'agent',
       data: { width: this.worldSize.width, height: this.worldSize.height },
     });
     await this.sendEnvLayerCreate({
       env_id: 'main',
       layer_id: ANIMAL_LAYER,
-      layer_type: 'grid',
+      layer_type: 'agent',
       data: { width: this.worldSize.width, height: this.worldSize.height },
     });
 
-    await this.sendAgentCreate({ env_id: 'main', layer_id: TERRAIN_LAYER, agents: this.buildTerrainAgents(true) });
+    await this.sendItemCreate({ env_id: 'main', layer_id: TERRAIN_LAYER, items: this.buildTerrainAgents(true) });
     const animals = this.buildAnimalAgents();
     this.previousAnimalIds = new Set<string | number>(animals.map((a) => a.id));
-    await this.sendAgentCreate({ env_id: 'main', layer_id: ANIMAL_LAYER, agents: animals });
+    await this.sendItemCreate({ env_id: 'main', layer_id: ANIMAL_LAYER, items: animals });
     await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: this.getChartUpdates(0) });
   }
@@ -253,10 +253,10 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     await this.sendMetadataUpdate({ time });
     const terrainUpdates = this.buildTerrainAgents(false);
     if (terrainUpdates.length > 0) {
-      await this.sendAgentUpdate({
+      await this.sendItemUpdate({
         env_id: 'main',
         layer_id: TERRAIN_LAYER,
-        agents: terrainUpdates.map((a) => ({ id: a.id, x: a.x, y: a.y, color: a.color, icon: a.icon, size: a.size })),
+        items: terrainUpdates.map((a) => ({ id: a.id, x: a.x, y: a.y, color: a.color, icon: a.icon, size: a.size })),
       });
     }
 
@@ -267,16 +267,16 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     const toUpdate = currentAnimals.filter((a) => this.previousAnimalIds.has(a.id));
 
     if (toDelete.length > 0) {
-      await this.sendAgentDelete({ env_id: 'main', layer_id: ANIMAL_LAYER, ids: toDelete });
+      await this.sendItemDelete({ env_id: 'main', layer_id: ANIMAL_LAYER, items: toDelete.map((id) => ({ id })) });
     }
     if (toCreate.length > 0) {
-      await this.sendAgentCreate({ env_id: 'main', layer_id: ANIMAL_LAYER, agents: toCreate });
+      await this.sendItemCreate({ env_id: 'main', layer_id: ANIMAL_LAYER, items: toCreate });
     }
     if (toUpdate.length > 0) {
-      await this.sendAgentUpdate({
+      await this.sendItemUpdate({
         env_id: 'main',
         layer_id: ANIMAL_LAYER,
-        agents: toUpdate.map((a) => ({
+        items: toUpdate.map((a) => ({
           id: a.id,
           x: a.x,
           y: a.y,

@@ -1,18 +1,17 @@
 /**
  * environment/storages/AgentStorage.ts
  *
- * Reactive store for agent display data + optional trajectories.
+ * Reactive store for agent display data.
  *
  * Specialized mutation methods allow:
  *   - `setAgents`         — full replace of the agent map
- *   - `setTrajectories`   — full replace of trajectory data (pruned to maxPoints)
  *   - `mergePositions`    — back-channel write from d3-force (no re-notify until
  *                          `flushPositions` is called, to avoid hot-loop storms)
  *   - `setAgentFixed`     — pin / free a node during drag
  */
 
 import { BaseStorage } from './BaseStorage';
-import { AgentId, AgentIcon, TrajectoryPoint } from '../types';
+import { AgentId, AgentIcon } from '../types';
 
 // ---------------------------------------------------------------------------
 // Data types
@@ -43,8 +42,6 @@ export interface RenderableAgent {
   // ---- Grid extras ----
   /** Heading angle in radians (grid mode). */
   heading?: number;
-  /** Override trajectory color for this agent. */
-  trajectoryColor?: string;
   /** Extra application data (unused by the layer). */
   data?: Record<string, unknown>;
 }
@@ -84,46 +81,26 @@ export type AgentDelta = {
 
 export interface AgentStorageData {
   agents: Map<AgentId, RenderableAgent>;
-  trajectories: Map<string, TrajectoryPoint[]>;
 }
 
 export interface AgentStorageSnapshot {
   agents: RenderableAgent[];
-  trajectories: Array<{ id: string; points: TrajectoryPoint[] }>;
 }
 
-// ---------------------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------------------
-
-const DEFAULT_MAX_TRAJECTORY = 1000;
-
 export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
-  private readonly _maxTrajectoryPoints: number;
-
-  constructor(maxTrajectoryPoints = DEFAULT_MAX_TRAJECTORY) {
-    super({ agents: new Map(), trajectories: new Map() });
-    this._maxTrajectoryPoints = maxTrajectoryPoints;
+  constructor() {
+    super({ agents: new Map() });
   }
 
   override dump(): AgentStorageSnapshot {
     return {
       agents: [...this._data.agents.values()].map((agent) => ({ ...agent })),
-      trajectories: [...this._data.trajectories.entries()].map(([id, points]) => ({
-        id,
-        points: points.map((point) => ({ ...point })),
-      })),
     };
   }
 
   override load(snapshot: unknown): void {
     const value = snapshot as AgentStorageSnapshot;
-    const agents = value?.agents ?? [];
-    const trajectories = Object.fromEntries(
-      (value?.trajectories ?? []).map(({ id, points }) => [id, points])
-    ) as Record<string, TrajectoryPoint[]>;
-    this.setAgents(agents);
-    this.setTrajectories(trajectories);
+    this.setAgents(value?.agents ?? []);
   }
 
   // -------------------------------------------------------------------------
@@ -134,23 +111,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   setAgents(agents: Iterable<RenderableAgent>): void {
     const map: Map<AgentId, RenderableAgent> = new Map();
     for (const a of agents) map.set(a.id, { ...a });
-    this._data = { ...this._data, agents: map };
-    this.notify({ replaced: true });
-  }
-
-  /** Replace trajectory data (automatically trims to max points) and notify. */
-  setTrajectories(trajectories: Record<string, TrajectoryPoint[]>): void {
-    const map: Map<string, TrajectoryPoint[]> = new Map();
-    for (const [id, pts] of Object.entries(trajectories)) {
-      if (!pts?.length) continue;
-      map.set(
-        id,
-        pts.length > this._maxTrajectoryPoints
-          ? pts.slice(-this._maxTrajectoryPoints)
-          : pts
-      );
-    }
-    this._data = { ...this._data, trajectories: map };
+    this._data = { agents: map };
     this.notify({ replaced: true });
   }
 
@@ -292,7 +253,6 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /** Remove a single agent by ID. */
   removeAgent(id: AgentId): void {
     if (this._data.agents.delete(id)) {
-      this._data.trajectories.delete(String(id));
       this.notify({ added: [], updated: [], removed: [id] });
     }
   }
@@ -303,7 +263,6 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const removed = Array.from(ids);
     for (const id of removed) {
       if (this._data.agents.delete(id)) {
-        this._data.trajectories.delete(String(id));
         changed = true;
       }
     }
@@ -333,33 +292,11 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /** Clear all agents. */
   clearAgents(): void {
     this._data.agents.clear();
-    this._data.trajectories.clear();
     this.notify({ replaced: true });
   }
 
   /** Read-only view of the current agent map. */
   get agents(): ReadonlyMap<AgentId, RenderableAgent> {
     return this._data.agents;
-  }
-
-  /**
-   * Append a single trajectory point for an agent (without replacing the full set).
-   * Automatically trims to `maxPoints` if provided (defaults to the storage constructor limit).
-   * Does NOT emit a notification — call `notify()` or a mutation method afterwards.
-   */
-  appendTrajectoryPoint(
-    agentId: AgentId,
-    point: TrajectoryPoint,
-    maxPoints?: number,
-  ): void {
-    const key = String(agentId);
-    const existing = this._data.trajectories.get(key);
-    const limit = maxPoints !== undefined ? maxPoints : this._maxTrajectoryPoints;
-    const pts = existing ? existing : [];
-    pts.push(point);
-    if (limit > 0 && pts.length > limit) {
-      pts.splice(0, pts.length - limit);
-    }
-    this._data.trajectories.set(key, pts);
   }
 }

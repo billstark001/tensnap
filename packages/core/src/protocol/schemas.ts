@@ -48,6 +48,21 @@ export const EdgeDiffSchema = z.object({
   target: AgentIdSchema,
 }).loose();
 
+export const ItemSchema = z.record(z.string(), z.unknown());
+export const ItemDiffSchema = z.record(z.string(), z.unknown());
+export const ItemKeySchema = z.record(z.string(), z.unknown());
+
+export const TrajectoryConfigSchema = z.object({
+  id: AgentIdSchema,
+  length: z.number().optional(),
+  width: z.number().optional(),
+  color: z.string().optional(),
+}).loose();
+
+export const TrajectoryConfigDiffSchema = z.object({
+  id: AgentIdSchema,
+}).loose();
+
 export const NumberParameterSchema = z.object({
   id: z.string(),
   type: z.literal('number'),
@@ -166,6 +181,24 @@ export const EnvLayerUpdatePayloadSchema = z.object({
 export const EnvLayerDeletePayloadSchema = z.object({
   env_id: z.string(),
   layer_id: z.string(),
+});
+
+export const ItemCreatePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  items: z.array(ItemSchema),
+});
+
+export const ItemUpdatePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  items: z.array(ItemDiffSchema),
+});
+
+export const ItemDeletePayloadSchema = z.object({
+  env_id: z.string(),
+  layer_id: z.string(),
+  items: z.union([z.array(AgentIdSchema), z.array(ItemKeySchema)]),
 });
 
 export const AgentCreatePayloadSchema = z.object({
@@ -309,6 +342,9 @@ export const SimulatorToRendererMessageSchema = z.object({
     'env_layer_create',
     'env_layer_update',
     'env_layer_delete',
+    'item_create',
+    'item_update',
+    'item_delete',
     'agent_create',
     'agent_update',
     'agent_delete',
@@ -365,6 +401,9 @@ export const getPayloadSchema = (type: string) => {
     case 'env_layer_create': return EnvLayerCreatePayloadSchema;
     case 'env_layer_update': return EnvLayerUpdatePayloadSchema;
     case 'env_layer_delete': return EnvLayerDeletePayloadSchema;
+    case 'item_create': return ItemCreatePayloadSchema;
+    case 'item_update': return ItemUpdatePayloadSchema;
+    case 'item_delete': return ItemDeletePayloadSchema;
     case 'agent_create': return AgentCreatePayloadSchema;
     case 'agent_update': return AgentUpdatePayloadSchema;
     case 'agent_delete': return AgentDeletePayloadSchema;

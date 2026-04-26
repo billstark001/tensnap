@@ -33,6 +33,14 @@ class SugarscapeEnvironmentBinder(MesaGridEnvironmentBinder):
 
     def get_state(self) -> EnvironmentState:
         base_state = super().get_state()
+        trajectory_layer: EnvironmentLayerState = {
+            "layer_id": "trails",
+            "layer_type": "trajectory",
+            "data": {
+                "dependency_layer_ids": {"agent": "agents"},
+                "length": 2,
+            },
+        }
         sugar_layer: EnvironmentLayerState = {
             "layer_id": "sugar",
             "layer_type": "agent",
@@ -41,7 +49,7 @@ class SugarscapeEnvironmentBinder(MesaGridEnvironmentBinder):
         return {
             "id": base_state["id"],
             "type": base_state["type"],
-            "layers": [sugar_layer, *base_state["layers"]],
+            "layers": [sugar_layer, trajectory_layer, *base_state["layers"]],
         }
 
 

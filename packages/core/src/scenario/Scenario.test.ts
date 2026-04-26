@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Scenario } from './Scenario';
-import { AgentStorage } from '../environment/storages/AgentStorage';
+import { AgentStorage, BaseStorage } from '../environment/storages';
 import { EdgeStorage } from '../environment/storages/EdgeStorage';
+import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
+import { registerLayerType } from './layer-registry';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -17,7 +19,23 @@ function setupEnvAndAgentLayer(s: Scenario, envId = 'env1', layerId = 'layer1') 
 function setupEnvAndEdgeLayer(s: Scenario, envId = 'env1', edgeLayerId = 'edges', agentLayerId = 'agents') {
   s.apply(msg('env_create', { id: envId, type: '2d' }));
   s.apply(msg('env_layer_create', { env_id: envId, layer_id: agentLayerId, layer_type: 'agent' }));
-  s.apply(msg('env_layer_create', { env_id: envId, layer_id: edgeLayerId, layer_type: 'edge', data: { agent_layer_id: agentLayerId } }));
+  s.apply(msg('env_layer_create', {
+    env_id: envId,
+    layer_id: edgeLayerId,
+    layer_type: 'edge',
+    data: { dependency_layer_ids: { agent: agentLayerId } },
+  }));
+}
+
+function setupEnvAndTrajectoryLayer(s: Scenario, envId = 'env1', agentLayerId = 'agents', trajectoryLayerId = 'trails') {
+  s.apply(msg('env_create', { id: envId, type: '2d' }));
+  s.apply(msg('env_layer_create', { env_id: envId, layer_id: agentLayerId, layer_type: 'agent' }));
+  s.apply(msg('env_layer_create', {
+    env_id: envId,
+    layer_id: trajectoryLayerId,
+    layer_type: 'trajectory',
+    data: { dependency_layer_ids: { agent: agentLayerId }, length: 3, color: '#f00' },
+  }));
 }
 
 // ── Environment / Layer lifecycle ─────────────────────────────────────────────
@@ -49,6 +67,14 @@ describe('Scenario – environment and layer lifecycle', () => {
     setupEnvAndEdgeLayer(s);
     const layer = s.environments.get('env1')!.layers.get('edges')!;
     expect(layer.storage).toBeInstanceOf(EdgeStorage);
+  });
+
+  it('env_layer_create for trajectory type creates TrajectoryStorage', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    const layer = s.environments.get('env1')!.layers.get('trails')!;
+    expect(layer.storage).toBeInstanceOf(TrajectoryStorage);
+    expect(layer.dependencyLayerIds).toEqual({ agent: 'agents' });
   });
 
   it('env_layer_delete removes the layer', () => {
@@ -100,13 +126,141 @@ describe('Scenario – agent_create / agent_update / agent_delete', () => {
     expect(storage.getData().agents.has('a2')).toBe(true);
   });
 
-  it('agent_create emits agent:create event', () => {
+  it('agent_create emits item:create event', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
     const listener = vi.fn();
-    s.addEventListener('agent:create', listener);
+    s.addEventListener('item:create', listener);
     s.apply(msg('agent_create', { env_id: 'env1', layer_id: 'layer1', agents: [{ id: 'a1' }] }));
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('item_create populates an agent layer through the generic route', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    s.apply(msg('item_create', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      items: [{ id: 'a1', x: 10, y: 20 }],
+    }));
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getData().agents.get('a1')).toMatchObject({ x: 10, y: 20 });
+  });
+
+  it('item_delete accepts primitive keys for single-key layers', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    s.apply(msg('item_create', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      items: [{ id: 'a1' }, { id: 'a2' }],
+    }));
+
+    s.apply(msg('item_delete', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      items: ['a1'],
+    }));
+
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getData().agents.has('a1')).toBe(false);
+    expect(storage.getData().agents.has('a2')).toBe(true);
+  });
+
+  it('item_delete rejects mixed primitive and object keys', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    s.apply(msg('item_create', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      items: [{ id: 'a1' }, { id: 'a2' }],
+    }));
+
+    s.apply(msg('item_delete', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      items: ['a1', { id: 'a2' }],
+    } as { env_id: string; layer_id: string; items: Array<string | { id: string }> }));
+
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getData().agents.has('a1')).toBe(true);
+    expect(storage.getData().agents.has('a2')).toBe(true);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cannot mix'));
+    warn.mockRestore();
+  });
+
+  it('agent updates append points into dependent trajectory layers', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('agent_create', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('metadata_update', { time: 5 }));
+    s.apply(msg('agent_update', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 1, y: 2 }] }));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    const points = storage.dump().trajectories[0]?.points ?? [];
+    expect(points).toEqual([{ x: 1, y: 2, time: 5, color: '#f00' }]);
+  });
+
+  it('generic item updates append points into dependent trajectory layers', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'agents', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('metadata_update', { time: 5 }));
+    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'agents', items: [{ id: 'a1', x: 1, y: 2 }] }));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    const points = storage.dump().trajectories[0]?.points ?? [];
+    expect(points).toEqual([{ x: 1, y: 2, time: 5, color: '#f00' }]);
+  });
+
+  it('agent deletes clear dependent trajectory items', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'trails', items: [{ id: 'a1', color: '#0f0' }] }));
+    s.apply(msg('agent_create', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('agent_update', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 1, y: 1 }] }));
+    s.apply(msg('agent_delete', { env_id: 'env1', layer_id: 'agents', ids: ['a1'] }));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(storage.dump().configs).toEqual([]);
+    expect(storage.dump().trajectories).toEqual([]);
+  });
+
+  it('routes dependent layer reactions through registered layer controllers', () => {
+    const reactionSpy = vi.fn();
+
+    registerLayerType({
+      layer_type: 'test-probe',
+      requiredDependencyLayerTypes: ['agent'],
+      storageFactory: () => new BaseStorage<Record<string, unknown>, unknown>({}),
+      controller: {
+        onDependencyItemsChanged: (_context, change) => {
+          if (change.kind !== 'update') {
+            return;
+          }
+          reactionSpy(change.kind, change.sourceLayer.id, change.items.map((item) => item.id));
+        },
+      },
+    });
+
+    const s = new Scenario();
+    s.apply(msg('env_create', { id: 'env1', type: '2d' }));
+    s.apply(msg('env_layer_create', { env_id: 'env1', layer_id: 'agents', layer_type: 'agent' }));
+    s.apply(msg('env_layer_create', {
+      env_id: 'env1',
+      layer_id: 'probe',
+      layer_type: 'test-probe',
+      data: { dependency_layer_ids: { agent: 'agents' } },
+    }));
+
+    s.apply(msg('item_update', {
+      env_id: 'env1',
+      layer_id: 'agents',
+      items: [{ id: 'a1', x: 1, y: 2 }],
+    }));
+
+    expect(reactionSpy).toHaveBeenCalledWith('update', 'agents', ['a1']);
   });
 });
 
@@ -133,6 +287,41 @@ describe('Scenario – edge_create / edge_update / edge_delete', () => {
     const storage = s.environments.get('env1')!.layers.get('edges')!.storage as EdgeStorage;
     expect(storage.getEdgeCount()).toBe(1);
     expect(storage.findEdge('c', 'd')).toBeDefined();
+  });
+
+  it('item_create populates an edge layer through the generic route', () => {
+    const s = new Scenario();
+    setupEnvAndEdgeLayer(s);
+    s.apply(msg('item_create', {
+      env_id: 'env1',
+      layer_id: 'edges',
+      items: [{ source: 'a', target: 'b' }],
+    }));
+
+    const storage = s.environments.get('env1')!.layers.get('edges')!.storage as EdgeStorage;
+    expect(storage.findEdge('a', 'b')).toBeDefined();
+  });
+
+  it('item_delete rejects primitive keys for multi-key layers', () => {
+    const s = new Scenario();
+    setupEnvAndEdgeLayer(s);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    s.apply(msg('item_create', {
+      env_id: 'env1',
+      layer_id: 'edges',
+      items: [{ source: 'a', target: 'b' }],
+    }));
+
+    s.apply(msg('item_delete', {
+      env_id: 'env1',
+      layer_id: 'edges',
+      items: ['a'],
+    }));
+
+    const storage = s.environments.get('env1')!.layers.get('edges')!.storage as EdgeStorage;
+    expect(storage.findEdge('a', 'b')).toBeDefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('object keys'));
+    warn.mockRestore();
   });
 });
 
@@ -231,6 +420,22 @@ describe('Scenario – dump / load', () => {
     expect(storage).toBeInstanceOf(EdgeStorage);
     expect(storage.getEdgeCount()).toBe(1);
     expect(storage.findEdge('a', 'b')).toBeDefined();
+  });
+
+  it('dump/load round-trips trajectory state', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'trails', items: [{ id: 'a1', color: '#0f0' }] }));
+    s.apply(msg('agent_create', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 1, y: 2 }] }));
+    s.apply(msg('agent_update', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 2, y: 3 }] }));
+
+    const snap = s.dump();
+    const s2 = new Scenario();
+    s2.load(snap);
+
+    const storage = s2.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(storage.dump().configs).toEqual([{ id: 'a1', color: '#0f0' }]);
+    expect(storage.dump().trajectories).toHaveLength(1);
   });
 
   it('dump/load round-trips parameters', () => {

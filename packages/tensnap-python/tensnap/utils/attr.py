@@ -3,7 +3,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-# 验证Python标识符的正则表达式（支持嵌套字段）
+# 验证Python标识符的正则表达式 (支持嵌套字段)
 # 支持格式: identifier, identifier.identifier, identifier[0], identifier.identifier[0]等
 PYTHON_IDENTIFIER_PATTERN = re.compile(
     r"^[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*|\[\d+\])*$"

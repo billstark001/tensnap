@@ -1,9 +1,8 @@
 import { AssetStore } from '../asset';
 import { ChartStorage } from '../chart/ChartStorage';
 import { instantiateChartMetadata } from '../chart/utils';
-import { isBackgroundAssetReference } from '../environment/types';
-import { AgentStorage, BackgroundStorage, BaseStorage, EdgeStorage, GridEnvStorage } from '../environment/storages';
-import type { GridAgent, TrajectoryPoint } from '../environment';
+import { BaseStorage } from '../environment/storages';
+import type { AgentId } from '../environment';
 import type { Action, Parameter } from '../parameter';
 import { sanitizeParameter } from '../parameter';
 import type {
@@ -14,6 +13,9 @@ import type {
   AgentCreatePayload,
   AgentDeletePayload,
   AgentUpdatePayload,
+  ItemCreatePayload,
+  ItemDeletePayload,
+  ItemUpdatePayload,
   AssetDataPayload,
   AssetDeletePayload,
   AssetMetaPayload,
@@ -43,7 +45,13 @@ import type {
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '../protocol';
-import { layerRegistry, LayerRegistryClass } from './layer-registry';
+import {
+  type ItemLayerController,
+  type LayerControllerContext,
+  type LayerDependencyChange,
+  layerRegistry,
+  LayerRegistryClass,
+} from './layer-registry';
 import type {
   ScenarioEnvironmentSnapshot,
   ScenarioEnvironmentState,
@@ -54,21 +62,65 @@ import type {
   ScenarioStorage,
   ScenarioSnapshot,
 } from './types';
+import { LazyEventTarget } from '../utils/LazyEventTarget';
 
 function cloneValue<T>(value: T): T {
   return structuredClone(value);
 }
 
-function getInterpolation(value: unknown): 'nearest' | 'linear' {
-  return value === 'linear' ? 'linear' : 'nearest';
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
-function normalizeAgentPayload<T extends { id: string | number } & Record<string, unknown>>(agent: T): T {
-  const normalized = cloneValue(agent) as T & { trajectoryColor?: unknown; trajectory_color?: unknown };
-  if (normalized.trajectoryColor === undefined && typeof normalized.trajectory_color === 'string') {
-    normalized.trajectoryColor = normalized.trajectory_color;
+function isPrimitiveItemKey(value: unknown): value is string | number {
+  return typeof value === 'string' || typeof value === 'number';
+}
+
+function hasPrimitiveDeleteItems(items: ItemDeletePayload['items']): items is AgentId[] {
+  return items.length > 0 && isPrimitiveItemKey(items[0]);
+}
+
+function getDeleteAgentIds(items: ItemDeletePayload['items']): AgentId[] | null {
+  if (items.length === 0) {
+    return [];
   }
-  return normalized as T;
+  if (hasPrimitiveDeleteItems(items)) {
+    const ids: AgentId[] = [];
+    for (const item of items) {
+      if (!isPrimitiveItemKey(item)) {
+        return null;
+      }
+      ids.push(item);
+    }
+    return ids;
+  }
+
+  const ids: AgentId[] = [];
+  for (const item of items) {
+    if (isPrimitiveItemKey(item)) {
+      return null;
+    }
+    const id = item.id;
+    if (typeof id === 'string' || typeof id === 'number') {
+      ids.push(id);
+    }
+  }
+  return ids;
+}
+
+function getDeleteEdgePairs(items: ItemDeletePayload['items']): EdgeDeletePayload['edges'] | null {
+  if (items.length === 0) {
+    return [];
+  }
+  if (hasPrimitiveDeleteItems(items)) {
+    return null;
+  }
+  for (const item of items) {
+    if (isPrimitiveItemKey(item)) {
+      return null;
+    }
+  }
+  return items as EdgeDeletePayload['edges'];
 }
 
 export interface ScenarioOptions {
@@ -77,7 +129,7 @@ export interface ScenarioOptions {
   layerRegistry?: LayerRegistryClass;
 }
 
-export class Scenario extends EventTarget {
+export class Scenario extends LazyEventTarget {
   private metadataState: Record<string, unknown> = {};
   private readonly actionsState = new Map<string, Action>();
   private readonly parametersState = new Map<string, Parameter>();
@@ -175,6 +227,15 @@ export class Scenario extends EventTarget {
         return;
       case 'env_layer_delete':
         this.deleteLayer(message.payload as EnvLayerDeletePayload);
+        return;
+      case 'item_create':
+        this.createItems(message.payload as ItemCreatePayload);
+        return;
+      case 'item_update':
+        this.updateItems(message.payload as ItemUpdatePayload);
+        return;
+      case 'item_delete':
+        this.deleteItems(message.payload as ItemDeletePayload);
         return;
       case 'agent_create':
         this.createAgents(message.payload as AgentCreatePayload);
@@ -302,6 +363,7 @@ export class Scenario extends EventTarget {
         id: environment.id,
         type: environment.type,
         layers: new Map(),
+        dependencyGraph: new Map(),
       };
       for (const layer of environment.layers) {
         const metadata = cloneValue(layer.metadata ?? {});
@@ -312,9 +374,9 @@ export class Scenario extends EventTarget {
           layerType: layer.layerType,
           metadata,
           storage,
-          agentLayerRef: layer.agentLayerRef,
+          dependencyLayerIds: {},
         });
-        this.applyLayerMetadata(restoredEnv.layers.get(layer.id)!);
+        this.applyLayerMetadata(restoredEnv, restoredEnv.layers.get(layer.id)!);
       }
       this.environmentsState.set(restoredEnv.id, restoredEnv);
     }
@@ -330,7 +392,7 @@ export class Scenario extends EventTarget {
     this.parametersState.clear();
     for (const environment of this.environmentsState.values()) {
       for (const layer of environment.layers.values()) {
-        this.disposeLayer(layer);
+        this.disposeLayer(environment, layer);
       }
     }
     this.environmentsState.clear();
@@ -360,6 +422,7 @@ export class Scenario extends EventTarget {
       id: payload.id,
       type: payload.type,
       layers: new Map(),
+      dependencyGraph: new Map(),
     });
     this.emit('env:create', cloneValue(payload));
   }
@@ -368,7 +431,7 @@ export class Scenario extends EventTarget {
     const environment = this.environmentsState.get(payload.id);
     if (environment) {
       for (const layer of environment.layers.values()) {
-        this.disposeLayer(layer);
+        this.disposeLayer(environment, layer);
       }
     }
     this.environmentsState.delete(payload.id);
@@ -384,168 +447,122 @@ export class Scenario extends EventTarget {
       layerType: payload.layer_type,
       metadata,
       storage,
-      agentLayerRef:
-        payload.layer_type === 'edge' && typeof metadata.agent_layer_id === 'string'
-          ? metadata.agent_layer_id
-          : undefined,
+      dependencyLayerIds: {},
     });
-    this.applyLayerMetadata(environment.layers.get(payload.layer_id)!);
+    this.applyLayerMetadata(environment, environment.layers.get(payload.layer_id)!);
     this.emit('layer:create', cloneValue(payload));
   }
 
   private updateLayer(payload: EnvLayerUpdatePayload): void {
+    const environment = this.ensureEnvironment(payload.env_id);
     const layer = this.ensureLayer(payload.env_id, payload.layer_id);
     Object.assign(layer.metadata, cloneValue(payload.data));
-    if (layer.layerType === 'edge' && typeof payload.data.agent_layer_id === 'string') {
-      layer.agentLayerRef = payload.data.agent_layer_id;
-    }
-    this.applyLayerMetadata(layer);
+    this.applyLayerMetadata(environment, layer);
     this.emit('layer:update', cloneValue(payload));
   }
 
   private deleteLayer(payload: EnvLayerDeletePayload): void {
     const environment = this.environmentsState.get(payload.env_id);
     const layer = environment?.layers.get(payload.layer_id);
-    if (layer) {
-      this.disposeLayer(layer);
+    if (environment && layer) {
+      this.removeLayerFromDependencyGraph(environment, layer.id);
+      this.disposeLayer(environment, layer);
       environment?.layers.delete(payload.layer_id);
     }
     this.emit('layer:delete', cloneValue(payload));
   }
 
+  /**
+   * @deprecated Use item_create instead.
+   */
   private createAgents(payload: AgentCreatePayload): void {
-    const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'agent');
-    const previousLayerType = layer.layerType;
-    const storage = this.requireStorage(layer, AgentStorage, 'agent');
-    if (previousLayerType !== layer.layerType) {
-      this.emit('layer:update', {
-        env_id: payload.env_id,
-        layer_id: payload.layer_id,
-        data: cloneValue(layer.metadata),
-      });
-    }
-    storage.addAgents(
-      payload.agents.map((agent) => normalizeAgentPayload(agent as { id: string | number } & Record<string, unknown>))
-    );
-    this.emit('agent:create', payload);
+    this.createItems({
+      env_id: payload.env_id,
+      layer_id: payload.layer_id,
+      items: payload.agents.map((agent) => cloneValue(agent as unknown as Record<string, unknown>)),
+    }, 'agent');
   }
 
+  /**
+   * @deprecated Use item_update instead.
+   */
   private updateAgents(payload: AgentUpdatePayload): void {
-    const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'agent');
-    const previousLayerType = layer.layerType;
-    const storage = this.requireStorage(layer, AgentStorage, 'agent');
-    if (previousLayerType !== layer.layerType) {
-      this.emit('layer:update', {
-        env_id: payload.env_id,
-        layer_id: payload.layer_id,
-        data: cloneValue(layer.metadata),
-      });
-    }
-    storage.updateAgents(
-      payload.agents.map(
-        (agent) => normalizeAgentPayload(agent as { id: string | number } & Record<string, unknown>)
-      )
-    );
-    this.updateGridTrajectories(payload.env_id, storage, payload.agents);
-    this.emit('agent:update', payload);
+    this.updateItems({
+      env_id: payload.env_id,
+      layer_id: payload.layer_id,
+      items: payload.agents.map((agent) => cloneValue(agent as unknown as Record<string, unknown>)),
+    }, 'agent');
   }
 
+  /**
+   * @deprecated Use item_delete instead.
+   */
   private deleteAgents(payload: AgentDeletePayload): void {
-    const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'agent');
-    const storage = this.requireStorage(layer, AgentStorage, 'agent');
-    storage.removeAgents(payload.ids);
-    this.emit('agent:delete', payload);
+    this.deleteItems({
+      env_id: payload.env_id,
+      layer_id: payload.layer_id,
+      items: payload.ids.map((id) => ({ id })),
+    }, 'agent');
   }
 
-  private updateGridTrajectories(
-    envId: string,
-    agentStorage: AgentStorage,
-    updates: AgentUpdatePayload['agents'],
-  ): void {
-    const environment = this.environmentsState.get(envId);
-    if (!environment || environment.type !== '2d') return;
-
-    const gridLayer = [...environment.layers.values()].find((candidate) => (
-      candidate.layerType === 'grid'
-      || candidate.storage instanceof GridEnvStorage
-      || typeof candidate.metadata?.trajectory_length === 'number'
-      || typeof candidate.metadata?.trajectory_color === 'string'
-    ));
-    const gridData = gridLayer?.storage instanceof GridEnvStorage
-      ? gridLayer.storage.getData()
-      : undefined;
-    const gridMetadata = (gridLayer?.metadata ?? {}) as Record<string, unknown>;
-    const currentTime = typeof this.metadataState.time === 'number' ? this.metadataState.time : 0;
-
-    for (const update of updates) {
-      const agent = agentStorage.getAgent(update.id);
-      if (!agent) continue;
-
-      const gridAgent = agent as GridAgent;
-      if (gridAgent.x === undefined || gridAgent.y === undefined) continue;
-
-      const trajectoryLength = (
-        gridAgent.trajectory_length
-        ?? (gridData as Record<string, unknown> | undefined)?.trajectory_length
-        ?? gridMetadata.trajectory_length
-      );
-      if (!trajectoryLength) continue;
-
-      const trajectoryColor = (
-        (gridAgent as GridAgent & { trajectoryColor?: string }).trajectoryColor
-        ?? gridAgent.trajectory_color
-        ?? (gridData as Record<string, string | undefined> | undefined)?.trajectory_color
-        ?? (typeof gridMetadata.trajectory_color === 'string' ? gridMetadata.trajectory_color : undefined)
-      );
-
-      const point: TrajectoryPoint = {
-        x: gridAgent.x,
-        y: gridAgent.y,
-        time: currentTime,
-        color: trajectoryColor,
-      };
-
-      const maxPoints = typeof trajectoryLength === 'number' && trajectoryLength > 0
-        ? trajectoryLength + 1
-        : undefined;
-      agentStorage.appendTrajectoryPoint(update.id, point, maxPoints);
-    }
-  }
-
+  /**
+   * @deprecated Use item_create instead.
+   */
   private createEdges(payload: EdgeCreatePayload): void {
-    const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'edge');
-    const previousLayerType = layer.layerType;
-    const storage = this.requireStorage(layer, EdgeStorage, 'edge');
-    if (previousLayerType !== layer.layerType) {
-      this.emit('layer:update', {
-        env_id: payload.env_id,
-        layer_id: payload.layer_id,
-        data: cloneValue(layer.metadata),
-      });
-    }
-    storage.addEdges(payload.edges.map(cloneValue));
-    this.emit('edge:create', cloneValue(payload));
+    this.createItems({
+      env_id: payload.env_id,
+      layer_id: payload.layer_id,
+      items: payload.edges.map((edge) => cloneValue(edge as Record<string, unknown>)),
+    }, 'edge');
   }
 
+  /**
+   * @deprecated Use item_update instead.
+   */
   private updateEdges(payload: EdgeUpdatePayload): void {
-    const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'edge');
-    const previousLayerType = layer.layerType;
-    const storage = this.requireStorage(layer, EdgeStorage, 'edge');
-    if (previousLayerType !== layer.layerType) {
-      this.emit('layer:update', {
-        env_id: payload.env_id,
-        layer_id: payload.layer_id,
-        data: cloneValue(layer.metadata),
-      });
-    }
-    storage.updateEdges(payload.edges.map(cloneValue));
-    this.emit('edge:update', cloneValue(payload));
+    this.updateItems({
+      env_id: payload.env_id,
+      layer_id: payload.layer_id,
+      items: payload.edges.map((edge) => cloneValue(edge as Record<string, unknown>)),
+    }, 'edge');
   }
 
+  /**
+   * @deprecated Use item_delete instead.
+   */
   private deleteEdges(payload: EdgeDeletePayload): void {
-    const layer = this.ensureLayer(payload.env_id, payload.layer_id, 'edge');
+    this.deleteItems({
+      env_id: payload.env_id,
+      layer_id: payload.layer_id,
+      items: payload.edges.map((edge) => cloneValue(edge as Record<string, unknown>)),
+    }, 'edge');
+  }
+
+  private createItems(payload: ItemCreatePayload, expectedLayerType?: string): void {
+    const environment = expectedLayerType
+      ? this.ensureEnvironment(payload.env_id)
+      : this.environmentsState.get(payload.env_id);
+    const layer = expectedLayerType
+      ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
+      : environment?.layers.get(payload.layer_id);
+    if (!environment || !layer) {
+      console.warn(`Cannot create items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      return;
+    }
+
+    const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
+    if (!controller?.createItems) {
+      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item creation.`);
+      return;
+    }
+
     const previousLayerType = layer.layerType;
-    const storage = this.requireStorage(layer, EdgeStorage, 'edge');
+    if (!this.ensureRequiredDependencies(payload.env_id, layer, expectedLayerType ?? layer.layerType)) {
+      return;
+    }
+
+    controller.createItems(this.createLayerControllerContext(environment, layer), payload.items);
+
     if (previousLayerType !== layer.layerType) {
       this.emit('layer:update', {
         env_id: payload.env_id,
@@ -553,8 +570,123 @@ export class Scenario extends EventTarget {
         data: cloneValue(layer.metadata),
       });
     }
-    storage.removeEdgePairs(payload.edges.map(cloneValue));
-    this.emit('edge:delete', cloneValue(payload));
+
+    this.runDependencyLayerControllers(environment, layer, 'create', payload.items);
+
+    this.emitLazy('item:create', () => cloneValue(payload));
+  }
+
+  private updateItems(payload: ItemUpdatePayload, expectedLayerType?: string): void {
+    const environment = expectedLayerType
+      ? this.ensureEnvironment(payload.env_id)
+      : this.environmentsState.get(payload.env_id);
+    const layer = expectedLayerType
+      ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
+      : environment?.layers.get(payload.layer_id);
+    if (!environment || !layer) {
+      console.warn(`Cannot update items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      return;
+    }
+
+    const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
+    if (!controller?.updateItems) {
+      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item updates.`);
+      return;
+    }
+
+    const previousLayerType = layer.layerType;
+    if (!this.ensureRequiredDependencies(payload.env_id, layer, expectedLayerType ?? layer.layerType)) {
+      return;
+    }
+
+    controller.updateItems(this.createLayerControllerContext(environment, layer), payload.items);
+
+    if (previousLayerType !== layer.layerType) {
+      this.emit('layer:update', {
+        env_id: payload.env_id,
+        layer_id: payload.layer_id,
+        data: cloneValue(layer.metadata),
+      });
+    }
+
+    this.runDependencyLayerControllers(environment, layer, 'update', payload.items);
+
+    this.emitLazy('item:update', () => cloneValue(payload));
+  }
+
+  private deleteItems(payload: ItemDeletePayload, expectedLayerType?: string): void {
+    const environment = expectedLayerType
+      ? this.ensureEnvironment(payload.env_id)
+      : this.environmentsState.get(payload.env_id);
+    const layer = expectedLayerType
+      ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
+      : environment?.layers.get(payload.layer_id);
+    if (!environment || !layer) {
+      console.warn(`Cannot delete items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      return;
+    }
+
+    const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
+    if (!controller?.deleteItems) {
+      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item deletion.`);
+      return;
+    }
+
+    const previousLayerType = layer.layerType;
+    controller.deleteItems(this.createLayerControllerContext(environment, layer), payload.items);
+
+    if (previousLayerType !== layer.layerType) {
+      this.emit('layer:update', {
+        env_id: payload.env_id,
+        layer_id: payload.layer_id,
+        data: cloneValue(layer.metadata),
+      });
+    }
+
+    this.runDependencyLayerControllers(environment, layer, 'delete', payload.items);
+
+    this.emitLazy('item:delete', () => cloneValue(payload));
+  }
+
+  private ensureRequiredDependencies(envId: string, layer: ScenarioLayerState, layerType = layer.layerType): boolean {
+    const environment = this.environmentsState.get(envId);
+    if (!environment) {
+      return false;
+    }
+
+    const requiredDependencyLayerTypes = this.layerRegistry.get(layerType)?.requiredDependencyLayerTypes ?? [];
+    for (const dependencyType of requiredDependencyLayerTypes) {
+      const dependencyLayerId = layer.dependencyLayerIds[dependencyType];
+      if (!dependencyLayerId) {
+        console.warn(`Layer ${layer.id} (${layerType}) is missing required dependency ${dependencyType}.`);
+        return false;
+      }
+      if (!environment.layers.has(dependencyLayerId)) {
+        console.warn(`Layer ${layer.id} (${layerType}) references missing dependency layer ${dependencyLayerId}.`);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private normalizeDependencyLayerIds(value: unknown): Record<string, string> {
+    if (!isRecord(value)) {
+      return {};
+    }
+
+    const result: Record<string, string> = {};
+    for (const [layerType, layerId] of Object.entries(value)) {
+      if (typeof layerId !== 'string') {
+        continue;
+      }
+      if (!this.layerRegistry.has(layerType)) {
+        console.warn(`Ignoring dependency on unknown layer type ${layerType}.`);
+        continue;
+      }
+      result[layerType] = layerId;
+    }
+    return result;
   }
 
   private upsertParameter(payload: ParameterCUPayload, eventType: 'param:create' | 'param:update'): void {
@@ -633,7 +765,7 @@ export class Scenario extends EventTarget {
   private ensureEnvironment(id: string, type: ScenarioEnvironmentType = '2d'): ScenarioEnvironmentState {
     let environment = this.environmentsState.get(id);
     if (!environment) {
-      environment = { id, type, layers: new Map() };
+      environment = { id, type, layers: new Map(), dependencyGraph: new Map() };
       this.environmentsState.set(id, environment);
     }
     return environment;
@@ -649,6 +781,7 @@ export class Scenario extends EventTarget {
         layerType,
         metadata,
         storage: this.createStorageForLayer(layerType, metadata),
+        dependencyLayerIds: {},
       };
       environment.layers.set(layerId, layer);
     }
@@ -664,7 +797,6 @@ export class Scenario extends EventTarget {
         layerType: layer.layerType,
         metadata: cloneValue(layer.metadata),
         storageSnapshot: cloneValue(layer.storage.dump()),
-        agentLayerRef: layer.agentLayerRef,
       })),
     };
   }
@@ -678,6 +810,7 @@ export class Scenario extends EventTarget {
   }
 
   private requireStorage<TStorage>(
+    environment: ScenarioEnvironmentState,
     layer: ScenarioLayerState,
     ctor: new (...args: any[]) => TStorage,
     expectedLayerType: string,
@@ -688,58 +821,126 @@ export class Scenario extends EventTarget {
     const metadata = cloneValue(layer.metadata);
     layer.layerType = expectedLayerType;
     layer.storage = this.createStorageForLayer(expectedLayerType, metadata);
-    this.applyLayerMetadata(layer);
+    this.applyLayerMetadata(environment, layer);
     return layer.storage as TStorage;
   }
 
-  private applyLayerMetadata(layer: ScenarioLayerState): void {
-    if (layer.storage instanceof GridEnvStorage) {
-      layer.storage.setData(cloneValue(layer.metadata));
-      return;
-    }
-
-    if (layer.storage instanceof BackgroundStorage) {
-      const background = layer.metadata.background;
-      const interpolation = getInterpolation(layer.metadata.interpolation);
-      if (
-        typeof background === 'string'
-        || background instanceof Uint8Array
-        || background === undefined
-        || background === null
-      ) {
-        void layer.storage.setBackground(background ?? undefined, interpolation);
-        return;
-      }
-
-      if (isBackgroundAssetReference(background)) {
-        layer.storage.setBackgroundUrl(this.assetState.getUrl(background.asset_id), interpolation);
-        return;
-      }
-    }
+  private applyLayerMetadata(environment: ScenarioEnvironmentState, layer: ScenarioLayerState): void {
+    layer.dependencyLayerIds = this.normalizeDependencyLayerIds(layer.metadata.dependency_layer_ids);
+    this.getLayerController(layer.layerType)?.applyMetadata?.(
+      this.createLayerControllerContext(environment, layer),
+    );
+    this.reindexLayerDependencies(environment, layer);
   }
 
   private refreshBackgroundLayersForAsset(assetId: string): void {
     for (const environment of this.environmentsState.values()) {
       for (const layer of environment.layers.values()) {
-        if (!(layer.storage instanceof BackgroundStorage)) continue;
-        const background = layer.metadata.background;
-        if (!isBackgroundAssetReference(background)) continue;
-        if (background.asset_id !== assetId) continue;
-        const interpolation = getInterpolation(
-          background.interpolation ?? layer.metadata.interpolation,
+        this.getLayerController(layer.layerType)?.onAssetDataReceived?.(
+          this.createLayerControllerContext(environment, layer),
+          assetId,
         );
-        layer.storage.setBackgroundUrl(this.assetState.getUrl(assetId), interpolation);
       }
     }
   }
 
-  private disposeLayer(layer: ScenarioLayerState): void {
-    if (layer.storage instanceof BackgroundStorage) {
-      layer.storage.destroy();
+  private disposeLayer(environment: ScenarioEnvironmentState, layer: ScenarioLayerState): void {
+    this.getLayerController(layer.layerType)?.dispose?.(
+      this.createLayerControllerContext(environment, layer),
+    );
+  }
+
+  private getLayerController(layerType: string): ItemLayerController | undefined {
+    return this.layerRegistry.get(layerType)?.controller;
+  }
+
+  private createLayerControllerContext(
+    environment: ScenarioEnvironmentState,
+    layer: ScenarioLayerState,
+  ): LayerControllerContext {
+    return {
+      envId: environment.id,
+      environment,
+      layer,
+      assets: this.assetState,
+      time: this.time,
+      requireStorage: <TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string) => (
+        this.requireStorage(environment, layer, ctor, expectedLayerType)
+      ),
+    };
+  }
+
+  private reindexLayerDependencies(environment: ScenarioEnvironmentState, layer: ScenarioLayerState): void {
+    this.removeLayerFromDependencyGraph(environment, layer.id);
+    for (const dependencyLayerId of Object.values(layer.dependencyLayerIds)) {
+      const dependents = environment.dependencyGraph.get(dependencyLayerId) ?? new Set<string>();
+      dependents.add(layer.id);
+      environment.dependencyGraph.set(dependencyLayerId, dependents);
+    }
+  }
+
+  private removeLayerFromDependencyGraph(environment: ScenarioEnvironmentState, layerId: string): void {
+    environment.dependencyGraph.delete(layerId);
+    for (const [dependencyLayerId, dependents] of environment.dependencyGraph.entries()) {
+      dependents.delete(layerId);
+      if (dependents.size === 0) {
+        environment.dependencyGraph.delete(dependencyLayerId);
+      }
+    }
+  }
+
+  private runDependencyLayerControllers(
+    environment: ScenarioEnvironmentState,
+    sourceLayer: ScenarioLayerState,
+    kind: 'create' | 'update',
+    items: Record<string, unknown>[],
+  ): void;
+  private runDependencyLayerControllers(
+    environment: ScenarioEnvironmentState,
+    sourceLayer: ScenarioLayerState,
+    kind: 'delete',
+    items: ItemDeletePayload['items'],
+  ): void;
+  private runDependencyLayerControllers(
+    environment: ScenarioEnvironmentState,
+    sourceLayer: ScenarioLayerState,
+    kind: LayerDependencyChange['kind'],
+    items: Record<string, unknown>[] | ItemDeletePayload['items'],
+  ): void {
+    const dependentLayerIds = environment.dependencyGraph.get(sourceLayer.id);
+    if (!dependentLayerIds || dependentLayerIds.size === 0) {
+      return;
+    }
+
+    const change: LayerDependencyChange = kind === 'delete'
+      ? {
+        kind,
+        sourceLayer,
+        items: cloneValue(items as ItemDeletePayload['items']),
+      }
+      : {
+        kind,
+        sourceLayer,
+        items: cloneValue(items as Record<string, unknown>[]),
+      };
+
+    for (const dependentLayerId of dependentLayerIds) {
+      const dependentLayer = environment.layers.get(dependentLayerId);
+      if (!dependentLayer) {
+        continue;
+      }
+      this.getLayerController(dependentLayer.layerType)?.onDependencyItemsChanged?.(
+        this.createLayerControllerContext(environment, dependentLayer),
+        change,
+      );
     }
   }
 
   private emit<T extends ScenarioEventType>(type: T, detail: ScenarioEventDetailMap[T]): void {
     this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+
+  private emitLazy<T extends ScenarioEventType>(type: T, detail: () => ScenarioEventDetailMap[T]): void {
+    this.dispatchLazy(type, () => new CustomEvent(type, { detail: detail() }));
   }
 }

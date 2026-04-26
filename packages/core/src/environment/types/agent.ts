@@ -65,8 +65,6 @@ export interface GridAgent extends BaseAgent {
   y: number;
   /** Heading in radians. */
   heading?: number;
-  trajectory_length?: number;
-  trajectory_color?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +89,16 @@ export interface GraphAgent extends BaseAgent {
 // ---------------------------------------------------------------------------
 // Trajectory
 // ---------------------------------------------------------------------------
+
+
+export interface TrajectoryConfig {
+  id: AgentId;
+  length?: number;
+  width?: number;
+  color?: string;
+}
+
+export type GlobalTrajectoryConfig = Omit<Required<TrajectoryConfig>, 'id'>;
 
 export interface TrajectoryPoint {
   x: number;

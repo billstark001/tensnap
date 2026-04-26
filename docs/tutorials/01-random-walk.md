@@ -277,13 +277,17 @@ for agent in grid.agents:
 
 ### Exercise 2: Add Trajectories
 
-Enable trajectory visualization by updating the environment decorator:
+Trajectory trails are now a dedicated `trajectory` layer instead of a `@bind_grid_environment()` flag. Add a layer with `dependency_layer_ids.agent = "agents"` and a default trail length in its metadata:
 
 ```python
-@bind_grid_environment(trajectory_length=True)
-class RandomWalkSimulation:
-    trajectory_length = 10  # Show last 10 positions
-    # ... rest of class ...
+{
+    "layer_id": "trails",
+    "layer_type": "trajectory",
+    "data": {
+        "dependency_layer_ids": {"agent": "agents"},
+        "length": 10,
+    },
+}
 ```
 
 ### Exercise 3: Track Total Distance

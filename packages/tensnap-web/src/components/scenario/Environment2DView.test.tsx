@@ -9,6 +9,7 @@ const testHarness = vi.hoisted(() => {
   const gridLayerCalls: Array<{ storage: unknown }> = [];
   const backgroundLayerCalls: Array<{ storage: { background: string | null }; options?: { sceneBounds?: { width: number; height: number } } }> = [];
   const edgeLayerCalls: Array<{ storage: unknown; linkedAgentStorage: unknown; config: unknown; layer: { setZIndex: ReturnType<typeof vi.fn> } }> = [];
+  const trajectoryLayerCalls: Array<{ storage: unknown; options: Record<string, unknown>; layer: { setZIndex: ReturnType<typeof vi.fn> } }> = [];
   const agentLayerCalls: Array<{ storage: unknown; options: Record<string, unknown>; layer: { setSceneBounds: ReturnType<typeof vi.fn>; setZIndex: ReturnType<typeof vi.fn> } }> = [];
   const toastError = vi.fn();
   let edgeLayerError: Error | null = null;
@@ -52,6 +53,12 @@ const testHarness = vi.hoisted(() => {
 
   class MockEdgeStorage {}
 
+  class MockTrajectoryStorage {
+    subscribe() {
+      return () => {};
+    }
+  }
+
   class MockBackgroundLayer {
     setSceneBounds = vi.fn();
 
@@ -90,6 +97,14 @@ const testHarness = vi.hoisted(() => {
     }
   }
 
+  class MockTrajectoryLayer {
+    setZIndex = vi.fn();
+
+    constructor(_view: unknown, storage: unknown, options: Record<string, unknown>) {
+      trajectoryLayerCalls.push({ storage, options, layer: this });
+    }
+  }
+
   const mockStore = {
     scenario: {
       assets: {
@@ -104,6 +119,7 @@ const testHarness = vi.hoisted(() => {
     gridLayerCalls,
     backgroundLayerCalls,
     edgeLayerCalls,
+    trajectoryLayerCalls,
     agentLayerCalls,
     toastError,
     get edgeLayerError() {
@@ -117,10 +133,12 @@ const testHarness = vi.hoisted(() => {
     MockBackgroundStorage,
     MockGridEnvStorage,
     MockEdgeStorage,
+    MockTrajectoryStorage,
     MockBackgroundLayer,
     MockGridLayer,
     MockEdgeLayer,
     MockAgentLayer,
+    MockTrajectoryLayer,
     mockStore,
   };
 });
@@ -157,9 +175,11 @@ vi.mock('@tensnap/core', () => ({
   GridLayer: testHarness.MockGridLayer,
   EdgeStorage: testHarness.MockEdgeStorage,
   EdgeLayer: testHarness.MockEdgeLayer,
+  TrajectoryStorage: testHarness.MockTrajectoryStorage,
+  TrajectoryLayer: testHarness.MockTrajectoryLayer,
 }));
 
-import { AgentStorage, BackgroundStorage, EdgeStorage, GridEnvStorage } from '@tensnap/core';
+import { AgentStorage, BackgroundStorage, EdgeStorage, GridEnvStorage, TrajectoryStorage } from '@tensnap/core';
 import { Environment2DView } from './Environment2DView';
 
 describe('Environment2DView', () => {
@@ -168,6 +188,7 @@ describe('Environment2DView', () => {
     testHarness.gridLayerCalls.length = 0;
     testHarness.backgroundLayerCalls.length = 0;
     testHarness.edgeLayerCalls.length = 0;
+    testHarness.trajectoryLayerCalls.length = 0;
     testHarness.agentLayerCalls.length = 0;
     testHarness.toastError.mockReset();
     testHarness.edgeLayerError = null;
@@ -211,6 +232,7 @@ describe('Environment2DView', () => {
     const backgroundStorage = new BackgroundStorage();
     const agentStorage = new AgentStorage([{ id: 'agent-1', x: 0, y: 0 }]);
     const edgeStorage = new EdgeStorage();
+    const trajectoryStorage = new TrajectoryStorage();
 
     render(
       <Environment2DView
@@ -220,7 +242,8 @@ describe('Environment2DView', () => {
           layers: new Map([
             ['background', { id: 'background', layerType: 'background', metadata: {}, storage: backgroundStorage }],
             ['agents', { id: 'agents', layerType: 'agent', metadata: {}, storage: agentStorage }],
-            ['edges', { id: 'edges', layerType: 'edge', metadata: { linkDistance: 42 }, storage: edgeStorage, agentLayerRef: 'agents' }],
+            ['edges', { id: 'edges', layerType: 'edge', metadata: { linkDistance: 42 }, storage: edgeStorage, dependencyLayerIds: { agent: 'agents' } }],
+            ['trajectories', { id: 'trajectories', layerType: 'trajectory', metadata: {}, storage: trajectoryStorage, dependencyLayerIds: { agent: 'agents' } }],
           ]),
         } as any}
       />,
@@ -228,11 +251,14 @@ describe('Environment2DView', () => {
 
     await waitFor(() => {
       expect(testHarness.edgeLayerCalls).toHaveLength(1);
+      expect(testHarness.trajectoryLayerCalls).toHaveLength(1);
       expect(testHarness.agentLayerCalls).toHaveLength(1);
     });
 
     expect(testHarness.edgeLayerCalls[0].linkedAgentStorage).toBe(agentStorage);
     expect(testHarness.edgeLayerCalls[0].config).toEqual({ linkDistance: 42 });
+    expect(testHarness.trajectoryLayerCalls[0].storage).toBe(trajectoryStorage);
+    expect(testHarness.trajectoryLayerCalls[0].options.coordOffset).toBe('float');
     expect(testHarness.agentLayerCalls[0].options.originMode).toBe('center');
     expect(testHarness.agentLayerCalls[0].options.coordOffset).toBe('float');
     expect(testHarness.agentLayerCalls[0].options.draggable).toBe(true);
@@ -304,7 +330,7 @@ describe('Environment2DView', () => {
           type: '2d',
           layers: new Map([
             ['agents', { id: 'agents', layerType: 'agent', metadata: {}, storage: agentStorage }],
-            ['edges', { id: 'edges', layerType: 'edge', metadata: {}, storage: edgeStorage, agentLayerRef: 'agents' }],
+            ['edges', { id: 'edges', layerType: 'edge', metadata: {}, storage: edgeStorage, dependencyLayerIds: { agent: 'agents' } }],
           ]),
         } as any}
       />,

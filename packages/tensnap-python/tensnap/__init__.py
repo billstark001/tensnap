@@ -1,13 +1,12 @@
 # tensnap/__init__.py
 """TenSnap - Agent-based model visualization toolkit"""
 
-from .server import TenSnapServer
-from .sim_loop import SimulationLoop
-from .scenario import SimulationScenario
-from .models import *
-from .bindings.basic import *
-from .bindings.mesa import *
-import tensnap.utils as utils
-
+from . import utils as utils
+from .bindings.basic import *  # noqa: F403
+from .bindings.mesa import *  # noqa: F403
+from .models import *  # noqa: F403
+from .scenario import SimulationScenario as SimulationScenario
+from .server import TenSnapServer as TenSnapServer
+from .sim_loop import SimulationLoop as SimulationLoop
 
 __version__ = "0.2.0"

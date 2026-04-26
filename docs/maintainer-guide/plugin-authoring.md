@@ -14,8 +14,8 @@ and optional [Zod](https://zod.dev/) schemas for:
 | Schema | Used for |
 | --- | --- |
 | `metadataSchema` | The `data` field of `env_layer_create` / `env_layer_update` messages |
-| `entitySchema` | Full entity objects in `agent_create` / `edge_create` |
-| `entityDiffSchema` | Diff objects in `agent_update` / `edge_update` |
+| `itemSchema` | Full item objects in `item_create` |
+| `itemDiffSchema` | Diff objects in `item_update` |
 
 Schemas are **advisory** — unknown or invalid data is accepted with a console
 warning, never silently dropped.
@@ -25,7 +25,7 @@ warning, never silently dropped.
 ## Quick Start
 
 ```typescript
-import { registerLayerType } from 'tensnap-web';
+import { registerLayerType } from '@tensnap/core/scenario';
 import { z } from 'zod';
 
 registerLayerType({
@@ -39,9 +39,17 @@ registerLayerType({
     max: z.number().optional(),
   }).passthrough(),
 
-  // This layer type does not carry agent or edge entities
-  hasAgents: false,
-  hasEdges: false,
+  itemSchema: z.object({
+    id: z.string(),
+    value: z.number(),
+  }),
+
+  itemDiffSchema: z.object({
+    id: z.string(),
+    value: z.number().optional(),
+  }),
+
+  primaryKeyFields: ['id'],
 });
 ```
 
@@ -66,22 +74,17 @@ interface LayerTypeDefinition {
    */
   metadataSchema?: ZodType;
 
-  /**
-   * Zod schema for full entity objects (agent_create / edge_create payloads).
-   * Only needed when the layer manages a large, growing entity collection.
-   */
-  entitySchema?: ZodType;
+  /** Zod schema for full item objects (item_create payloads). */
+  itemSchema?: ZodType;
 
-  /**
-   * Zod schema for partial entity diffs (agent_update / edge_update payloads).
-   */
-  entityDiffSchema?: ZodType;
+  /** Zod schema for partial item diffs (item_update payloads). */
+  itemDiffSchema?: ZodType;
 
-  /** True when this layer carries agents (agent_create / agent_update / agent_delete). */
-  hasAgents?: boolean;
+  /** Primary-key fields used by item_delete and item diff matching. */
+  primaryKeyFields?: string[];
 
-  /** True when this layer carries edges (edge_create / edge_update / edge_delete). */
-  hasEdges?: boolean;
+  /** Required upstream layer types keyed through data.dependency_layer_ids. */
+  requiredDependencyLayerTypes?: string[];
 }
 ```
 
@@ -89,11 +92,12 @@ interface LayerTypeDefinition {
 
 ## Built-in Layer Types
 
-| `layer_type` | `hasAgents` | `hasEdges` | Description |
+| `layer_type` | Item key | Dependencies | Description |
 | --- | --- | --- | --- |
-| `agent` | ✓ | — | Agents with optional `x`, `y`, `heading` (grid or free-form). |
-| `edge` | — | ✓ | Directed/undirected edges with d3-force layout. |
-| `grid` | — | — | Parametric multi-scale grid overlay (no entities). |
+| `agent` | `id` | — | Agents with optional `x`, `y`, `heading` (grid or free-form). |
+| `edge` | `source,target` | `agent` | Directed/undirected edges with d3-force layout. |
+| `trajectory` | `id` | `agent` | Trajectory config items plus per-layer default trail config. |
+| `grid` | — | — | Parametric multi-scale grid overlay (no items). |
 | `background` | — | — | Background source layer; `background` accepts CSS color / explicit URL / data URL strings, `Uint8Array` bytes, or `{ asset_id, interpolation? }`, plus optional layer-level `interpolation`. |
 
 Built-in types are registered automatically at module load time. You may
@@ -176,6 +180,6 @@ avoid future collisions.
 
 ## References
 
-- [Protocol v0.2](./protocol-v0.2.md) — full message spec for `env_layer_*`, `agent_*`, `edge_*`
+- [Protocol v0.2](./protocol-v0.2.md) — full message spec for `env_layer_*` and `item_*`
 - [Architecture](./architecture.md) — rendering layer design
 - [Roadmap](./roadmap.md)

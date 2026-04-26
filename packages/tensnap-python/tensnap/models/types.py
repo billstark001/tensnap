@@ -1,16 +1,14 @@
 """Communication models for WebSocket interactions"""
 
-from typing import Any, Literal
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal
 
 from typing_extensions import NotRequired, TypedDict
 
-from tensnap.bindings.basic import (
-    ChartGroupMetadataDict,
-    ChartMetadataDict,
-    ParameterType,
-)
-
-from .environment import GraphEdgeDict
+if TYPE_CHECKING:
+    from tensnap.bindings.basic.chart import ChartMetadataDict
+    from tensnap.bindings.basic.parameter import ParameterType
 
 
 class StateSyncLayerSummary(TypedDict):
@@ -44,7 +42,7 @@ class EnvironmentStateWithAgentsOmitted(TypedDict):
 class StateSyncRequest(TypedDict):
     request_id: NotRequired[str]
     parameters: list[ParameterState]
-    actions: list[dict]
+    actions: list[dict[str, Any]]
     envs: list[EnvironmentStateWithAgentsOmitted]
     charts: list[ChartMetadataDict]
 

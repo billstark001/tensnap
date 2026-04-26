@@ -2,10 +2,19 @@
 
 import networkx as nx
 
+from tensnap.bindings.basic import (
+    EnvironmentBindingBuilder,
+    bind_2d_env,
+    bind_agent,
+    bind_agent_layer,
+    bind_grid_layer,
+    bind_trajectory_layer,
+)
 from tensnap.models import (
     GraphEnvironmentBinder,
     GraphEnvironmentBinderNX,
     GridEnvironmentBinder,
+    LayeredEnvironmentBinder,
     UniformEnvironmentBinder,
 )
 
@@ -100,7 +109,8 @@ class TestGridEnvironmentBinder:
                 self.agents = [GridAgent(1, 5, 5), GridAgent(2, 8, 3)]
 
         state = GridEnvironmentBinder(id="grid_env", environment=GridEnv()).get_state()
-        agents = state["layers"][0].get("agents", [])
+        assert [layer["layer_type"] for layer in state["layers"]] == ["grid", "agent"]
+        agents = state["layers"][1].get("agents", [])
 
         assert len(agents) == 2
         assert agents[0]["x"] == 5
@@ -221,9 +231,84 @@ class TestEnvironmentAccessorDicts:
             environment=GridEnv(),
             agent_accessor={"id": "agent_id", "x": "pos_x", "y": "pos_y"},
         ).get_state()
-        agents = state["layers"][0].get("agents", [])
+        agents = state["layers"][1].get("agents", [])
 
         assert len(agents) == 1
         assert agents[0]["id"] == 1
         assert agents[0]["x"] == 5
         assert agents[0]["y"] == 5
+
+
+class TestDeclarativeLayerBindings:
+    def test_declarative_2d_environment_builds_grid_agent_and_trajectory_layers(self):
+        @bind_agent(x="position[0]", y="position[1]", color=True)
+        class Bird:
+            def __init__(self, bird_id: int, position: tuple[int, int]):
+                self.id = bird_id
+                self.position = position
+                self.color = "#3498db"
+
+        @bind_trajectory_layer(metadata={"length": 5}, dependency_layer_ids={"agent": "birds"})
+        @bind_agent_layer("birds", item_iterable_accessor="birds")
+        @bind_grid_layer(width="width", height="height")
+        @bind_2d_env()
+        class Aviary:
+            def __init__(self):
+                self.width = 20
+                self.height = 10
+                self.birds = [Bird(1, (2, 3)), Bird(2, (4, 5))]
+
+        state = LayeredEnvironmentBinder(id="aviary", environment=Aviary()).get_state()
+
+        assert state["type"] == "2d"
+        assert [layer["layer_type"] for layer in state["layers"]] == [
+            "grid",
+            "agent",
+            "trajectory",
+        ]
+        assert state["layers"][0].get("data") == {"width": 20, "height": 10}
+        assert state["layers"][1].get("agents") == [
+            {"id": 1, "x": 2, "y": 3, "color": "#3498db"},
+            {"id": 2, "x": 4, "y": 5, "color": "#3498db"},
+        ]
+        assert state["layers"][2].get("data") == {
+            "length": 5,
+            "dependency_layer_ids": {"agent": "birds"},
+        }
+
+    def test_imperative_environment_binding_builder_creates_layered_binder(self):
+        class Particle:
+            def __init__(self, particle_id: int, x: int, y: int):
+                self.id = particle_id
+                self.x = x
+                self.y = y
+
+        class ParticleEnv:
+            def __init__(self):
+                self.width = 8
+                self.height = 6
+                self.particles = [Particle(1, 1, 2)]
+
+        builder = EnvironmentBindingBuilder(environment_type="2d")
+        builder.add_grid_layer(metadata_accessor=lambda env: {"width": env.width, "height": env.height})
+        builder.add_agent_layer(
+            layer_id="particles",
+            item_iterable_accessor=lambda env: env.particles,
+            item_accessor=lambda item: {"id": item.id, "x": item.x, "y": item.y},
+        )
+
+        binder = builder.build(id="particles", environment=ParticleEnv())
+        state = binder.get_state()
+
+        assert state == {
+            "id": "particles",
+            "type": "2d",
+            "layers": [
+                {"layer_id": "grid", "layer_type": "grid", "data": {"width": 8, "height": 6}},
+                {
+                    "layer_id": "particles",
+                    "layer_type": "agent",
+                    "agents": [{"id": 1, "x": 1, "y": 2}],
+                },
+            ],
+        }

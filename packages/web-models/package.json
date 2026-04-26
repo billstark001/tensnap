@@ -10,8 +10,9 @@
     "./models": "./src/models/index.ts"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "echo 'No tests'",
-    "lint": "echo 'No lint configured'",
+    "lint": "pnpm run typecheck",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {

@@ -11,3 +11,11 @@ export { AgentStorage } from './AgentStorage';
 export type { RenderableAgent, AgentStorageData, AgentStorageSnapshot } from './AgentStorage';
 export { EdgeStorage } from './EdgeStorage';
 export type { EdgeStorageData, EdgeStorageSnapshot } from './EdgeStorage';
+export { TrajectoryStorage } from './TrajectoryStorage';
+export type {
+	TrajectoryDelta,
+	TrajectoryEntry,
+	TrajectorySnapshotItem,
+	TrajectoryStorageData,
+	TrajectoryStorageSnapshot,
+} from './TrajectoryStorage';

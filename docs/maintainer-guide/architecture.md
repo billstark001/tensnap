@@ -47,10 +47,9 @@ class Bird:
         self.size = 5
 
 # Define environment with metadata binding
-@bind_grid_environment(coord_offset=True, trajectory_length=True)
+@bind_grid_environment(coord_offset=True)
 class FlockSimulation:
     coord_offset = "float"
-    trajectory_length = 5
     
     def __init__(self):
         self.birds = []
