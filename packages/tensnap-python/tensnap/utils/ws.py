@@ -2,6 +2,7 @@ from typing import List, Set, Dict
 import asyncio
 import logging
 from websockets.asyncio.server import ServerConnection
+from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State
 from collections import defaultdict
 
@@ -18,9 +19,7 @@ class BatchedMessageQueue:
         self._last_flush = 0
         self._closed = False
 
-    async def add(
-        self, clients: Set[ServerConnection], message: str | bytes
-    ) -> None:
+    async def add(self, clients: Set[ServerConnection], message: str | bytes) -> None:
         """Add a message to the queue and trigger flush if necessary."""
         if self._closed:
             logger.warning("Cannot add message to closed queue")
@@ -61,9 +60,7 @@ class BatchedMessageQueue:
                 return
 
             # Group messages by client to minimize send operations
-            client_msgs: Dict[ServerConnection, List[str | bytes]] = defaultdict(
-                list
-            )
+            client_msgs: Dict[ServerConnection, List[str | bytes]] = defaultdict(list)
             for clients, msg in self._queue:
                 for client in clients:
                     client_msgs[client].append(msg)
@@ -103,7 +100,7 @@ class BatchedMessageQueue:
             for message in messages:
                 await client.send(message)
 
-        except (ConnectionError, asyncio.CancelledError):
+        except (ConnectionClosed, ConnectionError, asyncio.CancelledError):
             # Expected exceptions during client disconnect
             pass
         except Exception as e:

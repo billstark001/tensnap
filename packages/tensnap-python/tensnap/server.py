@@ -8,7 +8,18 @@ broadcasting simulation updates to connected clients.
 # region Imports
 
 from copy import deepcopy
-from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple, Set, cast
+from typing import (
+    Any,
+    Dict,
+    List,
+    TYPE_CHECKING,
+    Callable,
+    Union,
+    Optional,
+    Tuple,
+    Set,
+    cast,
+)
 
 import asyncio
 import hashlib
@@ -369,9 +380,14 @@ class TenSnapServer:
         updated = server_ids & client_ids
 
         return {
-            "added": [clone_environment_state(self.environments[i].get_state()) for i in added],
+            "added": [
+                clone_environment_state(self.environments[i].get_state()) for i in added
+            ],
             "removed": list(removed),
-            "updated": [clone_environment_state(self.environments[i].get_state()) for i in updated],
+            "updated": [
+                clone_environment_state(self.environments[i].get_state())
+                for i in updated
+            ],
         }
 
     async def _send_environment_snapshot(
@@ -694,13 +710,17 @@ class TenSnapServer:
         try:
             # Actions (action_create / action_update / action_delete)
             for action_dict in actions["added"]:
-                await self._send(ws, ServerToClientMessageType.ACTION_CREATE, action_dict)
+                await self._send(
+                    ws, ServerToClientMessageType.ACTION_CREATE, action_dict
+                )
             for action_id in actions["removed"]:
                 await self._send(
                     ws, ServerToClientMessageType.ACTION_DELETE, {"id": action_id}
                 )
             for action_dict in actions["updated"]:
-                await self._send(ws, ServerToClientMessageType.ACTION_UPDATE, action_dict)
+                await self._send(
+                    ws, ServerToClientMessageType.ACTION_UPDATE, action_dict
+                )
 
             # Parameters
             for param_dict in params["added"]:
@@ -716,7 +736,9 @@ class TenSnapServer:
             for env_state in envs["added"]:
                 await self._send_environment_snapshot(ws, env_state)
             for env_id in envs["removed"]:
-                await self._send(ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id})
+                await self._send(
+                    ws, ServerToClientMessageType.ENV_DELETE, {"id": env_id}
+                )
             for env_state in envs["updated"]:
                 await self._send_environment_snapshot(
                     ws,
@@ -805,6 +827,9 @@ class TenSnapServer:
     ) -> None:
         try:
             await ws.send(encode_message(msg_type, payload, self.use_msgpack))
+        except ConnectionClosed as e:
+            logger.debug(f"Client closed connection before send completed: {e}")
+            self.clients.discard(ws)
         except Exception as e:
             logger.exception(f"Error sending message to client: {e}")
             self.clients.discard(ws)
@@ -1051,7 +1076,6 @@ class TenSnapServer:
             pending = self._pending_screenshot_requests.get(resolved_request_id)
             if pending is future:
                 self._pending_screenshot_requests.pop(resolved_request_id, None)
-
 
     # -------------------------------------------------------------------------
     # Asset management

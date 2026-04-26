@@ -3,7 +3,9 @@
 import pytest
 import asyncio
 import json
+import logging
 from unittest.mock import Mock, AsyncMock
+from websockets.exceptions import ConnectionClosedOK
 from websockets.protocol import State
 from tensnap.server import (
     TenSnapServer,
@@ -94,7 +96,9 @@ class TestTenSnapServer:
         """Test removing an environment from the server"""
         env = Mock()
         env.id = "test_env"
-        env.get_state = Mock(return_value={"id": "test_env", "type": "uniform", "layers": []})
+        env.get_state = Mock(
+            return_value={"id": "test_env", "type": "uniform", "layers": []}
+        )
 
         server.add_environment(env)
         assert "test_env" in server.environments
@@ -246,6 +250,43 @@ class TestTenSnapServer:
         assert mock_client.send.called
 
     @pytest.mark.asyncio
+    async def test_send_ignores_manual_disconnect(
+        self, server: TenSnapServer, caplog: pytest.LogCaptureFixture
+    ):
+        """Sending to a cleanly closed client should not emit an exception traceback."""
+        mock_client = AsyncMock()
+        mock_client.send.side_effect = ConnectionClosedOK(None, None, None)
+        server.clients.add(mock_client)
+
+        with caplog.at_level(logging.ERROR, logger="tensnap.server"):
+            await server._send(
+                mock_client,
+                ServerToClientMessageType.METADATA_UPDATE,
+                {"time": 5},
+            )
+
+        assert mock_client not in server.clients
+        assert not caplog.records
+
+    @pytest.mark.asyncio
+    async def test_broadcast_ignores_manual_disconnect(
+        self, server: TenSnapServer, caplog: pytest.LogCaptureFixture
+    ):
+        """Queued sends should also treat clean disconnects as expected."""
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        mock_client.send.side_effect = ConnectionClosedOK(None, None, None)
+        server.clients.add(mock_client)
+
+        with caplog.at_level(logging.ERROR, logger="tensnap.utils.ws"):
+            await server._broadcast(
+                ServerToClientMessageType.METADATA_UPDATE, {"time": 5}
+            )
+            await server._queue.flush()
+
+        assert not caplog.records
+
+    @pytest.mark.asyncio
     async def test_update_layer_metadata(self, server: TenSnapServer):
         """Layer-scoped metadata helpers should preserve the caller's layer id."""
         mock_client = AsyncMock()
@@ -259,7 +300,11 @@ class TestTenSnapServer:
         sent_message = json.loads(mock_client.send.await_args_list[0].args[0])
         assert sent_message == {
             "type": "env_layer_update",
-            "payload": {"env_id": "env1", "layer_id": "grid", "data": {"x": 10, "y": 20}},
+            "payload": {
+                "env_id": "env1",
+                "layer_id": "grid",
+                "data": {"x": 10, "y": 20},
+            },
         }
 
     @pytest.mark.asyncio
@@ -639,7 +684,9 @@ class TestTenSnapServer:
 
         mock_ws = AsyncMock()
 
-        await server._handle_action_start(mock_ws, {"id": "test_action", "tick_id": "tick-1"})
+        await server._handle_action_start(
+            mock_ws, {"id": "test_action", "tick_id": "tick-1"}
+        )
 
         assert clicked["value"] is True
         sent_messages = [
