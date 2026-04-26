@@ -1,181 +1,237 @@
-/**
- * LazyEventTarget.test.ts — usage examples & manual smoke tests
- * Run with:  npx ts-node LazyEventTarget.test.ts
- */
-import { LazyEventTarget } from "./LazyEventTarget";
+import { describe, it, expect, vi } from 'vitest';
+import { LazyEventTarget } from './LazyEventTarget';
 
-let passed = 0;
-let failed = 0;
-function assert(condition: boolean, msg: string) {
-  if (condition) { console.log(`  ✅  ${msg}`); passed++; }
-  else           { console.error(`  ❌  ${msg}`); failed++; }
+function listener() {
+  return vi.fn() as unknown as EventListener;
 }
 
-// ── 1. Basic lazy dispatch ──────────────────────────────────────────────────
-console.log("\n[1] Basic lazy dispatch");
-{
-  const t = new LazyEventTarget();
-  let factoryCalled = false;
-  // No listeners — factory must NOT be called
-  t.dispatchLazy("ping", () => { factoryCalled = true; return new Event("ping"); });
-  assert(!factoryCalled, "factory NOT called when no listener");
+describe('LazyEventTarget', () => {
+  // #region 1. Basic lazy dispatch
+  describe('1. Basic lazy dispatch', () => {
+    it('should NOT call factory when no listener is present', () => {
+      const t = new LazyEventTarget();
+      const factory = vi.fn(() => new Event('ping'));
 
-  let received = false;
-  t.addEventListener("ping", () => { received = true; });
-  t.dispatchLazy("ping", () => { factoryCalled = true; return new Event("ping"); });
-  assert(factoryCalled, "factory called when listener present");
-  assert(received,      "listener received the event");
-}
+      t.dispatchLazy('ping', factory);
 
-// ── 2. listenerCount / hasListeners ────────────────────────────────────────
-console.log("\n[2] listenerCount / hasListeners");
-{
-  const t = new LazyEventTarget();
-  assert(t.listenerCount("x") === 0, "count starts at 0");
-  const fn = () => {};
-  t.addEventListener("x", fn);
-  assert(t.listenerCount("x") === 1, "count is 1 after add");
-  assert(t.hasListeners("x"),        "hasListeners() true");
-  t.removeEventListener("x", fn);
-  assert(t.listenerCount("x") === 0, "count back to 0 after remove");
-  assert(!t.hasListeners("x"),       "hasListeners() false");
-}
+      expect(factory).not.toHaveBeenCalled();
+    });
 
-// ── 3. Deduplication ───────────────────────────────────────────────────────
-console.log("\n[3] Deduplication (same listener twice)");
-{
-  const t = new LazyEventTarget();
-  const fn = () => {};
-  t.addEventListener("click", fn);
-  t.addEventListener("click", fn);  // duplicate — must be ignored
-  assert(t.listenerCount("click") === 1, "duplicate ignored, count stays 1");
-}
+    it('should call factory and notify listener when listener is present', () => {
+      const t = new LazyEventTarget();
+      const factory = vi.fn(() => new Event('ping'));
+      const listener = vi.fn();
 
-// ── 4. once option ──────────────────────────────────────────────────────────
-console.log("\n[4] once option");
-{
-  const t = new LazyEventTarget();
-  let callCount = 0;
-  t.addEventListener("ev", () => { callCount++; }, { once: true });
-  assert(t.listenerCount("ev") === 1, "count 1 before fire");
-  t.dispatchEvent(new Event("ev"));
-  assert(callCount === 1,             "listener called once");
-  assert(t.listenerCount("ev") === 0, "count 0 after once-listener fires");
-  t.dispatchEvent(new Event("ev"));
-  assert(callCount === 1,             "listener NOT called a second time");
-}
+      t.addEventListener('ping', listener);
+      t.dispatchLazy('ping', factory);
 
-// ── 5. once removed before firing ──────────────────────────────────────────
-console.log("\n[5] once listener removed before firing");
-{
-  const t = new LazyEventTarget();
-  let callCount = 0;
-  const fn = () => { callCount++; };
-  t.addEventListener("ev", fn, { once: true });
-  t.removeEventListener("ev", fn);
-  assert(t.listenerCount("ev") === 0, "count 0 after explicit remove");
-  t.dispatchEvent(new Event("ev"));
-  assert(callCount === 0,             "listener never invoked");
-}
-
-// ── 6. AbortSignal ──────────────────────────────────────────────────────────
-console.log("\n[6] AbortSignal removes listener");
-{
-  const t  = new LazyEventTarget();
-  const ac = new AbortController();
-  let callCount = 0;
-  t.addEventListener("ev", () => { callCount++; }, { signal: ac.signal });
-  assert(t.listenerCount("ev") === 1, "count 1 before abort");
-  t.dispatchEvent(new Event("ev"));
-  assert(callCount === 1,             "fires before abort");
-  ac.abort();
-  assert(t.listenerCount("ev") === 0, "count 0 after abort");
-  t.dispatchEvent(new Event("ev"));
-  assert(callCount === 1,             "does NOT fire after abort");
-}
-
-// ── 7. Pre-aborted signal ───────────────────────────────────────────────────
-console.log("\n[7] Pre-aborted signal — registration is a no-op");
-{
-  const t  = new LazyEventTarget();
-  const ac = new AbortController();
-  ac.abort();
-  t.addEventListener("ev", () => {}, { signal: ac.signal });
-  assert(t.listenerCount("ev") === 0, "already-aborted signal: count stays 0");
-}
-
-// ── 8. Capture vs bubble are independent registrations ─────────────────────
-console.log("\n[8] Capture vs bubble counted separately");
-{
-  const t = new LazyEventTarget();
-  const fn = () => {};
-  t.addEventListener("ev", fn, { capture: false });
-  t.addEventListener("ev", fn, { capture: true });
-  assert(t.listenerCount("ev") === 2, "bubble + capture = 2");
-  t.removeEventListener("ev", fn, { capture: true });
-  assert(t.listenerCount("ev") === 1, "removing capture leaves 1");
-}
-
-// ── 9. EventListenerObject (handleEvent) ───────────────────────────────────
-console.log("\n[9] EventListenerObject");
-{
-  const t = new LazyEventTarget();
-  let called = false;
-  const obj = { handleEvent: () => { called = true; } };
-  t.addEventListener("ev", obj);
-  t.dispatchEvent(new Event("ev"));
-  assert(called,                      "handleEvent invoked");
-  t.removeEventListener("ev", obj);
-  assert(t.listenerCount("ev") === 0, "count 0 after remove");
-}
-
-// ── 10. dispatchLazyCustom ─────────────────────────────────────────────────
-console.log("\n[10] dispatchLazyCustom<T>");
-{
-  const t = new LazyEventTarget();
-  let factoryCalled = false;
-  type Payload = { value: number };
-
-  const skipped = t.dispatchLazyCustom<Payload>("data", () => {
-    factoryCalled = true;
-    return { value: 42 };
+      expect(factory).toHaveBeenCalledOnce();
+      expect(listener).toHaveBeenCalledOnce();
+    });
   });
-  assert(!factoryCalled && !skipped, "factory skipped, returns false");
+  // #endregion
 
-  let detail: Payload | undefined;
-  t.addEventListener("data", (e) => { detail = (e as CustomEvent<Payload>).detail; });
-  t.dispatchLazyCustom<Payload>("data", () => { factoryCalled = true; return { value: 42 }; });
-  assert(factoryCalled,              "factory called when listener present");
-  assert(detail?.value === 42,       "detail.value received correctly");
-}
+  // #region 2. listenerCount / hasListeners
+  describe('2. listenerCount / hasListeners', () => {
+    it('should correctly track the number of active listeners', () => {
+      const t = new LazyEventTarget();
+      expect(t.listenerCount('x')).toBe(0);
+      expect(t.hasListeners('x')).toBe(false);
 
-// ── 11. once + AbortSignal ─────────────────────────────────────────────────
-console.log("\n[11] once + AbortSignal — abort wins");
-{
-  const t  = new LazyEventTarget();
-  const ac = new AbortController();
-  let callCount = 0;
-  t.addEventListener("ev", () => { callCount++; }, { once: true, signal: ac.signal });
-  assert(t.listenerCount("ev") === 1, "count 1 before abort");
-  ac.abort();
-  assert(t.listenerCount("ev") === 0, "count 0 after abort");
-  t.dispatchEvent(new Event("ev"));
-  assert(callCount === 0,             "listener not called after abort");
-}
+      const fn = vi.fn();
+      t.addEventListener('x', fn);
 
-// ── 12. Multiple event types are tracked independently ─────────────────────
-console.log("\n[12] Multiple event types — independent counts");
-{
-  const t = new LazyEventTarget();
-  const a = () => {}, b = () => {};
-  t.addEventListener("foo", a);
-  t.addEventListener("bar", b);
-  t.addEventListener("bar", () => {});
-  assert(t.listenerCount("foo") === 1, "foo count = 1");
-  assert(t.listenerCount("bar") === 2, "bar count = 2");
-}
+      expect(t.listenerCount('x')).toBe(1);
+      expect(t.hasListeners('x')).toBe(true);
 
-// ── Summary ────────────────────────────────────────────────────────────────
-console.log(`\n${"─".repeat(40)}`);
-console.log(`Results: ${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+      t.removeEventListener('x', fn);
+
+      expect(t.listenerCount('x')).toBe(0);
+      expect(t.hasListeners('x')).toBe(false);
+    });
+  });
+  // #endregion
+
+  // #region 3. Deduplication
+  describe('3. Deduplication (same listener twice)', () => {
+    it('should ignore duplicate listeners', () => {
+      const t = new LazyEventTarget();
+      const fn = vi.fn();
+
+      t.addEventListener('click', fn);
+      t.addEventListener('click', fn); // duplicate
+
+      expect(t.listenerCount('click')).toBe(1);
+    });
+  });
+  // #endregion
+
+  // #region 4. once option
+  describe('4. once option', () => {
+    it('should invoke listener only once and remove it', () => {
+      const t = new LazyEventTarget();
+      const listener = vi.fn();
+
+      t.addEventListener('ev', listener, { once: true });
+      expect(t.listenerCount('ev')).toBe(1);
+
+      t.dispatchEvent(new Event('ev'));
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(t.listenerCount('ev')).toBe(0);
+
+      t.dispatchEvent(new Event('ev'));
+      expect(listener).toHaveBeenCalledTimes(1); // Not called a second time
+    });
+  });
+  // #endregion
+
+  // #region 5. once removed before firing
+  describe('5. once listener removed before firing', () => {
+    it('should not fire if a once-listener is explicitly removed beforehand', () => {
+      const t = new LazyEventTarget();
+      const listener = vi.fn();
+
+      t.addEventListener('ev', listener, { once: true });
+      t.removeEventListener('ev', listener);
+
+      expect(t.listenerCount('ev')).toBe(0);
+
+      t.dispatchEvent(new Event('ev'));
+      expect(listener).not.toHaveBeenCalled();
+    });
+  });
+  // #endregion
+
+  // #region 6. AbortSignal
+  describe('6. AbortSignal removes listener', () => {
+    it('should remove the listener when the AbortSignal aborts', () => {
+      const t = new LazyEventTarget();
+      const ac = new AbortController();
+      const listener = vi.fn();
+
+      t.addEventListener('ev', listener, { signal: ac.signal });
+      expect(t.listenerCount('ev')).toBe(1);
+
+      t.dispatchEvent(new Event('ev'));
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      ac.abort();
+      expect(t.listenerCount('ev')).toBe(0);
+
+      t.dispatchEvent(new Event('ev'));
+      expect(listener).toHaveBeenCalledTimes(1); // Does not fire again
+    });
+  });
+  // #endregion
+
+  // #region 7. Pre-aborted signal
+  describe('7. Pre-aborted signal', () => {
+    it('should not register the listener if the signal is already aborted', () => {
+      const t = new LazyEventTarget();
+      const ac = new AbortController();
+      ac.abort();
+
+      t.addEventListener('ev', listener(), { signal: ac.signal });
+      expect(t.listenerCount('ev')).toBe(0);
+    });
+  });
+  // #endregion
+
+  // #region 8. Capture vs bubble
+  describe('8. Capture vs bubble are independent registrations', () => {
+    it('should count and remove capture and bubble listeners separately', () => {
+      const t = new LazyEventTarget();
+      const fn = vi.fn();
+
+      t.addEventListener('ev', fn, { capture: false });
+      t.addEventListener('ev', fn, { capture: true });
+      expect(t.listenerCount('ev')).toBe(2);
+
+      t.removeEventListener('ev', fn, { capture: true });
+      expect(t.listenerCount('ev')).toBe(1);
+    });
+  });
+  // #endregion
+
+  // #region 9. EventListenerObject
+  describe('9. EventListenerObject (handleEvent)', () => {
+    it('should support objects with a handleEvent method', () => {
+      const t = new LazyEventTarget();
+      const obj = { handleEvent: vi.fn() };
+
+      t.addEventListener('ev', obj);
+      t.dispatchEvent(new Event('ev'));
+
+      expect(obj.handleEvent).toHaveBeenCalledOnce();
+
+      t.removeEventListener('ev', obj);
+      expect(t.listenerCount('ev')).toBe(0);
+    });
+  });
+  // #endregion
+
+  // #region 10. dispatchLazyCustom
+  describe('10. dispatchLazyCustom<T>', () => {
+    type Payload = { value: number };
+
+    it('should skip factory and return false when no listeners are present', () => {
+      const t = new LazyEventTarget();
+      const factory = vi.fn(() => ({ value: 42 }));
+
+      const dispatched = t.dispatchLazyCustom<Payload>('data', factory);
+
+      expect(factory).not.toHaveBeenCalled();
+      expect(dispatched).toBe(false);
+    });
+
+    it('should call factory and dispatch CustomEvent when listeners are present', () => {
+      const t = new LazyEventTarget();
+      const factory = vi.fn(() => ({ value: 42 }));
+      const listener = vi.fn();
+
+      t.addEventListener('data', listener);
+      t.dispatchLazyCustom<Payload>('data', factory);
+
+      expect(factory).toHaveBeenCalledOnce();
+      expect(listener).toHaveBeenCalledOnce();
+
+      const eventArg = listener.mock.calls[0][0] as CustomEvent<Payload>;
+      expect(eventArg.detail).toEqual({ value: 42 });
+    });
+  });
+  // #endregion
+
+  // #region 11. once + AbortSignal
+  describe('11. once + AbortSignal', () => {
+    it('should give precedence to abort removal over once', () => {
+      const t = new LazyEventTarget();
+      const ac = new AbortController();
+      const listener = vi.fn();
+
+      t.addEventListener('ev', listener, { once: true, signal: ac.signal });
+      expect(t.listenerCount('ev')).toBe(1);
+
+      ac.abort();
+      expect(t.listenerCount('ev')).toBe(0);
+
+      t.dispatchEvent(new Event('ev'));
+      expect(listener).not.toHaveBeenCalled();
+    });
+  });
+  // #endregion
+
+  // #region 12. Multiple event types
+  describe('12. Multiple event types are tracked independently', () => {
+    it('should track listener counts independently per event type', () => {
+      const t = new LazyEventTarget();
+
+      t.addEventListener('foo', listener());
+      t.addEventListener('bar', listener());
+      t.addEventListener('bar', listener());
+
+      expect(t.listenerCount('foo')).toBe(1);
+      expect(t.listenerCount('bar')).toBe(2);
+    });
+  });
+  // #endregion
+});

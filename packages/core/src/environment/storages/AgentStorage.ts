@@ -172,14 +172,16 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     if (existing) {
       // Update existing agent in place to maintain reference stability
       Object.assign(existing, agent);
+      this.notify({ added: [], updated: [existing], removed: [] });
     } else {
-      this._data.agents.set(agent.id, { ...agent });
+      const clonedAgent = { ...agent };
+      this._data.agents.set(agent.id, clonedAgent);
+      this.notify({ added: [clonedAgent], updated: [], removed: [] });
     }
-    this.notify({ added: [agent], updated: [], removed: [] });
   }
 
   /** Add multiple agents efficiently. */
-  addAgents(agents: Iterable<RenderableAgent>): void {
+  addAgents(agents: Iterable<Readonly<RenderableAgent>>): void {
     const added: RenderableAgent[] = [];
     const updated: RenderableAgent[] = [];
     for (const agent of agents) {
@@ -188,7 +190,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
         Object.assign(existing, agent);
         updated.push(existing);
       } else {
-        this._data.agents.set(agent.id, { ...agent });
+        this._data.agents.set(agent.id, agent);
         added.push(agent);
       }
     }
@@ -198,7 +200,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Update an existing agent by ID. Creates if doesn't exist. */
-  updateAgent(id: AgentId, updates: Partial<RenderableAgent>): void {
+  updateAgent(id: AgentId, updates: Partial<Readonly<RenderableAgent>>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     const existing = this._data.agents.get(id);
     if (existing) {
@@ -213,7 +215,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Update multiple agents efficiently. */
-  updateAgents(updates: Array<Partial<RenderableAgent> & { id: AgentId }>): void {
+  updateAgents(updates: Array<Readonly<Partial<RenderableAgent> & { id: AgentId }>>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     for (const { id, ...data } of updates) {
       const existing = this._data.agents.get(id);
@@ -232,7 +234,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Update multiple agents efficiently. Supports different data structures. */
-  updateAgents2(updates: Array<{ id: AgentId; data: Partial<RenderableAgent> }>): void {
+  updateAgents2(updates: Array<{ id: AgentId; data: Readonly<Partial<RenderableAgent>> }>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     for (const { id, data } of updates) {
       const existing = this._data.agents.get(id);

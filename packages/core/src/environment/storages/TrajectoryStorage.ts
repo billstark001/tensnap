@@ -129,7 +129,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
 
   upsertConfig(config: TrajectoryConfig): void {
     const created = !this._data.configs.has(config.id);
-    this._data.configs.set(config.id, { ...config });
+    this._data.configs.set(config.id, config);
     this.refreshEntries([config.id]);
     this.notify({ created: created ? [config.id] : [], updated: created ? [] : [config.id], appended: [], deleted: [] });
   }
@@ -143,7 +143,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
       } else {
         created.push(config.id);
       }
-      this._data.configs.set(config.id, { ...config });
+      this._data.configs.set(config.id, config);
     }
     this.refreshEntries(configs.map((config) => config.id));
     if (created.length > 0 || updated.length > 0) {

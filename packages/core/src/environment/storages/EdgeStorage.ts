@@ -49,7 +49,7 @@ export interface EdgeStorageData {
 }
 
 export interface EdgeStorageSnapshot {
-  edges: Array<{ source: AgentId; target: AgentId; [key: string]: unknown }>;
+  edges: Array<{ source: AgentId; target: AgentId;[key: string]: unknown }>;
 }
 
 export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
@@ -137,12 +137,15 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
   updateEdge(source: AgentId, target: AgentId, updates: Partial<GraphEdge>): void {
     const key = EdgeStorage.edgeKey(source, target);
     const existing = this._data.edges.get(key);
+    const delta: EdgeDelta = { added: [], updated: [], removed: [], replaced: false };
     if (!existing) {
-      this.addEdge({ source, target, ...updates } as GraphEdge);
-      return;
+      const newEdge = { source, target, ...updates } as GraphEdge;
+      this.addEdge(newEdge);
+      delta.added.push(newEdge);
+    } else {
+      Object.assign(existing, updates);
+      delta.updated.push(existing);
     }
-    Object.assign(existing, updates);
-    const delta: EdgeDelta = { added: [], updated: [existing], removed: [], replaced: false };
     this.notify(delta);
   }
 
@@ -150,28 +153,6 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
   updateEdges(updates: Array<Partial<GraphEdge> & { source: AgentId; target: AgentId }>): void {
     const delta: EdgeDelta = { added: [], updated: [], removed: [], replaced: false };
     for (const { source, target, ...data } of updates) {
-      const key = EdgeStorage.edgeKey(source, target);
-      const existing = this._data.edges.get(key);
-      if (!existing) {
-        const newEdge = { source, target, ...data } as GraphEdge;
-        this._data.edges.set(key, newEdge);
-        this._adjIndex(source).add(key);
-        this._adjIndex(target).add(key);
-        delta.added.push(newEdge);
-      } else {
-        Object.assign(existing, data);
-        delta.updated.push(existing);
-      }
-    }
-    if (delta.added.length > 0 || delta.updated.length > 0) {
-      this.notify(delta);
-    }
-  }
-
-  /** Update multiple edges. O(k). */
-  updateEdges2(updates: Array<{ source: AgentId; target: AgentId; data: Partial<GraphEdge> }>): void {
-    const delta: EdgeDelta = { added: [], updated: [], removed: [], replaced: false };
-    for (const { source, target, data } of updates) {
       const key = EdgeStorage.edgeKey(source, target);
       const existing = this._data.edges.get(key);
       if (!existing) {

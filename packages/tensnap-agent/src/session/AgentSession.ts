@@ -8,6 +8,7 @@ import type {
   ScreenshotRequestPayload,
   ScreenshotResponsePayload,
   SimulatorToRendererMessage,
+  StateSyncBoundaryPayload,
 } from '@tensnap/core/protocol';
 import { PipelineRuntime } from '@tensnap/core/runtime';
 import { Scenario, type ScenarioSnapshot } from '@tensnap/core/scenario';
@@ -224,11 +225,11 @@ export class AgentSession extends EventEmitter {
     this.scenario.apply(message);
 
     if (message.type === 'state_sync_begin') {
-      this.runtime.recordStateSyncBoundary('begin', message.payload);
+      this.runtime.recordStateSyncBoundary('begin', message.payload as StateSyncBoundaryPayload);
     }
 
     if (message.type === 'state_sync_end') {
-      this.runtime.recordStateSyncBoundary('end', message.payload);
+      this.runtime.recordStateSyncBoundary('end', message.payload as StateSyncBoundaryPayload);
       this.flushRuntimeCommands();
     }
 

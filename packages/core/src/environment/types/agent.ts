@@ -48,7 +48,7 @@ export function getAssetIdFromIcon(icon: string | undefined | null): string | nu
 // ---------------------------------------------------------------------------
 
 export interface BaseAgent {
-  id: AgentId;
+  readonly id: AgentId;
   color?: string;
   icon?: AgentIcon;
   /** Logical size in abstract units (not pixels). */
@@ -92,7 +92,7 @@ export interface GraphAgent extends BaseAgent {
 
 
 export interface TrajectoryConfig {
-  id: AgentId;
+  readonly id: AgentId;
   length?: number;
   width?: number;
   color?: string;
@@ -113,9 +113,9 @@ export interface TrajectoryPoint {
 
 export interface GraphEdge {
   /** Source agent id (raw) or resolved agent object. */
-  source: AgentId | GraphAgent;
+  readonly source: AgentId | GraphAgent;
   /** Target agent id (raw) or resolved agent object. */
-  target: AgentId | GraphAgent;
+  readonly target: AgentId | GraphAgent;
   directed?: boolean;
   style?: 'solid' | 'dashed' | 'dotted';
   width?: number;

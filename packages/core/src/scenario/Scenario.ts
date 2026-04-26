@@ -72,57 +72,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isPrimitiveItemKey(value: unknown): value is string | number {
-  return typeof value === 'string' || typeof value === 'number';
-}
-
-function hasPrimitiveDeleteItems(items: ItemDeletePayload['items']): items is AgentId[] {
-  return items.length > 0 && isPrimitiveItemKey(items[0]);
-}
-
-function getDeleteAgentIds(items: ItemDeletePayload['items']): AgentId[] | null {
-  if (items.length === 0) {
-    return [];
-  }
-  if (hasPrimitiveDeleteItems(items)) {
-    const ids: AgentId[] = [];
-    for (const item of items) {
-      if (!isPrimitiveItemKey(item)) {
-        return null;
-      }
-      ids.push(item);
-    }
-    return ids;
-  }
-
-  const ids: AgentId[] = [];
-  for (const item of items) {
-    if (isPrimitiveItemKey(item)) {
-      return null;
-    }
-    const id = item.id;
-    if (typeof id === 'string' || typeof id === 'number') {
-      ids.push(id);
-    }
-  }
-  return ids;
-}
-
-function getDeleteEdgePairs(items: ItemDeletePayload['items']): EdgeDeletePayload['edges'] | null {
-  if (items.length === 0) {
-    return [];
-  }
-  if (hasPrimitiveDeleteItems(items)) {
-    return null;
-  }
-  for (const item of items) {
-    if (isPrimitiveItemKey(item)) {
-      return null;
-    }
-  }
-  return items as EdgeDeletePayload['edges'];
-}
-
 export interface ScenarioOptions {
   charts?: ChartStorage;
   assets?: AssetStore;
@@ -300,12 +249,14 @@ export class Scenario extends LazyEventTarget {
   }
 
   createStateSyncMessage(requestId?: string): RendererToSimulatorMessage<StateSyncRequest> {
+    // Internal state references are safe to include directly: this message is
+    // serialized immediately by the caller and never mutated in-process.
     return {
       type: 'state_sync',
       payload: {
         request_id: requestId,
-        parameters: [...this.parametersState.values()].map(cloneValue),
-        actions: [...this.actionsState.values()].map(cloneValue),
+        parameters: [...this.parametersState.values()],
+        actions: [...this.actionsState.values()],
         envs: [...this.environmentsState.values()].map((environment) => ({
           id: environment.id,
           type: environment.type,
@@ -314,7 +265,7 @@ export class Scenario extends LazyEventTarget {
             layer_type: layer.layerType,
           })),
         })),
-        charts: this.chartState.getAllMeta().map(cloneValue),
+        charts: this.chartState.getAllMeta(),
       },
     };
   }
@@ -402,19 +353,23 @@ export class Scenario extends LazyEventTarget {
     this.emit('reset', undefined);
   }
 
+  // Payload properties are merged directly into metadataState. No clone needed
+  // because websocket payloads are never mutated, so shared value references are safe.
   private applyMetadata(payload: MetadataUpdatePayload): void {
-    Object.assign(this.metadataState, cloneValue(payload));
-    this.emit('metadata:update', cloneValue(payload));
+    Object.assign(this.metadataState, payload);
+    this.emit('metadata:update', payload);
   }
 
+  // Clone once for storage so internal state is isolated. Emit the original
+  // payload directly — a second clone would be redundant.
   private upsertAction(payload: ActionCUPayload, eventType: 'action:create' | 'action:update'): void {
     this.actionsState.set(payload.id, cloneValue(payload));
-    this.emit(eventType, cloneValue(payload));
+    this.emit(eventType, payload);
   }
 
   private deleteAction(payload: ActionDeletePayload): void {
     this.actionsState.delete(payload.id);
-    this.emit('action:delete', cloneValue(payload));
+    this.emit('action:delete', payload);
   }
 
   private createEnvironment(payload: EnvCreatePayload): void {
@@ -424,7 +379,7 @@ export class Scenario extends LazyEventTarget {
       layers: new Map(),
       dependencyGraph: new Map(),
     });
-    this.emit('env:create', cloneValue(payload));
+    this.emit('env:create', payload);
   }
 
   private deleteEnvironment(payload: EnvDeletePayload): void {
@@ -435,11 +390,13 @@ export class Scenario extends LazyEventTarget {
       }
     }
     this.environmentsState.delete(payload.id);
-    this.emit('env:delete', cloneValue(payload));
+    this.emit('env:delete', payload);
   }
 
   private createLayer(payload: EnvLayerCreatePayload): void {
     const environment = this.ensureEnvironment(payload.env_id);
+    // Must clone: this object is stored as mutable internal state and is
+    // modified in place by subsequent updateLayer calls.
     const metadata = cloneValue(payload.data ?? {});
     const storage = this.createStorageForLayer(payload.layer_type, metadata);
     environment.layers.set(payload.layer_id, {
@@ -450,15 +407,17 @@ export class Scenario extends LazyEventTarget {
       dependencyLayerIds: {},
     });
     this.applyLayerMetadata(environment, environment.layers.get(payload.layer_id)!);
-    this.emit('layer:create', cloneValue(payload));
+    this.emit('layer:create', payload);
   }
 
   private updateLayer(payload: EnvLayerUpdatePayload): void {
     const environment = this.ensureEnvironment(payload.env_id);
     const layer = this.ensureLayer(payload.env_id, payload.layer_id);
-    Object.assign(layer.metadata, cloneValue(payload.data));
+    // Assign directly: payload values are never mutated so shared references
+    // into layer.metadata are stable.
+    Object.assign(layer.metadata, payload.data);
     this.applyLayerMetadata(environment, layer);
-    this.emit('layer:update', cloneValue(payload));
+    this.emit('layer:update', payload);
   }
 
   private deleteLayer(payload: EnvLayerDeletePayload): void {
@@ -469,7 +428,7 @@ export class Scenario extends LazyEventTarget {
       this.disposeLayer(environment, layer);
       environment?.layers.delete(payload.layer_id);
     }
-    this.emit('layer:delete', cloneValue(payload));
+    this.emit('layer:delete', payload);
   }
 
   /**
@@ -479,7 +438,7 @@ export class Scenario extends LazyEventTarget {
     this.createItems({
       env_id: payload.env_id,
       layer_id: payload.layer_id,
-      items: payload.agents.map((agent) => cloneValue(agent as unknown as Record<string, unknown>)),
+      items: payload.agents as unknown as ItemCreatePayload['items'],
     }, 'agent');
   }
 
@@ -490,7 +449,7 @@ export class Scenario extends LazyEventTarget {
     this.updateItems({
       env_id: payload.env_id,
       layer_id: payload.layer_id,
-      items: payload.agents.map((agent) => cloneValue(agent as unknown as Record<string, unknown>)),
+      items: payload.agents,
     }, 'agent');
   }
 
@@ -501,7 +460,7 @@ export class Scenario extends LazyEventTarget {
     this.deleteItems({
       env_id: payload.env_id,
       layer_id: payload.layer_id,
-      items: payload.ids.map((id) => ({ id })),
+      items: payload.ids,
     }, 'agent');
   }
 
@@ -512,7 +471,7 @@ export class Scenario extends LazyEventTarget {
     this.createItems({
       env_id: payload.env_id,
       layer_id: payload.layer_id,
-      items: payload.edges.map((edge) => cloneValue(edge as Record<string, unknown>)),
+      items: payload.edges,
     }, 'edge');
   }
 
@@ -523,7 +482,7 @@ export class Scenario extends LazyEventTarget {
     this.updateItems({
       env_id: payload.env_id,
       layer_id: payload.layer_id,
-      items: payload.edges.map((edge) => cloneValue(edge as Record<string, unknown>)),
+      items: payload.edges,
     }, 'edge');
   }
 
@@ -534,7 +493,7 @@ export class Scenario extends LazyEventTarget {
     this.deleteItems({
       env_id: payload.env_id,
       layer_id: payload.layer_id,
-      items: payload.edges.map((edge) => cloneValue(edge as Record<string, unknown>)),
+      items: payload.edges,
     }, 'edge');
   }
 
@@ -564,6 +523,7 @@ export class Scenario extends LazyEventTarget {
     controller.createItems(this.createLayerControllerContext(environment, layer), payload.items);
 
     if (previousLayerType !== layer.layerType) {
+      // layer.metadata is internal state — must clone before emitting.
       this.emit('layer:update', {
         env_id: payload.env_id,
         layer_id: payload.layer_id,
@@ -573,7 +533,7 @@ export class Scenario extends LazyEventTarget {
 
     this.runDependencyLayerControllers(environment, layer, 'create', payload.items);
 
-    this.emitLazy('item:create', () => cloneValue(payload));
+    this.emitLazy('item:create', () => payload);
   }
 
   private updateItems(payload: ItemUpdatePayload, expectedLayerType?: string): void {
@@ -611,7 +571,7 @@ export class Scenario extends LazyEventTarget {
 
     this.runDependencyLayerControllers(environment, layer, 'update', payload.items);
 
-    this.emitLazy('item:update', () => cloneValue(payload));
+    this.emitLazy('item:update', () => payload);
   }
 
   private deleteItems(payload: ItemDeletePayload, expectedLayerType?: string): void {
@@ -645,7 +605,7 @@ export class Scenario extends LazyEventTarget {
 
     this.runDependencyLayerControllers(environment, layer, 'delete', payload.items);
 
-    this.emitLazy('item:delete', () => cloneValue(payload));
+    this.emitLazy('item:delete', () => payload);
   }
 
   private ensureRequiredDependencies(envId: string, layer: ScenarioLayerState, layerType = layer.layerType): boolean {
@@ -689,34 +649,43 @@ export class Scenario extends LazyEventTarget {
     return result;
   }
 
+  // Clone payload once to produce the sanitized parameter stored as internal state.
+  // Emit that same instance directly — a second clone to "protect" it is redundant
+  // because the stored and emitted object are the same; callers must not mutate
+  // event detail objects.
   private upsertParameter(payload: ParameterCUPayload, eventType: 'param:create' | 'param:update'): void {
     const param = sanitizeParameter(cloneValue(payload) as Parameter) as Parameter;
     this.parametersState.set(param.id, param);
-    this.emit(eventType, cloneValue(param));
+    this.emit(eventType, param);
   }
 
   private deleteParameter(payload: ParameterDeletePayload): void {
     this.parametersState.delete(payload.id);
-    this.emit('param:delete', cloneValue(payload));
+    this.emit('param:delete', payload);
   }
 
   private syncParameter(payload: ParameterSyncPayload): void {
     const parameter = this.parametersState.get(payload.id);
     if (parameter) {
-      Object.assign(parameter, { value: cloneValue(payload.value) });
+      // Clone value only: it may be a complex object that sanitizeParameter
+      // mutates in place, so we still need an owned copy.
+      parameter.value = cloneValue(payload.value as string | number | boolean);
       sanitizeParameter(parameter, true);
     }
-    this.emit('param:sync', cloneValue(payload));
+    this.emit('param:sync', payload);
   }
 
   private createChart(payload: ChartCreatePayload): void {
-    this.chartState.addGroup(instantiateChartMetadata(cloneValue(payload)), true);
-    this.emit('chart:create', cloneValue(payload));
+    // Clone before passing to instantiateChartMetadata since its contract
+    // does not guarantee it leaves the argument unmodified.
+    this.chartState.addGroup(instantiateChartMetadata(cloneValue(payload) as ChartCreatePayload), true);
+    this.emit('chart:create', payload);
   }
 
   private updateChart(payload: ChartUpdatePayload): void {
     if (payload.updates?.length) {
-      this.chartState.push(this.time ?? 0, cloneValue(payload.updates));
+      // ChartStorage takes ownership; no need to clone an immutable payload array.
+      this.chartState.push(this.time ?? 0, payload.updates);
     }
     if (payload.operations?.length) {
       for (const operation of payload.operations) {
@@ -727,34 +696,38 @@ export class Scenario extends LazyEventTarget {
         }
       }
     }
-    this.emit('chart:update', cloneValue(payload));
+    this.emit('chart:update', payload);
   }
 
   private deleteChart(payload: ChartDeletePayload): void {
     this.chartState.removeGroup(payload.id);
-    this.emit('chart:delete', cloneValue(payload));
+    this.emit('chart:delete', payload);
   }
 
   private receiveAssetMeta(payload: AssetMetaPayload): void {
-    this.assetState.receiveMetaBatch(payload.assets.map(cloneValue));
-    this.emit('asset:meta', cloneValue(payload));
+    // Pass the array directly: AssetStore takes ownership and payload is never
+    // mutated externally, so per-item cloning is unnecessary.
+    this.assetState.receiveMetaBatch(payload.assets);
+    this.emit('asset:meta', payload);
   }
 
   private receiveAssetData(payload: AssetDataPayload): void {
     void this.assetState.receiveData(payload.id, payload.hash, payload.mime, payload.data).then(() => {
       this.refreshBackgroundLayersForAsset(payload.id);
-      this.emit('asset:data', cloneValue(payload));
+      this.emit('asset:data', payload);
     });
   }
 
   private deleteAssets(payload: AssetDeletePayload): void {
     this.assetState.deleteBatch(payload.ids);
-    this.emit('asset:delete', cloneValue(payload));
+    this.emit('asset:delete', payload);
   }
 
   private appendLog(payload: LogPayload): void {
+    // Shallow spread is sufficient: LogPayload fields are primitives, so this
+    // is equivalent in effect to a deep clone without the allocation overhead.
     const normalized: NormalizedLogPayload = {
-      ...cloneValue(payload),
+      ...payload,
       level: payload.level ?? 'info',
       timestamp: payload.timestamp ?? Date.now(),
     };
@@ -912,16 +885,18 @@ export class Scenario extends LazyEventTarget {
       return;
     }
 
+    // items originates from an immutable websocket payload, so passing it
+    // by reference is safe — no clone required.
     const change: LayerDependencyChange = kind === 'delete'
       ? {
         kind,
         sourceLayer,
-        items: cloneValue(items as ItemDeletePayload['items']),
+        items: items as ItemDeletePayload['items'],
       }
       : {
         kind,
         sourceLayer,
-        items: cloneValue(items as Record<string, unknown>[]),
+        items: items as Record<string, unknown>[],
       };
 
     for (const dependentLayerId of dependentLayerIds) {
