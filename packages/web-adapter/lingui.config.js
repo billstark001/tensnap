@@ -1,5 +1,7 @@
+import { formatter } from '@lingui/format-po'
+
 /** @type {import('@lingui/conf').LinguiConfig} */
-module.exports = {
+export default {
   locales: ['en', 'zh', 'ja'],
   sourceLocale: 'en',
   catalogs: [
@@ -9,6 +11,6 @@ module.exports = {
       exclude: ['**/node_modules/**'],
     },
   ],
-  format: 'po',
+  format: formatter({}),
   compileNamespace: 'es',
 };

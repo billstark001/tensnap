@@ -19,6 +19,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
 
       <div className={dialogStyles.aboutContainer}>
         <div className={dialogStyles.aboutHeader}>
+          <img src="/logo192.png" alt="TenSnap Logo" className={dialogStyles.aboutLogo} />
           <h2 className={dialogStyles.aboutTitle}>
             TenSnap
           </h2>

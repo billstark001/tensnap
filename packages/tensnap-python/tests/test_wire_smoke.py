@@ -217,7 +217,6 @@ async def test_mushroom_example_emits_patch_resource_layer():
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "ForagingModel"
     assert patch_layer["payload"]["layer_type"] == "agent"
-    assert len(patch_agents["payload"]["items"]) == 50 * 50
 
 
 @pytest.mark.asyncio

@@ -23,9 +23,13 @@
     "dev:py:cgol": "cd examples/python_mesa && python cgol_viz.py",
     "dev:py:sugarscape": "cd examples/python_mesa && python sugarscape_viz.py",
     "dev:py:mushroom": "cd examples/python_mesa && python mushroom_viz.py",
+    "i18n:extract": "pnpm -r i18n:extract",
+    "i18n:compile": "pnpm -r i18n:compile",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "clean": "pnpm -r clean && rm -rf node_modules"
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "update-icons": "node scripts/update-icons.mjs",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -33,13 +37,17 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^16.5.0",
+    "globals": "^17.5.0",
+    "sharp": "^0.34.5",
     "typescript": "^6.0.3"
   },
   "pnpm": {
     "overrides": {
       "vite-prerender-plugin": "0.5.13"
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "sharp"
+    ]
   },
   "engines": {
     "node": ">=18.0.0",

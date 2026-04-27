@@ -16,17 +16,17 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
-    "@lingui/cli": "^5.9.5",
-    "@lingui/core": "^5.9.5",
+    "@lingui/cli": "^6.0.0",
+    "@lingui/core": "^6.0.0",
     "@lingui/macro": "^5.9.5",
-    "@lingui/react": "^5.9.5",
+    "@lingui/react": "^6.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "@tensnap/web-common": "workspace:*",
     "@tensnap/web": "workspace:*"
   },
   "devDependencies": {
-    "@lingui/vite-plugin": "^5.9.5",
+    "@lingui/vite-plugin": "^6.0.0",
     "@tauri-apps/cli": "^2.10.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -39,6 +39,6 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "typescript": "^6.0.3",
-    "vite": "^8.0.9"
+    "vite": "^8.0.10"
   }
 }

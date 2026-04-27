@@ -10,6 +10,15 @@ export const aboutHeader = style({
   marginBottom: vars.space.lg,
 });
 
+export const aboutLogo = style({
+  width: '80px',
+  height: '80px',
+  borderRadius: '16px',
+  marginBottom: vars.space.sm,
+  display: 'block',
+  margin: `0 auto ${vars.space.sm}`,
+});
+
 export const aboutTitle = style({
   fontSize: vars.fontSize.xxl,
   fontWeight: 'bold',
