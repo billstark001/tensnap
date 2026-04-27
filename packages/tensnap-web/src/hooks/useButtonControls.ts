@@ -40,25 +40,28 @@ export function useButtonControls() {
     return getSimulationLoopController(scenario);
   }, [scenario]);
 
-  const [loopState, setLoopState] = useState(createIdleLoopState);
+  const idleLoopState = useMemo(() => createIdleLoopState(), []);
+  const [loopState, setLoopState] = useState(idleLoopState);
 
   useEffect(() => {
     if (!loopController) {
-      setLoopState(createIdleLoopState());
       return;
     }
 
-    const release = loopController.retain();
-    const unsubscribe = loopController.subscribe(() => {
+    const syncLoopState = () => {
       setLoopState(loopController.getState());
-    });
-    setLoopState(loopController.getState());
+    };
+    const release = loopController.retain();
+    const unsubscribe = loopController.subscribe(syncLoopState);
+    queueMicrotask(syncLoopState);
 
     return () => {
       unsubscribe();
       release();
     };
   }, [loopController]);
+
+  const resolvedLoopState = loopController ? loopState : idleLoopState;
 
   useEffect(() => {
     loopController?.updateOptions({
@@ -121,8 +124,8 @@ export function useButtonControls() {
   );
 
   const isRunning = useCallback(
-    (id: string) => loopState.runningActions.has(id),
-    [loopState.runningActions]
+    (id: string) => resolvedLoopState.runningActions.has(id),
+    [resolvedLoopState.runningActions]
   );
 
   return {

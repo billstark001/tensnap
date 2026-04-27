@@ -39,7 +39,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
     if (url) {
       createNewProject(url);
     }
-  }, [invoke]);
+  }, [createNewProject, invoke]);
 
   const onFileSave = useCallback(async () => {
     try {

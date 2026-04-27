@@ -138,8 +138,18 @@ export function ChartView(props: ChartViewProps) {
     if (rawData.length <= updateNowLengthThreshold) {
       throttledUpdateRef.current?.cancel();
       const processed = processData(rawData, maxDataPoints);
-      setDisplayData(processed);
-      setDataVersion((v) => (v + 1) | 0);
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) {
+          return;
+        }
+        setDisplayData(processed);
+        setDataVersion((v) => (v + 1) | 0);
+      });
+
+      return () => {
+        cancelled = true;
+      };
     } else if (throttledUpdateRef.current) {
       throttledUpdateRef.current(rawData);
     }

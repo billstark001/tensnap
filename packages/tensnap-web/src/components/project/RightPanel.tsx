@@ -8,6 +8,7 @@ import { getSnapshotIdentity } from '@/types/model';
 import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
 import { useToast } from '@/store/toast';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
+import { formatTimestamp } from '@/utils/date';
 
 export const RightPanel = () => {
   const scenario = useScenarioStore((store) => store.scenario);
@@ -57,10 +58,6 @@ export const RightPanel = () => {
   const handleRestoreSnapshot = () => {
     // TODO: Implement restore functionality
     toast.info('Restore snapshot', `ID: ${selectedSnapshot ? getSnapshotIdentity(selectedSnapshot).id : ''}`);
-  };
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
   };
 
   const truncateParameters = (snapshot: ScenarioSnapshot, maxLength: number = 50) => {
@@ -203,7 +200,7 @@ export const RightPanel = () => {
                 <div className={styles.snapshotHeader}>
                   <span className={styles.snapshotId}>{identity.id}</span>
                   <span className={styles.snapshotTime}>
-                    {formatDate(identity.timestamp)}
+                    {formatTimestamp(identity.timestamp)}
                   </span>
                 </div>
                 <div className={styles.snapshotInfo}>

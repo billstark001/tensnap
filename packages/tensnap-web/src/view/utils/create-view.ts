@@ -4,7 +4,7 @@ import {
   Action,
   BooleanParameter,
 } from '@/types/model';
-import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata, Point } from '../types';
+import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata, Point } from '@/components/view/types';
 import {
   ENVIRONMENT_GRID_WIDTH,
   ENVIRONMENT_CARD_WIDTH,
@@ -14,7 +14,7 @@ import {
   WINDOW_X_DELTA,
   WINDOW_Y_DELTA,
   preservedViewIds,
-} from '../constants';
+} from '@/components/view/constants';
 import { generateUniqueId } from '@/utils/common';
 
 /**

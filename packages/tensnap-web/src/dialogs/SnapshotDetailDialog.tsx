@@ -10,6 +10,7 @@ import { Environment2DView } from '../components/scenario/Environment2DView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
 import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
 import { ViewErrorBoundary } from '../components/view/ViewErrorBoundary';
+import { formatTimestamp } from '@/utils/date';
 
 
 const EnvironmentRenderer = (props: {
@@ -72,10 +73,6 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
 
   const snapshotIdentity = getSnapshotIdentity(snapshot);
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
       <Dialog.CloseButton />
@@ -100,7 +97,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
             <span className={styles.detailLabel}>
               <Trans>Timestamp:</Trans>
             </span>
-            <span className={styles.detailValue}>{formatDate(snapshotIdentity.timestamp)}</span>
+            <span className={styles.detailValue}>{formatTimestamp(snapshotIdentity.timestamp)}</span>
           </div>
 
           <div className={styles.detailRow}>

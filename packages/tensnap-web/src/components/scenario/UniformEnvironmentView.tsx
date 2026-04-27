@@ -115,18 +115,12 @@ export function UniformEnvironmentView({
   }, [agentsList, searchTerm]);
 
   const totalPages = Math.ceil(filteredAgents.length / AGENTS_PER_PAGE);
+  const safeCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
 
   const paginatedAgents = useMemo(() => {
-    const startIndex = (currentPage - 1) * AGENTS_PER_PAGE;
+    const startIndex = (safeCurrentPage - 1) * AGENTS_PER_PAGE;
     return filteredAgents.slice(startIndex, startIndex + AGENTS_PER_PAGE);
-  }, [filteredAgents, currentPage]);
-
-  // Reset to first page when filtered results change
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
+  }, [filteredAgents, safeCurrentPage]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,7 +180,7 @@ export function UniformEnvironmentView({
           </div>
 
           <Pagination
-            currentPage={currentPage}
+            currentPage={safeCurrentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
           />

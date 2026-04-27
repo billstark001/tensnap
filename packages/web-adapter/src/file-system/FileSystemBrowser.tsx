@@ -68,8 +68,10 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
   // 初始化：加载初始目录
   useEffect(() => {
-    loadDirectory(currentDirectory);
-  }, [loadDirectory]);
+    queueMicrotask(() => {
+      void loadDirectory(currentDirectory);
+    });
+  }, [currentDirectory, loadDirectory]);
 
   // 刷新当前目录
   const refreshCurrentDirectory = useCallback(() => {
@@ -85,7 +87,11 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   const toggleItemSelection = useCallback((itemId: string) => {
     setSelectedItems(prev => {
       const newSet = new Set(prev);
-      newSet.has(itemId) ? newSet.delete(itemId) : newSet.add(itemId);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
       return newSet;
     });
   }, []);

@@ -62,8 +62,6 @@ export function validateMessage(
     
     return { valid: false, message: 'Unknown validation error' };
   }
-
-  return { valid: true };
 }
 
 /**

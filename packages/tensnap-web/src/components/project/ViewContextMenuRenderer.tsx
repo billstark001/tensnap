@@ -50,7 +50,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
         toast.error('Failed to copy canvas to clipboard.', String(error));
       }
     }
-  }, [node, toast.success, toast.error]);
+  }, [node, toast]);
 
   const handleSaveChartAsCSV = useCallback(async () => {
     if (!charts) return;
@@ -60,7 +60,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
       return;
     }
     exportToCSV(chartGroup);
-  }, [charts, view, toast.error]);
+  }, [charts, view, toast]);
 
   return (
     <>

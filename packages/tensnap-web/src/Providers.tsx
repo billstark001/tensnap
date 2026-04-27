@@ -8,9 +8,7 @@ import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
 import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialog';
 import { ToastAnchor } from '@/store/toast';
 
-interface ProvidersProps extends PropsWithChildren<object> {
-
-}
+type ProvidersProps = PropsWithChildren;
 
 export function Providers({
   children,

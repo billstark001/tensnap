@@ -74,6 +74,6 @@ export const useFileSystem = () => {
     if (!fileSystem.initialized) {
       fileSystem.initialize().catch(console.error);
     }
-  }, []);
+  }, [fileSystem]);
   return fileSystem;
 };

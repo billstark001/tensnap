@@ -2,7 +2,6 @@ import { AssetStore } from '../asset';
 import { ChartStorage } from '../chart/ChartStorage';
 import { instantiateChartMetadata } from '../chart/utils';
 import { BaseStorage } from '../environment/storages';
-import type { AgentId } from '../environment';
 import type { Action, Parameter } from '../parameter';
 import { sanitizeParameter } from '../parameter';
 import type {

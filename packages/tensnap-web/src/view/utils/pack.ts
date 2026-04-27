@@ -1,8 +1,8 @@
 import { ContainerView, AnyView } from '@/types/ui';
 import { Parameter, Action, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from '@/types/model';
 import { pack } from '@/utils/layout/pack';
-import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '../constants';
-import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '../types';
+import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '@/components/view/constants';
+import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/components/view/types';
 import {
   createDefaultRootLayout,
   createVerticalContainer,
@@ -18,32 +18,35 @@ export { preservedViewIds, createDefaultRootLayout };
 
 // #region other utility functions
 
-const _walkHalt = Symbol();
+interface WalkState {
+  halted: boolean;
+}
 
 function _walk(
   view: AnyView,
   condition: (view: AnyView) => boolean,
   haltOnFirstTrue: boolean,
-  found: WeakMap<AnyView | Symbol, boolean>,
+  found: WeakSet<AnyView>,
+  state: WalkState,
   result: AnyView[],
 ): AnyView[] {
 
-  if (found.has(view) || found.has(_walkHalt)) {
+  if (found.has(view) || state.halted) {
     return result;
   }
 
   if (condition(view)) {
     result.push(view);
-    found.set(view, true);
+    found.add(view);
     if (haltOnFirstTrue) {
-      found.set(_walkHalt, true);
+      state.halted = true;
       return result;
     }
   }
 
   if (view.type === 'container' && view.views) {
     for (const child of view.views) {
-      _walk(child, condition, haltOnFirstTrue, found, result);
+      _walk(child, condition, haltOnFirstTrue, found, state, result);
     }
   }
 
@@ -55,9 +58,10 @@ function walkAndFilter(view: AnyView | null | undefined, condition: (view: AnyVi
   if (!view) {
     return [];
   }
-  const found = new WeakMap<AnyView, boolean>();
+  const found = new WeakSet<AnyView>();
+  const state: WalkState = { halted: false };
   const result: AnyView[] = [];
-  _walk(view, condition, false, found, result);
+  _walk(view, condition, false, found, state, result);
   return result;
 }
 
@@ -65,9 +69,10 @@ function walkAndFind(view: AnyView | null | undefined, condition: (view: AnyView
   if (!view) {
     return undefined;
   }
-  const found = new WeakMap<AnyView, boolean>();
+  const found = new WeakSet<AnyView>();
+  const state: WalkState = { halted: false };
   let result: AnyView[] = [];
-  _walk(view, condition, true, found, result);
+  _walk(view, condition, true, found, state, result);
   return result[0];
 }
 

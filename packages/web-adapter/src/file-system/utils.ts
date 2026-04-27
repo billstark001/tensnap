@@ -1,6 +1,22 @@
+import {
+  calculateChecksum,
+  getBaseName,
+  getParentPath,
+  joinPath,
+  normalizePath,
+} from '../utils/path';
+
 /**
  * 工具函数：文件系统相关的辅助功能
  */
+
+export {
+  calculateChecksum,
+  getBaseName,
+  getParentPath,
+  joinPath,
+  normalizePath,
+};
 
 /**
  * 格式化文件大小
@@ -24,58 +40,6 @@ export function formatDate(date: Date): string {
     hour: '2-digit',
     minute: '2-digit'
   }).format(date);
-}
-
-/**
- * 规范化路径（移除多余的斜杠，确保一致性）
- */
-export function normalizePath(path: string): string {
-  // 移除末尾的斜杠（除了根路径）
-  if (path !== '/' && path.endsWith('/')) {
-    path = path.slice(0, -1);
-  }
-  // 替换多个连续斜杠为单个
-  path = path.replace(/\/+/g, '/');
-  // 确保以斜杠开头
-  if (!path.startsWith('/')) {
-    path = '/' + path;
-  }
-  return path;
-}
-
-/**
- * 连接路径
- */
-export function joinPath(...parts: string[]): string {
-  const joined = parts
-    .filter(Boolean)
-    .join('/')
-    .replace(/\/+/g, '/');
-  return normalizePath(joined);
-}
-
-/**
- * 获取父路径
- */
-export function getParentPath(path: string): string {
-  const normalized = normalizePath(path);
-  if (normalized === '/') return '/';
-  
-  const lastSlashIndex = normalized.lastIndexOf('/');
-  if (lastSlashIndex === 0) return '/';
-  
-  return normalized.slice(0, lastSlashIndex);
-}
-
-/**
- * 获取文件/目录名称
- */
-export function getBaseName(path: string): string {
-  const normalized = normalizePath(path);
-  if (normalized === '/') return '';
-  
-  const lastSlashIndex = normalized.lastIndexOf('/');
-  return normalized.slice(lastSlashIndex + 1);
 }
 
 /**
@@ -146,20 +110,3 @@ export function readFileContent(file: File): Promise<ArrayBuffer> {
   });
 }
 
-/**
- * 计算简单的校验和（用于文件内容验证）
- */
-export function calculateChecksum(content: ArrayBuffer | string): string {
-  let hash = 0;
-  const str = typeof content === 'string' 
-    ? content 
-    : new TextDecoder().decode(new Uint8Array(content));
-  
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  
-  return Math.abs(hash).toString(16);
-}

@@ -78,7 +78,8 @@ class DeferredTransport implements ISimulatorTransport {
     }
   }
 
-  send(_message: RendererToSimulatorMessage): void {
+  send(message: RendererToSimulatorMessage): void {
+    void message;
     // no-op for tests
   }
 

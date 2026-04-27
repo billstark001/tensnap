@@ -14,9 +14,7 @@ import { useToast } from '@/store/toast';
 import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
 
-export interface SettingsDialogProps extends DialogOpenProps {
-
-}
+export type SettingsDialogProps = DialogOpenProps;
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   open,

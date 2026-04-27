@@ -1,4 +1,4 @@
-import { NPYParser } from '@tensnap/core/utils';
+import { NPYParser } from './npy-parser';
 
 describe('NPYParser', () => {
   // Helper function to create a minimal valid NPY buffer

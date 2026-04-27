@@ -3,13 +3,13 @@ import { AnyView, ContainerView } from '@/types/ui';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
 import { EditableEnvironmentDraft } from '@/store/scenario/store';
-import { findAndDeleteView, findAndUpdateView, findAndAddView } from '../view/utils/container';
+import { findAndDeleteView, findAndUpdateView, findAndAddView } from '@/view/utils/container';
 import {
   createButtonView,
   createParameterView,
   createChartView,
   createEnvironmentView,
-} from '../view/utils/create-view';
+} from '@/view/utils/create-view';
 import { generateUniqueId } from '@/utils/common';
 import { ViewContextScheme } from '../view/useViewContext';
 
