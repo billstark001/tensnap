@@ -14,7 +14,23 @@ import type {
 } from '@tensnap/core/transport';
 import WebSocket, { type RawData } from 'ws';
 
-function normalizeRawData(data: RawData): string | Uint8Array | ArrayBuffer {
+export function normalizeRawData(data: RawData, isBinary: boolean): string | Uint8Array | ArrayBuffer {
+  if (!isBinary) {
+    if (typeof data === 'string') {
+      return data;
+    }
+
+    if (data instanceof ArrayBuffer) {
+      return Buffer.from(data).toString('utf8');
+    }
+
+    if (Array.isArray(data)) {
+      return Buffer.concat(data.map((part) => Buffer.isBuffer(part) ? part : Buffer.from(part))).toString('utf8');
+    }
+
+    return Buffer.from(data).toString('utf8');
+  }
+
   if (typeof data === 'string') {
     return data;
   }
@@ -109,7 +125,7 @@ export class NodeWebSocketTransport implements ISimulatorTransport {
 
       socket.once('open', succeed);
       socket.once('error', fail);
-      socket.on('message', (data) => this.handleMessage(normalizeRawData(data)));
+      socket.on('message', (data, isBinary) => this.handleMessage(normalizeRawData(data, isBinary)));
       socket.on('close', () => {
         const wasOpen = this.state === 'open';
         this.updateState(this.state === 'destroyed' ? 'destroyed' : 'closed');

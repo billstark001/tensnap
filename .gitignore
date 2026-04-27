@@ -32,6 +32,7 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+.tensnap
 
 # Misc
 *.log

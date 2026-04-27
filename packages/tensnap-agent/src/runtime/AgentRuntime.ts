@@ -127,6 +127,7 @@ export class AgentRuntime extends EventEmitter {
   private readonly session = new AgentSession();
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
+  private completedStateSyncCount = 0;
 
   constructor(
     readonly context: RuntimeContextPaths,
@@ -165,6 +166,7 @@ export class AgentRuntime extends EventEmitter {
     this.setPhase('connecting');
     this.control.simulatorUrl = options.simulatorUrl;
     this.control.encoding = options.encoding ?? this.control.encoding;
+    this.completedStateSyncCount = 0;
     await this.persistStatus();
 
     try {
@@ -172,7 +174,6 @@ export class AgentRuntime extends EventEmitter {
         url: options.simulatorUrl,
         encoding: this.control.encoding,
       });
-      this.setPhase('open');
       await this.log('info', 'runtime', 'Connected to simulator.', {
         simulatorUrl: options.simulatorUrl,
         encoding: this.control.encoding,
@@ -280,12 +281,17 @@ export class AgentRuntime extends EventEmitter {
   }
 
   async syncScene(): Promise<void> {
+    const targetSyncCount = this.completedStateSyncCount + 1;
     this.assertConnected();
     this.setPhase('syncing');
     this.session.requestStateSync();
     await this.log('info', 'scene', 'State sync requested.');
     this.emitRuntimeEvent('scene.sync.requested', {});
-    this.setPhase('ready');
+    await this.waitForStateSync(targetSyncCount);
+  }
+
+  async waitUntilReady(timeoutMs?: number): Promise<RuntimeStatus> {
+    return await this.waitForStateSync(1, timeoutMs);
   }
 
   async setParameter(id: string, value: unknown): Promise<void> {
@@ -608,10 +614,11 @@ export class AgentRuntime extends EventEmitter {
 
   private bindSession(): void {
     this.session.on('open', () => {
-      this.setPhase('ready');
+      this.setPhase('open');
       this.emitRuntimeEvent('transport.open', { simulatorUrl: this.control.simulatorUrl });
     });
     this.session.on('close', () => {
+      this.completedStateSyncCount = 0;
       if (this.control.phase !== 'stopped') {
         this.setPhase('idle');
       }
@@ -637,6 +644,23 @@ export class AgentRuntime extends EventEmitter {
 
   private async handleProtocolMessage(message: SimulatorToRendererMessage): Promise<void> {
     this.emitRuntimeEvent('protocol.message', { type: message.type });
+
+    if (message.type === 'state_sync_begin') {
+      this.setPhase('syncing');
+      this.emitRuntimeEvent('scene.sync.begin', message.payload);
+      return;
+    }
+
+    if (message.type === 'state_sync_end') {
+      this.completedStateSyncCount += 1;
+      this.setPhase('ready');
+      await writeSceneSnapshot(this.context, this.session.getSnapshot());
+      this.emitRuntimeEvent('scene.sync.end', {
+        completedCount: this.completedStateSyncCount,
+        payload: message.payload,
+      });
+      return;
+    }
 
     if (message.type === 'metadata_update') {
       await writeSceneSnapshot(this.context, this.session.getSnapshot());
@@ -773,6 +797,68 @@ export class AgentRuntime extends EventEmitter {
         ? setTimeout(() => {
             cleanup();
             reject(new Error(`Timed out waiting for ${description}.`));
+          }, timeoutMs)
+        : null;
+
+      const cleanup = (): void => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        this.session.off('message', onMessage);
+        this.session.off('close', onClose);
+        this.session.off('error', onError);
+      };
+
+      this.session.on('message', onMessage);
+      this.session.on('close', onClose);
+      this.session.on('error', onError);
+    });
+  }
+
+  private async waitForStateSync(
+    minimumCompletedCount: number,
+    timeoutMs?: number,
+  ): Promise<RuntimeStatus> {
+    const evaluate = (): RuntimeStatus | undefined => {
+      if (
+        this.session.isConnected
+        && this.control.phase === 'ready'
+        && this.completedStateSyncCount >= minimumCompletedCount
+      ) {
+        return this.getStatus();
+      }
+      return undefined;
+    };
+
+    const immediate = evaluate();
+    if (immediate) {
+      return immediate;
+    }
+
+    return await new Promise<RuntimeStatus>((resolve, reject) => {
+      const onMessage = (): void => {
+        const matched = evaluate();
+        if (!matched) {
+          return;
+        }
+        cleanup();
+        resolve(matched);
+      };
+
+      const onClose = (): void => {
+        cleanup();
+        reject(new Error('Runtime disconnected before state sync completed.'));
+      };
+
+      const onError = (error: unknown): void => {
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
+      const timeoutId = typeof timeoutMs === 'number'
+        ? setTimeout(() => {
+            cleanup();
+            reject(new Error('Timed out waiting for runtime readiness.'));
           }, timeoutMs)
         : null;
 

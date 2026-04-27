@@ -9,15 +9,15 @@ import {
 } from '../storages/TrajectoryStorage';
 import { AgentId, GridCoordOffset, Viewport } from '../types';
 import { getCoordOffsetValue } from '../utils';
-
-const DEFAULT_TRAJECTORY_COLOR = 'rgba(66, 133, 244, 0.5)';
+import { resolveTrajectoryRenderStyle, splitTrajectoryPoints, TrajectoryWorldBounds } from '../utils/trajectory';
 
 export interface TrajectoryLayerConfig {
   coordOffset?: GridCoordOffset;
+  worldBounds?: TrajectoryWorldBounds;
 }
 
 interface TrajectoryLineCacheEntry {
-  line: Line;
+  lines: Line[];
   color: string;
   width: number;
 }
@@ -25,7 +25,7 @@ interface TrajectoryLineCacheEntry {
 export class TrajectoryLayer extends BaseLayer {
   readonly defaultZIndex = 30;
 
-  private readonly _cfg: Required<TrajectoryLayerConfig>;
+  private readonly _cfg: TrajectoryLayerConfig;
   private readonly _lines = new Map<AgentId, TrajectoryLineCacheEntry>();
 
   constructor(
@@ -36,6 +36,7 @@ export class TrajectoryLayer extends BaseLayer {
     super(view);
     this._cfg = {
       coordOffset: 'int',
+      worldBounds: undefined,
       ...config,
     };
 
@@ -92,37 +93,54 @@ export class TrajectoryLayer extends BaseLayer {
 
   private _upsertLine(id: AgentId, entry: TrajectoryEntry): void {
     const points = entry.ring.toArray();
-    const color = points.find((point) => point.color)?.color ?? entry.defaultColor ?? DEFAULT_TRAJECTORY_COLOR;
-    const strokeWidth = this._toSceneStroke(entry.width);
+    const style = resolveTrajectoryRenderStyle(points, {
+      color: entry.defaultColor,
+      width: entry.width,
+    });
+    const strokeWidth = this._toSceneStroke(style.width);
+    const segments = splitTrajectoryPoints(points, this._cfg.worldBounds);
 
-    let cached = this._lines.get(id);
-    if (!cached || cached.color !== color) {
-      cached?.line.remove();
-      const line = new Line({ stroke: color, strokeWidth, points: [] });
-      cached = { line, color, width: entry.width };
-      this.group.add(line);
-      this._lines.set(id, cached);
-    }
-
-    cached.width = entry.width;
-
-    if (points.length < 2) {
-      cached.line.set({ points: [], strokeWidth });
+    if (segments.length === 0) {
+      this._removeLine(id);
       return;
     }
 
-    const flatPoints = new Array<number>(points.length * 2);
-    for (let i = 0; i < points.length; i++) {
-      flatPoints[i * 2] = points[i].x + this._posOffset;
-      flatPoints[i * 2 + 1] = points[i].y + this._posOffset;
+    let cached = this._lines.get(id);
+    if (!cached || cached.color !== style.color) {
+      this._removeLine(id);
+      cached = { lines: [], color: style.color, width: style.width };
+      this._lines.set(id, cached);
     }
 
-    cached.line.set({ points: flatPoints, strokeWidth });
+    cached.width = style.width;
+
+    while (cached.lines.length < segments.length) {
+      const line = new Line({ stroke: style.color, strokeWidth, points: [] });
+      this.group.add(line);
+      cached.lines.push(line);
+    }
+
+    while (cached.lines.length > segments.length) {
+      cached.lines.pop()?.remove();
+    }
+
+    for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+      const segment = segments[segmentIndex];
+      const flatPoints = new Array<number>(segment.length * 2);
+      for (let pointIndex = 0; pointIndex < segment.length; pointIndex += 1) {
+        flatPoints[pointIndex * 2] = segment[pointIndex].x + this._posOffset;
+        flatPoints[pointIndex * 2 + 1] = segment[pointIndex].y + this._posOffset;
+      }
+      cached.lines[segmentIndex].set({ points: flatPoints, strokeWidth });
+    }
   }
 
   private _updateStrokeWidths(): void {
     for (const cached of this._lines.values()) {
-      cached.line.set({ strokeWidth: this._toSceneStroke(cached.width) });
+      const strokeWidth = this._toSceneStroke(cached.width);
+      for (const line of cached.lines) {
+        line.set({ strokeWidth });
+      }
     }
   }
 
@@ -131,13 +149,17 @@ export class TrajectoryLayer extends BaseLayer {
     if (!cached) {
       return;
     }
-    cached.line.remove();
+    for (const line of cached.lines) {
+      line.remove();
+    }
     this._lines.delete(id);
   }
 
   private _clearLines(): void {
     for (const cached of this._lines.values()) {
-      cached.line.remove();
+      for (const line of cached.lines) {
+        line.remove();
+      }
     }
     this._lines.clear();
   }

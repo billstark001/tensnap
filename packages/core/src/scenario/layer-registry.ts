@@ -221,11 +221,29 @@ const edgeLayerController: ItemLayerController = {
 
 const trajectoryLayerController: ItemLayerController = {
   applyMetadata: (context) => {
-    context.requireStorage(TrajectoryStorage, 'trajectory').setConfig({
+    const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
+    storage.setConfig({
       length: typeof context.layer.metadata.length === 'number' ? context.layer.metadata.length : undefined,
       width: typeof context.layer.metadata.width === 'number' ? context.layer.metadata.width : undefined,
       color: typeof context.layer.metadata.color === 'string' ? context.layer.metadata.color : undefined,
     });
+
+    const agentLayerId = context.layer.dependencyLayerIds.agent;
+    const sourceLayer = typeof agentLayerId === 'string'
+      ? context.environment.layers.get(agentLayerId)
+      : undefined;
+    if (!(sourceLayer?.storage instanceof AgentStorage)) {
+      return;
+    }
+
+    const time = typeof context.time === 'number' ? context.time : 0;
+    for (const agent of sourceLayer.storage.getData().agents.values()) {
+      if (storage.getEntry(agent.id) || agent.x === undefined || agent.y === undefined) {
+        continue;
+      }
+      const point: TrajectoryPoint = { x: agent.x, y: agent.y, time };
+      storage.appendTrajectoryPoint(agent.id, point);
+    }
   },
   createItems: (context, items) => {
     context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items as any[]);
@@ -250,7 +268,7 @@ const trajectoryLayerController: ItemLayerController = {
       storage.deleteItems(ids);
       return;
     }
-    if (change.kind !== 'update' || !(change.sourceLayer.storage instanceof AgentStorage)) {
+    if ((change.kind !== 'create' && change.kind !== 'update') || !(change.sourceLayer.storage instanceof AgentStorage)) {
       return;
     }
 

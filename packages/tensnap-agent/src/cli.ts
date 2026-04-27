@@ -23,6 +23,8 @@ interface ParsedArgs {
   flags: Record<string, string | boolean>;
 }
 
+const DEFAULT_RUNTIME_READY_TIMEOUT_MS = 10000;
+
 function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = {};
@@ -185,6 +187,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
       simulatorUrl,
       encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
     });
+    await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
   }
 
   console.log(JSON.stringify({
@@ -256,6 +259,12 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
   child.unref();
 
   const ready = await waitForDaemon(context);
+  if (simulatorUrl) {
+    await requestJson(ready.baseUrl, '/v1/runtime/wait-ready', {
+      method: 'POST',
+      body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
+    });
+  }
   console.log(JSON.stringify(await requestJson(ready.baseUrl, '/v1/runtime/status'), null, 2));
 }
 

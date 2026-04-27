@@ -6,6 +6,7 @@ import type { BackgroundData } from '../../../core/src/environment/storages/Back
 import type { EdgeStorageSnapshot } from '../../../core/src/environment/storages/EdgeStorage';
 import type { GridEnvData } from '../../../core/src/environment/storages/GridEnvStorage';
 import type { TrajectoryStorageSnapshot } from '../../../core/src/environment/storages/TrajectoryStorage';
+import { resolveTrajectoryConfig, resolveTrajectoryRenderStyle, splitTrajectoryPoints } from '../../../core/src/environment/utils/trajectory';
 import { applyCoordOffset, getCoordOffsetValue } from '../../../core/src/environment/utils/coords';
 import {
   getAssetIdFromIcon,
@@ -199,10 +200,8 @@ export function collectEnvironment(environment: ScenarioEnvironmentSnapshot): Ag
 
   for (const layer of environment.layers) {
     const metadata = (layer.metadata ?? {}) as Record<string, unknown>;
-    if (typeof metadata.width === 'number') {
+    if (typeof metadata.width === 'number' && typeof metadata.height === 'number') {
       aggregated.width = metadata.width;
-    }
-    if (typeof metadata.height === 'number') {
       aggregated.height = metadata.height;
     }
     if (typeof metadata.background !== 'undefined') {
@@ -634,28 +633,33 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     }
 
     context.save();
+    const worldBounds = (
+      typeof environment.width === 'number' && typeof environment.height === 'number'
+    ) ? { width: environment.width, height: environment.height } : undefined;
     for (const layer of environment.trajectoryLayers) {
       const offset = getCoordOffsetValue(layer.coordOffset);
       for (const trajectory of layer.trajectories) {
-        if (trajectory.points.length < 2) {
+        const segments = splitTrajectoryPoints(trajectory.points, worldBounds);
+        if (segments.length === 0) {
           continue;
         }
         const config = layer.configs.get(trajectory.id);
-        context.strokeStyle = trajectory.points.find((point) => point.color)?.color
-          ?? config?.color
-          ?? layer.config.color
-          ?? 'rgba(66, 133, 244, 0.5)';
-        context.lineWidth = Math.max(1, config?.width ?? layer.config.width ?? 2);
-        context.beginPath();
-        trajectory.points.forEach((point, index) => {
-          const canvasPoint = this.worldToCanvas(canvasWidth, canvasHeight, viewport, point.x + offset, point.y + offset);
-          if (index === 0) {
-            context.moveTo(canvasPoint.x, canvasPoint.y);
-          } else {
-            context.lineTo(canvasPoint.x, canvasPoint.y);
-          }
-        });
-        context.stroke();
+        const resolvedConfig = resolveTrajectoryConfig(config, layer.config);
+        const style = resolveTrajectoryRenderStyle(trajectory.points, resolvedConfig);
+        context.strokeStyle = style.color;
+        context.lineWidth = Math.max(1, style.width);
+        for (const segment of segments) {
+          context.beginPath();
+          segment.forEach((point, index) => {
+            const canvasPoint = this.worldToCanvas(canvasWidth, canvasHeight, viewport, point.x + offset, point.y + offset);
+            if (index === 0) {
+              context.moveTo(canvasPoint.x, canvasPoint.y);
+            } else {
+              context.lineTo(canvasPoint.x, canvasPoint.y);
+            }
+          });
+          context.stroke();
+        }
       }
     }
     context.restore();

@@ -1,6 +1,6 @@
 import { BaseStorage } from './BaseStorage';
 import { AgentId, GlobalTrajectoryConfig, TrajectoryConfig, TrajectoryPoint } from '../types';
-import { RingBuffer } from '../utils';
+import { DEFAULT_TRAJECTORY_CONFIG, resolveTrajectoryConfig, RingBuffer } from '../utils';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -61,24 +61,10 @@ export type TrajectoryDelta = {
 
 // ── TrajectoryStorage ─────────────────────────────────────────────────────────
 
-const DEFAULT_MAX_TRAJECTORY = 1000;
-
-const defaultConfigValues: GlobalTrajectoryConfig = {
-  length: DEFAULT_MAX_TRAJECTORY,
-  width: 2,
-  color: '#0080ff',
-};
-
 export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, TrajectoryDelta> {
 
   constructor(defaultConfig?: Partial<GlobalTrajectoryConfig>) {
-    const parsedConfig: GlobalTrajectoryConfig = {
-      ...defaultConfigValues,
-      ...defaultConfig,
-    };
-    if (!Number.isFinite(parsedConfig.length) || parsedConfig.length < 0) {
-      parsedConfig.length = DEFAULT_MAX_TRAJECTORY;
-    }
+    const parsedConfig = resolveTrajectoryConfig(defaultConfig, DEFAULT_TRAJECTORY_CONFIG);
     super({
       config: parsedConfig,
       configs: new Map(),
@@ -115,13 +101,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
   // ── Config ──────────────────────────────────────────────────────────────────
 
   setConfig(config: Partial<GlobalTrajectoryConfig>): void {
-    const nextConfig: GlobalTrajectoryConfig = {
-      ...this._data.config,
-      ...config,
-    };
-    if (!Number.isFinite(nextConfig.length) || nextConfig.length < 0) {
-      nextConfig.length = DEFAULT_MAX_TRAJECTORY;
-    }
+    const nextConfig = resolveTrajectoryConfig(config, this._data.config);
     this._data.config = nextConfig;
     this.refreshEntries(this._data.trajectories.keys());
     this.notify({ replaced: true });
@@ -242,11 +222,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
 
   private resolveConfig(id: AgentId): GlobalTrajectoryConfig {
     const config = this._data.configs.get(id);
-    return {
-      length: typeof config?.length === 'number' ? config.length : this._data.config.length,
-      width: typeof config?.width === 'number' ? config.width : this._data.config.width,
-      color: typeof config?.color === 'string' ? config.color : this._data.config.color,
-    };
+    return resolveTrajectoryConfig(config, this._data.config);
   }
 
   private refreshEntries(ids: Iterable<AgentId>): void {

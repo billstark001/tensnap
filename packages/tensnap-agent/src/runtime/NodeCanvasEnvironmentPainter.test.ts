@@ -208,4 +208,43 @@ describe('NodeCanvasEnvironmentPainter', () => {
       { id: 'agents-float', coordOffset: 'float' },
     ]);
   });
+
+  it('does not treat trajectory stroke width as environment width', () => {
+    const snapshot: ScenarioSnapshot = {
+      metadata: {},
+      actions: [],
+      parameters: [],
+      charts: [],
+      logs: [],
+      environments: [
+        {
+          id: 'main',
+          type: '2d',
+          layers: [
+            {
+              id: 'grid',
+              layerType: 'grid',
+              metadata: { width: 40, height: 40 },
+              storageSnapshot: {},
+            },
+            {
+              id: 'trails',
+              layerType: 'trajectory',
+              metadata: { width: 3, color: '#f59e0b' },
+              storageSnapshot: {
+                config: { length: 5, width: 3, color: '#f59e0b' },
+                configs: [],
+                trajectories: [],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const aggregated = collectEnvironment(snapshot.environments[0]);
+
+    expect(aggregated.width).toBe(40);
+    expect(aggregated.height).toBe(40);
+  });
 });

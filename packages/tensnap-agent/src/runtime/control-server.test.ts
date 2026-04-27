@@ -190,6 +190,39 @@ describe('RuntimeControlServer', () => {
     }
   });
 
+  it('waits until the runtime becomes ready after state sync', async () => {
+    const { runtime, server, session, baseUrl } = await createRuntimeServer();
+    attachConnectedTransport(session as any);
+
+    try {
+      const responsePromise = fetch(`${baseUrl}/v1/runtime/wait-ready`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ timeoutMs: 1000 }),
+      });
+
+      setTimeout(() => {
+        applySessionMessage(session as any, {
+          type: 'state_sync_begin',
+          payload: { request_id: 'boot' },
+        });
+        applySessionMessage(session as any, {
+          type: 'state_sync_end',
+          payload: { request_id: 'boot' },
+        });
+      }, 20);
+
+      const response = await responsePromise;
+      const payload = await response.json();
+      expect(response.ok).toBe(true);
+      expect(payload.phase).toBe('ready');
+      expect(payload.isConnected).toBe(true);
+    } finally {
+      await server.close();
+      await runtime.stop();
+    }
+  });
+
   it('waits for time, chart, and metadata conditions', async () => {
     const { runtime, server, session, baseUrl } = await createRuntimeServer();
     attachConnectedTransport(session as any);

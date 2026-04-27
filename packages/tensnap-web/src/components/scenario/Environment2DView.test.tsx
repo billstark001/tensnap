@@ -267,6 +267,33 @@ describe('Environment2DView', () => {
     expect(testHarness.environmentViewInstances[0].fitToScene).toHaveBeenCalledWith({ padding: 0.05 });
   });
 
+  it('passes grid scene bounds to trajectory layers for wrap-aware rendering', async () => {
+    const gridStorage = new GridEnvStorage();
+    const agentStorage = new AgentStorage([{ id: 'agent-1', x: 1, y: 2 }]);
+    const trajectoryStorage = new TrajectoryStorage();
+
+    render(
+      <Environment2DView
+        environment={{
+          id: 'env-trajectory-bounds',
+          type: '2d',
+          layers: new Map([
+            ['grid', { id: 'grid', layerType: 'grid', metadata: { width: 10, height: 12 }, storage: gridStorage }],
+            ['agents', { id: 'agents', layerType: 'agent', metadata: { coord_offset: 'float' }, storage: agentStorage }],
+            ['trails', { id: 'trails', layerType: 'trajectory', metadata: {}, storage: trajectoryStorage, dependencyLayerIds: { agent: 'agents' } }],
+          ]),
+        } as any}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(testHarness.trajectoryLayerCalls).toHaveLength(1);
+    });
+
+    expect(testHarness.trajectoryLayerCalls[0].options.coordOffset).toBe('float');
+    expect(testHarness.trajectoryLayerCalls[0].options.worldBounds).toEqual({ width: 10, height: 12 });
+  });
+
   it('applies explicit layer z-index overrides from metadata', async () => {
     const lowerLayer = new AgentStorage([{ id: 'patch-1', x: 0, y: 0 }]);
     const upperLayer = new AgentStorage([{ id: 'hunter-1', x: 1, y: 1 }]);

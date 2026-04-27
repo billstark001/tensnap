@@ -4,7 +4,6 @@ from typing import Tuple, List, cast
 import math
 import random
 import mesa
-import numpy as np
 
 from tensnap import (
     bind_agent,
@@ -28,7 +27,6 @@ class Hunter(mesa.Agent):  # type: ignore[misc]
     model: "ForagingModel"
     pos: Tuple[float, float]
 
-    # 优化1：Moore 邻域偏移量作为类变量，只计算一次
     _NEIGHBOR_OFFSETS: List[Tuple[int, int]] = [
         (dx, dy) for dx in range(-1, 2) for dy in range(-1, 2)
     ]
@@ -41,7 +39,6 @@ class Hunter(mesa.Agent):  # type: ignore[misc]
 
     @property
     def heading(self) -> float:
-        # 优化2：math.pi 替代 np.pi，避免 numpy 属性查找
         return self.heading_arc * math.pi / 180.0
 
     def search(self) -> None:
@@ -52,7 +49,6 @@ class Hunter(mesa.Agent):  # type: ignore[misc]
             self.heading_arc = (self.heading_arc + random.randint(-10, 10)) % 360
 
         # advance
-        # 优化3：math.cos/sin/radians 对标量比 numpy 快约 3-5 倍
         x, y = self.pos
         rad = math.radians(self.heading_arc)
         w, h = self.model.width, self.model.height
@@ -60,16 +56,15 @@ class Hunter(mesa.Agent):  # type: ignore[misc]
         new_y = (y + math.sin(rad)) % h
         self.pos = (new_x, new_y)
 
-        # 优化4：直接使用 patch_map 字典进行 O(1) 坐标→Patch 查找，
-        # 完全替代每步调用 grid.get_neighbors() 的 Mesa 内部遍历开销
         grid_x = int(new_x)
         grid_y = int(new_y)
         patch_map = self.model.patch_map
 
         red_cells = []
         for dx, dy in Hunter._NEIGHBOR_OFFSETS:
-            patch = patch_map[((grid_x + dx) % w, (grid_y + dy) % h)]
-            if patch.color == "red":
+            coord = ((grid_x + dx) % w, (grid_y + dy) % h)
+            patch = patch_map.get(coord)
+            if patch and patch.color == "red":
                 red_cells.append(patch)
 
         if red_cells:
@@ -157,7 +152,6 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
         self.running = True
         self.hunters: List[Hunter] = []
         self.patches: List[Patch] = []
-        # 优化6 配套：坐标到 Patch 的 O(1) 查找表
         self.patch_map: dict[Tuple[int, int], Patch] = {}
 
         # 创建 patches，同步维护查找表与状态缓存
@@ -166,7 +160,6 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
                 patch = Patch(self)
                 self.grid.place_agent(patch, (x, y))
                 patch._init_state()  # grid.place_agent 已完成 pos 赋值
-                self.patches.append(patch)
                 self.patch_map[(x, y)] = patch
 
         # 种植蘑菇（仅在初始化时调用一次，get_neighbors 开销可接受）
@@ -179,11 +172,17 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
                     (center_x, center_y), moore=True, include_center=True, radius=5
                 ),
             )
-            selected_patches = np.random.choice(
-                len(candidate_patches), patches_per_cluster, replace=False
-            )
-            for patch_id in selected_patches:
-                candidate_patches[patch_id].color = "red"
+            selected_patches = random.sample(candidate_patches, patches_per_cluster)
+            for patch in selected_patches:
+                patch.color = "red"
+
+        # 删除不参与运算的 agent 列表，避免不必要的迭代开销
+        for (x, y), patch in list(self.patch_map.items()):
+            if patch.color == "white":
+                self.grid.remove_agent(patch)
+                del self.patch_map[(x, y)]
+            else:
+                self.patches.append(patch)
 
         # 创建猎人
         for _ in range(num_turtles):

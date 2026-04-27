@@ -176,12 +176,16 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
 
         const linkedAgentMetadata = agentMetadataByLayerId.get(linkedAgentLayerId);
         const linkedEdgeLayer = edgeLayerByAgentLayerId.get(linkedAgentLayerId);
+        const linkedAgentSceneBounds = (
+          typeof linkedAgentMetadata?.width === 'number' && typeof linkedAgentMetadata?.height === 'number'
+        ) ? { width: linkedAgentMetadata.width, height: linkedAgentMetadata.height } : sceneBounds;
         const trajectoryLayer = new TrajectoryLayer(nextView, layer.storage, {
           coordOffset: linkedEdgeLayer
             ? 'float'
             : linkedAgentMetadata?.coord_offset === 'float'
               ? 'float'
               : 'int',
+          worldBounds: linkedEdgeLayer ? undefined : linkedAgentSceneBounds,
         });
 
         if (typeof layer.metadata?.z_index === 'number') {

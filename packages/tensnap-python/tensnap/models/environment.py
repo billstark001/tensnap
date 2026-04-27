@@ -91,9 +91,7 @@ class PureUniformEnvironmentModel(TypedDict):
 
 
 PureEnvironmentModel = (
-    PureUniformEnvironmentModel
-    | PureGridEnvironmentModel
-    | PureGraphEnvironmentModel
+    PureUniformEnvironmentModel | PureGridEnvironmentModel | PureGraphEnvironmentModel
 )
 
 
@@ -258,9 +256,7 @@ class EnvironmentBindingConfig:
 
 def _strip_reserved_environment_keys(value: dict[str, Any]) -> dict[str, Any]:
     return {
-        key: val
-        for key, val in value.items()
-        if key not in ("id", "type", "edges")
+        key: val for key, val in value.items() if key not in ("id", "type", "edges")
     }
 
 
@@ -373,13 +369,8 @@ class LayeredEnvironmentBinder(Generic[TEnv]):
             EnvironmentBindingConfig | None,
             getattr(environment.__class__, "_tensnap_environment_binding_config", None),
         )
-        self.environment_type = (
-            environment_type
-            or (
-                binding_config.environment_type
-                if binding_config is not None
-                else "uniform"
-            )
+        self.environment_type = environment_type or (
+            binding_config.environment_type if binding_config is not None else "uniform"
         )
         declared_layers = cast(
             list[LayerBinding],
@@ -390,10 +381,9 @@ class LayeredEnvironmentBinder(Generic[TEnv]):
     def get_state(self) -> EnvironmentState:
         return {
             "id": self.id,
-            "type": self.environment_type,
+            "type": cast(CanonicalEnvironmentType, self.environment_type),
             "layers": [
-                binding.build_layer_state(self.environment)
-                for binding in self.layers
+                binding.build_layer_state(self.environment) for binding in self.layers
             ],
         }
 
@@ -494,7 +484,7 @@ class EnvironmentBindingBuilder:
         return LayeredEnvironmentBinder(
             id=id,
             environment=environment,
-            environment_type=self.environment_type,
+            environment_type=cast(CanonicalEnvironmentType, self.environment_type),
             layers=self.layers,
         )
 

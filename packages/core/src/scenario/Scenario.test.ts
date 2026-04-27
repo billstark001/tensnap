@@ -199,7 +199,37 @@ describe('Scenario – agent_create / agent_update / agent_delete', () => {
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     const points = storage.dump().trajectories[0]?.points ?? [];
-    expect(points).toEqual([{ x: 1, y: 2, time: 5, color: '#f00' }]);
+    expect(points).toEqual([
+      { x: 0, y: 0, time: 0, color: '#f00' },
+      { x: 1, y: 2, time: 5, color: '#f00' },
+    ]);
+  });
+
+  it('agent creates seed initial points into dependent trajectory layers', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('agent_create', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 0, y: 0 }] }));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    const points = storage.dump().trajectories[0]?.points ?? [];
+    expect(points).toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
+  });
+
+  it('trajectory layers backfill existing agent positions when created after agent items', () => {
+    const s = new Scenario();
+    s.apply(msg('env_create', { id: 'env1', type: '2d' }));
+    s.apply(msg('env_layer_create', { env_id: 'env1', layer_id: 'agents', layer_type: 'agent' }));
+    s.apply(msg('agent_create', { env_id: 'env1', layer_id: 'agents', agents: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('env_layer_create', {
+      env_id: 'env1',
+      layer_id: 'trails',
+      layer_type: 'trajectory',
+      data: { dependency_layer_ids: { agent: 'agents' }, length: 3, color: '#f00' },
+    }));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    const points = storage.dump().trajectories[0]?.points ?? [];
+    expect(points).toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
   });
 
   it('generic item updates append points into dependent trajectory layers', () => {
@@ -211,7 +241,10 @@ describe('Scenario – agent_create / agent_update / agent_delete', () => {
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     const points = storage.dump().trajectories[0]?.points ?? [];
-    expect(points).toEqual([{ x: 1, y: 2, time: 5, color: '#f00' }]);
+    expect(points).toEqual([
+      { x: 0, y: 0, time: 0, color: '#f00' },
+      { x: 1, y: 2, time: 5, color: '#f00' },
+    ]);
   });
 
   it('agent deletes clear dependent trajectory items', () => {

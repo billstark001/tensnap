@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TrajectoryStorage } from './TrajectoryStorage';
+import { DEFAULT_TRAJECTORY_CONFIG } from '../utils/trajectory';
 
 describe('TrajectoryStorage – config items', () => {
   it('upsertConfigs stores per-agent config items', () => {
@@ -36,6 +37,23 @@ describe('TrajectoryStorage – trajectory updates', () => {
     const entry = storage.getEntry('a1');
     expect(entry?.limit).toBe(2);
     expect(entry?.width).toBe(4);
+  });
+
+  it('preserves core defaults when config updates omit width and color', () => {
+    const storage = new TrajectoryStorage();
+
+    storage.setConfig({ length: 7, width: undefined, color: undefined });
+    storage.appendTrajectoryPoint('a1', { x: 0, y: 0, time: 0 });
+
+    expect(storage.dump().config).toEqual({
+      ...DEFAULT_TRAJECTORY_CONFIG,
+      length: 7,
+    });
+    expect(storage.getEntry('a1')).toMatchObject({
+      limit: 7,
+      width: DEFAULT_TRAJECTORY_CONFIG.width,
+      defaultColor: DEFAULT_TRAJECTORY_CONFIG.color,
+    });
   });
 
   it('emits id-only deltas for append and delete operations', () => {

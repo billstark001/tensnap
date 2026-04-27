@@ -51,6 +51,11 @@ export function registerRuntimeRoutes(
     return c.json(await runtime.connect(body));
   });
 
+  app.post('/v1/runtime/wait-ready', async (c) => {
+    const body = await c.req.json<{ timeoutMs?: number }>().catch(() => ({ timeoutMs: undefined }));
+    return c.json(await runtime.waitUntilReady(body.timeoutMs));
+  });
+
   app.post('/v1/runtime/disconnect', async (c) => {
     await runtime.disconnect();
     return c.json(runtime.getStatus());
