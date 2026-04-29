@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action, BooleanParameter } from '@/types/model';
-import type { AnyView } from '@/types/ui';
+import type { AnyView, ContainerView } from '@/types/ui';
 import type { ObjectWithChartMetadata, ObjectWithEnvironmentMetadata } from '@/components/view/types';
 import { createDefaultRootLayout } from './create-view';
 import { adjustForMainViewPadding, createAutoLayout, preservedViewIds } from './pack';
@@ -41,15 +41,15 @@ describe('view pack utils', () => {
 
     const view = createAutoLayout(undefined, [environment], [parameter], [chart], {}, [action]);
 
-    const buttonsContainer = view.views.find((item) => item.id === preservedViewIds.buttonsContainer);
-    const parametersContainer = view.views.find((item) => item.id === preservedViewIds.parametersContainer);
+    const buttonsContainer = view.views.find((item) => item.id === preservedViewIds.buttonsContainer) as ContainerView | undefined;
+    const parametersContainer = view.views.find((item) => item.id === preservedViewIds.parametersContainer) as ContainerView | undefined;
     const environmentView = view.views.find((item) => item.id === 'environment-env-1');
     const chartView = view.views.find((item) => item.id === 'chart-chart-1');
 
     expect(buttonsContainer?.type).toBe('container');
     expect(parametersContainer?.type).toBe('container');
-    expect(buttonsContainer?.views[0]?.id).toBe('button-run');
-    expect(parametersContainer?.views[0]?.id).toBe('parameter-toggle');
+    expect(buttonsContainer?.views?.[0]?.id).toBe('button-run');
+    expect(parametersContainer?.views?.[0]?.id).toBe('parameter-toggle');
     expect(environmentView?.type).toBe('environment');
     expect(chartView?.type).toBe('chart');
   });

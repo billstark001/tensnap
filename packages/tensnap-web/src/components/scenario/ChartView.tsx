@@ -150,9 +150,9 @@ export function ChartView(props: ChartViewProps) {
       return () => {
         cancelled = true;
       };
-    } else if (throttledUpdateRef.current) {
-      throttledUpdateRef.current(rawData);
     }
+    throttledUpdateRef.current?.(rawData);
+    return undefined;
   }, [rawData, rawData.length, updateNowLengthThreshold, maxDataPoints, processData]);
 
   // Build chart configuration from metadata (稳定化依赖)

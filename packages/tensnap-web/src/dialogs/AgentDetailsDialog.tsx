@@ -1,14 +1,14 @@
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
-import { Agent, GridAgent, GraphAgent, AgentIcon } from '@/types/model';
+import { AgentIcon } from '@/types/model';
 import * as styles from './AgentDetailsDialog.css';
 import clsx from 'clsx';
 import { Trans } from '@lingui/react/macro';
+import { RenderableAgent } from '@tensnap/core';
 
 // Union type for all agent types
-export type AnyAgent = GridAgent | GraphAgent | Agent;
 
 interface AgentDetailsDialogProps {
-  agent: AnyAgent | null;
+  agent: RenderableAgent | null;
   agentType?: '2d' | 'uniform';
   onClose: () => void;
   open?: boolean;
@@ -113,7 +113,7 @@ export const createIconElement = (
 // Component to render position information
 const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps, 'agent' | 'agentType'>) => {
   if (agentType === '2d') {
-    const agent = _agent as GridAgent | GraphAgent;
+    const agent = _agent as RenderableAgent;
     return (
       <div className={styles.positionInfo}>
         <div className={styles.detailRow}>

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { AnchoredView } from '@/types/ui';
 import * as styles from './Environment2DView.css';
-import { AgentDetailsDialog, type AnyAgent } from '../../dialogs/AgentDetailsDialog';
+import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useToast } from '@/store/toast';
@@ -44,7 +44,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   const backgroundLayersRef = useRef<BackgroundLayer[]>([]);
   const agentLayersRef = useRef<AgentLayer[]>([]);
 
-  const [selectedAgent, setSelectedAgent] = useState<AnyAgent | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<RenderableAgent | null>(null);
   const scenario = useScenarioStore((store) => store.scenario);
   const assetRevision = useScenarioStore((store) => store._assetRevision);
   const toast = useToast();
@@ -58,11 +58,11 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
     for (const storage of agentStoragesRef.current) {
       const found = storage.getAgent(agent.id);
       if (found) {
-        setSelectedAgent(found as AnyAgent);
+        setSelectedAgent(found as RenderableAgent);
         return;
       }
     }
-    setSelectedAgent(agent as AnyAgent);
+    setSelectedAgent(agent as RenderableAgent);
   }, []);
 
   useEffect(() => {

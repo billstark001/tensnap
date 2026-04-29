@@ -17,6 +17,13 @@ interface EditViewDialogProps extends DialogOpenProps {
   onSave: (updatedView: AnyView, objectData?: any) => void;
 }
 
+const cloneView = (nextView: AnyView): AnyView => ({
+  ...nextView,
+  data: nextView.data ? structuredClone(nextView.data) : nextView.data,
+} as AnyView);
+
+const dangerousKeys: readonly string[] = ['__proto__', 'constructor', 'prototype'] as const;
+
 export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   open,
   onOpenChange,
@@ -31,16 +38,13 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   const environments = useScenarioStore((store) => store.environments);
   const charts = useScenarioStore((store) => store.charts);
 
-  const cloneView = useCallback((nextView: AnyView): AnyView => ({
-    ...nextView,
-    data: nextView.data ? structuredClone(nextView.data) : nextView.data,
-  }), []);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect 
     setLocalView(cloneView(view));
     setHasChanges(false);
 
@@ -59,9 +63,8 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     } else {
       setLocalObjectData(null);
     }
-  }, [cloneView, view, open, parameters, environments, charts]);
+  }, [view, open, parameters, environments, charts]);
 
-  const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
 
   const setNestedValue = useCallback((target: Record<string, any>, path: string[], value: any): boolean => {
     if (path.some((part) => dangerousKeys.includes(part))) {
@@ -99,7 +102,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
       return updated;
     });
     setHasChanges(true);
-  }, [cloneView, setNestedValue]);
+  }, [setNestedValue]);
 
   const handleObjectChange = useCallback((field: string, value: any) => {
     setLocalObjectData((prev: any) => {
@@ -120,7 +123,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
       return updated;
     });
     setHasChanges(true);
-  }, [dangerousKeys, setNestedValue]);
+  }, [setNestedValue]);
 
   const handleSave = useCallback(() => {
     onSave(localView, localView.type === 'environment' ? undefined : localObjectData);
@@ -131,7 +134,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   const handleReset = useCallback(() => {
     setLocalView(cloneView(view));
     setHasChanges(false);
-    
+
     // Reset object data
     if (view.type === 'parameter' || view.type === 'environment' || view.type === 'chart') {
       const anchoredView = view as AnchoredView;
@@ -154,22 +157,22 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
       case 'container':
         return <ContainerViewEditor view={localView as ContainerView} onChange={handleChange} />;
       case 'environment':
-        return <EnvironmentViewEditor 
-          view={localView as AnchoredView} 
+        return <EnvironmentViewEditor
+          view={localView as AnchoredView}
           objectData={localObjectData as any}
           onChange={handleChange}
           onObjectChange={handleObjectChange}
         />;
       case 'parameter':
-        return <ParameterViewEditor 
-          view={localView as AnchoredView} 
+        return <ParameterViewEditor
+          view={localView as AnchoredView}
           objectData={localObjectData as Parameter}
           onChange={handleChange}
           onObjectChange={handleObjectChange}
         />;
       case 'chart':
-        return <ChartViewEditor 
-          view={localView as AnchoredView} 
+        return <ChartViewEditor
+          view={localView as AnchoredView}
           objectData={localObjectData as ChartGroup}
           onChange={handleChange}
           onObjectChange={handleObjectChange}

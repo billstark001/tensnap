@@ -83,9 +83,9 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       set({ loading: false });
       return result;
     } catch (error) {
-      const errorMessage = handleError(error);
+      handleError(error);
       set({ loading: false });
-      throw new Error(errorMessage, { cause: error });
+      throw error;
     }
   };
 
@@ -135,9 +135,9 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
           get().refreshStats()
         ]);
       } catch (error) {
-        const errorMessage = handleError(error);
+        handleError(error);
         set({ loading: false });
-        throw new Error(errorMessage, { cause: error });
+        throw error;
       }
     },
 
