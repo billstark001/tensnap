@@ -122,9 +122,9 @@ Key features:
 Create the simulation environment:
 
 ```python
-from tensnap import bind_grid_environment
+from tensnap import bind_2d_env
 
-@bind_grid_environment(coord_offset=True)
+@bind_2d_env(coord_offset=True)
 class FlockSimulation:
     """Main flocking simulation class"""
     
@@ -266,7 +266,7 @@ The order parameter measures collective alignment: values near 1 indicate synchr
 ## Step 7: Set Up TenSnap Integration
 
 ```python
-from tensnap import SimulationScenario, GridEnvironmentBinder, BindParametersConfig, chart, action
+from tensnap import SimulationScenario, LayeredEnvironmentBinder, BindParametersConfig, chart, action
 
 # Create simulation and scenario
 config = FlockConfig()
@@ -274,7 +274,7 @@ model = FlockSimulation(config)
 scenario = SimulationScenario(port=8765)
 
 # Create environment binder
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=model,
     agent_iterable_accessor='birds'

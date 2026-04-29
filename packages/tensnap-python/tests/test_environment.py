@@ -1,22 +1,17 @@
-"""Tests for canonical environment binders."""
-
-import networkx as nx
+"""Tests for canonical v0.2 layered environment binders."""
 
 from tensnap.bindings.basic import (
     EnvironmentBindingBuilder,
-    bind_2d_env,
+    bind_env,
     bind_agent,
     bind_agent_layer,
+    bind_background_layer,
+    bind_edge_layer,
     bind_grid_layer,
+    bind_trajectory_item,
     bind_trajectory_layer,
 )
-from tensnap.models import (
-    GraphEnvironmentBinder,
-    GraphEnvironmentBinderNX,
-    GridEnvironmentBinder,
-    LayeredEnvironmentBinder,
-    UniformEnvironmentBinder,
-)
+from tensnap.models import LayeredEnvironmentBinder, UniformEnvironmentBinder
 
 
 class TestUniformEnvironmentBinder:
@@ -44,202 +39,8 @@ class TestUniformEnvironmentBinder:
             "layers": [{"layer_id": "agents", "layer_type": "agent"}],
         }
 
-    def test_get_state_serializes_agents(self):
-        class SimpleAgent:
-            def __init__(self, agent_id, x, y):
-                self.id = agent_id
-                self.x = x
-                self.y = y
 
-        class SimpleEnv:
-            def __init__(self):
-                self.agents = [SimpleAgent(1, 10, 20), SimpleAgent(2, 30, 40)]
-
-        state = UniformEnvironmentBinder(id="test_env", environment=SimpleEnv()).get_state()
-        agents = state["layers"][0].get("agents", [])
-
-        assert len(agents) == 2
-        assert agents[0]["id"] == 1
-
-    def test_set_environment(self):
-        class SimpleAgent:
-            def __init__(self, agent_id):
-                self.id = agent_id
-
-        class SimpleEnv:
-            def __init__(self, agent_id):
-                self.agents = [SimpleAgent(agent_id)]
-
-        binder = UniformEnvironmentBinder(id="test_env", environment=SimpleEnv(1))
-        binder.set_environment(SimpleEnv(2))
-
-        state = binder.get_state()
-        agents = state["layers"][0].get("agents", [])
-        assert agents[0]["id"] == 2
-
-
-class TestGridEnvironmentBinder:
-    def test_grid_state_includes_metadata(self):
-        class GridEnv:
-            def __init__(self):
-                self.width = 10
-                self.height = 15
-                self.agents = []
-
-        state = GridEnvironmentBinder(id="grid_env", environment=GridEnv()).get_state()
-        layer = state["layers"][0]
-
-        assert state["id"] == "grid_env"
-        assert state["type"] == "2d"
-        assert layer["layer_id"] == "grid"
-        assert layer["layer_type"] == "grid"
-        assert layer.get("data") == {"width": 10, "height": 15}
-
-    def test_grid_state_serializes_agents(self):
-        class GridAgent:
-            def __init__(self, agent_id, x, y):
-                self.id = agent_id
-                self.x = x
-                self.y = y
-
-        class GridEnv:
-            def __init__(self):
-                self.width = 10
-                self.height = 10
-                self.agents = [GridAgent(1, 5, 5), GridAgent(2, 8, 3)]
-
-        state = GridEnvironmentBinder(id="grid_env", environment=GridEnv()).get_state()
-        assert [layer["layer_type"] for layer in state["layers"]] == ["grid", "agent"]
-        agents = state["layers"][1].get("agents", [])
-
-        assert len(agents) == 2
-        assert agents[0]["x"] == 5
-        assert agents[0]["y"] == 5
-
-
-class TestGraphEnvironmentBinder:
-    def test_graph_state_includes_agent_and_edge_layers(self):
-        class GraphEnv:
-            def __init__(self):
-                self.edges = [{"source": 1, "target": 2}, {"source": 2, "target": 3}]
-                self.agents = []
-
-        state = GraphEnvironmentBinder(id="graph_env", environment=GraphEnv()).get_state()
-
-        assert state["id"] == "graph_env"
-        assert state["type"] == "2d"
-        assert [layer["layer_type"] for layer in state["layers"]] == ["agent", "edge"]
-        assert len(state["layers"][1].get("edges", [])) == 2
-
-    def test_graph_state_serializes_agents(self):
-        class GraphAgent:
-            def __init__(self, agent_id):
-                self.id = agent_id
-
-        class GraphEnv:
-            def __init__(self):
-                self.edges = []
-                self.agents = [GraphAgent(1), GraphAgent(2), GraphAgent(3)]
-
-        state = GraphEnvironmentBinder(id="graph_env", environment=GraphEnv()).get_state()
-        agents = state["layers"][0].get("agents", [])
-
-        assert len(agents) == 3
-        assert agents[0]["id"] == 1
-
-
-class TestGraphEnvironmentBinderNX:
-    def test_initialization_with_graph(self):
-        graph = nx.Graph()
-        graph.add_edge(1, 2)
-        graph.add_edge(2, 3)
-
-        binder = GraphEnvironmentBinderNX(id="nx_graph", graph=graph)
-
-        assert binder.id == "nx_graph"
-        assert binder.graph == graph
-
-    def test_networkx_state_includes_nodes_and_edges(self):
-        graph = nx.Graph()
-        graph.add_node(1, x=10, y=20)
-        graph.add_node(2, x=30, y=40)
-        graph.add_edge(1, 2)
-
-        state = GraphEnvironmentBinderNX(id="nx_graph", graph=graph).get_state()
-
-        assert state["id"] == "nx_graph"
-        assert state["type"] == "2d"
-        assert len(state["layers"][0].get("agents", [])) == 2
-        assert len(state["layers"][1].get("edges", [])) == 1
-
-    def test_directed_graph_edges_marked_directed(self):
-        graph = nx.DiGraph()
-        graph.add_edge(1, 2)
-        graph.add_edge(2, 3)
-
-        state = GraphEnvironmentBinderNX(id="directed_graph", graph=graph).get_state()
-        edges = state["layers"][1].get("edges", [])
-
-        assert all(edge.get("directed", False) for edge in edges)
-
-
-class TestEnvironmentAccessorDicts:
-    def test_grid_environment_with_accessor_dict(self):
-        class GridEnv:
-            def __init__(self):
-                self.w = 10
-                self.h = 15
-                self.agents = []
-
-        state = GridEnvironmentBinder(
-            id="grid_env",
-            environment=GridEnv(),
-            environment_accessor={"id": "grid_env", "width": "w", "height": "h"},
-        ).get_state()
-
-        assert state["layers"][0].get("data") == {"width": 10, "height": 15}
-
-    def test_graph_environment_with_accessor_dict(self):
-        class GraphEnv:
-            def __init__(self):
-                self.connections = [{"source": 1, "target": 2}]
-                self.agents = []
-
-        state = GraphEnvironmentBinder(
-            id="graph_env",
-            environment=GraphEnv(),
-            environment_accessor={"id": "graph_env", "edges": "connections"},
-        ).get_state()
-
-        assert state["layers"][1].get("edges") == [{"source": 1, "target": 2}]
-
-    def test_agent_accessor_dict(self):
-        class Agent:
-            def __init__(self, agent_id, pos_x, pos_y):
-                self.agent_id = agent_id
-                self.pos_x = pos_x
-                self.pos_y = pos_y
-
-        class GridEnv:
-            def __init__(self):
-                self.width = 10
-                self.height = 10
-                self.agents = [Agent(1, 5, 5)]
-
-        state = GridEnvironmentBinder(
-            id="grid_env",
-            environment=GridEnv(),
-            agent_accessor={"id": "agent_id", "x": "pos_x", "y": "pos_y"},
-        ).get_state()
-        agents = state["layers"][1].get("agents", [])
-
-        assert len(agents) == 1
-        assert agents[0]["id"] == 1
-        assert agents[0]["x"] == 5
-        assert agents[0]["y"] == 5
-
-
-class TestDeclarativeLayerBindings:
+class TestLayeredBindings:
     def test_declarative_2d_environment_builds_grid_agent_and_trajectory_layers(self):
         @bind_agent(x="position[0]", y="position[1]", color=True)
         class Bird:
@@ -251,7 +52,7 @@ class TestDeclarativeLayerBindings:
         @bind_trajectory_layer(metadata={"length": 5}, dependency_layer_ids={"agent": "birds"})
         @bind_agent_layer("birds", item_iterable_accessor="birds")
         @bind_grid_layer(width="width", height="height")
-        @bind_2d_env()
+        @bind_env()
         class Aviary:
             def __init__(self):
                 self.width = 20
@@ -271,10 +72,115 @@ class TestDeclarativeLayerBindings:
             {"id": 1, "x": 2, "y": 3, "color": "#3498db"},
             {"id": 2, "x": 4, "y": 5, "color": "#3498db"},
         ]
-        assert state["layers"][2].get("data") == {
-            "length": 5,
-            "dependency_layer_ids": {"agent": "birds"},
+        assert state["layers"][2].get("data") == {"length": 5}
+        assert state["layers"][2].get("dependency_layer_ids") == {
+            "agent": "birds"
         }
+
+    def test_background_layer_binds_metadata(self):
+        @bind_background_layer(metadata={"source": "asset:terrain", "z_index": 0})
+        @bind_grid_layer(width="width", height="height")
+        @bind_env()
+        class Scene:
+            width = 8
+            height = 6
+
+        state = LayeredEnvironmentBinder(id="scene", environment=Scene()).get_state()
+        assert [layer["layer_type"] for layer in state["layers"]] == ["grid", "background"]
+        assert state["layers"][1]["data"] == {"source": "asset:terrain", "z_index": 0}
+
+    def test_trajectory_layer_supports_item_level_binding(self):
+        @bind_trajectory_item(length=True, color=True, width=True)
+        class TrailConfig:
+            def __init__(self, item_id: str, length: int, color: str, width: float):
+                self.id = item_id
+                self.length = length
+                self.color = color
+                self.width = width
+
+        @bind_trajectory_layer(item_iterable_accessor="trail_configs")
+        @bind_env()
+        class Scene:
+            def __init__(self):
+                self.trail_configs = [TrailConfig("a1", 12, "#f00", 2.0)]
+
+        state = LayeredEnvironmentBinder(id="scene", environment=Scene()).get_state()
+        layer = state["layers"][0]
+
+        assert layer["layer_type"] == "trajectory"
+        assert layer["items"] == [{"id": "a1", "length": 12, "width": 2.0, "color": "#f00"}]
+
+    def test_edge_layer_with_networkx_style_triples(self):
+        class GraphEnv:
+            def __init__(self):
+                self.edge_triples = [
+                    ("a", "b", {"weight": 1}),
+                    ("b", "c", {"weight": 2}),
+                ]
+
+        @bind_edge_layer(
+            item_iterable_accessor="edge_triples",
+            edge_accessor=True,
+            dependency_layer_ids={"agent": "agents"},
+        )
+        @bind_agent_layer("agents", item_iterable_accessor=False)
+        @bind_env()
+        class Scene(GraphEnv):
+            pass
+
+        state = LayeredEnvironmentBinder(id="g", environment=Scene()).get_state()
+        edge_layer = state["layers"][1]
+
+        assert edge_layer["layer_type"] == "edge"
+        assert edge_layer["dependency_layer_ids"] == {"agent": "agents"}
+        assert edge_layer["edges"] == [
+            {"source": "a", "target": "b", "directed": False},
+            {"source": "b", "target": "c", "directed": False},
+        ]
+
+    def test_layer_items_accessor_supports_environment_level_fast_path(self):
+        @bind_agent_layer("birds", items_accessor="build_birds")
+        @bind_env()
+        class Aviary:
+            def __init__(self):
+                self.birds = [
+                    {"id": 1, "x": 2, "y": 3, "color": "#3498db"},
+                    {"id": 2, "x": 4, "y": 5, "color": "#f59e0b"},
+                ]
+
+            def build_birds(self):
+                return list(self.birds)
+
+        state = LayeredEnvironmentBinder(id="aviary", environment=Aviary()).get_state()
+        assert state["layers"][0]["agents"] == [
+            {"id": 1, "x": 2, "y": 3, "color": "#3498db"},
+            {"id": 2, "x": 4, "y": 5, "color": "#f59e0b"},
+        ]
+
+    def test_layer_item_accessor_supports_instance_methods(self):
+        class Bird:
+            def __init__(self, bird_id: int, position: tuple[int, int]):
+                self.id = bird_id
+                self.position = position
+
+        @bind_agent_layer(
+            "birds",
+            item_iterable_accessor="birds",
+            item_accessor="build_bird",
+        )
+        @bind_env()
+        class Aviary:
+            def __init__(self):
+                self.birds = [Bird(1, (2, 3)), Bird(2, (4, 5))]
+
+            def build_bird(self, bird: Bird):
+                return {"id": bird.id, "x": bird.position[0], "y": bird.position[1]}
+
+        state = LayeredEnvironmentBinder(id="aviary", environment=Aviary()).get_state()
+        assert state["layers"][0]["agents"] == [
+            {"id": 1, "x": 2, "y": 3},
+            {"id": 2, "x": 4, "y": 5},
+        ]
 
     def test_imperative_environment_binding_builder_creates_layered_binder(self):
         class Particle:

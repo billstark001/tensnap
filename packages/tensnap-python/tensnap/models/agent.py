@@ -4,7 +4,10 @@ from collections.abc import Callable
 from typing import (
     TYPE_CHECKING,
     Any,
+    TypeAlias,
     TypedDict,
+    Literal,
+    Union,
     cast,
 )
 
@@ -53,6 +56,23 @@ class GraphAgentModelDict(AgentModelDict):
 
     x: NotRequired[float]
     y: NotRequired[float]
+
+
+AccessorFieldForInit: TypeAlias = str | bool | None
+AccessorField: TypeAlias = str
+
+UniformAgentItemFields: TypeAlias = Literal["id", "color", "icon", "size", "data"]
+
+AgentItemFields: TypeAlias = Union[
+    UniformAgentItemFields,
+    Literal["x", "y", "heading"],
+]
+
+EdgeItemFields: TypeAlias = Literal[
+    "source", "target", "directed", "style", "width", "color"
+]
+
+TrajectoryConfigItemFields: TypeAlias = Literal["id", "length", "width", "color"]
 
 
 # TypedDicts for accessor parameters
@@ -117,84 +137,6 @@ def _a(
         map_fields["size"] = "size" if size is True else size
     if data is not None and data is not False:
         map_fields["data"] = "data" if data is True else data
-
-
-def make_uniform_agent_accessor(
-    id: str = "id",
-    color: str | bool | None = None,
-    icon: str | bool | None = None,
-    size: str | bool | None = None,
-    data: str | bool | None = None,
-) -> Callable[[Any], UniformAgentModelDict]:
-    """Create a function that accesses fields from an AgentModel"""
-    map_fields: dict[str, str] = {}
-    map_fields["id"] = id
-    _a(map_fields, color, icon, size, data)
-    return make_dict_accessor([], map_fields, {})  # type: ignore
-
-
-def make_agent_accessor(
-    id: str = "id",
-    x: str | bool | None = None,
-    y: str | bool | None = None,
-    heading: str | bool | None = None,
-    color: str | bool | None = None,
-    icon: str | bool | None = None,
-    size: str | bool | None = None,
-    data: str | bool | None = None,
-) -> Callable[[Any], GenericAgentModelDict]:
-    """Create a generic accessor for agent-like items with optional spatial fields."""
-    map_fields: dict[str, str] = {}
-    map_fields["id"] = id
-    if x is not None and x is not False:
-        map_fields["x"] = "x" if x is True else x
-    if y is not None and y is not False:
-        map_fields["y"] = "y" if y is True else y
-    if heading is not None and heading is not False:
-        map_fields["heading"] = "heading" if heading is True else heading
-    _a(map_fields, color, icon, size, data)
-    return make_dict_accessor([], map_fields, {})  # type: ignore
-
-
-def make_grid_agent_accessor(
-    id: str = "id",
-    x: str = "x",
-    y: str = "y",
-    heading: str | bool | None = None,
-    color: str | bool | None = None,
-    icon: str | bool | None = None,
-    size: str | bool | None = None,
-    data: str | bool | None = None,
-) -> Callable[[Any], GridAgentModelDict]:
-    """Create a function that accesses fields from an AgentModel"""
-    map_fields: dict[str, str] = {}
-    map_fields["id"] = id
-    map_fields["x"] = x
-    map_fields["y"] = y
-    if heading is not None and heading is not False:
-        map_fields["heading"] = "heading" if heading is True else heading
-    _a(map_fields, color, icon, size, data)
-    return make_dict_accessor([], map_fields, {})  # type: ignore
-
-
-def make_graph_agent_accessor(
-    id: str = "id",
-    x: str | bool | None = None,
-    y: str | bool | None = None,
-    color: str | bool | None = None,
-    icon: str | bool | None = None,
-    size: str | bool | None = None,
-    data: str | bool | None = None,
-) -> Callable[[Any], GraphAgentModelDict]:
-    """Create a function that accesses fields from an AgentModel"""
-    map_fields: dict[str, str] = {}
-    map_fields["id"] = id
-    if x is not None and x is not False:
-        map_fields["x"] = "x" if x is True else x
-    if y is not None and y is not False:
-        map_fields["y"] = "y" if y is True else y
-    _a(map_fields, color, icon, size, data)
-    return make_dict_accessor([], map_fields, {})  # type: ignore
 
 
 def make_graph_agent_accessor_nx(

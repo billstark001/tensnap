@@ -65,13 +65,13 @@ Try these interactions:
 
 The flock example demonstrates TenSnap's key features:
 
-`GridEnvironmentBinder` is still the recommended shortcut for grid-style examples, but under protocol v0.2 it now synchronizes as a canonical `2d` environment with explicit layer metadata.
+`LayeredEnvironmentBinder` is still the recommended shortcut for grid-style examples, but under protocol v0.2 it now synchronizes as a canonical `2d` environment with explicit layer metadata.
 
 ```python
 # Import TenSnap components
 from tensnap import (
     SimulationScenario,
-    GridEnvironmentBinder,
+    LayeredEnvironmentBinder,
     make_grid_agent_accessor,
     BindParametersConfig,
     chart,
@@ -82,7 +82,7 @@ from tensnap import (
 scenario = SimulationScenario(port=8765)
 
 # Add environment with automatic agent syncing
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=model,
     agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True)

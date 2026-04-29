@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+import inspect
 from typing import (
     Any,
     Generic,
@@ -13,23 +14,16 @@ from typing import (
     cast,
 )
 
-import networkx as nx
 from typing_extensions import NotRequired
 
-from tensnap.utils.attr import make_dict_accessor, make_identifier_getter
+from tensnap.utils.attr import (
+    make_dict_accessor,
+    make_identifier_getter,
+)
 
 from .agent import (
-    GraphAgentAccessorDict,
-    GraphAgentAccessorNXDict,
-    GraphAgentModelDict,
-    GridAgentAccessorDict,
-    GridAgentModelDict,
     UniformAgentAccessorDict,
     UniformAgentModelDict,
-    make_graph_agent_accessor,
-    make_graph_agent_accessor_nx,
-    make_grid_agent_accessor,
-    make_uniform_agent_accessor,
 )
 
 # region Environment Model Dicts
@@ -52,6 +46,7 @@ class EnvironmentLayerState(TypedDict):
 
     layer_id: str
     layer_type: str
+    dependency_layer_ids: NotRequired[dict[str, str]]
     data: NotRequired[dict[str, Any]]
     items: NotRequired[list[dict[str, Any]]]
     agents: NotRequired[list[dict[str, Any]]]
@@ -232,6 +227,9 @@ def make_graph_edge_accessor_nx(
 
 T = TypeVar("T")
 TEnv = TypeVar("TEnv")
+TKeys = TypeVar("TKeys", bound=str)
+TKeys2 = TypeVar("TKeys2", bound=str)
+TKeys3 = TypeVar("TKeys3", bound=str)
 TEdge = TypeVar("TEdge")
 
 
@@ -247,6 +245,12 @@ class BindAccessorConfigProtocol(Protocol):
 
 class BindAccessorConfigWithIdProtocol(Protocol):
     def get_accessor(self, id: str) -> Callable[[Any], Any]: ...
+
+
+EnvironmentMetadataAccessor: TypeAlias = Callable[[Any], dict[str, Any]]
+EnvironmentItemIterableAccessor: TypeAlias = Callable[[Any], Any]
+EnvironmentItemAccessor: TypeAlias = Callable[[Any, Any], dict[str, Any]]
+EnvironmentItemsAccessor: TypeAlias = Callable[[Any], list[dict[str, Any]]]
 
 
 @dataclass(slots=True)
@@ -269,8 +273,69 @@ def _identity_item_to_dict(value: Any) -> dict[str, Any]:
     )
 
 
-def _resolve_item_accessor(item: Any) -> Callable[[Any], dict[str, Any]] | None:
+def _identity_environment_item_accessor(
+    _environment: Any, item: Any
+) -> dict[str, Any]:
+    return _identity_item_to_dict(item)
+
+
+def _count_positional_parameters(accessor: Callable[..., Any]) -> int | None:
+    try:
+        signature = inspect.signature(accessor)
+    except (TypeError, ValueError):
+        return None
+
+    positional_count = 0
+    for parameter in signature.parameters.values():
+        if parameter.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            positional_count += 1
+            continue
+        if parameter.kind == inspect.Parameter.VAR_POSITIONAL:
+            return None
+    return positional_count
+
+
+def bind_environment_getter(
+    accessor: Callable[..., Any],
+) -> EnvironmentItemIterableAccessor:
+    positional_count = _count_positional_parameters(accessor)
+    if positional_count == 0:
+        return lambda _environment: accessor()
+    return lambda environment: accessor(environment)
+
+
+def bind_environment_item_accessor(
+    accessor: Callable[..., dict[str, Any]],
+) -> EnvironmentItemAccessor:
+    positional_count = _count_positional_parameters(accessor)
+    if positional_count in (None, 1):
+        return lambda _environment, item: accessor(item)
+    if positional_count == 2:
+        return lambda environment, item: accessor(environment, item)
+    raise TypeError(
+        "Layer item accessors must accept either (item) or (environment, item)."
+    )
+
+
+def bind_environment_items_accessor(
+    accessor: Callable[..., list[dict[str, Any]]],
+) -> EnvironmentItemsAccessor:
+    positional_count = _count_positional_parameters(accessor)
+    if positional_count in (None, 1):
+        return lambda environment: accessor(environment)
+    if positional_count == 0:
+        return lambda _environment: accessor()
+    raise TypeError(
+        "Layer items accessors must accept either () or (environment)."
+    )
+
+
+def _resolve_item_accessor(item: Any) -> EnvironmentItemAccessor | None:
     for config_key in (
+        "_tensnap_bind_accessor_config_trajectory",
         "_tensnap_bind_accessor_config_item",
         "_tensnap_bind_accessor_config_grid",
         "_tensnap_bind_accessor_config_uniform",
@@ -281,7 +346,9 @@ def _resolve_item_accessor(item: Any) -> Callable[[Any], dict[str, Any]] | None:
                 BindAccessorConfigProtocol,
                 getattr(item, config_key),
             )
-            return cast(Callable[[Any], dict[str, Any]], accessor_config.get_accessor())
+            return bind_environment_item_accessor(
+                accessor_config.get_accessor()
+            )
     return None
 
 
@@ -294,32 +361,30 @@ def _layer_items_field_name(layer_type: str) -> str:
 
 
 @dataclass(slots=True)
-class LayerBinding:
+class LayerBinding(Generic[TKeys, TKeys2]):
     layer_id: str
     layer_type: str
-    metadata_accessor: Callable[[Any], dict[str, Any]] | None = None
-    item_iterable_accessor: Callable[[Any], Any] | None = None
-    item_accessor: Callable[[Any], dict[str, Any]] | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata_accessor: EnvironmentMetadataAccessor | None = None
+    item_iterable_accessor: EnvironmentItemIterableAccessor | None = None
+    item_accessor: EnvironmentItemAccessor | None = None
+    items_accessor: EnvironmentItemsAccessor | None = None
     dependency_layer_ids: dict[str, str] = field(default_factory=dict)
 
     def _build_metadata(self, environment: Any) -> dict[str, Any]:
-        metadata: dict[str, Any] = {}
-        if self.metadata_accessor is not None:
-            metadata.update(self.metadata_accessor(environment))
-        metadata.update(self.metadata)
-        if self.dependency_layer_ids:
-            merged_dependencies: dict[str, str] = {}
-            existing = metadata.get("dependency_layer_ids")
-            if isinstance(existing, dict):
-                for key, value in existing.items():
-                    if isinstance(key, str) and isinstance(value, str):
-                        merged_dependencies[key] = value
-            merged_dependencies.update(self.dependency_layer_ids)
-            metadata["dependency_layer_ids"] = merged_dependencies
-        return metadata
+        metadata = self.metadata_accessor(environment) if self.metadata_accessor else {}
+        metadata_copy = dict(metadata)
+        metadata_copy.pop("dependency_layer_ids", None)
+        return metadata_copy
+
+    def _build_dependency_layer_ids(self) -> dict[str, str]:
+        return dict(self.dependency_layer_ids)
 
     def _build_items(self, environment: Any) -> list[dict[str, Any]]:
+        if self.items_accessor is not None:
+            return [
+                _identity_item_to_dict(item)
+                for item in (self.items_accessor(environment) or [])
+            ]
         if self.item_iterable_accessor is None:
             return []
         iterable = self.item_iterable_accessor(environment)
@@ -327,15 +392,10 @@ class LayerBinding:
             return []
 
         items: list[dict[str, Any]] = []
-        resolved_accessor = self.item_accessor
         for item in iterable:
-            if resolved_accessor is None:
-                resolved_accessor = _resolve_item_accessor(item)
-            items.append(
-                resolved_accessor(item)
-                if resolved_accessor is not None
-                else _identity_item_to_dict(item)
-            )
+            item_accessor = self.item_accessor or _resolve_item_accessor(item)
+            item_to_dict = item_accessor or _identity_environment_item_accessor
+            items.append(_identity_item_to_dict(item_to_dict(environment, item)))
         return items
 
     def build_layer_state(self, environment: Any) -> EnvironmentLayerState:
@@ -346,6 +406,9 @@ class LayerBinding:
         metadata = self._build_metadata(environment)
         if metadata:
             layer["data"] = metadata
+        dependency_layer_ids = self._build_dependency_layer_ids()
+        if dependency_layer_ids:
+            layer["dependency_layer_ids"] = dependency_layer_ids
 
         items = self._build_items(environment)
         if items:
@@ -361,7 +424,7 @@ class LayeredEnvironmentBinder(Generic[TEnv]):
         id: str,
         environment: TEnv,
         environment_type: CanonicalEnvironmentType | None = None,
-        layers: list[LayerBinding] | None = None,
+        layers: list[LayerBinding[Any, Any]] | None = None,
     ):
         self.id = id
         self.environment = environment
@@ -373,15 +436,19 @@ class LayeredEnvironmentBinder(Generic[TEnv]):
             binding_config.environment_type if binding_config is not None else "uniform"
         )
         declared_layers = cast(
-            list[LayerBinding],
-            getattr(environment.__class__, "_tensnap_layer_binding_configs", []),
+            list[LayerBinding[Any, Any]],
+            getattr(
+                environment.__class__,
+                "_tensnap_layer_binding_configs",
+                getattr(environment.__class__, "_tensnap_bind_config_layer_general", []),
+            ),
         )
         self.layers = [*declared_layers] if layers is None else [*layers]
 
     def get_state(self) -> EnvironmentState:
         return {
             "id": self.id,
-            "type": cast(CanonicalEnvironmentType, self.environment_type),
+            "type": self.environment_type,
             "layers": [
                 binding.build_layer_state(self.environment) for binding in self.layers
             ],
@@ -396,9 +463,11 @@ class EnvironmentBindingBuilder:
 
     def __init__(self, environment_type: CanonicalEnvironmentType = "uniform"):
         self.environment_type = environment_type
-        self.layers: list[LayerBinding] = []
+        self.layers: list[LayerBinding[Any, Any]] = []
 
-    def add_layer(self, binding: LayerBinding) -> "EnvironmentBindingBuilder":
+    def add_layer(
+        self, binding: LayerBinding[Any, Any]
+    ) -> "EnvironmentBindingBuilder":
         self.layers.append(binding)
         return self
 
@@ -407,14 +476,12 @@ class EnvironmentBindingBuilder:
         layer_id: str = "grid",
         *,
         metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
-        metadata: dict[str, Any] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
             LayerBinding(
                 layer_id=layer_id,
                 layer_type="grid",
                 metadata_accessor=metadata_accessor,
-                metadata=dict(metadata or {}),
             )
         )
 
@@ -423,19 +490,31 @@ class EnvironmentBindingBuilder:
         layer_id: str = "agents",
         *,
         item_iterable_accessor: Callable[[Any], Any] | None = None,
-        item_accessor: Callable[[Any], dict[str, Any]] | None = None,
+        item_accessor: Callable[..., dict[str, Any]] | None = None,
+        items_accessor: Callable[..., list[dict[str, Any]]] | None = None,
         metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
-        metadata: dict[str, Any] | None = None,
         dependency_layer_ids: dict[str, str] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
             LayerBinding(
                 layer_id=layer_id,
                 layer_type="agent",
-                item_iterable_accessor=item_iterable_accessor,
-                item_accessor=item_accessor,
+                item_iterable_accessor=(
+                    bind_environment_getter(item_iterable_accessor)
+                    if item_iterable_accessor is not None
+                    else None
+                ),
+                item_accessor=(
+                    bind_environment_item_accessor(item_accessor)
+                    if item_accessor is not None
+                    else None
+                ),
+                items_accessor=(
+                    bind_environment_items_accessor(items_accessor)
+                    if items_accessor is not None
+                    else None
+                ),
                 metadata_accessor=metadata_accessor,
-                metadata=dict(metadata or {}),
                 dependency_layer_ids=dict(dependency_layer_ids or {}),
             )
         )
@@ -445,19 +524,31 @@ class EnvironmentBindingBuilder:
         layer_id: str = "edges",
         *,
         item_iterable_accessor: Callable[[Any], Any] | None = None,
-        item_accessor: Callable[[Any], dict[str, Any]] | None = None,
+        item_accessor: Callable[..., dict[str, Any]] | None = None,
+        items_accessor: Callable[..., list[dict[str, Any]]] | None = None,
         metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
-        metadata: dict[str, Any] | None = None,
         dependency_layer_ids: dict[str, str] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
             LayerBinding(
                 layer_id=layer_id,
                 layer_type="edge",
-                item_iterable_accessor=item_iterable_accessor,
-                item_accessor=item_accessor,
+                item_iterable_accessor=(
+                    bind_environment_getter(item_iterable_accessor)
+                    if item_iterable_accessor is not None
+                    else None
+                ),
+                item_accessor=(
+                    bind_environment_item_accessor(item_accessor)
+                    if item_accessor is not None
+                    else None
+                ),
+                items_accessor=(
+                    bind_environment_items_accessor(items_accessor)
+                    if items_accessor is not None
+                    else None
+                ),
                 metadata_accessor=metadata_accessor,
-                metadata=dict(metadata or {}),
                 dependency_layer_ids=dict(dependency_layer_ids or {}),
             )
         )
@@ -467,7 +558,9 @@ class EnvironmentBindingBuilder:
         layer_id: str = "trails",
         *,
         metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
-        metadata: dict[str, Any] | None = None,
+        item_iterable_accessor: Callable[[Any], Any] | None = None,
+        item_accessor: Callable[..., dict[str, Any]] | None = None,
+        items_accessor: Callable[..., list[dict[str, Any]]] | None = None,
         dependency_layer_ids: dict[str, str] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
@@ -475,7 +568,21 @@ class EnvironmentBindingBuilder:
                 layer_id=layer_id,
                 layer_type="trajectory",
                 metadata_accessor=metadata_accessor,
-                metadata=dict(metadata or {}),
+                item_iterable_accessor=(
+                    bind_environment_getter(item_iterable_accessor)
+                    if item_iterable_accessor is not None
+                    else None
+                ),
+                item_accessor=(
+                    bind_environment_item_accessor(item_accessor)
+                    if item_accessor is not None
+                    else None
+                ),
+                items_accessor=(
+                    bind_environment_items_accessor(items_accessor)
+                    if items_accessor is not None
+                    else None
+                ),
                 dependency_layer_ids=dict(dependency_layer_ids or {}),
             )
         )
@@ -484,7 +591,7 @@ class EnvironmentBindingBuilder:
         return LayeredEnvironmentBinder(
             id=id,
             environment=environment,
-            environment_type=cast(CanonicalEnvironmentType, self.environment_type),
+            environment_type=self.environment_type,
             layers=self.layers,
         )
 
@@ -581,7 +688,6 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
                 layer_id=self.canonical_agent_layer_id,
                 item_iterable_accessor=self.agent_iterable_accessor,
                 item_accessor=self._builder_agent_item_accessor,
-                metadata=metadata,
             )
         return builder.build(self.id, self.environment)
 
@@ -627,266 +733,6 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
     def set_environment(self, environment: TEnv) -> None:
         """Set the environment object"""
         self.environment = environment
-
-
-class GridEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
-    canonical_environment_type: CanonicalEnvironmentType = "2d"
-    canonical_grid_layer_id = "grid"
-    canonical_grid_layer_type = "grid"
-    canonical_agent_layer_id = "agents"
-    canonical_agent_layer_type = "agent"
-
-    def __init__(
-        self,
-        id: str,
-        environment: TEnv,
-        environment_accessor: (
-            Callable[[Any], PureGridEnvironmentModel]
-            | GridEnvironmentAccessorDict
-            | None
-        ) = None,
-        agent_iterable_accessor: str | bool = "agents",
-        agent_accessor: (
-            Callable[[Any], GridAgentModelDict] | GridAgentAccessorDict | None
-        ) = None,
-    ):
-        # Handle environment_accessor
-        if environment_accessor is None:
-            env_acc = None
-        elif callable(environment_accessor):
-            env_acc = environment_accessor
-        else:
-            env_acc = make_grid_environment_accessor(**environment_accessor)
-
-        # Handle agent_accessor
-        if agent_accessor is None:
-            agent_acc = None
-        elif callable(agent_accessor):
-            agent_acc = agent_accessor
-        else:
-            agent_acc = make_grid_agent_accessor(**agent_accessor)
-
-        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc)
-
-    def _get_config_key(self, env: TEnv) -> str:
-        return "_tensnap_bind_accessor_config_grid"
-
-    def _get_agent_config_key(self, agent: T) -> str:
-        return "_tensnap_bind_accessor_config_grid"
-
-    def _get_default_agent_accessor(self) -> Callable[[Any], GridAgentModelDict]:
-        return make_grid_agent_accessor(id="id")
-
-    def _get_default_environment_accessor(
-        self,
-    ) -> Callable[[Any], PureGridEnvironmentModel]:
-        return make_grid_environment_accessor(id=self.id)
-
-    def _build_layered_binder(self) -> LayeredEnvironmentBinder[TEnv]:
-        builder = EnvironmentBindingBuilder(self.canonical_environment_type)
-        metadata = self._get_environment_metadata()
-        if metadata or self.agent_iterable_accessor is not None:
-            builder.add_grid_layer(
-                layer_id=self.canonical_grid_layer_id,
-                metadata=metadata,
-            )
-        if self.agent_iterable_accessor is not None:
-            builder.add_agent_layer(
-                layer_id=self.canonical_agent_layer_id,
-                item_iterable_accessor=self.agent_iterable_accessor,
-                item_accessor=self._builder_agent_item_accessor,
-            )
-        return builder.build(self.id, self.environment)
-
-
-class GraphEnvironmentBinder(UniformEnvironmentBinder[T, TEnv]):
-    canonical_environment_type: CanonicalEnvironmentType = "2d"
-    canonical_agent_layer_id = "agents"
-    canonical_agent_layer_type = "agent"
-    canonical_edge_layer_id = "edges"
-    canonical_edge_layer_type = "edge"
-
-    def __init__(
-        self,
-        id: str,
-        environment: TEnv,
-        environment_accessor: (
-            Callable[[Any], PureGraphEnvironmentModel]
-            | GraphEnvironmentAccessorDict
-            | None
-        ) = None,
-        agent_iterable_accessor: str | bool = "agents",
-        agent_accessor: (
-            Callable[[Any], GraphAgentModelDict] | GraphAgentAccessorDict | None
-        ) = None,
-        edge_accessor: (
-            Callable[[Any], GraphEdgeDict] | GraphEdgeAccessorNXDict | None
-        ) = None,
-    ):
-        # Handle environment_accessor
-        if environment_accessor is None:
-            env_acc = None
-        elif callable(environment_accessor):
-            env_acc = environment_accessor
-        else:
-            env_acc = make_graph_environment_accessor(**environment_accessor)
-
-        # Handle agent_accessor
-        if agent_accessor is None:
-            agent_acc = None
-        elif callable(agent_accessor):
-            agent_acc = agent_accessor
-        else:
-            agent_acc = make_graph_agent_accessor(**agent_accessor)
-
-        # Handle edge_accessor
-        self.is_nx_edge_accessor = False
-        if edge_accessor is None:
-            # Get from config or use default
-            self.edge_accessor = self._get_edge_accessor(environment)
-        elif callable(edge_accessor):
-            self.is_nx_edge_accessor = False
-            self.edge_accessor = edge_accessor
-        else:
-            self.is_nx_edge_accessor = True
-            self.edge_accessor = make_graph_edge_accessor_nx(**edge_accessor)
-
-        super().__init__(id, environment, env_acc, agent_iterable_accessor, agent_acc)
-
-    def _get_config_key(self, env: TEnv) -> str:
-        return "_tensnap_bind_accessor_config_graph"
-
-    def _get_agent_config_key(self, agent: T) -> str:
-        return "_tensnap_bind_accessor_config_graph"
-
-    def _get_default_agent_accessor(self) -> Callable[[Any], GraphAgentModelDict]:
-        return make_graph_agent_accessor(id="id")
-
-    def _get_default_environment_accessor(
-        self,
-    ) -> Callable[[Any], PureGraphEnvironmentModel]:
-        return make_graph_environment_accessor(id=self.id)
-
-    def _get_edges(self) -> list[GraphEdgeDict]:
-        model_dict = cast(dict[str, Any], self.environment_accessor(self.environment))
-        model_edges = model_dict.get("edges", None)
-        if self.is_nx_edge_accessor:
-            if isinstance(model_edges, nx.classes.reportviews.EdgeView):
-                return [self.edge_accessor(x) for x in model_edges(data=True)]
-            if isinstance(model_edges, list):
-                return cast(list[GraphEdgeDict], model_edges)
-            return []
-        if model_edges:
-            return [self.edge_accessor(x) for x in model_edges]
-        return []
-
-    def _build_layered_binder(self) -> LayeredEnvironmentBinder[TEnv]:
-        builder = EnvironmentBindingBuilder(self.canonical_environment_type)
-        if self.agent_iterable_accessor is not None:
-            builder.add_agent_layer(
-                layer_id=self.canonical_agent_layer_id,
-                item_iterable_accessor=self.agent_iterable_accessor,
-                item_accessor=self._builder_agent_item_accessor,
-            )
-
-        builder.add_edge_layer(
-            layer_id=self.canonical_edge_layer_id,
-            item_iterable_accessor=lambda _environment: self._get_edges(),
-            metadata=self._get_environment_metadata(),
-            dependency_layer_ids={"agent": self.canonical_agent_layer_id},
-        )
-        return builder.build(self.id, self.environment)
-
-    def _get_edge_accessor(self, env: TEnv) -> Callable[[Any], GraphEdgeDict]:
-        cfg_key = self._get_config_key(env)
-        if hasattr(env, cfg_key):
-            accessor_config = getattr(env, cfg_key)
-            if hasattr(accessor_config, "get_edge_accessor"):
-                if (
-                    hasattr(accessor_config, "edge_accessor")
-                    and accessor_config.edge_accessor is True
-                ):
-                    self.is_nx_edge_accessor = True
-                else:
-                    self.is_nx_edge_accessor = False
-                return cast(
-                    Callable[[Any], GraphEdgeDict],
-                    accessor_config.get_edge_accessor(),
-                )
-        self.is_nx_edge_accessor = True
-        return cast(Callable[[Any], GraphEdgeDict], make_graph_edge_accessor_nx())
-
-
-class GraphEnvironmentBinderNX:
-    canonical_environment_type: CanonicalEnvironmentType = "2d"
-    canonical_agent_layer_id = "agents"
-    canonical_agent_layer_type = "agent"
-    canonical_edge_layer_id = "edges"
-    canonical_edge_layer_type = "edge"
-
-    def __init__(
-        self,
-        id: str,
-        graph: nx.Graph | nx.DiGraph,
-        agent_accessor: (
-            Callable[[str | int, dict[str, Any]], GraphAgentModelDict]
-            | GraphAgentAccessorNXDict
-            | None
-        ) = None,
-        edge_accessor: (
-            Callable[[NXEdge], GraphEdgeDict] | GraphEdgeAccessorNXDict | None
-        ) = None,
-    ):
-        self.id = id
-        self.graph = graph
-        self.environment_accessor = make_graph_environment_accessor(id=id)
-
-        # Handle agent_accessor
-        if agent_accessor is None:
-            self.agent_accessor = make_graph_agent_accessor_nx()
-        elif callable(agent_accessor):
-            self.agent_accessor = agent_accessor
-        else:
-            # It's a TypedDict, create accessor from it
-            self.agent_accessor = make_graph_agent_accessor_nx(**agent_accessor)
-
-        if edge_accessor is None:
-            self.edge_accessor = make_graph_edge_accessor_nx(
-                directed=isinstance(graph, nx.DiGraph)
-            )
-        elif callable(edge_accessor):
-            self.edge_accessor = edge_accessor
-        else:
-            # It's a TypedDict, create accessor from it
-            self.edge_accessor = make_graph_edge_accessor_nx(**edge_accessor)
-
-    def _get_agents(self) -> list[dict[str, Any]]:
-        ret: list[dict[str, Any]] = []
-        for node_id, node_data in self.graph.nodes(data=True):
-            agent_dict = cast(dict[str, Any], self.agent_accessor(node_id, node_data))
-            ret.append(agent_dict)
-        return ret
-
-    def _get_edges(self) -> list[GraphEdgeDict]:
-        return [self.edge_accessor(x) for x in self.graph.edges(data=True)]
-
-    def get_state(self) -> EnvironmentState:
-        builder = EnvironmentBindingBuilder(self.canonical_environment_type)
-        builder.add_agent_layer(
-            layer_id=self.canonical_agent_layer_id,
-            item_iterable_accessor=lambda _graph: self.graph.nodes(data=True),
-            item_accessor=lambda item: cast(
-                dict[str, Any],
-                self.agent_accessor(item[0], item[1]),
-            ),
-        )
-        builder.add_edge_layer(
-            layer_id=self.canonical_edge_layer_id,
-            item_iterable_accessor=lambda _graph: self.graph.edges(data=True),
-            item_accessor=lambda item: cast(dict[str, Any], self.edge_accessor(item)),
-            dependency_layer_ids={"agent": self.canonical_agent_layer_id},
-        )
-        return builder.build(self.id, self.graph).get_state()
 
 
 # endregion

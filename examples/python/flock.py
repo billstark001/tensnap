@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from tensnap import (
     bind_agent,
-    bind_2d_env,
+    bind_env,
     bind_agent_layer,
     bind_grid_layer,
     bind_trajectory_layer,
@@ -78,7 +78,7 @@ class Bird:
 )
 @bind_agent_layer("birds", item_iterable_accessor="birds")
 @bind_grid_layer(width="width", height="height", coord_offset=True)
-@bind_2d_env()
+@bind_env()
 class FlockSimulation:
     """Main flocking simulation class"""
 

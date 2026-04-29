@@ -7,7 +7,7 @@ import mesa
 
 from tensnap import (
     bind_agent,
-    bind_2d_env,
+    bind_env,
     bind_agent_layer,
     bind_grid_layer,
     bind_trajectory_layer,
@@ -129,7 +129,7 @@ class Patch(mesa.Agent):  # type: ignore[misc]
 @bind_agent_layer("patches", item_iterable_accessor="get_patch_layer_agents", metadata={"z_index": 35})
 @bind_agent_layer("hunters", item_iterable_accessor="hunters")
 @bind_grid_layer(width="width", height="height", coord_offset=True)
-@bind_2d_env()
+@bind_env()
 class ForagingModel(mesa.Model):  # type: ignore[misc]
 
     grid: "mesa.space.SingleGrid"

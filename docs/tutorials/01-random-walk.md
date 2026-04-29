@@ -28,7 +28,7 @@ A simple simulation where agents perform random walks on a 2D grid. You'll be ab
 - Watch agents move in real-time
 - Track average agent distance from origin
 
-Protocol note: this tutorial uses `@bind_grid_environment()` and `GridEnvironmentBinder()` as convenient grid-oriented APIs. Under protocol v0.2 they now emit a canonical `2d` environment with explicit layers rather than a distinct backend `grid` environment type.
+Protocol note: this tutorial uses `@bind_2d_env()` and `LayeredEnvironmentBinder()` as convenient grid-oriented APIs. Under protocol v0.2 they now emit a canonical `2d` environment with explicit layers rather than a distinct backend `grid` environment type.
 
 ## Step 1: Project Setup
 
@@ -106,9 +106,9 @@ The `@bind_grid_agent()` decorator tells TenSnap which properties to sync automa
 Add environment metadata binding:
 
 ```python
-from tensnap import bind_grid_environment
+from tensnap import bind_2d_env
 
-@bind_grid_environment()
+@bind_2d_env()
 class RandomWalkSimulation:
     """Main simulation logic"""
     
@@ -148,14 +148,14 @@ class RandomWalkSimulation:
         return sum(distances) / len(distances)
 ```
 
-The `@bind_grid_environment()` decorator enables automatic environment synchronization.
+The `@bind_2d_env()` decorator enables automatic environment synchronization.
 
 ## Step 5: Set Up TenSnap Integration
 
 Import TenSnap components and create the scenario:
 
 ```python
-from tensnap import SimulationScenario, GridEnvironmentBinder, BindParametersConfig, chart, action
+from tensnap import SimulationScenario, LayeredEnvironmentBinder, BindParametersConfig, chart, action
 
 # Create simulation and scenario
 config = Config()
@@ -163,7 +163,7 @@ simulation = RandomWalkSimulation(config)
 scenario = SimulationScenario(port=8765, step_interval=0.1)
 
 # Create environment binder
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=simulation,
     agent_iterable_accessor='walkers'
@@ -277,7 +277,7 @@ for agent in grid.agents:
 
 ### Exercise 2: Add Trajectories
 
-Trajectory trails are now a dedicated `trajectory` layer instead of a `@bind_grid_environment()` flag. Add a layer with `dependency_layer_ids.agent = "agents"` and a default trail length in its metadata:
+Trajectory trails are now a dedicated `trajectory` layer instead of a `@bind_2d_env()` flag. Add a layer with `dependency_layer_ids.agent = "agents"` and a default trail length in its metadata:
 
 ```python
 {
@@ -353,7 +353,7 @@ Congratulations! You've built your first TenSnap simulation. Next, try:
 You've learned:
 
 ✅ Basic TenSnap project structure  
-✅ Decorator-based metadata binding with `@bind_grid_agent` and `@bind_grid_environment`  
+✅ Decorator-based metadata binding with `@bind_grid_agent` and `@bind_2d_env`  
 ✅ Using `SimulationScenario` for unified setup  
 ✅ Automatic parameter binding from dataclass config  
 ✅ Creating charts and actions with decorators  

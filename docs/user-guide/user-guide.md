@@ -34,7 +34,7 @@ TenSnap consists of three main components:
 ### Key Components
 
 - **Server**: `TenSnapServer` - Manages WebSocket connections and broadcasts updates
-- **Environment binders**: `GridEnvironmentBinder`, `GraphEnvironmentBinder`, `GraphEnvironmentBinderNX` - Connect your model objects to TenSnap's canonical wire format
+- **Environment binders**: `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder` - Connect your model objects to TenSnap's canonical wire format
 - **Agent accessors / decorators**: `make_grid_agent_accessor()`, `make_graph_agent_accessor_nx()`, `@bind_grid_agent()` - Describe which fields from your objects should be synchronized
 - **Parameters**: Configurable values exposed to the UI (sliders, dropdowns, toggles)
 - **Charts**: Real-time data visualization
@@ -81,10 +81,10 @@ class MySimulation:
 ### Step 3: Connect to TenSnap
 
 ```python
-from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
 
 # Bind your model to a canonical 2d environment
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=my_simulation,
     agent_iterable_accessor="agents",
@@ -119,10 +119,10 @@ if __name__ == "__main__":
 
 ### Grid Environments
 
-Grid-oriented simulations are usually connected through `GridEnvironmentBinder` plus an agent accessor or `@bind_grid_agent()` metadata:
+Grid-oriented simulations are usually connected through `LayeredEnvironmentBinder` plus an agent accessor or `@bind_grid_agent()` metadata:
 
 ```python
-from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
 
 class Bird:
     def __init__(self):
@@ -134,7 +134,7 @@ class Bird:
         self.icon = "circle"
         self.size = 10
 
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="world",
     environment=my_model,
     agent_iterable_accessor="birds",
@@ -182,18 +182,18 @@ Legacy local `background` shortcuts can still be convenient for quick experiment
 
 ### Graph Environments
 
-Graph-oriented simulations are typically backed by your own graph structure and exposed with `GraphEnvironmentBinder` or `GraphEnvironmentBinderNX`:
+Graph-oriented simulations are typically backed by your own graph structure and exposed with `LayeredEnvironmentBinder` or `LayeredEnvironmentBinder`:
 
 ```python
 import networkx as nx
-from tensnap import GraphEnvironmentBinderNX
+from tensnap import LayeredEnvironmentBinder
 
 graph = nx.Graph()
 graph.add_node("node_1", x=0, y=0, color="#3498db")
 graph.add_node("node_2", x=100, y=100, color="#e74c3c")
 graph.add_edge("node_1", "node_2", weight=1.0, color="#95a5a6")
 
-graph_env = GraphEnvironmentBinderNX(id="network", graph=graph)
+graph_env = LayeredEnvironmentBinder(id="network", graph=graph)
 ```
 
 ### Agent Properties
@@ -227,7 +227,7 @@ agent_state = {
 Binders re-read your source objects on every sync, so you usually update your own model objects directly instead of mutating a TenSnap-side mirror object:
 
 ```python
-from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
 
 class Bird:
     def __init__(self):
@@ -238,7 +238,7 @@ class Bird:
 
 bird = Bird()
 
-binder = GridEnvironmentBinder(
+binder = LayeredEnvironmentBinder(
     id="birds",
     environment={"birds": [bird], "width": 50, "height": 50},
     agent_iterable_accessor="birds",
@@ -604,11 +604,11 @@ updates = grid.generate_agent_updates()  # Only returns changed agents
 Display multiple environments simultaneously:
 
 ```python
-from tensnap import GridEnvironmentBinder
+from tensnap import LayeredEnvironmentBinder
 
 # Create multiple binders
-habitat = GridEnvironmentBinder(id="habitat", environment=habitat_model)
-resource_map = GridEnvironmentBinder(id="resources", environment=resource_model)
+habitat = LayeredEnvironmentBinder(id="habitat", environment=habitat_model)
+resource_map = LayeredEnvironmentBinder(id="resources", environment=resource_model)
 
 # Register both
 server.add_environment(habitat)

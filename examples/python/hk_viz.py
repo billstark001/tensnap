@@ -10,8 +10,9 @@ import import_config  # noqa: F401
 
 from tensnap import (
     chart,
-    GraphEnvironmentBinderNX,
+    EnvironmentBindingBuilder,
     make_graph_agent_accessor_nx,
+    make_graph_edge_accessor_nx,
     SimulationScenario,
 )
 
@@ -23,12 +24,24 @@ server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port)
 
 model = DiscreteHKModel(n_agents=50, confidence_bound=0.3, k_random=3)
-# GraphEnvironmentBinderNX is a NetworkX-friendly shortcut; protocol sync now uses canonical 2d + edge-layer state.
-graph_env = GraphEnvironmentBinderNX(
-    id="opinion_network",
-    graph=model.graph,
-    agent_accessor={"color": True, "size": True, "auto_collect_data": True},
+graph_builder = EnvironmentBindingBuilder(environment_type="2d")
+graph_agent_accessor = make_graph_agent_accessor_nx(
+    color=True,
+    size=True,
+    auto_collect_data=True,
 )
+graph_builder.add_agent_layer(
+    layer_id="agents",
+    item_iterable_accessor=lambda env: env.graph.nodes(data=True),
+    item_accessor=lambda item: graph_agent_accessor(item[0], item[1]),
+)
+graph_builder.add_edge_layer(
+    layer_id="edges",
+    item_iterable_accessor=lambda env: env.graph.edges(data=True),
+    item_accessor=make_graph_edge_accessor_nx(),
+    dependency_layer_ids={"agent": "agents"},
+)
+graph_env = graph_builder.build(id="opinion_network", environment=model)
 
 
 # Custom update function for automatic visualization updates
@@ -55,7 +68,6 @@ def update_hk_visualization(hk_model: DiscreteHKModel) -> None:
 
 def init():
     model.init()
-    graph_env.graph = model.graph
     update_hk_visualization(model)
 
 

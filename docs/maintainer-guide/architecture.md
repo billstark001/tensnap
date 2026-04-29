@@ -24,7 +24,7 @@ TenSnap separates simulation logic, communication, and visualization:
 - **Real-time**: Optimized for fast updates with many agents
 - **Flexible APIs**: High-level decorators to low-level protocol access
 
-Protocol v0.2 note: Python-side `GridEnvironmentBinder` and `GraphEnvironmentBinder*` are now compatibility-oriented shortcut APIs. The canonical synchronized state is always `uniform` or `2d` plus explicit layers; graph edges are no longer treated as environment-level payload.
+Protocol v0.2 note: Python-side `LayeredEnvironmentBinder` and `LayeredEnvironmentBinder*` are now compatibility-oriented shortcut APIs. The canonical synchronized state is always `uniform` or `2d` plus explicit layers; graph edges are no longer treated as environment-level payload.
 
 ## API Levels
 
@@ -33,7 +33,7 @@ Protocol v0.2 note: Python-side `GridEnvironmentBinder` and `GraphEnvironmentBin
 Metadata binding with class decorators for automatic synchronization:
 
 ```python
-from tensnap import SimulationScenario, bind_grid_agent, bind_grid_environment, chart
+from tensnap import SimulationScenario, bind_grid_agent, bind_2d_env, chart
 
 # Define agent with metadata binding
 @bind_grid_agent(heading=True, color=True, size=True)
@@ -47,7 +47,7 @@ class Bird:
         self.size = 5
 
 # Define environment with metadata binding
-@bind_grid_environment(coord_offset=True)
+@bind_2d_env(coord_offset=True)
 class FlockSimulation:
     coord_offset = "float"
     
@@ -62,7 +62,7 @@ class FlockSimulation:
 
 # Unified scenario interface
 scenario = SimulationScenario(port=8765)
-scenario.add_environment(GridEnvironmentBinder(id="main", environment=model, agent_iterable_accessor='birds'))
+scenario.add_environment(LayeredEnvironmentBinder(id="main", environment=model, agent_iterable_accessor='birds'))
 scenario.add_parameters(config)  # Auto-detect from dataclass
 scenario.add_charts(globals())   # Auto-detect @chart decorators
 ```
@@ -72,9 +72,9 @@ scenario.add_charts(globals())   # Auto-detect @chart decorators
 Explicit environment configuration with accessor functions:
 
 ```python
-from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
 
-binder = GridEnvironmentBinder(
+binder = LayeredEnvironmentBinder(
     id="main",
     environment=model,
     agent_accessor=make_grid_agent_accessor(heading=True, color=True)
@@ -143,14 +143,14 @@ Agent decorators:
 
 Environment decorators:
 
-- `@bind_grid_environment()` - Grid-oriented shortcut that lowers to a canonical `2d` environment with layer metadata
-- `@bind_graph_environment()` - Graph-oriented shortcut that lowers to a canonical `2d` environment with an explicit edge layer
+- `@bind_2d_env()` - Grid-oriented shortcut that lowers to a canonical `2d` environment with layer metadata
+- `@bind_2d_env()` - Graph-oriented shortcut that lowers to a canonical `2d` environment with an explicit edge layer
 - `@bind_uniform_environment()` - Basic environments
 
 **Binder Classes**: Explicit adapters connecting user models to TenSnap protocol.
 
-- `GridEnvironmentBinder` - Grid-oriented convenience wrapper over a canonical `2d` environment
-- `GraphEnvironmentBinderNX` - NetworkX graph integration via canonical `2d` + edge-layer state
+- `LayeredEnvironmentBinder` - Grid-oriented convenience wrapper over a canonical `2d` environment
+- `LayeredEnvironmentBinder` - NetworkX graph integration via canonical `2d` + edge-layer state
 - `UniformEnvironmentBinder` - Simple agent list
 
 Binders accept environment objects and use accessor functions/metadata to extract agent/environment properties. Internally they now expose canonical layer-oriented state to the transport layer, even when the public API still uses grid/graph terminology.
@@ -158,7 +158,7 @@ Binders accept environment objects and use accessor functions/metadata to extrac
 **Mesa 3 Integration**: Dedicated binding support for Mesa 3 framework.
 
 - `@bind_mesa_grid_agent()` - Mesa agent metadata binding
-- `@bind_mesa_grid_environment()` - Mesa model metadata binding
+- `@bind_2d_env()` - Mesa model metadata binding
 - `@bind_datacollector()` - Automatic chart generation from Mesa DataCollector
 - `MesaSimulationHandler` - Specialized handler for Mesa models with automatic initialization
 

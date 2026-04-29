@@ -15,11 +15,13 @@ from enum import IntEnum
 
 
 from tensnap import (
+    bind_env,
     bind_parameters,
+    bind_agent_layer,
+    bind_edge_layer,
+    bind_grid_layer,
     bind_grid_agent,
     bind_uniform_agent,
-    bind_grid_environment,
-    bind_graph_environment,
     bind_graph_agent,
     chart,
 )
@@ -140,7 +142,9 @@ class WellMixedEnvironment(Environment):
         """
         return [i for i in range(self.num_agents) if i != agent_id]
 
-@bind_grid_environment(width="rows", height="cols")
+@bind_env()
+@bind_grid_layer(width="rows", height="cols")
+@bind_agent_layer("agents", item_iterable_accessor="agents")
 @bind_parameters(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
@@ -191,7 +195,14 @@ class GridEnvironment(Environment):
 
         return neighbors
 
-@bind_graph_environment(edges="graph.edges")
+@bind_env()
+@bind_agent_layer("agents", item_iterable_accessor="agents")
+@bind_edge_layer(
+    "edges",
+    item_iterable_accessor=lambda env: env.graph.edges(data=True),
+    edge_accessor=True,
+    dependency_layer_ids={"agent": "agents"},
+)
 @bind_parameters(include=["num_agents", "connection_prob"])
 class ERNetworkEnvironment(Environment):
     """

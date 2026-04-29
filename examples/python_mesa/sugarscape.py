@@ -5,7 +5,7 @@ from mesa.space import MultiGrid
 
 import numpy as np
 
-from tensnap import bind_mesa_grid_agent, bind_datacollector, bind_mesa_grid_environment
+from tensnap import bind_mesa_grid_agent, bind_datacollector
 
 
 @bind_mesa_grid_agent(color=True)
@@ -139,7 +139,6 @@ def sugar_field_circular(width: int, height: int):
 
 
 @bind_datacollector()
-@bind_mesa_grid_environment()
 class Sugarscape(Model):
 
     def __init__(

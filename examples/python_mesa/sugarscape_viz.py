@@ -9,8 +9,8 @@ import import_config  # noqa: F401
 
 from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
-from tensnap.bindings.mesa.handler import MesaGridEnvironmentBinder
-from tensnap.models import EnvironmentLayerState, EnvironmentState
+from tensnap.models import EnvironmentBindingBuilder
+from tensnap.models.agent import make_grid_agent_accessor
 
 from sugarscape import SugarAgent, Sugarscape
 
@@ -24,35 +24,6 @@ handler: MesaSimulationHandler | None = None
 MODEL_WIDTH = 50
 MODEL_HEIGHT = 50
 AGENT_COUNT = 400
-
-
-class SugarscapeEnvironmentBinder(MesaGridEnvironmentBinder):
-    """Render the sugar field as a dedicated agent layer beneath the moving Mesa agents."""
-
-    environment: Sugarscape
-
-    def get_state(self) -> EnvironmentState:
-        base_state = super().get_state()
-        trajectory_layer: EnvironmentLayerState = {
-            "layer_id": "trails",
-            "layer_type": "trajectory",
-            "data": {
-                "dependency_layer_ids": {"agent": "agents"},
-                "length": 2,
-            },
-        }
-        sugar_layer: EnvironmentLayerState = {
-            "layer_id": "sugar",
-            "layer_type": "agent",
-            "agents": self.environment.get_sugar_layer_agents(),
-        }
-        return {
-            "id": base_state["id"],
-            "type": base_state["type"],
-            "layers": [sugar_layer, trajectory_layer, *base_state["layers"]],
-        }
-
-
 class SugarscapeSimulationHandler(MesaSimulationHandler):
     async def on_registered(self, scenario: SimulationScenario) -> None:
         first_register = scenario is not self.scenario
@@ -63,11 +34,34 @@ class SugarscapeSimulationHandler(MesaSimulationHandler):
 
         assert self.env_binder is not None
         scenario.remove_environment(self.env_binder.id)
-        self.env_binder = SugarscapeEnvironmentBinder(
-            self.model.__class__.__name__,
-            self.model,
-            agent_iterable_accessor=self.agent_iterable_accessor,
+        builder = EnvironmentBindingBuilder(environment_type="2d")
+        builder.add_agent_layer(
+            layer_id="sugar",
+            item_iterable_accessor=lambda env: env.sugar_patches,
+            item_accessor=lambda patch: patch.to_agent_state(),
         )
+        builder.add_trajectory_layer(
+            layer_id="trails",
+            metadata={"length": 2},
+            dependency_layer_ids={"agent": "agents"},
+        )
+        builder.add_grid_layer(
+            metadata_accessor=lambda env: {
+                "width": env.grid.width,
+                "height": env.grid.height,
+            }
+        )
+        builder.add_agent_layer(
+            layer_id="agents",
+            item_iterable_accessor=lambda env: env.agents,
+            item_accessor=make_grid_agent_accessor(
+                id="unique_id",
+                x="pos[0]",
+                y="pos[1]",
+                color=True,
+            ),
+        )
+        self.env_binder = builder.build(self.model.__class__.__name__, self.model)
         scenario.add_environment(self.env_binder)
 
 

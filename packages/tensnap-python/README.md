@@ -15,13 +15,13 @@ import asyncio
 
 from tensnap import (
     BindParametersConfig,
-    GridEnvironmentBinder,
+    LayeredEnvironmentBinder,
     SimulationScenario,
 )
 
 
 scenario = SimulationScenario(port=8765)
-grid = GridEnvironmentBinder(id="main", environment=model)
+grid = LayeredEnvironmentBinder(id="main", environment=model)
 
 
 async def main() -> None:

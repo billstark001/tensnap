@@ -31,7 +31,13 @@ def clone_environment_state(state: EnvironmentState) -> EnvironmentState:
 
 
 def layer_metadata(layer: EnvironmentLayerState) -> dict[str, Any]:
-    return deepcopy(cast(dict[str, Any], layer.get("data", {})))
+    metadata = deepcopy(cast(dict[str, Any], layer.get("data", {})))
+    metadata.pop("dependency_layer_ids", None)
+    return metadata
+
+
+def layer_dependency_layer_ids(layer: EnvironmentLayerState) -> dict[str, str]:
+    return deepcopy(cast(dict[str, str], layer.get("dependency_layer_ids", {})))
 
 
 def layer_agents(layer: EnvironmentLayerState) -> list[AgentState]:

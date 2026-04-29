@@ -99,9 +99,11 @@ Here's a simple agent-based model with TenSnap:
 ```python
 from tensnap import (
     SimulationScenario,
-    GridEnvironmentBinder,
+    LayeredEnvironmentBinder,
+    bind_2d_env,
+    bind_grid_layer,
+    bind_agent_layer,
     bind_grid_agent,
-    bind_grid_environment,
     chart,
     action,
 )
@@ -126,7 +128,9 @@ class Agent:
         self.heading = 0
 
 # Define model with metadata binding
-@bind_grid_environment()
+@bind_2d_env()
+@bind_grid_layer(width="width", height="height")
+@bind_agent_layer("agents", item_iterable_accessor="agents")
 class Model:
     def __init__(self, config):
         self.config = config
@@ -153,10 +157,9 @@ model = Model(config)
 scenario = SimulationScenario(port=8765)
 
 # Add environment
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=model,
-    agent_iterable_accessor='agents'
 )
 scenario.add_environment(grid)
 

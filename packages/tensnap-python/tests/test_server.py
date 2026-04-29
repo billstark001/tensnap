@@ -14,7 +14,7 @@ from tensnap.server import (
     ClientToServerMessageType,
 )
 from tensnap.bindings.basic import NumberParameter, ActionMetadata, ChartGroupMetadata
-from tensnap.models import GridEnvironmentBinder, GraphEnvironmentBinder
+from tensnap.models import EnvironmentBindingBuilder
 
 
 class TestMessageEncoding:
@@ -293,7 +293,11 @@ class TestTenSnapServer:
         mock_client.state = State.OPEN
         server.clients.add(mock_client)
 
-        await server.update_layer_metadata("env1", "grid", {"x": 10, "y": 20})
+        await server.update_layer_metadata(
+            "env1",
+            "grid",
+            {"x": 10, "y": 20, "dependency_layer_ids": {"agent": "agents"}},
+        )
 
         await server._queue.flush()
 
@@ -308,18 +312,18 @@ class TestTenSnapServer:
         }
 
     @pytest.mark.asyncio
-    async def test_update_layer_agents(self, server: TenSnapServer):
+    async def test_update_layer_items(self, server: TenSnapServer):
         """Layer-scoped agent helpers should preserve the caller's layer id."""
         mock_client = AsyncMock()
         mock_client.state = State.OPEN
         server.clients.add(mock_client)
 
-        await server.update_layer_agents(
+        await server.update_layer_items(
             "env1",
             "agents",
             creates=[{"id": 1, "x": 1}],
             updates=[{"id": 1, "x": 2}],
-            deletes=[1],
+            deletes=[{"id":1}],
         )
         await server._queue.flush()
 
@@ -335,13 +339,13 @@ class TestTenSnapServer:
         assert all(msg["payload"]["layer_id"] == "agents" for msg in sent_messages)
 
     @pytest.mark.asyncio
-    async def test_update_layer_edges(self, server: TenSnapServer):
+    async def test_update_layer_items_edge_payload(self, server: TenSnapServer):
         """Layer-scoped edge helpers should preserve the caller's layer id."""
         mock_client = AsyncMock()
         mock_client.state = State.OPEN
         server.clients.add(mock_client)
 
-        await server.update_layer_edges(
+        await server.update_layer_items(
             "env1",
             "edges",
             creates=[{"source": 1, "target": 2}],
@@ -424,6 +428,56 @@ class TestTenSnapServer:
         assert sent_messages[1]["payload"] == {"id": "env1", "type": "2d"}
 
     @pytest.mark.asyncio
+    async def test_update_environment_state_recreates_layer_when_dependencies_change(
+        self, server: TenSnapServer
+    ):
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        server.clients.add(mock_client)
+
+        previous_state = {
+            "id": "env1",
+            "type": "2d",
+            "layers": [
+                {
+                    "layer_id": "edges",
+                    "layer_type": "edge",
+                    "dependency_layer_ids": {"agent": "agents-a"},
+                    "edges": [{"source": 1, "target": 2}],
+                }
+            ],
+        }
+        current_state = {
+            "id": "env1",
+            "type": "2d",
+            "layers": [
+                {
+                    "layer_id": "edges",
+                    "layer_type": "edge",
+                    "dependency_layer_ids": {"agent": "agents-b"},
+                    "edges": [{"source": 1, "target": 2}],
+                }
+            ],
+        }
+
+        await server.update_environment_state(current_state, previous_state)
+        await server._queue.flush()
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_client.send.await_args_list
+        ]
+
+        assert [msg["type"] for msg in sent_messages] == [
+            "env_layer_delete",
+            "env_layer_create",
+            "item_create",
+        ]
+        assert sent_messages[1]["payload"]["dependency_layer_ids"] == {
+            "agent": "agents-b"
+        }
+        assert "data" not in sent_messages[1]["payload"]
+
+    @pytest.mark.asyncio
     async def test_state_sync_replays_layered_graph_environment(
         self, server: TenSnapServer
     ):
@@ -437,10 +491,20 @@ class TestTenSnapServer:
                 ]
                 self.agents = [{"id": 1}, {"id": 2}, {"id": 3}]
 
-        binder = GraphEnvironmentBinder(
-            id="graph_env",
-            environment=GraphEnv(),
-            agent_accessor=lambda agent: agent,
+        binder = (
+            EnvironmentBindingBuilder(environment_type="2d")
+            .add_agent_layer(
+                layer_id="agents",
+                item_iterable_accessor=lambda env: env.agents,
+                item_accessor=lambda agent: agent,
+            )
+            .add_edge_layer(
+                layer_id="edges",
+                item_iterable_accessor=lambda env: env.edges,
+                item_accessor=lambda edge: edge,
+                dependency_layer_ids={"agent": "agents"},
+            )
+            .build(id="graph_env", environment=GraphEnv())
         )
         server.add_environment(binder)
 
@@ -482,10 +546,16 @@ class TestTenSnapServer:
             and len(msg["payload"]["items"]) == 2
             for msg in sent_messages
         )
-        assert any(
-            msg["type"] == "env_layer_create" and msg["payload"]["layer_type"] == "edge"
+        edge_layer_create = next(
+            msg
             for msg in sent_messages
+            if msg["type"] == "env_layer_create"
+            and msg["payload"]["layer_type"] == "edge"
         )
+        assert edge_layer_create["payload"]["dependency_layer_ids"] == {
+            "agent": "agents"
+        }
+        assert "data" not in edge_layer_create["payload"]
 
     @pytest.mark.asyncio
     async def test_publish_asset_uses_data_url_in_json_mode(

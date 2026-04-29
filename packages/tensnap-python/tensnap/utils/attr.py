@@ -1,7 +1,16 @@
 import keyword
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Dict, List, Tuple, TypeAlias, TypeVar
+
+SingleGetter: TypeAlias = Callable[[Any], Any]
+SingleSetter: TypeAlias = Callable[[Any, Any], None]
+
+T = TypeVar("T", bound=str)
+
+Accessor: TypeAlias = Callable[[Any], Dict[T, Any]]
+AccessorDict: TypeAlias = Dict[T, str]
+
 
 # 验证Python标识符的正则表达式 (支持嵌套字段)
 # 支持格式: identifier, identifier.identifier, identifier[0], identifier.identifier[0]等
@@ -37,7 +46,7 @@ dict_accessor_template_suffix = """
 
 
 def make_raw_dict_accessor(
-    fields: list[str], map_fields: dict[str, str], default_values: dict[str, Any]
+    fields: List[T], map_fields: AccessorDict[T], default_values: Dict[T, Any]
 ) -> str:
 
     for field in fields:
@@ -81,8 +90,8 @@ def make_raw_dict_accessor(
 
 
 def make_dict_accessor(
-    fields: list[str], map_fields: dict[str, str], default_values: dict[str, Any]
-) -> Callable[[Any], dict[str, Any]]:
+    fields: List[T], map_fields: AccessorDict[T], default_values: Dict[T, Any]
+) -> Callable[[Any], Dict[T, Any]]:
     """
     Create a function that accesses specified fields from a dictionary,
     applying field mapping and default values.
@@ -117,12 +126,13 @@ def get_{id_name_for_func}({"" if bind_target is not None else "obj"}):
 def make_identifier_getter(
     id_name: str,
     bind_target: Any | None = None,
-) -> Callable[[Any], Any]:
+) -> SingleGetter:
     """
     Create getter and setter functions for a given attribute name.
 
     Args:
-        attr_name: Name of the attribute to access
+        id_name: Name of the attribute to access
+        bind_target: Optional object to bind the getter to (if None, getter will require an object argument)
 
     Returns:
         A tuple containing the getter and setter functions.
@@ -143,12 +153,13 @@ def make_identifier_getter(
 def make_identifier_getter_and_setter(
     id_name: str,
     bind_target: Any | None = None,
-) -> tuple[Callable[[Any], Any], Callable[[Any, Any], None]]:
+) -> Tuple[SingleGetter, SingleSetter]:
     """
     Create getter and setter functions for a given attribute name.
 
     Args:
-        attr_name: Name of the attribute to access
+        id_name: Name of the attribute to access
+        bind_target: Optional object to bind the getter and setter to (if None, functions will require an object argument)
 
     Returns:
         A tuple containing the getter and setter functions.
@@ -175,7 +186,7 @@ def set_{id_name_for_func}({"" if bind_target is not None else "obj, "}value):
 def make_dict_getter_and_setter(
     field_name: str,
     bind_target: dict | None = None,
-) -> tuple[Callable[[dict[str, Any]], Any], Callable[[dict[str, Any], Any], None]]:
+) -> Tuple[SingleGetter, SingleSetter]:
     """
     Create getter and setter functions for a given dictionary key.
 

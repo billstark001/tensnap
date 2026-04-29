@@ -16,13 +16,13 @@ Complete reference documentation for the TenSnap Python bindings after the major
 
 The recommended way to use TenSnap is through the `SimulationScenario` API, which provides a high-level interface for managing simulations.
 
-`GridEnvironmentBinder`, `GraphEnvironmentBinder`, `GraphEnvironmentBinderNX`, `@bind_grid_environment()`, and `@bind_graph_environment()` remain convenient local binding APIs. On the wire they now lower to the protocol v0.2 canonical model: environment `type` is always `uniform` or `2d`, while grid and graph semantics are expressed through layers.
+`LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, `@bind_2d_env()`, and `@bind_2d_env()` remain convenient local binding APIs. On the wire they now lower to the protocol v0.2 canonical model: environment `type` is always `uniform` or `2d`, while grid and graph semantics are expressed through layers.
 
 ```python
 import asyncio
 from tensnap import (
     SimulationScenario,
-    GridEnvironmentBinder,
+    LayeredEnvironmentBinder,
     make_grid_agent_accessor,
     BindParametersConfig,
     chart,
@@ -40,7 +40,7 @@ config = Config()
 scenario = SimulationScenario(port=8765)
 
 # Add environment
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=my_model,
     agent_accessor=make_grid_agent_accessor(heading=True, color=True)
@@ -108,12 +108,12 @@ scenario = SimulationScenario(
 
 Register an environment binder with the scenario.
 
-For protocol v0.2, environment binders are transport-side sugar. `GridEnvironmentBinder` emits a canonical `2d` environment with a grid layer; graph binders emit a canonical `2d` environment with explicit agent and edge layers.
+For protocol v0.2, environment binders are transport-side sugar. `LayeredEnvironmentBinder` emits a canonical `2d` environment with a grid layer; graph binders emit a canonical `2d` environment with explicit agent and edge layers.
 
 ```python
-from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
 
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=my_simulation,
     agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True)
@@ -434,9 +434,9 @@ server = TenSnapServer(
 Register an environment with the server.
 
 ```python
-from tensnap import GridEnvironmentBinder
+from tensnap import LayeredEnvironmentBinder
 
-binder = GridEnvironmentBinder(id="main", environment=my_model)
+binder = LayeredEnvironmentBinder(id="main", environment=my_model)
 server.add_environment(binder)
 ```
 
@@ -651,7 +651,7 @@ await server.log_message("error", "Critical error occurred")
 
 TenSnap's Python package currently exposes low-level model shapes as TypedDicts and accessor outputs. It does **not** expose mutable `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel` runtime classes.
 
-For most users, `GridEnvironmentBinder`, `GraphEnvironmentBinder`, `GraphEnvironmentBinderNX`, and the decorator/accessor helpers are the correct public API.
+For most users, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, and the decorator/accessor helpers are the correct public API.
 
 ### Agent State Dictionaries
 
@@ -788,7 +788,7 @@ This keeps the wire model inspectable and lets you stack resource, agent, and ed
 
 ### PureGraphEnvironmentModel
 
-Low-level graph metadata is also represented as a plain dictionary. In practice, you will usually bind your graph with `GraphEnvironmentBinder` or `GraphEnvironmentBinderNX` instead of constructing this shape by hand.
+Low-level graph metadata is also represented as a plain dictionary. In practice, you will usually bind your graph with `LayeredEnvironmentBinder` or `LayeredEnvironmentBinder` instead of constructing this shape by hand.
 
 ```python
 graph_meta = {
@@ -838,16 +838,16 @@ All Python environment binders now target the same protocol v0.2 ownership model
 
 The grid and graph binder names are retained as convenience wrappers around that canonical representation.
 
-### GridEnvironmentBinder
+### LayeredEnvironmentBinder
 
 Connects a grid-based simulation model to TenSnap, automatically syncing agent states. On the wire this becomes a canonical `2d` environment with a `grid` layer plus a separate `agent` layer.
 
 Trajectory rendering is no longer configured through `trajectory_length` or `trajectory_color` on the binder or model. If you need trails, emit an explicit `trajectory` layer with `data.dependency_layer_ids = {"agent": "agents"}` and optional default `length`, `width`, and `color` metadata.
 
 ```python
-from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
 
-grid = GridEnvironmentBinder(
+grid = LayeredEnvironmentBinder(
     id="main",
     environment=simulation_model,
     agent_accessor=make_grid_agent_accessor(
@@ -1029,7 +1029,7 @@ scenario.add_actions(globals())
 2. **`SimulationScenario`**: New high-level API that combines server + simulation loop
 3. **Automatic parameter binding**: Use `add_parameters()` with dataclasses or objects
 4. **`BindParametersConfig`**: Fine-grained control over parameter auto-detection
-5. **Environment binders**: New `GridEnvironmentBinder` for automatic agent syncing
+5. **Environment binders**: New `LayeredEnvironmentBinder` for automatic agent syncing
 6. **Chart colors**: Now specified in decorator, not just metadata
 7. **Type system**: Stronger typing with `NumberParameter`, `EnumParameter`, etc.
 

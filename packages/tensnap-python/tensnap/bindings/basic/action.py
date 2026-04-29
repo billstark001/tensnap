@@ -1,19 +1,13 @@
 # tensnap/bindings/basic/action.py
 """Action decorators and metadata"""
 
-from asyncio import iscoroutinefunction
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
-from inspect import ismethod
+from inspect import ismethod, iscoroutinefunction
 from typing import Any, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-
-# ---------------------------------------------------------------------------
-# ActionMetadata — standalone Action entity (v0.2)
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -54,11 +48,6 @@ class ActionMetadata:
         )
 
 
-# ---------------------------------------------------------------------------
-# @action decorator
-# ---------------------------------------------------------------------------
-
-
 def action(
     id: str | None = None,
     label: str | None = None,
@@ -74,11 +63,10 @@ def action(
             if iscoroutinefunction(func_orig):
 
                 @wraps(func_orig)
-                async def method_wrapper(*args: Any, **kwargs: Any) -> Any:
+                async def method_wrapper(*args: Any, **kwargs: Any) -> Any:  # type: ignore
                     return await func_orig(*args, **kwargs)
 
                 wrapped_func = method_wrapper
-
             else:
 
                 @wraps(func_orig)
@@ -103,11 +91,6 @@ def action(
         return cast(F, wrapped_func)
 
     return decorator
-
-
-# ---------------------------------------------------------------------------
-# Namespace scanner
-# ---------------------------------------------------------------------------
 
 
 def get_action_metadata_from_namespace(
