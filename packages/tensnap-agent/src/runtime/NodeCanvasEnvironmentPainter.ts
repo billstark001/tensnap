@@ -13,7 +13,6 @@ import {
   isBuiltinAgentIcon,
   type BuiltinAgentIcon,
   type GraphEdge,
-  type TrajectoryPoint,
 } from '../../../core/src/environment/types/agent';
 import type { Viewport } from '../../../core/src/environment/types/viewport';
 import { isCssColor } from '../../../core/src/environment/utils/color';

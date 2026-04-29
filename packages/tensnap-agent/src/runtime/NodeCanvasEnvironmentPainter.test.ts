@@ -46,6 +46,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
               id: '',
               layerType: 'agent',
               metadata: { width: 8, height: 6, coord_offset: 'int', background: '#f8fafc' },
+              dependencyLayerIds: {},
               storageSnapshot: {
                 agents: [
                   { id: 'bird-1', x: 1, y: 2, color: '#ef4444', icon: 'circle', size: 0.8 },
@@ -103,6 +104,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
                 coord_offset: 'int',
                 background: svgDataUrl,
               },
+              dependencyLayerIds: {},
               storageSnapshot: {
                 agents: [],
                 trajectories: [],
@@ -151,6 +153,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
                 coord_offset: 'int',
                 background: onePixelPngBase64,
               },
+              dependencyLayerIds: {},
               storageSnapshot: {
                 agents: [],
                 trajectories: [],
@@ -187,12 +190,14 @@ describe('NodeCanvasEnvironmentPainter', () => {
               id: 'agents-int',
               layerType: 'agent',
               metadata: { coord_offset: 'int' },
+              dependencyLayerIds: {},
               storageSnapshot: { agents: [{ id: 'a', x: 0, y: 0 }], trajectories: [] },
             },
             {
               id: 'agents-float',
               layerType: 'agent',
               metadata: { coord_offset: 'float' },
+              dependencyLayerIds: {},
               storageSnapshot: { agents: [{ id: 'b', x: 1, y: 1 }], trajectories: [] },
             },
           ],
@@ -225,12 +230,14 @@ describe('NodeCanvasEnvironmentPainter', () => {
               id: 'grid',
               layerType: 'grid',
               metadata: { width: 40, height: 40 },
+              dependencyLayerIds: {},
               storageSnapshot: {},
             },
             {
               id: 'trails',
               layerType: 'trajectory',
               metadata: { width: 3, color: '#f59e0b' },
+              dependencyLayerIds: {},
               storageSnapshot: {
                 config: { length: 5, width: 3, color: '#f59e0b' },
                 configs: [],

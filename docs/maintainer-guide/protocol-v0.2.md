@@ -20,7 +20,7 @@ v0.1 used a single `environment_update` message embedding agent lists, grid conf
 
 ### Agent and edge lifecycle
 
-v0.1 combined create / update / delete into `agent_update` and `agent_batch_update` with an `operation` discriminator field. v0.2 canonicalizes layer items behind `item_create`, `item_update`, and `item_delete`. The legacy `agent_*` and `edge_*` families remain as sugar, but they lower to the same item router and are no longer the normative protocol surface for new integrations.
+v0.1 combined create / update / delete into `agent_update` and `agent_batch_update` with an `operation` discriminator field. v0.2 canonicalizes all layer-entity lifecycle through `item_create`, `item_update`, and `item_delete`. Legacy `agent_*` / `edge_*` message families are removed from the protocol.
 
 ### Time and metadata
 
@@ -206,12 +206,6 @@ type SimulatorToRendererMessageType =
   | 'item_create'
   | 'item_update'
   | 'item_delete'
-  | 'agent_create'
-  | 'agent_update'
-  | 'agent_delete'
-  | 'edge_create'
-  | 'edge_update'
-  | 'edge_delete'
   | 'param_create'
   | 'param_update'
   | 'param_delete'
@@ -349,6 +343,7 @@ Creates and updates environment-local layers.
     env_id: string;
     layer_id: string;
     layer_type: string;
+    dependency_layer_ids?: Record<string, string>;
     data?: Record<string, unknown>;
   }
 }
@@ -374,6 +369,10 @@ Creates and updates environment-local layers.
   }
 }
 ```
+
+`dependency_layer_ids` is create-time layer topology, not mutable metadata. If a
+layer needs different dependencies, the simulator must recreate that layer (or
+replace the enclosing environment) instead of sending `env_layer_update`.
 
 Layer metadata is whole-object metadata, not incremental entity diffs.
 
@@ -420,7 +419,7 @@ For built-in layers:
 - `edge` items are keyed by `(source, target)`
 - `trajectory` items are keyed by `id`
 
-`agent_create` / `agent_update` / `agent_delete` and `edge_create` / `edge_update` / `edge_delete` are compatibility sugar over these same item operations.
+Agent and edge entities are synchronized only through item operations in v0.2.
 
 ### `param_create` / `param_update` / `param_delete`
 
@@ -719,8 +718,8 @@ Each layer type may declare:
 Built-in registrations currently include:
 
 - `agent` — owns agent items; metadata includes `width`, `height`, `coord_offset`
-- `edge` — owns edge items; metadata includes force-layout parameters (`linkDistance`, `chargeStrength`, etc.) and requires `data.dependency_layer_ids.agent`
-- `trajectory` — owns trajectory config items; metadata includes optional global `length`, `width`, `color` and requires `data.dependency_layer_ids.agent`
+- `edge` — owns edge items; metadata includes force-layout parameters (`linkDistance`, `chargeStrength`, etc.) and requires `dependency_layer_ids.agent` on `env_layer_create`
+- `trajectory` — owns trajectory config items; metadata includes optional global `length`, `width`, `color` and requires `dependency_layer_ids.agent` on `env_layer_create`
 - `grid` — grid coordinate frame; metadata includes `xOrigin`, `xUnit`, `xInterval`, `xRatio`, `yOrigin`, `yUnit`, `yInterval`, `yRatio`, `strokeColor`
 - `background` — background image layer; metadata includes `background` as either a CSS color or explicit URL/data URL string, a `Uint8Array` with image/NPY bytes, or an asset reference `{ asset_id, interpolation? }`, plus optional layer-level `interpolation` (`'nearest'` | `'linear'`)
 

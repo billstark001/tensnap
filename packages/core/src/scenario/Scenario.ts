@@ -9,9 +9,6 @@ import type {
   ActionDeletePayload,
   ActionEndPayload,
   ActionStartPayload,
-  AgentCreatePayload,
-  AgentDeletePayload,
-  AgentUpdatePayload,
   ItemCreatePayload,
   ItemDeletePayload,
   ItemUpdatePayload,
@@ -21,9 +18,6 @@ import type {
   ChartCreatePayload,
   ChartDeletePayload,
   ChartUpdatePayload,
-  EdgeCreatePayload,
-  EdgeDeletePayload,
-  EdgeUpdatePayload,
   EnvCreatePayload,
   EnvDeletePayload,
   EnvLayerCreatePayload,
@@ -185,24 +179,6 @@ export class Scenario extends LazyEventTarget {
       case 'item_delete':
         this.deleteItems(message.payload as ItemDeletePayload);
         return;
-      case 'agent_create':
-        this.createAgents(message.payload as AgentCreatePayload);
-        return;
-      case 'agent_update':
-        this.updateAgents(message.payload as AgentUpdatePayload);
-        return;
-      case 'agent_delete':
-        this.deleteAgents(message.payload as AgentDeletePayload);
-        return;
-      case 'edge_create':
-        this.createEdges(message.payload as EdgeCreatePayload);
-        return;
-      case 'edge_update':
-        this.updateEdges(message.payload as EdgeUpdatePayload);
-        return;
-      case 'edge_delete':
-        this.deleteEdges(message.payload as EdgeDeletePayload);
-        return;
       case 'param_create':
         this.upsertParameter(message.payload as ParameterCUPayload, 'param:create');
         return;
@@ -316,7 +292,7 @@ export class Scenario extends LazyEventTarget {
         dependencyGraph: new Map(),
       };
       for (const layer of environment.layers) {
-        const metadata = cloneValue(layer.metadata ?? {});
+        const metadata = layer.metadata ?? {};
         const storage = this.createStorageForLayer(layer.layerType, metadata);
         storage.load(cloneValue(layer.storageSnapshot));
         restoredEnv.layers.set(layer.id, {
@@ -324,7 +300,7 @@ export class Scenario extends LazyEventTarget {
           layerType: layer.layerType,
           metadata,
           storage,
-          dependencyLayerIds: {},
+          dependencyLayerIds: this.normalizeDependencyLayerIds(layer.dependencyLayerIds),
         });
         this.applyLayerMetadata(restoredEnv, restoredEnv.layers.get(layer.id)!);
       }
@@ -394,16 +370,14 @@ export class Scenario extends LazyEventTarget {
 
   private createLayer(payload: EnvLayerCreatePayload): void {
     const environment = this.ensureEnvironment(payload.env_id);
-    // Must clone: this object is stored as mutable internal state and is
-    // modified in place by subsequent updateLayer calls.
-    const metadata = cloneValue(payload.data ?? {});
+    const metadata = payload.data ?? {};
     const storage = this.createStorageForLayer(payload.layer_type, metadata);
     environment.layers.set(payload.layer_id, {
       id: payload.layer_id,
       layerType: payload.layer_type,
       metadata,
       storage,
-      dependencyLayerIds: {},
+      dependencyLayerIds: this.normalizeDependencyLayerIds(payload.dependency_layer_ids),
     });
     this.applyLayerMetadata(environment, environment.layers.get(payload.layer_id)!);
     this.emit('layer:create', payload);
@@ -412,9 +386,13 @@ export class Scenario extends LazyEventTarget {
   private updateLayer(payload: EnvLayerUpdatePayload): void {
     const environment = this.ensureEnvironment(payload.env_id);
     const layer = this.ensureLayer(payload.env_id, payload.layer_id);
-    // Assign directly: payload values are never mutated so shared references
-    // into layer.metadata are stable.
-    Object.assign(layer.metadata, payload.data);
+    for (const [key, value] of Object.entries(payload.data)) {
+      if (key === 'dependency_layer_ids') {
+        console.warn('env_layer_update cannot mutate dependency_layer_ids; recreate the layer instead.');
+        continue;
+      }
+      layer.metadata[key] = value;
+    }
     this.applyLayerMetadata(environment, layer);
     this.emit('layer:update', payload);
   }
@@ -428,72 +406,6 @@ export class Scenario extends LazyEventTarget {
       environment?.layers.delete(payload.layer_id);
     }
     this.emit('layer:delete', payload);
-  }
-
-  /**
-   * @deprecated Use item_create instead.
-   */
-  private createAgents(payload: AgentCreatePayload): void {
-    this.createItems({
-      env_id: payload.env_id,
-      layer_id: payload.layer_id,
-      items: payload.agents as unknown as ItemCreatePayload['items'],
-    }, 'agent');
-  }
-
-  /**
-   * @deprecated Use item_update instead.
-   */
-  private updateAgents(payload: AgentUpdatePayload): void {
-    this.updateItems({
-      env_id: payload.env_id,
-      layer_id: payload.layer_id,
-      items: payload.agents,
-    }, 'agent');
-  }
-
-  /**
-   * @deprecated Use item_delete instead.
-   */
-  private deleteAgents(payload: AgentDeletePayload): void {
-    this.deleteItems({
-      env_id: payload.env_id,
-      layer_id: payload.layer_id,
-      items: payload.ids,
-    }, 'agent');
-  }
-
-  /**
-   * @deprecated Use item_create instead.
-   */
-  private createEdges(payload: EdgeCreatePayload): void {
-    this.createItems({
-      env_id: payload.env_id,
-      layer_id: payload.layer_id,
-      items: payload.edges,
-    }, 'edge');
-  }
-
-  /**
-   * @deprecated Use item_update instead.
-   */
-  private updateEdges(payload: EdgeUpdatePayload): void {
-    this.updateItems({
-      env_id: payload.env_id,
-      layer_id: payload.layer_id,
-      items: payload.edges,
-    }, 'edge');
-  }
-
-  /**
-   * @deprecated Use item_delete instead.
-   */
-  private deleteEdges(payload: EdgeDeletePayload): void {
-    this.deleteItems({
-      env_id: payload.env_id,
-      layer_id: payload.layer_id,
-      items: payload.edges,
-    }, 'edge');
   }
 
   private createItems(payload: ItemCreatePayload, expectedLayerType?: string): void {
@@ -768,6 +680,7 @@ export class Scenario extends LazyEventTarget {
         id: layer.id,
         layerType: layer.layerType,
         metadata: cloneValue(layer.metadata),
+        dependencyLayerIds: cloneValue(layer.dependencyLayerIds),
         storageSnapshot: cloneValue(layer.storage.dump()),
       })),
     };
@@ -798,7 +711,6 @@ export class Scenario extends LazyEventTarget {
   }
 
   private applyLayerMetadata(environment: ScenarioEnvironmentState, layer: ScenarioLayerState): void {
-    layer.dependencyLayerIds = this.normalizeDependencyLayerIds(layer.metadata.dependency_layer_ids);
     this.getLayerController(layer.layerType)?.applyMetadata?.(
       this.createLayerControllerContext(environment, layer),
     );

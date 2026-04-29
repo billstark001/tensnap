@@ -6,6 +6,17 @@ import {
 import { isBackgroundAssetReference } from '../environment/types';
 
 describe('background layer metadata schema', () => {
+  it('rejects dependency_layer_ids in layer metadata', () => {
+    const result = layerRegistry.validateMetadata('trajectory', {
+      dependency_layer_ids: {
+        agent: 'items',
+      },
+      length: 4,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('accepts explicit asset references and interpolation settings', () => {
     expect(() => {
       BackgroundLayerMetadataSchema.parse({

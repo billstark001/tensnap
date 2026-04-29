@@ -169,6 +169,7 @@ export const EnvLayerCreatePayloadSchema = z.object({
   env_id: z.string(),
   layer_id: z.string(),
   layer_type: z.string(),
+  dependency_layer_ids: z.record(z.string(), z.string()).optional(),
   data: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -199,42 +200,6 @@ export const ItemDeletePayloadSchema = z.object({
   env_id: z.string(),
   layer_id: z.string(),
   items: z.union([z.array(AgentIdSchema), z.array(ItemKeySchema)]),
-});
-
-export const AgentCreatePayloadSchema = z.object({
-  env_id: z.string(),
-  layer_id: z.string(),
-  agents: z.array(AgentSchema),
-});
-
-export const AgentUpdatePayloadSchema = z.object({
-  env_id: z.string(),
-  layer_id: z.string(),
-  agents: z.array(AgentDiffSchema),
-});
-
-export const AgentDeletePayloadSchema = z.object({
-  env_id: z.string(),
-  layer_id: z.string(),
-  ids: z.array(AgentIdSchema),
-});
-
-export const EdgeCreatePayloadSchema = z.object({
-  env_id: z.string(),
-  layer_id: z.string(),
-  edges: z.array(EdgeDataSchema),
-});
-
-export const EdgeUpdatePayloadSchema = z.object({
-  env_id: z.string(),
-  layer_id: z.string(),
-  edges: z.array(EdgeDiffSchema),
-});
-
-export const EdgeDeletePayloadSchema = z.object({
-  env_id: z.string(),
-  layer_id: z.string(),
-  edges: z.array(z.object({ source: AgentIdSchema, target: AgentIdSchema })),
 });
 
 export const ParameterDeletePayloadSchema = z.object({ id: z.string() });
@@ -345,12 +310,6 @@ export const SimulatorToRendererMessageSchema = z.object({
     'item_create',
     'item_update',
     'item_delete',
-    'agent_create',
-    'agent_update',
-    'agent_delete',
-    'edge_create',
-    'edge_update',
-    'edge_delete',
     'param_create',
     'param_update',
     'param_delete',
@@ -404,12 +363,6 @@ export const getPayloadSchema = (type: string) => {
     case 'item_create': return ItemCreatePayloadSchema;
     case 'item_update': return ItemUpdatePayloadSchema;
     case 'item_delete': return ItemDeletePayloadSchema;
-    case 'agent_create': return AgentCreatePayloadSchema;
-    case 'agent_update': return AgentUpdatePayloadSchema;
-    case 'agent_delete': return AgentDeletePayloadSchema;
-    case 'edge_create': return EdgeCreatePayloadSchema;
-    case 'edge_update': return EdgeUpdatePayloadSchema;
-    case 'edge_delete': return EdgeDeletePayloadSchema;
     case 'param_create': return ParameterSchema;
     case 'param_update': return ParameterSchema;
     case 'param_delete': return ParameterDeletePayloadSchema;

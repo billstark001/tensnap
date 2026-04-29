@@ -2,6 +2,7 @@ import type { Action, ChartGroupMetadata, GridAgent, Parameter } from '@tensnap/
 import { WolfSheepConfig, WolfSheepModel, World } from '../models/wolf-sheep';
 import { BaseModelAdapter } from './base-adapter';
 
+const GRID_LAYER = 'grid';
 const TERRAIN_LAYER = 'terrain';
 const ANIMAL_LAYER = 'animals';
 const SHEEP_ASSET_ID = 'wolf-sheep:sheep';
@@ -161,6 +162,12 @@ export class WolfSheepAdapter extends BaseModelAdapter {
       env_id: 'main',
       layer_id: TERRAIN_LAYER,
       layer_type: 'agent',
+      data: { width: this.worldSize.width, height: this.worldSize.height },
+    });
+    await this.sendEnvLayerCreate({
+      env_id: 'main',
+      layer_id: GRID_LAYER,
+      layer_type: 'grid',
       data: { width: this.worldSize.width, height: this.worldSize.height },
     });
     await this.sendEnvLayerCreate({

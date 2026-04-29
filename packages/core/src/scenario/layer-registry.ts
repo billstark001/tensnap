@@ -8,6 +8,7 @@ import {
   EdgeStorage,
   GridEnvStorage,
 } from '../environment/storages';
+import type { RenderableAgent } from '../environment/storages';
 import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
 import {
   BackgroundAssetReferenceSchema,
@@ -57,10 +58,14 @@ export type LayerDependencyChange =
   | LayerDependencyUpsertChange
   | LayerDependencyDeleteChange;
 
-export interface ItemLayerController {
+// #region Controller types
+export interface ItemLayerController<
+  TCreateItem extends Record<string, unknown> = Record<string, unknown>,
+  TUpdateItem extends Record<string, unknown> = TCreateItem,
+> {
   applyMetadata?(context: LayerControllerContext): void;
-  createItems?(context: LayerControllerContext, items: Record<string, unknown>[]): void;
-  updateItems?(context: LayerControllerContext, items: Record<string, unknown>[]): void;
+  createItems?(context: LayerControllerContext, items: TCreateItem[]): void;
+  updateItems?(context: LayerControllerContext, items: TUpdateItem[]): void;
   deleteItems?(context: LayerControllerContext, items: DeleteItems): void;
   onDependencyItemsChanged?(context: LayerControllerContext, change: LayerDependencyChange): void;
   onAssetDataReceived?(context: LayerControllerContext, assetId: string): void;
@@ -84,6 +89,7 @@ export interface LayerValidationResult<T = unknown> {
   data?: T;
   error?: z.ZodError;
 }
+// #endregion
 
 export class LayerRegistryClass {
   private readonly defs = new Map<string, LayerTypeDefinition>();
@@ -187,12 +193,20 @@ function getEdgePairs(items: DeleteItems): Array<{ source: AgentId; target: Agen
   return items as Array<{ source: AgentId; target: AgentId }>;
 }
 
-const agentLayerController: ItemLayerController = {
+type AgentItem = Readonly<RenderableAgent>;
+type AgentItemDiff = Readonly<Partial<RenderableAgent> & { id: AgentId }>;
+type EdgeItem = z.infer<typeof EdgeDataSchema>;
+type EdgeItemDiff = z.infer<typeof EdgeDiffSchema>;
+type TrajectoryItem = z.infer<typeof TrajectoryConfigSchema>;
+type TrajectoryItemDiff = z.infer<typeof TrajectoryConfigDiffSchema>;
+
+// #region Built-in controllers
+const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
   createItems: (context, items) => {
-    context.requireStorage(AgentStorage, 'agent').addAgents(items as any[]);
+    context.requireStorage(AgentStorage, 'agent').addAgents(items);
   },
   updateItems: (context, items) => {
-    context.requireStorage(AgentStorage, 'agent').updateAgents(items as any[]);
+    context.requireStorage(AgentStorage, 'agent').updateAgents(items);
   },
   deleteItems: (context, items) => {
     const ids = getAgentIds(items);
@@ -203,12 +217,12 @@ const agentLayerController: ItemLayerController = {
   },
 };
 
-const edgeLayerController: ItemLayerController = {
+const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
   createItems: (context, items) => {
-    context.requireStorage(EdgeStorage, 'edge').addEdges(items as any[]);
+    context.requireStorage(EdgeStorage, 'edge').addEdges(items);
   },
   updateItems: (context, items) => {
-    context.requireStorage(EdgeStorage, 'edge').updateEdges(items as any[]);
+    context.requireStorage(EdgeStorage, 'edge').updateEdges(items);
   },
   deleteItems: (context, items) => {
     const edgePairs = getEdgePairs(items);
@@ -219,7 +233,7 @@ const edgeLayerController: ItemLayerController = {
   },
 };
 
-const trajectoryLayerController: ItemLayerController = {
+const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryItemDiff> = {
   applyMetadata: (context) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     storage.setConfig({
@@ -246,10 +260,10 @@ const trajectoryLayerController: ItemLayerController = {
     }
   },
   createItems: (context, items) => {
-    context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items as any[]);
+    context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items);
   },
   updateItems: (context, items) => {
-    context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items as any[]);
+    context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items);
   },
   deleteItems: (context, items) => {
     const ids = getAgentIds(items);
@@ -296,9 +310,9 @@ const gridLayerController: ItemLayerController = {
 
 const backgroundLayerController: ItemLayerController = {
   applyMetadata: (context) => {
+    const { background, interpolation: metadataInterpolation } = context.layer.metadata;
     const storage = context.requireStorage(BackgroundStorage, 'background');
-    const background = context.layer.metadata.background;
-    const interpolation = getInterpolation(context.layer.metadata.interpolation);
+    const interpolation = getInterpolation(metadataInterpolation);
     if (
       typeof background === 'string'
       || background instanceof Uint8Array
@@ -329,11 +343,11 @@ const backgroundLayerController: ItemLayerController = {
     context.requireStorage(BackgroundStorage, 'background').destroy();
   },
 };
+// #endregion
 
-const DependencyLayerIdsSchema = z.record(z.string(), z.string());
-
+// #region Built-in metadata schemas
 const BaseLayerMetadataSchema = z.object({
-  dependency_layer_ids: DependencyLayerIdsSchema.optional(),
+  dependency_layer_ids: z.never().optional(),
   z_index: z.number().optional(),
 }).loose();
 
@@ -374,6 +388,7 @@ const BackgroundLayerMetadataSchema = BaseLayerMetadataSchema.extend({
   background: BackgroundSourceSchema.optional(),
   interpolation: BackgroundInterpolationSchema.optional(),
 }).loose();
+// #endregion
 
 export {
   BackgroundAssetReferenceSchema,
@@ -382,6 +397,7 @@ export {
   BackgroundSourceSchema,
 };
 
+// #region Built-in layer registrations
 registerLayerType({
   layer_type: 'agent',
   label: 'Agent Layer',
@@ -432,3 +448,4 @@ registerLayerType({
   storageFactory: (_metadata) => new BackgroundStorage(),
   controller: backgroundLayerController,
 });
+// #endregion

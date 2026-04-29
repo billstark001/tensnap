@@ -83,11 +83,11 @@ describe('RuntimeControlServer', () => {
         },
       });
       session.scenario.apply({
-        type: 'agent_create',
+        type: 'item_create',
         payload: {
           env_id: 'main',
           layer_id: 'agents',
-          agents: [{ id: 'a1', x: 1, y: 2 }],
+          items: [{ id: 'a1', x: 1, y: 2 }],
         },
       });
       session.scenario.apply({

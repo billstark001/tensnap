@@ -115,7 +115,7 @@ Documentation contributions are highly valued:
 
 When updating Python docs, keep them aligned with the current bindings surface:
 
-- Document binders, decorators, accessors, and TypedDict state payloads such as `GridEnvironmentBinder`, `GraphEnvironmentBinder*`, and `make_*_accessor`.
+- Document binders, decorators, accessors, and TypedDict state payloads such as `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder*`, and `make_*_accessor`.
 - Do not document nonexistent mutable runtime classes such as `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel`.
 - Default control semantics are renderer-driven: `start`, `step`, and `reset` are the canonical built-ins; `stop` is only present when a scenario registers an explicit backend action.
 - Low-level server examples should use `update_layer_metadata()`, `update_layer_agents()`, `update_layer_edges()`, `replace_layer_state()`, and `replace_environment_layers()` rather than removed layer-less update helpers.
@@ -471,7 +471,7 @@ Use pytest for Python tests:
 ```python
 # tests/test_environment.py
 import pytest
-from tensnap import GridEnvironmentBinder
+from tensnap import LayeredEnvironmentBinder
 
 
 class GridEnv:
@@ -491,7 +491,7 @@ async def test_server_broadcast():
 @pytest.fixture
 def sample_environment():
   """Fixture for a binder-backed environment."""
-  return GridEnvironmentBinder(id="test", environment=GridEnv())
+  return LayeredEnvironmentBinder(id="test", environment=GridEnv())
 
 
 def test_environment_with_fixture(sample_environment):

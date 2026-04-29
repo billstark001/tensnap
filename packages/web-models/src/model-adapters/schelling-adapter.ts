@@ -3,6 +3,7 @@ import { SchellingConfig, SchellingModel } from '../models/schelling';
 import { BaseModelAdapter } from './base-adapter';
 
 const AGENT_LAYER = 'agents';
+const GRID_LAYER = 'grid';
 
 export class SchellingAdapter extends BaseModelAdapter {
   private model: SchellingModel;
@@ -90,6 +91,7 @@ export class SchellingAdapter extends BaseModelAdapter {
   protected async sendInitialData(): Promise<void> {
     const config = this.model.getConfig();
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: AGENT_LAYER, layer_type: 'agent', data: { width: config.gridWidth, height: config.gridHeight } });
+    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: GRID_LAYER, layer_type: 'grid', data: { width: config.gridWidth, height: config.gridHeight } });
 
     const allAgents = this.model.getEnvironmentState().agents;
     await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: allAgents });

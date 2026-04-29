@@ -2,9 +2,6 @@ import type {
   Action,
   ActionEndPayload,
   ActionStartPayload,
-  AgentCreatePayload,
-  AgentDeletePayload,
-  AgentUpdatePayload,
   AssetDataPayload,
   AssetDeletePayload,
   AssetMeta,
@@ -13,9 +10,6 @@ import type {
   ChartDeletePayload,
   ChartGroupMetadata,
   ChartUpdatePayload,
-  EdgeCreatePayload,
-  EdgeDeletePayload,
-  EdgeUpdatePayload,
   EnvCreatePayload,
   EnvDeletePayload,
   EnvLayerCreatePayload,
@@ -228,56 +222,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     items: TItem[];
   }): Promise<void> {
     await this.send({ type: 'item_delete', payload: payload as ItemDeletePayload });
-  }
-
-  // ── Agents ───────────────────────────────────────────────────────────────
-
-  /**
-   * @deprecated Use sendItemCreate instead.
-   */
-  protected async sendAgentCreate(payload: AgentCreatePayload): Promise<void> {
-    await this.sendItemCreate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.agents });
-  }
-
-  /**
-   * @deprecated Use sendItemUpdate instead.
-   */
-  protected async sendAgentUpdate(payload: AgentUpdatePayload): Promise<void> {
-    await this.sendItemUpdate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.agents });
-  }
-
-  /**
-   * @deprecated Use sendItemDelete instead.
-   */
-  protected async sendAgentDelete(payload: AgentDeletePayload): Promise<void> {
-    await this.sendItemDelete({
-      env_id: payload.env_id,
-      layer_id: payload.layer_id,
-      items: payload.ids.map((id) => ({ id })),
-    });
-  }
-
-  // ── Edges ────────────────────────────────────────────────────────────────
-
-  /**
-   * @deprecated Use sendItemCreate instead.
-   */
-  protected async sendEdgeCreate(payload: EdgeCreatePayload): Promise<void> {
-    await this.sendItemCreate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.edges });
-  }
-
-  /**
-   * @deprecated Use sendItemUpdate instead.
-   */
-  protected async sendEdgeUpdate(payload: EdgeUpdatePayload): Promise<void> {
-    await this.sendItemUpdate({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.edges });
-  }
-
-  /**
-   * @deprecated Use sendItemDelete instead.
-   */
-  protected async sendEdgeDelete(payload: EdgeDeletePayload): Promise<void> {
-    await this.sendItemDelete({ env_id: payload.env_id, layer_id: payload.layer_id, items: payload.edges });
   }
 
   // ── Charts ───────────────────────────────────────────────────────────────

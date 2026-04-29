@@ -52,6 +52,7 @@ export interface ScenarioLayerSnapshot {
   id: string;
   layerType: string;
   metadata: Record<string, unknown>;
+  dependencyLayerIds: Record<string, string>;
   storageSnapshot: unknown;
 }
 

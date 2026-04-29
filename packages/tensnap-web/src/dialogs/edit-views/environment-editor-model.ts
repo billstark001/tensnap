@@ -50,6 +50,11 @@ const groupEntries = (
   return result;
 };
 
+const groupLayerDependencies = (dependencyLayerIds: Record<string, string>): EnvironmentLayerGroup[] => {
+  const entries = Object.entries(dependencyLayerIds).map(([key, value]) => ({ key, value }));
+  return entries.length > 0 ? [{ title: 'Dependencies', entries }] : [];
+};
+
 export const groupEnvironmentLayerMetadata = (
   layerType: string,
   metadata: Record<string, unknown>,
@@ -62,7 +67,6 @@ export const groupEnvironmentLayerMetadata = (
     case 'trajectory':
       return groupEntries(metadata, [
         { title: 'Trajectory', keys: ['length', 'width', 'color'] },
-        { title: 'Dependencies', keys: ['dependency_layer_ids'] },
       ]);
     case 'grid':
       return groupEntries(metadata, [
@@ -72,7 +76,7 @@ export const groupEnvironmentLayerMetadata = (
       ]);
     case 'edge':
       return groupEntries(metadata, [
-        { title: 'Layout', keys: ['linkDistance', 'chargeStrength', 'centeringStrength', 'collisionRadius', 'maxComponentDistance', 'componentSpacing', 'dependency_layer_ids'] },
+        { title: 'Layout', keys: ['linkDistance', 'chargeStrength', 'centeringStrength', 'collisionRadius', 'maxComponentDistance', 'componentSpacing'] },
       ]);
     case 'background':
       return groupEntries(metadata, [
@@ -102,11 +106,15 @@ export const getEditableEnvironmentData = (
     displayType: getEnvironmentDisplayType(environment),
     layers: [...environment.layers.values()].map((layer) => {
       const metadata = structuredClone((layer.metadata ?? {}) as Record<string, unknown>);
+      const groups = [
+        ...groupEnvironmentLayerMetadata(layer.layerType, metadata),
+        ...groupLayerDependencies(layer.dependencyLayerIds ?? {}),
+      ];
       return {
         id: layer.id,
         layerType: layer.layerType,
         metadata,
-        groups: groupEnvironmentLayerMetadata(layer.layerType, metadata),
+        groups,
       };
     }),
   };

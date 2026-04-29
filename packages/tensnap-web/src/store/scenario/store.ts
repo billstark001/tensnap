@@ -50,17 +50,20 @@ const upsertEditableEnvironment = (snapshot: ScenarioSnapshot, draft: EditableEn
         id: `${nextId}-grid`,
         layerType: 'grid',
         metadata: { width: draft.width ?? 10, height: draft.height ?? 10 },
+        dependencyLayerIds: {},
         storageSnapshot: {},
       }, {
         id: `${nextId}-agents`,
         layerType: 'agent',
         metadata: {},
+        dependencyLayerIds: {},
         storageSnapshot: { agents: [], trajectories: [] },
       }]
       : [{
         id: `${nextId}-agents`,
         layerType: 'agent',
         metadata: {},
+        dependencyLayerIds: {},
         storageSnapshot: { agents: [], trajectories: [] },
       }],
   });
