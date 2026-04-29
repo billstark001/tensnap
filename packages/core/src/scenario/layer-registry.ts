@@ -72,6 +72,22 @@ export interface ItemLayerController<
   dispose?(context: LayerControllerContext): void;
 }
 
+export interface LayerSceneBounds {
+  width: number;
+  height: number;
+}
+
+export interface LayerMetadataCarrier {
+  layerType: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface LayerViewDefinition {
+  getSceneBounds?: (metadata: Record<string, unknown>) => LayerSceneBounds | undefined;
+  sceneBoundsPriority?: number;
+  viewMetadataPriority?: number;
+}
+
 export interface LayerTypeDefinition {
   layer_type: string;
   label?: string;
@@ -82,6 +98,7 @@ export interface LayerTypeDefinition {
   requiredDependencyLayerTypes?: string[];
   storageFactory?: (metadata: Record<string, unknown>) => LayerStorage;
   controller?: ItemLayerController;
+  view?: LayerViewDefinition;
 }
 
 export interface LayerValidationResult<T = unknown> {
@@ -138,8 +155,68 @@ export function registerLayerType(definition: LayerTypeDefinition): void {
   layerRegistry.register(definition);
 }
 
+function getLayerPriorityEntries<TLayer extends LayerMetadataCarrier>(
+  layers: Iterable<TLayer>,
+  registry: LayerRegistryClass,
+  getPriority: (definition: LayerTypeDefinition) => number | undefined,
+): Array<{ layer: TLayer; definition: LayerTypeDefinition; priority: number; index: number }> {
+  const entries = [...layers].map((layer, index) => ({
+    layer,
+    definition: registry.get(layer.layerType),
+    priority: undefined as number | undefined,
+    index,
+  }));
+
+  return entries
+    .map((entry) => ({
+      ...entry,
+      priority: entry.definition ? getPriority(entry.definition) : undefined,
+    }))
+    .filter((entry): entry is { layer: TLayer; definition: LayerTypeDefinition; priority: number; index: number } => (
+      entry.definition !== undefined && entry.priority !== undefined
+    ))
+    .sort((left, right) => left.priority - right.priority || left.index - right.index);
+}
+
+export function findViewMetadataSource<TLayer extends LayerMetadataCarrier>(
+  layers: Iterable<TLayer>,
+  registry: LayerRegistryClass = layerRegistry,
+): TLayer | undefined {
+  return getLayerPriorityEntries(
+    layers,
+    registry,
+    (definition) => definition.view?.viewMetadataPriority,
+  )[0]?.layer;
+}
+
+export function findSceneBounds<TLayer extends LayerMetadataCarrier>(
+  layers: Iterable<TLayer>,
+  registry: LayerRegistryClass = layerRegistry,
+): LayerSceneBounds | undefined {
+  for (const entry of getLayerPriorityEntries(
+    layers,
+    registry,
+    (definition) => definition.view?.sceneBoundsPriority,
+  )) {
+    const sceneBounds = entry.definition.view?.getSceneBounds?.(entry.layer.metadata ?? {});
+    if (sceneBounds) {
+      return sceneBounds;
+    }
+  }
+
+  return undefined;
+}
+
 function getInterpolation(value: unknown): 'nearest' | 'linear' {
   return value === 'linear' ? 'linear' : 'nearest';
+}
+
+function getMetadataSceneBounds(metadata: Record<string, unknown>): LayerSceneBounds | undefined {
+  const { width, height } = metadata;
+  if (typeof width === 'number' && typeof height === 'number') {
+    return { width, height };
+  }
+  return undefined;
 }
 
 function isPrimitiveDeleteItems(items: DeleteItems): items is AgentId[] {
@@ -358,24 +435,26 @@ const AgentLayerMetadataSchema = BaseLayerMetadataSchema.extend({
 }).loose();
 
 const EdgeLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  linkDistance: z.number().optional(),
-  chargeStrength: z.number().optional(),
-  centeringStrength: z.number().optional(),
-  collisionRadius: z.number().optional(),
-  maxComponentDistance: z.number().optional(),
-  componentSpacing: z.number().optional(),
+  link_distance: z.number().optional(),
+  charge_strength: z.number().optional(),
+  centering_strength: z.number().optional(),
+  collision_radius: z.number().optional(),
+  max_component_distance: z.number().optional(),
+  component_spacing: z.number().optional(),
 }).loose();
 
 const GridLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  xOrigin: z.number().optional(),
-  xUnit: z.number().optional(),
-  xInterval: z.number().optional(),
-  xRatio: z.number().int().min(2).optional(),
-  yOrigin: z.number().optional(),
-  yUnit: z.number().optional(),
-  yInterval: z.number().optional(),
-  yRatio: z.number().int().min(2).optional(),
-  strokeColor: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  x_origin: z.number().optional(),
+  x_unit: z.number().optional(),
+  x_interval: z.number().optional(),
+  x_ratio: z.number().int().min(2).optional(),
+  y_origin: z.number().optional(),
+  y_unit: z.number().optional(),
+  y_interval: z.number().optional(),
+  y_ratio: z.number().int().min(2).optional(),
+  stroke_color: z.string().optional(),
 }).loose();
 
 const TrajectoryLayerMetadataSchema = BaseLayerMetadataSchema.extend({
@@ -407,6 +486,10 @@ registerLayerType({
   primaryKeyFields: ['id'],
   storageFactory: (_metadata) => new AgentStorage(),
   controller: agentLayerController,
+  view: {
+    getSceneBounds: getMetadataSceneBounds,
+    sceneBoundsPriority: 10,
+  },
 });
 
 registerLayerType({
@@ -439,6 +522,11 @@ registerLayerType({
   metadataSchema: GridLayerMetadataSchema,
   storageFactory: (metadata) => new GridEnvStorage(metadata as any),
   controller: gridLayerController,
+  view: {
+    getSceneBounds: getMetadataSceneBounds,
+    sceneBoundsPriority: 0,
+    viewMetadataPriority: 0,
+  },
 });
 
 registerLayerType({

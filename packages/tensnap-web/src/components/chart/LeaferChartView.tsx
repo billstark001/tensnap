@@ -17,7 +17,7 @@ export interface LeaferChartViewRef {
   getCanvasBlob: () => Promise<Blob | null>;
 }
 
-// React binding for LineChartView (renamed from LeaferLineChart)
+// React binding for LineChartView.
 export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewProps>((props, ref) => {
   const { data, dataVersion, config, className, style } = props;
   const containerRef = useRef<HTMLDivElement>(null);

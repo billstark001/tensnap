@@ -451,7 +451,6 @@ export const createScenarioStore = () => {
 
         const dimensionKeys = new Set(['width', 'height']);
         const agentMetaKeys = new Set(['coord_offset']);
-        const gridMetaKeys = new Set(['show_grid', 'background_color']);
 
         for (const layer of environment.layers.values()) {
           const data: Record<string, unknown> = {};
@@ -466,13 +465,6 @@ export const createScenarioStore = () => {
 
             if (agentMetaKeys.has(key)) {
               if (layer.layerType === 'agent') {
-                data[key] = structuredClone(value);
-              }
-              continue;
-            }
-
-            if (gridMetaKeys.has(key)) {
-              if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
                 data[key] = structuredClone(value);
               }
               continue;

@@ -408,7 +408,7 @@ Creates and updates layer-owned items within a layer. The exact item schema and 
   payload: {
     env_id: string;
     layer_id: string;
-    items: Array<Record<string, unknown>>;
+    items: Array<Record<string, unknown> | string | number>;
   }
 }
 ```
@@ -418,6 +418,8 @@ For built-in layers:
 - `agent` items are keyed by `id`
 - `edge` items are keyed by `(source, target)`
 - `trajectory` items are keyed by `id`
+
+Single-key layers such as `agent` and `trajectory` may delete by primitive id (`string | number`). Multi-key layers such as `edge` delete by object keys matching the registry primary key fields.
 
 Agent and edge entities are synchronized only through item operations in v0.2.
 
@@ -706,22 +708,117 @@ All other action ids are application-defined.
 
 Layer semantics are defined by a registry in @tensnap/core/scenario.
 
-Each layer type may declare:
+```typescript
+interface AgentLayerMetadata {
+  width?: number;
+  height?: number;
+  coord_offset?: 'int' | 'float';
+  z_index?: number;
+  [key: string]: unknown;
+}
 
-- `layer_type`
-- optional metadata schema
-- optional item schema
-- optional item diff schema
-- optional primary key fields
-- optional required dependency layer types
+interface AgentDiff {
+  id: AgentId;
+  [key: string]: unknown;
+}
 
-Built-in registrations currently include:
+interface EdgeLayerMetadata {
+  link_distance?: number;
+  charge_strength?: number;
+  centering_strength?: number;
+  collision_radius?: number;
+  max_component_distance?: number;
+  component_spacing?: number;
+  z_index?: number;
+  [key: string]: unknown;
+}
 
-- `agent` — owns agent items; metadata includes `width`, `height`, `coord_offset`
-- `edge` — owns edge items; metadata includes force-layout parameters (`linkDistance`, `chargeStrength`, etc.) and requires `dependency_layer_ids.agent` on `env_layer_create`
-- `trajectory` — owns trajectory config items; metadata includes optional global `length`, `width`, `color` and requires `dependency_layer_ids.agent` on `env_layer_create`
-- `grid` — grid coordinate frame; metadata includes `xOrigin`, `xUnit`, `xInterval`, `xRatio`, `yOrigin`, `yUnit`, `yInterval`, `yRatio`, `strokeColor`
-- `background` — background image layer; metadata includes `background` as either a CSS color or explicit URL/data URL string, a `Uint8Array` with image/NPY bytes, or an asset reference `{ asset_id, interpolation? }`, plus optional layer-level `interpolation` (`'nearest'` | `'linear'`)
+interface EdgeDiff {
+  source: AgentId;
+  target: AgentId;
+  [key: string]: unknown;
+}
+
+interface TrajectoryLayerMetadata {
+  length?: number;
+  width?: number;
+  color?: string;
+  z_index?: number;
+  [key: string]: unknown;
+}
+
+interface TrajectoryConfig {
+  id: AgentId;
+  length?: number;
+  width?: number;
+  color?: string;
+  [key: string]: unknown;
+}
+
+interface TrajectoryConfigDiff {
+  id: AgentId;
+  [key: string]: unknown;
+}
+
+interface GridLayerMetadata {
+  width?: number;
+  height?: number;
+  x_origin?: number;
+  x_unit?: number;
+  x_interval?: number;
+  x_ratio?: number;
+  y_origin?: number;
+  y_unit?: number;
+  y_interval?: number;
+  y_ratio?: number;
+  stroke_color?: string;
+  z_index?: number;
+  [key: string]: unknown;
+}
+
+type BackgroundAssetReference = {
+  asset_id: string;
+  interpolation?: 'nearest' | 'linear';
+};
+
+type BackgroundSource = string | Uint8Array | BackgroundAssetReference;
+
+interface BackgroundLayerMetadata {
+  background?: BackgroundSource;
+  interpolation?: 'nearest' | 'linear';
+  z_index?: number;
+  [key: string]: unknown;
+}
+
+type BuiltinLayerRegistry = {
+  agent: {
+    metadata: AgentLayerMetadata;
+    item: Agent;
+    itemDiff: AgentDiff;
+    primaryKeyFields: ['id'];
+  };
+  edge: {
+    metadata: EdgeLayerMetadata;
+    item: EdgeData;
+    itemDiff: EdgeDiff;
+    primaryKeyFields: ['source', 'target'];
+    requiredDependencyLayerTypes: ['agent'];
+  };
+  trajectory: {
+    metadata: TrajectoryLayerMetadata;
+    item: TrajectoryConfig;
+    itemDiff: TrajectoryConfigDiff;
+    primaryKeyFields: ['id'];
+    requiredDependencyLayerTypes: ['agent'];
+  };
+  grid: {
+    metadata: GridLayerMetadata;
+  };
+  background: {
+    metadata: BackgroundLayerMetadata;
+  };
+};
+```
 
 The registry is used to validate scenario-layer payloads independently of the transport implementation.
 
@@ -760,6 +857,35 @@ type AgentId = string | number;
 
 ```typescript
 type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
+```
+
+### Agent
+
+Agent create payloads use full records. Agent update payloads are flat diffs keyed by `id`.
+
+```typescript
+interface Agent {
+  id: AgentId;
+  color?: string;
+  icon?: AgentIcon;
+  size?: number;
+  data?: Record<string, unknown>;
+  [layerSpecificField: string]: unknown;
+}
+```
+
+### EdgeData
+
+```typescript
+interface EdgeData {
+  source: AgentId;
+  target: AgentId;
+  directed?: boolean;
+  style?: 'solid' | 'dashed' | 'dotted';
+  width?: number;
+  color?: string;
+  [key: string]: unknown;
+}
 ```
 
 ### Action
@@ -822,35 +948,6 @@ interface StringParameter {
 type Parameter = NumberParameter | EnumParameter | BooleanParameter | StringParameter;
 ```
 
-### Agent
-
-Agent create payloads use full records. Agent update payloads are flat diffs keyed by `id`.
-
-```typescript
-interface Agent {
-  id: AgentId;
-  color?: string;
-  icon?: AgentIcon;
-  size?: number;
-  data?: Record<string, unknown>;
-  [layerSpecificField: string]: unknown;
-}
-```
-
-### EdgeData
-
-```typescript
-interface EdgeData {
-  source: AgentId;
-  target: AgentId;
-  directed?: boolean;
-  style?: 'solid' | 'dashed' | 'dotted';
-  width?: number;
-  color?: string;
-  [key: string]: unknown;
-}
-```
-
 ### ChartMetadata
 
 ```typescript
@@ -911,6 +1008,60 @@ interface ScreenshotResponsePayload {
   data?: string | Uint8Array;
   mime?: string;
   error?: string;
+}
+```
+
+### ScenarioStorage
+
+```typescript
+interface ScenarioStorage {
+  dump(): unknown;
+  load(snapshot: unknown): void;
+}
+```
+
+### ScenarioLayerState
+
+```typescript
+interface ScenarioLayerState {
+  id: string;
+  layerType: string;
+  metadata: Record<string, unknown>;
+  storage: ScenarioStorage;
+  dependencyLayerIds: Record<string, string>;
+}
+```
+
+### ScenarioLayerSnapshot
+
+```typescript
+interface ScenarioLayerSnapshot {
+  id: string;
+  layerType: string;
+  metadata: Record<string, unknown>;
+  dependencyLayerIds: Record<string, string>;
+  storageSnapshot: unknown;
+}
+```
+
+### ScenarioEnvironmentState
+
+```typescript
+interface ScenarioEnvironmentState {
+  id: string;
+  type: 'uniform' | '2d';
+  layers: Map<string, ScenarioLayerState>;
+  dependencyGraph: Map<string, Set<string>>;
+}
+```
+
+### ScenarioEnvironmentSnapshot
+
+```typescript
+interface ScenarioEnvironmentSnapshot {
+  id: string;
+  type: 'uniform' | '2d';
+  layers: ScenarioLayerSnapshot[];
 }
 ```
 

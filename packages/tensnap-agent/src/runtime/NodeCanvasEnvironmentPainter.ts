@@ -1,22 +1,22 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from 'canvas';
-import type { RenderableAgent, AgentStorageSnapshot } from '../../../core/src/environment/storages/AgentStorage';
-import type { BackgroundData } from '../../../core/src/environment/storages/BackgroundStorage';
-import type { EdgeStorageSnapshot } from '../../../core/src/environment/storages/EdgeStorage';
-import type { GridEnvData } from '../../../core/src/environment/storages/GridEnvStorage';
-import type { TrajectoryStorageSnapshot } from '../../../core/src/environment/storages/TrajectoryStorage';
-import { resolveTrajectoryConfig, resolveTrajectoryRenderStyle, splitTrajectoryPoints } from '../../../core/src/environment/utils/trajectory';
-import { applyCoordOffset, getCoordOffsetValue } from '../../../core/src/environment/utils/coords';
+import type { RenderableAgent, AgentStorageSnapshot } from '@tensnap/core/environment/storages/AgentStorage';
+import type { BackgroundData } from '@tensnap/core/environment/storages/BackgroundStorage';
+import type { EdgeStorageSnapshot } from '@tensnap/core/environment/storages/EdgeStorage';
+import type { GridEnvData } from '@tensnap/core/environment/storages/GridEnvStorage';
+import type { TrajectoryStorageSnapshot } from '@tensnap/core/environment/storages/TrajectoryStorage';
+import { resolveTrajectoryConfig, resolveTrajectoryRenderStyle, splitTrajectoryPoints } from '@tensnap/core/environment/utils/trajectory';
+import { applyCoordOffset, getCoordOffsetValue } from '@tensnap/core/environment/utils/coords';
 import {
   getAssetIdFromIcon,
   isBuiltinAgentIcon,
   type BuiltinAgentIcon,
   type GraphEdge,
-} from '../../../core/src/environment/types/agent';
-import type { Viewport } from '../../../core/src/environment/types/viewport';
-import { isCssColor } from '../../../core/src/environment/utils/color';
-import type { ScenarioEnvironmentSnapshot } from '@tensnap/core/scenario';
+} from '@tensnap/core/environment/types/agent';
+import type { Viewport } from '@tensnap/core/environment/types/viewport';
+import { isCssColor } from '@tensnap/core/environment/utils/color';
+import { findSceneBounds, type ScenarioEnvironmentSnapshot } from '@tensnap/core/scenario';
 import type { RenderFormat } from '../types';
 import type { RenderArtifact, RenderRequest, ScenePainter } from './painter';
 
@@ -197,13 +197,15 @@ export function collectEnvironment(environment: ScenarioEnvironmentSnapshot): Ag
     edges: [],
   };
 
+  const sceneBounds = findSceneBounds(environment.layers);
+  if (sceneBounds) {
+    aggregated.width = sceneBounds.width;
+    aggregated.height = sceneBounds.height;
+  }
+
   for (const layer of environment.layers) {
     const metadata = (layer.metadata ?? {}) as Record<string, unknown>;
-    if (typeof metadata.width === 'number' && typeof metadata.height === 'number') {
-      aggregated.width = metadata.width;
-      aggregated.height = metadata.height;
-    }
-    if (typeof metadata.background !== 'undefined') {
+    if (layer.layerType === 'background' && typeof metadata.background !== 'undefined') {
       aggregated.backgroundSource = metadata.background;
     }
 
@@ -544,7 +546,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
       return;
     }
 
-    const strokeColor = environment.grid.strokeColor ?? '#d8dee7';
+    const strokeColor = environment.grid.stroke_color ?? '#d8dee7';
     context.save();
     context.strokeStyle = strokeColor;
     context.lineWidth = 1;

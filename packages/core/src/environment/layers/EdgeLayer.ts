@@ -46,12 +46,12 @@ interface EdgeShapeEntry {
 }
 
 const DEFAULT_GRAPH_CONFIG: Required<GraphEnvConfig> = {
-  linkDistance: 4,
-  chargeStrength: -2,
-  centeringStrength: 0.1,
-  collisionRadius: 2,
-  maxComponentDistance: 4,
-  componentSpacing: 5,
+  link_distance: 4,
+  charge_strength: -2,
+  centering_strength: 0.1,
+  collision_radius: 2,
+  max_component_distance: 4,
+  component_spacing: 5,
 };
 
 // #endregion
@@ -225,7 +225,12 @@ export class EdgeLayer extends BaseLayer {
   }
 
   private _initSimulation(): void {
-    const { linkDistance, chargeStrength, collisionRadius, centeringStrength } = this._simConfig;
+    const {
+      link_distance: linkDistance,
+      charge_strength: chargeStrength,
+      collision_radius: collisionRadius,
+      centering_strength: centeringStrength,
+    } = this._simConfig;
     this._simulation = d3
       .forceSimulation<SimNode>()
       .force('link', d3.forceLink<SimNode, SimLink>().id((d: SimNode) => String(d.id)).distance(linkDistance))
@@ -237,7 +242,12 @@ export class EdgeLayer extends BaseLayer {
   }
 
   private _reconfigureSimulation(): void {
-    const { linkDistance, chargeStrength, collisionRadius, centeringStrength } = this._simConfig;
+    const {
+      link_distance: linkDistance,
+      charge_strength: chargeStrength,
+      collision_radius: collisionRadius,
+      centering_strength: centeringStrength,
+    } = this._simConfig;
     this._linkForce?.distance(linkDistance);
     (this._simulation?.force('charge') as d3.ForceManyBody<SimNode>)?.strength(chargeStrength);
     (this._simulation?.force('collision') as d3.ForceCollide<SimNode>)?.radius(collisionRadius);
@@ -386,7 +396,7 @@ export class EdgeLayer extends BaseLayer {
 
   private _assignInitialPositions(nodes: SimNode[], edges: ReadonlyMap<string, GraphEdge>): void {
     const components = this._findComponents(nodes, edges);
-    const scatter = this._simConfig.linkDistance * 3;
+    const scatter = this._simConfig.link_distance * 3;
 
     if (components.length <= 1) {
       nodes.forEach(n => {
@@ -398,7 +408,7 @@ export class EdgeLayer extends BaseLayer {
       return;
     }
 
-    const cellSize = Math.max(scatter, this._simConfig.maxComponentDistance) + this._simConfig.componentSpacing;
+    const cellSize = Math.max(scatter, this._simConfig.max_component_distance) + this._simConfig.component_spacing;
     const cols = Math.ceil(Math.sqrt(components.length));
     const gridW = cols * cellSize;
     const gridH = Math.ceil(components.length / cols) * cellSize;

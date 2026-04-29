@@ -4,6 +4,7 @@ import { BaseModelAdapter } from './base-adapter';
 
 const AGENT_LAYER = 'agents';
 const GRID_LAYER = 'grid';
+// const TRAILS_LAYER = 'trails';
 
 export class SchellingAdapter extends BaseModelAdapter {
   private model: SchellingModel;
@@ -67,10 +68,12 @@ export class SchellingAdapter extends BaseModelAdapter {
     if (id === 'reset') {
       this.model.reset();
       await this.sendInitialData();
-      await this.sendChartUpdate({ operations: [
-        { id: 'satisfaction_rate', operation: 'clear' },
-        { id: 'segregation_index', operation: 'clear' },
-      ] });
+      await this.sendChartUpdate({
+        operations: [
+          { id: 'satisfaction_rate', operation: 'clear' },
+          { id: 'segregation_index', operation: 'clear' },
+        ]
+      });
       shouldContinue = false;
     }
 
@@ -92,16 +95,22 @@ export class SchellingAdapter extends BaseModelAdapter {
     const config = this.model.getConfig();
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: AGENT_LAYER, layer_type: 'agent', data: { width: config.gridWidth, height: config.gridHeight } });
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: GRID_LAYER, layer_type: 'grid', data: { width: config.gridWidth, height: config.gridHeight } });
-
+    // await this.sendEnvLayerCreate({
+    //   env_id: 'main', layer_id: TRAILS_LAYER, layer_type: 'trajectory', dependency_layer_ids: {
+    //     agent: AGENT_LAYER,
+    //   }, data: { length: 1, },
+    // });
     const allAgents = this.model.getEnvironmentState().agents;
     await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: allAgents });
 
     const stats = this.model.getStatistics();
     await this.sendMetadataUpdate({ time: 0 });
-    await this.sendChartUpdate({ updates: [
-      { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
-      { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
-    ] });
+    await this.sendChartUpdate({
+      updates: [
+        { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
+        { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
+      ]
+    });
   }
 
   private async stepOnce(): Promise<boolean> {
@@ -119,10 +128,12 @@ export class SchellingAdapter extends BaseModelAdapter {
       await this.sendItemUpdate({ env_id: 'main', layer_id: AGENT_LAYER, items: change });
     }
 
-    await this.sendChartUpdate({ updates: [
-      { id: 'satisfaction_rate', value: stats.satisfactionRate, time: stats.timeStep },
-      { id: 'segregation_index', value: stats.segregationIndex, time: stats.timeStep },
-    ] });
+    await this.sendChartUpdate({
+      updates: [
+        { id: 'satisfaction_rate', value: stats.satisfactionRate, time: stats.timeStep },
+        { id: 'segregation_index', value: stats.segregationIndex, time: stats.timeStep },
+      ]
+    });
     return true;
   }
 }

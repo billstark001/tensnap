@@ -45,7 +45,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
             {
               id: '',
               layerType: 'agent',
-              metadata: { width: 8, height: 6, coord_offset: 'int', background: '#f8fafc' },
+              metadata: { width: 8, height: 6, coord_offset: 'int' },
               dependencyLayerIds: {},
               storageSnapshot: {
                 agents: [
@@ -96,13 +96,21 @@ describe('NodeCanvasEnvironmentPainter', () => {
           type: '2d',
           layers: [
             {
+              id: 'background',
+              layerType: 'background',
+              metadata: {
+                background: svgDataUrl,
+              },
+              dependencyLayerIds: {},
+              storageSnapshot: null,
+            },
+            {
               id: '',
               layerType: 'agent',
               metadata: {
                 width: 2,
                 height: 2,
                 coord_offset: 'int',
-                background: svgDataUrl,
               },
               dependencyLayerIds: {},
               storageSnapshot: {
@@ -145,13 +153,21 @@ describe('NodeCanvasEnvironmentPainter', () => {
           type: '2d',
           layers: [
             {
+              id: 'background',
+              layerType: 'background',
+              metadata: {
+                background: onePixelPngBase64,
+              },
+              dependencyLayerIds: {},
+              storageSnapshot: null,
+            },
+            {
               id: '',
               layerType: 'agent',
               metadata: {
                 width: 2,
                 height: 2,
                 coord_offset: 'int',
-                background: onePixelPngBase64,
               },
               dependencyLayerIds: {},
               storageSnapshot: {

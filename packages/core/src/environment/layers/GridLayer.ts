@@ -137,9 +137,15 @@ export class GridLayer extends BaseLayer {
     this.group.clear();
 
     const {
-      xOrigin = 0, xUnit = 1, xInterval = 1, xRatio = 10,
-      yOrigin = 0, yUnit = 1, yInterval = 1, yRatio = 10,
-      strokeColor = '#808080',
+      x_origin: xOrigin = 0,
+      x_unit: xUnit = 1,
+      x_interval: xInterval = 1,
+      x_ratio: xRatio = 10,
+      y_origin: yOrigin = 0,
+      y_unit: yUnit = 1,
+      y_interval: yInterval = 1,
+      y_ratio: yRatio = 10,
+      stroke_color: strokeColor = '#808080',
     } = this._envData;
 
     if (xRatio <= 1 || yRatio <= 1) return;

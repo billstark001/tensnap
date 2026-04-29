@@ -41,14 +41,6 @@ const ReadOnlyMetadataField = ({ id, label, value }: { id: string; label: string
 };
 
 export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ view, objectData: env, onChange }) => {
-  const rendererOverrides = view.data.rendererOverrides?.environment2d;
-  const showGridOverride = rendererOverrides?.showGrid === undefined
-    ? 'inherit'
-    : rendererOverrides.showGrid
-      ? 'true'
-      : 'false';
-  const fallbackBackgroundColor = rendererOverrides?.fallbackBackgroundColor ?? '';
-
   return (
     <>
       <BaseViewFields view={view} onChange={onChange} />
@@ -98,40 +90,6 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({ vi
 
           {env.type === '2d' && (
             <>
-              <Form.FieldSet>
-                <Form.Label><Trans>Renderer Overrides</Trans></Form.Label>
-                <Form.Field label={<Trans>Grid Lines</Trans>} htmlFor="renderer-show-grid">
-                  <Form.Select
-                    id="renderer-show-grid"
-                    value={showGridOverride}
-                    onChange={(e) => onChange(
-                      'data.rendererOverrides.environment2d.showGrid',
-                      e.target.value === 'inherit' ? undefined : e.target.value === 'true',
-                    )}
-                  >
-                    <option value="inherit"><Trans>Follow simulator / renderer default</Trans></option>
-                    <option value="true"><Trans>Force visible</Trans></option>
-                    <option value="false"><Trans>Force hidden</Trans></option>
-                  </Form.Select>
-                </Form.Field>
-
-                <Form.Field label={<Trans>Fallback Background Color</Trans>} htmlFor="renderer-background-color">
-                  <Form.Input
-                    id="renderer-background-color"
-                    type="text"
-                    value={fallbackBackgroundColor}
-                    placeholder="#ffffff"
-                    onChange={(e) => onChange(
-                      'data.rendererOverrides.environment2d.fallbackBackgroundColor',
-                      e.target.value || undefined,
-                    )}
-                  />
-                </Form.Field>
-                <div className={styles.infoText}>
-                  <Trans>These values are local renderer overrides. They do not modify simulator metadata.</Trans>
-                </div>
-              </Form.FieldSet>
-
               <Form.FieldSet>
                 <Form.Label><Trans>2D Layer Metadata</Trans></Form.Label>
                 {env.layers.length > 0 ? env.layers.map((layer) => (

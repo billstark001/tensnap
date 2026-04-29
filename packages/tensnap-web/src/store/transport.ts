@@ -32,6 +32,7 @@ export interface TransportStore {
   abortController: AbortController | null;
 
   isConnected: () => boolean;
+  canReconnect: () => boolean;
 
   initialize: (transport: ISimulatorTransport | string, state?: StateSyncRequest) => Promise<void>;
   sendMessage: (message: RendererToSimulatorMessage) => void;
@@ -69,6 +70,10 @@ export const createTransportStore = (
   abortController: null,
 
   isConnected: () => get().transport?.isConnected ?? false,
+  canReconnect: () => {
+    const { transport, connectionId } = get();
+    return Boolean(transport && connectionId && transport.transportKind === 'websocket');
+  },
 
   initialize: async (transportOrUrl: ISimulatorTransport | string, state?: StateSyncRequest) => {
     const { transport: currentTransport, abortController: currentAbort } = get();
@@ -182,12 +187,12 @@ export const createTransportStore = (
   },
 
   reconnect: async (state) => {
+    if (!get().canReconnect()) return;
+
     const { transport, connectionId } = get();
     if (!transport || !connectionId) return;
 
-    const nextTransport = transport.transportKind === 'websocket'
-      ? new WebSocketManagerImpl(null, connectionId, transport.encoding === 'msgpack')
-      : transport;
+    const nextTransport = new WebSocketManagerImpl(null, connectionId, transport.encoding === 'msgpack');
 
     await get().initialize(nextTransport, state ?? useScenarioStore.getState().createStateSyncMessage().payload);
   },

@@ -11,14 +11,16 @@ import { createScenarioStore } from './scenario/store';
 import { createTransportStore } from './transport';
 
 class DeferredTransport implements ISimulatorTransport {
-  readonly transportKind = 'mock';
   readonly encoding: ProtocolEncoding = 'json';
 
   private state: TransportConnectionState = 'closed';
   private handlers = new Map<keyof TransportEventMap, Set<TransportEventHandler<any>>>();
   private resolveConnect: (() => void) | null = null;
 
-  constructor(readonly connectionId: string) {}
+  constructor(
+    readonly connectionId: string,
+    readonly transportKind: 'mock' | 'websocket' | 'inmemory' = 'mock',
+  ) {}
 
   get connectionState(): TransportConnectionState {
     return this.state;
@@ -121,5 +123,34 @@ describe('transport store reconnect state', () => {
     await secondInit;
 
     expect(useScenarioStore.getState().connected).toBe(true);
+  });
+
+  it('does not reconnect destroyed in-memory transports', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new DeferredTransport('inmemory:model-1', 'inmemory');
+
+    const init = useTransportStore.getState().initialize(transport);
+    transport.open();
+    await init;
+
+    expect(useTransportStore.getState().canReconnect()).toBe(false);
+
+    useTransportStore.getState().disconnect();
+
+    await expect(useTransportStore.getState().reconnect()).resolves.toBeUndefined();
+    expect(useTransportStore.getState().transport).toBeNull();
+  });
+
+  it('only exposes reconnect for websocket transports', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new DeferredTransport('ws://example.test', 'websocket');
+
+    const init = useTransportStore.getState().initialize(transport);
+    transport.open();
+    await init;
+
+    expect(useTransportStore.getState().canReconnect()).toBe(true);
   });
 });

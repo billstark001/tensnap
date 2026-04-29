@@ -1,14 +1,5 @@
 import { JsonSerializable } from "./utils";
 
-export type Environment2DRendererOverrides = {
-  showGrid?: boolean;
-  fallbackBackgroundColor?: string;
-};
-
-export type EnvironmentRendererOverrides = {
-  environment2d?: Environment2DRendererOverrides;
-};
-
 export type BaseView<TType extends string, TData extends JsonSerializable> = {
   id: string;
   type: TType;
@@ -38,7 +29,6 @@ export type AnchoredView = BaseView<
     id: string;
     title?: string;
     type?: string;
-    rendererOverrides?: EnvironmentRendererOverrides;
   }>;
 
 export type ContainerView = BaseView<

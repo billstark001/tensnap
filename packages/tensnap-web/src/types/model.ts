@@ -27,7 +27,7 @@ export type {
   ScenarioLayerState,
   ScenarioSnapshot,
   StringParameter,
-  TrajectoryPoint as AgentTrajectoryPoint,
+  TrajectoryPoint,
 } from '@tensnap/core';
 
 export interface SnapshotIdentity {

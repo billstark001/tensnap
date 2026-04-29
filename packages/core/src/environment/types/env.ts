@@ -4,8 +4,7 @@
  * Environment configuration types.
  */
 
-import type { ImageInterpolation } from '../storages/BackgroundStorage';
-import type { BackgroundSource } from './background';
+import type { GridEnvData } from '../storages/GridEnvStorage';
 
 /** How grid coordinates map to canvas pixels.
  * - 'int'   → agent at (x, y) is centered in cell (x, y)  [integer coords]
@@ -13,19 +12,7 @@ import type { BackgroundSource } from './background';
  */
 export type GridCoordOffset = 'int' | 'float';
 
-// ---------------------------------------------------------------------------
-// Grid environment config
-// ---------------------------------------------------------------------------
-
-export interface GridEnvConfig {
-  /** Number of columns. */
-  width: number;
-  /** Number of rows. */
-  height: number;
-  coordOffset?: GridCoordOffset;
-  background?: BackgroundSource;
-  interpolation?: ImageInterpolation;
-}
+export type GridEnvConfig = GridEnvData;
 
 // ---------------------------------------------------------------------------
 // Graph environment config
@@ -33,14 +20,14 @@ export interface GridEnvConfig {
 
 export interface GraphEnvConfig {
   /** d3-force link distance. */
-  linkDistance?: number;
+  link_distance?: number;
   /** d3-force charge strength (negative = repulsion). */
-  chargeStrength?: number;
+  charge_strength?: number;
   /** d3-force centering strength. */
-  centeringStrength?: number;
+  centering_strength?: number;
   /** d3-force collision radius. */
-  collisionRadius?: number;
+  collision_radius?: number;
   /** Maximum distance between connected components before constraint kicks in. */
-  maxComponentDistance?: number;
-  componentSpacing?: number;
+  max_component_distance?: number;
+  component_spacing?: number;
 }

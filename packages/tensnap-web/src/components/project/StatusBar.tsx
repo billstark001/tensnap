@@ -39,9 +39,11 @@ export function StatusBar({
 
   const reconnect = transportStore?.reconnect;
   const isConnecting = transportStore?.isConnecting ?? false;
+  const canReconnect = transportStore?.canReconnect?.() ?? false;
+  const reconnectDisabled = isReconnecting || isConnecting || !canReconnect;
 
   const handleReconnect = useCallback(async () => {
-    if (isReconnecting || isConnecting || !reconnect || !transportStore) return;
+    if (reconnectDisabled || !reconnect || !transportStore) return;
     
     setIsReconnecting(true);
     try {
@@ -65,7 +67,7 @@ export function StatusBar({
     } finally {
       setIsReconnecting(false);
     }
-  }, [reconnect, isReconnecting, isConnecting, transportStore, toast, _]);
+  }, [reconnect, reconnectDisabled, transportStore, toast, _]);
 
   return (
     <div className={styles.statusBar}>
@@ -105,11 +107,11 @@ export function StatusBar({
         <button
           onClick={handleReconnect}
           className={styles.toggleButton}
-          disabled={isReconnecting || isConnecting}
+          disabled={reconnectDisabled}
           title={_(msg`Force reconnect to server`)}
           style={{
-            opacity: (isReconnecting || isConnecting) ? 0.5 : 1,
-            cursor: (isReconnecting || isConnecting) ? 'not-allowed' : 'pointer',
+            opacity: reconnectDisabled ? 0.5 : 1,
+            cursor: reconnectDisabled ? 'not-allowed' : 'pointer',
           }}
         >
           <RefreshCw 

@@ -71,12 +71,12 @@ export const groupEnvironmentLayerMetadata = (
     case 'grid':
       return groupEntries(metadata, [
         { title: 'Scene Bounds', keys: ['width', 'height'] },
-        { title: 'Grid Geometry', keys: ['xOrigin', 'xUnit', 'xInterval', 'xRatio', 'yOrigin', 'yUnit', 'yInterval', 'yRatio'] },
-        { title: 'Grid Style', keys: ['strokeColor'] },
+        { title: 'Grid Geometry', keys: ['x_origin', 'x_unit', 'x_interval', 'x_ratio', 'y_origin', 'y_unit', 'y_interval', 'y_ratio'] },
+        { title: 'Grid Style', keys: ['stroke_color'] },
       ]);
     case 'edge':
       return groupEntries(metadata, [
-        { title: 'Layout', keys: ['linkDistance', 'chargeStrength', 'centeringStrength', 'collisionRadius', 'maxComponentDistance', 'componentSpacing'] },
+        { title: 'Layout', keys: ['link_distance', 'charge_strength', 'centering_strength', 'collision_radius', 'max_component_distance', 'component_spacing'] },
       ]);
     case 'background':
       return groupEntries(metadata, [

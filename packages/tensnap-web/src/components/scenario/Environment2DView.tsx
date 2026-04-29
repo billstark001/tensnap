@@ -20,6 +20,7 @@ import {
   GraphEnvConfig,
   RenderableAgent,
   ScenarioEnvironmentState,
+  findSceneBounds as findRegisteredSceneBounds,
 } from '@tensnap/core';
 
 interface Environment2DViewProps {
@@ -27,6 +28,14 @@ interface Environment2DViewProps {
   updateTrigger?: number;
   view?: AnchoredView;
 }
+
+const getSceneBounds = (metadata: Record<string, unknown>): { width: number; height: number } | undefined => {
+  const { width, height } = metadata;
+  if (typeof width === 'number' && typeof height === 'number') {
+    return { width, height };
+  }
+  return undefined;
+};
 
 export function Environment2DView({ environment, updateTrigger, view }: Environment2DViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,16 +48,10 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   const scenario = useScenarioStore((store) => store.scenario);
   const assetRevision = useScenarioStore((store) => store._assetRevision);
   const toast = useToast();
+  void view;
 
   const resolveSceneBounds = useCallback((): { width: number; height: number } | undefined => {
-    for (const layer of environment.layers.values()) {
-      const width = layer.metadata.width;
-      const height = layer.metadata.height;
-      if (typeof width === 'number' && typeof height === 'number') {
-        return { width, height };
-      }
-    }
-    return undefined;
+    return findRegisteredSceneBounds([...environment.layers.values()]);
   }, [environment]);
 
   const handleAgentSelect = useCallback((agent: RenderableAgent) => {
@@ -78,18 +81,6 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       });
       const layerStates = [...environment.layers.values()];
       const sceneBounds = resolveSceneBounds();
-      const metadataSource = layerStates.find((layer) => (
-        layer.layerType === 'grid'
-        || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')
-      ));
-      const viewMetadata = (metadataSource?.metadata ?? {}) as Record<string, unknown>;
-      const rendererOverrides = view?.data.rendererOverrides?.environment2d;
-      const showGrid = rendererOverrides?.showGrid ?? (viewMetadata.show_grid !== false);
-      const backgroundColor = typeof rendererOverrides?.fallbackBackgroundColor === 'string'
-        ? rendererOverrides.fallbackBackgroundColor
-        : typeof viewMetadata.background_color === 'string'
-          ? viewMetadata.background_color
-          : null;
       const hasEdgeLayer = layerStates.some((layer) => layer.storage instanceof EdgeStorage);
 
       const nextAgentStorages: AgentStorage[] = [];
@@ -100,19 +91,6 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       const edgeLayerByAgentLayerId = new Map<string, EdgeLayer>();
       let implicitTrajectoryLayerZIndex = 30;
       let implicitAgentLayerZIndex = 40;
-
-      const hasBackgroundStorage = layerStates.some((layer) => layer.storage instanceof BackgroundStorage);
-      if (!hasBackgroundStorage && backgroundColor) {
-        const syntheticBackgroundStorage = new BackgroundStorage();
-        void syntheticBackgroundStorage.setBackground(backgroundColor);
-        const backgroundLayer = new BackgroundLayer(
-          nextView,
-          syntheticBackgroundStorage,
-          sceneBounds ? { sceneBounds } : undefined,
-        );
-        nextView.addLayer(backgroundLayer);
-        nextBackgroundLayers.push(backgroundLayer);
-      }
 
       for (const layer of layerStates) {
         if (layer.storage instanceof BackgroundStorage) {
@@ -127,9 +105,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
         }
 
         if (layer.storage instanceof GridEnvStorage) {
-          if (showGrid) {
-            nextView.addLayer(new GridLayer(nextView, layer.storage));
-          }
+          nextView.addLayer(new GridLayer(nextView, layer.storage));
           continue;
         }
 
@@ -176,9 +152,9 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
 
         const linkedAgentMetadata = agentMetadataByLayerId.get(linkedAgentLayerId);
         const linkedEdgeLayer = edgeLayerByAgentLayerId.get(linkedAgentLayerId);
-        const linkedAgentSceneBounds = (
-          typeof linkedAgentMetadata?.width === 'number' && typeof linkedAgentMetadata?.height === 'number'
-        ) ? { width: linkedAgentMetadata.width, height: linkedAgentMetadata.height } : sceneBounds;
+        const linkedAgentSceneBounds = linkedAgentMetadata
+          ? getSceneBounds(linkedAgentMetadata) ?? sceneBounds
+          : sceneBounds;
         const trajectoryLayer = new TrajectoryLayer(nextView, layer.storage, {
           coordOffset: linkedEdgeLayer
             ? 'float'
@@ -206,9 +182,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
         const linkedEdgeLayer = edgeLayerByAgentLayerId.get(layer.id);
         const usesGraphInteraction = Boolean(linkedEdgeLayer);
 
-        const layerSceneBounds = (
-          typeof layer.metadata.width === 'number' && typeof layer.metadata.height === 'number'
-        ) ? { width: layer.metadata.width, height: layer.metadata.height } : sceneBounds;
+        const layerSceneBounds = getSceneBounds(layer.metadata) ?? sceneBounds;
 
         const agentLayer = new AgentLayer(nextView, layer.storage, {
           ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
@@ -258,7 +232,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       toast.error('Environment render failed', error instanceof Error ? error.message : String(error));
       return;
     }
-  }, [environment, updateTrigger, assetRevision, handleAgentSelect, resolveSceneBounds, scenario, toast, view]);
+  }, [environment, updateTrigger, assetRevision, handleAgentSelect, resolveSceneBounds, scenario, toast]);
 
   const resetView = useCallback(() => {
     const hasEdgeLayer = [...environment.layers.values()].some((layer) => layer.storage instanceof EdgeStorage);

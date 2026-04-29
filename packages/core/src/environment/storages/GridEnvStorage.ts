@@ -21,39 +21,43 @@
 import { BaseStorage } from './BaseStorage';
 
 export interface GridEnvData {
+  /** Scene width in world units or grid columns. */
+  width?: number;
+  /** Scene height in world units or grid rows. */
+  height?: number;
+
   // ── X axis ──────────────────────────────────────────────────────────────
 
-  /** X origin: vertical lines align to  xOrigin + xUnit·n·xInterval·xRatio^m.
+  /** X origin: vertical lines align to  x_origin + x_unit·n·x_interval·x_ratio^m.
    *  Default: 0. */
-  xOrigin?: number;
+  x_origin?: number;
   /** Fundamental unit size along X in scene coordinates (parameter a).
    *  Default: 1. */
-  xUnit?: number;
+  x_unit?: number;
   /** Base interval count for X: number of units between level-0 lines (parameter b).
    *  Default: 1. */
-  xInterval?: number;
+  x_interval?: number;
   /** X subdivision ratio — integer > 1 (parameter c).  Default: 10. */
-  xRatio?: number;
+  x_ratio?: number;
 
   // ── Y axis ──────────────────────────────────────────────────────────────
 
-  /** Y origin: horizontal lines align to  yOrigin + yUnit·n·yInterval·yRatio^m.
+  /** Y origin: horizontal lines align to  y_origin + y_unit·n·y_interval·y_ratio^m.
    *  Default: 0. */
-  yOrigin?: number;
+  y_origin?: number;
   /** Fundamental unit size along Y in scene coordinates (parameter a).
    *  Default: 1. */
-  yUnit?: number;
+  y_unit?: number;
   /** Base interval count for Y (parameter b).  Default: 1. */
-  yInterval?: number;
+  y_interval?: number;
   /** Y subdivision ratio — integer > 1 (parameter c).  Default: 10. */
-  yRatio?: number;
+  y_ratio?: number;
 
   // ── Visual ──────────────────────────────────────────────────────────────
 
   /** Base stroke color (CSS hex string).  Alpha is applied per level.
    *  Default: '#808080'. */
-  strokeColor?: string;
-  // ── Scene bounds (used by AgentLayer, not by GridLayer) ──────────────────
+  stroke_color?: string;
 }
 
 export class GridEnvStorage extends BaseStorage<GridEnvData> {
