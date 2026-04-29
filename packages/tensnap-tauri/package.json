@@ -15,17 +15,19 @@
     "i18n:compile": "lingui compile"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.10.1",
     "@lingui/cli": "^6.0.0",
     "@lingui/core": "^6.0.0",
     "@lingui/macro": "^5.9.5",
     "@lingui/react": "^6.0.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "@tauri-apps/api": "^2.10.1",
+    "@tensnap/web": "workspace:*",
     "@tensnap/web-common": "workspace:*",
-    "@tensnap/web": "workspace:*"
+    "leafer-ui": "^2.1.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
+    "@lingui/swc-plugin": "^6.0.0",
     "@lingui/vite-plugin": "^6.0.0",
     "@tauri-apps/cli": "^2.10.1",
     "@types/react": "^19.2.14",
@@ -34,7 +36,7 @@
     "@typescript-eslint/parser": "^8.59.0",
     "@vanilla-extract/css": "^1.20.1",
     "@vanilla-extract/vite-plugin": "^5.2.2",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react-swc": "^4.3.0",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",

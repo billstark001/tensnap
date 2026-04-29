@@ -1,13 +1,19 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import react from '@vitejs/plugin-react-swc';
 import { lingui } from '@lingui/vite-plugin';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import path from 'path';
+import pkg from './package.json';
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
-    react(),
+    react({
+      plugins: [['@lingui/swc-plugin', {}]],
+    }),
     lingui(),
     vanillaExtractPlugin(),
   ],

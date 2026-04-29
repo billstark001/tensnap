@@ -1,3 +1,5 @@
+import './runtime/leafer-runtime';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { TauriApp } from './TauriApp';
