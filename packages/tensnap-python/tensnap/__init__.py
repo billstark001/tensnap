@@ -7,6 +7,6 @@ from .bindings.mesa import *  # noqa: F403
 from .models import *  # noqa: F403
 from .scenario import SimulationScenario as SimulationScenario
 from .server import TenSnapServer as TenSnapServer
-from .sim_loop import SimulationLoop as SimulationLoop
+from .protocol import *
 
 __version__ = "0.2.0"
