@@ -18,7 +18,7 @@ import { AgentId, AgentIcon } from '../types';
 // ---------------------------------------------------------------------------
 
 /** Unified agent record covering both grid- and graph-mode rendering. */
-export interface RenderableAgent {
+export interface AgentRenderState {
   id: AgentId;
   color?: string;
   icon?: AgentIcon;
@@ -49,9 +49,9 @@ export interface RenderableAgent {
 
 export type AgentDelta = {
   /** Newly added or updated agents. */
-  added: RenderableAgent[];
+  added: AgentRenderState[];
   /** Agents that were removed (snapshot at removal time). */
-  updated: RenderableAgent[];
+  updated: AgentRenderState[];
   /** Agents that were removed (snapshot at removal time). */
   removed: AgentId[];
   /**
@@ -80,11 +80,11 @@ export type AgentDelta = {
 }
 
 export interface AgentStorageData {
-  agents: Map<AgentId, RenderableAgent>;
+  agents: Map<AgentId, AgentRenderState>;
 }
 
 export interface AgentStorageSnapshot {
-  agents: RenderableAgent[];
+  agents: AgentRenderState[];
 }
 
 export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
@@ -108,8 +108,8 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   // -------------------------------------------------------------------------
 
   /** Replace the entire agent map and notify. */
-  setAgents(agents: Iterable<RenderableAgent>): void {
-    const map: Map<AgentId, RenderableAgent> = new Map();
+  setAgents(agents: Iterable<AgentRenderState>): void {
+    const map: Map<AgentId, AgentRenderState> = new Map();
     for (const a of agents) map.set(a.id, { ...a });
     this._data = { agents: map };
     this.notify({ replaced: true });
@@ -167,7 +167,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   // -------------------------------------------------------------------------
 
   /** Add a single agent. If it exists, updates it in place. */
-  addAgent(agent: RenderableAgent): void {
+  addAgent(agent: AgentRenderState): void {
     const existing = this._data.agents.get(agent.id);
     if (existing) {
       // Update existing agent in place to maintain reference stability
@@ -181,9 +181,9 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Add multiple agents efficiently. */
-  addAgents(agents: Iterable<Readonly<RenderableAgent>>): void {
-    const added: RenderableAgent[] = [];
-    const updated: RenderableAgent[] = [];
+  addAgents(agents: Iterable<Readonly<AgentRenderState>>): void {
+    const added: AgentRenderState[] = [];
+    const updated: AgentRenderState[] = [];
     for (const agent of agents) {
       const existing = this._data.agents.get(agent.id);
       if (existing) {
@@ -200,14 +200,14 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Update an existing agent by ID. Creates if doesn't exist. */
-  updateAgent(id: AgentId, updates: Partial<Readonly<RenderableAgent>>): void {
+  updateAgent(id: AgentId, updates: Partial<Readonly<AgentRenderState>>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     const existing = this._data.agents.get(id);
     if (existing) {
       Object.assign(existing, updates);
       delta.updated.push(existing);
     } else {
-      const newAgent = { id, ...updates } as RenderableAgent;
+      const newAgent = { id, ...updates } as AgentRenderState;
       this._data.agents.set(id, newAgent);
       delta.added.push(newAgent);
     }
@@ -215,7 +215,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Update multiple agents efficiently. */
-  updateAgents(updates: Array<Readonly<Partial<RenderableAgent> & { id: AgentId }>>): void {
+  updateAgents(updates: Array<Readonly<Partial<AgentRenderState> & { id: AgentId }>>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     for (const { id, ...data } of updates) {
       const existing = this._data.agents.get(id);
@@ -223,7 +223,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
         Object.assign(existing, data);
         delta.updated.push(existing);
       } else {
-        const newAgent = { id, ...data } as RenderableAgent;
+        const newAgent = { id, ...data } as AgentRenderState;
         this._data.agents.set(id, newAgent);
         delta.added.push(newAgent);
       }
@@ -234,7 +234,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Update multiple agents efficiently. Supports different data structures. */
-  updateAgents2(updates: Array<{ id: AgentId; data: Readonly<Partial<RenderableAgent>> }>): void {
+  updateAgents2(updates: Array<{ id: AgentId; data: Readonly<Partial<AgentRenderState>> }>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     for (const { id, data } of updates) {
       const existing = this._data.agents.get(id);
@@ -242,7 +242,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
         Object.assign(existing, data);
         delta.updated.push(existing);
       } else {
-        const newAgent = { id, ...data } as RenderableAgent;
+        const newAgent = { id, ...data } as AgentRenderState;
         this._data.agents.set(id, newAgent);
         delta.added.push(newAgent);
       }
@@ -272,7 +272,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Get a single agent by ID. */
-  getAgent(id: AgentId): RenderableAgent | undefined {
+  getAgent(id: AgentId): AgentRenderState | undefined {
     return this._data.agents.get(id);
   }
 
@@ -298,7 +298,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   /** Read-only view of the current agent map. */
-  get agents(): ReadonlyMap<AgentId, RenderableAgent> {
+  get agents(): ReadonlyMap<AgentId, AgentRenderState> {
     return this._data.agents;
   }
 }

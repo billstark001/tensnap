@@ -1,49 +1,71 @@
 
-export type ParameterType = 'number' | 'enum' | 'boolean' | 'string';
+import { z } from 'zod';
 
-export interface ParameterBase {
-  id: string;
-  type: ParameterType;
-  label: string;
-  allowRuntimeChange?: boolean;
-}
+export const ParameterTypeSchema = z.enum(['number', 'enum', 'boolean', 'string']);
 
-export interface NumberParameter extends ParameterBase {
-  type: 'number';
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-}
+export type ParameterType = z.infer<typeof ParameterTypeSchema>;
 
-export interface EnumParameter extends ParameterBase {
-  type: 'enum';
-  value: string;
-  options: string[];
-  labels?: Record<string, string>;
-}
+export const ParameterBaseSchema = z.object({
+  id: z.string(),
+  type: ParameterTypeSchema,
+  label: z.string(),
+  allowRuntimeChange: z.boolean().optional(),
+});
 
-export interface BooleanParameter extends ParameterBase {
-  type: 'boolean';
-  value: boolean;
-}
+export type ParameterBase = z.infer<typeof ParameterBaseSchema>;
 
-export interface StringParameter extends ParameterBase {
-  type: 'string';
-  value: string;
-}
+export const NumberParameterSchema = ParameterBaseSchema.extend({
+  type: z.literal('number'),
+  value: z.number(),
+  min: z.number(),
+  max: z.number(),
+  step: z.number(),
+});
 
-export type Parameter = NumberParameter | EnumParameter | BooleanParameter | StringParameter;
+export type NumberParameter = z.infer<typeof NumberParameterSchema>;
+
+export const EnumParameterSchema = ParameterBaseSchema.extend({
+  type: z.literal('enum'),
+  value: z.string(),
+  options: z.array(z.string()),
+  labels: z.record(z.string(), z.string()).optional(),
+});
+
+export type EnumParameter = z.infer<typeof EnumParameterSchema>;
+
+export const BooleanParameterSchema = ParameterBaseSchema.extend({
+  type: z.literal('boolean'),
+  value: z.boolean(),
+});
+
+export type BooleanParameter = z.infer<typeof BooleanParameterSchema>;
+
+export const StringParameterSchema = ParameterBaseSchema.extend({
+  type: z.literal('string'),
+  value: z.string(),
+});
+
+export type StringParameter = z.infer<typeof StringParameterSchema>;
+
+export const ParameterSchema = z.union([
+  NumberParameterSchema,
+  EnumParameterSchema,
+  BooleanParameterSchema,
+  StringParameterSchema,
+]);
+
+export type Parameter = z.infer<typeof ParameterSchema>;
 
 // ---------------------------------------------------------------------------
 // Action — separate from Parameter since v0.2
 // ---------------------------------------------------------------------------
 
+export const ActionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  continuous: z.boolean().optional(),
+  allowRuntimeChange: z.boolean().optional(),
+});
+
 /** An action button registered by the server. */
-export interface Action {
-  id: string;
-  label: string;
-  /** Whether the client should keep firing action_start after each action_end. */
-  continuous?: boolean;
-  allowRuntimeChange?: boolean;
-}
+export type Action = z.infer<typeof ActionSchema>;

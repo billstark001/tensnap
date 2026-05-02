@@ -148,7 +148,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
         setLocalObjectData(chart ? { ...chart } : null);
       }
     }
-  }, [cloneView, view, parameters, environments, charts]);
+  }, [view, parameters, environments, charts]);
 
   const renderEditor = () => {
     switch (localView.type) {

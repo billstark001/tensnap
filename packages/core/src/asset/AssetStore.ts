@@ -19,32 +19,7 @@
  */
 
 import { decodeBinaryString } from '../utils/binary';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type AssetId = string;
-
-export interface AssetMeta {
-  id: AssetId;
-  hash: string;
-  mime: string;
-  size: number;
-  label?: string;
-}
-
-/** Resolved asset data — what the rest of the application sees. */
-export interface ResolvedAsset extends AssetMeta {
-  /**
-   * For image/* assets: an object-URL or data-URL suitable for use in `<img>`
-   * or as a Leafer fill URL.
-   * For all other assets: raw decoded content (string for text/*, Uint8Array otherwise).
-   */
-  url: string | Uint8Array;
-}
-
-export type AssetStoreListener = (id: AssetId, asset: ResolvedAsset | null) => void;
+import type { AssetId, AssetMeta, AssetStoreListener, ResolvedAsset } from './types';
 
 // ---------------------------------------------------------------------------
 // AssetStore

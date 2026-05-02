@@ -27,7 +27,7 @@ import {
   AgentDelta,
   AgentStorage,
   AgentStorageData,
-  RenderableAgent,
+  AgentRenderState,
 } from '../storages/AgentStorage';
 import {
   Viewport,
@@ -88,9 +88,9 @@ export interface AgentLayerConfig {
   /** Resolve an asset-id to URL for `asset:<id>` icons. */
   resolveAssetUrl?: (assetId: string) => string | null | undefined;
 
-  onAgentClick?: (agent: RenderableAgent, event: any) => void;
-  onAgentContextMenu?: (agent: RenderableAgent, event: any) => void;
-  onAgentDoubleClick?: (agent: RenderableAgent) => void;
+  onAgentClick?: (agent: AgentRenderState, event: any) => void;
+  onAgentContextMenu?: (agent: AgentRenderState, event: any) => void;
+  onAgentDoubleClick?: (agent: AgentRenderState) => void;
   onDragStart?: (id: AgentId, x: number, y: number) => void;
   onDragMove?: (id: AgentId, dx: number, dy: number) => void;
   onDragEnd?: (id: AgentId) => void;
@@ -119,7 +119,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   private readonly _agentShapes = new Map<AgentId, AgentShapeEntry>();
   private readonly _cfg: ResolvedConfig;
 
-  private _cachedAgents = new Map<AgentId, RenderableAgent>();
+  private _cachedAgents = new Map<AgentId, AgentRenderState>();
   private _draggingId: AgentId | null = null;
 
   // #endregion
@@ -248,7 +248,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
    * Called every d3-force tick via `flushPositions()`.
    * Avoids all color/icon/size checks, trajectory syncing, and GC-heavy operations.
    */
-  private _flushPositionsOnly(agents: Map<AgentId, RenderableAgent>): void {
+  private _flushPositionsOnly(agents: Map<AgentId, AgentRenderState>): void {
     agents.forEach((agent, id) => {
       const entry = this._agentShapes.get(id);
       if (!entry) return;
@@ -266,7 +266,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     return getCoordOffsetValue(this._cfg.coordOffset);
   }
 
-  private _toSceneCoords(agent: RenderableAgent) {
+  private _toSceneCoords(agent: AgentRenderState) {
     const off = this._posOffset;
     return {
       x: (agent.x ?? 0) + off,
@@ -276,7 +276,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     };
   }
 
-  private _createAgent(agent: RenderableAgent): void {
+  private _createAgent(agent: AgentRenderState): void {
     const coords = this._toSceneCoords(agent);
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? DEFAULT_AGENT_COLOR;
@@ -295,7 +295,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   }
 
   /** Merged shape-appearance + position update (the two are always applied together). */
-  private _updateAgent(agent: RenderableAgent): void {
+  private _updateAgent(agent: AgentRenderState): void {
     const entry = this._agentShapes.get(agent.id);
     if (!entry) return;
 

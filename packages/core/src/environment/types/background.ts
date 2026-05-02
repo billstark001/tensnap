@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ImageInterpolation } from '../storages/BackgroundStorage';
+import { BaseLayerMetadataSchema } from './layer';
 
 export const BackgroundInterpolationSchema = z.enum(['nearest', 'linear']);
 
@@ -14,12 +14,13 @@ export const BackgroundSourceSchema = z.union([
   BackgroundAssetReferenceSchema,
 ]);
 
-export interface BackgroundLayerMetadata {
-  background?: BackgroundSource;
-  interpolation?: ImageInterpolation;
-}
+export const BackgroundLayerMetadataSchema = BaseLayerMetadataSchema.extend({
+  background: BackgroundSourceSchema.optional(),
+  interpolation: BackgroundInterpolationSchema.optional(),
+}).loose();
 
 export type BackgroundAssetReference = z.infer<typeof BackgroundAssetReferenceSchema>;
+export type BackgroundLayerMetadata = z.infer<typeof BackgroundLayerMetadataSchema>;
 export type BackgroundSource = z.infer<typeof BackgroundSourceSchema>;
 
 export function isBackgroundAssetReference(value: unknown): value is BackgroundAssetReference {

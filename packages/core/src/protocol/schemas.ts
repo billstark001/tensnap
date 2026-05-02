@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import { AssetMetaSchema } from '../asset/types';
+import {
+  ChartGroupMetadataSchema,
+  ChartMetadataSchema,
+  ChartUpdateDataSchema,
+  ChartUpdateOperationSchema,
+} from '../chart/types';
+import { AgentIdSchema } from '../environment/types';
+import { ActionSchema, ParameterSchema } from '../parameter/types';
 import { isEncodedBinaryString } from '../utils/binary';
 
 const BinaryPayloadStringSchema = z.string().refine(
@@ -8,132 +17,9 @@ const BinaryPayloadStringSchema = z.string().refine(
 
 const BinaryPayloadDataSchema = z.union([BinaryPayloadStringSchema, z.instanceof(Uint8Array)]);
 
-export const AgentIdSchema = z.union([z.string(), z.number()]);
-export const BuiltinAgentIconSchema = z.enum([
-  'arrow',
-  'circle',
-  'square',
-  'triangle',
-  'diamond',
-  'star',
-  'hexagon',
-  'cross',
-  'plus',
-  'pentagon',
-]);
-export const AssetAgentIconSchema = z.string().regex(/^asset:.+$/);
-export const AgentIconSchema = z.union([BuiltinAgentIconSchema, AssetAgentIconSchema]);
-
-export const AgentSchema = z.object({
-  id: AgentIdSchema,
-  color: z.string().optional(),
-  icon: AgentIconSchema.optional(),
-  size: z.number().optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
-}).loose();
-
-export const AgentDiffSchema = z.object({ id: AgentIdSchema }).loose();
-
-export const EdgeDataSchema = z.object({
-  source: AgentIdSchema,
-  target: AgentIdSchema,
-  directed: z.boolean().optional(),
-  style: z.enum(['solid', 'dashed', 'dotted']).optional(),
-  width: z.number().optional(),
-  color: z.string().optional(),
-}).loose();
-
-export const EdgeDiffSchema = z.object({
-  source: AgentIdSchema,
-  target: AgentIdSchema,
-}).loose();
-
 export const ItemSchema = z.record(z.string(), z.unknown());
 export const ItemDiffSchema = z.record(z.string(), z.unknown());
 export const ItemKeySchema = z.record(z.string(), z.unknown());
-
-export const TrajectoryConfigSchema = z.object({
-  id: AgentIdSchema,
-  length: z.number().optional(),
-  width: z.number().optional(),
-  color: z.string().optional(),
-}).loose();
-
-export const TrajectoryConfigDiffSchema = z.object({
-  id: AgentIdSchema,
-}).loose();
-
-export const NumberParameterSchema = z.object({
-  id: z.string(),
-  type: z.literal('number'),
-  label: z.string(),
-  value: z.number(),
-  min: z.number(),
-  max: z.number(),
-  step: z.number(),
-  allowRuntimeChange: z.boolean().optional(),
-});
-
-export const EnumParameterSchema = z.object({
-  id: z.string(),
-  type: z.literal('enum'),
-  label: z.string(),
-  value: z.string(),
-  options: z.array(z.string()),
-  labels: z.record(z.string(), z.string()).optional(),
-  allowRuntimeChange: z.boolean().optional(),
-});
-
-export const BooleanParameterSchema = z.object({
-  id: z.string(),
-  type: z.literal('boolean'),
-  label: z.string(),
-  value: z.boolean(),
-  allowRuntimeChange: z.boolean().optional(),
-});
-
-export const StringParameterSchema = z.object({
-  id: z.string(),
-  type: z.literal('string'),
-  label: z.string(),
-  value: z.string(),
-  allowRuntimeChange: z.boolean().optional(),
-});
-
-export const ParameterSchema = z.union([
-  NumberParameterSchema,
-  EnumParameterSchema,
-  BooleanParameterSchema,
-  StringParameterSchema,
-]);
-
-export const ActionSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  continuous: z.boolean().optional(),
-  allowRuntimeChange: z.boolean().optional(),
-});
-
-export const ChartMetadataSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  color: z.string().optional(),
-});
-
-export const ChartGroupMetadataSchema = ChartMetadataSchema.extend({
-  dataList: z.array(ChartMetadataSchema).optional(),
-});
-
-export const ChartUpdateDataSchema = z.object({
-  id: z.string(),
-  time: z.number().optional(),
-  value: z.unknown(),
-});
-
-export const ChartUpdateOperationSchema = z.object({
-  id: z.string(),
-  operation: z.literal('clear'),
-});
 
 export const MetadataUpdatePayloadSchema = z.object({
   time: z.number().optional(),
@@ -227,14 +113,6 @@ export const LogPayloadSchema = z.object({
 });
 
 export const ErrorPayloadSchema = z.object({ error: z.string() });
-
-export const AssetMetaSchema = z.object({
-  id: z.string(),
-  hash: z.string(),
-  mime: z.string(),
-  size: z.number(),
-  label: z.string().optional(),
-});
 
 export const AssetMetaPayloadSchema = z.object({
   assets: z.array(AssetMetaSchema),
@@ -384,8 +262,3 @@ export const getPayloadSchema = (type: string) => {
     default: return z.unknown();
   }
 };
-
-/** @deprecated Use SimulatorToRendererMessageSchema. */
-export const ServerToClientMessageSchema = SimulatorToRendererMessageSchema;
-/** @deprecated Use RendererToSimulatorMessageSchema. */
-export const ClientToServerMessageSchema = RendererToSimulatorMessageSchema;

@@ -1,6 +1,6 @@
 import type { AssetMeta } from '@tensnap/core/asset';
 import type { ChartMetadata } from '@tensnap/core/chart';
-import type { NativeDataPoint } from '@tensnap/core/chart';
+import type { ChartSeriesPoint } from '@tensnap/core/chart';
 import type { Viewport } from '@tensnap/core/environment';
 import type { Action, Parameter } from '@tensnap/core/parameter';
 import type { ActionEndPayload, NormalizedLogPayload, ProtocolEncoding } from '@tensnap/core/protocol';
@@ -82,7 +82,7 @@ export interface SceneSummary {
 export interface ChartSeriesSnapshot {
   id: string;
   metadata: ChartMetadata;
-  points: NativeDataPoint[];
+  points: ChartSeriesPoint[];
 }
 
 export interface SceneAssetSummary extends AssetMeta {

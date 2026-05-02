@@ -42,7 +42,7 @@ import {
   EnvironmentView,
   AgentStorage, EdgeStorage, BackgroundStorage,
   BackgroundLayer, EdgeLayer, AgentLayer,
-  RenderableAgent, GraphEdge,
+  AgentRenderState, GraphEdge,
 } from "@tensnap/web-core/environment';
 
 const view       = new EnvironmentView(container);

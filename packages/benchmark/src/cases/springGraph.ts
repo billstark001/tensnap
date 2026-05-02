@@ -14,8 +14,7 @@
  *   frame.
  */
 
-import { EnvironmentView, AgentStorage, EdgeStorage, AgentLayer, EdgeLayer } from '@tensnap/core/environment';
-import { RenderableAgent } from '@tensnap/core/environment';
+import { EnvironmentView, AgentStorage, EdgeStorage, AgentLayer, EdgeLayer, AgentRenderState } from '@tensnap/core/environment';
 import { GraphEdge } from '@tensnap/core/environment';
 import { BenchmarkCase } from '../types';
 
@@ -39,13 +38,13 @@ const NODE_COLORS = [
 ];
 
 function buildERGraph(n: number, p: number, W: number, H: number): {
-  nodes: RenderableAgent[];
+  nodes: AgentRenderState[];
   edges: GraphEdge[];
 } {
   // Nodes are initialised in scene coordinates centred at the origin (0, 0).
   // EdgeLayer's d3-force centre force is fixed at the scene origin, so the
   // initial layout must be centred there too; otherwise nodes drift to a corner.
-  const nodes: RenderableAgent[] = Array.from({ length: n }, (_, i) => ({
+  const nodes: AgentRenderState[] = Array.from({ length: n }, (_, i) => ({
     id: `n_${i}`,
     x: (Math.random() - 0.5) * W * 0.8,
     y: (Math.random() - 0.5) * H * 0.8,
@@ -78,7 +77,7 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
   let agentStorage: AgentStorage | null = null;
   let edgeStorage: EdgeStorage | null = null;
   let host: HTMLElement | null = null;
-  let nodes: RenderableAgent[] = [];
+  let nodes: AgentRenderState[] = [];
 
   return {
     name: 'EnvironmentView (E-R spring graph)',
@@ -134,7 +133,7 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
         perturbedIndexes.add(Math.floor(Math.random() * nodes.length));
       }
 
-      const updates: Array<Pick<RenderableAgent, 'id' | 'x' | 'y'>> = [];
+      const updates: Array<Pick<AgentRenderState, 'id' | 'x' | 'y'>> = [];
       for (const idx of perturbedIndexes) {
         const node = nodes[idx];
         if (!node) {

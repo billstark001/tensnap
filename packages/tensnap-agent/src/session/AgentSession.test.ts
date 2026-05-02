@@ -26,6 +26,7 @@ describe('AgentSession', () => {
 
     expect(sent).toHaveLength(1);
     const firstTickId = sent[0]?.payload && typeof sent[0].payload === 'object' && 'tick_id' in sent[0].payload
+      && typeof sent[0].payload.tick_id === 'string'
       ? sent[0].payload.tick_id
       : undefined;
 

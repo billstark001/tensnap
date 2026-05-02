@@ -1,22 +1,8 @@
-import { ComponentType, PropsWithChildren, useEffect } from "react";
+import { ComponentType, PropsWithChildren } from "react";
 import ReactDOM from "react-dom/client";
 import { FileMetadata, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web-common/types/file';
-import { FilePickerProvider, useFilePicker } from "./FilePickerProvider";
-
-/**
- * 内部组件：用于从 FilePickerProvider 中提取 pickFiles 函数
- */
-function InFilePickerTrigger(props: {
-  onPickFilesChanged: (f: FileSystemPicker['pickFiles']) => void;
-}) {
-  const { pickFiles } = useFilePicker();
-  
-  useEffect(() => {
-    props.onPickFilesChanged(pickFiles);
-  }, [pickFiles, props]);
-  
-  return null;
-}
+import { FilePickerProvider } from "./FilePickerProvider";
+import { FilePickerBridge } from './FilePickerBridge';
 
 /**
  * InBrowserFilePicker: 在浏览器环境中实现的文件选择器
@@ -54,10 +40,10 @@ export class InBrowserFilePicker extends FileSystemPicker {
     // 创建 React 组件树
     const children = (
       <FilePickerProvider fileSystem={fileSystem}>
-        <InFilePickerTrigger 
+        <FilePickerBridge
           onPickFilesChanged={(pickFiles) => {
             this._pickFiles = pickFiles;
-          }} 
+          }}
         />
       </FilePickerProvider>
     );

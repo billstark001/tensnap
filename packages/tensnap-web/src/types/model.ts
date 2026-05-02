@@ -1,9 +1,6 @@
 
 export type {
   Action,
-  AgentIcon,
-  AgentId,
-  BaseAgent as Agent,
   BooleanParameter,
   ChartGroup,
   ChartGroupMetadata,
@@ -11,12 +8,6 @@ export type {
   ChartUpdateData,
   ChartUpdateOperation,
   EnumParameter,
-  GraphAgent,
-  GraphEdge,
-  GridAgent,
-  GridCoordOffset,
-  GridEnvConfig,
-  NativeDataPoint,
   NumberParameter,
   Parameter,
   ParameterBase,
@@ -27,8 +18,21 @@ export type {
   ScenarioLayerState,
   ScenarioSnapshot,
   StringParameter,
-  TrajectoryPoint,
 } from '@tensnap/core';
+
+export type {
+  AgentIcon,
+  AgentId,
+  Agent,
+  GraphAgentState,
+  GraphEdge,
+  GridAgentState,
+  GridCoordOffset,
+  GridEnvConfig,
+  TrajectoryPoint,
+} from '@tensnap/core/environment';
+
+export type { ChartSeriesPoint } from '@tensnap/core/chart';
 
 export interface SnapshotIdentity {
   id: string;

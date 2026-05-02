@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
@@ -43,28 +43,30 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   } = useSettingsStore();
 
   const { activeProject, activeIndex, changeUrl } = useProjectStore();
+  const activeProjectId = activeProject?.id ?? null;
+  const currentProjectUrl = activeProject?.useTransportStore.getState().connectionId || '';
 
   // Project settings local state
-  const [backendUrl, setBackendUrl] = useState('');
-  const [hasProjectChanges, setHasProjectChanges] = useState(false);
+  const [projectDraft, setProjectDraft] = useState(() => ({
+    projectId: activeProjectId,
+    backendUrl: currentProjectUrl,
+    hasProjectChanges: false,
+  }));
 
-  // 同步当前项目的 URL
-  useEffect(() => {
-    if (activeProject) {
-      const currentUrl = activeProject.useTransportStore.getState().connectionId || '';
-      setBackendUrl(currentUrl);
-      setHasProjectChanges(false);
-    } else {
-      setBackendUrl('');
-      setHasProjectChanges(false);
-    }
-  }, [activeProject]);
+  const backendUrl = projectDraft.projectId === activeProjectId
+    ? projectDraft.backendUrl
+    : currentProjectUrl;
+  const hasProjectChanges = projectDraft.projectId === activeProjectId
+    ? projectDraft.hasProjectChanges
+    : false;
 
   const handleBackendUrlChange = useCallback((value: string) => {
-    setBackendUrl(value);
-    const currentUrl = activeProject?.useTransportStore.getState().connectionId || '';
-    setHasProjectChanges(value !== currentUrl);
-  }, [activeProject]);
+    setProjectDraft({
+      projectId: activeProjectId,
+      backendUrl: value,
+      hasProjectChanges: value !== currentProjectUrl,
+    });
+  }, [activeProjectId, currentProjectUrl]);
 
   const handleProjectSettingsConfirm = useCallback(async () => {
     if (!activeProject || activeIndex === null) {
@@ -75,22 +77,24 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     try {
       await changeUrl(activeIndex, backendUrl);
       toast.success(_(msg`Project URL updated successfully`));
-      setHasProjectChanges(false);
+      setProjectDraft({
+        projectId: activeProjectId,
+        backendUrl,
+        hasProjectChanges: false,
+      });
     } catch (error) {
       toast.error(_(msg`Failed to update project URL`), error instanceof Error ? error.message : String(error));
       console.error('Failed to update project URL:', error);
     }
-  }, [activeIndex, backendUrl, changeUrl, toast, _, activeProject]);
+  }, [activeIndex, activeProject, activeProjectId, backendUrl, changeUrl, toast, _]);
 
   const handleProjectSettingsReset = useCallback(() => {
-    if (activeProject) {
-      const currentUrl = activeProject.useTransportStore.getState().connectionId || '';
-      setBackendUrl(currentUrl);
-    } else {
-      setBackendUrl('');
-    }
-    setHasProjectChanges(false);
-  }, [activeProject]);
+    setProjectDraft({
+      projectId: activeProjectId,
+      backendUrl: currentProjectUrl,
+      hasProjectChanges: false,
+    });
+  }, [activeProjectId, currentProjectUrl]);
 
   const handleLocaleChange = useCallback(async (newLocale: string) => {
     if (!isValidLocale(newLocale)) {

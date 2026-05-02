@@ -8,22 +8,22 @@ import {
   EdgeStorage,
   GridEnvStorage,
 } from '../environment/storages';
-import type { RenderableAgent } from '../environment/storages';
+import type { AgentRenderState } from '../environment/storages';
 import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
-import {
-  BackgroundAssetReferenceSchema,
-  BackgroundInterpolationSchema,
-  BackgroundSourceSchema,
-  isBackgroundAssetReference,
-} from '../environment/types';
 import {
   AgentDiffSchema,
   AgentSchema,
+  AgentLayerMetadataSchema,
+  BackgroundLayerMetadataSchema,
   EdgeDataSchema,
   EdgeDiffSchema,
+  EdgeLayerMetadataSchema,
+  GridLayerMetadataSchema,
   TrajectoryConfigDiffSchema,
   TrajectoryConfigSchema,
-} from '../protocol';
+  TrajectoryLayerMetadataSchema,
+  isBackgroundAssetReference,
+} from '../environment/types';
 import type { ScenarioEnvironmentState, ScenarioLayerState } from './types';
 
 export interface LayerStorage {
@@ -270,8 +270,8 @@ function getEdgePairs(items: DeleteItems): Array<{ source: AgentId; target: Agen
   return items as Array<{ source: AgentId; target: AgentId }>;
 }
 
-type AgentItem = Readonly<RenderableAgent>;
-type AgentItemDiff = Readonly<Partial<RenderableAgent> & { id: AgentId }>;
+type AgentItem = Readonly<AgentRenderState>;
+type AgentItemDiff = Readonly<Partial<AgentRenderState> & { id: AgentId }>;
 type EdgeItem = z.infer<typeof EdgeDataSchema>;
 type EdgeItemDiff = z.infer<typeof EdgeDiffSchema>;
 type TrajectoryItem = z.infer<typeof TrajectoryConfigSchema>;
@@ -421,60 +421,6 @@ const backgroundLayerController: ItemLayerController = {
   },
 };
 // #endregion
-
-// #region Built-in metadata schemas
-const BaseLayerMetadataSchema = z.object({
-  dependency_layer_ids: z.never().optional(),
-  z_index: z.number().optional(),
-}).loose();
-
-const AgentLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  width: z.number().optional(),
-  height: z.number().optional(),
-  coord_offset: z.enum(['int', 'float']).optional(),
-}).loose();
-
-const EdgeLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  link_distance: z.number().optional(),
-  charge_strength: z.number().optional(),
-  centering_strength: z.number().optional(),
-  collision_radius: z.number().optional(),
-  max_component_distance: z.number().optional(),
-  component_spacing: z.number().optional(),
-}).loose();
-
-const GridLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  width: z.number().optional(),
-  height: z.number().optional(),
-  x_origin: z.number().optional(),
-  x_unit: z.number().optional(),
-  x_interval: z.number().optional(),
-  x_ratio: z.number().int().min(2).optional(),
-  y_origin: z.number().optional(),
-  y_unit: z.number().optional(),
-  y_interval: z.number().optional(),
-  y_ratio: z.number().int().min(2).optional(),
-  stroke_color: z.string().optional(),
-}).loose();
-
-const TrajectoryLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  length: z.number().optional(),
-  width: z.number().optional(),
-  color: z.string().optional(),
-}).loose();
-
-const BackgroundLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  background: BackgroundSourceSchema.optional(),
-  interpolation: BackgroundInterpolationSchema.optional(),
-}).loose();
-// #endregion
-
-export {
-  BackgroundAssetReferenceSchema,
-  BackgroundInterpolationSchema,
-  BackgroundLayerMetadataSchema,
-  BackgroundSourceSchema,
-};
 
 // #region Built-in layer registrations
 registerLayerType({

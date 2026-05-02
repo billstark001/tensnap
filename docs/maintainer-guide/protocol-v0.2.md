@@ -46,7 +46,7 @@ Future simulator-side or agent-side packages will own concrete transport impleme
 
 ### Naming
 
-Protocol v0.2 uses renderer/simulator terminology.  Deprecated compatibility aliases may still exist temporarily in TypeScript exports while the web package finishes migrating, but they are not normative for new code or documentation.
+Protocol v0.2 uses renderer/simulator terminology.  The TypeScript surface now follows those canonical names directly; older client/server and `*CUPayload` compatibility aliases are not part of the v0.2 contract.
 
 | Old term   | New term   |
 | --- | --- |
@@ -71,7 +71,7 @@ The current refactor state is that protocol types and schemas live in `@tensnap/
 
 Browser WebSocket integration remains in `@tensnap/web` during the next migration phase.  The screenshot capture registry currently lives in `@tensnap/web`'s `ScenarioStore`, and rendering components register their capture functions through `registerScreenshotCapture`.
 
-Temporary TypeScript compatibility exports may remain for older server/client naming, but new code should use renderer/simulator names exclusively.
+Protocol payloads reference parameter, action, chart, and asset owner types from their owning modules.  The protocol layer no longer re-exports compatibility names or alternate access paths for those owner types.
 
 ## Data Types
 

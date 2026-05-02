@@ -1,4 +1,5 @@
 import type { ChartGroup } from '../chart';
+import type { ChartGroupMetadata } from '../chart';
 import type { Action, Parameter } from '../parameter';
 import type {
   ActionEndPayload,
@@ -9,7 +10,6 @@ import type {
   AssetDataPayload,
   AssetDeletePayload,
   AssetMetaPayload,
-  ChartCreatePayload,
   ChartDeletePayload,
   ChartUpdatePayload,
   EnvCreatePayload,
@@ -17,7 +17,6 @@ import type {
   EnvLayerCreatePayload,
   EnvLayerDeletePayload,
   EnvLayerUpdatePayload,
-  LogPayload,
   MetadataUpdatePayload,
   NormalizedLogPayload,
   ParameterChangePayload,
@@ -32,11 +31,11 @@ export interface ScenarioLayerState {
   id: string;
   layerType: string;
   metadata: Record<string, unknown>;
-  storage: ScenarioStorage;
+  storage: ScenarioLayerStorage;
   dependencyLayerIds: Record<string, string>;
 }
 
-export interface ScenarioStorage {
+export interface ScenarioLayerStorage {
   dump(): unknown;
   load(snapshot: unknown): void;
 }
@@ -91,7 +90,7 @@ export interface ScenarioEventDetailMap {
   'param:update': Parameter;
   'param:delete': { id: string };
   'param:sync': ParameterSyncPayload;
-  'chart:create': ChartCreatePayload;
+  'chart:create': ChartGroupMetadata;
   'chart:update': ChartUpdatePayload;
   'chart:delete': ChartDeletePayload;
   'asset:meta': AssetMetaPayload;
@@ -110,5 +109,3 @@ export interface ScenarioMessageFactory {
   createActionStartMessage(id: string, continuous?: boolean, tickId?: string): { type: 'action_start'; payload: ActionStartPayload };
   createAssetSyncMessage(): { type: 'asset_sync'; payload: { assets: Record<string, string> } };
 }
-
-export type ScenarioLogPayload = LogPayload;

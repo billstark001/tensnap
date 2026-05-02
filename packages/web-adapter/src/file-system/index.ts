@@ -3,8 +3,9 @@ export { FileSystemBrowser } from './FileSystemBrowser';
 export type { FileSystemBrowserProps } from './FileSystemBrowser';
 
 // 文件选择器
-export { FilePickerProvider, useFilePicker } from './FilePickerProvider';
-export type { FilePickerContextValue } from './FilePickerProvider';
+export { FilePickerProvider } from './FilePickerProvider';
+export { useFilePicker } from './FilePickerContext';
+export type { FilePickerContextValue } from './FilePickerContext';
 export { InBrowserFilePicker } from './FilePicker';
 
 // 导出功能

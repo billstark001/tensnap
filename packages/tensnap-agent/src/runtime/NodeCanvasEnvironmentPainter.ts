@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from 'canvas';
-import type { RenderableAgent, AgentStorageSnapshot } from '@tensnap/core/environment/storages/AgentStorage';
+import type { AgentRenderState, AgentStorageSnapshot } from '@tensnap/core/environment/storages/AgentStorage';
 import type { BackgroundData } from '@tensnap/core/environment/storages/BackgroundStorage';
 import type { EdgeStorageSnapshot } from '@tensnap/core/environment/storages/EdgeStorage';
 import type { GridEnvData } from '@tensnap/core/environment/storages/GridEnvStorage';
@@ -39,14 +39,14 @@ interface AggregatedEnvironment {
   backgroundSource: unknown;
   agentLayers: AggregatedAgentLayer[];
   trajectoryLayers: AggregatedTrajectoryLayer[];
-  agents: RenderableAgent[];
+  agents: AgentRenderState[];
   edges: GraphEdge[];
 }
 
 interface AggregatedAgentLayer {
   id: string;
   coordOffset: 'int' | 'float';
-  agents: RenderableAgent[];
+  agents: AgentRenderState[];
 }
 
 interface AggregatedTrajectoryLayer {
@@ -156,7 +156,7 @@ function normalizeViewport(viewport: Viewport): Viewport {
   return { x: viewport.x, y: viewport.y, width, height };
 }
 
-function worldBoundsFromAgents(agents: RenderableAgent[]): Viewport {
+function worldBoundsFromAgents(agents: AgentRenderState[]): Viewport {
   if (!agents.length) {
     return { x: 0, y: 0, width: 1, height: 1 };
   }

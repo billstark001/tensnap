@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { FilePickerProvider, useFilePicker } from './FilePickerProvider';
+import { FilePickerProvider } from './FilePickerProvider';
+import { useFilePicker } from './FilePickerContext';
 import { DirectoryMetadata, FileSystemAdapter, FileMetadata } from '@tensnap/web-common/types/file';
 
 vi.mock('./FileSystemBrowser.css', () => ({

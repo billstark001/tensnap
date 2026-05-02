@@ -1,4 +1,4 @@
-import { ChartGroup, ChartMetadata, NativeDataPoint, ChartUpdateData } from "./types";
+import { ChartGroup, ChartMetadata, ChartSeriesPoint, ChartUpdateData } from "./types";
 import { instantiateChartMetadata } from "./utils";
 
 type WarnFn = (msg: string) => void;
@@ -22,7 +22,7 @@ function mapListRemove<K, V>(map: Map<K, V[]>, key: K, item: V): void {
  * Returns the index of the element in `data` (sorted ascending by `time`)
  * whose time is closest to `time`.
  */
-function closestTimeIndex(data: NativeDataPoint[], time: number): number {
+function closestTimeIndex(data: ChartSeriesPoint[], time: number): number {
   let lo = 0, hi = data.length - 1;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
@@ -50,7 +50,7 @@ export class ChartStorage {
   private readonly metaGroups = new Map<string, ChartGroup[]>();
 
   /** Per-group point buffers used during push(). */
-  private readonly pushBuffer = new Map<string, Map<number, NativeDataPoint>>();
+  private readonly pushBuffer = new Map<string, Map<number, ChartSeriesPoint>>();
 
   constructor(groups: ChartGroup[] = []) {
     for (const g of groups) this.addGroup(g);
@@ -128,13 +128,13 @@ export class ChartStorage {
   // #endregion
   // #region Internal: data helpers 
 
-  private _extractPoints(data: NativeDataPoint[], metaId: string): NativeDataPoint[] {
+  private _extractPoints(data: ChartSeriesPoint[], metaId: string): ChartSeriesPoint[] {
     return data
       .filter(dp => dp[metaId] !== undefined)
       .map(dp => ({ time: dp.time, [metaId]: dp[metaId] }));
   }
 
-  private _mergePoints(groups: ChartGroup[], metaId: string): NativeDataPoint[] {
+  private _mergePoints(groups: ChartGroup[], metaId: string): ChartSeriesPoint[] {
     const byTime = new Map<number, any>();
     for (const { data } of groups) {
       for (const dp of data) {
@@ -147,7 +147,7 @@ export class ChartStorage {
   }
 
   /** Insert new points into a group's sorted data array in-place. */
-  private _appendToGroup(group: ChartGroup, incoming: NativeDataPoint[]): void {
+  private _appendToGroup(group: ChartGroup, incoming: ChartSeriesPoint[]): void {
     if (!incoming.length) return;
 
     if (!group.data.length) {
@@ -217,7 +217,7 @@ export class ChartStorage {
     this.groups.set(newId, group);
 
     // metaGroups stores group references directly, so no update needed there.
-    const buf = this.pushBuffer.get(oldId) ?? new Map<number, NativeDataPoint>();
+    const buf = this.pushBuffer.get(oldId) ?? new Map<number, ChartSeriesPoint>();
     this.pushBuffer.delete(oldId);
     this.pushBuffer.set(newId, buf);
     return true;
@@ -266,7 +266,7 @@ export class ChartStorage {
   removeMeta(
     metaId: string,
     opts?: { persistData?: boolean; returnData?: boolean }
-  ): NativeDataPoint[] | null {
+  ): ChartSeriesPoint[] | null {
     const groups = this.metaGroups.get(metaId);
     if (!groups?.length) return null;
 
@@ -287,7 +287,7 @@ export class ChartStorage {
     groupId: string,
     opts?: { persistData?: boolean; returnData?: boolean },
     warn: WarnFn = console.warn
-  ): NativeDataPoint[] | null {
+  ): ChartSeriesPoint[] | null {
     const group = this.groups.get(groupId);
     if (!group) { warn(`Group "${groupId}" not found.`); return null; }
     if (!(metaId in group.metadataDict)) {
@@ -399,7 +399,7 @@ export class ChartStorage {
    * Returns all data points for a metadata ID merged across groups, sorted by
    * time. Returns `null` if the metadata does not exist.
    */
-  getData(metaId: string): NativeDataPoint[] | null {
+  getData(metaId: string): ChartSeriesPoint[] | null {
     const groups = this.metaGroups.get(metaId);
     if (!groups?.length) return null;
     const result = this._mergePoints(groups, metaId);
@@ -451,7 +451,7 @@ export class ChartStorage {
     });
   }
 
-  pushMany(metaId: string, points: NativeDataPoint[], warn: WarnFn = console.warn): void {
+  pushMany(metaId: string, points: ChartSeriesPoint[], warn: WarnFn = console.warn): void {
     if (!points.length) return;
     const groups = this.metaGroups.get(metaId);
     if (!groups?.length) { warn(`Metadata "${metaId}" not found.`); return; }
@@ -459,7 +459,7 @@ export class ChartStorage {
     const sorted = [...points].sort((a, b) => a.time - b.time);
 
     for (const group of groups) {
-      const index = new Map<number, NativeDataPoint>(
+      const index = new Map<number, ChartSeriesPoint>(
         group.data.map(dp => [dp.time, { ...dp }])
       );
       for (const dp of sorted) {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { ScenarioEnvironmentState, ScenarioLayerState, ScenarioStorage } from '@tensnap/core';
+import type { ScenarioEnvironmentState, ScenarioLayerState, ScenarioLayerStorage } from '@tensnap/core/scenario';
 import { getEditableEnvironmentData, groupEnvironmentLayerMetadata } from './environment-editor-model';
 
-const stubStorage: ScenarioStorage = {
+const stubStorage: ScenarioLayerStorage = {
   dump: () => ({}),
   load: () => {},
 };

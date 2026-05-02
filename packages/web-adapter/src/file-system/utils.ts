@@ -78,7 +78,7 @@ export function validateName(name: string): { valid: boolean; error?: string } {
   }
   
   // 检查非法字符
-  const invalidChars = /[<>:"|?*\/\\]/;
+  const invalidChars = /[<>:"|?*/\\]/;
   if (invalidChars.test(name)) {
     return { valid: false, error: 'Name contains invalid characters' };
   }

@@ -1,4 +1,5 @@
-import type { Action, ChartGroupMetadata, GridAgent, Parameter } from '@tensnap/core';
+import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
+import type { GridAgentState } from '@tensnap/core/environment';
 import {
   TornbergConfig,
   TornbergState,
@@ -104,7 +105,7 @@ export class TornbergAdapter extends BaseModelAdapter {
     ] });
   }
 
-  private createPartisanAgents(): GridAgent[] {
+  private createPartisanAgents(): GridAgentState[] {
     const palette = ['#e03131', '#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#0b7285'];
     return this.state.agents.flat().map((agent) => {
       const partisanColor = palette[agent.partisan % palette.length];
@@ -116,7 +117,7 @@ export class TornbergAdapter extends BaseModelAdapter {
         icon: 'square' as const,
         size: 0.92,
         color: partisanColor,
-      } as GridAgent;
+      } as GridAgentState;
     });
   }
 

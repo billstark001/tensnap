@@ -7,14 +7,14 @@
  * Based on Thomas Schelling's work on racial segregation (1969, 1971).
  */
 
-import type { GridAgent } from '@tensnap/core';
+import type { GridAgentState } from '@tensnap/core/environment';
 
 interface SimpleGridEnv {
   id: string;
   type: 'grid';
   width: number;
   height: number;
-  agents: GridAgent[];
+  agents: GridAgentState[];
 }
 
 export interface SchellingConfig {

@@ -1,4 +1,5 @@
-import type { Action, ChartGroupMetadata, GridAgent, Parameter } from '@tensnap/core';
+import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
+import type { GridAgentState } from '@tensnap/core/environment';
 import { AxelrodConfig, AxelrodState, countCultures, initializeAxelrod, stepAxelrod } from '../models/axelrod';
 import { BaseModelAdapter } from './base-adapter';
 
@@ -90,7 +91,7 @@ export class AxelrodAdapter extends BaseModelAdapter {
     ] });
   }
 
-  private createCultureAgents(): GridAgent[] {
+  private createCultureAgents(): GridAgentState[] {
     const max = Math.max(1, this.config.numTraits - 1);
     return this.state.agents.flat().map((agent) => {
       const [f0 = 0, f1 = 0, f2 = 0] = agent.features;

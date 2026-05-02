@@ -1,7 +1,6 @@
-import type { AssetId, AssetMeta } from '../asset';
-import type { ChartGroupMetadata, ChartMetadata, ChartUpdateData } from '../chart';
-import type { Action, Parameter } from '../parameter';
-export type { AssetId, AssetMeta } from '../asset';
+import type { AssetId, AssetMeta } from '../asset/types';
+import type { ChartGroupMetadata, ChartMetadata, ChartUpdateData, ChartUpdateOperation } from '../chart/types';
+import type { Action, Parameter } from '../parameter/types';
 
 export type EnvironmentId = string;
 export type ScenarioEnvironmentType = 'uniform' | '2d';
@@ -86,8 +85,6 @@ export interface ActionEndPayload {
   timings?: TickTimingBreakdown;
 }
 
-export type ActionCUPayload = Action;
-
 export interface ActionDeletePayload {
   id: string;
 }
@@ -138,11 +135,6 @@ export interface ItemDeletePayload<TItems extends ItemDeleteItems = ItemDeleteIt
   items: TItems;
 }
 
-/**
- * @deprecated Use ItemCreatePayload with the item_create message instead.
- */
-export type ParameterCUPayload = Parameter;
-
 export interface ParameterDeletePayload {
   id: string;
 }
@@ -152,15 +144,8 @@ export interface ParameterSyncPayload {
   value: unknown;
 }
 
-export type ChartCreatePayload = ChartGroupMetadata;
-
 export interface ChartDeletePayload {
   id: string;
-}
-
-export interface ChartUpdateOperation {
-  id: string;
-  operation: 'clear';
 }
 
 export interface ChartUpdatePayload {
@@ -248,7 +233,7 @@ export type SimulatorToRendererPayload =
   | MetadataUpdatePayload
   | StateSyncBoundaryPayload
   | ActionEndPayload
-  | ActionCUPayload
+  | Action
   | ActionDeletePayload
   | EnvCreatePayload
   | EnvDeletePayload
@@ -258,10 +243,10 @@ export type SimulatorToRendererPayload =
   | ItemCreatePayload
   | ItemUpdatePayload
   | ItemDeletePayload
-  | ParameterCUPayload
+  | Parameter
   | ParameterDeletePayload
   | ParameterSyncPayload
-  | ChartCreatePayload
+  | ChartGroupMetadata
   | ChartUpdatePayload
   | ChartDeletePayload
   | AssetMetaPayload

@@ -19,11 +19,11 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.0",
+    "@hono/node-server": "^2.0.1",
     "@leafer-ui/node": "^2.1.0",
     "@tensnap/core": "workspace:*",
     "canvas": "^3.2.3",
-    "hono": "^4.12.15",
+    "hono": "^4.12.16",
     "ws": "^8.20.0"
   },
   "devDependencies": {

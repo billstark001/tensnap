@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { 
-  ServerToClientMessageSchema, 
-  ClientToServerMessageSchema,
+  SimulatorToRendererMessageSchema,
+  RendererToSimulatorMessageSchema,
   getPayloadSchema 
 } from '@tensnap/core';
 
@@ -30,8 +30,8 @@ export function validateMessage(
   try {
     // Validate the message structure
     const messageSchema = direction === 'client-to-server'
-      ? ClientToServerMessageSchema
-      : ServerToClientMessageSchema;
+      ? RendererToSimulatorMessageSchema
+      : SimulatorToRendererMessageSchema;
     
     const parsedMessage = messageSchema.parse(message);
     

@@ -12,7 +12,7 @@
 import { EnvironmentView, GridEnvStorage, GridLayer } from '@tensnap/core/environment';
 import { AgentStorage } from '@tensnap/core/environment';
 import { AgentLayer } from '@tensnap/core/environment';
-import { RenderableAgent } from '@tensnap/core/environment';
+import { AgentRenderState } from '@tensnap/core/environment';
 import { BenchmarkCase } from '../types';
 
 interface Config {
@@ -28,7 +28,7 @@ interface Config {
   maxSpeed: number;
 }
 
-interface Particle extends RenderableAgent {
+interface Particle extends AgentRenderState {
   id: string;
   x: number;
   y: number;

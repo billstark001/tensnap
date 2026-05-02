@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 // Data types compatible with recharts format
 export interface ChartDataPoint {
   time: number;
@@ -33,17 +35,21 @@ export interface ChartConfig {
   };
 }
 
-export interface ChartMetadata {
-  id: string;
-  label: string;
-  color?: string;
-}
+export const ChartMetadataSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  color: z.string().optional(),
+});
 
-export interface ChartGroupMetadata extends ChartMetadata {
-  dataList?: ChartMetadata[];
-}
+export type ChartMetadata = z.infer<typeof ChartMetadataSchema>;
 
-export interface NativeDataPoint {
+export const ChartGroupMetadataSchema = ChartMetadataSchema.extend({
+  dataList: z.array(ChartMetadataSchema).optional(),
+});
+
+export type ChartGroupMetadata = z.infer<typeof ChartGroupMetadataSchema>;
+
+export interface ChartSeriesPoint {
   time: number;
   [key: string]: any;
 }
@@ -52,10 +58,20 @@ export interface ChartGroup {
   id: string;
   label: string;
   metadataDict: Record<string, ChartMetadata>;
-  data: NativeDataPoint[];
+  data: ChartSeriesPoint[];
 }
-export interface ChartUpdateData {
-  id: string;
-  time?: number;
-  value: any;
-}
+
+export const ChartUpdateDataSchema = z.object({
+  id: z.string(),
+  time: z.number().optional(),
+  value: z.unknown(),
+});
+
+export type ChartUpdateData = z.infer<typeof ChartUpdateDataSchema>;
+
+export const ChartUpdateOperationSchema = z.object({
+  id: z.string(),
+  operation: z.literal('clear'),
+});
+
+export type ChartUpdateOperation = z.infer<typeof ChartUpdateOperationSchema>;

@@ -27,7 +27,7 @@ import { Line, Polygon } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
 import { EdgeDelta, EdgeStorage, EdgeStorageData } from '../storages/EdgeStorage';
-import { AgentStorage, RenderableAgent } from '../storages/AgentStorage';
+import { AgentStorage, AgentRenderState } from '../storages/AgentStorage';
 import { AgentLayerConfig } from './AgentLayer';
 import { Viewport, AgentId, GraphEdge } from '../types';
 import { GraphEnvConfig } from '../types/env';
@@ -35,7 +35,7 @@ import { createArrowhead, createEdgeLine } from '../utils/shape';
 
 // #region Types & Constants
 
-type SimNode = RenderableAgent & d3.SimulationNodeDatum;
+type SimNode = AgentRenderState & d3.SimulationNodeDatum;
 type SimLink = GraphEdge & d3.SimulationLinkDatum<SimNode>;
 
 interface EdgeShapeEntry {
@@ -374,7 +374,7 @@ export class EdgeLayer extends BaseLayer {
    * Rebuild _simNodes and _simNodeMap from an agent map,
    * preserving existing simulation dynamics (x/y/vx/vy/fx/fy) where possible.
    */
-  private _rebuildSimNodes(agents: ReadonlyMap<AgentId, RenderableAgent>): void {
+  private _rebuildSimNodes(agents: ReadonlyMap<AgentId, AgentRenderState>): void {
     this._simNodes = [...agents.values()].map(agent => {
       const prev = this._simNodeMap.get(agent.id);
       return {

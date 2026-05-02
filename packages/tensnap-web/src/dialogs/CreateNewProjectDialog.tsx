@@ -5,7 +5,6 @@ import { msg } from '@lingui/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import Form from '@tensnap/web-common/components/ui/Form';
-import { createDialogStore } from '@/utils/zustand';
 import { listBuiltinModels, makeInMemoryConnectionId } from '@/transport';
 import * as styles from './CreateNewProjectDialog.css';
 
@@ -111,9 +110,3 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
     </Dialog.Root>
   );
 };
-
-
-export const [
-  useCreateNewProjectStore,
-  CreateNewProjectDialogAnchor
-] = createDialogStore(CreateNewProjectDialog, (res) => ({ onCreateItem: res }), '');

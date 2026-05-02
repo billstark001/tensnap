@@ -6,22 +6,22 @@ import { Trans } from '@lingui/react';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useToast } from '@/store/toast';
 import {
-  EnvironmentView,
   AgentStorage,
-  BackgroundStorage,
   AgentLayer,
+  BackgroundStorage,
   BackgroundLayer,
+  EdgeLayer,
+  EdgeStorage,
+  EnvironmentView,
+  GraphEnvConfig,
   GridEnvStorage,
   GridLayer,
-  TrajectoryStorage,
   TrajectoryLayer,
-  EdgeStorage,
-  EdgeLayer,
-  GraphEnvConfig,
-  RenderableAgent,
-  ScenarioEnvironmentState,
-  findSceneBounds as findRegisteredSceneBounds,
-} from '@tensnap/core';
+  TrajectoryStorage,
+} from '@tensnap/core/environment';
+import type { AgentRenderState } from '@tensnap/core/environment';
+import { findSceneBounds as findRegisteredSceneBounds } from '@tensnap/core/scenario';
+import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 
 interface Environment2DViewProps {
   environment: ScenarioEnvironmentState;
@@ -44,7 +44,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   const backgroundLayersRef = useRef<BackgroundLayer[]>([]);
   const agentLayersRef = useRef<AgentLayer[]>([]);
 
-  const [selectedAgent, setSelectedAgent] = useState<RenderableAgent | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<AgentRenderState | null>(null);
   const scenario = useScenarioStore((store) => store.scenario);
   const assetRevision = useScenarioStore((store) => store._assetRevision);
   const toast = useToast();
@@ -54,15 +54,15 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
     return findRegisteredSceneBounds([...environment.layers.values()]);
   }, [environment]);
 
-  const handleAgentSelect = useCallback((agent: RenderableAgent) => {
+  const handleAgentSelect = useCallback((agent: AgentRenderState) => {
     for (const storage of agentStoragesRef.current) {
       const found = storage.getAgent(agent.id);
       if (found) {
-        setSelectedAgent(found as RenderableAgent);
+        setSelectedAgent(found as AgentRenderState);
         return;
       }
     }
-    setSelectedAgent(agent as RenderableAgent);
+    setSelectedAgent(agent as AgentRenderState);
   }, []);
 
   useEffect(() => {

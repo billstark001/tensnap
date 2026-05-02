@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BackgroundLayerMetadataSchema,
   findSceneBounds,
   findViewMetadataSource,
   layerRegistry,
   LayerRegistryClass,
 } from './layer-registry';
-import { isBackgroundAssetReference } from '../environment/types';
+import { BackgroundLayerMetadataSchema, isBackgroundAssetReference } from '../environment/types';
 
 describe('background layer metadata schema', () => {
   it('rejects dependency_layer_ids in layer metadata', () => {

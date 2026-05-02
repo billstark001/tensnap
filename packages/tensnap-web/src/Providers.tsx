@@ -5,7 +5,7 @@ import { ScenarioStoreProvider } from '@/store/scenario/store';
 import { useProjectStore } from '@/store/project';
 import { TransportStoreProvider } from '@/store/transport';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
-import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialog';
+import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialogStore';
 import { ToastAnchor } from '@/store/toast';
 
 type ProvidersProps = PropsWithChildren;

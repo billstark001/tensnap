@@ -14,9 +14,9 @@ import {
   GridEnvStorage,
   AgentLayer,
   GridLayer,
+  AgentRenderState,
 } from '@tensnap/core/environment';
 import { LineChartView } from '@tensnap/core/chart';
-import { RenderableAgent } from '@tensnap/core/environment';
 import { BenchmarkCase } from '../types';
 
 // Import the model from web-utils
@@ -63,7 +63,7 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
   let chartData: Array<{ time: number; satisfaction: number; segregation: number }> = [];
   let timeStep = 0;
 
-  function convertAgentsToRenderable(): RenderableAgent[] {
+  function convertAgentsToRenderable(): AgentRenderState[] {
     const env = model!.getEnvironmentState();
     return env.agents.map(a => ({
       ...a,
@@ -71,14 +71,14 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
     }));
   }
 
-  function getChangedAgents(): RenderableAgent[] {
+  function getChangedAgents(): AgentRenderState[] {
     // Get agents that changed in the last step
     const updates = model!.getAgentUpdates(false);
     return updates.map(u => ({
       // id: u.id,
       ...u.data,
       icon: 'circle' as const,
-    } as RenderableAgent));
+    } as AgentRenderState));
   }
 
   function updateStats(): void {

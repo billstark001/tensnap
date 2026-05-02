@@ -14,9 +14,9 @@ import {
   GridEnvStorage,
   AgentLayer,
   GridLayer,
+  AgentRenderState,
 } from '@tensnap/core/environment';
 import { LineChartView } from '@tensnap/core/chart';
-import { RenderableAgent } from '@tensnap/core/environment';
 import { BenchmarkCase } from '../types';
 
 // Import the model from web-utils
@@ -66,13 +66,13 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
   let chartData: Array<{ time: number; sheep: number; wolves: number; grass: number }> = [];
   let timeStep = 0;
 
-  function initGrassAgents(): RenderableAgent[] {
+  function initGrassAgents(): AgentRenderState[] {
     if (modelConfig.modelVersion !== 'sheep-wolves-grass') {
       return [];
     }
 
     const patches = model!.getPatches();
-    const grassAgents: RenderableAgent[] = [];
+    const grassAgents: AgentRenderState[] = [];
 
     for (let y = 0; y < patches.length; y++) {
       for (let x = 0; x < patches[y].length; x++) {
@@ -99,7 +99,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
     }
 
     const patches = model!.getPatches();
-    const toAdd: RenderableAgent[] = [];
+    const toAdd: AgentRenderState[] = [];
     const toRemove: string[] = [];
 
     for (let y = 0; y < patches.length; y++) {
@@ -131,7 +131,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
     }
   }
 
-  function convertAnimalsToRenderable(): RenderableAgent[] {
+  function convertAnimalsToRenderable(): AgentRenderState[] {
     const sheep = Array.from(model!.getSheep());
     const wolves = Array.from(model!.getWolves());
 
@@ -144,7 +144,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
         icon: 'circle' as const,
         size: 1,
         color: '#FFFFFF',
-      } as RenderableAgent)),
+      } as AgentRenderState)),
       ...wolves.map((w: any, idx: number) => ({
         id: `wolf_${idx}`,
         x: w.position.x,
@@ -153,7 +153,7 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
         icon: 'circle' as const,
         size: 1,
         color: '#000000',
-      } as RenderableAgent)),
+      } as AgentRenderState)),
     ];
   }
 

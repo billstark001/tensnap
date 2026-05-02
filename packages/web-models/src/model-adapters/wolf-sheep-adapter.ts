@@ -1,4 +1,5 @@
-import type { Action, ChartGroupMetadata, GridAgent, Parameter } from '@tensnap/core';
+import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
+import type { GridAgentState } from '@tensnap/core/environment';
 import { WolfSheepConfig, WolfSheepModel, World } from '../models/wolf-sheep';
 import { BaseModelAdapter } from './base-adapter';
 
@@ -190,9 +191,9 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     this.previousPatchColors = patches.map((row) => row.map((p) => p.color));
   }
 
-  private buildTerrainAgents(full: boolean): GridAgent[] {
+  private buildTerrainAgents(full: boolean): GridAgentState[] {
     const patches = this.model.getPatches();
-    const result: GridAgent[] = [];
+    const result: GridAgentState[] = [];
     for (let y = 0; y < patches.length; y++) {
       for (let x = 0; x < (patches[y]?.length ?? 0); x++) {
         const color = patches[y][x].color === 'green' ? '#67b36b' : '#8a6d4b';
@@ -215,7 +216,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     return id;
   }
 
-  private buildAnimalAgents(): GridAgent[] {
+  private buildAnimalAgents(): GridAgentState[] {
     const sheep = Array.from(this.model.getSheep()) as unknown as AnimalObj[];
     const wolves = Array.from(this.model.getWolves()) as unknown as AnimalObj[];
     return [

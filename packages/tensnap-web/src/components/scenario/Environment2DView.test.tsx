@@ -165,8 +165,8 @@ vi.mock('../../dialogs/AgentDetailsDialog', () => ({
   AgentDetailsDialog: () => null,
 }));
 
-vi.mock('@tensnap/core', async () => {
-  const actual = await vi.importActual<typeof import('@tensnap/core')>('@tensnap/core');
+vi.mock('@tensnap/core/environment', async () => {
+  const actual = await vi.importActual<typeof import('@tensnap/core/environment')>('@tensnap/core/environment');
   return {
     ...actual,
     EnvironmentView: testHarness.MockEnvironmentView,
@@ -183,10 +183,17 @@ vi.mock('@tensnap/core', async () => {
   };
 });
 
-import { AgentStorage, BackgroundStorage, EdgeStorage, GridEnvStorage, RenderableAgent, TrajectoryStorage } from '@tensnap/core';
+import {
+  AgentStorage,
+  BackgroundStorage,
+  EdgeStorage,
+  GridEnvStorage,
+  AgentRenderState,
+  TrajectoryStorage,
+} from '@tensnap/core/environment';
 import { Environment2DView } from './Environment2DView';
 
-function createAgentStorageWithInitialAgents(agents: Iterable<RenderableAgent>) {
+function createAgentStorageWithInitialAgents(agents: Iterable<AgentRenderState>) {
   return new (AgentStorage as any)([...agents] as any);
 }
 

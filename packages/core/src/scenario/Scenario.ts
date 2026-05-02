@@ -1,11 +1,11 @@
 import { AssetStore } from '../asset';
 import { ChartStorage } from '../chart/ChartStorage';
 import { instantiateChartMetadata } from '../chart/utils';
+import type { ChartGroupMetadata } from '../chart';
 import { BaseStorage } from '../environment/storages';
 import type { Action, Parameter } from '../parameter';
 import { sanitizeParameter } from '../parameter';
 import type {
-  ActionCUPayload,
   ActionDeletePayload,
   ActionEndPayload,
   ActionStartPayload,
@@ -15,7 +15,6 @@ import type {
   AssetDataPayload,
   AssetDeletePayload,
   AssetMetaPayload,
-  ChartCreatePayload,
   ChartDeletePayload,
   ChartUpdatePayload,
   EnvCreatePayload,
@@ -27,7 +26,6 @@ import type {
   MetadataUpdatePayload,
   NormalizedLogPayload,
   ParameterChangePayload,
-  ParameterCUPayload,
   ParameterDeletePayload,
   ParameterSyncPayload,
   RendererToSimulatorMessage,
@@ -52,7 +50,7 @@ import type {
   ScenarioEventType,
   ScenarioLayerSnapshot,
   ScenarioLayerState,
-  ScenarioStorage,
+  ScenarioLayerStorage,
   ScenarioSnapshot,
 } from './types';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
@@ -147,10 +145,10 @@ export class Scenario extends LazyEventTarget {
         this.emit('action:end', message.payload as ActionEndPayload);
         return;
       case 'action_create':
-        this.upsertAction(message.payload as ActionCUPayload, 'action:create');
+        this.upsertAction(message.payload as Action, 'action:create');
         return;
       case 'action_update':
-        this.upsertAction(message.payload as ActionCUPayload, 'action:update');
+        this.upsertAction(message.payload as Action, 'action:update');
         return;
       case 'action_delete':
         this.deleteAction(message.payload as ActionDeletePayload);
@@ -180,10 +178,10 @@ export class Scenario extends LazyEventTarget {
         this.deleteItems(message.payload as ItemDeletePayload);
         return;
       case 'param_create':
-        this.upsertParameter(message.payload as ParameterCUPayload, 'param:create');
+        this.upsertParameter(message.payload as Parameter, 'param:create');
         return;
       case 'param_update':
-        this.upsertParameter(message.payload as ParameterCUPayload, 'param:update');
+        this.upsertParameter(message.payload as Parameter, 'param:update');
         return;
       case 'param_delete':
         this.deleteParameter(message.payload as ParameterDeletePayload);
@@ -192,7 +190,7 @@ export class Scenario extends LazyEventTarget {
         this.syncParameter(message.payload as ParameterSyncPayload);
         return;
       case 'chart_create':
-        this.createChart(message.payload as ChartCreatePayload);
+        this.createChart(message.payload as ChartGroupMetadata);
         return;
       case 'chart_update':
         this.updateChart(message.payload as ChartUpdatePayload);
@@ -337,7 +335,7 @@ export class Scenario extends LazyEventTarget {
 
   // Clone once for storage so internal state is isolated. Emit the original
   // payload directly — a second clone would be redundant.
-  private upsertAction(payload: ActionCUPayload, eventType: 'action:create' | 'action:update'): void {
+  private upsertAction(payload: Action, eventType: 'action:create' | 'action:update'): void {
     this.actionsState.set(payload.id, cloneValue(payload));
     this.emit(eventType, payload);
   }
@@ -564,7 +562,7 @@ export class Scenario extends LazyEventTarget {
   // Emit that same instance directly — a second clone to "protect" it is redundant
   // because the stored and emitted object are the same; callers must not mutate
   // event detail objects.
-  private upsertParameter(payload: ParameterCUPayload, eventType: 'param:create' | 'param:update'): void {
+  private upsertParameter(payload: Parameter, eventType: 'param:create' | 'param:update'): void {
     const param = sanitizeParameter(cloneValue(payload) as Parameter) as Parameter;
     this.parametersState.set(param.id, param);
     this.emit(eventType, param);
@@ -586,10 +584,10 @@ export class Scenario extends LazyEventTarget {
     this.emit('param:sync', payload);
   }
 
-  private createChart(payload: ChartCreatePayload): void {
+  private createChart(payload: ChartGroupMetadata): void {
     // Clone before passing to instantiateChartMetadata since its contract
     // does not guarantee it leaves the argument unmodified.
-    this.chartState.addGroup(instantiateChartMetadata(cloneValue(payload) as ChartCreatePayload), true);
+    this.chartState.addGroup(instantiateChartMetadata(cloneValue(payload) as ChartGroupMetadata), true);
     this.emit('chart:create', payload);
   }
 
@@ -686,7 +684,7 @@ export class Scenario extends LazyEventTarget {
     };
   }
 
-  private createStorageForLayer(layerType: string, metadata: Record<string, unknown>): ScenarioStorage {
+  private createStorageForLayer(layerType: string, metadata: Record<string, unknown>): ScenarioLayerStorage {
     const factory = this.layerRegistry.get(layerType)?.storageFactory;
     if (factory) {
       return factory(metadata);

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useFileSystem } from '@/store/file-system/provider';
 import { useWithLoading } from '@/store/loading';
 import { useProjectStore } from '@/store/project';
-import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialog';
+import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialogStore';
 import { useToast } from '@/store/toast';
 
 export interface FileOperationsContextValue {

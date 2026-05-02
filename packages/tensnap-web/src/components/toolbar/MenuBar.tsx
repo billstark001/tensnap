@@ -1,24 +1,15 @@
-import { createContext, useContext } from 'react';
+import { useContext } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useFileOperations } from './useFileOperations';
 import * as styles from '@/styles/toolbar.css';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';
 import { Trans } from '@lingui/react/macro';
+import { MenuBarContext } from './MenuBarContext';
 
 export interface MenuBarProps {
   className?: string;
 }
-
-export type MenuBarConfig = {
-  environment: 'tauri' | 'web';
-  system: 'mac' | 'other';
-};
-
-export const MenuBarContext = createContext<MenuBarConfig>({
-  environment: 'web',
-  system: 'other',
-});
 
 export const MenuBar: React.FC<MenuBarProps> = ({
   className,

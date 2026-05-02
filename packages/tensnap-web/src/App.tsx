@@ -1,9 +1,9 @@
 import * as styles from './styles/app.css';
 import { ToolBarLayout } from './components/toolbar/ToolBarLayout';
+import { MenuBarContext, type MenuBarConfig } from './components/toolbar/MenuBarContext';
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 import { ProjectPanel } from './components/project/ProjectPanel';
-import { MenuBarConfig, MenuBarContext } from './components/toolbar/MenuBar';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { useSettingsStore } from './store/settings';
 

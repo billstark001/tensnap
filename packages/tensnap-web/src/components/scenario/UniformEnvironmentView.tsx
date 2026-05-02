@@ -3,13 +3,15 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Agent as UniformAgent } from '@/types/model';
 import { AnchoredView } from '@/types/ui';
 import { Pagination } from '@tensnap/web-common/components/ui/Pagination';
-import { AgentDetailsDialog, createIconElement } from '../../dialogs/AgentDetailsDialog';
+import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
+import { createIconElement } from '../../dialogs/AgentIconElement';
 import * as styles from './UniformEnvironmentView.css';
 import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
-import { AgentStorage, ScenarioEnvironmentState } from '@tensnap/core';
+import { ScenarioEnvironmentState } from '@tensnap/core';
+import { AgentStorage } from '@tensnap/core/environment';
 import { useScenarioStore } from '@/store/scenario/store';
 
 interface UniformEnvironmentViewProps {

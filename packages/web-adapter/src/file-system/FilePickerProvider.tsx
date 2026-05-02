@@ -1,24 +1,11 @@
-import React, { createContext, useContext, useCallback, useState, useRef, ReactNode } from 'react';
+import React, { useCallback, useState, useRef, ReactNode } from 'react';
 import { Dialog } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web-common/types/file';
+import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter } from '@tensnap/web-common/types/file';
+import { FilePickerContext, FilePickerContextValue } from './FilePickerContext';
 import { joinPath, validateName } from './utils';
 import * as styles from './FileSystemBrowser.css';
-
-export interface FilePickerContextValue {
-  pickFiles: FileSystemPicker['pickFiles'];
-}
-
-const FilePickerContext = createContext<FilePickerContextValue | null>(null);
-
-export const useFilePicker = (): FilePickerContextValue => {
-  const context = useContext(FilePickerContext);
-  if (!context) {
-    throw new Error('useFilePicker must be used within a FilePickerProvider');
-  }
-  return context;
-};
 
 interface FilePickerProviderProps {
   children: ReactNode;
