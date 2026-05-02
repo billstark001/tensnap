@@ -3,12 +3,15 @@ import re
 from collections.abc import Callable
 from typing import Any, Dict, List, Tuple, TypeAlias, TypeVar
 
-AttrGetter: TypeAlias = Callable[[Any], Any]
-AttrSetter: TypeAlias = Callable[[Any, Any], None]
+TObj = TypeVar("TObj")
+
+AttrGetter: TypeAlias = Callable[[TObj], Any]
+AttrSetter: TypeAlias = Callable[[TObj, Any], None]
 
 T = TypeVar("T", bound=str)
 
-AttrProjector: TypeAlias = Callable[[Any], Dict[T, Any]]
+AttrProjector: TypeAlias = Callable[[TObj], Dict[T, Any]]
+DictProjector: TypeAlias = AttrProjector[Dict, T]
 AttrPathMap: TypeAlias = Dict[T, str]
 
 # region utils

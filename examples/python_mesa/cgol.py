@@ -5,7 +5,7 @@ from tensnap import (
     bind_datacollector,
     bind_mesa_grid_agent,
 )
-from tensnap.bindings.basic.projector import bind_env, bind_agent_layer
+from tensnap.bindings.basic.layer import bind_env, bind_agent_layer
 
 
 @bind_mesa_grid_agent(color=True, icon=True)

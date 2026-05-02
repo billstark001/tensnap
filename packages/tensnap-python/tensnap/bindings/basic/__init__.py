@@ -2,7 +2,7 @@
 """Basic bindings for TenSnap - parameter, chart, and button decorators"""
 
 
-from .projector import *
+from .layer import *
 
 from .action import (
     ActionMetadata,

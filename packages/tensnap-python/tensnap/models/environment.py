@@ -16,6 +16,7 @@ from typing import (
 
 from typing_extensions import NotRequired
 
+from tensnap.models.layer import LayerBinding
 from tensnap.utils.attr import (
     make_attr_projector,
     make_attr_getter,
@@ -358,62 +359,6 @@ def _layer_items_field_name(layer_type: str) -> str:
     if layer_type == "edge":
         return "edges"
     return "items"
-
-
-@dataclass(slots=True)
-class LayerBinding(Generic[TKeys, TKeys2]):
-    layer_id: str
-    layer_type: str
-    metadata_projector: EnvironmentMetadataProjector | None = None
-    item_iterable_projector: EnvironmentItemIterableProjector | None = None
-    item_projector: EnvironmentItemProjector | None = None
-    items_projector: EnvironmentItemsProjector | None = None
-    dependency_layer_ids: dict[str, str] = field(default_factory=dict)
-
-    def _build_metadata(self, environment: Any) -> dict[str, Any]:
-        metadata = self.metadata_projector(environment) if self.metadata_projector else {}
-        metadata_copy = dict(metadata)
-        metadata_copy.pop("dependency_layer_ids", None)
-        return metadata_copy
-
-    def _build_dependency_layer_ids(self) -> dict[str, str]:
-        return dict(self.dependency_layer_ids)
-
-    def _build_items(self, environment: Any) -> list[dict[str, Any]]:
-        if self.items_projector is not None:
-            return [
-                _identity_item_to_dict(item)
-                for item in (self.items_projector(environment) or [])
-            ]
-        if self.item_iterable_projector is None:
-            return []
-        iterable = self.item_iterable_projector(environment)
-        if iterable is None:
-            return []
-
-        items: list[dict[str, Any]] = []
-        for item in iterable:
-            item_projector = self.item_projector or _resolve_item_projector(item)
-            item_to_dict = item_projector or _identity_environment_item_projector
-            items.append(_identity_item_to_dict(item_to_dict(environment, item)))
-        return items
-
-    def build_layer_state(self, environment: Any) -> EnvironmentLayerState:
-        layer: dict[str, Any] = {
-            "layer_id": self.layer_id,
-            "layer_type": self.layer_type,
-        }
-        metadata = self._build_metadata(environment)
-        if metadata:
-            layer["data"] = metadata
-        dependency_layer_ids = self._build_dependency_layer_ids()
-        if dependency_layer_ids:
-            layer["dependency_layer_ids"] = dependency_layer_ids
-
-        items = self._build_items(environment)
-        if items:
-            layer[_layer_items_field_name(self.layer_type)] = items
-        return cast(EnvironmentLayerState, layer)
 
 
 class LayeredEnvironmentBinder(Generic[TEnv]):

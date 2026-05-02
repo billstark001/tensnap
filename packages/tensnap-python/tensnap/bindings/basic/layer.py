@@ -5,8 +5,6 @@ from typing import (
     Generic,
     List,
     Literal,
-    NotRequired,
-    Set,
     Tuple,
     Type,
     TypeAlias,
@@ -26,16 +24,8 @@ from tensnap.models.agent import (
     EdgeItemFields,
     TrajectoryConfigItemFields,
 )
-from tensnap.models.environment import (
-    CanonicalEnvironmentType,
-    EnvironmentBindingBuilder,
-    EnvironmentBindingConfig,
-    GraphEdgeProjectorNXDict,
-    GraphEdgeDict,
+from tensnap.models.layer import (
     LayerBinding,
-    make_graph_edge_projector_nx,
-    make_grid_environment_projector,
-    make_uniform_environment_projector,
 )
 from tensnap.utils.attr import (
     make_attr_projector,
@@ -172,28 +162,6 @@ def _resolve_projector_dict(
 
 # endregion
 
-
-# region Environment
-
-
-class BindEnvironmentConfig:
-
-    def __init__(
-        self,
-        environment_type: CanonicalEnvironmentType = "2d",
-    ) -> None:
-        self.environment_type: CanonicalEnvironmentType = environment_type
-
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
-        cls._tensnap_environment_binding_config = EnvironmentBindingConfig(
-            environment_type=self.environment_type
-        )
-        return cls
-
-
-bind_env = BindEnvironmentConfig
-
-# endregion
 
 # region General Layer Item
 
