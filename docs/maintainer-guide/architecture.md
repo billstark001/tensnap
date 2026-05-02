@@ -62,22 +62,22 @@ class FlockSimulation:
 
 # Unified scenario interface
 scenario = SimulationScenario(port=8765)
-scenario.add_environment(LayeredEnvironmentBinder(id="main", environment=model, agent_iterable_accessor='birds'))
+scenario.add_environment(LayeredEnvironmentBinder(id="main", environment=model, agent_iterable_projector='birds'))
 scenario.add_parameters(config)  # Auto-detect from dataclass
 scenario.add_charts(globals())   # Auto-detect @chart decorators
 ```
 
 ### Mid-Level (Binder Classes)
 
-Explicit environment configuration with accessor functions:
+Explicit environment configuration with projector functions:
 
 ```python
-from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_projector
 
 binder = LayeredEnvironmentBinder(
     id="main",
     environment=model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True)
+    agent_projector=make_grid_agent_projector(heading=True, color=True)
 )
 scenario.add_environment(binder)
 ```
@@ -153,7 +153,7 @@ Environment decorators:
 - `LayeredEnvironmentBinder` - NetworkX graph integration via canonical `2d` + edge-layer state
 - `UniformEnvironmentBinder` - Simple agent list
 
-Binders accept environment objects and use accessor functions/metadata to extract agent/environment properties. Internally they now expose canonical layer-oriented state to the transport layer, even when the public API still uses grid/graph terminology.
+Binders accept environment objects and use projector functions/metadata to extract agent/environment properties. Internally they now expose canonical layer-oriented state to the transport layer, even when the public API still uses grid/graph terminology.
 
 **Mesa 3 Integration**: Dedicated binding support for Mesa 3 framework.
 

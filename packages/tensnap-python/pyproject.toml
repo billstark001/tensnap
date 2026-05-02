@@ -94,8 +94,8 @@ extend-exclude = [
 ]
 
 [tool.ruff.per-file-ignores]
-"tensnap/bindings/basic/accessor.py" = ["PLR0913"]
-"tensnap/bindings/mesa/accessor.py" = ["PLR0913"]
+"tensnap/bindings/basic/projector.py" = ["PLR0913"]
+"tensnap/bindings/mesa/projector.py" = ["PLR0913"]
 "tensnap/models/agent.py" = ["PLR0913"]
 "tensnap/models/environment.py" = ["PLR0913"]
 

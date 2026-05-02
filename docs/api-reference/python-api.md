@@ -23,7 +23,7 @@ import asyncio
 from tensnap import (
     SimulationScenario,
     LayeredEnvironmentBinder,
-    make_grid_agent_accessor,
+    make_grid_agent_projector,
     BindParametersConfig,
     chart,
 )
@@ -43,7 +43,7 @@ scenario = SimulationScenario(port=8765)
 grid = LayeredEnvironmentBinder(
     id="main",
     environment=my_model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True)
+    agent_projector=make_grid_agent_projector(heading=True, color=True)
 )
 scenario.add_environment(grid)
 
@@ -111,12 +111,12 @@ Register an environment binder with the scenario.
 For protocol v0.2, environment binders are transport-side sugar. `LayeredEnvironmentBinder` emits a canonical `2d` environment with a grid layer; graph binders emit a canonical `2d` environment with explicit agent and edge layers.
 
 ```python
-from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_projector
 
 grid = LayeredEnvironmentBinder(
     id="main",
     environment=my_simulation,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True)
+    agent_projector=make_grid_agent_projector(heading=True, color=True, icon=True)
 )
 scenario.add_environment(grid)
 ```
@@ -649,16 +649,16 @@ await server.log_message("error", "Critical error occurred")
 
 ## Models
 
-TenSnap's Python package currently exposes low-level model shapes as TypedDicts and accessor outputs. It does **not** expose mutable `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel` runtime classes.
+TenSnap's Python package currently exposes low-level model shapes as TypedDicts and projector outputs. It does **not** expose mutable `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel` runtime classes.
 
-For most users, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, and the decorator/accessor helpers are the correct public API.
+For most users, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, and the decorator/projector helpers are the correct public API.
 
 ### Agent State Dictionaries
 
-Agent state is represented as plain dictionaries produced by decorators such as `@bind_grid_agent()` or helpers such as `make_grid_agent_accessor()`.
+Agent state is represented as plain dictionaries produced by decorators such as `@bind_grid_agent()` or helpers such as `make_grid_agent_projector()`.
 
 ```python
-from tensnap import make_grid_agent_accessor
+from tensnap import make_grid_agent_projector
 
 class Bird:
     def __init__(self):
@@ -670,7 +670,7 @@ class Bird:
         self.icon = "circle"
         self.size = 10
 
-accessor = make_grid_agent_accessor(
+projector = make_grid_agent_projector(
     id="id",
     heading=True,
     color=True,
@@ -678,7 +678,7 @@ accessor = make_grid_agent_accessor(
     size=True,
 )
 
-agent_state = accessor(Bird())
+agent_state = projector(Bird())
 ```
 
 #### Common Fields
@@ -713,24 +713,24 @@ agent_state: GridAgentModelDict = {
 
 ### PureGridEnvironmentModel
 
-Low-level grid environment metadata is represented as a plain dictionary, usually produced by `make_grid_environment_accessor()`.
+Low-level grid environment metadata is represented as a plain dictionary, usually produced by `make_grid_environment_projector()`.
 
 ```python
-from tensnap import make_grid_environment_accessor
+from tensnap import make_grid_environment_projector
 
 class GridModel:
     width = 100
     height = 100
     coord_offset = "float"
 
-accessor = make_grid_environment_accessor(
+projector = make_grid_environment_projector(
     id="main",
     width="width",
     height="height",
     coord_offset=True,
 )
 
-grid_meta = accessor(GridModel())
+grid_meta = projector(GridModel())
 ```
 
 #### Common Fields
@@ -845,12 +845,12 @@ Connects a grid-based simulation model to TenSnap, automatically syncing agent s
 Trajectory rendering is no longer configured through `trajectory_length` or `trajectory_color` on the binder or model. If you need trails, emit an explicit `trajectory` layer with `data.dependency_layer_ids = {"agent": "agents"}` and optional default `length`, `width`, and `color` metadata.
 
 ```python
-from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_projector
 
 grid = LayeredEnvironmentBinder(
     id="main",
     environment=simulation_model,
-    agent_accessor=make_grid_agent_accessor(
+    agent_projector=make_grid_agent_projector(
         heading=True,
         color=True,
         icon=True,
@@ -863,17 +863,17 @@ grid = LayeredEnvironmentBinder(
 
 - `id` (str | int): Environment identifier
 - `environment` (Any): Your simulation model object
-- `agent_accessor` (Callable): Function that extracts agent data from simulation objects
+- `agent_projector` (Callable): Function that extracts agent data from simulation objects
 
-#### Helper: `make_grid_agent_accessor()`
+#### Helper: `make_grid_agent_projector()`
 
-Creates an accessor function for grid agents.
+Creates an projector function for grid agents.
 
 ```python
-from tensnap import make_grid_agent_accessor
+from tensnap import make_grid_agent_projector
 
-# Create accessor that reads heading, color, and icon from simulation agents
-accessor = make_grid_agent_accessor(
+# Create projector that reads heading, color, and icon from simulation agents
+projector = make_grid_agent_projector(
     heading=True,    # Read heading attribute
     color=True,      # Read color attribute
     icon=True,       # Read icon attribute
@@ -900,7 +900,7 @@ from tensnap import UniformEnvironmentBinder
 env = UniformEnvironmentBinder(
     id="custom",
     environment=my_model,
-    agent_accessor=lambda agent: {
+    agent_projector=lambda agent: {
         'id': agent.id,
         'x': agent.position[0],
         'y': agent.position[1],

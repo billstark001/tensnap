@@ -10,7 +10,7 @@ import import_config  # noqa: F401
 from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
 from tensnap.models import EnvironmentBindingBuilder
-from tensnap.models.agent import make_grid_agent_accessor
+from tensnap.models.agent import make_grid_agent_projector
 
 from sugarscape import SugarAgent, Sugarscape
 
@@ -37,8 +37,8 @@ class SugarscapeSimulationHandler(MesaSimulationHandler):
         builder = EnvironmentBindingBuilder(environment_type="2d")
         builder.add_agent_layer(
             layer_id="sugar",
-            item_iterable_accessor=lambda env: env.sugar_patches,
-            item_accessor=lambda patch: patch.to_agent_state(),
+            item_iterable_projector=lambda env: env.sugar_patches,
+            item_projector=lambda patch: patch.to_agent_state(),
         )
         builder.add_trajectory_layer(
             layer_id="trails",
@@ -46,15 +46,15 @@ class SugarscapeSimulationHandler(MesaSimulationHandler):
             dependency_layer_ids={"agent": "agents"},
         )
         builder.add_grid_layer(
-            metadata_accessor=lambda env: {
+            metadata_projector=lambda env: {
                 "width": env.grid.width,
                 "height": env.grid.height,
             }
         )
         builder.add_agent_layer(
             layer_id="agents",
-            item_iterable_accessor=lambda env: env.agents,
-            item_accessor=make_grid_agent_accessor(
+            item_iterable_projector=lambda env: env.agents,
+            item_projector=make_grid_agent_projector(
                 id="unique_id",
                 x="pos[0]",
                 y="pos[1]",

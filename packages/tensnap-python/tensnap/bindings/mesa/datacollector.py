@@ -51,7 +51,7 @@ def get_registered_agent_collectors(datacollector: "DataCollector") -> list[str]
     return collectors
 
 
-def make_latest_data_accessor(
+def make_latest_data_projector(
     reporter_keys: list[str],
     datacollector_key: str = "datacollector",
 ):
@@ -172,10 +172,10 @@ class BindDataCollectorConfig:
                     model_groups[group_name] = []
                 model_groups[group_name].append(reporter)
 
-        # Inject accessor functions
+        # Inject projector functions
         func_id = 0
         for group_name, reporters in model_groups.items():
-            func = make_latest_data_accessor(
+            func = make_latest_data_projector(
                 reporter_keys=reporters,
                 datacollector_key=self.collector_key,
             )

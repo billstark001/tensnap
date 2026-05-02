@@ -19,45 +19,40 @@ from collections.abc import Callable
 
 
 from tensnap.models.agent import (
-    AccessorField,
-    AccessorFieldForInit,
+    ProjectorField,
+    ProjectorFieldForInit,
     UniformAgentItemFields,
     AgentItemFields,
     EdgeItemFields,
     TrajectoryConfigItemFields,
-    make_agent_accessor,
-    make_graph_agent_accessor,
-    make_graph_agent_accessor_nx,
-    make_grid_agent_accessor,
-    make_uniform_agent_accessor,
 )
 from tensnap.models.environment import (
     CanonicalEnvironmentType,
     EnvironmentBindingBuilder,
     EnvironmentBindingConfig,
-    GraphEdgeAccessorNXDict,
+    GraphEdgeProjectorNXDict,
     GraphEdgeDict,
     LayerBinding,
-    make_graph_edge_accessor_nx,
-    make_grid_environment_accessor,
-    make_uniform_environment_accessor,
+    make_graph_edge_projector_nx,
+    make_grid_environment_projector,
+    make_uniform_environment_projector,
 )
 from tensnap.utils.attr import (
-    make_dict_accessor,
-    make_identifier_getter,
-    SingleGetter,
-    Accessor,
-    AccessorDict,
+    make_attr_projector,
+    make_attr_getter,
+    AttrGetter,
+    AttrProjector,
+    AttrPathMap,
 )
 
 
 TItemKeys = TypeVar("TItemKeys", bound=str)
 TMetadataKeys = TypeVar("TMetadataKeys", bound=str)
 
-AccessorDictForInit: TypeAlias = Dict[TItemKeys, AccessorFieldForInit]
+ProjectorDictForInit: TypeAlias = Dict[TItemKeys, ProjectorFieldForInit]
 
-AccessorDictFilterList: TypeAlias = List[
-    Tuple[Callable[[Type[Any]], bool], AccessorDict[TItemKeys]]
+ProjectorDictFilterList: TypeAlias = List[
+    Tuple[Callable[[Type[Any]], bool], AttrPathMap[TItemKeys]]
 ]
 
 
@@ -97,22 +92,22 @@ def _try_get_class(cls: Type[Any], target_class_name: str) -> Type[Any] | None:
     return None
 
 
-def _try_resolve_item_accessor(
+def _try_resolve_item_projector(
     cls: Type[Any],
-    raw_value: Accessor[TItemKeys] | Type[Any] | str,
-    accessor_name: str | None,
-) -> Accessor[TItemKeys] | None:
+    raw_value: AttrProjector[TItemKeys] | Type[Any] | str,
+    projector_name: str | None,
+) -> AttrProjector[TItemKeys] | None:
     if callable(raw_value):
-        # A direct accessor function
+        # A direct projector function
         return raw_value
 
     assert (
-        accessor_name is not None
-    ), "Accessor name must be provided when raw_value is not callable"
+        projector_name is not None
+    ), "Projector name must be provided when raw_value is not callable"
 
     if isinstance(raw_value, type):
-        # A class with accessor registered
-        ret = getattr(raw_value, accessor_name, None)
+        # A class with projector registered
+        ret = getattr(raw_value, projector_name, None)
         if ret is not None:
             return ret
 
@@ -120,7 +115,7 @@ def _try_resolve_item_accessor(
         # 1. A class that has not defined yet when defining cls
         might_be_class = _try_get_class(cls, raw_value)
         if might_be_class is not None:
-            ret = getattr(might_be_class, accessor_name, None)
+            ret = getattr(might_be_class, projector_name, None)
             if ret is not None:
                 return ret
         # 2. A method or field on the class
@@ -131,29 +126,29 @@ def _try_resolve_item_accessor(
         if inspect.ismethod(might_be_method):
             assert (
                 False
-            ), "Not implemented: instance method as item accessor is not supported yet"
+            ), "Not implemented: instance method as item projector is not supported yet"
 
     return None
 
 
-def _resolve_accessor_dict(
+def _resolve_projector_dict(
     cls: Type[Any],
     attach_field: str | None,
-    accessor_dict_init: AccessorDictForInit[TItemKeys],
-    fields: AccessorDictFilterList[TItemKeys],
-    default_fields: AccessorDict[TItemKeys],
+    projector_dict_init: ProjectorDictForInit[TItemKeys],
+    fields: ProjectorDictFilterList[TItemKeys],
+    default_fields: AttrPathMap[TItemKeys],
 ):
-    accessor_dict: AccessorDict[TItemKeys] = {}
-    # Infer default accessor values based on class heuristics if not explicitly provided
+    projector_dict: AttrPathMap[TItemKeys] = {}
+    # Infer default projector values based on class heuristics if not explicitly provided
     all_none_fields: List[TItemKeys] = [
-        k for k, v in accessor_dict_init.items() if v is None
+        k for k, v in projector_dict_init.items() if v is None
     ]
 
-    def add_defaults(defaults: AccessorDict[TItemKeys]) -> None:
+    def add_defaults(defaults: AttrPathMap[TItemKeys]) -> None:
         for field in list(all_none_fields):
             field_key = defaults.get(field, None)
             if field_key is not None:
-                accessor_dict[field] = field_key
+                projector_dict[field] = field_key
                 all_none_fields.remove(field)
 
     # 1. Some fields are required, so we set them to their default values first
@@ -167,12 +162,12 @@ def _resolve_accessor_dict(
     # 2. For other optional fields, check if they exist on the class and use them if so
     for field in all_none_fields:
         if hasattr(cls, field):
-            accessor_dict[field] = field
+            projector_dict[field] = field
             # all_none_fields is no longer used, so we don't need to remove the fields
-    # 3. Attach the accessor
+    # 3. Attach the projector
     if attach_field:
-        setattr(cls, attach_field, accessor_dict)
-    return accessor_dict
+        setattr(cls, attach_field, projector_dict)
+    return projector_dict
 
 
 # endregion
@@ -207,44 +202,44 @@ class BindItemConfig(Generic[TItemKeys]):
 
     def __init__(
         self,
-        **kwargs: AccessorFieldForInit,
+        **kwargs: ProjectorFieldForInit,
     ) -> None:
-        self.accessor_dict_init = cast(AccessorDictForInit[TItemKeys], dict(**kwargs))
-        self.accessor_dict: AccessorDict[TItemKeys] = {}
+        self.projector_dict_init = cast(ProjectorDictForInit[TItemKeys], dict(**kwargs))
+        self.projector_dict: AttrPathMap[TItemKeys] = {}
         self.attached = False
 
     def attach(
         self,
         cls: Type[Any],
         attach_field: str,
-        fields: AccessorDictFilterList[TItemKeys],
-        default_fields: AccessorDict[TItemKeys],
+        fields: ProjectorDictFilterList[TItemKeys],
+        default_fields: AttrPathMap[TItemKeys],
     ) -> Type[Any]:
-        assert not self.attached, "Accessor config can only be attached once"
-        accessor_dict = _resolve_accessor_dict(
+        assert not self.attached, "Projector config can only be attached once"
+        projector_dict = _resolve_projector_dict(
             cls,
             attach_field,
-            self.accessor_dict_init,
+            self.projector_dict_init,
             fields,
             default_fields,
         )
-        self.accessor_dict = accessor_dict
+        self.projector_dict = projector_dict
         self.attached = True
         return cls
 
     def assert_attached(self) -> None:
-        assert self.attached, "Accessor config must be attached before getting accessor"
+        assert self.attached, "Projector config must be attached before getting projector"
 
     def assert_fields(self, required_fields: List[TItemKeys]) -> None:
         missing_fields = [
-            f for f in required_fields if not self.accessor_dict.get(f, None)
+            f for f in required_fields if not self.projector_dict.get(f, None)
         ]
-        assert not missing_fields, f"Missing required accessor fields: {missing_fields}"
+        assert not missing_fields, f"Missing required projector fields: {missing_fields}"
 
-    def get_accessor(self) -> Accessor[TItemKeys]:
+    def get_projector(self) -> AttrProjector[TItemKeys]:
         return cast(
-            Accessor[TItemKeys],
-            make_dict_accessor([], cast(Dict[str, str], self.accessor_dict), {}),
+            AttrProjector[TItemKeys],
+            make_attr_projector([], cast(Dict[str, str], self.projector_dict), {}),
         )
 
 
@@ -253,13 +248,13 @@ class BindItemConfig(Generic[TItemKeys]):
 # region Agent
 
 
-_agent_field_defaults: AccessorDict[AgentItemFields] = {
+_agent_field_defaults: AttrPathMap[AgentItemFields] = {
     "id": "id",
     "x": "x",
     "y": "y",
 }
 
-_agent_fields: List[Tuple[Callable[[Any], bool], AccessorDict[AgentItemFields]]] = [
+_agent_fields: List[Tuple[Callable[[Any], bool], AttrPathMap[AgentItemFields]]] = [
     (
         _is_probably_mesa_agent_class,
         {
@@ -296,7 +291,7 @@ class BindAgentConfig(BindItemConfig[AgentItemFields]):
             size=size,
             data=data,
         )
-        self.accessor_dict["id"] = id
+        self.projector_dict["id"] = id
 
     def __call__(self, cls: Type[Any]) -> Type[Any]:
         return self.attach(
@@ -306,20 +301,20 @@ class BindAgentConfig(BindItemConfig[AgentItemFields]):
             _agent_field_defaults,
         )
 
-    def get_accessor(self):
+    def get_projector(self):
         self.assert_attached()
         self.assert_fields(["id", "x", "y"])
-        return super().get_accessor()
+        return super().get_projector()
 
 
 bind_agent = BindAgentConfig
 
 
-_id_field_defaults: AccessorDict[Literal["id"]] = {
+_id_field_defaults: AttrPathMap[Literal["id"]] = {
     "id": "id",
 }
 
-_id_fields: List[Tuple[Callable[[Any], bool], AccessorDict[Literal["id"]]]] = [
+_id_fields: List[Tuple[Callable[[Any], bool], AttrPathMap[Literal["id"]]]] = [
     (
         _is_probably_mesa_agent_class,
         {
@@ -353,14 +348,14 @@ class BindUniformAgentConfig(BindItemConfig[UniformAgentItemFields]):
         return self.attach(
             cls,
             self.binding_name,
-            cast(AccessorDictFilterList[UniformAgentItemFields], _id_fields),
-            cast(AccessorDict[UniformAgentItemFields], _id_field_defaults),
+            cast(ProjectorDictFilterList[UniformAgentItemFields], _id_fields),
+            cast(AttrPathMap[UniformAgentItemFields], _id_field_defaults),
         )
 
-    def get_accessor(self):
+    def get_projector(self):
         self.assert_attached()
         self.assert_fields(["id"])
-        return super().get_accessor()
+        return super().get_projector()
 
 
 bind_uniform_agent = BindUniformAgentConfig
@@ -396,10 +391,10 @@ class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
     def __call__(self, cls: Type[Any]) -> Type[Any]:
         return self.attach(cls, self.binding_name, [], {})
 
-    def get_accessor(self):
+    def get_projector(self):
         self.assert_attached()
         self.assert_fields(["source", "target"])
-        return super().get_accessor()
+        return super().get_projector()
 
 
 # endregion
@@ -428,14 +423,14 @@ class BindTrajectoryConfigConfig(BindItemConfig[TrajectoryConfigItemFields]):
         return self.attach(
             cls,
             self.binding_name,
-            cast(AccessorDictFilterList[TrajectoryConfigItemFields], _id_fields),
-            cast(AccessorDict[TrajectoryConfigItemFields], _id_field_defaults),
+            cast(ProjectorDictFilterList[TrajectoryConfigItemFields], _id_fields),
+            cast(AttrPathMap[TrajectoryConfigItemFields], _id_field_defaults),
         )
 
-    def get_accessor(self):
+    def get_projector(self):
         self.assert_attached()
         self.assert_fields(["id"])
-        return super().get_accessor()
+        return super().get_projector()
 
 
 bind_trajectory_item = BindTrajectoryConfigConfig
@@ -463,11 +458,11 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         layer_type: str,
         *,
         metadata: (
-            Accessor[TMetadataKeys] | AccessorDictForInit[TMetadataKeys] | None
+            AttrProjector[TMetadataKeys] | ProjectorDictForInit[TMetadataKeys] | None
         ) = None,
-        iterable: SingleGetter | AccessorField | None = None,
-        item: Accessor[TItemKeys] | Type[Any] | str | None = None,
-        item_accessor_name: str | None = None,
+        iterable: AttrGetter | ProjectorField | None = None,
+        item: AttrProjector[TItemKeys] | Type[Any] | str | None = None,
+        item_projector_name: str | None = None,
         dependency_layer_ids: dict[str, str] | None = None,
     ) -> None:
         self.layer_id = layer_id
@@ -475,7 +470,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         self.init_metadata = metadata
         self.init_iterable = iterable
         self.init_item = item
-        self.item_accessor_name = item_accessor_name
+        self.item_projector_name = item_projector_name
         self.dependency_layer_ids = dependency_layer_ids
 
         self.binding: LayerBinding | None = None
@@ -484,72 +479,72 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
     def attach(
         self,
         cls: Type[Any],
-        metadata_fields: AccessorDictFilterList[TMetadataKeys],
-        metadata_default_fields: AccessorDict[TMetadataKeys],
+        metadata_fields: ProjectorDictFilterList[TMetadataKeys],
+        metadata_default_fields: AttrPathMap[TMetadataKeys],
     ) -> Type[Any]:
         # 0. Sanity check
         assert not self.attached, "Layer config can only be attached once"
         assert (not self.init_iterable) == (
             not self.init_item
-        ), "Iterable and item accessors must be provided together"
+        ), "Iterable and item projectors must be provided together"
 
-        # 1. Make metadata accessor
-        metadata_accessor: Accessor[TMetadataKeys] | None = None
+        # 1. Make metadata projector
+        metadata_projector: AttrProjector[TMetadataKeys] | None = None
         if callable(self.init_metadata):
-            metadata_accessor = self.init_metadata
+            metadata_projector = self.init_metadata
         elif isinstance(self.init_metadata, dict):
-            metadata_accessor_dict = _resolve_accessor_dict(
+            metadata_projector_dict = _resolve_projector_dict(
                 cls,
                 None,
                 self.init_metadata,
                 metadata_fields,
                 metadata_default_fields,
             )
-            metadata_accessor = make_dict_accessor(
+            metadata_projector = make_attr_projector(
                 [],
-                metadata_accessor_dict,
+                metadata_projector_dict,
                 {},
             )
         # else: the layer does not require metadata
 
-        # 2. Make item iterable accessor
-        iterable_accessor: SingleGetter | None = None
+        # 2. Make item iterable projector
+        iterable_projector: AttrGetter | None = None
         if callable(self.init_iterable):
-            iterable_accessor = self.init_iterable
+            iterable_projector = self.init_iterable
         elif isinstance(self.init_iterable, str):
             might_be_method = getattr(cls, self.init_iterable, None)
             if inspect.isfunction(might_be_method):
-                iterable_accessor = might_be_method
+                iterable_projector = might_be_method
             else:
-                iterable_accessor = make_identifier_getter(self.init_iterable)
+                iterable_projector = make_attr_getter(self.init_iterable)
         # else: the layer does not require an iterable
 
-        # 3. Make item accessor
-        item_accessor: Accessor[TItemKeys] | None = _try_resolve_item_accessor(
+        # 3. Make item projector
+        item_projector: AttrProjector[TItemKeys] | None = _try_resolve_item_projector(
             cls,
             self.init_item,  # type: ignore
-            self.item_accessor_name,
+            self.item_projector_name,
         )
 
         self.binding = LayerBinding(
             layer_id=self.layer_id,
             layer_type=self.layer_type,
-            metadata_accessor=metadata_accessor,
-            item_iterable_accessor=iterable_accessor,
-            item_accessor=item_accessor,
+            metadata_projector=metadata_projector,
+            item_iterable_projector=iterable_projector,
+            item_projector=item_projector,
             dependency_layer_ids=dict(self.dependency_layer_ids or {}),
         )
 
         self.attached = True
         return _append_layer_binding(cls, self.binding)
 
-    def assert_with_item_accessor(self):
+    def assert_with_item_projector(self):
         assert (
             self.binding is not None
-        ), "Layer config must be attached before getting item accessor"
+        ), "Layer config must be attached before getting item projector"
         assert (
-            self.binding.item_accessor is not None
-        ), "This layer config requires an item accessor, but it was not provided or could not be resolved"
+            self.binding.item_projector is not None
+        ), "This layer config requires an item projector, but it was not provided or could not be resolved"
 
     def __call__(self, cls: Type[Any]) -> Type[Any]:
         return self.attach(cls, [], {})
@@ -567,8 +562,8 @@ class BindBackgroundLayerConfig(BindLayerConfig):
         self,
         layer_id: str = "background",
         *,
-        background: AccessorFieldForInit = None,
-        interpolation: AccessorFieldForInit = None,
+        background: ProjectorFieldForInit = None,
+        interpolation: ProjectorFieldForInit = None,
     ) -> None:
         super().__init__(
             layer_id,
@@ -593,17 +588,17 @@ class BindGridLayerConfig(BindLayerConfig):
         self,
         layer_id: str = "grid",
         *,
-        x_origin: AccessorFieldForInit = None,
-        x_unit: AccessorFieldForInit = None,
-        x_interval: AccessorFieldForInit = None,
-        x_ratio: AccessorFieldForInit = None,
-        y_origin: AccessorFieldForInit = None,
-        y_unit: AccessorFieldForInit = None,
-        y_interval: AccessorFieldForInit = None,
-        y_ratio: AccessorFieldForInit = None,
-        stroke_color: AccessorFieldForInit = None,
+        x_origin: ProjectorFieldForInit = None,
+        x_unit: ProjectorFieldForInit = None,
+        x_interval: ProjectorFieldForInit = None,
+        x_ratio: ProjectorFieldForInit = None,
+        y_origin: ProjectorFieldForInit = None,
+        y_unit: ProjectorFieldForInit = None,
+        y_interval: ProjectorFieldForInit = None,
+        y_ratio: ProjectorFieldForInit = None,
+        stroke_color: ProjectorFieldForInit = None,
     ) -> None:
-        metadata_dict: AccessorDictForInit = {
+        metadata_dict: ProjectorDictForInit = {
             "x_origin": x_origin,
             "x_unit": x_unit,
             "x_interval": x_interval,
@@ -635,15 +630,15 @@ class BindAgentLayerConfig(BindLayerConfig):
         layer_id: str = "agents",
         *,
         uniform: bool = False,
-        item: Accessor[AgentItemFields] | Type[Any] | str,
-        iterable: AccessorField | Callable[[Any], Any] | None = None,
+        item: AttrProjector[AgentItemFields] | Type[Any] | str,
+        iterable: ProjectorField | Callable[[Any], Any] | None = None,
     ) -> None:
         super().__init__(
             layer_id,
             "agent",
             iterable=iterable or layer_id,
             item=item,
-            item_accessor_name=(
+            item_projector_name=(
                 BindUniformAgentConfig.binding_name
                 if uniform
                 else BindAgentConfig.binding_name
@@ -652,7 +647,7 @@ class BindAgentLayerConfig(BindLayerConfig):
 
     def __call__(self, cls: Type[Any]) -> Type[Any]:
         ret = self.attach(cls, [], {})
-        self.assert_with_item_accessor()
+        self.assert_with_item_projector()
         return ret
 
 
@@ -669,8 +664,8 @@ class BindEdgeLayerConfig(BindLayerConfig):
         self,
         layer_id: str = "edges",
         *,
-        item: Accessor[AgentItemFields] | Type[Any] | str,
-        iterable: AccessorField | Callable[[Any], Any] | None = None,
+        item: AttrProjector[AgentItemFields] | Type[Any] | str,
+        iterable: ProjectorField | Callable[[Any], Any] | None = None,
         agent_layer_id: str = "agents",
     ) -> None:
         super().__init__(
@@ -679,12 +674,12 @@ class BindEdgeLayerConfig(BindLayerConfig):
             iterable=iterable or layer_id,
             item=item,
             dependency_layer_ids={"agent": agent_layer_id},
-            item_accessor_name=BindAgentConfig.binding_name,
+            item_projector_name=BindAgentConfig.binding_name,
         )
 
     def __call__(self, cls: Type[Any]) -> Type[Any]:
         ret = self.attach(cls, [], {})
-        self.assert_with_item_accessor()
+        self.assert_with_item_projector()
         return ret
 
 
@@ -701,14 +696,14 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
         self,
         layer_id: str = "trails",
         *,
-        length: AccessorFieldForInit = None,
-        width: AccessorFieldForInit = None,
-        color: AccessorFieldForInit = None,
-        item: Accessor[AgentItemFields] | Type[Any] | str | None = None,
-        iterable: AccessorField | Callable[[Any], Any] | None = None,
+        length: ProjectorFieldForInit = None,
+        width: ProjectorFieldForInit = None,
+        color: ProjectorFieldForInit = None,
+        item: AttrProjector[AgentItemFields] | Type[Any] | str | None = None,
+        iterable: ProjectorField | Callable[[Any], Any] | None = None,
         agent_layer_id: str = "agents",
     ) -> None:
-        metadata_dict: AccessorDictForInit = {
+        metadata_dict: ProjectorDictForInit = {
             "length": length,
             "width": width,
             "color": color,
@@ -720,7 +715,7 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
             iterable=iterable or agent_layer_id,
             item=item,
             dependency_layer_ids={"agent": agent_layer_id},
-            item_accessor_name=BindTrajectoryConfigConfig.binding_name,
+            item_projector_name=BindTrajectoryConfigConfig.binding_name,
         )
 
 

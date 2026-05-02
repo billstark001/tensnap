@@ -166,7 +166,7 @@ scenario = SimulationScenario(port=8765, step_interval=0.1)
 grid = LayeredEnvironmentBinder(
     id="main",
     environment=simulation,
-    agent_iterable_accessor='walkers'
+    agent_iterable_projector='walkers'
 )
 ```
 

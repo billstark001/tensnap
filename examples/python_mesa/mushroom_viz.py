@@ -93,7 +93,7 @@ async def main() -> None:
             "patches_per_cluster": PATCHES_PER_CLUSTER,
             "num_turtles": NUM_HUNTERS,
         },
-        agent_iterable_accessor="hunters",
+        agent_iterable_projector="hunters",
     )
 
     await scenario.register_handler(handler)

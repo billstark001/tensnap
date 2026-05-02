@@ -17,12 +17,12 @@ from typing import (
 from typing_extensions import NotRequired
 
 from tensnap.utils.attr import (
-    make_dict_accessor,
-    make_identifier_getter,
+    make_attr_projector,
+    make_attr_getter,
 )
 
 from .agent import (
-    UniformAgentAccessorDict,
+    UniformAgentProjectorDict,
     UniformAgentModelDict,
 )
 
@@ -90,17 +90,17 @@ PureEnvironmentModel = (
 )
 
 
-class UniformEnvironmentAccessorDict(TypedDict):
-    """Type definition for uniform environment accessor parameters"""
+class UniformEnvironmentProjectorDict(TypedDict):
+    """Type definition for uniform environment projector parameters"""
 
     id: str
 
 
-# TypedDicts for accessor parameters
+# TypedDicts for projector parameters
 
 
-class GridEnvironmentAccessorDict(UniformEnvironmentAccessorDict):
-    """Type definition for grid environment accessor parameters"""
+class GridEnvironmentProjectorDict(UniformEnvironmentProjectorDict):
+    """Type definition for grid environment projector parameters"""
 
     width: str
     height: str
@@ -108,14 +108,14 @@ class GridEnvironmentAccessorDict(UniformEnvironmentAccessorDict):
     background: NotRequired[str | bool | None]
 
 
-class GraphEnvironmentAccessorDict(UniformEnvironmentAccessorDict):
-    """Type definition for graph environment accessor parameters"""
+class GraphEnvironmentProjectorDict(UniformEnvironmentProjectorDict):
+    """Type definition for graph environment projector parameters"""
 
     edges: str
 
 
-class GraphEdgeAccessorNXDict(TypedDict):
-    """Type definition for graph edge accessor parameters"""
+class GraphEdgeProjectorNXDict(TypedDict):
+    """Type definition for graph edge projector parameters"""
 
     directed: NotRequired[bool]
     style: NotRequired[str | bool | None]
@@ -125,10 +125,10 @@ class GraphEdgeAccessorNXDict(TypedDict):
 
 # endregion
 
-# region Accessors
+# region Projectors
 
 
-def make_grid_environment_accessor(
+def make_grid_environment_projector(
     id: str,
     width: str = "width",
     height: str = "height",
@@ -145,7 +145,7 @@ def make_grid_environment_accessor(
         )
     if background is not None and background is not False:
         map_fields["background"] = "background" if background is True else background
-    return make_dict_accessor(
+    return make_attr_projector(
         [],
         map_fields,
         {
@@ -155,14 +155,14 @@ def make_grid_environment_accessor(
     )  # type: ignore
 
 
-def make_graph_environment_accessor(
+def make_graph_environment_projector(
     id: str,
     edges: str = "edges",
 ) -> Callable[[Any], PureGraphEnvironmentModel]:
     """Create a function that accesses fields from a GraphEnvironmentModel"""
     map_fields: dict[str, str] = {}
     map_fields["edges"] = edges
-    return make_dict_accessor(
+    return make_attr_projector(
         [],
         map_fields,
         {
@@ -172,12 +172,12 @@ def make_graph_environment_accessor(
     )  # type: ignore
 
 
-def make_uniform_environment_accessor(
+def make_uniform_environment_projector(
     id: str,
 ) -> Callable[[Any], PureUniformEnvironmentModel]:
     """Create a function that accesses fields from a UniformEnvironmentModel"""
     map_fields: dict[str, str] = {}
-    return make_dict_accessor(
+    return make_attr_projector(
         [],
         map_fields,
         {
@@ -190,7 +190,7 @@ def make_uniform_environment_accessor(
 NXEdge: TypeAlias = tuple[str | int, str | int, dict[str, Any]]
 
 
-def make_graph_edge_accessor_nx(
+def make_graph_edge_projector_nx(
     directed: bool = False,
     style: str | bool | None = None,
     width: str | bool | None = None,
@@ -239,18 +239,18 @@ class EnvironmentBinderProtocol(Protocol):
     def get_state(self) -> EnvironmentState: ...
 
 
-class BindAccessorConfigProtocol(Protocol):
-    def get_accessor(self) -> Callable[[Any], Any]: ...
+class BindProjectorConfigProtocol(Protocol):
+    def get_projector(self) -> Callable[[Any], Any]: ...
 
 
-class BindAccessorConfigWithIdProtocol(Protocol):
-    def get_accessor(self, id: str) -> Callable[[Any], Any]: ...
+class BindProjectorConfigWithIdProtocol(Protocol):
+    def get_projector(self, id: str) -> Callable[[Any], Any]: ...
 
 
-EnvironmentMetadataAccessor: TypeAlias = Callable[[Any], dict[str, Any]]
-EnvironmentItemIterableAccessor: TypeAlias = Callable[[Any], Any]
-EnvironmentItemAccessor: TypeAlias = Callable[[Any, Any], dict[str, Any]]
-EnvironmentItemsAccessor: TypeAlias = Callable[[Any], list[dict[str, Any]]]
+EnvironmentMetadataProjector: TypeAlias = Callable[[Any], dict[str, Any]]
+EnvironmentItemIterableProjector: TypeAlias = Callable[[Any], Any]
+EnvironmentItemProjector: TypeAlias = Callable[[Any, Any], dict[str, Any]]
+EnvironmentItemsProjector: TypeAlias = Callable[[Any], list[dict[str, Any]]]
 
 
 @dataclass(slots=True)
@@ -268,20 +268,20 @@ def _identity_item_to_dict(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return dict(value)
     raise TypeError(
-        "Layer items without an accessor must already be dict objects, "
+        "Layer items without an projector must already be dict objects, "
         f"got {type(value)!r}."
     )
 
 
-def _identity_environment_item_accessor(
+def _identity_environment_item_projector(
     _environment: Any, item: Any
 ) -> dict[str, Any]:
     return _identity_item_to_dict(item)
 
 
-def _count_positional_parameters(accessor: Callable[..., Any]) -> int | None:
+def _count_positional_parameters(projector: Callable[..., Any]) -> int | None:
     try:
-        signature = inspect.signature(accessor)
+        signature = inspect.signature(projector)
     except (TypeError, ValueError):
         return None
 
@@ -299,55 +299,55 @@ def _count_positional_parameters(accessor: Callable[..., Any]) -> int | None:
 
 
 def bind_environment_getter(
-    accessor: Callable[..., Any],
-) -> EnvironmentItemIterableAccessor:
-    positional_count = _count_positional_parameters(accessor)
+    projector: Callable[..., Any],
+) -> EnvironmentItemIterableProjector:
+    positional_count = _count_positional_parameters(projector)
     if positional_count == 0:
-        return lambda _environment: accessor()
-    return lambda environment: accessor(environment)
+        return lambda _environment: projector()
+    return lambda environment: projector(environment)
 
 
-def bind_environment_item_accessor(
-    accessor: Callable[..., dict[str, Any]],
-) -> EnvironmentItemAccessor:
-    positional_count = _count_positional_parameters(accessor)
+def bind_environment_item_projector(
+    projector: Callable[..., dict[str, Any]],
+) -> EnvironmentItemProjector:
+    positional_count = _count_positional_parameters(projector)
     if positional_count in (None, 1):
-        return lambda _environment, item: accessor(item)
+        return lambda _environment, item: projector(item)
     if positional_count == 2:
-        return lambda environment, item: accessor(environment, item)
+        return lambda environment, item: projector(environment, item)
     raise TypeError(
-        "Layer item accessors must accept either (item) or (environment, item)."
+        "Layer item projectors must accept either (item) or (environment, item)."
     )
 
 
-def bind_environment_items_accessor(
-    accessor: Callable[..., list[dict[str, Any]]],
-) -> EnvironmentItemsAccessor:
-    positional_count = _count_positional_parameters(accessor)
+def bind_environment_items_projector(
+    projector: Callable[..., list[dict[str, Any]]],
+) -> EnvironmentItemsProjector:
+    positional_count = _count_positional_parameters(projector)
     if positional_count in (None, 1):
-        return lambda environment: accessor(environment)
+        return lambda environment: projector(environment)
     if positional_count == 0:
-        return lambda _environment: accessor()
+        return lambda _environment: projector()
     raise TypeError(
-        "Layer items accessors must accept either () or (environment)."
+        "Layer items projectors must accept either () or (environment)."
     )
 
 
-def _resolve_item_accessor(item: Any) -> EnvironmentItemAccessor | None:
+def _resolve_item_projector(item: Any) -> EnvironmentItemProjector | None:
     for config_key in (
-        "_tensnap_bind_accessor_config_trajectory",
-        "_tensnap_bind_accessor_config_item",
-        "_tensnap_bind_accessor_config_grid",
-        "_tensnap_bind_accessor_config_uniform",
-        "_tensnap_bind_accessor_config_graph",
+        "_tensnap_bind_projector_config_trajectory",
+        "_tensnap_bind_projector_config_item",
+        "_tensnap_bind_projector_config_grid",
+        "_tensnap_bind_projector_config_uniform",
+        "_tensnap_bind_projector_config_graph",
     ):
         if hasattr(item, config_key):
-            accessor_config = cast(
-                BindAccessorConfigProtocol,
+            projector_config = cast(
+                BindProjectorConfigProtocol,
                 getattr(item, config_key),
             )
-            return bind_environment_item_accessor(
-                accessor_config.get_accessor()
+            return bind_environment_item_projector(
+                projector_config.get_projector()
             )
     return None
 
@@ -364,14 +364,14 @@ def _layer_items_field_name(layer_type: str) -> str:
 class LayerBinding(Generic[TKeys, TKeys2]):
     layer_id: str
     layer_type: str
-    metadata_accessor: EnvironmentMetadataAccessor | None = None
-    item_iterable_accessor: EnvironmentItemIterableAccessor | None = None
-    item_accessor: EnvironmentItemAccessor | None = None
-    items_accessor: EnvironmentItemsAccessor | None = None
+    metadata_projector: EnvironmentMetadataProjector | None = None
+    item_iterable_projector: EnvironmentItemIterableProjector | None = None
+    item_projector: EnvironmentItemProjector | None = None
+    items_projector: EnvironmentItemsProjector | None = None
     dependency_layer_ids: dict[str, str] = field(default_factory=dict)
 
     def _build_metadata(self, environment: Any) -> dict[str, Any]:
-        metadata = self.metadata_accessor(environment) if self.metadata_accessor else {}
+        metadata = self.metadata_projector(environment) if self.metadata_projector else {}
         metadata_copy = dict(metadata)
         metadata_copy.pop("dependency_layer_ids", None)
         return metadata_copy
@@ -380,21 +380,21 @@ class LayerBinding(Generic[TKeys, TKeys2]):
         return dict(self.dependency_layer_ids)
 
     def _build_items(self, environment: Any) -> list[dict[str, Any]]:
-        if self.items_accessor is not None:
+        if self.items_projector is not None:
             return [
                 _identity_item_to_dict(item)
-                for item in (self.items_accessor(environment) or [])
+                for item in (self.items_projector(environment) or [])
             ]
-        if self.item_iterable_accessor is None:
+        if self.item_iterable_projector is None:
             return []
-        iterable = self.item_iterable_accessor(environment)
+        iterable = self.item_iterable_projector(environment)
         if iterable is None:
             return []
 
         items: list[dict[str, Any]] = []
         for item in iterable:
-            item_accessor = self.item_accessor or _resolve_item_accessor(item)
-            item_to_dict = item_accessor or _identity_environment_item_accessor
+            item_projector = self.item_projector or _resolve_item_projector(item)
+            item_to_dict = item_projector or _identity_environment_item_projector
             items.append(_identity_item_to_dict(item_to_dict(environment, item)))
         return items
 
@@ -475,13 +475,13 @@ class EnvironmentBindingBuilder:
         self,
         layer_id: str = "grid",
         *,
-        metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
+        metadata_projector: Callable[[Any], dict[str, Any]] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
             LayerBinding(
                 layer_id=layer_id,
                 layer_type="grid",
-                metadata_accessor=metadata_accessor,
+                metadata_projector=metadata_projector,
             )
         )
 
@@ -489,32 +489,32 @@ class EnvironmentBindingBuilder:
         self,
         layer_id: str = "agents",
         *,
-        item_iterable_accessor: Callable[[Any], Any] | None = None,
-        item_accessor: Callable[..., dict[str, Any]] | None = None,
-        items_accessor: Callable[..., list[dict[str, Any]]] | None = None,
-        metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
+        item_iterable_projector: Callable[[Any], Any] | None = None,
+        item_projector: Callable[..., dict[str, Any]] | None = None,
+        items_projector: Callable[..., list[dict[str, Any]]] | None = None,
+        metadata_projector: Callable[[Any], dict[str, Any]] | None = None,
         dependency_layer_ids: dict[str, str] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
             LayerBinding(
                 layer_id=layer_id,
                 layer_type="agent",
-                item_iterable_accessor=(
-                    bind_environment_getter(item_iterable_accessor)
-                    if item_iterable_accessor is not None
+                item_iterable_projector=(
+                    bind_environment_getter(item_iterable_projector)
+                    if item_iterable_projector is not None
                     else None
                 ),
-                item_accessor=(
-                    bind_environment_item_accessor(item_accessor)
-                    if item_accessor is not None
+                item_projector=(
+                    bind_environment_item_projector(item_projector)
+                    if item_projector is not None
                     else None
                 ),
-                items_accessor=(
-                    bind_environment_items_accessor(items_accessor)
-                    if items_accessor is not None
+                items_projector=(
+                    bind_environment_items_projector(items_projector)
+                    if items_projector is not None
                     else None
                 ),
-                metadata_accessor=metadata_accessor,
+                metadata_projector=metadata_projector,
                 dependency_layer_ids=dict(dependency_layer_ids or {}),
             )
         )
@@ -523,32 +523,32 @@ class EnvironmentBindingBuilder:
         self,
         layer_id: str = "edges",
         *,
-        item_iterable_accessor: Callable[[Any], Any] | None = None,
-        item_accessor: Callable[..., dict[str, Any]] | None = None,
-        items_accessor: Callable[..., list[dict[str, Any]]] | None = None,
-        metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
+        item_iterable_projector: Callable[[Any], Any] | None = None,
+        item_projector: Callable[..., dict[str, Any]] | None = None,
+        items_projector: Callable[..., list[dict[str, Any]]] | None = None,
+        metadata_projector: Callable[[Any], dict[str, Any]] | None = None,
         dependency_layer_ids: dict[str, str] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
             LayerBinding(
                 layer_id=layer_id,
                 layer_type="edge",
-                item_iterable_accessor=(
-                    bind_environment_getter(item_iterable_accessor)
-                    if item_iterable_accessor is not None
+                item_iterable_projector=(
+                    bind_environment_getter(item_iterable_projector)
+                    if item_iterable_projector is not None
                     else None
                 ),
-                item_accessor=(
-                    bind_environment_item_accessor(item_accessor)
-                    if item_accessor is not None
+                item_projector=(
+                    bind_environment_item_projector(item_projector)
+                    if item_projector is not None
                     else None
                 ),
-                items_accessor=(
-                    bind_environment_items_accessor(items_accessor)
-                    if items_accessor is not None
+                items_projector=(
+                    bind_environment_items_projector(items_projector)
+                    if items_projector is not None
                     else None
                 ),
-                metadata_accessor=metadata_accessor,
+                metadata_projector=metadata_projector,
                 dependency_layer_ids=dict(dependency_layer_ids or {}),
             )
         )
@@ -557,30 +557,30 @@ class EnvironmentBindingBuilder:
         self,
         layer_id: str = "trails",
         *,
-        metadata_accessor: Callable[[Any], dict[str, Any]] | None = None,
-        item_iterable_accessor: Callable[[Any], Any] | None = None,
-        item_accessor: Callable[..., dict[str, Any]] | None = None,
-        items_accessor: Callable[..., list[dict[str, Any]]] | None = None,
+        metadata_projector: Callable[[Any], dict[str, Any]] | None = None,
+        item_iterable_projector: Callable[[Any], Any] | None = None,
+        item_projector: Callable[..., dict[str, Any]] | None = None,
+        items_projector: Callable[..., list[dict[str, Any]]] | None = None,
         dependency_layer_ids: dict[str, str] | None = None,
     ) -> "EnvironmentBindingBuilder":
         return self.add_layer(
             LayerBinding(
                 layer_id=layer_id,
                 layer_type="trajectory",
-                metadata_accessor=metadata_accessor,
-                item_iterable_accessor=(
-                    bind_environment_getter(item_iterable_accessor)
-                    if item_iterable_accessor is not None
+                metadata_projector=metadata_projector,
+                item_iterable_projector=(
+                    bind_environment_getter(item_iterable_projector)
+                    if item_iterable_projector is not None
                     else None
                 ),
-                item_accessor=(
-                    bind_environment_item_accessor(item_accessor)
-                    if item_accessor is not None
+                item_projector=(
+                    bind_environment_item_projector(item_projector)
+                    if item_projector is not None
                     else None
                 ),
-                items_accessor=(
-                    bind_environment_items_accessor(items_accessor)
-                    if items_accessor is not None
+                items_projector=(
+                    bind_environment_items_projector(items_projector)
+                    if items_projector is not None
                     else None
                 ),
                 dependency_layer_ids=dict(dependency_layer_ids or {}),
@@ -605,51 +605,51 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
         self,
         id: str,
         environment: TEnv,
-        environment_accessor: (
+        environment_projector: (
             Callable[[Any], PureUniformEnvironmentModel]
-            | UniformEnvironmentAccessorDict
+            | UniformEnvironmentProjectorDict
             | None
         ) = None,
-        agent_iterable_accessor: str | bool = "agents",
-        agent_accessor: (
-            Callable[[Any], UniformAgentModelDict] | UniformAgentAccessorDict | None
+        agent_iterable_projector: str | bool = "agents",
+        agent_projector: (
+            Callable[[Any], UniformAgentModelDict] | UniformAgentProjectorDict | None
         ) = None,
     ):
         self.id = id
         self.environment = environment
 
-        # Handle environment_accessor
-        if environment_accessor is None:
-            self.environment_accessor = self._get_environment_accessor(environment)
-        elif callable(environment_accessor):
-            self.environment_accessor = environment_accessor
+        # Handle environment_projector
+        if environment_projector is None:
+            self.environment_projector = self._get_environment_projector(environment)
+        elif callable(environment_projector):
+            self.environment_projector = environment_projector
         else:
-            # It's a TypedDict, create accessor from it
-            self.environment_accessor = make_uniform_environment_accessor(
-                **environment_accessor
+            # It's a TypedDict, create projector from it
+            self.environment_projector = make_uniform_environment_projector(
+                **environment_projector
             )
 
-        # Handle agent_accessor
-        if agent_accessor is None:
-            self.agent_accessor = None
-        elif callable(agent_accessor):
-            self.agent_accessor = agent_accessor
+        # Handle agent_projector
+        if agent_projector is None:
+            self.agent_projector = None
+        elif callable(agent_projector):
+            self.agent_projector = agent_projector
         else:
-            # It's a TypedDict, create accessor from it
-            self.agent_accessor = make_uniform_agent_accessor(**agent_accessor)
+            # It's a TypedDict, create projector from it
+            self.agent_projector = make_uniform_agent_projector(**agent_projector)
 
-        # Handle agent_iterable_accessor
-        if not agent_iterable_accessor:
-            self.agent_iterable_accessor = None
+        # Handle agent_iterable_projector
+        if not agent_iterable_projector:
+            self.agent_iterable_projector = None
         else:
-            self.agent_iterable_accessor = make_identifier_getter(
-                agent_iterable_accessor
-                if isinstance(agent_iterable_accessor, str)
+            self.agent_iterable_projector = make_attr_getter(
+                agent_iterable_projector
+                if isinstance(agent_iterable_projector, str)
                 else "agents"
             )
 
     def _get_environment_metadata(self) -> dict[str, Any]:
-        model_dict = cast(dict[str, Any], self.environment_accessor(self.environment))
+        model_dict = cast(dict[str, Any], self.environment_projector(self.environment))
         return {
             key: value
             for key, value in model_dict.items()
@@ -657,25 +657,25 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
         }
 
     def _get_agents(self) -> list[dict[str, Any]]:
-        if not self.agent_iterable_accessor:
+        if not self.agent_iterable_projector:
             return []
-        agent_list = self.agent_iterable_accessor(self.environment)
+        agent_list = self.agent_iterable_projector(self.environment)
         if not agent_list:
             return []
 
         ret: list[dict[str, Any]] = []
         for agent in agent_list:
-            if self.agent_accessor is None:
-                self._create_agent_accessor(agent)
-            agent_dict = cast(dict[str, Any], self.agent_accessor(agent))  # type: ignore
+            if self.agent_projector is None:
+                self._create_agent_projector(agent)
+            agent_dict = cast(dict[str, Any], self.agent_projector(agent))  # type: ignore
             ret.append(agent_dict)
         return ret
 
-    def _builder_agent_item_accessor(self, agent: Any) -> dict[str, Any]:
-        if self.agent_accessor is None:
-            self._create_agent_accessor(cast(T, agent))
-        assert self.agent_accessor is not None
-        return cast(dict[str, Any], self.agent_accessor(agent))
+    def _builder_agent_item_projector(self, agent: Any) -> dict[str, Any]:
+        if self.agent_projector is None:
+            self._create_agent_projector(cast(T, agent))
+        assert self.agent_projector is not None
+        return cast(dict[str, Any], self.agent_projector(agent))
 
     def get_state(self) -> EnvironmentState:
         return self._build_layered_binder().get_state()
@@ -683,52 +683,52 @@ class UniformEnvironmentBinder(Generic[T, TEnv]):
     def _build_layered_binder(self) -> LayeredEnvironmentBinder[TEnv]:
         builder = EnvironmentBindingBuilder(self.canonical_environment_type)
         metadata = self._get_environment_metadata()
-        if metadata or self.agent_iterable_accessor is not None:
+        if metadata or self.agent_iterable_projector is not None:
             builder.add_agent_layer(
                 layer_id=self.canonical_agent_layer_id,
-                item_iterable_accessor=self.agent_iterable_accessor,
-                item_accessor=self._builder_agent_item_accessor,
+                item_iterable_projector=self.agent_iterable_projector,
+                item_projector=self._builder_agent_item_projector,
             )
         return builder.build(self.id, self.environment)
 
     def _get_config_key(self, env: TEnv) -> str:
-        return "_tensnap_bind_accessor_config_uniform"
+        return "_tensnap_bind_projector_config_uniform"
 
     def _get_agent_config_key(self, agent: T) -> str:
-        return "_tensnap_bind_accessor_config_uniform"
+        return "_tensnap_bind_projector_config_uniform"
 
-    def _get_default_agent_accessor(self) -> Callable[[Any], UniformAgentModelDict]:
-        return make_uniform_agent_accessor(id="id")
+    def _get_default_agent_projector(self) -> Callable[[Any], UniformAgentModelDict]:
+        return make_uniform_agent_projector(id="id")
 
-    def _get_default_environment_accessor(
+    def _get_default_environment_projector(
         self,
     ) -> Callable[[Any], PureUniformEnvironmentModel]:
-        return make_uniform_environment_accessor(id=self.id)
+        return make_uniform_environment_projector(id=self.id)
 
-    def _get_environment_accessor(
+    def _get_environment_projector(
         self, env: TEnv
     ) -> Callable[[Any], PureUniformEnvironmentModel]:
         cfg_key = self._get_config_key(env)
         if hasattr(env, cfg_key):
-            accessor_config = cast(
-                BindAccessorConfigWithIdProtocol, getattr(env, cfg_key)
+            projector_config = cast(
+                BindProjectorConfigWithIdProtocol, getattr(env, cfg_key)
             )
             return cast(
                 Callable[[Any], PureUniformEnvironmentModel],
-                accessor_config.get_accessor(self.id),
+                projector_config.get_projector(self.id),
             )
-        return self._get_default_environment_accessor()
+        return self._get_default_environment_projector()
 
-    def _create_agent_accessor(self, agent: T) -> None:
+    def _create_agent_projector(self, agent: T) -> None:
         cfg_key = self._get_agent_config_key(agent)
         if hasattr(agent, cfg_key):
-            accessor_config = cast(BindAccessorConfigProtocol, getattr(agent, cfg_key))
-            self.agent_accessor = cast(
+            projector_config = cast(BindProjectorConfigProtocol, getattr(agent, cfg_key))
+            self.agent_projector = cast(
                 Callable[[Any], UniformAgentModelDict],
-                accessor_config.get_accessor(),
+                projector_config.get_projector(),
             )
         else:
-            self.agent_accessor = self._get_default_agent_accessor()
+            self.agent_projector = self._get_default_agent_projector()
 
     def set_environment(self, environment: TEnv) -> None:
         """Set the environment object"""

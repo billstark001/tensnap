@@ -495,13 +495,13 @@ class TestTenSnapServer:
             EnvironmentBindingBuilder(environment_type="2d")
             .add_agent_layer(
                 layer_id="agents",
-                item_iterable_accessor=lambda env: env.agents,
-                item_accessor=lambda agent: agent,
+                item_iterable_projector=lambda env: env.agents,
+                item_projector=lambda agent: agent,
             )
             .add_edge_layer(
                 layer_id="edges",
-                item_iterable_accessor=lambda env: env.edges,
-                item_accessor=lambda edge: edge,
+                item_iterable_projector=lambda env: env.edges,
+                item_projector=lambda edge: edge,
                 dependency_layer_ids={"agent": "agents"},
             )
             .build(id="graph_env", environment=GraphEnv())

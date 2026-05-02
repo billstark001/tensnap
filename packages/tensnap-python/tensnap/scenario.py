@@ -55,7 +55,7 @@ from .protocol import (
     layer_create_payload,
 )
 from .server import ServerToClientMessageType as MT, TenSnapServer
-from .utils.attr import make_dict_getter_and_setter, make_identifier_getter_and_setter
+from .utils.attr import make_dict_getter_and_setter, make_attr_getter_and_setter
 from .utils.environment_state import (
     clone_environment_state,
     copied_layer_items,
@@ -652,7 +652,7 @@ class SimulationScenario:
                 added_actions.append(action_meta.id)
         else:
             for name, param in parameters:
-                getter, setter = make_identifier_getter_and_setter(name, target)
+                getter, setter = make_attr_getter_and_setter(name, target)
                 self._register_parameter(param, getter, setter)
                 added_params.append(param.id)
             for name, func, action_meta in actions:

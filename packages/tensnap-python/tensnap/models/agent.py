@@ -13,7 +13,7 @@ from typing import (
 
 from typing_extensions import NotRequired
 
-from tensnap.utils.attr import make_dict_accessor
+from tensnap.utils.attr import make_attr_projector
 
 if TYPE_CHECKING:
     pass
@@ -58,8 +58,8 @@ class GraphAgentModelDict(AgentModelDict):
     y: NotRequired[float]
 
 
-AccessorFieldForInit: TypeAlias = str | bool | None
-AccessorField: TypeAlias = str
+ProjectorFieldForInit: TypeAlias = str | bool | None
+ProjectorField: TypeAlias = str
 
 UniformAgentItemFields: TypeAlias = Literal["id", "color", "icon", "size", "data"]
 
@@ -75,9 +75,9 @@ EdgeItemFields: TypeAlias = Literal[
 TrajectoryConfigItemFields: TypeAlias = Literal["id", "length", "width", "color"]
 
 
-# TypedDicts for accessor parameters
-class UniformAgentAccessorDict(TypedDict):
-    """Type definition for uniform agent accessor parameters"""
+# TypedDicts for projector parameters
+class UniformAgentProjectorDict(TypedDict):
+    """Type definition for uniform agent projector parameters"""
 
     id: str
     color: NotRequired[str | bool | None]
@@ -86,24 +86,24 @@ class UniformAgentAccessorDict(TypedDict):
     data: NotRequired[str | bool | None]
 
 
-class AgentAccessorDict(UniformAgentAccessorDict):
-    """Generic agent accessor parameters with optional spatial fields."""
+class AgentProjectorDict(UniformAgentProjectorDict):
+    """Generic agent projector parameters with optional spatial fields."""
 
     x: NotRequired[str | bool | None]
     y: NotRequired[str | bool | None]
     heading: NotRequired[str | bool | None]
 
 
-class GridAgentAccessorDict(UniformAgentAccessorDict):
-    """Type definition for grid agent accessor parameters"""
+class GridAgentProjectorDict(UniformAgentProjectorDict):
+    """Type definition for grid agent projector parameters"""
 
     x: str
     y: str
     heading: NotRequired[str | bool | None]
 
 
-class GraphAgentAccessorNXDict(TypedDict):
-    """Type definition for graph agent accessor parameters"""
+class GraphAgentProjectorNXDict(TypedDict):
+    """Type definition for graph agent projector parameters"""
 
     x: NotRequired[str | bool | None]
     y: NotRequired[str | bool | None]
@@ -114,8 +114,8 @@ class GraphAgentAccessorNXDict(TypedDict):
     auto_collect_data: NotRequired[bool]
 
 
-class GraphAgentAccessorDict(UniformAgentAccessorDict):
-    """Type definition for graph agent accessor parameters"""
+class GraphAgentProjectorDict(UniformAgentProjectorDict):
+    """Type definition for graph agent projector parameters"""
 
     x: NotRequired[str | bool | None]
     y: NotRequired[str | bool | None]
@@ -139,7 +139,7 @@ def _a(
         map_fields["data"] = "data" if data is True else data
 
 
-def make_graph_agent_accessor_nx(
+def make_graph_agent_projector_nx(
     x: str | bool | None = None,
     y: str | bool | None = None,
     color: str | bool | None = None,

@@ -126,8 +126,8 @@ class Patch(mesa.Agent):  # type: ignore[misc]
     metadata={"length": 10, "color": "#1D4ED8"},
     dependency_layer_ids={"agent": "hunters"},
 )
-@bind_agent_layer("patches", item_iterable_accessor="get_patch_layer_agents", metadata={"z_index": 35})
-@bind_agent_layer("hunters", item_iterable_accessor="hunters")
+@bind_agent_layer("patches", item_iterable_projector="get_patch_layer_agents", metadata={"z_index": 35})
+@bind_agent_layer("hunters", item_iterable_projector="hunters")
 @bind_grid_layer(width="width", height="height", coord_offset=True)
 @bind_env()
 class ForagingModel(mesa.Model):  # type: ignore[misc]

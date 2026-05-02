@@ -50,7 +50,7 @@ class TestLayeredBindings:
                 self.color = "#3498db"
 
         @bind_trajectory_layer(metadata={"length": 5}, dependency_layer_ids={"agent": "birds"})
-        @bind_agent_layer("birds", item_iterable_accessor="birds")
+        @bind_agent_layer("birds", item_iterable_projector="birds")
         @bind_grid_layer(width="width", height="height")
         @bind_env()
         class Aviary:
@@ -98,7 +98,7 @@ class TestLayeredBindings:
                 self.color = color
                 self.width = width
 
-        @bind_trajectory_layer(item_iterable_accessor="trail_configs")
+        @bind_trajectory_layer(item_iterable_projector="trail_configs")
         @bind_env()
         class Scene:
             def __init__(self):
@@ -119,11 +119,11 @@ class TestLayeredBindings:
                 ]
 
         @bind_edge_layer(
-            item_iterable_accessor="edge_triples",
-            edge_accessor=True,
+            item_iterable_projector="edge_triples",
+            edge_projector=True,
             dependency_layer_ids={"agent": "agents"},
         )
-        @bind_agent_layer("agents", item_iterable_accessor=False)
+        @bind_agent_layer("agents", item_iterable_projector=False)
         @bind_env()
         class Scene(GraphEnv):
             pass
@@ -138,8 +138,8 @@ class TestLayeredBindings:
             {"source": "b", "target": "c", "directed": False},
         ]
 
-    def test_layer_items_accessor_supports_environment_level_fast_path(self):
-        @bind_agent_layer("birds", items_accessor="build_birds")
+    def test_layer_items_projector_supports_environment_level_fast_path(self):
+        @bind_agent_layer("birds", items_projector="build_birds")
         @bind_env()
         class Aviary:
             def __init__(self):
@@ -157,7 +157,7 @@ class TestLayeredBindings:
             {"id": 2, "x": 4, "y": 5, "color": "#f59e0b"},
         ]
 
-    def test_layer_item_accessor_supports_instance_methods(self):
+    def test_layer_item_projector_supports_instance_methods(self):
         class Bird:
             def __init__(self, bird_id: int, position: tuple[int, int]):
                 self.id = bird_id
@@ -165,8 +165,8 @@ class TestLayeredBindings:
 
         @bind_agent_layer(
             "birds",
-            item_iterable_accessor="birds",
-            item_accessor="build_bird",
+            item_iterable_projector="birds",
+            item_projector="build_bird",
         )
         @bind_env()
         class Aviary:
@@ -196,11 +196,11 @@ class TestLayeredBindings:
                 self.particles = [Particle(1, 1, 2)]
 
         builder = EnvironmentBindingBuilder(environment_type="2d")
-        builder.add_grid_layer(metadata_accessor=lambda env: {"width": env.width, "height": env.height})
+        builder.add_grid_layer(metadata_projector=lambda env: {"width": env.width, "height": env.height})
         builder.add_agent_layer(
             layer_id="particles",
-            item_iterable_accessor=lambda env: env.particles,
-            item_accessor=lambda item: {"id": item.id, "x": item.x, "y": item.y},
+            item_iterable_projector=lambda env: env.particles,
+            item_projector=lambda item: {"id": item.id, "x": item.x, "y": item.y},
         )
 
         binder = builder.build(id="particles", environment=ParticleEnv())

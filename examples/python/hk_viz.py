@@ -11,8 +11,8 @@ import import_config  # noqa: F401
 from tensnap import (
     chart,
     EnvironmentBindingBuilder,
-    make_graph_agent_accessor_nx,
-    make_graph_edge_accessor_nx,
+    make_graph_agent_projector_nx,
+    make_graph_edge_projector_nx,
     SimulationScenario,
 )
 
@@ -25,20 +25,20 @@ scenario = SimulationScenario(port=server_port)
 
 model = DiscreteHKModel(n_agents=50, confidence_bound=0.3, k_random=3)
 graph_builder = EnvironmentBindingBuilder(environment_type="2d")
-graph_agent_accessor = make_graph_agent_accessor_nx(
+graph_agent_projector = make_graph_agent_projector_nx(
     color=True,
     size=True,
     auto_collect_data=True,
 )
 graph_builder.add_agent_layer(
     layer_id="agents",
-    item_iterable_accessor=lambda env: env.graph.nodes(data=True),
-    item_accessor=lambda item: graph_agent_accessor(item[0], item[1]),
+    item_iterable_projector=lambda env: env.graph.nodes(data=True),
+    item_projector=lambda item: graph_agent_projector(item[0], item[1]),
 )
 graph_builder.add_edge_layer(
     layer_id="edges",
-    item_iterable_accessor=lambda env: env.graph.edges(data=True),
-    item_accessor=make_graph_edge_accessor_nx(),
+    item_iterable_projector=lambda env: env.graph.edges(data=True),
+    item_projector=make_graph_edge_projector_nx(),
     dependency_layer_ids={"agent": "agents"},
 )
 graph_env = graph_builder.build(id="opinion_network", environment=model)

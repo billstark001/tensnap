@@ -35,7 +35,7 @@ TenSnap consists of three main components:
 
 - **Server**: `TenSnapServer` - Manages WebSocket connections and broadcasts updates
 - **Environment binders**: `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder` - Connect your model objects to TenSnap's canonical wire format
-- **Agent accessors / decorators**: `make_grid_agent_accessor()`, `make_graph_agent_accessor_nx()`, `@bind_grid_agent()` - Describe which fields from your objects should be synchronized
+- **Agent projectors / decorators**: `make_grid_agent_projector()`, `make_graph_agent_projector_nx()`, `@bind_grid_agent()` - Describe which fields from your objects should be synchronized
 - **Parameters**: Configurable values exposed to the UI (sliders, dropdowns, toggles)
 - **Charts**: Real-time data visualization
 - **Buttons**: Trigger actions in your simulation
@@ -81,14 +81,14 @@ class MySimulation:
 ### Step 3: Connect to TenSnap
 
 ```python
-from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_projector
 
 # Bind your model to a canonical 2d environment
 grid = LayeredEnvironmentBinder(
     id="main",
     environment=my_simulation,
-    agent_iterable_accessor="agents",
-    agent_accessor=make_grid_agent_accessor(
+    agent_iterable_projector="agents",
+    agent_projector=make_grid_agent_projector(
         id="id",
         heading=True,
         color=True,
@@ -119,10 +119,10 @@ if __name__ == "__main__":
 
 ### Grid Environments
 
-Grid-oriented simulations are usually connected through `LayeredEnvironmentBinder` plus an agent accessor or `@bind_grid_agent()` metadata:
+Grid-oriented simulations are usually connected through `LayeredEnvironmentBinder` plus an agent projector or `@bind_grid_agent()` metadata:
 
 ```python
-from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_projector
 
 class Bird:
     def __init__(self):
@@ -137,8 +137,8 @@ class Bird:
 grid = LayeredEnvironmentBinder(
     id="world",
     environment=my_model,
-    agent_iterable_accessor="birds",
-    agent_accessor=make_grid_agent_accessor(
+    agent_iterable_projector="birds",
+    agent_projector=make_grid_agent_projector(
         id="id",
         heading=True,
         color=True,
@@ -198,7 +198,7 @@ graph_env = LayeredEnvironmentBinder(id="network", graph=graph)
 
 ### Agent Properties
 
-The most common synchronized agent fields are still the same; they just come from your source objects or accessors rather than a mutable `AgentModel` class:
+The most common synchronized agent fields are still the same; they just come from your source objects or projectors rather than a mutable `AgentModel` class:
 
 ```python
 agent_state = {
@@ -227,7 +227,7 @@ agent_state = {
 Binders re-read your source objects on every sync, so you usually update your own model objects directly instead of mutating a TenSnap-side mirror object:
 
 ```python
-from tensnap import LayeredEnvironmentBinder, make_grid_agent_accessor
+from tensnap import LayeredEnvironmentBinder, make_grid_agent_projector
 
 class Bird:
     def __init__(self):
@@ -241,9 +241,9 @@ bird = Bird()
 binder = LayeredEnvironmentBinder(
     id="birds",
     environment={"birds": [bird], "width": 50, "height": 50},
-    agent_iterable_accessor="birds",
-    environment_accessor={"width": "width", "height": "height"},
-    agent_accessor=make_grid_agent_accessor(id="id", heading=True),
+    agent_iterable_projector="birds",
+    environment_projector={"width": "width", "height": "height"},
+    agent_projector=make_grid_agent_projector(id="id", heading=True),
 )
 
 bird.x = 10.0

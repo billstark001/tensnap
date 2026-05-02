@@ -12,7 +12,7 @@ from tensnap.models import (
     EnvironmentBindingBuilder,
     LayeredEnvironmentBinder,
 )
-from tensnap.utils.attr import make_identifier_getter
+from tensnap.utils.attr import make_attr_getter
 
 
 # region Built-in action handler factories
@@ -27,7 +27,7 @@ from tensnap.utils.attr import make_identifier_getter
 
 def build_default_layered_binder(
     model: Any,
-    agent_iterable_accessor: "str | Callable" = "agents",
+    agent_iterable_projector: "str | Callable" = "agents",
 ) -> "LayeredEnvironmentBinder":
     """
     Build a 2-D grid + agent LayeredEnvironmentBinder for Mesa-style models.
@@ -37,13 +37,13 @@ def build_default_layered_binder(
 
     Args:
         model: The simulation model instance.
-        agent_iterable_accessor: Attribute name string or callable returning
+        agent_iterable_projector: Attribute name string or callable returning
             the agent iterable from the model.
     """
-    if callable(agent_iterable_accessor):
-        iterable_fn: Callable[[Any], Any] = agent_iterable_accessor
+    if callable(agent_iterable_projector):
+        iterable_fn: Callable[[Any], Any] = agent_iterable_projector
     else:
-        _getter = make_identifier_getter(str(agent_iterable_accessor))
+        _getter = make_attr_getter(str(agent_iterable_projector))
 
         def iterable_fn(target: Any) -> Any:
             val = _getter(target)
@@ -51,14 +51,14 @@ def build_default_layered_binder(
 
     builder = EnvironmentBindingBuilder(environment_type="2d")
     builder.add_grid_layer(
-        metadata_accessor=lambda env: {
+        metadata_projector=lambda env: {
             "width": env.grid.width,
             "height": env.grid.height,
         },
     )
     builder.add_agent_layer(
-        item_iterable_accessor=iterable_fn,
-        item_accessor=make_grid_agent_accessor(id="unique_id", x="pos[0]", y="pos[1]"),
+        item_iterable_projector=iterable_fn,
+        item_projector=make_grid_agent_projector(id="unique_id", x="pos[0]", y="pos[1]"),
     )
     return builder.build(type(model).__name__, model)
 

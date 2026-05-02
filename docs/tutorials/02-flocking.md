@@ -277,7 +277,7 @@ scenario = SimulationScenario(port=8765)
 grid = LayeredEnvironmentBinder(
     id="main",
     environment=model,
-    agent_iterable_accessor='birds'
+    agent_iterable_projector='birds'
 )
 
 # Define charts

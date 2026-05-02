@@ -72,7 +72,7 @@ The flock example demonstrates TenSnap's key features:
 from tensnap import (
     SimulationScenario,
     LayeredEnvironmentBinder,
-    make_grid_agent_accessor,
+    make_grid_agent_projector,
     BindParametersConfig,
     chart,
     action,
@@ -85,7 +85,7 @@ scenario = SimulationScenario(port=8765)
 grid = LayeredEnvironmentBinder(
     id="main",
     environment=model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True)
+    agent_projector=make_grid_agent_projector(heading=True, color=True, icon=True)
 )
 scenario.add_environment(grid)
 

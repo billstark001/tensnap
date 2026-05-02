@@ -61,7 +61,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         model_class: "type[Model]",
         model_init_args: Optional[list] = None,
         model_init_kwargs: Optional[dict] = None,
-        agent_iterable_accessor: "str | Callable" = "agents",
+        agent_iterable_projector: "str | Callable" = "agents",
         on_model_init: Optional[Callable] = None,
         on_model_step: Optional[Callable] = None,
     ) -> None:
@@ -73,7 +73,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         self.model_init_args: list = model_init_args or []
         self.model_init_kwargs_orig: dict = model_init_kwargs or {}
         self.model_init_kwargs: dict = self.model_init_kwargs_orig.copy()
-        self.agent_iterable_accessor = agent_iterable_accessor
+        self.agent_iterable_projector = agent_iterable_projector
         self.on_model_init = on_model_init
         self.on_model_step = on_model_step
 
@@ -117,7 +117,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
                 )
             else:
                 env_binder = build_default_layered_binder(
-                    self.model, self.agent_iterable_accessor
+                    self.model, self.agent_iterable_projector
                 )
             self.env_binder = env_binder
             scenario.add_environment(env_binder)

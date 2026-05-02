@@ -76,7 +76,7 @@ class Bird:
     metadata={"length": 5, "color": "#2563EB"},
     dependency_layer_ids={"agent": "birds"},
 )
-@bind_agent_layer("birds", item_iterable_accessor="birds")
+@bind_agent_layer("birds", item_iterable_projector="birds")
 @bind_grid_layer(width="width", height="height", coord_offset=True)
 @bind_env()
 class FlockSimulation:

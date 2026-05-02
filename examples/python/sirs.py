@@ -144,7 +144,7 @@ class WellMixedEnvironment(Environment):
 
 @bind_env()
 @bind_grid_layer(width="rows", height="cols")
-@bind_agent_layer("agents", item_iterable_accessor="agents")
+@bind_agent_layer("agents", item_iterable_projector="agents")
 @bind_parameters(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
@@ -196,11 +196,11 @@ class GridEnvironment(Environment):
         return neighbors
 
 @bind_env()
-@bind_agent_layer("agents", item_iterable_accessor="agents")
+@bind_agent_layer("agents", item_iterable_projector="agents")
 @bind_edge_layer(
     "edges",
-    item_iterable_accessor=lambda env: env.graph.edges(data=True),
-    edge_accessor=True,
+    item_iterable_projector=lambda env: env.graph.edges(data=True),
+    edge_projector=True,
     dependency_layer_ids={"agent": "agents"},
 )
 @bind_parameters(include=["num_agents", "connection_prob"])

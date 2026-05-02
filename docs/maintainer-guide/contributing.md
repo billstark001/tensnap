@@ -115,7 +115,7 @@ Documentation contributions are highly valued:
 
 When updating Python docs, keep them aligned with the current bindings surface:
 
-- Document binders, decorators, accessors, and TypedDict state payloads such as `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder*`, and `make_*_accessor`.
+- Document binders, decorators, projectors, and TypedDict state payloads such as `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder*`, and `make_*_projector`.
 - Do not document nonexistent mutable runtime classes such as `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel`.
 - Default control semantics are renderer-driven: `start`, `step`, and `reset` are the canonical built-ins; `stop` is only present when a scenario registers an explicit backend action.
 - Low-level server examples should use `update_layer_metadata()`, `update_layer_agents()`, `update_layer_edges()`, `replace_layer_state()`, and `replace_environment_layers()` rather than removed layer-less update helpers.

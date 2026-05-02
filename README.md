@@ -130,7 +130,7 @@ class Agent:
 # Define model with metadata binding
 @bind_2d_env()
 @bind_grid_layer(width="width", height="height")
-@bind_agent_layer("agents", item_iterable_accessor="agents")
+@bind_agent_layer("agents", item_iterable_projector="agents")
 class Model:
     def __init__(self, config):
         self.config = config
