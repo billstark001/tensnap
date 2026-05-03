@@ -9,6 +9,7 @@ from tensnap import (
     env,
     agent_layer,
     edge_layer,
+    params,
 )
 
 
@@ -22,6 +23,16 @@ from tensnap import (
     "edges",
     item_iterable_projector="graph.edges",
     item_dynamic_projector="render_tensnap_edge",
+)
+@params(
+    include=[
+        "n_agents",
+        "confidence_bound",
+        "influence_strength",
+        "k_random",
+        "rewire_prob",
+        "edge_prob",
+    ]
 )
 class DiscreteHKModel:
     def __init__(
@@ -56,7 +67,6 @@ class DiscreteHKModel:
         self.graph: nx.DiGraph = nx.DiGraph()
         self.opinions: np.ndarray = np.zeros(n_agents)
         self.opinion_history: List[np.ndarray] = []
-        print(self.initial_opinions)
 
         self.init()
 
@@ -88,8 +98,18 @@ class DiscreteHKModel:
         if self.initial_opinions is None:
             self.opinions = np.random.uniform(-1, 1, self.n_agents)
         else:
-            self.opinions = np.array(self.initial_opinions)
-        print(self.opinions)
+            raw = np.asarray(self.initial_opinions, dtype=float)
+            if raw.ndim == 0:
+                raise ValueError(
+                    "initial_opinions must be a 1D sequence; got scalar. "
+                    "This usually happens when a scalar parameter value is applied "
+                    "to the initial_opinions field."
+                )
+            if raw.size != self.n_agents:
+                raise ValueError(
+                    f"initial_opinions length mismatch: expected {self.n_agents}, got {raw.size}."
+                )
+            self.opinions = raw.reshape(-1)
 
         # 创建有向E-R图
         self.graph = nx.erdos_renyi_graph(self.n_agents, self.edge_prob, directed=True)

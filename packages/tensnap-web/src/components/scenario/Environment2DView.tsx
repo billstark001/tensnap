@@ -29,6 +29,26 @@ interface Environment2DViewProps {
   view?: AnchoredView;
 }
 
+const DEFAULT_LAYER_Z_INDEX = {
+  trajectory: 30,
+  agent: 40,
+} as const;
+
+const storageIdentityMap = new WeakMap<object, number>();
+let nextStorageIdentity = 1;
+
+const getStorageIdentity = (storage: object): number => {
+  const current = storageIdentityMap.get(storage);
+  if (current !== undefined) {
+    return current;
+  }
+
+  const next = nextStorageIdentity;
+  nextStorageIdentity += 1;
+  storageIdentityMap.set(storage, next);
+  return next;
+};
+
 const getSceneBounds = (metadata: Record<string, unknown>): { width: number; height: number } | undefined => {
   const { width, height } = metadata;
   if (typeof width === 'number' && typeof height === 'number') {
@@ -46,13 +66,38 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
 
   const [selectedAgent, setSelectedAgent] = useState<AgentRenderState | null>(null);
   const scenario = useScenarioStore((store) => store.scenario);
-  const assetRevision = useScenarioStore((store) => store._assetRevision);
   const toast = useToast();
+  const scenarioRef = useRef(scenario);
+  const toastErrorRef = useRef(toast.error);
+  void updateTrigger;
   void view;
 
-  const resolveSceneBounds = useCallback((): { width: number; height: number } | undefined => {
-    return findRegisteredSceneBounds([...environment.layers.values()]);
-  }, [environment]);
+  useEffect(() => {
+    scenarioRef.current = scenario;
+  }, [scenario]);
+
+  useEffect(() => {
+    toastErrorRef.current = toast.error;
+  }, [toast.error]);
+
+  const layerBuildKey = [...environment.layers.values()]
+    .map((layer) => {
+      const metadata = (layer.metadata ?? {}) as Record<string, unknown>;
+      const metadataEntries = Object.keys(metadata)
+        .sort((left, right) => left.localeCompare(right))
+        .map((key) => [key, metadata[key]] as const);
+      const dependencyEntries = Object.entries(layer.dependencyLayerIds ?? {})
+        .sort(([left], [right]) => left.localeCompare(right));
+      return JSON.stringify({
+        id: layer.id,
+        layerType: layer.layerType,
+        storageId: getStorageIdentity(layer.storage as object),
+        dependencies: dependencyEntries,
+        metadata: metadataEntries,
+      });
+    })
+    .sort()
+    .join('|');
 
   const handleAgentSelect = useCallback((agent: AgentRenderState) => {
     for (const storage of agentStoragesRef.current) {
@@ -63,7 +108,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       }
     }
     setSelectedAgent(agent as AgentRenderState);
-  }, []);
+  }, [setSelectedAgent]);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -80,7 +125,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
         enableWheelZoom: true,
       });
       const layerStates = [...environment.layers.values()];
-      const sceneBounds = resolveSceneBounds();
+      const sceneBounds = findRegisteredSceneBounds(layerStates);
       const hasEdgeLayer = layerStates.some((layer) => layer.storage instanceof EdgeStorage);
 
       const nextAgentStorages: AgentStorage[] = [];
@@ -89,8 +134,8 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       const agentStorageByLayerId = new Map<string, AgentStorage>();
       const agentMetadataByLayerId = new Map<string, Record<string, unknown>>();
       const edgeLayerByAgentLayerId = new Map<string, EdgeLayer>();
-      let implicitTrajectoryLayerZIndex = 30;
-      let implicitAgentLayerZIndex = 40;
+      let implicitTrajectoryLayerZIndex = DEFAULT_LAYER_Z_INDEX.trajectory;
+      let implicitAgentLayerZIndex = DEFAULT_LAYER_Z_INDEX.agent;
 
       for (const layer of layerStates) {
         if (layer.storage instanceof BackgroundStorage) {
@@ -99,13 +144,20 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
             layer.storage,
             sceneBounds ? { sceneBounds } : undefined,
           );
+          if (typeof layer.metadata?.z_index === 'number') {
+            backgroundLayer.setZIndex(layer.metadata.z_index);
+          }
           nextView.addLayer(backgroundLayer);
           nextBackgroundLayers.push(backgroundLayer);
           continue;
         }
 
         if (layer.storage instanceof GridEnvStorage) {
-          nextView.addLayer(new GridLayer(nextView, layer.storage));
+          const gridLayer = new GridLayer(nextView, layer.storage);
+          if (typeof layer.metadata?.z_index === 'number') {
+            gridLayer.setZIndex(layer.metadata.z_index);
+          }
+          nextView.addLayer(gridLayer);
           continue;
         }
 
@@ -116,7 +168,6 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
         }
       }
 
-      let firstEdgeLayer: EdgeLayer | null = null;
       for (const layer of layerStates) {
         if (!(layer.storage instanceof EdgeStorage)) {
           continue;
@@ -135,9 +186,6 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
         }
         nextView.addLayer(edgeLayer);
         edgeLayerByAgentLayerId.set(linkedAgentLayerId, edgeLayer);
-        if (!firstEdgeLayer) {
-          firstEdgeLayer = edgeLayer;
-        }
       }
 
       for (const layer of layerStates) {
@@ -188,13 +236,11 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
           ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
           clickable: true,
           draggable: usesGraphInteraction,
-          // Labels use the existing scene-unit sizing from AgentLayer; keep that
-          // untouched and require labels to be explicitly enabled elsewhere.
           showLabel: false,
           originMode: usesGraphInteraction ? 'center' : 'bottom-left',
           coordOffset: usesGraphInteraction ? 'float' : layer.metadata.coord_offset === 'float' ? 'float' : 'int',
           sceneBounds: usesGraphInteraction ? undefined : layerSceneBounds,
-          resolveAssetUrl: (assetId) => scenario?.assets.getUrl(assetId),
+          resolveAssetUrl: (assetId) => scenarioRef.current?.assets.getUrl(assetId),
           onAgentClick: usesGraphInteraction ? undefined : handleAgentSelect,
           onAgentDoubleClick: usesGraphInteraction ? handleAgentSelect : undefined,
         });
@@ -229,10 +275,10 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       agentStoragesRef.current = [];
       backgroundLayersRef.current = [];
       agentLayersRef.current = [];
-      toast.error('Environment render failed', error instanceof Error ? error.message : String(error));
+      toastErrorRef.current('Environment render failed', error instanceof Error ? error.message : String(error));
       return;
     }
-  }, [environment, updateTrigger, assetRevision, handleAgentSelect, resolveSceneBounds, scenario, toast]);
+  }, [environment.id, environment, handleAgentSelect, layerBuildKey]);
 
   const resetView = useCallback(() => {
     const hasEdgeLayer = [...environment.layers.values()].some((layer) => layer.storage instanceof EdgeStorage);
@@ -240,13 +286,13 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   }, [environment]);
 
   useEffect(() => {
-    const bounds = resolveSceneBounds();
-    if (!bounds) {
+    const sceneBounds = findRegisteredSceneBounds([...environment.layers.values()]);
+    if (!sceneBounds) {
       return;
     }
-    backgroundLayersRef.current.forEach((layer) => layer.setSceneBounds(bounds));
-    agentLayersRef.current.forEach((layer) => layer.setSceneBounds(bounds));
-  }, [resolveSceneBounds, updateTrigger]);
+    backgroundLayersRef.current.forEach((layer) => layer.setSceneBounds(sceneBounds));
+    agentLayersRef.current.forEach((layer) => layer.setSceneBounds(sceneBounds));
+  }, [environment, layerBuildKey]);
 
   return (
     <div className={styles.container}>
@@ -257,7 +303,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       <AgentDetailsDialog
         agentType="2d"
         agent={selectedAgent}
-        resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
+        resolveAssetUrl={(assetId) => scenarioRef.current?.assets.getUrl(assetId)}
         onClose={() => setSelectedAgent(null)}
       />
     </div>

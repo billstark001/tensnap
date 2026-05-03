@@ -130,12 +130,24 @@ async def test_graph_example_emits_canonical_layered_wire_output():
 
     env_create = next(msg for msg in messages if msg["type"] == "env_create")
     layer_creates = [msg for msg in messages if msg["type"] == "env_layer_create"]
+    layer_create_index = {
+        (msg["payload"]["layer_id"], msg["payload"]["layer_type"]): idx
+        for idx, msg in enumerate(messages)
+        if msg["type"] == "env_layer_create"
+    }
+    edge_item_create_index = next(
+        idx
+        for idx, msg in enumerate(messages)
+        if msg["type"] == "item_create" and msg["payload"].get("layer_id") == "edges"
+    )
 
     assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
     assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "sirs_graph"
     assert {msg["payload"]["layer_type"] for msg in layer_creates} >= {"agent", "edge"}
+    assert layer_create_index[("agents", "agent")] < layer_create_index[("edges", "edge")]
+    assert layer_create_index[("agents", "agent")] < edge_item_create_index
     assert any(
         msg["type"] == "item_create"
         and msg["payload"]["env_id"] == "sirs_graph"

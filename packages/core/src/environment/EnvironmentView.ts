@@ -59,6 +59,7 @@ export interface FitToSceneOptions {
 // #region Module constants & helpers
 
 const DEFAULT_RESIZE_THROTTLE_MS = 100;
+const MIN_VIEWPORT_EXTENT = 1e-6;
 
 type ListenerEntry = {
   target: EventTarget;
@@ -172,7 +173,15 @@ export class EnvironmentView {
   get fitMode(): EnvironmentViewFitMode { return this._fitMode; }
 
   setViewport(x: number, y: number, width: number, height: number): void {
-    this._viewport = { x, y, width, height };
+    const safeWidth = Number.isFinite(width) && width > MIN_VIEWPORT_EXTENT
+      ? width
+      : Math.max(this._viewport.width, MIN_VIEWPORT_EXTENT);
+    const safeHeight = Number.isFinite(height) && height > MIN_VIEWPORT_EXTENT
+      ? height
+      : Math.max(this._viewport.height, MIN_VIEWPORT_EXTENT);
+    const safeX = Number.isFinite(x) ? x : this._viewport.x;
+    const safeY = Number.isFinite(y) ? y : this._viewport.y;
+    this._viewport = { x: safeX, y: safeY, width: safeWidth, height: safeHeight };
     this._notifyLayers();
   }
 
@@ -192,14 +201,22 @@ export class EnvironmentView {
       return;
     }
 
-    const sceneW = bounds.maxX - bounds.minX;
-    const sceneH = bounds.maxY - bounds.minY;
+    const rawSceneW = bounds.maxX - bounds.minX;
+    const rawSceneH = bounds.maxY - bounds.minY;
+    const sceneW = Number.isFinite(rawSceneW) && rawSceneW > MIN_VIEWPORT_EXTENT
+      ? rawSceneW
+      : Math.max(this._viewport.width, 1);
+    const sceneH = Number.isFinite(rawSceneH) && rawSceneH > MIN_VIEWPORT_EXTENT
+      ? rawSceneH
+      : Math.max(this._viewport.height, 1);
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
     const padX = paddingUnit === 'pixels' ? padding : sceneW * padding;
     const padY = paddingUnit === 'pixels' ? padding : sceneH * padding;
 
     this.setViewport(
-      bounds.minX - padX,
-      bounds.minY - padY,
+      centerX - sceneW / 2 - padX,
+      centerY - sceneH / 2 - padY,
       sceneW + 2 * padX,
       sceneH + 2 * padY,
     );

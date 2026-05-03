@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testHarness = vi.hoisted(() => {
   const environmentViewInstances: Array<{ fitToScene: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> }> = [];
-  const gridLayerCalls: Array<{ storage: unknown }> = [];
-  const backgroundLayerCalls: Array<{ storage: { background: string | null }; options?: { sceneBounds?: { width: number; height: number } } }> = [];
+  const gridLayerCalls: Array<{ storage: unknown; layer: { setZIndex: ReturnType<typeof vi.fn> } }> = [];
+  const backgroundLayerCalls: Array<{ storage: { background: string | null }; options?: { sceneBounds?: { width: number; height: number } }; layer: { setZIndex: ReturnType<typeof vi.fn> } }> = [];
   const edgeLayerCalls: Array<{ storage: unknown; linkedAgentStorage: unknown; config: unknown; layer: { setZIndex: ReturnType<typeof vi.fn> } }> = [];
   const trajectoryLayerCalls: Array<{ storage: unknown; options: Record<string, unknown>; layer: { setZIndex: ReturnType<typeof vi.fn> } }> = [];
   const agentLayerCalls: Array<{ storage: unknown; options: Record<string, unknown>; layer: { setSceneBounds: ReturnType<typeof vi.fn>; setZIndex: ReturnType<typeof vi.fn> } }> = [];
@@ -61,15 +61,18 @@ const testHarness = vi.hoisted(() => {
 
   class MockBackgroundLayer {
     setSceneBounds = vi.fn();
+    setZIndex = vi.fn();
 
     constructor(_view: unknown, public storage: MockBackgroundStorage, public options?: { sceneBounds?: { width: number; height: number } }) {
-      backgroundLayerCalls.push({ storage, options });
+      backgroundLayerCalls.push({ storage, options, layer: this });
     }
   }
 
   class MockGridLayer {
+    setZIndex = vi.fn();
+
     constructor(_view: unknown, storage: unknown) {
-      gridLayerCalls.push({ storage });
+      gridLayerCalls.push({ storage, layer: this });
     }
   }
 
@@ -253,7 +256,7 @@ describe('Environment2DView', () => {
           id: 'env-graph',
           type: '2d',
           layers: new Map([
-            ['background', { id: 'background', layerType: 'background', metadata: {}, storage: backgroundStorage }],
+            ['background', { id: 'background', layerType: 'background', metadata: { z_index: 5 }, storage: backgroundStorage }],
             ['agents', { id: 'agents', layerType: 'agent', metadata: {}, storage: agentStorage }],
             ['edges', { id: 'edges', layerType: 'edge', metadata: { link_distance: 42 }, storage: edgeStorage, dependencyLayerIds: { agent: 'agents' } }],
             ['trajectories', { id: 'trajectories', layerType: 'trajectory', metadata: {}, storage: trajectoryStorage, dependencyLayerIds: { agent: 'agents' } }],
@@ -270,6 +273,7 @@ describe('Environment2DView', () => {
 
     expect(testHarness.edgeLayerCalls[0].linkedAgentStorage).toBe(agentStorage);
     expect(testHarness.edgeLayerCalls[0].config).toEqual({ link_distance: 42 });
+  expect(testHarness.backgroundLayerCalls[0].layer.setZIndex).toHaveBeenCalledWith(5);
     expect(testHarness.trajectoryLayerCalls[0].storage).toBe(trajectoryStorage);
     expect(testHarness.trajectoryLayerCalls[0].options.coordOffset).toBe('float');
     expect(testHarness.agentLayerCalls[0].options.originMode).toBe('center');
@@ -355,6 +359,75 @@ describe('Environment2DView', () => {
 
     expect(testHarness.agentLayerCalls[0].layer.setZIndex).toHaveBeenCalledWith(40);
     expect(testHarness.agentLayerCalls[1].layer.setZIndex).toHaveBeenCalledWith(41);
+  });
+
+  it('does not recreate the environment view when only updateTrigger changes', async () => {
+    const gridStorage = new GridEnvStorage();
+    const agentStorage = createAgentStorageWithInitialAgents([{ id: 'agent-1', x: 1, y: 2 }]);
+    const environment = {
+      id: 'env-stable-camera',
+      type: '2d',
+      layers: new Map([
+        ['agents', { id: 'agents', layerType: 'agent', metadata: { coord_offset: 'int' }, storage: agentStorage }],
+        ['grid', { id: 'grid', layerType: 'grid', metadata: { width: 10, height: 12 }, storage: gridStorage }],
+      ]),
+    } as any;
+
+    const { rerender } = render(
+      <Environment2DView environment={environment} updateTrigger={0} />,
+    );
+
+    await waitFor(() => {
+      expect(testHarness.environmentViewInstances).toHaveLength(1);
+    });
+
+    rerender(<Environment2DView environment={environment} updateTrigger={1} />);
+
+    await waitFor(() => {
+      expect(testHarness.environmentViewInstances).toHaveLength(1);
+    });
+
+    expect(testHarness.environmentViewInstances[0].fitToScene).toHaveBeenCalledTimes(1);
+  });
+
+  it('recreates the environment view when a layer mutates in place between updates', async () => {
+    const gridStorage = new GridEnvStorage();
+    const originalAgentStorage = createAgentStorageWithInitialAgents([{ id: 'agent-1', x: 1, y: 2 }]);
+    const replacementAgentStorage = createAgentStorageWithInitialAgents([{ id: 'agent-2', x: 3, y: 4 }]);
+    const environment = {
+      id: 'env-layer-refresh',
+      type: '2d',
+      layers: new Map([
+        ['agents', { id: 'agents', layerType: 'agent', metadata: { coord_offset: 'int' }, storage: originalAgentStorage }],
+        ['grid', { id: 'grid', layerType: 'grid', metadata: { width: 10, height: 12 }, storage: gridStorage }],
+      ]),
+    } as any;
+
+    const { rerender } = render(
+      <Environment2DView environment={environment} updateTrigger={0} />,
+    );
+
+    await waitFor(() => {
+      expect(testHarness.environmentViewInstances).toHaveLength(1);
+    });
+
+    environment.layers.set('agents', {
+      id: 'agents',
+      layerType: 'agent',
+      metadata: { coord_offset: 'float' },
+      storage: replacementAgentStorage,
+    });
+
+    rerender(<Environment2DView environment={environment} updateTrigger={1} />);
+
+    await waitFor(() => {
+      expect(testHarness.environmentViewInstances).toHaveLength(2);
+    });
+
+    const latestAgentLayerCall = testHarness.agentLayerCalls[testHarness.agentLayerCalls.length - 1];
+    expect(testHarness.environmentViewInstances[0].destroy).toHaveBeenCalledTimes(1);
+    expect(latestAgentLayerCall?.storage).toBe(replacementAgentStorage);
+    expect(latestAgentLayerCall?.options.coordOffset).toBe('float');
   });
 
   it('toasts when environment rendering fails', async () => {

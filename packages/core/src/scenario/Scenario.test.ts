@@ -78,6 +78,42 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect(layer.dependencyLayerIds).toEqual({ agent: 'items' });
   });
 
+  it('reuses storage when env_layer_create refreshes an existing layer', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+
+    const env = s.environments.get('env1')!;
+    const originalLayer = env.layers.get('layer1')!;
+    const originalStorage = originalLayer.storage as AgentStorage;
+
+    s.apply(msg('item_create', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      items: [{ id: 'a1', x: 1, y: 2 }],
+    }));
+
+    s.apply(msg('env_layer_create', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      layer_type: 'agent',
+      data: { coord_offset: 'float' },
+    }));
+
+    const refreshedLayer = env.layers.get('layer1')!;
+    expect(refreshedLayer).toBe(originalLayer);
+    expect(refreshedLayer.storage).toBe(originalStorage);
+    expect(refreshedLayer.metadata).toEqual({ coord_offset: 'float' });
+
+    s.apply(msg('item_create', {
+      env_id: 'env1',
+      layer_id: 'layer1',
+      items: [{ id: 'a2', x: 3, y: 4 }],
+    }));
+
+    expect(originalStorage.getData().agents.get('a1')).toMatchObject({ x: 1, y: 2 });
+    expect(originalStorage.getData().agents.get('a2')).toMatchObject({ x: 3, y: 4 });
+  });
+
   it('env_layer_update does not mutate dependencyLayerIds', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);

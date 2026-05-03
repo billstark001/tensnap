@@ -342,6 +342,22 @@ type BuiltinLayerRegistry = {
 
 The registry validates scenario-layer payloads independently of transport.  It also captures dependency rules such as `edge` and `trajectory` requiring an `agent` layer.
 
+#### Canonical `z_index` behavior
+
+`z_index` is interpreted as a layer-level render order override.  Lower values render first (behind), higher values render later (in front).
+
+- `background`: default `0`
+- `grid`: default `10`
+- `edge`: default `20`
+- `trajectory`: default `30` (then `31`, `32`, ... for additional trajectory layers without explicit `z_index`)
+- `agent`: default `40` (then `41`, `42`, ... for additional agent layers without explicit `z_index`)
+
+Implementation notes:
+
+- `z_index` is resolved before a layer is added to the view so Leafer child order is deterministic.
+- Explicit `z_index` on any built-in layer type (`background`, `grid`, `edge`, `trajectory`, `agent`) must be honored.
+- If `z_index` is omitted, fallback ordering above is applied consistently.
+
 #### Built-in item types
 
 The layer registry depends on these shared item types.

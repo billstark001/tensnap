@@ -369,13 +369,31 @@ export class Scenario extends LazyEventTarget {
   private createLayer(payload: EnvLayerCreatePayload): void {
     const environment = this.ensureEnvironment(payload.env_id);
     const metadata = payload.data ?? {};
+    const dependencyLayerIds = this.normalizeDependencyLayerIds(payload.dependency_layer_ids);
+    const existingLayer = environment.layers.get(payload.layer_id);
+
+    if (existingLayer) {
+      if (existingLayer.layerType !== payload.layer_type) {
+        this.removeLayerFromDependencyGraph(environment, existingLayer.id);
+        this.disposeLayer(environment, existingLayer);
+        existingLayer.layerType = payload.layer_type;
+        existingLayer.storage = this.createStorageForLayer(payload.layer_type, metadata);
+      }
+
+      existingLayer.metadata = metadata;
+      existingLayer.dependencyLayerIds = dependencyLayerIds;
+      this.applyLayerMetadata(environment, existingLayer);
+      this.emit('layer:create', payload);
+      return;
+    }
+
     const storage = this.createStorageForLayer(payload.layer_type, metadata);
     environment.layers.set(payload.layer_id, {
       id: payload.layer_id,
       layerType: payload.layer_type,
       metadata,
       storage,
-      dependencyLayerIds: this.normalizeDependencyLayerIds(payload.dependency_layer_ids),
+      dependencyLayerIds,
     });
     this.applyLayerMetadata(environment, environment.layers.get(payload.layer_id)!);
     this.emit('layer:create', payload);
