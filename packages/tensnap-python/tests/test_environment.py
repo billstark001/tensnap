@@ -49,11 +49,13 @@ class TestLayeredBindings:
                 self.position = position
                 self.color = "#3498db"
 
-        @bind_trajectory_layer(metadata={"length": 5}, dependency_layer_ids={"agent": "birds"})
+        @bind_trajectory_layer(length="trail_length", agent_layer_id="birds")
         @bind_agent_layer("birds", item_iterable_projector="birds")
         @bind_grid_layer(width="width", height="height")
         @bind_env()
         class Aviary:
+            trail_length = 5
+
             def __init__(self):
                 self.width = 20
                 self.height = 10
@@ -78,16 +80,18 @@ class TestLayeredBindings:
         }
 
     def test_background_layer_binds_metadata(self):
-        @bind_background_layer(metadata={"source": "asset:terrain", "z_index": 0})
+        @bind_background_layer(background=True, z_index=True)
         @bind_grid_layer(width="width", height="height")
         @bind_env()
         class Scene:
+            background = "asset:terrain"
+            z_index = 0
             width = 8
             height = 6
 
         state = LayeredEnvironmentBinder(id="scene", environment=Scene()).get_state()
         assert [layer["layer_type"] for layer in state["layers"]] == ["grid", "background"]
-        assert state["layers"][1]["data"] == {"source": "asset:terrain", "z_index": 0}
+        assert state["layers"][1]["data"] == {"background": "asset:terrain", "z_index": 0}
 
     def test_trajectory_layer_supports_item_level_binding(self):
         @bind_trajectory_item(length=True, color=True, width=True)
@@ -121,7 +125,6 @@ class TestLayeredBindings:
         @bind_edge_layer(
             item_iterable_projector="edge_triples",
             edge_projector=True,
-            dependency_layer_ids={"agent": "agents"},
         )
         @bind_agent_layer("agents", item_iterable_projector=False)
         @bind_env()
@@ -166,7 +169,7 @@ class TestLayeredBindings:
         @bind_agent_layer(
             "birds",
             item_iterable_projector="birds",
-            item_projector="build_bird",
+            item_dynamic_projector="build_bird",
         )
         @bind_env()
         class Aviary:
