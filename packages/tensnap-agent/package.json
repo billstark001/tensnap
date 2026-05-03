@@ -4,15 +4,22 @@
   "private": true,
   "type": "module",
   "description": "Scene-centric CLI runtime for TenSnap automation agents.",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts",
-    "./runtime": "./src/runtime/index.ts",
-    "./session": "./src/session/index.ts"
+    ".": "./dist/index.js",
+    "./runtime": "./dist/runtime/index.js",
+    "./session": "./dist/session/index.js"
   },
+  "bin": {
+    "tensnap-agent": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "dev": "tsx src/cli.ts",
+    "dev": "tsx src/bin.ts",
+    "build": "node ./scripts/build.mjs",
+    "cli": "pnpm run build && node ./dist/cli.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "echo 'Linting not configured yet'",
@@ -29,6 +36,7 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"

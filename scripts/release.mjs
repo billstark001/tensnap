@@ -10,7 +10,7 @@
  *   web     - Deploy web app (automatic on main)
  */
 
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -29,12 +29,82 @@ function git(...args) {
   execFileSync('git', args, { cwd: ROOT, stdio: 'inherit' });
 }
 
+function gitQuiet(...args) {
+  execFileSync('git', args, { cwd: ROOT, stdio: 'ignore' });
+}
+
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 function writeJson(path, obj) {
   writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf8');
+}
+
+function toRepoPath(filePath) {
+  return filePath.startsWith(`${ROOT}/`) ? filePath.slice(ROOT.length + 1) : filePath;
+}
+
+function updateJsonVersion(filePath, version) {
+  const data = readJson(filePath);
+  if (data.version === version) {
+    return false;
+  }
+  data.version = version;
+  writeJson(filePath, data);
+  return true;
+}
+
+function hasTrackedDiff(filePaths) {
+  try {
+    gitQuiet('diff', '--quiet', 'HEAD', '--', ...filePaths);
+    return false;
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 1) {
+      return true;
+    }
+    throw error;
+  }
+}
+
+function commitFilesIfNeeded(filePaths, message) {
+  const repoPaths = filePaths.map(toRepoPath);
+  if (!hasTrackedDiff(repoPaths)) {
+    return false;
+  }
+  git('commit', '-m', message, '--only', '--', ...repoPaths);
+  return true;
+}
+
+function tagExists(tagName) {
+  try {
+    gitQuiet('rev-parse', '-q', '--verify', `refs/tags/${tagName}`);
+    return true;
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 1) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function createTag(tagName) {
+  if (tagExists(tagName)) {
+    die(`Tag ${tagName} already exists`);
+  }
+  git('tag', tagName);
+}
+
+function finalizeRelease({ componentLabel, version, filePaths, commitMessage, tagName }) {
+  const committed = commitFilesIfNeeded(filePaths, commitMessage);
+  if (!committed) {
+    log(`  ${componentLabel} version files already match v${version}; tagging current HEAD.`);
+  }
+
+  createTag(tagName);
+
+  log(`\nCreated tag ${tagName}`);
+  log(`Push with:\n  git push origin main && git push origin ${tagName}`);
 }
 
 /**
@@ -47,7 +117,11 @@ function patchTomlVersion(filePath, version) {
   const match = src.match(versionPattern);
   if (!match) die(`Could not find 'version = "..."' in ${filePath}`);
   const patched = src.replace(versionPattern, `$1"${version}"`);
+  if (patched === src) {
+    return false;
+  }
   writeFileSync(filePath, patched, 'utf8');
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,11 +134,13 @@ Usage: node scripts/release.mjs <component> [version]
 
 Components:
   python  - Release Python package to PyPI
+  agent   - Release agent CLI package
   app     - Release Tauri desktop app
   web     - Deploy web app (automatic on main)
 
 Examples:
   node scripts/release.mjs python 0.1.0
+  node scripts/release.mjs agent  0.1.0
   node scripts/release.mjs app    0.1.0
 `.trim());
 }
@@ -75,14 +151,38 @@ function releasePython(version) {
   log(`Preparing Python package v${version} release...`);
 
   const pyprojectPath = join(ROOT, 'packages', 'tensnap-python', 'pyproject.toml');
-  patchTomlVersion(pyprojectPath, version);
+  const changed = patchTomlVersion(pyprojectPath, version);
+  if (changed) {
+    log(`  Updated ${toRepoPath(pyprojectPath)}`);
+  }
 
-  git('add', pyprojectPath);
-  git('commit', '-m', `Release Python package v${version}`);
-  git('tag', `py-v${version}`);
+  finalizeRelease({
+    componentLabel: 'Python package',
+    version,
+    filePaths: [pyprojectPath],
+    commitMessage: `Release Python package v${version}`,
+    tagName: `py-v${version}`,
+  });
+}
 
-  log(`\nCreated tag py-v${version}`);
-  log(`Push with:\n  git push origin main && git push origin py-v${version}`);
+function releaseAgent(version) {
+  if (!version) die('Version required for agent release');
+
+  log(`Preparing agent CLI v${version} release...`);
+
+  const pkgPath = join(ROOT, 'packages', 'tensnap-agent', 'package.json');
+  const changed = updateJsonVersion(pkgPath, version);
+  if (changed) {
+    log(`  Updated ${toRepoPath(pkgPath)}`);
+  }
+
+  finalizeRelease({
+    componentLabel: 'Agent CLI',
+    version,
+    filePaths: [pkgPath],
+    commitMessage: `Release agent CLI v${version}`,
+    tagName: `agent-v${version}`,
+  });
 }
 
 function releaseApp(version) {
@@ -92,29 +192,29 @@ function releaseApp(version) {
 
   // Update package.json
   const pkgPath = join(ROOT, 'packages', 'tensnap-tauri', 'package.json');
-  const pkg = readJson(pkgPath);
-  pkg.version = version;
-  writeJson(pkgPath, pkg);
-  log(`  Updated ${pkgPath.replace(ROOT + '/', '')}`);
+  if (updateJsonVersion(pkgPath, version)) {
+    log(`  Updated ${toRepoPath(pkgPath)}`);
+  }
 
   // Update Cargo.toml
   const cargoPath = join(ROOT, 'packages', 'tensnap-tauri', 'src-tauri', 'Cargo.toml');
-  patchTomlVersion(cargoPath, version);
-  log(`  Updated ${cargoPath.replace(ROOT + '/', '')}`);
+  if (patchTomlVersion(cargoPath, version)) {
+    log(`  Updated ${toRepoPath(cargoPath)}`);
+  }
 
   // Update tauri.conf.json
   const tauriConfPath = join(ROOT, 'packages', 'tensnap-tauri', 'src-tauri', 'tauri.conf.json');
-  const tauriConf = readJson(tauriConfPath);
-  tauriConf.version = version;
-  writeJson(tauriConfPath, tauriConf);
-  log(`  Updated ${tauriConfPath.replace(ROOT + '/', '')}`);
+  if (updateJsonVersion(tauriConfPath, version)) {
+    log(`  Updated ${toRepoPath(tauriConfPath)}`);
+  }
 
-  git('add', pkgPath, cargoPath, tauriConfPath);
-  git('commit', '-m', `Release Tauri app v${version}`);
-  git('tag', `app-v${version}`);
-
-  log(`\nCreated tag app-v${version}`);
-  log(`Push with:\n  git push origin main && git push origin app-v${version}`);
+  finalizeRelease({
+    componentLabel: 'Tauri app',
+    version,
+    filePaths: [pkgPath, cargoPath, tauriConfPath],
+    commitMessage: `Release Tauri app v${version}`,
+    tagName: `app-v${version}`,
+  });
 }
 
 function releaseWeb() {
@@ -135,6 +235,7 @@ if (!component) {
 
 switch (component) {
   case 'python': releasePython(version); break;
+  case 'agent': releaseAgent(version); break;
   case 'app': releaseApp(version); break;
   case 'web': releaseWeb(); break;
   default:

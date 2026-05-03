@@ -1,5 +1,3 @@
-#!/usr/bin/env -S node --import tsx
-
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -367,8 +365,8 @@ async function streamEvents(parsed: ParsedArgs): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
-  const parsed = parseArgs(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2)): Promise<void> {
+  const parsed = parseArgs(argv);
   const [group, command, ...rest] = parsed.positional;
 
   if (group === 'daemon' && command === 'serve') {
@@ -681,8 +679,3 @@ async function main(): Promise<void> {
     '  tensnap-agent stream events',
   ].join('\n'));
 }
-
-void main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});

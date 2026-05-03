@@ -11,6 +11,8 @@
     "preview:web": "pnpm --filter @tensnap/web preview",
     "test:web": "pnpm --filter @tensnap/web test",
     "dev:agent": "pnpm --filter @tensnap/agent dev",
+    "build:agent": "pnpm --filter @tensnap/agent build",
+    "cli:agent": "pnpm --filter @tensnap/agent cli",
     "test:agent": "pnpm --filter @tensnap/agent test",
     "dev:benchmark": "pnpm --filter @tensnap/benchmark dev",
     "build:benchmark": "pnpm --filter @tensnap/benchmark build",
