@@ -43,8 +43,10 @@ function writeJson(path, obj) {
  */
 function patchTomlVersion(filePath, version) {
   const src = readFileSync(filePath, 'utf8');
-  const patched = src.replace(/^(version\s*=\s*)"[^"]*"/m, `$1"${version}"`);
-  if (patched === src) die(`Could not find 'version = "..."' in ${filePath}`);
+  const versionPattern = /^(version\s*=\s*)"[^"]*"/m;
+  const match = src.match(versionPattern);
+  if (!match) die(`Could not find 'version = "..."' in ${filePath}`);
+  const patched = src.replace(versionPattern, `$1"${version}"`);
   writeFileSync(filePath, patched, 'utf8');
 }
 
@@ -133,8 +135,8 @@ if (!component) {
 
 switch (component) {
   case 'python': releasePython(version); break;
-  case 'app':    releaseApp(version);    break;
-  case 'web':    releaseWeb();           break;
+  case 'app': releaseApp(version); break;
+  case 'web': releaseWeb(); break;
   default:
     console.error(`Error: Unknown component '${component}'\n`);
     releaseHelp();

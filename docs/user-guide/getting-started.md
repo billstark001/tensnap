@@ -44,9 +44,10 @@ python flock_viz.py
 ```
 
 This will:
+
 1. Start a WebSocket server on port 8765
-2. Expose the renderer at http://localhost:3200 when `pnpm dev:web` is running
-3. Let you connect from the local renderer or the hosted site at https://tensnap.netlify.app
+2. Expose the renderer at <http://localhost:3200> when `pnpm dev:web` is running
+3. Let you connect from the local renderer or the hosted site at <https://tensnap.netlify.app>
 
 ### 3. Interact with the Simulation
 
@@ -147,7 +148,8 @@ if __name__ == "__main__":
 
 **Problem**: The web interface shows "Disconnected" or connection errors.
 
-**Solution**: 
+**Solution**:
+
 - Ensure the Python simulation is running
 - Check that port 8765 is not blocked by a firewall
 - Verify the port matches in both server and client
@@ -157,6 +159,7 @@ if __name__ == "__main__":
 **Problem**: Error message "Address already in use"
 
 **Solution**:
+
 ```bash
 # Use a different port
 TENSNAP_SERVER_PORT=8766 python your_simulation.py
@@ -167,6 +170,7 @@ TENSNAP_SERVER_PORT=8766 python your_simulation.py
 **Problem**: `ImportError: No module named 'tensnap'`
 
 **Solution**:
+
 ```bash
 # Install in development mode
 cd packages/tensnap-python

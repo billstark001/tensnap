@@ -320,10 +320,14 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
 
         return cast("EnvironmentLayerState", layer)
 
-    def build_create_payload(self, env_id: str) -> EnvLayerCreatePayload[TLayerFieldKeys]:
+    def build_create_payload(
+        self, env_id: str
+    ) -> EnvLayerCreatePayload[TLayerFieldKeys]:
         return self.binding.build_create_payload(env_id, self.target)
 
-    def build_update_payload(self, env_id: str) -> EnvLayerUpdatePayload[TLayerFieldKeys]:
+    def build_update_payload(
+        self, env_id: str
+    ) -> EnvLayerUpdatePayload[TLayerFieldKeys]:
         return self.binding.build_update_payload(env_id, self.target)
 
     def build_delete_payload(self, env_id: str) -> EnvLayerDeletePayload:
@@ -337,9 +341,11 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         List[Any],
     ]:
         if self.binding.has_item_diffing:
-            created, updated, deleted, current_items = self.binding.build_item_list_diff(
-                self.target,
-                self.last_items,
+            created, updated, deleted, current_items = (
+                self.binding.build_item_list_diff(
+                    self.target,
+                    self.last_items,
+                )
             )
         else:
             (
@@ -368,10 +374,7 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
                 item_values = tuple(item_id)
 
             payloads.append(
-                {
-                    key: value
-                    for key, value in zip(self.binding.item_keys, item_values)
-                }
+                {key: value for key, value in zip(self.binding.item_keys, item_values)}
             )
         return payloads
 

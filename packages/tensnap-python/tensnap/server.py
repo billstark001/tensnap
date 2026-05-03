@@ -257,7 +257,11 @@ class TenSnapServer:
         await self.send(
             ws,
             ServerToClientMessageType.ASSET_META,
-            {"assets": [self._asset_meta_payload(asset) for asset in self._assets.values()]},
+            {
+                "assets": [
+                    self._asset_meta_payload(asset) for asset in self._assets.values()
+                ]
+            },
         )
 
     async def publish_asset(

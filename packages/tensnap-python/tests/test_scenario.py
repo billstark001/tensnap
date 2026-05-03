@@ -4,7 +4,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tensnap.bindings import BindParameterConfig, action, agent, agent_layer, chart, env, grid_layer
+from tensnap.bindings import (
+    BindParameterConfig,
+    action,
+    agent,
+    agent_layer,
+    chart,
+    env,
+    grid_layer,
+)
 from tensnap.models import EnvironmentBinding, LayerBinding
 from tensnap.scenario import DefaultSimulationHandler, SimulationScenario
 from tensnap.server import ServerToClientMessageType as MT
@@ -20,7 +28,9 @@ class TestSimulationScenario:
             step_interval=0.05,
         )
 
-    def test_initialization_registers_builtin_actions(self, scenario: SimulationScenario):
+    def test_initialization_registers_builtin_actions(
+        self, scenario: SimulationScenario
+    ):
         assert scenario.server.host == "localhost"
         assert scenario.server.port == 8765
         assert scenario.server.use_msgpack is False
@@ -28,7 +38,9 @@ class TestSimulationScenario:
         assert scenario.environments == {}
         assert {"start", "step", "reset"}.issubset(scenario.actions)
 
-    def test_add_environment_and_layer_builds_registry_state(self, scenario: SimulationScenario):
+    def test_add_environment_and_layer_builds_registry_state(
+        self, scenario: SimulationScenario
+    ):
         agents = [{"id": "a1", "x": 1, "y": 2}]
         scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
         scenario.add_layer_binding(
@@ -79,11 +91,15 @@ class TestSimulationScenario:
         assert "aviary" in scenario.environments
         assert set(scenario.environments["aviary"].layers) == {"birds", "grid"}
 
-    def test_add_environment_rejects_stale_binder_objects(self, scenario: SimulationScenario):
+    def test_add_environment_rejects_stale_binder_objects(
+        self, scenario: SimulationScenario
+    ):
         with pytest.raises(TypeError):
             scenario.add_environment_binding(object())  # type: ignore[arg-type]
 
-    def test_add_parameters_from_object_and_bound_property(self, scenario: SimulationScenario):
+    def test_add_parameters_from_object_and_bound_property(
+        self, scenario: SimulationScenario
+    ):
         class Config:
             def __init__(self):
                 self._speed = 10.0
@@ -126,7 +142,9 @@ class TestSimulationScenario:
         assert model.calls == 1
 
     @pytest.mark.asyncio
-    async def test_register_handler_invokes_on_registered(self, scenario: SimulationScenario):
+    async def test_register_handler_invokes_on_registered(
+        self, scenario: SimulationScenario
+    ):
         handler = AsyncMock()
         handler.on_registered = AsyncMock()
         handler.on_init = AsyncMock()
@@ -219,10 +237,18 @@ class TestDefaultSimulationHandler:
         await scenario._broadcast_full_state()
 
         scenario.server.broadcast_metadata_update.assert_awaited_once_with({"time": 0})
-        assert any(call.args[0] == MT.ENV_CREATE for call in scenario.server.broadcast.await_args_list)
-        assert any(call.args[0] == MT.ENV_LAYER_CREATE for call in scenario.server.broadcast.await_args_list)
+        assert any(
+            call.args[0] == MT.ENV_CREATE
+            for call in scenario.server.broadcast.await_args_list
+        )
+        assert any(
+            call.args[0] == MT.ENV_LAYER_CREATE
+            for call in scenario.server.broadcast.await_args_list
+        )
         item_creates = [
-            call for call in scenario.server.broadcast.await_args_list if call.args[0] == MT.ITEM_CREATE
+            call
+            for call in scenario.server.broadcast.await_args_list
+            if call.args[0] == MT.ITEM_CREATE
         ]
         assert item_creates
         assert item_creates[0].args[1]["items"] == [{"id": "a1", "x": 1, "y": 2}]
@@ -258,7 +284,9 @@ class TestDefaultSimulationHandler:
 
         scenario.server.broadcast_metadata_update.assert_awaited_with({"time": 1})
         item_updates = [
-            call for call in scenario.server.broadcast.await_args_list if call.args[0] == MT.ITEM_UPDATE
+            call
+            for call in scenario.server.broadcast.await_args_list
+            if call.args[0] == MT.ITEM_UPDATE
         ]
         assert item_updates
         assert item_updates[0].args[1]["items"] == [{"id": "a1", "x": 3}]

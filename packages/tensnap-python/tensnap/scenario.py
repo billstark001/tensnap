@@ -267,7 +267,11 @@ def _topologically_order_layer_ids(
         for layer_id in layer_ids:
             if layer_id not in pending:
                 continue
-            deps = [dep for dep in dependency_lookup(layer_id) if dep in pending or dep in resolved]
+            deps = [
+                dep
+                for dep in dependency_lookup(layer_id)
+                if dep in pending or dep in resolved
+            ]
             if all(dep in resolved for dep in deps):
                 resolved.append(layer_id)
                 pending.remove(layer_id)
@@ -287,23 +291,25 @@ def _ordered_registration_layer_ids(
     layer_ids = list(current_layers.keys())
     return _topologically_order_layer_ids(
         layer_ids,
-        lambda layer_id: list(
-            environment.layers[layer_id].binding.dependency_layer_ids.values()
-        )
-        if layer_id in environment.layers
-        else [],
+        lambda layer_id: (
+            list(environment.layers[layer_id].binding.dependency_layer_ids.values())
+            if layer_id in environment.layers
+            else []
+        ),
     )
 
 
-def _ordered_state_layers(layers: List["EnvironmentLayerState"]) -> List["EnvironmentLayerState"]:
+def _ordered_state_layers(
+    layers: List["EnvironmentLayerState"],
+) -> List["EnvironmentLayerState"]:
     by_id = {layer["layer_id"]: layer for layer in layers}
     ordered_ids = _topologically_order_layer_ids(
         [layer["layer_id"] for layer in layers],
-        lambda layer_id: list(
-            by_id[layer_id].get("dependency_layer_ids", {}).values()
-        )
-        if layer_id in by_id
-        else [],
+        lambda layer_id: (
+            list(by_id[layer_id].get("dependency_layer_ids", {}).values())
+            if layer_id in by_id
+            else []
+        ),
     )
     return [by_id[layer_id] for layer_id in ordered_ids if layer_id in by_id]
 
@@ -923,9 +929,7 @@ class SimulationScenario:
         self.actions[meta.id] = meta
         self._action_handlers[meta.id] = handler
 
-    def add_actions(
-        self, target: Union[Dict[str, Any], ModuleType, object]
-    ) -> None:
+    def add_actions(self, target: Union[Dict[str, Any], ModuleType, object]) -> None:
         """Register actions found on ``target`` (does not re-register built-ins)."""
         for _, func, meta in binding_api.actions(target):
             if func is None:

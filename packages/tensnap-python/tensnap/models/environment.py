@@ -1,7 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Literal, Protocol, TypeAlias, TypedDict, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Literal,
+    Protocol,
+    TypeAlias,
+    TypedDict,
+    cast,
+)
 
 from typing_extensions import NotRequired
 

@@ -45,6 +45,7 @@ class StateSyncRequest(TypedDict):
 
 LogLevel: TypeAlias = Literal["debug", "info", "warning", "error"]
 
+
 class LogPayload(TypedDict):
     """Log message payload"""
 

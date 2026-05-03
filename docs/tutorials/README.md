@@ -80,6 +80,7 @@ If you have specific goals:
 The `examples/` directory contains complete, working examples:
 
 **Standard Python Examples** (`examples/python/`):
+
 - **random_walk.py / random_walk_viz.py** - Random walk with charts and parameter controls
 - **flock.py / flock_viz.py** - Flocking/boids simulation
 - **hk.py / hk_viz.py** - Hegselmann-Krause opinion dynamics
@@ -87,6 +88,7 @@ The `examples/` directory contains complete, working examples:
 - **sirs.py / sirs_viz_*.py** - SIRS epidemic model
 
 **Mesa-Based Examples** (`examples/python_mesa/`):
+
 - **cgol.py / cgol_viz.py** - Conway's Game of Life
 - **mushroom.py / mushroom_viz.py** - Mushroom foraging simulation
 - **sugarscape.py / sugarscape_viz.py** - Sugarscape resource collection model

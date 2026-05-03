@@ -3,7 +3,12 @@
 from tensnap import bindings as binding_api
 from tensnap.bindings import agent, agent_layer, env, grid_layer
 from tensnap.bindings.mesa.helper import build_default_layered_binder
-from tensnap.models import EnvironmentBinding, EnvironmentRegistration, LayerBinding, LayerRegistration
+from tensnap.models import (
+    EnvironmentBinding,
+    EnvironmentRegistration,
+    LayerBinding,
+    LayerRegistration,
+)
 
 
 class TestBindingsPackage:
@@ -110,11 +115,17 @@ class TestMesaDefaults:
 
         model = Model()
         environment_binding, layer_bindings = build_default_layered_binder(model)
-        registrations = [LayerRegistration(binding=binding, target=model) for binding in layer_bindings]
+        registrations = [
+            LayerRegistration(binding=binding, target=model)
+            for binding in layer_bindings
+        ]
 
         assert environment_binding.id == "Model"
         assert environment_binding.type == "2d"
         assert {binding.layer_id for binding in layer_bindings} == {"grid", "agents"}
-        states = {registration.id: registration.build_state() for registration in registrations}
+        states = {
+            registration.id: registration.build_state()
+            for registration in registrations
+        }
         assert states["grid"]["data"] == {"width": 8, "height": 6}
         assert states["agents"]["agents"] == [{"id": 1, "x": 2, "y": 3}]

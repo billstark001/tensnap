@@ -173,7 +173,9 @@ class TestBindDecorator:
         """Test bind decorator for enum parameters"""
 
         class TestModel:
-            @BindParameterConfig("enum", id="mode", options=["fast", "slow"], default="fast")
+            @BindParameterConfig(
+                "enum", id="mode", options=["fast", "slow"], default="fast"
+            )
             def get_mode(self):
                 return "fast"
 

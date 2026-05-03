@@ -85,7 +85,9 @@ class TestTenSnapServer:
         assert sent == {"type": "metadata_update", "payload": {"time": 5}}
 
     @pytest.mark.asyncio
-    async def test_publish_asset_broadcasts_metadata_and_data(self, server: TenSnapServer):
+    async def test_publish_asset_broadcasts_metadata_and_data(
+        self, server: TenSnapServer
+    ):
         mock_client = AsyncMock()
         mock_client.state = State.OPEN
         server.clients.add(mock_client)
@@ -101,9 +103,7 @@ class TestTenSnapServer:
             "asset_data",
         ]
         assert sent_messages[0]["payload"]["assets"][0]["id"] == "icon"
-        assert sent_messages[1]["payload"]["data"].startswith(
-            "data:text/plain;base64,"
-        )
+        assert sent_messages[1]["payload"]["data"].startswith("data:text/plain;base64,")
 
     @pytest.mark.asyncio
     async def test_send_asset_meta_announces_assets_published_before_connect(
