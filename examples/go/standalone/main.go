@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	shared "github.com/billstark001/tensnap/examples/go/internal/schelling"
@@ -8,7 +9,11 @@ import (
 )
 
 func main() {
-	model := shared.New()
+	gridWidth := flag.Int("grid-width", 50, "Schelling grid width")
+	gridHeight := flag.Int("grid-height", 50, "Schelling grid height")
+	flag.Parse()
+
+	model := shared.NewWithConfig(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
 	emitter := abm.NewSink()
 
 	if err := model.Setup(emitter); err != nil {
@@ -20,7 +25,7 @@ func main() {
 			panic(err)
 		}
 		if tick%10 == 0 {
-			fmt.Printf("tick %d  satisfied %.1f%%\n", tick, shared.SatisfiedPct(model))
+			fmt.Printf("tick %d  satisfied %.1f%%\n", tick, shared.SatisfiedPct(model)*100)
 		}
 	}
 }

@@ -237,10 +237,10 @@ func (e *SessionEmitter) EnvLayerUpdate(p *protocol.EnvLayerUpdatePayload) error
 func (e *SessionEmitter) EnvLayerDelete(envID, layerID string) error {
 	return e.send(protocol.TypeEnvLayerDelete, &protocol.EnvLayerDeletePayload{EnvID: envID, LayerID: layerID})
 }
-func (e *SessionEmitter) ItemCreate(envID, layerID string, items []map[string]interface{}) error {
+func (e *SessionEmitter) ItemCreate(envID, layerID string, items []map[string]any) error {
 	return e.send(protocol.TypeItemCreate, &protocol.ItemCreatePayload{EnvID: envID, LayerID: layerID, Items: items})
 }
-func (e *SessionEmitter) ItemUpdate(envID, layerID string, items []map[string]interface{}) error {
+func (e *SessionEmitter) ItemUpdate(envID, layerID string, items []map[string]any) error {
 	return e.send(protocol.TypeItemUpdate, &protocol.ItemUpdatePayload{EnvID: envID, LayerID: layerID, Items: items})
 }
 func (e *SessionEmitter) ItemDelete(envID, layerID string, items []any) error {

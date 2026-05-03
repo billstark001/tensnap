@@ -203,17 +203,17 @@ type EnvDeletePayload struct {
 }
 
 type EnvLayerCreatePayload struct {
-	EnvID              string                 `json:"env_id"`
-	LayerID            string                 `json:"layer_id"`
-	LayerType          string                 `json:"layer_type"`
-	DependencyLayerIDs map[string]string      `json:"dependency_layer_ids,omitempty"`
-	Data               map[string]interface{} `json:"data,omitempty"`
+	EnvID              string            `json:"env_id"`
+	LayerID            string            `json:"layer_id"`
+	LayerType          string            `json:"layer_type"`
+	DependencyLayerIDs map[string]string `json:"dependency_layer_ids,omitempty"`
+	Data               map[string]any    `json:"data,omitempty"`
 }
 
 type EnvLayerUpdatePayload struct {
-	EnvID   string                 `json:"env_id"`
-	LayerID string                 `json:"layer_id"`
-	Data    map[string]interface{} `json:"data"`
+	EnvID   string         `json:"env_id"`
+	LayerID string         `json:"layer_id"`
+	Data    map[string]any `json:"data"`
 }
 
 type EnvLayerDeletePayload struct {
@@ -222,15 +222,15 @@ type EnvLayerDeletePayload struct {
 }
 
 type ItemCreatePayload struct {
-	EnvID   string                   `json:"env_id"`
-	LayerID string                   `json:"layer_id"`
-	Items   []map[string]interface{} `json:"items"`
+	EnvID   string           `json:"env_id"`
+	LayerID string           `json:"layer_id"`
+	Items   []map[string]any `json:"items"`
 }
 
 type ItemUpdatePayload struct {
-	EnvID   string                   `json:"env_id"`
-	LayerID string                   `json:"layer_id"`
-	Items   []map[string]interface{} `json:"items"`
+	EnvID   string           `json:"env_id"`
+	LayerID string           `json:"layer_id"`
+	Items   []map[string]any `json:"items"`
 }
 
 type ItemDeletePayload struct {
@@ -356,11 +356,11 @@ type ScreenshotResponsePayload struct {
 // #region Built-in item types
 
 type Agent struct {
-	ID    AgentID                `json:"id"`
-	Color *string                `json:"color,omitempty"`
-	Icon  *AgentIcon             `json:"icon,omitempty"`
-	Size  *float64               `json:"size,omitempty"`
-	Data  map[string]interface{} `json:"data,omitempty"`
+	ID    AgentID        `json:"id"`
+	Color *string        `json:"color,omitempty"`
+	Icon  *AgentIcon     `json:"icon,omitempty"`
+	Size  *float64       `json:"size,omitempty"`
+	Data  map[string]any `json:"data,omitempty"`
 }
 
 type EdgeData struct {

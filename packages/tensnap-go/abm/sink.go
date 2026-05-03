@@ -33,8 +33,8 @@ type Emitter interface {
 	EnvLayerUpdate(p *protocol.EnvLayerUpdatePayload) error
 	EnvLayerDelete(envID, layerID string) error
 
-	ItemCreate(envID, layerID string, items []map[string]interface{}) error
-	ItemUpdate(envID, layerID string, items []map[string]interface{}) error
+	ItemCreate(envID, layerID string, items []map[string]any) error
+	ItemUpdate(envID, layerID string, items []map[string]any) error
 	ItemDelete(envID, layerID string, items []any) error
 
 	ParamCreate(p any) error
@@ -75,8 +75,8 @@ func (Sink) EnvDelete(_ string) error                                     { retu
 func (Sink) EnvLayerCreate(_ *protocol.EnvLayerCreatePayload) error       { return nil }
 func (Sink) EnvLayerUpdate(_ *protocol.EnvLayerUpdatePayload) error       { return nil }
 func (Sink) EnvLayerDelete(_, _ string) error                             { return nil }
-func (Sink) ItemCreate(_, _ string, _ []map[string]interface{}) error     { return nil }
-func (Sink) ItemUpdate(_, _ string, _ []map[string]interface{}) error     { return nil }
+func (Sink) ItemCreate(_, _ string, _ []map[string]any) error             { return nil }
+func (Sink) ItemUpdate(_, _ string, _ []map[string]any) error             { return nil }
 func (Sink) ItemDelete(_, _ string, _ []any) error                        { return nil }
 func (Sink) ParamCreate(_ any) error                                      { return nil }
 func (Sink) ParamUpdate(_ any) error                                      { return nil }

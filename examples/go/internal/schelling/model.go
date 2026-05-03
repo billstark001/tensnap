@@ -3,6 +3,7 @@ package schelling
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
@@ -10,39 +11,67 @@ import (
 )
 
 const (
-	GridW   = 20
-	GridH   = 20
-	EnvID   = "env0"
-	LayerID = "agents"
-	ChartID = "sat"
+	defaultGridW = 50
+	defaultGridH = 50
+
+	EnvID        = "main"
+	AgentLayerID = "agents"
+	GridLayerID  = "grid"
+
+	SatisfactionChartID = "satisfaction_rate"
+	SegregationChartID  = "segregation_index"
+
+	ActionIDStart = "start"
+	ActionIDReset = "reset"
 )
 
 type cell struct {
-	id          string
+	agentID     string
 	group, x, y int
+}
+
+type Config struct {
+	GridWidth           int
+	GridHeight          int
+	Density             float64
+	SimilarityThreshold float64
+}
+
+type runtimeConfig struct {
+	gridWidth           int
+	gridHeight          int
+	density             float64
+	similarityThreshold float64
 }
 
 type Model struct {
 	abm.Base
 	abm.TickCounter
 	initialized bool
-	cells       [GridW * GridH]cell
+	cells       []cell
 	rng         *rand.Rand
+	active      runtimeConfig
 }
 
 func New() *Model {
+	return NewWithConfig(Config{})
+}
+
+func NewWithConfig(cfg Config) *Model {
 	model := &Model{rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
-	for index := range model.cells {
-		model.cells[index] = cell{id: fmt.Sprintf("%d", index), x: index % GridW, y: index / GridW}
-	}
-	model.SetParam("density", 0.7)
-	model.SetParam("threshold", 0.3)
+	model.SetParam("gridWidth", float64(defaultedInt(cfg.GridWidth, defaultGridW)))
+	model.SetParam("gridHeight", float64(defaultedInt(cfg.GridHeight, defaultGridH)))
+	model.SetParam("density", defaultedFloat(cfg.Density, 0.48))
+	model.SetParam("similarityThreshold", defaultedFloat(cfg.SimilarityThreshold, 0.4))
 	return model
 }
 
 func (m *Model) Setup(e abm.Emitter) error {
 	if m.initialized {
-		if err := e.ChartDelete(ChartID); err != nil {
+		if err := e.ChartDelete(SatisfactionChartID); err != nil {
+			return err
+		}
+		if err := e.ChartDelete(SegregationChartID); err != nil {
 			return err
 		}
 		if err := e.EnvDelete(EnvID); err != nil {
@@ -50,13 +79,14 @@ func (m *Model) Setup(e abm.Emitter) error {
 		}
 	}
 
-	m.ResetTick()
-	m.populate()
-	m.initialized = true
+	m.initializeState()
 	return m.replay(e)
 }
 
 func (m *Model) OnStateSync(e abm.Emitter, payload *protocol.StateSyncPayload) error {
+	if !m.initialized {
+		m.initializeState()
+	}
 	if err := e.StateSyncBegin(payload.RequestID); err != nil {
 		return err
 	}
@@ -66,7 +96,54 @@ func (m *Model) OnStateSync(e abm.Emitter, payload *protocol.StateSyncPayload) e
 	return e.StateSyncEnd(payload.RequestID)
 }
 
+func (m *Model) OnAction(e abm.Emitter, actionID string, tickID *string, _ bool) error {
+	switch actionID {
+	case ActionIDStart, protocol.ActionIDStep:
+		return m.stepAction(e, actionID, tickID)
+	case ActionIDReset, protocol.ActionIDInit:
+		if err := m.Setup(e); err != nil {
+			return err
+		}
+		return e.ActionEnd(&protocol.ActionEndPayload{
+			ID:       actionID,
+			TickID:   tickID,
+			Continue: abm.BoolPtr(false),
+		})
+	default:
+		return fmt.Errorf("tensnap: unhandled action %q", actionID)
+	}
+}
+
 func (m *Model) Step(e abm.Emitter) error {
+	return m.stepAction(e, protocol.ActionIDStep, nil)
+}
+
+func (m *Model) OnParamChange(e abm.Emitter, id string, value any) error {
+	f, ok := asFloat64(value)
+	if !ok {
+		return fmt.Errorf("tensnap: expected numeric parameter %q", id)
+	}
+
+	switch id {
+	case "gridWidth":
+		m.SetParam(id, float64(clampInt(int(f), 10, 200)))
+	case "gridHeight":
+		m.SetParam(id, float64(clampInt(int(f), 10, 200)))
+	case "density":
+		m.SetParam(id, clampFloat(f, 0.1, 0.95))
+	case "similarityThreshold", "threshold":
+		threshold := clampFloat(f, 0, 1)
+		m.SetParam("similarityThreshold", threshold)
+		m.active.similarityThreshold = threshold
+	default:
+		m.SetParam(id, value)
+	}
+
+	_ = e
+	return nil
+}
+
+func (m *Model) stepAction(e abm.Emitter, actionID string, tickID *string) error {
 	start := time.Now()
 	var unsatisfied []int
 	var empty []int
@@ -83,24 +160,25 @@ func (m *Model) Step(e abm.Emitter) error {
 	m.rng.Shuffle(len(empty), func(a, b int) { empty[a], empty[b] = empty[b], empty[a] })
 
 	swapped := min(len(unsatisfied), len(empty))
-	diffs := make([]map[string]interface{}, 0, swapped*2)
 	for index := 0; index < swapped; index++ {
 		fromIndex := unsatisfied[index]
 		toIndex := empty[index]
-		m.cells[toIndex].group, m.cells[fromIndex].group = m.cells[fromIndex].group, 0
-		diffs = append(diffs,
-			map[string]interface{}{"id": m.cells[toIndex].id, "color": groupColor(m.cells[toIndex].group), "x": float64(m.cells[toIndex].x), "y": float64(m.cells[toIndex].y)},
-			map[string]interface{}{"id": m.cells[fromIndex].id, "color": "#00000000", "x": float64(m.cells[fromIndex].x), "y": float64(m.cells[fromIndex].y)},
-		)
+		m.cells[toIndex].group = m.cells[fromIndex].group
+		m.cells[toIndex].agentID = m.cells[fromIndex].agentID
+		m.cells[fromIndex].group = 0
+		m.cells[fromIndex].agentID = ""
 	}
-	if len(diffs) > 0 {
-		if err := e.ItemUpdate(EnvID, LayerID, diffs); err != nil {
+	if swapped > 0 {
+		if err := e.ItemUpdate(EnvID, AgentLayerID, m.snapshotItems()); err != nil {
 			return err
 		}
 	}
 
 	tick := float64(m.NextTick())
-	if err := e.ChartUpdate(&protocol.ChartUpdatePayload{Updates: []protocol.ChartUpdateEntry{{ID: ChartID, Time: &tick, Value: SatisfiedPct(m)}}}); err != nil {
+	if err := e.ChartUpdate(&protocol.ChartUpdatePayload{Updates: []protocol.ChartUpdateEntry{
+		{ID: SatisfactionChartID, Time: &tick, Value: SatisfiedPct(m)},
+		{ID: SegregationChartID, Time: &tick, Value: SegregationIndex(m)},
+	}}); err != nil {
 		return err
 	}
 	if err := e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick}); err != nil {
@@ -109,7 +187,8 @@ func (m *Model) Step(e abm.Emitter) error {
 
 	simulateMS := float64(time.Since(start).Milliseconds())
 	return e.ActionEnd(&protocol.ActionEndPayload{
-		ID:       protocol.ActionIDStep,
+		ID:       actionID,
+		TickID:   tickID,
 		Continue: abm.BoolPtr(swapped > 0),
 		Timings:  &protocol.ActionEndTimings{SimulateMS: &simulateMS},
 	})
@@ -130,18 +209,79 @@ func SatisfiedPct(m *Model) float64 {
 	if occupiedCount == 0 {
 		return 0
 	}
-	return float64(satisfiedCount) / float64(occupiedCount) * 100
+	return float64(satisfiedCount) / float64(occupiedCount)
+}
+
+func SegregationIndex(m *Model) float64 {
+	totalRatio := 0.0
+	count := 0
+	for index, current := range m.cells {
+		if current.group == 0 {
+			continue
+		}
+		same := 0
+		neighbors := 0
+		for _, neighborIndex := range m.neighborIndexes(index) {
+			neighbor := m.cells[neighborIndex]
+			if neighbor.group == 0 {
+				continue
+			}
+			neighbors++
+			if neighbor.group == current.group {
+				same++
+			}
+		}
+		if neighbors > 0 {
+			totalRatio += float64(same) / float64(neighbors)
+			count++
+		}
+	}
+	if count == 0 {
+		return 0
+	}
+	return totalRatio / float64(count)
+}
+
+func (m *Model) initializeState() {
+	m.ResetTick()
+	m.applyPendingConfig()
+	m.rebuildCells()
+	m.populate()
+	m.initialized = true
+}
+
+func (m *Model) applyPendingConfig() {
+	gridWidth, gridHeight := m.pendingGridSize()
+	m.active.gridWidth = gridWidth
+	m.active.gridHeight = gridHeight
+	m.active.density = clampFloat(m.ParamFloat("density"), 0.1, 0.95)
+	m.active.similarityThreshold = clampFloat(m.ParamFloat("similarityThreshold"), 0, 1)
+}
+
+func (m *Model) rebuildCells() {
+	width, height := m.activeGridSize()
+	m.cells = make([]cell, width*height)
+	for index := range m.cells {
+		m.cells[index] = cell{x: index % width, y: index / width}
+	}
 }
 
 func (m *Model) populate() {
-	density := m.ParamFloat("density")
+	density := m.active.density
+	nextType1 := 0
+	nextType2 := 0
 	for index := range m.cells {
+		m.cells[index].agentID = ""
 		randomValue := m.rng.Float64()
 		switch {
 		case randomValue < density/2:
 			m.cells[index].group = 1
+			m.cells[index].agentID = "agent1_" + strconv.Itoa(nextType1)
+			nextType1++
 		case randomValue < density:
 			m.cells[index].group = 2
+			m.cells[index].agentID = "agent2_" + strconv.Itoa(nextType2)
+			nextType2++
 		default:
 			m.cells[index].group = 0
 		}
@@ -153,27 +293,17 @@ func (m *Model) satisfied(index int) bool {
 	if current.group == 0 {
 		return true
 	}
-	threshold := m.ParamFloat("threshold")
+	threshold := m.active.similarityThreshold
 	sameGroup := 0
 	occupiedNeighbors := 0
-	for yOffset := -1; yOffset <= 1; yOffset++ {
-		for xOffset := -1; xOffset <= 1; xOffset++ {
-			if xOffset == 0 && yOffset == 0 {
-				continue
-			}
-			x := current.x + xOffset
-			y := current.y + yOffset
-			if x < 0 || x >= GridW || y < 0 || y >= GridH {
-				continue
-			}
-			neighbor := m.cells[y*GridW+x]
-			if neighbor.group == 0 {
-				continue
-			}
-			occupiedNeighbors++
-			if neighbor.group == current.group {
-				sameGroup++
-			}
+	for _, neighborIndex := range m.neighborIndexes(index) {
+		neighbor := m.cells[neighborIndex]
+		if neighbor.group == 0 {
+			continue
+		}
+		occupiedNeighbors++
+		if neighbor.group == current.group {
+			sameGroup++
 		}
 	}
 	if occupiedNeighbors == 0 {
@@ -182,54 +312,169 @@ func (m *Model) satisfied(index int) bool {
 	return float64(sameGroup)/float64(occupiedNeighbors) >= threshold
 }
 
+func (m *Model) neighborIndexes(index int) []int {
+	current := m.cells[index]
+	width, height := m.activeGridSize()
+	neighbors := make([]int, 0, 8)
+	for yOffset := -1; yOffset <= 1; yOffset++ {
+		for xOffset := -1; xOffset <= 1; xOffset++ {
+			if xOffset == 0 && yOffset == 0 {
+				continue
+			}
+			x := current.x + xOffset
+			y := current.y + yOffset
+			if x < 0 || x >= width || y < 0 || y >= height {
+				continue
+			}
+			neighbors = append(neighbors, y*width+x)
+		}
+	}
+	return neighbors
+}
+
+func (m *Model) pendingGridSize() (int, int) {
+	width := clampInt(int(m.ParamFloat("gridWidth")), 10, 200)
+	height := clampInt(int(m.ParamFloat("gridHeight")), 10, 200)
+	return width, height
+}
+
+func (m *Model) activeGridSize() (int, int) {
+	return m.active.gridWidth, m.active.gridHeight
+}
+
 func (m *Model) replay(e abm.Emitter) error {
-	if err := e.ParamCreate(protocol.NumberParameter{ID: "density", Type: "number", Label: "Density", Value: m.ParamFloat("density"), Min: 0.1, Max: 1.0, Step: 0.05}); err != nil {
+	gridWidth, gridHeight := m.activeGridSize()
+	if err := e.ParamCreate(protocol.NumberParameter{ID: "similarityThreshold", Type: "number", Label: "Similarity Threshold", Value: m.ParamFloat("similarityThreshold"), Min: 0.0, Max: 1.0, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
 		return err
 	}
-	if err := e.ParamCreate(protocol.NumberParameter{ID: "threshold", Type: "number", Label: "Threshold", Value: m.ParamFloat("threshold"), Min: 0.0, Max: 1.0, Step: 0.05}); err != nil {
+	pendingGridWidth, pendingGridHeight := m.pendingGridSize()
+	if err := e.ParamCreate(protocol.NumberParameter{ID: "gridWidth", Type: "number", Label: "Grid Width", Value: float64(pendingGridWidth), Min: 10, Max: 200, Step: 1, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
 		return err
 	}
-	if err := e.ActionCreate(&protocol.Action{ID: protocol.ActionIDInit, Label: "Reset", AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
+	if err := e.ParamCreate(protocol.NumberParameter{ID: "gridHeight", Type: "number", Label: "Grid Height", Value: float64(pendingGridHeight), Min: 10, Max: 200, Step: 1, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
 		return err
 	}
-	if err := e.ActionCreate(&protocol.Action{ID: protocol.ActionIDStep, Label: "Step", Continuous: abm.BoolPtr(true), AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
+	if err := e.ParamCreate(protocol.NumberParameter{ID: "density", Type: "number", Label: "Density", Value: clampFloat(m.ParamFloat("density"), 0.1, 0.95), Min: 0.1, Max: 0.95, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
+		return err
+	}
+	if err := e.ActionCreate(&protocol.Action{ID: ActionIDReset, Label: "Reset", AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
+		return err
+	}
+	if err := e.ActionCreate(&protocol.Action{ID: ActionIDStart, Label: "Start", Continuous: abm.BoolPtr(true), AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
+		return err
+	}
+	if err := e.ActionCreate(&protocol.Action{ID: protocol.ActionIDStep, Label: "Step", AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
 		return err
 	}
 	if err := e.EnvCreate(EnvID, "2d"); err != nil {
 		return err
 	}
-	if err := e.EnvLayerCreate(&protocol.EnvLayerCreatePayload{EnvID: EnvID, LayerID: LayerID, LayerType: "agent", Data: map[string]interface{}{"width": GridW, "height": GridH}}); err != nil {
+	if err := e.EnvLayerCreate(&protocol.EnvLayerCreatePayload{EnvID: EnvID, LayerID: AgentLayerID, LayerType: "agent", Data: map[string]any{"width": gridWidth, "height": gridHeight}}); err != nil {
 		return err
 	}
-	if err := e.ChartCreate(&protocol.ChartGroupMetadata{ID: ChartID, Label: "% Satisfied"}); err != nil {
+	if err := e.EnvLayerCreate(&protocol.EnvLayerCreatePayload{EnvID: EnvID, LayerID: GridLayerID, LayerType: "grid", Data: map[string]any{"width": gridWidth, "height": gridHeight}}); err != nil {
 		return err
 	}
-	if err := e.ItemCreate(EnvID, LayerID, m.snapshotItems()); err != nil {
+	satColor := "#2f9e44"
+	segColor := "#e8590c"
+	if err := e.ChartCreate(&protocol.ChartGroupMetadata{ID: SatisfactionChartID, Label: "Satisfaction Rate", Color: &satColor}); err != nil {
+		return err
+	}
+	if err := e.ChartCreate(&protocol.ChartGroupMetadata{ID: SegregationChartID, Label: "Segregation Index", Color: &segColor}); err != nil {
+		return err
+	}
+	if err := e.ItemCreate(EnvID, AgentLayerID, m.snapshotItems()); err != nil {
 		return err
 	}
 	currentTick := float64(m.Tick())
-	if err := e.ChartUpdate(&protocol.ChartUpdatePayload{Updates: []protocol.ChartUpdateEntry{{ID: ChartID, Time: &currentTick, Value: SatisfiedPct(m)}}}); err != nil {
+	if err := e.ChartUpdate(&protocol.ChartUpdatePayload{Updates: []protocol.ChartUpdateEntry{
+		{ID: SatisfactionChartID, Time: &currentTick, Value: SatisfiedPct(m)},
+		{ID: SegregationChartID, Time: &currentTick, Value: SegregationIndex(m)},
+	}}); err != nil {
 		return err
 	}
 	return e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &currentTick})
 }
 
-func (m *Model) snapshotItems() []map[string]interface{} {
-	items := make([]map[string]interface{}, 0, GridW*GridH)
-	for _, current := range m.cells {
+func (m *Model) snapshotItems() []map[string]any {
+	items := make([]map[string]any, 0, len(m.cells))
+	for index, current := range m.cells {
 		if current.group == 0 {
 			continue
 		}
-		items = append(items, map[string]interface{}{"id": current.id, "color": groupColor(current.group), "x": float64(current.x), "y": float64(current.y)})
+		size := 1.0
+		if !m.satisfied(index) {
+			size = 0.6
+		}
+		items = append(items, map[string]any{
+			"id":      current.agentID,
+			"x":       float64(current.x),
+			"y":       float64(current.y),
+			"heading": float64(0),
+			"color":   groupColor(current.group),
+			"icon":    "circle",
+			"size":    size,
+		})
 	}
 	return items
 }
 
 func groupColor(group int) string {
 	if group == 1 {
-		return "#4f98a3"
+		return "#3498db"
 	}
-	return "#d163a7"
+	return "#e74c3c"
+}
+
+func defaultedInt(value, fallback int) int {
+	if value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+func defaultedFloat(value, fallback float64) float64 {
+	if value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+func clampInt(value, minValue, maxValue int) int {
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func clampFloat(value, minValue, maxValue float64) float64 {
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func asFloat64(value any) (float64, bool) {
+	switch n := value.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	default:
+		return 0, false
+	}
 }
 
 func min(left, right int) int {
