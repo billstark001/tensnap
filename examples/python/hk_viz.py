@@ -51,6 +51,7 @@ async def main() -> None:
     await scenario.register_model_handler(
         model.init,
         model.step,
+        model.init,
     )
 
     print(f"TenSnap HK Opinion Dynamics starting on ws://localhost:{server_port}")

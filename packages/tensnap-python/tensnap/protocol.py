@@ -168,24 +168,35 @@ def item_diff(
     return diff
 
 
-def format_chart_update(chart: ChartGroupMetadata, value: Any) -> List[Dict[str, Any]]:
+def format_chart_update(
+    chart: ChartGroupMetadata,
+    value: Any,
+    time: int | None = None,
+) -> List[Dict[str, Any]]:
     """Convert a chart getter return value into CHART_UPDATE entries."""
+    updates: List[Dict[str, Any]]
     if not chart.data_list:
-        return [{"id": chart.id, "value": value}]
-    if isinstance(value, dict):
-        return [
+        updates = [{"id": chart.id, "value": value}]
+    elif isinstance(value, dict):
+        updates = [
             {"id": dm.id, "value": value[dm.id]}
             for dm in chart.data_list
             if dm.id in value
         ]
-    if isinstance(value, (list, tuple)):
-        return [{"id": dm.id, "value": v} for dm, v in zip(chart.data_list, value)]
-    if len(chart.data_list) == 1:
-        return [{"id": chart.data_list[0].id, "value": value}]
-    raise ValueError(
-        f"Chart getter for '{chart.id}' returned unsupported type for "
-        f"multiple data series: {type(value)}"
-    )
+    elif isinstance(value, (list, tuple)):
+        updates = [{"id": dm.id, "value": v} for dm, v in zip(chart.data_list, value)]
+    elif len(chart.data_list) == 1:
+        updates = [{"id": chart.data_list[0].id, "value": value}]
+    else:
+        raise ValueError(
+            f"Chart getter for '{chart.id}' returned unsupported type for "
+            f"multiple data series: {type(value)}"
+        )
+
+    if time is not None:
+        for update in updates:
+            update["time"] = time
+    return updates
 
 
 # endregion

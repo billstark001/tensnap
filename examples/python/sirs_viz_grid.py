@@ -25,16 +25,17 @@ async def main():
 
     model.init()
 
-    await scenario.register_model_handler(
-        model.init,
-        model.step,
-    )
-
     scenario.add_environment(env)
     scenario.add_charts(model)
     scenario.add_parameters(model)
     scenario.add_parameters(env)
     scenario.add_actions({})
+
+    await scenario.register_model_handler(
+        model.init,
+        model.step,
+        model.init,
+    )
 
     print(f"Starting TenSnap server on port {server_port}...")
     await scenario.run()

@@ -6,8 +6,10 @@ import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { getToastState } from '../toast';
 import {
   Action,
+  ActionEndPayload,
   ChartStorage,
   GridEnvStorage,
+  MetadataUpdatePayload,
   NormalizedLogPayload,
   Parameter,
   Scenario,
@@ -87,6 +89,45 @@ const createIdleStateSyncStatus = (): StateSyncStatus => ({
   autoLayoutOnComplete: false,
 });
 
+type TimeCorrectionState = {
+  minimumRuntimeTime: number;
+};
+
+const resetTimeCorrection = (correction: TimeCorrectionState) => {
+  correction.minimumRuntimeTime = 0;
+};
+
+const syncTimeCorrectionFromMetadata = (
+  correction: TimeCorrectionState,
+  payload: MetadataUpdatePayload,
+) => {
+  if (payload.time === 0) {
+    resetTimeCorrection(correction);
+  }
+};
+
+const syncTimeCorrectionFromAction = (
+  scenario: Scenario,
+  correction: TimeCorrectionState,
+  payload: ActionEndPayload,
+) => {
+  if (payload.id === 'reset') {
+    resetTimeCorrection(correction);
+    return;
+  }
+  if ((payload.id === 'start' || payload.id === 'step') && scenario.time === 0) {
+    correction.minimumRuntimeTime = 1;
+  }
+};
+
+const getCurrentTime = (scenario: Scenario, correction: TimeCorrectionState): number | null => {
+  const time = scenario.time;
+  if (typeof time !== 'number') {
+    return null;
+  }
+  return time < correction.minimumRuntimeTime ? correction.minimumRuntimeTime : time;
+};
+
 const defaultMainView = createDefaultRootLayout();
 
 const isDefaultMainViewLayout = (view: ContainerView) => (
@@ -118,6 +159,7 @@ const matchesActiveStateSync = (activeRequestId: string | null, requestId?: stri
 
 const subscribeScenario = (
   scenario: Scenario,
+  timeCorrection: TimeCorrectionState,
   applyBatch: (flags: {
     changed: boolean;
     environmentChanged: boolean;
@@ -159,13 +201,32 @@ const subscribeScenario = (
   };
 
   const rerender = () => schedule({ changed: true });
+  const rerenderMetadata: EventListener = (event) => {
+    syncTimeCorrectionFromMetadata(
+      timeCorrection,
+      (event as CustomEvent<MetadataUpdatePayload>).detail,
+    );
+    schedule({ changed: true });
+  };
+  const rerenderActionEnd: EventListener = (event) => {
+    syncTimeCorrectionFromAction(
+      scenario,
+      timeCorrection,
+      (event as CustomEvent<ActionEndPayload>).detail,
+    );
+    schedule({ changed: true });
+  };
   const rerenderEnv = () => schedule({ changed: true, environmentChanged: true });
   const rerenderParam = () => schedule({ changed: true, parameterChanged: true });
   const rerenderAsset = () => schedule({ changed: true, assetChanged: true });
+  const rerenderReset: EventListener = () => {
+    resetTimeCorrection(timeCorrection);
+    schedule({ changed: true });
+  };
 
   const handlers: Array<[string, EventListener]> = [
-    ['metadata:update', rerender],
-    ['action:end', rerender],
+    ['metadata:update', rerenderMetadata],
+    ['action:end', rerenderActionEnd],
     ['action:create', rerender],
     ['action:update', rerender],
     ['action:delete', rerender],
@@ -185,7 +246,7 @@ const subscribeScenario = (
     ['asset:data', rerenderAsset as EventListener],
     ['asset:delete', rerenderAsset as EventListener],
     ['log', rerender],
-    ['reset', rerender],
+    ['reset', rerenderReset],
   ];
 
   handlers.forEach(([type, handler]) => scenario.addEventListener(type, handler));
@@ -215,6 +276,7 @@ const annotateSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): Sc
 export const createScenarioStore = () => {
   const scenario = new Scenario();
   const screenshotCaptures = new Map<string, ScreenshotCaptureHandler>();
+  const timeCorrection: TimeCorrectionState = { minimumRuntimeTime: 0 };
 
   const useStore = create<ScenarioStore>((set, get) => {
     const bumpScenarioState = (flags?: {
@@ -224,7 +286,7 @@ export const createScenarioStore = () => {
     }) => {
       set((state) => ({
         _revision: state._revision + 1,
-        currentTime: scenario.time ?? null,
+        currentTime: getCurrentTime(scenario, timeCorrection),
         _assetRevision: flags?.assetChanged ? state._assetRevision + 1 : state._assetRevision,
         environmentUpdateTrigger: flags?.environmentChanged
           ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }
@@ -335,15 +397,17 @@ export const createScenarioStore = () => {
 
       load: (snapshot) => {
         scenario.load(snapshot);
+        resetTimeCorrection(timeCorrection);
         set((state) => ({
           _revision: state._revision + 1,
-          currentTime: scenario.time ?? null,
+          currentTime: getCurrentTime(scenario, timeCorrection),
           stateSync: createIdleStateSyncStatus(),
         }));
       },
 
       clearAll: () => {
         scenario.reset();
+        resetTimeCorrection(timeCorrection);
         set({
           connected: false,
           snapshots: [],
@@ -596,11 +660,12 @@ export const createScenarioStore = () => {
 
   const unsubscribeScenario = subscribeScenario(
     scenario,
+    timeCorrection,
     ({ changed, environmentChanged, parameterChanged, assetChanged }) => {
       useStore.setState((state) => {
         const next = {
           _revision: changed ? state._revision + 1 : state._revision,
-          currentTime: changed ? (scenario.time ?? null) : state.currentTime,
+          currentTime: changed ? getCurrentTime(scenario, timeCorrection) : state.currentTime,
           _assetRevision: assetChanged ? state._assetRevision + 1 : state._assetRevision,
           environmentUpdateTrigger: environmentChanged
             ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }

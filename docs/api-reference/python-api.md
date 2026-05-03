@@ -163,10 +163,10 @@ Automatic parameter discovery excludes private names by default. Pass `BindParam
 ### Handlers and runtime
 
 - `register_handler(handler) -> None`
-- `register_model_handler(model_init=None, model_step=None) -> None`
+- `register_model_handler(model_init=None, model_step=None, model_reset=None) -> None`
 - `run() -> None`
 
-`DefaultSimulationHandler` computes full environment snapshots on start/reset and layer-level incremental item diffs on subsequent steps.
+`DefaultSimulationHandler` initializes lazily at time `0`, emits the first simulated tick as time `1`, computes full environment snapshots for init/reset, and emits layer-level incremental item diffs on subsequent steps. If `model_reset` is omitted, reset falls back to `model_init`.
 
 ## Runtime Models
 
@@ -258,7 +258,7 @@ await scenario.register_handler(MesaSimulationHandler(MyMesaModel))
 await scenario.run()
 ```
 
-If your Mesa model class already has `env(...)` / layer decorators attached, the handler reads them through `tensnap.bindings`. Otherwise it falls back to default grid + agent bindings derived from `model.grid` and `model.agents`.
+If your Mesa model class already has `env(...)` / layer decorators attached, the handler reads them through `tensnap.bindings`. Otherwise it falls back to default grid + agent bindings derived from `model.grid` and `model.agents`. `MesaSimulationHandler` also accepts `on_model_reset`; if it is omitted, reset falls back to the same reinitialization path used by init.
 
 ## Migration Notes
 

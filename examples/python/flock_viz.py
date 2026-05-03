@@ -46,6 +46,7 @@ async def main() -> None:
     await scenario.register_model_handler(
         model.initialize,
         model.step,
+        model.initialize,
     )
 
     print(f"TenSnap Flock Visualization started on ws://localhost:{server_port}")

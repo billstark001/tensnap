@@ -27,7 +27,6 @@ from tensnap.bindings.mesa.helper import (
 )
 from tensnap.models import EnvironmentBinding, EnvironmentState
 from tensnap.scenario import DefaultSimulationHandler
-from tensnap.server import ServerToClientMessageType as MT
 from tensnap.utils.func import call_function
 
 if TYPE_CHECKING:
@@ -58,10 +57,12 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         agent_iterable_projector: "str | Callable" = "agents",
         on_model_init: Optional[Callable] = None,
         on_model_step: Optional[Callable] = None,
+        on_model_reset: Optional[Callable] = None,
     ) -> None:
         super().__init__(
             model_init=self._model_init_impl,
             model_step=self._model_step_impl,
+            model_reset=self._model_reset_impl,
         )
         self.model_class = model_class
         self.model_init_args: list = model_init_args or []
@@ -70,6 +71,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         self.agent_iterable_projector = agent_iterable_projector
         self.on_model_init = on_model_init
         self.on_model_step = on_model_step
+        self.on_model_reset = on_model_reset
 
         self.model: Optional["Model"] = None
         self.environment_id: Optional[str] = None
@@ -147,12 +149,12 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         else:
             self.model.step()
 
-    async def on_reset(self) -> None:
-        if not self.scenario:
+    async def _model_reset_impl(self) -> None:
+        assert self.model is not None
+        if self.on_model_reset:
+            await call_function(self.on_model_reset, self.model)
             return
-        await call_function(self._model_init_impl)
-        await self.scenario.clear_charts()
-        await self.on_start(0)
+        await self._model_init_impl()
 
     # endregion
 

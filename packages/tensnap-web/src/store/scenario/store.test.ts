@@ -77,4 +77,25 @@ describe('scenario store updates preserve assets', () => {
     expect(useStore.getState().mainView.views).toHaveLength(1);
     expect(useStore.getState().mainView.views[0].id).toBe('custom-button');
   });
+
+  it('promotes the first runtime tick to one and clears the correction on reset', async () => {
+    const useStore = createScenarioStore();
+    const state = useStore.getState();
+
+    state.applyMessage({ type: 'metadata_update', payload: { time: 0 } });
+    await Promise.resolve();
+    expect(useStore.getState().currentTime).toBe(0);
+
+    state.applyMessage({ type: 'action_end', payload: { id: 'start' } });
+    await Promise.resolve();
+    expect(useStore.getState().currentTime).toBe(1);
+
+    state.applyMessage({ type: 'metadata_update', payload: { time: 2 } });
+    await Promise.resolve();
+    expect(useStore.getState().currentTime).toBe(2);
+
+    state.applyMessage({ type: 'metadata_update', payload: { time: 0 } });
+    await Promise.resolve();
+    expect(useStore.getState().currentTime).toBe(0);
+  });
 });

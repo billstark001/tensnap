@@ -57,24 +57,23 @@ async def _wait_for_server(proc: asyncio.subprocess.Process, port: int) -> None:
             last_error = exc
             await asyncio.sleep(0.1)
     raise AssertionError(f"Timed out waiting for example server: {last_error}")
-
-
-async def _collect_state_sync_messages(port: int, until) -> list[dict]:
+async def _collect_state_sync_messages(port: int, until, *, use_msgpack: bool = False) -> list[dict]:
     request_id = "sync-smoke"
     async with connect(f"ws://127.0.0.1:{port}") as ws:
+        message = {
+            "type": "state_sync",
+            "payload": {
+                "request_id": request_id,
+                "parameters": [],
+                "actions": [],
+                "envs": [],
+                "charts": [],
+            },
+        }
         await ws.send(
-            json.dumps(
-                {
-                    "type": "state_sync",
-                    "payload": {
-                        "request_id": request_id,
-                        "parameters": [],
-                        "actions": [],
-                        "envs": [],
-                        "charts": [],
-                    },
-                }
-            )
+            msgpack.packb(message, use_bin_type=True)
+            if use_msgpack
+            else json.dumps(message)
         )
 
         deadline = asyncio.get_running_loop().time() + 20
@@ -96,6 +95,71 @@ async def _collect_state_sync_messages(port: int, until) -> list[dict]:
                 return messages
 
     raise AssertionError("Timed out waiting for expected state_sync messages")
+
+
+async def _sync_and_run_action(
+    port: int,
+    action_id: str,
+    *,
+    use_msgpack: bool = False,
+) -> tuple[list[dict], list[dict]]:
+    request_id = "sync-action"
+    async with connect(f"ws://127.0.0.1:{port}") as ws:
+        sync_request = {
+            "type": "state_sync",
+            "payload": {
+                "request_id": request_id,
+                "parameters": [],
+                "actions": [],
+                "envs": [],
+                "charts": [],
+            },
+        }
+        await ws.send(
+            msgpack.packb(sync_request, use_bin_type=True)
+            if use_msgpack
+            else json.dumps(sync_request)
+        )
+
+        deadline = asyncio.get_running_loop().time() + 20
+        sync_messages: list[dict] = []
+        while asyncio.get_running_loop().time() < deadline:
+            message = await asyncio.wait_for(
+                ws.recv(),
+                timeout=max(0.1, deadline - asyncio.get_running_loop().time()),
+            )
+            decoded = _decode_message(message)
+            sync_messages.append(decoded)
+            if (
+                decoded.get("type") == "state_sync_end"
+                and decoded.get("payload", {}).get("request_id") == request_id
+            ):
+                break
+        else:
+            raise AssertionError("Timed out waiting for state_sync before action dispatch")
+
+        action_request = {"type": "action_start", "payload": {"id": action_id}}
+        await ws.send(
+            msgpack.packb(action_request, use_bin_type=True)
+            if use_msgpack
+            else json.dumps(action_request)
+        )
+
+        action_messages: list[dict] = []
+        while asyncio.get_running_loop().time() < deadline:
+            message = await asyncio.wait_for(
+                ws.recv(),
+                timeout=max(0.1, deadline - asyncio.get_running_loop().time()),
+            )
+            decoded = _decode_message(message)
+            action_messages.append(decoded)
+            if (
+                decoded.get("type") == "action_end"
+                and decoded.get("payload", {}).get("id") == action_id
+            ):
+                return sync_messages, action_messages
+
+    raise AssertionError(f"Timed out waiting for action_end for '{action_id}'")
 
 
 async def _stop_process(proc: asyncio.subprocess.Process) -> None:
@@ -157,6 +221,30 @@ async def test_graph_example_emits_canonical_layered_wire_output():
 
 
 @pytest.mark.asyncio
+async def test_graph_example_initializes_at_time_zero_and_first_step_is_one():
+    script = REPO_ROOT / "examples" / "python" / "sirs_viz_graph.py"
+    port = _get_free_port()
+    proc = await _start_example(script, port)
+
+    try:
+        await _wait_for_server(proc, port)
+        sync_messages, action_messages = await _sync_and_run_action(port, "step")
+    finally:
+        await _stop_process(proc)
+
+    assert any(
+        msg["type"] == "metadata_update"
+        and msg["payload"].get("time") == 0
+        for msg in sync_messages
+    )
+    assert any(
+        msg["type"] == "metadata_update"
+        and msg["payload"].get("time") == 1
+        for msg in action_messages
+    )
+
+
+@pytest.mark.asyncio
 async def test_mesa_example_emits_canonical_grid_layer_wire_output():
     script = REPO_ROOT / "examples" / "python_mesa" / "cgol_viz.py"
     port = _get_free_port()
@@ -168,28 +256,29 @@ async def test_mesa_example_emits_canonical_grid_layer_wire_output():
             port,
             lambda collected: any(
                 msg["type"] == "item_create"
-                and msg["payload"].get("env_id") == "GameOfLife"
+                and msg["payload"].get("env_id") == "cgol_grid"
+                and msg["payload"].get("layer_id") == "cells"
                 for msg in collected
             ),
+            use_msgpack=True,
         )
     finally:
         await _stop_process(proc)
 
     env_create = next(msg for msg in messages if msg["type"] == "env_create")
-    grid_layer = next(
+    cell_layer = next(
         msg
         for msg in messages
-        if msg["type"] == "env_layer_create" and msg["payload"]["layer_type"] == "grid"
+        if msg["type"] == "env_layer_create" and msg["payload"]["layer_id"] == "cells"
     )
 
     assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
     assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
-    assert env_create["payload"]["id"] == "GameOfLife"
-    assert grid_layer["payload"]["env_id"] == "GameOfLife"
-    assert grid_layer["payload"]["layer_id"] == "grid"
-    assert grid_layer["payload"]["data"]["width"] == 50
-    assert grid_layer["payload"]["data"]["height"] == 50
+    assert env_create["payload"]["id"] == "cgol_grid"
+    assert cell_layer["payload"]["env_id"] == "cgol_grid"
+    assert cell_layer["payload"]["layer_id"] == "cells"
+    assert cell_layer["payload"]["layer_type"] == "agent"
 
 
 @pytest.mark.asyncio
@@ -204,10 +293,11 @@ async def test_mushroom_example_emits_patch_resource_layer():
             port,
             lambda collected: any(
                 msg["type"] == "item_create"
-                and msg["payload"].get("env_id") == "ForagingModel"
+                and msg["payload"].get("env_id") == "main"
                 and msg["payload"].get("layer_id") == "patches"
                 for msg in collected
             ),
+            use_msgpack=True,
         )
     finally:
         await _stop_process(proc)
@@ -227,7 +317,7 @@ async def test_mushroom_example_emits_patch_resource_layer():
     assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
     assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
-    assert env_create["payload"]["id"] == "ForagingModel"
+    assert env_create["payload"]["id"] == "main"
     assert patch_layer["payload"]["layer_type"] == "agent"
 
 
@@ -243,10 +333,11 @@ async def test_sugarscape_example_emits_sugar_resource_layer():
             port,
             lambda collected: any(
                 msg["type"] == "item_create"
-                and msg["payload"].get("env_id") == "Sugarscape"
+                and msg["payload"].get("env_id") == "sugarscape_env"
                 and msg["payload"].get("layer_id") == "sugar"
                 for msg in collected
             ),
+            use_msgpack=True,
         )
     finally:
         await _stop_process(proc)
@@ -266,6 +357,6 @@ async def test_sugarscape_example_emits_sugar_resource_layer():
     assert messages[0] == {"type": "state_sync_begin", "payload": {"request_id": "sync-smoke"}}
     assert messages[-1] == {"type": "state_sync_end", "payload": {"request_id": "sync-smoke"}}
     assert env_create["payload"]["type"] == "2d"
-    assert env_create["payload"]["id"] == "Sugarscape"
+    assert env_create["payload"]["id"] == "sugarscape_env"
     assert sugar_layer["payload"]["layer_type"] == "agent"
     assert len(sugar_agents["payload"]["items"]) == 50 * 50

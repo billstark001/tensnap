@@ -51,3 +51,26 @@ async def test_mesa_handler_reset_replays_model_and_runtime_parameters():
     assert handler.model.grid.height == 6
     assert len(handler.model.agents) == 5
     assert handler.model.temperature == 42
+
+
+@pytest.mark.asyncio
+async def test_mesa_handler_reset_uses_explicit_reset_hook_when_provided():
+    scenario = SimulationScenario()
+
+    async def on_model_reset(model: FakeMesaModel) -> None:
+        model.temperature = 7
+
+    handler = MesaSimulationHandler(
+        model_class=FakeMesaModel,
+        on_model_reset=on_model_reset,
+    )
+
+    await scenario.register_handler(handler)
+
+    assert handler.model is not None
+    handler.model.temperature = 99
+
+    await handler.on_reset()
+
+    assert handler.model is not None
+    assert handler.model.temperature == 7

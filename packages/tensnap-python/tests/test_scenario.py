@@ -30,7 +30,7 @@ class TestSimulationScenario:
 
     def test_add_environment_and_layer_builds_registry_state(self, scenario: SimulationScenario):
         agents = [{"id": "a1", "x": 1, "y": 2}]
-        scenario.add_environment(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
         scenario.add_layer_binding(
             "world",
             LayerBinding(
@@ -74,14 +74,14 @@ class TestSimulationScenario:
                 self.height = 10
                 self.birds = [Bird(1, (2, 3))]
 
-        scenario.add_bound_environment(Aviary())
+        scenario.add_environment(Aviary())
 
         assert "aviary" in scenario.environments
         assert set(scenario.environments["aviary"].layers) == {"birds", "grid"}
 
     def test_add_environment_rejects_stale_binder_objects(self, scenario: SimulationScenario):
         with pytest.raises(TypeError):
-            scenario.add_environment(object())  # type: ignore[arg-type]
+            scenario.add_environment_binding(object())  # type: ignore[arg-type]
 
     def test_add_parameters_from_object_and_bound_property(self, scenario: SimulationScenario):
         class Config:
@@ -129,6 +129,7 @@ class TestSimulationScenario:
     async def test_register_handler_invokes_on_registered(self, scenario: SimulationScenario):
         handler = AsyncMock()
         handler.on_registered = AsyncMock()
+        handler.on_init = AsyncMock()
         handler.on_start = AsyncMock()
         handler.on_step = AsyncMock()
         handler.on_reset = AsyncMock()
@@ -138,16 +139,67 @@ class TestSimulationScenario:
         assert scenario._handlers[-1] is handler
         handler.on_registered.assert_awaited_once_with(scenario)
 
+    @pytest.mark.asyncio
+    async def test_step_initializes_then_advances_to_step_one(
+        self, scenario: SimulationScenario
+    ):
+        handler = AsyncMock()
+        handler.on_registered = AsyncMock()
+        handler.on_init = AsyncMock()
+        handler.on_start = AsyncMock()
+        handler.on_step = AsyncMock()
+        handler.on_reset = AsyncMock()
+
+        await scenario.register_handler(handler)
+
+        await scenario._action_handlers["step"]()
+
+        handler.on_init.assert_awaited_once_with()
+        handler.on_step.assert_awaited_once_with(1)
+        assert scenario._time_step == 1
+        assert scenario._initialized is True
+
+    @pytest.mark.asyncio
+    async def test_state_sync_initializes_without_advancing_time(
+        self, scenario: SimulationScenario
+    ):
+        handler = AsyncMock()
+        handler.on_registered = AsyncMock()
+        handler.on_init = AsyncMock()
+        handler.on_start = AsyncMock()
+        handler.on_step = AsyncMock()
+        handler.on_reset = AsyncMock()
+        await scenario.register_handler(handler)
+
+        scenario.server.send = AsyncMock()
+        ws = object()
+
+        await scenario._on_state_sync(
+            ws,
+            {
+                "request_id": "sync-1",
+                "actions": [],
+                "parameters": [],
+                "envs": [],
+                "charts": [],
+            },
+        )
+
+        handler.on_init.assert_awaited_once_with()
+        handler.on_step.assert_not_called()
+        assert scenario._time_step == 0
+        scenario.server.send.assert_any_await(ws, MT.METADATA_UPDATE, {"time": 0})
+
 
 class TestDefaultSimulationHandler:
     @pytest.mark.asyncio
-    async def test_on_start_broadcasts_full_environment_snapshot(self):
+    async def test_broadcast_full_state_emits_time_zero_snapshot(self):
         scenario = SimulationScenario()
         handler = DefaultSimulationHandler()
         await handler.on_registered(scenario)
 
         agents = [{"id": "a1", "x": 1, "y": 2}]
-        scenario.add_environment(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
         scenario.add_layer_binding(
             "world",
             LayerBinding(
@@ -163,7 +215,8 @@ class TestDefaultSimulationHandler:
         scenario.server.broadcast_metadata_update = AsyncMock()
         scenario.broadcast_charts = AsyncMock()
 
-        await handler.on_start(0)
+        await handler.on_init()
+        await scenario._broadcast_full_state()
 
         scenario.server.broadcast_metadata_update.assert_awaited_once_with({"time": 0})
         assert any(call.args[0] == MT.ENV_CREATE for call in scenario.server.broadcast.await_args_list)
@@ -181,7 +234,7 @@ class TestDefaultSimulationHandler:
         await handler.on_registered(scenario)
 
         agents = [{"id": "a1", "x": 1, "y": 2}]
-        scenario.add_environment(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
         scenario.add_layer_binding(
             "world",
             LayerBinding(
@@ -197,7 +250,7 @@ class TestDefaultSimulationHandler:
         scenario.server.broadcast_metadata_update = AsyncMock()
         scenario.broadcast_charts = AsyncMock()
 
-        await handler.on_start(0)
+        await handler.on_init()
         scenario.server.broadcast.reset_mock()
 
         agents[0] = {"id": "a1", "x": 3, "y": 2}
@@ -209,3 +262,25 @@ class TestDefaultSimulationHandler:
         ]
         assert item_updates
         assert item_updates[0].args[1]["items"] == [{"id": "a1", "x": 3}]
+
+    @pytest.mark.asyncio
+    async def test_on_reset_prefers_explicit_reset_and_falls_back_to_init(self):
+        scenario = SimulationScenario()
+        model_init = AsyncMock()
+        model_reset = AsyncMock()
+
+        explicit_reset = DefaultSimulationHandler(
+            model_init=model_init,
+            model_reset=model_reset,
+        )
+        await explicit_reset.on_registered(scenario)
+        await explicit_reset.on_reset()
+
+        model_reset.assert_awaited_once_with()
+        model_init.assert_not_awaited()
+
+        fallback_reset = DefaultSimulationHandler(model_init=model_init)
+        await fallback_reset.on_registered(scenario)
+        await fallback_reset.on_reset()
+
+        assert model_init.await_count == 1

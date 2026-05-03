@@ -58,7 +58,7 @@ scenario = SimulationScenario(port=8765)
 model = Aviary()
 config = Config()
 
-scenario.add_bound_environment(model)
+scenario.add_environment(model)
 scenario.add_parameters(config, BindParametersConfig(exclude="^_"))
 scenario.add_charts(model)
 
@@ -74,7 +74,9 @@ if __name__ == "__main__":
 
 `tensnap.bindings` is the unified attach/readback surface for Python bindings. Use it for decorators such as `env`, `grid_layer`, and `agent_layer`, and for readback helpers such as `environment_binding`, `layer_bindings`, and `bindings`.
 
-`SimulationScenario` registers the renderer-driven built-in actions `start`, `step`, and `reset` during construction. If you need extra actions, attach them with `@action(...)` and register them with `scenario.add_actions(target)`.
+`SimulationScenario` registers the renderer-driven built-in actions `start`, `step`, and `reset` during construction. The initial synchronized state is always time `0`, and the first simulated tick emitted by `start` or `step` is `1`. If you need extra actions, attach them with `@action(...)` and register them with `scenario.add_actions(target)`.
+
+`register_model_handler(model_init=None, model_step=None, model_reset=None)` lets you keep `reset` distinct from `init`. If `model_reset` is omitted, the default handler falls back to `model_init`.
 
 ## Examples
 

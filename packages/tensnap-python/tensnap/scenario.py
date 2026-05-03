@@ -76,6 +76,7 @@ class SimulationHandlerProtocol(Protocol):
     """Structural protocol for simulation event handlers."""
 
     async def on_registered(self, scenario: "SimulationScenario") -> None: ...
+    async def on_init(self) -> None: ...
     async def on_start(self, step: int) -> None: ...
     async def on_step(self, step: int) -> None: ...
     async def on_reset(self) -> None: ...
@@ -89,6 +90,10 @@ class SimulationHandler:
 
     async def on_registered(self, scenario: "SimulationScenario") -> None:
         pass
+
+    async def on_init(self) -> None:
+        # Legacy compatibility for custom handlers that only override on_start.
+        await self.on_start(0)
 
     async def on_start(self, step: int) -> None:
         pass
@@ -108,28 +113,20 @@ class SimulationHandler:
 
 def make_default_handlers(scenario: "SimulationScenario") -> List[Callable]:
     """
-    Continuous 'start' action.
+    Built-in lifecycle actions.
 
-    First call fires on_start (initialization); subsequent calls fire on_step.
-    Always returns True so the renderer keeps dispatching ticks.
+    `start` and `step` both ensure the scenario is initialized at time 0 and
+    then advance the model once. The first simulated tick is therefore 1.
     """
 
     @action_decorator("start", "Start", continuous=True)
     async def start() -> bool:
-        if not scenario._initialized:
-            await scenario._fire_start(scenario._time_step)
-            scenario._initialized = True
-        else:
-            await scenario._fire_step(scenario._time_step)
-            scenario._time_step += 1
+        await scenario._advance_step()
         return True
 
     @action_decorator("step", "Step")
     async def step() -> None:
-        if not scenario._initialized:
-            scenario._initialized = True
-        await scenario._fire_step(scenario._time_step)
-        scenario._time_step += 1
+        await scenario._advance_step()
 
     @action_decorator("reset", "Reset")
     async def reset() -> None:
@@ -153,9 +150,11 @@ class DefaultSimulationHandler(SimulationHandler):
         self,
         model_init: Optional[Callable] = None,
         model_step: Optional[Callable] = None,
+        model_reset: Optional[Callable] = None,
     ) -> None:
         self.model_init = model_init
         self.model_step = model_step
+        self.model_reset = model_reset
         self.scenario: Optional["SimulationScenario"] = None
         self._last_env_states: Dict[str, EnvironmentState] = {}
 
@@ -165,6 +164,22 @@ class DefaultSimulationHandler(SimulationHandler):
         for environment in scenario.environments.values():
             for layer in environment.layers.values():
                 layer.reset_diff_state()
+
+    async def _prime_env_states(self) -> None:
+        s = self.scenario
+        if not s:
+            self._last_env_states = {}
+            return
+
+        next_states: Dict[str, EnvironmentState] = {}
+        for env_id, environment in s.environments.items():
+            for layer in environment.layers.values():
+                layer.reset_diff_state()
+            curr = clone_environment_state(environment.build_state())
+            for layer in environment.layers.values():
+                layer.build_item_deltas()
+            next_states[env_id] = curr
+        self._last_env_states = next_states
 
     async def _push_env_updates(self, replace_all: bool = False) -> None:
         s = self.scenario
@@ -180,31 +195,30 @@ class DefaultSimulationHandler(SimulationHandler):
             await s.server.broadcast(MT.ENV_DELETE, {"id": removed_id})
         self._last_env_states = next_states
 
+    async def on_init(self) -> None:
+        if self.model_init:
+            await call_function(self.model_init)
+        await self._prime_env_states()
+
     async def on_start(self, step: int) -> None:
-        s = self.scenario
-        if not s:
-            return
-        await s.server.broadcast_metadata_update({"time": step})
-        await self._push_env_updates(replace_all=True)
-        await s.broadcast_charts(step)
+        await self.on_init()
 
     async def on_step(self, step: int) -> None:
         s = self.scenario
         if not s:
             return
-        await s.server.broadcast_metadata_update({"time": step})
         if self.model_step:
             await call_function(self.model_step)
+        await s.server.broadcast_metadata_update({"time": step})
         await self._push_env_updates()
         await s.broadcast_charts(step)
 
     async def on_reset(self) -> None:
-        if not self.scenario:
-            return
-        if self.model_init:
+        if self.model_reset:
+            await call_function(self.model_reset)
+        elif self.model_init:
             await call_function(self.model_init)
-        await self.scenario.clear_charts()
-        await self.on_start(0)
+        await self._prime_env_states()
 
 
 # endregion
@@ -485,6 +499,7 @@ class SimulationScenario:
         # Step state
         self._time_step: int = 0
         self._initialized: bool = False
+        self._init_lock = asyncio.Lock()
 
         # Handler list — called in registration order for each event
         self._handlers: List[SimulationHandlerProtocol] = []
@@ -513,13 +528,24 @@ class SimulationScenario:
         self,
         model_init: Optional[Callable] = None,
         model_step: Optional[Callable] = None,
+        model_reset: Optional[Callable] = None,
     ) -> None:
         """Convenience: create and register a DefaultSimulationHandler."""
-        await self.register_handler(DefaultSimulationHandler(model_init, model_step))
+        await self.register_handler(
+            DefaultSimulationHandler(model_init, model_step, model_reset)
+        )
 
     # endregion
 
     # region Event dispatch
+
+    async def _fire_init(self) -> None:
+        for h in self._handlers:
+            on_init = getattr(h, "on_init", None)
+            if on_init is None:
+                await h.on_start(0)
+                continue
+            await on_init()
 
     async def _fire_start(self, step: int) -> None:
         for h in self._handlers:
@@ -534,6 +560,40 @@ class SimulationScenario:
         self._initialized = False
         for h in self._handlers:
             await h.on_reset()
+        self._initialized = True
+        await self.clear_charts()
+        await self._broadcast_full_state()
+
+    async def _ensure_initialized(self, broadcast: bool = False) -> bool:
+        if self._initialized:
+            return False
+
+        async with self._init_lock:
+            if self._initialized:
+                return False
+            self._time_step = 0
+            await self._fire_init()
+            self._initialized = True
+
+        if broadcast:
+            await self._broadcast_full_state()
+        return True
+
+    async def _advance_step(self) -> None:
+        await self._ensure_initialized(broadcast=True)
+        self._time_step += 1
+        await self._fire_step(self._time_step)
+
+    async def _broadcast_full_state(self) -> None:
+        await self.server.broadcast_metadata_update({"time": self._time_step})
+        for environment in self.environments.values():
+            env_state = clone_environment_state(environment.build_state())
+            await _broadcast_env_update(self.server, environment, env_state, None)
+        await self.broadcast_charts(self._time_step)
+
+    async def _send_current_state(self, ws: Any) -> None:
+        await self.server.send(ws, MT.METADATA_UPDATE, {"time": self._time_step})
+        await self.broadcast_charts(self._time_step, ws=ws)
 
     # endregion
 
@@ -577,6 +637,7 @@ class SimulationScenario:
             {"request_id": request_id} if request_id is not None else {}
         )
         await self.server.send(ws, MT.STATE_SYNC_BEGIN, boundary)
+        await self._ensure_initialized()
 
         # All delta computations are pure (non-blocking) — no need for gather
         action_d = compute_action_deltas(self.actions, req.get("actions", []))
@@ -618,6 +679,7 @@ class SimulationScenario:
                 await self.server.send(ws, MT.CHART_DELETE, {"id": cid})
             for item in chart_d["updated"]:
                 await self.server.send(ws, MT.CHART_CREATE, item)
+            await self._send_current_state(ws)
         finally:
             await self.server.send(ws, MT.STATE_SYNC_END, boundary)
 
@@ -668,18 +730,25 @@ class SimulationScenario:
 
     # region Chart broadcasting
 
-    async def broadcast_charts(self, step: Optional[int] = None) -> None:
+    async def broadcast_charts(
+        self,
+        step: Optional[int] = None,
+        ws: Optional[Any] = None,
+    ) -> None:
         if not self.charts:
             return
         updates: List[Dict[str, Any]] = []
         for chart, getter in self.charts.values():
             try:
                 value = await asyncio.get_event_loop().run_in_executor(None, getter)
-                updates.extend(format_chart_update(chart, value))
+                updates.extend(format_chart_update(chart, value, step))
             except Exception as e:
                 logger.exception(f"Chart getter error for '{chart.id}': {e}")
         if updates:
-            await self.server.broadcast(MT.CHART_UPDATE, {"updates": updates})
+            if ws is None:
+                await self.server.broadcast(MT.CHART_UPDATE, {"updates": updates})
+            else:
+                await self.server.send(ws, MT.CHART_UPDATE, {"updates": updates})
 
     async def clear_charts(self, chart_ids: Optional[List[str]] = None) -> None:
         if not self.charts:

@@ -160,7 +160,7 @@ Binders accept environment objects and use projector functions/metadata to extra
 - `@bind_mesa_grid_agent()` - Mesa agent metadata binding
 - `@bind_2d_env()` - Mesa model metadata binding
 - `@bind_datacollector()` - Automatic chart generation from Mesa DataCollector
-- `MesaSimulationHandler` - Specialized handler for Mesa models with automatic initialization
+- `MesaSimulationHandler` - Specialized handler for Mesa models with lazy init at time 0 and explicit reset fallback
 
 ### Auto-Detection
 
