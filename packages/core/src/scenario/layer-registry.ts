@@ -22,6 +22,7 @@ import {
   TrajectoryConfigDiffSchema,
   TrajectoryConfigSchema,
   TrajectoryLayerMetadataSchema,
+  getAssetIdFromIcon,
   isBackgroundAssetReference,
 } from '../environment/types';
 import type { ScenarioEnvironmentState, ScenarioLayerSnapshot, ScenarioLayerState } from './types';
@@ -408,6 +409,19 @@ const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
       return;
     }
     context.requireStorage(AgentStorage, 'agent').removeAgents(ids);
+  },
+  onAssetDataReceived: (context, assetId) => {
+    const storage = context.requireStorage(AgentStorage, 'agent');
+    const affectedAgents = [...storage.getData().agents.values()]
+      .filter((agent) => getAssetIdFromIcon(agent.icon) === assetId)
+      .map((agent) => ({ id: agent.id, icon: agent.icon }));
+
+    if (affectedAgents.length === 0) {
+      return;
+    }
+
+    // Re-emit matching agents so AgentLayer re-resolves asset URLs once data arrives.
+    storage.updateAgents(affectedAgents);
   },
 };
 

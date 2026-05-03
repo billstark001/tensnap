@@ -236,10 +236,29 @@ class TenSnapServer:
     def _asset_hash(data: bytes) -> str:
         return hashlib.sha256(data).hexdigest()[:16]
 
+    @staticmethod
+    def _asset_meta_payload(asset: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "id": asset["id"],
+            "hash": asset["hash"],
+            "mime": asset["mime"],
+            "size": asset["size"],
+            "label": asset.get("label"),
+        }
+
     def _encode_asset_data(self, data: bytes, mime: str) -> Union[str, bytes]:
         if self.use_msgpack:
             return data
         return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+    async def send_asset_meta(self, ws: ServerConnection) -> None:
+        if not self._assets:
+            return
+        await self.send(
+            ws,
+            ServerToClientMessageType.ASSET_META,
+            {"assets": [self._asset_meta_payload(asset) for asset in self._assets.values()]},
+        )
 
     async def publish_asset(
         self,
@@ -262,17 +281,7 @@ class TenSnapServer:
         }
         await self.broadcast(
             ServerToClientMessageType.ASSET_META,
-            {
-                "assets": [
-                    {
-                        "id": asset_id,
-                        "hash": h,
-                        "mime": mime,
-                        "size": len(data),
-                        "label": label,
-                    }
-                ]
-            },
+            {"assets": [self._asset_meta_payload(self._assets[asset_id])]},
         )
         await self.broadcast(
             ServerToClientMessageType.ASSET_DATA,
@@ -350,6 +359,7 @@ class TenSnapServer:
     async def handle_client(self, ws: ServerConnection) -> None:
         self.clients.add(ws)
         logger.info(f"Client connected: {ws.remote_address}")
+        await self.send_asset_meta(ws)
         if self.on_client_connect:
             await self.on_client_connect(ws)
         try:

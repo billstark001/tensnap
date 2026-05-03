@@ -106,6 +106,27 @@ class TestTenSnapServer:
         )
 
     @pytest.mark.asyncio
+    async def test_send_asset_meta_announces_assets_published_before_connect(
+        self, server: TenSnapServer
+    ):
+        await server.publish_asset("icon", b"hello", "text/plain", label="Greeting")
+        mock_ws = AsyncMock()
+
+        await server.send_asset_meta(mock_ws)
+
+        sent = json.loads(mock_ws.send.await_args_list[0].args[0])
+        assert sent["type"] == "asset_meta"
+        assert sent["payload"]["assets"] == [
+            {
+                "id": "icon",
+                "hash": server._assets["icon"]["hash"],
+                "mime": "text/plain",
+                "size": 5,
+                "label": "Greeting",
+            }
+        ]
+
+    @pytest.mark.asyncio
     async def test_delete_asset_broadcasts_delete(self, server: TenSnapServer):
         mock_client = AsyncMock()
         mock_client.state = State.OPEN
