@@ -15,6 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    "types": ["node"],
 
     /* Linting */
     "strict": true,
@@ -23,10 +24,8 @@
     "noFallthroughCasesInSwitch": true,
     
     /* Path mapping */
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "tensnap-web/*": ["../tensnap-web/*"],
+      "@/*": ["../tensnap-web/src/*"]
     }
   },
   "include": ["src"],

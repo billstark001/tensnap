@@ -1,12 +1,10 @@
 import React from 'react';
-import * as Dialog from '@/components/ui/Dialog';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as dialogStyles from './AboutDialog.css';
-import { DialogOpenProps } from '@/utils/react';
+import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 
-export interface AboutDialogProps extends DialogOpenProps {
-
-}
+export type AboutDialogProps = DialogOpenProps;
 
 export const AboutDialog: React.FC<AboutDialogProps> = ({
   open,
@@ -21,11 +19,12 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
 
       <div className={dialogStyles.aboutContainer}>
         <div className={dialogStyles.aboutHeader}>
+          <img src="/logo192.png" alt="TenSnap Logo" className={dialogStyles.aboutLogo} />
           <h2 className={dialogStyles.aboutTitle}>
             TenSnap
           </h2>
           <p className={dialogStyles.aboutVersion}>
-            <Trans>Version</Trans> 0.1.0
+            <Trans>Version</Trans> {__APP_VERSION__}
           </p>
         </div>
 

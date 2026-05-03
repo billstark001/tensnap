@@ -9,7 +9,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[Getting Started](./user-guide/getting-started.md)** - Quick introduction and first steps
 - **[Installation Guide](./user-guide/installation.md)** - Detailed installation instructions
 - **[User Guide](./user-guide/user-guide.md)** - Comprehensive guide to using TenSnap
-- **[Tutorials](./tutorials/)** - Step-by-step tutorials and examples
+- **[Tutorials](./tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](./api-reference/python-api.md)** - Complete Python API documentation
 
 ### For Maintainers
@@ -17,8 +17,14 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[Architecture Overview](./maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./maintainer-guide/contributing.md)** - How to contribute to TenSnap
-- **[Protocol Documentation](./maintainer-guide/protocol.md)** - WebSocket protocol specification
+- **[Protocol v0.2](./maintainer-guide/protocol-v0.2.md)** - Current WebSocket protocol specification
 - **[Internationalization (i18n)](./maintainer-guide/i18n.md)** - Translation and localization guide
+
+## Documentation Status
+
+- The current stable Python surface is documented in [Python API Reference](./api-reference/python-api.md) and `packages/tensnap-python/README.md`.
+- `examples/python/` and `examples/python_mesa/` are the authoritative runnable references.
+- Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 now map directly to runnable examples; tutorials 5-6 are still planned and do not exist yet.
 
 ## What is TenSnap?
 
@@ -44,12 +50,13 @@ TenSnap aims to:
 
 - [GitHub Repository](https://github.com/billstark001/tensnap)
 - [Report Issues](https://github.com/billstark001/tensnap/issues)
-- [Example Models](../examples/python/ and examples/python_mesa/)
+- [Python Examples](../examples/python/)
+- [Mesa Examples](../examples/python_mesa/)
 
 ## Getting Help
 
 - Check the [User Guide](./user-guide/user-guide.md) for common questions
-- Look at the [Examples](../examples/python/ and examples/python_mesa/) for practical implementations
+- Look at the [Python examples](../examples/python/) and [Mesa examples](../examples/python_mesa/) for practical implementations
 - Open an issue on [GitHub](https://github.com/billstark001/tensnap/issues) for bugs or feature requests
 
 ## License

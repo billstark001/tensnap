@@ -182,12 +182,12 @@ Included in the monorepo:
 - **TypeScript**: Type-safe JavaScript
 - **Vite**: Fast build tool
 - **ESLint**: JavaScript linter
-- **Jest**: Testing framework
+- **Vitest**: Testing framework
 - **React Testing Library**: Component testing
 
 ## Optional Dependencies
 
-### For NumPy Array Visualization
+### For Numerical Models Or Preprocessing
 
 ```bash
 pip install numpy>=1.24.0

@@ -15,13 +15,16 @@ from enum import IntEnum
 
 
 from tensnap import (
-    bind_parameters,
-    bind_uniform_agent,
-    bind_grid_environment,
-    bind_graph_environment,
-    bind_graph_agent,
+    env,
+    params,
+    agent_layer,
+    edge_layer,
+    grid_layer,
+    agent,
+    uniform_agent,
     chart,
 )
+
 
 class State(IntEnum):
     """Enumeration for agent health states."""
@@ -31,8 +34,8 @@ class State(IntEnum):
     RECOVERED = 2
 
 
-@bind_graph_agent(color=True)
-@bind_uniform_agent(color=True)
+@agent(x="grid_x", y="grid_y", color=True, icon=True, size=True)
+@uniform_agent(color=True)
 class Agent:
     """
     Represents an individual agent in the SIRS model.
@@ -52,6 +55,11 @@ class Agent:
         """
         self.id = agent_id
         self.state = initial_state
+        self.grid_x = 0
+        self.grid_y = 0
+
+    icon = "square"
+    size = 0.95
 
     @property
     def color(self) -> str:
@@ -114,6 +122,8 @@ class Environment:
         raise NotImplementedError("Subclasses must implement get_neighbors()")
 
 
+@env(id="sirs_well_mixed", type="uniform")
+@agent_layer("agents", item_iterable_projector="agents")
 class WellMixedEnvironment(Environment):
     """
     Well-mixed environment where all agents can interact with all other agents.
@@ -134,15 +144,10 @@ class WellMixedEnvironment(Environment):
         return [i for i in range(self.num_agents) if i != agent_id]
 
 
-color_rgb_np_array_map = {
-    State.SUSCEPTIBLE: np.array([0, 0, 255], dtype=np.uint8),
-    State.INFECTED: np.array([255, 0, 0], dtype=np.uint8),
-    State.RECOVERED: np.array([0, 255, 0], dtype=np.uint8),
-}
-
-
-@bind_grid_environment(width="rows", height="cols", background=True)
-@bind_parameters(include=["rows", "cols"])
+@env(id="sirs_grid")
+@grid_layer(width="rows", height="cols")
+@agent_layer("agents", item_iterable_projector="agents")
+@params(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
     Rectangular grid environment where agents interact with their spatial neighbors.
@@ -192,23 +197,16 @@ class GridEnvironment(Environment):
 
         return neighbors
 
-    def get_status_image(self):
-        """Get a 2D array representing the current states of agents in the grid."""
-        status_image = np.zeros((self.rows, self.cols, 3), dtype=np.uint8)
-        for agent_id in range(self.num_agents):
-            row, col = self._id_to_coords(agent_id)
-            status_image[row, col] = color_rgb_np_array_map[self.agents[agent_id].state]
-        return status_image
 
-    @property
-    def background(self):
-        """Get the background image representing agent states."""
-        img = self.get_status_image()
-        return img
-
-
-@bind_graph_environment(edges="graph.edges")
-@bind_parameters(include=["num_agents", "connection_prob"])
+@env(id="sirs_graph")
+@agent_layer("agents", item_iterable_projector="agents")
+@edge_layer(
+    "edges",
+    agent_layer_id="agents",
+    item_iterable_projector="graph.edges",
+    item_dynamic_projector="render_tensnap_edge",
+)
+@params(include=["num_agents", "connection_prob"])
 class ERNetworkEnvironment(Environment):
     """
     Erdős-Rényi random network environment.
@@ -230,6 +228,14 @@ class ERNetworkEnvironment(Environment):
         self.num_agents = num_agents
         self.connection_prob = connection_prob
 
+    def render_tensnap_edge(self, edge: Tuple[int, int]) -> dict:
+        return {
+            "source": edge[0],
+            "target": edge[1],
+            "color": "#95A5A6",
+            "width": 1,
+        }
+
     def init(self, seed: Optional[int] = None):
         self.graph = nx.erdos_renyi_graph(
             self.num_agents, self.connection_prob, seed=seed
@@ -248,7 +254,7 @@ class ERNetworkEnvironment(Environment):
         return list(self.graph.neighbors(agent_id))
 
 
-@bind_parameters(include=["beta", "gamma", "xi", "initial_infected"])
+@params(include=["beta", "gamma", "xi", "initial_infected"])
 class SIRSSimulation:
     """
     SIRS epidemic simulation manager.
@@ -291,6 +297,12 @@ class SIRSSimulation:
         self.agents = [Agent(i) for i in range(self.environment.num_agents)]
         self.environment.agents = self.agents
         self.environment.init()
+
+        if isinstance(self.environment, GridEnvironment):
+            for agent in self.agents:
+                row, col = self.environment._id_to_coords(agent.id)
+                agent.grid_x = col
+                agent.grid_y = row
 
         # Randomly select initial infected agents
         initial_infected_ids = np.random.choice(
@@ -358,7 +370,7 @@ class SIRSSimulation:
         ],
     )
     def get_current_states(self):
-        (susceptible, infected, recovered) = self.last_states
+        susceptible, infected, recovered = self.last_states
         return {
             "susceptible": susceptible,
             "infected": infected,

@@ -2,7 +2,7 @@ import {
   type FileMetadata,
   FileSystemPicker,
   type FilePickerOptions
-} from 'tensnap-web/types/file';
+} from '@tensnap/web-common/types/file';
 import { invoke } from '@tauri-apps/api/core';
 
 /**

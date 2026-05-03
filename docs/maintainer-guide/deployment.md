@@ -4,9 +4,10 @@ This document describes the CI/CD pipelines for Tensnap project components.
 
 ## Overview
 
-Three separate workflows handle deployments:
+Four separate workflows handle deployments:
 
 - **Python Package** → PyPI
+- **Agent CLI** → npm
 - **Web App** → Netlify
 - **Tauri Desktop App** → GitHub Releases
 
@@ -34,10 +35,34 @@ Push tags matching `py-v*` (e.g., `py-v0.1.0`)
 ### Release Steps
 
 ```bash
-# Update version in packages/tensnap-python/pyproject.toml
-# Commit changes
-git tag py-v0.1.0
-git push origin py-v0.1.0
+node scripts/release.mjs python 0.1.0
+```
+
+## Agent CLI (npm)
+
+**Workflow**: `.github/workflows/agent-publish.yml`
+
+### Trigger
+
+Push tags matching `agent-v*` (e.g., `agent-v0.1.0`)
+
+### Process
+
+1. Install workspace dependencies
+2. Run `@tensnap/agent` tests
+3. Build a publishable `dist/` package bundle
+4. Publish `packages/tensnap-agent/dist` to npm
+
+### Setup Required
+
+Add repository secret:
+
+- `NPM_TOKEN`: npm automation token with publish access to `@tensnap/agent`
+
+### Release Steps
+
+```bash
+node scripts/release.mjs agent 0.1.0
 ```
 
 ## Web App (Netlify)
@@ -94,16 +119,14 @@ No additional secrets needed. GitHub token is automatically provided.
 ### Release Steps
 
 ```bash
-# Update version in packages/tensnap-tauri/package.json and src-tauri/Cargo.toml
-# Commit changes
-git tag app-v0.1.0
-git push origin app-v0.1.0
+node scripts/release.mjs app 0.1.0
 # Wait for builds to complete, then publish the draft release on GitHub
 ```
 
 ## Notes
 
 - All workflows include caching to speed up builds
+- Agent CLI publishes from a generated `dist/package.json` so workspace-only dependencies stay out of the npm artifact
 - Tauri builds create draft releases - review before publishing
 - Web deploys are automatic on `main` branch updates
 - Python package uses PyPI trusted publishing (no API token needed)

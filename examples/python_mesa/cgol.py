@@ -3,12 +3,13 @@ import mesa
 
 from tensnap import (
     bind_datacollector,
-    bind_mesa_grid_agent,
-    bind_mesa_grid_environment,
+    agent_layer,
+    agent,
+    env,
 )
 
 
-@bind_mesa_grid_agent(color=True, icon=True)
+@agent(color=True)
 class Cell(mesa.Agent):
     model: "GameOfLife"
     pos: "tuple[int, int]"
@@ -37,7 +38,8 @@ class Cell(mesa.Agent):
 
 
 @bind_datacollector()
-@bind_mesa_grid_environment()
+@env(id="cgol_grid")
+@agent_layer("cells", item_iterable_projector="agents")
 class GameOfLife(mesa.Model):
     def __init__(self, width=50, height=50, seed=None):
         super().__init__(seed=seed)

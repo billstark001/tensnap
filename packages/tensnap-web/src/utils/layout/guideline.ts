@@ -363,7 +363,11 @@ export class GuideLineGenerator {
 
     while (left < right) {
       const mid = (left + right) >> 1;
-      boundaries[mid].pos < min ? (left = mid + 1) : (right = mid);
+      if (boundaries[mid].pos < min) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
     }
 
     return boundaries.slice(left).filter(b => b.pos <= max);

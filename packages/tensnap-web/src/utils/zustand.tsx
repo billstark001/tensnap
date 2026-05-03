@@ -1,7 +1,7 @@
 import { DialogProps } from "@radix-ui/react-dialog";
 import { createContext, useContext } from "react";
 import { create, StoreApi, UseBoundStore } from "zustand";
-import { ToastContainer, ToastProps, ToastStatus } from "@/components/ui/Toast";
+import { ToastContainer, ToastProps, ToastStatus } from "@tensnap/web-common/components/ui/Toast";
 
 export type CreateStoreFunction<T, TExternal = object> = (
   set: {

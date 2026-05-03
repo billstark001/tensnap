@@ -1,4 +1,4 @@
-import { vars } from "@/styles/global.css";
+import { vars } from "@tensnap/web-common/styles/global.css";
 import { style, globalStyle } from "@vanilla-extract/css";
 
 

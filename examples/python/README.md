@@ -4,8 +4,10 @@ This directory contains Python examples for TenSnap that don't depend on Mesa.
 
 ## Available Examples
 
+- **random_walk** - Simple 2D random walk with charts and parameter controls
 - **flock** - Flocking behavior simulation (Boids algorithm)
 - **hk** - Hegselmann-Krause opinion dynamics model
+- **predator_prey** - Sheep, wolves, and renewable grass on a 2D toroidal world
 - **sirs** - SIRS epidemic model with multiple visualizations (grid and graph)
 
 ## Running Examples
@@ -45,8 +47,14 @@ cd examples/python
 # Run flock example
 python flock_viz.py
 
+# Run random-walk example
+python random_walk_viz.py
+
 # Run HK example
 python hk_viz.py
+
+# Run predator-prey example
+python predator_prey_viz.py
 
 # Run SIRS grid example
 python sirs_viz_grid.py

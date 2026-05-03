@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import * as styles from '@/styles/toolbar.css';
 import clsx from 'clsx';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 
 export interface Tab {

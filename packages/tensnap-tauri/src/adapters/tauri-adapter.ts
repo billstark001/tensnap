@@ -5,7 +5,7 @@ import {
   type DirectoryEntry,
   type FileSystemStats,
   FileSystemAdapter
-} from 'tensnap-web/types/file';
+} from '@tensnap/web-common/types/file';
 import { invoke } from '@tauri-apps/api/core';
 
 interface TauriFileMetadata {
@@ -54,6 +54,8 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     content: ArrayBuffer | string,
     _metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>
   ): Promise<FileContent> {
+    void _metadata;
+
     const buffer = content instanceof ArrayBuffer
       ? Array.from(new Uint8Array(content))
       : Array.from(new TextEncoder().encode(content));

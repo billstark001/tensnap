@@ -76,7 +76,7 @@
 
 ```typescript
 import { TauriFileSystemAdapter, TauriFilePicker } from './adapters';
-import { registerFileSystemAdapter, registerFileSystemPicker } from 'tensnap-web/store/file-system/provider';
+import { registerFileSystemAdapter, registerFileSystemPicker } from "@tensnap/web/store/file-system/provider';
 
 // 注册适配器和选择器
 const adapter = await registerFileSystemAdapter({

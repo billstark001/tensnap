@@ -1,9 +1,9 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import * as styles from './ChartView.css';
-import { ChartGroup, NativeDataPoint } from '@/types/model';
+import { ChartGroup, ChartSeriesPoint } from '@/types/model';
 import { LeaferChartView } from '@/components/chart';
 import type { ChartConfig, LeaferChartViewRef } from '@/components/chart';
-import { throttle } from '@/utils/react';
+import { throttle } from '@tensnap/web-common/react';
 
 // 预定义颜色数组作为模块顶层常量
 const CHART_COLORS = [
@@ -62,7 +62,7 @@ export function ChartView(props: ChartViewProps) {
   } = chartGroup;
 
   // 显示数据和缓存
-  const [displayData, setDisplayData] = useState<Array<NativeDataPoint>>([]);
+  const [displayData, setDisplayData] = useState<Array<ChartSeriesPoint>>([]);
   const [dataVersion, setDataVersion] = useState(0);
   const chartViewRef = useRef<LeaferChartViewRef>(null);
 
@@ -70,11 +70,11 @@ export function ChartView(props: ChartViewProps) {
   const lastProcessedDataRef = useRef<{
     sourceLength: number;
     maxPoints: number | undefined;
-    result: Array<NativeDataPoint>;
+    result: Array<ChartSeriesPoint>;
   } | null>(null);
 
   // 优化的数据处理函数 - 使用ref避免闭包泄漏
-  const processData = useCallback((data: Array<NativeDataPoint>, max: number | undefined): Array<NativeDataPoint> => {
+  const processData = useCallback((data: Array<ChartSeriesPoint>, max: number | undefined): Array<ChartSeriesPoint> => {
     // 检查缓存是否有效
     const cached = lastProcessedDataRef.current;
     if (cached &&
@@ -117,7 +117,7 @@ export function ChartView(props: ChartViewProps) {
     }
 
     // 创建新的throttle函数 - 移除processData依赖避免频繁重建
-    throttledUpdateRef.current = throttle((data: Array<NativeDataPoint>) => {
+    throttledUpdateRef.current = throttle((data: Array<ChartSeriesPoint>) => {
       const processed = processData(data, maxDataPointsRef.current);
       setDisplayData(processed);
       setDataVersion((v) => (v + 1) | 0);
@@ -138,11 +138,21 @@ export function ChartView(props: ChartViewProps) {
     if (rawData.length <= updateNowLengthThreshold) {
       throttledUpdateRef.current?.cancel();
       const processed = processData(rawData, maxDataPoints);
-      setDisplayData(processed);
-      setDataVersion((v) => (v + 1) | 0);
-    } else if (throttledUpdateRef.current) {
-      throttledUpdateRef.current(rawData);
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) {
+          return;
+        }
+        setDisplayData(processed);
+        setDataVersion((v) => (v + 1) | 0);
+      });
+
+      return () => {
+        cancelled = true;
+      };
     }
+    throttledUpdateRef.current?.(rawData);
+    return undefined;
   }, [rawData, rawData.length, updateNowLengthThreshold, maxDataPoints, processData]);
 
   // Build chart configuration from metadata (稳定化依赖)

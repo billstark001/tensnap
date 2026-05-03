@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
-import Form from '@/components/ui/Form';
+import Form from '@tensnap/web-common/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import { Parameter } from '@/types/model';
 import * as styles from './EditViews.css';
-import * as Select from '@/components/ui/Select';
+import * as Select from '@tensnap/web-common/components/ui/Select';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 
 interface ParameterViewEditorProps extends BaseViewEditorProps {

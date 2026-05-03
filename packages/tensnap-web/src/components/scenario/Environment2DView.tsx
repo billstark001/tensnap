@@ -1,0 +1,77 @@
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { AnchoredView } from '@/types/ui';
+import * as styles from './Environment2DView.css';
+import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
+import { Trans } from '@lingui/react';
+import { useScenarioStore } from '@/store/scenario/store';
+import { useToast } from '@/store/toast';
+import type { AgentRenderState } from '@tensnap/core/environment';
+import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
+import { Environment2DRendererController } from './Environment2DRendererController';
+
+interface Environment2DViewProps {
+  environment: ScenarioEnvironmentState;
+  updateTrigger?: number;
+  view?: AnchoredView;
+}
+
+export function Environment2DView({ environment, updateTrigger, view }: Environment2DViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const controllerRef = useRef<Environment2DRendererController | null>(null);
+
+  const [selectedAgent, setSelectedAgent] = useState<AgentRenderState | null>(null);
+  const scenario = useScenarioStore((store) => store.scenario);
+  const toast = useToast();
+  const scenarioRef = useRef(scenario);
+  const toastErrorRef = useRef(toast.error);
+  void updateTrigger;
+  void view;
+
+  useEffect(() => {
+    scenarioRef.current = scenario;
+  }, [scenario]);
+
+  useEffect(() => {
+    toastErrorRef.current = toast.error;
+  }, [toast.error]);
+
+  useEffect(() => {
+    if (!containerRef.current) {
+      return;
+    }
+    const controller = new Environment2DRendererController(containerRef.current, {
+      resolveAssetUrl: (assetId) => scenarioRef.current?.assets.getUrl(assetId),
+      onAgentSelect: (agent) => setSelectedAgent(agent),
+      onRenderError: (title, detail) => toastErrorRef.current(title, detail),
+    });
+    controllerRef.current = controller;
+
+    return () => {
+      controller.destroy();
+      controllerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    controllerRef.current?.render(environment);
+  }, [environment, updateTrigger]);
+
+  const resetView = useCallback(() => {
+    controllerRef.current?.resetView();
+  }, []);
+
+  return (
+    <div className={styles.container}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <button className={styles.resetButton} onClick={resetView}>
+        <Trans id="environment2d.resetView" message="Reset View" />
+      </button>
+      <AgentDetailsDialog
+        agentType="2d"
+        agent={selectedAgent}
+        resolveAssetUrl={(assetId) => scenarioRef.current?.assets.getUrl(assetId)}
+        onClose={() => setSelectedAgent(null)}
+      />
+    </div>
+  );
+}

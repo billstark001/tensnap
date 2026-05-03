@@ -10,9 +10,9 @@ import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import * as styles from './styles.css';
 import { ContainerView } from '@/types/ui';
 import { ContainerViewComponent } from './ContainerViewComponent';
-import { nestedOverlapCollisionDetection } from './utils/collision';
+import { nestedOverlapCollisionDetection } from '@/view/utils/collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
-import { useCallbackRef } from '@/utils/react';
+import { useCallbackRef } from '@tensnap/web-common/react';
 import { ViewProps } from './types';
 import { viewConstants } from './constants';
 import { Guidelines } from './GuideLines';
@@ -34,11 +34,13 @@ export default function ViewRoot({
   onViewCreateRequest: _onViewCreateRequest,
   onViewUpdate: _onViewUpdate,
   onButtonAction: _onButtonAction,
+  isRunning: _isRunning,
   AnchoredViewRenderer: _AnchoredViewRenderer,
   ViewContextMenuRenderer: _ViewContextMenuRenderer,
 }: ViewRendererProps) {
 
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
+  const isRunning = useCallbackRef(_isRunning ?? (() => false));
   const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
   const onViewCreateRequest = useCallbackRef(_onViewCreateRequest ?? (() => void 0));
 
@@ -75,12 +77,13 @@ export default function ViewRoot({
   const contextValue: ViewContextScheme = useMemo(() => ({
     isAdjusting,
     onButtonAction,
+    isRunning,
     AnchoredViewRenderer,
     ViewContextMenuRenderer,
     onResizeStart,
     onViewUpdate,
     onViewCreateRequest,
-  }), [isAdjusting, onButtonAction, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate, onViewCreateRequest]);
+  }), [isAdjusting, onButtonAction, isRunning, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate, onViewCreateRequest]);
 
   const { state: resizeStateValue } = resizeState;
 

@@ -4,12 +4,14 @@ import pytest
 from tensnap.bindings.basic import (
     NumberParameter,
     EnumParameter,
-    ActionParameter,
     BooleanParameter,
     StringParameter,
-    bind,
+    ActionMetadata,
+    BindParameterConfig,
     BindParametersConfig,
     get_parameter_metadata_from_object,
+    get_action_metadata_from_namespace,
+    action,
 )
 from tensnap.bindings.basic.parameter import create_parameter
 
@@ -70,13 +72,20 @@ class TestParameterClasses:
         assert param.type == "string"
         assert param.value == "test"
 
-    def test_action_parameter(self):
-        """Test ActionParameter creation"""
-        param = ActionParameter(id="start", label="Start Simulation")
+    def test_action_metadata(self):
+        """Test ActionMetadata creation (v0.2 standalone action)"""
+        metadata = ActionMetadata(id="start", label="Start Simulation")
 
-        assert param.id == "start"
-        assert param.type == "action"
-        assert param.label == "Start Simulation"
+        assert metadata.id == "start"
+        assert metadata.label == "Start Simulation"
+        assert metadata.continuous is False
+        assert metadata.allow_runtime_change is True
+
+        wire = metadata.to_dict()
+        assert wire["id"] == "start"
+        assert wire["label"] == "Start Simulation"
+        assert "continuous" in wire
+        assert "allowRuntimeChange" in wire
 
     def test_parameter_label_auto_generation(self):
         """Test automatic label generation from ID"""
@@ -112,10 +121,6 @@ class TestParameterClasses:
         assert isinstance(str_param, StringParameter)
         assert str_param.value == "test"
 
-        # Test action parameter
-        action_param = create_parameter(id="start", type="action")
-        assert isinstance(action_param, ActionParameter)
-
 
 class TestBindDecorator:
     """Test bind decorator functionality"""
@@ -127,7 +132,7 @@ class TestBindDecorator:
             def __init__(self):
                 self._speed = 10.0
 
-            @bind("number", id="speed", min=0.0, max=100.0, step=1.0)
+            @BindParameterConfig("number", id="speed", min=0.0, max=100.0, step=1.0)
             def get_speed(self):
                 return self._speed
 
@@ -136,7 +141,7 @@ class TestBindDecorator:
 
         # Check metadata
         bind_obj = TestModel.__dict__["get_speed"]
-        assert isinstance(bind_obj, bind)
+        assert isinstance(bind_obj, BindParameterConfig)
         assert bind_obj.metadata.id == "speed"
         assert bind_obj.metadata.type == "number"
 
@@ -144,7 +149,7 @@ class TestBindDecorator:
         """Test bind decorator for boolean parameters"""
 
         class TestModel:
-            @bind("boolean", id="enabled", default=True)
+            @BindParameterConfig("boolean", id="enabled", default=True)
             def get_enabled(self):
                 return True
 
@@ -156,7 +161,7 @@ class TestBindDecorator:
         """Test bind decorator for string parameters"""
 
         class TestModel:
-            @bind("string", id="name", default="test")
+            @BindParameterConfig("string", id="name", default="test")
             def get_name(self):
                 return "test"
 
@@ -168,7 +173,9 @@ class TestBindDecorator:
         """Test bind decorator for enum parameters"""
 
         class TestModel:
-            @bind("enum", id="mode", options=["fast", "slow"], default="fast")
+            @BindParameterConfig(
+                "enum", id="mode", options=["fast", "slow"], default="fast"
+            )
             def get_mode(self):
                 return "fast"
 
@@ -184,7 +191,7 @@ class TestBindDecorator:
             def __init__(self):
                 self._value = 10.0
 
-            @bind("number", id="model_value", min=0.0, max=100.0)
+            @BindParameterConfig("number", id="model_value", min=0.0, max=100.0)
             def get_value(self):
                 return self._value
 
@@ -262,7 +269,7 @@ class TestGetParameterMetadata:
             "enabled": True,
         }
 
-        parameters, actions = get_parameter_metadata_from_object(namespace)
+        parameters = get_parameter_metadata_from_object(namespace)
 
         assert len(parameters) == 4
         param_ids = [p[0] for p in parameters]
@@ -279,7 +286,7 @@ class TestGetParameterMetadata:
             count = 5
 
         model = TestModel()
-        parameters, actions = get_parameter_metadata_from_object(model)
+        parameters = get_parameter_metadata_from_object(model)
 
         param_ids = [p[0] for p in parameters]
         assert "speed" in param_ids
@@ -289,12 +296,12 @@ class TestGetParameterMetadata:
         """Test extracting metadata with bind decorator"""
 
         class TestModel:
-            @bind("number", id="velocity", min=0.0, max=100.0)
+            @BindParameterConfig("number", id="velocity", min=0.0, max=100.0)
             def speed(self):
                 return 10.0
 
         model = TestModel()
-        parameters, actions = get_parameter_metadata_from_object(model)
+        parameters = get_parameter_metadata_from_object(model)
 
         param_ids = [p[1].id for p in parameters]
         assert "velocity" in param_ids
@@ -309,9 +316,7 @@ class TestGetParameterMetadata:
 
         model = TestModel()
         config = BindParametersConfig(exclude=["_private"])
-        parameters, actions = get_parameter_metadata_from_object(
-            model, cfg_suggest=config
-        )
+        parameters = get_parameter_metadata_from_object(model, cfg_suggest=config)
 
         param_ids = [p[0] for p in parameters]
         assert "_private" not in param_ids
@@ -325,7 +330,7 @@ class TestGetParameterMetadata:
             "enabled": True,
         }
 
-        parameters, actions = get_parameter_metadata_from_object(namespace)
+        parameters = get_parameter_metadata_from_object(namespace)
 
         param_dict = {p[0]: p[1] for p in parameters}
         assert param_dict["speed"].type == "number"

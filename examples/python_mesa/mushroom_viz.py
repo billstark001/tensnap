@@ -1,3 +1,5 @@
+# region Imports
+
 import asyncio
 import os
 from typing import cast
@@ -9,6 +11,10 @@ from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
 
 from mushroom import ForagingModel, Hunter, Patch
+
+# endregion
+
+# region Setup
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
@@ -23,6 +29,10 @@ NUM_CLUSTERS = 4
 PATCHES_PER_CLUSTER = 20
 NUM_HUNTERS = 2
 
+# endregion
+
+# region Charts
+
 
 @chart(
     "mushroom_stats",
@@ -32,7 +42,7 @@ NUM_HUNTERS = 2
         ("collected_mushrooms", "#F39C12", "Collected Mushrooms"),
     ],
 )
-def mushroom_stats_chart() -> dict:
+def mushroom_stats_chart() -> dict[str, int]:
     """Get mushroom statistics"""
     assert handler is not None
     assert isinstance(handler.model, ForagingModel)
@@ -40,10 +50,10 @@ def mushroom_stats_chart() -> dict:
     if model:
         red_count = 0
         yellow_count = 0
-        for patch in model.agents_by_type[Patch]:
-            if patch.color == "red":  # type: ignore
+        for patch in cast(list[Patch], model.agents_by_type[Patch]):
+            if patch.color == "red":
                 red_count += 1
-            elif patch.color == "yellow":  # type: ignore
+            elif patch.color == "yellow":
                 yellow_count += 1
         return {
             "red_mushrooms": red_count,
@@ -66,9 +76,13 @@ def hunter_efficiency_chart() -> float:
     return 0.0
 
 
-# Main function
+# endregion
+
+# region Main
+
+
 async def main() -> None:
-    # Create Mesa simulation handler
+    # The custom handler keeps the moving hunters and mushroom field in separate inspectable layers.
     global handler
     handler = MesaSimulationHandler(
         model_class=ForagingModel,
@@ -79,7 +93,7 @@ async def main() -> None:
             "patches_per_cluster": PATCHES_PER_CLUSTER,
             "num_turtles": NUM_HUNTERS,
         },
-        agent_iterable_accessor="hunters",
+        agent_iterable_projector="hunters",
     )
 
     await scenario.register_handler(handler)
@@ -93,3 +107,5 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# endregion

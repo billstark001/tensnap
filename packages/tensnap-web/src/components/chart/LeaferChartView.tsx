@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { LineChartView } from 'tensnap-web-core';
-import type { ChartDataPoint, ChartConfig } from 'tensnap-web-core';
+import { LineChartView } from '@tensnap/core';
+import type { ChartDataPoint, ChartConfig } from '@tensnap/core';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';
 import * as styles from './LeaferChartView.css';
@@ -17,7 +17,7 @@ export interface LeaferChartViewRef {
   getCanvasBlob: () => Promise<Blob | null>;
 }
 
-// React binding for LineChartView (renamed from LeaferLineChart)
+// React binding for LineChartView.
 export const LeaferChartView = forwardRef<LeaferChartViewRef, LeaferChartViewProps>((props, ref) => {
   const { data, dataVersion, config, className, style } = props;
   const containerRef = useRef<HTMLDivElement>(null);

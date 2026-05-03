@@ -1,22 +1,20 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import * as Dialog from '@/components/ui/Dialog';
-import * as Select from '@/components/ui/Select';
+import React, { useState, useCallback } from 'react';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
+import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
-import { DialogOpenProps } from '@/utils/react';
+import { DialogOpenProps } from '@tensnap/web-common/react';
 import { useSettingsStore } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
 import { useToast } from '@/store/toast';
 
 import * as styles from './SettingsDialog.css';
-import Form from '@/components/ui/Form';
+import Form from '@tensnap/web-common/components/ui/Form';
 
-export interface SettingsDialogProps extends DialogOpenProps {
-
-}
+export type SettingsDialogProps = DialogOpenProps;
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   open,
@@ -31,36 +29,44 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     locale,
     clientMessageValidation,
     serverMessageValidation,
+    renderTriggerMode,
+    maxTps,
+    maxRenderFps,
     setSaveFormat,
     toggleTheme,
     setLocale,
     setClientMessageValidation,
     setServerMessageValidation,
+    setRenderTriggerMode,
+    setMaxTps,
+    setMaxRenderFps,
   } = useSettingsStore();
 
   const { activeProject, activeIndex, changeUrl } = useProjectStore();
+  const activeProjectId = activeProject?.id ?? null;
+  const currentProjectUrl = activeProject?.useTransportStore.getState().connectionId || '';
 
   // Project settings local state
-  const [backendUrl, setBackendUrl] = useState('');
-  const [hasProjectChanges, setHasProjectChanges] = useState(false);
+  const [projectDraft, setProjectDraft] = useState(() => ({
+    projectId: activeProjectId,
+    backendUrl: currentProjectUrl,
+    hasProjectChanges: false,
+  }));
 
-  // 同步当前项目的 URL
-  useEffect(() => {
-    if (activeProject) {
-      const currentUrl = activeProject.useWebSocketStore.getState().url || '';
-      setBackendUrl(currentUrl);
-      setHasProjectChanges(false);
-    } else {
-      setBackendUrl('');
-      setHasProjectChanges(false);
-    }
-  }, [activeProject]);
+  const backendUrl = projectDraft.projectId === activeProjectId
+    ? projectDraft.backendUrl
+    : currentProjectUrl;
+  const hasProjectChanges = projectDraft.projectId === activeProjectId
+    ? projectDraft.hasProjectChanges
+    : false;
 
   const handleBackendUrlChange = useCallback((value: string) => {
-    setBackendUrl(value);
-    const currentUrl = activeProject?.useWebSocketStore.getState().url || '';
-    setHasProjectChanges(value !== currentUrl);
-  }, [activeProject]);
+    setProjectDraft({
+      projectId: activeProjectId,
+      backendUrl: value,
+      hasProjectChanges: value !== currentProjectUrl,
+    });
+  }, [activeProjectId, currentProjectUrl]);
 
   const handleProjectSettingsConfirm = useCallback(async () => {
     if (!activeProject || activeIndex === null) {
@@ -71,22 +77,24 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     try {
       await changeUrl(activeIndex, backendUrl);
       toast.success(_(msg`Project URL updated successfully`));
-      setHasProjectChanges(false);
+      setProjectDraft({
+        projectId: activeProjectId,
+        backendUrl,
+        hasProjectChanges: false,
+      });
     } catch (error) {
       toast.error(_(msg`Failed to update project URL`), error instanceof Error ? error.message : String(error));
       console.error('Failed to update project URL:', error);
     }
-  }, [activeIndex, backendUrl, changeUrl, toast, _, activeProject]);
+  }, [activeIndex, activeProject, activeProjectId, backendUrl, changeUrl, toast, _]);
 
   const handleProjectSettingsReset = useCallback(() => {
-    if (activeProject) {
-      const currentUrl = activeProject.useWebSocketStore.getState().url || '';
-      setBackendUrl(currentUrl);
-    } else {
-      setBackendUrl('');
-    }
-    setHasProjectChanges(false);
-  }, [activeProject]);
+    setProjectDraft({
+      projectId: activeProjectId,
+      backendUrl: currentProjectUrl,
+      hasProjectChanges: false,
+    });
+  }, [activeProjectId, currentProjectUrl]);
 
   const handleLocaleChange = useCallback(async (newLocale: string) => {
     if (!isValidLocale(newLocale)) {
@@ -183,6 +191,59 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <Trans>Error</Trans>
                 </Select.Item>
               </Select.Root>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Render Trigger</Trans></label>
+            <div className={styles.settingControl}>
+              <Select.Root value={renderTriggerMode} onValueChange={(value) => setRenderTriggerMode(value as 'auto' | 'setTimeout' | 'requestAnimationFrame')}>
+                <Select.Item value="auto">
+                  <Trans>Auto</Trans>
+                </Select.Item>
+                <Select.Item value="setTimeout">
+                  setTimeout
+                </Select.Item>
+                <Select.Item value="requestAnimationFrame">
+                  requestAnimationFrame
+                </Select.Item>
+              </Select.Root>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Max TPS</Trans></label>
+            <div className={styles.settingControl}>
+              <div>
+                <Form.Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={maxTps}
+                  onChange={(e) => setMaxTps(Number(e.target.value))}
+                />
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                  <Trans>0 means unlimited</Trans>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Max FPS</Trans></label>
+            <div className={styles.settingControl}>
+              <div>
+                <Form.Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={maxRenderFps}
+                  onChange={(e) => setMaxRenderFps(Number(e.target.value))}
+                />
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                  <Trans>0 means unlimited</Trans>
+                </div>
+              </div>
             </div>
           </div>
         </div>

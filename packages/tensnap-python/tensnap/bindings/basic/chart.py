@@ -86,17 +86,17 @@ def categorize_charts(
     client_charts: List[ChartMetadataDict], server_charts: List[ChartGroupMetadataDict]
 ):
     """
-        Categorize server charts into added, removed, and updated groups.
+    Categorize server charts into added, removed, and updated groups.
 
-        Added: Groups satisfying: 
-            - If the dataList length is 0, then the metadata IDs do not exist in client_charts. 
-            - If the length is non-zero, then all metadata IDs in this group do not exist in client_charts.
-        Removed: Metadata IDs that exist in client_charts but do not exist in server_charts.
-            - The definition of “does not exist” is similar to Added, determined by the dataList length.
-        Updated: Groups that some of the metadata IDs in this group do not exist in client_charts.
+    Added: Groups satisfying:
+        - If the dataList length is 0, then the metadata IDs do not exist in client_charts.
+        - If the length is non-zero, then all metadata IDs in this group do not exist in client_charts.
+    Removed: Metadata IDs that exist in client_charts but do not exist in server_charts.
+        - The definition of “does not exist” is similar to Added, determined by the dataList length.
+    Updated: Groups that some of the metadata IDs in this group do not exist in client_charts.
 
-        Returns:
-            dict with keys 'added', 'removed', 'updated'
+    Returns:
+        dict with keys 'added', 'removed', 'updated'
     """
     # Build set of client chart IDs for fast lookup
     client_ids: Set[str] = {chart["id"] for chart in client_charts}

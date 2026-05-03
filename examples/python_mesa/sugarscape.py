@@ -5,10 +5,17 @@ from mesa.space import MultiGrid
 
 import numpy as np
 
-from tensnap import bind_mesa_grid_agent, bind_datacollector, bind_mesa_grid_environment
+from tensnap import (
+    agent,
+    env,
+    agent_layer,
+    grid_layer,
+    trajectory_layer,
+    bind_datacollector,
+)
 
 
-@bind_mesa_grid_agent(color=True)
+@agent(color=True, data=True)
 class SugarAgent(Agent):
 
     model: "Sugarscape"
@@ -29,6 +36,14 @@ class SugarAgent(Agent):
         self.metabolism = float(np.random.uniform(*model.metabolism_range))
         self.vision = int(np.random.randint(*model.vision_range))
         self.sugar = float(np.random.uniform(*model.initial_sugar_range))
+
+    @property
+    def data(self):
+        return {
+            "metabolism": self.metabolism,
+            "vision": self.vision,
+            "sugar": self.sugar,
+        }
 
     def move(self):
         neighbors_sugar = list(
@@ -72,6 +87,46 @@ class SugarAgent(Agent):
         self.starve()
 
 
+@agent(color=True, data=True, x="pos[0]", y="pos[1]")
+class SugarPatchView:
+    """Presentation-only patch used to render the sugar field as a layer of square agents."""
+
+    icon = "square"
+    size = 1.0
+
+    def __init__(self, model: "Sugarscape", pos: Tuple[int, int]):
+        self.model = model
+        self.pos = pos
+        self.id = f"sugar:{pos[0]}:{pos[1]}"
+
+    @property
+    def data(self) -> dict[str, object]:
+        return {
+            "sugar": self.sugar,
+            "capacity": self.capacity,
+        }
+
+    @property
+    def sugar(self) -> int:
+        return int(self.model.sugar[self.pos])
+
+    @property
+    def capacity(self) -> int:
+        return int(self.model.sugar_max[self.pos])
+
+    @property
+    def color(self) -> str:
+        if self.sugar <= 0:
+            return "#6d3b13"
+        if self.sugar == 1:
+            return "#5c6887"
+        if self.sugar == 2:
+            return "#55a06b"
+        if self.sugar == 3:
+            return "#22c836"
+        return "#00ff00"
+
+
 def sugar_field_random(width: int, height: int):
     return np.random.choice([4, 3, 2, 1], size=(width, height))
 
@@ -92,11 +147,21 @@ def sugar_field_circular(width: int, height: int):
     return ret
 
 
+@env("sugarscape_env")
+@agent_layer("agents", z_index="z_agents")
+@agent_layer(
+    "sugar",
+    item_iterable_projector="sugar_patches",
+    z_index="z_sugar",
+)
+@grid_layer()
+@trajectory_layer(agent_layer_id="sugar", width=False, length="t_length")
 @bind_datacollector()
-@bind_mesa_grid_environment(background=True, trajectory_length=True)
 class Sugarscape(Model):
 
-    trajectory_length = 2
+    z_agents = 50
+    z_sugar = 0
+    t_length = 2
 
     def __init__(
         self,
@@ -126,6 +191,9 @@ class Sugarscape(Model):
 
         self.sugar_max = np.copy(self.sugar)
         self.sugar_growth_rate = sugar_growth_rate
+        self.sugar_patches = [
+            SugarPatchView(self, (x, y)) for x in range(width) for y in range(height)
+        ]
 
         # 保存智能体属性范围，供创建智能体时使用
         self.metabolism_range = metabolism_range
@@ -144,9 +212,7 @@ class Sugarscape(Model):
 
     def create_agents(self, agent_count):
         gw, gh = self.grid.width, self.grid.height
-        sequence = np.random.choice(
-            gw * gh, (agent_count,), replace=False
-        )
+        sequence = np.random.choice(gw * gh, (agent_count,), replace=False)
         for w in sequence:
             x = w % gw
             y = (w - x) // gw
@@ -178,13 +244,3 @@ class Sugarscape(Model):
             total_vision = sum(cast(SugarAgent, a).vision for a in self.agents)
             return float(total_vision / len(self.agents))
         return 0.0
-
-    @property
-    def background(self):
-        img = np.zeros((self.grid.height, self.grid.width, 3), dtype=np.uint8)
-        img[(self.sugar == 0).T] = [109, 59, 19]  # Brown for no sugar
-        img[(self.sugar == 1).T] = [92, 104, 135]  # Light brown for low sugar
-        img[(self.sugar == 2).T] = [85, 160, 107]  # Light green for medium sugar
-        img[(self.sugar == 3).T] = [34, 200, 54]  # Green for high sugar
-        img[(self.sugar >= 4).T] = [0, 255, 0]  # Bright green for max sugar
-        return img

@@ -1,6 +1,6 @@
 {
-  "name": "tensnap-tauri",
-  "version": "0.1.0",
+  "name": "@tensnap/tauri",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,29 +10,37 @@
     "build:web": "vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "clean": "rm -rf dist node_modules src-tauri/target"
+    "clean": "rm -rf dist node_modules src-tauri/target",
+    "i18n:extract": "lingui extract",
+    "i18n:compile": "lingui compile"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.10.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tensnap-web": "workspace:*"
+    "@lingui/cli": "^6.0.1",
+    "@lingui/core": "^6.0.1",
+    "@lingui/macro": "^5.9.5",
+    "@lingui/react": "^6.0.1",
+    "@tauri-apps/api": "^2.11.0",
+    "@tensnap/web": "workspace:*",
+    "@tensnap/web-common": "workspace:*",
+    "leafer-ui": "^2.1.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "@lingui/vite-plugin": "^5.9.1",
-    "@tauri-apps/cli": "^2.10.0",
+    "@lingui/swc-plugin": "^6.0.0",
+    "@lingui/vite-plugin": "^6.0.1",
+    "@tauri-apps/cli": "^2.11.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.56.0",
-    "@typescript-eslint/parser": "^8.56.0",
-    "@vanilla-extract/css": "^1.18.0",
-    "@vanilla-extract/vite-plugin": "^5.1.4",
-    "@vitejs/plugin-react": "^5.1.4",
-    "babel-plugin-macros": "^3.1.0",
-    "eslint": "^10.0.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.0",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/parser": "^8.59.1",
+    "@vanilla-extract/css": "^1.20.1",
+    "@vanilla-extract/vite-plugin": "^5.2.2",
+    "@vitejs/plugin-react-swc": "^4.3.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
   }
 }

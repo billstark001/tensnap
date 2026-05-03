@@ -1,186 +1,47 @@
 
-export type AgentIcon = 'arrow' | 'circle' | 'square' | 'triangle';
-
-export type EnvironmentType = 'grid' | 'graph' | 'uniform';
-
-export type AgentId = string | number;
-
-export type EnvironmentId = string;
-
-import type { Parameter } from 'tensnap-web-core';
-import type { ChartGroup } from 'tensnap-web-core';
-
-export interface AgentTrajectoryPoint {
-  x: number;
-  y: number;
-  time: number;
-  color?: string;
-}
-
-export interface Agent {
-  id: AgentId;
-  color?: string;
-  icon?: AgentIcon;
-  size?: number;
-  data?: Record<string, any>;
-}
-
-export interface EnvironmentBase {
-  id: EnvironmentId;
-  type: EnvironmentType;
-  label?: string;
-  agents: Agent[];
-}
-
-// #region Grid Environment
-
-export interface GridAgent extends Agent {
-  x: number;
-  y: number;
-  heading: number;
-  trajectory_length?: number;
-  trajectory_color?: string;
-}
-
-export type GridEnvironmentCoordOffset = 'int' | 'float';
-
-export interface PureGridEnvironment {
-  width: number;
-  height: number;
-  coord_offset?: GridEnvironmentCoordOffset; // default to 'int'
-  background?: Uint8Array | string;
-  trajectory_length?: number; // <=0: infinity
-  trajectory_color?: string;
-}
-
-export interface GridEnvironment extends PureGridEnvironment, EnvironmentBase {
-  id: EnvironmentId;
-  type: 'grid';
-  agents: GridAgent[];
-}
-
-// #endregion
-
-// #region Graph Environment
-
-export interface GraphAgent extends Agent {
-  x?: number;
-  y?: number;
-}
-
-export interface GraphEdge {
-  source: AgentId;
-  target: AgentId;
-  directed?: boolean;
-  style?: 'solid' | 'dashed' | 'dotted';
-  width?: number;
-  color?: string;
-}
-
-export interface PureGraphEnvironment {
-  edges: GraphEdge[];
-}
-
-export interface GraphEnvironment extends PureGraphEnvironment, EnvironmentBase {
-  id: EnvironmentId;
-  type: 'graph';
-  agents: GraphAgent[];
-}
-
-// #endregion
-
-// #region Uniform Environment
-
-export interface UniformAgent extends Agent {
-  // no additional properties for now
-}
-
-export interface PureUniformEnvironment {
-  // no additional properties for now
-}
-
-export interface UniformEnvironment extends PureUniformEnvironment, EnvironmentBase {
-  id: EnvironmentId;
-  type: 'uniform';
-  agents: UniformAgent[];
-}
-
-// #endregion
-
-export type PureEnvironment = PureGridEnvironment | PureGraphEnvironment | PureUniformEnvironment;
-
-export type Environment = GridEnvironment | GraphEnvironment | UniformEnvironment;
-
-// #region Parameters — sourced from tensnap-web-core
-
 export type {
-  ParameterType,
-  ParameterBase,
-  NumberParameter,
-  EnumParameter,
-  ActionParameter,
+  Action,
   BooleanParameter,
-  StringParameter,
+  ChartGroup,
+  ChartGroupMetadata,
+  ChartMetadata,
+  ChartUpdateData,
+  ChartUpdateOperation,
+  EnumParameter,
+  NumberParameter,
   Parameter,
-} from 'tensnap-web-core';
-
-// #endregion
-
-// #region Charts — sourced from tensnap-web-core
+  ParameterBase,
+  ParameterType,
+  ScenarioEnvironmentSnapshot,
+  ScenarioEnvironmentState,
+  ScenarioLayerSnapshot,
+  ScenarioLayerState,
+  ScenarioSnapshot,
+  StringParameter,
+} from '@tensnap/core';
 
 export type {
-  ChartMetadata,
-  ChartGroupMetadata,
-  NativeDataPoint,
-  ChartGroup,
-  ChartUpdateData,
-} from 'tensnap-web-core';
+  AgentIcon,
+  AgentId,
+  Agent,
+  GraphAgentState,
+  GraphEdge,
+  GridAgentState,
+  GridCoordOffset,
+  GridEnvConfig,
+  TrajectoryPoint,
+} from '@tensnap/core/environment';
 
-// Protocol-specific chart operation types (not in web-core)
-export type ChartUpdateOperationType = 'clear';
+export type { ChartSeriesPoint } from '@tensnap/core/chart';
 
-export interface ChartUpdateOperation {
-  id: string;
-  operation: ChartUpdateOperationType;
-}
-
-// #endregion
-
-// #region Snapshots
-
-export interface SimulationState {
-  connected: boolean;
-  currentTime: number;
-  environments: Environment[];
-  parameters: Parameter[];
-  charts: ChartGroup[];
-  snapshots: Snapshot[];
-}
-
-export interface SnapshotChartData {
-  id: string;
-  value: number;
-}
-
-export interface SnapshotMetadata {
+export interface SnapshotIdentity {
   id: string;
   timestamp: number;
-  timeStep: number;
 }
 
-export interface Snapshot extends SnapshotMetadata {
-  environments: Environment[];
-  parameters: Parameter[];
-  chartData: SnapshotChartData[];
+export function getSnapshotIdentity(snapshot: import('@tensnap/core').ScenarioSnapshot): SnapshotIdentity {
+  return {
+    id: String(snapshot.metadata.id ?? ''),
+    timestamp: Number(snapshot.metadata.timestamp ?? 0),
+  };
 }
-
-export const defaultSimulationState = (): SimulationState => ({
-  connected: false,
-  currentTime: 0,
-  environments: [],
-  parameters: [],
-  charts: [],
-  snapshots: [],
-});
-
-// #endregion

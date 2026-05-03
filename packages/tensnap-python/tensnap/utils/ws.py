@@ -1,7 +1,9 @@
 from typing import List, Set, Dict
 import asyncio
 import logging
-from websockets.server import WebSocketServerProtocol
+from websockets.asyncio.server import ServerConnection
+from websockets.exceptions import ConnectionClosed
+from websockets.protocol import State
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -11,15 +13,13 @@ class BatchedMessageQueue:
     def __init__(self, batch_size: int = 50, flush_interval: float = 0.01):
         self.batch_size = batch_size
         self.flush_interval = flush_interval
-        self._queue: List[tuple[Set[WebSocketServerProtocol], str | bytes]] = []
+        self._queue: List[tuple[Set[ServerConnection], str | bytes]] = []
         self._lock = asyncio.Lock()
         self._flush_task: asyncio.Task | None = None
         self._last_flush = 0
         self._closed = False
 
-    async def add(
-        self, clients: Set[WebSocketServerProtocol], message: str | bytes
-    ) -> None:
+    async def add(self, clients: Set[ServerConnection], message: str | bytes) -> None:
         """Add a message to the queue and trigger flush if necessary."""
         if self._closed:
             logger.warning("Cannot add message to closed queue")
@@ -47,7 +47,7 @@ class BatchedMessageQueue:
 
     async def flush(self) -> None:
         """Public flush method that respects the lock."""
-        if self._closed:
+        if self._closed and not self._queue:
             return
         await self._trigger_flush()
         if self._flush_task:
@@ -60,9 +60,7 @@ class BatchedMessageQueue:
                 return
 
             # Group messages by client to minimize send operations
-            client_msgs: Dict[WebSocketServerProtocol, List[str | bytes]] = defaultdict(
-                list
-            )
+            client_msgs: Dict[ServerConnection, List[str | bytes]] = defaultdict(list)
             for clients, msg in self._queue:
                 for client in clients:
                     client_msgs[client].append(msg)
@@ -90,11 +88,11 @@ class BatchedMessageQueue:
 
     @staticmethod
     async def _send_batch(
-        client: WebSocketServerProtocol, messages: List[str | bytes]
+        client: ServerConnection, messages: List[str | bytes]
     ) -> None:
         """Send multiple messages to a single client efficiently."""
         try:
-            if client.closed:
+            if client.state is not State.OPEN:
                 return
 
             # Send messages sequentially to the same client
@@ -102,7 +100,7 @@ class BatchedMessageQueue:
             for message in messages:
                 await client.send(message)
 
-        except (ConnectionError, asyncio.CancelledError):
+        except (ConnectionClosed, ConnectionError, asyncio.CancelledError):
             # Expected exceptions during client disconnect
             pass
         except Exception as e:
@@ -110,11 +108,9 @@ class BatchedMessageQueue:
 
     async def close(self) -> None:
         """Gracefully close the queue and flush remaining messages."""
+        await self.flush()
         async with self._lock:
             self._closed = True
-
-        # Flush any remaining messages
-        await self.flush()
         if self._flush_task and not self._flush_task.done():
             try:
                 await asyncio.wait_for(self._flush_task, timeout=5.0)

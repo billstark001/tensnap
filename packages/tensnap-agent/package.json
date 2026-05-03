@@ -1,0 +1,50 @@
+{
+  "name": "@tensnap/agent",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Scene-centric CLI runtime for TenSnap automation agents.",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./runtime": "./dist/runtime/index.js",
+    "./session": "./dist/session/index.js"
+  },
+  "bin": {
+    "tensnap-agent": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx src/bin.ts",
+    "build": "node ./scripts/build.mjs",
+    "cli": "pnpm run build && node ./dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "echo 'Linting not configured yet'",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.1",
+    "@leafer-ui/node": "^2.1.0",
+    "@tensnap/core": "workspace:*",
+    "canvas": "^3.2.3",
+    "hono": "^4.12.16",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  },
+  "keywords": [
+    "tensnap",
+    "cli",
+    "agent",
+    "automation"
+  ]
+}

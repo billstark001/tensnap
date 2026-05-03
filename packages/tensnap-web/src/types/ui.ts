@@ -20,6 +20,7 @@ export type ButtonView = BaseView<
   {
     id: string;
     text: string;
+    continuous?: boolean;
   }>;
 
 export type AnchoredView = BaseView<

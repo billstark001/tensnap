@@ -1,16 +1,18 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
+import react from '@vitejs/plugin-react-swc';
 import { lingui } from '@lingui/vite-plugin';
+import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import path from 'path';
+import pkg from './package.json';
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react({
-      babel: {
-        plugins: ['macros'],
-      },
+      plugins: [['@lingui/swc-plugin', {}]],
     }),
     lingui(),
     vanillaExtractPlugin(),
@@ -30,19 +32,9 @@ export default defineConfig({
   },
 
   resolve: {
-    alias: {
-      'tensnap-web/Providers': path.resolve(__dirname, '../tensnap-web/src/Providers.tsx'),
-      'tensnap-web/App': path.resolve(__dirname, '../tensnap-web/src/App.tsx'),
-      'tensnap-web/i18n': path.resolve(__dirname, '../tensnap-web/src/i18n.ts'),
-      'tensnap-web/store/file-system/adapter': path.resolve(__dirname, '../tensnap-web/src/store/file-system/adapter.ts'),
-      'tensnap-web/store/file-system/provider': path.resolve(__dirname, '../tensnap-web/src/store/file-system/provider.tsx'),
-      'tensnap-web/store/file-system/store': path.resolve(__dirname, '../tensnap-web/src/store/file-system/store.ts'),
-      'tensnap-web/types/file': path.resolve(__dirname, '../tensnap-web/src/types/file.ts'),
-      'tensnap-web': path.resolve(__dirname, '../tensnap-web'),
-
-      // Handle @ alias from tensnap-web package when imported by tauri
-      '@': path.resolve(__dirname, '../tensnap-web/src'),
-    },
+    alias: [
+      { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
+    ],
   },
 
   build: {

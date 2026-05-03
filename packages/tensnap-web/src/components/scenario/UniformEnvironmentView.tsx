@@ -1,17 +1,23 @@
 // UniformEnvironmentView.tsx
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { UniformAgent } from '@/types/model';
-import { InstantiatedUniformEnvironment } from '@/store/scenario/environment';
-import { Pagination } from '@/components/ui/Pagination';
-import { AgentDetailsDialog, createIconElement } from '../../dialogs/AgentDetailsDialog';
+import { Agent as UniformAgent } from '@/types/model';
+import { AnchoredView } from '@/types/ui';
+import { Pagination } from '@tensnap/web-common/components/ui/Pagination';
+import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
+import { createIconElement } from '../../dialogs/AgentIconElement';
 import * as styles from './UniformEnvironmentView.css';
 import { Trans } from '@lingui/react/macro';
-import { msg } from '@lingui/core/macro';
+import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
-import { EmptyState } from '../ui/EmptyState';
+import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
+import { ScenarioEnvironmentState } from '@tensnap/core';
+import { AgentStorage } from '@tensnap/core/environment';
+import { useScenarioStore } from '@/store/scenario/store';
 
 interface UniformEnvironmentViewProps {
-  environment: InstantiatedUniformEnvironment;
+  environment: ScenarioEnvironmentState;
+  updateTrigger?: number;
+  view?: AnchoredView;
 }
 
 const AGENTS_PER_PAGE = 12;
@@ -19,18 +25,22 @@ const AGENTS_PER_PAGE = 12;
 // Agent card component
 const AgentCard = ({
   agent,
+  resolveAssetUrl,
   onClick,
 }: {
   agent: UniformAgent;
+  resolveAssetUrl: (assetId: string) => string | undefined;
   onClick: () => void;
 }) => {
   const size = agent.size || 16;
   const color = agent.color || '#666666';
+  const assetId = agent.icon?.startsWith('asset:') ? agent.icon.slice('asset:'.length) : null;
+  const assetUrl = assetId ? resolveAssetUrl(assetId) : undefined;
 
   return (
     <div className={styles.agentCard} onClick={onClick}>
       <div className={styles.agentIcon}>
-        {createIconElement(agent.icon, size, color)}
+        {createIconElement(agent.icon, size, color, assetUrl)}
       </div>
       <div className={styles.agentInfo}>
         <div className={styles.agentId}>#{agent.id}</div>
@@ -64,13 +74,35 @@ const EmptyAgentState = ({
 // Main component
 export function UniformEnvironmentView({
   environment,
+  updateTrigger,
 }: UniformEnvironmentViewProps) {
-  const { agents } = environment;
   const [selectedAgent, setSelectedAgent] = useState<UniformAgent | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [agentsList, setAgentsList] = useState<UniformAgent[]>([]);
+  const scenario = useScenarioStore((store) => store.scenario);
+  useScenarioStore((store) => store._assetRevision);
 
-  const agentsList = useMemo(() => Object.values(agents), [agents]);
+  useEffect(() => {
+    const storages = [...environment.layers.values()]
+      .filter((layer) => layer.storage instanceof AgentStorage)
+      .map((layer) => layer.storage as AgentStorage);
+
+    const collectAgents = () => {
+      const merged: UniformAgent[] = [];
+      for (const storage of storages) {
+        merged.push(...Array.from(storage.getData().agents.values()) as UniformAgent[]);
+      }
+      setAgentsList(merged);
+    };
+
+    collectAgents();
+    const unsubscribers = storages.map((storage) => storage.subscribe(() => collectAgents()));
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [environment, updateTrigger]);
 
   const filteredAgents = useMemo(() => {
     if (!searchTerm.trim()) return agentsList;
@@ -85,18 +117,12 @@ export function UniformEnvironmentView({
   }, [agentsList, searchTerm]);
 
   const totalPages = Math.ceil(filteredAgents.length / AGENTS_PER_PAGE);
+  const safeCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
 
   const paginatedAgents = useMemo(() => {
-    const startIndex = (currentPage - 1) * AGENTS_PER_PAGE;
+    const startIndex = (safeCurrentPage - 1) * AGENTS_PER_PAGE;
     return filteredAgents.slice(startIndex, startIndex + AGENTS_PER_PAGE);
-  }, [filteredAgents, currentPage]);
-
-  // Reset to first page when filtered results change
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
+  }, [filteredAgents, safeCurrentPage]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,20 +175,25 @@ export function UniformEnvironmentView({
               <AgentCard
                 key={agent.id}
                 agent={agent}
+                resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
                 onClick={() => handleAgentClick(agent)}
               />
             ))}
           </div>
 
           <Pagination
-            currentPage={currentPage}
+            currentPage={safeCurrentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
           />
         </>
       )}
 
-      <AgentDetailsDialog agent={selectedAgent} onClose={handleCloseDialog} />
+      <AgentDetailsDialog
+        agent={selectedAgent}
+        resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
+        onClose={handleCloseDialog}
+      />
     </div>
   );
 }

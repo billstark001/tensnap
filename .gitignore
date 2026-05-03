@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 *.local
+package-lock.json
 
 # Production
 dist/
@@ -31,6 +32,7 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+.tensnap
 
 # Misc
 *.log
@@ -44,3 +46,4 @@ htmlcov/
 _instructions
 # Local Netlify folder
 .netlify
+.lsp

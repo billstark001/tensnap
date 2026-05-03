@@ -1,24 +1,32 @@
+import './runtime/leafer-runtime';
+
 import React, { PropsWithChildren } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Providers } from './Providers';
 import { App } from './App';
 
-import './styles/global.css';
-import { InBrowserFilePicker, createSchellingSimulation, createWolfSheepSimulation } from 'tensnap-web-utils';
-import { WebSocketManagerFake } from './websocket/fake';
-import { initI18n, detectLocale, isValidLocale, i18n } from './i18n';
+import '@tensnap/web-common/styles/global.css';
+import { InBrowserFilePicker, registerWebAdapterLocaleCatalog } from '@tensnap/web-adapter';
+import { getBuiltinModelEntries } from '@tensnap/web-models';
+import { initI18n, detectLocale, isValidLocale, i18n, registerLocaleCatalog } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
-import { IndexedDBFileSystemAdapter } from 'tensnap-web-utils/adapters';
+import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
 import { I18nProvider } from '@lingui/react';
+import { registerBuiltinModels } from './transport';
 
 
 if (!window.structuredClone) {
   window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
 }
 
-// Register fake models for development/testing
-WebSocketManagerFake.setGlobalOptions('fake:schelling', createSchellingSimulation() as any);
-WebSocketManagerFake.setGlobalOptions('fake:wolf-sheep', createWolfSheepSimulation() as any);
+registerBuiltinModels(
+  getBuiltinModelEntries().map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    description: entry.description,
+    create: entry.createTransport,
+  }))
+);
 
 function isDarkMode() {
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -33,6 +41,7 @@ const savedLocale = localStorage.getItem('locale');
 const initialLocale = (savedLocale && isValidLocale(savedLocale)) ? savedLocale : detectLocale();
 
 (async () => {
+  registerWebAdapterLocaleCatalog(registerLocaleCatalog);
   await initI18n(initialLocale);
 
   // Register available file system adapters

@@ -1,76 +1,31 @@
-import * as Dialog from '@/components/ui/Dialog';
-import { GridAgent, GraphAgent, UniformAgent, AgentIcon, EnvironmentType } from '@/types/model';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as styles from './AgentDetailsDialog.css';
-import clsx from 'clsx';
 import { Trans } from '@lingui/react/macro';
+import type { AgentRenderState } from '@tensnap/core/environment';
+import { createIconElement } from './AgentIconElement';
 
 // Union type for all agent types
-export type AnyAgent = GridAgent | GraphAgent | UniformAgent;
 
 interface AgentDetailsDialogProps {
-  agent: AnyAgent | null;
-  agentType?: EnvironmentType;
+  agent: AgentRenderState | null;
+  agentType?: '2d' | 'uniform';
   onClose: () => void;
   open?: boolean;
+  resolveAssetUrl?: (assetId: string) => string | undefined;
 }
-
-// Helper function to create icon elements
-export const createIconElement = (
-  icon: AgentIcon | undefined | null,
-  size: number,
-  color: string
-) => {
-  const commonStyle = {
-    width: `${size}px`,
-    height: `${size}px`,
-    color,
-  };
-
-  switch (icon) {
-    case 'arrow':
-      return (
-        <div className={clsx(styles.iconWrapper, styles.iconArrow)} style={commonStyle}>
-          ▲
-        </div>
-      );
-    case 'square':
-      return (
-        <div className={clsx(styles.iconWrapper, styles.iconSquare)} style={commonStyle}>
-          ■
-        </div>
-      );
-    case 'triangle':
-      return (
-        <div
-          className={clsx(styles.iconWrapper, styles.iconTriangle)}
-          style={{
-            width: 0,
-            height: 0,
-            backgroundColor: 'transparent',
-            borderLeft: `${size / 2}px solid transparent`,
-            borderRight: `${size / 2}px solid transparent`,
-            borderBottom: `${size}px solid ${color}`,
-          }}
-        />
-      );
-    default: // circle
-      return (
-        <div className={clsx(styles.iconWrapper, styles.iconCircle)} style={commonStyle}>
-          ●
-        </div>
-      );
-  }
-};
 
 // Component to render position information
 const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps, 'agent' | 'agentType'>) => {
-  if (agentType === 'grid') {
-    const agent = _agent as GridAgent;
+  if (agentType === '2d') {
+    const agent = _agent as AgentRenderState;
     return (
       <div className={styles.positionInfo}>
         <div className={styles.detailRow}>
           <span className={styles.detailLabel}><Trans>Position:</Trans></span>
-          ({agent.x?.toFixed(4)}, {agent.y?.toFixed(4)})
+          {agent.x !== undefined && agent.y !== undefined
+            ? `(${agent.x.toFixed(4)}, ${agent.y.toFixed(4)})`
+            : <Trans>Not positioned</Trans>
+          }
         </div>
         {agent.heading !== undefined && (
           <div className={styles.headingInfo}>
@@ -78,19 +33,6 @@ const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps
             {(agent.heading * 180 / Math.PI).toFixed(2)}°
           </div>
         )}
-      </div>
-    );
-  }
-
-  if (agentType === 'graph') {
-    const agent = _agent as GraphAgent;
-    return (
-      <div className={styles.detailRow}>
-        <span className={styles.detailLabel}><Trans>Position:</Trans></span>
-        {agent.x !== undefined && agent.y !== undefined
-          ? `(${agent.x.toFixed(2)}, ${agent.y.toFixed(2)})`
-          : <Trans>Not positioned</Trans>
-        }
       </div>
     );
   }
@@ -104,6 +46,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     onClose,
     open,
     agentType = 'uniform',
+    resolveAssetUrl,
   } = props;
 
   const isOpen = open ?? !!agent;
@@ -112,6 +55,8 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
 
   const size = agent.size || 16;
   const color = agent.color || '#666666';
+  const assetId = agent.icon?.startsWith('asset:') ? agent.icon.slice('asset:'.length) : null;
+  const assetUrl = assetId ? resolveAssetUrl?.(assetId) : undefined;
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -133,7 +78,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
         <div className={styles.detailRow}>
           <span className={styles.detailLabel}><Trans>Icon:</Trans></span>
           <div className={styles.agentIcon}>
-            {createIconElement(agent.icon, size, color)}
+            {createIconElement(agent.icon, size, color, assetUrl)}
           </div>
           {agent.icon || 'circle'}
         </div>

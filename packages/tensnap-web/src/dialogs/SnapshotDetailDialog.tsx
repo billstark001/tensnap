@@ -1,43 +1,53 @@
 import React, { useMemo } from 'react';
-import * as Dialog from '@/components/ui/Dialog';
-import { DialogOpenProps } from '@/utils/react';
+import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
+import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
-import { Environment, Snapshot } from '@/types/model';
+import { Scenario, ScenarioEnvironmentSnapshot, ScenarioSnapshot } from '@tensnap/core';
+import { getSnapshotIdentity } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import clsx from 'clsx';
-import { GridEnvironmentView } from '../components/scenario/GridEnvironmentView';
-import { InstantiatedGraphEnvironment, InstantiatedGridEnvironment, InstantiatedUniformEnvironment, instantiateEnvironment } from '@/store/scenario/environment';
-import { GraphEnvironmentView } from '../components/scenario/GraphEnvironmentView';
+import { Environment2DView } from '../components/scenario/Environment2DView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
+import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
+import { ViewErrorBoundary } from '../components/view/ViewErrorBoundary';
+import { formatTimestamp } from '@/utils/date';
 
 
 const EnvironmentRenderer = (props: {
-  environment: Environment;
+  environment: ScenarioEnvironmentSnapshot;
 }) => {
-  const { environment: _environment } = props;
+  const { environment } = props;
+  const liveEnvironment = useMemo(() => {
+    const scenario = new Scenario();
+    scenario.load({
+      metadata: {},
+      actions: [],
+      parameters: [],
+      environments: [environment],
+      charts: [],
+      logs: [],
+    });
+    return scenario.getEnvironment(environment.id);
+  }, [environment]);
+  const displayType = liveEnvironment ? getEnvironmentDisplayType(liveEnvironment) : null;
 
-  const environment = useMemo(() => {
-    try {
-      const e = instantiateEnvironment(_environment);
-      return e;
-    } catch (error) {
-      console.error('Failed to instantiate environment:', error);
-      return null;
-    }
-  }, [_environment]);
-
-  if (!environment || !environment.type) {
-    return <div>Failed to load environment: {_environment.id}</div>;
+  if (!liveEnvironment) {
+    return <div>Environment not found: {environment.id}</div>;
   }
 
-  if (environment.type === 'grid') {
-    return <GridEnvironmentView environment={environment as InstantiatedGridEnvironment} />;
+  if (displayType === '2d') {
+    return (
+      <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>
+        <Environment2DView environment={liveEnvironment} />
+      </ViewErrorBoundary>
+    );
   }
-  if (environment.type === 'graph') {
-    return <GraphEnvironmentView environment={environment as InstantiatedGraphEnvironment} />;
-  }
-  if (environment.type === 'uniform') {
-    return <UniformEnvironmentView environment={environment as InstantiatedUniformEnvironment} />;
+  if (displayType === 'uniform') {
+    return (
+      <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>
+        <UniformEnvironmentView environment={liveEnvironment} />
+      </ViewErrorBoundary>
+    );
   }
 
   return <div>Unsupported environment type: {environment.type}</div>;
@@ -45,7 +55,7 @@ const EnvironmentRenderer = (props: {
 
 
 export interface SnapshotDetailDialogProps extends DialogOpenProps {
-  snapshot: Snapshot | null;
+  snapshot: ScenarioSnapshot | null;
   onDelete: () => void;
   onRestore: () => void;
 }
@@ -61,9 +71,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
     return null;
   }
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
+  const snapshotIdentity = getSnapshotIdentity(snapshot);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
@@ -82,21 +90,21 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
             <span className={styles.detailLabel}>
               <Trans>ID:</Trans>
             </span>
-            <span className={styles.detailValue}>{snapshot.id}</span>
+            <span className={styles.detailValue}>{snapshotIdentity.id}</span>
           </div>
 
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>
               <Trans>Timestamp:</Trans>
             </span>
-            <span className={styles.detailValue}>{formatDate(snapshot.timestamp)}</span>
+            <span className={styles.detailValue}>{formatTimestamp(snapshotIdentity.timestamp)}</span>
           </div>
 
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>
               <Trans>Time Step:</Trans>
             </span>
-            <span className={styles.detailValue}>{snapshot.timeStep}</span>
+            <span className={styles.detailValue}>{String(snapshot.metadata.time ?? '-')}</span>
           </div>
 
           <div className={styles.detailRow}>
@@ -115,14 +123,14 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
                 <div key={param.id} className={styles.parameterItem}>
                   <span className={styles.parameterLabel}>{param.label}:</span>
                   <span className={styles.parameterValue}>
-                    {param.type === 'action' ? '-' : String(param.value)}
+                    {String((param as { value?: any }).value ?? '-')}
                   </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {snapshot.chartData && snapshot.chartData.length > 0 && (
+          {snapshot.charts && snapshot.charts.length > 0 && (
             <>
               <Dialog.Separator />
               <div className={clsx(styles.detailSection, 'scroll')}>
@@ -130,11 +138,11 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
                   <Trans>Chart Data</Trans>
                 </h4>
                 <div className={styles.parameterList}>
-                  {snapshot.chartData.map((data) => (
-                    <div key={data.id} className={styles.parameterItem}>
-                      <span className={styles.parameterLabel}>{data.id}:</span>
+                  {snapshot.charts.map((group) => (
+                    <div key={group.id} className={styles.parameterItem}>
+                      <span className={styles.parameterLabel}>{group.label || group.id}:</span>
                       <span className={styles.parameterValue}>
-                        {typeof data.value === 'number' ? data.value.toFixed(4) : String(data.value)}
+                        {group.data.length} pts
                       </span>
                     </div>
                   ))}
@@ -152,7 +160,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
               <div key={env.id} className={styles.environmentItem}>
                 <div className={styles.environmentHeader}>
                   <span className={styles.environmentType}>{env.type}</span>
-                  <span className={styles.environmentLabel}>{env.label || env.id}</span>
+                  <span className={styles.environmentLabel}>{env.id}</span>
                 </div>
                 <div className={styles.environmentDisplay}>
                   <EnvironmentRenderer environment={env} />

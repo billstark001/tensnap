@@ -51,7 +51,7 @@ def resource_metrics_chart() -> dict:
 
 # Main function
 async def main() -> None:
-    # Create Mesa simulation handler
+    # The custom handler keeps Mesa's convenience API while exposing the sugar field as a dedicated resource layer.
     global handler
     handler = MesaSimulationHandler(
         model_class=Sugarscape,

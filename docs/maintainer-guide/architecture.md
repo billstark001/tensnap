@@ -1,290 +1,261 @@
 # TenSnap Architecture
 
-Architecture overview for maintainers and contributors.
+Architecture overview for maintainers working on the 0.2.0 codebase.
 
-## System Overview
+## System Model
 
-TenSnap separates simulation logic, communication, and visualization:
+TenSnap is organized around a renderer-owned state model.
+
+- The simulator computes domain state and emits protocol messages.
+- The renderer owns the in-memory `Scenario` and applies those messages locally.
+- Rendering, snapshots, charts, assets, and UI are all derived from renderer-side state.
 
 ```text
-┌──────────────┐    WebSocket    ┌──────────────┐
-│  Python      │◄───────────────►│  React       │
-│  Backend     │   MessagePack   │  Frontend    │
-│              │                 │              │
-│ • Scenario   │                 │ • Zustand    │
-│ • Server     │                 │ • Leafer UI  │
-│ • SimLoop    │                 │ • Recharts   │
-└──────────────┘                 └──────────────┘
+┌──────────────────────┐     protocol v0.2      ┌──────────────────────┐
+│ Simulator runtime    │ <────────────────────> │ Renderer runtime     │
+│                      │   JSON / MessagePack   │                      │
+│ Python / TS / other  │                        │ web / tauri / agent  │
+│ step executor        │                        │ Scenario owner       │
+└──────────────────────┘                        └──────────────────────┘
 ```
 
-**Design Principles**:
+The protocol intentionally uses `renderer` / `simulator` terminology rather than `client` / `server`, because the same contract is used by the browser app, the Tauri shell, and headless agent runtimes.
 
-- **Language Agnostic**: Protocol supports any backend language
-- **Decoupled**: Clear separation of concerns
-- **Real-time**: Optimized for fast updates with many agents
-- **Flexible APIs**: High-level decorators to low-level protocol access
+## Package Map
 
-## API Levels
+### `packages/core`
 
-### High-Level (Decorator-Based Binding)
+Shared runtime and protocol package.
 
-Metadata binding with class decorators for automatic synchronization:
+Owns:
 
-```python
-from tensnap import SimulationScenario, bind_grid_agent, bind_grid_environment, chart
+- protocol v0.2 message types, schemas, and codecs
+- `Scenario` state model and snapshot logic
+- layer registry, dependency graph, and render-plan helpers
+- shared environment storages and built-in render layers
+- shared runtime pipeline helpers
+- project-level `AssetStore`
 
-# Define agent with metadata binding
-@bind_grid_agent(heading=True, color=True, size=True)
-class Bird:
-    def __init__(self, bird_id, x, y):
-        self.id = bird_id
-        self.x = x
-        self.y = y
-        self.heading = 0
-        self.color = "#3498db"
-        self.size = 5
+This package is the architectural center of the repository.
 
-# Define environment with metadata binding
-@bind_grid_environment(coord_offset=True, trajectory_length=True)
-class FlockSimulation:
-    coord_offset = "float"
-    trajectory_length = 5
-    
-    def __init__(self):
-        self.birds = []
-    
-    @property
-    def width(self): return 50
-    
-    @property
-    def height(self): return 50
+### `packages/tensnap-web`
 
-# Unified scenario interface
-scenario = SimulationScenario(port=8765)
-scenario.add_environment(GridEnvironmentBinder(id="main", environment=model, agent_iterable_accessor='birds'))
-scenario.add_parameters(config)  # Auto-detect from dataclass
-scenario.add_charts(globals())   # Auto-detect @chart decorators
-```
+Main browser renderer application.
 
-### Mid-Level (Binder Classes)
+Owns:
 
-Explicit environment configuration with accessor functions:
+- browser transport wiring
+- scenario store integration
+- project/file UI
+- environment/chart views
+- screenshot capture registry and browser-only integrations
 
-```python
-from tensnap import GridEnvironmentBinder, make_grid_agent_accessor
+### `packages/tensnap-tauri`
 
-binder = GridEnvironmentBinder(
-    id="main",
-    environment=model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True)
-)
-scenario.add_environment(binder)
-```
+Desktop wrapper around the web renderer.
 
-### Low-Level (Direct API)
+Owns:
 
-Server and loop management:
+- Tauri shell and native menu integration
+- desktop file picker / filesystem integration
+- renderer build that mirrors the web package's Lingui/SWC pipeline
 
-```python
-from tensnap import TenSnapServer, SimulationLoop
+### `packages/tensnap-agent`
 
-server = TenSnapServer(port=8765)
-loop = SimulationLoop(step_interval=0.1)
-server.add_environment(environment)
-server.add_parameter(param, getter=lambda: model.speed, setter=lambda v: setattr(model, 'speed', v))
-```
+Headless runtime and session tooling.
 
-### Protocol-Level (Advanced)
+Owns:
 
-Direct message control:
+- agent/session runtime
+- node-side websocket transport
+- offscreen environment painting
+- control server endpoints for automation and capture workflows
 
-```python
-await server.update_agents_batch("main", updates)
-await server.update_charts(time_step)
-```
+### `packages/tensnap-python`
 
-## Python Backend
+Python binding and runtime integration package.
 
-### Core Components
+Owns:
 
-**`scenario.py`** - Unified high-level API orchestrating server, simulation loop, handlers, and environment binders.
+- `SimulationScenario`
+- `tensnap.bindings` decorators and readback helpers
+- low-level `TenSnapServer`
+- default simulation handlers and Mesa integration
+- protocol delta builders for environment/layer/item sync
 
-Key class: `SimulationScenario` - Main entry point providing:
+### Supporting browser packages
 
-- Simplified setup with `add_environment()`, `add_parameters()`, `add_charts()`, `add_actions()`
-- Handler registration via `register_handler()` or `register_model_handler()`
-- Automatic state synchronization through handlers
+- `packages/web-models`: built-in TypeScript models and in-memory transports
+- `packages/web-common`: shared browser-side UI/types/helpers
+- `packages/web-adapter`: browser-side filesystem and integration helpers
+- `packages/benchmark`: benchmark harnesses for render/runtime paths
 
-**`server.py`** - WebSocket server managing connections and broadcasting updates.
+## Protocol v0.2 Ownership
 
-Features:
+`packages/core` owns the canonical wire contract.
 
-- Batched message queue for efficiency
-- MessagePack/JSON serialization
-- Async I/O with non-blocking operations
-- State sync with differential updates
+Important message families:
 
-**`sim_loop.py`** - Simulation execution manager with operation queue.
+- scenario metadata: `metadata_update`
+- sync transaction: `state_sync`, `state_sync_begin`, `state_sync_end`
+- environments: `env_create`, `env_delete`
+- layers: `env_layer_create`, `env_layer_update`, `env_layer_delete`
+- layer-owned entities: `item_create`, `item_update`, `item_delete`
+- controls: `param_*`, `action_*`
+- charts: `chart_*`
+- assets: `asset_meta`, `asset_sync`, `asset_data`, `asset_delete`
+- screenshots: `screenshot_request`, `screenshot_response`
 
-Actions: `start()`, `stop()`, `toggle()`, `step_once()`
+The old v0.1 messages (`time_step_start`, `time_step_end`, `environment_update`, `agent_batch_update`, `button_click`, `parameter_change`) are historical only and should not be used for current runtime work.
 
-Uses queue to serialize control commands and prevent race conditions.
+## Scenario Model
 
-### Binding System
+`Scenario` is the canonical renderer-side state container.
 
-**Decorator-Based Metadata Binding**: Class decorators for automatic agent/environment property synchronization.
+Key properties:
 
-Agent decorators:
+- transport-agnostic
+- UI-framework-agnostic
+- event-driven
+- snapshot-capable
+- layer-aware rather than hard-coded to specific environment types
 
-- `@bind_grid_agent()` - 2D grid agents with position, heading, color, size, trajectory
-- `@bind_graph_agent_nx()` - NetworkX graph nodes
-- `@bind_uniform_agent()` - Basic agent properties
+The live model is organized as:
 
-Environment decorators:
+- scenario metadata
+- environment registry
+- per-environment layer registry
+- per-layer storage and metadata
+- asset store
+- chart storage
 
-- `@bind_grid_environment()` - Grid environments with width, height, coordinate offset, background, trajectories
-- `@bind_graph_environment()` - Graph topologies
-- `@bind_uniform_environment()` - Basic environments
+An environment is currently `uniform` or `2d`. Actual rendering semantics come from its layers, not from a separate `grid` or `graph` environment kind.
 
-**Binder Classes**: Explicit adapters connecting user models to TenSnap protocol.
+## Layered Environment Model
 
-- `GridEnvironmentBinder` - 2D grid with coordinate offset control and trajectory rendering
-- `GraphEnvironmentBinderNX` - NetworkX graph integration
-- `UniformEnvironmentBinder` - Simple agent list
+Built-in layer types currently include:
 
-Binders accept environment objects and use accessor functions/metadata to extract agent/environment properties.
+- `agent`
+- `edge`
+- `trajectory`
+- `grid`
+- `background`
 
-**Mesa 3 Integration**: Dedicated binding support for Mesa 3 framework.
+The layer registry defines:
 
-- `@bind_mesa_grid_agent()` - Mesa agent metadata binding
-- `@bind_mesa_grid_environment()` - Mesa model metadata binding
-- `@bind_datacollector()` - Automatic chart generation from Mesa DataCollector
-- `MesaSimulationHandler` - Specialized handler for Mesa models with automatic initialization
+- metadata schema
+- item schema
+- primary key fields
+- dependency requirements
+- storage/controller factories
+- render-plan behavior
 
-### Auto-Detection
+This is the main abstraction boundary that replaced older environment-specific update paths.
 
-**Parameters**: Auto-detect from dataclass fields/attributes with `BindParametersConfig` for exclusion patterns.
+### Dependency Graph
 
-**Charts**: `@chart(id, label)` decorator for functions returning scalar or multi-series data.
+`ScenarioEnvironmentState` keeps a dependency graph so dependent layers can update deterministically.
 
-**Actions**: `@action(id, label)` decorator for button handlers.
+Examples:
 
-## Frontend (React/TypeScript)
+- `edge` depends on an `agent` layer
+- `trajectory` depends on an `agent` layer
 
-**Tech Stack**: React 18, TypeScript, Zustand, Vite, Leafer UI, Recharts
+Layer creation carries `dependency_layer_ids`; changing dependencies is a structural change and normally requires recreating the layer.
 
-### State Management (Zustand)
+## Runtime Flow
 
-Store organized into slices:
+### Initial sync / reconnect
 
-- Environments with agents
-- Parameters
-- Charts with time-series data
-- Current time
-- Logs
+1. Renderer sends `state_sync` with its current summary.
+2. Simulator replies with `state_sync_begin`.
+3. Simulator replays `*_create`, `*_update`, and `*_delete` messages.
+4. Simulator sends `state_sync_end`.
+5. Renderer continues from the resulting `Scenario` state.
 
-Key methods:
+### Continuous execution
 
-- `setData()` - Apply incremental updates
-- `updateAgents()` - Batch agent updates
-- `addChartData()` - Add chart points
+1. Renderer starts an action with `action_start`.
+2. Simulator executes one step.
+3. Simulator emits state mutations.
+4. Simulator ends the tick with `action_end`.
+5. Renderer decides whether to start the next tick.
 
-### WebSocket Client
+This keeps loop ownership in the renderer and avoids server-owned hidden timers in the protocol contract.
 
-`WebSocketManager` features:
+## Python Runtime Architecture
 
-- MessagePack/JSON support
-- Auto-reconnect with exponential backoff
-- Event-based message routing
-- Optional message validation
+The recommended Python surface is:
 
-### Components
+- `SimulationScenario` for high-level orchestration
+- `tensnap.bindings` for decorators and metadata discovery
+- `register_model_handler(model_init=None, model_step=None, model_reset=None)` for default lifecycle wiring
 
-Views dynamically generated from state:
+Important semantics:
 
-- **Parameters**: Auto-generated controls (sliders, dropdowns, buttons)
-- **Environments**: Leafer UI canvas for grid/graph visualization
-- **Charts**: Recharts for time-series data
+- built-in renderer-driven actions are `start`, `step`, and `reset`
+- initial synchronized state is time `0`
+- the first simulated tick after `start` or `step` is time `1`
+- if `model_reset` is omitted, reset falls back to `model_init`
 
-### Desktop App (Tauri)
+Low-level Python integrations should go through `TenSnapServer` and layer-aware update helpers such as:
 
-Wraps web frontend with Rust backend for native file system access.
+- `update_layer_metadata()`
+- `update_layer_items()`
+- `update_layer_agents()`
+- `update_layer_edges()`
+- `replace_layer_state()`
+- `replace_environment_layers()`
 
-## Communication Protocol
+## Frontend Architecture
 
-All messages: `{ type: string, payload: object }`
+### Web renderer
 
-Encoding: MessagePack (binary) or JSON
+The web app composes:
 
-### Key Messages
+- browser transport management
+- scenario store subscriptions
+- environment/chart rendering
+- project filesystem UI
+- settings/i18n integration
 
-**Server → Client**:
+Live environment rendering is layer/storage driven. Current render paths read `ScenarioEnvironmentState.layers` directly rather than reconstructing environment views from full agent dumps on every tick.
 
-- `time_step_start/end` - Step boundaries
-- `environment_update` - Full environment state with grid trajectory/coordinate config
-- `agent_batch_update` - Incremental agent changes with create/delete/update operations
-- `chart_update` - Chart data/operations
-- `state_sync` - Differential sync response
-- `log` - Server logs
+### Tauri renderer
 
-**Client → Server**:
+The Tauri app reuses the web renderer and adds desktop-specific integration. The renderer build must stay aligned with the web package's Lingui/SWC transform setup.
 
-- `state_sync` - Request state synchronization
-- `parameter_change` - Update parameter
-- `button_click` - Trigger action
+### Headless agent runtime
 
-### State Synchronization
+`packages/tensnap-agent` uses the same shared core model for:
 
-Enables reconnection without data loss:
+- offscreen rendering
+- automation
+- capture workflows
+- agent/session orchestration
 
-1. Client sends current state on connect
-2. Server computes diff (added/removed/updated)
-3. Server responds with only changes
-4. Client applies incremental update
+## Asset and Screenshot Flow
 
-Supports hot-reload and multi-client sync.
+Assets are protocol-level resources keyed by id/hash.
 
-## Data Flow
+Typical flow:
 
-### Initialization
+1. Simulator sends `asset_meta`.
+2. Renderer asks for missing assets with `asset_sync`.
+3. Simulator sends `asset_data`.
+4. Renderer resolves and caches the asset.
 
-1. Backend starts WebSocket server
-2. Frontend connects and sends `state_sync` request
-3. Backend computes diff (all new on first connect)
-4. Frontend receives state and renders UI
+Screenshots flow in the opposite direction:
 
-### Simulation Loop
+1. Simulator sends `screenshot_request`.
+2. Renderer captures the target view.
+3. Renderer replies with `screenshot_response`.
 
-1. User clicks button → `button_click` message
-2. Backend calls handler (e.g., `SimulationLoop.toggle()`)
-3. Each step:
-   - Send `time_step_start`
-   - Execute model code
-   - Send `agent_batch_update` (with create/delete/update operations)
-   - Send `chart_update`
-   - Send `time_step_end`
-4. Frontend updates visualization with trajectories and coordinate transformations in real-time
+## Documentation Source of Truth
 
-### Parameter Change
+- Current protocol: `docs/maintainer-guide/protocol-v0.2.md`
+- Historical protocol: `docs/maintainer-guide/protocol-v0.1.md`
+- Current Python API: `docs/api-reference/python-api.md`
+- Runnable references: `examples/python/`, `examples/python_mesa/`, `packages/tensnap-python/README.md`
 
-1. User adjusts control → `parameter_change` message
-2. Backend calls setter, updates internal value
-3. Model uses new value on next step
-
-## Performance
-
-**Optimizations**:
-
-- Batched message queue (0.1s flush interval)
-- MessagePack binary serialization
-- Async I/O
-- Differential updates (only changed properties)
-- Leafer UI canvas rendering
-- Zustand state management
-
-## References
-
-- [Protocol Documentation](./protocol.md)
-- [Development Setup](./development-setup.md)
-- [Python API Reference](../api-reference/python-api.md)
-- [Contributing Guidelines](./contributing.md)
+Tutorials 1-4 are backed by runnable examples, while tutorials 5-6 are still planned. When a tutorial and an example diverge, treat the example and API reference as authoritative.

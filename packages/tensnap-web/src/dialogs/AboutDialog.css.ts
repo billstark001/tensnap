@@ -1,4 +1,4 @@
-import { vars } from "@/styles/global.css";
+import { vars } from "@tensnap/web-common/styles/global.css";
 import { style } from "@vanilla-extract/css";
 
 export const aboutContainer = style({
@@ -8,6 +8,15 @@ export const aboutContainer = style({
 export const aboutHeader = style({
   textAlign: 'center',
   marginBottom: vars.space.lg,
+});
+
+export const aboutLogo = style({
+  width: '80px',
+  height: '80px',
+  borderRadius: '16px',
+  marginBottom: vars.space.sm,
+  display: 'block',
+  margin: `0 auto ${vars.space.sm}`,
 });
 
 export const aboutTitle = style({

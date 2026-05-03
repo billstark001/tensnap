@@ -1,110 +1,114 @@
-import { Environment, Parameter, Snapshot, EnvironmentId, Agent, SnapshotMetadata, AgentId, ChartUpdateData, ChartMetadata, ChartUpdateOperation, ChartGroupMetadata, SimulationState, PureEnvironment, ChartGroup } from '../../types/model';
-import { ContainerView } from '../../types/ui';
 import { SetStateAction } from 'react';
-import { InstantiatedEnvironment } from './environment';
-import { AgentUpdateOperation, LogLevel, LogPayload, NormalizedLogPayload } from '@/types/api';
-import { ChartStorage } from 'tensnap-web-core';
+import {
+  Action,
+  Parameter,
+  StateSyncBoundaryPayload,
+  Scenario,
+  ScenarioSnapshot,
+  ScenarioEnvironmentState,
+  ChartStorage,
+  ChartGroup,
+  ChartGroupMetadata,
+  RendererToSimulatorMessage,
+  SimulatorToRendererMessage,
+  StateSyncRequest,
+  ParameterChangePayload,
+  ActionStartPayload,
+  NormalizedLogPayload,
+  ScreenshotResponsePayload,
+} from '@tensnap/core';
+import { ContainerView } from '../../types/ui';
 import { UpdateTriggerState } from '../update-trigger';
 
+export type StateSyncPhase = 'idle' | 'requested' | 'receiving';
+
+export interface StateSyncStatus {
+  requestId: string | null;
+  phase: StateSyncPhase;
+  autoLayoutOnComplete: boolean;
+}
+
+export interface SnapshotDraft {
+  id?: string;
+  timestamp?: number;
+}
+
+export interface EditableEnvironmentDraft {
+  id: string;
+  type: '2d' | 'uniform';
+  label?: string;
+  width?: number;
+  height?: number;
+}
+
+export type ScreenshotCaptureHandler = (format: 'png' | 'jpeg', quality?: number) => Promise<Blob | null>;
+
 export interface SetDataPayload {
-  environments?: Environment[];
+  environments?: EditableEnvironmentDraft[];
   parameters?: Parameter[];
   charts?: ChartGroupMetadata[];
-  removedEnvironmentIds?: EnvironmentId[];
+  removedActionIds?: string[];
+  removedEnvironmentIds?: string[];
   removedParameterIds?: string[];
   removedChartIds?: string[];
-  clearCharts?: boolean | string[];
 }
 
-export interface SetDataOptions {
-  updateLayout?: boolean;
-  preserveExisting?: boolean;
-}
-
-// 连接状态切片
-export interface ConnectionSlice {
-  connected: boolean;
-  setConnected: (connected: boolean) => void;
-}
-
-// 时间管理切片
-export interface TimeSlice {
-  currentTime: number;
-  isInTimeStep: boolean;
-  setCurrentTime: (time: number | null | undefined, isInTimeStep: boolean) => void;
-}
-
-// 环境管理切片
-export interface EnvironmentsSlice {
-  environments: Map<EnvironmentId, InstantiatedEnvironment>;
-  renameEnvironment: (id: EnvironmentId, newId: EnvironmentId) => void;
-  removeEnvironment: (id: EnvironmentId) => void;
-  updateEnvironment: (id: EnvironmentId, props: Partial<PureEnvironment>, agents?: Agent[]) => void;
-  updateAgents: (id: EnvironmentId, updates: { id: AgentId; data?: Partial<Agent>, operation?: AgentUpdateOperation }[]) => void;
-}
-
-// 参数管理切片
-export interface ParametersSlice {
-  parameters: Map<string, Parameter>;
-  renameParameter: (id: string, newId: string) => void;
-  updateParameterValue: (id: string, value: any) => void;
-  updateParameterProps: (id: string, propsUpdate: Partial<Parameter>) => void;
-}
-
-// 图表管理切片
-export interface ChartsSlice {
-  charts: ChartStorage;
-  updateChartProps: (id: string, propsUpdate: Partial<Pick<ChartGroup, 'label'>>) => void;
-  addChartMetadata: (groupId: string, metadata: ChartMetadata) => void;
-  renameChartGroup: (groupId: string, newId: string) => void;
-  renameChartMetadata: (metadataId: string, newId: string, groupId?: string) => void;
-  updateChartMetadata: (metadataId: string, propsUpdate: Partial<ChartMetadata>) => void;
-  removeChartMetadataFromGroup: (metadataId: string, groupId: string, options?: { persistData?: boolean }) => void;
-  moveChartMetadata: (metadataId: string, fromGroupId: string, toGroupId: string, options?: { copy?: boolean }) => void;
-  addChartData: (updates: ChartUpdateData[]) => void;
-  executeChartOperations: (operations: ChartUpdateOperation[]) => void;
-}
-
-// 快照管理切片
-export interface SnapshotsSlice {
-  snapshots: Snapshot[];
+export interface ScenarioStore {
+  scenario: Scenario;
+  snapshots: ScenarioSnapshot[];
   maxSnapshots: number;
-  addSnapshot: (snapshot?: SnapshotMetadata) => void;
-  removeSnapshot: (id: string) => void;
-  clearSnapshots: () => void;
-  setMaxSnapshots: (max: number) => void;
-}
-
-// 视图管理切片
-export interface ViewsSlice {
   mainView: ContainerView;
-  setMainView: (view: SetStateAction<ContainerView>) => void;
-  updateMainViewLayout: () => void;
-}
-
-// 日志管理切片
-export interface LogsSlice {
-  logs: NormalizedLogPayload[];
-  lastLogs?: NormalizedLogPayload;
-  log: (payload: string | LogPayload, level?: LogLevel) => void;
-}
-
-// 核心切片（包含 dump 和 setData）
-export interface CoreSlice {
+  connected: boolean;
+  stateSync: StateSyncStatus;
+  _revision: number;
+  _assetRevision: number;
   viewUpdateTrigger: UpdateTriggerState;
   environmentUpdateTrigger: UpdateTriggerState;
   parameterUpdateTrigger: UpdateTriggerState;
-  dump: () => SimulationState;
-  setData: (data: SetDataPayload, options?: SetDataOptions) => void;
-  clearAll: () => void;
-}
 
-export type ScenarioStore = ConnectionSlice &
-  TimeSlice &
-  EnvironmentsSlice &
-  ParametersSlice &
-  ChartsSlice &
-  SnapshotsSlice &
-  ViewsSlice &
-  LogsSlice &
-  CoreSlice;
+  setConnected: (connected: boolean) => void;
+  prepareStateSync: (requestId: string, options?: { autoLayoutOnComplete?: boolean }) => void;
+  handleStateSyncBoundary: (phase: 'begin' | 'end', payload: StateSyncBoundaryPayload) => void;
+  resetStateSync: () => void;
+  isMainViewAutoLayoutCandidate: () => boolean;
+  setMainView: (view: SetStateAction<ContainerView>) => void;
+  updateMainViewLayout: () => void;
+
+  applyMessage: (message: SimulatorToRendererMessage) => void;
+  dump: () => ScenarioSnapshot;
+  load: (snapshot: ScenarioSnapshot) => void;
+  clearAll: () => void;
+  setData: (payload: SetDataPayload, options?: { updateLayout?: boolean; preserveExisting?: boolean }) => void;
+  upsertAction: (action: Action) => void;
+  updateActionProps: (id: string, props: Partial<Action>) => void;
+  renameAction: (id: string, newId: string) => void;
+  updateParameterProps: (id: string, props: Partial<Parameter>) => void;
+  renameParameter: (id: string, newId: string) => void;
+  updateEnvironment: (id: string, props: Record<string, unknown>) => void;
+  renameEnvironment: (id: string, newId: string) => void;
+  updateChartProps: (id: string, props: Partial<ChartGroup>) => void;
+  renameChartGroup: (id: string, newId: string) => void;
+
+  createStateSyncMessage: (requestId?: string) => RendererToSimulatorMessage<StateSyncRequest>;
+  createParamChangeMessage: (id: string, value: unknown) => RendererToSimulatorMessage<ParameterChangePayload>;
+  createActionStartMessage: (id: string, continuous?: boolean, tickId?: string) => RendererToSimulatorMessage<ActionStartPayload>;
+  createAssetSyncMessage: () => RendererToSimulatorMessage<{ assets: Record<string, string> }>;
+  createScreenshotResponseMessage: (payload: ScreenshotResponsePayload) => RendererToSimulatorMessage<ScreenshotResponsePayload>;
+
+  registerScreenshotCapture: (id: string, handler: ScreenshotCaptureHandler) => void;
+  unregisterScreenshotCapture: (id: string) => void;
+  getScreenshotCapture: (id: string) => ScreenshotCaptureHandler | undefined;
+
+  addSnapshot: (draft?: SnapshotDraft) => void;
+  removeSnapshot: (id: string) => void;
+  clearSnapshots: () => void;
+  setMaxSnapshots: (max: number) => void;
+
+  currentTime: number | null;
+  get environments(): ReadonlyMap<string, ScenarioEnvironmentState>;
+  get parameters(): ReadonlyMap<string, Parameter>;
+  get actions(): ReadonlyMap<string, Action>;
+  get charts(): ChartStorage;
+  get logs(): readonly NormalizedLogPayload[];
+  get lastLogs(): NormalizedLogPayload | undefined;
+}

@@ -1,533 +1,462 @@
 """
-TenSnap WebSocket Server
+TenSnap WebSocket Server — pure I/O layer.
 
-Main server implementation for handling WebSocket connections and
-broadcasting simulation updates to connected clients.
+Responsibilities: message codec, connection lifecycle, event dispatch for
+incoming messages, and typed send/broadcast helpers. No business logic.
 """
 
-from typing import Any, Dict, List, TYPE_CHECKING, Callable, Union, Optional, Tuple, Set
-
 import asyncio
+import base64
+import datetime
+import hashlib
 import json
 import logging
-import datetime
-from websockets.server import WebSocketServerProtocol, serve
-from websockets.exceptions import ConnectionClosed
-import msgpack
+import time
+from copy import deepcopy
 from enum import Enum
-from collections import defaultdict
+from typing import Any, Awaitable, Callable, Dict, Optional, Set, Union, cast
+from uuid import uuid4
 
+import msgpack
+from websockets.asyncio.server import serve, ServerConnection
+from websockets.exceptions import ConnectionClosed
+from websockets.protocol import State as WebSocketState
+
+from .utils.codec import find_objects_by_error, json_default, msgpack_default
 from .utils.ws import BatchedMessageQueue
-from .utils.object import json_default, msgpack_default, find_objects_by_error
-from .bindings.basic import (
-    Parameter,
-    ActionParameter,
-    ChartGroupMetadata,
-    ChartMetadataDict,
-    ChartGroupMetadataDict,
-    categorize_charts,
-)
-from .models import (
-    StateSyncResponse,
-    LogPayload,
-    ParameterState,
-    EnvironmentStateWithAgentsOmitted,
-)
 
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    from .models import EnvironmentBinderProtocol, StateSyncRequest
+# region Message type enums
 
 
 class ServerToClientMessageType(Enum):
-    TIME_STEP_START = "time_step_start"
-    TIME_STEP_END = "time_step_end"
-    ENVIRONMENT_UPDATE = "environment_update"
-    AGENT_UPDATE = "agent_update"
-    AGENT_BATCH_UPDATE = "agent_batch_update"
+    METADATA_UPDATE = "metadata_update"
+    STATE_SYNC_BEGIN = "state_sync_begin"
+    STATE_SYNC_END = "state_sync_end"
+    ACTION_END = "action_end"
+    ACTION_CREATE = "action_create"
+    ACTION_UPDATE = "action_update"
+    ACTION_DELETE = "action_delete"
+    ENV_CREATE = "env_create"
+    ENV_DELETE = "env_delete"
+    ENV_LAYER_CREATE = "env_layer_create"
+    ENV_LAYER_UPDATE = "env_layer_update"
+    ENV_LAYER_DELETE = "env_layer_delete"
+    ITEM_CREATE = "item_create"
+    ITEM_UPDATE = "item_update"
+    ITEM_DELETE = "item_delete"
+    PARAM_CREATE = "param_create"
+    PARAM_UPDATE = "param_update"
+    PARAM_DELETE = "param_delete"
+    PARAM_SYNC = "param_sync"
+    CHART_CREATE = "chart_create"
     CHART_UPDATE = "chart_update"
-    STATE_SYNC = "state_sync"
+    CHART_DELETE = "chart_delete"
+    ASSET_META = "asset_meta"
+    ASSET_DATA = "asset_data"
+    ASSET_DELETE = "asset_delete"
+    SCREENSHOT_REQUEST = "screenshot_request"
     LOG = "log"
     ERROR = "error"
 
 
 class ClientToServerMessageType(Enum):
     STATE_SYNC = "state_sync"
-    PARAMETER_CHANGE = "parameter_change"
-    BUTTON_CLICK = "button_click"
+    PARAM_CHANGE = "param_change"
+    ACTION_START = "action_start"
+    ASSET_SYNC = "asset_sync"
+    SCREENSHOT_RESPONSE = "screenshot_response"
     ERROR = "error"
+
+
+# endregion
+
+# region Codec
 
 
 def encode_message(
     msg_type: ServerToClientMessageType, payload: Any, use_msgpack: bool = False
-) -> str | bytes:
-    type_str = msg_type.value
-    msg = {"type": type_str, "payload": payload}
+) -> Union[str, bytes]:
+    msg = {"type": msg_type.value, "payload": payload}
     try:
-
-        return (
-            msgpack.packb(msg, default=msgpack_default, use_bin_type=True)
-            if use_msgpack
-            else json.dumps(msg, default=json_default, separators=(",", ":"))
-        )  # type: ignore
+        return cast(
+            Union[str, bytes],
+            (
+                msgpack.packb(msg, default=msgpack_default, use_bin_type=True)
+                if use_msgpack
+                else json.dumps(msg, default=json_default, separators=(",", ":"))
+            ),
+        )
     except TypeError as e:
         e_str = e.args[0] if e.args else str(e)
-        err_obj = find_objects_by_error(payload, e_str)
         raise TypeError(
-            f"Failed to serialize message of type {msg_type}: {e_str}. Problematic object(s): {err_obj}"
+            f"Failed to serialize {msg_type}: {e_str}. "
+            f"Problematic object(s): {find_objects_by_error(payload, e_str)}"
         ) from e
 
 
-def convert_env_state(env: "EnvironmentBinderProtocol") -> Dict[str, Any]:
-    env_dict = env.get_model_dict()
-    env_dict["agents"] = env.get_agent_list()
-    return env_dict
+def decode_message(raw: Union[str, bytes]) -> tuple[str, Any]:
+    """Decode an incoming WebSocket frame. Returns ``(type_str, payload)``."""
+    data = (
+        msgpack.unpackb(raw, raw=False) if isinstance(raw, bytes) else json.loads(raw)
+    )
+    return data.get("type"), data.get("payload", {})
+
+
+# endregion
+
+# region Server
 
 
 class TenSnapServer:
+    """
+    Pure WebSocket I/O layer.
+
+    Assign async callables to the ``on_*`` event slots to handle incoming
+    messages. Use ``send`` / ``broadcast`` (or the typed convenience wrappers)
+    to push messages to clients.
+
+    Event slot signatures:
+        on_state_sync / on_param_change / on_action_start / on_asset_sync:
+            async (ws: ServerConnection, payload: Any) -> None
+        on_screenshot_response:
+            async (payload: Any) -> None
+        on_client_connect / on_client_disconnect:
+            async (ws: ServerConnection) -> None
+    """
+
     def __init__(
         self, host: str = "localhost", port: int = 8765, use_msgpack: bool = False
-    ):
-        self.host, self.port = host, port
+    ) -> None:
+        self.host = host
+        self.port = port
         self.use_msgpack = use_msgpack
 
-        self.clients: set[WebSocketServerProtocol] = set()
-        self.environments: Dict[str, "EnvironmentBinderProtocol"] = {}
-        self.parameters: Dict[str, "Parameter"] = {}
-        self.charts: Dict[str, Tuple["ChartGroupMetadata", Callable]] = {}
-        self.button_handlers: Dict[str, Callable] = {}
+        self.clients: Set[ServerConnection] = set()
+        # Asset cache: id → {id, hash, mime, size, label, data}
+        self._assets: Dict[str, Dict[str, Any]] = {}
+        self._pending_screenshots: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
         self._running = False
         self._queue = BatchedMessageQueue()
-        self._bg_task = None
+        self._bg_task: Optional[asyncio.Task] = None
 
-    def add_environment(self, env: "EnvironmentBinderProtocol") -> None:
-        self.environments[env.id] = env
+        # Incoming-message event slots (single callable each for zero-overhead dispatch)
+        self.on_state_sync: Optional[
+            Callable[[ServerConnection, Any], Awaitable[None]]
+        ] = None
+        self.on_param_change: Optional[
+            Callable[[ServerConnection, Any], Awaitable[None]]
+        ] = None
+        self.on_action_start: Optional[
+            Callable[[ServerConnection, Any], Awaitable[None]]
+        ] = None
+        self.on_asset_sync: Optional[
+            Callable[[ServerConnection, Any], Awaitable[None]]
+        ] = None
+        self.on_screenshot_response: Optional[Callable[[Any], Awaitable[None]]] = None
+        self.on_client_connect: Optional[
+            Callable[[ServerConnection], Awaitable[None]]
+        ] = None
+        self.on_client_disconnect: Optional[
+            Callable[[ServerConnection], Awaitable[None]]
+        ] = None
 
-    def add_parameter(
+    # region Low-level transport
+
+    async def send(
         self,
-        param: "Parameter",
-        getter: Callable | None = None,
-        setter: Callable | None = None,
-    ) -> None:
-        param_inst = param.instantiate(getter=getter, setter=setter)
-        self.parameters[param.id] = param_inst
-
-    def add_chart(self, getter: Callable, chart: "ChartGroupMetadata") -> None:
-        self.charts[chart.id] = (chart, getter)
-
-    def add_action(
-        self,
-        action_parameter: ActionParameter,
-        handler: Callable,
-        add_parameter: bool = True,
-    ) -> None:
-        if add_parameter:
-            self.add_parameter(action_parameter)
-        self.button_handlers[action_parameter.id] = handler
-
-    def remove_environment(self, env_id: Union[str, int]) -> None:
-        if env_id in self.environments:
-            del self.environments[env_id]
-
-    def remove_all_environments(self) -> None:
-        self.environments.clear()
-
-    def remove_parameter(self, param_id: str) -> None:
-        if param_id in self.parameters:
-            del self.parameters[param_id]
-
-    def remove_all_parameters(self, include_actions = False) -> None:
-        if include_actions:
-            self.parameters.clear()
-            return
-        for param_id in list(self.parameters.keys()):
-            if (
-                param_id in self.parameters
-                and self.parameters[param_id].type != "action"
-            ):
-                del self.parameters[param_id]
-
-    def remove_chart(self, chart_id: str) -> None:
-        if chart_id in self.charts:
-            del self.charts[chart_id]
-
-    def remove_all_charts(self) -> None:
-        self.charts.clear()
-
-    def remove_action(
-        self,
-        action_id: str,
-        remove_parameter: bool = True,
-    ) -> None:
-        if action_id in self.button_handlers:
-            del self.button_handlers[action_id]
-        if remove_parameter:
-            self.remove_parameter(action_id)
-
-    def remove_all_actions(self, remove_parameters: bool = True) -> None:
-        self.button_handlers.clear()
-        if remove_parameters:
-            for action_id in list(self.parameters.keys()):
-                if (
-                    action_id in self.parameters
-                    and self.parameters[action_id].type == "action"
-                ):
-                    del self.parameters[action_id]
-
-    async def handle_client(
-        self, websocket: WebSocketServerProtocol, path: str
-    ) -> None:
-        self.clients.add(websocket)
-        logger.info(f"Client connected from {websocket.remote_address}")
-        try:
-            async for message in websocket:
-                try:
-                    await self._handle_message(websocket, message)
-                except Exception as e:
-                    logger.exception(
-                        f"Error handling message from {websocket.remote_address}: {e}"
-                    )
-                    # Continue processing next messages even if one fails
-        except ConnectionClosed:
-            pass
-        except Exception as e:
-            logger.exception(f"Connection error with {websocket.remote_address}: {e}")
-        finally:
-            self.clients.discard(websocket)
-            logger.info(f"Client disconnected from {websocket.remote_address}")
-
-    async def _handle_message(
-        self, ws: WebSocketServerProtocol, msg: Union[str, bytes]
+        ws: ServerConnection,
+        msg_type: ServerToClientMessageType,
+        payload: Any,
     ) -> None:
         try:
-            data = (
-                msgpack.unpackb(msg, raw=False)
-                if isinstance(msg, bytes)
-                else json.loads(msg)
-            )
-            msg_type, payload = data.get("type"), data.get("payload", {})
-
-            if msg_type == ClientToServerMessageType.STATE_SYNC.value:
-                await self._handle_state_sync(ws, payload)
-            elif msg_type == ClientToServerMessageType.PARAMETER_CHANGE.value:
-                await self._handle_param_change(ws, payload)
-            elif msg_type == ClientToServerMessageType.BUTTON_CLICK.value:
-                await self._handle_button_click(ws, payload)
-            elif msg_type == ClientToServerMessageType.ERROR.value:
-                logger.error(f"Client error: {payload.get('error')}")
-            else:
-                logger.warning(f"Unknown message type: {msg_type}")
-
+            await ws.send(encode_message(msg_type, payload, self.use_msgpack))
+        except ConnectionClosed as e:
+            logger.debug(f"Connection closed during send: {e}")
+            self.clients.discard(ws)
         except Exception as e:
-            logger.exception(f"Error handling message: {e}")
-            try:
-                await self._send_error(ws, str(e))
-            except Exception as send_error:
-                logger.exception(f"Failed to send error message: {send_error}")
+            logger.exception(f"Send error: {e}")
+            self.clients.discard(ws)
 
-    async def _build_sync_response(self, req: "StateSyncRequest"):
-        params, envs, charts = await asyncio.gather(
-            self._compute_parameter_deltas(req.get("parameters", [])),
-            self._compute_environment_deltas(req.get("environments", [])),
-            self._compute_chart_deltas(req.get("charts", [])),
-        )
-
-        return StateSyncResponse(
-            mode="incremental",
-            added_parameters=params["added"],
-            removed_parameters=params["removed"],
-            updated_parameters=params["updated"],
-            added_environments=envs["added"],
-            removed_environments=envs["removed"],
-            updated_environments=envs["updated"],
-            added_charts=charts["added"],
-            removed_charts=charts["removed"],
-            updated_charts=charts["updated"],
-        )
-
-    async def _compute_parameter_deltas(self, req: List[ParameterState]):
-        client_ids = set(x["id"] for x in req)
-        server_ids = set(self.parameters.keys())
-
-        added = server_ids - client_ids
-        removed = client_ids - server_ids
-        common_ids: Set[str] = server_ids & client_ids
-
-        # Handle parameter value updates
-        req_dict = {x["id"]: x for x in req}
-        updated_set = set()
-        for pid in common_ids:
-            param = self.parameters[pid]
-            param_client = req_dict[pid]
-            # Check for type or other metadata changed
-            if param_client["type"] != param.type:
-                updated_set.add(pid)
-                continue
-            # Skip action parameters
-            if param.type == "action":
-                continue
-            # Check for value changes
-            client_value = param_client.get("value")
-            if client_value is None:
-                updated_set.add(pid)
-                continue
-            else:
-                current = self._get_param_value(param)
-                if client_value != current:
-                    self._set_param_value(param, client_value)
-                    current = client_value
-
-        return {
-            "added": [self.parameters[i].to_dict() for i in added],
-            "removed": list(removed),
-            "updated": [self.parameters[i].to_dict() for i in updated_set],
-        }
-
-    async def _compute_chart_deltas(self, req: List[ChartMetadataDict]):
-        server_charts: List[ChartGroupMetadataDict] = [c[0].to_dict() for c in self.charts.values()]  # type: ignore
-        return categorize_charts(req, server_charts)
-
-    async def _compute_environment_deltas(
-        self, req: List[EnvironmentStateWithAgentsOmitted]
-    ) -> Dict[str, List]:
-        client_ids = set(x["id"] for x in req)
-        server_ids = set(self.environments.keys())
-
-        added = server_ids - client_ids
-        removed = client_ids - server_ids
-        updated = server_ids & client_ids
-
-        return {
-            "added": [convert_env_state(self.environments[i]) for i in added],
-            "removed": list(removed),
-            "updated": [convert_env_state(self.environments[i]) for i in updated],
-        }
-
-    def _get_param_value(self, param: "Parameter") -> Any:
-        if param.getter:
-            try:
-                return param.getter()
-            except Exception as e:
-                logger.error(f"Error getting parameter {param.id}: {e}")
-        return None if param.type == "action" else param.value
-
-    def _set_param_value(self, param: "Parameter", value: Any) -> None:
-        if param.setter and param.type != "action":
-            try:
-                param.setter(value)
-                param.value = value
-            except Exception as e:
-                logger.exception(f"Error setting parameter {param.id}: {e}")
-
-    def get_parameter(self, param_id: str) -> Any:
-        if param_id in self.parameters:
-            param = self.parameters[param_id]
-            return self._get_param_value(param)
-        return None
-
-    def set_parameter(self, param_id: str, value: Any) -> None:
-        if param_id in self.parameters:
-            param = self.parameters[param_id]
-            self._set_param_value(param, value)
-
-    def dump_parameters(self) -> Dict[str, Any]:
-        return {
-            pid: self._get_param_value(param)
-            for pid, param in self.parameters.items()
-            if param.type != "action"
-        }
-
-    async def _handle_state_sync(
-        self, ws: WebSocketServerProtocol, req: "StateSyncRequest"
-    ) -> None:
-        response = await self._build_sync_response(req)
-        await self._send(ws, ServerToClientMessageType.STATE_SYNC, response)
-
-    async def _handle_param_change(
-        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
-    ) -> None:
-        pid, value = payload.get("id"), payload.get("value")
-        if value is None or pid not in self.parameters:
-            return
-
-        param = self.parameters[pid]
-        if param.setter:
-            try:
-                await asyncio.get_event_loop().run_in_executor(
-                    None, param.setter, value
-                )
-                if param.type != "action":
-                    param.value = value
-            except Exception as e:
-                logger.exception(f"Error setting parameter {pid}: {e}")
-                await self._send_error(ws, f"Error setting parameter {pid}: {e}")
-
-    async def _handle_button_click(
-        self, ws: WebSocketServerProtocol, payload: Dict[str, Any]
-    ) -> None:
-        action = payload.get("action")
-        if action not in self.button_handlers:
-            logger.warning(f"No handler found for button action: {action}")
-            return
-
-        handler = self.button_handlers[action]
-        try:
-            if asyncio.iscoroutinefunction(handler):
-                await handler()
-            else:
-                await asyncio.get_event_loop().run_in_executor(None, handler)
-        except Exception as e:
-            logger.exception(f"Error handling button {action}: {e}")
-            await self._send_error(ws, f"Error handling button {action}: {e}")
-
-    async def _broadcast(
-        self, msg_type: ServerToClientMessageType, payload: dict
+    async def broadcast(
+        self, msg_type: ServerToClientMessageType, payload: Any
     ) -> None:
         if self.clients:
             await self._queue.add(
                 self.clients, encode_message(msg_type, payload, self.use_msgpack)
             )
 
-    async def _send(
+    # endregion
+
+    # region Typed outgoing helpers
+
+    async def send_action_end(
         self,
-        ws: WebSocketServerProtocol,
-        msg_type: ServerToClientMessageType,
-        payload: Any,
+        ws: ServerConnection,
+        action_id: str,
+        *,
+        tick_id: Optional[str] = None,
+        continue_: Optional[bool] = None,
+        simulate_ms: float = 0.0,
     ) -> None:
-        try:
-            await ws.send(encode_message(msg_type, payload, self.use_msgpack))
-        except Exception as e:
-            logger.exception(f"Error sending message to client: {e}")
-            self.clients.discard(ws)
+        payload: Dict[str, Any] = {
+            "id": action_id,
+            "timings": {"simulate_ms": max(0.0, simulate_ms)},
+        }
+        if tick_id is not None:
+            payload["tick_id"] = tick_id
+        if continue_ is not None:
+            payload["continue"] = continue_
+        await self.send(ws, ServerToClientMessageType.ACTION_END, payload)
 
-    async def _send_error(self, ws: WebSocketServerProtocol, error: str) -> None:
-        try:
-            await self._send(ws, ServerToClientMessageType.ERROR, {"error": error})
-        except Exception as e:
-            logger.exception(f"Failed to send error message to client: {e}")
+    async def send_error(self, ws: ServerConnection, error: str) -> None:
+        await self.send(ws, ServerToClientMessageType.ERROR, {"error": error})
 
-    async def start_time_step(self, time: int) -> None:
-        await self._broadcast(ServerToClientMessageType.TIME_STEP_START, {"time": time})
+    async def broadcast_metadata_update(self, metadata: Dict[str, Any]) -> None:
+        await self.broadcast(ServerToClientMessageType.METADATA_UPDATE, metadata)
 
-    async def end_time_step(self, time: Optional[int] = None) -> None:
-        payload = {"time": time} if time is not None else {}
-        await self._broadcast(ServerToClientMessageType.TIME_STEP_END, payload)
-
-    async def update_charts(self, time: Optional[int] = None) -> None:
-        if not self.charts:
-            return
-        results_raw = await asyncio.gather(
-            *[self._get_chart_update(c, g, time) for c, g in self.charts.values()],
-            return_exceptions=True,
+    async def broadcast_param_sync(self, param_id: str, value: Any) -> None:
+        await self.broadcast(
+            ServerToClientMessageType.PARAM_SYNC, {"id": param_id, "value": value}
         )
-        updates = []
-        for r in results_raw:
-            if isinstance(r, Exception):
-                logger.exception(f"Error getting chart update: {r}")
-            else:
-                updates.extend(r)  # type: ignore
-        if updates:
-            await self._broadcast(
-                ServerToClientMessageType.CHART_UPDATE, {"updates": updates}
-            )
 
-    async def clear_charts(self, chart_ids: Optional[List[str]] = None) -> None:
-        if not self.charts:
-            return
-        if not chart_ids:
-            chart_ids = list(self.charts.keys())
-        operations = [
-            {"id": cid, "operation": "clear"} for cid in chart_ids if cid in self.charts
-        ]
-        if operations:
-            await self._broadcast(
-                ServerToClientMessageType.CHART_UPDATE, {"operations": operations}
-            )
-
-    async def log_message(self, level: str, message: str) -> None:
-        cur_timestamp_millis = int(
-            datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
-        )
-        await self._broadcast(
+    async def broadcast_log(self, level: str, message: str) -> None:
+        ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+        await self.broadcast(
             ServerToClientMessageType.LOG,
-            LogPayload(
-                timestamp=cur_timestamp_millis,
-                level=level,  # type: ignore
-                message=message,
-            ),
+            {"timestamp": ts, "level": level, "message": message},
         )
 
-    async def _get_chart_update(
-        self, chart: "ChartGroupMetadata", getter: Callable, time: Optional[int]
-    ) -> List[Dict[str, Any]]:
-        try:
-            value = await asyncio.get_event_loop().run_in_executor(None, getter)
-            ret: List[Dict[str, Any]] = []
-            if not chart.data_list:
-                ret.append({"id": chart.id, "value": value})
-            else:
-                if isinstance(value, dict):
-                    for data_meta in chart.data_list:
-                        if data_meta.id in value:
-                            ret.append(
-                                {"id": data_meta.id, "value": value[data_meta.id]}
-                            )
-                elif isinstance(value, (list, tuple)):
-                    for data_meta, val in zip(chart.data_list, value):
-                        ret.append({"id": data_meta.id, "value": val})
-                elif len(chart.data_list) == 1:
-                    ret.append({"id": chart.data_list[0].id, "value": value})
-                else:
-                    raise ValueError(
-                        f"Chart getter returned invalid type for multiple data series: {type(value)}"
-                    )
-            return ret
-        except Exception as e:
-            logger.exception(f"Error getting chart data for {chart.id}: {e}")
-            raise
+    # endregion
 
-    async def update_environment(
+    # region Asset management (pure I/O state; no business logic)
+
+    @staticmethod
+    def _asset_hash(data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()[:16]
+
+    @staticmethod
+    def _asset_meta_payload(asset: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "id": asset["id"],
+            "hash": asset["hash"],
+            "mime": asset["mime"],
+            "size": asset["size"],
+            "label": asset.get("label"),
+        }
+
+    def _encode_asset_data(self, data: bytes, mime: str) -> Union[str, bytes]:
+        if self.use_msgpack:
+            return data
+        return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+    async def send_asset_meta(self, ws: ServerConnection) -> None:
+        if not self._assets:
+            return
+        await self.send(
+            ws,
+            ServerToClientMessageType.ASSET_META,
+            {
+                "assets": [
+                    self._asset_meta_payload(asset) for asset in self._assets.values()
+                ]
+            },
+        )
+
+    async def publish_asset(
         self,
-        env_id: Union[str, int],
-        data: Dict[str, Any] | None = None,
-        agents: List[Dict[str, Any]] | None = None,
+        asset_id: str,
+        data: bytes,
+        mime: str,
+        label: Optional[str] = None,
     ) -> None:
-        await self._broadcast(
-            ServerToClientMessageType.ENVIRONMENT_UPDATE,
-            {"id": env_id, "data": data, "agents": agents},
+        h = self._asset_hash(data)
+        existing = self._assets.get(asset_id)
+        if existing and existing["hash"] == h:
+            return
+        self._assets[asset_id] = {
+            "id": asset_id,
+            "hash": h,
+            "mime": mime,
+            "size": len(data),
+            "label": label,
+            "data": data,
+        }
+        await self.broadcast(
+            ServerToClientMessageType.ASSET_META,
+            {"assets": [self._asset_meta_payload(self._assets[asset_id])]},
+        )
+        await self.broadcast(
+            ServerToClientMessageType.ASSET_DATA,
+            {
+                "id": asset_id,
+                "hash": h,
+                "mime": mime,
+                "data": self._encode_asset_data(data, mime),
+            },
         )
 
-    async def update_agent(
-        self, env_id: Union[str, int], agent_id: Union[str, int], data: Dict[str, Any]
-    ) -> None:
-        await self._broadcast(
-            ServerToClientMessageType.AGENT_UPDATE,
-            {"environment_id": env_id, "agent_id": agent_id, "data": data},
+    async def delete_asset(self, asset_id: str) -> None:
+        self._assets.pop(asset_id, None)
+        await self.broadcast(
+            ServerToClientMessageType.ASSET_DELETE, {"ids": [asset_id]}
         )
 
-    async def update_agents_batch(
-        self, env_id: Union[str, int], updates: List[Dict[str, Any]]
-    ) -> None:
-        await self._broadcast(
-            ServerToClientMessageType.AGENT_BATCH_UPDATE,
-            {"environment_id": env_id, "updates": updates},
+    # endregion
+
+    # region Screenshot (bidirectional I/O; lives here not in scenario)
+
+    async def request_screenshot(
+        self,
+        env_id: Optional[str] = None,
+        chart_id: Optional[str] = None,
+        *,
+        request_id: Optional[str] = None,
+        format: str = "png",
+        quality: Optional[float] = None,
+        timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Request a rendered screenshot from a connected renderer."""
+        if (env_id is None) == (chart_id is None):
+            raise ValueError("Exactly one of env_id or chart_id must be specified.")
+        if format not in {"png", "jpeg"}:
+            raise ValueError("format must be 'png' or 'jpeg'.")
+        if quality is not None and not 0.0 <= quality <= 1.0:
+            raise ValueError("quality must be between 0 and 1.")
+        if not self.clients:
+            raise RuntimeError("No connected renderer.")
+
+        rid = request_id or uuid4().hex
+        if rid in self._pending_screenshots:
+            raise ValueError(f"Screenshot request '{rid}' already pending.")
+
+        payload: Dict[str, Any] = {"request_id": rid}
+        if env_id is not None:
+            payload["env_id"] = env_id
+        if chart_id is not None:
+            payload["chart_id"] = chart_id
+        if format != "png":
+            payload["format"] = format
+        if quality is not None:
+            payload["quality"] = quality
+
+        future: asyncio.Future[Dict[str, Any]] = (
+            asyncio.get_running_loop().create_future()
         )
+        self._pending_screenshots[rid] = future
+        try:
+            for client in list(self.clients):
+                await self.send(
+                    client, ServerToClientMessageType.SCREENSHOT_REQUEST, payload
+                )
+            return await (
+                asyncio.wait_for(future, timeout) if timeout is not None else future
+            )
+        finally:
+            self._pending_screenshots.pop(rid, None)
+
+    # endregion
+
+    # region Incoming message dispatch
+
+    async def handle_client(self, ws: ServerConnection) -> None:
+        self.clients.add(ws)
+        logger.info(f"Client connected: {ws.remote_address}")
+        await self.send_asset_meta(ws)
+        if self.on_client_connect:
+            await self.on_client_connect(ws)
+        try:
+            async for raw in ws:
+                try:
+                    await self._dispatch(ws, raw)
+                except Exception as e:
+                    logger.exception(f"Message handling error: {e}")
+        except ConnectionClosed:
+            pass
+        except Exception as e:
+            logger.exception(f"Connection error: {e}")
+        finally:
+            self.clients.discard(ws)
+            logger.info(f"Client disconnected: {ws.remote_address}")
+            if self.on_client_disconnect:
+                await self.on_client_disconnect(ws)
+
+    async def _dispatch(self, ws: ServerConnection, raw: Union[str, bytes]) -> None:
+        try:
+            msg_type, payload = decode_message(raw)
+            if msg_type == ClientToServerMessageType.STATE_SYNC.value:
+                if self.on_state_sync:
+                    await self.on_state_sync(ws, payload)
+            elif msg_type == ClientToServerMessageType.PARAM_CHANGE.value:
+                if self.on_param_change:
+                    await self.on_param_change(ws, payload)
+            elif msg_type == ClientToServerMessageType.ACTION_START.value:
+                if self.on_action_start:
+                    await self.on_action_start(ws, payload)
+            elif msg_type == ClientToServerMessageType.ASSET_SYNC.value:
+                await self._handle_asset_sync(ws, payload)
+            elif msg_type == ClientToServerMessageType.SCREENSHOT_RESPONSE.value:
+                await self._handle_screenshot_response(payload)
+            elif msg_type == ClientToServerMessageType.ERROR.value:
+                logger.error(f"Client error: {payload.get('error')}")
+            else:
+                logger.warning(f"Unknown message type: {msg_type}")
+        except Exception as e:
+            logger.exception(f"Dispatch error: {e}")
+            try:
+                await self.send_error(ws, str(e))
+            except Exception:
+                pass
+
+    async def _handle_asset_sync(
+        self, ws: ServerConnection, payload: Dict[str, Any]
+    ) -> None:
+        client_hashes: Dict[str, str] = payload.get("assets", {})
+        for asset_id, asset in self._assets.items():
+            if client_hashes.get(asset_id) != asset["hash"]:
+                await self.send(
+                    ws,
+                    ServerToClientMessageType.ASSET_DATA,
+                    {
+                        "id": asset_id,
+                        "hash": asset["hash"],
+                        "mime": asset["mime"],
+                        "data": self._encode_asset_data(asset["data"], asset["mime"]),
+                    },
+                )
+
+    async def _handle_screenshot_response(self, payload: Dict[str, Any]) -> None:
+        rid = payload.get("request_id")
+        if not rid:
+            logger.warning("screenshot_response missing request_id")
+            return
+        future = self._pending_screenshots.get(rid)
+        if future is None:
+            logger.warning(f"Unknown screenshot request_id: {rid}")
+            return
+        if not future.done():
+            future.set_result(deepcopy(payload))
+
+    # endregion
+
+    # region Lifecycle
 
     async def _background_maintenance(self) -> None:
         while self._running:
             try:
                 await self._queue.flush()
-                self.clients = {c for c in self.clients if not c.closed}
+                self.clients = {
+                    c for c in self.clients if c.state == WebSocketState.OPEN
+                }
                 await asyncio.sleep(0.1)
             except Exception as e:
-                logger.error(f"Error in background maintenance: {e}")
+                logger.error(f"Background maintenance error: {e}")
 
     async def run(self) -> None:
         self._running = True
         logger.info(f"Starting TenSnap server on {self.host}:{self.port}")
         self._bg_task = asyncio.create_task(self._background_maintenance())
-
         try:
             async with serve(self.handle_client, self.host, self.port):
                 await asyncio.Event().wait()
@@ -542,3 +471,8 @@ class TenSnapServer:
 
     def stop(self) -> None:
         self._running = False
+
+    # endregion
+
+
+# endregion

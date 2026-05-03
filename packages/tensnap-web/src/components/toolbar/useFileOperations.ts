@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useFileSystem } from '@/store/file-system/provider';
 import { useWithLoading } from '@/store/loading';
 import { useProjectStore } from '@/store/project';
-import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialog';
+import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialogStore';
 import { useToast } from '@/store/toast';
 
 export interface FileOperationsContextValue {
@@ -39,11 +39,16 @@ export const useFileOperations = (): FileOperationsContextValue => {
     if (url) {
       createNewProject(url);
     }
-  }, [invoke]);
+  }, [createNewProject, invoke]);
 
-  const onFileSave = useCallback(() => {
-    withLoading(() => save(undefined));
-  }, [withLoading, save]);
+  const onFileSave = useCallback(async () => {
+    try {
+      await withLoading(() => save(undefined));
+      toast.success('File saved', activeFilepath ?? 'Project saved successfully.');
+    } catch (error) {
+      toast.error('Failed to save file', String(error));
+    }
+  }, [withLoading, save, toast, activeFilepath]);
 
   const onFileOpen = useCallback(async () => {
     try {
@@ -60,7 +65,8 @@ export const useFileOperations = (): FileOperationsContextValue => {
     try {
       const file = await saveFileAs('另存为');
       if (file) {
-        withLoading(() => save(undefined, file.path));
+        await withLoading(() => save(undefined, file.path));
+        toast.success('File saved', file.path);
       }
     } catch (error) {
       toast.error('Failed to save file', String(error));

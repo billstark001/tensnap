@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Providers } from 'tensnap-web/Providers';
+import { App, Providers } from '@tensnap/web';
 import { TauriFileSystemAdapter, TauriFilePicker } from './adapters';
-import { registerFileSystemAdapter, registerFileSystemPicker } from 'tensnap-web/store/file-system/provider';
-import { detectLocale, initI18n, isValidLocale } from 'tensnap-web/i18n';
+import { registerFileSystemAdapter, registerFileSystemPicker, useSettingsStore } from '@tensnap/web/store';
+import { detectLocale, initI18n, isValidLocale } from '@tensnap/web/i18n';
 import { useTauriMenuEvents } from './hooks/useTauriMenuEvents';
-import { App } from 'tensnap-web/index';
 import { getOsName } from './adapters/common';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useSettingsStore } from 'tensnap-web/src/store/settings';
+import { registerTauriLocaleCatalog } from './i18n/register-catalog';
 
 const TauriMenuEventsLoader = () => {
   useTauriMenuEvents();
@@ -40,6 +39,8 @@ export const TauriApp: React.FC = () => {
   useEffect(() => {
     const initialize = async () => {
       try {
+        registerTauriLocaleCatalog();
+
         const osName = await getOsName();
         setIsMac(osName === 'macos' || osName === 'darwin' || osName === 'macOS');
 
@@ -74,7 +75,7 @@ export const TauriApp: React.FC = () => {
     };
 
     initialize();
-  }, []);
+  }, [setTheme]);
 
   if (!isReady) {
     return (

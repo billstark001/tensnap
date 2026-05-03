@@ -6,7 +6,6 @@ import import_config  # noqa: F401
 
 from tensnap import (
     SimulationScenario,
-    GraphEnvironmentBinder,
 )
 
 # Import the pure simulation logic
@@ -22,26 +21,21 @@ xi = 0.05  # Loss of immunity rate
 env = ERNetworkEnvironment(num_agents=100, connection_prob=0.05)
 model = SIRSSimulation(env, beta, gamma, xi, initial_infected=5)
 
-graph = GraphEnvironmentBinder(
-    id="sirs_graph",
-    environment=env,
-)
-
-
 async def main():
 
     model.init()
 
-    await scenario.register_model_handler(
-        model.init,
-        model.step,
-    )
-
-    scenario.add_environment(graph)
+    scenario.add_environment(env)
     scenario.add_charts(model)
     scenario.add_parameters(model)
     scenario.add_parameters(env)
     scenario.add_actions({})
+
+    await scenario.register_model_handler(
+        model.init,
+        model.step,
+        model.init,
+    )
 
     print(f"Starting TenSnap server on port {server_port}...")
     await scenario.run()

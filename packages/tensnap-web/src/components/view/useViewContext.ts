@@ -5,7 +5,8 @@ import { AnchoredViewRendererType, Point, ViewContextMenuRendererType } from "./
 
 export type ViewContextScheme = {
   isAdjusting: boolean,
-  onButtonAction: (id: string) => void,
+  onButtonAction: (id: string, continuous?: boolean) => void,
+  isRunning: (id: string) => boolean,
   AnchoredViewRenderer: AnchoredViewRendererType,
   ViewContextMenuRenderer: ViewContextMenuRendererType,
   onResizeStart: (
@@ -24,6 +25,7 @@ export type ViewContextScheme = {
 export const ViewContext = createContext<ViewContextScheme>({
   isAdjusting: false,
   onButtonAction: () => void 0,
+  isRunning: () => false,
   AnchoredViewRenderer: () => void 0,
   ViewContextMenuRenderer: () => void 0,
   onResizeStart: () => void 0,

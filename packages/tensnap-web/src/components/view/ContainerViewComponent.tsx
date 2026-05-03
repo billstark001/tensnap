@@ -8,7 +8,7 @@ import { viewConstants } from './constants';
 import cx from 'clsx';
 import { ViewProps } from './types';
 import { useViewContext } from './useViewContext';
-import ContextMenu from '../ui/ContextMenu';
+import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';
 
 interface ContainerViewComponentProps extends ViewProps<ContainerView> {
@@ -53,8 +53,10 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
   const handleToggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    view.expanded = !view.expanded;
-    onViewUpdate?.(view.id, view);
+    onViewUpdate?.(view.id, {
+      ...view,
+      expanded: !view.expanded,
+    });
   }, [view, onViewUpdate]);
 
   const className = cx(
@@ -75,7 +77,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
       isOverlay={isOverlay}
       isUnderRootView={isRootView}
     />
-  )), [view.views, view, updateTrigger, relativeLeft, relativeTop, isRootView, isOverlay]);
+  )), [view, updateTrigger, relativeLeft, relativeTop, isRootView, isOverlay]);
 
   const draggableView = <div
     ref={setNodeRef}

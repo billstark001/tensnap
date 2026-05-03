@@ -11,7 +11,6 @@ from tensnap import (
     chart,
     SimulationScenario,
     BindParametersConfig,
-    GridEnvironmentBinder,
 )
 
 from flock import FlockSimulation, FlockConfig
@@ -21,12 +20,6 @@ scenario = SimulationScenario(port=server_port)
 
 config = FlockConfig()
 model = FlockSimulation(config)
-
-grid = GridEnvironmentBinder(
-    id="main",
-    environment=model,
-    agent_iterable_accessor='birds',
-)
 
 # Chart functions
 @chart("average_speed", "Average Speed", color="#2ECC71")
@@ -45,14 +38,14 @@ async def main() -> None:
 
     model.initialize()
 
-    scenario.add_environment(grid)
+    scenario.add_environment(model)
     scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
     scenario.add_charts(globals())
-    scenario.add_actions({})
 
     await scenario.register_model_handler(
         model.initialize,
         model.step,
+        model.initialize,
     )
 
     print(f"TenSnap Flock Visualization started on ws://localhost:{server_port}")

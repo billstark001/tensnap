@@ -1,4 +1,4 @@
-import { SimulationState } from "./model";
+import { ScenarioSnapshot } from '@tensnap/core';
 import { ContainerView } from "./ui";
 
 export interface ProjectSettings {
@@ -8,7 +8,7 @@ export interface ProjectSettings {
 export interface ProjectFileContent {
   url: string;
   mainView: ContainerView;
-  scenario: SimulationState;
+  scenario: ScenarioSnapshot;
 }
 
 export const defaultProjectSettings = (): ProjectSettings => ({

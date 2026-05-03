@@ -1,4 +1,0 @@
-{
-  "extends": "../tsconfig.benchmark.json",
-  "include": ["."]
-}

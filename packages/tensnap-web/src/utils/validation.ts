@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { 
-  ServerToClientMessageSchema, 
-  ClientToServerMessageSchema,
+  SimulatorToRendererMessageSchema,
+  RendererToSimulatorMessageSchema,
   getPayloadSchema 
-} from '@/types/api-schemas';
+} from '@tensnap/core';
 
 export type ValidationLevel = 'off' | 'warning' | 'error';
 export type MessageDirection = 'client-to-server' | 'server-to-client';
@@ -30,8 +30,8 @@ export function validateMessage(
   try {
     // Validate the message structure
     const messageSchema = direction === 'client-to-server'
-      ? ClientToServerMessageSchema
-      : ServerToClientMessageSchema;
+      ? RendererToSimulatorMessageSchema
+      : SimulatorToRendererMessageSchema;
     
     const parsedMessage = messageSchema.parse(message);
     
@@ -62,8 +62,6 @@ export function validateMessage(
     
     return { valid: false, message: 'Unknown validation error' };
   }
-
-  return { valid: true };
 }
 
 /**

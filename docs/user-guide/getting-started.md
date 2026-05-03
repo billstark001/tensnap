@@ -2,6 +2,8 @@
 
 This guide will help you get up and running with TenSnap in just a few minutes.
 
+The current stable Python surface is `SimulationScenario` plus decorators/readback helpers from `tensnap.bindings`. If you want runnable references, prefer `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples; tutorials 5-6 are still planned.
+
 ## What You'll Need
 
 - **Python 3.10 or higher** (for Python bindings)
@@ -12,16 +14,17 @@ This guide will help you get up and running with TenSnap in just a few minutes.
 
 ### 1. Install TenSnap
 
-Currently, TenSnap is available from source. Clone the repository:
+You can install the Python bindings from PyPI:
+
+```bash
+pip install tensnap
+```
+
+Or install from source if you are developing against this repository:
 
 ```bash
 git clone https://github.com/billstark001/tensnap.git
 cd tensnap
-```
-
-Install Python dependencies:
-
-```bash
 cd packages/tensnap-python
 pip install -e .
 ```
@@ -41,18 +44,19 @@ python flock_viz.py
 ```
 
 This will:
+
 1. Start a WebSocket server on port 8765
-2. Open your browser to the TenSnap web interface (or use https://tensnap.netlify.app)
-3. Connect to the simulation automatically
+2. Expose the renderer at <http://localhost:3200> when `pnpm dev:web` is running
+3. Let you connect from the local renderer or the hosted site at <https://tensnap.netlify.app>
 
 ### 3. Interact with the Simulation
 
 Once the interface loads, you'll see:
 
-- **Control Panel** (left): Parameters you can adjust (separation distance, alignment, cohesion, etc.)
-- **Visualization Area** (center): The grid showing your agents (birds) moving
-- **Charts** (right): Real-time plots of simulation metrics
-- **Toolbar** (top): Control buttons (Play, Pause, Step, Reset)
+- **Control Panel**: Parameters you can adjust (for example separation, alignment, and cohesion in the flocking demo)
+- **Visualization Area**: The active environment view
+- **Charts**: Real-time metric plots when the model registers charts
+- **Toolbar**: Built-in renderer-driven controls such as `start`, `step`, and `reset`
 
 Try these interactions:
 
@@ -63,63 +67,79 @@ Try these interactions:
 
 ## Understanding the Example
 
-The flock example demonstrates TenSnap's key features:
+The current recommended Python workflow is:
+
+1. Attach environment/layer/item metadata with decorators from `tensnap.bindings`.
+2. Register the model with `SimulationScenario` using `scenario.add_environment(model)`.
+3. Register parameters, charts, and optional actions.
+4. Let `SimulationScenario` handle sync and incremental updates.
 
 ```python
-# Import TenSnap components
-from tensnap import (
-    SimulationScenario,
-    GridEnvironmentBinder,
-    make_grid_agent_accessor,
+import asyncio
+
+from tensnap import SimulationScenario
+from tensnap.bindings import (
     BindParametersConfig,
+    agent,
+    agent_layer,
     chart,
-    action,
+    env,
+    grid_layer,
 )
 
-# Create scenario (combines server + simulation loop)
+
+@agent(x="position[0]", y="position[1]")
+class Bird:
+    def __init__(self, bird_id: int, position: tuple[int, int]):
+        self.id = bird_id
+        self.position = position
+
+
+@grid_layer(width="width", height="height")
+@agent_layer("birds", item_iterable_projector="birds")
+@env(id="main")
+class Aviary:
+    def __init__(self):
+        self.width = 20
+        self.height = 10
+        self.birds = [Bird(1, (2, 3)), Bird(2, (4, 5))]
+
+    def step(self) -> None:
+        for bird in self.birds:
+            x, y = bird.position
+            bird.position = (x + 1, y)
+
+    @chart("population", "Population")
+    def population(self) -> int:
+        return len(self.birds)
+
+
+class Config:
+    speed = 1.0
+
+
 scenario = SimulationScenario(port=8765)
+model = Aviary()
 
-# Add environment with automatic agent syncing
-grid = GridEnvironmentBinder(
-    id="main",
-    environment=model,
-    agent_accessor=make_grid_agent_accessor(heading=True, color=True, icon=True)
-)
-scenario.add_environment(grid)
+scenario.add_environment(model)
+scenario.add_parameters(Config(), BindParametersConfig(exclude="^_"))
+scenario.add_charts(model)
 
-# Automatically bind parameters from config object
-config = FlockConfig()
-scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
 
-# Create chart with decorator
-@chart("average_speed", "Average Speed", color="#2ECC71")
-def calculate_average_speed() -> float:
-    return model.get_average_speed()
+async def main() -> None:
+    await scenario.register_model_handler(model_step=model.step)
+    await scenario.run()
 
-# Create action button with decorator
-@action("reset", "Reset")
-async def reset() -> None:
-    model.initialize()
 
-# Register charts and actions
-scenario.add_charts(globals())
-scenario.add_actions(globals())
-
-# Register model lifecycle handlers
-scenario.register_model_handler(
-    init_func=model.initialize,
-    step_func=model.step
-)
-
-# Run the scenario
-await scenario.run()
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ## What's Next?
 
 - **[Installation Guide](./installation.md)** - Set up TenSnap for development or production
 - **[User Guide](./user-guide.md)** - Learn about all features in detail
-- **[Tutorials](../tutorials/)** - Follow step-by-step guides to build your own models
+- **[Tutorials](../tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](../api-reference/python-api.md)** - Explore the complete API
 
 ## Common Issues
@@ -128,7 +148,8 @@ await scenario.run()
 
 **Problem**: The web interface shows "Disconnected" or connection errors.
 
-**Solution**: 
+**Solution**:
+
 - Ensure the Python simulation is running
 - Check that port 8765 is not blocked by a firewall
 - Verify the port matches in both server and client
@@ -138,6 +159,7 @@ await scenario.run()
 **Problem**: Error message "Address already in use"
 
 **Solution**:
+
 ```bash
 # Use a different port
 TENSNAP_SERVER_PORT=8766 python your_simulation.py
@@ -148,6 +170,7 @@ TENSNAP_SERVER_PORT=8766 python your_simulation.py
 **Problem**: `ImportError: No module named 'tensnap'`
 
 **Solution**:
+
 ```bash
 # Install in development mode
 cd packages/tensnap-python

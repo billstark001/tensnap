@@ -3,14 +3,12 @@ import { I18nProvider } from '@lingui/react';
 import { i18n } from '@/i18n';
 import { ScenarioStoreProvider } from '@/store/scenario/store';
 import { useProjectStore } from '@/store/project';
-import { WebSocketStoreProvider } from '@/store/websocket';
+import { TransportStoreProvider } from '@/store/transport';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
-import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialog';
+import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialogStore';
 import { ToastAnchor } from '@/store/toast';
 
-interface ProvidersProps extends PropsWithChildren<object> {
-
-}
+type ProvidersProps = PropsWithChildren;
 
 export function Providers({
   children,
@@ -20,11 +18,11 @@ export function Providers({
 
   const projectProvider = activeProject
     ? <ScenarioStoreProvider value={activeProject.useScenarioStore}>
-      <WebSocketStoreProvider value={activeProject.useWebSocketStore}>
+      <TransportStoreProvider value={activeProject.useTransportStore}>
         <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
           {children}
         </ScenarioUndoRedoStoreProvider>
-      </WebSocketStoreProvider>
+      </TransportStoreProvider>
     </ScenarioStoreProvider>
     : children;
 

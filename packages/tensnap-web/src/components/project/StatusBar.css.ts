@@ -1,4 +1,4 @@
-import { vars } from "@/styles/global.css";
+import { vars } from "@tensnap/web-common/styles/global.css";
 import { style } from "@vanilla-extract/css";
 
 
@@ -34,6 +34,28 @@ export const statusDisconnected = style([statusBadge, {
   backgroundColor: vars.color.danger,
   color: '#ffffff',
 }]);
+
+export const statusMeta = style({
+  marginLeft: vars.space.md,
+  fontSize: vars.fontSize.sm,
+  color: vars.color.foreground,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: vars.space.xs,
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const metricValue = style({
+  display: 'inline-block',
+  minWidth: '6ch',
+  textAlign: 'right',
+  fontVariantNumeric: 'tabular-nums',
+});
 
 export const toggleButton = style({
   padding: '4px 8px',

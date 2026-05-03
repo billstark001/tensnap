@@ -1,15 +1,14 @@
 import { create, StoreApi, UseBoundStore } from "zustand";
-import { createWebSocketStore, WebSocketStore } from "./websocket";
+import { createTransportStore, TransportStore } from "./transport";
 import { generateUniqueId } from "@/utils/common";
 import { ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
-import { ChartGroup, ChartMetadata, Environment, SimulationState } from "@/types/model";
+import { ChartGroup, ChartMetadata } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { StateSyncRequest } from "@/types/api";
+import { ScenarioSnapshot, StateSyncRequest } from '@tensnap/core';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
-import { instantiateScenarioContent } from "./scenario/utils";
 import { getFileSystemState } from "./file-system/provider";
 
 export interface ProjectSettings {
@@ -20,11 +19,9 @@ export interface ProjectContextScheme extends ProjectSettings {
   id: string;
   filepath: string | null;
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
-  useWebSocketStore: UseBoundStore<StoreApi<WebSocketStore>>;
+  useTransportStore: UseBoundStore<StoreApi<TransportStore>>;
   useUndoRedoStore: UseBoundStore<StoreApi<UndoRedoState<ScenarioStore>>>;
 }
-
-const stripAgents = ({ agents, ...rest }: Environment): Omit<Environment, 'agents'> => rest;
 
 const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
   const seen = new Set<string>();
@@ -42,20 +39,23 @@ const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
   return metadata;
 };
 
-export const createStateSyncRequestFromStore = (store?: SimulationState): StateSyncRequest => {
-  const { parameters = [], environments = [], charts = [] } = store || {};
-  // Filter out disabled items - we don't send them in state sync requests
-  // This ensures the server knows about only active items
+export const createStateSyncRequestFromStore = (store?: ScenarioSnapshot): StateSyncRequest => {
+  const { parameters = [], actions = [], environments = [], charts = [] } = store || {};
   return {
     parameters,
-    environments: environments.map(stripAgents),
+    actions,
+    envs: environments.map(env => ({
+      id: env.id,
+      type: env.type,
+      layers: env.layers.map(layer => ({ layer_id: layer.id, layer_type: layer.layerType })),
+    })),
     charts: getAllChartMetadata(charts),
   };
 };
 
 const createProject = (url: string, filepath: string | null = null): ProjectContextScheme => {
   const useScenarioStore = createScenarioStore();
-  const useWebSocketStore = createWebSocketStore(useScenarioStore);
+  const useTransportStore = createTransportStore(useScenarioStore);
   const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
   return {
@@ -63,7 +63,7 @@ const createProject = (url: string, filepath: string | null = null): ProjectCont
     filepath,
     url,
     useScenarioStore,
-    useWebSocketStore,
+    useTransportStore,
     useUndoRedoStore,
   };
 };
@@ -73,6 +73,15 @@ const determineFilePath = (basePath: string, format: 'json' | 'msgpack'): string
     return basePath;
   }
   return `${basePath}.${format}`;
+};
+
+const getParentDirectory = (path: string): string => {
+  const normalized = path.replace(/\\/g, '/').replace(/\/+/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash <= 0) {
+    return '/';
+  }
+  return normalized.slice(0, lastSlash) || '/';
 };
 
 export interface ProjectStore {
@@ -131,7 +140,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     setActive(targetIndex);
 
-    newProject.useWebSocketStore.getState().initialize(url);
+    newProject.useTransportStore.getState().initialize(url);
   },
 
   async open(filepath, indexHint) {
@@ -147,15 +156,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       : decode(new Uint8Array(fileContent.content));
 
     const { scenario, mainView, url } = parsedContent;
-    const { environments, charts, parameters, ...restScenario } = scenario;
-    const instantiated = instantiateScenarioContent({ environments, charts, parameters });
 
     const newProject = createProject(url, filepath);
-    newProject.useScenarioStore.setState({
-      mainView,
-      ...restScenario,
-      ...instantiated,
-    });
+    newProject.useScenarioStore.setState({ mainView });
+    newProject.useScenarioStore.getState().load(scenario);
 
     const { projects, setActive } = get();
     const targetIndex = indexHint ?? projects.length;
@@ -163,7 +167,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     setActive(targetIndex);
 
-    newProject.useWebSocketStore.getState().initialize(
+    newProject.useTransportStore.getState().initialize(
       url,
       createStateSyncRequestFromStore(scenario)
     );
@@ -179,12 +183,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const project = projects[targetIndex];
     const scenarioStore = project.useScenarioStore.getState();
-    const url = project.useWebSocketStore.getState().url;
+    const connectionId = project.useTransportStore.getState().connectionId;
 
     const projectFile: ProjectFileContent = {
       mainView: scenarioStore.mainView,
       scenario: scenarioStore.dump(),
-      url: url ?? 'ws://localhost:8765',
+      url: connectionId ?? project.url,
     };
 
     const basePath = saveAsPath ?? project.filepath;
@@ -200,6 +204,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       ? (checkMsgpackCompatibility(projectFile), uint8ArrayToArrayBuffer(encode(projectFile)))
       : JSON.stringify(projectFile, null, 2); // 添加格式化以提高可读性
 
+    const parentDirectory = getParentDirectory(filepath);
+    if (parentDirectory !== '/') {
+      await fileSystemState.createDirectory(parentDirectory, true);
+    }
     await fileSystemState.writeFile(filepath, content);
     console.log('Project saved to', filepath);
 
@@ -214,7 +222,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw new Error("Invalid project index");
     }
 
-    projects[index].useWebSocketStore.getState().destroy();
+    projects[index].useTransportStore.getState().destroy();
     projects[index].useScenarioStore.getState().clearAll();
 
     projects.splice(index, 1);
@@ -239,8 +247,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const scenarioState = project.useScenarioStore.getState().dump();
     const stateSyncRequest = createStateSyncRequestFromStore(scenarioState);
 
-    // 使用 WebSocket store 的 changeUrl 方法
-    await project.useWebSocketStore.getState().changeUrl(newUrl, stateSyncRequest);
+    await project.useTransportStore.getState().changeTransport(newUrl, stateSyncRequest);
 
     // 更新项目的 URL 属性
     project.url = newUrl;

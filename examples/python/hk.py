@@ -1,9 +1,39 @@
+from typing import List, Any, Dict
+
 import numpy as np
 import networkx as nx
 import random
-from typing import List, Any, Dict
 
 
+from tensnap import (
+    env,
+    agent_layer,
+    edge_layer,
+    params,
+)
+
+
+@env()
+@agent_layer(
+    "agents",
+    item_iterable_projector="graph.nodes",
+    item_dynamic_projector="render_tensnap_node",
+)
+@edge_layer(
+    "edges",
+    item_iterable_projector="graph.edges",
+    item_dynamic_projector="render_tensnap_edge",
+)
+@params(
+    include=[
+        "n_agents",
+        "confidence_bound",
+        "influence_strength",
+        "k_random",
+        "rewire_prob",
+        "edge_prob",
+    ]
+)
 class DiscreteHKModel:
     def __init__(
         self,
@@ -40,12 +70,46 @@ class DiscreteHKModel:
 
         self.init()
 
+    def render_tensnap_node(self, node_id: int) -> Dict[str, Any]:
+        """为TenSnap渲染节点属性"""
+        opinion = self.opinions[node_id]
+        return {
+            "id": node_id,
+            "opinion": opinion,
+            "color": (
+                "#E74C3C"
+                if opinion < -0.33
+                else "#2ECC71" if opinion > 0.33 else "#F1C40F"
+            ),
+            "size": 0.5 + abs(opinion) * 2,
+        }
+
+    def render_tensnap_edge(self, edge: tuple[int, int]) -> Dict[str, Any]:
+        """为TenSnap渲染边属性"""
+        source, target = edge
+        return {
+            "source": source,
+            "target": target,
+            "directed": True,
+        }
+
     def init(self):
         # 初始化意见
         if self.initial_opinions is None:
             self.opinions = np.random.uniform(-1, 1, self.n_agents)
         else:
-            self.opinions = np.array(self.initial_opinions)
+            raw = np.asarray(self.initial_opinions, dtype=float)
+            if raw.ndim == 0:
+                raise ValueError(
+                    "initial_opinions must be a 1D sequence; got scalar. "
+                    "This usually happens when a scalar parameter value is applied "
+                    "to the initial_opinions field."
+                )
+            if raw.size != self.n_agents:
+                raise ValueError(
+                    f"initial_opinions length mismatch: expected {self.n_agents}, got {raw.size}."
+                )
+            self.opinions = raw.reshape(-1)
 
         # 创建有向E-R图
         self.graph = nx.erdos_renyi_graph(self.n_agents, self.edge_prob, directed=True)

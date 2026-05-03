@@ -1,0 +1,21 @@
+{
+  "name": "@tensnap/web-models",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./models": "./src/models/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "echo 'No tests'",
+    "lint": "pnpm run typecheck",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "@tensnap/core": "workspace:*"
+  }
+}

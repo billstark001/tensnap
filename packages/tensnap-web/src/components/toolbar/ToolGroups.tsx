@@ -28,11 +28,10 @@ import { useFileOperations } from './useFileOperations';
 import { ToolButton } from './ToolButton';
 import { createStateSyncRequestFromStore } from '@/store/project';
 import { useSettingsStore } from '@/store/settings';
-import { SettingsDialog } from '@/dialogs/SettingsDialog';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
-import { useWebSocketStore } from '@/store/websocket';
-import { msg } from '@lingui/core/macro';
+import { useTransportStore } from '@/store/transport';
+import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
@@ -99,12 +98,6 @@ export function SimulationControlTools() {
     <ToolGroupContainer>
       <ToolButton
         icon={<Play size={16} />}
-        tooltip={_(msg`Start/Stop`)}
-        isActive={true}
-        onClick={() => handleButtonAction('start_stop')}
-      />
-      <ToolButton
-        icon={<Play size={16} />}
         tooltip={_(msg`Start`)}
         onClick={() => handleButtonAction('start')}
       />
@@ -132,7 +125,7 @@ export function ViewTools() {
   const dump = useScenarioStore((store) => store.dump);
   const updateMainViewLayout = useScenarioStore((store) => store.updateMainViewLayout);
 
-  const websocketStore = useWebSocketStore();
+  const transportStore = useTransportStore();
   const { _ } = useLingui();
 
   const handleTakeSnapshot = () => {
@@ -165,7 +158,7 @@ export function ViewTools() {
       <ToolButton
         icon={<RefreshCcw size={16} />}
         tooltip={_(msg`Synchronize State`)}
-        onClick={() => dump ? websocketStore?.sendMessage({
+        onClick={() => dump ? transportStore?.sendMessage({
           type: 'state_sync',
           payload: createStateSyncRequestFromStore(dump()),
         }) : undefined}
@@ -181,7 +174,7 @@ export function ViewTools() {
 
 export function SettingTools() {
   const {
-    settingsDialogOpen, setSettingsDialogOpen,
+    setSettingsDialogOpen,
     aboutDialogOpen, setAboutDialogOpen,
     theme, toggleTheme,
   } = useSettingsStore();
@@ -217,7 +210,6 @@ export function SettingTools() {
         onClick={() => setSettingsDialogOpen(true)}
       />
 
-      <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
       <AboutDialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen} />
     </ToolGroupContainer>
   );

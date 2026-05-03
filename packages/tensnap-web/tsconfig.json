@@ -10,16 +10,9 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "noEmit": true,
-    "baseUrl": ".",
+    "types": ["vitest/globals"],
     "paths": {
-      "@/*": ["src/*"],
-      "tensnap-web-core": ["../tensnap-web-core/src/index.ts"],
-      "tensnap-web-core/*": ["../tensnap-web-core/src/*"],
-      "tensnap-web-utils": ["../tensnap-web-utils/src/index.ts"],
-      "tensnap-web-utils/*": ["../tensnap-web-utils/src/*"],
-      "tensnap-web-utils/file-system": ["../tensnap-web-utils/src/file-system/index.ts"],
-      "tensnap-web-utils/adapters": ["../tensnap-web-utils/src/adapters/index.ts"],
-      "tensnap-web-utils/adapters/*": ["../tensnap-web-utils/src/adapters/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "adapters.ts"],

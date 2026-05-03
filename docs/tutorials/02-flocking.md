@@ -3,53 +3,63 @@
 **Difficulty**: Intermediate  
 **Time**: 30-40 minutes
 
+This tutorial now maps directly to the runnable repository example in `examples/python/flock.py` and `examples/python/flock_viz.py`.
+
 ## Learning Objectives
 
-In this tutorial, you'll learn:
+In this tutorial, you will:
 
-- Implementing agent-agent interactions
-- Using metadata decorators for complex agent properties
-- Adding heading and trajectory visualization
-- Working with multi-agent behavioral rules
-- Tracking emergent system properties
+- build a multi-agent flocking simulation with the current `tensnap` decorators
+- expose heading, size, color, and debug metadata on each bird
+- add a trajectory layer that depends on the bird layer
+- register charts for emergent flock statistics
 
 ## Prerequisites
 
-- Python 3.10+ installed
-- TenSnap installed
-- Completed [Tutorial 1: Random Walk](./01-random-walk.md)
+- completed [Tutorial 1: Simple Random Walk](./01-random-walk.md)
+- Python 3.10+
+- TenSnap installed, or this repository checked out locally
 
-## What We're Building
+## What We Are Building
 
-A flocking simulation implementing three behavioral rules (Reynolds' Boids):
+We will implement a standard Boids-style flock with three local rules:
 
-1. **Separation**: Avoid crowding neighbors
-2. **Alignment**: Steer toward average heading of neighbors
-3. **Cohesion**: Move toward average position of neighbors
+1. **Separation**: avoid crowding neighbors
+2. **Alignment**: steer toward the neighborhood's average velocity
+3. **Cohesion**: move toward the neighborhood's average position
 
-You'll observe emergent flocking behavior as individual agents follow simple local rules.
+The final example exposes:
 
-## Step 1: Project Setup
+- editable flocking parameters
+- arrow-shaped birds whose heading follows their velocity
+- trajectory trails behind each bird
+- charts for average speed and alignment order parameter
 
-Create `flocking.py`:
+## Step 1: Create the Simulation File
+
+Create `flock.py` with the following content:
 
 ```python
-# flocking.py
-"""Flocking simulation with TenSnap"""
+"""Pure flocking simulation without any visualization dependencies"""
 
-import asyncio
 import random
 import math
-from typing import List, Optional
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-```
 
-## Step 2: Define Configuration
+from tensnap import (
+    agent,
+    env,
+    agent_layer,
+    grid_layer,
+    trajectory_layer,
+)
 
-```python
+
 @dataclass
 class FlockConfig:
-    """Flocking simulation parameters"""
+    """Configuration for flocking simulation"""
+
     separation_distance: float = 2.0
     alignment_distance: float = 5.0
     cohesion_distance: float = 8.0
@@ -58,422 +68,340 @@ class FlockConfig:
     world_width: float = 40.0
     world_height: float = 40.0
     spawn_radius: float = 10.0
-```
 
-These parameters control the three behavioral rules and agent properties.
 
-## Step 3: Define Bird Agent
-
-Create the bird agent with metadata binding:
-
-```python
-from tensnap import bind_grid_agent
-
-@bind_grid_agent(size=True, icon=True, color=True, heading=True, data=True)
+@agent(x=True, y=True, size=True, icon=True, color=True, data=True, heading=True)
 class Bird:
     """A single bird agent in the flock"""
-    
-    size = 5
+
+    size = 0.5
     icon = "arrow"
     color = "#3498DB"
-    
-    def __init__(self, bird_id: str, x: float, y: float, heading: Optional[float] = None):
+
+    def __init__(
+        self, bird_id: str, x: float, y: float, heading: Optional[float] = None
+    ):
         self.id = bird_id
         self.x = x
         self.y = y
-        self.heading = heading if heading is not None else random.uniform(0, 2 * math.pi)
+        self.heading = (
+            heading if heading is not None else random.uniform(0, 2 * math.pi)
+        )
         self.vx = math.cos(self.heading) * random.uniform(0.2, 0.6)
         self.vy = math.sin(self.heading) * random.uniform(0.2, 0.6)
-    
+
     def get_speed(self) -> float:
-        """Get current speed"""
+        """Get current speed of the bird"""
         return math.sqrt(self.vx * self.vx + self.vy * self.vy)
-    
-    def update_position(self, world_width: float, world_height: float):
-        """Update position with wrapping"""
+
+    def update_position(self, world_width: float, world_height: float) -> None:
+        """Update bird position with boundary wrapping"""
         self.x = (self.x + self.vx) % world_width
         self.y = (self.y + self.vy) % world_height
-        
-        # Update heading based on velocity
+
         speed = self.get_speed()
         if speed > 0.01:
             self.heading = math.atan2(self.vy, self.vx)
-    
+
     @property
-    def data(self):
-        """Additional agent data for inspection"""
+    def data(self) -> Dict[str, Any]:
         return {
             "vx": self.vx,
             "vy": self.vy,
             "speed": self.get_speed(),
         }
-```
 
-Key features:
 
-- `heading=True`: Arrow icon points in movement direction
-- `data=True`: Expose velocity components for debugging
-- `icon="arrow"`: Use directional visualization
-
-## Step 4: Implement Flocking Simulation
-
-Create the simulation environment:
-
-```python
-from tensnap import bind_grid_environment
-
-@bind_grid_environment(coord_offset=True, trajectory_length=True)
+@trajectory_layer(agent_layer_id="birds", width=False)
+@agent_layer("birds", item_iterable_projector="birds", coord_offset=True)
+@grid_layer(width="width", height="height")
+@env()
 class FlockSimulation:
     """Main flocking simulation class"""
-    
-    coord_offset = "float"  # Use floating-point coordinates
-    trajectory_length = 5   # Show last 5 positions
-    
+
+    length = 5
+    color = "#2563EB"
+
+    coord_offset = "float"
+
     def __init__(self, config: Optional[FlockConfig] = None):
         self.config = config or FlockConfig()
         self.birds: List[Bird] = []
         self.time_step = 0
-    
+
     @property
     def width(self) -> int:
         return int(self.config.world_width)
-    
+
     @property
     def height(self) -> int:
         return int(self.config.world_height)
-    
+
     def initialize(self) -> None:
-        """Initialize birds in center area"""
+        """Initialize the simulation with birds"""
         self.birds.clear()
         self.time_step = 0
-        
+
         center_x = self.config.world_width / 2
         center_y = self.config.world_height / 2
         spawn_radius = self.config.spawn_radius
-        
+
         for i in range(int(self.config.num_agents + 0.5)):
             x = center_x + random.uniform(-spawn_radius, spawn_radius)
             y = center_y + random.uniform(-spawn_radius, spawn_radius)
             bird = Bird(f"bird_{i}", x, y)
             self.birds.append(bird)
-```
 
-The `coord_offset="float"` allows sub-pixel positioning for smooth movement.
-
-## Step 5: Implement Flocking Rules
-
-Add the core flocking behavior:
-
-```python
     def update_bird(self, bird: Bird) -> None:
         """Update a single bird using flocking rules"""
         sep_x = sep_y = align_x = align_y = coh_x = coh_y = 0.0
         neighbors = 0
-        
-        # Check all other birds
+
         for other in self.birds:
             if other.id == bird.id:
                 continue
-            
+
             dx = bird.x - other.x
             dy = bird.y - other.y
             dist = math.sqrt(dx * dx + dy * dy)
-            
+
             if 0 < dist < self.config.cohesion_distance:
                 neighbors += 1
-                
-                # Rule 1: Separation - avoid crowding
+
                 if dist < self.config.separation_distance:
                     sep_x += dx / dist
                     sep_y += dy / dist
-                
-                # Rule 2: Alignment - match velocity
+
                 if dist < self.config.alignment_distance:
                     align_x += other.vx
                     align_y += other.vy
-                
-                # Rule 3: Cohesion - move toward center
+
                 coh_x += other.x
                 coh_y += other.y
-        
+
         if neighbors > 0:
-            # Average forces
             sep_x /= neighbors
             sep_y /= neighbors
             align_x /= neighbors
             align_y /= neighbors
             coh_x = (coh_x / neighbors) - bird.x
             coh_y = (coh_y / neighbors) - bird.y
-            
-            # Combine forces (separation weighted higher)
+
             force_x = sep_x * 1.5 + align_x + coh_x
             force_y = sep_y * 1.5 + align_y + coh_y
-            
-            # Update velocity
+
             bird.vx += force_x * 0.1
             bird.vy += force_y * 0.1
-            
-            # Speed limit
+
             speed = math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy)
             if speed > self.config.max_speed:
                 bird.vx = (bird.vx / speed) * self.config.max_speed
                 bird.vy = (bird.vy / speed) * self.config.max_speed
-    
+
     def step(self) -> None:
         """Perform one simulation step"""
-        # Update all birds
         for bird in self.birds:
             self.update_bird(bird)
-        
-        # Update positions
+
         for bird in self.birds:
             bird.update_position(self.config.world_width, self.config.world_height)
-        
+
         self.time_step += 1
-```
 
-## Step 6: Add Metrics
-
-Track flock behavior with aggregate metrics:
-
-```python
     def get_average_speed(self) -> float:
         """Calculate average speed of all birds"""
         if not self.birds:
             return 0.0
+
         speeds = [bird.get_speed() for bird in self.birds]
         return sum(speeds) / len(speeds)
-    
+
     def get_order_parameter(self) -> float:
         """Measure flock alignment (0=random, 1=aligned)"""
         if not self.birds:
             return 0.0
-        
-        # Average velocity vector
+
         avg_vx = sum(bird.vx for bird in self.birds) / len(self.birds)
         avg_vy = sum(bird.vy for bird in self.birds) / len(self.birds)
         avg_speed = math.sqrt(avg_vx**2 + avg_vy**2)
-        
-        # Average individual speed
+
         individual_avg = self.get_average_speed()
-        
+
         return avg_speed / individual_avg if individual_avg > 0 else 0.0
 ```
 
-The order parameter measures collective alignment: values near 1 indicate synchronized flocking.
+### Why this works
 
-## Step 7: Set Up TenSnap Integration
+- `@agent(...)` includes `heading=True`, so the arrow icon rotates with the bird's direction.
+- `@agent_layer(..., coord_offset=True)` enables floating-point coordinates for smooth movement.
+- `@trajectory_layer(agent_layer_id="birds")` creates a dedicated trajectory layer that depends on the bird layer.
+- `length = 5` and `color = "#2563EB"` provide default trajectory metadata.
+
+## Step 2: Create the Visualization Entry Point
+
+Create `flock_viz.py` with the following content:
 
 ```python
-from tensnap import SimulationScenario, GridEnvironmentBinder, BindParametersConfig, chart, action
+"""TenSnap visualization for the flocking simulation"""
 
-# Create simulation and scenario
-config = FlockConfig()
-model = FlockSimulation(config)
-scenario = SimulationScenario(port=8765)
+import asyncio
+import os
 
-# Create environment binder
-grid = GridEnvironmentBinder(
-    id="main",
-    environment=model,
-    agent_iterable_accessor='birds'
+import import_config  # noqa: F401
+
+from tensnap import (
+    chart,
+    SimulationScenario,
+    BindParametersConfig,
 )
 
-# Define charts
+from flock import FlockSimulation, FlockConfig
+
+server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
+scenario = SimulationScenario(port=server_port)
+
+config = FlockConfig()
+model = FlockSimulation(config)
+
+
 @chart("average_speed", "Average Speed", color="#2ECC71")
 def calculate_average_speed() -> float:
     return model.get_average_speed()
+
 
 @chart("order_parameter", "Flock Order Parameter", color="#E74C3C")
 def calculate_order_parameter() -> float:
     return model.get_order_parameter()
 
-@action("reset", "Reset Simulation")
-async def reset():
-    model.initialize()
-```
 
-## Step 8: Main Function
-
-```python
 async def main() -> None:
     """Run the flock visualization"""
-    
+
     model.initialize()
-    
-    scenario.add_environment(grid)
+
+    scenario.add_environment(model)
     scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
     scenario.add_charts(globals())
-    scenario.add_actions(globals())
-    
+
     await scenario.register_model_handler(
         model.initialize,
         model.step,
+        model.initialize,
     )
-    
-    print(f"Flocking Simulation starting on ws://localhost:8765")
-    print("Open your browser to http://localhost:3200")
+
+    print(f"TenSnap Flock Visualization started on ws://localhost:{server_port}")
     await scenario.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Step 9: Run Your Simulation
+As in Tutorial 1, remove `import import_config` if you are copying the file outside the repository after installing `tensnap` from PyPI.
 
-1. **Start the Web Interface** (in one terminal):
+### Why this works
 
-   ```bash
-   cd tensnap
-   pnpm dev:web
-   ```
+- `BindParametersConfig(exclude="world_.+")` keeps the world dimensions fixed while exposing the flock behavior controls.
+- `scenario.add_charts(globals())` registers the two module-level chart functions.
+- `register_model_handler(model.initialize, model.step, model.initialize)` gives the built-in `reset` control a deterministic meaning.
 
-2. **Run Your Simulation** (in another terminal):
+## Step 3: Run the Tutorial
 
-   ```bash
-   python flocking.py
-   ```
+### Option A: Run from this repository
 
-3. **Open Browser**: Navigate to `http://localhost:3200`
+In one terminal:
+
+```bash
+pnpm dev:web
+```
+
+In another terminal:
+
+```bash
+cd examples/python
+TENSNAP_USE_SOURCE=1 python flock_viz.py
+```
+
+Or from the repository root:
+
+```bash
+pnpm dev:py:flock
+```
+
+### Option B: Run from a standalone directory
+
+```bash
+pip install tensnap
+python flock_viz.py
+```
+
+Use either the local renderer from `pnpm dev:web` or the hosted app at `https://tensnap.netlify.app`.
 
 ## What You Should See
 
-- **Left Panel**: Sliders for separation, alignment, cohesion distances and speed
-- **Center**: Grid with arrow-shaped birds moving in coordinated patterns
-- **Trajectories**: Trails showing recent bird paths
-- **Right Panel**: Charts showing average speed and order parameter
-- **Bottom**: Play/Pause/Step controls
+- sliders for separation, alignment, cohesion, max speed, agent count, and spawn radius
+- arrow-shaped birds moving smoothly with continuous headings
+- trajectory trails behind the birds
+- a chart for average speed
+- a chart for flock order parameter
 
-## Understanding the Behavior
+## How to Read the Result
 
-Watch how the flock self-organizes:
-
-1. **Initial Chaos**: Birds start with random headings
-2. **Local Interaction**: Birds respond to nearby neighbors
-3. **Emergent Flocking**: Coordinated movement patterns emerge
-4. **Order Parameter**: Rises toward 1.0 as alignment increases
-
-Try adjusting parameters:
-
-- **Increase separation**: Birds spread out more
-- **Decrease cohesion**: Flock breaks into sub-groups
-- **Increase max_speed**: Faster, more dynamic movement
+- at the beginning, birds start with random headings and the order parameter is low
+- as local rules take effect, the birds organize and the order parameter rises
+- increasing `separation_distance` makes the flock spread out
+- decreasing `cohesion_distance` makes it harder for the flock to hold together
 
 ## Exercises
 
 ### Exercise 1: Add Predator Avoidance
 
-Create a predator that birds flee from:
+Add a predator and a repulsion force:
 
 ```python
-@bind_grid_agent(size=True, icon=True, color=True)
+@agent(x=True, y=True, size=True, icon=True, color=True)
 class Predator:
-    size = 10
+    size = 1.0
     icon = "triangle"
-    color = "#E74C3C"
-    
+    color = "#DC2626"
+
     def __init__(self, x: float, y: float):
         self.id = "predator"
         self.x = x
         self.y = y
-
-# In FlockSimulation.update_bird():
-# Add predator avoidance force
-if hasattr(self, 'predator'):
-    dx = bird.x - self.predator.x
-    dy = bird.y - self.predator.y
-    dist = math.sqrt(dx * dx + dy * dy)
-    if dist < 10:  # Flee range
-        flee_x = (dx / dist) * 2.0
-        flee_y = (dy / dist) * 2.0
-        bird.vx += flee_x * 0.2
-        bird.vy += flee_y * 0.2
 ```
 
-### Exercise 2: Color by Speed
+Then add predator avoidance inside `update_bird` by applying an extra force when a bird gets too close.
 
-Visualize bird speed with color:
+### Exercise 2: Color Birds by Speed
+
+Replace the fixed `color` attribute with a property:
 
 ```python
-@bind_grid_agent(size=True, icon=True, color=True, heading=True, data=True)
-class Bird:
-    # ... existing code ...
-    
-    @property
-    def color(self) -> str:
-        """Color based on speed"""
-        speed = self.get_speed()
-        ratio = min(speed / 1.0, 1.0)
-        
-        if ratio < 0.5:
-            # Blue (slow) to green (medium)
-            return f"#00{int(255 * ratio * 2):02x}ff"
-        else:
-            # Green (medium) to red (fast)
-            return f"#{int(255 * (ratio - 0.5) * 2):02x}ff00"
+@property
+def color(self) -> str:
+    ratio = min(self.get_speed() / self.config.max_speed, 1.0)
+    if ratio < 0.5:
+        return "#2563EB"
+    return "#F97316"
 ```
 
-### Exercise 3: Boundary Attraction
+If you do this, the renderer will automatically reflect the new per-bird color because `color=True` is already included in the `@agent(...)` binding.
 
-Add soft boundaries that guide birds back to center:
+### Exercise 3: Tune the Trail Layer
+
+Change the trajectory defaults on `FlockSimulation`:
 
 ```python
-def update_bird(self, bird: Bird) -> None:
-    # ... existing flocking rules ...
-    
-    # Boundary force - attract toward center
-    center_x = self.config.world_width / 2
-    center_y = self.config.world_height / 2
-    
-    dx = center_x - bird.x
-    dy = center_y - bird.y
-    dist_from_center = math.sqrt(dx * dx + dy * dy)
-    
-    max_radius = min(self.config.world_width, self.config.world_height) / 2 * 0.8
-    if dist_from_center > max_radius:
-        pull_strength = (dist_from_center - max_radius) / max_radius
-        bird.vx += (dx / dist_from_center) * pull_strength * 0.1
-        bird.vy += (dy / dist_from_center) * pull_strength * 0.1
+length = 12
+color = "#7C3AED"
 ```
 
-## Troubleshooting
-
-### Birds Moving Too Fast
-
-- Reduce `max_speed` in config
-- Decrease force multiplication factor (currently 0.1)
-- Increase `step_interval` in `SimulationScenario`
-
-### No Flocking Behavior
-
-- Check that distance parameters are appropriate for world size
-- Ensure `num_agents` is sufficient (try 50+)
-- Verify birds are initialized in overlapping neighborhoods
-
-### Trajectories Not Showing
-
-- Confirm `trajectory_length=True` in `@bind_grid_environment()`
-- Check that `trajectory_length = 5` is set in the class
-- Ensure `coord_offset="float"` for smooth trails
-
-## Summary
-
-You've learned:
-
-✅ Implementing multi-agent interaction rules  
-✅ Using `@bind_grid_agent()` with heading and trajectory metadata  
-✅ Configuring environment with `coord_offset` and `trajectory_length`  
-✅ Measuring emergent system properties  
-✅ Creating responsive visualizations of collective behavior  
-
-## Next Steps
-
-- **Tutorial 3: Predator-Prey Dynamics** - Learn about agent lifecycle and multiple agent types
-- Explore [examples/sugarscape.py](../../examples/python_mesa/sugarscape.py) for resource competition
-- Check out [examples/hk_viz.py](../../examples/python/hk_viz.py) for network-based dynamics
+You can also expose additional trajectory metadata by passing parameters such as `width=` or `z_index=` to `@trajectory_layer(...)`.
 
 ## References
 
-- Reynolds, C. W. (1987). "Flocks, herds and schools: A distributed behavioral model"
-- [Complete flock example](../../examples/python/flock_viz.py)
-- [User Guide](../user-guide/user-guide.md)
+- `examples/python/flock.py`
+- `examples/python/flock_viz.py`
+- `packages/tensnap-python/README.md`
+- `docs/api-reference/python-api.md`

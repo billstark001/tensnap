@@ -1,674 +1,287 @@
 # TenSnap User Guide
 
-This comprehensive guide covers all aspects of using TenSnap for agent-based modeling and visualization.
+This guide describes the current 0.2.0 user-facing workflow.
 
-## Table of Contents
-
-1. [Core Concepts](#core-concepts)
-2. [Building Your First Model](#building-your-first-model)
-3. [Agents and Environments](#agents-and-environments)
-4. [Parameters and Controls](#parameters-and-controls)
-5. [Charts and Visualization](#charts-and-visualization)
-6. [Simulation Management](#simulation-management)
-7. [User Interface](#user-interface)
-8. [Advanced Features](#advanced-features)
-9. [Best Practices](#best-practices)
+If you need runnable references, start with `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples, but the examples and Python API reference remain the authoritative source for the current release.
 
 ## Core Concepts
 
-### Architecture Overview
+TenSnap separates three concerns:
 
-TenSnap consists of three main components:
+1. Your simulation logic.
+2. A simulator/runtime that exposes that logic over protocol v0.2.
+3. A renderer that owns synchronized state and turns it into an interactive UI.
 
-1. **Simulation Backend**: Your model logic written in Python (or other languages)
-2. **WebSocket Server**: Handles communication between backend and frontend
-3. **Web Frontend**: Interactive visualization interface built with React
+For Python users, the recommended entry point is `SimulationScenario`.
 
-```
-┌─────────────────┐         ┌──────────────┐         ┌─────────────────┐
-│   Your Model    │ <──────>│   TenSnap    │ <──────>│   Web UI        │
-│   (Python)      │ WebSocket Server       │ WebSocket Browser/Tauri  │
-└─────────────────┘         └──────────────┘         └─────────────────┘
-```
+## Recommended Python Workflow
 
-### Key Components
+The current high-level path is:
 
-- **Server**: `TenSnapServer` - Manages WebSocket connections and broadcasts updates
-- **Environments**: `GridEnvironmentModel`, `GraphEnvironmentModel` - Spatial contexts for agents
-- **Agents**: `AgentModel` - Individual entities in your simulation
-- **Parameters**: Configurable values exposed to the UI (sliders, dropdowns, toggles)
-- **Charts**: Real-time data visualization
-- **Buttons**: Trigger actions in your simulation
+1. Define your model objects.
+2. Attach environment/layer/item metadata with decorators from `tensnap.bindings`.
+3. Register the model with `SimulationScenario`.
+4. Register parameters, charts, and optional custom actions.
+5. Start the renderer and connect to the running scenario.
 
-## Building Your First Model
-
-### Step 1: Set Up the Server
+### Minimal Example
 
 ```python
-from tensnap import TenSnapServer, GridEnvironmentModel, AgentModel
 import asyncio
 
-# Create server instance
-server = TenSnapServer(port=8765)
+from tensnap import SimulationScenario
+from tensnap.bindings import (
+    BindParametersConfig,
+    agent,
+    agent_layer,
+    chart,
+    env,
+    grid_layer,
+)
 
-# Create environment
-grid = GridEnvironmentModel(id="main", width=50, height=50)
-server.add_environment(grid)
-```
 
-### Step 2: Define Your Model Logic
+@agent(x="position[0]", y="position[1]")
+class Bird:
+    def __init__(self, bird_id: int, position: tuple[int, int]):
+        self.id = bird_id
+        self.position = position
 
-Separate your simulation logic from visualization:
 
-```python
-class MySimulation:
-    def __init__(self, config):
-        self.config = config
-        self.agents = []
-        self.time = 0
-    
-    def initialize(self):
-        """Set up initial state"""
-        self.agents = [
-            self.create_agent(i) 
-            for i in range(self.config.num_agents)
-        ]
-    
-    def step(self):
-        """Execute one time step"""
-        for agent in self.agents:
-            agent.move()
-            agent.interact(self.agents)
-        self.time += 1
-```
+@grid_layer(width="width", height="height")
+@agent_layer("birds", item_iterable_projector="birds")
+@env(id="main")
+class Aviary:
+    def __init__(self):
+        self.width = 20
+        self.height = 10
+        self.birds = [Bird(1, (2, 3)), Bird(2, (4, 5))]
 
-### Step 3: Connect to TenSnap
+    def step(self) -> None:
+        for bird in self.birds:
+            x, y = bird.position
+            bird.position = (x + 1, y)
 
-```python
-from tensnap.sim_loop import SimulationManager
+    @chart("population", "Population")
+    def population(self) -> int:
+        return len(self.birds)
 
-# Create simulation manager
-sim_manager = SimulationManager(step_interval=0.05)
 
-# Define step handler
-async def on_step(step: int):
-    await server.start_time_step(step)
-    
-    # Run your simulation logic
-    my_simulation.step()
-    
-    # Update visualization
-    updates = grid.generate_agent_updates()
-    await server.update_agents_batch("main", updates)
-    
-    await server.end_time_step(step)
+class Config:
+    speed = 1.0
 
-# Connect
-sim_manager.on_step = on_step
-sim_manager.register_to(server)
-```
 
-### Step 4: Run the Server
+scenario = SimulationScenario(port=8765)
+model = Aviary()
 
-```python
-async def main():
-    print("Starting TenSnap server on ws://localhost:8765")
-    await server.run()
+scenario.add_environment(model)
+scenario.add_parameters(Config(), BindParametersConfig(exclude="^_"))
+scenario.add_charts(model)
+
+
+async def main() -> None:
+    await scenario.register_model_handler(model_step=model.step)
+    await scenario.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Agents and Environments
+## Binding Surface
 
-### Grid Environments
+The recommended decorator/readback surface lives under `tensnap.bindings`.
 
-Grid environments provide a 2D spatial context for agents:
+### Common decorators
 
-```python
-from tensnap import GridEnvironmentModel, AgentModel
+- `env(...)`
+- `grid_layer(...)`
+- `agent_layer(...)`
+- `edge_layer(...)`
+- `trajectory_layer(...)`
+- `background_layer(...)`
+- `agent(...)`
+- `edge(...)`
+- `trajectory_item(...)`
+- `chart(...)`
+- `action(...)`
+- `BindParametersConfig(...)`
 
-# Create grid
-grid = GridEnvironmentModel(
-    id="world",
-    width=100,
-    height=100
-)
+These decorators describe how your own Python objects should be projected into protocol state. They do not create a separate mutable TenSnap-side model object that you manipulate directly.
 
-# Add agents to grid
-agent = AgentModel(
-    id="agent_1",
-    x=50.0,
-    y=50.0,
-    heading=0.0,      # Direction in radians
-    color="#FF5733",  # Hex color
-    icon="circle",    # Icon type: circle, square, arrow, etc.
-    size=10           # Size in pixels
-)
-grid.add_agent(agent)
-```
+## Environments and Layers
 
-#### Background Images
+TenSnap 0.2.0 uses canonical `uniform` and `2d` environments.
 
-Display NumPy arrays as grid backgrounds:
+Rendering behavior comes from layers.
 
-```python
-import numpy as np
+Built-in layer types include:
 
-# Create background data (e.g., heatmap, terrain)
-background = np.random.rand(100, 100)
-grid.set_background(background)
-```
+- `agent`
+- `edge`
+- `trajectory`
+- `grid`
+- `background`
 
-### Graph Environments
+### Practical guidance
 
-Graph environments represent network structures:
+- Use `grid_layer(...)` when you need 2D world metadata such as width/height.
+- Use `agent_layer(...)` for moving objects or cell-as-agent visualizations.
+- Use `edge_layer(...)` for graph/network links.
+- Use `trajectory_layer(...)` when you want trails that depend on an agent layer.
+- Use `background_layer(...)` for explicit background assets or static backing visuals.
 
-```python
-from tensnap import GraphEnvironmentModel
+For resource fields or per-cell state, prefer an explicit square-agent layer over ad-hoc image shortcuts when you want inspectable, diffable state.
 
-# Create graph
-graph = GraphEnvironmentModel(id="network")
+## Parameters, Charts, and Actions
 
-# Add nodes
-graph.add_node(id="node_1", x=0, y=0, color="#3498db")
-graph.add_node(id="node_2", x=100, y=100, color="#e74c3c")
+### Parameters
 
-# Add edges
-graph.add_edge(
-    source="node_1",
-    target="node_2",
-    weight=1.0,
-    color="#95a5a6"
-)
-
-# Agents can be attached to nodes or edges
-agent = AgentModel(id="agent_1", node_id="node_1")
-graph.add_agent(agent)
-```
-
-### Agent Properties
-
-Agents support various visual properties:
+Register parameters with:
 
 ```python
-agent = AgentModel(
-    id="unique_id",
-    x=25.0,            # X position
-    y=30.0,            # Y position
-    heading=1.57,      # Heading in radians (0 = right, π/2 = up)
-    color="#FF5733",   # Hex color string
-    icon="arrow",      # Visual representation
-    size=12,           # Size in pixels
-    label="Agent 1",   # Optional text label
-    node_id=None       # For graph environments
-)
+scenario.add_parameters(config, BindParametersConfig(exclude="^_"))
 ```
 
-#### Available Icons
+Automatic parameter discovery reads plain attributes from objects, classes, dictionaries, and dataclass-like configs.
 
-- `circle` - Simple circle
-- `square` - Square shape
-- `arrow` - Directional arrow (uses heading)
-- `triangle` - Triangle
-- `diamond` - Diamond shape
+### Charts
 
-### Efficient Agent Updates
-
-Use `update_source` for automatic property syncing:
+Attach charts with `@chart(...)` and register them with:
 
 ```python
-class Bird:
-    def __init__(self):
-        self.x = 0.0
-        self.y = 0.0
-        self.heading = 0.0
-
-bird = Bird()
-
-# Agent automatically reads from bird object
-agent = AgentModel(
-    id="bird_1",
-    x=bird.x,
-    y=bird.y,
-    heading=bird.heading,
-    update_source=bird  # Auto-sync properties
-)
-
-# Updates happen automatically
-grid.generate_agent_updates()  # Reads from bird.x, bird.y, bird.heading
+scenario.add_charts(model)
 ```
 
-## Parameters and Controls
-
-### Manual Parameter Definition
+or, for module-level functions:
 
 ```python
-from tensnap.bindings.basic import parameter
-
-# Slider parameter
-population = parameter(
-    id="population",
-    label="Population Size",
-    value=100,
-    min=10,
-    max=500,
-    step=10
-)
-server.add_parameter(population)
-
-# Access value in your code
-num_agents = population.value
+scenario.add_charts(globals())
 ```
 
-### Enum Parameters
+### Actions
+
+`SimulationScenario` registers three built-in renderer-driven actions automatically:
+
+- `start`
+- `step`
+- `reset`
+
+There is no built-in `stop` action unless your scenario registers one explicitly.
+
+If you need extra actions, use `@action(...)` and then:
 
 ```python
-behavior_mode = parameter(
-    id="behavior",
-    label="Behavior Mode",
-    value="flocking",
-    options=["flocking", "random_walk", "seeking"]
-)
+scenario.add_actions(target)
 ```
 
-### Automatic Parameter Binding
+## Runtime Semantics
 
-Bind class attributes automatically:
+The default Python handler semantics are:
 
-```python
-from dataclasses import dataclass
-from tensnap.bindings.basic import quick_bind
+- initial synchronized state is time `0`
+- the first simulated tick emitted by `start` or `step` is time `1`
+- `register_model_handler(model_init=None, model_step=None, model_reset=None)` keeps reset distinct from init when you provide both callbacks
+- if `model_reset` is omitted, reset falls back to `model_init`
 
-@dataclass
-class Config:
-    population: int = 100
-    speed: float = 1.0
-    vision_range: float = 5.0
+These semantics are important when you expose resettable models or charts keyed by simulation time.
 
-config = Config()
+## Running the Renderer
 
-# Automatically create parameters for all attributes
-params = quick_bind(target=config)
+### Local web app
 
-# Register all parameters
-for param in params:
-    server.add_parameter(param)
+From the repository root:
 
-# Values update automatically
-print(config.population)  # Reflects slider value
+```bash
+pnpm install
+pnpm dev:web
 ```
 
-#### Excluding Attributes
+This starts the renderer at `http://localhost:3200`.
 
-```python
-params = quick_bind(
-    target=config,
-    exclude=["internal_variable", "constant"]
-)
+### Hosted web app
+
+You can also connect to:
+
+```text
+https://tensnap.netlify.app
 ```
 
-#### Customizing Ranges
+### Example simulator processes
 
-```python
-from tensnap.bindings.basic import auto_detect_parameters, AutoDetectConfig
+From the repository root:
 
-params = auto_detect_parameters(
-    target=config,
-    config=AutoDetectConfig(
-        int_min=0,
-        int_max=1000,
-        float_min=0.0,
-        float_max=10.0,
-        float_step=0.1
-    )
-)
+```bash
+pnpm dev:py:flock
+pnpm dev:py:hk
+pnpm dev:py:sirs:grid
+pnpm dev:py:sirs:graph
+pnpm dev:py:cgol
+pnpm dev:py:sugarscape
+pnpm dev:py:mushroom
 ```
 
-### Buttons
+## User Interface Overview
 
-Buttons trigger actions in your simulation:
+The current renderer UI typically includes:
 
-```python
-from tensnap.bindings.basic import button
+- parameter controls for registered parameters
+- environment views for synchronized environments/layers
+- chart views for registered charts
+- built-in action controls and status/timing feedback
+- settings for language and renderer behavior
+- project/snapshot panels in the full web app
 
-@button("reset", "Reset Simulation")
-async def reset_simulation():
-    """Called when user clicks Reset button"""
-    await initialize_model()
-    await server.start_time_step(0)
-    # Update visualization
-    await server.end_time_step(0)
+Exact layout can vary by package (`tensnap-web` vs `tensnap-tauri`) and by current application state.
 
-# Auto-register buttons from module globals
-server.auto_register_from_globals(globals())
-```
+## Low-Level Python API
 
-### Runtime Parameter Changes
+If you are not using `SimulationScenario`, the low-level server surface is still available through `TenSnapServer`.
 
-Control whether parameters can change during simulation:
+Current layer-aware helpers include:
 
-```python
-# Parameter only changeable when simulation is stopped
-setup_param = parameter(
-    id="world_size",
-    value=50,
-    allow_runtime_change=False
-)
+- `update_layer_metadata()`
+- `update_layer_items()`
+- `update_layer_agents()`
+- `update_layer_edges()`
+- `replace_layer_state()`
+- `replace_environment_layers()`
 
-# Parameter can change anytime
-behavior_param = parameter(
-    id="aggression",
-    value=0.5,
-    allow_runtime_change=True
-)
-```
+Use these helpers when you need explicit control over the payloads emitted to the renderer.
 
-## Charts and Visualization
+## Working Examples
 
-### Creating Charts
+These repository examples are the best reference implementations today.
 
-```python
-from tensnap.bindings.basic import chart
+### Standard Python
 
-@chart("population", "Population Over Time", color="#3498db")
-def track_population() -> float:
-    """Return current population count"""
-    return len(simulation.agents)
+- `examples/python/flock_viz.py`
+- `examples/python/hk_viz.py`
+- `examples/python/sirs_viz_grid.py`
+- `examples/python/sirs_viz_graph.py`
 
-@chart("average_speed", "Average Speed", color="#e74c3c")
-def track_speed() -> float:
-    """Return average agent speed"""
-    speeds = [agent.get_speed() for agent in simulation.agents]
-    return sum(speeds) / len(speeds) if speeds else 0.0
+### Mesa-based
 
-# Auto-register charts
-server.auto_register_from_globals(globals())
-```
+- `examples/python_mesa/cgol_viz.py`
+- `examples/python_mesa/sugarscape_viz.py`
+- `examples/python_mesa/mushroom_viz.py`
 
-### Chart Data Collection
+## Tutorial Status
 
-Charts automatically collect data points each time step. The frontend handles data storage and display.
-
-### Multiple Series
-
-Create multiple charts to display different metrics:
-
-```python
-@chart("births", "Birth Rate", color="#2ecc71")
-def track_births():
-    return simulation.births_this_step
-
-@chart("deaths", "Death Rate", color="#e74c3c")
-def track_deaths():
-    return simulation.deaths_this_step
-```
-
-## Simulation Management
-
-### SimulationManager
-
-Manages simulation timing and execution:
-
-```python
-from tensnap.sim_loop import SimulationManager
-
-# Create manager with desired step interval
-sim_manager = SimulationManager(step_interval=0.05)  # 50ms per step
-
-# Define step handler
-async def on_step(step: int):
-    # Your simulation logic
-    pass
-
-sim_manager.on_step = on_step
-
-# Control simulation
-await sim_manager.start()  # Begin simulation
-await sim_manager.stop()   # Pause simulation
-await sim_manager.step()   # Execute single step
-
-# Access state
-current_step = sim_manager.time_step
-is_running = sim_manager.is_running
-```
-
-### Manual Simulation Control
-
-Without SimulationManager, control timing yourself:
-
-```python
-async def run_simulation():
-    step = 0
-    while True:
-        await server.start_time_step(step)
-        
-        # Your simulation logic
-        my_model.step()
-        
-        # Update visualization
-        updates = grid.generate_agent_updates()
-        await server.update_agents_batch("main", updates)
-        
-        await server.end_time_step(step)
-        step += 1
-        await asyncio.sleep(0.05)
-```
-
-## User Interface
-
-### Interface Layout
-
-The TenSnap interface consists of:
-
-1. **Top Toolbar**
-   - File operations (save, load, export)
-   - View controls
-   - Settings (including language preferences)
-
-2. **Left Panel** - Parameters and Controls
-   - Sliders for numeric parameters
-   - Dropdowns for enum parameters
-   - Buttons for actions
-
-3. **Center Area** - Environment Visualization
-   - Interactive grid or graph view
-   - Pan and zoom
-   - Agent visualization
-
-4. **Right Panel** - Charts
-   - Real-time data plots
-   - Multiple chart views
-   - Export options
-
-5. **Bottom Toolbar** - Simulation Controls
-   - Play/Pause button
-   - Step button (single step execution)
-   - Speed control
-   - Time step display
-
-### Language Settings
-
-TenSnap supports multiple languages:
-
-- **English** (default)
-- **Chinese** (中文)
-- **Japanese** (日本語)
-
-To change the language:
-
-1. Open **Tools → Settings**
-2. Select your preferred language from the **Language** dropdown
-3. The interface will update immediately
-
-The language preference is saved automatically and will be restored when you return to TenSnap. The system also detects your browser's language on first use.
-
-### Customizing Layout
-
-The interface uses a flexible layout system. Users can:
-
-- **Drag views** to reposition
-- **Resize views** by dragging edges
-- **Minimize/maximize** views
-- **Save layouts** for later use
-
-### Exporting Data
-
-#### Export Snapshots
-
-Users can export:
-- **Environment images** (PNG, JPEG)
-- **Chart data** (CSV, JSON)
-- **Simulation state** (JSON)
-
-#### Programmatic Export
-
-```python
-# Save environment state
-state = grid.to_dict()
-with open("state.json", "w") as f:
-    json.dump(state, f)
-```
-
-## Advanced Features
-
-### Custom Agent Update Logic
-
-For complex agents with many properties:
-
-```python
-class ComplexAgent:
-    def __init__(self, agent_id):
-        self.id = agent_id
-        self.x = 0.0
-        self.y = 0.0
-        self.energy = 100.0
-        self.age = 0
-    
-    def to_update(self):
-        """Custom update method"""
-        return {
-            'id': self.id,
-            'x': self.x,
-            'y': self.y,
-            'color': self.get_color_by_energy(),
-            'size': self.get_size_by_age()
-        }
-    
-    def get_color_by_energy(self):
-        # Color based on energy level
-        if self.energy > 75:
-            return "#2ecc71"
-        elif self.energy > 25:
-            return "#f39c12"
-        else:
-            return "#e74c3c"
-```
-
-### Batch Updates
-
-For performance with many agents:
-
-```python
-# Collect all updates
-updates = [agent.to_update() for agent in simulation.agents]
-
-# Send in single batch
-await server.update_agents_batch("main", updates)
-```
-
-### State Synchronization
-
-TenSnap uses differential updates to minimize bandwidth:
-
-```python
-# Only changed agents are sent to clients
-# The server automatically tracks changes
-updates = grid.generate_agent_updates()  # Only returns changed agents
-```
-
-### Multiple Environments
-
-Display multiple environments simultaneously:
-
-```python
-# Create multiple environments
-habitat = GridEnvironmentModel(id="habitat", width=50, height=50)
-resource_map = GridEnvironmentModel(id="resources", width=50, height=50)
-
-# Register both
-server.add_environment(habitat)
-server.add_environment(resource_map)
-
-# Update independently
-await server.update_environment("habitat")
-await server.update_environment("resources")
-```
+- `docs/tutorials/01-random-walk.md`, `docs/tutorials/02-flocking.md`, `docs/tutorials/03-predator-prey.md`, and `docs/tutorials/04-network-simulation.md` are backed by runnable examples in `examples/python/`.
+- Tutorials 5-6 are still planned and not implemented yet.
+- For production or teaching material, prefer the examples and Python API reference whenever a tutorial and an example diverge.
 
 ## Best Practices
 
-### Performance Optimization
+1. Keep simulation logic separate from visualization registration.
+2. Prefer the `tensnap.bindings` decorators over undocumented compatibility shortcuts in new code.
+3. Treat layers as the primary modeling unit for 2D and graph rendering.
+4. Register `model_reset` separately when reset behavior is not identical to initialization.
+5. Use the examples as the reference for end-to-end runnable setups.
 
-1. **Use Batch Updates**: Prefer `update_agents_batch()` over individual updates
-2. **Limit Update Frequency**: Use appropriate `step_interval` in SimulationManager
-3. **Minimize Data Transfer**: Only send changed agent properties
-4. **Use update_source**: Let TenSnap automatically read agent properties
+## Related Documentation
 
-### Code Organization
-
-1. **Separate Concerns**: Keep simulation logic independent of visualization
-2. **Use Configuration Objects**: Group related parameters in dataclasses
-3. **Modular Design**: Break complex simulations into manageable components
-
-```python
-# Good: Separate simulation and visualization
-class Simulation:
-    """Pure simulation logic"""
-    pass
-
-class Visualization:
-    """TenSnap integration"""
-    def __init__(self, simulation):
-        self.simulation = simulation
-        self.setup_tensnap()
-```
-
-### Error Handling
-
-```python
-async def on_step(step: int):
-    try:
-        await server.start_time_step(step)
-        simulation.step()
-        updates = grid.generate_agent_updates()
-        await server.update_agents_batch("main", updates)
-        await server.end_time_step(step)
-    except Exception as e:
-        logger.error(f"Error in step {step}: {e}")
-        await sim_manager.stop()
-        raise
-```
-
-### Testing
-
-Test your simulation logic independently:
-
-```python
-def test_simulation_step():
-    sim = MySimulation(config)
-    sim.initialize()
-    
-    initial_count = len(sim.agents)
-    sim.step()
-    
-    assert len(sim.agents) >= 0
-    # More assertions...
-```
-
-## Next Steps
-
-- **[Tutorials](../tutorials/)** - Follow detailed examples
-- **[Python API Reference](../api-reference/python-api.md)** - Complete API documentation
-- **[Python Examples](../../examples/python/)** - Standard Python examples
-- **[Mesa Examples](../../examples/python_mesa/)** - Mesa-based examples
-- **[Protocol Documentation](../maintainer-guide/protocol.md)** - Understand the WebSocket protocol
+- `docs/user-guide/getting-started.md`
+- `docs/api-reference/python-api.md`
+- `docs/maintainer-guide/protocol-v0.2.md`
+- `packages/tensnap-python/README.md`

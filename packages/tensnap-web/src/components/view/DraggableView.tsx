@@ -70,7 +70,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       case 'button':
         return <ButtonViewComponent view={view as ButtonView} />;
 
-      case 'container':
+      case 'container': {
         const containerView = view as ContainerView;
         return (
           <ContainerViewComponent
@@ -82,6 +82,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
             isOverlay={isOverlay || isDragging}
           />
         );
+      }
 
       case 'environment':
       case 'parameter':

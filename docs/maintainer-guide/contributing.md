@@ -111,6 +111,16 @@ Documentation contributions are highly valued:
 - Translate documentation (future)
 - Add code examples
 
+### Python Documentation Conventions
+
+When updating Python docs, keep them aligned with the current bindings surface:
+
+- Prefer documenting the current `tensnap.bindings` surface (`env`, `grid_layer`, `agent_layer`, `edge_layer`, `trajectory_layer`, `agent`, `edge`, `chart`, `action`, `BindParametersConfig`) and `SimulationScenario`.
+- Legacy compatibility helpers such as `LayeredEnvironmentBinder` can be mentioned when needed, but they should not be presented as the primary API.
+- Do not document nonexistent mutable runtime classes such as `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel`.
+- Default control semantics are renderer-driven: `start`, `step`, and `reset` are the canonical built-ins; `stop` is only present when a scenario registers an explicit backend action.
+- Low-level server examples should use `update_layer_metadata()`, `update_layer_agents()`, `update_layer_edges()`, `replace_layer_state()`, and `replace_environment_layers()` rather than removed layer-less update helpers.
+
 ## Development Process
 
 ### 1. Set Up Development Environment
@@ -188,45 +198,26 @@ TenSnap follows PEP 8 with some modifications:
 **Example**:
 
 ```python
-from typing import Optional, List
+from dataclasses import dataclass
 
-class AgentModel:
-    """Represents a single agent in the simulation.
-    
-    Args:
-        id: Unique identifier for the agent
-        x: X-coordinate position
-        y: Y-coordinate position
-        color: Hex color code (default: "#000000")
-    
-    Attributes:
-        id: Agent identifier
-        x: Current x position
-        y: Current y position
-        color: Display color
-    """
-    
-    def __init__(
-        self,
-        id: str,
-        x: float,
-        y: float,
-        color: str = "#000000"
-    ) -> None:
-        self.id = id
-        self.x = x
-        self.y = y
-        self.color = color
-    
-    def move_to(self, new_x: float, new_y: float) -> None:
-        """Move agent to new position.
-        
-        Args:
-            new_x: Target x coordinate
-            new_y: Target y coordinate
-        """
-        self.x = new_x
-        self.y = new_y
+
+@dataclass
+class SimulationConfig:
+  """Configuration for a renderer-driven TenSnap scenario.
+
+  Args:
+    population: Number of agents to initialize.
+    step_size: Movement amount per simulation step.
+    debug_mode: Whether to expose extra runtime diagnostics.
+  """
+
+  population: int = 100
+  step_size: float = 1.0
+  debug_mode: bool = False
+
+  def scaled_step_size(self, scale: float) -> float:
+    """Return a scaled step size without mutating the config."""
+    return self.step_size * scale
 ```
 
 **Running Code Formatters**:
@@ -479,36 +470,54 @@ def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
 Use pytest for Python tests:
 
 ```python
-# tests/test_models.py
+# tests/test_environment.py
 import pytest
-from tensnap import AgentModel, GridEnvironmentModel
+from tensnap import SimulationScenario, agent, agent_layer, env, grid_layer
 
-def test_agent_creation():
-    """Test basic agent creation"""
-    agent = AgentModel(id="test", x=10.0, y=20.0)
-    assert agent.id == "test"
-    assert agent.x == 10.0
-    assert agent.y == 20.0
+
+@agent(x=True, y=True)
+class Bird:
+  def __init__(self, bird_id: str, x: int, y: int) -> None:
+    self.id = bird_id
+    self.x = x
+    self.y = y
+
+
+@grid_layer(width="width", height="height")
+@agent_layer("agents", item_iterable_projector="agents")
+@env(id="test")
+class GridEnv:
+  def __init__(self) -> None:
+    self.width = 50
+    self.height = 50
+    self.agents = [Bird("a1", 25, 25)]
+
 
 @pytest.mark.asyncio
 async def test_server_broadcast():
-    """Test async server functionality"""
-    # Test async code here
-    pass
+  """Test async server functionality."""
+  # Test async code here
+  pass
+
 
 @pytest.fixture
 def sample_environment():
-    """Fixture for test environment"""
-    return GridEnvironmentModel(id="test", width=50, height=50)
+  """Fixture for a decorator-backed environment."""
+  return GridEnv()
+
 
 def test_environment_with_fixture(sample_environment):
-    """Test using fixture"""
-    assert sample_environment.width == 50
+  """Test using fixture."""
+  scenario = SimulationScenario()
+  registration = scenario.add_environment(sample_environment)
+  state = registration.build_state()
+  grid = next(layer for layer in state["layers"] if layer["layer_id"] == "grid")
+  assert grid["data"]["width"] == 50
 ```
 
 ### JavaScript Testing
 
-Use Jest and React Testing Library:
+Use Vitest and React Testing Library:
 
 ```typescript
 // src/components/ParameterSlider.test.tsx
@@ -516,7 +525,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ParameterSlider } from './ParameterSlider';
 
 describe('ParameterSlider', () => {
-  const mockOnChange = jest.fn();
+  const mockOnChange = vi.fn();
   
   it('renders with correct label', () => {
     render(

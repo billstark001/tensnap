@@ -1,14 +1,16 @@
+import { formatter } from '@lingui/format-po'
+
 /** @type {import('@lingui/conf').LinguiConfig} */
-module.exports = {
+export default {
   locales: ['en', 'zh', 'ja'],
   sourceLocale: 'en',
   catalogs: [
     {
-      path: '<rootDir>/../tensnap-web/src/locales/{locale}/messages',
-      include: ['src', '../tensnap-web/src', '../tensnap-web-utils/src'],
+      path: '<rootDir>/src/locales/{locale}/messages',
+      include: ['src'],
       exclude: ['**/node_modules/**'],
     },
   ],
-  format: 'po',
+  format: formatter({}),
   compileNamespace: 'es',
 };

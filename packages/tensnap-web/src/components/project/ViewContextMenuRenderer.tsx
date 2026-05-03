@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import ContextMenu from "../ui/ContextMenu";
+import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { ViewContextMenuRendererType } from "../view/types";
 import { ClipboardCopy, Edit, Sheet, Trash2 } from "lucide-react";
 import { EditViewDialog } from "@/dialogs/edit-views/EditViewDialog";
@@ -8,7 +8,7 @@ import { AnyView } from "@/types/ui";
 import { useViewContext } from "../view/useViewContext";
 import { useToast } from "@/store/toast";
 import { useScenarioStore } from "@/store/scenario/store";
-import { exportToCSV } from "tensnap-web-core";
+import { exportToCSV } from '@tensnap/core';
 import { useUpdateAndDeleteView } from "./view-edit-hooks";
 import { copyCanvas } from "@/utils/data";
 
@@ -50,7 +50,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
         toast.error('Failed to copy canvas to clipboard.', String(error));
       }
     }
-  }, [node, toast.success, toast.error]);
+  }, [node, toast]);
 
   const handleSaveChartAsCSV = useCallback(async () => {
     if (!charts) return;
@@ -60,7 +60,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
       return;
     }
     exportToCSV(chartGroup);
-  }, [charts, view, toast.error]);
+  }, [charts, view, toast]);
 
   return (
     <>

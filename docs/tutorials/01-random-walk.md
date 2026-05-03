@@ -3,354 +3,313 @@
 **Difficulty**: Beginner  
 **Time**: 15-20 minutes
 
+This tutorial now maps directly to the runnable repository example in `examples/python/random_walk.py` and `examples/python/random_walk_viz.py`.
+
 ## Learning Objectives
 
-In this tutorial, you'll learn:
+In this tutorial, you will:
 
-- How to set up a basic TenSnap simulation
-- Create and visualize agents on a grid
-- Add interactive parameter controls
-- Implement simple movement logic
-- Use charts to track simulation data
+- build a minimal 2D simulation using the current `tensnap` Python API
+- describe an environment with `@env`, `@grid_layer`, and `@agent_layer`
+- register parameters and charts with `SimulationScenario`
+- run the example locally against the TenSnap renderer
 
 ## Prerequisites
 
-- Python 3.10+ installed
-- TenSnap installed (see [Installation Guide](../user-guide/installation.md))
-- Basic Python knowledge
+- Python 3.10+
+- TenSnap installed from PyPI, or this repository checked out locally
+- If you are running from this repository, Node.js 18+ and `pnpm` for `pnpm dev:web`
 
-## What We're Building
+## What We Are Building
 
-A simple simulation where agents perform random walks on a 2D grid. You'll be able to:
+We will build a simple model where a group of walkers starts at the center of a square world and chooses a random heading on every step.
 
-- Control the number of agents with a slider
-- Adjust movement speed
-- Watch agents move in real-time
-- Track average agent distance from origin
+The finished example exposes:
 
-## Step 1: Project Setup
+- two editable parameters: `num_agents` and `step_size`
+- a 2D environment view showing the walkers
+- two charts: average distance from the center and population size
+- built-in renderer-driven controls: `start`, `step`, and `reset`
 
-Create a new Python file called `random_walk.py`:
+## Step 1: Create the Model File
+
+Create `random_walk.py` with the following content:
 
 ```python
-# random_walk.py
-"""Simple random walk simulation with TenSnap"""
+"""Pure random-walk simulation without visualization-specific code."""
 
-import asyncio
-import random
+from __future__ import annotations
+
 import math
+import random
 from dataclasses import dataclass
-```
+from typing import Any
 
-## Step 2: Define Configuration
+from tensnap import agent, agent_layer, env, grid_layer
 
-Use a dataclass to hold configurable parameters:
 
-```python
 @dataclass
-class Config:
-    """Simulation configuration"""
+class RandomWalkConfig:
+    """Configuration for the random-walk simulation."""
+
     num_agents: int = 20
     step_size: float = 0.5
     world_size: int = 50
-```
 
-## Step 3: Define Agent Class
 
-Create an agent class with TenSnap metadata binding:
-
-```python
-from tensnap import bind_grid_agent
-
-@bind_grid_agent(color=True, size=True)
+@agent(x=True, y=True, size=True, color=True, data=True)
 class Walker:
-    """An agent that performs random walk"""
-    
-    color = "#3498db"
-    size = 8
-    
+    """A single walker that moves by choosing a random heading every step."""
+
+    size = 0.8
+    color = "#2563EB"
+
     def __init__(self, walker_id: str, world_size: int):
         self.id = walker_id
         self.world_size = world_size
-        # Start in center
         self.x = world_size / 2.0
         self.y = world_size / 2.0
-    
-    def step(self, step_size: float):
-        """Take one random step"""
-        # Random angle
-        angle = random.uniform(0, 2 * math.pi)
-        
-        # Move in that direction
+        self.total_distance = 0.0
+
+    def step(self, step_size: float) -> None:
+        angle = random.uniform(0.0, 2.0 * math.pi)
         dx = math.cos(angle) * step_size
         dy = math.sin(angle) * step_size
-        
-        # Update position with wrapping
         self.x = (self.x + dx) % self.world_size
         self.y = (self.y + dy) % self.world_size
-    
+        self.total_distance += step_size
+
     def distance_from_center(self) -> float:
-        """Calculate distance from world center"""
         center = self.world_size / 2.0
         dx = self.x - center
         dy = self.y - center
         return math.sqrt(dx * dx + dy * dy)
-```
 
-The `@bind_grid_agent()` decorator tells TenSnap which properties to sync automatically.
+    @property
+    def data(self) -> dict[str, Any]:
+        return {
+            "distance_from_center": self.distance_from_center(),
+            "total_distance": self.total_distance,
+        }
 
-## Step 4: Create Simulation Class
 
-Add environment metadata binding:
-
-```python
-from tensnap import bind_grid_environment
-
-@bind_grid_environment()
+@grid_layer(width="width", height="height")
+@agent_layer("walkers", item_iterable_projector="walkers")
+@env()
 class RandomWalkSimulation:
-    """Main simulation logic"""
-    
-    def __init__(self, config: Config):
-        self.config = config
+    """A simple 2D random-walk simulation."""
+
+    def __init__(self, config: RandomWalkConfig | None = None):
+        self.config = config or RandomWalkConfig()
         self.walkers: list[Walker] = []
         self.time_step = 0
-    
+
     @property
     def width(self) -> int:
         return self.config.world_size
-    
+
     @property
     def height(self) -> int:
         return self.config.world_size
-    
-    def initialize(self):
-        """Create initial walkers"""
-        self.walkers.clear()
+
+    def initialize(self) -> None:
+        self.walkers = [
+            Walker(f"walker_{index}", self.config.world_size)
+            for index in range(int(self.config.num_agents))
+        ]
         self.time_step = 0
-        
-        for i in range(self.config.num_agents):
-            walker = Walker(f"walker_{i}", self.config.world_size)
-            self.walkers.append(walker)
-    
-    def step(self):
-        """Execute one simulation step"""
+
+    def step(self) -> None:
         for walker in self.walkers:
             walker.step(self.config.step_size)
         self.time_step += 1
-    
+
     def get_average_distance(self) -> float:
-        """Calculate average distance from center"""
         if not self.walkers:
             return 0.0
-        distances = [w.distance_from_center() for w in self.walkers]
-        return sum(distances) / len(distances)
+        return sum(walker.distance_from_center() for walker in self.walkers) / len(
+            self.walkers
+        )
 ```
 
-The `@bind_grid_environment()` decorator enables automatic environment synchronization.
+### Why this works
 
-## Step 5: Set Up TenSnap Integration
+- `@agent(...)` tells TenSnap which fields of `Walker` should be projected into the synchronized item payload.
+- `@grid_layer(...)` contributes grid metadata such as width and height.
+- `@agent_layer(...)` tells TenSnap to serialize `self.walkers` as the `walkers` layer.
+- `@env()` attaches the environment binding itself.
 
-Import TenSnap components and create the scenario:
+Together, these decorators let `SimulationScenario.add_environment(model)` build a canonical `2d` environment plus explicit layers under protocol v0.2.
 
-```python
-from tensnap import SimulationScenario, GridEnvironmentBinder, BindParametersConfig, chart, action
+## Step 2: Create the Visualization Entry Point
 
-# Create simulation and scenario
-config = Config()
-simulation = RandomWalkSimulation(config)
-scenario = SimulationScenario(port=8765, step_interval=0.1)
-
-# Create environment binder
-grid = GridEnvironmentBinder(
-    id="main",
-    environment=simulation,
-    agent_iterable_accessor='walkers'
-)
-```
-
-## Step 6: Define Interactive Controls and Charts
-
-There are 5 preset actions in the Python binding's simulation handler:
-
-- Start (`start`)
-- Stop (`stop`)
-- Step (`step`)
-- Start/Stop (`start_stop`)
-- Reset (`reset`)
-
-These 5 preset actions are also preserved words. They might be triggered by the toolbar's buttons. Since they can fulfill all the purpose of this model, we don't need to add any new actions.
-
-We want to add the following 2 charts to track the average distance and population.
+Create `random_walk_viz.py` with the following content:
 
 ```python
+"""TenSnap visualization entrypoint for the random-walk example."""
 
-@chart("avg_distance", "Average Distance from Center", color="#e74c3c")
+from __future__ import annotations
+
+import asyncio
+import os
+
+import import_config  # noqa: F401
+
+from tensnap import BindParametersConfig, SimulationScenario, chart
+
+from random_walk import RandomWalkConfig, RandomWalkSimulation
+
+server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
+scenario = SimulationScenario(port=server_port, step_interval=0.1)
+
+config = RandomWalkConfig()
+model = RandomWalkSimulation(config)
+
+
+@chart("avg_distance", "Average Distance From Center", color="#DC2626")
 def track_distance() -> float:
-    """Track average distance from center"""
-    return simulation.get_average_distance()
+    return model.get_average_distance()
 
-@chart("population", "Number of Walkers", color="#2ecc71")
+
+@chart("population", "Walker Count", color="#16A34A")
 def track_population() -> float:
-    """Track number of walkers"""
-    return len(simulation.walkers)
-```
+    return float(len(model.walkers))
 
-## Step 7: Main Function
 
-```python
-async def main():
-    """Main entry point"""
-    # Initialize simulation
-    simulation.initialize()
-    
-    # Register components with scenario
-    scenario.add_environment(grid)
-    scenario.add_parameters(config, BindParametersConfig(exclude="world_size"))
+async def main() -> None:
+    model.initialize()
+
+    scenario.add_environment(model)
+    scenario.add_parameters(config, BindParametersConfig(exclude=["world_size"]))
     scenario.add_charts(globals())
-    scenario.add_actions(globals())
-    
-    # Register model handlers
+
     await scenario.register_model_handler(
-        simulation.initialize,
-        simulation.step
+        model.initialize,
+        model.step,
+        model.initialize,
     )
-    
-    print(f"Random Walk Simulation starting on ws://localhost:8765")
+
+    print(f"TenSnap Random Walk started on ws://localhost:{server_port}")
     await scenario.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Step 8: Run Your Simulation
+If you are copying this example into a fresh directory after installing `tensnap` from PyPI, remove the `import import_config` line. That helper exists only in the repository examples so they can switch between the installed package and the local source tree.
 
-1. **Run Your Simulation** (in another terminal):
+### Why this works
 
-   ```bash
-   python random_walk.py
-   ```
+- `SimulationScenario` is the high-level runtime entry point.
+- `add_environment(model)` reads the decorators attached in `random_walk.py`.
+- `add_parameters(...)` auto-discovers plain fields from `RandomWalkConfig`.
+- `BindParametersConfig(exclude=["world_size"])` keeps the world size fixed while still exposing the other two controls.
+- `register_model_handler(init, step, reset)` gives the built-in `reset` action explicit behavior.
 
-2. **Open Browser**: Navigate to `https://tensnap.netlify.app`
+## Step 3: Run the Tutorial
 
-3. In case the online instance is down, you may clone the repository, run `pnpm dev:web` and access `localhost:3200` as well.
+### Option A: Run from this repository
+
+In one terminal:
+
+```bash
+pnpm dev:web
+```
+
+In another terminal:
+
+```bash
+cd examples/python
+TENSNAP_USE_SOURCE=1 python random_walk_viz.py
+```
+
+Or from the repository root:
+
+```bash
+pnpm dev:py:random-walk
+```
+
+### Option B: Run from a standalone directory
+
+If you copied the files into your own project and installed `tensnap`:
+
+```bash
+pip install tensnap
+python random_walk_viz.py
+```
+
+For the renderer, use either:
+
+- `pnpm dev:web` from this repository
+- or the hosted app at `https://tensnap.netlify.app`
 
 ## What You Should See
 
-- **Left Panel**: Sliders for "num_agents" and "step_size"
-- **Center**: Grid with blue dots (agents) moving randomly
-- **Right Panel**: Two charts showing distance and population
-- **Bottom**: Play/Pause/Step controls
+- two sliders on the control panel for `num_agents` and `step_size`
+- a square 2D environment showing blue walkers
+- a chart for average distance from the center
+- a chart for walker count
+- toolbar controls for `start`, `step`, and `reset`
+
+## How to Read the Result
+
+- `step` advances the model by one random move per walker.
+- `start` keeps dispatching steps using `step_interval=0.1`.
+- `reset` recreates the walkers at the center because we registered `model.initialize` as the reset handler.
+- the population chart should stay constant unless you change the model to create or remove walkers.
 
 ## Exercises
 
-Try extending the simulation:
+### Exercise 1: Color Walkers by Distance
 
-### Exercise 1: Add Colors
-
-Modify agents to change color based on distance from center:
+Replace the fixed `color` class attribute with a property:
 
 ```python
-def get_color_by_distance(walker: Walker) -> str:
-    distance = walker.distance_from_center()
-    max_dist = walker.world_size / 2.0
-    ratio = min(distance / max_dist, 1.0)
-    
-    # Interpolate from blue to red
+@property
+def color(self) -> str:
+    ratio = min(self.distance_from_center() / (self.world_size / 2.0), 1.0)
     if ratio < 0.5:
-        return "#3498db"  # Blue
-    else:
-        return "#e74c3c"  # Red
-
-# In init_simulation():
-agent = AgentModel(
-    # ... other params ...
-    color=get_color_by_distance(walker)
-)
-
-# In on_step(), update colors:
-for agent in grid.agents:
-    walker = next(w for w in simulation.walkers if w.id == agent.id)
-    agent.color = get_color_by_distance(walker)
+        return "#2563EB"
+    return "#DC2626"
 ```
+
+Because the `@agent(...)` decorator already includes `color=True`, the renderer will pick up the new value automatically on subsequent syncs.
 
 ### Exercise 2: Add Trajectories
 
-Enable trajectory visualization by updating the environment decorator:
+Add a trajectory layer above `@agent_layer(...)`:
 
 ```python
-@bind_grid_environment(trajectory_length=True)
+from tensnap import trajectory_layer
+
+
+@trajectory_layer(agent_layer_id="walkers")
+@grid_layer(width="width", height="height")
+@agent_layer("walkers", item_iterable_projector="walkers")
+@env()
 class RandomWalkSimulation:
-    trajectory_length = 10  # Show last 10 positions
-    # ... rest of class ...
+    length = 10
+    color = "#7C3AED"
 ```
 
-### Exercise 3: Track Total Distance
+This gives every walker a trail without changing the stepping logic.
 
-Add cumulative distance tracking:
+### Exercise 3: Add a Third Chart
+
+Track the total traveled distance:
 
 ```python
-@bind_grid_agent(color=True, size=True, data=True)
-class Walker:
-    def __init__(self, walker_id: str, world_size: int):
-        # ... existing code ...
-        self.total_distance = 0.0
-    
-    def step(self, step_size: float):
-        # ... existing code ...
-        self.total_distance += step_size
-    
-    @property
-    def data(self):
-        return {"total_distance": self.total_distance}
-
-@chart("total_distance", "Total Distance Traveled", color="#9b59b6")
+@chart("total_distance", "Total Distance", color="#7C3AED")
 def track_total_distance() -> float:
-    if not simulation.walkers:
-        return 0.0
-    return sum(w.total_distance for w in simulation.walkers)
+    return sum(walker.total_distance for walker in model.walkers)
 ```
 
-## Complete Code
+Then register charts exactly as before with `scenario.add_charts(globals())`.
 
-The complete code for this tutorial can be adapted from the available examples in [examples/python/](../../examples/python/)
+## References
 
-## Next Steps
-
-Congratulations! You've built your first TenSnap simulation. Next, try:
-
-- **[Tutorial 2: Flocking Behavior](./02-flocking.md)** - Learn about agent interactions
-- Explore the [User Guide](../user-guide/user-guide.md) for more features
-- Check out more examples: [Python examples](../../examples/python/) and [Mesa examples](../../examples/python_mesa/)
-
-## Troubleshooting
-
-### Agents Not Moving
-
-- Ensure `simulation.step()` is being called
-- Check that `step_size` is not zero
-- Verify handlers are registered: `await scenario.register_model_handler()`
-
-### Web Interface Not Connecting
-
-- Ensure Python simulation is running first
-- Check that port 8765 is not blocked
-- Verify both terminals are running
-
-### Parameters Not Appearing
-
-- Check that parameters are registered: `scenario.add_parameters(config)`
-- Verify `BindParametersConfig(exclude=...)` didn't exclude your parameters
-- Ensure the config object has the expected attributes
-
-## Summary
-
-You've learned:
-
-✅ Basic TenSnap project structure  
-✅ Decorator-based metadata binding with `@bind_grid_agent` and `@bind_grid_environment`  
-✅ Using `SimulationScenario` for unified setup  
-✅ Automatic parameter binding from dataclass config  
-✅ Creating charts and actions with decorators  
-✅ Implementing simulation logic separately from visualization  
-
-Continue to the next tutorial to learn about agent interactions!
+- `examples/python/random_walk.py`
+- `examples/python/random_walk_viz.py`
+- `packages/tensnap-python/README.md`
+- `docs/api-reference/python-api.md`

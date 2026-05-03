@@ -1,5 +1,5 @@
-import { style, styleVariants, globalStyle } from '@vanilla-extract/css';
-import { vars } from '@/styles/global.css';
+import { style, styleVariants, globalStyle, keyframes } from '@vanilla-extract/css';
+import { vars } from '@tensnap/web-common/styles/global.css';
 import { viewConstants } from './constants';
 
 export const container = style({
@@ -166,6 +166,19 @@ export const buttonViewDisabled = style({
   pointerEvents: 'none',
   ':hover': {
     backgroundColor: vars.color.primary,
+  },
+});
+
+const buttonPulse = keyframes({
+  '0%, 100%': { opacity: 1 },
+  '50%': { opacity: 0.65 },
+});
+
+export const buttonViewRunning = style({
+  backgroundColor: vars.color.primaryHover,
+  animation: `${buttonPulse} 1.4s ease-in-out infinite`,
+  ':hover': {
+    backgroundColor: vars.color.primaryHover,
   },
 });
 

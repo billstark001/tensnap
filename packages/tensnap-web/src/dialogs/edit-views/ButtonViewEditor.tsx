@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trans } from '@lingui/react/macro';
-import Form from '@/components/ui/Form';
+import Form from '@tensnap/web-common/components/ui/Form';
 import { ButtonView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 
@@ -19,6 +19,15 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({ view, onChan
           type="text"
           value={view.data.text}
           onChange={(e) => onChange('data.text', e.target.value)}
+        />
+      </Form.Field>
+
+      <Form.Field label={<Trans>Continuous</Trans>} htmlFor="button-continuous">
+        <Form.Input
+          id="button-continuous"
+          type="checkbox"
+          checked={view.data.continuous ?? false}
+          onChange={(e) => onChange('data.continuous', e.target.checked)}
         />
       </Form.Field>
 

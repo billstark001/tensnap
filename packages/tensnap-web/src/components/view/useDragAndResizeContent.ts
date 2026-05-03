@@ -5,12 +5,12 @@ import {
   DragMoveEvent,
 } from '@dnd-kit/core';
 import { ContainerView, AnyView } from '@/types/ui';
-import { useCallbackRef, useThrottled } from '@/utils/react';
-import { findAndAddView, findAndDeleteView } from './utils/container';
+import { useCallbackRef, useThrottled } from '@tensnap/web-common/react';
+import { findAndAddView, findAndDeleteView, findAndGetUpdatedView } from '@/view/utils/container';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
 import { SNAP_THRESHOLD } from './constants';
-import { adjustForMainViewPadding } from './utils/pack';
+import { adjustForMainViewPadding } from '@/view/utils/pack';
 
 
 type DragContent = {
@@ -290,7 +290,7 @@ export function useDragContent({
     return () => {
       throttledHandleDragMove.cancel();
     };
-  }, []);
+  }, [throttledHandleDragMove]);
 
   return {
     dragState,
@@ -392,18 +392,14 @@ export function useResizeContent({
     };
 
     const { guidelines, snap } = match(coord);
-
-    // snap 中的 width 和 height 已经被调整好了
-    if (snap) {
-      view.width = snap.width;
-      view.height = snap.height;
-    } else {
-      view.width = newWidth;
-      view.height = newHeight;
-    }
+    const resizedView = {
+      ...view,
+      width: snap?.width ?? newWidth,
+      height: snap?.height ?? newHeight,
+    };
 
     updateState({ guideLines: guidelines, suggestedSnap: snap });
-    onViewUpdate?.(view.id, view);
+    onViewUpdate?.(view.id, resizedView);
   });
 
   const onResizeEnd = useCallbackRef((clientX: number, clientY: number) => {
@@ -441,17 +437,15 @@ export function useResizeContent({
     };
 
     const { snap } = match(coord);
+    const resizedView = {
+      ...view,
+      width: snap?.width ?? newWidth,
+      height: snap?.height ?? newHeight,
+    };
+    const updatedRoot = findAndGetUpdatedView(rootView, view.id, resizedView) as ContainerView;
 
-    if (snap) {
-      view.width = snap.width;
-      view.height = snap.height;
-    } else {
-      view.width = newWidth;
-      view.height = newHeight;
-    }
-
-    onViewUpdate?.(view.id, view);
-    adjustForMainViewPadding(rootView);
+    adjustForMainViewPadding(updatedRoot);
+    onViewUpdate?.(updatedRoot.id, updatedRoot);
 
     isResizing.current = undefined;
     startPos.current = undefined;

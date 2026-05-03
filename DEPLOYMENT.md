@@ -8,6 +8,12 @@
   - Publisher: `billstark001/tensnap`
   - Workflow: `python-publish.yml`
 
+### Agent CLI Package (npm)
+
+Add GitHub secret:
+
+- `NPM_TOKEN`
+
 ### Web App (Netlify)
 
 Add GitHub secrets:
@@ -23,10 +29,13 @@ No setup needed - uses GitHub token automatically.
 
 ```bash
 # Python package
-./scripts/release.sh python 0.1.0
+node scripts/release.mjs python 0.1.0
+
+# Agent CLI package
+node scripts/release.mjs agent 0.1.0
 
 # Tauri desktop app
-./scripts/release.sh app 0.1.0
+node scripts/release.mjs app 0.1.0
 
 # Web app (automatic on main branch)
 git push origin main
@@ -35,6 +44,7 @@ git push origin main
 ## Workflows
 
 - **Python**: `.github/workflows/python-publish.yml` (tag `py-v*`)
+- **Agent CLI**: `.github/workflows/agent-publish.yml` (tag `agent-v*`)
 - **Web**: `.github/workflows/web-deploy.yml` (push to `main`)
 - **Tauri**: `.github/workflows/tauri-build.yml` (tag `app-v*`)
 
