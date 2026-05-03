@@ -1,19 +1,12 @@
-"""
-TenSnap helper utilities.
-
-Provides action-handler factories (start / step / reset) that close over a
-SimulationScenario, and an environment-binder factory for Mesa-style models.
-Mesa is only referenced in TYPE_CHECKING blocks — no runtime import.
-"""
+"""Mesa-specific binding helpers."""
 
 from typing import Any, Callable
 
 from tensnap.models import (
-    EnvironmentBindingBuilder,
-    LayeredEnvironmentBinder,
+    EnvironmentBinding,
+    LayerBinding,
 )
-from tensnap.utils.attr import make_attr_getter
-
+from tensnap.utils.attr import make_attr_getter, make_attr_projector
 
 # region Built-in action handler factories
 # Each factory returns a coroutine decorated with @action so that the metadata
@@ -22,15 +15,15 @@ from tensnap.utils.attr import make_attr_getter
 
 # endregion
 
-# region Mesa-style environment binder factory
+# region Mesa-style environment binding factory
 
 
 def build_default_layered_binder(
     model: Any,
     agent_iterable_projector: "str | Callable" = "agents",
-) -> "LayeredEnvironmentBinder":
+) -> tuple[EnvironmentBinding, list[LayerBinding[Any, Any, Any, Any]]]:
     """
-    Build a 2-D grid + agent LayeredEnvironmentBinder for Mesa-style models.
+    Build default environment/layer bindings for a Mesa-style grid model.
 
     Assumes ``model.grid`` (with ``.width`` / ``.height``) and agents with
     ``unique_id`` and ``pos`` attributes.  No Mesa import at runtime.
@@ -41,26 +34,45 @@ def build_default_layered_binder(
             the agent iterable from the model.
     """
     if callable(agent_iterable_projector):
-        iterable_fn: Callable[[Any], Any] = agent_iterable_projector
+        direct_iterable_getter = agent_iterable_projector
+
+        def resolved_iterable_getter(target: Any) -> Any:
+            return direct_iterable_getter(target)
+
     else:
         _getter = make_attr_getter(str(agent_iterable_projector))
 
-        def iterable_fn(target: Any) -> Any:
+        def resolved_iterable_getter(target: Any) -> Any:
             val = _getter(target)
             return val() if callable(val) else val
 
-    builder = EnvironmentBindingBuilder(environment_type="2d")
-    builder.add_grid_layer(
-        metadata_projector=lambda env: {
-            "width": env.grid.width,
-            "height": env.grid.height,
-        },
+    def grid_metadata(target: Any) -> dict[str, Any]:
+        grid = target.grid
+        return {
+            "width": grid.width,
+            "height": grid.height,
+        }
+
+    environment_binding = EnvironmentBinding(id=type(model).__name__, type="2d")
+    grid_binding = LayerBinding(
+        layer_id="grid",
+        layer_type="grid",
+        item_keys=(),
+        metadata_projector=grid_metadata,
+        items_projector=lambda _env: [],
     )
-    builder.add_agent_layer(
-        item_iterable_projector=iterable_fn,
-        item_projector=make_grid_agent_projector(id="unique_id", x="pos[0]", y="pos[1]"),
+    agent_binding = LayerBinding(
+        layer_id="agents",
+        layer_type="agent",
+        item_keys=("id",),
+        iterable_getter=resolved_iterable_getter,
+        item_projector=make_attr_projector(
+            [],
+            {"id": "unique_id", "x": "pos[0]", "y": "pos[1]"},
+            {},
+        ),
     )
-    return builder.build(type(model).__name__, model)
+    return environment_binding, [grid_binding, agent_binding]
 
 
 # endregion

@@ -7,11 +7,11 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
 from tensnap import (
-    bind_agent,
-    bind_env,
-    bind_agent_layer,
-    bind_grid_layer,
-    bind_trajectory_layer,
+    agent,
+    env,
+    agent_layer,
+    grid_layer,
+    trajectory_layer,
 )
 
 
@@ -29,7 +29,7 @@ class FlockConfig:
     spawn_radius: float = 10.0
 
 
-@bind_agent(x=True, y=True, size=True, icon=True, color=True, data=True, heading=True)
+@agent(x=True, y=True, size=True, icon=True, color=True, data=True, heading=True)
 class Bird:
     """A single bird agent in the flock"""
 
@@ -72,15 +72,15 @@ class Bird:
         }
 
 
-@bind_trajectory_layer(
-    metadata={"length": 5, "color": "#2563EB"},
-    dependency_layer_ids={"agent": "birds"},
-)
-@bind_agent_layer("birds", item_iterable_projector="birds")
-@bind_grid_layer(width="width", height="height", coord_offset=True)
-@bind_env()
+@trajectory_layer(agent_layer_id="birds", width=False)
+@agent_layer("birds", item_iterable_projector="birds", coord_offset=True)
+@grid_layer(width="width", height="height")
+@env()
 class FlockSimulation:
     """Main flocking simulation class"""
+    
+    length = 5
+    color = "#2563EB"
 
     coord_offset = "float"
 

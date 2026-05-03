@@ -8,6 +8,7 @@ from typing import (
     List,
     Literal,
     Protocol,
+    TYPE_CHECKING,
     Tuple,
     TypeAlias,
     TypedDict,
@@ -25,6 +26,9 @@ from tensnap.utils.attr import (
     AttrGetter,
 )
 from tensnap.utils.object import dict_diff
+
+if TYPE_CHECKING:
+    from .environment import EnvironmentLayerState
 
 TObj = TypeVar("TObj")
 TKey = TypeVar("TKey", bound=str)
@@ -220,7 +224,11 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
                 created.append(item)
                 current_items[item_id] = item
             else:
-                updated.append(dict_diff(last_items[item_id], item))
+                diff = dict_diff(last_items[item_id], item)
+                if diff:
+                    for key in self.item_keys:
+                        diff[key] = item.get(key)
+                    updated.append(diff)
                 current_items[item_id] = item
         for item_id in last_items:
             if item_id not in current_ids:
@@ -262,6 +270,110 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             "env_id": env_id,
             "layer_id": self.layer_id,
         }
+
+
+def layer_items_field_name(layer_type: str) -> str:
+    if layer_type == "agent":
+        return "agents"
+    if layer_type == "edge":
+        return "edges"
+    return "items"
+
+
+@dataclass(slots=True)
+class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
+    """Scenario-owned layer entry that binds a layer rule to its current target."""
+
+    binding: LayerBinding[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]
+    target: TLayer
+    last_items: Dict[Any, Dict[TItemFieldKeys, Any]] = field(default_factory=dict)
+
+    @property
+    def id(self) -> str:
+        return self.binding.layer_id
+
+    @property
+    def layer_type(self) -> str:
+        return self.binding.layer_type
+
+    def set_target(self, target: TLayer) -> None:
+        self.target = target
+
+    def reset_diff_state(self) -> None:
+        self.last_items.clear()
+
+    def build_state(self) -> "EnvironmentLayerState":
+        layer: Dict[str, Any] = {
+            "layer_id": self.binding.layer_id,
+            "layer_type": self.binding.layer_type,
+        }
+        if self.binding.dependency_layer_ids:
+            layer["dependency_layer_ids"] = dict(self.binding.dependency_layer_ids)
+
+        metadata = self.binding.build_metadata(self.target)
+        if metadata:
+            layer["data"] = metadata
+
+        items = self.binding.build_item_list(self.target)
+        if items:
+            layer[layer_items_field_name(self.binding.layer_type)] = items
+
+        return cast("EnvironmentLayerState", layer)
+
+    def build_create_payload(self, env_id: str) -> EnvLayerCreatePayload[TLayerFieldKeys]:
+        return self.binding.build_create_payload(env_id, self.target)
+
+    def build_update_payload(self, env_id: str) -> EnvLayerUpdatePayload[TLayerFieldKeys]:
+        return self.binding.build_update_payload(env_id, self.target)
+
+    def build_delete_payload(self, env_id: str) -> EnvLayerDeletePayload:
+        return self.binding.build_delete_payload(env_id)
+
+    def build_item_deltas(
+        self,
+    ) -> tuple[
+        List[Dict[TItemFieldKeys, Any]],
+        List[Dict[TItemFieldKeys, Any]],
+        List[Any],
+    ]:
+        if self.binding.has_item_diffing:
+            created, updated, deleted, current_items = self.binding.build_item_list_diff(
+                self.target,
+                self.last_items,
+            )
+        else:
+            (
+                created,
+                updated,
+                deleted,
+                current_items,
+            ) = self.binding.build_item_list_diff_naive(
+                self.target,
+                self.last_items,
+            )
+
+        self.last_items = current_items
+        return created, updated, deleted
+
+    def build_item_delete_payloads(
+        self, deleted_item_ids: List[Any]
+    ) -> List[Dict[TItemFieldKeys, Any]]:
+        payloads: List[Dict[TItemFieldKeys, Any]] = []
+        for item_id in deleted_item_ids:
+            if isinstance(item_id, tuple):
+                item_values = item_id
+            elif len(self.binding.item_keys) == 1:
+                item_values = (item_id,)
+            else:
+                item_values = tuple(item_id)
+
+            payloads.append(
+                {
+                    key: value
+                    for key, value in zip(self.binding.item_keys, item_values)
+                }
+            )
+        return payloads
 
 
 # endregion

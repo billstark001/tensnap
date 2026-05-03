@@ -267,7 +267,7 @@ class TestGetParameterMetadata:
             "enabled": True,
         }
 
-        parameters, actions = get_parameter_metadata_from_object(namespace)
+        parameters = get_parameter_metadata_from_object(namespace)
 
         assert len(parameters) == 4
         param_ids = [p[0] for p in parameters]
@@ -284,7 +284,7 @@ class TestGetParameterMetadata:
             count = 5
 
         model = TestModel()
-        parameters, actions = get_parameter_metadata_from_object(model)
+        parameters = get_parameter_metadata_from_object(model)
 
         param_ids = [p[0] for p in parameters]
         assert "speed" in param_ids
@@ -299,7 +299,7 @@ class TestGetParameterMetadata:
                 return 10.0
 
         model = TestModel()
-        parameters, actions = get_parameter_metadata_from_object(model)
+        parameters = get_parameter_metadata_from_object(model)
 
         param_ids = [p[1].id for p in parameters]
         assert "velocity" in param_ids
@@ -314,9 +314,7 @@ class TestGetParameterMetadata:
 
         model = TestModel()
         config = BindParametersConfig(exclude=["_private"])
-        parameters, actions = get_parameter_metadata_from_object(
-            model, cfg_suggest=config
-        )
+        parameters = get_parameter_metadata_from_object(model, cfg_suggest=config)
 
         param_ids = [p[0] for p in parameters]
         assert "_private" not in param_ids
@@ -330,7 +328,7 @@ class TestGetParameterMetadata:
             "enabled": True,
         }
 
-        parameters, actions = get_parameter_metadata_from_object(namespace)
+        parameters = get_parameter_metadata_from_object(namespace)
 
         param_dict = {p[0]: p[1] for p in parameters}
         assert param_dict["speed"].type == "number"

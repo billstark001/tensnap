@@ -11,7 +11,6 @@ from tensnap import (
     chart,
     SimulationScenario,
     BindParametersConfig,
-    LayeredEnvironmentBinder,
 )
 
 from flock import FlockSimulation, FlockConfig
@@ -21,8 +20,6 @@ scenario = SimulationScenario(port=server_port)
 
 config = FlockConfig()
 model = FlockSimulation(config)
-
-binder = LayeredEnvironmentBinder(id="main", environment=model)
 
 # Chart functions
 @chart("average_speed", "Average Speed", color="#2ECC71")
@@ -41,7 +38,7 @@ async def main() -> None:
 
     model.initialize()
 
-    scenario.add_environment(binder)
+    scenario.add_environment(model)
     scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
     scenario.add_charts(globals())
     scenario.add_actions({})

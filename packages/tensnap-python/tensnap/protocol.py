@@ -6,29 +6,32 @@ They consume plain data and return plain data; no I/O, no async.
 """
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Set, Tuple, TYPE_CHECKING, TypedDict
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Set,
+    Tuple,
+    TypedDict,
+)
 
-from .bindings.basic import (
+from .bindings import (
     ActionMetadata,
     ChartGroupMetadata,
     ChartGroupMetadataDict,
     ChartMetadataDict,
-    Parameter,
     categorize_charts,
 )
-from .models import ParameterState
-from .utils.environment_state import (
+from .models import (
+    EnvironmentLayerState,
+    EnvironmentRegistrationProtocol,
+    EnvironmentState,
+    Parameter,
+    ParameterState,
     clone_environment_state,
-    copied_layer_items,
-    item_diff,
-    item_identity_fields,
-    item_identity_key,
-    item_key_payload,
-    layer_dependency_layer_ids,
-    layer_items,
-    layer_metadata,
 )
-
 
 # region Delta TypedDicts
 
@@ -82,6 +85,87 @@ def layer_create_payload(env_id: str, layer: "EnvironmentLayerState") -> Dict[st
     if meta:
         payload["data"] = meta
     return payload
+
+
+def layer_dependency_layer_ids(
+    layer: "EnvironmentLayerState",
+) -> Dict[str, str] | None:
+    if "dependency_layer_ids" not in layer:
+        return None
+    return dict(layer["dependency_layer_ids"])
+
+
+def layer_metadata(layer: "EnvironmentLayerState") -> Dict[str, Any] | None:
+    if "data" not in layer:
+        return None
+    return dict(layer["data"])
+
+
+def layer_items(layer: "EnvironmentLayerState") -> List[Dict[str, Any]]:
+    if "items" in layer:
+        return layer["items"]
+    if "agents" in layer:
+        return layer["agents"]
+    if "edges" in layer:
+        return layer["edges"]
+    return []
+
+
+def copied_layer_items(layer: "EnvironmentLayerState") -> List[Dict[str, Any]]:
+    return [deepcopy(item) for item in layer_items(layer)]
+
+
+def item_identity_fields(layer: "EnvironmentLayerState") -> Tuple[str, ...]:
+    items = layer_items(layer)
+    sample = items[0] if items else {}
+
+    if layer["layer_type"] == "edge":
+        if "source" in sample and "target" in sample:
+            return ("source", "target")
+        return ("source", "target")
+
+    if "id" in sample:
+        return ("id",)
+    if "name" in sample:
+        return ("name",)
+    if "uid" in sample:
+        return ("uid",)
+    return tuple()
+
+
+def item_identity_key(
+    layer: "EnvironmentLayerState", item: Dict[str, Any]
+) -> Tuple[Any, ...]:
+    fields = item_identity_fields(layer)
+    if fields:
+        return tuple(item.get(field) for field in fields)
+    return tuple(sorted(item.items()))
+
+
+def item_key_payload(
+    layer: "EnvironmentLayerState", item: Dict[str, Any]
+) -> Dict[str, Any]:
+    fields = item_identity_fields(layer)
+    if not fields:
+        return deepcopy(item)
+    return {field: item.get(field) for field in fields}
+
+
+def item_diff(
+    layer: "EnvironmentLayerState",
+    current_item: Dict[str, Any],
+    previous_item: Dict[str, Any],
+) -> Dict[str, Any]:
+    diff: Dict[str, Any] = {}
+    for key in set(previous_item) | set(current_item):
+        if key not in current_item:
+            diff[key] = None
+        elif key not in previous_item or current_item[key] != previous_item[key]:
+            diff[key] = current_item[key]
+
+    for field in item_identity_fields(layer):
+        diff[field] = current_item.get(field)
+    return diff
 
 
 def format_chart_update(chart: ChartGroupMetadata, value: Any) -> List[Dict[str, Any]]:
@@ -192,19 +276,19 @@ def compute_chart_deltas(
 
 
 def compute_environment_deltas(
-    server_environments: Dict[str, "EnvironmentBinderProtocol"],
+    server_environments: Mapping[str, "EnvironmentRegistrationProtocol"],
     client_envs: List[Dict[str, Any]],
 ) -> EnvironmentDeltas:
     client_ids: Set[str] = {x["id"] for x in client_envs}
     server_ids = set(server_environments)
     return EnvironmentDeltas(
         added=[
-            clone_environment_state(server_environments[i].get_state())
+            clone_environment_state(server_environments[i].build_state())
             for i in server_ids - client_ids
         ],
         removed=list(client_ids - server_ids),
         updated=[
-            clone_environment_state(server_environments[i].get_state())
+            clone_environment_state(server_environments[i].build_state())
             for i in server_ids & client_ids
         ],
     )

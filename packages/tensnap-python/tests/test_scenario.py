@@ -1,407 +1,211 @@
-"""Tests for SimulationScenario functionality"""
+"""Tests for the scenario registry/runtime flow."""
+
+from unittest.mock import AsyncMock
 
 import pytest
-from unittest.mock import Mock, AsyncMock
-from tensnap.scenario import (
-    SimulationScenario,
-    SimulationHandlerProtocol,
-    DefaultSimulationHandler,
-)
-from tensnap.bindings.basic import NumberParameter, ActionMetadata, chart, action, BindParameterConfig
+
+from tensnap.bindings import BindParameterConfig, action, agent, agent_layer, chart, env, grid_layer
+from tensnap.models import EnvironmentBinding, LayerBinding
+from tensnap.scenario import DefaultSimulationHandler, SimulationScenario
+from tensnap.server import ServerToClientMessageType as MT
 
 
 class TestSimulationScenario:
-    """Test SimulationScenario class"""
-
     @pytest.fixture
-    def scenario(self):
-        """Create a test scenario"""
+    def scenario(self) -> SimulationScenario:
         return SimulationScenario(
-            host="localhost", port=8765, use_msgpack=False, step_interval=0.05
+            host="localhost",
+            port=8765,
+            use_msgpack=False,
+            step_interval=0.05,
         )
 
-    def test_initialization(self, scenario: SimulationScenario):
-        """Test scenario is initialized correctly"""
-        assert scenario.host == "localhost"
-        assert scenario.port == 8765
-        assert scenario.use_msgpack is False
+    def test_initialization_registers_builtin_actions(self, scenario: SimulationScenario):
+        assert scenario.server.host == "localhost"
+        assert scenario.server.port == 8765
+        assert scenario.server.use_msgpack is False
         assert scenario.step_interval == 0.05
-        assert scenario.server is not None
-        assert scenario.sim_manager is not None
-        assert len(scenario.env_binders) == 0
+        assert scenario.environments == {}
+        assert {"start", "step", "reset"}.issubset(scenario.actions)
 
-    def test_add_environment(self, scenario: SimulationScenario):
-        """Test adding an environment to the scenario"""
-        env = Mock()
-        env.id = "test_env"
-        env.get_state = Mock(
-            return_value={
-                "id": "test_env",
-                "type": "2d",
-                "layers": [{"layer_id": "grid", "layer_type": "grid"}],
-            }
+    def test_add_environment_and_layer_builds_registry_state(self, scenario: SimulationScenario):
+        agents = [{"id": "a1", "x": 1, "y": 2}]
+        scenario.add_environment(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_layer_binding(
+            "world",
+            LayerBinding(
+                layer_id="agents",
+                layer_type="agent",
+                item_keys=("id",),
+                items_projector=lambda layer: list(layer),
+            ),
+            agents,
         )
 
-        scenario.add_environment(env)
+        state = scenario.environments["world"].build_state()
 
-        assert "test_env" in scenario.env_binders
-        assert scenario.env_binders["test_env"] == env
-        assert "test_env" in scenario.server.environments
-
-    def test_remove_environment(self, scenario: SimulationScenario):
-        """Test removing an environment from the scenario"""
-        env = Mock()
-        env.id = "test_env"
-        env.get_state = Mock(return_value={"id": "test_env", "type": "uniform", "layers": []})
-
-        scenario.add_environment(env)
-        assert "test_env" in scenario.env_binders
-
-        scenario.remove_environment("test_env")
-        assert "test_env" not in scenario.env_binders
-        assert "test_env" not in scenario.server.environments
-
-    def test_remove_all_environments(self, scenario: SimulationScenario):
-        """Test removing all environments"""
-        env1 = Mock()
-        env1.id = "env1"
-        env1.get_state = Mock(return_value={"id": "env1", "type": "uniform", "layers": []})
-
-        env2 = Mock()
-        env2.id = "env2"
-        env2.get_state = Mock(return_value={"id": "env2", "type": "uniform", "layers": []})
-
-        scenario.add_environment(env1)
-        scenario.add_environment(env2)
-
-        scenario.remove_all_environments()
-
-        assert len(scenario.env_binders) == 0
-        assert len(scenario.server.environments) == 0
-
-    def test_add_parameters_from_dict(self, scenario: SimulationScenario):
-        """Test adding parameters from a dictionary"""
-        params = {
-            "speed": 10.0,
-            "name": "test",
-            "enabled": True,
+        assert state == {
+            "id": "world",
+            "type": "2d",
+            "layers": [
+                {
+                    "layer_id": "agents",
+                    "layer_type": "agent",
+                    "agents": [{"id": "a1", "x": 1, "y": 2}],
+                }
+            ],
         }
 
-        param_ids, action_ids = scenario.add_parameters(params)
+    def test_add_bound_environment_reads_unified_binding_surface(
+        self, scenario: SimulationScenario
+    ):
+        @agent(x="position[0]", y="position[1]")
+        class Bird:
+            def __init__(self, bird_id: int, position: tuple[int, int]):
+                self.id = bird_id
+                self.position = position
 
-        assert "speed" in param_ids
-        assert "name" in param_ids
-        assert "enabled" in param_ids
-        assert "speed" in scenario.server.parameters
-        assert "name" in scenario.server.parameters
-        assert "enabled" in scenario.server.parameters
-
-    def test_add_parameters_from_object(self, scenario: SimulationScenario):
-        """Test adding parameters from an object"""
-
-        class TestModel:
+        @grid_layer(width="width", height="height")
+        @agent_layer("birds", item_iterable_projector="birds")
+        @env(id="aviary")
+        class Aviary:
             def __init__(self):
-                self.speed = 5.0
-                self.count = 10
+                self.width = 20
+                self.height = 10
+                self.birds = [Bird(1, (2, 3))]
 
-        model = TestModel()
-        param_ids, action_ids = scenario.add_parameters(model)
+        scenario.add_bound_environment(Aviary())
 
-        assert "speed" in param_ids
-        assert "count" in param_ids
+        assert "aviary" in scenario.environments
+        assert set(scenario.environments["aviary"].layers) == {"birds", "grid"}
 
-    def test_add_parameters_with_bind_decorator(self, scenario: SimulationScenario):
-        """Test adding parameters with bind decorator"""
+    def test_add_environment_rejects_stale_binder_objects(self, scenario: SimulationScenario):
+        with pytest.raises(TypeError):
+            scenario.add_environment(object())  # type: ignore[arg-type]
 
-        class TestModel:
+    def test_add_parameters_from_object_and_bound_property(self, scenario: SimulationScenario):
+        class Config:
             def __init__(self):
                 self._speed = 10.0
+                self.enabled = True
 
-            @BindParameterConfig("number", id="model_speed", min=0.0, max=100.0)
+            @BindParameterConfig("number", id="speed", min=0.0, max=100.0)
             def speed(self):
                 return self._speed
 
-        model = TestModel()
-        param_ids, action_ids = scenario.add_parameters(model)
+        param_ids = scenario.add_parameters(Config())
 
-        assert "model_speed" in param_ids
-        assert "model_speed" in scenario.server.parameters
-
-    def test_remove_parameters(self, scenario: SimulationScenario):
-        """Test removing specific parameters"""
-        params = {"speed": 10.0, "count": 5}
-        param_ids, _ = scenario.add_parameters(params)
-
-        scenario.remove_parameters(["speed"])
-
-        assert "speed" not in scenario.server.parameters
-        assert "count" in scenario.server.parameters
-
-    def test_remove_all_parameters(self, scenario: SimulationScenario):
-        """Test removing all parameters"""
-        params = {"speed": 10.0, "count": 5}
-        scenario.add_parameters(params)
-
-        scenario.remove_all_parameters()
-
-        assert (
-            len([p for p in scenario.server.parameters.values() if p.type != "action"])
-            == 0
-        )
-
-    def test_add_charts_from_class(self, scenario: SimulationScenario):
-        """Test adding charts from a class"""
-
-        class TestModel:
-            @chart("population", "Population", color="#ff0000")
-            def get_population(self):
-                return 100
-
-        model = TestModel()
-        chart_ids = scenario.add_charts(model)
-
-        assert "population" in chart_ids
-        assert "population" in scenario.server.charts
-
-    def test_add_charts_from_dict(self, scenario: SimulationScenario):
-        """Test adding charts from dictionary"""
-
-        @chart("value_chart", "Value", color="#00ff00")
-        def get_value():
-            return 42
-
-        charts_dict = {"value": get_value}
-        chart_ids = scenario.add_charts(charts_dict)
-
-        assert "value_chart" in chart_ids
-
-    def test_remove_charts(self, scenario: SimulationScenario):
-        """Test removing specific charts"""
-
-        @chart("chart1", "Chart 1")
-        def get_chart1():
-            return 1
-
-        scenario.add_charts({"c1": get_chart1})
-        scenario.remove_charts(["chart1"])
-
-        assert "chart1" not in scenario.server.charts
-
-    def test_remove_all_charts(self, scenario: SimulationScenario):
-        """Test removing all charts"""
-
-        @chart("chart1", "Chart 1")
-        def get_chart1():
-            return 1
-
-        scenario.add_charts({"c1": get_chart1})
-        scenario.remove_all_charts()
-
-        assert len(scenario.server.charts) == 0
-
-    def test_add_actions_with_register_self(self, scenario: SimulationScenario):
-        """Test adding actions with self registration"""
-        scenario.add_actions({}, register_self=True)
-
-        # Should have default actions from sim_manager
-        assert "start" in scenario.server.button_handlers
-        assert "step" in scenario.server.button_handlers
-        assert "reset" in scenario.server.button_handlers
-        assert "stop" not in scenario.server.button_handlers
-        assert scenario.server.actions["start"].continuous is True
-        assert scenario.server.actions["step"].continuous is False
-        assert scenario.server.actions["reset"].continuous is False
-
-    def test_add_actions_from_object(self, scenario: SimulationScenario):
-        """Test adding actions from an object"""
-
-        class TestModel:
-            @action("test_action", "Test Action")
-            async def do_something(self):
-                pass
-
-        model = TestModel()
-        scenario.add_actions(model, register_self=False)
-
-        assert "test_action" in scenario.server.button_handlers
-
-    def test_remove_all_actions(self, scenario: SimulationScenario):
-        """Test removing all actions"""
-        scenario.add_actions({}, register_self=True)
-        scenario.remove_all_actions(remove_parameters=True)
-
-        assert len(scenario.server.button_handlers) == 0
+        assert set(param_ids) == {"speed", "enabled"}
+        assert set(scenario.parameters) == {"speed", "enabled"}
 
     @pytest.mark.asyncio
-    async def test_register_handler(self, scenario: SimulationScenario):
-        """Test registering a simulation handler"""
-        handler = Mock()
+    async def test_add_charts_and_actions_bind_instance_methods(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            def __init__(self):
+                self.calls = 0
+
+            @chart("population", "Population")
+            def population(self):
+                return 42
+
+            @action("tick", "Tick")
+            def tick(self):
+                self.calls += 1
+
+        model = Model()
+        chart_ids = scenario.add_charts(model)
+        scenario.add_actions(model)
+
+        assert chart_ids == ["population"]
+        assert set(scenario.charts) == {"population"}
+        assert set(scenario.actions) >= {"start", "step", "reset", "tick"}
+
+        scenario._action_handlers["tick"]()
+        assert model.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_register_handler_invokes_on_registered(self, scenario: SimulationScenario):
+        handler = AsyncMock()
         handler.on_registered = AsyncMock()
         handler.on_start = AsyncMock()
         handler.on_step = AsyncMock()
+        handler.on_reset = AsyncMock()
 
         await scenario.register_handler(handler)
 
-        assert scenario.handler == handler
-        assert scenario.sim_manager.on_start == handler.on_start
-        assert scenario.sim_manager.on_step == handler.on_step
-        handler.on_registered.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_register_model_handler(self, scenario: SimulationScenario):
-        """Test registering a model handler"""
-        model_init_called = {"value": False}
-        model_step_called = {"value": False}
-
-        def model_init():
-            model_init_called["value"] = True
-
-        def model_step():
-            model_step_called["value"] = True
-
-        await scenario.register_model_handler(
-            model_init=model_init, model_step=model_step
-        )
-
-        assert isinstance(scenario.handler, DefaultSimulationHandler)
-        assert scenario.handler.model_init == model_init
-        assert scenario.handler.model_step == model_step
+        assert scenario._handlers[-1] is handler
+        handler.on_registered.assert_awaited_once_with(scenario)
 
 
 class TestDefaultSimulationHandler:
-    """Test DefaultSimulationHandler class"""
-
-    @pytest.fixture
-    def scenario(self):
-        """Create a test scenario"""
-        return SimulationScenario()
-
-    @pytest.fixture
-    def handler(self, scenario: SimulationScenario):
-        """Create a test handler"""
-        return DefaultSimulationHandler()
-
     @pytest.mark.asyncio
-    async def test_initialization(self):
-        """Test handler initialization"""
-        handler = DefaultSimulationHandler()
-        assert handler.scenario is None
-        assert handler.last_agent_ids is None
-        assert handler.last_environment_states == {}
-
-    @pytest.mark.asyncio
-    async def test_on_registered(self, scenario: SimulationScenario):
-        """Test handler registration"""
+    async def test_on_start_broadcasts_full_environment_snapshot(self):
+        scenario = SimulationScenario()
         handler = DefaultSimulationHandler()
         await handler.on_registered(scenario)
 
-        assert handler.scenario == scenario
-
-    @pytest.mark.asyncio
-    async def test_send_updates(
-        self, scenario: SimulationScenario, handler: DefaultSimulationHandler
-    ):
-        """Test sending updates"""
-        await handler.on_registered(scenario)
-
-        # Add a mock environment
-        env = Mock()
-        env.id = "test_env"
-        env.get_state = Mock(
-            return_value={
-                "id": "test_env",
-                "type": "uniform",
-                "layers": [
-                    {
-                        "layer_id": "agents",
-                        "layer_type": "agent",
-                        "data": {"x": 10},
-                        "agents": [{"id": "agent1", "x": 5, "y": 5}],
-                    }
-                ],
-            }
+        agents = [{"id": "a1", "x": 1, "y": 2}]
+        scenario.add_environment(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_layer_binding(
+            "world",
+            LayerBinding(
+                layer_id="agents",
+                layer_type="agent",
+                item_keys=("id",),
+                items_projector=lambda layer: list(layer),
+            ),
+            agents,
         )
 
-        scenario.add_environment(env)
-
-        # Mock the server methods
-        scenario.server.update_environment_state = AsyncMock()
-        scenario.server.delete_environment_state = AsyncMock()
-
-        await handler.send_updates(replace_agents=False)
-
-        scenario.server.update_environment_state.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_on_start(
-        self, scenario: SimulationScenario, handler: SimulationHandlerProtocol
-    ):
-        """Test on_start handler"""
-        await handler.on_registered(scenario)
-
-        env = Mock()
-        env.id = "test_env"
-        env.get_state = Mock(
-            return_value={"id": "test_env", "type": "uniform", "layers": []}
-        )
-
-        scenario.add_environment(env)
-
-        scenario.server.update_metadata = AsyncMock()
-        scenario.server.update_environment_state = AsyncMock()
-        scenario.server.delete_environment_state = AsyncMock()
-        scenario.server.update_charts = AsyncMock()
+        scenario.server.broadcast = AsyncMock()
+        scenario.server.broadcast_metadata_update = AsyncMock()
+        scenario.broadcast_charts = AsyncMock()
 
         await handler.on_start(0)
 
-        scenario.server.update_metadata.assert_called_with({"time": 0})
+        scenario.server.broadcast_metadata_update.assert_awaited_once_with({"time": 0})
+        assert any(call.args[0] == MT.ENV_CREATE for call in scenario.server.broadcast.await_args_list)
+        assert any(call.args[0] == MT.ENV_LAYER_CREATE for call in scenario.server.broadcast.await_args_list)
+        item_creates = [
+            call for call in scenario.server.broadcast.await_args_list if call.args[0] == MT.ITEM_CREATE
+        ]
+        assert item_creates
+        assert item_creates[0].args[1]["items"] == [{"id": "a1", "x": 1, "y": 2}]
 
     @pytest.mark.asyncio
-    async def test_on_step(
-        self, scenario: SimulationScenario, handler: DefaultSimulationHandler
-    ):
-        """Test on_step handler"""
+    async def test_on_step_emits_incremental_item_updates(self):
+        scenario = SimulationScenario()
+        handler = DefaultSimulationHandler()
         await handler.on_registered(scenario)
 
-        step_called = {"value": False}
+        agents = [{"id": "a1", "x": 1, "y": 2}]
+        scenario.add_environment(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_layer_binding(
+            "world",
+            LayerBinding(
+                layer_id="agents",
+                layer_type="agent",
+                item_keys=("id",),
+                items_projector=lambda layer: list(layer),
+            ),
+            agents,
+        )
 
-        def model_step():
-            step_called["value"] = True
+        scenario.server.broadcast = AsyncMock()
+        scenario.server.broadcast_metadata_update = AsyncMock()
+        scenario.broadcast_charts = AsyncMock()
 
-        handler.model_step = model_step
+        await handler.on_start(0)
+        scenario.server.broadcast.reset_mock()
 
-        scenario.server.update_metadata = AsyncMock()
-        scenario.server.update_environment_state = AsyncMock()
-        scenario.server.delete_environment_state = AsyncMock()
-        scenario.server.update_charts = AsyncMock()
-
+        agents[0] = {"id": "a1", "x": 3, "y": 2}
         await handler.on_step(1)
 
-        assert step_called["value"] is True
-
-    @pytest.mark.asyncio
-    async def test_on_reset(
-        self, scenario: SimulationScenario, handler: DefaultSimulationHandler
-    ):
-        """Test on_reset handler"""
-        await handler.on_registered(scenario)
-
-        init_called = {"value": False}
-
-        def model_init():
-            init_called["value"] = True
-
-        handler.model_init = model_init
-
-        scenario.sim_manager.reset_clock = Mock()
-        scenario.server.clear_charts = AsyncMock()
-        scenario.server.update_metadata = AsyncMock()
-        scenario.server.update_environment_state = AsyncMock()
-        scenario.server.delete_environment_state = AsyncMock()
-        scenario.server.update_charts = AsyncMock()
-
-        await handler.on_reset()
-
-        assert init_called["value"] is True
-        assert scenario.sim_manager.time_step == 0
-        scenario.server.clear_charts.assert_called_once()
+        scenario.server.broadcast_metadata_update.assert_awaited_with({"time": 1})
+        item_updates = [
+            call for call in scenario.server.broadcast.await_args_list if call.args[0] == MT.ITEM_UPDATE
+        ]
+        assert item_updates
+        assert item_updates[0].args[1]["items"] == [{"id": "a1", "x": 3}]

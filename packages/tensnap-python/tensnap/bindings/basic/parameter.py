@@ -20,7 +20,17 @@ from typing import (
 import types
 import re
 
-from tensnap.models.parameter import Parameter, ParameterType, create_parameter
+from tensnap.models.parameter import (
+    BooleanParameter,
+    EnumParameter,
+    NumberParameter,
+    Parameter,
+    ParameterBinding,
+    ParameterState,
+    ParameterType,
+    StringParameter,
+    create_parameter,
+)
 
 try:
     from mesa import Model as MesaModel
@@ -265,19 +275,14 @@ def get_field_metadata(cls: "type"):
 
 def get_parameter_metadata_from_namespace(
     namespace: Dict[str, Any], cfg_suggest: Optional[BindParametersConfig] = None
-):
-    """Find all parameter-decorated functions in a given namespace.
-
-    Returns (parameters, actions) where *actions* is always an empty list —
-    action discovery is now handled by
-    ``get_action_metadata_from_namespace`` in ``action.py``.
-    """
+) -> List[Tuple[str, Parameter]]:
+    """Find all parameter metadata in a given namespace."""
+    cfg = cfg_suggest or BindParametersConfig()
     parameters: List[Tuple[str, Parameter]] = []
-    actions: list = []  # kept for backward-compatible call sites; always empty
     for name, value in namespace.items():
         if name.startswith("__") and name.endswith("__"):
             continue
-        if cfg_suggest is not None and not cfg_suggest.is_included(name):
+        if not cfg.is_included(name):
             continue
         if isinstance(value, BindParameterConfig):
             parameters.append((name, value.metadata))
@@ -292,13 +297,13 @@ def get_parameter_metadata_from_namespace(
             parameters.append(
                 (name, create_parameter(id=name, type=val_type, value=value))
             )
-    return parameters, actions
+    return parameters
 
 
 def get_parameter_metadata_from_object(
     obj: Any, cfg_suggest: Optional[BindParametersConfig] = None
-):
-    """Find all parameter-decorated functions in a given object"""
+) -> List[Tuple[str, Parameter]]:
+    """Find all parameter metadata in a given object."""
 
     if isinstance(obj, dict):
         return get_parameter_metadata_from_namespace(obj, cfg_suggest)
@@ -310,26 +315,28 @@ def get_parameter_metadata_from_object(
 
     if hasattr(obj, "__class__"):
         cls = obj.__class__
-        cfg = getattr(cls, "_tensnap_bind_parameters_config", None) or cfg_suggest
+        cfg = (
+            getattr(cls, "_tensnap_bind_parameters_config", None)
+            or cfg_suggest
+            or BindParametersConfig()
+        )
         # 1. fetch class metadata
         # this overrides annotated config, but retains suggested config
-        parameters, actions = get_parameter_metadata_from_namespace(
-            vars(cls), cfg_suggest
-        )
+        parameters = get_parameter_metadata_from_namespace(vars(cls), cfg)
         # 2. annotated class fields
         # this also overrides annotated config
         field_metadata = get_field_metadata(cls)
         for field_name, field_info in field_metadata.items():
             if field_name.startswith("__") and field_name.endswith("__"):
                 continue
-            if cfg_suggest is not None and not cfg_suggest.is_included(field_name):
+            if not cfg.is_included(field_name):
                 continue
             for meta in field_info["metadata"]:
                 if meta.type == "action":
                     continue  # this does not make sense for fields
                 parameters.append((field_name, meta.metadata))
         # 3. fetch instance metadata
-        keys_fetched = set(name for name, *_ in parameters + actions)
+        keys_fetched = set(name for name, *_ in parameters)
         for name in dir(obj):
             if name.startswith("__") and name.endswith("__"):
                 continue
@@ -351,7 +358,7 @@ def get_parameter_metadata_from_object(
                 (name, create_parameter(id=name, type=val_type, value=value))
             )
 
-        return parameters, actions
+        return parameters
 
     raise ValueError("Unsupported object type for parameter metadata extraction")
 

@@ -18,22 +18,16 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from tensnap.bindings.basic import (
-    BindParametersConfig,
-)
+import tensnap.bindings as binding_api
+
+from tensnap.bindings import BindParametersConfig
 from tensnap.bindings.mesa.helper import (
     build_default_layered_binder,
     mesa_model_reinit,
 )
-from tensnap.models import (
-    EnvironmentState,
-    LayeredEnvironmentBinder,
-)
+from tensnap.models import EnvironmentBinding, EnvironmentState
 from tensnap.scenario import DefaultSimulationHandler
 from tensnap.server import ServerToClientMessageType as MT
-from tensnap.utils.environment_state import (
-    clone_environment_state,
-)
 from tensnap.utils.func import call_function
 
 if TYPE_CHECKING:
@@ -78,7 +72,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         self.on_model_step = on_model_step
 
         self.model: Optional["Model"] = None
-        self.env_binder: Optional[LayeredEnvironmentBinder] = None
+        self.environment_id: Optional[str] = None
         self._auto_params: List[str] = []
         self._auto_charts: List[str] = []
 
@@ -109,28 +103,33 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         assert self.model is not None
 
         if first_register:
-            if hasattr(
-                self.model.__class__, "_tensnap_environment_binding_config"
-            ) or hasattr(self.model.__class__, "_tensnap_layer_binding_configs"):
-                env_binder: LayeredEnvironmentBinder = LayeredEnvironmentBinder(
-                    self.model.__class__.__name__, self.model
-                )
-            else:
-                env_binder = build_default_layered_binder(
+            environment_binding = binding_api.environment_binding(self.model)
+            layer_bindings = binding_api.layer_bindings(self.model)
+
+            if environment_binding is None and not layer_bindings:
+                environment_binding, layer_bindings = build_default_layered_binder(
                     self.model, self.agent_iterable_projector
                 )
-            self.env_binder = env_binder
-            scenario.add_environment(env_binder)
-            scenario.add_custom_actions({})
+            elif environment_binding is None:
+                environment_binding = EnvironmentBinding(
+                    id=self.model.__class__.__name__,
+                    type="2d",
+                )
 
-        p1, _ = scenario.add_parameters(
+            scenario.add_environment(environment_binding)
+            for layer_binding in layer_bindings:
+                scenario.add_layer_binding(environment_binding.id, layer_binding, self.model)
+            self.environment_id = environment_binding.id
+            scenario.add_actions({})
+
+        p1 = scenario.add_parameters(
             self.model,
             cfg_suggest=BindParametersConfig(
                 exclude=["running", "steps"], include_private=False
             ),
         )
         if not self.on_model_init:
-            p2, _ = scenario.add_parameters(self.model_init_kwargs)
+            p2 = scenario.add_parameters(self.model_init_kwargs)
             p1.extend(p2)
         self._auto_params = p1
         self._auto_charts = scenario.add_charts(self.model)

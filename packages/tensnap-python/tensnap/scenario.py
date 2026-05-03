@@ -8,60 +8,57 @@ SimulationLoop has been merged directly into SimulationScenario; the step /
 start / reset coroutines are registered as actions during __init__.
 """
 
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    TYPE_CHECKING,
+    TypeVar,
+    Union,
+)
+
 import asyncio
 import inspect
 import logging
 import time
 from collections.abc import Callable
 from types import ModuleType
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Protocol,
-    Tuple,
-    TYPE_CHECKING,
-    Union,
-)
+from dataclasses import dataclass
 
-from .bindings.basic import (
+
+from . import bindings as binding_api
+from .bindings import (
     ActionMetadata,
     BindParametersConfig,
     ChartGroupMetadata,
-    Parameter,
-    get_action_metadata_from_namespace,
-    get_chart_metadata_from_namespace,
-    get_parameter_metadata_from_object,
     action as action_decorator,
 )
 from .models import (
-    EnvironmentBinderProtocol,
+    EnvironmentBinding,
+    EnvironmentRegistration,
     EnvironmentState,
-    LayeredEnvironmentBinder,
+    LayerBinding,
+    Parameter,
+    LayerRegistration,
+    clone_environment_state,
 )
 from .protocol import (
-    ActionDeltas,
-    ChartDeltas,
-    EnvironmentDeltas,
-    LayerItemOps,
-    ParameterDeltas,
     compute_action_deltas,
     compute_chart_deltas,
     compute_environment_deltas,
     compute_parameter_deltas,
-    diff_layer_items,
+    copied_layer_items,
     format_chart_update,
     layer_create_payload,
-)
-from .server import ServerToClientMessageType as MT, TenSnapServer
-from .utils.attr import make_dict_getter_and_setter, make_attr_getter_and_setter
-from .utils.environment_state import (
-    clone_environment_state,
-    copied_layer_items,
     layer_dependency_layer_ids,
     layer_metadata,
 )
+from .server import ServerToClientMessageType as MT, TenSnapServer
+from .utils.attr import make_dict_getter_and_setter, make_attr_getter_and_setter
 from .utils.func import call_function
 
 if TYPE_CHECKING:
@@ -165,17 +162,20 @@ class DefaultSimulationHandler(SimulationHandler):
     async def on_registered(self, scenario: "SimulationScenario") -> None:
         self.scenario = scenario
         self._last_env_states = {}
+        for environment in scenario.environments.values():
+            for layer in environment.layers.values():
+                layer.reset_diff_state()
 
     async def _push_env_updates(self, replace_all: bool = False) -> None:
         s = self.scenario
         if not s:
             return
         next_states: Dict[str, EnvironmentState] = {}
-        for name, env in s.env_binders.items():
-            curr = clone_environment_state(env.get_state())
-            prev = None if replace_all else self._last_env_states.get(name)
-            await _broadcast_env_update(s.server, curr, prev)
-            next_states[name] = curr
+        for env_id, environment in s.environments.items():
+            curr = clone_environment_state(environment.build_state())
+            prev = None if replace_all else self._last_env_states.get(env_id)
+            await _broadcast_env_update(s.server, environment, curr, prev)
+            next_states[env_id] = curr
         for removed_id in self._last_env_states.keys() - next_states.keys():
             await s.server.broadcast(MT.ENV_DELETE, {"id": removed_id})
         self._last_env_states = next_states
@@ -242,33 +242,42 @@ async def _send_layer_full(
 
 async def _broadcast_env_update(
     server: TenSnapServer,
+    environment: EnvironmentRegistration,
     env_state: EnvironmentState,
     previous_state: Optional[EnvironmentState] = None,
 ) -> None:
     """Diff previous vs. current environment state and broadcast changes."""
-    env_id: str = env_state["id"]
+    env_id: str = environment.id
+    current_layers = {layer["layer_id"]: layer for layer in env_state["layers"]}
 
     if previous_state is None:
-        await server.broadcast(MT.ENV_CREATE, {"id": env_id, "type": env_state["type"]})
-        for layer in env_state["layers"]:
+        await server.broadcast(
+            MT.ENV_CREATE, environment.binding.build_create_payload()
+        )
+        for layer_id, registration in environment.layers.items():
+            layer = current_layers[layer_id]
+            registration.reset_diff_state()
             await _send_layer_full(None, server, env_id, layer)
+            registration.build_item_deltas()
         return
 
     if previous_state["type"] != env_state["type"]:
-        await server.broadcast(MT.ENV_DELETE, {"id": env_id})
-        await _broadcast_env_update(server, env_state, None)
+        await server.broadcast(
+            MT.ENV_DELETE, environment.binding.build_delete_payload()
+        )
+        await _broadcast_env_update(server, environment, env_state, None)
         return
 
     prev_layers = {l["layer_id"]: l for l in previous_state["layers"]}
-    curr_layer_ids = {l["layer_id"] for l in env_state["layers"]}
+    curr_layer_ids = set(current_layers)
 
     for removed_lid in prev_layers.keys() - curr_layer_ids:
         await server.broadcast(
             MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": removed_lid}
         )
 
-    for layer in env_state["layers"]:
-        lid = layer["layer_id"]
+    for lid, registration in environment.layers.items():
+        layer = current_layers[lid]
         prev_layer = prev_layers.get(lid)
 
         if prev_layer is None or prev_layer["layer_type"] != layer["layer_type"]:
@@ -276,38 +285,43 @@ async def _broadcast_env_update(
                 await server.broadcast(
                     MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
                 )
+            registration.reset_diff_state()
             await _send_layer_full(None, server, env_id, layer)
+            registration.build_item_deltas()
             continue
 
         if layer_dependency_layer_ids(layer) != layer_dependency_layer_ids(prev_layer):
             await server.broadcast(
                 MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
             )
+            registration.reset_diff_state()
             await _send_layer_full(None, server, env_id, layer)
+            registration.build_item_deltas()
             continue
 
         meta = layer_metadata(layer)
         if meta != layer_metadata(prev_layer):
             await server.broadcast(
                 MT.ENV_LAYER_UPDATE,
-                {"env_id": env_id, "layer_id": lid, "data": meta},
+                {"env_id": env_id, "layer_id": lid, "data": meta or {}},
             )
 
-        ops: LayerItemOps = diff_layer_items(layer, prev_layer)
-        if ops["creates"]:
+        creates, updates, deleted_item_ids = registration.build_item_deltas()
+        if creates:
             await server.broadcast(
                 MT.ITEM_CREATE,
-                {"env_id": env_id, "layer_id": lid, "items": ops["creates"]},
+                {"env_id": env_id, "layer_id": lid, "items": creates},
             )
-        if ops["updates"]:
+        if updates:
             await server.broadcast(
                 MT.ITEM_UPDATE,
-                {"env_id": env_id, "layer_id": lid, "items": ops["updates"]},
+                {"env_id": env_id, "layer_id": lid, "items": updates},
             )
-        if ops["deletes"]:
+        delete_payloads = registration.build_item_delete_payloads(deleted_item_ids)
+        if delete_payloads:
             await server.broadcast(
                 MT.ITEM_DELETE,
-                {"env_id": env_id, "layer_id": lid, "items": ops["deletes"]},
+                {"env_id": env_id, "layer_id": lid, "items": delete_payloads},
             )
 
 
@@ -375,6 +389,9 @@ async def _dispatch_cud(
 
 # region SimulationScenario
 
+TValue = TypeVar("TValue")
+TBinding = TypeVar("TBinding")
+
 
 class SimulationScenario:
     """
@@ -384,6 +401,12 @@ class SimulationScenario:
     of registered SimulationHandlers.  The built-in start / step / reset
     actions are registered automatically at construction time.
     """
+
+    @dataclass
+    class Registry(Generic[TValue, TBinding]):
+        key: str
+        value: TValue
+        binding: TBinding
 
     def __init__(
         self,
@@ -396,7 +419,8 @@ class SimulationScenario:
         self.step_interval = step_interval
 
         # Simulation state stores
-        self.env_binders: Dict[str, EnvironmentBinderProtocol] = {}
+        self.environments: Dict[str, EnvironmentRegistration] = {}
+        self.env_binders: Dict[str, EnvironmentRegistration] = self.environments
         self.parameters: Dict[str, Parameter] = {}
         self.actions: Dict[str, ActionMetadata] = {}
         self.charts: Dict[str, Tuple[ChartGroupMetadata, Callable]] = {}
@@ -503,7 +527,7 @@ class SimulationScenario:
         param_d, value_updates = compute_parameter_deltas(
             self.parameters, req.get("parameters", []), self._get_param_value
         )
-        env_d = compute_environment_deltas(self.env_binders, req.get("envs", []))
+        env_d = compute_environment_deltas(self.environments, req.get("envs", []))
         chart_d = compute_chart_deltas(self.charts, req.get("charts", []))
 
         # Apply client-sent values before responding (client wins on sync)
@@ -613,14 +637,92 @@ class SimulationScenario:
 
     # region State management — environments
 
-    def add_environment(self, binder: EnvironmentBinderProtocol) -> None:
-        self.env_binders[binder.id] = binder
+    def add_environment_binding(
+        self, binding: EnvironmentBinding | EnvironmentRegistration
+    ) -> EnvironmentRegistration:
+        if not isinstance(binding, (EnvironmentBinding, EnvironmentRegistration)):
+            raise TypeError(
+                "add_environment expects an EnvironmentBinding or EnvironmentRegistration."
+            )
+
+        if isinstance(binding, EnvironmentRegistration):
+            registration = binding
+        else:
+            registration = self.environments.get(binding.id)
+            if registration is None:
+                registration = EnvironmentRegistration(binding)
+            else:
+                registration.binding = binding
+
+        self.environments[registration.id] = registration
+        return registration
+
+    def add_environment(self, target: object) -> EnvironmentRegistration:
+        environment_binding, layer_bindings = binding_api.bindings(target)
+        if environment_binding is None:
+            raise ValueError("Target has no attached environment binding.")
+
+        environment = self.add_environment_binding(environment_binding)
+        for layer_binding in layer_bindings:
+            self.add_layer_binding(environment.id, layer_binding, target)
+        return environment
+
+    def add_layer_binding(
+        self,
+        env_id: str,
+        binding: LayerBinding[Any, Any, Any, Any],
+        target: Any,
+    ) -> LayerRegistration[Any, Any, Any, Any]:
+        if not isinstance(binding, LayerBinding):
+            raise TypeError("add_layer expects a LayerBinding.")
+
+        environment = self.environments.get(env_id)
+        if environment is None:
+            raise KeyError(f"Unknown environment: {env_id}")
+
+        registration = environment.layers.get(binding.layer_id)
+        if registration is None:
+            registration = LayerRegistration(binding=binding, target=target)
+            environment.add_layer(registration)
+            return registration
+
+        registration.binding = binding
+        registration.set_target(target)
+        registration.reset_diff_state()
+        return registration
+
+    def add_bound_layers(self, env_id: str, target: object) -> List[str]:
+        added_layer_ids: List[str] = []
+        for layer_binding in binding_api.layer_bindings(target):
+            self.add_layer_binding(env_id, layer_binding, target)
+            added_layer_ids.append(layer_binding.layer_id)
+        return added_layer_ids
+
+    def set_layer_target(self, env_id: str, layer_id: str, target: Any) -> None:
+        environment = self.environments.get(env_id)
+        if environment is None or layer_id not in environment.layers:
+            raise KeyError(f"Unknown layer: {env_id}.{layer_id}")
+
+        environment.layers[layer_id].set_target(target)
+        environment.layers[layer_id].reset_diff_state()
+
+    def remove_layer(self, env_id: str, layer_id: str) -> None:
+        environment = self.environments.get(env_id)
+        if environment is None:
+            return
+        environment.remove_layer(layer_id)
+
+    def remove_all_layers(self, env_id: str) -> None:
+        environment = self.environments.get(env_id)
+        if environment is None:
+            return
+        environment.clear_layers()
 
     def remove_environment(self, binder_id: str) -> None:
-        self.env_binders.pop(binder_id, None)
+        self.environments.pop(binder_id, None)
 
     def remove_all_environments(self) -> None:
-        self.env_binders.clear()
+        self.environments.clear()
 
     # endregion
 
@@ -630,37 +732,25 @@ class SimulationScenario:
         self,
         target: Union[Dict[str, Any], ModuleType, object],
         cfg_suggest: Optional[BindParametersConfig] = None,
-    ) -> Tuple[List[str], List[str]]:
+    ) -> List[str]:
         """
-        Inspect ``target`` and register any annotated parameters/actions.
+        Inspect ``target`` and register any annotated parameters.
 
-        Returns:
-            (added_parameter_ids, added_action_ids)
+        Returns added parameter IDs.
         """
         added_params: List[str] = []
-        added_actions: List[str] = []
-        parameters, actions = get_parameter_metadata_from_object(
-            target, cfg_suggest=cfg_suggest
-        )
+        parameters = binding_api.parameters(target, cfg_suggest=cfg_suggest)
         if isinstance(target, dict):
             for name, param in parameters:
                 getter, setter = make_dict_getter_and_setter(name, target)
                 self._register_parameter(param, getter, setter)
                 added_params.append(param.id)
-            for name, func, action_meta in actions:
-                self._register_action(action_meta, func or (lambda: target[name]()))
-                added_actions.append(action_meta.id)
         else:
             for name, param in parameters:
                 getter, setter = make_attr_getter_and_setter(name, target)
                 self._register_parameter(param, getter, setter)
                 added_params.append(param.id)
-            for name, func, action_meta in actions:
-                self._register_action(
-                    action_meta, func or (lambda: getattr(target, name)())
-                )
-                added_actions.append(action_meta.id)
-        return added_params, added_actions
+        return added_params
 
     def _register_parameter(
         self,
@@ -686,23 +776,11 @@ class SimulationScenario:
     ) -> List[str]:
         """Inspect ``target`` and register any annotated chart getters. Returns added IDs."""
         added: List[str] = []
-        target_dict: Optional[dict] = None
-        if isinstance(target, dict):
-            target_dict = target
-        elif isinstance(target, ModuleType) or hasattr(target, "__dict__"):
-            target_dict = vars(target)
-
-        if target_dict is not None:
-            for _, func, chart in get_chart_metadata_from_namespace(target_dict):
-                self.charts[chart.id] = (chart, func)
-                added.append(chart.id)
-
-        if hasattr(target, "__class__") and not isinstance(target, (dict, ModuleType)):
-            for name, func, chart in get_chart_metadata_from_namespace(
-                vars(target.__class__)  # type: ignore
-            ):
-                self.charts[chart.id] = (chart, lambda t=target, f=func: f(t))
-                added.append(chart.id)
+        for _, func, chart in binding_api.charts(target):
+            if func is None:
+                continue
+            self.charts[chart.id] = (chart, func)
+            added.append(chart.id)
         return added
 
     def remove_charts(self, chart_ids: List[str]) -> None:
@@ -720,25 +798,14 @@ class SimulationScenario:
         self.actions[meta.id] = meta
         self._action_handlers[meta.id] = handler
 
-    def add_custom_actions(
+    def add_actions(
         self, target: Union[Dict[str, Any], ModuleType, object]
     ) -> None:
         """Register actions found on ``target`` (does not re-register built-ins)."""
-        if isinstance(target, dict):
-            for name, func, meta in get_action_metadata_from_namespace(target):
-                self._register_action(meta, func or (lambda: target[name]()))
-            return
-        if isinstance(target, ModuleType) or (
-            hasattr(target, "__dict__") and not hasattr(target, "__class__")
-        ):
-            for name, func, meta in get_action_metadata_from_namespace(vars(target)):
-                self._register_action(meta, func or (lambda: getattr(target, name)()))
-            return
-        if hasattr(target, "__class__"):
-            for name, _, meta in get_action_metadata_from_namespace(
-                vars(target.__class__)  # type: ignore
-            ):
-                self._register_action(meta, getattr(target, name))
+        for _, func, meta in binding_api.actions(target):
+            if func is None:
+                continue
+            self._register_action(meta, func)
 
     def remove_action(self, action_id: str) -> None:
         self.actions.pop(action_id, None)

@@ -41,8 +41,8 @@ async def test_mesa_handler_reset_replays_model_and_runtime_parameters():
     assert handler.model.temperature == 20
     assert len(handler.model.agents) == 3
 
-    scenario.server.set_parameter("agent_count", 5)
-    scenario.server.set_parameter("temperature", 42)
+    scenario.set_parameter("agent_count", 5)
+    scenario.set_parameter("temperature", 42)
 
     await handler.on_reset()
 
