@@ -8,11 +8,10 @@ from typing import (
     Literal,
     Protocol,
     TypeAlias,
-    TypedDict,
     cast,
 )
 
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 if TYPE_CHECKING:
     from .layer import LayerRegistration

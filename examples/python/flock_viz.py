@@ -21,6 +21,7 @@ scenario = SimulationScenario(port=server_port)
 config = FlockConfig()
 model = FlockSimulation(config)
 
+
 # Chart functions
 @chart("average_speed", "Average Speed", color="#2ECC71")
 def calculate_average_speed() -> float:

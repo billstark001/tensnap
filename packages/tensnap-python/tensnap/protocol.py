@@ -14,8 +14,9 @@ from typing import (
     Mapping,
     Set,
     Tuple,
-    TypedDict,
 )
+
+from typing_extensions import TypedDict
 
 from .bindings import (
     ActionMetadata,

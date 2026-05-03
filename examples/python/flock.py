@@ -78,7 +78,7 @@ class Bird:
 @env()
 class FlockSimulation:
     """Main flocking simulation class"""
-    
+
     length = 5
     color = "#2563EB"
 

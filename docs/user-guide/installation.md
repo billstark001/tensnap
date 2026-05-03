@@ -11,7 +11,7 @@ This guide covers different ways to install and run TenSnap depending on your us
 
 ### For Web Interface Development
 
-- **Node.js 18.0 or higher**
+- **Node.js 24.0 or higher**
 - **pnpm 8.0 or higher** (preferred package manager)
 
 ### For Desktop Application

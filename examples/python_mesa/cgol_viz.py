@@ -20,6 +20,7 @@ scenario = SimulationScenario(port=server_port, use_msgpack=True)
 MODEL_WIDTH = 50
 MODEL_HEIGHT = 50
 
+
 # Main function
 async def main() -> None:
     # MesaSimulationHandler now syncs through the canonical 2d/layer environment model under the hood.
@@ -30,7 +31,9 @@ async def main() -> None:
 
     await scenario.register_handler(handler)
 
-    print(f"TenSnap Game of Life visualization starting on ws://localhost:{server_port}")
+    print(
+        f"TenSnap Game of Life visualization starting on ws://localhost:{server_port}"
+    )
     await scenario.run()
 
 

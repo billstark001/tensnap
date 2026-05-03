@@ -23,7 +23,7 @@ if USE_SOURCE:
     # Add the source code path to sys.path
     repo_root = Path(__file__).parent.parent.parent
     python_package_path = repo_root / "packages" / "tensnap-python"
-    
+
     if python_package_path.exists():
         sys.path.insert(0, str(python_package_path))
         print(f"Using tensnap from source: {python_package_path}")

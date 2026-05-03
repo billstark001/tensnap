@@ -146,7 +146,9 @@ class PredatorPreySimulation:
         wrapped = -1 if direct > 0 else 1
         return wrapped
 
-    def _move_toward(self, x: int, y: int, target_x: int, target_y: int) -> tuple[int, int]:
+    def _move_toward(
+        self, x: int, y: int, target_x: int, target_y: int
+    ) -> tuple[int, int]:
         dx = self._toroidal_delta(x, target_x, self.width)
         dy = self._toroidal_delta(y, target_y, self.height)
         if abs(target_x - x) > abs(target_y - y):
@@ -183,7 +185,10 @@ class PredatorPreySimulation:
 
             next_sheep.append(sheep)
 
-            if random.random() * 100 < self.config.sheep_reproduce_rate and sheep.energy >= 6.0:
+            if (
+                random.random() * 100 < self.config.sheep_reproduce_rate
+                and sheep.energy >= 6.0
+            ):
                 sheep.energy *= 0.5
                 newborn_sheep.append(self._spawn_sheep(sheep.x, sheep.y, sheep.energy))
 
@@ -208,7 +213,9 @@ class PredatorPreySimulation:
             if visible_sheep:
                 target = min(
                     visible_sheep,
-                    key=lambda sheep: self._distance_sq(wolf.x, wolf.y, sheep.x, sheep.y),
+                    key=lambda sheep: self._distance_sq(
+                        wolf.x, wolf.y, sheep.x, sheep.y
+                    ),
                 )
                 wolf.x, wolf.y = self._move_toward(wolf.x, wolf.y, target.x, target.y)
             else:
@@ -225,7 +232,10 @@ class PredatorPreySimulation:
 
             next_wolves.append(wolf)
 
-            if random.random() * 100 < self.config.wolf_reproduce_rate and wolf.energy >= 14.0:
+            if (
+                random.random() * 100 < self.config.wolf_reproduce_rate
+                and wolf.energy >= 14.0
+            ):
                 wolf.energy *= 0.5
                 newborn_wolves.append(self._spawn_wolf(wolf.x, wolf.y, wolf.energy))
 

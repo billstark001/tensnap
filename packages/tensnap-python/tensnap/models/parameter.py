@@ -1,15 +1,14 @@
 from typing import (
-    NotRequired,
     Any,
     Callable,
     Optional,
     List,
-    TypedDict,
     Union,
     Literal,
     Dict,
     TypeAlias,
 )
+from typing_extensions import NotRequired, TypedDict
 
 ParameterType: TypeAlias = Literal["number", "enum", "boolean", "string"]
 

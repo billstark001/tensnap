@@ -10,9 +10,8 @@ from typing import (
     List,
     Dict,
     Tuple,
-    TypedDict,
 )
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 from dataclasses import dataclass
 

@@ -21,6 +21,7 @@ xi = 0.05  # Loss of immunity rate
 env = ERNetworkEnvironment(num_agents=100, connection_prob=0.05)
 model = SIRSSimulation(env, beta, gamma, xi, initial_infected=5)
 
+
 async def main():
 
     model.init()
