@@ -15,12 +15,12 @@ from typing import (
     Union,
     Literal,
     Dict,
-    TypeAlias,
 )
-from dataclasses import dataclass, asdict, field
 
 import types
 import re
+
+from tensnap.models.parameter import Parameter, ParameterType, create_parameter
 
 try:
     from mesa import Model as MesaModel
@@ -28,175 +28,10 @@ except ImportError:
     MesaModel = None  # type: ignore
 
 
-# region Parameter Classes
-
-ParameterType = Literal["number", "enum", "boolean", "string"]
-# Kept for backward compatibility — identical to ParameterType now that
-# "action" has been promoted to the standalone Action entity (v0.2).
-ParameterTypeWithoutAction = ParameterType
+# region Binding Classes
 
 
-@dataclass
-class ParameterBase:
-    id: str
-    type: ParameterType
-    label: str = ""
-    allow_runtime_change: bool = True
-
-    setter: Optional[Callable] = None
-    getter: Optional[Callable] = None
-
-    def refresh_label(self):
-        if not self.label:
-            self.label = self.id.replace("_", " ").title().strip()
-
-    def __post_init__(self):
-        self.refresh_label()
-
-    def to_dict(self) -> Dict[str, Any]:
-        """序列化为字典"""
-        d = asdict(self)
-        if "setter" in d:
-            del d["setter"]
-        if "getter" in d:
-            del d["getter"]
-        if "allow_runtime_change" in d:
-            val = d["allow_runtime_change"]
-            del d["allow_runtime_change"]
-            d["allowRuntimeChange"] = val
-        return d
-
-    def instantiate(
-        self, getter: Callable | None = None, setter: Callable | None = None
-    ) -> "Parameter":
-        ret = create_parameter(**asdict(self))
-        ret.getter = getter
-        ret.setter = setter
-        return ret
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
-        """从字典反序列化"""
-        return cls(**data)
-
-
-@dataclass
-class NumberParameter(ParameterBase):
-    type: Literal["number"] = "number"
-    value: float = 0.0
-    min: float = 0.0
-    max: float = 100.0
-    step: float = 1.0
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NumberParameter":
-        return cls(**data)
-
-
-@dataclass
-class EnumParameter(ParameterBase):
-    type: Literal["enum"] = "enum"
-    value: str = ""
-    options: List[str] = field(default_factory=list)
-    labels: Optional[Dict[str, str]] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EnumParameter":
-        return cls(**data)
-
-
-@dataclass
-class BooleanParameter(ParameterBase):
-    type: Literal["boolean"] = "boolean"
-    value: bool = False
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BooleanParameter":
-        return cls(**data)
-
-
-@dataclass
-class StringParameter(ParameterBase):
-    type: Literal["string"] = "string"
-    value: str = ""
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StringParameter":
-        return cls(**data)
-
-
-Parameter: TypeAlias = Union[
-    NumberParameter, EnumParameter, BooleanParameter, StringParameter
-]
-
-
-def create_parameter(
-    id: str,
-    type: ParameterType,
-    label: Optional[str] = None,
-    value: Optional[Union[float, str]] = None,
-    min: Optional[float] = None,
-    max: Optional[float] = None,
-    step: Optional[float] = None,
-    options: Optional[List[str]] = None,
-    labels: Optional[Dict[str, str]] = None,
-    setter: Optional[Callable] = None,
-    getter: Optional[Callable] = None,
-    allow_runtime_change: bool = True,
-) -> Parameter:
-    """根据字典数据创建对应类型的参数对象"""
-
-    common_data = {
-        "id": id,
-        "label": label or "",
-        "allow_runtime_change": allow_runtime_change,
-        "setter": setter,
-        "getter": getter,
-    }
-
-    if type == "number":
-        return NumberParameter.from_dict(
-            {
-                **common_data,
-                "value": value if value is not None else 0.0,
-                "min": min,
-                "max": max,
-                "step": step,
-            }
-        )
-    elif type == "enum":
-        return EnumParameter.from_dict(
-            {
-                **common_data,
-                "value": str(value) if value is not None else "",
-                "options": options or [],
-                "labels": labels,
-            }
-        )
-    elif type == "boolean":
-        return BooleanParameter.from_dict(
-            {
-                **common_data,
-                "value": bool(value) if value is not None else False,
-            }
-        )
-    elif type == "string":
-        return StringParameter.from_dict(
-            {
-                **common_data,
-                "value": str(value) if value is not None else "",
-            }
-        )
-    else:
-        raise ValueError(f"Unknown parameter type: {type}")
-
-
-# endregion
-
-# region Binding Utilities
-
-
-class bind:
+class BindParameterConfig:
 
     @overload
     def __init__(
@@ -249,7 +84,7 @@ class bind:
 
     def __init__(
         self,
-        type: ParameterTypeWithoutAction,
+        type: ParameterType,
         *,
         default: Optional[Any] = None,
         id: str = "",
@@ -302,6 +137,8 @@ class bind:
         self.fset = fset
         return fset
 
+
+param = BindParameterConfig  # Alias
 
 _MESA_FIELDS = {
     "running",
@@ -377,7 +214,12 @@ class BindParametersConfig:
         return cls
 
 
-bind_parameters = BindParametersConfig  # Alias
+params = BindParametersConfig  # Alias
+
+
+# endregion
+
+# region Parameter Discovery and Creation
 
 
 def create_getter_and_setter(
@@ -414,7 +256,9 @@ def get_field_metadata(cls: "type"):
             typ, *meta = get_args(annotated)
             result[name] = {
                 "type": typ,
-                "metadata": [m.__dict__ for m in meta if isinstance(m, bind)],
+                "metadata": [
+                    m.__dict__ for m in meta if isinstance(m, BindParameterConfig)
+                ],
             }
     return result
 
@@ -435,7 +279,7 @@ def get_parameter_metadata_from_namespace(
             continue
         if cfg_suggest is not None and not cfg_suggest.is_included(name):
             continue
-        if isinstance(value, bind):
+        if isinstance(value, BindParameterConfig):
             parameters.append((name, value.metadata))
         elif isinstance(value, (int, float, bool, str)) or value is None:
             val_type = (

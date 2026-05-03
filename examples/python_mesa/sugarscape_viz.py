@@ -10,7 +10,7 @@ import import_config  # noqa: F401
 from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
 from tensnap.models import EnvironmentBindingBuilder
-from tensnap.models.agent import make_grid_agent_projector
+from tensnap.models.item import make_grid_agent_projector
 
 from sugarscape import SugarAgent, Sugarscape
 

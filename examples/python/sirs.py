@@ -16,7 +16,7 @@ from enum import IntEnum
 
 from tensnap import (
     bind_env,
-    bind_parameters,
+    params,
     bind_agent_layer,
     bind_edge_layer,
     bind_grid_layer,
@@ -145,7 +145,7 @@ class WellMixedEnvironment(Environment):
 @bind_env()
 @bind_grid_layer(width="rows", height="cols")
 @bind_agent_layer("agents", item_iterable_projector="agents")
-@bind_parameters(include=["rows", "cols"])
+@params(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
     Rectangular grid environment where agents interact with their spatial neighbors.
@@ -203,7 +203,7 @@ class GridEnvironment(Environment):
     edge_projector=True,
     dependency_layer_ids={"agent": "agents"},
 )
-@bind_parameters(include=["num_agents", "connection_prob"])
+@params(include=["num_agents", "connection_prob"])
 class ERNetworkEnvironment(Environment):
     """
     Erdős-Rényi random network environment.
@@ -243,7 +243,7 @@ class ERNetworkEnvironment(Environment):
         return list(self.graph.neighbors(agent_id))
 
 
-@bind_parameters(include=["beta", "gamma", "xi", "initial_infected"])
+@params(include=["beta", "gamma", "xi", "initial_infected"])
 class SIRSSimulation:
     """
     SIRS epidemic simulation manager.

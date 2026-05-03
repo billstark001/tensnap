@@ -8,9 +8,11 @@ from typing import (
     List,
     Literal,
     Protocol,
+    Tuple,
     TypeAlias,
     TypedDict,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -22,6 +24,7 @@ from tensnap.utils.attr import (
     AttrProjector,
     AttrGetter,
 )
+from tensnap.utils.object import dict_diff
 
 TObj = TypeVar("TObj")
 TKey = TypeVar("TKey", bound=str)
@@ -43,13 +46,14 @@ _ITEM_PROJ_TYPE_STATIC = 2
 ItemProjectionType: TypeAlias = Literal[0, 1, 2]
 
 
-# region Environment Layer
+# region Message Payloads
+
 
 class EnvLayerCreatePayload(TypedDict, Generic[TLayerFieldKeys]):
     env_id: str
     layer_id: str
     layer_type: str
-    dependency_layer_ids: NotRequired[List[str]]
+    dependency_layer_ids: NotRequired[Dict[str, str]]
     data: NotRequired[Dict[TLayerFieldKeys, Any]]
 
 
@@ -64,12 +68,19 @@ class EnvLayerDeletePayload(TypedDict):
     layer_id: str
 
 
+# endregion
+
+
+# region Environment Layer
+
+
 @dataclass(slots=True)
 class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
 
     layer_id: str
     layer_type: str
-    dependency_layer_ids: List[str] = field(default_factory=list)
+    item_keys: Tuple[TItemFieldKeys, ...]
+    dependency_layer_ids: Dict[str, str] = field(default_factory=dict)
 
     metadata_projector: AttrProjector[TLayer, TLayerFieldKeys] | None = None
 
@@ -78,10 +89,12 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     item_dynamic_projector: (
         DynamicAttrProjector[TLayer, TItem, TItemFieldKeys] | None
     ) = None
+    item_id_getter: AttrGetter[TItem] | None = None
     item_changed_getter: AttrGetter[TItem] | None = None
     items_projector: ItemsProjector[TLayer, TItemFieldKeys] | None = None
 
     item_projection_type: ItemProjectionType = field(init=False)
+    has_item_diffing: bool = field(init=False)
 
     def __post_init__(self):
         has_iterable = self.iterable_getter is not None
@@ -118,6 +131,10 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         else:
             self.item_projection_type = _ITEM_PROJ_TYPE_ITEMS
 
+        self.has_item_diffing = (
+            self.item_id_getter is not None and self.item_changed_getter is not None
+        ) and self.item_projection_type != _ITEM_PROJ_TYPE_ITEMS
+
     def build_metadata(self, layer: TLayer) -> Dict[TLayerFieldKeys, Any] | None:
         if self.metadata_projector is None:
             return None
@@ -136,7 +153,80 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         assert self.item_dynamic_projector is not None
         return [self.item_dynamic_projector(layer, item) for item in items]
 
+    def get_item_id_naive(self, item: Dict[TItemFieldKeys, Any]) -> Tuple[Any, ...]:
+        return tuple(item.get(key) for key in self.item_keys)
 
+    def build_item_list_diff(
+        self,
+        layer: TLayer,
+        last_items: Dict[Any, Dict[TItemFieldKeys, Any]],
+    ):
+        assert (
+            self.has_item_diffing
+        ), "Item diffing is not enabled for this LayerBinding."
+        assert (
+            self.item_id_getter is not None
+            and self.item_changed_getter is not None
+            and self.iterable_getter is not None
+        )
+        items = self.iterable_getter(layer)
+        created: List[Dict[TItemFieldKeys, Any]] = []
+        updated: List[Dict[TItemFieldKeys, Any]] = []
+        deleted: List[Any] = []
+        projector: AttrProjector[TItem, TItemFieldKeys] = (
+            self.item_projector
+            if self.item_projection_type == _ITEM_PROJ_TYPE_STATIC
+            else (lambda item: self.item_dynamic_projector(layer, item))  # type: ignore
+        )  # type: ignore
+        current_ids = set()
+        current_items: Dict[Any, Dict[TItemFieldKeys, Any]] = {
+            k: v for k, v in last_items.items()
+        }
+        for item in items:
+            item_id = self.item_id_getter(item)
+            current_ids.add(item_id)
+            item_changed = self.item_changed_getter(item)
+            if item_id not in last_items:
+                p = projector(item)
+                created.append(p)
+                current_items[item_id] = p
+            elif item_changed:
+                p = projector(item)
+                updated.append(p)
+                current_items[item_id] = p
+        for item_id in last_items:
+            if item_id not in current_ids:
+                deleted.append(item_id)
+                current_items.pop(item_id, None)
+        return created, updated, deleted, current_items
+
+    def build_item_list_diff_naive(
+        self,
+        layer: TLayer,
+        last_items: Dict[Any, Dict[TItemFieldKeys, Any]],
+    ):
+        projected_items = self.build_item_list(layer)
+        created: List[Dict[TItemFieldKeys, Any]] = []
+        updated: List[Dict[TItemFieldKeys, Any]] = []
+        deleted: List[Any] = []
+        current_ids = set()
+        current_items: Dict[Any, Dict[TItemFieldKeys, Any]] = {
+            k: v for k, v in last_items.items()
+        }
+        for item in projected_items:
+            item_id = self.get_item_id_naive(item)
+            current_ids.add(item_id)
+            if item_id not in last_items:
+                created.append(item)
+                current_items[item_id] = item
+            else:
+                updated.append(dict_diff(last_items[item_id], item))
+                current_items[item_id] = item
+        for item_id in last_items:
+            if item_id not in current_ids:
+                deleted.append(item_id)
+                current_items.pop(item_id, None)
+        return created, updated, deleted, current_items
 
     def build_create_payload(
         self, env_id: str, layer: TLayer
@@ -172,5 +262,63 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             "env_id": env_id,
             "layer_id": self.layer_id,
         }
+
+
+# endregion
+
+# region Layer Field Definitions
+
+
+AgentLayerMetadataFields: TypeAlias = Literal[
+    "width", "height", "coord_offset", "z_index"
+]
+EdgeLayerMetadataFields: TypeAlias = Literal[
+    "link_distance",
+    "charge_strength",
+    "centering_strength",
+    "collision_radius",
+    "max_component_distance",
+    "component_spacing",
+    "z_index",
+]
+TrajectoryLayerMetadataFields: TypeAlias = Literal[
+    "length", "width", "color", "z_index"
+]
+GridLayerMetadataFields: TypeAlias = Literal[
+    "width",
+    "height",
+    "x_origin",
+    "x_unit",
+    "x_interval",
+    "x_ratio",
+    "y_origin",
+    "y_unit",
+    "y_interval",
+    "y_ratio",
+    "stroke_color",
+    "z_index",
+]
+BackgroundLayerMetadataFields: TypeAlias = Literal[
+    "background", "interpolation", "z_index"
+]
+
+# endregion
+
+# region Item Field Definitions
+
+
+UniformAgentItemFields: TypeAlias = Literal["id", "color", "icon", "size", "data"]
+
+AgentItemFields: TypeAlias = Union[
+    UniformAgentItemFields,
+    Literal["x", "y", "heading"],
+]
+
+EdgeItemFields: TypeAlias = Literal[
+    "source", "target", "directed", "style", "width", "color"
+]
+
+TrajectoryConfigItemFields: TypeAlias = Literal["id", "length", "width", "color"]
+
 
 # endregion

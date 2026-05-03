@@ -15,13 +15,18 @@ from typing import (
 from collections.abc import Callable
 
 
-from tensnap.models.agent import (
+from tensnap.models import (
     ProjectorField,
     ProjectorFieldForInit,
     UniformAgentItemFields,
     AgentItemFields,
     EdgeItemFields,
     TrajectoryConfigItemFields,
+    AgentLayerMetadataFields,
+    EdgeLayerMetadataFields,
+    TrajectoryLayerMetadataFields,
+    BackgroundLayerMetadataFields,
+    GridLayerMetadataFields,
 )
 from tensnap.models.layer import (
     DynamicAttrProjector,
@@ -35,7 +40,6 @@ from tensnap.utils.attr import (
     AttrProjector,
     AttrPathMap,
 )
-
 
 TItemKeys = TypeVar("TItemKeys", bound=str)
 TMetadataKeys = TypeVar("TMetadataKeys", bound=str)
@@ -52,38 +56,6 @@ LayerItemProjectorForInit: TypeAlias = (
 )
 LayerItemsProjectorForInit: TypeAlias = ItemsProjector[Any, TItemKeys] | str
 
-AgentLayerMetadataFields: TypeAlias = Literal[
-    "width", "height", "coord_offset", "z_index"
-]
-EdgeLayerMetadataFields: TypeAlias = Literal[
-    "link_distance",
-    "charge_strength",
-    "centering_strength",
-    "collision_radius",
-    "max_component_distance",
-    "component_spacing",
-    "z_index",
-]
-TrajectoryLayerMetadataFields: TypeAlias = Literal[
-    "length", "width", "color", "z_index"
-]
-GridLayerMetadataFields: TypeAlias = Literal[
-    "width",
-    "height",
-    "x_origin",
-    "x_unit",
-    "x_interval",
-    "x_ratio",
-    "y_origin",
-    "y_unit",
-    "y_interval",
-    "y_ratio",
-    "stroke_color",
-    "z_index",
-]
-BackgroundLayerMetadataFields: TypeAlias = Literal[
-    "background", "interpolation", "z_index"
-]
 
 ProjectorDictFilterList: TypeAlias = List[
     Tuple[Callable[[Type[Any]], bool], AttrPathMap[TItemKeys]]
@@ -282,7 +254,9 @@ def _try_resolve_item_projector(
 
     item_cls = _try_get_class(cls, raw_value)
     if item_cls is not None:
-        resolved_projector = _resolve_registered_item_projector(item_cls, projector_names)
+        resolved_projector = _resolve_registered_item_projector(
+            item_cls, projector_names
+        )
         if resolved_projector is not None:
             return cast(Callable[..., Dict[TItemKeys, Any]], resolved_projector)
 
@@ -295,10 +269,12 @@ def _try_resolve_item_projector(
 
 def _resolve_projector_dict(
     cls: Type[Any],
-    projector_dict_init: ProjectorDictForInit[TItemKeys] | MetadataDictForInit[TItemKeys],
+    projector_dict_init: (
+        ProjectorDictForInit[TItemKeys] | MetadataDictForInit[TItemKeys]
+    ),
     fields: ProjectorDictFilterList[TItemKeys],
     default_fields: AttrPathMap[TItemKeys],
-)-> AttrPathMap[TItemKeys]:
+) -> AttrPathMap[TItemKeys]:
     projector_dict: AttrPathMap[TItemKeys] = {}
     infer_fields: List[TItemKeys] = []
 
@@ -377,13 +353,17 @@ class BindItemConfig(Generic[TItemKeys]):
         return cls
 
     def assert_attached(self) -> None:
-        assert self.attached, "Projector config must be attached before getting projector"
+        assert (
+            self.attached
+        ), "Projector config must be attached before getting projector"
 
     def assert_fields(self, required_fields: List[TItemKeys]) -> None:
         missing_fields = [
             f for f in required_fields if not self.projector_dict.get(f, None)
         ]
-        assert not missing_fields, f"Missing required projector fields: {missing_fields}"
+        assert (
+            not missing_fields
+        ), f"Missing required projector fields: {missing_fields}"
 
     def get_projector(self) -> AttrProjector[Any, TItemKeys]:
         return cast(
@@ -391,6 +371,8 @@ class BindItemConfig(Generic[TItemKeys]):
             make_attr_projector([], cast(Dict[str, str], self.projector_dict), {}),
         )
 
+
+item = BindItemConfig
 
 # endregion
 
@@ -455,7 +437,7 @@ class BindAgentConfig(BindItemConfig[AgentItemFields]):
         return super().get_projector()
 
 
-bind_agent = BindAgentConfig
+agent = BindAgentConfig
 
 
 _id_field_defaults: AttrPathMap[Literal["id"]] = {
@@ -506,7 +488,7 @@ class BindUniformAgentConfig(BindItemConfig[UniformAgentItemFields]):
         return super().get_projector()
 
 
-bind_uniform_agent = BindUniformAgentConfig
+uniform_agent = BindUniformAgentConfig
 
 
 # endregion
@@ -545,7 +527,7 @@ class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
         return super().get_projector()
 
 
-bind_edge = BindEdgeConfig
+edge = BindEdgeConfig
 
 
 # endregion
@@ -584,7 +566,7 @@ class BindTrajectoryConfigConfig(BindItemConfig[TrajectoryConfigItemFields]):
         return super().get_projector()
 
 
-bind_trajectory_item = BindTrajectoryConfigConfig
+trajectory_item = BindTrajectoryConfigConfig
 
 
 # endregion
@@ -623,29 +605,26 @@ def _append_layer_config(
     return cls
 
 
-def _normalize_dependency_layer_ids(
-    dependency_layer_ids: LayerDependencyIds | None,
-) -> List[str]:
-    if dependency_layer_ids is None:
-        return []
-    return list(dependency_layer_ids.values())
-
-
 class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
 
     def __init__(
         self,
         layer_id: str,
         layer_type: str,
+        item_keys: Tuple[TItemKeys, ...] | None,
         *,
         metadata: (
             AttrProjector[Any, TMetadataKeys]
             | MetadataDictForInit[TMetadataKeys]
             | None
         ) = None,
-        item_iterable_projector: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
+        item_iterable_projector: (
+            AttrGetter[Any] | ProjectorField | Literal[False] | None
+        ) = None,
         item_projector: LayerItemProjectorForInit[TItemKeys] | None = None,
-        item_dynamic_projector: DynamicAttrProjector[Any, Any, TItemKeys] | str | None = None,
+        item_dynamic_projector: (
+            DynamicAttrProjector[Any, Any, TItemKeys] | str | None
+        ) = None,
         items_projector: LayerItemsProjectorForInit[TItemKeys] | None = None,
         dependency_layer_ids: LayerDependencyIds | None = None,
         item_projector_name: ProjectorName | None = None,
@@ -662,6 +641,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
 
         self.layer_id = layer_id
         self.layer_type = layer_type
+        self.item_keys = item_keys
         self.init_metadata = metadata
         self.init_item_iterable_projector = (
             iterable if item_iterable_projector is None else item_iterable_projector
@@ -768,9 +748,8 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         return LayerBinding(
             layer_id=self.layer_id,
             layer_type=self.layer_type,
-            dependency_layer_ids=_normalize_dependency_layer_ids(
-                self.dependency_layer_ids,
-            ),
+            item_keys=self.item_keys or (),
+            dependency_layer_ids=self.dependency_layer_ids,
             metadata_projector=metadata_projector,
             iterable_getter=iterable_getter,
             item_projector=resolved_item_projector,
@@ -804,7 +783,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         return self.attach(cls, [], {})
 
 
-bind_layer = BindLayerConfig
+layer = BindLayerConfig
 
 # endregion
 
@@ -823,6 +802,7 @@ class BindBackgroundLayerConfig(BindLayerConfig):
         super().__init__(
             layer_id,
             "background",
+            None,
             metadata={
                 "background": background,
                 "interpolation": interpolation,
@@ -834,7 +814,7 @@ class BindBackgroundLayerConfig(BindLayerConfig):
         return self.attach(cls, [], {})
 
 
-bind_background_layer = BindBackgroundLayerConfig
+background_layer = BindBackgroundLayerConfig
 
 # endregion
 
@@ -877,11 +857,12 @@ class BindGridLayerConfig(BindLayerConfig):
         super().__init__(
             layer_id,
             "grid",
+            None,
             metadata=metadata_dict,
         )
 
 
-bind_grid_layer = BindGridLayerConfig
+grid_layer = BindGridLayerConfig
 
 # endregion
 
@@ -915,6 +896,7 @@ class BindAgentLayerConfig(BindLayerConfig):
         super().__init__(
             layer_id,
             "agent",
+            ("id",),
             metadata={
                 "width": width,
                 "height": height,
@@ -940,7 +922,7 @@ class BindAgentLayerConfig(BindLayerConfig):
         return self.attach(cls, [], {})
 
 
-bind_agent_layer = BindAgentLayerConfig
+agent_layer = BindAgentLayerConfig
 
 # endregion
 
@@ -977,6 +959,7 @@ class BindEdgeLayerConfig(BindLayerConfig):
         super().__init__(
             layer_id,
             "edge",
+            ("source", "target"),
             metadata={
                 "link_distance": link_distance,
                 "charge_strength": charge_strength,
@@ -988,9 +971,7 @@ class BindEdgeLayerConfig(BindLayerConfig):
             },
             item_iterable_projector=resolved_iterable,
             item_projector=(
-                None
-                if edge_projector in (None, True, False)
-                else edge_projector
+                None if edge_projector in (None, True, False) else edge_projector
             ),
             item_dynamic_projector=item_dynamic_projector,
             items_projector=items_projector,
@@ -1006,7 +987,7 @@ class BindEdgeLayerConfig(BindLayerConfig):
         return self.attach(cls, [], {})
 
 
-bind_edge_layer = BindEdgeLayerConfig
+edge_layer = BindEdgeLayerConfig
 
 # endregion
 
@@ -1030,9 +1011,7 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
             LayerItemProjectorForInit[TrajectoryConfigItemFields] | None
         ) = None,
         item_dynamic_projector: (
-            DynamicAttrProjector[Any, Any, TrajectoryConfigItemFields]
-            | str
-            | None
+            DynamicAttrProjector[Any, Any, TrajectoryConfigItemFields] | str | None
         ) = None,
         items_projector: (
             LayerItemsProjectorForInit[TrajectoryConfigItemFields] | None
@@ -1056,6 +1035,7 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
         super().__init__(
             layer_id,
             "trajectory",
+            ("id",),
             metadata=metadata_dict,
             item_iterable_projector=resolved_iterable,
             item_projector=item_projector,
@@ -1073,7 +1053,7 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
         return self.attach(cls, [], {})
 
 
-bind_trajectory_layer = BindTrajectoryLayerConfig
+trajectory_layer = BindTrajectoryLayerConfig
 
 
 # endregion

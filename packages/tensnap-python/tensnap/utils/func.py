@@ -1,4 +1,4 @@
-import asyncio
+import inspect
 from collections.abc import Awaitable, Callable
 from typing import TypeVar, cast
 
@@ -14,7 +14,7 @@ async def call_function(
     **kwargs: P.kwargs,
 ) -> R:
     """Call a function, handling both sync and async functions."""
-    if asyncio.iscoroutinefunction(func):
+    if inspect.iscoroutinefunction(func):
         async_func = cast(Callable[P, Awaitable[R]], func)
         return await async_func(*args, **kwargs)
     sync_func = cast(Callable[P, R], func)

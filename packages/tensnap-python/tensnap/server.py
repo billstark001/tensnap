@@ -22,7 +22,7 @@ from websockets.asyncio.server import serve, ServerConnection
 from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State as WebSocketState
 
-from .utils.object import find_objects_by_error, json_default, msgpack_default
+from .utils.codec import find_objects_by_error, json_default, msgpack_default
 from .utils.ws import BatchedMessageQueue
 
 logger = logging.getLogger(__name__)

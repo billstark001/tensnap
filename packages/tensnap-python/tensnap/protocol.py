@@ -29,12 +29,6 @@ from .utils.environment_state import (
     layer_metadata,
 )
 
-if TYPE_CHECKING:
-    from .models import (
-        EnvironmentBinderProtocol,
-        EnvironmentLayerState,
-        EnvironmentState,
-    )
 
 # region Delta TypedDicts
 

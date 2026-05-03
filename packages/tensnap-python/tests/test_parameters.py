@@ -7,7 +7,7 @@ from tensnap.bindings.basic import (
     BooleanParameter,
     StringParameter,
     ActionMetadata,
-    bind,
+    BindParameterConfig,
     BindParametersConfig,
     get_parameter_metadata_from_object,
     get_action_metadata_from_namespace,
@@ -132,7 +132,7 @@ class TestBindDecorator:
             def __init__(self):
                 self._speed = 10.0
 
-            @bind("number", id="speed", min=0.0, max=100.0, step=1.0)
+            @BindParameterConfig("number", id="speed", min=0.0, max=100.0, step=1.0)
             def get_speed(self):
                 return self._speed
 
@@ -141,7 +141,7 @@ class TestBindDecorator:
 
         # Check metadata
         bind_obj = TestModel.__dict__["get_speed"]
-        assert isinstance(bind_obj, bind)
+        assert isinstance(bind_obj, BindParameterConfig)
         assert bind_obj.metadata.id == "speed"
         assert bind_obj.metadata.type == "number"
 
@@ -149,7 +149,7 @@ class TestBindDecorator:
         """Test bind decorator for boolean parameters"""
 
         class TestModel:
-            @bind("boolean", id="enabled", default=True)
+            @BindParameterConfig("boolean", id="enabled", default=True)
             def get_enabled(self):
                 return True
 
@@ -161,7 +161,7 @@ class TestBindDecorator:
         """Test bind decorator for string parameters"""
 
         class TestModel:
-            @bind("string", id="name", default="test")
+            @BindParameterConfig("string", id="name", default="test")
             def get_name(self):
                 return "test"
 
@@ -173,7 +173,7 @@ class TestBindDecorator:
         """Test bind decorator for enum parameters"""
 
         class TestModel:
-            @bind("enum", id="mode", options=["fast", "slow"], default="fast")
+            @BindParameterConfig("enum", id="mode", options=["fast", "slow"], default="fast")
             def get_mode(self):
                 return "fast"
 
@@ -189,7 +189,7 @@ class TestBindDecorator:
             def __init__(self):
                 self._value = 10.0
 
-            @bind("number", id="model_value", min=0.0, max=100.0)
+            @BindParameterConfig("number", id="model_value", min=0.0, max=100.0)
             def get_value(self):
                 return self._value
 
@@ -294,7 +294,7 @@ class TestGetParameterMetadata:
         """Test extracting metadata with bind decorator"""
 
         class TestModel:
-            @bind("number", id="velocity", min=0.0, max=100.0)
+            @BindParameterConfig("number", id="velocity", min=0.0, max=100.0)
             def speed(self):
                 return 10.0
 

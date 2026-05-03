@@ -30,8 +30,8 @@ from .parameter import (
     ParameterType,
     ParameterTypeWithoutAction,
     StringParameter,
-    bind,
-    bind_parameters,
+    BindParameterConfig,
+    params,
     get_parameter_metadata_from_namespace,
     get_parameter_metadata_from_object,
 )

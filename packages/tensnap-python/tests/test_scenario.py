@@ -7,7 +7,7 @@ from tensnap.scenario import (
     SimulationHandlerProtocol,
     DefaultSimulationHandler,
 )
-from tensnap.bindings.basic import NumberParameter, ActionMetadata, chart, action, bind
+from tensnap.bindings.basic import NumberParameter, ActionMetadata, chart, action, BindParameterConfig
 
 
 class TestSimulationScenario:
@@ -117,7 +117,7 @@ class TestSimulationScenario:
             def __init__(self):
                 self._speed = 10.0
 
-            @bind("number", id="model_speed", min=0.0, max=100.0)
+            @BindParameterConfig("number", id="model_speed", min=0.0, max=100.0)
             def speed(self):
                 return self._speed
 

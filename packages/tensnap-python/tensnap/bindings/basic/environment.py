@@ -4,8 +4,8 @@ from typing import (
 )
 
 from tensnap.models.environment import (
-    CanonicalEnvironmentType,
-    EnvironmentBindingConfig,
+    EnvironmentType,
+    EnvironmentBinding,
 )
 
 # region Environment
@@ -15,17 +15,19 @@ class BindEnvironmentConfig:
 
     def __init__(
         self,
-        environment_type: CanonicalEnvironmentType = "2d",
+        env_id: str = "main",
+        env_type: EnvironmentType = "2d",
     ) -> None:
-        self.environment_type: CanonicalEnvironmentType = environment_type
+        self.env_id: str = env_id
+        self.env_type: EnvironmentType = env_type
 
     def __call__(self, cls: Type[Any]) -> Type[Any]:
-        cls._tensnap_environment_binding_config = EnvironmentBindingConfig(
-            environment_type=self.environment_type
+        cls._tensnap_environment_binding_config = EnvironmentBinding(
+            env_id=self.env_id, env_type=self.env_type
         )
         return cls
 
 
-bind_env = BindEnvironmentConfig
+env = BindEnvironmentConfig
 
 # endregion
