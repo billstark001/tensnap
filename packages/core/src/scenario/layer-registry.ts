@@ -1,6 +1,6 @@
 import { z, ZodType } from 'zod';
 import type { AssetStore } from '../asset';
-import type { AgentId, TrajectoryPoint } from '../environment';
+import type { AgentId, GraphEdge, GridCoordOffset, GraphEnvConfig, TrajectoryPoint } from '../environment';
 import type { ItemDeletePayload } from '../protocol';
 import {
   AgentStorage,
@@ -8,7 +8,7 @@ import {
   EdgeStorage,
   GridEnvStorage,
 } from '../environment/storages';
-import type { AgentRenderState } from '../environment/storages';
+import type { AgentRenderState, AgentStorageSnapshot, BackgroundData, EdgeStorageSnapshot, GridEnvData, TrajectoryStorageSnapshot } from '../environment/storages';
 import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
 import {
   AgentDiffSchema,
@@ -24,7 +24,7 @@ import {
   TrajectoryLayerMetadataSchema,
   isBackgroundAssetReference,
 } from '../environment/types';
-import type { ScenarioEnvironmentState, ScenarioLayerState } from './types';
+import type { ScenarioEnvironmentState, ScenarioLayerSnapshot, ScenarioLayerState } from './types';
 
 export interface LayerStorage {
   dump(): unknown;
@@ -88,6 +88,36 @@ export interface LayerViewDefinition {
   viewMetadataPriority?: number;
 }
 
+// #region Renderer types
+export type LayerRendererRole = 'background' | 'grid' | 'edge' | 'trajectory' | 'agent';
+
+export interface SnapshotAgentLayerData {
+  coordOffset: GridCoordOffset;
+  agents: AgentRenderState[];
+}
+
+export interface SnapshotTrajectoryLayerData {
+  agentLayerId?: string;
+  coordOffset: GridCoordOffset;
+  config: TrajectoryStorageSnapshot['config'];
+  configs: Map<string | number, TrajectoryStorageSnapshot['configs'][number]>;
+  trajectories: TrajectoryStorageSnapshot['trajectories'];
+}
+
+export interface LayerRendererDefinition {
+  role: LayerRendererRole;
+  getZIndex?(metadata: Record<string, unknown>): number | undefined;
+  getCoordOffset?(metadata: Record<string, unknown>): GridCoordOffset;
+  getGraphConfig?(metadata: Record<string, unknown>): GraphEnvConfig;
+  getBackgroundSource?(metadata: Record<string, unknown>): unknown;
+  getSnapshotGridData?(layer: ScenarioLayerSnapshot): GridEnvData | undefined;
+  getSnapshotAgentLayer?(layer: ScenarioLayerSnapshot): SnapshotAgentLayerData | undefined;
+  getSnapshotTrajectoryLayer?(layer: ScenarioLayerSnapshot): SnapshotTrajectoryLayerData | undefined;
+  getSnapshotEdges?(layer: ScenarioLayerSnapshot): GraphEdge[];
+  getSnapshotBackground?(layer: ScenarioLayerSnapshot): BackgroundData | null | undefined;
+}
+// #endregion
+
 export interface LayerTypeDefinition {
   layer_type: string;
   label?: string;
@@ -99,6 +129,7 @@ export interface LayerTypeDefinition {
   storageFactory?: (metadata: Record<string, unknown>) => LayerStorage;
   controller?: ItemLayerController;
   view?: LayerViewDefinition;
+  renderer?: LayerRendererDefinition;
 }
 
 export interface LayerValidationResult<T = unknown> {
@@ -211,6 +242,10 @@ function getInterpolation(value: unknown): 'nearest' | 'linear' {
   return value === 'linear' ? 'linear' : 'nearest';
 }
 
+function getCoordOffset(metadata: Record<string, unknown>): GridCoordOffset {
+  return metadata.coord_offset === 'float' ? 'float' : 'int';
+}
+
 function getMetadataSceneBounds(metadata: Record<string, unknown>): LayerSceneBounds | undefined {
   const { width, height } = metadata;
   if (typeof width === 'number' && typeof height === 'number') {
@@ -276,6 +311,88 @@ type EdgeItem = z.infer<typeof EdgeDataSchema>;
 type EdgeItemDiff = z.infer<typeof EdgeDiffSchema>;
 type TrajectoryItem = z.infer<typeof TrajectoryConfigSchema>;
 type TrajectoryItemDiff = z.infer<typeof TrajectoryConfigDiffSchema>;
+
+// #region Built-in renderer helpers
+function isAgentStorageSnapshot(value: unknown): value is AgentStorageSnapshot {
+  return typeof value === 'object' && value !== null && Array.isArray((value as { agents?: unknown[] }).agents);
+}
+
+function isEdgeStorageSnapshot(value: unknown): value is EdgeStorageSnapshot {
+  return typeof value === 'object' && value !== null && Array.isArray((value as { edges?: unknown[] }).edges);
+}
+
+function isTrajectoryStorageSnapshot(value: unknown): value is TrajectoryStorageSnapshot {
+  return (
+    typeof value === 'object'
+    && value !== null
+    && Array.isArray((value as { configs?: unknown[] }).configs)
+    && Array.isArray((value as { trajectories?: unknown[] }).trajectories)
+  );
+}
+
+function isBackgroundData(value: unknown): value is BackgroundData {
+  return (
+    value === null
+    || (
+      typeof value === 'object'
+      && value !== null
+      && 'kind' in value
+      && (value as { kind?: unknown }).kind !== undefined
+    )
+  );
+}
+
+function getBackgroundSource(metadata: Record<string, unknown>): unknown {
+  return typeof metadata.background !== 'undefined' ? metadata.background : undefined;
+}
+
+function getSnapshotGridData(layer: ScenarioLayerSnapshot): GridEnvData | undefined {
+  return layer.layerType === 'grid' ? structuredClone(layer.metadata as GridEnvData) : undefined;
+}
+
+function getSnapshotAgentLayer(layer: ScenarioLayerSnapshot): SnapshotAgentLayerData | undefined {
+  if (!isAgentStorageSnapshot(layer.storageSnapshot)) {
+    return undefined;
+  }
+
+  return {
+    coordOffset: getCoordOffset(layer.metadata),
+    agents: layer.storageSnapshot.agents.map((agent) => ({ ...agent })),
+  };
+}
+
+function getSnapshotTrajectoryLayer(layer: ScenarioLayerSnapshot): SnapshotTrajectoryLayerData | undefined {
+  if (!isTrajectoryStorageSnapshot(layer.storageSnapshot)) {
+    return undefined;
+  }
+
+  return {
+    agentLayerId: typeof layer.dependencyLayerIds?.agent === 'string' ? layer.dependencyLayerIds.agent : undefined,
+    coordOffset: getCoordOffset(layer.metadata),
+    config: { ...layer.storageSnapshot.config },
+    configs: new Map(layer.storageSnapshot.configs.map((config) => [config.id, { ...config }])),
+    trajectories: layer.storageSnapshot.trajectories.map((trajectory) => ({
+      id: trajectory.id,
+      points: trajectory.points.map((point) => ({ ...point })),
+    })),
+  };
+}
+
+function getSnapshotEdges(layer: ScenarioLayerSnapshot): GraphEdge[] {
+  const metadata = (layer.metadata ?? {}) as Record<string, unknown>;
+  const edgesFromStorage = isEdgeStorageSnapshot(layer.storageSnapshot)
+    ? layer.storageSnapshot.edges.map((edge) => ({ ...edge })) as GraphEdge[]
+    : [];
+  const edgesFromMetadata = Array.isArray((metadata as { edges?: unknown[] }).edges)
+    ? (metadata as { edges: GraphEdge[] }).edges.map((edge) => ({ ...edge }))
+    : [];
+  return [...edgesFromStorage, ...edgesFromMetadata];
+}
+
+function getSnapshotBackground(layer: ScenarioLayerSnapshot): BackgroundData | null | undefined {
+  return isBackgroundData(layer.storageSnapshot) ? layer.storageSnapshot : undefined;
+}
+// #endregion
 
 // #region Built-in controllers
 const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
@@ -436,6 +553,12 @@ registerLayerType({
     getSceneBounds: getMetadataSceneBounds,
     sceneBoundsPriority: 10,
   },
+  renderer: {
+    role: 'agent',
+    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getCoordOffset,
+    getSnapshotAgentLayer,
+  },
 });
 
 registerLayerType({
@@ -448,6 +571,12 @@ registerLayerType({
   requiredDependencyLayerTypes: ['agent'],
   storageFactory: (_metadata) => new EdgeStorage(),
   controller: edgeLayerController,
+  renderer: {
+    role: 'edge',
+    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getGraphConfig: (metadata) => metadata as GraphEnvConfig,
+    getSnapshotEdges,
+  },
 });
 
 registerLayerType({
@@ -460,6 +589,12 @@ registerLayerType({
   requiredDependencyLayerTypes: ['agent'],
   storageFactory: (metadata) => new TrajectoryStorage(metadata as any),
   controller: trajectoryLayerController,
+  renderer: {
+    role: 'trajectory',
+    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getCoordOffset,
+    getSnapshotTrajectoryLayer,
+  },
 });
 
 registerLayerType({
@@ -473,6 +608,11 @@ registerLayerType({
     sceneBoundsPriority: 0,
     viewMetadataPriority: 0,
   },
+  renderer: {
+    role: 'grid',
+    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getSnapshotGridData,
+  },
 });
 
 registerLayerType({
@@ -481,5 +621,11 @@ registerLayerType({
   metadataSchema: BackgroundLayerMetadataSchema,
   storageFactory: (_metadata) => new BackgroundStorage(),
   controller: backgroundLayerController,
+  renderer: {
+    role: 'background',
+    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getBackgroundSource,
+    getSnapshotBackground,
+  },
 });
 // #endregion

@@ -2,8 +2,9 @@ import { access, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { collectRenderData } from '@tensnap/core/scenario';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
-import { collectEnvironment, NodeCanvasEnvironmentPainter } from './NodeCanvasEnvironmentPainter';
+import { NodeCanvasEnvironmentPainter } from './NodeCanvasEnvironmentPainter';
 
 const tempPaths: string[] = [];
 const onePixelPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==';
@@ -221,7 +222,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
       ],
     };
 
-    const aggregated = collectEnvironment(snapshot.environments[0]);
+    const aggregated = collectRenderData(snapshot.environments[0]);
 
     expect(aggregated.agentLayers).toHaveLength(2);
     expect(aggregated.agentLayers.map((layer) => ({ id: layer.id, coordOffset: layer.coordOffset }))).toEqual([
@@ -265,7 +266,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
       ],
     };
 
-    const aggregated = collectEnvironment(snapshot.environments[0]);
+    const aggregated = collectRenderData(snapshot.environments[0]);
 
     expect(aggregated.width).toBe(40);
     expect(aggregated.height).toBe(40);

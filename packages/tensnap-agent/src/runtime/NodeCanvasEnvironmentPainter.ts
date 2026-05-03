@@ -1,22 +1,18 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from 'canvas';
-import type { AgentRenderState, AgentStorageSnapshot } from '@tensnap/core/environment/storages/AgentStorage';
+import type { AgentRenderState } from '@tensnap/core/environment/storages/AgentStorage';
 import type { BackgroundData } from '@tensnap/core/environment/storages/BackgroundStorage';
-import type { EdgeStorageSnapshot } from '@tensnap/core/environment/storages/EdgeStorage';
-import type { GridEnvData } from '@tensnap/core/environment/storages/GridEnvStorage';
-import type { TrajectoryStorageSnapshot } from '@tensnap/core/environment/storages/TrajectoryStorage';
 import { resolveTrajectoryConfig, resolveTrajectoryRenderStyle, splitTrajectoryPoints } from '@tensnap/core/environment/utils/trajectory';
 import { applyCoordOffset, getCoordOffsetValue } from '@tensnap/core/environment/utils/coords';
 import {
   getAssetIdFromIcon,
   isBuiltinAgentIcon,
   type BuiltinAgentIcon,
-  type GraphEdge,
 } from '@tensnap/core/environment/types/agent';
 import type { Viewport } from '@tensnap/core/environment/types/viewport';
 import { isCssColor } from '@tensnap/core/environment/utils/color';
-import { findSceneBounds, type ScenarioEnvironmentSnapshot } from '@tensnap/core/scenario';
+import { collectRenderData, type RenderData } from '@tensnap/core/scenario';
 import type { RenderFormat } from '../types';
 import type { RenderArtifact, RenderRequest, ScenePainter } from './painter';
 
@@ -29,35 +25,6 @@ interface NodeCanvasEnvironmentPainterOptions {
   backgroundColor?: string;
 }
 
-interface AggregatedEnvironment {
-  id: string;
-  type: string;
-  width?: number;
-  height?: number;
-  grid: GridEnvData;
-  background: BackgroundData | null;
-  backgroundSource: unknown;
-  agentLayers: AggregatedAgentLayer[];
-  trajectoryLayers: AggregatedTrajectoryLayer[];
-  agents: AgentRenderState[];
-  edges: GraphEdge[];
-}
-
-interface AggregatedAgentLayer {
-  id: string;
-  coordOffset: 'int' | 'float';
-  agents: AgentRenderState[];
-}
-
-interface AggregatedTrajectoryLayer {
-  id: string;
-  agentLayerId?: string;
-  coordOffset: 'int' | 'float';
-  config: TrajectoryStorageSnapshot['config'];
-  configs: Map<string | number, TrajectoryStorageSnapshot['configs'][number]>;
-  trajectories: TrajectoryStorageSnapshot['trajectories'];
-}
-
 interface CanvasImageSource {
   source: string | Uint8Array;
   mime?: string;
@@ -66,35 +33,6 @@ interface CanvasImageSource {
 type ResolvedBackground =
   | { kind: 'color'; value: string }
   | { kind: 'image'; source: string | Uint8Array; interpolation: 'nearest' | 'linear' };
-
-function isAgentStorageSnapshot(value: unknown): value is AgentStorageSnapshot {
-  return typeof value === 'object' && value !== null && Array.isArray((value as { agents?: unknown[] }).agents);
-}
-
-function isEdgeStorageSnapshot(value: unknown): value is EdgeStorageSnapshot {
-  return typeof value === 'object' && value !== null && Array.isArray((value as { edges?: unknown[] }).edges);
-}
-
-function isTrajectoryStorageSnapshot(value: unknown): value is TrajectoryStorageSnapshot {
-  return (
-    typeof value === 'object'
-    && value !== null
-    && Array.isArray((value as { configs?: unknown[] }).configs)
-    && Array.isArray((value as { trajectories?: unknown[] }).trajectories)
-  );
-}
-
-function isBackgroundData(value: unknown): value is BackgroundData {
-  return (
-    value === null
-    || (
-      typeof value === 'object'
-      && value !== null
-      && 'kind' in value
-      && (value as { kind?: unknown }).kind !== undefined
-    )
-  );
-}
 
 function polygonPoints(sides: number, radius: number, startDeg = -90): number[] {
   const points: number[] = [];
@@ -184,85 +122,6 @@ function worldBoundsFromAgents(agents: AgentRenderState[]): Viewport {
   };
 }
 
-export function collectEnvironment(environment: ScenarioEnvironmentSnapshot): AggregatedEnvironment {
-  const aggregated: AggregatedEnvironment = {
-    id: environment.id,
-    type: environment.type,
-    grid: {},
-    background: null,
-    backgroundSource: undefined,
-    agentLayers: [],
-    trajectoryLayers: [],
-    agents: [],
-    edges: [],
-  };
-
-  const sceneBounds = findSceneBounds(environment.layers);
-  if (sceneBounds) {
-    aggregated.width = sceneBounds.width;
-    aggregated.height = sceneBounds.height;
-  }
-
-  for (const layer of environment.layers) {
-    const metadata = (layer.metadata ?? {}) as Record<string, unknown>;
-    if (layer.layerType === 'background' && typeof metadata.background !== 'undefined') {
-      aggregated.backgroundSource = metadata.background;
-    }
-
-    if (layer.layerType === 'grid') {
-      Object.assign(aggregated.grid, metadata as GridEnvData);
-    }
-
-    if (isAgentStorageSnapshot(layer.storageSnapshot)) {
-      const agentLayer: AggregatedAgentLayer = {
-        id: layer.id,
-        coordOffset: metadata.coord_offset === 'float' ? 'float' : 'int',
-        agents: layer.storageSnapshot.agents.map((agent) => ({ ...agent })),
-      };
-      aggregated.agentLayers.push(agentLayer);
-      aggregated.agents.push(...agentLayer.agents.map((agent) => ({ ...agent })));
-    }
-
-    if (isTrajectoryStorageSnapshot(layer.storageSnapshot)) {
-      aggregated.trajectoryLayers.push({
-        id: layer.id,
-        agentLayerId: typeof layer.dependencyLayerIds?.agent === 'string' ? layer.dependencyLayerIds.agent : undefined,
-        coordOffset: metadata.coord_offset === 'float' ? 'float' : 'int',
-        config: { ...layer.storageSnapshot.config },
-        configs: new Map(
-          layer.storageSnapshot.configs.map((config) => [config.id, { ...config }]),
-        ),
-        trajectories: layer.storageSnapshot.trajectories.map((trajectory) => ({
-          id: trajectory.id,
-          points: trajectory.points.map((point) => ({ ...point })),
-        })),
-      });
-    }
-
-    if (isEdgeStorageSnapshot(layer.storageSnapshot)) {
-      aggregated.edges.push(...layer.storageSnapshot.edges.map((edge) => ({ ...edge })) as GraphEdge[]);
-    }
-
-    if (isBackgroundData(layer.storageSnapshot)) {
-      aggregated.background = layer.storageSnapshot;
-    }
-
-    if (Array.isArray((metadata as { edges?: unknown[] }).edges)) {
-      aggregated.edges.push(...((metadata as { edges: GraphEdge[] }).edges.map((edge) => ({ ...edge }))));
-    }
-  }
-
-  const agentCoordOffsetByLayerId = new Map(
-    aggregated.agentLayers.map((layer) => [layer.id, layer.coordOffset]),
-  );
-  for (const layer of aggregated.trajectoryLayers) {
-    if (layer.agentLayerId) {
-      layer.coordOffset = agentCoordOffsetByLayerId.get(layer.agentLayerId) ?? layer.coordOffset;
-    }
-  }
-
-  return aggregated;
-}
 
 async function loadCanvasImageSource(input: CanvasImageSource): Promise<Awaited<ReturnType<typeof loadImage>>> {
   if (input.source instanceof Uint8Array) {
@@ -331,7 +190,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     for (const environment of targetEnvironments) {
       artifacts.push(
         await this.renderEnvironment(
-          collectEnvironment(environment),
+          collectRenderData(environment),
           request,
           targetEnvironments.length > 1,
         ),
@@ -342,7 +201,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
   }
 
   private async renderEnvironment(
-    environment: AggregatedEnvironment,
+    environment: RenderData,
     request: RenderRequest,
     appendEnvSuffix: boolean,
   ): Promise<RenderArtifact> {
@@ -396,7 +255,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     };
   }
 
-  private resolveViewport(environment: AggregatedEnvironment, explicit?: Viewport): Viewport {
+  private resolveViewport(environment: RenderData, explicit?: Viewport): Viewport {
     if (explicit) {
       return normalizeViewport(explicit);
     }
@@ -410,7 +269,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
 
   private resolveImageSize(
     viewport: Viewport,
-    environment: AggregatedEnvironment,
+    environment: RenderData,
     requestedWidth?: number,
     requestedHeight?: number,
   ): { width: number; height: number } {
@@ -461,7 +320,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     canvasWidth: number,
     canvasHeight: number,
     viewport: Viewport,
-    environment: AggregatedEnvironment,
+    environment: RenderData,
     request: RenderRequest,
   ): Promise<void> {
     const resolved = this.normalizeBackground(environment.background) ?? await this.resolveBackground(environment.backgroundSource, request);
@@ -540,7 +399,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     canvasWidth: number,
     canvasHeight: number,
     viewport: Viewport,
-    environment: AggregatedEnvironment,
+    environment: RenderData,
   ): void {
     if (typeof environment.width !== 'number' || typeof environment.height !== 'number') {
       return;
@@ -580,7 +439,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     canvasWidth: number,
     canvasHeight: number,
     viewport: Viewport,
-    environment: AggregatedEnvironment,
+    environment: RenderData,
   ): void {
     if (!environment.edges.length || !environment.agents.length) {
       return;
@@ -627,7 +486,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     canvasWidth: number,
     canvasHeight: number,
     viewport: Viewport,
-    environment: AggregatedEnvironment,
+    environment: RenderData,
   ): void {
     if (!environment.trajectoryLayers.some((layer) => layer.trajectories.length > 0)) {
       return;
@@ -671,7 +530,7 @@ export class NodeCanvasEnvironmentPainter implements ScenePainter {
     canvasWidth: number,
     canvasHeight: number,
     viewport: Viewport,
-    environment: AggregatedEnvironment,
+    environment: RenderData,
     request: RenderRequest,
   ): Promise<void> {
     for (const layer of environment.agentLayers) {

@@ -23,6 +23,7 @@ const testHarness = vi.hoisted(() => {
     }
 
     addLayer() { }
+    removeLayer() { }
   }
 
   class MockAgentStorage {
@@ -62,6 +63,7 @@ const testHarness = vi.hoisted(() => {
   class MockBackgroundLayer {
     setSceneBounds = vi.fn();
     setZIndex = vi.fn();
+    destroy = vi.fn();
 
     constructor(_view: unknown, public storage: MockBackgroundStorage, public options?: { sceneBounds?: { width: number; height: number } }) {
       backgroundLayerCalls.push({ storage, options, layer: this });
@@ -70,6 +72,7 @@ const testHarness = vi.hoisted(() => {
 
   class MockGridLayer {
     setZIndex = vi.fn();
+    destroy = vi.fn();
 
     constructor(_view: unknown, storage: unknown) {
       gridLayerCalls.push({ storage, layer: this });
@@ -78,6 +81,7 @@ const testHarness = vi.hoisted(() => {
 
   class MockEdgeLayer {
     setZIndex = vi.fn();
+    destroy = vi.fn();
 
     constructor(_view: unknown, storage: unknown, linkedAgentStorage: unknown, config: unknown) {
       if (edgeLayerError) {
@@ -94,6 +98,7 @@ const testHarness = vi.hoisted(() => {
   class MockAgentLayer {
     setSceneBounds = vi.fn();
     setZIndex = vi.fn();
+    destroy = vi.fn();
 
     constructor(_view: unknown, storage: unknown, options: Record<string, unknown>) {
       agentLayerCalls.push({ storage, options, layer: this });
@@ -102,6 +107,7 @@ const testHarness = vi.hoisted(() => {
 
   class MockTrajectoryLayer {
     setZIndex = vi.fn();
+    destroy = vi.fn();
 
     constructor(_view: unknown, storage: unknown, options: Record<string, unknown>) {
       trajectoryLayerCalls.push({ storage, options, layer: this });
@@ -390,7 +396,7 @@ describe('Environment2DView', () => {
     expect(testHarness.environmentViewInstances[0].fitToScene).toHaveBeenCalledTimes(1);
   });
 
-  it('recreates the environment view when a layer mutates in place between updates', async () => {
+  it('reconciles changed layers in place when a layer mutates in place between updates', async () => {
     const gridStorage = new GridEnvStorage();
     const originalAgentStorage = createAgentStorageWithInitialAgents([{ id: 'agent-1', x: 1, y: 2 }]);
     const replacementAgentStorage = createAgentStorageWithInitialAgents([{ id: 'agent-2', x: 3, y: 4 }]);
@@ -421,11 +427,12 @@ describe('Environment2DView', () => {
     rerender(<Environment2DView environment={environment} updateTrigger={1} />);
 
     await waitFor(() => {
-      expect(testHarness.environmentViewInstances).toHaveLength(2);
+      expect(testHarness.agentLayerCalls).toHaveLength(2);
     });
 
     const latestAgentLayerCall = testHarness.agentLayerCalls[testHarness.agentLayerCalls.length - 1];
-    expect(testHarness.environmentViewInstances[0].destroy).toHaveBeenCalledTimes(1);
+    expect(testHarness.environmentViewInstances).toHaveLength(1);
+    expect(testHarness.environmentViewInstances[0].destroy).not.toHaveBeenCalled();
     expect(latestAgentLayerCall?.storage).toBe(replacementAgentStorage);
     expect(latestAgentLayerCall?.options.coordOffset).toBe('float');
   });
