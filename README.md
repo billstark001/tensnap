@@ -228,7 +228,7 @@ TenSnap was developed to address the gap between NetLogo's excellent interactive
 
 ## 🔗 Citation
 
-TenSnap is built as an open-source initiative to bridge the gap between high-performance computational models and user-friendly visualization in social sciences. 
+TenSnap is built as an open-source initiative to bridge the gap between high-performance computational models and user-friendly visualization in social sciences.
 
 If TenSnap has benefited your research—whether by facilitating your agent-based modeling process, aiding in the visualization and debugging of your simulations, or inspiring your methodological design—please consider citing our work. Citing the project not only acknowledges the effort behind its development but also helps us track its impact and secure support for future maintenance.
 
@@ -238,6 +238,7 @@ You can cite our IC2S2 2026 presentation as follows:
 > Zhao, J., & Chen, Y. (2026). TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol. Paper presented at the International Conference on Computational Social Science (IC2S2 2026).
 
 **BibTeX:**
+
 ```bibtex
 @inproceedings{zhao2026tensnap,
   title={TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol},
@@ -248,7 +249,7 @@ You can cite our IC2S2 2026 presentation as follows:
 }
 ```
 
-**(The paper was reviewed under the blinded name "OurFramework" and will be presented at IC2S2 2026)**
+(The paper was reviewed under the blinded name "OurFramework" and will be presented at IC2S2 2026)
 
 ## 🌟 Star History
 
