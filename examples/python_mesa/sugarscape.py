@@ -5,10 +5,17 @@ from mesa.space import MultiGrid
 
 import numpy as np
 
-from tensnap import bind_mesa_grid_agent, bind_datacollector
+from tensnap import (
+    agent,
+    env,
+    agent_layer,
+    grid_layer,
+    trajectory_layer,
+    bind_datacollector,
+)
 
 
-@bind_mesa_grid_agent(color=True)
+@agent(color=True, data=True)
 class SugarAgent(Agent):
 
     model: "Sugarscape"
@@ -29,6 +36,14 @@ class SugarAgent(Agent):
         self.metabolism = float(np.random.uniform(*model.metabolism_range))
         self.vision = int(np.random.randint(*model.vision_range))
         self.sugar = float(np.random.uniform(*model.initial_sugar_range))
+
+    @property
+    def data(self):
+        return {
+            "metabolism": self.metabolism,
+            "vision": self.vision,
+            "sugar": self.sugar,
+        }
 
     def move(self):
         neighbors_sugar = list(
@@ -72,6 +87,7 @@ class SugarAgent(Agent):
         self.starve()
 
 
+@agent(color=True, data=True, x="pos[0]", y="pos[1]")
 class SugarPatchView:
     """Presentation-only patch used to render the sugar field as a layer of square agents."""
 
@@ -82,6 +98,13 @@ class SugarPatchView:
         self.model = model
         self.pos = pos
         self.id = f"sugar:{pos[0]}:{pos[1]}"
+
+    @property
+    def data(self) -> dict[str, object]:
+        return {
+            "sugar": self.sugar,
+            "capacity": self.capacity,
+        }
 
     @property
     def sugar(self) -> int:
@@ -102,20 +125,6 @@ class SugarPatchView:
         if self.sugar == 3:
             return "#22c836"
         return "#00ff00"
-
-    def to_agent_state(self) -> dict[str, object]:
-        return {
-            "id": self.id,
-            "x": self.pos[0],
-            "y": self.pos[1],
-            "icon": self.icon,
-            "size": self.size,
-            "color": self.color,
-            "data": {
-                "sugar": self.sugar,
-                "capacity": self.capacity,
-            },
-        }
 
 
 def sugar_field_random(width: int, height: int):
@@ -138,8 +147,21 @@ def sugar_field_circular(width: int, height: int):
     return ret
 
 
+@env("sugarscape_env")
+@agent_layer("agents", z_index="z_agents")
+@agent_layer(
+    "sugar",
+    item_iterable_projector="sugar_patches",
+    z_index="z_sugar",
+)
+@grid_layer()
+@trajectory_layer(agent_layer_id="sugar", width=False, length="t_length")
 @bind_datacollector()
 class Sugarscape(Model):
+
+    z_agents = 50
+    z_sugar = 0
+    t_length = 2
 
     def __init__(
         self,
@@ -170,9 +192,7 @@ class Sugarscape(Model):
         self.sugar_max = np.copy(self.sugar)
         self.sugar_growth_rate = sugar_growth_rate
         self.sugar_patches = [
-            SugarPatchView(self, (x, y))
-            for x in range(width)
-            for y in range(height)
+            SugarPatchView(self, (x, y)) for x in range(width) for y in range(height)
         ]
 
         # 保存智能体属性范围，供创建智能体时使用
@@ -192,9 +212,7 @@ class Sugarscape(Model):
 
     def create_agents(self, agent_count):
         gw, gh = self.grid.width, self.grid.height
-        sequence = np.random.choice(
-            gw * gh, (agent_count,), replace=False
-        )
+        sequence = np.random.choice(gw * gh, (agent_count,), replace=False)
         for w in sequence:
             x = w % gw
             y = (w - x) // gw
@@ -226,6 +244,3 @@ class Sugarscape(Model):
             total_vision = sum(cast(SugarAgent, a).vision for a in self.agents)
             return float(total_vision / len(self.agents))
         return 0.0
-
-    def get_sugar_layer_agents(self) -> list[dict[str, object]]:
-        return [patch.to_agent_state() for patch in self.sugar_patches]

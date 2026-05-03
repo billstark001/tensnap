@@ -6,7 +6,6 @@ import import_config  # noqa: F401
 
 from tensnap import (
     SimulationScenario,
-    LayeredEnvironmentBinder,
 )
 
 # Import the pure simulation logic
@@ -22,7 +21,6 @@ xi = 0.05  # Loss of immunity rate
 env = ERNetworkEnvironment(num_agents=100, connection_prob=0.05)
 model = SIRSSimulation(env, beta, gamma, xi, initial_infected=5)
 
-graph = LayeredEnvironmentBinder(id="sirs_graph", environment=env)
 
 
 async def main():
@@ -34,7 +32,7 @@ async def main():
         model.step,
     )
 
-    scenario.add_environment(graph)
+    scenario.add_environment(env)
     scenario.add_charts(model)
     scenario.add_parameters(model)
     scenario.add_parameters(env)

@@ -116,7 +116,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
                     type="2d",
                 )
 
-            scenario.add_environment(environment_binding)
+            scenario.add_environment_binding(environment_binding)
             for layer_binding in layer_bindings:
                 scenario.add_layer_binding(environment_binding.id, layer_binding, self.model)
             self.environment_id = environment_binding.id

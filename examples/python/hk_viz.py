@@ -10,70 +10,16 @@ import import_config  # noqa: F401
 
 from tensnap import (
     chart,
-    EnvironmentBindingBuilder,
-    make_graph_agent_projector_nx,
-    make_graph_edge_projector_nx,
     SimulationScenario,
 )
 
 from hk import DiscreteHKModel
-
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port)
 
 model = DiscreteHKModel(n_agents=50, confidence_bound=0.3, k_random=3)
-graph_builder = EnvironmentBindingBuilder(environment_type="2d")
-graph_agent_projector = make_graph_agent_projector_nx(
-    color=True,
-    size=True,
-    auto_collect_data=True,
-)
-graph_builder.add_agent_layer(
-    layer_id="agents",
-    item_iterable_projector=lambda env: env.graph.nodes(data=True),
-    item_projector=lambda item: graph_agent_projector(item[0], item[1]),
-)
-graph_builder.add_edge_layer(
-    layer_id="edges",
-    item_iterable_projector=lambda env: env.graph.edges(data=True),
-    item_projector=make_graph_edge_projector_nx(),
-    dependency_layer_ids={"agent": "agents"},
-)
-graph_env = graph_builder.build(id="opinion_network", environment=model)
-
-
-# Custom update function for automatic visualization updates
-def update_hk_visualization(hk_model: DiscreteHKModel) -> None:
-    """Update graph visualization with opinion colors and sizes"""
-    opinions = np.asarray(hk_model.opinions)
-    if opinions.ndim == 0:
-        opinions = np.full(len(hk_model.graph.nodes()), float(opinions))
-
-    for node_id in hk_model.graph.nodes():
-        opinion = float(opinions[node_id])
-        hk_model.graph.nodes[node_id].update(
-            {
-                "opinion": opinion,
-                "color": (
-                    "#E74C3C"
-                    if opinion < -0.33
-                    else "#3498DB" if opinion > 0.33 else "#F39C12"
-                ),
-                "size": 0.8 + abs(opinion) * 0.6,
-            }
-        )
-
-
-def init():
-    model.init()
-    update_hk_visualization(model)
-
-
-def step():
-    model.step()
-    update_hk_visualization(model)
 
 
 @chart("opinion_variance", "Opinion Variance", color="#E74C3C")
@@ -95,16 +41,16 @@ def network_density() -> float:
 # Main function
 async def main() -> None:
 
-    init()
+    model.init()
 
-    scenario.add_environment(graph_env)
+    scenario.add_environment(model)
     scenario.add_parameters(model)
     scenario.add_charts(globals())
     scenario.add_actions({})
 
     await scenario.register_model_handler(
-        init,
-        step,
+        model.init,
+        model.step,
     )
 
     print(f"TenSnap HK Opinion Dynamics starting on ws://localhost:{server_port}")

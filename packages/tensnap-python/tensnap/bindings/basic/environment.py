@@ -21,7 +21,7 @@ class BindEnvironmentConfig:
         self.id: str = id
         self.type: EnvironmentType = type
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         cls._tensnap_environment_binding_config = EnvironmentBinding(
             id=self.id, type=self.type
         )

@@ -15,16 +15,16 @@ from enum import IntEnum
 
 
 from tensnap import (
-    bind_env,
+    env,
     params,
-    bind_agent_layer,
-    bind_edge_layer,
-    bind_grid_layer,
-    bind_grid_agent,
-    bind_uniform_agent,
-    bind_graph_agent,
+    agent_layer,
+    edge_layer,
+    grid_layer,
+    agent,
+    uniform_agent,
     chart,
 )
+
 
 class State(IntEnum):
     """Enumeration for agent health states."""
@@ -34,9 +34,8 @@ class State(IntEnum):
     RECOVERED = 2
 
 
-@bind_grid_agent(x="grid_x", y="grid_y", color=True, icon=True, size=True)
-@bind_graph_agent(color=True)
-@bind_uniform_agent(color=True)
+@agent(x="grid_x", y="grid_y", color=True, icon=True, size=True)
+@uniform_agent(color=True)
 class Agent:
     """
     Represents an individual agent in the SIRS model.
@@ -123,6 +122,8 @@ class Environment:
         raise NotImplementedError("Subclasses must implement get_neighbors()")
 
 
+@env(id="sirs_well_mixed", type="uniform")
+@agent_layer("agents", item_iterable_projector="agents")
 class WellMixedEnvironment(Environment):
     """
     Well-mixed environment where all agents can interact with all other agents.
@@ -142,9 +143,10 @@ class WellMixedEnvironment(Environment):
         """
         return [i for i in range(self.num_agents) if i != agent_id]
 
-@bind_env()
-@bind_grid_layer(width="rows", height="cols")
-@bind_agent_layer("agents", item_iterable_projector="agents")
+
+@env(id="sirs_grid")
+@grid_layer(width="rows", height="cols")
+@agent_layer("agents", item_iterable_projector="agents")
 @params(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
@@ -195,13 +197,14 @@ class GridEnvironment(Environment):
 
         return neighbors
 
-@bind_env()
-@bind_agent_layer("agents", item_iterable_projector="agents")
-@bind_edge_layer(
+
+@env(id="sirs_graph")
+@agent_layer("agents", item_iterable_projector="agents")
+@edge_layer(
     "edges",
-    item_iterable_projector=lambda env: env.graph.edges(data=True),
-    edge_projector=True,
-    dependency_layer_ids={"agent": "agents"},
+    agent_layer_id="agents",
+    item_iterable_projector="graph.edges",
+    item_dynamic_projector="render_tensnap_edge",
 )
 @params(include=["num_agents", "connection_prob"])
 class ERNetworkEnvironment(Environment):
@@ -224,6 +227,14 @@ class ERNetworkEnvironment(Environment):
         super().__init__(num_agents)
         self.num_agents = num_agents
         self.connection_prob = connection_prob
+
+    def render_tensnap_edge(self, edge: Tuple[int, int]) -> dict:
+        return {
+            "source": edge[0],
+            "target": edge[1],
+            "color": "#95A5A6",
+            "width": 1,
+        }
 
     def init(self, seed: Optional[int] = None):
         self.graph = nx.erdos_renyi_graph(
@@ -359,7 +370,7 @@ class SIRSSimulation:
         ],
     )
     def get_current_states(self):
-        (susceptible, infected, recovered) = self.last_states
+        susceptible, infected, recovered = self.last_states
         return {
             "susceptible": susceptible,
             "infected": infected,

@@ -43,6 +43,7 @@ from tensnap.utils.attr import (
 
 TItemKeys = TypeVar("TItemKeys", bound=str)
 TMetadataKeys = TypeVar("TMetadataKeys", bound=str)
+TClass = TypeVar("TClass")
 
 ProjectorDictForInit: TypeAlias = Dict[TItemKeys, ProjectorFieldForInit]
 MetadataDictForInit: TypeAlias = Dict[TMetadataKeys, ProjectorFieldForInit]
@@ -71,16 +72,18 @@ def _binding_name(scope: str, type: str) -> str:
 
 def _is_probably_mesa_agent_class(cls) -> bool:
     if not isinstance(cls, type):
+        print(f"{cls} is not a class.")
         return False
 
     try:
         from mesa import Agent
     except Exception:
-        return any(
+        ret = any(
             base.__name__ == "Agent"
             and (base.__module__ == "mesa" or base.__module__.startswith("mesa."))
             for base in getattr(cls, "__mro__", ())
         )
+        return ret
 
     return issubclass(cls, Agent)
 
@@ -335,11 +338,11 @@ class BindItemConfig(Generic[TItemKeys]):
 
     def attach(
         self,
-        cls: Type[Any],
+        cls: Type[TClass],
         attach_field: str,
         fields: ProjectorDictFilterList[TItemKeys],
         default_fields: AttrPathMap[TItemKeys],
-    ) -> Type[Any]:
+    ) -> Type[TClass]:
         assert not self.attached, "Projector config can only be attached once"
         projector_dict = _resolve_projector_dict(
             cls,
@@ -403,14 +406,14 @@ class BindAgentConfig(BindItemConfig[AgentItemFields]):
 
     def __init__(
         self,
-        id: str = "id",
-        x: str | bool | None = None,
-        y: str | bool | None = None,
-        heading: str | bool | None = None,
-        color: str | bool | None = None,
-        icon: str | bool | None = None,
-        size: str | bool | None = None,
-        data: str | bool | None = None,
+        id: str | None = None,
+        x: ProjectorFieldForInit = None,
+        y: ProjectorFieldForInit = None,
+        heading: ProjectorFieldForInit = None,
+        color: ProjectorFieldForInit = None,
+        icon: ProjectorFieldForInit = None,
+        size: ProjectorFieldForInit = None,
+        data: ProjectorFieldForInit = None,
     ) -> None:
         super().__init__(
             id=id,
@@ -423,7 +426,7 @@ class BindAgentConfig(BindItemConfig[AgentItemFields]):
             data=data,
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(
             cls,
             self.binding_name,
@@ -460,11 +463,11 @@ class BindUniformAgentConfig(BindItemConfig[UniformAgentItemFields]):
 
     def __init__(
         self,
-        id: str = "id",
-        color: str | bool | None = None,
-        icon: str | bool | None = None,
-        size: str | bool | None = None,
-        data: str | bool | None = None,
+        id: str | None = None,
+        color: ProjectorFieldForInit = None,
+        icon: ProjectorFieldForInit = None,
+        size: ProjectorFieldForInit = None,
+        data: ProjectorFieldForInit = None,
     ) -> None:
         super().__init__(
             id=id,
@@ -474,7 +477,7 @@ class BindUniformAgentConfig(BindItemConfig[UniformAgentItemFields]):
             data=data,
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(
             cls,
             self.binding_name,
@@ -504,10 +507,10 @@ class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
         self,
         source: str = "source",
         target: str = "target",
-        directed: str | bool | None = None,
-        style: str | bool | None = None,
-        color: str | bool | None = None,
-        width: str | bool | None = None,
+        directed: ProjectorFieldForInit = None,
+        style: ProjectorFieldForInit = None,
+        color: ProjectorFieldForInit = None,
+        width: ProjectorFieldForInit = None,
     ) -> None:
         super().__init__(
             source=source,
@@ -518,7 +521,7 @@ class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
             width=width,
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(cls, self.binding_name, [], {})
 
     def get_projector(self):
@@ -540,10 +543,10 @@ class BindTrajectoryConfigConfig(BindItemConfig[TrajectoryConfigItemFields]):
 
     def __init__(
         self,
-        id: str = "id",
-        length: str | bool | None = "length",
-        width: str | bool | None = "width",
-        color: str | bool | None = "color",
+        id: str | None = None,
+        length: ProjectorFieldForInit = "length",
+        width: ProjectorFieldForInit = "width",
+        color: ProjectorFieldForInit = "color",
     ) -> None:
         super().__init__(
             id=id,
@@ -552,7 +555,7 @@ class BindTrajectoryConfigConfig(BindItemConfig[TrajectoryConfigItemFields]):
             color=color,
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(
             cls,
             self.binding_name,
@@ -579,9 +582,9 @@ _layer_binding_config_objects_name = "_tensnap_layer_binding_config_objects"
 
 
 def _append_layer_binding(
-    cls: Type[Any],
+    cls: Type[TClass],
     binding: LayerBinding[Any, Any, Any, Any],
-) -> Type[Any]:
+) -> Type[TClass]:
     bindings = list(
         getattr(
             cls,
@@ -596,9 +599,9 @@ def _append_layer_binding(
 
 
 def _append_layer_config(
-    cls: Type[Any],
+    cls: Type[TClass],
     config: "BindLayerConfig[Any, Any]",
-) -> Type[Any]:
+) -> Type[TClass]:
     configs = list(getattr(cls, _layer_binding_config_objects_name, []))
     configs.append(config)
     setattr(cls, _layer_binding_config_objects_name, configs)
@@ -759,10 +762,10 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
 
     def attach(
         self,
-        cls: Type[Any],
+        cls: Type[TClass],
         metadata_fields: ProjectorDictFilterList[TMetadataKeys],
         metadata_default_fields: AttrPathMap[TMetadataKeys],
-    ) -> Type[Any]:
+    ) -> Type[TClass]:
         assert not self.attached, "Layer config can only be attached once"
         self.binding = self._build_binding(
             cls,
@@ -779,7 +782,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         assert self.binding is not None
         return self.binding
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls: Type[TClass]) -> Type[TClass]:
         return self.attach(cls, [], {})
 
 
@@ -810,7 +813,7 @@ class BindBackgroundLayerConfig(BindLayerConfig):
             },
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(cls, [], {})
 
 
@@ -918,7 +921,7 @@ class BindAgentLayerConfig(BindLayerConfig):
             ),
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(cls, [], {})
 
 
@@ -945,7 +948,7 @@ class BindEdgeLayerConfig(BindLayerConfig):
         item_iterable_projector: (
             AttrGetter[Any] | ProjectorField | Literal[False] | None
         ) = None,
-        edge_projector: LayerItemProjectorForInit[EdgeItemFields] | bool | None = None,
+        item_projector: LayerItemProjectorForInit[EdgeItemFields] | bool | None = None,
         item_dynamic_projector: (
             DynamicAttrProjector[Any, Any, EdgeItemFields] | str | None
         ) = None,
@@ -971,7 +974,7 @@ class BindEdgeLayerConfig(BindLayerConfig):
             },
             item_iterable_projector=resolved_iterable,
             item_projector=(
-                None if edge_projector in (None, True, False) else edge_projector
+                None if item_projector in (None, True, False) else item_projector
             ),
             item_dynamic_projector=item_dynamic_projector,
             items_projector=items_projector,
@@ -983,7 +986,7 @@ class BindEdgeLayerConfig(BindLayerConfig):
             ),
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(cls, [], {})
 
 
@@ -1049,7 +1052,7 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
             ),
         )
 
-    def __call__(self, cls: Type[Any]) -> Type[Any]:
+    def __call__(self, cls):
         return self.attach(cls, [], {})
 
 

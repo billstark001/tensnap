@@ -660,7 +660,7 @@ class SimulationScenario:
     def add_environment(self, target: object) -> EnvironmentRegistration:
         environment_binding, layer_bindings = binding_api.bindings(target)
         if environment_binding is None:
-            raise ValueError("Target has no attached environment binding.")
+            raise ValueError(f"Target has no attached environment binding: {target}")
 
         environment = self.add_environment_binding(environment_binding)
         for layer_binding in layer_bindings:

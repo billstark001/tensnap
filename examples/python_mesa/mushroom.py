@@ -6,11 +6,11 @@ import random
 import mesa
 
 from tensnap import (
-    bind_agent,
-    bind_env,
-    bind_agent_layer,
-    bind_grid_layer,
-    bind_trajectory_layer,
+    agent,
+    env,
+    agent_layer,
+    grid_layer,
+    trajectory_layer,
 )
 
 # endregion
@@ -18,8 +18,8 @@ from tensnap import (
 # region Agents
 
 
-@bind_agent(id="unique_id", x="pos[0]", y="pos[1]", heading=True, color=True, icon=True)
-class Hunter(mesa.Agent):  # type: ignore[misc]
+@agent(heading=True)
+class Hunter(mesa.Agent):
 
     icon = "arrow"
     color = "blue"
@@ -122,19 +122,29 @@ class Patch(mesa.Agent):  # type: ignore[misc]
 # region Model
 
 
-@bind_trajectory_layer(
-    metadata={"length": 10, "color": "#1D4ED8"},
-    dependency_layer_ids={"agent": "hunters"},
+@trajectory_layer(
+    width=False,
+    agent_layer_id="hunters",
 )
-@bind_agent_layer("patches", item_iterable_projector="get_patch_layer_agents", metadata={"z_index": 35})
-@bind_agent_layer("hunters", item_iterable_projector="hunters")
-@bind_grid_layer(width="width", height="height", coord_offset=True)
-@bind_env()
+@agent_layer(
+    "patches",
+    item_iterable_projector="get_patch_layer_agents",
+    z_index="z_patch",
+    coord_offset="c_patch",
+)
+@agent_layer("hunters", item_iterable_projector="hunters", coord_offset="c_hunter")
+@grid_layer(width="width", height="height")
+@env()
 class ForagingModel(mesa.Model):  # type: ignore[misc]
+
+    length: int = 10
+    color: str = "#1D4ED8"
 
     grid: "mesa.space.SingleGrid"
 
-    coord_offset = "float"
+    z_patch = 35
+    c_patch = "int"
+    c_hunter = "float"
 
     def __init__(
         self,

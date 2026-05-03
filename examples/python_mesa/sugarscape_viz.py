@@ -9,8 +9,6 @@ import import_config  # noqa: F401
 
 from tensnap import SimulationScenario, chart
 from tensnap.bindings.mesa import MesaSimulationHandler
-from tensnap.models import EnvironmentBindingBuilder
-from tensnap.models.item import make_grid_agent_projector
 
 from sugarscape import SugarAgent, Sugarscape
 
@@ -24,45 +22,6 @@ handler: MesaSimulationHandler | None = None
 MODEL_WIDTH = 50
 MODEL_HEIGHT = 50
 AGENT_COUNT = 400
-class SugarscapeSimulationHandler(MesaSimulationHandler):
-    async def on_registered(self, scenario: SimulationScenario) -> None:
-        first_register = scenario is not self.scenario
-        await super().on_registered(scenario)
-
-        if not first_register or self.model is None:
-            return
-
-        assert self.env_binder is not None
-        scenario.remove_environment(self.env_binder.id)
-        builder = EnvironmentBindingBuilder(environment_type="2d")
-        builder.add_agent_layer(
-            layer_id="sugar",
-            item_iterable_projector=lambda env: env.sugar_patches,
-            item_projector=lambda patch: patch.to_agent_state(),
-        )
-        builder.add_trajectory_layer(
-            layer_id="trails",
-            metadata={"length": 2},
-            dependency_layer_ids={"agent": "agents"},
-        )
-        builder.add_grid_layer(
-            metadata_projector=lambda env: {
-                "width": env.grid.width,
-                "height": env.grid.height,
-            }
-        )
-        builder.add_agent_layer(
-            layer_id="agents",
-            item_iterable_projector=lambda env: env.agents,
-            item_projector=make_grid_agent_projector(
-                id="unique_id",
-                x="pos[0]",
-                y="pos[1]",
-                color=True,
-            ),
-        )
-        self.env_binder = builder.build(self.model.__class__.__name__, self.model)
-        scenario.add_environment(self.env_binder)
 
 
 @chart(
@@ -94,7 +53,7 @@ def resource_metrics_chart() -> dict:
 async def main() -> None:
     # The custom handler keeps Mesa's convenience API while exposing the sugar field as a dedicated resource layer.
     global handler
-    handler = SugarscapeSimulationHandler(
+    handler = MesaSimulationHandler(
         model_class=Sugarscape,
         model_init_kwargs={
             "width": MODEL_WIDTH,
