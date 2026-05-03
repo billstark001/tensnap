@@ -1,27 +1,22 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
-import inspect
 from typing import (
     Any,
     Dict,
     Generic,
     List,
     Literal,
-    Protocol,
     TYPE_CHECKING,
     Tuple,
     TypeAlias,
-    TypedDict,
     TypeVar,
     Union,
     cast,
 )
 
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 from tensnap.utils.attr import (
-    make_attr_projector,
-    make_attr_getter,
     AttrProjector,
     AttrGetter,
 )
