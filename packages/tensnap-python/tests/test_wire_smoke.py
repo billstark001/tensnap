@@ -4,6 +4,7 @@ import os
 import socket
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import msgpack
 import pytest
@@ -74,9 +75,14 @@ async def _collect_state_sync_messages(
             },
         }
         await ws.send(
-            msgpack.packb(message, use_bin_type=True)
-            if use_msgpack
-            else json.dumps(message)
+            cast(
+                Any,
+                (
+                    msgpack.packb(message, use_bin_type=True)
+                    if use_msgpack
+                    else json.dumps(message)
+                ),
+            )
         )
 
         deadline = asyncio.get_running_loop().time() + 20
@@ -119,9 +125,14 @@ async def _sync_and_run_action(
             },
         }
         await ws.send(
-            msgpack.packb(sync_request, use_bin_type=True)
-            if use_msgpack
-            else json.dumps(sync_request)
+            cast(
+                Any,
+                (
+                    msgpack.packb(sync_request, use_bin_type=True)
+                    if use_msgpack
+                    else json.dumps(sync_request)
+                ),
+            )
         )
 
         deadline = asyncio.get_running_loop().time() + 20
@@ -145,9 +156,14 @@ async def _sync_and_run_action(
 
         action_request = {"type": "action_start", "payload": {"id": action_id}}
         await ws.send(
-            msgpack.packb(action_request, use_bin_type=True)
-            if use_msgpack
-            else json.dumps(action_request)
+            cast(
+                Any,
+                (
+                    msgpack.packb(action_request, use_bin_type=True)
+                    if use_msgpack
+                    else json.dumps(action_request)
+                ),
+            )
         )
 
         action_messages: list[dict] = []

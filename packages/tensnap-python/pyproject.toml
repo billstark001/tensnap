@@ -8,10 +8,8 @@ version = "0.2.0"
 description = "Agent-based model visualization toolkit - Python bindings"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [
-  {name = "billstark001", email = "billstark001@example.com"}
-]
+license = { text = "MIT" }
+authors = [{ name = "billstark001", email = "billstark001@example.com" }]
 keywords = ["agent-based-modeling", "simulation", "visualization", "abm"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -25,10 +23,9 @@ classifiers = [
 ]
 dependencies = [
   "numpy>=1.24.0",
-  "networkx>=3.0",
   "msgpack>=1.0.5",
   "websockets>=12.0",
-  "typing-extensions>=4.9.0"
+  "typing-extensions>=4.9.0",
 ]
 
 [project.urls]
@@ -44,7 +41,9 @@ dev = [
   "pytest-cov>=4.1.0",
   "mypy>=1.7.0",
   "ruff>=0.1.0",
-  "black>=23.0.0"
+  "black>=23.0.0",
+  "mesa>=3.0.0",
+  "networkx>=3.0",
 ]
 
 [tool.mypy]
