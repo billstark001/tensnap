@@ -152,10 +152,9 @@ for (const def of layerRegistry.getAll()) {
 The Layer Registry handles **data validation and state management**. Rendering
 custom layer types requires additional work in the frontend UI:
 
-1. Implement a rendering layer class extending `BaseLayer` from `tensnap-web-core`.
+1. Implement a rendering layer class extending `BaseLayer` from `@tensnap/core`.
 2. Create a corresponding `Storage` class extending `BaseStorage`.
-3. Wire the two together in a React component, similar to `GridEnvironmentView`
-   or `GraphEnvironmentView`.
+3. Wire the two together in the renderer layer, similar to the built-in environment views consumed by `@tensnap/web`.
 4. Register the component so `AnchoredEnvironmentView` renders it when
    encountering your `layer_type`.
 
@@ -182,4 +181,3 @@ avoid future collisions.
 
 - [Protocol v0.2](./protocol-v0.2.md) — full message spec for `env_layer_*` and `item_*`
 - [Architecture](./architecture.md) — rendering layer design
-- [Roadmap](./roadmap.md)

@@ -42,7 +42,7 @@ pip install -e ".[dev]"
 **Web frontend:**
 
 ```bash
-pnpm dev:web  # Starts at http://localhost:3000
+pnpm dev:web  # Starts at http://localhost:3200
 ```
 
 **Python simulation examples:**
@@ -79,10 +79,15 @@ tensnap/
 │   ├── python/              # Python examples (non-Mesa)
 │   └── python_mesa/         # Python examples (Mesa-based)
 ├── packages/
-│   ├── tensnap-python/      # Python backend (WebSocket server)
+│   ├── benchmark/           # Benchmarks for render/runtime paths
+│   ├── core/                # Shared protocol, Scenario, runtime, rendering primitives
+│   ├── tensnap-agent/       # Headless runtime and agent/session tooling
+│   ├── tensnap-python/      # Python bindings and runtime integration
+│   ├── tensnap-tauri/       # Desktop app (Tauri + Rust)
 │   ├── tensnap-web/         # Web frontend (React + Vite)
-│   ├── tensnap-web-utils/   # Shared web utilities
-│   └── tensnap-tauri/       # Desktop app (Tauri + Rust)
+│   ├── web-adapter/         # Browser-side filesystem/integration helpers
+│   ├── web-common/          # Shared browser UI/types/helpers
+│   └── web-models/          # Built-in TS model adapters and transports
 └── package.json             # Workspace root
 ```
 
@@ -99,10 +104,10 @@ ruff check tensnap/   # Lint
 mypy tensnap/         # Type check
 ```
 
-Or use the pnpm script:
+Repository-wide frontend/tooling lint can be run from the workspace root:
 
 ```bash
-pnpm --filter tensnap-python lint
+pnpm lint
 ```
 
 ### TypeScript
@@ -110,23 +115,26 @@ pnpm --filter tensnap-python lint
 **Linting:**
 
 ```bash
-pnpm lint              # All packages
-pnpm --filter tensnap-web lint  # Specific package
+pnpm lint  # All workspace packages
 ```
 
 ## Testing
 
 ### Python
 
-Currently no test suite (tests directory doesn't exist). Tests can be added to `packages/tensnap-python/tests/`.
+Python tests live in `packages/tensnap-python/tests/`:
+
+```bash
+cd packages/tensnap-python
+pytest
+```
 
 ### TypeScript
 
-Test infrastructure is configured but no tests are implemented yet:
+The repository already includes TypeScript/Vitest coverage in multiple packages:
 
 ```bash
 pnpm test              # All packages
-pnpm --filter tensnap-web test  # Specific package
 ```
 
 ## Building
@@ -175,5 +183,5 @@ pnpm build:web
 ## Next Steps
 
 - [Architecture Documentation](./architecture.md) - System design and components
-- [Protocol Documentation](./protocol.md) - WebSocket communication protocol
+- [Protocol v0.2](./protocol-v0.2.md) - Current renderer/simulator protocol
 - [Contributing Guidelines](./contributing.md) - Contribution workflow

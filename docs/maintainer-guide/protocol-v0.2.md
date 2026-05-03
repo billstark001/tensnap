@@ -1,6 +1,6 @@
 # TenSnap Protocol v0.2
 
-Current draft specification for the renderer/simulator protocol and the core-owned Scenario model.  This document is the source of truth for the ongoing refactor, and it supersedes the older client/server framing and any package layout that still refers to `@tensnap/core` package.
+Current specification for the renderer/simulator protocol and the core-owned Scenario model. This document is the source of truth for the current 0.2 runtime surface, and it supersedes the older client/server framing and any package layout that still refers to `@tensnap/core` package.
 
 ## Scope
 
@@ -1005,5 +1005,4 @@ Reserved action ids are `init` and `step`.  All other action ids are application
 The original reference links are:
 
 - [`architecture.md`](./architecture.md)
-- [`roadmap.md`](./roadmap.md)
 - [`protocol-v0.1.md`](./protocol-v0.1.md)

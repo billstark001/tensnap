@@ -72,7 +72,7 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[Getting Started](./docs/user-guide/getting-started.md)** - Quick introduction and first steps
 - **[Installation Guide](./docs/user-guide/installation.md)** - Detailed installation instructions
 - **[User Guide](./docs/user-guide/user-guide.md)** - Complete guide to using TenSnap
-- **[Tutorials](./docs/tutorials/)** - Step-by-step tutorials and examples
+- **[Tutorials](./docs/tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](./docs/api-reference/python-api.md)** - Complete Python API documentation
 
 ### For Maintainers
@@ -80,7 +80,7 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[Architecture Overview](./docs/maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./docs/maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./docs/maintainer-guide/contributing.md)** - How to contribute to TenSnap
-- **[Protocol Documentation](./docs/maintainer-guide/protocol.md)** - WebSocket protocol specification
+- **[Protocol v0.2](./docs/maintainer-guide/protocol-v0.2.md)** - Current renderer/simulator protocol specification
 - **[Internationalization (i18n)](./docs/maintainer-guide/i18n.md)** - Translation and localization guide
 
 ## 🎯 Design Philosophy
@@ -97,117 +97,104 @@ TenSnap aims to:
 Here's a simple agent-based model with TenSnap:
 
 ```python
-from tensnap import (
-    SimulationScenario,
-    LayeredEnvironmentBinder,
-    bind_2d_env,
-    bind_grid_layer,
-    bind_agent_layer,
-    bind_grid_agent,
-    chart,
-    action,
-)
-from dataclasses import dataclass
 import asyncio
 
-@dataclass
-class Config:
-    num_agents: int = 50
-    speed: float = 1.0
-
-# Define agent with metadata binding
-@bind_grid_agent(heading=True, color=True, size=True)
-class Agent:
-    color = "#3498db"
-    size = 8
-    
-    def __init__(self, agent_id, x, y):
-        self.id = agent_id
-        self.x = x
-        self.y = y
-        self.heading = 0
-
-# Define model with metadata binding
-@bind_2d_env()
-@bind_grid_layer(width="width", height="height")
-@bind_agent_layer("agents", item_iterable_projector="agents")
-class Model:
-    def __init__(self, config):
-        self.config = config
-        self.agents = []
-    
-    @property
-    def width(self): return 50
-    
-    @property
-    def height(self): return 50
-    
-    def initialize(self):
-        self.agents.clear()
-        for i in range(self.config.num_agents):
-            self.agents.append(Agent(f"agent_{i}", 25, 25))
-    
-    def step(self):
-        # Your simulation logic here
-        pass
-
-# Setup scenario
-config = Config()
-model = Model(config)
-scenario = SimulationScenario(port=8765)
-
-# Add environment
-grid = LayeredEnvironmentBinder(
-    id="main",
-    environment=model,
+from tensnap import SimulationScenario
+from tensnap.bindings import (
+    BindParametersConfig,
+    agent,
+    agent_layer,
+    chart,
+    env,
+    grid_layer,
 )
-scenario.add_environment(grid)
 
-# Add parameters and charts
-scenario.add_parameters(config)
 
-@chart("population", "Population", color="#3498db")
-def track_population():
-    return len(model.agents)
+@agent(x="position[0]", y="position[1]")
+class Bird:
+    def __init__(self, bird_id: int, position: tuple[int, int]):
+        self.id = bird_id
+        self.position = position
 
-@action("reset", "Reset")
-async def reset():
-    model.initialize()
 
-# Run simulation
-async def main():
-    model.initialize()
-    scenario.add_charts(globals())
-    scenario.add_actions(globals())
-    await scenario.register_model_handler(model.initialize, model.step)
+@grid_layer(width="width", height="height")
+@agent_layer("birds", item_iterable_projector="birds")
+@env(id="main")
+class Aviary:
+    def __init__(self):
+        self.width = 20
+        self.height = 10
+        self.birds = [Bird(1, (2, 3)), Bird(2, (4, 5))]
+
+    def step(self) -> None:
+        for bird in self.birds:
+            x, y = bird.position
+            bird.position = (x + 1, y)
+
+    @chart("population", "Population")
+    def population(self) -> int:
+        return len(self.birds)
+
+
+class Config:
+    speed = 1.0
+
+
+scenario = SimulationScenario(port=8765)
+model = Aviary()
+
+scenario.add_environment(model)
+scenario.add_parameters(Config(), BindParametersConfig(exclude="^_"))
+scenario.add_charts(model)
+
+
+async def main() -> None:
+    await scenario.register_model_handler(model_step=model.step)
     await scenario.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## 🏗️ Project Structure
+## Notes on the Current Python Surface
+
+- `SimulationScenario` is the recommended high-level runtime.
+- The current decorator and readback surface lives under `tensnap.bindings`.
+- Built-in renderer-driven actions are `start`, `step`, and `reset`.
+- Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 are now backed by runnable examples in `examples/python/`; tutorials 5-6 are still planned.
+
+## Project Structure
 
 TenSnap is organized as a monorepo:
 
 ```
 tensnap/
+├── docs/                        # User and maintainer documentation
+├── examples/                    # Runnable Python and Mesa examples
 ├── packages/
-│   ├── tensnap-python/          # Python bindings
-│   ├── tensnap-web/             # Web frontend (React)
-│   ├── tensnap-web-core/        # Core rendering & state (framework-agnostic)
-│   ├── tensnap-web-utils/       # Shared web utilities
-│   └── tensnap-tauri/           # Desktop app (Tauri)
-└── docs/                        # Documentation
+│   ├── benchmark/               # Rendering/runtime benchmarks
+│   ├── core/                    # Shared protocol, Scenario, runtime, rendering primitives
+│   ├── tensnap-agent/           # Headless runtime and agent/session tooling
+│   ├── tensnap-python/          # Python bindings and server/runtime integration
+│   ├── tensnap-tauri/           # Desktop wrapper around the web app
+│   ├── tensnap-web/             # React renderer application
+│   ├── web-adapter/             # Web-side filesystem and integration helpers
+│   ├── web-common/              # Shared UI/helpers for browser packages
+│   └── web-models/              # Built-in TypeScript model adapters and transports
+└── scripts/                     # Release and asset maintenance scripts
 ```
 
 ### Package Responsibilities
 
-- **tensnap-python**: Python API for connecting simulations to TenSnap
-- **tensnap-web**: React-based web interface with full UI components
-- **tensnap-web-core**: Framework-agnostic core for rendering and state management (no React/Zustand dependencies)
-- **tensnap-web-utils**: Shared utilities for web packages
-- **tensnap-tauri**: Desktop application wrapper
+- **core**: Protocol v0.2 types/codecs, Scenario state, layer registry, rendering/runtime primitives, and `AssetStore`.
+- **tensnap-web**: Main browser renderer, transport wiring, project UI, and scenario store integration.
+- **tensnap-tauri**: Desktop shell reusing the web renderer.
+- **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.
+- **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
+- **web-models**: Built-in in-memory model adapters and transport helpers.
+- **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.
+- **benchmark**: Performance harnesses for render/runtime paths.
 
 ## 🤝 Contributing
 

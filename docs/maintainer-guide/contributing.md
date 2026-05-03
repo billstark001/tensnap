@@ -115,7 +115,8 @@ Documentation contributions are highly valued:
 
 When updating Python docs, keep them aligned with the current bindings surface:
 
-- Document binders, decorators, projectors, and TypedDict state payloads such as `LayeredEnvironmentBinder`, `LayeredEnvironmentBinder*`, and `make_*_projector`.
+- Prefer documenting the current `tensnap.bindings` surface (`env`, `grid_layer`, `agent_layer`, `edge_layer`, `trajectory_layer`, `agent`, `edge`, `chart`, `action`, `BindParametersConfig`) and `SimulationScenario`.
+- Legacy compatibility helpers such as `LayeredEnvironmentBinder` can be mentioned when needed, but they should not be presented as the primary API.
 - Do not document nonexistent mutable runtime classes such as `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel`.
 - Default control semantics are renderer-driven: `start`, `step`, and `reset` are the canonical built-ins; `stop` is only present when a scenario registers an explicit backend action.
 - Low-level server examples should use `update_layer_metadata()`, `update_layer_agents()`, `update_layer_edges()`, `replace_layer_state()`, and `replace_environment_layers()` rather than removed layer-less update helpers.
@@ -471,14 +472,25 @@ Use pytest for Python tests:
 ```python
 # tests/test_environment.py
 import pytest
-from tensnap import LayeredEnvironmentBinder
+from tensnap import SimulationScenario, agent, agent_layer, env, grid_layer
 
 
+@agent(x=True, y=True)
+class Bird:
+  def __init__(self, bird_id: str, x: int, y: int) -> None:
+    self.id = bird_id
+    self.x = x
+    self.y = y
+
+
+@grid_layer(width="width", height="height")
+@agent_layer("agents", item_iterable_projector="agents")
+@env(id="test")
 class GridEnv:
   def __init__(self) -> None:
     self.width = 50
     self.height = 50
-    self.agents = []
+    self.agents = [Bird("a1", 25, 25)]
 
 
 @pytest.mark.asyncio
@@ -490,14 +502,17 @@ async def test_server_broadcast():
 
 @pytest.fixture
 def sample_environment():
-  """Fixture for a binder-backed environment."""
-  return LayeredEnvironmentBinder(id="test", environment=GridEnv())
+  """Fixture for a decorator-backed environment."""
+  return GridEnv()
 
 
 def test_environment_with_fixture(sample_environment):
   """Test using fixture."""
-  state = sample_environment.get_state()
-  assert state["layers"][0]["data"]["width"] == 50
+  scenario = SimulationScenario()
+  registration = scenario.add_environment(sample_environment)
+  state = registration.build_state()
+  grid = next(layer for layer in state["layers"] if layer["layer_id"] == "grid")
+  assert grid["data"]["width"] == 50
 ```
 
 ### JavaScript Testing

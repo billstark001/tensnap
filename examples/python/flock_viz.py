@@ -41,7 +41,6 @@ async def main() -> None:
     scenario.add_environment(model)
     scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
     scenario.add_charts(globals())
-    scenario.add_actions({})
 
     await scenario.register_model_handler(
         model.initialize,
