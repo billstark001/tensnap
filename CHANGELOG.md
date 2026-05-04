@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the new `@tensnap/core` package as the shared home for protocol v0.2 types/codecs, Scenario state, runtime pipeline, layer registry, rendering primitives, and project-level `AssetStore`.
 - Added protocol v0.2 environment/layer/item synchronization, including canonical `item_*` messages, renderer-driven action lifecycle, asset synchronization, screenshot exchange, and explicit state sync boundaries.
 - Added the new `@tensnap/agent` package for headless rendering, runtime orchestration, and agent/session tooling.
+- Added the new `@tensnap/go` bindings publishing via `packages/tensnap-go/v*` tags.
+- Added corresponding release tooling and deployment guide updates.
 - Added dedicated trajectory storage/layer support, asset-aware rendering flows, and benchmark/runtime coverage for the new pipeline.
 
 ### Changed
