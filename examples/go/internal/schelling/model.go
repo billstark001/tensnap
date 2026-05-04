@@ -1,7 +1,6 @@
 package schelling
 
 import (
-	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -67,6 +66,17 @@ func NewWithConfig(cfg Config) *Model {
 	model.SetParam("gridHeight", float64(abm.DefaultedInt(cfg.GridHeight, defaultGridH)))
 	model.SetParam("density", abm.DefaultedFloat(cfg.Density, 0.48))
 	model.SetParam("similarityThreshold", abm.DefaultedFloat(cfg.SimilarityThreshold, 0.4))
+	model.SetActionRouter(abm.NewActionRouter().
+		Handle(ActionIDStart, func(e abm.Emitter, tickID *string, _ bool) error {
+			return model.stepAction(e, ActionIDStart, tickID)
+		}).
+		Handle(ActionIDReset, func(e abm.Emitter, tickID *string, _ bool) error {
+			return model.resetAction(e, ActionIDReset, tickID)
+		}).
+		Handle(protocol.ActionIDInit, func(e abm.Emitter, tickID *string, _ bool) error {
+			return model.resetAction(e, protocol.ActionIDInit, tickID)
+		}))
+	model.refreshScenario()
 	return model
 }
 
@@ -84,67 +94,20 @@ func (m *Model) Setup(e abm.Emitter) error {
 	}
 
 	m.initializeState()
-	return m.replay(e)
+	m.refreshScenario()
+	return m.ReplayScenario(e)
 }
 
 func (m *Model) OnStateSync(e abm.Emitter, payload *protocol.StateSyncPayload) error {
 	if !m.initialized {
 		m.initializeState()
+		m.refreshScenario()
 	}
-	if err := e.StateSyncBegin(payload.RequestID); err != nil {
-		return err
-	}
-	if err := m.replay(e); err != nil {
-		return err
-	}
-	return e.StateSyncEnd(payload.RequestID)
-}
-
-func (m *Model) OnAction(e abm.Emitter, actionID string, tickID *string, _ bool) error {
-	switch actionID {
-	case ActionIDStart, protocol.ActionIDStep:
-		return m.stepAction(e, actionID, tickID)
-	case ActionIDReset, protocol.ActionIDInit:
-		if err := m.Setup(e); err != nil {
-			return err
-		}
-		return e.ActionEnd(&protocol.ActionEndPayload{
-			ID:       actionID,
-			TickID:   tickID,
-			Continue: abm.BoolPtr(false),
-		})
-	default:
-		return fmt.Errorf("tensnap: unhandled action %q", actionID)
-	}
+	return m.Base.OnStateSync(e, payload)
 }
 
 func (m *Model) Step(e abm.Emitter) error {
 	return m.stepAction(e, protocol.ActionIDStep, nil)
-}
-
-func (m *Model) OnParamChange(e abm.Emitter, id string, value any) error {
-	f, ok := abm.AsFloat64(value)
-	if !ok {
-		return fmt.Errorf("tensnap: expected numeric parameter %q", id)
-	}
-
-	switch id {
-	case "gridWidth":
-		m.SetParam(id, float64(abm.ClampInt(int(f), 10, 200)))
-	case "gridHeight":
-		m.SetParam(id, float64(abm.ClampInt(int(f), 10, 200)))
-	case "density":
-		m.SetParam(id, abm.ClampFloat(f, 0.1, 0.95))
-	case "similarityThreshold", "threshold":
-		threshold := abm.ClampFloat(f, 0, 1)
-		m.SetParam("similarityThreshold", threshold)
-		m.active.similarityThreshold = threshold
-	default:
-		m.SetParam(id, value)
-	}
-
-	_ = e
-	return nil
 }
 
 func (m *Model) stepAction(e abm.Emitter, actionID string, tickID *string) error {
@@ -358,47 +321,107 @@ func (m *Model) activeGridSize() (int, int) {
 	return m.active.gridWidth, m.active.gridHeight
 }
 
-func (m *Model) replay(e abm.Emitter) error {
-	gridWidth, gridHeight := m.activeGridSize()
-	if err := e.ParamCreate(protocol.NumberParameter{ID: "similarityThreshold", Type: "number", Label: "Similarity Threshold", Value: m.ParamFloat("similarityThreshold"), Min: 0.0, Max: 1.0, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
-		return err
-	}
+func (m *Model) refreshScenario() {
 	pendingGridWidth, pendingGridHeight := m.pendingGridSize()
-	if err := e.ParamCreate(protocol.NumberParameter{ID: "gridWidth", Type: "number", Label: "Grid Width", Value: float64(pendingGridWidth), Min: 10, Max: 200, Step: 1, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
-		return err
-	}
-	if err := e.ParamCreate(protocol.NumberParameter{ID: "gridHeight", Type: "number", Label: "Grid Height", Value: float64(pendingGridHeight), Min: 10, Max: 200, Step: 1, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
-		return err
-	}
-	if err := e.ParamCreate(protocol.NumberParameter{ID: "density", Type: "number", Label: "Density", Value: abm.ClampFloat(m.ParamFloat("density"), 0.1, 0.95), Min: 0.1, Max: 0.95, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
-		return err
-	}
-	if err := e.ActionCreate(&protocol.Action{ID: ActionIDReset, Label: "Reset", AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
-		return err
-	}
-	if err := e.ActionCreate(&protocol.Action{ID: ActionIDStart, Label: "Start", Continuous: abm.BoolPtr(true), AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
-		return err
-	}
-	if err := e.ActionCreate(&protocol.Action{ID: protocol.ActionIDStep, Label: "Step", AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
-		return err
-	}
-	if err := e.EnvCreate(EnvID, "2d"); err != nil {
-		return err
-	}
-	if err := e.EnvLayerCreate(&protocol.EnvLayerCreatePayload{EnvID: EnvID, LayerID: AgentLayerID, LayerType: "agent", Data: map[string]any{"width": gridWidth, "height": gridHeight}}); err != nil {
-		return err
-	}
-	if err := e.EnvLayerCreate(&protocol.EnvLayerCreatePayload{EnvID: EnvID, LayerID: GridLayerID, LayerType: "grid", Data: map[string]any{"width": gridWidth, "height": gridHeight}}); err != nil {
-		return err
-	}
+	activeGridWidth, activeGridHeight := m.activeGridSize()
 	satColor := "#2f9e44"
 	segColor := "#e8590c"
-	if err := e.ChartCreate(&protocol.ChartGroupMetadata{ID: SatisfactionChartID, Label: "Satisfaction Rate", Color: &satColor}); err != nil {
+	scenario := abm.NewScenario().
+		WithParams(
+			&abm.ParamMetadata{
+				Definition: protocol.NumberParameter{ID: "similarityThreshold", Type: "number", Label: "Similarity Threshold", Value: m.ParamFloat("similarityThreshold"), Min: 0.0, Max: 1.0, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(true)},
+				Aliases:    []string{"threshold"},
+				Normalize: func(value any) (any, error) {
+					f, ok := abm.AsFloat64(value)
+					if !ok {
+						return nil, protocolDecodeError("similarityThreshold")
+					}
+					return abm.ClampFloat(f, 0, 1), nil
+				},
+				OnSet: func(value any) error {
+					threshold, _ := abm.AsFloat64(value)
+					m.active.similarityThreshold = threshold
+					return nil
+				},
+			},
+			&abm.ParamMetadata{
+				Definition: protocol.NumberParameter{ID: "gridWidth", Type: "number", Label: "Grid Width", Value: float64(pendingGridWidth), Min: 10, Max: 200, Step: 1, AllowRuntimeChange: abm.BoolPtr(false)},
+				Normalize: func(value any) (any, error) {
+					f, ok := abm.AsFloat64(value)
+					if !ok {
+						return nil, protocolDecodeError("gridWidth")
+					}
+					return float64(abm.ClampInt(int(f), 10, 200)), nil
+				},
+			},
+			&abm.ParamMetadata{
+				Definition: protocol.NumberParameter{ID: "gridHeight", Type: "number", Label: "Grid Height", Value: float64(pendingGridHeight), Min: 10, Max: 200, Step: 1, AllowRuntimeChange: abm.BoolPtr(false)},
+				Normalize: func(value any) (any, error) {
+					f, ok := abm.AsFloat64(value)
+					if !ok {
+						return nil, protocolDecodeError("gridHeight")
+					}
+					return float64(abm.ClampInt(int(f), 10, 200)), nil
+				},
+			},
+			&abm.ParamMetadata{
+				Definition: protocol.NumberParameter{ID: "density", Type: "number", Label: "Density", Value: abm.ClampFloat(m.ParamFloat("density"), 0.1, 0.95), Min: 0.1, Max: 0.95, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(false)},
+				Normalize: func(value any) (any, error) {
+					f, ok := abm.AsFloat64(value)
+					if !ok {
+						return nil, protocolDecodeError("density")
+					}
+					return abm.ClampFloat(f, 0.1, 0.95), nil
+				},
+			},
+		).
+		WithActions(
+			&protocol.Action{ID: ActionIDReset, Label: "Reset", AllowRuntimeChange: abm.BoolPtr(true)},
+			&protocol.Action{ID: ActionIDStart, Label: "Start", Continuous: abm.BoolPtr(true), AllowRuntimeChange: abm.BoolPtr(true)},
+			&protocol.Action{ID: protocol.ActionIDStep, Label: "Step", AllowRuntimeChange: abm.BoolPtr(true)},
+		).
+		WithEnvs(abm.ScenarioEnvironment{
+			ID:   EnvID,
+			Type: "2d",
+			Layers: []*protocol.EnvLayerCreatePayload{
+				{EnvID: EnvID, LayerID: AgentLayerID, LayerType: "agent", Data: map[string]any{"width": activeGridWidth, "height": activeGridHeight}},
+				{EnvID: EnvID, LayerID: GridLayerID, LayerType: "grid", Data: map[string]any{"width": activeGridWidth, "height": activeGridHeight}},
+			},
+		}).
+		WithCharts(
+			&protocol.ChartGroupMetadata{ID: SatisfactionChartID, Label: "Satisfaction Rate", Color: &satColor},
+			&protocol.ChartGroupMetadata{ID: SegregationChartID, Label: "Segregation Index", Color: &segColor},
+		).
+		WithStateReplay(m.replayState)
+	if err := m.SetScenario(scenario); err != nil {
+		panic(err)
+	}
+}
+
+func protocolDecodeError(paramID string) error {
+	return &protocolError{paramID: paramID}
+}
+
+type protocolError struct {
+	paramID string
+}
+
+func (e *protocolError) Error() string {
+	return "tensnap: expected numeric parameter \"" + e.paramID + "\""
+}
+
+func (m *Model) resetAction(e abm.Emitter, actionID string, tickID *string) error {
+	if err := m.Setup(e); err != nil {
 		return err
 	}
-	if err := e.ChartCreate(&protocol.ChartGroupMetadata{ID: SegregationChartID, Label: "Segregation Index", Color: &segColor}); err != nil {
-		return err
-	}
+	return e.ActionEnd(&protocol.ActionEndPayload{
+		ID:       actionID,
+		TickID:   tickID,
+		Continue: abm.BoolPtr(false),
+	})
+}
+
+func (m *Model) replayState(e abm.Emitter) error {
 	items := m.snapshotItems()
 	if err := e.ItemCreate(EnvID, AgentLayerID, items); err != nil {
 		return err

@@ -11,6 +11,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[User Guide](./user-guide/user-guide.md)** - Comprehensive guide to using TenSnap
 - **[Tutorials](./tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](./api-reference/python-api.md)** - Complete Python API documentation
+- **[Go API Reference](./api-reference/go-api.md)** - Go simulator bindings, declarative Scenario API, and incremental diff helpers
 
 ### For Maintainers
 
@@ -23,7 +24,9 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 ## Documentation Status
 
 - The current stable Python surface is documented in [Python API Reference](./api-reference/python-api.md) and `packages/tensnap-python/README.md`.
+- The current Go surface is documented in [Go API Reference](./api-reference/go-api.md) and `packages/tensnap-go/README.md`.
 - `examples/python/` and `examples/python_mesa/` are the authoritative runnable references.
+- `examples/go/` contains the authoritative runnable Go references.
 - Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 now map directly to runnable examples; tutorials 5-6 are still planned and do not exist yet.
 
 ## What is TenSnap?
@@ -52,11 +55,12 @@ TenSnap aims to:
 - [Report Issues](https://github.com/billstark001/tensnap/issues)
 - [Python Examples](../examples/python/)
 - [Mesa Examples](../examples/python_mesa/)
+- [Go Examples](../examples/go/)
 
 ## Getting Help
 
 - Check the [User Guide](./user-guide/user-guide.md) for common questions
-- Look at the [Python examples](../examples/python/) and [Mesa examples](../examples/python_mesa/) for practical implementations
+- Look at the [Python examples](../examples/python/), [Mesa examples](../examples/python_mesa/), and [Go examples](../examples/go/) for practical implementations
 - Open an issue on [GitHub](https://github.com/billstark001/tensnap/issues) for bugs or feature requests
 
 ## License

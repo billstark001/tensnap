@@ -46,13 +46,21 @@ type ScreenshotResponseHandler interface {
 // Base provides no-op defaults for all Model methods.
 // Embed it in your model struct and only override what you need.
 type Base struct {
-	params map[string]any
+	params       map[string]any
+	scenario     *Scenario
+	actionRouter *ActionRouter
 }
 
-func (b *Base) Setup(_ Emitter) error { return nil }
+func (b *Base) Setup(e Emitter) error { return b.ReplayScenario(e) }
 func (b *Base) Step(_ Emitter) error  { return nil }
 
-func (b *Base) OnAction(e Emitter, actionID string, _ *string, _ bool) error {
+func (b *Base) OnAction(e Emitter, actionID string, tickID *string, continuous bool) error {
+	if b.actionRouter != nil {
+		handled, err := b.actionRouter.Dispatch(e, actionID, tickID, continuous)
+		if handled || err != nil {
+			return err
+		}
+	}
 	switch actionID {
 	case protocol.ActionIDInit:
 		return b.Setup(e)
@@ -64,12 +72,21 @@ func (b *Base) OnAction(e Emitter, actionID string, _ *string, _ bool) error {
 }
 
 func (b *Base) OnParamChange(_ Emitter, id string, value any) error {
+	if b.scenario != nil {
+		handled, err := b.scenario.ApplyParam(b, id, value)
+		if handled || err != nil {
+			return err
+		}
+	}
 	b.SetParam(id, value)
 	return nil
 }
 
 func (b *Base) OnStateSync(e Emitter, p *protocol.StateSyncPayload) error {
 	if err := e.StateSyncBegin(p.RequestID); err != nil {
+		return err
+	}
+	if err := b.ReplayScenario(e); err != nil {
 		return err
 	}
 	return e.StateSyncEnd(p.RequestID)
@@ -111,6 +128,29 @@ func (b *Base) ParamBool(id string) bool {
 func (b *Base) ParamString(id string) string {
 	v, _ := b.params[id].(string)
 	return v
+}
+
+// SetScenario registers the declarative scenario used by Base defaults.
+// It also seeds Base parameter storage from the scenario's parameter metadata.
+func (b *Base) SetScenario(s *Scenario) error {
+	b.scenario = s
+	if s == nil {
+		return nil
+	}
+	return s.SeedParams(b)
+}
+
+// ReplayScenario replays the registered scenario, if any.
+func (b *Base) ReplayScenario(e Emitter) error {
+	if b.scenario == nil {
+		return nil
+	}
+	return b.scenario.Replay(e)
+}
+
+// SetActionRouter installs the action router used by Base.OnAction.
+func (b *Base) SetActionRouter(router *ActionRouter) {
+	b.actionRouter = router
 }
 
 // #endregion

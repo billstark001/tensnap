@@ -5,7 +5,7 @@
 ## ✨ Features
 
 - **🎨 Interactive Visualization**: Real-time visualization of agent-based simulations with immediate feedback
-- **🌐 Language Agnostic**: Connect simulations written in any language (Python ready, Java/JavaScript/Go/MATLAB planned)
+- **🌐 Language Agnostic**: Connect simulations written in any language (Python and Go bindings available today; Java/JavaScript/MATLAB planned)
 - **⚡ Modern Web Interface**: Built with React for a responsive, feature-rich user experience
 - **🎛️ NetLogo-Inspired UI**: Familiar controls (sliders, buttons, charts) with modern enhancements
 - **🔧 Multi-Granularity APIs**: From simple high-level APIs for beginners to low-level protocol access for experts
@@ -37,6 +37,12 @@ pip install -e .
 
 ```
 
+Installing Go bindings:
+
+```bash
+go get github.com/billstark001/tensnap/packages/tensnap-go@latest
+```
+
 Installing Node.js dependencies for frontend development (for advanced users):
 
 ```bash
@@ -59,6 +65,13 @@ cd examples/python
 python flock_viz.py
 ```
 
+For the Go example:
+
+```bash
+cd examples/go
+make run-schelling
+```
+
 Then open your browser to `http://localhost:3200` and watch the agents interact!
 
 - The [Netlify instance](https://tensnap.netlify.app) is also available at `https://tensnap.netlify.app`. You may access the site to avoid local deployment.
@@ -74,6 +87,7 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[User Guide](./docs/user-guide/user-guide.md)** - Complete guide to using TenSnap
 - **[Tutorials](./docs/tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](./docs/api-reference/python-api.md)** - Complete Python API documentation
+- **[Go API Reference](./docs/api-reference/go-api.md)** - Go bindings, declarative Scenario API, and incremental diff helpers
 
 ### For Maintainers
 
@@ -159,7 +173,8 @@ if __name__ == "__main__":
 
 ## Notes on the Current Python Surface
 
-- `SimulationScenario` is the recommended high-level runtime.
+- `SimulationScenario` is the recommended high-level Python runtime.
+- `abm.Scenario` is the recommended declarative Go surface for simulator-visible state.
 - The current decorator and readback surface lives under `tensnap.bindings`.
 - Built-in renderer-driven actions are `start`, `step`, and `reset`.
 - Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 are now backed by runnable examples in `examples/python/`; tutorials 5-6 are still planned.
@@ -171,11 +186,12 @@ TenSnap is organized as a monorepo:
 ```
 tensnap/
 ├── docs/                        # User and maintainer documentation
-├── examples/                    # Runnable Python and Mesa examples
+├── examples/                    # Runnable Go, Python, and Mesa examples
 ├── packages/
 │   ├── benchmark/               # Rendering/runtime benchmarks
 │   ├── core/                    # Shared protocol, Scenario, runtime, rendering primitives
 │   ├── tensnap-agent/           # Headless runtime and agent/session tooling
+│   ├── tensnap-go/              # Go protocol, ABM helpers, and WebSocket server
 │   ├── tensnap-python/          # Python bindings and server/runtime integration
 │   ├── tensnap-tauri/           # Desktop wrapper around the web app
 │   ├── tensnap-web/             # React renderer application
@@ -191,6 +207,7 @@ tensnap/
 - **tensnap-web**: Main browser renderer, transport wiring, project UI, and scenario store integration.
 - **tensnap-tauri**: Desktop shell reusing the web renderer.
 - **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.
+- **tensnap-go**: Go protocol package, declarative ABM helpers, and WebSocket simulator server.
 - **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
 - **web-models**: Built-in in-memory model adapters and transport helpers.
 - **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.
@@ -221,6 +238,7 @@ TenSnap was developed to address the gap between NetLogo's excellent interactive
 ## 🔗 Links
 
 - **[Documentation](./docs/)** - Complete documentation
+- **[Go Examples](./examples/go/)** - Go examples and simulator entry points
 - **[Python Examples](./examples/python/)** - Standard Python examples
 - **[Mesa Examples](./examples/python_mesa/)** - Mesa-based examples
 - **[Issues](https://github.com/billstark001/tensnap/issues)** - Report bugs or request features

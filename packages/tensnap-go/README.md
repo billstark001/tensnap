@@ -5,10 +5,10 @@ Go bindings for the simulator side of the TenSnap protocol v0.2.
 This module is intentionally small. It gives Go simulators three pieces:
 
 - `protocol`: wire-level message types, constants, and a default JSON codec.
-- `abm`: a small model interface, `Base`, `TickCounter`, and the `Emitter`/`Sink` abstraction.
+- `abm`: a small model interface, `Base`, `TickCounter`, declarative `Scenario`, `ActionRouter`, `ParamMetadata`, and the `Emitter`/`Sink` abstraction.
 - `server`: a WebSocket server that binds a model to a TenSnap renderer session.
 
-It does not include a renderer, a Scenario implementation, persistence, or automatic reconnect replay for your model state.
+It does not include a renderer, a browser-side Scenario runtime, or persistence.
 
 ## Importing the Module
 
@@ -36,14 +36,6 @@ type MyModel struct {
     abm.TickCounter
 }
 
-func (m *MyModel) Setup(e abm.Emitter) error {
-    return e.ActionCreate(&protocol.Action{
-        ID:         protocol.ActionIDStep,
-        Label:      "Step",
-        Continuous: abm.BoolPtr(true),
-    })
-}
-
 func (m *MyModel) Step(e abm.Emitter) error {
     tick := float64(m.NextTick())
     if err := e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick}); err != nil {
@@ -56,12 +48,40 @@ func (m *MyModel) Step(e abm.Emitter) error {
 }
 
 func main() {
+    model := &MyModel{}
+    _ = model.SetScenario(
+        abm.NewScenario().
+            WithParams(&abm.ParamMetadata{
+                Definition: protocol.NumberParameter{
+                    ID:    "speed",
+                    Type:  "number",
+                    Label: "Speed",
+                    Value: 1,
+                    Min:   0,
+                    Max:   5,
+                    Step:  0.1,
+                },
+                Normalize: func(value any) (any, error) {
+                    f, ok := abm.AsFloat64(value)
+                    if !ok {
+                        return nil, fmt.Errorf("expected numeric speed")
+                    }
+                    return abm.ClampFloat(f, 0, 5), nil
+                },
+            }).
+            WithActions(&protocol.Action{ID: protocol.ActionIDStep, Label: "Step"}),
+    )
+
     ctx := context.Background()
     _ = server.RunFactory(ctx, server.Options{Addr: ":8765"}, func() abm.Model {
-        return &MyModel{}
+        return model
     })
 }
 ```
+
+`Base.Setup` and `Base.OnStateSync` replay the registered `Scenario` automatically. If you need custom reset or start behavior, install an `ActionRouter`; if you need runtime state replay, attach `Scenario.WithStateReplay(...)`.
+
+For a fuller example, see [../../examples/go/internal/schelling/model.go](../../examples/go/internal/schelling/model.go) and the [Go API reference](../../docs/api-reference/go-api.md).
 
 For detached or headless runs, keep the same model and swap in `abm.NewSink()`:
 
@@ -98,7 +118,10 @@ The `Emitter` exposes the simulator-to-renderer families used by protocol v0.2, 
 
 ## Important Behavior Notes
 
-- `abm.Base.OnStateSync` only brackets the sync with `state_sync_begin` and `state_sync_end`. Real models should override it and replay current definitions and items if reconnects must restore state.
+- `abm.Base.Setup` and `abm.Base.OnStateSync` replay the registered `Scenario`. Models that need extra reset logic can still override either method and call back into `Base` helpers.
+- `ParamMetadata.Normalize` is the default place to clamp or coerce renderer-provided values; `ParamMetadata.OnSet` is where you attach runtime side effects.
+- `ActionRouter` is consulted before the built-in `init` / `step` fallback in `Base.OnAction`.
+- `ItemDiffTracker` and `NaiveItemDiffTracker` cover the two incremental diff modes also exposed by the Python bindings.
 - The bundled codec is JSON only. If you need MessagePack, implement `protocol.Codec` and pass it through `server.Options.Codec`.
 - `server.Run` shares one model instance across connections. `server.RunFactory` is the safer default because it creates one model per renderer session.
 
