@@ -57,7 +57,7 @@ func (m *MyModel) Step(e abm.Emitter) error {
 
 func main() {
     ctx := context.Background()
-    _ = server.RunFactory(ctx, server.Options{Addr: ":8080"}, func() abm.Model {
+    _ = server.RunFactory(ctx, server.Options{Addr: ":8765"}, func() abm.Model {
         return &MyModel{}
     })
 }
@@ -112,7 +112,7 @@ make run-schelling
 make run-standalone
 ```
 
-`run-schelling` starts a WebSocket simulator on `:8080`.
+`run-schelling` starts a WebSocket simulator on `:8765`.
 
 `run-standalone` runs the same model headlessly with `abm.NewSink()`.
 

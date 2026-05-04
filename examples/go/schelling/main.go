@@ -21,8 +21,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Println("TenSnap simulator -> ws://localhost:8080/ws")
-	if err := server.RunFactory(ctx, server.Options{Addr: ":8080"}, func() abm.Model {
+	log.Println("TenSnap simulator -> ws://localhost:8765/")
+	if err := server.RunFactory(ctx, server.Options{Addr: ":8765"}, func() abm.Model {
 		return shared.NewWithConfig(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
 	}); err != nil {
 		log.Fatal(err)

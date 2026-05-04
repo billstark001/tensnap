@@ -10,7 +10,7 @@
 // # Minimum binding template (4 lines in main.go)
 //
 //	model := &MyModel{e: abm.NewSink()}           // default: no-op
-//	server.Run(ctx, server.Options{Addr:":8080"},  // pass model; server
+//	server.Run(ctx, server.Options{Addr:":8765"},  // pass model; server
 //	    server.ModelFactory(func() abm.Model {     // injects live emitter
 //	        return &MyModel{e: abm.NewSink()}      // per session
 //	    }))

@@ -51,6 +51,7 @@ type Model struct {
 	cells       []cell
 	rng         *rand.Rand
 	active      runtimeConfig
+	diff        *abm.NaiveItemDiffTracker
 }
 
 func New() *Model {
@@ -58,11 +59,14 @@ func New() *Model {
 }
 
 func NewWithConfig(cfg Config) *Model {
-	model := &Model{rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
-	model.SetParam("gridWidth", float64(defaultedInt(cfg.GridWidth, defaultGridW)))
-	model.SetParam("gridHeight", float64(defaultedInt(cfg.GridHeight, defaultGridH)))
-	model.SetParam("density", defaultedFloat(cfg.Density, 0.48))
-	model.SetParam("similarityThreshold", defaultedFloat(cfg.SimilarityThreshold, 0.4))
+	model := &Model{
+		rng:  rand.New(rand.NewSource(time.Now().UnixNano())),
+		diff: abm.NewNaiveItemDiffTracker("id"),
+	}
+	model.SetParam("gridWidth", float64(abm.DefaultedInt(cfg.GridWidth, defaultGridW)))
+	model.SetParam("gridHeight", float64(abm.DefaultedInt(cfg.GridHeight, defaultGridH)))
+	model.SetParam("density", abm.DefaultedFloat(cfg.Density, 0.48))
+	model.SetParam("similarityThreshold", abm.DefaultedFloat(cfg.SimilarityThreshold, 0.4))
 	return model
 }
 
@@ -119,20 +123,20 @@ func (m *Model) Step(e abm.Emitter) error {
 }
 
 func (m *Model) OnParamChange(e abm.Emitter, id string, value any) error {
-	f, ok := asFloat64(value)
+	f, ok := abm.AsFloat64(value)
 	if !ok {
 		return fmt.Errorf("tensnap: expected numeric parameter %q", id)
 	}
 
 	switch id {
 	case "gridWidth":
-		m.SetParam(id, float64(clampInt(int(f), 10, 200)))
+		m.SetParam(id, float64(abm.ClampInt(int(f), 10, 200)))
 	case "gridHeight":
-		m.SetParam(id, float64(clampInt(int(f), 10, 200)))
+		m.SetParam(id, float64(abm.ClampInt(int(f), 10, 200)))
 	case "density":
-		m.SetParam(id, clampFloat(f, 0.1, 0.95))
+		m.SetParam(id, abm.ClampFloat(f, 0.1, 0.95))
 	case "similarityThreshold", "threshold":
-		threshold := clampFloat(f, 0, 1)
+		threshold := abm.ClampFloat(f, 0, 1)
 		m.SetParam("similarityThreshold", threshold)
 		m.active.similarityThreshold = threshold
 	default:
@@ -168,8 +172,19 @@ func (m *Model) stepAction(e abm.Emitter, actionID string, tickID *string) error
 		m.cells[fromIndex].group = 0
 		m.cells[fromIndex].agentID = ""
 	}
-	if swapped > 0 {
-		if err := e.ItemUpdate(EnvID, AgentLayerID, m.snapshotItems()); err != nil {
+	created, updated, deleted := m.diff.Compute(m.snapshotItems())
+	if len(created) > 0 {
+		if err := e.ItemCreate(EnvID, AgentLayerID, created); err != nil {
+			return err
+		}
+	}
+	if len(updated) > 0 {
+		if err := e.ItemUpdate(EnvID, AgentLayerID, updated); err != nil {
+			return err
+		}
+	}
+	if len(deleted) > 0 {
+		if err := e.ItemDelete(EnvID, AgentLayerID, deleted); err != nil {
 			return err
 		}
 	}
@@ -244,6 +259,7 @@ func SegregationIndex(m *Model) float64 {
 
 func (m *Model) initializeState() {
 	m.ResetTick()
+	m.diff.Reset()
 	m.applyPendingConfig()
 	m.rebuildCells()
 	m.populate()
@@ -254,8 +270,8 @@ func (m *Model) applyPendingConfig() {
 	gridWidth, gridHeight := m.pendingGridSize()
 	m.active.gridWidth = gridWidth
 	m.active.gridHeight = gridHeight
-	m.active.density = clampFloat(m.ParamFloat("density"), 0.1, 0.95)
-	m.active.similarityThreshold = clampFloat(m.ParamFloat("similarityThreshold"), 0, 1)
+	m.active.density = abm.ClampFloat(m.ParamFloat("density"), 0.1, 0.95)
+	m.active.similarityThreshold = abm.ClampFloat(m.ParamFloat("similarityThreshold"), 0, 1)
 }
 
 func (m *Model) rebuildCells() {
@@ -333,8 +349,8 @@ func (m *Model) neighborIndexes(index int) []int {
 }
 
 func (m *Model) pendingGridSize() (int, int) {
-	width := clampInt(int(m.ParamFloat("gridWidth")), 10, 200)
-	height := clampInt(int(m.ParamFloat("gridHeight")), 10, 200)
+	width := abm.ClampInt(int(m.ParamFloat("gridWidth")), 10, 200)
+	height := abm.ClampInt(int(m.ParamFloat("gridHeight")), 10, 200)
 	return width, height
 }
 
@@ -354,7 +370,7 @@ func (m *Model) replay(e abm.Emitter) error {
 	if err := e.ParamCreate(protocol.NumberParameter{ID: "gridHeight", Type: "number", Label: "Grid Height", Value: float64(pendingGridHeight), Min: 10, Max: 200, Step: 1, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
 		return err
 	}
-	if err := e.ParamCreate(protocol.NumberParameter{ID: "density", Type: "number", Label: "Density", Value: clampFloat(m.ParamFloat("density"), 0.1, 0.95), Min: 0.1, Max: 0.95, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
+	if err := e.ParamCreate(protocol.NumberParameter{ID: "density", Type: "number", Label: "Density", Value: abm.ClampFloat(m.ParamFloat("density"), 0.1, 0.95), Min: 0.1, Max: 0.95, Step: 0.05, AllowRuntimeChange: abm.BoolPtr(false)}); err != nil {
 		return err
 	}
 	if err := e.ActionCreate(&protocol.Action{ID: ActionIDReset, Label: "Reset", AllowRuntimeChange: abm.BoolPtr(true)}); err != nil {
@@ -383,9 +399,11 @@ func (m *Model) replay(e abm.Emitter) error {
 	if err := e.ChartCreate(&protocol.ChartGroupMetadata{ID: SegregationChartID, Label: "Segregation Index", Color: &segColor}); err != nil {
 		return err
 	}
-	if err := e.ItemCreate(EnvID, AgentLayerID, m.snapshotItems()); err != nil {
+	items := m.snapshotItems()
+	if err := e.ItemCreate(EnvID, AgentLayerID, items); err != nil {
 		return err
 	}
+	m.diff.Seed(items)
 	currentTick := float64(m.Tick())
 	if err := e.ChartUpdate(&protocol.ChartUpdatePayload{Updates: []protocol.ChartUpdateEntry{
 		{ID: SatisfactionChartID, Time: &currentTick, Value: SatisfiedPct(m)},
@@ -424,62 +442,4 @@ func groupColor(group int) string {
 		return "#3498db"
 	}
 	return "#e74c3c"
-}
-
-func defaultedInt(value, fallback int) int {
-	if value <= 0 {
-		return fallback
-	}
-	return value
-}
-
-func defaultedFloat(value, fallback float64) float64 {
-	if value <= 0 {
-		return fallback
-	}
-	return value
-}
-
-func clampInt(value, minValue, maxValue int) int {
-	if value < minValue {
-		return minValue
-	}
-	if value > maxValue {
-		return maxValue
-	}
-	return value
-}
-
-func clampFloat(value, minValue, maxValue float64) float64 {
-	if value < minValue {
-		return minValue
-	}
-	if value > maxValue {
-		return maxValue
-	}
-	return value
-}
-
-func asFloat64(value any) (float64, bool) {
-	switch n := value.(type) {
-	case float64:
-		return n, true
-	case float32:
-		return float64(n), true
-	case int:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	default:
-		return 0, false
-	}
-}
-
-func min(left, right int) int {
-	if left < right {
-		return left
-	}
-	return right
 }

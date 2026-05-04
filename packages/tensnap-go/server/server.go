@@ -2,7 +2,7 @@
 //
 // Minimal usage — 4 lines:
 //
-//	server.Run(ctx, server.Options{Addr: ":8080"}, &MyModel{})
+//	server.Run(ctx, server.Options{Addr: ":8765"}, &MyModel{})
 //
 // For per-session isolation (own model instance per renderer):
 //
@@ -25,7 +25,7 @@ import (
 
 // Options configures the WebSocket server.
 type Options struct {
-	Addr            string         // e.g. ":8080"
+	Addr            string         // e.g. ":8765"
 	Path            string         // WebSocket path, default "/ws"
 	Codec           protocol.Codec // default JSONCodec
 	Upgrader        *websocket.Upgrader
@@ -36,7 +36,7 @@ type Options struct {
 
 func (o *Options) applyDefaults() {
 	if o.Path == "" {
-		o.Path = "/ws"
+		o.Path = "/"
 	}
 	if o.Codec == nil {
 		o.Codec = protocol.JSONCodec{}
