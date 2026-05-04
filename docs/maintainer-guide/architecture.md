@@ -38,6 +38,28 @@ Owns:
 
 This package is the architectural center of the repository.
 
+## Rendering Contract Ownership
+
+`packages/core` is the single source of truth for rendering semantics across the repository.
+
+The core-owned rendering contract includes:
+
+- layer roles, metadata, dependencies, and storage/controller behavior
+- scene-bound discovery and view metadata resolution
+- render-plan generation and snapshot render-data collection
+- shared environment and chart rendering semantics
+- renderer-driven dispatch/apply/render pipeline semantics
+- asset, icon, background, and trajectory interpretation rules needed to render a `Scenario`
+
+All other packages must treat this contract as read-only infrastructure.
+
+- `packages/tensnap-web` may own browser lifecycle, React bindings, and browser-only integrations, but must not redefine layer semantics or loop semantics.
+- `packages/tensnap-agent` may own headless runtime lifecycle and backend registration, but must not keep a package-local scene model or package-local rendering rules.
+- `packages/benchmark` may own benchmark orchestration and reporting, but must not define an alternative rendering contract and must clearly separate synthetic renderer tests from web-equivalent scenario benchmarks.
+- `examples/js` may own model content and example packaging, but must not introduce package-local rendering adapter abstractions when the same semantics already exist in `packages/core` or `@tensnap/js`.
+
+Any new rendering backend or benchmark harness must consume the core-owned render plan and runtime contract rather than inventing a package-local projection model.
+
 ### `packages/tensnap-web`
 
 Main browser renderer application.
@@ -89,6 +111,11 @@ Owns:
 - `packages/web-common`: shared browser-side UI/types/helpers
 - `packages/web-adapter`: browser-side filesystem and integration helpers
 - `packages/benchmark`: benchmark harnesses for render/runtime paths
+
+Related planning documents:
+
+- [Agent Painter Downlift Plan](./agent-painter-downlift-plan.md)
+- [Benchmark and JS Example Normalization Plan](./benchmark-js-example-normalization-plan.md)
 
 ## Protocol v0.2 Ownership
 
