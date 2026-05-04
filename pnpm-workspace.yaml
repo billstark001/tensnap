@@ -1,5 +1,6 @@
 packages:
   - packages/*
+  - examples/js
 
 onlyBuiltDependencies:
   - '@swc/core'

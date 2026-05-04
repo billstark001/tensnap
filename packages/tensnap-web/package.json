@@ -46,7 +46,7 @@
     "@tensnap/web-adapter": "workspace:*",
     "@tensnap/web-common": "workspace:*",
     "@tensnap/web-models": "workspace:*",
-    "zod": "^4.4.2",
+    "zod": "^4.4.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

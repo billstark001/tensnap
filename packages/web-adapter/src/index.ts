@@ -15,3 +15,6 @@ export * from './i18n/register-catalog';
 
 // Export storage adapters
 export * from './adapters';
+
+// Export browser-side transports
+export * from './transport';

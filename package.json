@@ -3,7 +3,8 @@
   "version": "0.2.0",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/js"
   ],
   "scripts": {
     "dev:web": "pnpm --filter @tensnap/web dev",

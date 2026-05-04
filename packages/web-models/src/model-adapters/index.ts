@@ -1,4 +1,4 @@
-import { InMemoryTransportManager } from '../transport';
+import { InMemoryTransport } from '@tensnap/web-adapter/transport';
 import { createAxelrodAdapter } from './axelrod-adapter';
 import { createSchellingAdapter } from './schelling-adapter';
 import { createTornbergAdapter } from './tornberg-adapter';
@@ -14,7 +14,7 @@ export interface BuiltinModelEntry {
   id: string;
   name: string;
   description: string;
-  createTransport: () => InMemoryTransportManager;
+  createTransport: () => InMemoryTransport;
 }
 
 export function getBuiltinModelEntries(): BuiltinModelEntry[] {
@@ -23,25 +23,25 @@ export function getBuiltinModelEntries(): BuiltinModelEntry[] {
       id: 'schelling',
       name: 'Schelling Segregation',
       description: 'Neighbor similarity preferences produce segregation patterns.',
-      createTransport: () => new InMemoryTransportManager(createSchellingAdapter()),
+      createTransport: () => new InMemoryTransport(createSchellingAdapter()),
     },
     {
       id: 'wolf-sheep',
       name: 'Wolf-Sheep Predation',
       description: 'Predator-prey ecosystem with grass regrowth.',
-      createTransport: () => new InMemoryTransportManager(createWolfSheepAdapter()),
+      createTransport: () => new InMemoryTransport(createWolfSheepAdapter()),
     },
     {
       id: 'axelrod',
       name: 'Axelrod Culture Dissemination',
       description: 'Cultural convergence and polarization over a grid network.',
-      createTransport: () => new InMemoryTransportManager(createAxelrodAdapter()),
+      createTransport: () => new InMemoryTransport(createAxelrodAdapter()),
     },
     {
       id: 'tornberg',
       name: 'Tornberg Partisan Sorting',
       description: 'Partisan-weighted influence with digital-media reach.',
-      createTransport: () => new InMemoryTransportManager(createTornbergAdapter()),
+      createTransport: () => new InMemoryTransport(createTornbergAdapter()),
     },
   ];
 }

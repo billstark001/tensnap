@@ -15,13 +15,13 @@ export interface InMemorySimulationHandler {
   onDisconnect(): void;
 }
 
-export class InMemoryTransportManager implements ISimulatorTransport {
+export class InMemoryTransport implements ISimulatorTransport {
   readonly transportKind = 'inmemory';
   readonly encoding: ProtocolEncoding = 'json';
   readonly connectionId: string;
 
   private state: TransportConnectionState = 'closed';
-  private handlers = new Map<keyof TransportEventMap, Set<TransportEventHandler<any>>>();
+  private readonly handlers = new Map<keyof TransportEventMap, Set<TransportEventHandler<any>>>();
   private destroyed = false;
 
   constructor(private readonly simulation: InMemorySimulationHandler, connectionId?: string) {
@@ -43,10 +43,17 @@ export class InMemoryTransportManager implements ISimulatorTransport {
       throw new Error('Connection aborted');
     }
 
+    const bufferedMessages: SimulatorToRendererMessage[] = [];
     const send = (message: SimulatorToRendererMessage) => {
-      if (this.destroyed || this.state !== 'open') {
+      if (this.destroyed || (this.state !== 'open' && this.state !== 'connecting')) {
         return;
       }
+
+      if (this.state === 'connecting') {
+        bufferedMessages.push(message);
+        return;
+      }
+
       this.emit('message', message as TransportEventMap['message']);
     };
 
@@ -55,6 +62,9 @@ export class InMemoryTransportManager implements ISimulatorTransport {
     if (!this.destroyed) {
       this.state = 'open';
       this.emit('open', undefined);
+      bufferedMessages.forEach((message) => {
+        this.emit('message', message as TransportEventMap['message']);
+      });
     }
   }
 
