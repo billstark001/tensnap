@@ -7,7 +7,7 @@ import { App } from './App';
 
 import '@tensnap/web-common/styles/global.css';
 import { InBrowserFilePicker, registerWebAdapterLocaleCatalog } from '@tensnap/web-adapter';
-import { getBuiltinModelEntries } from '@tensnap/web-models';
+import { getJsExampleEntries } from '@tensnap/examples-js';
 import { initI18n, detectLocale, isValidLocale, i18n, registerLocaleCatalog } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
 import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
@@ -20,7 +20,7 @@ if (!window.structuredClone) {
 }
 
 registerBuiltinModels(
-  getBuiltinModelEntries().map((entry) => ({
+  getJsExampleEntries().map((entry) => ({
     id: entry.id,
     name: entry.name,
     description: entry.description,

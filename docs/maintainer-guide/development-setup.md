@@ -76,6 +76,7 @@ pnpm dev:tauri
 tensnap/
 ├── docs/                    # Documentation
 ├── examples/
+│   ├── js/                  # JavaScript examples and local simulator manifests
 │   ├── python/              # Python examples (non-Mesa)
 │   └── python_mesa/         # Python examples (Mesa-based)
 ├── packages/
@@ -86,8 +87,7 @@ tensnap/
 │   ├── tensnap-tauri/       # Desktop app (Tauri + Rust)
 │   ├── tensnap-web/         # Web frontend (React + Vite)
 │   ├── web-adapter/         # Browser-side filesystem/integration helpers
-│   ├── web-common/          # Shared browser UI/types/helpers
-│   └── web-models/          # Built-in TS model adapters and transports
+│   └── web-common/          # Shared browser UI/types/helpers
 └── package.json             # Workspace root
 ```
 

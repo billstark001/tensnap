@@ -1,20 +1,30 @@
 import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
-import { SchellingConfig, SchellingModel } from '@tensnap/examples-js/models';
-import { BaseModelAdapter } from './base-adapter';
+import { SchellingConfig, SchellingModel } from '../models/schelling';
+import { BaseModelAdapter, type AdapterMetadata } from '../runtime';
 
 const AGENT_LAYER = 'agents';
 const GRID_LAYER = 'grid';
-// const TRAILS_LAYER = 'trails';
+
+export const SCHELLING_METADATA: AdapterMetadata = {
+  id: 'schelling',
+  name: 'Schelling Segregation Model',
+  description: 'Local similarity preference causes macro segregation patterns.',
+};
+
+export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
+  gridWidth: 50,
+  gridHeight: 50,
+  numAgentsType1: 600,
+  numAgentsType2: 600,
+  similarityThreshold: 0.4,
+  moveDistance: 10,
+};
 
 export class SchellingAdapter extends BaseModelAdapter {
   private model: SchellingModel;
 
   constructor(config: SchellingConfig) {
-    super({
-      id: 'schelling',
-      name: 'Schelling Segregation Model',
-      description: 'Local similarity preference causes macro segregation patterns.',
-    });
+    super(SCHELLING_METADATA);
     this.model = new SchellingModel(config);
   }
 
@@ -35,7 +45,7 @@ export class SchellingAdapter extends BaseModelAdapter {
       const continuous = id === 'start';
       return {
         id,
-        label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
+        label: id.split('_').map((word) => `${word[0].toUpperCase()}${word.slice(1)}`).join('/'),
         allowRuntimeChange: true,
         continuous,
       };
@@ -72,7 +82,7 @@ export class SchellingAdapter extends BaseModelAdapter {
         operations: [
           { id: 'satisfaction_rate', operation: 'clear' },
           { id: 'segregation_index', operation: 'clear' },
-        ]
+        ],
       });
       shouldContinue = false;
     }
@@ -95,13 +105,7 @@ export class SchellingAdapter extends BaseModelAdapter {
     const config = this.model.getConfig();
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: AGENT_LAYER, layer_type: 'agent', data: { width: config.gridWidth, height: config.gridHeight } });
     await this.sendEnvLayerCreate({ env_id: 'main', layer_id: GRID_LAYER, layer_type: 'grid', data: { width: config.gridWidth, height: config.gridHeight } });
-    // await this.sendEnvLayerCreate({
-    //   env_id: 'main', layer_id: TRAILS_LAYER, layer_type: 'trajectory', dependency_layer_ids: {
-    //     agent: AGENT_LAYER,
-    //   }, data: { length: 1, },
-    // });
-    const allAgents = this.model.getEnvironmentState().agents;
-    await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: allAgents });
+    await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: this.model.getEnvironmentState().agents });
 
     const stats = this.model.getStatistics();
     await this.sendMetadataUpdate({ time: 0 });
@@ -109,7 +113,7 @@ export class SchellingAdapter extends BaseModelAdapter {
       updates: [
         { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
         { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
-      ]
+      ],
     });
   }
 
@@ -119,8 +123,8 @@ export class SchellingAdapter extends BaseModelAdapter {
     await this.sendMetadataUpdate({ time: stats.timeStep });
 
     const updates = this.model.getAgentUpdates(false);
-    const create = updates.filter((x) => x.operation === 'create').map((x) => x.data);
-    const change = updates.filter((x) => x.operation === 'update').map((x) => x.data);
+    const create = updates.filter((update) => update.operation === 'create').map((update) => update.data);
+    const change = updates.filter((update) => update.operation === 'update').map((update) => update.data);
     if (create.length > 0) {
       await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: create });
     }
@@ -132,20 +136,12 @@ export class SchellingAdapter extends BaseModelAdapter {
       updates: [
         { id: 'satisfaction_rate', value: stats.satisfactionRate, time: stats.timeStep },
         { id: 'segregation_index', value: stats.segregationIndex, time: stats.timeStep },
-      ]
+      ],
     });
     return true;
   }
 }
 
 export function createSchellingAdapter(config: Partial<SchellingConfig> = {}): SchellingAdapter {
-  const defaults: SchellingConfig = {
-    gridWidth: 50,
-    gridHeight: 50,
-    numAgentsType1: 600,
-    numAgentsType2: 600,
-    similarityThreshold: 0.4,
-    moveDistance: 10,
-  };
-  return new SchellingAdapter({ ...defaults, ...config });
+  return new SchellingAdapter({ ...DEFAULT_SCHELLING_CONFIG, ...config });
 }

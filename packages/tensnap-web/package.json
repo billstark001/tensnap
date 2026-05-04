@@ -43,9 +43,9 @@
     "react-dom": "^19.2.5",
     "react-split": "^2.0.14",
     "@tensnap/core": "workspace:*",
+    "@tensnap/examples-js": "workspace:*",
     "@tensnap/web-adapter": "workspace:*",
     "@tensnap/web-common": "workspace:*",
-    "@tensnap/web-models": "workspace:*",
     "zod": "^4.4.3",
     "zustand": "^5.0.12"
   },

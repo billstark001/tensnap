@@ -85,7 +85,7 @@ Owns:
 
 ### Supporting browser packages
 
-- `packages/web-models`: built-in TypeScript models and in-memory transports
+- `examples/js`: built-in TypeScript models, renderer adapters, local transport entrypoints, and benchmark fixtures
 - `packages/web-common`: shared browser-side UI/types/helpers
 - `packages/web-adapter`: browser-side filesystem and integration helpers
 - `packages/benchmark`: benchmark harnesses for render/runtime paths

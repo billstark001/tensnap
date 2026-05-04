@@ -41,7 +41,19 @@ importers:
       '@tensnap/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@tensnap/js':
+        specifier: workspace:*
+        version: link:../../packages/tensnap-js
+      '@tensnap/web-adapter':
+        specifier: workspace:*
+        version: link:../../packages/web-adapter
     devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -57,9 +69,9 @@ importers:
       '@tensnap/core':
         specifier: workspace:*
         version: link:../core
-      '@tensnap/web-models':
+      '@tensnap/examples-js':
         specifier: workspace:*
-        version: link:../web-models
+        version: link:../../examples/js
       leafer-ui:
         specifier: ^2.1.0
         version: 2.1.0
@@ -318,15 +330,15 @@ importers:
       '@tensnap/core':
         specifier: workspace:*
         version: link:../core
+      '@tensnap/examples-js':
+        specifier: workspace:*
+        version: link:../../examples/js
       '@tensnap/web-adapter':
         specifier: workspace:*
         version: link:../web-adapter
       '@tensnap/web-common':
         specifier: workspace:*
         version: link:../web-common
-      '@tensnap/web-models':
-        specifier: workspace:*
-        version: link:../web-models
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -537,15 +549,6 @@ importers:
       '@vanilla-extract/css':
         specifier: ^1.20.1
         version: 1.20.1(babel-plugin-macros@3.1.0)
-
-  packages/web-models:
-    dependencies:
-      '@tensnap/core':
-        specifier: workspace:*
-        version: link:../core
-      '@tensnap/web-adapter':
-        specifier: workspace:*
-        version: link:../web-adapter
 
 packages:
 

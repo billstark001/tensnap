@@ -48,7 +48,7 @@ export async function runBenchmark(
       }
 
       const t0 = performance.now();
-      benchCase.tick(frameIndex);
+      await benchCase.tick(frameIndex);
       const computeElapsed = performance.now() - t0;
       if (isMeasuredFrame) {
         timings.push(computeElapsed);

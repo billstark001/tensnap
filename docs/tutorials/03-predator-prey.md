@@ -41,7 +41,7 @@ It also publishes three charts:
 - wolf population
 - fraction of grass currently available
 
-The default parameter values are intentionally aligned with the built-in `web-models` wolf-sheep preset for world size, initial populations, food gain, grass regrowth, and reproduction defaults. The movement and interaction rules in this tutorial remain simpler than the built-in adapter.
+The default parameter values are intentionally aligned with the built-in `examples/js` wolf-sheep preset for world size, initial populations, food gain, grass regrowth, and reproduction defaults. The movement and interaction rules in this tutorial remain simpler than the built-in adapter.
 
 ## Step 1: Create the Simulation File
 

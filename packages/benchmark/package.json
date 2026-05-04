@@ -15,7 +15,7 @@
     "@preact/preset-vite": "^2.10.5",
     "@preact/signals": "^2.9.0",
     "@tensnap/core": "workspace:*",
-    "@tensnap/web-models": "workspace:*",
+    "@tensnap/examples-js": "workspace:*",
     "leafer-ui": "^2.1.0",
     "preact": "^10.29.1"
   },

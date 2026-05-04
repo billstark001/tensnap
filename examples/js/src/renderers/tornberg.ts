@@ -6,11 +6,28 @@ import {
   computeSorting,
   initializeTornberg,
   stepTornberg,
-} from '@tensnap/examples-js/models';
-import { BaseModelAdapter } from './base-adapter';
+} from '../models/tornberg';
+import { BaseModelAdapter, type AdapterMetadata } from '../runtime';
 
 const PARTISAN_LAYER = 'partisan';
 const SORTING_SAMPLE_INTERVAL = 10;
+
+export const TORNBERG_METADATA: AdapterMetadata = {
+  id: 'tornberg',
+  name: 'Tornberg Partisan Sorting',
+  description: 'Digital-media reach and homophily amplify partisan sorting in cultural space.',
+};
+
+export const DEFAULT_TORNBERG_CONFIG: TornbergConfig = {
+  width: 30,
+  height: 30,
+  numFeatures: 10,
+  numTraits: 10,
+  numPartisans: 2,
+  partisanWeight: 4,
+  gamma: 0.25,
+  homophilyH: 4,
+};
 
 export class TornbergAdapter extends BaseModelAdapter {
   private state: TornbergState;
@@ -18,11 +35,7 @@ export class TornbergAdapter extends BaseModelAdapter {
   private lastSorting = 0;
 
   constructor(private readonly config: TornbergConfig) {
-    super({
-      id: 'tornberg',
-      name: 'Tornberg Partisan Sorting',
-      description: 'Digital-media reach and homophily amplify partisan sorting in cultural space.',
-    });
+    super(TORNBERG_METADATA);
     this.state = initializeTornberg(config);
   }
 
@@ -60,7 +73,7 @@ export class TornbergAdapter extends BaseModelAdapter {
   }
 
   protected async handleParameterChange(): Promise<void> {
-    // Runtime parameter changes are intentionally disabled for this adapter.
+    // Runtime parameter changes are intentionally disabled.
   }
 
   protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
@@ -107,18 +120,15 @@ export class TornbergAdapter extends BaseModelAdapter {
 
   private createPartisanAgents(): GridAgentState[] {
     const palette = ['#e03131', '#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#0b7285'];
-    return this.state.agents.flat().map((agent) => {
-      const partisanColor = palette[agent.partisan % palette.length];
-      return {
-        id: `t_${agent.row}_${agent.col}`,
-        x: agent.col,
-        y: agent.row,
-        heading: 0,
-        icon: 'square' as const,
-        size: 0.92,
-        color: partisanColor,
-      } as GridAgentState;
-    });
+    return this.state.agents.flat().map((agent) => ({
+      id: `t_${agent.row}_${agent.col}`,
+      x: agent.col,
+      y: agent.row,
+      heading: 0,
+      icon: 'square' as const,
+      size: 0.92,
+      color: palette[agent.partisan % palette.length],
+    }) as GridAgentState);
   }
 
   private async stepOnce(): Promise<boolean> {
@@ -131,7 +141,7 @@ export class TornbergAdapter extends BaseModelAdapter {
     }
 
     await this.sendMetadataUpdate({ time });
-    const updates = this.createPartisanAgents().map((a) => ({ id: a.id, x: a.x, y: a.y, color: a.color, icon: a.icon, size: a.size }));
+    const updates = this.createPartisanAgents().map((agent) => ({ id: agent.id, x: agent.x, y: agent.y, color: agent.color, icon: agent.icon, size: agent.size }));
     await this.sendItemUpdate({ env_id: 'main', layer_id: PARTISAN_LAYER, items: updates });
     await this.sendChartUpdate({ updates: [
       { id: 'sorting', value: this.lastSorting, time },
@@ -142,15 +152,5 @@ export class TornbergAdapter extends BaseModelAdapter {
 }
 
 export function createTornbergAdapter(config: Partial<TornbergConfig> = {}): TornbergAdapter {
-  const defaults: TornbergConfig = {
-    width: 30,
-    height: 30,
-    numFeatures: 10,
-    numTraits: 10,
-    numPartisans: 2,
-    partisanWeight: 4,
-    gamma: 0.25,
-    homophilyH: 4,
-  };
-  return new TornbergAdapter({ ...defaults, ...config });
+  return new TornbergAdapter({ ...DEFAULT_TORNBERG_CONFIG, ...config });
 }

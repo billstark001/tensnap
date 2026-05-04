@@ -7,18 +7,28 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./models": "./src/models/index.ts",
+    "./manifest": "./src/manifest.ts",
+    "./benchmark": "./src/benchmark/index.ts",
+    "./entries/main-ws": "./src/entries/main-ws.ts",
+    "./entries/main-bundle": "./src/entries/main-bundle.ts"
   },
   "scripts": {
+    "demo:ws": "tsx src/entries/main-ws.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "echo 'No tests yet'",
     "lint": "pnpm run typecheck",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@tensnap/core": "workspace:*"
+    "@tensnap/core": "workspace:*",
+    "@tensnap/js": "workspace:*",
+    "@tensnap/web-adapter": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   }
 }

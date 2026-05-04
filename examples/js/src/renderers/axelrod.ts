@@ -1,20 +1,29 @@
 import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
 import type { GridAgentState } from '@tensnap/core/environment';
-import { AxelrodConfig, AxelrodState, countCultures, initializeAxelrod, stepAxelrod } from '@tensnap/examples-js/models';
-import { BaseModelAdapter } from './base-adapter';
+import { AxelrodConfig, AxelrodState, countCultures, initializeAxelrod, stepAxelrod } from '../models/axelrod';
+import { BaseModelAdapter, type AdapterMetadata } from '../runtime';
 
 const CULTURE_LAYER = 'culture';
+
+export const AXELROD_METADATA: AdapterMetadata = {
+  id: 'axelrod',
+  name: 'Axelrod Cultural Dissemination',
+  description: 'Local interaction drives convergence and global polarization of cultural traits.',
+};
+
+export const DEFAULT_AXELROD_CONFIG: AxelrodConfig = {
+  width: 40,
+  height: 40,
+  numFeatures: 8,
+  numTraits: 10,
+};
 
 export class AxelrodAdapter extends BaseModelAdapter {
   private state: AxelrodState;
   private stepCount = 0;
 
   constructor(private readonly config: AxelrodConfig) {
-    super({
-      id: 'axelrod',
-      name: 'Axelrod Cultural Dissemination',
-      description: 'Local interaction drives convergence and global polarization of cultural traits.',
-    });
+    super(AXELROD_METADATA);
     this.state = initializeAxelrod(config);
   }
 
@@ -48,7 +57,7 @@ export class AxelrodAdapter extends BaseModelAdapter {
   }
 
   protected async handleParameterChange(): Promise<void> {
-    // Runtime parameter changes are intentionally disabled for this adapter.
+    // Runtime parameter changes are intentionally disabled.
   }
 
   protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
@@ -117,7 +126,7 @@ export class AxelrodAdapter extends BaseModelAdapter {
     const time = this.stepCount;
     await this.sendMetadataUpdate({ time });
 
-    const diff = this.createCultureAgents().map((a) => ({ id: a.id, x: a.x, y: a.y, icon: a.icon, size: a.size, color: a.color }));
+    const diff = this.createCultureAgents().map((agent) => ({ id: agent.id, x: agent.x, y: agent.y, icon: agent.icon, size: agent.size, color: agent.color }));
     await this.sendItemUpdate({ env_id: 'main', layer_id: CULTURE_LAYER, items: diff });
     await this.sendChartUpdate({ updates: [
       { id: 'cultures', value: countCultures(this.state), time },
@@ -128,6 +137,5 @@ export class AxelrodAdapter extends BaseModelAdapter {
 }
 
 export function createAxelrodAdapter(config: Partial<AxelrodConfig> = {}): AxelrodAdapter {
-  const defaults: AxelrodConfig = { width: 40, height: 40, numFeatures: 8, numTraits: 10 };
-  return new AxelrodAdapter({ ...defaults, ...config });
+  return new AxelrodAdapter({ ...DEFAULT_AXELROD_CONFIG, ...config });
 }

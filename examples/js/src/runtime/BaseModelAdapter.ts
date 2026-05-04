@@ -31,7 +31,7 @@ import type {
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '@tensnap/core';
-import type { InMemorySimulationHandler } from '../transport';
+import type { InMemorySimulationHandler } from '@tensnap/web-adapter/transport';
 
 export interface AdapterMetadata {
   id: string;
@@ -43,13 +43,12 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   private sendFunc?: (message: SimulatorToRendererMessage) => void;
   private destroyed = false;
 
-  // Asset registry: id → { hash, mime, data }
   private readonly assetRegistry = new Map<
     string,
     { hash: string; mime: string; data: Uint8Array; label?: string }
   >();
 
-  constructor(readonly metadata: AdapterMetadata) { }
+  constructor(readonly metadata: AdapterMetadata) {}
 
   get connectionId(): string {
     return `inmemory:${this.metadata.id}`;
@@ -65,6 +64,7 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   protected abstract cleanup(): void | Promise<void>;
 
   async onConnect(send: (msg: SimulatorToRendererMessage) => void): Promise<void> {
+    this.destroyed = false;
     this.sendFunc = send;
     await this.initialize();
     await this.sendFullStateSync();
@@ -140,8 +140,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     await this.send({ type: 'state_sync_end', payload: requestId ? { request_id: requestId } : {} });
   }
 
-  // ── Actions ──────────────────────────────────────────────────────────────
-
   protected async sendActionEnd(payload: ActionEndPayload): Promise<void> {
     await this.send({ type: 'action_end', payload });
   }
@@ -158,8 +156,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     await this.send({ type: 'action_delete', payload });
   }
 
-  // ── Parameters ───────────────────────────────────────────────────────────
-
   protected async sendParamCreate(payload: Parameter): Promise<void> {
     await this.send({ type: 'param_create', payload });
   }
@@ -175,8 +171,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   protected async sendParamSync(payload: ParameterSyncPayload): Promise<void> {
     await this.send({ type: 'param_sync', payload });
   }
-
-  // ── Environments ─────────────────────────────────────────────────────────
 
   protected async sendEnvCreate(payload: EnvCreatePayload): Promise<void> {
     await this.send({ type: 'env_create', payload });
@@ -197,8 +191,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   protected async sendEnvLayerDelete(payload: EnvLayerDeletePayload): Promise<void> {
     await this.send({ type: 'env_layer_delete', payload });
   }
-
-  // ── Generic Items ────────────────────────────────────────────────────────
 
   protected async sendItemCreate<TItem extends object>(payload: {
     env_id: string;
@@ -224,8 +216,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     await this.send({ type: 'item_delete', payload: payload as ItemDeletePayload });
   }
 
-  // ── Charts ───────────────────────────────────────────────────────────────
-
   protected async sendChartCreate(payload: ChartGroupMetadata): Promise<void> {
     await this.send({ type: 'chart_create', payload });
   }
@@ -237,8 +227,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   protected async sendChartDelete(payload: ChartDeletePayload): Promise<void> {
     await this.send({ type: 'chart_delete', payload });
   }
-
-  // ── Assets ───────────────────────────────────────────────────────────────
 
   protected async sendAssetMeta(payload: AssetMetaPayload): Promise<void> {
     await this.send({ type: 'asset_meta', payload });
@@ -252,11 +240,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     await this.send({ type: 'asset_delete', payload });
   }
 
-  /**
-   * Register a binary asset so it can be transferred to the renderer on demand.
-   * Computes a SHA-256 hash of the content for deduplication.
-   * Sends asset_meta immediately; asset_data is sent in response to asset_sync.
-   */
   protected async registerAsset(
     id: string,
     mime: string,
@@ -265,7 +248,7 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
   ): Promise<void> {
     const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data.slice());
     const hash = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
       .join('');
     this.assetRegistry.set(id, { hash, mime, data, label });
     await this.sendAssetMeta({
@@ -273,10 +256,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     });
   }
 
-  /**
-   * Respond to an asset_sync request from the renderer.
-   * Sends asset_data for any asset whose hash differs from what the renderer holds.
-   */
   protected async handleAssetSync(payload: AssetSyncPayload): Promise<void> {
     for (const [id, entry] of this.assetRegistry) {
       if (payload.assets[id] !== entry.hash) {
@@ -284,8 +263,6 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
       }
     }
   }
-
-  // ── Misc ─────────────────────────────────────────────────────────────────
 
   protected async sendLog(payload: LogPayload): Promise<void> {
     await this.send({ type: 'log', payload });
@@ -321,78 +298,65 @@ export abstract class BaseModelAdapter implements InMemorySimulationHandler {
     await this.sendStateSyncStart(request.request_id);
 
     try {
-      const currentParams = new Map(this.getParameters().map((p) => [p.id, p]));
-      const currentActions = new Map(this.getActions().map((a) => [a.id, a]));
-      const currentEnvs = new Map(this.getEnvironments().map((e) => [e.id, e]));
-      const currentCharts = new Map(this.getCharts().map((c) => [c.id, c]));
+      const currentParams = new Map(this.getParameters().map((parameter) => [parameter.id, parameter]));
+      const currentActions = new Map(this.getActions().map((action) => [action.id, action]));
+      const currentEnvs = new Map(this.getEnvironments().map((env) => [env.id, env]));
+      const currentCharts = new Map(this.getCharts().map((chart) => [chart.id, chart]));
 
-      // Parameters: delete renderer-only, create sim-only, update shared
-      for (const rp of request.parameters) {
-        if (!currentParams.has(rp.id)) {
-          await this.sendParamDelete({ id: rp.id });
+      for (const rendererParam of request.parameters) {
+        if (!currentParams.has(rendererParam.id)) {
+          await this.sendParamDelete({ id: rendererParam.id });
         }
       }
 
-      for (const [id, param] of currentParams) {
-        if (!request.parameters.some((p) => p.id === id)) {
-          await this.sendParamCreate(param);
+      for (const [id, parameter] of currentParams) {
+        if (!request.parameters.some((entry) => entry.id === id)) {
+          await this.sendParamCreate(parameter);
         } else {
-          await this.sendParamUpdate(param);
+          await this.sendParamUpdate(parameter);
         }
       }
 
-      // Actions: delete renderer-only, create sim-only
-      for (const ra of request.actions) {
-        if (!currentActions.has(ra.id)) {
-          await this.sendActionDelete({ id: ra.id });
+      for (const rendererAction of request.actions) {
+        if (!currentActions.has(rendererAction.id)) {
+          await this.sendActionDelete({ id: rendererAction.id });
         }
       }
 
       for (const [id, action] of currentActions) {
-        if (!request.actions.some((a) => a.id === id)) {
+        if (!request.actions.some((entry) => entry.id === id)) {
           await this.sendActionCreate(action);
         }
       }
 
-      // Environments: delete renderer-only, delete orphaned layers in shared, create sim-only
-      for (const re of request.envs) {
-        if (currentEnvs.has(re.id)) {
-          // delete all renderer layers for this env so sendInitialData can recreate them fresh
-          for (const rl of re.layers) {
-            await this.sendEnvLayerDelete({ env_id: re.id, layer_id: rl.layer_id });
+      for (const rendererEnv of request.envs) {
+        if (currentEnvs.has(rendererEnv.id)) {
+          for (const layer of rendererEnv.layers) {
+            await this.sendEnvLayerDelete({ env_id: rendererEnv.id, layer_id: layer.layer_id });
           }
         } else {
-          await this.sendEnvDelete({ id: re.id });
+          await this.sendEnvDelete({ id: rendererEnv.id });
         }
       }
 
       for (const [id, env] of currentEnvs) {
-        if (!request.envs.some((e) => e.id === id)) {
+        if (!request.envs.some((entry) => entry.id === id)) {
           await this.sendEnvCreate(env);
         }
       }
 
-      // Charts: delete renderer-only, create sim-only
-      for (const rc of request.charts) {
-        if (!currentCharts.has(rc.id)) {
-          await this.sendChartDelete({ id: rc.id });
+      for (const rendererChart of request.charts) {
+        if (!currentCharts.has(rendererChart.id)) {
+          await this.sendChartDelete({ id: rendererChart.id });
         }
       }
 
       for (const [id, chart] of currentCharts) {
-        if (!request.charts.some((c) => c.id === id)) {
+        if (!request.charts.some((entry) => entry.id === id)) {
           await this.sendChartCreate(chart);
         }
       }
 
-      // Re-send all asset metadata so renderer can request missing data
-      for (const [id, entry] of this.assetRegistry) {
-        await this.sendAssetMeta({
-          assets: [{ id, hash: entry.hash, mime: entry.mime, size: entry.data.byteLength, label: entry.label } satisfies AssetMeta],
-        });
-      }
-
-      // Re-send current layer/agent/edge data
       await this.sendInitialData();
     } finally {
       await this.sendStateSyncStop(request.request_id);

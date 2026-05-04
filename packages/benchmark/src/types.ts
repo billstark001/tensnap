@@ -25,7 +25,7 @@ export interface BenchmarkCase {
   /** Called once before the run to create the DOM containers and views. */
   setup(container: HTMLElement): Promise<void> | void;
   /** Called for every benchmark frame; should update data but NOT wait for RAF. */
-  tick(frameIndex: number): void;
+  tick(frameIndex: number): Promise<void> | void;
   /** Called once after the run to destroy resources. */
   teardown(): Promise<void> | void;
 }

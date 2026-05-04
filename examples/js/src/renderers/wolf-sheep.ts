@@ -1,7 +1,7 @@
 import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
 import type { GridAgentState } from '@tensnap/core/environment';
-import { WolfSheepConfig, WolfSheepModel, World } from '@tensnap/examples-js/models';
-import { BaseModelAdapter } from './base-adapter';
+import { WolfSheepConfig, WolfSheepModel, World } from '../models/wolf-sheep';
+import { BaseModelAdapter, type AdapterMetadata } from '../runtime';
 
 const GRID_LAYER = 'grid';
 const TERRAIN_LAYER = 'terrain';
@@ -46,6 +46,26 @@ const WOLF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 
 type AnimalObj = { position: { x: number; y: number }; heading: number; config: { color: string; size: number } };
 
+export const WOLF_SHEEP_METADATA: AdapterMetadata = {
+  id: 'wolf-sheep',
+  name: 'Wolf Sheep Predation Model',
+  description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
+};
+
+export const DEFAULT_WOLF_SHEEP_CONFIG: WolfSheepConfig = {
+  modelVersion: 'sheep-wolves-grass',
+  initialNumberSheep: 100,
+  initialNumberWolves: 50,
+  sheepGainFromFood: 4,
+  wolfGainFromFood: 20,
+  grassRegrowthTime: 30,
+  sheepReproduce: 4,
+  wolfReproduce: 5,
+  showEnergy: false,
+  gridWidth: 50,
+  gridHeight: 50,
+};
+
 export class WolfSheepAdapter extends BaseModelAdapter {
   private model: WolfSheepModel;
   private worldSize: { width: number; height: number };
@@ -56,11 +76,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   private previousAnimalIds = new Set<string | number>();
 
   constructor(config: WolfSheepConfig) {
-    super({
-      id: 'wolf-sheep',
-      name: 'Wolf Sheep Predation Model',
-      description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
-    });
+    super(WOLF_SHEEP_METADATA);
     const world: World = { width: config.gridWidth, height: config.gridHeight };
     this.worldSize = world;
     this.model = new WolfSheepModel(world, config);
@@ -82,15 +98,12 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   }
 
   protected getActions(): Action[] {
-    return ['start', 'step', 'reset'].map((id) => {
-      const continuous = id === 'start';
-      return {
-        id,
-        label: id.split('_').map((w) => `${w[0].toUpperCase()}${w.slice(1)}`).join('/'),
-        allowRuntimeChange: true,
-        continuous,
-      };
-    });
+    return ['start', 'step', 'reset'].map((id) => ({
+      id,
+      label: id.split('_').map((word) => `${word[0].toUpperCase()}${word.slice(1)}`).join('/'),
+      allowRuntimeChange: true,
+      continuous: id === 'start',
+    }));
   }
 
   protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
@@ -115,7 +128,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
     let shouldContinue = false;
 
-    const actionMap: Record<string, () => Promise<void> | void> = {
+    const actions: Record<string, () => Promise<void> | void> = {
       start: async () => {
         shouldContinue = await this.stepOnce();
       },
@@ -139,7 +152,8 @@ export class WolfSheepAdapter extends BaseModelAdapter {
         shouldContinue = false;
       },
     };
-    await actionMap[id]?.();
+
+    await actions[id]?.();
 
     await this.sendActionEnd({
       id,
@@ -159,28 +173,13 @@ export class WolfSheepAdapter extends BaseModelAdapter {
   protected async sendInitialData(): Promise<void> {
     await this.registerAnimalAssets();
 
-    await this.sendEnvLayerCreate({
-      env_id: 'main',
-      layer_id: TERRAIN_LAYER,
-      layer_type: 'agent',
-      data: { width: this.worldSize.width, height: this.worldSize.height },
-    });
-    await this.sendEnvLayerCreate({
-      env_id: 'main',
-      layer_id: GRID_LAYER,
-      layer_type: 'grid',
-      data: { width: this.worldSize.width, height: this.worldSize.height },
-    });
-    await this.sendEnvLayerCreate({
-      env_id: 'main',
-      layer_id: ANIMAL_LAYER,
-      layer_type: 'agent',
-      data: { width: this.worldSize.width, height: this.worldSize.height },
-    });
+    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: TERRAIN_LAYER, layer_type: 'agent', data: { width: this.worldSize.width, height: this.worldSize.height } });
+    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: GRID_LAYER, layer_type: 'grid', data: { width: this.worldSize.width, height: this.worldSize.height } });
+    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: ANIMAL_LAYER, layer_type: 'agent', data: { width: this.worldSize.width, height: this.worldSize.height } });
 
     await this.sendItemCreate({ env_id: 'main', layer_id: TERRAIN_LAYER, items: this.buildTerrainAgents(true) });
     const animals = this.buildAnimalAgents();
-    this.previousAnimalIds = new Set<string | number>(animals.map((a) => a.id));
+    this.previousAnimalIds = new Set<string | number>(animals.map((agent) => agent.id));
     await this.sendItemCreate({ env_id: 'main', layer_id: ANIMAL_LAYER, items: animals });
     await this.sendMetadataUpdate({ time: 0 });
     await this.sendChartUpdate({ updates: this.getChartUpdates(0) });
@@ -188,7 +187,7 @@ export class WolfSheepAdapter extends BaseModelAdapter {
 
   private capturePatchSnapshot(): void {
     const patches = this.model.getPatches();
-    this.previousPatchColors = patches.map((row) => row.map((p) => p.color));
+    this.previousPatchColors = patches.map((row) => row.map((patch) => patch.color));
   }
 
   private buildTerrainAgents(full: boolean): GridAgentState[] {
@@ -220,23 +219,23 @@ export class WolfSheepAdapter extends BaseModelAdapter {
     const sheep = Array.from(this.model.getSheep()) as unknown as AnimalObj[];
     const wolves = Array.from(this.model.getWolves()) as unknown as AnimalObj[];
     return [
-      ...sheep.map((s) => ({
-        id: this.getAnimalId('sheep', s as unknown as object),
-        x: s.position.x,
-        y: s.position.y,
-        heading: (s.heading * Math.PI) / 180,
+      ...sheep.map((animal) => ({
+        id: this.getAnimalId('sheep', animal as unknown as object),
+        x: animal.position.x,
+        y: animal.position.y,
+        heading: (animal.heading * Math.PI) / 180,
         color: '#f1f1f1',
         icon: SHEEP_ICON,
-        size: s.config.size,
+        size: animal.config.size,
       })),
-      ...wolves.map((w) => ({
-        id: this.getAnimalId('wolf', w as unknown as object),
-        x: w.position.x,
-        y: w.position.y,
-        heading: (w.heading * Math.PI) / 180,
+      ...wolves.map((animal) => ({
+        id: this.getAnimalId('wolf', animal as unknown as object),
+        x: animal.position.x,
+        y: animal.position.y,
+        heading: (animal.heading * Math.PI) / 180,
         color: '#111111',
         icon: WOLF_ICON,
-        size: w.config.size,
+        size: animal.config.size,
       })),
     ];
   }
@@ -264,15 +263,15 @@ export class WolfSheepAdapter extends BaseModelAdapter {
       await this.sendItemUpdate({
         env_id: 'main',
         layer_id: TERRAIN_LAYER,
-        items: terrainUpdates.map((a) => ({ id: a.id, x: a.x, y: a.y, color: a.color, icon: a.icon, size: a.size })),
+        items: terrainUpdates.map((agent) => ({ id: agent.id, x: agent.x, y: agent.y, color: agent.color, icon: agent.icon, size: agent.size })),
       });
     }
 
     const currentAnimals = this.buildAnimalAgents();
-    const currentIds = new Set<string | number>(currentAnimals.map((a) => a.id));
+    const currentIds = new Set<string | number>(currentAnimals.map((agent) => agent.id));
     const toDelete = Array.from(this.previousAnimalIds).filter((id) => !currentIds.has(id));
-    const toCreate = currentAnimals.filter((a) => !this.previousAnimalIds.has(a.id));
-    const toUpdate = currentAnimals.filter((a) => this.previousAnimalIds.has(a.id));
+    const toCreate = currentAnimals.filter((agent) => !this.previousAnimalIds.has(agent.id));
+    const toUpdate = currentAnimals.filter((agent) => this.previousAnimalIds.has(agent.id));
 
     if (toDelete.length > 0) {
       await this.sendItemDelete({ env_id: 'main', layer_id: ANIMAL_LAYER, items: toDelete.map((id) => ({ id })) });
@@ -284,19 +283,19 @@ export class WolfSheepAdapter extends BaseModelAdapter {
       await this.sendItemUpdate({
         env_id: 'main',
         layer_id: ANIMAL_LAYER,
-        items: toUpdate.map((a) => ({
-          id: a.id,
-          x: a.x,
-          y: a.y,
-          heading: a.heading,
-          color: a.color,
-          icon: a.icon,
-          size: a.size,
+        items: toUpdate.map((agent) => ({
+          id: agent.id,
+          x: agent.x,
+          y: agent.y,
+          heading: agent.heading,
+          color: agent.color,
+          icon: agent.icon,
+          size: agent.size,
         })),
       });
     }
     this.previousAnimalIds = currentIds;
-    await this.sendChartUpdate({ updates: this.getChartUpdates(this.model.getTicks()) });
+    await this.sendChartUpdate({ updates: this.getChartUpdates(time) });
 
     this.capturePatchSnapshot();
 
@@ -305,18 +304,5 @@ export class WolfSheepAdapter extends BaseModelAdapter {
 }
 
 export function createWolfSheepAdapter(config: Partial<WolfSheepConfig> = {}): WolfSheepAdapter {
-  const defaults: WolfSheepConfig = {
-    modelVersion: 'sheep-wolves-grass',
-    initialNumberSheep: 100,
-    initialNumberWolves: 50,
-    sheepGainFromFood: 4,
-    wolfGainFromFood: 20,
-    grassRegrowthTime: 30,
-    sheepReproduce: 4,
-    wolfReproduce: 5,
-    showEnergy: false,
-    gridWidth: 50,
-    gridHeight: 50,
-  };
-  return new WolfSheepAdapter({ ...defaults, ...config });
+  return new WolfSheepAdapter({ ...DEFAULT_WOLF_SHEEP_CONFIG, ...config });
 }
