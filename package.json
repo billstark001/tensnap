@@ -27,6 +27,7 @@
     "dev:py:cgol": "cd examples/python_mesa && python cgol_viz.py",
     "dev:py:sugarscape": "cd examples/python_mesa && python sugarscape_viz.py",
     "dev:py:mushroom": "cd examples/python_mesa && python mushroom_viz.py",
+    "dev:go:schelling": "cd examples/go && make ",
     "i18n:extract": "pnpm -r i18n:extract",
     "i18n:compile": "pnpm -r i18n:compile",
     "lint": "pnpm -r lint",

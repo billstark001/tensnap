@@ -5,7 +5,9 @@
  * Usage: node scripts/release.mjs <component> [version]
  *
  * Components:
+ *   go      - Release Go module
  *   python  - Release Python package to PyPI
+ *   agent   - Release agent CLI package
  *   app     - Release Tauri desktop app
  *   web     - Deploy web app (automatic on main)
  */
@@ -18,9 +20,7 @@ import { fileURLToPath } from 'url';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// #region Helpers
 
 function log(msg) { console.log(msg); }
 function die(msg) { console.error(`Error: ${msg}`); process.exit(1); }
@@ -124,25 +124,39 @@ function patchTomlVersion(filePath, version) {
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Commands
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Commands
 
 function releaseHelp() {
   log(`
 Usage: node scripts/release.mjs <component> [version]
 
 Components:
+  go      - Release Go module
   python  - Release Python package to PyPI
   agent   - Release agent CLI package
   app     - Release Tauri desktop app
   web     - Deploy web app (automatic on main)
 
 Examples:
+  node scripts/release.mjs go     0.1.0
   node scripts/release.mjs python 0.1.0
   node scripts/release.mjs agent  0.1.0
   node scripts/release.mjs app    0.1.0
 `.trim());
+}
+
+function releaseGo(version) {
+  if (!version) die('Version required for Go release');
+
+  log(`Preparing Go module v${version} release...`);
+
+  const tagName = `packages/tensnap-go/v${version}`;
+  createTag(tagName);
+
+  log(`\nCreated tag ${tagName}`);
+  log(`Push with:\n  git push origin main && git push origin ${tagName}`);
 }
 
 function releasePython(version) {
@@ -222,9 +236,9 @@ function releaseWeb() {
   log('Just commit and push your changes to the main branch.');
 }
 
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Entry point
 
 const [, , component, version] = process.argv;
 
@@ -234,6 +248,7 @@ if (!component) {
 }
 
 switch (component) {
+  case 'go': releaseGo(version); break;
   case 'python': releasePython(version); break;
   case 'agent': releaseAgent(version); break;
   case 'app': releaseApp(version); break;
@@ -243,3 +258,5 @@ switch (component) {
     releaseHelp();
     process.exit(1);
 }
+
+// #endregion

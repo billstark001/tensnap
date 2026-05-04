@@ -21,50 +21,51 @@ const LOGO_SRC = logoArgIdx !== -1
   ? resolve(process.argv[logoArgIdx + 1])
   : join(ROOT, 'assets', 'logo.png');
 
-// ---------------------------------------------------------------------------
-// Destination paths
-// ---------------------------------------------------------------------------
+
+// #region Destination paths
 const TAURI_ICONS = join(ROOT, 'packages', 'tensnap-tauri', 'src-tauri', 'icons');
-const WEB_PUBLIC  = join(ROOT, 'packages', 'tensnap-web',   'public');
+const WEB_PUBLIC = join(ROOT, 'packages', 'tensnap-web', 'public');
 const TAURI_PUBLIC = join(ROOT, 'packages', 'tensnap-tauri', 'public');
 
 for (const dir of [TAURI_ICONS, WEB_PUBLIC, TAURI_PUBLIC]) {
   mkdirSync(dir, { recursive: true });
 }
 
-// ---------------------------------------------------------------------------
-// Helper: resize and save a PNG
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Helper: resize and save a PNG
 async function savePng(size, dest) {
   await sharp(LOGO_SRC).resize(size, size).png().toFile(dest);
   console.log(`  ✓ ${dest.replace(ROOT + '/', '')}`);
 }
 
-// ---------------------------------------------------------------------------
-// 1. Tauri PNG icons
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region 1. Tauri PNG icons
+
 console.log('\nTauri PNG icons:');
 const tauriPngs = [
-  { file: '32x32.png',             size: 32  },
-  { file: '128x128.png',           size: 128 },
-  { file: '128x128@2x.png',        size: 256 },
-  { file: 'icon.png',              size: 512 },
-  { file: 'Square30x30Logo.png',   size: 30  },
-  { file: 'Square44x44Logo.png',   size: 44  },
-  { file: 'Square71x71Logo.png',   size: 71  },
-  { file: 'Square89x89Logo.png',   size: 89  },
+  { file: '32x32.png', size: 32 },
+  { file: '128x128.png', size: 128 },
+  { file: '128x128@2x.png', size: 256 },
+  { file: 'icon.png', size: 512 },
+  { file: 'Square30x30Logo.png', size: 30 },
+  { file: 'Square44x44Logo.png', size: 44 },
+  { file: 'Square71x71Logo.png', size: 71 },
+  { file: 'Square89x89Logo.png', size: 89 },
   { file: 'Square107x107Logo.png', size: 107 },
   { file: 'Square142x142Logo.png', size: 142 },
   { file: 'Square150x150Logo.png', size: 150 },
   { file: 'Square284x284Logo.png', size: 284 },
   { file: 'Square310x310Logo.png', size: 310 },
-  { file: 'StoreLogo.png',         size: 50  },
+  { file: 'StoreLogo.png', size: 50 },
 ];
 await Promise.all(tauriPngs.map(({ file, size }) => savePng(size, join(TAURI_ICONS, file))));
 
-// ---------------------------------------------------------------------------
-// 2. Tauri ICO (multi-resolution)
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region 2. Tauri ICO (multi-resolution)
+
 console.log('\nTauri ICO:');
 const ICO_SIZES = [16, 32, 48, 64, 128, 256];
 
@@ -90,8 +91,8 @@ function buildIco(entries) {
   const buf = Buffer.alloc(total);
 
   // ICONDIR header
-  buf.writeUInt16LE(0,     0); // reserved
-  buf.writeUInt16LE(1,     2); // type = 1 (ICO)
+  buf.writeUInt16LE(0, 0); // reserved
+  buf.writeUInt16LE(1, 2); // type = 1 (ICO)
   buf.writeUInt16LE(count, 4);
 
   // ICONDIRENTRY entries
@@ -104,7 +105,7 @@ function buildIco(entries) {
     buf.writeUInt16LE(1, base + 4); // planes
     buf.writeUInt16LE(32, base + 6); // bit count
     buf.writeUInt32LE(buffer.length, base + 8);
-    buf.writeUInt32LE(offsets[i],    base + 12);
+    buf.writeUInt32LE(offsets[i], base + 12);
   });
 
   // Image data
@@ -125,9 +126,10 @@ const icoPath = join(TAURI_ICONS, 'icon.ico');
 writeFileSync(icoPath, buildIco(icoEntries));
 console.log(`  ✓ ${icoPath.replace(ROOT + '/', '')}`);
 
-// ---------------------------------------------------------------------------
-// 3. Tauri ICNS (macOS only, requires iconutil)
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region 3. Tauri ICNS (macOS only, requires iconutil)
+
 console.log('\nTauri ICNS:');
 try {
   execFileSync('which', ['iconutil'], { stdio: 'ignore' });
@@ -140,7 +142,7 @@ try {
     const icnsBaseSizes = [16, 32, 128, 256, 512];
     await Promise.all(
       icnsBaseSizes.flatMap((s) => [
-        sharp(LOGO_SRC).resize(s,     s    ).png().toFile(join(iconsetDir, `icon_${s}x${s}.png`)),
+        sharp(LOGO_SRC).resize(s, s).png().toFile(join(iconsetDir, `icon_${s}x${s}.png`)),
         sharp(LOGO_SRC).resize(s * 2, s * 2).png().toFile(join(iconsetDir, `icon_${s}x${s}@2x.png`)),
       ])
     );
@@ -159,26 +161,30 @@ try {
   }
 }
 
-// ---------------------------------------------------------------------------
-// 4. Web public assets (tensnap-web)
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region 4. Web public assets (tensnap-web)
+
 console.log('\nWeb public assets:');
 const webAssets = [
-  { file: 'favicon-32.png',      size: 32  },
-  { file: 'logo192.png',         size: 192 },
-  { file: 'logo512.png',         size: 512 },
+  { file: 'favicon-32.png', size: 32 },
+  { file: 'logo192.png', size: 192 },
+  { file: 'logo512.png', size: 512 },
   { file: 'apple-touch-icon.png', size: 180 },
 ];
 await Promise.all(webAssets.map(({ file, size }) => savePng(size, join(WEB_PUBLIC, file))));
 
-// ---------------------------------------------------------------------------
-// 5. Tauri web public assets (tensnap-tauri/public)
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region 5. Tauri web public assets (tensnap-tauri/public)
+
 console.log('\nTauri web public assets:');
 const tauriWebAssets = [
-  { file: 'favicon-32.png', size: 32  },
-  { file: 'logo192.png',    size: 192 },
+  { file: 'favicon-32.png', size: 32 },
+  { file: 'logo192.png', size: 192 },
 ];
 await Promise.all(tauriWebAssets.map(({ file, size }) => savePng(size, join(TAURI_PUBLIC, file))));
 
 console.log('\nAll icons updated successfully.\n');
+
+// #endregion

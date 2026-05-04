@@ -8,6 +8,11 @@
   - Publisher: `billstark001/tensnap`
   - Workflow: `python-publish.yml`
 
+### Go Module
+
+- No extra secret required.
+- Publish by creating a submodule tag: `packages/tensnap-go/v*`
+
 ### Agent CLI Package (npm)
 
 Add GitHub secret:
@@ -28,6 +33,9 @@ No setup needed - uses GitHub token automatically.
 ## Release Commands
 
 ```bash
+# Go module
+node scripts/release.mjs go 0.1.0
+
 # Python package
 node scripts/release.mjs python 0.1.0
 
@@ -43,6 +51,7 @@ git push origin main
 
 ## Workflows
 
+- **Go**: No dedicated workflow yet (publish by pushing tag `packages/tensnap-go/v*`)
 - **Python**: `.github/workflows/python-publish.yml` (tag `py-v*`)
 - **Agent CLI**: `.github/workflows/agent-publish.yml` (tag `agent-v*`)
 - **Web**: `.github/workflows/web-deploy.yml` (push to `main`)
