@@ -17,7 +17,7 @@ import {
   AgentRenderState,
 } from '@tensnap/core/environment';
 import { LineChartView } from '@tensnap/core/chart';
-import { BenchmarkCase } from '../types';
+import { BenchmarkCase, CaseVariation } from '../types';
 
 // Import the model from web-utils
 import { SchellingModel, SchellingConfig } from '@tensnap/web-models/models';
@@ -207,49 +207,53 @@ export function createSchellingCase(partial: BenchmarkConfig = {}): BenchmarkCas
 /**
  * Schelling Model Variations
  */
-export const schellingVariations = [
-  // Small grid, low density
-  createSchellingCase({
-    gridWidth: 30,
-    gridHeight: 30,
-    numAgentsType1: 400,
-    numAgentsType2: 400,
-    similarityThreshold: 0.8,
-    moveDistance: 8,
-    envWidth: 500,
-    envHeight: 500,
-  }),
-  // Medium grid, medium density
-  createSchellingCase({
-    gridWidth: 40,
-    gridHeight: 40,
-    numAgentsType1: 700,
-    numAgentsType2: 700,
-    similarityThreshold: 0.85,
-    moveDistance: 10,
-    envWidth: 600,
-    envHeight: 600,
-  }),
-  // Large grid, high density
-  createSchellingCase({
-    gridWidth: 80,
-    gridHeight: 80,
-    numAgentsType1: 2500,
-    numAgentsType2: 2500,
-    similarityThreshold: 1,
-    moveDistance: 15,
-    envWidth: 800,
-    envHeight: 800,
-  }),
-  // Large grid, high density
-  createSchellingCase({
-    gridWidth: 120,
-    gridHeight: 120,
-    numAgentsType1: 5800,
-    numAgentsType2: 5800,
-    similarityThreshold: 1,
-    moveDistance: 15,
-    envWidth: 800,
-    envHeight: 800,
-  }),
-];
+export const schellingVariations: CaseVariation = {
+  name: 'Schelling',
+  description: 'Schelling Segregation Model with varying grid sizes and agent counts',
+  cases: [
+    // Small grid, low density
+    createSchellingCase({
+      gridWidth: 30,
+      gridHeight: 30,
+      numAgentsType1: 400,
+      numAgentsType2: 400,
+      similarityThreshold: 0.8,
+      moveDistance: 8,
+      envWidth: 500,
+      envHeight: 500,
+    }),
+    // Medium grid, medium density
+    createSchellingCase({
+      gridWidth: 40,
+      gridHeight: 40,
+      numAgentsType1: 700,
+      numAgentsType2: 700,
+      similarityThreshold: 0.85,
+      moveDistance: 10,
+      envWidth: 600,
+      envHeight: 600,
+    }),
+    // Large grid, high density
+    createSchellingCase({
+      gridWidth: 80,
+      gridHeight: 80,
+      numAgentsType1: 2500,
+      numAgentsType2: 2500,
+      similarityThreshold: 1,
+      moveDistance: 15,
+      envWidth: 800,
+      envHeight: 800,
+    }),
+    // Extra large grid, very high density
+    createSchellingCase({
+      gridWidth: 120,
+      gridHeight: 120,
+      numAgentsType1: 5800,
+      numAgentsType2: 5800,
+      similarityThreshold: 1,
+      moveDistance: 15,
+      envWidth: 800,
+      envHeight: 800,
+    }),
+  ],
+};

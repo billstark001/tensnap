@@ -8,13 +8,11 @@
 import { createLineChartCase } from './lineChart';
 import { createParticleBounceCase } from './particleBounce';
 import { createSpringGraphCase } from './springGraph';
-import { BenchmarkCase } from '../types';
+import { schellingVariations } from './schellingModel';
+import { wolfSheepVariations } from './wolfSheepModel';
+import { CaseVariation } from '../types';
 
-export interface CaseVariation {
-  name: string;
-  description: string;
-  cases: BenchmarkCase[];
-}
+export type { CaseVariation };
 
 /**
  * Line Chart Variations
@@ -133,5 +131,7 @@ export function getAllVariations(): CaseVariation[] {
     lineChartVariations,
     particleBounceVariations,
     springGraphVariations,
+    schellingVariations,
+    wolfSheepVariations,
   ];
 }

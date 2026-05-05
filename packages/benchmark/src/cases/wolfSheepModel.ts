@@ -17,7 +17,7 @@ import {
   AgentRenderState,
 } from '@tensnap/core/environment';
 import { LineChartView } from '@tensnap/core/chart';
-import { BenchmarkCase } from '../types';
+import { BenchmarkCase, CaseVariation } from '../types';
 
 // Import the model from web-utils
 import { WolfSheepModel, WolfSheepConfig, World } from '@tensnap/web-models/models';
@@ -307,41 +307,45 @@ export function createWolfSheepCase(partial: BenchmarkConfig = {}): BenchmarkCas
 /**
  * Wolf-Sheep Model Variations
  */
-export const wolfSheepVariations = [
-  // Small world, few animals
-  createWolfSheepCase({
-    gridWidth: 30,
-    gridHeight: 30,
-    initialNumberSheep: 50,
-    initialNumberWolves: 25,
-    sheepGainFromFood: 4,
-    wolfGainFromFood: 20,
-    grassRegrowthTime: 30,
-    envWidth: 500,
-    envHeight: 500,
-  }),
-  // Medium world, moderate animals
-  createWolfSheepCase({
-    gridWidth: 50,
-    gridHeight: 50,
-    initialNumberSheep: 400,
-    initialNumberWolves: 150,
-    sheepGainFromFood: 4,
-    wolfGainFromFood: 20,
-    grassRegrowthTime: 30,
-    envWidth: 700,
-    envHeight: 700,
-  }),
-  // Large world, many animals
-  createWolfSheepCase({
-    gridWidth: 100,
-    gridHeight: 100,
-    initialNumberSheep: 800,
-    initialNumberWolves: 400,
-    sheepGainFromFood: 4,
-    wolfGainFromFood: 20,
-    grassRegrowthTime: 25,
-    envWidth: 900,
-    envHeight: 900,
-  }),
-];
+export const wolfSheepVariations: CaseVariation = {
+  name: 'WolfSheep',
+  description: 'Wolf-Sheep Predation Model with varying world sizes and animal counts',
+  cases: [
+    // Small world, few animals
+    createWolfSheepCase({
+      gridWidth: 30,
+      gridHeight: 30,
+      initialNumberSheep: 50,
+      initialNumberWolves: 25,
+      sheepGainFromFood: 4,
+      wolfGainFromFood: 20,
+      grassRegrowthTime: 30,
+      envWidth: 500,
+      envHeight: 500,
+    }),
+    // Medium world, moderate animals
+    createWolfSheepCase({
+      gridWidth: 50,
+      gridHeight: 50,
+      initialNumberSheep: 400,
+      initialNumberWolves: 150,
+      sheepGainFromFood: 4,
+      wolfGainFromFood: 20,
+      grassRegrowthTime: 30,
+      envWidth: 700,
+      envHeight: 700,
+    }),
+    // Large world, many animals
+    createWolfSheepCase({
+      gridWidth: 100,
+      gridHeight: 100,
+      initialNumberSheep: 800,
+      initialNumberWolves: 400,
+      sheepGainFromFood: 4,
+      wolfGainFromFood: 20,
+      grassRegrowthTime: 25,
+      envWidth: 900,
+      envHeight: 900,
+    }),
+  ],
+};
