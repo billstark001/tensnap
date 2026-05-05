@@ -2,10 +2,10 @@ import {
   AgentLayer,
   BackgroundLayer,
   EdgeLayer,
-  EnvironmentView,
   GridLayer,
   TrajectoryLayer,
 } from '@tensnap/core/environment';
+import { EnvironmentView } from '@tensnap/core/environment/browser';
 import type { AgentRenderState, AgentStorage } from '@tensnap/core/environment';
 import { createRenderPlan, type AgentLayerPlan, type BackgroundLayerPlan, type EdgeLayerPlan, type GridLayerPlan, type LayerRendererRole, type RenderLayerPlan, type RenderPlan, type TrajectoryLayerPlan } from '@tensnap/core/scenario';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
@@ -166,7 +166,6 @@ export class Environment2DRendererController {
 
   private createBackgroundLayerEntry(plan: BackgroundLayerPlan): LayerEntry {
     const layer = new BackgroundLayer(
-      this.envView!,
       plan.storage,
       plan.sceneBounds ? { sceneBounds: plan.sceneBounds } : undefined,
     );
@@ -178,7 +177,7 @@ export class Environment2DRendererController {
   }
 
   private createGridLayerEntry(plan: GridLayerPlan): LayerEntry {
-    const layer = new GridLayer(this.envView!, plan.storage);
+    const layer = new GridLayer(plan.storage);
     if (plan.zIndex !== undefined) {
       layer.setZIndex(plan.zIndex);
     }
@@ -187,7 +186,7 @@ export class Environment2DRendererController {
   }
 
   private createEdgeLayerEntry(plan: EdgeLayerPlan): LayerEntry {
-    const layer = new EdgeLayer(this.envView!, plan.storage, plan.agentStorage, plan.config);
+    const layer = new EdgeLayer(plan.storage, plan.agentStorage, plan.config);
     if (plan.zIndex !== undefined) {
       layer.setZIndex(plan.zIndex);
     }
@@ -196,7 +195,7 @@ export class Environment2DRendererController {
   }
 
   private createTrajectoryLayerEntry(plan: TrajectoryLayerPlan): LayerEntry {
-    const layer = new TrajectoryLayer(this.envView!, plan.storage, {
+    const layer = new TrajectoryLayer(plan.storage, {
       coordOffset: plan.coordOffset,
       worldBounds: plan.worldBounds,
     });
@@ -207,7 +206,7 @@ export class Environment2DRendererController {
 
   private createAgentLayerEntry(plan: AgentLayerPlan): LayerEntry {
     const linkedEdgeLayer = this.layerEntriesByRole.get('edge')?.get(plan.layerId)?.layer as EdgeLayer | undefined;
-    const layer = new AgentLayer(this.envView!, plan.storage, {
+    const layer = new AgentLayer(plan.storage, {
       ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
       clickable: true,
       draggable: plan.usesGraphInteraction,

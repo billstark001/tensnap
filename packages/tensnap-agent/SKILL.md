@@ -69,6 +69,12 @@ Manual render with default auto-fit viewport:
 pnpm --filter @tensnap/agent dev -- scene render snapshot --context demo
 ```
 
+Manual render with an explicit canvas background color override:
+
+```bash
+pnpm --filter @tensnap/agent dev -- scene render snapshot --context demo --background-color '#101820'
+```
+
 Render a specific environment with explicit pixel size:
 
 ```bash
@@ -153,4 +159,12 @@ pnpm --filter @tensnap/agent dev -- experiment run '{"label":"baseline","paramet
 - Use `manual` render trigger when you need to separate simulation stepping from image capture.
 - Use `action-end` render trigger when a downstream workflow expects every action to produce a new image.
 - If multiple environments exist and no `--env` is provided, the painter may emit one artifact per environment.
-- The current node-canvas painter covers environment rendering only. Chart screenshot requests are not implemented yet.
+- Use `--background-color` when a workflow needs a different base fill.
+- The current headless environment painter covers environment rendering only. Chart screenshot requests are not implemented yet.
+
+## Headless Render Pitfalls
+
+- Keep `@leafer-ui/core` and `@leafer-ui/node` on the same runtime identity in the built CLI. If bundling splits them, headless export can fail even when source tests pass.
+- Leafer export must use screenshot mode for full-canvas captures. Element-bounds export can collapse to the rendered element bounds and produce tiny artifacts.
+- Browser `blob:` URLs are not portable into the agent runtime. Prefer asset bytes, data URLs, or file/HTTP URLs for headless rendering.
+- Grid lines in headless exports must be clipped to the current viewport span. Extremely large pseudo-infinite line segments can disappear during Leafer headless export or culling.

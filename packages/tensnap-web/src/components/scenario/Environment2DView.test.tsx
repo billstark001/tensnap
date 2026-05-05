@@ -65,7 +65,7 @@ const testHarness = vi.hoisted(() => {
     setZIndex = vi.fn();
     destroy = vi.fn();
 
-    constructor(_view: unknown, public storage: MockBackgroundStorage, public options?: { sceneBounds?: { width: number; height: number } }) {
+    constructor(public storage: MockBackgroundStorage, public options?: { sceneBounds?: { width: number; height: number } }) {
       backgroundLayerCalls.push({ storage, options, layer: this });
     }
   }
@@ -74,7 +74,7 @@ const testHarness = vi.hoisted(() => {
     setZIndex = vi.fn();
     destroy = vi.fn();
 
-    constructor(_view: unknown, storage: unknown) {
+    constructor(storage: unknown) {
       gridLayerCalls.push({ storage, layer: this });
     }
   }
@@ -83,7 +83,7 @@ const testHarness = vi.hoisted(() => {
     setZIndex = vi.fn();
     destroy = vi.fn();
 
-    constructor(_view: unknown, storage: unknown, linkedAgentStorage: unknown, config: unknown) {
+    constructor(storage: unknown, linkedAgentStorage: unknown, config: unknown) {
       if (edgeLayerError) {
         throw edgeLayerError;
       }
@@ -100,7 +100,7 @@ const testHarness = vi.hoisted(() => {
     setZIndex = vi.fn();
     destroy = vi.fn();
 
-    constructor(_view: unknown, storage: unknown, options: Record<string, unknown>) {
+    constructor(storage: unknown, options: Record<string, unknown>) {
       agentLayerCalls.push({ storage, options, layer: this });
     }
   }
@@ -109,7 +109,7 @@ const testHarness = vi.hoisted(() => {
     setZIndex = vi.fn();
     destroy = vi.fn();
 
-    constructor(_view: unknown, storage: unknown, options: Record<string, unknown>) {
+    constructor(storage: unknown, options: Record<string, unknown>) {
       trajectoryLayerCalls.push({ storage, options, layer: this });
     }
   }
@@ -174,11 +174,14 @@ vi.mock('../../dialogs/AgentDetailsDialog', () => ({
   AgentDetailsDialog: () => null,
 }));
 
+vi.mock('@tensnap/core/environment/browser', () => ({
+  EnvironmentView: testHarness.MockEnvironmentView,
+}));
+
 vi.mock('@tensnap/core/environment', async () => {
   const actual = await vi.importActual<typeof import('@tensnap/core/environment')>('@tensnap/core/environment');
   return {
     ...actual,
-    EnvironmentView: testHarness.MockEnvironmentView,
     AgentStorage: testHarness.MockAgentStorage,
     BackgroundStorage: testHarness.MockBackgroundStorage,
     AgentLayer: testHarness.MockAgentLayer,

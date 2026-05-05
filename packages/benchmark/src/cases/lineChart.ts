@@ -7,7 +7,8 @@
  * and calls `lineChart.updateData(data)`, which fully re-renders canvas.
  */
 
-import { LineChartView, ChartDataPoint } from '@tensnap/core/chart';
+import { ChartDataPoint } from '@tensnap/core/chart';
+import { LineChartView } from '@tensnap/core/chart/browser';
 import { BenchmarkCase } from '../types';
 
 interface Config {

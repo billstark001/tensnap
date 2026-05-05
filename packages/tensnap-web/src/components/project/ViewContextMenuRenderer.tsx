@@ -8,7 +8,7 @@ import { AnyView } from "@/types/ui";
 import { useViewContext } from "../view/useViewContext";
 import { useToast } from "@/store/toast";
 import { useScenarioStore } from "@/store/scenario/store";
-import { exportToCSV } from '@tensnap/core';
+import { exportToCSV } from '@tensnap/core/chart/browser';
 import { useUpdateAndDeleteView } from "./view-edit-hooks";
 import { copyCanvas } from "@/utils/data";
 

@@ -16,34 +16,35 @@
  */
 
 import { Group, Leafer } from '@leafer-ui/core';
-import { EnvironmentViewFitMode, IResizableLayer } from '../EnvironmentView';
+import type { EnvironmentLayerHost, EnvironmentViewFitMode, IResizableLayer } from '../host';
 import { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
-import { EnvironmentView } from '../EnvironmentView';
+
+const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, width: 1, height: 1 };
 
 export abstract class BaseLayer implements IResizableLayer {
-  // -------------------------------------------------------------------
-  // Abstract members
-  // -------------------------------------------------------------------
+
+  // #region Abstract members
+
   abstract readonly defaultZIndex: number;
 
-  // -------------------------------------------------------------------
-  // Internal state
-  // -------------------------------------------------------------------
+  // #endregion
+
+  // #region Internal state
+
   protected readonly group: Group;
-  protected readonly view: EnvironmentView;
+  private _host: EnvironmentLayerHost | null = null;
   private _zIndex: number;
+  private _interactionEnabled = false;
   private readonly _unsubscribes: Unsubscribe[] = [];
   protected _viewport: Viewport;
   protected _fitMode: EnvironmentViewFitMode;
 
-  constructor(view: EnvironmentView) {
-    this.view = view;
-    this._viewport = view.viewport;
-    this._fitMode = view.fitMode;
+  constructor() {
+    this._viewport = { ...DEFAULT_VIEWPORT };
+    this._fitMode = 'contain';
     // zIndex is set lazily to defaultZIndex after construction
     this._zIndex = -1; // sentinel; resolved on first addLayer
     this.group = new Group();
-    view.leafer.add(this.group);
     // Resolve zIndex from abstract property after subclass constructor runs.
     // We use queueMicrotask so the subclass getter is already defined.
     queueMicrotask(() => {
@@ -51,9 +52,9 @@ export abstract class BaseLayer implements IResizableLayer {
     });
   }
 
-  // -------------------------------------------------------------------
-  // z-index
-  // -------------------------------------------------------------------
+  // #endregion
+
+  // #region z-index
   get zIndex(): number {
     return this._zIndex !== -1 ? this._zIndex : this.defaultZIndex;
   }
@@ -62,24 +63,74 @@ export abstract class BaseLayer implements IResizableLayer {
     this._zIndex = z;
   }
 
+  get interactionEnabled(): boolean {
+    return this._interactionEnabled;
+  }
+
+  setInteractionEnabled(enabled: boolean): void {
+    if (this._interactionEnabled === enabled) {
+      return;
+    }
+
+    this._interactionEnabled = enabled;
+    this.onInteractionChanged(enabled);
+  }
+
+  attachToHost(host: EnvironmentLayerHost): void {
+    if (this._host === host) {
+      return;
+    }
+
+    if (this._host) {
+      this.detachFromHost();
+    }
+
+    this._host = host;
+    this._viewport = host.viewport;
+    this._fitMode = host.fitMode;
+    host.leafer.add(this.group);
+    this.onAttached(host);
+    this.setInteractionEnabled(host.interactionEnabled);
+  }
+
+  detachFromHost(): void {
+    if (!this._host) {
+      return;
+    }
+
+    const host = this._host;
+    this.setInteractionEnabled(false);
+    this.onDetached(host);
+    host.leafer.remove(this.group);
+    this._host = null;
+  }
+
   reattachTo(parent: Leafer): void {
     parent.remove(this.group);
     parent.add(this.group);
   }
 
-  // -------------------------------------------------------------------
-  // Viewport to pixel transformation helpers
-  // -------------------------------------------------------------------
+  protected get host(): EnvironmentLayerHost | null {
+    return this._host;
+  }
+
+  protected get view(): EnvironmentLayerHost {
+    if (!this._host) {
+      throw new Error(`${this.constructor.name} is not attached to an environment host.`);
+    }
+
+    return this._host;
+  }
+
+  // #endregion
+
+  // #region Viewport to pixel transformation helpers
 
   /**
    * Get the container pixel dimensions.
    */
   protected getContainerSize(): { width: number; height: number } {
-    const rect = this.view.container.getBoundingClientRect();
-    return {
-      width: rect.width || this.view.container.clientWidth,
-      height: rect.height || this.view.container.clientHeight,
-    };
+    return this._host?.getSurfaceSize() ?? { width: 1, height: 1 };
   }
 
   /**
@@ -115,7 +166,7 @@ export abstract class BaseLayer implements IResizableLayer {
     this._fitMode = fitMode;
     const container = this.getContainerSize();
     const scale = this.calculateViewportScale(viewport, fitMode);
-    
+
     // For contain/cover, center the rendered area inside the container.
     // padX/padY are positive for contain (letterbox/pillarbox) and
     // negative for cover (the scene overflows, we center the overflow).
@@ -137,9 +188,9 @@ export abstract class BaseLayer implements IResizableLayer {
     });
   }
 
-  // -------------------------------------------------------------------
-  // Storage subscriptions
-  // -------------------------------------------------------------------
+  // #endregion
+
+  // #region Storage subscriptions
 
   /**
    * Subscribe to a storage and automatically unsubscribe on `destroy()`.
@@ -154,17 +205,32 @@ export abstract class BaseLayer implements IResizableLayer {
     return unsub;
   }
 
-  // -------------------------------------------------------------------
-  // Lifecycle
-  // -------------------------------------------------------------------
+  // #endregion
+
+  // #region Lifecycle
+
+  protected onAttached(_host: EnvironmentLayerHost): void {
+    // Subclasses can override to react to host attachment.
+  }
+
+  protected onDetached(_host: EnvironmentLayerHost): void {
+    // Subclasses can override to react to host detachment.
+  }
+
+  protected onInteractionChanged(_enabled: boolean): void {
+    // Subclasses can override when they need host-controlled interaction wiring.
+  }
 
   /** Called by EnvironmentView when viewport changes. */
   abstract onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void;
 
   destroy(): void {
+    this.detachFromHost();
     this._unsubscribes.forEach((u) => u());
     this._unsubscribes.length = 0;
     this.group.remove();
     this.group.clear();
   }
+
+  // #endregion
 }

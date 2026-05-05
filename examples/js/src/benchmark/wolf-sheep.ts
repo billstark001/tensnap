@@ -10,13 +10,14 @@ import type {
 import {
   AgentLayer,
   AgentStorage,
-  EnvironmentView,
   GridEnvStorage,
   GridLayer,
   type AgentRenderState,
   type GridEnvData,
 } from '@tensnap/core/environment';
-import { LineChartView, type ChartDataPoint } from '@tensnap/core/chart';
+import { EnvironmentView } from '@tensnap/core/environment/browser';
+import type { ChartDataPoint } from '@tensnap/core/chart';
+import { LineChartView } from '@tensnap/core/chart/browser';
 import type { WolfSheepConfig } from '../models';
 import { createBundledExampleTransport } from '../entries/main-bundle';
 import { dispatchBenchmarkAction, extractDeletedIds, pushChartPoint, type TransportBenchmarkCase } from './shared';
@@ -225,13 +226,13 @@ export function createWolfSheepTransportCase(partial: BenchmarkConfig = {}): Tra
 
       view = new EnvironmentView(envContainer, { throttleMs: 0 });
       gridStorage = new GridEnvStorage();
-      const gridLayer = new GridLayer(view, gridStorage);
+      const gridLayer = new GridLayer(gridStorage);
       gridLayer.setZIndex(15);
       view.addLayer(gridLayer);
 
       if (includeGrass) {
         grassStorage = new AgentStorage();
-        const grassLayer = new AgentLayer(view, grassStorage, {
+        const grassLayer = new AgentLayer(grassStorage, {
           clickable: false,
           sceneBounds: { width: modelConfig.gridWidth, height: modelConfig.gridHeight },
         });
@@ -240,7 +241,7 @@ export function createWolfSheepTransportCase(partial: BenchmarkConfig = {}): Tra
       }
 
       animalStorage = new AgentStorage();
-      const animalLayer = new AgentLayer(view, animalStorage, {
+      const animalLayer = new AgentLayer(animalStorage, {
         clickable: false,
         coordOffset: 'float',
         sceneBounds: { width: modelConfig.gridWidth, height: modelConfig.gridHeight },

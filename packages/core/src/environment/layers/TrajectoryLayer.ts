@@ -1,6 +1,6 @@
 import { Line } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
+import type { EnvironmentViewFitMode } from '../host';
 import {
   TrajectoryDelta,
   TrajectoryEntry,
@@ -29,11 +29,10 @@ export class TrajectoryLayer extends BaseLayer {
   private readonly _lines = new Map<AgentId, TrajectoryLineCacheEntry>();
 
   constructor(
-    view: EnvironmentView,
     storage: TrajectoryStorage,
     config: TrajectoryLayerConfig = {},
   ) {
-    super(view);
+    super();
     this._cfg = {
       coordOffset: 'int',
       worldBounds: undefined,
@@ -44,10 +43,16 @@ export class TrajectoryLayer extends BaseLayer {
     this._onTrajectoryData(storage.getData(), { replaced: true });
   }
 
+  // #region Viewport
+
   onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
     this.applyViewportTransform(viewport, fitMode);
     this._updateStrokeWidths();
   }
+
+  // #endregion
+
+  // #region Rendering
 
   private get _posOffset(): number {
     return getCoordOffsetValue(this._cfg.coordOffset);
@@ -164,8 +169,14 @@ export class TrajectoryLayer extends BaseLayer {
     this._lines.clear();
   }
 
+  // #endregion
+
+  // #region Lifecycle
+
   destroy(): void {
     this._clearLines();
     super.destroy();
   }
+
+  // #endregion
 }

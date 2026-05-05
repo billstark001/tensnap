@@ -53,6 +53,11 @@ export interface AgentRuntimeOptions {
   render?: Partial<RenderSettings>;
 }
 
+function normalizeBackgroundColor(value: string | undefined, fallback = '#000000'): string {
+  const trimmed = value?.trim();
+  return trimmed || fallback;
+}
+
 function cloneValue<T>(value: T): T {
   return structuredClone(value);
 }
@@ -149,6 +154,7 @@ export class AgentRuntime extends EventEmitter {
       encoding: options.encoding ?? 'msgpack',
       render: {
         trigger: options.render?.trigger ?? 'manual',
+        backgroundColor: normalizeBackgroundColor(options.render?.backgroundColor),
       },
       painters: [],
     };
@@ -220,7 +226,7 @@ export class AgentRuntime extends EventEmitter {
   }
 
   async setRenderTrigger(trigger: RenderTriggerMode): Promise<RuntimeStatus> {
-    this.control.render = { trigger };
+    this.control.render = { ...this.control.render, trigger };
     await this.persistStatus();
     this.emitRuntimeEvent('render.trigger.updated', { trigger });
     await this.log('info', 'render', 'Render trigger updated.', { trigger });
@@ -596,12 +602,16 @@ export class AgentRuntime extends EventEmitter {
     reason: string,
     trigger: RenderTriggerMode | 'explicit',
   ): RenderRequest {
+    const backgroundColor = normalizeBackgroundColor(options.backgroundColor, this.control.render.backgroundColor);
     return {
       at: new Date().toISOString(),
       reason,
       trigger,
       snapshot: this.session.getSnapshot(),
-      options,
+      options: {
+        ...options,
+        backgroundColor,
+      },
       assets: this.session.getAssetSources(),
     };
   }

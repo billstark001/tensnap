@@ -1,10 +1,11 @@
 import { access, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createCanvas, loadImage, type CanvasRenderingContext2D } from 'canvas';
 import { afterEach, describe, expect, it } from 'vitest';
 import { collectRenderData } from '@tensnap/core/scenario';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
-import { NodeCanvasEnvironmentPainter } from './NodeCanvasEnvironmentPainter';
+import { HeadlessEnvironmentPainter } from './HeadlessEnvironmentPainter';
 
 const tempPaths: string[] = [];
 const onePixelPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==';
@@ -26,12 +27,38 @@ afterEach(async () => {
   await Promise.all(tempPaths.splice(0).map((path) => rm(path, { force: true, recursive: true })));
 });
 
-describe('NodeCanvasEnvironmentPainter', () => {
-  it('renders a grid environment to a PNG artifact', async () => {
+async function createContextFromArtifactBytes(bytes: Uint8Array) {
+  const image = await loadImage(Buffer.from(bytes));
+  const canvas = createCanvas(image.width, image.height);
+  const context = canvas.getContext('2d');
+  context.drawImage(image, 0, 0);
+  return { context, width: image.width, height: image.height };
+}
+
+function hasNonBlackPixelAround(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius = 2,
+): boolean {
+  for (let offsetY = -radius; offsetY <= radius; offsetY += 1) {
+    for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+      const pixel = context.getImageData(x + offsetX, y + offsetY, 1, 1).data;
+      if (pixel[3] > 0 && (pixel[0] !== 0 || pixel[1] !== 0 || pixel[2] !== 0)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+describe('HeadlessEnvironmentPainter', () => {
+  it('renders an environment to a PNG artifact', async () => {
     const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}`);
     tempPaths.push(outputDir);
 
-    const painter = new NodeCanvasEnvironmentPainter({ capturesDir: outputDir });
+    const painter = new HeadlessEnvironmentPainter({ capturesDir: outputDir });
     const snapshot: ScenarioSnapshot = {
       metadata: { time: 3 },
       actions: [],
@@ -76,6 +103,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
     expect(artifacts?.[0].mime).toBe('image/png');
     expect(artifacts?.[0].data).toBeInstanceOf(Uint8Array);
     expect((artifacts?.[0].data as Uint8Array).byteLength).toBeGreaterThan(0);
+    expect(artifacts?.[0].metadata).toMatchObject({ width: 320, height: 240, envId: 'main', format: 'png' });
     expect(typeof artifacts?.[0].path).toBe('string');
     expect(await exists(artifacts?.[0].path as string)).toBe(true);
   });
@@ -84,7 +112,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
     const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}-data-url`);
     tempPaths.push(outputDir);
 
-    const painter = new NodeCanvasEnvironmentPainter({ capturesDir: outputDir });
+    const painter = new HeadlessEnvironmentPainter({ capturesDir: outputDir });
     const snapshot: ScenarioSnapshot = {
       metadata: { time: 1 },
       actions: [],
@@ -141,7 +169,7 @@ describe('NodeCanvasEnvironmentPainter', () => {
     const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}-bare-base64`);
     tempPaths.push(outputDir);
 
-    const painter = new NodeCanvasEnvironmentPainter({ capturesDir: outputDir });
+    const painter = new HeadlessEnvironmentPainter({ capturesDir: outputDir });
     const snapshot: ScenarioSnapshot = {
       metadata: { time: 1 },
       actions: [],
@@ -189,6 +217,114 @@ describe('NodeCanvasEnvironmentPainter', () => {
       options: { envId: 'main', width: 64, height: 64, includeData: true },
       assets: {},
     })).rejects.toThrow();
+  });
+
+  it('defaults the canvas background to black and allows per-render overrides', async () => {
+    const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}-background-color`);
+    tempPaths.push(outputDir);
+
+    const painter = new HeadlessEnvironmentPainter({ capturesDir: outputDir });
+    const snapshot: ScenarioSnapshot = {
+      metadata: {},
+      actions: [],
+      parameters: [],
+      charts: [],
+      logs: [],
+      environments: [
+        {
+          id: 'main',
+          type: '2d',
+          layers: [
+            {
+              id: 'agents',
+              layerType: 'agent',
+              metadata: { width: 1, height: 1, coord_offset: 'int' },
+              dependencyLayerIds: {},
+              storageSnapshot: { agents: [], trajectories: [] },
+            },
+          ],
+        },
+      ],
+    };
+
+    const [defaultArtifact] = await painter.render({
+      at: new Date().toISOString(),
+      reason: 'default-background',
+      trigger: 'explicit',
+      snapshot,
+      options: { envId: 'main', width: 32, height: 32, includeData: true, persist: false },
+      assets: {},
+    }) ?? [];
+
+    const defaultContext = await createContextFromArtifactBytes(defaultArtifact.data as Uint8Array);
+    expect([...defaultContext.context.getImageData(16, 16, 1, 1).data]).toEqual([0, 0, 0, 255]);
+
+    const [overrideArtifact] = await painter.render({
+      at: new Date().toISOString(),
+      reason: 'override-background',
+      trigger: 'explicit',
+      snapshot,
+      options: {
+        envId: 'main',
+        width: 32,
+        height: 32,
+        includeData: true,
+        persist: false,
+        backgroundColor: '#123456',
+      },
+      assets: {},
+    }) ?? [];
+
+    const overrideContext = await createContextFromArtifactBytes(overrideArtifact.data as Uint8Array);
+    expect([...overrideContext.context.getImageData(16, 16, 1, 1).data]).toEqual([18, 52, 86, 255]);
+  });
+
+  it('renders grid lines in headless exports', async () => {
+    const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}-grid`);
+    tempPaths.push(outputDir);
+
+    const painter = new HeadlessEnvironmentPainter({ capturesDir: outputDir });
+    const snapshot: ScenarioSnapshot = {
+      metadata: {},
+      actions: [],
+      parameters: [],
+      charts: [],
+      logs: [],
+      environments: [
+        {
+          id: 'main',
+          type: '2d',
+          layers: [
+            {
+              id: 'grid',
+              layerType: 'grid',
+              metadata: { width: 4, height: 4 },
+              dependencyLayerIds: {},
+              storageSnapshot: {},
+            },
+          ],
+        },
+      ],
+    };
+
+    const [artifact] = await painter.render({
+      at: new Date().toISOString(),
+      reason: 'grid-render',
+      trigger: 'explicit',
+      snapshot,
+      options: {
+        envId: 'main',
+        width: 400,
+        height: 400,
+        includeData: true,
+        persist: false,
+        backgroundColor: '#000000',
+      },
+      assets: {},
+    }) ?? [];
+
+    const { context } = await createContextFromArtifactBytes(artifact.data as Uint8Array);
+    expect(hasNonBlackPixelAround(context, 200, 200)).toBe(true);
   });
 
   it('keeps coord_offset scoped to each agent layer', () => {

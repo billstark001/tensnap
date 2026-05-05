@@ -128,6 +128,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.0.1
         version: 2.0.1(hono@4.12.16)
+      '@leafer-ui/core':
+        specifier: ^2.1.0
+        version: 2.1.0
       '@leafer-ui/node':
         specifier: ^2.1.0
         version: 2.1.0
@@ -549,6 +552,18 @@ importers:
       '@vanilla-extract/css':
         specifier: ^1.20.1
         version: 1.20.1(babel-plugin-macros@3.1.0)
+
+  packages/web-models:
+    dependencies:
+      '@tensnap/core':
+        specifier: workspace:*
+        version: link:../core
+      '@tensnap/examples-js':
+        specifier: workspace:*
+        version: link:../../examples/js
+      '@tensnap/web-adapter':
+        specifier: workspace:*
+        version: link:../web-adapter
 
 packages:
 

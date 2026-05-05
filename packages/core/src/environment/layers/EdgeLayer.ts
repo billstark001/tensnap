@@ -25,7 +25,7 @@
 import * as d3 from 'd3';
 import { Line, Polygon } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
+import type { EnvironmentViewFitMode } from '../host';
 import { EdgeDelta, EdgeStorage, EdgeStorageData } from '../storages/EdgeStorage';
 import { AgentStorage, AgentRenderState } from '../storages/AgentStorage';
 import { AgentLayerConfig } from './AgentLayer';
@@ -81,12 +81,11 @@ export class EdgeLayer extends BaseLayer {
   // #region Constructor
 
   constructor(
-    view: EnvironmentView,
     edgeStorage: EdgeStorage,
     agentStorage: AgentStorage,
     config: GraphEnvConfig = {}
   ) {
-    super(view);
+    super();
     this._agentStorage = agentStorage;
     this._simConfig = { ...DEFAULT_GRAPH_CONFIG, ...config };
 

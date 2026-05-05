@@ -14,7 +14,8 @@
  *   frame.
  */
 
-import { EnvironmentView, AgentStorage, EdgeStorage, AgentLayer, EdgeLayer, AgentRenderState } from '@tensnap/core/environment';
+import { AgentStorage, EdgeStorage, AgentLayer, EdgeLayer, AgentRenderState } from '@tensnap/core/environment';
+import { EnvironmentView } from '@tensnap/core/environment/browser';
 import { GraphEdge } from '@tensnap/core/environment';
 import { BenchmarkCase } from '../types';
 
@@ -98,8 +99,8 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
       agentStorage = new AgentStorage();
       edgeStorage = new EdgeStorage([]);
 
-      const edgeLayer = new EdgeLayer(view, edgeStorage, agentStorage, );
-      const agentLayer = new AgentLayer(view, agentStorage, {
+      const edgeLayer = new EdgeLayer(edgeStorage, agentStorage, );
+      const agentLayer = new AgentLayer(agentStorage, {
         ...edgeLayer.buildDragHandlers(),
         draggable: false,
         clickable: false,

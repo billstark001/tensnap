@@ -9,7 +9,8 @@
  *   - Call agentStorage.updateAgents() to trigger re-render
  */
 
-import { EnvironmentView, GridEnvStorage, GridLayer } from '@tensnap/core/environment';
+import { GridEnvStorage, GridLayer } from '@tensnap/core/environment';
+import { EnvironmentView } from '@tensnap/core/environment/browser';
 import { AgentStorage } from '@tensnap/core/environment';
 import { AgentLayer } from '@tensnap/core/environment';
 import { AgentRenderState } from '@tensnap/core/environment';
@@ -103,11 +104,11 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
       view.setViewport(0, 0, cfg.width, cfg.height);
 
       const gridEnvStorage = new GridEnvStorage();
-      const gridLayer = new GridLayer(view, gridEnvStorage);
+      const gridLayer = new GridLayer(gridEnvStorage);
       view.addLayer(gridLayer);
 
       agentStorage = new AgentStorage();
-      const agentLayer = new AgentLayer(view, agentStorage, {
+      const agentLayer = new AgentLayer(agentStorage, {
         clickable: false,
         draggable: false,
         coordOffset: 'float',

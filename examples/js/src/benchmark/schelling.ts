@@ -10,13 +10,14 @@ import type {
 import {
   AgentLayer,
   AgentStorage,
-  EnvironmentView,
   GridEnvStorage,
   GridLayer,
   type AgentRenderState,
   type GridEnvData,
 } from '@tensnap/core/environment';
-import { LineChartView, type ChartDataPoint } from '@tensnap/core/chart';
+import { EnvironmentView } from '@tensnap/core/environment/browser';
+import type { ChartDataPoint } from '@tensnap/core/chart';
+import { LineChartView } from '@tensnap/core/chart/browser';
 import type { SchellingConfig } from '../models';
 import { createBundledExampleTransport } from '../entries/main-bundle';
 import { dispatchBenchmarkAction, extractDeletedIds, pushChartPoint, type TransportBenchmarkCase } from './shared';
@@ -161,13 +162,13 @@ export function createSchellingTransportCase(partial: BenchmarkConfig = {}): Tra
       agentStorage = new AgentStorage();
       gridStorage = new GridEnvStorage();
 
-      const agentLayer = new AgentLayer(view, agentStorage, {
+      const agentLayer = new AgentLayer(agentStorage, {
         clickable: false,
         sceneBounds: { width: modelConfig.gridWidth, height: modelConfig.gridHeight },
       });
       view.addLayer(agentLayer);
 
-      const gridLayer = new GridLayer(view, gridStorage);
+      const gridLayer = new GridLayer(gridStorage);
       view.addLayer(gridLayer);
       view.fitToScene({ padding: 0 });
 
