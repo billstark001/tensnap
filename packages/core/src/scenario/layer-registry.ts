@@ -1,6 +1,6 @@
 import { z, ZodType } from 'zod';
 import type { AssetStore } from '../asset';
-import type { AgentId, GraphEdge, GridCoordOffset, GraphEnvConfig, TrajectoryPoint } from '../environment';
+import type { AgentId, GraphEdge, GridCoordOffset, GraphEnvConfig, OriginMode, TrajectoryPoint } from '../environment';
 import type { ItemDeletePayload } from '../protocol';
 import {
   AgentStorage,
@@ -169,6 +169,12 @@ export interface LayerRendererDefinition {
   renderOrderPriority?: number;
   getZIndex?(metadata: Record<string, unknown>): number | undefined;
   getCoordOffset?(metadata: Record<string, unknown>): GridCoordOffset;
+  /** Whether this layer type uses graph-interaction semantics (float coord, center origin). */
+  getUsesGraphInteraction?(metadata: Record<string, unknown>): boolean;
+  /** The origin mode for agent positioning. */
+  getOriginMode?(metadata: Record<string, unknown>): OriginMode;
+  /** Additional fit padding contributed by this layer type. */
+  getFitPadding?(metadata: Record<string, unknown>): number | undefined;
   getGraphConfig?(metadata: Record<string, unknown>): GraphEnvConfig;
   getBackgroundSource?(metadata: Record<string, unknown>): unknown;
   getSnapshotGridData?(layer: ScenarioLayerSnapshot): GridEnvData | undefined;
@@ -372,6 +378,14 @@ function getInterpolation(value: unknown): 'nearest' | 'linear' {
 
 function getCoordOffset(metadata: Record<string, unknown>): GridCoordOffset {
   return metadata.coord_offset === 'float' ? 'float' : 'int';
+}
+
+function getUsesGraphInteraction(metadata: Record<string, unknown>): boolean {
+  return metadata.uses_graph_interaction === true;
+}
+
+function getOriginMode(metadata: Record<string, unknown>): OriginMode {
+  return metadata.origin_mode === 'center' ? 'center' : 'bottom-left';
 }
 
 function getMetadataSceneBounds(metadata: Record<string, unknown>): LayerSceneBounds | undefined {
@@ -819,6 +833,8 @@ registerLayerType({
     renderOrderPriority: 4,
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getCoordOffset,
+    getUsesGraphInteraction,
+    getOriginMode,
     getSnapshotAgentLayer,
     createLayer: (plan, context) => {
       if (plan.role !== 'agent') return null;
@@ -856,6 +872,7 @@ registerLayerType({
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getGraphConfig: (metadata) => metadata as GraphEnvConfig,
     getSnapshotEdges,
+    getFitPadding: () => 0.05,
     createLayer: (plan, context) => {
       if (plan.role !== 'edge') return null;
       return createEdgeLayerFromPlan(plan as EdgeLayerPlan, context);

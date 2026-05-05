@@ -181,7 +181,9 @@ export class EnvironmentRendererController {
     // Browser-specific: graph-interaction layers use double-click for selection,
     // grid agents use single-click.  The factory stays generic — we resolve the
     // correct handler set here.
-    const isGraphInteraction = layerPlan.role === 'agent' && 'usesGraphInteraction' in layerPlan
+    // usesGraphInteraction is now determined by the registry via render-plan,
+    // not by role-specific branching in the controller.
+    const isGraphInteraction = 'usesGraphInteraction' in layerPlan
       && (layerPlan as { usesGraphInteraction: boolean }).usesGraphInteraction;
 
     const factoryContext: LayerCreateContext = {

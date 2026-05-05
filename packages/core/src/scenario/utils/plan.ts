@@ -8,35 +8,7 @@
  * Keeping them in `@tensnap/core` prevents duplication across host packages.
  */
 
-import {
-	AgentStorage,
-	BackgroundStorage,
-	EdgeStorage,
-	GridEnvStorage,
-	TrajectoryStorage,
-} from '../../environment/storages';
-import type { BackgroundData } from '../../environment/storages/BackgroundStorage';
-import type { GraphEdge } from '../../environment/types';
 import { layerRegistry } from '../layer-registry';
-
-function isBackgroundData(value: unknown): value is BackgroundData {
-	if (value === null) return true;
-	if (typeof value !== 'object' || value === null) return false;
-	const v = value as Record<string, unknown>;
-	if (v.kind === 'color') return typeof v.value === 'string';
-	if (v.kind === 'image') {
-		return (
-			typeof v.url === 'string' &&
-			typeof v.isBlob === 'boolean' &&
-			(v.interpolation === 'nearest' || v.interpolation === 'linear')
-		);
-	}
-	return false;
-}
-
-function isEdgeStorageSnapshot(value: unknown): value is { edges: unknown[] } {
-	return typeof value === 'object' && value !== null && Array.isArray((value as { edges?: unknown[] }).edges);
-}
 import type {
 	ScenarioEnvironmentSnapshot,
 	ScenarioEnvironmentState,
@@ -45,25 +17,33 @@ import type {
 } from '../types';
 import { createRenderPlan, type RenderPlan } from '../render-plan';
 
+// #region UnknownLayerStorage
+/**
+ * A minimal storage implementation for unknown/unregistered layer types.
+ * This replaces the old fallback that used BackgroundStorage as a generic
+ * placeholder, which violated the principle of a single source of truth
+ * in the layer registry.
+ */
+export class UnknownLayerStorage {
+	private data: Record<string, unknown> = {};
+
+	dump(): Record<string, unknown> {
+		return { ...this.data };
+	}
+
+	load(snapshot: unknown): void {
+		this.data = typeof snapshot === 'object' && snapshot !== null
+			? structuredClone(snapshot as Record<string, unknown>)
+			: {};
+	}
+}
+// #endregion
+
 function cloneValue<T>(value: T): T {
 	if (value === null || value === undefined || typeof value !== 'object') {
 		return value;
 	}
 	return structuredClone(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
-}
-
-function mergeRecordSnapshots(...values: unknown[]): Record<string, unknown> {
-	const merged: Record<string, unknown> = {};
-	for (const value of values) {
-		if (isRecord(value)) {
-			Object.assign(merged, cloneValue(value));
-		}
-	}
-	return merged;
 }
 
 type LayerStorage = ScenarioLayerState['storage'];
@@ -79,58 +59,19 @@ function createLayerState(layer: ScenarioLayerSnapshot): ScenarioLayerState {
 }
 
 function createLayerStorage(layer: ScenarioLayerSnapshot): LayerStorage {
-	// Delegate to registry's fromSnapshot when available.
-	// All five built-in types register fromSnapshot, so the switch below is only
-	// reached for unknown/unregistered layer types.
+	// Registry-based fromSnapshot is the single source of truth.
+	// All five built-in types register fromSnapshot, so this path covers them.
 	const fromSnapshot = layerRegistry.get(layer.layerType)?.fromSnapshot;
 	if (fromSnapshot) {
 		return fromSnapshot(layer);
 	}
 
-	// Fallback for unregistered layer types — return an empty BackgroundStorage
-	// so the snapshot can still be loaded without throwing.
-	switch (layer.layerType) {
-		case 'agent': {
-			const storage = new AgentStorage();
-			storage.load(cloneValue(layer.storageSnapshot ?? {}));
-			return storage;
-		}
-		case 'grid': {
-			const storage = new GridEnvStorage();
-			storage.setData(mergeRecordSnapshots(layer.metadata, layer.storageSnapshot));
-			return storage;
-		}
-		case 'edge': {
-			const storage = new EdgeStorage();
-			storage.setEdges(collectLayerEdges(layer));
-			return storage;
-		}
-		case 'trajectory': {
-			const storage = new TrajectoryStorage();
-			storage.load(cloneValue(layer.storageSnapshot ?? {}));
-			return storage;
-		}
-		case 'background': {
-			const storage = new BackgroundStorage();
-			storage.setData(isBackgroundData(layer.storageSnapshot) ? cloneValue(layer.storageSnapshot) : null);
-			return storage;
-		}
-		default: {
-			const storage = new BackgroundStorage();
-			storage.setData(null);
-			return storage;
-		}
-	}
-}
-
-function collectLayerEdges(layer: ScenarioLayerSnapshot): GraphEdge[] {
-	const edgesFromStorage = isEdgeStorageSnapshot(layer.storageSnapshot)
-		? layer.storageSnapshot.edges.map((edge) => cloneValue(edge as GraphEdge))
-		: [];
-	const metadataEdges = isRecord(layer.metadata) && Array.isArray(layer.metadata.edges)
-		? layer.metadata.edges.map((edge) => cloneValue(edge as GraphEdge))
-		: [];
-	return [...edgesFromStorage, ...metadataEdges];
+	// For unregistered/unknown layer types, use UnknownLayerStorage
+	// instead of falling back to a built-in storage type. This ensures
+	// the registry remains the single source of truth for layer type
+	// handling, and unknown types do not silently masquerade as
+	// BackgroundStorage.
+	return new UnknownLayerStorage();
 }
 
 /**

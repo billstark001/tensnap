@@ -32,7 +32,7 @@
     "@leafer-ui/node": "^2.1.0",
     "@tensnap/core": "workspace:*",
     "canvas": "^3.2.3",
-    "hono": "^4.12.16",
+    "hono": "^4.12.17",
     "ws": "^8.20.0"
   },
   "devDependencies": {
