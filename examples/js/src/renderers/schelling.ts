@@ -1,23 +1,14 @@
 import {
   defineCharts,
+  defineExample,
   defineEnvironment,
   defineLayer,
-  defineModel,
   defineParameters,
 } from '@tensnap/js/bindings';
-import type { SimulatorSession } from '@tensnap/js/runtime';
-import type { ScenarioDefinition } from '@tensnap/js/scenario';
 import { SchellingConfig, SchellingModel } from '../models/schelling';
-import { type JsExampleMetadata } from './shared';
 
 const AGENT_LAYER = 'agents';
 const GRID_LAYER = 'grid';
-
-export const SCHELLING_METADATA: JsExampleMetadata = {
-  id: 'schelling',
-  name: 'Schelling Segregation Model',
-  description: 'Local similarity preference causes macro segregation patterns.',
-};
 
 export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
   gridWidth: 50,
@@ -44,7 +35,11 @@ const SCHELLING_CHARTS = defineCharts(
   { id: 'segregation_index', label: 'Segregation Index', color: '#e8590c' },
 );
 
-const schellingBinding = defineModel({
+export const SCHELLING_EXAMPLE = defineExample({
+  id: 'schelling',
+  name: 'Schelling Segregation Model',
+  description: 'Local similarity preference causes macro segregation patterns.',
+}, {
   defaults: DEFAULT_SCHELLING_CONFIG,
   parameters: createSchellingParameters,
   environments(config) {
@@ -81,16 +76,14 @@ const schellingBinding = defineModel({
     model.destroy();
   },
   async sync(model, ctx) {
-    await ctx.createItems('main', AGENT_LAYER, model.getEnvironmentState().agents);
+    await ctx.syncItems('main', AGENT_LAYER, model.getEnvironmentState().agents);
 
     const stats = model.getStatistics();
-    await ctx.metadata({ time: 0 });
-    await ctx.updateCharts({
-      updates: [
-        { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
-        { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
-      ],
-    });
+    await ctx.setTime(0);
+    await ctx.setChartValues({
+      satisfaction_rate: stats.satisfactionRate,
+      segregation_index: stats.segregationIndex,
+    }, 0);
   },
   async onParameterChange(model, payload, ctx) {
     model.updateParameter(payload.id, payload.value);
@@ -99,41 +92,17 @@ const schellingBinding = defineModel({
   async step(model, ctx) {
     model.step();
     const stats = model.getStatistics();
-    await ctx.metadata({ time: stats.timeStep });
-
-    const updates = model.getAgentUpdates(false);
-    const create = updates
-      .filter((update) => update.operation === 'create')
-      .map((update) => update.data);
-    const change = updates
-      .filter((update) => update.operation === 'update')
-      .map((update) => update.data);
-
-    await ctx.createItems('main', AGENT_LAYER, create);
-    await ctx.updateItems('main', AGENT_LAYER, change);
-    await ctx.updateCharts({
-      updates: [
-        { id: 'satisfaction_rate', value: stats.satisfactionRate, time: stats.timeStep },
-        { id: 'segregation_index', value: stats.segregationIndex, time: stats.timeStep },
-      ],
-    });
+    await ctx.setTime(stats.timeStep);
+    await ctx.syncItems('main', AGENT_LAYER, model.getEnvironmentState().agents);
+    await ctx.setChartValues({
+      satisfaction_rate: stats.satisfactionRate,
+      segregation_index: stats.segregationIndex,
+    }, stats.timeStep);
     return true;
   },
   async reset(model, ctx) {
     model.reset();
     await ctx.sync();
-    await ctx.clearCharts('satisfaction_rate', 'segregation_index');
+    await ctx.clearAllCharts();
   },
 });
-
-export function createSchellingScenario(
-  config: Partial<SchellingConfig> = {},
-): ScenarioDefinition {
-  return schellingBinding.createScenario(config);
-}
-
-export function createSchellingSession(
-  config: Partial<SchellingConfig> = {},
-): SimulatorSession {
-  return schellingBinding.createSession(config);
-}

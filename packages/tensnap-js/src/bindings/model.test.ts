@@ -7,6 +7,7 @@ import type {
 import { describe, expect, it } from 'vitest';
 import {
   defineCharts,
+  defineExample,
   defineEnvironment,
   defineLayer,
   defineModel,
@@ -22,7 +23,11 @@ const emptyStateSync: StateSyncRequest = {
 
 describe('defineModel', () => {
   it('creates a declarative session with lifecycle defaults and parameter refresh', async () => {
-    const binding = defineModel({
+    const binding = defineExample({
+      id: 'test-binding',
+      name: 'Test Binding',
+      description: 'test',
+    }, {
       defaults: { speed: 1 },
       parameters: (config) => defineParameters({
         id: 'speed',
@@ -49,25 +54,21 @@ describe('defineModel', () => {
         return { speed: model.speed };
       },
       async sync(model, ctx) {
-        await ctx.metadata({ time: model.tick });
-        await ctx.createItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
-        await ctx.updateCharts({
-          updates: [{ id: 'count', value: model.tick, time: model.tick }],
-        });
+        await ctx.setTime(model.tick);
+        await ctx.syncItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
+        await ctx.setChartValues({ count: model.tick }, model.tick);
       },
       async step(model, ctx) {
         model.tick += model.speed;
-        await ctx.metadata({ time: model.tick });
-        await ctx.updateItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
-        await ctx.updateCharts({
-          updates: [{ id: 'count', value: model.tick, time: model.tick }],
-        });
+        await ctx.setTime(model.tick);
+        await ctx.syncItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
+        await ctx.setChartValues({ count: model.tick }, model.tick);
         return model.tick < 3;
       },
       async reset(model, ctx) {
         model.tick = 0;
         await ctx.sync();
-        await ctx.clearCharts('count');
+        await ctx.clearAllCharts();
       },
       async onParameterChange(model, payload, ctx) {
         if (payload.id !== 'speed' || typeof payload.value !== 'number') {
@@ -86,6 +87,7 @@ describe('defineModel', () => {
 
     await session.open('test-binding');
 
+    expect(binding.id).toBe('test-binding');
     expect(messages.some((message) => message.type === 'action_create')).toBe(true);
     expect(messages.some((message) => message.type === 'item_create')).toBe(true);
     expect(messages.some((message) => message.type === 'metadata_update')).toBe(true);

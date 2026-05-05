@@ -1,15 +1,12 @@
 import type { GridAgentState } from '@tensnap/core/environment';
 import {
   defineCharts,
+  defineExample,
   defineEnvironment,
   defineLayer,
-  defineModel,
   defineParameters,
 } from '@tensnap/js/bindings';
-import type { SimulatorSession } from '@tensnap/js/runtime';
-import type { ScenarioDefinition } from '@tensnap/js/scenario';
 import { WolfSheepConfig, WolfSheepModel, World } from '../models/wolf-sheep';
-import { type JsExampleMetadata } from './shared';
 
 const GRID_LAYER = 'grid';
 const TERRAIN_LAYER = 'terrain';
@@ -54,12 +51,6 @@ const WOLF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 
 type AnimalObj = { position: { x: number; y: number }; heading: number; config: { color: string; size: number } };
 
-export const WOLF_SHEEP_METADATA: JsExampleMetadata = {
-  id: 'wolf-sheep',
-  name: 'Wolf Sheep Predation Model',
-  description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
-};
-
 export const DEFAULT_WOLF_SHEEP_CONFIG: WolfSheepConfig = {
   modelVersion: 'sheep-wolves-grass',
   initialNumberSheep: 100,
@@ -81,7 +72,6 @@ interface WolfSheepRuntime {
   nextSheepId: number;
   nextWolfId: number;
   previousPatchColors: string[][];
-  previousAnimalIds: Set<string | number>;
 }
 
 function createWolfSheepParameters(config: WolfSheepConfig) {
@@ -195,15 +185,11 @@ async function registerAnimalAssets(
   await ctx.publishAsset(WOLF_ASSET_ID, 'image/svg+xml', encoder.encode(WOLF_SVG), 'Wolf');
 }
 
-function getChartUpdates(runtime: WolfSheepRuntime, time?: number) {
-  return [
-    { id: 'sheep_count', value: runtime.model.getSheepCount(), time },
-    { id: 'wolf_count', value: runtime.model.getWolfCount(), time },
-    { id: 'grass_count', value: runtime.model.getGrassCount(), time },
-  ];
-}
-
-const wolfSheepBinding = defineModel({
+export const WOLF_SHEEP_EXAMPLE = defineExample({
+  id: 'wolf-sheep',
+  name: 'Wolf Sheep Predation Model',
+  description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
+}, {
   defaults: DEFAULT_WOLF_SHEEP_CONFIG,
   parameters: createWolfSheepParameters,
   environments(config) {
@@ -245,7 +231,6 @@ const wolfSheepBinding = defineModel({
       nextSheepId: 0,
       nextWolfId: 0,
       previousPatchColors: [],
-      previousAnimalIds: new Set<string | number>(),
     } satisfies WolfSheepRuntime;
   },
   getConfig(runtime) {
@@ -262,12 +247,13 @@ const wolfSheepBinding = defineModel({
   async sync(runtime, ctx) {
     await registerAnimalAssets(ctx);
     await ctx.createItems('main', TERRAIN_LAYER, buildTerrainAgents(runtime, true));
-
-    const animals = buildAnimalAgents(runtime);
-    runtime.previousAnimalIds = new Set<string | number>(animals.map((agent) => agent.id));
-    await ctx.createItems('main', ANIMAL_LAYER, animals);
-    await ctx.metadata({ time: 0 });
-    await ctx.updateCharts({ updates: getChartUpdates(runtime, 0) });
+    await ctx.syncItems('main', ANIMAL_LAYER, buildAnimalAgents(runtime));
+    await ctx.setTime(0);
+    await ctx.setChartValues({
+      sheep_count: runtime.model.getSheepCount(),
+      wolf_count: runtime.model.getWolfCount(),
+      grass_count: runtime.model.getGrassCount(),
+    }, 0);
   },
   async onParameterChange(runtime, payload, ctx) {
     const currentConfig = runtime.model.getConfig();
@@ -282,7 +268,7 @@ const wolfSheepBinding = defineModel({
     const canContinue = runtime.model.go();
     const time = runtime.model.getTicks();
 
-    await ctx.metadata({ time });
+    await ctx.setTime(time);
 
     const terrainUpdates = buildTerrainAgents(runtime, false);
     await ctx.updateItems(
@@ -298,30 +284,12 @@ const wolfSheepBinding = defineModel({
       })),
     );
 
-    const currentAnimals = buildAnimalAgents(runtime);
-    const currentIds = new Set<string | number>(currentAnimals.map((agent) => agent.id));
-    const toDelete = Array.from(runtime.previousAnimalIds).filter((id) => !currentIds.has(id));
-    const toCreate = currentAnimals.filter((agent) => !runtime.previousAnimalIds.has(agent.id));
-    const toUpdate = currentAnimals.filter((agent) => runtime.previousAnimalIds.has(agent.id));
-
-    await ctx.deleteItems('main', ANIMAL_LAYER, toDelete.map((id) => ({ id })));
-    await ctx.createItems('main', ANIMAL_LAYER, toCreate);
-    await ctx.updateItems(
-      'main',
-      ANIMAL_LAYER,
-      toUpdate.map((agent) => ({
-        id: agent.id,
-        x: agent.x,
-        y: agent.y,
-        heading: agent.heading,
-        color: agent.color,
-        icon: agent.icon,
-        size: agent.size,
-      })),
-    );
-
-    runtime.previousAnimalIds = currentIds;
-    await ctx.updateCharts({ updates: getChartUpdates(runtime, time) });
+    await ctx.syncItems('main', ANIMAL_LAYER, buildAnimalAgents(runtime));
+    await ctx.setChartValues({
+      sheep_count: runtime.model.getSheepCount(),
+      wolf_count: runtime.model.getWolfCount(),
+      grass_count: runtime.model.getGrassCount(),
+    }, time);
     capturePatchSnapshot(runtime);
     return canContinue;
   },
@@ -330,21 +298,8 @@ const wolfSheepBinding = defineModel({
     runtime.animalIdMap = new WeakMap();
     runtime.nextSheepId = 0;
     runtime.nextWolfId = 0;
-    runtime.previousAnimalIds.clear();
     capturePatchSnapshot(runtime);
     await ctx.sync();
     await ctx.clearCharts('sheep_count', 'wolf_count', 'grass_count');
   },
 });
-
-export function createWolfSheepScenario(
-  config: Partial<WolfSheepConfig> = {},
-): ScenarioDefinition {
-  return wolfSheepBinding.createScenario(config);
-}
-
-export function createWolfSheepSession(
-  config: Partial<WolfSheepConfig> = {},
-): SimulatorSession {
-  return wolfSheepBinding.createSession(config);
-}

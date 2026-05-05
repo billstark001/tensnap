@@ -1,13 +1,11 @@
 import type { GridAgentState } from '@tensnap/core/environment';
 import {
   defineCharts,
+  defineExample,
   defineEnvironment,
   defineLayer,
-  defineModel,
   defineParameters,
 } from '@tensnap/js/bindings';
-import type { SimulatorSession } from '@tensnap/js/runtime';
-import type { ScenarioDefinition } from '@tensnap/js/scenario';
 import {
   TornbergConfig,
   TornbergState,
@@ -15,16 +13,9 @@ import {
   initializeTornberg,
   stepTornberg,
 } from '../models/tornberg';
-import { type JsExampleMetadata } from './shared';
 
 const PARTISAN_LAYER = 'partisan';
 const SORTING_SAMPLE_INTERVAL = 10;
-
-export const TORNBERG_METADATA: JsExampleMetadata = {
-  id: 'tornberg',
-  name: 'Tornberg Partisan Sorting',
-  description: 'Digital-media reach and homophily amplify partisan sorting in cultural space.',
-};
 
 export const DEFAULT_TORNBERG_CONFIG: TornbergConfig = {
   width: 30,
@@ -68,7 +59,11 @@ function createPartisanAgents(state: TornbergState): GridAgentState[] {
   }) as GridAgentState);
 }
 
-const tornbergBinding = defineModel({
+export const TORNBERG_EXAMPLE = defineExample({
+  id: 'tornberg',
+  name: 'Tornberg Partisan Sorting',
+  description: 'Digital-media reach and homophily amplify partisan sorting in cultural space.',
+}, {
   defaults: DEFAULT_TORNBERG_CONFIG,
   parameters: createTornbergParameters,
   environments(config) {
@@ -101,14 +96,12 @@ const tornbergBinding = defineModel({
     runtime.lastSorting = computeSorting(runtime.state);
   },
   async sync(runtime, ctx) {
-    await ctx.createItems('main', PARTISAN_LAYER, createPartisanAgents(runtime.state));
-    await ctx.metadata({ time: 0 });
-    await ctx.updateCharts({
-      updates: [
-        { id: 'sorting', value: runtime.lastSorting, time: 0 },
-        { id: 'updates', value: runtime.state.totalUpdates, time: 0 },
-      ],
-    });
+    await ctx.syncItems('main', PARTISAN_LAYER, createPartisanAgents(runtime.state));
+    await ctx.setTime(0);
+    await ctx.setChartValues({
+      sorting: runtime.lastSorting,
+      updates: runtime.state.totalUpdates,
+    }, 0);
   },
   async step(runtime, ctx) {
     stepTornberg(runtime.state);
@@ -119,25 +112,12 @@ const tornbergBinding = defineModel({
       runtime.lastSorting = computeSorting(runtime.state);
     }
 
-    await ctx.metadata({ time });
-    await ctx.updateItems(
-      'main',
-      PARTISAN_LAYER,
-      createPartisanAgents(runtime.state).map((agent) => ({
-        id: agent.id,
-        x: agent.x,
-        y: agent.y,
-        color: agent.color,
-        icon: agent.icon,
-        size: agent.size,
-      })),
-    );
-    await ctx.updateCharts({
-      updates: [
-        { id: 'sorting', value: runtime.lastSorting, time },
-        { id: 'updates', value: runtime.state.totalUpdates, time },
-      ],
-    });
+    await ctx.setTime(time);
+    await ctx.syncItems('main', PARTISAN_LAYER, createPartisanAgents(runtime.state));
+    await ctx.setChartValues({
+      sorting: runtime.lastSorting,
+      updates: runtime.state.totalUpdates,
+    }, time);
 
     return true;
   },
@@ -146,17 +126,6 @@ const tornbergBinding = defineModel({
     runtime.stepCount = 0;
     runtime.lastSorting = computeSorting(runtime.state);
     await ctx.sync();
+    await ctx.clearAllCharts();
   },
 });
-
-export function createTornbergScenario(
-  config: Partial<TornbergConfig> = {},
-): ScenarioDefinition {
-  return tornbergBinding.createScenario(config);
-}
-
-export function createTornbergSession(
-  config: Partial<TornbergConfig> = {},
-): SimulatorSession {
-  return tornbergBinding.createSession(config);
-}

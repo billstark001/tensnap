@@ -23,6 +23,8 @@ type MaybeFactory<TConfig, TValue> =
   | ((config: TConfig) => TValue);
 
 type ItemRecord = Record<string, unknown>;
+type ItemIdentifier = string | number;
+type ChartValueInput = number | { value: number; time?: number };
 
 interface PublishedAsset {
   hash: string;
@@ -45,9 +47,15 @@ export interface ModelSessionContext<TConfig extends object> {
   replayDefinition(): Promise<void>;
   sync(): Promise<void>;
   refreshParameters(ids?: string | readonly string[]): Promise<void>;
+  setTime(time: number): Promise<void>;
   metadata(payload: MetadataUpdatePayload): Promise<void>;
+  setChartValues(
+    values: Readonly<Record<string, ChartValueInput>>,
+    time?: number,
+  ): Promise<void>;
   updateCharts(payload: ChartUpdatePayload): Promise<void>;
   clearCharts(...chartIds: string[]): Promise<void>;
+  clearAllCharts(): Promise<void>;
   createItems<TItem extends object>(
     envId: string,
     layerId: string,
@@ -59,6 +67,11 @@ export interface ModelSessionContext<TConfig extends object> {
     items: readonly TItem[],
   ): Promise<void>;
   deleteItems<TItem extends object>(
+    envId: string,
+    layerId: string,
+    items: readonly TItem[],
+  ): Promise<void>;
+  syncItems<TItem extends { id: ItemIdentifier }>(
     envId: string,
     layerId: string,
     items: readonly TItem[],
@@ -115,6 +128,11 @@ export interface DeclarativeModelBinding<TConfig extends object> {
   createSession(config?: Partial<TConfig>): SimulatorSession;
 }
 
+export type DeclarativeExampleBinding<
+  TConfig extends object,
+  TMetadata extends object,
+> = TMetadata & DeclarativeModelBinding<TConfig>;
+
 function resolveSection<TConfig extends object, TValue>(
   section: MaybeFactory<TConfig, TValue> | undefined,
   config: TConfig,
@@ -127,6 +145,10 @@ function resolveSection<TConfig extends object, TValue>(
 
 function cloneItems<TItem extends object>(items: readonly TItem[]): ItemRecord[] {
   return items as unknown as ItemRecord[];
+}
+
+function getLayerKey(envId: string, layerId: string): string {
+  return `${envId}:${layerId}`;
 }
 
 async function hashAssetData(data: Uint8Array): Promise<string> {
@@ -193,6 +215,7 @@ export function defineModel<
       const initialConfig = resolveConfig(config);
       const model = options.create(initialConfig);
       const assetRegistry = new Map<string, PublishedAsset>();
+      const syncedItemIds = new Map<string, Set<ItemIdentifier>>();
       let currentDefinition = buildScenarioDefinition(options, initialConfig);
       let registry = ScenarioRegistry.from(currentDefinition);
       let session!: SimulatorSession;
@@ -260,11 +283,35 @@ export function defineModel<
             await session.emitter.paramCreate(next);
           }
         },
+        setTime: (time) => session.emitter.metadataUpdate({ time }),
         metadata: (payload) => session.emitter.metadataUpdate(payload),
+        setChartValues(values, time) {
+          return session.emitter.chartUpdate({
+            updates: Object.entries(values).map(([id, entry]) => {
+              if (typeof entry === 'number') {
+                return { id, value: entry, time };
+              }
+              return {
+                id,
+                value: entry.value,
+                time: entry.time ?? time,
+              };
+            }),
+          });
+        },
         updateCharts: (payload) => session.emitter.chartUpdate(payload),
         clearCharts: (...chartIds) => session.emitter.chartUpdate({
           operations: chartIds.map((id) => ({ id, operation: 'clear' as const })),
         }),
+        clearAllCharts() {
+          const chartIds = (currentDefinition.charts ?? []).map((chart) => chart.id);
+          if (chartIds.length === 0) {
+            return Promise.resolve();
+          }
+          return session.emitter.chartUpdate({
+            operations: chartIds.map((id) => ({ id, operation: 'clear' as const })),
+          });
+        },
         createItems: (envId, layerId, items) => {
           if (items.length === 0) {
             return Promise.resolve();
@@ -294,6 +341,40 @@ export function defineModel<
             layer_id: layerId,
             items: cloneItems(items),
           });
+        },
+        async syncItems(envId, layerId, items) {
+          const layerKey = getLayerKey(envId, layerId);
+          const previousIds = syncedItemIds.get(layerKey) ?? new Set<ItemIdentifier>();
+          const currentIds = new Set<ItemIdentifier>(items.map((item) => item.id));
+          const create = items.filter((item) => !previousIds.has(item.id));
+          const update = items.filter((item) => previousIds.has(item.id));
+          const remove = Array.from(previousIds)
+            .filter((id) => !currentIds.has(id))
+            .map((id) => ({ id }));
+
+          if (remove.length > 0) {
+            await session.emitter.itemDelete({
+              env_id: envId,
+              layer_id: layerId,
+              items: cloneItems(remove),
+            });
+          }
+          if (create.length > 0) {
+            await session.emitter.itemCreate({
+              env_id: envId,
+              layer_id: layerId,
+              items: cloneItems(create),
+            });
+          }
+          if (update.length > 0) {
+            await session.emitter.itemUpdate({
+              env_id: envId,
+              layer_id: layerId,
+              items: cloneItems(update),
+            });
+          }
+
+          syncedItemIds.set(layerKey, currentIds);
         },
         finishAction: (payload, shouldContinue = false) => session.emitter.actionEnd({
           id: payload.id,
@@ -361,6 +442,7 @@ export function defineModel<
       session = new BaseSimulatorSession({
         async onConnect() {
           assetRegistry.clear();
+          syncedItemIds.clear();
           await options.init?.(model, context);
           rebuildDefinition();
           await context.replayDefinition();
@@ -369,9 +451,11 @@ export function defineModel<
         async onDisconnect() {
           await options.dispose?.(model, context);
           assetRegistry.clear();
+          syncedItemIds.clear();
         },
         async onStateSync(payload) {
           rebuildDefinition();
+          syncedItemIds.clear();
           await session.emitter.stateSyncBegin({ request_id: payload.request_id });
           await context.replayDefinition();
           await runSync();
@@ -397,5 +481,19 @@ export function defineModel<
 
       return session;
     },
+  };
+}
+
+export function defineExample<
+  TConfig extends object,
+  TModel,
+  TMetadata extends object,
+>(
+  metadata: TMetadata,
+  options: DefineModelOptions<TConfig, TModel>,
+): DeclarativeExampleBinding<TConfig, TMetadata> {
+  return {
+    ...metadata,
+    ...defineModel(options),
   };
 }

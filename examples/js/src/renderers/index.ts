@@ -1,25 +1,17 @@
 import type { SimulatorSession } from '@tensnap/js/runtime';
 import type { ScenarioDefinition } from '@tensnap/js/scenario';
 import {
-  AXELROD_METADATA,
-  createAxelrodScenario,
-  createAxelrodSession,
+  AXELROD_EXAMPLE,
 } from './axelrod';
 import {
-  createSchellingScenario,
-  createSchellingSession,
-  SCHELLING_METADATA,
+  SCHELLING_EXAMPLE,
 } from './schelling';
 import {
-  createTornbergScenario,
-  createTornbergSession,
-  TORNBERG_METADATA,
+  TORNBERG_EXAMPLE,
 } from './tornberg';
 import type { JsExampleMetadata } from './shared';
 import {
-  createWolfSheepScenario,
-  createWolfSheepSession,
-  WOLF_SHEEP_METADATA,
+  WOLF_SHEEP_EXAMPLE,
 } from './wolf-sheep';
 
 export * from './axelrod';
@@ -34,42 +26,10 @@ export interface JsExampleDefinition extends JsExampleMetadata {
 }
 
 const jsExampleDefinitions: JsExampleDefinition[] = [
-  {
-    ...SCHELLING_METADATA,
-    createScenario(config) {
-      return createSchellingScenario((config ?? {}) as Parameters<typeof createSchellingScenario>[0]);
-    },
-    createSession(config) {
-      return createSchellingSession((config ?? {}) as Parameters<typeof createSchellingSession>[0]);
-    },
-  },
-  {
-    ...WOLF_SHEEP_METADATA,
-    createScenario(config) {
-      return createWolfSheepScenario((config ?? {}) as Parameters<typeof createWolfSheepScenario>[0]);
-    },
-    createSession(config) {
-      return createWolfSheepSession((config ?? {}) as Parameters<typeof createWolfSheepSession>[0]);
-    },
-  },
-  {
-    ...AXELROD_METADATA,
-    createScenario(config) {
-      return createAxelrodScenario((config ?? {}) as Parameters<typeof createAxelrodScenario>[0]);
-    },
-    createSession(config) {
-      return createAxelrodSession((config ?? {}) as Parameters<typeof createAxelrodSession>[0]);
-    },
-  },
-  {
-    ...TORNBERG_METADATA,
-    createScenario(config) {
-      return createTornbergScenario((config ?? {}) as Parameters<typeof createTornbergScenario>[0]);
-    },
-    createSession(config) {
-      return createTornbergSession((config ?? {}) as Parameters<typeof createTornbergSession>[0]);
-    },
-  },
+  SCHELLING_EXAMPLE,
+  WOLF_SHEEP_EXAMPLE,
+  AXELROD_EXAMPLE,
+  TORNBERG_EXAMPLE,
 ];
 
 export function getJsExampleDefinitions(): JsExampleDefinition[] {

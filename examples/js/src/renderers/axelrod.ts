@@ -1,23 +1,14 @@
 import type { GridAgentState } from '@tensnap/core/environment';
 import {
   defineCharts,
+  defineExample,
   defineEnvironment,
   defineLayer,
-  defineModel,
   defineParameters,
 } from '@tensnap/js/bindings';
-import type { SimulatorSession } from '@tensnap/js/runtime';
-import type { ScenarioDefinition } from '@tensnap/js/scenario';
 import { AxelrodConfig, AxelrodState, countCultures, initializeAxelrod, stepAxelrod } from '../models/axelrod';
-import { type JsExampleMetadata } from './shared';
 
 const CULTURE_LAYER = 'culture';
-
-export const AXELROD_METADATA: JsExampleMetadata = {
-  id: 'axelrod',
-  name: 'Axelrod Cultural Dissemination',
-  description: 'Local interaction drives convergence and global polarization of cultural traits.',
-};
 
 export const DEFAULT_AXELROD_CONFIG: AxelrodConfig = {
   width: 40,
@@ -64,7 +55,11 @@ function createCultureAgents(
   });
 }
 
-const axelrodBinding = defineModel({
+export const AXELROD_EXAMPLE = defineExample({
+  id: 'axelrod',
+  name: 'Axelrod Cultural Dissemination',
+  description: 'Local interaction drives convergence and global polarization of cultural traits.',
+}, {
   defaults: DEFAULT_AXELROD_CONFIG,
   parameters: createAxelrodParameters,
   environments(config) {
@@ -95,39 +90,24 @@ const axelrodBinding = defineModel({
     runtime.stepCount = 0;
   },
   async sync(runtime, ctx) {
-    await ctx.createItems('main', CULTURE_LAYER, createCultureAgents(runtime.state, runtime.config));
-    await ctx.metadata({ time: 0 });
-    await ctx.updateCharts({
-      updates: [
-        { id: 'cultures', value: countCultures(runtime.state), time: 0 },
-        { id: 'updates', value: runtime.state.totalUpdates, time: 0 },
-      ],
-    });
+    await ctx.syncItems('main', CULTURE_LAYER, createCultureAgents(runtime.state, runtime.config));
+    await ctx.setTime(0);
+    await ctx.setChartValues({
+      cultures: countCultures(runtime.state),
+      updates: runtime.state.totalUpdates,
+    }, 0);
   },
   async step(runtime, ctx) {
     stepAxelrod(runtime.state);
     runtime.stepCount += 1;
     const time = runtime.stepCount;
 
-    await ctx.metadata({ time });
-    await ctx.updateItems(
-      'main',
-      CULTURE_LAYER,
-      createCultureAgents(runtime.state, runtime.config).map((agent) => ({
-        id: agent.id,
-        x: agent.x,
-        y: agent.y,
-        icon: agent.icon,
-        size: agent.size,
-        color: agent.color,
-      })),
-    );
-    await ctx.updateCharts({
-      updates: [
-        { id: 'cultures', value: countCultures(runtime.state), time },
-        { id: 'updates', value: runtime.state.totalUpdates, time },
-      ],
-    });
+    await ctx.setTime(time);
+    await ctx.syncItems('main', CULTURE_LAYER, createCultureAgents(runtime.state, runtime.config));
+    await ctx.setChartValues({
+      cultures: countCultures(runtime.state),
+      updates: runtime.state.totalUpdates,
+    }, time);
 
     return true;
   },
@@ -135,17 +115,6 @@ const axelrodBinding = defineModel({
     runtime.state = initializeAxelrod(runtime.config);
     runtime.stepCount = 0;
     await ctx.sync();
+    await ctx.clearAllCharts();
   },
 });
-
-export function createAxelrodScenario(
-  config: Partial<AxelrodConfig> = {},
-): ScenarioDefinition {
-  return axelrodBinding.createScenario(config);
-}
-
-export function createAxelrodSession(
-  config: Partial<AxelrodConfig> = {},
-): SimulatorSession {
-  return axelrodBinding.createSession(config);
-}
