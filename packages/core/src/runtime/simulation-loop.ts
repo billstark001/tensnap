@@ -1,11 +1,13 @@
-import {
-  PipelineRuntime,
-  type ActionEndPayload,
-  type RendererToSimulatorMessage,
-  type RuntimeTaskSnapshot,
-} from '@tensnap/core';
-import type { StateSyncStatus } from './scenario/types';
-import type { RenderTriggerMode } from './settings';
+/**
+ * runtime/simulation-loop.ts
+ *
+ * Browser-only implementation: SimulationLoopController and related types.
+ * Re-exported via `@tensnap/core/runtime/browser`.
+ */
+
+import { PipelineRuntime } from './PipelineRuntime';
+import type { RuntimeTaskSnapshot } from './PipelineRuntime';
+import type { ActionEndPayload, RendererToSimulatorMessage } from '../protocol';
 
 // Hot-path runtime helpers are intentionally consumed here so continuous runs
 // do not allocate cloned command/task snapshots every tick.
@@ -24,6 +26,15 @@ const RAF_SELECTION_EPSILON_MS = 0.5;
 // #endregion Constants
 
 // #region Types
+
+export type RenderTriggerMode = 'auto' | 'setTimeout' | 'requestAnimationFrame';
+
+export type StateSyncPhase = 'idle' | 'requested' | 'receiving';
+
+export interface StateSyncStatus {
+  requestId: string | null;
+  phase: StateSyncPhase;
+}
 
 export type ActionStartFactory = (
   id: string,
@@ -266,14 +277,13 @@ class DispatchTrigger {
 
 // #region Module Helpers
 
-const createIdleLoopState = (): SimulationLoopState => ({
+export const createIdleLoopState = (): SimulationLoopState => ({
   runningActions: new Set(),
 });
 
 const createIdleStateSyncStatus = (): StateSyncStatus => ({
   requestId: null,
   phase: 'idle',
-  autoLayoutOnComplete: false,
 });
 
 // #endregion Module Helpers
@@ -411,7 +421,7 @@ export class SimulationLoopController {
       return;
     }
 
-    this.stateSync = { ...status };
+    this.stateSync = { requestId: status.requestId, phase: status.phase };
 
     if (status.phase === 'requested' && status.requestId) {
       this.runtime.requestStateSync(status.requestId);
@@ -754,5 +764,3 @@ export class SimulationLoopController {
 }
 
 // #endregion SimulationLoopController
-
-export { createIdleLoopState };

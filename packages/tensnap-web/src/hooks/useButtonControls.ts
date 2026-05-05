@@ -3,7 +3,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useSettingsStore } from '@/store/settings';
 import type { ActionEndPayload } from '@tensnap/core';
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createIdleLoopState, SimulationLoopController } from '@/store/simulation-loop';
+import { createIdleLoopState, SimulationLoopController } from '@tensnap/core/runtime/browser';
 
 type ActionEventSource = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;
 

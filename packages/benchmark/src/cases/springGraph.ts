@@ -82,6 +82,7 @@ export function createSpringGraphCase(partial: Partial<Config> = {}): BenchmarkC
 
   return {
     name: 'EnvironmentView (E-R spring graph)',
+    suite: 'synthetic' as const,
     config: cfg as unknown as Record<string, unknown>,
 
     setup(container) {

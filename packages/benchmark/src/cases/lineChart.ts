@@ -67,6 +67,7 @@ export function createLineChartCase(partial: Partial<Config> = {}): BenchmarkCas
 
   return {
     name: 'LineChartView (multi-line random)',
+    suite: 'synthetic' as const,
     config: cfg as unknown as Record<string, unknown>,
 
     setup(container) {

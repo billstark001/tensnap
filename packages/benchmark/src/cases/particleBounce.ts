@@ -88,6 +88,7 @@ export function createParticleBounceCase(partial: Partial<Config> = {}): Benchma
 
   return {
     name: 'EnvironmentView (particle bounce)',
+    suite: 'synthetic' as const,
     config: cfg as unknown as Record<string, unknown>,
 
     setup(container) {

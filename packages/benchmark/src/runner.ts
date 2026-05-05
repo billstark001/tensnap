@@ -1,9 +1,13 @@
-import { PipelineRuntime } from '@tensnap/core/runtime';
 import { BenchmarkCase, BenchmarkStats } from './types';
 
-const BENCHMARK_TASK_KEY = 'benchmark-frame';
-
-/** Yield one event-loop turn via requestAnimationFrame (browser paint boundary). */
+/** Yield one event-loop turn via requestAnimationFrame (browser paint boundary).
+ *
+ * Used for synthetic benchmark cases between ticks to measure paint-bound
+ * throughput under realistic browser scheduling conditions.
+ *
+ * Web-scenario cases do NOT use this gate — they follow the web renderer's
+ * own scheduling semantics instead.
+ */
 function waitFrame(): Promise<DOMHighResTimeStamp> {
   return new Promise((resolve) => requestAnimationFrame(resolve));
 }
@@ -11,12 +15,12 @@ function waitFrame(): Promise<DOMHighResTimeStamp> {
 /**
  * Run a benchmark case for `frames` ticks.
  *
- * Protocol per tick:
- *   1. `tick(i)` — update data (computation)
- *   2. `requestAnimationFrame` — yield to browser to paint
- *   3. record compute time and wall-clock throughput
+ * Per-tick protocol:
+ *   1. `tick(frameIndex)` — update data/model
+ *   2. For synthetic cases only: `requestAnimationFrame` — yield to browser to paint
+ *   3. Record compute time and wall-clock throughput
  *
- * The first `warmupFrames` frames are discarded.
+ * The first `warmupFrames` frames are discarded from timing.
  */
 export async function runBenchmark(
   benchCase: BenchmarkCase,
@@ -27,21 +31,15 @@ export async function runBenchmark(
 ): Promise<BenchmarkStats> {
   await benchCase.setup(container);
 
-  const runtime = new PipelineRuntime();
+  const isWebScenario = benchCase.suite === 'web-scenario';
+
   const totalFrames = warmupFrames + frames;
   const timings: number[] = [];
   let runStartedAt: number | null = null;
   let frameIndex = 0;
 
-  runtime.enqueue(BENCHMARK_TASK_KEY, { continuous: true });
-
   try {
     while (frameIndex < totalFrames) {
-      const command = runtime.consumeCommands()[0];
-      if (!command || command.type !== 'dispatch') {
-        throw new Error('Benchmark runtime stalled before completing all frames.');
-      }
-
       const isMeasuredFrame = frameIndex >= warmupFrames;
       if (isMeasuredFrame && runStartedAt == null) {
         runStartedAt = performance.now();
@@ -54,13 +52,11 @@ export async function runBenchmark(
         timings.push(computeElapsed);
       }
 
-      runtime.completeTask(command.task.id, {
-        continue: frameIndex + 1 < totalFrames,
-      });
-      runtime.markTaskApplied(command.task.id);
-
-      await waitFrame();
-      runtime.markTaskRendered(command.task.id);
+      // Synthetic cases: yield via rAF to let the browser paint between frames.
+      // Web-scenario cases are driven by their own internal rendering pipeline.
+      if (!isWebScenario) {
+        await waitFrame();
+      }
 
       if (isMeasuredFrame) {
         onProgress?.(frameIndex - warmupFrames + 1, frames);
@@ -76,7 +72,7 @@ export async function runBenchmark(
       ? 1
       : Math.max(1, runEndedAt - runStartedAt);
 
-    return computeStats(benchCase.name, benchCase.config, timings, runDurationMs);
+    return computeStats(benchCase.name, benchCase.suite, benchCase.config, timings, runDurationMs);
   } finally {
     await benchCase.teardown();
   }
@@ -84,6 +80,7 @@ export async function runBenchmark(
 
 function computeStats(
   caseName: string,
+  suite: 'synthetic' | 'web-scenario',
   config: Record<string, unknown>,
   timings: number[],
   runDurationMs: number,
@@ -102,6 +99,7 @@ function computeStats(
 
   return {
     caseName,
+    suite,
     config,
     frames: n,
     totalMs: Math.round(total * 100) / 100,
@@ -120,31 +118,46 @@ export function resultsToJson(results: BenchmarkStats[]): string {
   return JSON.stringify(results, null, 2);
 }
 
-/** Serialise results as a Markdown table. */
+/** Serialise results as a Markdown table grouped by suite. */
 export function resultsToMarkdown(results: BenchmarkStats[]): string {
   const date = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-  const header = `# TenSnap Web Core — Benchmark Results\n\n_Generated: ${date}_\n\n`;
+  let header = `# TenSnap Web Core — Benchmark Results\n\n_Generated: ${date}_\n\n`;
+
+  const synthetic = results.filter((r) => r.suite === 'synthetic');
+  const webScenario = results.filter((r) => r.suite === 'web-scenario');
 
   const tableHeader = [
-    '| Case | Frames | Mean (ms) | Median (ms) | Min (ms) | Max (ms) | p95 (ms) | TPS |',
-    '|------|-------:|----------:|------------:|---------:|---------:|---------:|----:|',
+    '| Suite | Case | Frames | Mean (ms) | Median (ms) | Min (ms) | Max (ms) | p95 (ms) | TPS |',
+    '|-------|------|-------:|----------:|------------:|---------:|---------:|---------:|----:|',
   ].join('\n');
 
-  const rows = results
-    .map(
-      (r) =>
-        `| ${r.caseName} | ${r.frames} | ${r.meanMs} | ${r.medianMs} | ${r.minMs} | ${r.maxMs} | ${r.p95Ms} | ${r.tps} |`
-    )
-    .join('\n');
+  function buildRows(rows: BenchmarkStats[]): string {
+    return rows
+      .map(
+        (r) =>
+          `| ${r.suite} | ${r.caseName} | ${r.frames} | ${r.meanMs} | ${r.medianMs} | ${r.minMs} | ${r.maxMs} | ${r.p95Ms} | ${r.tps} |`
+      )
+      .join('\n');
+  }
+
+  if (synthetic.length > 0) {
+    header += '\n## Synthetic Suite\n\n';
+    header += tableHeader + '\n' + buildRows(synthetic) + '\n';
+  }
+
+  if (webScenario.length > 0) {
+    header += '\n## Web-Scenario Suite\n\n';
+    header += tableHeader + '\n' + buildRows(webScenario) + '\n';
+  }
 
   const configBlock =
-    '\n\n## Configurations\n\n' +
+    '\n## Configurations\n\n' +
     results
       .map(
         (r) =>
-          `### ${r.caseName}\n\n\`\`\`json\n${JSON.stringify(r.config, null, 2)}\n\`\`\``
+          `### [${r.suite}] ${r.caseName}\n\n\`\`\`json\n${JSON.stringify(r.config, null, 2)}\n\`\`\``
       )
       .join('\n\n');
 
-  return header + tableHeader + '\n' + rows + configBlock;
+  return header + configBlock;
 }

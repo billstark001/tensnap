@@ -8,6 +8,8 @@ export interface FrameTiming {
 export interface BenchmarkStats {
   caseName: string;
   config: Record<string, unknown>;
+  /** Suite label: synthetic or web-scenario. */
+  suite: 'synthetic' | 'web-scenario';
   frames: number;
   totalMs: number;
   meanMs: number;
@@ -22,6 +24,8 @@ export interface BenchmarkStats {
 export interface BenchmarkCase {
   name: string;
   config: Record<string, unknown>;
+  /** Suite label: synthetic or web-scenario. */
+  suite: 'synthetic' | 'web-scenario';
   /** Called once before the run to create the DOM containers and views. */
   setup(container: HTMLElement): Promise<void> | void;
   /** Called for every benchmark frame; should update data but NOT wait for RAF. */
@@ -36,6 +40,8 @@ export interface CaseVariation {
   name: string;
   /** Human-readable description shown in the UI. */
   description: string;
+  /** Suite label for all cases in this variation group. */
+  suite: 'synthetic' | 'web-scenario';
   /** Ordered list of cases, typically from lightest to heaviest. Index 1 is the default "medium" configuration. */
   cases: BenchmarkCase[];
 }

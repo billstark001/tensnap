@@ -10,7 +10,6 @@
     ".": "./src/index.ts",
     "./models": "./src/models/index.ts",
     "./manifest": "./src/manifest.ts",
-    "./benchmark": "./src/benchmark/index.ts",
     "./entries/main-ws": "./src/entries/main-ws.ts",
     "./entries/main-bundle": "./src/entries/main-bundle.ts"
   },

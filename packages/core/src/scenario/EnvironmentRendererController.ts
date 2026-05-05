@@ -1,22 +1,54 @@
+/**
+ * scenario/EnvironmentRendererController.ts
+ *
+ * Canonical browser-side controller that reconciles an EnvironmentView with
+ * a ScenarioEnvironmentState using the standard RenderPlan pipeline.
+ *
+ * This is the same reconciliation logic used by the web application's
+ * Environment2DRendererController.  Keeping it in core makes it reusable
+ * by benchmark and any other consumer that wants to render a Scenario
+ * environment without pulling in the React/Zustand web-app shell.
+ */
+
 import {
   AgentLayer,
   BackgroundLayer,
   EdgeLayer,
   GridLayer,
   TrajectoryLayer,
-} from '@tensnap/core/environment';
-import { EnvironmentView } from '@tensnap/core/environment/browser';
-import type { AgentRenderState, AgentStorage } from '@tensnap/core/environment';
-import { createRenderPlan, type AgentLayerPlan, type BackgroundLayerPlan, type EdgeLayerPlan, type GridLayerPlan, type LayerRendererRole, type RenderLayerPlan, type RenderPlan, type TrajectoryLayerPlan } from '@tensnap/core/scenario';
-import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
+} from '../environment';
+import { EnvironmentView } from '../environment/EnvironmentView';
+import type { AgentRenderState, AgentStorage } from '../environment';
+import {
+  createRenderPlan,
+  type AgentLayerPlan,
+  type BackgroundLayerPlan,
+  type EdgeLayerPlan,
+  type GridLayerPlan,
+  type RenderLayerPlan,
+  type RenderPlan,
+  type TrajectoryLayerPlan,
+} from './render-plan';
+import type { LayerRendererRole } from './layer-registry';
+import type { ScenarioEnvironmentState } from './types';
 
-interface Environment2DRendererControllerOptions {
-  resolveAssetUrl: (assetId: string) => string | undefined;
-  onAgentSelect: (agent: AgentRenderState) => void;
-  onRenderError: (title: string, detail: string) => void;
+export interface EnvironmentRendererControllerOptions {
+  resolveAssetUrl?: (assetId: string) => string | undefined;
+  onAgentSelect?: (agent: AgentRenderState) => void;
+  onRenderError?: (title: string, detail: string) => void;
 }
 
-export class Environment2DRendererController {
+const ROLE_ORDER: LayerRendererRole[] = ['background', 'grid', 'edge', 'trajectory', 'agent'];
+
+interface LayerEntry {
+  key: string;
+  role: LayerRendererRole;
+  layerId: string;
+  layer: { destroy(): void };
+  storage?: AgentStorage;
+}
+
+export class EnvironmentRendererController {
   private envView: EnvironmentView | null = null;
   private agentStorages: AgentStorage[] = [];
   private readonly layerEntriesByRole = new Map<LayerRendererRole, Map<string, LayerEntry>>([
@@ -32,8 +64,8 @@ export class Environment2DRendererController {
 
   constructor(
     private readonly container: HTMLDivElement,
-    private readonly options: Environment2DRendererControllerOptions,
-  ) { }
+    private readonly options: EnvironmentRendererControllerOptions = {},
+  ) {}
 
   render(environment: ScenarioEnvironmentState): void {
     if (this.lastEnvironmentId !== environment.id) {
@@ -56,7 +88,10 @@ export class Environment2DRendererController {
       this.reconcile(plan);
     } catch (error) {
       this.destroy();
-      this.options.onRenderError('Environment render failed', error instanceof Error ? error.message : String(error));
+      this.options.onRenderError?.(
+        'Environment render failed',
+        error instanceof Error ? error.message : String(error),
+      );
       return;
     }
   }
@@ -129,7 +164,7 @@ export class Environment2DRendererController {
     nextByRole.forEach((entries, role) => this.layerEntriesByRole.set(role, entries));
 
     this.agentStorages = [...(this.layerEntriesByRole.get('agent')?.values() ?? [])]
-      .flatMap((entry) => entry.storage ? [entry.storage] : []);
+      .flatMap((entry) => (entry.storage ? [entry.storage] : []));
 
     this.syncSceneBounds(plan);
 
@@ -205,7 +240,9 @@ export class Environment2DRendererController {
   }
 
   private createAgentLayerEntry(plan: AgentLayerPlan): LayerEntry {
-    const linkedEdgeLayer = this.layerEntriesByRole.get('edge')?.get(plan.layerId)?.layer as EdgeLayer | undefined;
+    const linkedEdgeLayer = this.layerEntriesByRole
+      .get('edge')
+      ?.get(plan.layerId)?.layer as EdgeLayer | undefined;
     const layer = new AgentLayer(plan.storage, {
       ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
       clickable: true,
@@ -231,7 +268,9 @@ export class Environment2DRendererController {
     this.layerEntriesByRole.forEach((entries) => {
       entries.forEach((entry) => {
         if ('setSceneBounds' in entry.layer && typeof entry.layer.setSceneBounds === 'function') {
-          (entry.layer as { setSceneBounds(bounds: RenderPlan['sceneBounds']): void }).setSceneBounds(plan.sceneBounds!);
+          (entry.layer as { setSceneBounds(bounds: RenderPlan['sceneBounds']): void }).setSceneBounds(
+            plan.sceneBounds!,
+          );
         }
       });
     });
@@ -254,6 +293,9 @@ export class Environment2DRendererController {
   }
 
   private handleAgentSelect = (agent: AgentRenderState): void => {
+    if (!this.options.onAgentSelect) {
+      return;
+    }
     for (const storage of this.agentStorages) {
       const found = storage.getAgent(agent.id);
       if (found) {
@@ -261,19 +303,6 @@ export class Environment2DRendererController {
         return;
       }
     }
-
     this.options.onAgentSelect(agent);
   };
-}
-
-const ROLE_ORDER: LayerRendererRole[] = ['background', 'grid', 'edge', 'trajectory', 'agent'];
-
-interface LayerEntry {
-  key: string;
-  role: LayerRendererRole;
-  layerId: string;
-  layer: {
-    destroy(): void;
-  };
-  storage?: AgentStorage;
 }

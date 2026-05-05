@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RendererToSimulatorMessage } from '@tensnap/core';
-import { SimulationLoopController } from '@tensnap/core/runtime/browser';
+import type { RendererToSimulatorMessage } from '../protocol';
+import { SimulationLoopController } from './browser';
 
 const createMessage = (id: string, continuous?: boolean, tickId?: string): RendererToSimulatorMessage => ({
   type: 'action_start',
@@ -125,11 +125,7 @@ describe('SimulationLoopController', () => {
       ? firstMessage.payload.tick_id as string
       : undefined;
 
-    controller.syncStateSync({
-      requestId: 'sync-1',
-      phase: 'requested',
-      autoLayoutOnComplete: false,
-    });
+    controller.syncStateSync({ requestId: 'sync-1', phase: 'requested' });
     scenario.dispatchEvent(new CustomEvent('action:end', {
       detail: {
         id: 'start',
@@ -141,11 +137,7 @@ describe('SimulationLoopController', () => {
     await vi.runAllTimersAsync();
     expect(sendMessage).toHaveBeenCalledTimes(1);
 
-    controller.syncStateSync({
-      requestId: null,
-      phase: 'idle',
-      autoLayoutOnComplete: false,
-    });
+    controller.syncStateSync({ requestId: null, phase: 'idle' });
 
     await vi.runAllTimersAsync();
     expect(sendMessage).toHaveBeenCalledTimes(2);

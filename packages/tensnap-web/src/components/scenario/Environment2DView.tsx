@@ -7,7 +7,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useToast } from '@/store/toast';
 import type { AgentRenderState } from '@tensnap/core/environment';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
-import { Environment2DRendererController } from './Environment2DRendererController';
+import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
 
 interface Environment2DViewProps {
   environment: ScenarioEnvironmentState;
@@ -17,7 +17,7 @@ interface Environment2DViewProps {
 
 export function Environment2DView({ environment, updateTrigger, view }: Environment2DViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const controllerRef = useRef<Environment2DRendererController | null>(null);
+  const controllerRef = useRef<EnvironmentRendererController | null>(null);
 
   const [selectedAgent, setSelectedAgent] = useState<AgentRenderState | null>(null);
   const scenario = useScenarioStore((store) => store.scenario);
@@ -39,7 +39,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
     if (!containerRef.current) {
       return;
     }
-    const controller = new Environment2DRendererController(containerRef.current, {
+    const controller = new EnvironmentRendererController(containerRef.current, {
       resolveAssetUrl: (assetId) => scenarioRef.current?.assets.getUrl(assetId),
       onAgentSelect: (agent) => setSelectedAgent(agent),
       onRenderError: (title, detail) => toastErrorRef.current(title, detail),

@@ -288,7 +288,7 @@ function ResultsTable() {
         <table style={styles.table}>
           <thead>
             <tr>
-              {['Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'TPS'].map(
+              {['Suite', 'Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'TPS'].map(
                 (h) => <th key={h} style={styles.th}>{h}</th>
               )}
             </tr>
@@ -296,6 +296,9 @@ function ResultsTable() {
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+                <td style={{ ...styles.td, color: r.suite === 'web-scenario' ? '#6ee7b7' : '#fcd34d', fontWeight: 600, fontSize: 11 }}>
+                  {r.suite}
+                </td>
                 <td style={{ ...styles.td, fontWeight: 600 }}>{r.caseName}</td>
                 <td style={styles.tdNum}>{r.frames}</td>
                 <td style={styles.tdNum}>{r.meanMs}</td>
