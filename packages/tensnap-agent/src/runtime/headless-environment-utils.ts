@@ -2,33 +2,21 @@ import { join, parse, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadImage } from 'canvas';
 import {
-  AgentStorage,
-  BackgroundStorage,
-  EdgeStorage,
-  GridEnvStorage,
-  TrajectoryStorage,
   getAssetIdFromIcon,
   isBackgroundAssetReference,
   isCssColor,
-  type AgentRenderState,
   type BackgroundData,
   type BackgroundSource,
-  type GraphEdge,
+  type BackgroundStorage,
   type Viewport,
 } from '@tensnap/core/environment';
 import {
-  createRenderPlan,
   type RenderData,
   type RenderPlan,
   type ScenarioEnvironmentSnapshot,
-  type ScenarioEnvironmentState,
-  type ScenarioLayerSnapshot,
-  type ScenarioLayerState,
 } from '@tensnap/core/scenario';
 import type { RenderFormat } from '../types';
 import type { RenderRequest } from './painter';
-
-const MIN_VIEWPORT_SIZE = 1e-6;
 
 export interface CanvasImageSource {
   source: string | Uint8Array;
@@ -51,7 +39,6 @@ export interface ResolvedBackgroundLayer {
   height?: number;
 }
 
-type LayerStorage = ScenarioLayerState['storage'];
 
 export function sanitizeFileName(value: string): string {
   const normalized = value
@@ -62,105 +49,6 @@ export function sanitizeFileName(value: string): string {
   return normalized || 'scene';
 }
 
-export function normalizeViewport(viewport: Viewport): Viewport {
-  return {
-    x: Number.isFinite(viewport.x) ? viewport.x : 0,
-    y: Number.isFinite(viewport.y) ? viewport.y : 0,
-    width: Number.isFinite(viewport.width) ? Math.max(viewport.width, MIN_VIEWPORT_SIZE) : 1,
-    height: Number.isFinite(viewport.height) ? Math.max(viewport.height, MIN_VIEWPORT_SIZE) : 1,
-  };
-}
-
-export function resolveViewport(environment: RenderData, explicit?: Viewport): Viewport {
-  if (explicit) {
-    return normalizeViewport(explicit);
-  }
-
-  if (typeof environment.width === 'number' && typeof environment.height === 'number') {
-    return normalizeViewport({ x: 0, y: 0, width: environment.width, height: environment.height });
-  }
-
-  return normalizeViewport(worldBoundsFromAgents(environment.agents));
-}
-
-export function worldBoundsFromAgents(agents: AgentRenderState[]): Viewport {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  let validAgentCount = 0;
-
-  for (const agent of agents) {
-    const x = Number.isFinite(agent.x) ? agent.x : undefined;
-    const y = Number.isFinite(agent.y) ? agent.y : undefined;
-    if (x === undefined || y === undefined) {
-      continue;
-    }
-
-    const size = Number.isFinite(agent.size) ? Math.max(agent.size ?? 1, MIN_VIEWPORT_SIZE) : 1;
-    const halfSize = size / 2;
-    minX = Math.min(minX, x - halfSize);
-    minY = Math.min(minY, y - halfSize);
-    maxX = Math.max(maxX, x + halfSize);
-    maxY = Math.max(maxY, y + halfSize);
-    validAgentCount += 1;
-  }
-
-  if (validAgentCount === 0) {
-    return { x: 0, y: 0, width: 1, height: 1 };
-  }
-
-  const padX = Math.max((maxX - minX) * 0.1, 1);
-  const padY = Math.max((maxY - minY) * 0.1, 1);
-  return {
-    x: minX - padX,
-    y: minY - padY,
-    width: Math.max(maxX - minX + padX * 2, 1),
-    height: Math.max(maxY - minY + padY * 2, 1),
-  };
-}
-
-export function resolveImageSize(
-  viewport: Viewport,
-  environment: RenderData,
-  requestedWidth: number | undefined,
-  requestedHeight: number | undefined,
-  defaults: { defaultWidth?: number; defaultHeight?: number },
-): { width: number; height: number } {
-  const width = toPixelCount(requestedWidth);
-  const height = toPixelCount(requestedHeight);
-
-  if (width && height) {
-    return { width, height };
-  }
-
-  if (width) {
-    return {
-      width,
-      height: Math.max(1, Math.round((width / viewport.width) * viewport.height)),
-    };
-  }
-
-  if (height) {
-    return {
-      width: Math.max(1, Math.round((height / viewport.height) * viewport.width)),
-      height,
-    };
-  }
-
-  if (typeof environment.width === 'number' && typeof environment.height === 'number') {
-    const cellSize = Math.max(12, Math.min(32, Math.floor(960 / Math.max(environment.width, environment.height, 1))));
-    return {
-      width: Math.max(1, Math.round(environment.width * cellSize)),
-      height: Math.max(1, Math.round(environment.height * cellSize)),
-    };
-  }
-
-  const defaultWidth = Math.max(1, Math.round(defaults.defaultWidth ?? 1024));
-  const defaultHeight = toPixelCount(defaults.defaultHeight)
-    ?? Math.max(1, Math.round((defaultWidth / viewport.width) * viewport.height));
-  return { width: defaultWidth, height: defaultHeight };
-}
 
 export function cloneValue<T>(value: T): T {
   if (value === null || value === undefined || typeof value !== 'object') {
@@ -177,21 +65,6 @@ export function isInlineSvgString(value: string): boolean {
   return /^\s*(<svg[\s>]|<\?xml)/i.test(value);
 }
 
-export function isEdgeStorageSnapshot(value: unknown): value is { edges: GraphEdge[] } {
-  return isRecord(value) && Array.isArray(value.edges);
-}
-
-export function isBackgroundData(value: unknown): value is BackgroundData {
-  if (value === null) {
-    return true;
-  }
-
-  if (!isRecord(value) || typeof value.kind !== 'string') {
-    return false;
-  }
-
-  return value.kind === 'color' || value.kind === 'image';
-}
 
 export function resolveCanvasBackgroundColor(requested: string | undefined, fallback = '#000000'): string {
   const candidate = typeof requested === 'string' ? requested.trim() : '';
@@ -347,20 +220,6 @@ export function buildOutputPath(
   return join(parsed.dir, `${baseName}-${sanitizeFileName(envId)}${parsed.ext || extension}`);
 }
 
-export function createRenderPlanFromSnapshot(snapshotEnvironment: ScenarioEnvironmentSnapshot): RenderPlan {
-  const environmentState: ScenarioEnvironmentState = {
-    id: snapshotEnvironment.id,
-    type: snapshotEnvironment.type,
-    layers: new Map(),
-    dependencyGraph: new Map(),
-  };
-
-  for (const layer of snapshotEnvironment.layers) {
-    environmentState.layers.set(layer.id, createLayerState(layer));
-  }
-
-  return createRenderPlan(environmentState);
-}
 
 export async function resolveAssetUrls(
   plan: RenderPlan,
@@ -493,61 +352,6 @@ export async function toExportBuffer(data: unknown): Promise<Buffer> {
   throw new Error('Unsupported Leafer export payload type.');
 }
 
-function createLayerState(layer: ScenarioLayerSnapshot): ScenarioLayerState {
-  return {
-    id: layer.id,
-    layerType: layer.layerType,
-    metadata: cloneValue(layer.metadata ?? {}),
-    dependencyLayerIds: cloneValue(layer.dependencyLayerIds ?? {}),
-    storage: createLayerStorage(layer),
-  };
-}
-
-function createLayerStorage(layer: ScenarioLayerSnapshot): LayerStorage {
-  switch (layer.layerType) {
-    case 'agent': {
-      const storage = new AgentStorage();
-      storage.load(cloneValue(layer.storageSnapshot ?? {}));
-      return storage;
-    }
-    case 'grid': {
-      const storage = new GridEnvStorage();
-      storage.setData(mergeRecordSnapshots(layer.metadata, layer.storageSnapshot));
-      return storage;
-    }
-    case 'edge': {
-      const storage = new EdgeStorage();
-      storage.setEdges(collectLayerEdges(layer));
-      return storage;
-    }
-    case 'trajectory': {
-      const storage = new TrajectoryStorage();
-      storage.load(cloneValue(layer.storageSnapshot ?? {}));
-      return storage;
-    }
-    case 'background': {
-      const storage = new BackgroundStorage();
-      storage.setData(isBackgroundData(layer.storageSnapshot) ? cloneValue(layer.storageSnapshot) : null);
-      return storage;
-    }
-    default: {
-      const storage = new BackgroundStorage();
-      storage.setData(null);
-      return storage;
-    }
-  }
-}
-
-function collectLayerEdges(layer: ScenarioLayerSnapshot): GraphEdge[] {
-  const edgesFromStorage = isEdgeStorageSnapshot(layer.storageSnapshot)
-    ? layer.storageSnapshot.edges.map((edge) => cloneValue(edge))
-    : [];
-  const metadataEdges = isRecord(layer.metadata) && Array.isArray(layer.metadata.edges)
-    ? layer.metadata.edges.map((edge) => cloneValue(edge as GraphEdge))
-    : [];
-  return [...edgesFromStorage, ...metadataEdges];
-}
-
 async function normalizeStoredBackground(data: BackgroundData): Promise<ResolvedBackgroundLayer | null> {
   if (!data) {
     return null;
@@ -637,22 +441,8 @@ async function resolveImageSource(input: CanvasImageSource): Promise<ResolvedIma
   return { url, width: image.width, height: image.height };
 }
 
-function toPixelCount(value: number | undefined): number | undefined {
-  return Number.isFinite(value) && (value as number) > 0 ? Math.max(1, Math.round(value as number)) : undefined;
-}
-
 function normalizeDimension(value: number | undefined): number | undefined {
   return Number.isFinite(value) && (value as number) > 0 ? (value as number) : undefined;
-}
-
-function mergeRecordSnapshots(...values: unknown[]): Record<string, unknown> {
-  const merged: Record<string, unknown> = {};
-  for (const value of values) {
-    if (isRecord(value)) {
-      Object.assign(merged, cloneValue(value));
-    }
-  }
-  return merged;
 }
 
 function tryParseUrl(value: string): URL | null {

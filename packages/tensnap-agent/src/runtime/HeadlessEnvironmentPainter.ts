@@ -8,11 +8,14 @@ import {
   EdgeLayer,
   GridLayer,
   TrajectoryLayer,
+  resolveImageSize,
+  resolveViewport,
   type Viewport,
 } from '@tensnap/core/environment';
 import { HeadlessEnvironmentView } from '@tensnap/core/environment/headless';
 import {
   collectRenderData,
+  createRenderPlanFromSnapshot,
   type RenderData,
   type RenderPlan,
   type ScenarioEnvironmentSnapshot,
@@ -21,13 +24,10 @@ import type { RenderFormat } from '../types';
 import type { RenderArtifact, RenderRequest, ScenePainter } from './painter';
 import {
   buildOutputPath,
-  createRenderPlanFromSnapshot,
   resolveAssetUrls,
   resolveBackgroundBounds,
   resolveBackgroundLayer,
   resolveCanvasBackgroundColor,
-  resolveImageSize,
-  resolveViewport,
   toExportBuffer,
 } from './headless-environment-utils';
 

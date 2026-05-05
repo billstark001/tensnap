@@ -16,11 +16,20 @@ export interface EnvironmentViewOptions extends BaseEnvironmentViewOptions {
   enablePan?: boolean;
   enableWheelZoom?: boolean;
   enableTouchZoom?: boolean;
+  createLeafer?: (config: EnvironmentLeaferConfig) => Leafer;
 }
 
 // #region Module constants & helpers
 
 const DEFAULT_RESIZE_THROTTLE_MS = 100;
+
+export interface EnvironmentLeaferConfig {
+  view: HTMLElement;
+  width: number;
+  height: number;
+  type: EnvironmentViewType;
+  pixelRatio: number;
+}
 
 type ListenerEntry = {
   target: EventTarget;
@@ -80,13 +89,14 @@ export class EnvironmentView extends BaseEnvironmentView {
       width: rect.width || container.clientWidth,
       height: rect.height || container.clientHeight,
     };
-    const leafer = new Leafer({
+    const leaferConfig: EnvironmentLeaferConfig = {
       view: container,
       width: surfaceSize.width,
       height: surfaceSize.height,
       type: options.type ?? 'design',
       pixelRatio: options.pixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1),
-    });
+    };
+    const leafer = options.createLeafer?.(leaferConfig) ?? new Leafer(leaferConfig);
 
     super(leafer, surfaceSize, {
       fitMode: options.fitMode,

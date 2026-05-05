@@ -327,6 +327,78 @@ describe('HeadlessEnvironmentPainter', () => {
     expect(hasNonBlackPixelAround(context, 200, 200)).toBe(true);
   });
 
+  it('reports artifact metadata for selected environments and explicit viewports', async () => {
+    const outputDir = join(tmpdir(), `tensnap-agent-${Date.now()}-metadata`);
+    tempPaths.push(outputDir);
+
+    const painter = new HeadlessEnvironmentPainter({ capturesDir: outputDir });
+    const viewport = { x: 2, y: 3, width: 4, height: 5 };
+    const snapshot: ScenarioSnapshot = {
+      metadata: {},
+      actions: [],
+      parameters: [],
+      charts: [],
+      logs: [],
+      environments: [
+        {
+          id: 'main',
+          type: '2d',
+          layers: [
+            {
+              id: 'main-agents',
+              layerType: 'agent',
+              metadata: { width: 8, height: 8, coord_offset: 'int' },
+              dependencyLayerIds: {},
+              storageSnapshot: { agents: [{ id: 'main-a', x: 1, y: 1 }], trajectories: [] },
+            },
+          ],
+        },
+        {
+          id: 'report',
+          type: '2d',
+          layers: [
+            {
+              id: 'report-agents',
+              layerType: 'agent',
+              metadata: { width: 10, height: 10, coord_offset: 'int' },
+              dependencyLayerIds: {},
+              storageSnapshot: { agents: [{ id: 'report-a', x: 3, y: 4 }], trajectories: [] },
+            },
+          ],
+        },
+      ],
+    };
+
+    const artifacts = await painter.render({
+      at: new Date().toISOString(),
+      reason: 'metadata-parity',
+      trigger: 'explicit',
+      snapshot,
+      options: {
+        envId: 'report',
+        viewport,
+        width: 200,
+        height: 100,
+        format: 'jpeg',
+        quality: 0.8,
+        includeData: true,
+        persist: false,
+      },
+      assets: {},
+    });
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts?.[0].path).toBeUndefined();
+    expect(artifacts?.[0].mime).toBe('image/jpeg');
+    expect(artifacts?.[0].metadata).toEqual({
+      envId: 'report',
+      viewport,
+      width: 200,
+      height: 100,
+      format: 'jpeg',
+    });
+  });
+
   it('keeps coord_offset scoped to each agent layer', () => {
     const snapshot: ScenarioSnapshot = {
       metadata: {},
