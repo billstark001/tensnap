@@ -74,21 +74,21 @@ describe('createRenderPlanFromSnapshot', () => {
 
   it('assigns background layer the correct storage type', () => {
     const plan = createRenderPlanFromSnapshot(baseSnapshot);
-    const bg = plan.layers.find((l) => l.role === 'background');
+    const bg = plan.layers.find((l) => l.kind === 'background');
     expect(bg).toBeDefined();
     expect(bg!.storage.getData()).toEqual({ kind: 'color', value: '#ffffff' });
   });
 
   it('assigns grid layer the correct storage type', () => {
     const plan = createRenderPlanFromSnapshot(baseSnapshot);
-    const grid = plan.layers.find((l) => l.role === 'grid');
+    const grid = plan.layers.find((l) => l.kind === 'grid');
     expect(grid).toBeDefined();
     expect(grid!.storage.getData()).toEqual(expect.objectContaining({ width: 10, height: 10 }));
   });
 
   it('assigns agent layer the correct storage type', () => {
     const plan = createRenderPlanFromSnapshot(baseSnapshot);
-    const agent = plan.layers.find((l) => l.role === 'agent');
+    const agent = plan.layers.find((l) => l.kind === 'agent');
     expect(agent).toBeDefined();
     const data = agent!.storage.getData();
     expect(data.agents.has('agent-1')).toBe(true);
@@ -97,7 +97,7 @@ describe('createRenderPlanFromSnapshot', () => {
 
   it('assigns edge layer the correct storage type', () => {
     const plan = createRenderPlanFromSnapshot(baseSnapshot);
-    const edge = plan.layers.find((l) => l.role === 'edge');
+    const edge = plan.layers.find((l) => l.kind === 'edge');
     expect(edge).toBeDefined();
     const data = edge!.storage.getData();
     expect(data.edges.size).toBe(1);
@@ -105,7 +105,7 @@ describe('createRenderPlanFromSnapshot', () => {
 
   it('assigns trajectory layer the correct storage type', () => {
     const plan = createRenderPlanFromSnapshot(baseSnapshot);
-    const traj = plan.layers.find((l) => l.role === 'trajectory');
+    const traj = plan.layers.find((l) => l.kind === 'trajectory');
     expect(traj).toBeDefined();
     const data = traj!.storage.getData();
     expect(data.trajectories).toBeDefined();

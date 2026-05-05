@@ -70,6 +70,14 @@ type LoopOptions = {
 
 type TriggerFiredCallback = (task: RuntimeTaskSnapshot, now: number) => void;
 
+type SchedulerKind = 'timeout' | 'raf' | 'auto' | 'messageChannel';
+
+interface Scheduler {
+  readonly kind: SchedulerKind;
+  arm(dueAt: number, callback: (now: number) => void): void;
+  disarm(): void;
+}
+
 // #endregion Types
 
 // #region RafEstimator
@@ -166,107 +174,53 @@ class RafEstimator {
 
 // #endregion RafEstimator
 
-// #region DispatchTrigger
+// #region Dispatch Schedulers
 
-/**
- * Manages one pending dispatch, arming it via `setTimeout` or
- * `requestAnimationFrame`. Also passively observes rAF intervals during its
- * own loop so the DispatchTrigger contributes to RafEstimator for free.
- *
- * Intended lifecycle:
- *   setPending(task) → arm(dueAt, mode) → [onFired fires] → caller calls clear()
- *
- * `disarm()` and `clear()` may be called at any point to cancel.
- */
-class DispatchTrigger {
-  onFired: TriggerFiredCallback = () => { };
+class TimeoutScheduler implements Scheduler {
+  readonly kind: SchedulerKind = 'timeout';
 
-  private pending: RuntimeTaskSnapshot | null = null;
   private timeoutId: number | null = null;
-  private rafId: number | null = null;
-  private lastObservedRafTs: number | null = null;
 
-  constructor(
-    private readonly rafEstimator: RafEstimator,
-    private readonly now: () => number = () => performance.now(),
-  ) { }
+  constructor(private readonly now: () => number = () => performance.now()) { }
 
-  get hasPending(): boolean { return this.pending !== null; }
-  get pendingTask(): RuntimeTaskSnapshot | null { return this.pending; }
-
-  /**
-   * Replace the current pending task and clear any live handles.
-   * Must be followed by `arm()` (or `schedulePendingDispatch()` in the
-   * controller) to actually start the timer.
-   */
-  setPending(task: RuntimeTaskSnapshot): void {
-    this.clearHandles();
-    this.pending = task;
-  }
-
-  /**
-   * Arm the timer for the current pending task.
-   * Safe to call when already armed — clears the previous handle first.
-   */
-  arm(dueAt: number, mode: Exclude<RenderTriggerMode, 'auto'>): void {
-    if (!this.pending) return;
-    this.clearHandles();
-    if (mode === 'requestAnimationFrame') {
-      this.armRaf(dueAt);
-    } else {
-      this.armTimeout(dueAt);
-    }
-  }
-
-  /** Cancel live handles, retaining the pending task for future rescheduling. */
-  disarm(): void {
-    this.clearHandles();
-  }
-
-  /** Cancel live handles and drop the pending task entirely. */
-  clear(): void {
-    this.clearHandles();
-    this.pending = null;
-    this.lastObservedRafTs = null;
-  }
-
-  reset(): void {
-    this.clear();
-  }
-
-  private armTimeout(dueAt: number): void {
+  arm(dueAt: number, callback: (now: number) => void): void {
+    this.disarm();
     const delayMs = Math.max(1, dueAt - this.now());
     this.timeoutId = window.setTimeout(() => {
-      const task = this.pending;
-      if (!task) return;
       this.timeoutId = null;
-      this.onFired(task, this.now());
+      callback(this.now());
     }, delayMs);
   }
 
-  private armRaf(dueAt: number): void {
+  disarm(): void {
+    if (this.timeoutId !== null) {
+      window.clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+  }
+}
+
+class RafScheduler implements Scheduler {
+  readonly kind: SchedulerKind = 'raf';
+
+  private rafId: number | null = null;
+  private lastObservedRafTs: number | null = null;
+
+  constructor(private readonly rafEstimator: RafEstimator) { }
+
+  arm(dueAt: number, callback: (now: number) => void): void {
+    this.disarm();
+
     const tick = (now: number): void => {
-      // Immediately clear our own handle so that:
-      // 1. Any concurrent arm() call sees rafId = null (clearHandles already sets
-      //    it, but this is a safety net for stale-handle timing in real browsers).
-      // 2. The re-queue at the bottom always starts from a clean state.
       this.rafId = null;
 
-      const task = this.pending;
-      if (!task) {
-        this.lastObservedRafTs = null;
-        return;
-      }
-
-      // Passive interval observation — contributes to the rAF estimate for free
-      // while a continuous action is in flight, without a dedicated calibration loop.
       if (this.lastObservedRafTs !== null) {
         this.rafEstimator.observe(now - this.lastObservedRafTs, now);
       }
       this.lastObservedRafTs = now;
 
       if (now >= dueAt) {
-        this.onFired(task, now);
+        callback(now);
         return;
       }
       this.rafId = window.requestAnimationFrame(tick);
@@ -275,15 +229,58 @@ class DispatchTrigger {
     this.rafId = window.requestAnimationFrame(tick);
   }
 
-  private clearHandles(): void {
-    if (this.timeoutId !== null) {
-      window.clearTimeout(this.timeoutId);
-      this.timeoutId = null;
-    }
+  disarm(): void {
     if (this.rafId !== null) {
       window.cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
+    this.lastObservedRafTs = null;
+  }
+}
+
+// #endregion Dispatch Schedulers
+
+// #region DispatchTrigger
+
+class DispatchTrigger {
+  onFired: TriggerFiredCallback = () => { };
+
+  private pending: RuntimeTaskSnapshot | null = null;
+  private scheduler: Scheduler | null = null;
+
+  get hasPending(): boolean { return this.pending !== null; }
+  get pendingTask(): RuntimeTaskSnapshot | null { return this.pending; }
+
+  setPending(task: RuntimeTaskSnapshot): void {
+    this.disarm();
+    this.pending = task;
+  }
+
+  arm(dueAt: number, scheduler: Scheduler): void {
+    if (!this.pending) return;
+
+    this.disarm();
+    this.scheduler = scheduler;
+    this.scheduler.arm(dueAt, (now) => {
+      const task = this.pending;
+      if (!task) return;
+      this.disarm();
+      this.onFired(task, now);
+    });
+  }
+
+  disarm(): void {
+    this.scheduler?.disarm();
+    this.scheduler = null;
+  }
+
+  clear(): void {
+    this.disarm();
+    this.pending = null;
+  }
+
+  reset(): void {
+    this.clear();
   }
 }
 
@@ -295,12 +292,77 @@ export const createIdleLoopState = (): SimulationLoopState => ({
   runningActions: new Set(),
 });
 
-const createIdleStateSyncStatus = (): StateSyncStatus => ({
-  requestId: null,
-  phase: 'idle',
-});
-
 // #endregion Module Helpers
+
+// #region DispatchMetrics
+
+/**
+ * Tracks completed-action timestamps and durations within a sliding window,
+ * computing TPS and MSPT on demand.
+ */
+class DispatchMetrics {
+  private readonly frameTimestamps: number[] = [];
+  private readonly frameDurations: Array<{ timestamp: number; durationMs: number }> = [];
+  private frameDurationSum = 0;
+  private lastEmitAt = 0;
+
+  reset(): void {
+    this.frameTimestamps.length = 0;
+    this.frameDurations.length = 0;
+    this.frameDurationSum = 0;
+    this.lastEmitAt = 0;
+  }
+
+  markFrame(now: number, actionDurationMs: number | null): void {
+    this.frameTimestamps.push(now);
+    if (actionDurationMs !== null && Number.isFinite(actionDurationMs)) {
+      this.frameDurations.push({ timestamp: now, durationMs: actionDurationMs });
+      this.frameDurationSum += actionDurationMs;
+    }
+    this.trimSamples(now);
+  }
+
+  /** Compute and return current metrics if enough time has passed or `force` is true. */
+  compute(
+    now: number,
+    force: boolean,
+    continuousKeyCount: number,
+  ): RuntimeMetrics | null {
+    if (!force && now - this.lastEmitAt < METRIC_EMIT_INTERVAL_MS) return null;
+    this.lastEmitAt = now;
+
+    if (continuousKeyCount === 0 || this.frameTimestamps.length === 0) {
+      return { tps: null, mspt: null };
+    }
+
+    let tps: number | null = null;
+    const tsCount = this.frameTimestamps.length;
+    if (tsCount >= 2) {
+      const span = Math.max(1, this.frameTimestamps[tsCount - 1] - this.frameTimestamps[0]);
+      tps = Number((((tsCount - 1) * 1000) / span).toFixed(1));
+    }
+
+    const mspt = this.frameDurations.length > 0
+      ? Number((this.frameDurationSum / this.frameDurations.length).toFixed(1))
+      : null;
+
+    return { tps, mspt };
+  }
+
+  private trimSamples(now: number): void {
+    const cutoff = now - METRIC_WINDOW_MS;
+
+    while (this.frameTimestamps.length > 0 && this.frameTimestamps[0] < cutoff) {
+      this.frameTimestamps.shift();
+    }
+    while (this.frameDurations.length > 0 && this.frameDurations[0].timestamp < cutoff) {
+      this.frameDurationSum -= this.frameDurations[0].durationMs;
+      this.frameDurations.shift();
+    }
+  }
+}
+
+// #endregion DispatchMetrics
 
 // #region SimulationLoopController
 
@@ -313,9 +375,10 @@ export class SimulationLoopController {
   private readonly runtime = new PipelineRuntime();
   private readonly subscribers = new Set<() => void>();
   private readonly dispatchTimingByKey = new Map<string, DispatchTimingState>();
-  private readonly frameTimestamps: number[] = [];
-  private readonly frameDurations: Array<{ timestamp: number; durationMs: number }> = [];
+  private readonly metrics = new DispatchMetrics();
   private readonly rafEstimator = new RafEstimator();
+  private readonly timeoutScheduler: Scheduler;
+  private readonly rafScheduler: Scheduler;
   private readonly trigger: DispatchTrigger;
 
   private readonly handleScenarioActionEnd = (event: Event): void => {
@@ -328,17 +391,8 @@ export class SimulationLoopController {
     maxTps: DEFAULT_MAX_TPS,
     maxRenderFps: DEFAULT_MAX_RENDER_FPS,
   };
-  private stateSync = createIdleStateSyncStatus();
-  private renderCommitTimeoutId: number | null = null;
-  private renderCommitTaskId: string | null = null;
-  private lastMetricsEmitAt = 0;
-
-  /**
-   * Running sum of all `durationMs` values currently live in `frameDurations`.
-   * Maintained incrementally in markFrame/trimSamples so that the mspt
-   * calculation is O(1) instead of performing a full array reduce on every emit.
-   */
-  private frameDurationSum = 0;
+  private taskPostApplyTimeoutId: number | null = null;
+  private taskPostApplyTaskId: string | null = null;
 
   /**
    * Cached result of `!!(sendMessage && createActionStartMessage)`.
@@ -353,7 +407,9 @@ export class SimulationLoopController {
     private readonly scenario: ActionEventSource,
     private readonly now: () => number = defaultNow,
   ) {
-    this.trigger = new DispatchTrigger(this.rafEstimator, this.now);
+    this.timeoutScheduler = new TimeoutScheduler(this.now);
+    this.rafScheduler = new RafScheduler(this.rafEstimator);
+    this.trigger = new DispatchTrigger();
     this.trigger.onFired = (task, now) => this.dispatchActionStart(task, now);
   }
 
@@ -388,15 +444,11 @@ export class SimulationLoopController {
 
   private resetControllerState(): void {
     this.trigger.reset();
-    this.clearRenderCommit();
+    this.clearTaskPostApply();
     this.runtime.reset();
     this.dispatchTimingByKey.clear();
-    this.stateSync = createIdleStateSyncStatus();
+    this.metrics.reset();
     this.rafEstimator.reset();
-    this.frameTimestamps.length = 0;
-    this.frameDurations.length = 0;
-    this.frameDurationSum = 0;
-    this.lastMetricsEmitAt = 0;
     this.emitMetrics({ tps: null, mspt: null });
     this.emit();
   }
@@ -435,27 +487,34 @@ export class SimulationLoopController {
   }
 
   syncStateSync(status: StateSyncStatus): void {
-    const previous = this.stateSync;
-    if (previous.requestId === status.requestId && previous.phase === status.phase) {
-      return;
-    }
-
-    this.stateSync = { requestId: status.requestId, phase: status.phase };
-
     if (status.phase === 'requested' && status.requestId) {
+      const currentSyncPhase = this.runtime.getSyncPhase();
+      const currentSyncRequestId = this.runtime.getSyncRequestId();
+      if (currentSyncPhase === 'requested' && currentSyncRequestId === status.requestId) {
+        return; // already in requested state with same id — no-op
+      }
       this.runtime.requestStateSync(status.requestId);
       this.trigger.disarm();
     } else if (status.phase === 'receiving') {
-      const requestId = status.requestId ?? previous.requestId ?? undefined;
-      if (requestId && previous.requestId !== requestId) {
-        this.runtime.requestStateSync(requestId);
+      const currentSyncPhase = this.runtime.getSyncPhase();
+      if (currentSyncPhase !== 'receiving') {
+        // Not yet in receiving — drive begin boundary.
+        const requestId = status.requestId ?? this.runtime.getSyncRequestId() ?? undefined;
+        if (requestId && currentSyncPhase !== 'requested') {
+          // Receiving arrived without a prior requested signal; bootstrap sync.
+          this.runtime.requestStateSync(requestId);
+        }
+        this.runtime.recordStateSyncBoundary('begin', { request_id: requestId });
       }
-      this.runtime.recordStateSyncBoundary('begin', { request_id: requestId });
       this.trigger.disarm();
-    } else if (status.phase === 'idle' && previous.phase !== 'idle') {
-      this.runtime.recordStateSyncBoundary('end', { request_id: previous.requestId ?? undefined });
-      this.schedulePendingDispatch();
-      this.flushCommands();
+    } else if (status.phase === 'idle') {
+      const prevPhase = this.runtime.getSyncPhase();
+      const prevRequestId = this.runtime.getSyncRequestId();
+      if (prevPhase !== 'idle') {
+        this.runtime.recordStateSyncBoundary('end', { request_id: prevRequestId ?? undefined });
+        this.schedulePendingDispatch();
+        this.flushCommands();
+      }
     }
   }
 
@@ -535,7 +594,7 @@ export class SimulationLoopController {
 
   private schedulePendingDispatch(): void {
     const task = this.trigger.pendingTask;
-    if (!task || this.stateSync.phase !== 'idle' || !this.dispatchReady) return;
+    if (!task || this.runtime.getSyncPhase() !== 'idle' || !this.dispatchReady) return;
 
     if (!task.continuous || !this.dispatchTimingByKey.has(task.key)) {
       this.dispatchActionStart(task);
@@ -543,7 +602,10 @@ export class SimulationLoopController {
     }
 
     const { dueAt, mode } = this.computeScheduleParams(task.key);
-    this.trigger.arm(dueAt, mode);
+    this.trigger.arm(
+      dueAt,
+      mode === 'requestAnimationFrame' ? this.rafScheduler : this.timeoutScheduler,
+    );
   }
 
   /** Compute timing and mode for a continuous task that already has dispatch history. */
@@ -587,9 +649,7 @@ export class SimulationLoopController {
     if (actionId !== undefined && task.key !== actionId) return;
 
     this.trigger.clear();
-    this.runtime.completeTask(task.id, { continue: false });
-    this.runtime.markTaskApplied(task.id);
-    this.runtime.markTaskRendered(task.id);
+    this.runtime.cancelPendingDispatch(task.id);
     this.flushCommands();
   }
 
@@ -654,7 +714,7 @@ export class SimulationLoopController {
       return;
     }
     this.runtime.markTaskApplied(task.id);
-    this.scheduleRenderCommit(task.id);
+    this.scheduleTaskPostApply(task.id);
     this.emit();
   }
 
@@ -670,15 +730,15 @@ export class SimulationLoopController {
 
   // #endregion Action Event Handling
 
-  // #region Render Commit
+  // #region Task Post-Apply
 
-  private scheduleRenderCommit(taskId: string): void {
-    this.clearRenderCommit();
-    this.renderCommitTaskId = taskId;
+  private scheduleTaskPostApply(taskId: string): void {
+    this.clearTaskPostApply();
+    this.taskPostApplyTaskId = taskId;
 
     const commit = (): void => {
-      if (this.renderCommitTaskId !== taskId) return;
-      this.clearRenderCommit();
+      if (this.taskPostApplyTaskId !== taskId) return;
+      this.clearTaskPostApply();
       if (!this.runtime.markTaskRendered(taskId)) return;
       this.flushCommands();
       this.emit();
@@ -687,74 +747,33 @@ export class SimulationLoopController {
     if (typeof queueMicrotask === 'function') {
       queueMicrotask(commit);
     } else {
-      this.renderCommitTimeoutId = window.setTimeout(commit, 0);
+      this.taskPostApplyTimeoutId = window.setTimeout(commit, 0);
     }
   }
 
-  private clearRenderCommit(): void {
-    if (this.renderCommitTimeoutId !== null) {
-      window.clearTimeout(this.renderCommitTimeoutId);
-      this.renderCommitTimeoutId = null;
+  private clearTaskPostApply(): void {
+    if (this.taskPostApplyTimeoutId !== null) {
+      window.clearTimeout(this.taskPostApplyTimeoutId);
+      this.taskPostApplyTimeoutId = null;
     }
-    this.renderCommitTaskId = null;
+    this.taskPostApplyTaskId = null;
   }
 
-  // #endregion Render Commit
+  // #endregion Task Post-Apply
 
   // #region Metrics
 
   private markFrame(now: number, actionDurationMs: number | null): void {
-    this.frameTimestamps.push(now);
-    if (actionDurationMs !== null && Number.isFinite(actionDurationMs)) {
-      this.frameDurations.push({ timestamp: now, durationMs: actionDurationMs });
-      this.frameDurationSum += actionDurationMs;
-    }
-    this.trimSamples(now);
+    this.metrics.markFrame(now, actionDurationMs);
     this.emitMetricsIfNeeded();
-  }
-
-  private trimSamples(now: number): void {
-    // Compute cutoff once and reuse — avoids a subtraction per iteration.
-    const cutoff = now - METRIC_WINDOW_MS;
-
-    while (this.frameTimestamps.length > 0 && this.frameTimestamps[0] < cutoff) {
-      this.frameTimestamps.shift();
-    }
-    while (this.frameDurations.length > 0 && this.frameDurations[0].timestamp < cutoff) {
-      // Keep frameDurationSum in sync so emitMetricsIfNeeded never needs reduce.
-      this.frameDurationSum -= this.frameDurations[0].durationMs;
-      this.frameDurations.shift();
-    }
   }
 
   private emitMetricsIfNeeded(force = false): void {
     if (!this.options.onMetricsChange) return;
-
-    const now = this.now();
-    if (!force && now - this.lastMetricsEmitAt < METRIC_EMIT_INTERVAL_MS) return;
-    this.lastMetricsEmitAt = now;
-
-    if (
-      this.runtime.getContinuousKeyCount() === 0 ||
-      this.frameTimestamps.length === 0
-    ) {
-      this.emitMetrics({ tps: null, mspt: null });
-      return;
+    const result = this.metrics.compute(this.now(), force, this.runtime.getContinuousKeyCount());
+    if (result !== null) {
+      this.options.onMetricsChange(result);
     }
-
-    let tps: number | null = null;
-    const tsCount = this.frameTimestamps.length;
-    if (tsCount >= 2) {
-      const span = Math.max(1, this.frameTimestamps[tsCount - 1] - this.frameTimestamps[0]);
-      tps = Number((((tsCount - 1) * 1000) / span).toFixed(1));
-    }
-
-    // O(1) — running sum maintained in markFrame/trimSamples; no reduce needed.
-    const mspt = this.frameDurations.length > 0
-      ? Number((this.frameDurationSum / this.frameDurations.length).toFixed(1))
-      : null;
-
-    this.emitMetrics({ tps, mspt });
   }
 
   private emitMetrics(metrics: RuntimeMetrics): void {

@@ -46,7 +46,7 @@ func (t *ItemDiffTracker[T]) Reset() {
 }
 
 // Seed primes the tracker with pre-projected snapshots keyed by idFn.
-// Call this after an ItemCreate that initialises the renderer so that the first
+// Call this after an ItemCreate that initializes the renderer so that the first
 // Compute call produces correct incremental diffs.
 func (t *ItemDiffTracker[T]) Seed(items []T, idFn func(T) any, projFn func(T) ItemSnapshot) {
 	t.prev = make(map[any]ItemSnapshot, len(items))

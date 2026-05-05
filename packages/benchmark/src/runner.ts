@@ -1,14 +1,16 @@
 import { BenchmarkCase, BenchmarkStats } from './types';
 
-/** Yield one event-loop turn via requestAnimationFrame (browser paint boundary).
+/**
+ * Yield one browser frame (or one macro task when rAF is unavailable).
  *
- * Used for synthetic benchmark cases between ticks to measure paint-bound
- * throughput under realistic browser scheduling conditions.
- *
- * Web-scenario cases do NOT use this gate — they follow the web renderer's
- * own scheduling semantics instead.
+ * Even web-scenario cases need a frame boundary so renderer-side rAF work can
+ * progress between ticks; otherwise long async loops may starve animation
+ * callbacks and appear as a deadlock.
  */
-function waitFrame(): Promise<DOMHighResTimeStamp> {
+function waitFrame(): Promise<number> {
+  if (typeof requestAnimationFrame !== 'function') {
+    return new Promise((resolve) => setTimeout(() => resolve(performance.now()), 0));
+  }
   return new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
@@ -31,8 +33,6 @@ export async function runBenchmark(
 ): Promise<BenchmarkStats> {
   await benchCase.setup(container);
 
-  const isWebScenario = benchCase.suite === 'web-scenario';
-
   const totalFrames = warmupFrames + frames;
   const timings: number[] = [];
   let runStartedAt: number | null = null;
@@ -52,11 +52,8 @@ export async function runBenchmark(
         timings.push(computeElapsed);
       }
 
-      // Synthetic cases: yield via rAF to let the browser paint between frames.
-      // Web-scenario cases are driven by their own internal rendering pipeline.
-      if (!isWebScenario) {
-        await waitFrame();
-      }
+      // Always yield one frame so browser-side rendering work can progress.
+      await waitFrame();
 
       if (isMeasuredFrame) {
         onProgress?.(frameIndex - warmupFrames + 1, frames);
@@ -113,12 +110,12 @@ function computeStats(
   };
 }
 
-/** Serialise results as a pretty-printed JSON string. */
+/** Serialize results as a pretty-printed JSON string. */
 export function resultsToJson(results: BenchmarkStats[]): string {
   return JSON.stringify(results, null, 2);
 }
 
-/** Serialise results as a Markdown table grouped by suite. */
+/** Serialize results as a Markdown table grouped by suite. */
 export function resultsToMarkdown(results: BenchmarkStats[]): string {
   const date = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
   let header = `# TenSnap Web Core — Benchmark Results\n\n_Generated: ${date}_\n\n`;

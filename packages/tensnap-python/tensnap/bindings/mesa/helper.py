@@ -82,7 +82,7 @@ def build_default_layered_binder(
 
 async def mesa_model_reinit(handler: Any) -> None:
     """
-    Re-initialise a Mesa-style handler on reset.
+    Re-initialize a Mesa-style handler on reset.
 
     Dumps current parameter values, strips auto-registered bindings, rebuilds
     the model with updated init-kwargs, re-registers, then replays any

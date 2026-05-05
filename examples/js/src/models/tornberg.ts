@@ -87,7 +87,7 @@ export interface TornbergResult {
 // #region Initialization
 
 /**
- * Initialises a Tornberg model by delegating grid creation to
+ * Initializes a Tornberg model by delegating grid creation to
  * initializeAxelrod and then augmenting each agent with a uniformly
  * random fixed partisan attribute.
  */

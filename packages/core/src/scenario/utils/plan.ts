@@ -17,6 +17,7 @@ import {
 } from '../../environment/storages';
 import type { BackgroundData } from '../../environment/storages/BackgroundStorage';
 import type { GraphEdge } from '../../environment/types';
+import { layerRegistry } from '../layer-registry';
 
 function isBackgroundData(value: unknown): value is BackgroundData {
 	if (value === null) return true;
@@ -78,6 +79,16 @@ function createLayerState(layer: ScenarioLayerSnapshot): ScenarioLayerState {
 }
 
 function createLayerStorage(layer: ScenarioLayerSnapshot): LayerStorage {
+	// Delegate to registry's fromSnapshot when available.
+	// All five built-in types register fromSnapshot, so the switch below is only
+	// reached for unknown/unregistered layer types.
+	const fromSnapshot = layerRegistry.get(layer.layerType)?.fromSnapshot;
+	if (fromSnapshot) {
+		return fromSnapshot(layer);
+	}
+
+	// Fallback for unregistered layer types — return an empty BackgroundStorage
+	// so the snapshot can still be loaded without throwing.
 	switch (layer.layerType) {
 		case 'agent': {
 			const storage = new AgentStorage();

@@ -91,7 +91,15 @@ export interface LayerViewDefinition {
 }
 
 // #region Renderer types
-export type LayerRendererRole = 'background' | 'grid' | 'edge' | 'trajectory' | 'agent';
+/**
+ * Renderer role is open so third-party layer types can declare their own roles.
+ * The built-in role names are preserved as `BUILTIN_RENDERER_ROLES`.
+ */
+export type LayerRendererRole = string;
+
+/** The five role names built into the default registry. */
+export const BUILTIN_RENDERER_ROLES = ['background', 'grid', 'edge', 'trajectory', 'agent'] as const;
+export type BuiltinLayerRendererRole = typeof BUILTIN_RENDERER_ROLES[number];
 
 export interface SnapshotAgentLayerData {
   coordOffset: GridCoordOffset;
@@ -142,10 +150,7 @@ export interface CreatedLayerEntry {
   storage?: AgentStorage;
 }
 
-/**
- * Describes an inter-layer dependency that the plan engine should resolve.
- * For now used documentation-side; will drive topological sorting in Phase 2.
- */
+/** Describes an inter-layer dependency that the plan engine can resolve. */
 export interface LayerDependencyRule {
   /** The role that this layer depends on. */
   fromRole: LayerRendererRole;
@@ -155,6 +160,13 @@ export interface LayerDependencyRule {
 
 export interface LayerRendererDefinition {
   role: LayerRendererRole;
+  /**
+   * Controls the relative render/reconcile order of this role within the
+   * plan layer list. Lower values are processed first. Built-in priorities:
+   * background=0, grid=1, edge=2, trajectory=3, agent=4.
+   * Omit to append after all built-ins.
+   */
+  renderOrderPriority?: number;
   getZIndex?(metadata: Record<string, unknown>): number | undefined;
   getCoordOffset?(metadata: Record<string, unknown>): GridCoordOffset;
   getGraphConfig?(metadata: Record<string, unknown>): GraphEnvConfig;
@@ -166,19 +178,15 @@ export interface LayerRendererDefinition {
   getSnapshotBackground?(layer: ScenarioLayerSnapshot): BackgroundData | null | undefined;
 
   /**
-   * Phase 1: Factory method to create a visual layer from a RenderLayerPlan.
-   * When present, the registry uses this instead of the standalone createLayerForPlan.
-   * When absent, falls back to the Phase 0 public factory for backward compatibility.
+   * Factory method to create a visual layer from a RenderLayerPlan.
+   * When absent, layer creation falls back to host-specific handling.
    */
   createLayer?(
     plan: RenderLayerPlan,
     context: LayerCreateContext,
   ): CreatedLayerEntry | null;
 
-  /**
-   * Declares inter-role dependencies for topological plan ordering.
-   * Currently unused by the plan engine; will be consumed in Phase 2.
-   */
+  /** Declares inter-role dependencies for topological plan ordering. */
   dependencies?: LayerDependencyRule[];
 }
 // #endregion
@@ -192,6 +200,8 @@ export interface LayerTypeDefinition {
   primaryKeyFields?: string[];
   requiredDependencyLayerTypes?: string[];
   storageFactory?: (metadata: Record<string, unknown>) => LayerStorage;
+  /** Reconstruct a live storage object from a protocol snapshot. */
+  fromSnapshot?: (snapshot: ScenarioLayerSnapshot) => LayerStorage;
   controller?: ItemLayerController;
   view?: LayerViewDefinition;
   renderer?: LayerRendererDefinition;
@@ -245,12 +255,8 @@ export class LayerRegistryClass {
   }
 
   /**
-   * Phase 1: Create a visual layer from a RenderLayerPlan.
-   *
-   * Delegates to the registered LayerRendererDefinition.createLayer if present;
-   * returns null for unknown roles. In Phase 0, the standalone
-   * createLayerForPlan handled unknown roles; in Phase 1, all built-in
-   * types include createLayer, and custom types should register their own.
+   * Create a visual layer from a RenderLayerPlan by delegating to the
+   * registered LayerRendererDefinition.createLayer implementation.
    */
   createLayer(plan: RenderLayerPlan, context: LayerCreateContext): CreatedLayerEntry | null {
     const def = this.findDefinitionForRole(plan.role);
@@ -258,15 +264,40 @@ export class LayerRegistryClass {
       return def.renderer.createLayer(plan, context);
     }
 
-    // Unknown role — no registered createLayer. This will be replaced by
-    // registry-based role lookup in Phase 2.
     return null;
+  }
+
+  /**
+   * Return layer roles in ascending `renderOrderPriority` order.
+   * Roles without a priority are appended last in registration order.
+   */
+  getRenderOrder(): string[] {
+    const withPriority: Array<{ role: string; priority: number }> = [];
+    const withoutPriority: string[] = [];
+
+    for (const def of this.defs.values()) {
+      const role = def.renderer?.role;
+      if (!role) continue;
+      const priority = def.renderer!.renderOrderPriority;
+      if (priority === undefined) {
+        withoutPriority.push(role);
+      } else {
+        withPriority.push({ role, priority });
+      }
+    }
+
+    withPriority.sort((a, b) => a.priority - b.priority);
+    return [...withPriority.map((e) => e.role), ...withoutPriority];
   }
 
   /**
    * Find the first LayerTypeDefinition whose renderer role matches the given role.
    * Used to look up the createLayer implementation from the plan's role.
    */
+  getDefinitionByRole(role: string): LayerTypeDefinition | undefined {
+    return this.findDefinitionForRole(role);
+  }
+
   private findDefinitionForRole(role: string): LayerTypeDefinition | undefined {
     for (const def of this.defs.values()) {
       if (def.renderer?.role === role) {
@@ -649,7 +680,7 @@ const backgroundLayerController: ItemLayerController = {
 };
 // #endregion
 
-// #region Phase 1 — Built-in createLayer factories
+// #region Built-in createLayer factories
 import { AgentLayer, BackgroundLayer, EdgeLayer, GridLayer, TrajectoryLayer } from '../environment/layers';
 import type {
   AgentLayerPlan,
@@ -760,6 +791,11 @@ function createAgentLayerFromPlan(
 // #endregion
 
 // #region Built-in layer registrations
+// Each built-in registration includes:
+//   - renderOrderPriority (drives getRenderOrder / host reconcile order)
+//   - fromSnapshot (drives registry-based createLayerStorage in utils/plan.ts)
+//   - dependencies (documents inter-role plan dependencies)
+
 registerLayerType({
   layer_type: 'agent',
   label: 'Agent Layer',
@@ -768,6 +804,11 @@ registerLayerType({
   itemDiffSchema: AgentDiffSchema,
   primaryKeyFields: ['id'],
   storageFactory: (_metadata) => new AgentStorage(),
+  fromSnapshot: (layer) => {
+    const storage = new AgentStorage();
+    storage.load(structuredClone(layer.storageSnapshot ?? {}));
+    return storage;
+  },
   controller: agentLayerController,
   view: {
     getSceneBounds: getMetadataSceneBounds,
@@ -775,6 +816,7 @@ registerLayerType({
   },
   renderer: {
     role: 'agent',
+    renderOrderPriority: 4,
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getCoordOffset,
     getSnapshotAgentLayer,
@@ -795,9 +837,22 @@ registerLayerType({
   primaryKeyFields: ['source', 'target'],
   requiredDependencyLayerTypes: ['agent'],
   storageFactory: (_metadata) => new EdgeStorage(),
+  fromSnapshot: (layer) => {
+    const storage = new EdgeStorage();
+    const edgesFromStorage = isEdgeStorageSnapshot(layer.storageSnapshot)
+      ? layer.storageSnapshot.edges.map((e) => structuredClone(e as GraphEdge))
+      : [];
+    const metadata = (layer.metadata ?? {}) as Record<string, unknown>;
+    const edgesFromMetadata = Array.isArray(metadata.edges)
+      ? (metadata.edges as GraphEdge[]).map((e) => structuredClone(e))
+      : [];
+    storage.setEdges([...edgesFromStorage, ...edgesFromMetadata]);
+    return storage;
+  },
   controller: edgeLayerController,
   renderer: {
     role: 'edge',
+    renderOrderPriority: 2,
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getGraphConfig: (metadata) => metadata as GraphEnvConfig,
     getSnapshotEdges,
@@ -805,6 +860,7 @@ registerLayerType({
       if (plan.role !== 'edge') return null;
       return createEdgeLayerFromPlan(plan as EdgeLayerPlan, context);
     },
+    dependencies: [{ fromRole: 'agent', inject: 'agentStorage' }],
   },
 });
 
@@ -817,9 +873,15 @@ registerLayerType({
   primaryKeyFields: ['id'],
   requiredDependencyLayerTypes: ['agent'],
   storageFactory: (metadata) => new TrajectoryStorage(metadata as any),
+  fromSnapshot: (layer) => {
+    const storage = new TrajectoryStorage();
+    storage.load(structuredClone(layer.storageSnapshot ?? {}));
+    return storage;
+  },
   controller: trajectoryLayerController,
   renderer: {
     role: 'trajectory',
+    renderOrderPriority: 3,
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getCoordOffset,
     getSnapshotTrajectoryLayer,
@@ -827,6 +889,7 @@ registerLayerType({
       if (plan.role !== 'trajectory') return null;
       return createTrajectoryLayerFromPlan(plan as TrajectoryLayerPlan);
     },
+    dependencies: [{ fromRole: 'agent', inject: 'agentMetadata' }],
   },
 });
 
@@ -835,6 +898,17 @@ registerLayerType({
   label: 'Grid Layer',
   metadataSchema: GridLayerMetadataSchema,
   storageFactory: (metadata) => new GridEnvStorage(metadata as any),
+  fromSnapshot: (layer) => {
+    const storage = new GridEnvStorage();
+    const merged: Record<string, unknown> = {
+      ...(typeof layer.metadata === 'object' && layer.metadata !== null ? layer.metadata as Record<string, unknown> : {}),
+      ...(typeof layer.storageSnapshot === 'object' && layer.storageSnapshot !== null && !Array.isArray(layer.storageSnapshot)
+        ? layer.storageSnapshot as Record<string, unknown>
+        : {}),
+    };
+    storage.setData(structuredClone(merged));
+    return storage;
+  },
   controller: gridLayerController,
   view: {
     getSceneBounds: getMetadataSceneBounds,
@@ -843,6 +917,7 @@ registerLayerType({
   },
   renderer: {
     role: 'grid',
+    renderOrderPriority: 1,
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getSnapshotGridData,
     createLayer: (plan, _context) => {
@@ -857,9 +932,15 @@ registerLayerType({
   label: 'Background Layer',
   metadataSchema: BackgroundLayerMetadataSchema,
   storageFactory: (_metadata) => new BackgroundStorage(),
+  fromSnapshot: (layer) => {
+    const storage = new BackgroundStorage();
+    storage.setData(isBackgroundData(layer.storageSnapshot) ? structuredClone(layer.storageSnapshot) : null);
+    return storage;
+  },
   controller: backgroundLayerController,
   renderer: {
     role: 'background',
+    renderOrderPriority: 0,
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getBackgroundSource,
     getSnapshotBackground,

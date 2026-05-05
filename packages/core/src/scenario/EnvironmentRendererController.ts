@@ -18,7 +18,6 @@ import {
   type RenderLayerPlan,
   type RenderPlan,
 } from './render-plan';
-import type { LayerRendererRole } from './layer-registry';
 import type { ScenarioEnvironmentState } from './types';
 
 export interface EnvironmentRendererControllerOptions {
@@ -27,11 +26,9 @@ export interface EnvironmentRendererControllerOptions {
   onRenderError?: (title: string, detail: string) => void;
 }
 
-const ROLE_ORDER: LayerRendererRole[] = ['background', 'grid', 'edge', 'trajectory', 'agent'];
-
 interface LayerEntry {
   key: string;
-  role: LayerRendererRole;
+  role: string;
   layerId: string;
   layer: { destroy(): void };
   storage?: AgentStorage;
@@ -40,13 +37,8 @@ interface LayerEntry {
 export class EnvironmentRendererController {
   private envView: EnvironmentView | null = null;
   private agentStorages: AgentStorage[] = [];
-  private readonly layerEntriesByRole = new Map<LayerRendererRole, Map<string, LayerEntry>>([
-    ['background', new Map()],
-    ['grid', new Map()],
-    ['edge', new Map()],
-    ['trajectory', new Map()],
-    ['agent', new Map()],
-  ]);
+  /** Keyed by string role to support third-party layer types. */
+  private readonly layerEntriesByRole = new Map<string, Map<string, LayerEntry>>();
   private lastPlan: RenderPlan | null = null;
   private lastEnvironmentId: string | null = null;
   private fitPadding = 0;
@@ -107,27 +99,32 @@ export class EnvironmentRendererController {
     // are visible to subsequently-created agent layers within the same pass.
     this.layerFactoryContext.linkedEdgeLayers.clear();
 
-    const nextByRole = new Map<LayerRendererRole, Map<string, LayerEntry>>([
-      ['background', new Map()],
-      ['grid', new Map()],
-      ['edge', new Map()],
-      ['trajectory', new Map()],
-      ['agent', new Map()],
-    ]);
-    const plansByRole = new Map<LayerRendererRole, RenderLayerPlan[]>([
-      ['background', []],
-      ['grid', []],
-      ['edge', []],
-      ['trajectory', []],
-      ['agent', []],
-    ]);
+    // Derive processing order from the registry, then extend with any roles
+    // present in this plan that the registry didn't enumerate.
+    const registryOrder = layerRegistry.getRenderOrder();
+    const roleOrder: string[] = [...registryOrder];
+    for (const layerPlan of plan.layers) {
+      if (!roleOrder.includes(layerPlan.role)) {
+        roleOrder.push(layerPlan.role);
+      }
+      if (!this.layerEntriesByRole.has(layerPlan.role)) {
+        this.layerEntriesByRole.set(layerPlan.role, new Map());
+      }
+    }
+
+    const nextByRole = new Map<string, Map<string, LayerEntry>>();
+    const plansByRole = new Map<string, RenderLayerPlan[]>();
+    for (const role of roleOrder) {
+      nextByRole.set(role, new Map());
+      plansByRole.set(role, []);
+    }
 
     for (const layerPlan of plan.layers) {
       plansByRole.get(layerPlan.role)?.push(layerPlan);
     }
 
-    for (const role of ROLE_ORDER) {
-      const previous = this.layerEntriesByRole.get(role)!;
+    for (const role of roleOrder) {
+      const previous = this.layerEntriesByRole.get(role) ?? new Map<string, LayerEntry>();
       const next = nextByRole.get(role)!;
       const plans = plansByRole.get(role) ?? [];
 
@@ -202,7 +199,7 @@ export class EnvironmentRendererController {
     this.envView.addLayer(created.layer as never);
     return {
       key: created.key,
-      role: created.role as LayerRendererRole,
+      role: created.role,
       layerId: created.layerId,
       layer: created.layer,
       storage: created.storage,

@@ -65,6 +65,21 @@ export interface AgentLayerPlan {
   zIndex: number;
 }
 
+/**
+ * Fallback plan type for layer types with registered renderer roles that are
+ * not one of the five built-in roles.
+ */
+export interface GenericLayerPlan {
+  role: string;
+  kind: 'generic';
+  key: string;
+  layerId: string;
+  /** The live storage instance held by the ScenarioLayerState. */
+  storage: unknown;
+  metadata: Record<string, unknown>;
+  zIndex?: number;
+}
+
 export interface RenderPlan {
   environmentId: string;
   buildKey: string;
@@ -76,6 +91,8 @@ export interface RenderPlan {
   edgeLayers: EdgeLayerPlan[];
   trajectoryLayers: TrajectoryLayerPlan[];
   agentLayers: AgentLayerPlan[];
+  /** Plans for custom/third-party layer roles not handled by built-in loops. */
+  genericLayers: GenericLayerPlan[];
 }
 
 export type RenderLayerPlan =
@@ -83,7 +100,8 @@ export type RenderLayerPlan =
   | GridLayerPlan
   | EdgeLayerPlan
   | TrajectoryLayerPlan
-  | AgentLayerPlan;
+  | AgentLayerPlan
+  | GenericLayerPlan;
 
 export interface RenderDataAgentLayer {
   id: string;
@@ -114,6 +132,73 @@ export interface RenderData {
   edges: GraphEdge[];
 }
 // #endregion
+
+function buildRoleOrder(
+  rolesInPlan: Set<string>,
+  registry: LayerRegistryClass,
+): string[] {
+  const preferredOrder = registry.getRenderOrder();
+  const preferredIndex = new Map<string, number>();
+  preferredOrder.forEach((role, index) => preferredIndex.set(role, index));
+
+  const indegree = new Map<string, number>();
+  const outgoing = new Map<string, Set<string>>();
+  for (const role of rolesInPlan) {
+    indegree.set(role, 0);
+    outgoing.set(role, new Set());
+  }
+
+  for (const role of rolesInPlan) {
+    const def = registry.getDefinitionByRole(role);
+    const deps = def?.renderer?.dependencies ?? [];
+    for (const dep of deps) {
+      if (!rolesInPlan.has(dep.fromRole)) continue;
+      const fromSet = outgoing.get(dep.fromRole)!;
+      if (fromSet.has(role)) continue;
+      fromSet.add(role);
+      indegree.set(role, (indegree.get(role) ?? 0) + 1);
+    }
+  }
+
+  const ready: string[] = [...rolesInPlan].filter((role) => (indegree.get(role) ?? 0) === 0);
+  ready.sort((left, right) => {
+    const li = preferredIndex.get(left) ?? Number.MAX_SAFE_INTEGER;
+    const ri = preferredIndex.get(right) ?? Number.MAX_SAFE_INTEGER;
+    return li - ri || left.localeCompare(right);
+  });
+
+  const result: string[] = [];
+  while (ready.length > 0) {
+    const role = ready.shift()!;
+    result.push(role);
+
+    for (const next of outgoing.get(role) ?? []) {
+      const nextIndegree = (indegree.get(next) ?? 0) - 1;
+      indegree.set(next, nextIndegree);
+      if (nextIndegree === 0) {
+        ready.push(next);
+      }
+    }
+
+    ready.sort((left, right) => {
+      const li = preferredIndex.get(left) ?? Number.MAX_SAFE_INTEGER;
+      const ri = preferredIndex.get(right) ?? Number.MAX_SAFE_INTEGER;
+      return li - ri || left.localeCompare(right);
+    });
+  }
+
+  if (result.length === rolesInPlan.size) {
+    return result;
+  }
+
+  // Cycles fall back to registry preference, then remaining lexical order.
+  const fallback = [...rolesInPlan].sort((left, right) => {
+    const li = preferredIndex.get(left) ?? Number.MAX_SAFE_INTEGER;
+    const ri = preferredIndex.get(right) ?? Number.MAX_SAFE_INTEGER;
+    return li - ri || left.localeCompare(right);
+  });
+  return fallback;
+}
 
 const DEFAULT_LAYER_Z_INDEX = {
   trajectory: 30,
@@ -371,23 +456,80 @@ export function createRenderPlan(
     });
   }
 
+  const builtinProcessedIds = new Set<string>([
+    ...backgroundLayers.map((l) => l.layerId),
+    ...gridLayers.map((l) => l.layerId),
+    ...edgeLayers.map((l) => l.layerId),
+    ...trajectoryLayers.map((l) => l.layerId),
+    ...agentLayers.map((l) => l.layerId),
+  ]);
+
+  const genericLayers: GenericLayerPlan[] = [];
+  for (const layer of layerStates) {
+    if (builtinProcessedIds.has(layer.id)) {
+      continue;
+    }
+    const role = getRendererRole(layer, registry);
+    if (!role) {
+      continue; // unregistered layer type — skip
+    }
+    const baseKey = layerEntryById.get(layer.id)!;
+    genericLayers.push({
+      role,
+      kind: 'generic',
+      key: buildPlanKey(baseKey, {}),
+      layerId: layer.id,
+      storage: layer.storage,
+      metadata: (layer.metadata ?? {}) as Record<string, unknown>,
+      zIndex: getLayerZIndex(layer, registry),
+    });
+  }
+
+  const allLayers: RenderLayerPlan[] = [
+    ...backgroundLayers,
+    ...gridLayers,
+    ...edgeLayers,
+    ...trajectoryLayers,
+    ...agentLayers,
+    ...genericLayers,
+  ];
+
+  const rolesInPlan = new Set(allLayers.map((layer) => layer.role));
+  const roleOrder = buildRoleOrder(rolesInPlan, registry);
+  const layersByRole = new Map<string, RenderLayerPlan[]>();
+  for (const layer of allLayers) {
+    const byRole = layersByRole.get(layer.role);
+    if (byRole) {
+      byRole.push(layer);
+    } else {
+      layersByRole.set(layer.role, [layer]);
+    }
+  }
+
+  const orderedLayers: RenderLayerPlan[] = [];
+  for (const role of roleOrder) {
+    const byRole = layersByRole.get(role);
+    if (byRole) {
+      orderedLayers.push(...byRole);
+      layersByRole.delete(role);
+    }
+  }
+  for (const byRole of layersByRole.values()) {
+    orderedLayers.push(...byRole);
+  }
+
   return {
     environmentId: environment.id,
     buildKey: getRenderBuildKey(environment),
     sceneBounds,
     fitPadding: hasEdgeLayer ? 0.05 : 0,
-    layers: [
-      ...backgroundLayers,
-      ...gridLayers,
-      ...edgeLayers,
-      ...trajectoryLayers,
-      ...agentLayers,
-    ],
+    layers: orderedLayers,
     backgroundLayers,
     gridLayers,
     edgeLayers,
     trajectoryLayers,
     agentLayers,
+    genericLayers,
   };
 }
 // #endregion

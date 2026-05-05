@@ -164,7 +164,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
     // has a special fallback path that the browser does not.
     const preResolvedBackground: Map<string, Partial<Viewport>> = new Map();
     for (const layerPlan of plan.layers) {
-      if (layerPlan.role !== 'background') continue;
+      if (layerPlan.kind !== 'background') continue;
       const snapshotLayer = snapshotEnvironment.layers.find((l) => l.id === layerPlan.layerId);
       const resolved = await resolveBackgroundLayer(
         layerPlan.storage,
@@ -180,7 +180,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
     for (const layerPlan of plan.layers) {
       // Resolve headless-specific background fallback bounds
       let fallbackBackgroundSceneBounds: Partial<Viewport> | undefined;
-      if (layerPlan.role === 'background') {
+      if (layerPlan.kind === 'background') {
         fallbackBackgroundSceneBounds = preResolvedBackground.get(layerPlan.layerId);
       }
 
