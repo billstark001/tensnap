@@ -128,7 +128,7 @@ describe('SimulationLoopController', () => {
     controller.syncStateSync({
       requestId: 'sync-1',
       phase: 'requested',
-      autoLayoutOnComplete: false,
+      // autoLayoutOnComplete: false,
     });
     scenario.dispatchEvent(new CustomEvent('action:end', {
       detail: {
@@ -144,7 +144,7 @@ describe('SimulationLoopController', () => {
     controller.syncStateSync({
       requestId: null,
       phase: 'idle',
-      autoLayoutOnComplete: false,
+      // autoLayoutOnComplete: false,
     });
 
     await vi.runAllTimersAsync();
@@ -172,6 +172,95 @@ describe('SimulationLoopController', () => {
     controller.reset();
     controller.requestAction('start', true);
 
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+
+    release();
+  });
+
+  // ─── rAF deadlock regression tests ────────────────────────────────────────
+
+  it('rAF mode: continuous action dispatches across multiple cycles', async () => {
+    const scenario = new EventTarget();
+    const sendMessage = vi.fn();
+    const controller = new SimulationLoopController(scenario);
+
+    const release = controller.retain();
+    controller.updateOptions({
+      sendMessage,
+      createActionStartMessage: createMessage,
+      maxTps: 0,
+      mode: 'requestAnimationFrame',
+    });
+
+    // Cycle 0: first dispatch is immediate (no timing yet)
+    controller.requestAction('start', true);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    const getTickId = (callIndex: number): string | undefined => {
+      const msg = sendMessage.mock.calls[callIndex]?.[0] as RendererToSimulatorMessage;
+      const p = msg?.payload;
+      return (p && typeof p === 'object' && 'tick_id' in p) ? (p as Record<string, unknown>).tick_id as string : undefined;
+    };
+
+    // Cycle 0 → continue, should arm rAF for cycle 1
+    scenario.dispatchEvent(new CustomEvent('action:end', {
+      detail: { id: 'start', tick_id: getTickId(0), continue: true },
+    }));
+    await Promise.resolve(); // flush render-commit microtask
+    await vi.advanceTimersByTimeAsync(0); // fire rAF (fake setTimeout(0))
+
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+
+    // Cycle 1 → continue, should arm rAF for cycle 2
+    scenario.dispatchEvent(new CustomEvent('action:end', {
+      detail: { id: 'start', tick_id: getTickId(1), continue: true },
+    }));
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(sendMessage).toHaveBeenCalledTimes(3);
+
+    release();
+  });
+
+  it('rAF mode: cancel while rAF is armed, then restart dispatches again', async () => {
+    const scenario = new EventTarget();
+    const sendMessage = vi.fn();
+    const controller = new SimulationLoopController(scenario);
+
+    const release = controller.retain();
+    controller.updateOptions({
+      sendMessage,
+      createActionStartMessage: createMessage,
+      maxTps: 0,
+      mode: 'requestAnimationFrame',
+    });
+
+    controller.requestAction('start', true);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    const getTickId = (callIndex: number): string | undefined => {
+      const msg = sendMessage.mock.calls[callIndex]?.[0] as RendererToSimulatorMessage;
+      const p = msg?.payload;
+      return (p && typeof p === 'object' && 'tick_id' in p) ? (p as Record<string, unknown>).tick_id as string : undefined;
+    };
+
+    // action_end → rAF gets armed (but NOT yet fired)
+    scenario.dispatchEvent(new CustomEvent('action:end', {
+      detail: { id: 'start', tick_id: getTickId(0), continue: true },
+    }));
+    await Promise.resolve(); // flush microtask — rAF is now armed
+
+    // Cancel while rAF is armed
+    controller.cancel('start');
+
+    // Restart — should arm a fresh rAF and dispatch
+    controller.requestAction('start', true);
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0); // fire rAF
+
+    // Should have dispatched once (first) + once (restart); the rAF for the
+    // cancelled cycle must not block the new arm.
     expect(sendMessage).toHaveBeenCalledTimes(2);
 
     release();

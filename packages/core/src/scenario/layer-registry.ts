@@ -26,6 +26,7 @@ import {
   isBackgroundAssetReference,
 } from '../environment/types';
 import type { ScenarioEnvironmentState, ScenarioLayerSnapshot, ScenarioLayerState } from './types';
+import type { RenderLayerPlan } from './render-plan';
 
 export interface LayerStorage {
   dump(): unknown;
@@ -105,6 +106,53 @@ export interface SnapshotTrajectoryLayerData {
   trajectories: TrajectoryStorageSnapshot['trajectories'];
 }
 
+/**
+ * Context provided to LayerRendererDefinition.createLayer.
+ * Bridges browser / headless differences in a single interface.
+ */
+export interface LayerCreateContext {
+  /** Edge layers keyed by their linked agent layer id. Populated as layers are created. */
+  linkedEdgeLayers: Map<string, { buildDragHandlers(): Record<string, unknown> }>;
+
+  /** Asset URL resolver (browser: this.options.resolveAssetUrl, headless: pre-resolved map). */
+  resolveAssetUrl?: (assetId: string) => string | null | undefined;
+
+  /** Whether agent layers should respond to click events. */
+  clickable?: boolean;
+
+  /** Optional click handler for agent selection (browser only). */
+  onAgentClick?: (agent: unknown) => void;
+
+  /** Optional double-click handler (browser only, for graph-interaction layers). */
+  onAgentDoubleClick?: (agent: unknown) => void;
+
+  /** Override scene bounds (e.g. from headless resolveBackgroundBounds fallback). */
+  fallbackBackgroundSceneBounds?: Partial<{ width: number; height: number }>;
+
+  /** Show agent labels. */
+  showLabel?: boolean;
+}
+
+/** Return value of createLayer — abstracts the ILayer interface used by both hosts. */
+export interface CreatedLayerEntry {
+  key: string;
+  role: string;
+  layerId: string;
+  layer: { destroy(): void; setZIndex?(z: number): void; setSceneBounds?(bounds: LayerSceneBounds): void };
+  storage?: AgentStorage;
+}
+
+/**
+ * Describes an inter-layer dependency that the plan engine should resolve.
+ * For now used documentation-side; will drive topological sorting in Phase 2.
+ */
+export interface LayerDependencyRule {
+  /** The role that this layer depends on. */
+  fromRole: LayerRendererRole;
+  /** What to inject from the depended-upon layer. */
+  inject: string;
+}
+
 export interface LayerRendererDefinition {
   role: LayerRendererRole;
   getZIndex?(metadata: Record<string, unknown>): number | undefined;
@@ -116,6 +164,22 @@ export interface LayerRendererDefinition {
   getSnapshotTrajectoryLayer?(layer: ScenarioLayerSnapshot): SnapshotTrajectoryLayerData | undefined;
   getSnapshotEdges?(layer: ScenarioLayerSnapshot): GraphEdge[];
   getSnapshotBackground?(layer: ScenarioLayerSnapshot): BackgroundData | null | undefined;
+
+  /**
+   * Phase 1: Factory method to create a visual layer from a RenderLayerPlan.
+   * When present, the registry uses this instead of the standalone createLayerForPlan.
+   * When absent, falls back to the Phase 0 public factory for backward compatibility.
+   */
+  createLayer?(
+    plan: RenderLayerPlan,
+    context: LayerCreateContext,
+  ): CreatedLayerEntry | null;
+
+  /**
+   * Declares inter-role dependencies for topological plan ordering.
+   * Currently unused by the plan engine; will be consumed in Phase 2.
+   */
+  dependencies?: LayerDependencyRule[];
 }
 // #endregion
 
@@ -178,6 +242,38 @@ export class LayerRegistryClass {
     if (!schema) return { success: true, data: diff as T };
     const result = schema.safeParse(diff);
     return result.success ? { success: true, data: result.data as T } : { success: false, error: result.error };
+  }
+
+  /**
+   * Phase 1: Create a visual layer from a RenderLayerPlan.
+   *
+   * Delegates to the registered LayerRendererDefinition.createLayer if present;
+   * returns null for unknown roles. In Phase 0, the standalone
+   * createLayerForPlan handled unknown roles; in Phase 1, all built-in
+   * types include createLayer, and custom types should register their own.
+   */
+  createLayer(plan: RenderLayerPlan, context: LayerCreateContext): CreatedLayerEntry | null {
+    const def = this.findDefinitionForRole(plan.role);
+    if (def?.renderer?.createLayer) {
+      return def.renderer.createLayer(plan, context);
+    }
+
+    // Unknown role — no registered createLayer. This will be replaced by
+    // registry-based role lookup in Phase 2.
+    return null;
+  }
+
+  /**
+   * Find the first LayerTypeDefinition whose renderer role matches the given role.
+   * Used to look up the createLayer implementation from the plan's role.
+   */
+  private findDefinitionForRole(role: string): LayerTypeDefinition | undefined {
+    for (const def of this.defs.values()) {
+      if (def.renderer?.role === role) {
+        return def;
+      }
+    }
+    return undefined;
   }
 }
 
@@ -553,6 +649,116 @@ const backgroundLayerController: ItemLayerController = {
 };
 // #endregion
 
+// #region Phase 1 — Built-in createLayer factories
+import { AgentLayer, BackgroundLayer, EdgeLayer, GridLayer, TrajectoryLayer } from '../environment/layers';
+import type {
+  AgentLayerPlan,
+  BackgroundLayerPlan,
+  EdgeLayerPlan,
+  GridLayerPlan,
+  TrajectoryLayerPlan,
+} from './render-plan';
+// #endregion
+
+function createBackgroundLayerFromPlan(
+  plan: BackgroundLayerPlan,
+  context: LayerCreateContext,
+): CreatedLayerEntry {
+  const sceneBounds = plan.sceneBounds
+    ? { sceneBounds: plan.sceneBounds }
+    : context.fallbackBackgroundSceneBounds
+      ? { sceneBounds: context.fallbackBackgroundSceneBounds as LayerSceneBounds }
+      : undefined;
+  const layer = new BackgroundLayer(plan.storage, sceneBounds);
+  if (plan.zIndex !== undefined) {
+    layer.setZIndex(plan.zIndex);
+  }
+
+  return {
+    key: plan.key,
+    role: plan.role,
+    layerId: plan.layerId,
+    layer,
+  };
+}
+
+function createGridLayerFromPlan(plan: GridLayerPlan): CreatedLayerEntry {
+  const layer = new GridLayer(plan.storage);
+  if (plan.zIndex !== undefined) {
+    layer.setZIndex(plan.zIndex);
+  }
+
+  return {
+    key: plan.key,
+    role: plan.role,
+    layerId: plan.layerId,
+    layer,
+  };
+}
+
+function createEdgeLayerFromPlan(
+  plan: EdgeLayerPlan,
+  context: LayerCreateContext,
+): CreatedLayerEntry {
+  const layer = new EdgeLayer(plan.storage, plan.agentStorage, plan.config);
+  if (plan.zIndex !== undefined) {
+    layer.setZIndex(plan.zIndex);
+  }
+  // Register the edge layer so agent layers can find it for drag handlers
+  context.linkedEdgeLayers.set(plan.agentLayerId, layer);
+
+  return {
+    key: plan.key,
+    role: plan.role,
+    layerId: plan.layerId,
+    layer,
+  };
+}
+
+function createTrajectoryLayerFromPlan(plan: TrajectoryLayerPlan): CreatedLayerEntry {
+  const layer = new TrajectoryLayer(plan.storage, {
+    coordOffset: plan.coordOffset,
+    worldBounds: plan.worldBounds,
+  });
+  layer.setZIndex(plan.zIndex);
+
+  return {
+    key: plan.key,
+    role: plan.role,
+    layerId: plan.layerId,
+    layer,
+  };
+}
+
+function createAgentLayerFromPlan(
+  plan: AgentLayerPlan,
+  context: LayerCreateContext,
+): CreatedLayerEntry {
+  const linkedEdgeLayer = context.linkedEdgeLayers.get(plan.layerId);
+  const layer = new AgentLayer(plan.storage, {
+    ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
+    clickable: context.clickable ?? false,
+    draggable: plan.usesGraphInteraction,
+    showLabel: context.showLabel ?? false,
+    originMode: plan.originMode,
+    coordOffset: plan.coordOffset,
+    sceneBounds: plan.sceneBounds,
+    resolveAssetUrl: context.resolveAssetUrl as ((assetId: string) => string | null) | undefined,
+    onAgentClick: context.onAgentClick,
+    onAgentDoubleClick: context.onAgentDoubleClick,
+  });
+  layer.setZIndex(plan.zIndex);
+
+  return {
+    key: plan.key,
+    role: plan.role,
+    layerId: plan.layerId,
+    layer,
+    storage: plan.storage,
+  };
+}
+// #endregion
+
 // #region Built-in layer registrations
 registerLayerType({
   layer_type: 'agent',
@@ -572,6 +778,11 @@ registerLayerType({
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getCoordOffset,
     getSnapshotAgentLayer,
+    createLayer: (plan, context) => {
+      if (plan.role !== 'agent') return null;
+      return createAgentLayerFromPlan(plan as AgentLayerPlan, context);
+    },
+    dependencies: [{ fromRole: 'edge', inject: 'dragHandlers' }],
   },
 });
 
@@ -590,6 +801,10 @@ registerLayerType({
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getGraphConfig: (metadata) => metadata as GraphEnvConfig,
     getSnapshotEdges,
+    createLayer: (plan, context) => {
+      if (plan.role !== 'edge') return null;
+      return createEdgeLayerFromPlan(plan as EdgeLayerPlan, context);
+    },
   },
 });
 
@@ -608,6 +823,10 @@ registerLayerType({
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getCoordOffset,
     getSnapshotTrajectoryLayer,
+    createLayer: (plan, _context) => {
+      if (plan.role !== 'trajectory') return null;
+      return createTrajectoryLayerFromPlan(plan as TrajectoryLayerPlan);
+    },
   },
 });
 
@@ -626,6 +845,10 @@ registerLayerType({
     role: 'grid',
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getSnapshotGridData,
+    createLayer: (plan, _context) => {
+      if (plan.role !== 'grid') return null;
+      return createGridLayerFromPlan(plan as GridLayerPlan);
+    },
   },
 });
 
@@ -640,6 +863,10 @@ registerLayerType({
     getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
     getBackgroundSource,
     getSnapshotBackground,
+    createLayer: (plan, context) => {
+      if (plan.role !== 'background') return null;
+      return createBackgroundLayerFromPlan(plan as BackgroundLayerPlan, context);
+    },
   },
 });
 // #endregion

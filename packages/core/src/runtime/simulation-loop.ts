@@ -105,6 +105,11 @@ class RafEstimator {
     ) {
       return;
     }
+    // Reject extreme outliers (e.g. tab switch, debugger pause) that would
+    // corrupt the smoothed estimate for a long time.
+    if (this.ms !== null && Math.abs(intervalMs - this.ms) > 50) {
+      return;
+    }
     this.ms = this.ms === null
       ? intervalMs
       : (this.ms * 3 + intervalMs) / 4;
@@ -174,14 +179,17 @@ class RafEstimator {
  * `disarm()` and `clear()` may be called at any point to cancel.
  */
 class DispatchTrigger {
-  onFired: TriggerFiredCallback = () => {};
+  onFired: TriggerFiredCallback = () => { };
 
   private pending: RuntimeTaskSnapshot | null = null;
   private timeoutId: number | null = null;
   private rafId: number | null = null;
   private lastObservedRafTs: number | null = null;
 
-  constructor(private readonly rafEstimator: RafEstimator) {}
+  constructor(
+    private readonly rafEstimator: RafEstimator,
+    private readonly now: () => number = () => performance.now(),
+  ) { }
 
   get hasPending(): boolean { return this.pending !== null; }
   get pendingTask(): RuntimeTaskSnapshot | null { return this.pending; }
@@ -227,21 +235,28 @@ class DispatchTrigger {
   }
 
   private armTimeout(dueAt: number): void {
-    const delayMs = Math.max(1, dueAt - performance.now());
+    const delayMs = Math.max(1, dueAt - this.now());
     this.timeoutId = window.setTimeout(() => {
       const task = this.pending;
       if (!task) return;
       this.timeoutId = null;
-      this.onFired(task, performance.now());
+      this.onFired(task, this.now());
     }, delayMs);
   }
 
   private armRaf(dueAt: number): void {
-    if (this.rafId !== null) return; // already armed — guard against double-queue
-
     const tick = (now: number): void => {
+      // Immediately clear our own handle so that:
+      // 1. Any concurrent arm() call sees rafId = null (clearHandles already sets
+      //    it, but this is a safety net for stale-handle timing in real browsers).
+      // 2. The re-queue at the bottom always starts from a clean state.
+      this.rafId = null;
+
       const task = this.pending;
-      if (!task) return;
+      if (!task) {
+        this.lastObservedRafTs = null;
+        return;
+      }
 
       // Passive interval observation — contributes to the rAF estimate for free
       // while a continuous action is in flight, without a dedicated calibration loop.
@@ -251,7 +266,6 @@ class DispatchTrigger {
       this.lastObservedRafTs = now;
 
       if (now >= dueAt) {
-        this.rafId = null;
         this.onFired(task, now);
         return;
       }
@@ -289,6 +303,8 @@ const createIdleStateSyncStatus = (): StateSyncStatus => ({
 // #endregion Module Helpers
 
 // #region SimulationLoopController
+
+const defaultNow = () => performance.now();
 
 export class SimulationLoopController {
 
@@ -333,8 +349,11 @@ export class SimulationLoopController {
 
   // #endregion Fields
 
-  constructor(private readonly scenario: ActionEventSource) {
-    this.trigger = new DispatchTrigger(this.rafEstimator);
+  constructor(
+    private readonly scenario: ActionEventSource,
+    private readonly now: () => number = defaultNow,
+  ) {
+    this.trigger = new DispatchTrigger(this.rafEstimator, this.now);
     this.trigger.onFired = (task, now) => this.dispatchActionStart(task, now);
   }
 
@@ -536,11 +555,11 @@ export class SimulationLoopController {
     const timing = this.dispatchTimingByKey.get(key);
     const dueAt = timing !== undefined
       ? timing.lastDispatchAt + intervalMs
-      : performance.now();
+      : this.now();
     return { dueAt, mode: this.resolveMode(intervalMs) };
   }
 
-  private dispatchActionStart(task: RuntimeTaskSnapshot, now = performance.now()): void {
+  private dispatchActionStart(task: RuntimeTaskSnapshot, now = this.now()): void {
     if (!this.options.sendMessage || !this.options.createActionStartMessage) return;
 
     // Clear before sending — covers both the immediate path (no trigger was
@@ -578,7 +597,7 @@ export class SimulationLoopController {
     if (this.options.mode !== 'auto') return this.options.mode;
     if (typeof window.requestAnimationFrame !== 'function' || intervalMs <= 0) return 'setTimeout';
 
-    const now = performance.now();
+    const now = this.now();
     this.rafEstimator.ensureCalibration(
       now,
       () => this.runtime.getContinuousKeyCount() > 0,
@@ -618,7 +637,7 @@ export class SimulationLoopController {
     const task = this.matchActiveTask(activeTask, payload);
     if (!task) return;
 
-    const now = performance.now();
+    const now = this.now();
     const timing = this.dispatchTimingByKey.get(task.key);
     if (timing !== undefined) {
       const durationMs = Math.max(0, now - timing.lastDispatchAt);
@@ -711,7 +730,7 @@ export class SimulationLoopController {
   private emitMetricsIfNeeded(force = false): void {
     if (!this.options.onMetricsChange) return;
 
-    const now = performance.now();
+    const now = this.now();
     if (!force && now - this.lastMetricsEmitAt < METRIC_EMIT_INTERVAL_MS) return;
     this.lastMetricsEmitAt = now;
 

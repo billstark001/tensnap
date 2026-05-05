@@ -10,24 +10,13 @@
  * environment without pulling in the React/Zustand web-app shell.
  */
 
-import {
-  AgentLayer,
-  BackgroundLayer,
-  EdgeLayer,
-  GridLayer,
-  TrajectoryLayer,
-} from '../environment';
 import { EnvironmentView } from '../environment/EnvironmentView';
 import type { AgentRenderState, AgentStorage } from '../environment';
+import { layerRegistry, type LayerCreateContext } from './layer-registry';
 import {
   createRenderPlan,
-  type AgentLayerPlan,
-  type BackgroundLayerPlan,
-  type EdgeLayerPlan,
-  type GridLayerPlan,
   type RenderLayerPlan,
   type RenderPlan,
-  type TrajectoryLayerPlan,
 } from './render-plan';
 import type { LayerRendererRole } from './layer-registry';
 import type { ScenarioEnvironmentState } from './types';
@@ -114,6 +103,10 @@ export class EnvironmentRendererController {
       return;
     }
 
+    // Reset linked edge layers once per reconcile so edge-layer registrations
+    // are visible to subsequently-created agent layers within the same pass.
+    this.layerFactoryContext.linkedEdgeLayers.clear();
+
     const nextByRole = new Map<LayerRendererRole, Map<string, LayerEntry>>([
       ['background', new Map()],
       ['grid', new Map()],
@@ -178,86 +171,42 @@ export class EnvironmentRendererController {
     this.lastEnvironmentId = plan.environmentId;
   }
 
+  /** Shared context for layer creation, reused across reconciles. */
+  private readonly layerFactoryContext: LayerCreateContext = {
+    linkedEdgeLayers: new Map(),
+  };
+
   private createLayerEntry(layerPlan: RenderLayerPlan): LayerEntry | null {
     if (!this.envView) {
       return null;
     }
 
-    switch (layerPlan.role) {
-      case 'background':
-        return this.createBackgroundLayerEntry(layerPlan);
-      case 'grid':
-        return this.createGridLayerEntry(layerPlan);
-      case 'edge':
-        return this.createEdgeLayerEntry(layerPlan);
-      case 'trajectory':
-        return this.createTrajectoryLayerEntry(layerPlan);
-      case 'agent':
-        return this.createAgentLayerEntry(layerPlan);
-      default:
-        return null;
-    }
-  }
+    // Browser-specific: graph-interaction layers use double-click for selection,
+    // grid agents use single-click.  The factory stays generic — we resolve the
+    // correct handler set here.
+    const isGraphInteraction = layerPlan.role === 'agent' && 'usesGraphInteraction' in layerPlan
+      && (layerPlan as { usesGraphInteraction: boolean }).usesGraphInteraction;
 
-  private createBackgroundLayerEntry(plan: BackgroundLayerPlan): LayerEntry {
-    const layer = new BackgroundLayer(
-      plan.storage,
-      plan.sceneBounds ? { sceneBounds: plan.sceneBounds } : undefined,
-    );
-    if (plan.zIndex !== undefined) {
-      layer.setZIndex(plan.zIndex);
-    }
-    this.envView!.addLayer(layer);
-    return { key: plan.key, role: plan.role, layerId: plan.layerId, layer };
-  }
-
-  private createGridLayerEntry(plan: GridLayerPlan): LayerEntry {
-    const layer = new GridLayer(plan.storage);
-    if (plan.zIndex !== undefined) {
-      layer.setZIndex(plan.zIndex);
-    }
-    this.envView!.addLayer(layer);
-    return { key: plan.key, role: plan.role, layerId: plan.layerId, layer };
-  }
-
-  private createEdgeLayerEntry(plan: EdgeLayerPlan): LayerEntry {
-    const layer = new EdgeLayer(plan.storage, plan.agentStorage, plan.config);
-    if (plan.zIndex !== undefined) {
-      layer.setZIndex(plan.zIndex);
-    }
-    this.envView!.addLayer(layer);
-    return { key: plan.key, role: plan.role, layerId: plan.layerId, layer };
-  }
-
-  private createTrajectoryLayerEntry(plan: TrajectoryLayerPlan): LayerEntry {
-    const layer = new TrajectoryLayer(plan.storage, {
-      coordOffset: plan.coordOffset,
-      worldBounds: plan.worldBounds,
-    });
-    layer.setZIndex(plan.zIndex);
-    this.envView!.addLayer(layer);
-    return { key: plan.key, role: plan.role, layerId: plan.layerId, layer };
-  }
-
-  private createAgentLayerEntry(plan: AgentLayerPlan): LayerEntry {
-    const linkedEdgeLayer = this.layerEntriesByRole
-      .get('edge')
-      ?.get(plan.layerId)?.layer as EdgeLayer | undefined;
-    const layer = new AgentLayer(plan.storage, {
-      ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
-      clickable: true,
-      draggable: plan.usesGraphInteraction,
-      showLabel: false,
-      originMode: plan.originMode,
-      coordOffset: plan.coordOffset,
-      sceneBounds: plan.sceneBounds,
+    const factoryContext: LayerCreateContext = {
+      linkedEdgeLayers: this.layerFactoryContext.linkedEdgeLayers,
       resolveAssetUrl: this.options.resolveAssetUrl,
-      onAgentClick: plan.usesGraphInteraction ? undefined : this.handleAgentSelect,
-      onAgentDoubleClick: plan.usesGraphInteraction ? this.handleAgentSelect : undefined,
-    });
-    layer.setZIndex(plan.zIndex);
-    this.envView!.addLayer(layer);
-    return { key: plan.key, role: plan.role, layerId: plan.layerId, layer, storage: plan.storage };
+      clickable: true,
+      showLabel: false,
+      onAgentClick: (isGraphInteraction ? undefined : this.handleAgentSelect) as ((agent: unknown) => void) | undefined,
+      onAgentDoubleClick: (isGraphInteraction ? this.handleAgentSelect : undefined) as ((agent: unknown) => void) | undefined,
+    };
+
+    const created = layerRegistry.createLayer(layerPlan, factoryContext);
+    if (!created) return null;
+
+    this.envView.addLayer(created.layer as never);
+    return {
+      key: created.key,
+      role: created.role as LayerRendererRole,
+      layerId: created.layerId,
+      layer: created.layer,
+      storage: created.storage,
+    };
   }
 
   private syncSceneBounds(plan: RenderPlan): void {

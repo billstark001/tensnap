@@ -3,15 +3,11 @@ import './leafer-runtime';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import {
-  AgentLayer,
-  BackgroundLayer,
-  EdgeLayer,
-  GridLayer,
-  TrajectoryLayer,
   resolveImageSize,
   resolveViewport,
   type Viewport,
 } from '@tensnap/core/environment';
+import { layerRegistry, type LayerCreateContext } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentView } from '@tensnap/core/environment/headless';
 import {
   collectRenderData,
@@ -162,77 +158,45 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
     request: RenderRequest,
     assetUrlById: Map<string, string>,
   ): Promise<void> {
-    const snapshotLayerById = new Map(snapshotEnvironment.layers.map((layer) => [layer.id, layer]));
-    const linkedEdgeLayerByAgentLayerId = new Map<string, EdgeLayer>();
     const createdLayers: Array<{ setSceneBounds?(bounds: Partial<Viewport>): void }> = [];
 
+    // Pre-resolve background data for this environment — the headless host
+    // has a special fallback path that the browser does not.
+    const preResolvedBackground: Map<string, Partial<Viewport>> = new Map();
     for (const layerPlan of plan.layers) {
-      switch (layerPlan.role) {
-        case 'background': {
-          const snapshotLayer = snapshotLayerById.get(layerPlan.layerId);
-          const resolved = await resolveBackgroundLayer(
-            layerPlan.storage,
-            snapshotLayer?.metadata?.background,
-            request,
-          );
-          const fallbackBounds = resolveBackgroundBounds(environment, viewport, resolved);
-          const layer = new BackgroundLayer(
-            layerPlan.storage,
-            layerPlan.sceneBounds ? { sceneBounds: layerPlan.sceneBounds } : { sceneBounds: fallbackBounds },
-          );
-          if (layerPlan.zIndex !== undefined) {
-            layer.setZIndex(layerPlan.zIndex);
-          }
-          envView.addLayer(layer);
-          createdLayers.push(layer);
-          break;
-        }
-        case 'grid': {
-          const layer = new GridLayer(layerPlan.storage);
-          if (layerPlan.zIndex !== undefined) {
-            layer.setZIndex(layerPlan.zIndex);
-          }
-          envView.addLayer(layer);
-          break;
-        }
-        case 'edge': {
-          const layer = new EdgeLayer(layerPlan.storage, layerPlan.agentStorage, layerPlan.config);
-          if (layerPlan.zIndex !== undefined) {
-            layer.setZIndex(layerPlan.zIndex);
-          }
-          envView.addLayer(layer);
-          linkedEdgeLayerByAgentLayerId.set(layerPlan.agentLayerId, layer);
-          break;
-        }
-        case 'trajectory': {
-          const layer = new TrajectoryLayer(layerPlan.storage, {
-            coordOffset: layerPlan.coordOffset,
-            worldBounds: layerPlan.worldBounds,
-          });
-          layer.setZIndex(layerPlan.zIndex);
-          envView.addLayer(layer);
-          break;
-        }
-        case 'agent': {
-          const linkedEdgeLayer = linkedEdgeLayerByAgentLayerId.get(layerPlan.layerId);
-          const layer = new AgentLayer(layerPlan.storage, {
-            ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
-            clickable: false,
-            draggable: layerPlan.usesGraphInteraction,
-            showLabel: false,
-            originMode: layerPlan.originMode,
-            coordOffset: layerPlan.coordOffset,
-            sceneBounds: layerPlan.sceneBounds,
-            resolveAssetUrl: (assetId) => assetUrlById.get(assetId) ?? null,
-          });
-          layer.setZIndex(layerPlan.zIndex);
-          envView.addLayer(layer);
-          createdLayers.push(layer);
-          break;
-        }
-        default:
-          break;
+      if (layerPlan.role !== 'background') continue;
+      const snapshotLayer = snapshotEnvironment.layers.find((l) => l.id === layerPlan.layerId);
+      const resolved = await resolveBackgroundLayer(
+        layerPlan.storage,
+        snapshotLayer?.metadata?.background,
+        request,
+      );
+      const fallbackBounds = resolveBackgroundBounds(environment, viewport, resolved);
+      preResolvedBackground.set(layerPlan.layerId, fallbackBounds);
+    }
+
+    const linkedEdgeLayers = new Map<string, unknown>();
+
+    for (const layerPlan of plan.layers) {
+      // Resolve headless-specific background fallback bounds
+      let fallbackBackgroundSceneBounds: Partial<Viewport> | undefined;
+      if (layerPlan.role === 'background') {
+        fallbackBackgroundSceneBounds = preResolvedBackground.get(layerPlan.layerId);
       }
+
+      const factoryContext: LayerCreateContext = {
+        linkedEdgeLayers: linkedEdgeLayers as Map<string, never>,
+        resolveAssetUrl: (assetId: string) => assetUrlById.get(assetId) ?? null,
+        clickable: false,
+        showLabel: false,
+        fallbackBackgroundSceneBounds,
+      };
+
+      const created = layerRegistry.createLayer(layerPlan, factoryContext);
+      if (!created) continue;
+
+      envView.addLayer(created.layer as never);
+      createdLayers.push(created.layer as { setSceneBounds?(bounds: Partial<Viewport>): void });
     }
 
     if (!plan.sceneBounds) {
