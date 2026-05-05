@@ -17,7 +17,7 @@
   "scripts": {
     "demo:ws": "tsx src/entries/main-ws.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "echo 'No tests yet'",
+    "test": "vitest run",
     "lint": "pnpm run typecheck",
     "clean": "rm -rf dist node_modules"
   },
@@ -29,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
   }
 }
