@@ -1,44 +1,73 @@
-import type { InMemorySimulationHandler } from '@tensnap/web-adapter/transport';
-import { createAxelrodAdapter, AXELROD_METADATA } from './axelrod';
-import { createSchellingAdapter, SCHELLING_METADATA } from './schelling';
-import { createTornbergAdapter, TORNBERG_METADATA } from './tornberg';
-import { createWolfSheepAdapter, WOLF_SHEEP_METADATA } from './wolf-sheep';
+import type { SimulatorSession } from '@tensnap/js/runtime';
+import type { ScenarioDefinition } from '@tensnap/js/scenario';
+import {
+  AXELROD_METADATA,
+  createAxelrodScenario,
+  createAxelrodSession,
+} from './axelrod';
+import {
+  createSchellingScenario,
+  createSchellingSession,
+  SCHELLING_METADATA,
+} from './schelling';
+import {
+  createTornbergScenario,
+  createTornbergSession,
+  TORNBERG_METADATA,
+} from './tornberg';
+import type { JsExampleMetadata } from './shared';
+import {
+  createWolfSheepScenario,
+  createWolfSheepSession,
+  WOLF_SHEEP_METADATA,
+} from './wolf-sheep';
 
 export * from './axelrod';
 export * from './schelling';
 export * from './tornberg';
 export * from './wolf-sheep';
+export type { JsExampleMetadata } from './shared';
 
-export interface JsExampleDefinition {
-  id: string;
-  name: string;
-  description: string;
-  createHandler(config?: unknown): InMemorySimulationHandler;
+export interface JsExampleDefinition extends JsExampleMetadata {
+  createScenario(config?: unknown): ScenarioDefinition;
+  createSession(config?: unknown): SimulatorSession;
 }
 
 const jsExampleDefinitions: JsExampleDefinition[] = [
   {
     ...SCHELLING_METADATA,
-    createHandler(config) {
-      return createSchellingAdapter((config ?? {}) as Parameters<typeof createSchellingAdapter>[0]);
+    createScenario(config) {
+      return createSchellingScenario((config ?? {}) as Parameters<typeof createSchellingScenario>[0]);
+    },
+    createSession(config) {
+      return createSchellingSession((config ?? {}) as Parameters<typeof createSchellingSession>[0]);
     },
   },
   {
     ...WOLF_SHEEP_METADATA,
-    createHandler(config) {
-      return createWolfSheepAdapter((config ?? {}) as Parameters<typeof createWolfSheepAdapter>[0]);
+    createScenario(config) {
+      return createWolfSheepScenario((config ?? {}) as Parameters<typeof createWolfSheepScenario>[0]);
+    },
+    createSession(config) {
+      return createWolfSheepSession((config ?? {}) as Parameters<typeof createWolfSheepSession>[0]);
     },
   },
   {
     ...AXELROD_METADATA,
-    createHandler(config) {
-      return createAxelrodAdapter((config ?? {}) as Parameters<typeof createAxelrodAdapter>[0]);
+    createScenario(config) {
+      return createAxelrodScenario((config ?? {}) as Parameters<typeof createAxelrodScenario>[0]);
+    },
+    createSession(config) {
+      return createAxelrodSession((config ?? {}) as Parameters<typeof createAxelrodSession>[0]);
     },
   },
   {
     ...TORNBERG_METADATA,
-    createHandler(config) {
-      return createTornbergAdapter((config ?? {}) as Parameters<typeof createTornbergAdapter>[0]);
+    createScenario(config) {
+      return createTornbergScenario((config ?? {}) as Parameters<typeof createTornbergScenario>[0]);
+    },
+    createSession(config) {
+      return createTornbergSession((config ?? {}) as Parameters<typeof createTornbergSession>[0]);
     },
   },
 ];

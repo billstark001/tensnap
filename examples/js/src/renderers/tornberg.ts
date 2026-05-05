@@ -1,5 +1,13 @@
-import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
 import type { GridAgentState } from '@tensnap/core/environment';
+import {
+  defineCharts,
+  defineEnvironment,
+  defineLayer,
+  defineModel,
+  defineParameters,
+} from '@tensnap/js/bindings';
+import type { SimulatorSession } from '@tensnap/js/runtime';
+import type { ScenarioDefinition } from '@tensnap/js/scenario';
 import {
   TornbergConfig,
   TornbergState,
@@ -7,12 +15,12 @@ import {
   initializeTornberg,
   stepTornberg,
 } from '../models/tornberg';
-import { BaseModelAdapter, type AdapterMetadata } from '../runtime';
+import { type JsExampleMetadata } from './shared';
 
 const PARTISAN_LAYER = 'partisan';
 const SORTING_SAMPLE_INTERVAL = 10;
 
-export const TORNBERG_METADATA: AdapterMetadata = {
+export const TORNBERG_METADATA: JsExampleMetadata = {
   id: 'tornberg',
   name: 'Tornberg Partisan Sorting',
   description: 'Digital-media reach and homophily amplify partisan sorting in cultural space.',
@@ -29,128 +37,126 @@ export const DEFAULT_TORNBERG_CONFIG: TornbergConfig = {
   homophilyH: 4,
 };
 
-export class TornbergAdapter extends BaseModelAdapter {
-  private state: TornbergState;
-  private stepCount = 0;
-  private lastSorting = 0;
-
-  constructor(private readonly config: TornbergConfig) {
-    super(TORNBERG_METADATA);
-    this.state = initializeTornberg(config);
-  }
-
-  protected getParameters(): Parameter[] {
-    return [
-      { id: 'width', type: 'number', label: 'Grid Width', value: this.config.width, min: 10, max: 120, step: 1, allowRuntimeChange: false },
-      { id: 'height', type: 'number', label: 'Grid Height', value: this.config.height, min: 10, max: 120, step: 1, allowRuntimeChange: false },
-      { id: 'numFeatures', type: 'number', label: 'Feature Count', value: this.config.numFeatures, min: 2, max: 20, step: 1, allowRuntimeChange: false },
-      { id: 'numTraits', type: 'number', label: 'Trait Count', value: this.config.numTraits, min: 2, max: 20, step: 1, allowRuntimeChange: false },
-      { id: 'numPartisans', type: 'number', label: 'Partisans', value: this.config.numPartisans, min: 2, max: 6, step: 1, allowRuntimeChange: false },
-      { id: 'partisanWeight', type: 'number', label: 'Partisan Weight', value: this.config.partisanWeight, min: 1, max: 20, step: 1, allowRuntimeChange: false },
-      { id: 'gamma', type: 'number', label: 'Gamma', value: this.config.gamma, min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
-      { id: 'homophilyH', type: 'number', label: 'Homophily Exponent', value: this.config.homophilyH, min: 1, max: 12, step: 1, allowRuntimeChange: false },
-    ];
-  }
-
-  protected getActions(): Action[] {
-    return ['start', 'step', 'reset'].map((id) => ({
-      id,
-      label: id,
-      allowRuntimeChange: true,
-      continuous: id === 'start',
-    }));
-  }
-
-  protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
-    return [{ id: 'main', type: '2d' }];
-  }
-
-  protected getCharts(): ChartGroupMetadata[] {
-    return [
-      { id: 'sorting', label: 'Sorting Psi', color: '#c92a2a' },
-      { id: 'updates', label: 'Updates', color: '#1971c2' },
-    ];
-  }
-
-  protected async handleParameterChange(): Promise<void> {
-    // Runtime parameter changes are intentionally disabled.
-  }
-
-  protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
-    let shouldContinue = false;
-
-    if (id === 'start') shouldContinue = await this.stepOnce();
-    if (id === 'step') {
-      await this.stepOnce();
-      shouldContinue = false;
-    }
-    if (id === 'reset') {
-      this.state = initializeTornberg(this.config);
-      this.stepCount = 0;
-      this.lastSorting = computeSorting(this.state);
-      await this.sendInitialData();
-      shouldContinue = false;
-    }
-
-    await this.sendActionEnd({
-      id,
-      continue: !!continuous && shouldContinue,
-    });
-  }
-
-  protected async initialize(): Promise<void> {
-    this.state = initializeTornberg(this.config);
-    this.stepCount = 0;
-    this.lastSorting = computeSorting(this.state);
-  }
-
-  protected async cleanup(): Promise<void> {
-    // no-op
-  }
-
-  protected async sendInitialData(): Promise<void> {
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, layer_type: 'agent', data: { width: this.config.width, height: this.config.height } });
-    await this.sendItemCreate({ env_id: 'main', layer_id: PARTISAN_LAYER, items: this.createPartisanAgents() });
-    await this.sendMetadataUpdate({ time: 0 });
-    await this.sendChartUpdate({ updates: [
-      { id: 'sorting', value: this.lastSorting, time: 0 },
-      { id: 'updates', value: this.state.totalUpdates, time: 0 },
-    ] });
-  }
-
-  private createPartisanAgents(): GridAgentState[] {
-    const palette = ['#e03131', '#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#0b7285'];
-    return this.state.agents.flat().map((agent) => ({
-      id: `t_${agent.row}_${agent.col}`,
-      x: agent.col,
-      y: agent.row,
-      heading: 0,
-      icon: 'square' as const,
-      size: 0.92,
-      color: palette[agent.partisan % palette.length],
-    }) as GridAgentState);
-  }
-
-  private async stepOnce(): Promise<boolean> {
-    stepTornberg(this.state);
-    this.stepCount += 1;
-    const time = this.stepCount;
-
-    if (time % SORTING_SAMPLE_INTERVAL === 0) {
-      this.lastSorting = computeSorting(this.state);
-    }
-
-    await this.sendMetadataUpdate({ time });
-    const updates = this.createPartisanAgents().map((agent) => ({ id: agent.id, x: agent.x, y: agent.y, color: agent.color, icon: agent.icon, size: agent.size }));
-    await this.sendItemUpdate({ env_id: 'main', layer_id: PARTISAN_LAYER, items: updates });
-    await this.sendChartUpdate({ updates: [
-      { id: 'sorting', value: this.lastSorting, time },
-      { id: 'updates', value: this.state.totalUpdates, time },
-    ] });
-    return true;
-  }
+function createTornbergParameters(config: TornbergConfig) {
+  return defineParameters(
+    { id: 'width', type: 'number', label: 'Grid Width', value: config.width, min: 10, max: 120, step: 1, allowRuntimeChange: false },
+    { id: 'height', type: 'number', label: 'Grid Height', value: config.height, min: 10, max: 120, step: 1, allowRuntimeChange: false },
+    { id: 'numFeatures', type: 'number', label: 'Feature Count', value: config.numFeatures, min: 2, max: 20, step: 1, allowRuntimeChange: false },
+    { id: 'numTraits', type: 'number', label: 'Trait Count', value: config.numTraits, min: 2, max: 20, step: 1, allowRuntimeChange: false },
+    { id: 'numPartisans', type: 'number', label: 'Partisans', value: config.numPartisans, min: 2, max: 6, step: 1, allowRuntimeChange: false },
+    { id: 'partisanWeight', type: 'number', label: 'Partisan Weight', value: config.partisanWeight, min: 1, max: 20, step: 1, allowRuntimeChange: false },
+    { id: 'gamma', type: 'number', label: 'Gamma', value: config.gamma, min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
+    { id: 'homophilyH', type: 'number', label: 'Homophily Exponent', value: config.homophilyH, min: 1, max: 12, step: 1, allowRuntimeChange: false },
+  );
 }
 
-export function createTornbergAdapter(config: Partial<TornbergConfig> = {}): TornbergAdapter {
-  return new TornbergAdapter({ ...DEFAULT_TORNBERG_CONFIG, ...config });
+const TORNBERG_CHARTS = defineCharts(
+  { id: 'sorting', label: 'Sorting Psi', color: '#c92a2a' },
+  { id: 'updates', label: 'Updates', color: '#1971c2' },
+);
+
+function createPartisanAgents(state: TornbergState): GridAgentState[] {
+  const palette = ['#e03131', '#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#0b7285'];
+  return state.agents.flat().map((agent) => ({
+    id: `t_${agent.row}_${agent.col}`,
+    x: agent.col,
+    y: agent.row,
+    heading: 0,
+    icon: 'square' as const,
+    size: 0.92,
+    color: palette[agent.partisan % palette.length],
+  }) as GridAgentState);
+}
+
+const tornbergBinding = defineModel({
+  defaults: DEFAULT_TORNBERG_CONFIG,
+  parameters: createTornbergParameters,
+  environments(config) {
+    return [
+      defineEnvironment({
+        id: 'main',
+        type: '2d',
+        layers: [
+          defineLayer({
+            layerId: PARTISAN_LAYER,
+            layerType: 'agent',
+            data: { width: config.width, height: config.height },
+          }),
+        ],
+      }),
+    ];
+  },
+  charts: TORNBERG_CHARTS,
+  create(config) {
+    return {
+      config,
+      state: initializeTornberg(config),
+      stepCount: 0,
+      lastSorting: 0,
+    };
+  },
+  init(runtime) {
+    runtime.state = initializeTornberg(runtime.config);
+    runtime.stepCount = 0;
+    runtime.lastSorting = computeSorting(runtime.state);
+  },
+  async sync(runtime, ctx) {
+    await ctx.createItems('main', PARTISAN_LAYER, createPartisanAgents(runtime.state));
+    await ctx.metadata({ time: 0 });
+    await ctx.updateCharts({
+      updates: [
+        { id: 'sorting', value: runtime.lastSorting, time: 0 },
+        { id: 'updates', value: runtime.state.totalUpdates, time: 0 },
+      ],
+    });
+  },
+  async step(runtime, ctx) {
+    stepTornberg(runtime.state);
+    runtime.stepCount += 1;
+    const time = runtime.stepCount;
+
+    if (time % SORTING_SAMPLE_INTERVAL === 0) {
+      runtime.lastSorting = computeSorting(runtime.state);
+    }
+
+    await ctx.metadata({ time });
+    await ctx.updateItems(
+      'main',
+      PARTISAN_LAYER,
+      createPartisanAgents(runtime.state).map((agent) => ({
+        id: agent.id,
+        x: agent.x,
+        y: agent.y,
+        color: agent.color,
+        icon: agent.icon,
+        size: agent.size,
+      })),
+    );
+    await ctx.updateCharts({
+      updates: [
+        { id: 'sorting', value: runtime.lastSorting, time },
+        { id: 'updates', value: runtime.state.totalUpdates, time },
+      ],
+    });
+
+    return true;
+  },
+  async reset(runtime, ctx) {
+    runtime.state = initializeTornberg(runtime.config);
+    runtime.stepCount = 0;
+    runtime.lastSorting = computeSorting(runtime.state);
+    await ctx.sync();
+  },
+});
+
+export function createTornbergScenario(
+  config: Partial<TornbergConfig> = {},
+): ScenarioDefinition {
+  return tornbergBinding.createScenario(config);
+}
+
+export function createTornbergSession(
+  config: Partial<TornbergConfig> = {},
+): SimulatorSession {
+  return tornbergBinding.createSession(config);
 }

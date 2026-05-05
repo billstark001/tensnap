@@ -29,3 +29,13 @@ export interface BenchmarkCase {
   /** Called once after the run to destroy resources. */
   teardown(): Promise<void> | void;
 }
+
+/** A named group of related benchmark cases with parameter variations. */
+export interface CaseVariation {
+  /** Short identifier used to match enable signals (e.g. 'LineChart'). */
+  name: string;
+  /** Human-readable description shown in the UI. */
+  description: string;
+  /** Ordered list of cases, typically from lightest to heaviest. Index 1 is the default "medium" configuration. */
+  cases: BenchmarkCase[];
+}

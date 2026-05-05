@@ -1,7 +1,6 @@
 import type { ProtocolEncoding } from '@tensnap/core';
 import { createWebSocketTransportHost } from '@tensnap/js/transport';
 import { getJsExampleDefinition } from '../renderers';
-import { createSessionFromSimulationHandler } from '../runtime';
 
 export interface StartJsExampleWebSocketDemoOptions {
   port?: number;
@@ -24,7 +23,7 @@ export async function startJsExampleWebSocketDemo(
   const host = createWebSocketTransportHost({
     serverOptions: { port: options.port ?? 8765 },
     encoding: options.encoding ?? 'json',
-    sessionFactory: () => createSessionFromSimulationHandler(definition.createHandler(options.config)),
+    sessionFactory: () => definition.createSession(options.config),
   });
 
   return {

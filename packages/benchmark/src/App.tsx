@@ -3,13 +3,8 @@ import { useRef } from 'preact/hooks';
 import { BenchmarkStats, BenchmarkCase } from './types';
 import { runBenchmark, resultsToJson, resultsToMarkdown } from './runner';
 import {
-  lineChartVariations,
-  particleBounceVariations,
-  springGraphVariations,
   getAllVariations,
 } from './cases/variations';
-import { schellingVariations } from './cases/schellingModel';
-import { wolfSheepVariations } from './cases/wolfSheepModel';
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 const LS_KEY = 'tensnap-benchmark-config';
@@ -118,42 +113,28 @@ async function handleRun(containerRef: HTMLElement) {
 
   let cases: BenchmarkCase[] = [];
 
+  // Map each variation name to its enable signal
+  const enabledMap: Record<string, boolean> = {
+    'LineChart': enableLineChart.value,
+    'ParticleBounce': enableParticle.value,
+    'SpringGraph': enableSpring.value,
+    'Schelling': enableSchelling.value,
+    'WolfSheep': enableWolfSheep.value,
+  };
+
   if (enableVariations.value) {
-    // Run all variations of selected cases
-    const allVars = getAllVariations();
-    for (const variation of allVars) {
-      if (variation.name === 'LineChart' && enableLineChart.value) {
-        cases.push(...variation.cases);
-      } else if (variation.name === 'ParticleBounce' && enableParticle.value) {
-        cases.push(...variation.cases);
-      } else if (variation.name === 'SpringGraph' && enableSpring.value) {
+    // Run all parameter variations of every selected case
+    for (const variation of getAllVariations()) {
+      if (enabledMap[variation.name]) {
         cases.push(...variation.cases);
       }
     }
-
-    // Add model variations
-    if (enableSchelling.value) {
-      cases.push(...schellingVariations);
-    }
-    if (enableWolfSheep.value) {
-      cases.push(...wolfSheepVariations);
-    }
   } else {
-    // Run single default configuration of each selected case
-    if (enableLineChart.value) {
-      cases.push(lineChartVariations.cases[1]); // medium config
-    }
-    if (enableParticle.value) {
-      cases.push(particleBounceVariations.cases[1]); // medium config
-    }
-    if (enableSpring.value) {
-      cases.push(springGraphVariations.cases[1]); // medium config
-    }
-    if (enableSchelling.value) {
-      cases.push(schellingVariations[1]); // medium config
-    }
-    if (enableWolfSheep.value) {
-      cases.push(wolfSheepVariations[1]); // medium config
+    // Run single default (medium, index 1) configuration of each selected case
+    for (const variation of getAllVariations()) {
+      if (enabledMap[variation.name] && variation.cases.length > 1) {
+        cases.push(variation.cases[1]); // medium config
+      }
     }
   }
 

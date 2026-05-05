@@ -1,8 +1,11 @@
 import type { ISimulatorTransport } from '@tensnap/core';
-import { createPostMessageSimulatorHost } from '@tensnap/js/transport';
-import { InMemoryTransport, createLinkedEndpoints, createPostMessageTransport } from '@tensnap/web-adapter/transport';
+import {
+  createLinkedEndpoints,
+  createPostMessageSimulatorHost,
+  generateConnectionId,
+} from '@tensnap/js/transport';
+import { createPostMessageTransport } from '@tensnap/web-adapter/transport';
 import { getJsExampleDefinition } from '../renderers';
-import { createSessionFromSimulationHandler } from '../runtime';
 
 export type JsExampleTransportMode = 'inmemory' | 'postmessage';
 
@@ -17,18 +20,12 @@ export function createBundledExampleTransport(
   options: BundledExampleTransportOptions = {},
 ): ISimulatorTransport {
   const definition = getJsExampleDefinition(id);
-  const handler = definition.createHandler(options.config);
   const mode = options.mode ?? 'inmemory';
-
-  if (mode === 'inmemory') {
-    return new InMemoryTransport(handler, options.connectionId ?? handler.connectionId);
-  }
-
   const { renderer, simulator } = createLinkedEndpoints();
-  const connectionId = options.connectionId ?? handler.connectionId;
+  const connectionId = options.connectionId ?? generateConnectionId(`example-${mode}`);
   const host = createPostMessageSimulatorHost({
     endpoint: simulator,
-    session: createSessionFromSimulationHandler(handler),
+    session: definition.createSession(options.config),
     connectionId,
   });
   const transport = createPostMessageTransport({

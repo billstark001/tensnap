@@ -1,11 +1,19 @@
-import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
+import {
+  defineCharts,
+  defineEnvironment,
+  defineLayer,
+  defineModel,
+  defineParameters,
+} from '@tensnap/js/bindings';
+import type { SimulatorSession } from '@tensnap/js/runtime';
+import type { ScenarioDefinition } from '@tensnap/js/scenario';
 import { SchellingConfig, SchellingModel } from '../models/schelling';
-import { BaseModelAdapter, type AdapterMetadata } from '../runtime';
+import { type JsExampleMetadata } from './shared';
 
 const AGENT_LAYER = 'agents';
 const GRID_LAYER = 'grid';
 
-export const SCHELLING_METADATA: AdapterMetadata = {
+export const SCHELLING_METADATA: JsExampleMetadata = {
   id: 'schelling',
   name: 'Schelling Segregation Model',
   description: 'Local similarity preference causes macro segregation patterns.',
@@ -20,128 +28,112 @@ export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
   moveDistance: 10,
 };
 
-export class SchellingAdapter extends BaseModelAdapter {
-  private model: SchellingModel;
+function createSchellingParameters(config: SchellingConfig) {
+  return defineParameters(
+    { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
+    { id: 'moveDistance', type: 'number', label: 'Move Distance', value: config.moveDistance, min: 1, max: 10, step: 1, allowRuntimeChange: true },
+    { id: 'gridWidth', type: 'number', label: 'Grid Width', value: config.gridWidth, min: 10, max: 100, step: 1, allowRuntimeChange: false },
+    { id: 'gridHeight', type: 'number', label: 'Grid Height', value: config.gridHeight, min: 10, max: 100, step: 1, allowRuntimeChange: false },
+    { id: 'numAgentsType1', type: 'number', label: 'Type 1 Count', value: config.numAgentsType1, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+    { id: 'numAgentsType2', type: 'number', label: 'Type 2 Count', value: config.numAgentsType2, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+  );
+}
 
-  constructor(config: SchellingConfig) {
-    super(SCHELLING_METADATA);
-    this.model = new SchellingModel(config);
-  }
+const SCHELLING_CHARTS = defineCharts(
+  { id: 'satisfaction_rate', label: 'Satisfaction Rate', color: '#2f9e44' },
+  { id: 'segregation_index', label: 'Segregation Index', color: '#e8590c' },
+);
 
-  protected getParameters(): Parameter[] {
-    const config = this.model.getConfig();
+const schellingBinding = defineModel({
+  defaults: DEFAULT_SCHELLING_CONFIG,
+  parameters: createSchellingParameters,
+  environments(config) {
     return [
-      { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
-      { id: 'moveDistance', type: 'number', label: 'Move Distance', value: config.moveDistance, min: 1, max: 10, step: 1, allowRuntimeChange: true },
-      { id: 'gridWidth', type: 'number', label: 'Grid Width', value: config.gridWidth, min: 10, max: 100, step: 1, allowRuntimeChange: false },
-      { id: 'gridHeight', type: 'number', label: 'Grid Height', value: config.gridHeight, min: 10, max: 100, step: 1, allowRuntimeChange: false },
-      { id: 'numAgentsType1', type: 'number', label: 'Type 1 Count', value: config.numAgentsType1, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-      { id: 'numAgentsType2', type: 'number', label: 'Type 2 Count', value: config.numAgentsType2, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-    ];
-  }
-
-  protected getActions(): Action[] {
-    return ['start', 'step', 'reset'].map((id) => {
-      const continuous = id === 'start';
-      return {
-        id,
-        label: id.split('_').map((word) => `${word[0].toUpperCase()}${word.slice(1)}`).join('/'),
-        allowRuntimeChange: true,
-        continuous,
-      };
-    });
-  }
-
-  protected getEnvironments(): Array<{ id: string; type: 'uniform' | '2d' }> {
-    return [{ id: 'main', type: '2d' }];
-  }
-
-  protected getCharts(): ChartGroupMetadata[] {
-    return [
-      { id: 'satisfaction_rate', label: 'Satisfaction Rate', color: '#2f9e44' },
-      { id: 'segregation_index', label: 'Segregation Index', color: '#e8590c' },
-    ];
-  }
-
-  protected async handleParameterChange(id: string, value: unknown): Promise<void> {
-    this.model.updateParameter(id, value);
-  }
-
-  protected async handleActionStart(id: string, continuous?: boolean): Promise<void> {
-    let shouldContinue = false;
-
-    if (id === 'start') shouldContinue = await this.stepOnce();
-    if (id === 'step') {
-      await this.stepOnce();
-      shouldContinue = false;
-    }
-    if (id === 'reset') {
-      this.model.reset();
-      await this.sendInitialData();
-      await this.sendChartUpdate({
-        operations: [
-          { id: 'satisfaction_rate', operation: 'clear' },
-          { id: 'segregation_index', operation: 'clear' },
+      defineEnvironment({
+        id: 'main',
+        type: '2d',
+        layers: [
+          defineLayer({
+            layerId: AGENT_LAYER,
+            layerType: 'agent',
+            data: { width: config.gridWidth, height: config.gridHeight },
+          }),
+          defineLayer({
+            layerId: GRID_LAYER,
+            layerType: 'grid',
+            data: { width: config.gridWidth, height: config.gridHeight },
+          }),
         ],
-      });
-      shouldContinue = false;
-    }
+      }),
+    ];
+  },
+  charts: SCHELLING_CHARTS,
+  create(config) {
+    return new SchellingModel(config);
+  },
+  getConfig(model) {
+    return model.getConfig();
+  },
+  init(model) {
+    model.initialize();
+  },
+  dispose(model) {
+    model.destroy();
+  },
+  async sync(model, ctx) {
+    await ctx.createItems('main', AGENT_LAYER, model.getEnvironmentState().agents);
 
-    await this.sendActionEnd({
-      id,
-      continue: !!continuous && shouldContinue,
-    });
-  }
-
-  protected async initialize(): Promise<void> {
-    this.model.initialize();
-  }
-
-  protected async cleanup(): Promise<void> {
-    this.model.destroy();
-  }
-
-  protected async sendInitialData(): Promise<void> {
-    const config = this.model.getConfig();
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: AGENT_LAYER, layer_type: 'agent', data: { width: config.gridWidth, height: config.gridHeight } });
-    await this.sendEnvLayerCreate({ env_id: 'main', layer_id: GRID_LAYER, layer_type: 'grid', data: { width: config.gridWidth, height: config.gridHeight } });
-    await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: this.model.getEnvironmentState().agents });
-
-    const stats = this.model.getStatistics();
-    await this.sendMetadataUpdate({ time: 0 });
-    await this.sendChartUpdate({
+    const stats = model.getStatistics();
+    await ctx.metadata({ time: 0 });
+    await ctx.updateCharts({
       updates: [
         { id: 'satisfaction_rate', value: stats.satisfactionRate, time: 0 },
         { id: 'segregation_index', value: stats.segregationIndex, time: 0 },
       ],
     });
-  }
+  },
+  async onParameterChange(model, payload, ctx) {
+    model.updateParameter(payload.id, payload.value);
+    await ctx.refreshParameters(payload.id);
+  },
+  async step(model, ctx) {
+    model.step();
+    const stats = model.getStatistics();
+    await ctx.metadata({ time: stats.timeStep });
 
-  private async stepOnce(): Promise<boolean> {
-    this.model.step();
-    const stats = this.model.getStatistics();
-    await this.sendMetadataUpdate({ time: stats.timeStep });
+    const updates = model.getAgentUpdates(false);
+    const create = updates
+      .filter((update) => update.operation === 'create')
+      .map((update) => update.data);
+    const change = updates
+      .filter((update) => update.operation === 'update')
+      .map((update) => update.data);
 
-    const updates = this.model.getAgentUpdates(false);
-    const create = updates.filter((update) => update.operation === 'create').map((update) => update.data);
-    const change = updates.filter((update) => update.operation === 'update').map((update) => update.data);
-    if (create.length > 0) {
-      await this.sendItemCreate({ env_id: 'main', layer_id: AGENT_LAYER, items: create });
-    }
-    if (change.length > 0) {
-      await this.sendItemUpdate({ env_id: 'main', layer_id: AGENT_LAYER, items: change });
-    }
-
-    await this.sendChartUpdate({
+    await ctx.createItems('main', AGENT_LAYER, create);
+    await ctx.updateItems('main', AGENT_LAYER, change);
+    await ctx.updateCharts({
       updates: [
         { id: 'satisfaction_rate', value: stats.satisfactionRate, time: stats.timeStep },
         { id: 'segregation_index', value: stats.segregationIndex, time: stats.timeStep },
       ],
     });
     return true;
-  }
+  },
+  async reset(model, ctx) {
+    model.reset();
+    await ctx.sync();
+    await ctx.clearCharts('satisfaction_rate', 'segregation_index');
+  },
+});
+
+export function createSchellingScenario(
+  config: Partial<SchellingConfig> = {},
+): ScenarioDefinition {
+  return schellingBinding.createScenario(config);
 }
 
-export function createSchellingAdapter(config: Partial<SchellingConfig> = {}): SchellingAdapter {
-  return new SchellingAdapter({ ...DEFAULT_SCHELLING_CONFIG, ...config });
+export function createSchellingSession(
+  config: Partial<SchellingConfig> = {},
+): SimulatorSession {
+  return schellingBinding.createSession(config);
 }
