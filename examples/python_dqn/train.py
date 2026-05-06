@@ -36,7 +36,7 @@ def run_episode(model: EvacuationModel, agent: DQNAgent, train: bool) -> Episode
     steps = 0
     while True:
         action = agent.select_action(state, greedy=not train)
-        next_state, reward, done, _ = model.step(action)
+        next_state, reward, done, _ = model.env_step(action)
         if train:
             agent.store(state, action, reward, next_state, done)
             agent.optimize()

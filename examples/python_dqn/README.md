@@ -12,7 +12,7 @@ The environment is a grid-based evacuation scenario:
 - A **guide agent** is controlled by a DQN policy.
 - Nearby evacuees are more likely to follow the guide, so the policy learns where to move in order to reduce congestion and improve evacuation outcomes.
 
-Visualization is intentionally omitted for now, so the code stays focused on environment logic and RL training.
+A TenSnap visualization layer (`evac_viz.py`) is available for inspecting the simulation state in real time.
 
 ## Environment summary
 
@@ -46,37 +46,89 @@ The DQN observes a compact vector that includes:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install mesa torch
+pip install mesa torch tensnap
 ```
 
 ## Run a random-policy episode
 
 ```bash
-python main.py --mode rollout --episodes 1 --seed 7
+# From the examples/ directory
+python -m python_dqn.main --mode rollout --episodes 1 --seed 7
 ```
 
 ## Train DQN
 
 ```bash
-python main.py --mode train --episodes 300 --seed 7
+# From the examples/ directory
+python -m python_dqn.main --mode train --episodes 300 --seed 7
 ```
 
 ## Evaluate a saved checkpoint
 
 ```bash
-python main.py --mode eval --episodes 20 --checkpoint checkpoints/dqn_latest.pt --seed 7
+# From the examples/ directory
+python -m python_dqn.main --mode eval --episodes 20 --checkpoint checkpoints/dqn_latest.pt --seed 7
 ```
+
+## TenSnap Visualization
+
+Start the visualization server (uses a DQN agent with random weights — no training needed):
+
+```bash
+# From the examples/ directory
+python -m python_dqn.evac_viz
+
+# Or from the repo root
+pnpm dev:py:evac-dqn
+```
+
+The server listens on `ws://localhost:8765` by default. Connect the TenSnap renderer
+at <https://tensnap.netlify.app> or run `pnpm dev:web` locally.
+
+### Taking a screenshot with agent-cli
+
+```bash
+# 1. Start the visualization server in the background
+cd examples && python -m python_dqn.evac_viz &
+
+# 2. Start the agent runtime
+pnpm --filter @tensnap/agent dev -- runtime up --context evac-dqn --simulator-url ws://localhost:8765
+
+# 3. Advance a few steps
+pnpm --filter @tensnap/agent dev -- scene step --context evac-dqn
+
+# 4. Render a snapshot
+pnpm --filter @tensnap/agent dev -- scene render snapshot --context evac-dqn
+```
+
+### Visualization layers
+
+| Layer | Description |
+|---|---|
+| **cells** | Static map: walls (dark gray), exits (green), fire (red, expands) |
+| **evacuees** | Civilians: amber = alive, green = evacuated, gray = dead |
+| **guide** | DQN-controlled guide agent (blue) |
+
+### Charts
+
+| Chart | Description |
+|---|---|
+| `alive` | Number of civilians still moving |
+| `evacuated` | Cumulative evacuations |
+| `dead` | Cumulative casualties |
+| `fire_size` | Number of burning cells |
 
 ## Files
 
 - `main.py`: CLI entry point.
-- `evac_demo/model.py`: Mesa model and agent logic.
-- `evac_demo/dqn.py`: replay buffer, Q-network, trainer.
-- `evac_demo/train.py`: training and evaluation loops.
-- `evac_demo/config.py`: typed configuration objects.
+- `model.py`: Mesa model and agent logic.
+- `dqn.py`: replay buffer, Q-network, DQN agent.
+- `train.py`: training and evaluation loops.
+- `config.py`: typed configuration objects.
+- `evac_viz.py`: TenSnap visualization entrypoint.
 
 ## Notes
 
-- The demo avoids extra dependencies beyond `mesa`, `torch`, and the Python standard library.
+- The demo avoids extra dependencies beyond `mesa`, `torch`, `tensnap`, and the Python standard library.
 - The environment is intentionally small and readable rather than fully optimized.
 - Because only the guide is controlled by RL, this is a good starting point for explaining **how ABM and DQN interact** in one simulation.
