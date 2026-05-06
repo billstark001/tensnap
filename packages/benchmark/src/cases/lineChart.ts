@@ -7,7 +7,8 @@
  * and calls `lineChart.updateData(data)`, which fully re-renders canvas.
  */
 
-import { LineChartView, ChartDataPoint } from '@tensnap/core/chart';
+import { ChartDataPoint } from '@tensnap/core/chart';
+import { LineChartView } from '@tensnap/core/chart/browser';
 import { BenchmarkCase } from '../types';
 
 interface Config {
@@ -66,6 +67,7 @@ export function createLineChartCase(partial: Partial<Config> = {}): BenchmarkCas
 
   return {
     name: 'LineChartView (multi-line random)',
+    suite: 'synthetic' as const,
     config: cfg as unknown as Record<string, unknown>,
 
     setup(container) {

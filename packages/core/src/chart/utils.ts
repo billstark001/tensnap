@@ -24,14 +24,3 @@ export function createCsvContent(chartGroup: ChartGroup): string {
 
   return [header, ...rows].join('\n');
 }
-
-export function exportToCSV(chartGroup: ChartGroup) {
-  const csvContent = createCsvContent(chartGroup);
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `chart_${chartGroup.id}_${Date.now()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}

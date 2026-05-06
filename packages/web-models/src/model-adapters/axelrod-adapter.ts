@@ -1,6 +1,6 @@
 import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
 import type { GridAgentState } from '@tensnap/core/environment';
-import { AxelrodConfig, AxelrodState, countCultures, initializeAxelrod, stepAxelrod } from '../models/axelrod';
+import { AxelrodConfig, AxelrodState, countCultures, initializeAxelrod, stepAxelrod } from '@tensnap/examples-js/models';
 import { BaseModelAdapter } from './base-adapter';
 
 const CULTURE_LAYER = 'culture';

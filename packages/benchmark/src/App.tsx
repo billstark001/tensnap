@@ -1,15 +1,18 @@
 import { signal, computed, effect } from '@preact/signals';
 import { useRef } from 'preact/hooks';
-import { BenchmarkStats, BenchmarkCase } from './types';
+import {
+  BenchmarkStats,
+  BenchmarkCase,
+  BenchmarkRunnerMode,
+  BenchmarkRunnerSelection,
+  BenchmarkRuntimeMode,
+  BenchmarkSchedulerMode,
+  BenchmarkSchedulerSelection,
+} from './types';
 import { runBenchmark, resultsToJson, resultsToMarkdown } from './runner';
 import {
-  lineChartVariations,
-  particleBounceVariations,
-  springGraphVariations,
   getAllVariations,
 } from './cases/variations';
-import { schellingVariations } from './cases/schellingModel';
-import { wolfSheepVariations } from './cases/wolfSheepModel';
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 const LS_KEY = 'tensnap-benchmark-config';
@@ -17,6 +20,8 @@ const LS_KEY = 'tensnap-benchmark-config';
 interface PersistedConfig {
   frameCount: number;
   warmupCount: number;
+  runnerMode: BenchmarkRunnerSelection;
+  schedulerMode: BenchmarkSchedulerSelection;
   enableLineChart: boolean;
   enableParticle: boolean;
   enableSpring: boolean;
@@ -28,6 +33,8 @@ interface PersistedConfig {
 const DEFAULTS: PersistedConfig = {
   frameCount: 300,
   warmupCount: 10,
+  runnerMode: 'simple',
+  schedulerMode: 'all',
   enableLineChart: true,
   enableParticle: true,
   enableSpring: true,
@@ -57,9 +64,12 @@ const running = signal(false);
 const progressText = signal('');
 const results = signal<BenchmarkStats[]>([]);
 const copyStatus = signal<'idle' | 'json' | 'md'>('idle');
+const runtimeMode: BenchmarkRuntimeMode = import.meta.env.PROD ? 'production' : 'development';
 
 const frameCount = signal(_initial.frameCount);
 const warmupCount = signal(_initial.warmupCount);
+const runnerMode = signal<BenchmarkRunnerSelection>(_initial.runnerMode);
+const schedulerMode = signal<BenchmarkSchedulerSelection>(_initial.schedulerMode);
 
 // Enable/disable existing cases
 const enableLineChart = signal(_initial.enableLineChart);
@@ -80,6 +90,8 @@ effect(() => {
   saveConfig({
     frameCount: frameCount.value,
     warmupCount: warmupCount.value,
+    runnerMode: runnerMode.value,
+    schedulerMode: schedulerMode.value,
     enableLineChart: enableLineChart.value,
     enableParticle: enableParticle.value,
     enableSpring: enableSpring.value,
@@ -92,12 +104,28 @@ effect(() => {
 function resetConfig() {
   frameCount.value = DEFAULTS.frameCount;
   warmupCount.value = DEFAULTS.warmupCount;
+  runnerMode.value = DEFAULTS.runnerMode;
+  schedulerMode.value = DEFAULTS.schedulerMode;
   enableLineChart.value = DEFAULTS.enableLineChart;
   enableParticle.value = DEFAULTS.enableParticle;
   enableSpring.value = DEFAULTS.enableSpring;
   enableSchelling.value = DEFAULTS.enableSchelling;
   enableWolfSheep.value = DEFAULTS.enableWolfSheep;
   enableVariations.value = DEFAULTS.enableVariations;
+}
+
+function getSelectedRunnerModes(selection: BenchmarkRunnerSelection): BenchmarkRunnerMode[] {
+  if (selection === 'all') {
+    return ['simple', 'simulation-loop'];
+  }
+  return [selection];
+}
+
+function getSelectedSchedulerModes(selection: BenchmarkSchedulerSelection): BenchmarkSchedulerMode[] {
+  if (selection === 'all') {
+    return ['auto', 'raf', 'timeout'];
+  }
+  return [selection];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -118,42 +146,28 @@ async function handleRun(containerRef: HTMLElement) {
 
   let cases: BenchmarkCase[] = [];
 
+  // Map each variation name to its enable signal
+  const enabledMap: Record<string, boolean> = {
+    'LineChart': enableLineChart.value,
+    'ParticleBounce': enableParticle.value,
+    'SpringGraph': enableSpring.value,
+    'Schelling': enableSchelling.value,
+    'WolfSheep': enableWolfSheep.value,
+  };
+
   if (enableVariations.value) {
-    // Run all variations of selected cases
-    const allVars = getAllVariations();
-    for (const variation of allVars) {
-      if (variation.name === 'LineChart' && enableLineChart.value) {
-        cases.push(...variation.cases);
-      } else if (variation.name === 'ParticleBounce' && enableParticle.value) {
-        cases.push(...variation.cases);
-      } else if (variation.name === 'SpringGraph' && enableSpring.value) {
+    // Run all parameter variations of every selected case
+    for (const variation of getAllVariations()) {
+      if (enabledMap[variation.name]) {
         cases.push(...variation.cases);
       }
     }
-
-    // Add model variations
-    if (enableSchelling.value) {
-      cases.push(...schellingVariations);
-    }
-    if (enableWolfSheep.value) {
-      cases.push(...wolfSheepVariations);
-    }
   } else {
-    // Run single default configuration of each selected case
-    if (enableLineChart.value) {
-      cases.push(lineChartVariations.cases[1]); // medium config
-    }
-    if (enableParticle.value) {
-      cases.push(particleBounceVariations.cases[1]); // medium config
-    }
-    if (enableSpring.value) {
-      cases.push(springGraphVariations.cases[1]); // medium config
-    }
-    if (enableSchelling.value) {
-      cases.push(schellingVariations[1]); // medium config
-    }
-    if (enableWolfSheep.value) {
-      cases.push(wolfSheepVariations[1]); // medium config
+    // Run single default (medium, index 1) configuration of each selected case
+    for (const variation of getAllVariations()) {
+      if (enabledMap[variation.name] && variation.cases.length > 1) {
+        cases.push(variation.cases[1]); // medium config
+      }
     }
   }
 
@@ -163,21 +177,37 @@ async function handleRun(containerRef: HTMLElement) {
     return;
   }
 
+  const selectedRunnerModes = getSelectedRunnerModes(runnerMode.value);
+  const selectedModes = getSelectedSchedulerModes(schedulerMode.value);
   const allResults: BenchmarkStats[] = [];
-  for (let ci = 0; ci < cases.length; ci++) {
-    const bc = cases[ci];
-    progressText.value = `Running [${ci + 1}/${cases.length}] ${bc.name}…`;
+  const totalRuns = cases.length * selectedModes.length * selectedRunnerModes.length;
 
-    const res = await runBenchmark(
-      bc,
-      containerRef,
-      frameCount.value,
-      warmupCount.value,
-      (done, total) => {
-        progressText.value = `[${ci + 1}/${cases.length}] ${bc.name} — ${done}/${total} frames`;
+  for (let runnerIndex = 0; runnerIndex < selectedRunnerModes.length; runnerIndex++) {
+    const selectedRunnerMode = selectedRunnerModes[runnerIndex];
+    for (let modeIndex = 0; modeIndex < selectedModes.length; modeIndex++) {
+      const mode = selectedModes[modeIndex];
+      for (let ci = 0; ci < cases.length; ci++) {
+        const bc = cases[ci];
+        const runIndex = (runnerIndex * selectedModes.length * cases.length) + (modeIndex * cases.length) + ci + 1;
+        progressText.value = `Running [${runIndex}/${totalRuns}] ${bc.name} (${selectedRunnerMode}, ${mode})…`;
+
+        const res = await runBenchmark(
+          bc,
+          containerRef,
+          frameCount.value,
+          warmupCount.value,
+          {
+            runnerMode: selectedRunnerMode,
+            schedulerMode: mode,
+            runtimeMode,
+            onProgress: (done, total) => {
+              progressText.value = `[${runIndex}/${totalRuns}] ${bc.name} (${selectedRunnerMode}, ${mode}) — ${done}/${total} frames`;
+            },
+          },
+        );
+        allResults.push(res);
       }
-    );
-    allResults.push(res);
+    }
   }
 
   results.value = allResults;
@@ -196,6 +226,40 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
   return (
     <div style={styles.panel}>
       <h2 style={styles.panelTitle}>Configuration</h2>
+
+      <label style={styles.label}>
+        Runner implementation
+        <select
+          value={runnerMode.value}
+          disabled={running.value}
+          onChange={(e) => { runnerMode.value = (e.target as HTMLSelectElement).value as BenchmarkRunnerSelection; }}
+          style={styles.input}
+        >
+          <option value="simple">Simple runner</option>
+          <option value="simulation-loop">Browser-aligned simulation loop</option>
+          <option value="all">Both implementations</option>
+        </select>
+      </label>
+
+      <p style={styles.helperText}>
+        The browser-aligned mode reuses the same simulation-loop scheduling semantics as the web app,
+        including the browser defaults for max TPS and render FPS.
+      </p>
+
+      <label style={styles.label}>
+        Scheduler mode
+        <select
+          value={schedulerMode.value}
+          disabled={running.value}
+          onChange={(e) => { schedulerMode.value = (e.target as HTMLSelectElement).value as BenchmarkSchedulerSelection; }}
+          style={styles.input}
+        >
+          <option value="all">All modes (auto, raf, timeout)</option>
+          <option value="auto">Auto</option>
+          <option value="raf">requestAnimationFrame</option>
+          <option value="timeout">setTimeout</option>
+        </select>
+      </label>
 
       <label style={styles.label}>
         Frames per benchmark
@@ -259,6 +323,9 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
         <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, marginLeft: 24 }}>
           When enabled, runs 3-4 configurations of each selected case
         </p>
+        <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8, marginLeft: 24 }}>
+          Current build mode: <strong>{runtimeMode}</strong>
+        </p>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -300,14 +367,18 @@ function ResultsTable() {
   const rows = results.value;
   const jsonStr = resultsToJson(rows);
   const mdStr = resultsToMarkdown(rows);
+  const runtimeSummary = Array.from(new Set(rows.map((row) => row.runtimeMode))).join(', ');
 
   return (
     <div>
+      <p style={styles.metaText}>
+        Report build mode: <strong>{runtimeSummary}</strong>
+      </p>
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
           <thead>
             <tr>
-              {['Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'TPS'].map(
+              {['Suite', 'Runner', 'Scheduler', 'Build', 'Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'TPS'].map(
                 (h) => <th key={h} style={styles.th}>{h}</th>
               )}
             </tr>
@@ -315,6 +386,12 @@ function ResultsTable() {
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+                <td style={{ ...styles.td, color: r.suite === 'web-scenario' ? '#6ee7b7' : '#fcd34d', fontWeight: 600, fontSize: 11 }}>
+                  {r.suite}
+                </td>
+                <td style={styles.td}>{r.runnerMode}</td>
+                <td style={{ ...styles.td, fontVariantNumeric: 'tabular-nums' }}>{r.schedulerMode}</td>
+                <td style={styles.td}>{r.runtimeMode}</td>
                 <td style={{ ...styles.td, fontWeight: 600 }}>{r.caseName}</td>
                 <td style={styles.tdNum}>{r.frames}</td>
                 <td style={styles.tdNum}>{r.meanMs}</td>
@@ -397,8 +474,8 @@ export function App() {
       <header style={styles.header}>
         <h1 style={styles.title}>TenSnap Web Core — Benchmark Suite</h1>
         <p style={styles.subtitle}>
-          Measures per-tick compute latency (MSPT) and effective TPS while yielding one
-          <code>requestAnimationFrame</code> turn after each tick.
+          Measures per-tick compute latency (MSPT) and effective TPS across both a simple benchmark runner
+          and a browser-aligned simulation loop. Current build mode: <strong>{runtimeMode}</strong>.
         </p>
       </header>
 
@@ -530,6 +607,18 @@ const styles: Record<string, import('preact').JSX.CSSProperties> = {
     color: '#6ee7b7',
     wordBreak: 'break-all',
     marginTop: 4,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginBottom: 12,
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: -4,
+    marginBottom: 4,
+    lineHeight: 1.5,
   },
   tableWrapper: {
     overflowX: 'auto',

@@ -20,17 +20,19 @@
     "dev": "tsx src/bin.ts",
     "build": "node ./scripts/build.mjs",
     "cli": "pnpm run build && node ./dist/cli.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "echo 'Linting not configured yet'",
+    "lint": "pnpm run typecheck",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.1",
+    "@leafer-ui/core": "^2.1.0",
     "@leafer-ui/node": "^2.1.0",
     "@tensnap/core": "workspace:*",
     "canvas": "^3.2.3",
-    "hono": "^4.12.16",
+    "hono": "^4.12.17",
     "ws": "^8.20.0"
   },
   "devDependencies": {

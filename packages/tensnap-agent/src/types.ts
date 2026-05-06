@@ -24,6 +24,7 @@ export type RuntimePhase =
 
 export interface RenderSettings {
   trigger: RenderTriggerMode;
+  backgroundColor: string;
 }
 
 export interface RuntimeContextOptions {
@@ -229,6 +230,7 @@ export interface SceneRenderOptions {
   viewport?: Viewport;
   format?: RenderFormat;
   quality?: number;
+  backgroundColor?: string;
   outputPath?: string;
   persist?: boolean;
   includeData?: boolean;

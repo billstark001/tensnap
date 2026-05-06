@@ -22,7 +22,7 @@ import {
   DragEvent as LeaferDragEvent,
 } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
+import type { EnvironmentViewFitMode } from '../host';
 import {
   AgentDelta,
   AgentStorage,
@@ -127,11 +127,10 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   // #region Constructor
 
   constructor(
-    view: EnvironmentView,
     agentStorage: AgentStorage,
     config: AgentLayerConfig = {},
   ) {
-    super(view);
+    super();
 
     this._cfg = {
       draggable: false,
@@ -416,12 +415,14 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
     if (cfg.clickable) {
       shape.on(LeaferPointerEvent.CLICK, (e: any) => {
+        if (!this.interactionEnabled) return;
         const a = this._cachedAgents.get(id);
         if (a) cfg.onAgentClick(a, e);
       });
     }
     if (cfg.contextMenuable) {
       shape.on(LeaferPointerEvent.MENU, (e: any) => {
+        if (!this.interactionEnabled) return;
         const a = this._cachedAgents.get(id);
         if (a) cfg.onAgentContextMenu(a, e);
       });
@@ -429,6 +430,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     if (cfg.draggable) this._attachDrag(group, id);
 
     group.on(LeaferPointerEvent.DOUBLE_TAP, (e: any) => {
+      if (!this.interactionEnabled) return;
       e?.stop();
       const a = this._cachedAgents.get(id);
       if (a) cfg.onAgentDoubleClick(a);
@@ -443,6 +445,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const { onDragStart, onDragMove, onDragEnd } = this._cfg;
 
     group.on(LeaferDragEvent.START, (e: LeaferDragEvent) => {
+      if (!this.interactionEnabled) return;
       e?.stop();
       this._draggingId = id;
       const agent = this._cachedAgents.get(id);
@@ -450,12 +453,14 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     });
 
     group.on(LeaferDragEvent.DRAG, (e: LeaferDragEvent) => {
+      if (!this.interactionEnabled) return;
       if (this._draggingId !== id) return;
       e?.stop();
       onDragMove(id, e.moveX, e.moveY);
     });
 
     group.on(LeaferDragEvent.END, (e: LeaferDragEvent) => {
+      if (!this.interactionEnabled) return;
       if (this._draggingId !== id) return;
       e?.stop();
       this._draggingId = null;
@@ -464,6 +469,12 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   }
 
   // #endregion
+
+  protected override onInteractionChanged(enabled: boolean): void {
+    if (!enabled) {
+      this._draggingId = null;
+    }
+  }
 
   // #region Destroy
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   AgentRuntime,
-  NodeCanvasEnvironmentPainter,
+  HeadlessEnvironmentPainter,
   resolveRuntimeContextPaths,
   RuntimeControlServer,
 } from './index';
@@ -93,6 +93,11 @@ function parseViewportFlag(raw?: string): { x: number; y: number; width: number;
   throw new Error('Flag --viewport must be a JSON object: {"x":0,"y":0,"width":10,"height":10}.');
 }
 
+function getColorFlag(parsed: ParsedArgs, key: string): string | undefined {
+  const value = getStringFlag(parsed, key)?.trim();
+  return value ? value : undefined;
+}
+
 function buildBaseUrl(control: { host: string; controlPort: number | null }): string {
   if (!control.controlPort) {
     throw new Error('Runtime control port is not available.');
@@ -163,13 +168,15 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
     render: {
       trigger: (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
+      backgroundColor: getColorFlag(parsed, 'background-color'),
     },
   });
   await runtime.initialize();
   runtime.registerPainter(
-    new NodeCanvasEnvironmentPainter({
+    new HeadlessEnvironmentPainter({
       capturesDir: context.capturesDir,
       defaultFormat: 'png',
+      backgroundColor: getColorFlag(parsed, 'background-color'),
     }),
   );
 
@@ -247,6 +254,11 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
   const encoding = getStringFlag(parsed, 'encoding');
   if (encoding) {
     childArgs.push('--encoding', encoding);
+  }
+
+  const backgroundColor = getColorFlag(parsed, 'background-color');
+  if (backgroundColor) {
+    childArgs.push('--background-color', backgroundColor);
   }
 
   const child = spawn(process.execPath, childArgs, {
@@ -460,6 +472,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           height: getNumberFlag(parsed, 'height'),
           format: getStringFlag(parsed, 'format'),
           quality: getNumberFlag(parsed, 'quality'),
+          backgroundColor: getColorFlag(parsed, 'background-color'),
           outputPath: getStringFlag(parsed, 'output'),
           viewport,
         }),
@@ -657,13 +670,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   console.log([
     'Usage:',
-    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765',
+    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--background-color <css-color>]',
     '  tensnap-agent runtime status',
     '  tensnap-agent runtime render-trigger manual|action-end',
     '  tensnap-agent scene inspect',
     '  tensnap-agent scene snapshot',
     '  tensnap-agent scene start|step|reset',
-    '  tensnap-agent scene render [reason] [--env <env-id>] [--width <px>] [--height <px>] [--viewport <json>] [--output <path>]',
+    '  tensnap-agent scene render [reason] [--env <env-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
     '  tensnap-agent param list',
     '  tensnap-agent param set <parameter-id> <json-value>',
     '  tensnap-agent action list',

@@ -36,7 +36,7 @@
 
 import { Line } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
+import type { EnvironmentViewFitMode } from '../host';
 import { GridEnvStorage, GridEnvData } from '../storages/GridEnvStorage';
 import { Viewport } from '../types';
 
@@ -56,8 +56,8 @@ const LEVEL_ALPHAS = ['66', '99', 'cc'] as const;
 /** Desired stroke widths in pixels (divided by pixelsPerUnit at render time). */
 const LEVEL_WEIGHTS_PX = [0.6, 1.0, 1.5] as const;
 
-/** How far lines extend in the perpendicular direction ("infinite" in scene units). */
-const LARGE_EXTENT = 1e7;
+/** Extend slightly past the viewport to avoid clipping at the edges. */
+const VIEWPORT_MARGIN_FACTOR = 0.05;
 
 // ── Exported interfaces ───────────────────────────────────────────────────────
 
@@ -73,11 +73,10 @@ export class GridLayer extends BaseLayer {
   private _envData: GridEnvData;
 
   constructor(
-    view: EnvironmentView,
     storage: GridEnvStorage,
     _config: GridLayerConfig = {}
   ) {
-    super(view);
+    super();
 
     this._envData = storage.getData();
 
@@ -87,14 +86,16 @@ export class GridLayer extends BaseLayer {
     });
   }
 
-  // ── IResizableLayer ─────────────────────────────────────────────────────────
+  // #region Viewport
 
   onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
     this.applyViewportTransform(viewport, fitMode); // updates this._viewport and this._fitMode
     this._rebuild();
   }
 
-  // ── Level-of-detail selection ───────────────────────────────────────────────
+  // #endregion
+
+  // #region Rendering
 
   /**
    * Return up to 3 consecutive level indices (finest → coarsest) for one axis.
@@ -154,13 +155,15 @@ export class GridLayer extends BaseLayer {
     const { x: viewLeft, y: viewBottom, width: viewW, height: viewH } = this._viewport;
     const viewRight = viewLeft + viewW;
     const viewTop = viewBottom + viewH;
+    const horizontalMargin = Math.max(viewW * VIEWPORT_MARGIN_FACTOR, xUnit * xInterval);
+    const verticalMargin = Math.max(viewH * VIEWPORT_MARGIN_FACTOR, yUnit * yInterval);
 
     // ── Vertical lines (X axis) ──────────────────────────────────────────────
     const xLevels = this._selectLevels(xUnit, xInterval, xRatio, scale.scaleX);
     this._drawLines(
       xLevels, xOrigin, xUnit, xInterval, xRatio,
       viewLeft, viewRight,
-      -LARGE_EXTENT, LARGE_EXTENT,
+      viewBottom - verticalMargin, viewTop + verticalMargin,
       'vertical',
       strokeColor, scale.scaleX,
     );
@@ -170,7 +173,7 @@ export class GridLayer extends BaseLayer {
     this._drawLines(
       yLevels, yOrigin, yUnit, yInterval, yRatio,
       viewBottom, viewTop,
-      -LARGE_EXTENT, LARGE_EXTENT,
+      viewLeft - horizontalMargin, viewRight + horizontalMargin,
       'horizontal',
       strokeColor, scale.scaleY,
     );
@@ -258,4 +261,6 @@ export class GridLayer extends BaseLayer {
     if (/^#[0-9a-fA-F]{8}$/.test(color)) return `${color.slice(0, 7)}${hexAlpha}`;
     return color;
   }
+
+  // #endregion
 }

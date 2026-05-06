@@ -4,10 +4,28 @@ export interface FrameTiming {
   elapsed: number; // ms for this tick (compute only)
 }
 
+export type BenchmarkSchedulerMode = 'auto' | 'raf' | 'timeout';
+export type BenchmarkSchedulerSelection = BenchmarkSchedulerMode | 'all';
+export type BenchmarkRuntimeMode = 'development' | 'production';
+export type BenchmarkRunnerMode = 'simple' | 'simulation-loop';
+export type BenchmarkRunnerSelection = BenchmarkRunnerMode | 'all';
+
+export interface BenchmarkRunOptions {
+  schedulerMode?: BenchmarkSchedulerMode;
+  runtimeMode?: BenchmarkRuntimeMode;
+  runnerMode?: BenchmarkRunnerMode;
+  onProgress?: (done: number, total: number) => void;
+}
+
 /** Aggregated statistics for a benchmark case. */
 export interface BenchmarkStats {
   caseName: string;
   config: Record<string, unknown>;
+  /** Suite label: synthetic or web-scenario. */
+  suite: 'synthetic' | 'web-scenario';
+  runnerMode: BenchmarkRunnerMode;
+  schedulerMode: BenchmarkSchedulerMode;
+  runtimeMode: BenchmarkRuntimeMode;
   frames: number;
   totalMs: number;
   meanMs: number;
@@ -22,10 +40,24 @@ export interface BenchmarkStats {
 export interface BenchmarkCase {
   name: string;
   config: Record<string, unknown>;
+  /** Suite label: synthetic or web-scenario. */
+  suite: 'synthetic' | 'web-scenario';
   /** Called once before the run to create the DOM containers and views. */
   setup(container: HTMLElement): Promise<void> | void;
   /** Called for every benchmark frame; should update data but NOT wait for RAF. */
-  tick(frameIndex: number): void;
+  tick(frameIndex: number): Promise<void> | void;
   /** Called once after the run to destroy resources. */
   teardown(): Promise<void> | void;
+}
+
+/** A named group of related benchmark cases with parameter variations. */
+export interface CaseVariation {
+  /** Short identifier used to match enable signals (e.g. 'LineChart'). */
+  name: string;
+  /** Human-readable description shown in the UI. */
+  description: string;
+  /** Suite label for all cases in this variation group. */
+  suite: 'synthetic' | 'web-scenario';
+  /** Ordered list of cases, typically from lightest to heaviest. Index 1 is the default "medium" configuration. */
+  cases: BenchmarkCase[];
 }

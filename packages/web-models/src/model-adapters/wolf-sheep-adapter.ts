@@ -1,6 +1,6 @@
 import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
 import type { GridAgentState } from '@tensnap/core/environment';
-import { WolfSheepConfig, WolfSheepModel, World } from '../models/wolf-sheep';
+import { WolfSheepConfig, WolfSheepModel, World } from '@tensnap/examples-js/models';
 import { BaseModelAdapter } from './base-adapter';
 
 const GRID_LAYER = 'grid';

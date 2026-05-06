@@ -9,7 +9,10 @@
     ".": "./src/index.ts",
     "./asset": "./src/asset/index.ts",
     "./chart": "./src/chart/index.ts",
+    "./chart/browser": "./src/chart/browser.ts",
     "./environment": "./src/environment/index.ts",
+    "./environment/browser": "./src/environment/browser.ts",
+    "./environment/headless": "./src/environment/headless.ts",
     "./environment/storages": "./src/environment/storages/index.ts",
     "./environment/storages/*": "./src/environment/storages/*.ts",
     "./environment/types": "./src/environment/types/index.ts",
@@ -19,7 +22,9 @@
     "./parameter": "./src/parameter/index.ts",
     "./protocol": "./src/protocol/index.ts",
     "./runtime": "./src/runtime/index.ts",
+    "./runtime/browser": "./src/runtime/browser.ts",
     "./scenario": "./src/scenario/index.ts",
+    "./scenario/browser": "./src/scenario/browser.ts",
     "./transport": "./src/transport/index.ts",
     "./utils": "./src/utils/index.ts"
   },
@@ -34,7 +39,7 @@
     "@msgpack/msgpack": "^3.1.3",
     "@leafer-ui/core": "^2.1.0",
     "d3": "^7.9.0",
-    "zod": "^4.4.2"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",

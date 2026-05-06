@@ -47,3 +47,5 @@ _instructions
 # Local Netlify folder
 .netlify
 .lsp
+.tmp
+.tmp/*

@@ -35,6 +35,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       viewport?: { x: number; y: number; width: number; height: number };
       format?: 'png' | 'jpeg';
       quality?: number;
+      backgroundColor?: string;
       outputPath?: string;
       persist?: boolean;
       includeData?: boolean;
@@ -48,6 +49,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
         viewport: body.viewport,
         format: body.format,
         quality: body.quality,
+        backgroundColor: body.backgroundColor,
         outputPath: body.outputPath,
         persist: body.persist,
         includeData: body.includeData,

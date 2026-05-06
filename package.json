@@ -3,7 +3,8 @@
   "version": "0.2.0",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/js"
   ],
   "scripts": {
     "dev:web": "pnpm --filter @tensnap/web dev",
@@ -16,6 +17,8 @@
     "test:agent": "pnpm --filter @tensnap/agent test",
     "dev:benchmark": "pnpm --filter @tensnap/benchmark dev",
     "build:benchmark": "pnpm --filter @tensnap/benchmark build",
+    "preview:benchmark": "pnpm --filter @tensnap/benchmark preview",
+    "benchmark:prod": "pnpm run build:benchmark && pnpm run preview:benchmark",
     "dev:tauri": "pnpm --filter @tensnap/tauri dev",
     "build:tauri": "pnpm --filter @tensnap/tauri build",
     "dev:py:random-walk": "cd examples/python && python random_walk_viz.py",
@@ -28,6 +31,10 @@
     "dev:py:sugarscape": "cd examples/python_mesa && python sugarscape_viz.py",
     "dev:py:mushroom": "cd examples/python_mesa && python mushroom_viz.py",
     "dev:go:schelling": "cd examples/go && make ",
+    "dev:js:schelling": "pnpm --filter @tensnap/examples-js demo:ws schelling",
+    "dev:js:wolf-sheep": "pnpm --filter @tensnap/examples-js demo:ws wolf-sheep",
+    "dev:js:axelrod": "pnpm --filter @tensnap/examples-js demo:ws axelrod",
+    "dev:js:tornberg": "pnpm --filter @tensnap/examples-js demo:ws tornberg",
     "i18n:extract": "pnpm -r i18n:extract",
     "i18n:compile": "pnpm -r i18n:compile",
     "lint": "pnpm -r lint",

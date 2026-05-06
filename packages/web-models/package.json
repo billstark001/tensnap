@@ -16,6 +16,8 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@tensnap/core": "workspace:*"
+    "@tensnap/core": "workspace:*",
+    "@tensnap/examples-js": "workspace:*",
+    "@tensnap/web-adapter": "workspace:*"
   }
 }

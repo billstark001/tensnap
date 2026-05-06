@@ -20,11 +20,10 @@ import {
 import { ContainerView } from '../../types/ui';
 import { UpdateTriggerState } from '../update-trigger';
 
-export type StateSyncPhase = 'idle' | 'requested' | 'receiving';
+export type { StateSyncPhase } from '@tensnap/core/runtime/browser';
+import type { StateSyncStatus as CoreStateSyncStatus } from '@tensnap/core/runtime/browser';
 
-export interface StateSyncStatus {
-  requestId: string | null;
-  phase: StateSyncPhase;
+export interface StateSyncStatus extends CoreStateSyncStatus {
   autoLayoutOnComplete: boolean;
 }
 

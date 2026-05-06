@@ -6,7 +6,7 @@
 export { AssetStore } from './asset';
 export type { AssetId, AssetMeta, ResolvedAsset, AssetStoreListener } from './asset';
 
-export { ChartStorage, LineChartView, exportToCSV } from './chart';
+export { ChartStorage } from './chart';
 export type {
 	ChartConfig,
 	ChartDataPoint,
@@ -23,16 +23,15 @@ export {
 	AgentStorage,
 	BackgroundLayer,
 	BackgroundStorage,
+	BaseEnvironmentView,
 	BaseLayer,
 	BaseStorage,
 	EdgeLayer,
 	EdgeStorage,
-	EnvironmentView,
 	GridEnvStorage,
 	GridLayer,
 	TrajectoryLayer,
 	TrajectoryStorage,
-	loadImageAsync,
 } from './environment';
 export type {
 	Agent,
@@ -46,6 +45,8 @@ export type {
 	GraphEnvConfig,
 	GridCoordOffset,
 	GridEnvConfig,
+	EnvironmentViewFitMode,
+	EnvironmentViewType,
 	IResizableLayer,
 	TrajectoryConfig,
 	TrajectoryLayerConfig,

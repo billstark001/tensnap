@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { Locale } from '@/i18n';
 
+export type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
+import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
+
 type Theme = 'light' | 'dark';
 type ValidationLevel = 'off' | 'warning' | 'error';
-export type RenderTriggerMode = 'auto' | 'setTimeout' | 'requestAnimationFrame';
 
 interface SettingsStore {
 

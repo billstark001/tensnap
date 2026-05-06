@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { LineChartView } from '@tensnap/core';
+import { LineChartView } from '@tensnap/core/chart/browser';
 import type { ChartDataPoint, ChartConfig } from '@tensnap/core';
 import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';

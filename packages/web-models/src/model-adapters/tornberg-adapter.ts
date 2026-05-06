@@ -6,7 +6,7 @@ import {
   computeSorting,
   initializeTornberg,
   stepTornberg,
-} from '../models/tornberg';
+} from '@tensnap/examples-js/models';
 import { BaseModelAdapter } from './base-adapter';
 
 const PARTISAN_LAYER = 'partisan';

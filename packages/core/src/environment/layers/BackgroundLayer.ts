@@ -11,7 +11,7 @@
 
 import { Rect } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
-import { EnvironmentView, EnvironmentViewFitMode } from '../EnvironmentView';
+import type { EnvironmentViewFitMode } from '../host';
 import { BackgroundStorage, BackgroundData } from '../storages/BackgroundStorage';
 import { Viewport, SceneBounds, OriginMode, IBoundedLayer } from '../types';
 
@@ -40,11 +40,10 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
   private _smoothingTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
-    view: EnvironmentView,
     storage?: BackgroundStorage,
     config: BackgroundLayerConfig = {}
   ) {
-    super(view);
+    super();
     this.config = config as ParsedBackgroundLayerConfig;
     this.setSceneBounds(config.sceneBounds || { x: 0, y: 0, width: 100, height: 100 });
     
@@ -67,9 +66,7 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // IBoundedLayer implementation
-  // -------------------------------------------------------------------------
+  // #region IBoundedLayer implementation
 
   getSceneBounds(): SceneBounds | null {
     if (!this.config.applySceneBoundsToView) return null;
@@ -94,9 +91,9 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
     return this.config.originMode || 'bottom-left';
   }
 
-  // -------------------------------------------------------------------------
-  // Viewport
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Viewport
 
   onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
     // Apply viewport transformation to group
@@ -112,9 +109,9 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
     this._scheduleSmoothing();
   }
 
-  // -------------------------------------------------------------------------
-  // Rendering
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Rendering
 
   private _apply(data: BackgroundData): void {
     if (!data) {
@@ -150,13 +147,21 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
     this._smoothingTimer = setTimeout(() => {
       this._smoothingTimer = null;
       const smooth = this._interpolation === 'linear';
-      const canvas = this.view.container.querySelector('canvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.imageSmoothingEnabled = smooth;
-        ctx.imageSmoothingQuality = smooth ? 'high' : 'low';
-      }
+      this.host?.setCanvasSmoothing?.(smooth, smooth ? 'high' : 'low');
     }, 50);
   }
+
+  // #endregion
+
+  // #region Lifecycle
+
+  destroy(): void {
+    if (this._smoothingTimer !== null) {
+      clearTimeout(this._smoothingTimer);
+      this._smoothingTimer = null;
+    }
+    super.destroy();
+  }
+
+  // #endregion
 }

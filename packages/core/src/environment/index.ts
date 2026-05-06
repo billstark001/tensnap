@@ -6,7 +6,7 @@
  * Architecture overview
  * ─────────────────────
  *
- *  EnvironmentView
+ *  EnvironmentView (from `@tensnap/core/environment/browser`)
  *    │  Holds one Leafer instance and the container element.
  *    │  Handles throttled resize; notifies all registered layers.
  *    │
@@ -27,13 +27,13 @@
  *   const edgeStore   = new EdgeStorage(edges);
  *   const bgStore     = new BackgroundStorage();
  *
- *   const bgLayer     = new BackgroundLayer(view, bgStore);
- *   const edgeLayer   = new EdgeLayer(view, edgeStore, agentStore);
+ *   const bgLayer     = new BackgroundLayer(bgStore);
+ *   const edgeLayer   = new EdgeLayer(edgeStore, agentStore);
  *   const trailStore  = new TrajectoryStorage();
- *   const trailLayer  = new TrajectoryLayer(view, trailStore, {
+ *   const trailLayer  = new TrajectoryLayer(trailStore, {
  *     coordOffset: 'float',
  *   });
- *   const agentLayer  = new AgentLayer(view, agentStore, {
+ *   const agentLayer  = new AgentLayer(agentStore, {
  *     ...edgeLayer.buildDragHandlers(),
  *   });
  *
@@ -52,13 +52,13 @@
  *   const agentStore  = new AgentStorage();
  *   const bgStore     = new BackgroundStorage();
  *
- *   const bgLayer     = new BackgroundLayer(view, bgStore);
- *   const gridLayer   = new GridLayer(view, gridStore);
+ *   const bgLayer     = new BackgroundLayer(bgStore);
+ *   const gridLayer   = new GridLayer(gridStore);
  *   const trailStore  = new TrajectoryStorage({ length: 10 });
- *   const trailLayer  = new TrajectoryLayer(view, trailStore, {
+ *   const trailLayer  = new TrajectoryLayer(trailStore, {
  *     coordOffset: 'int',
  *   });
- *   const agentLayer  = new AgentLayer(view, agentStore, {
+ *   const agentLayer  = new AgentLayer(agentStore, {
  *     clickable: true,
  *     coordOffset: 'int',
  *   });
@@ -69,8 +69,16 @@
  *   view.addLayer(agentLayer);
  */
 
-export { EnvironmentView } from './EnvironmentView';
-export type { IResizableLayer } from './EnvironmentView';
+export { BaseEnvironmentView } from './BaseEnvironmentView';
+export type { BaseEnvironmentViewOptions, FitToSceneOptions } from './BaseEnvironmentView';
+
+export type {
+	EnvironmentLayerHost,
+	EnvironmentSurfaceSize,
+	EnvironmentViewFitMode,
+	EnvironmentViewType,
+	IResizableLayer,
+} from './host';
 
 export * from './types';
 

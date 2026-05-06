@@ -45,3 +45,4 @@ HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation(() => ({
 
 global.TextEncoder = TextEncoder as any;
 global.TextDecoder = TextDecoder as any;
+

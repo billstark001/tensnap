@@ -7,3 +7,4 @@ export * from './throttle';
 export * from './shape';
 export * from './RingBuffer';
 export * from './trajectory';
+export * from './viewport';

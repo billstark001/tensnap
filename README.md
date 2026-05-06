@@ -186,7 +186,8 @@ TenSnap is organized as a monorepo:
 ```
 tensnap/
 ├── docs/                        # User and maintainer documentation
-├── examples/                    # Runnable Go, Python, and Mesa examples
+├── examples/                    # Runnable Go, Python, JavaScript, and Mesa examples
+│   └── js/                      # Built-in JS examples, manifests, and local transports
 ├── packages/
 │   ├── benchmark/               # Rendering/runtime benchmarks
 │   ├── core/                    # Shared protocol, Scenario, runtime, rendering primitives
@@ -196,8 +197,7 @@ tensnap/
 │   ├── tensnap-tauri/           # Desktop wrapper around the web app
 │   ├── tensnap-web/             # React renderer application
 │   ├── web-adapter/             # Web-side filesystem and integration helpers
-│   ├── web-common/              # Shared UI/helpers for browser packages
-│   └── web-models/              # Built-in TypeScript model adapters and transports
+│   └── web-common/              # Shared UI/helpers for browser packages
 └── scripts/                     # Release and asset maintenance scripts
 ```
 
@@ -209,7 +209,7 @@ tensnap/
 - **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.
 - **tensnap-go**: Go protocol package, declarative ABM helpers, and WebSocket simulator server.
 - **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
-- **web-models**: Built-in in-memory model adapters and transport helpers.
+- **examples/js**: Built-in JavaScript models, example manifests, websocket demo entrypoints, and transport-driven benchmark cases.
 - **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.
 - **benchmark**: Performance harnesses for render/runtime paths.
 

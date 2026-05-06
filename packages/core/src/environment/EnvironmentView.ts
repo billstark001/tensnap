@@ -1,65 +1,35 @@
 /**
  * environment/EnvironmentView.ts
  *
- * Root canvas host. Holds a single Leafer instance, manages Layer z-ordering,
- * and propagates throttled resize events to all registered layers.
- *
- * Coordinate system: +x right, +y up (origin at bottom-left of scene).
- * Viewport represents the visible rendering area in scene coordinates.
- * Layers should only update their group transform to respond to viewport changes.
- * Scene bounds are calculated from all IBoundedLayer implementations.
+ * Interactive browser host for the shared environment rendering engine.
  */
 
 import { Leafer } from '@leafer-ui/core';
-import { Viewport, SceneBounds, IBoundedLayer } from './types';
+import { BaseEnvironmentView, type BaseEnvironmentViewOptions } from './BaseEnvironmentView';
+import type { EnvironmentViewType } from './host';
 import { throttle, disableCanvasSmoothing } from './utils';
 
-// #region Public types
-
-export interface IResizableLayer {
-  readonly zIndex: number;
-  /** Called (throttled) when the container size or viewport changes. */
-  onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void;
-  /**
-   * Remove this layer's Leafer subtree from its current parent and re-add it
-   * to `parent`. Called by EnvironmentView to enforce z-index ordering
-   * (Leafer renders children in insertion order).
-   */
-  reattachTo(parent: Leafer): void;
-  destroy(): void;
-}
-
-export type EnvironmentViewFitMode = 'stretch' | 'contain' | 'cover';
-
-export interface EnvironmentViewOptions {
-  /** Leafer canvas type — 'design' enables built-in pan/zoom. */
-  type?: 'design' | 'board' | 'document' | 'custom';
-  fitMode?: EnvironmentViewFitMode;
+export interface EnvironmentViewOptions extends BaseEnvironmentViewOptions {
+  type?: EnvironmentViewType;
   throttleMs?: number;
   pixelRatio?: number;
-  /** Enable mouse-drag panning (default: false). */
   enablePan?: boolean;
-  /** Enable mouse-wheel zoom (default: false). */
   enableWheelZoom?: boolean;
-  /** Enable touch pinch-zoom and single-finger pan (default: false). */
   enableTouchZoom?: boolean;
+  createLeafer?: (config: EnvironmentLeaferConfig) => Leafer;
 }
-
-export interface FitToSceneOptions {
-  /**
-   * Padding around the scene bounds as a fraction of the viewport size
-   * (default: 0.1) or as absolute pixels when paddingUnit is 'pixels'.
-   */
-  padding?: number;
-  paddingUnit?: 'fraction' | 'pixels';
-}
-
-// #endregion
 
 // #region Module constants & helpers
 
 const DEFAULT_RESIZE_THROTTLE_MS = 100;
-const MIN_VIEWPORT_EXTENT = 1e-6;
+
+export interface EnvironmentLeaferConfig {
+  view: HTMLElement;
+  width: number;
+  height: number;
+  type: EnvironmentViewType;
+  pixelRatio: number;
+}
 
 type ListenerEntry = {
   target: EventTarget;
@@ -83,17 +53,11 @@ function toggleListeners(enable: boolean, entries: ListenerEntry[]): void {
 
 // #endregion
 
-export class EnvironmentView {
+export class EnvironmentView extends BaseEnvironmentView {
 
   // #region Fields
 
   readonly container: HTMLElement;
-  readonly leafer: Leafer;
-
-  private _viewport: Viewport;
-  private _fitMode: EnvironmentViewFitMode;
-  private _containerSize: { width: number; height: number };
-  private _layers: IResizableLayer[] = [];
   private _resizeObserver: ResizeObserver;
 
   // Interaction enable flags
@@ -120,28 +84,27 @@ export class EnvironmentView {
   // #region Constructor
 
   constructor(container: HTMLElement, options: EnvironmentViewOptions = {}) {
-    this.container = container;
-
     const rect = container.getBoundingClientRect();
-    this._containerSize = {
+    const surfaceSize = {
       width: rect.width || container.clientWidth,
       height: rect.height || container.clientHeight,
     };
-
-    this._fitMode = options.fitMode ?? 'contain';
-    this._viewport = {
-      x: 0, y: 0,
-      width: this._containerSize.width,
-      height: this._containerSize.height,
-    };
-
-    this.leafer = new Leafer({
+    const leaferConfig: EnvironmentLeaferConfig = {
       view: container,
-      width: this._containerSize.width,
-      height: this._containerSize.height,
+      width: surfaceSize.width,
+      height: surfaceSize.height,
       type: options.type ?? 'design',
       pixelRatio: options.pixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1),
+    };
+    const leafer = options.createLeafer?.(leaferConfig) ?? new Leafer(leaferConfig);
+
+    super(leafer, surfaceSize, {
+      fitMode: options.fitMode,
+      initialViewport: options.initialViewport,
+      enableLayerInteraction: options.enableLayerInteraction ?? true,
     });
+
+    this.container = container;
 
     const handleResize = throttle(
       this._onResize.bind(this),
@@ -167,123 +130,21 @@ export class EnvironmentView {
 
   // #endregion
 
-  // #region Viewport
-
-  get viewport(): Viewport { return { ...this._viewport }; }
-  get fitMode(): EnvironmentViewFitMode { return this._fitMode; }
-
-  setViewport(x: number, y: number, width: number, height: number): void {
-    const safeWidth = Number.isFinite(width) && width > MIN_VIEWPORT_EXTENT
-      ? width
-      : Math.max(this._viewport.width, MIN_VIEWPORT_EXTENT);
-    const safeHeight = Number.isFinite(height) && height > MIN_VIEWPORT_EXTENT
-      ? height
-      : Math.max(this._viewport.height, MIN_VIEWPORT_EXTENT);
-    const safeX = Number.isFinite(x) ? x : this._viewport.x;
-    const safeY = Number.isFinite(y) ? y : this._viewport.y;
-    this._viewport = { x: safeX, y: safeY, width: safeWidth, height: safeHeight };
-    this._notifyLayers();
-  }
-
-  setFitMode(mode: EnvironmentViewFitMode): void {
-    if (this._fitMode === mode) return;
-    this._fitMode = mode;
-    this._notifyLayers();
-  }
-
-  fitToScene({ padding = 0.1, paddingUnit = 'fraction' }: FitToSceneOptions = {}): void {
-    const bounds = this.calculateSceneBounds();
-
-    if (!bounds) {
-      const w = Math.max(this._containerSize.width, 1);
-      const h = Math.max(this._containerSize.height, 1);
-      this.setViewport(-w / 2, -h / 2, w, h);
-      return;
-    }
-
-    const rawSceneW = bounds.maxX - bounds.minX;
-    const rawSceneH = bounds.maxY - bounds.minY;
-    const sceneW = Number.isFinite(rawSceneW) && rawSceneW > MIN_VIEWPORT_EXTENT
-      ? rawSceneW
-      : Math.max(this._viewport.width, 1);
-    const sceneH = Number.isFinite(rawSceneH) && rawSceneH > MIN_VIEWPORT_EXTENT
-      ? rawSceneH
-      : Math.max(this._viewport.height, 1);
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerY = (bounds.minY + bounds.maxY) / 2;
-    const padX = paddingUnit === 'pixels' ? padding : sceneW * padding;
-    const padY = paddingUnit === 'pixels' ? padding : sceneH * padding;
-
-    this.setViewport(
-      centerX - sceneW / 2 - padX,
-      centerY - sceneH / 2 - padY,
-      sceneW + 2 * padX,
-      sceneH + 2 * padY,
-    );
-  }
-
-  calculateSceneBounds(): SceneBounds | null {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-
-    for (const layer of this._layers) {
-      if (!('getSceneBounds' in layer)) continue;
-      const b = (layer as IResizableLayer & IBoundedLayer).getSceneBounds();
-      if (!b) continue;
-      if (b.minX < minX) minX = b.minX;
-      if (b.maxX > maxX) maxX = b.maxX;
-      if (b.minY < minY) minY = b.minY;
-      if (b.maxY > maxY) maxY = b.maxY;
-    }
-
-    return isFinite(minX) ? { minX, maxX, minY, maxY } : null;
-  }
-
-  private _notifyLayers(): void {
-    const vp = { ...this._viewport };
-    for (const layer of this._layers) layer.onViewportChange(vp, this._fitMode);
-  }
-
-  // #endregion
-
-  // #region Layer management
-
-  addLayer(layer: IResizableLayer): void {
-    this._layers.push(layer);
-    this._sortAndReattach();
-    layer.onViewportChange({ ...this._viewport }, this._fitMode);
-  }
-
-  removeLayer(layer: IResizableLayer): void {
-    const idx = this._layers.indexOf(layer);
-    if (idx !== -1) this._layers.splice(idx, 1);
-  }
-
-  /** Re-sort by zIndex and re-insert into Leafer to guarantee render order. */
-  private _sortAndReattach(): void {
-    this._layers.sort((a, b) => a.zIndex - b.zIndex);
-    for (const layer of this._layers) layer.reattachTo(this.leafer);
-  }
-
-  // #endregion
-
   // #region Resize
 
   private _onResize(): void {
     const rect = this.container.getBoundingClientRect();
     const w = rect.width || this.container.clientWidth;
     const h = rect.height || this.container.clientHeight;
-    if (w === this._containerSize.width && h === this._containerSize.height) return;
+    const size = this.getSurfaceSize();
+    if (w === size.width && h === size.height) return;
 
-    this._containerSize = { width: w, height: h };
-    this.leafer.set({ width: w, height: h });
+    this.updateSurfaceSize(w, h);
 
     // Disable canvas smoothing after Leafer re-renders on the next tick
     setTimeout(() => {
-      const canvas = this.container.querySelector('canvas');
-      if (canvas) disableCanvasSmoothing(canvas);
+      this.setCanvasSmoothing(false, 'low');
     }, 0);
-
-    this._notifyLayers();
   }
 
   // #endregion
@@ -321,7 +182,7 @@ export class EnvironmentView {
    * Canvas +y is down; scene +y is up.
    */
   private _canvasToScene(px: number, py: number): { x: number; y: number } {
-    const { width: cW, height: cH } = this._containerSize;
+    const { width: cW, height: cH } = this.getSurfaceSize();
     const { x: vx, y: vy, width: vW, height: vH } = this._viewport;
 
     if (this._fitMode === 'stretch') {
@@ -492,10 +353,28 @@ export class EnvironmentView {
     this.enablePan = false;
     this.enableWheelZoom = false;
     this.enableTouchZoom = false;
-    for (const layer of this._layers.slice()) layer.destroy();
-    this._layers = [];
-    this.leafer.destroy();
+    super.destroy();
   }
 
   // #endregion
+
+  setCanvasSmoothing(enabled: boolean, quality: 'low' | 'medium' | 'high' = 'low'): void {
+    const canvas = this.container.querySelector('canvas');
+    if (!canvas) {
+      return;
+    }
+
+    if (!enabled) {
+      disableCanvasSmoothing(canvas);
+      return;
+    }
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = quality;
+  }
 }

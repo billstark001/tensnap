@@ -1,28 +1,30 @@
 /**
  * cases/variations.ts
  *
- * Parameter variations for existing benchmark cases.
- * Each case has multiple configurations to test different performance scenarios.
+ * Parameter variations for all benchmark cases.
+ *
+ * Suite organisation:
+ *   - synthetic: line chart, particle bounce, spring graph (renderer isolation tests)
+ *   - web-scenario: Schelling, Wolf-Sheep (full model pipeline via @tensnap/js sessions)
  */
 
 import { createLineChartCase } from './lineChart';
 import { createParticleBounceCase } from './particleBounce';
 import { createSpringGraphCase } from './springGraph';
-import { BenchmarkCase } from '../types';
+import { schellingScenarioVariations } from './schellingScenario';
+import { wolfSheepScenarioVariations } from './wolfSheepScenario';
+import { CaseVariation } from '../types';
 
-export interface CaseVariation {
-  name: string;
-  description: string;
-  cases: BenchmarkCase[];
-}
+export type { CaseVariation };
 
 /**
- * Line Chart Variations
- * Tests different line counts and data point densities
+ * Line Chart Variations (synthetic)
+ * Tests different line counts and data point densities.
  */
 export const lineChartVariations: CaseVariation = {
   name: 'LineChart',
   description: 'Multi-line chart rendering with varying complexity',
+  suite: 'synthetic',
   cases: [
     createLineChartCase({
       lineCount: 10,
@@ -52,12 +54,13 @@ export const lineChartVariations: CaseVariation = {
 };
 
 /**
- * Particle Bounce Variations
- * Tests different particle counts and speeds
+ * Particle Bounce Variations (synthetic)
+ * Tests different particle counts and speeds.
  */
 export const particleBounceVariations: CaseVariation = {
   name: 'ParticleBounce',
   description: 'Free-flying particles with collision detection',
+  suite: 'synthetic',
   cases: [
     createParticleBounceCase({
       particleCount: 100,
@@ -87,12 +90,13 @@ export const particleBounceVariations: CaseVariation = {
 };
 
 /**
- * Spring Graph Variations
- * Tests different graph sizes and densities
+ * Spring Graph Variations (synthetic)
+ * Tests different graph sizes and densities.
  */
 export const springGraphVariations: CaseVariation = {
   name: 'SpringGraph',
   description: 'Force-directed graph layout with d3-force',
+  suite: 'synthetic',
   cases: [
     createSpringGraphCase({
       nodeCount: 50,
@@ -126,12 +130,36 @@ export const springGraphVariations: CaseVariation = {
 };
 
 /**
- * Get all variations for testing
+ * Schelling Segregation Model Variations (web-scenario)
+ * Uses the canonical @tensnap/js session instead of transport-based benchmark fixtures.
+ */
+export const schellingVariations: CaseVariation = {
+  name: 'Schelling',
+  description: 'Schelling segregation model via @tensnap/js session',
+  suite: 'web-scenario',
+  cases: schellingScenarioVariations,
+};
+
+/**
+ * Wolf-Sheep Predation Model Variations (web-scenario)
+ * Uses the canonical @tensnap/js session instead of transport-based benchmark fixtures.
+ */
+export const wolfSheepVariations: CaseVariation = {
+  name: 'WolfSheep',
+  description: 'Wolf-Sheep predation model via @tensnap/js session',
+  suite: 'web-scenario',
+  cases: wolfSheepScenarioVariations,
+};
+
+/**
+ * Get all variations for testing.
  */
 export function getAllVariations(): CaseVariation[] {
   return [
     lineChartVariations,
     particleBounceVariations,
     springGraphVariations,
+    schellingVariations,
+    wolfSheepVariations,
   ];
 }

@@ -1,5 +1,5 @@
 import type { Action, ChartGroupMetadata, Parameter } from '@tensnap/core';
-import { SchellingConfig, SchellingModel } from '../models/schelling';
+import { SchellingConfig, SchellingModel } from '@tensnap/examples-js/models';
 import { BaseModelAdapter } from './base-adapter';
 
 const AGENT_LAYER = 'agents';
