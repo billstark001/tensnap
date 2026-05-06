@@ -1,6 +1,6 @@
 import type { SimulatorToRendererMessage, StateSyncRequest } from '@tensnap/core';
 import { describe, expect, it } from 'vitest';
-import { getJsExampleDefinitions } from './index';
+import { getJsExampleDefinition, getJsExampleDefinitions } from './index';
 
 const emptyStateSync: StateSyncRequest = {
   parameters: [],
@@ -45,4 +45,44 @@ describe('JS example sessions', () => {
       await session.close();
     });
   }
+
+  it('accepted runtime parameter changes do not echo param_update for schelling', async () => {
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = getJsExampleDefinition('schelling').createSession();
+    session.attach((message) => {
+      messages.push(message);
+    }, 'test-schelling-param-change');
+
+    await session.open('test-schelling-param-change');
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'param_change',
+      payload: { id: 'similarityThreshold', value: 0.55 },
+    });
+
+    expect(messages.some((message) => message.type === 'param_update')).toBe(false);
+
+    await session.close();
+  });
+
+  it('accepted runtime parameter changes do not echo param_update for wolf-sheep', async () => {
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = getJsExampleDefinition('wolf-sheep').createSession();
+    session.attach((message) => {
+      messages.push(message);
+    }, 'test-wolf-sheep-param-change');
+
+    await session.open('test-wolf-sheep-param-change');
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'param_change',
+      payload: { id: 'showEnergy', value: true },
+    });
+
+    expect(messages.some((message) => message.type === 'param_update')).toBe(false);
+
+    await session.close();
+  });
 });

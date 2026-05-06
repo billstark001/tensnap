@@ -4,12 +4,28 @@ export interface FrameTiming {
   elapsed: number; // ms for this tick (compute only)
 }
 
+export type BenchmarkSchedulerMode = 'auto' | 'raf' | 'timeout';
+export type BenchmarkSchedulerSelection = BenchmarkSchedulerMode | 'all';
+export type BenchmarkRuntimeMode = 'development' | 'production';
+export type BenchmarkRunnerMode = 'simple' | 'simulation-loop';
+export type BenchmarkRunnerSelection = BenchmarkRunnerMode | 'all';
+
+export interface BenchmarkRunOptions {
+  schedulerMode?: BenchmarkSchedulerMode;
+  runtimeMode?: BenchmarkRuntimeMode;
+  runnerMode?: BenchmarkRunnerMode;
+  onProgress?: (done: number, total: number) => void;
+}
+
 /** Aggregated statistics for a benchmark case. */
 export interface BenchmarkStats {
   caseName: string;
   config: Record<string, unknown>;
   /** Suite label: synthetic or web-scenario. */
   suite: 'synthetic' | 'web-scenario';
+  runnerMode: BenchmarkRunnerMode;
+  schedulerMode: BenchmarkSchedulerMode;
+  runtimeMode: BenchmarkRuntimeMode;
   frames: number;
   totalMs: number;
   meanMs: number;

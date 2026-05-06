@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RendererToSimulatorMessage } from '../protocol';
-import { SimulationLoopController } from './browser';
+import { SimulationLoopController } from './simulation-loop';
 
 const createMessage = (id: string, continuous?: boolean, tickId?: string): RendererToSimulatorMessage => ({
   type: 'action_start',

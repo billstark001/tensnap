@@ -262,7 +262,11 @@ export const WOLF_SHEEP_EXAMPLE = defineExample({
     }
 
     runtime.model.updateConfig({ [payload.id]: payload.value } as Partial<typeof currentConfig>);
-    await ctx.refreshParameters(payload.id);
+
+    const nextValue = runtime.model.getConfig()[payload.id as keyof typeof currentConfig];
+    if (!Object.is(nextValue, payload.value)) {
+      await ctx.refreshParameters(payload.id);
+    }
   },
   async step(runtime, ctx) {
     const canContinue = runtime.model.go();

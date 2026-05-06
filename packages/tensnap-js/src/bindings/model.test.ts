@@ -159,4 +159,83 @@ describe('defineModel', () => {
     expect(messages.some((message) => message.type === 'asset_data')).toBe(true);
     await session.close();
   });
+
+  it('reset deletes previously synced items before replaying the reset state', async () => {
+    const binding = defineModel({
+      environments: [
+        defineEnvironment({
+          id: 'main',
+          type: '2d',
+          layers: [defineLayer({ layerId: 'agents', layerType: 'agent' })],
+        }),
+      ],
+      create() {
+        return { tick: 0 };
+      },
+      async sync(model, ctx) {
+        await ctx.syncItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
+      },
+      async step(model, ctx) {
+        model.tick = 1;
+        await ctx.sync();
+        return false;
+      },
+      async reset(model, ctx) {
+        model.tick = 0;
+        await ctx.sync();
+      },
+    });
+
+    const messages: AnyProtocolMessage[] = [];
+    const session = binding.createSession();
+    session.attach((message: SimulatorToRendererMessage) => {
+      messages.push(message as AnyProtocolMessage);
+    }, 'reset-binding');
+
+    await session.open('reset-binding');
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_start',
+      payload: { id: 'step', continuous: false },
+    });
+
+    expect(messages).toContainEqual({
+      type: 'item_update',
+      payload: expect.objectContaining({
+        env_id: 'main',
+        layer_id: 'agents',
+      }),
+    });
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_start',
+      payload: { id: 'reset', continuous: false },
+    });
+
+    const deleteIndex = messages.findIndex((message) => message.type === 'item_delete');
+    const createIndex = messages.findIndex((message) => message.type === 'item_create');
+
+    expect(deleteIndex).toBeGreaterThanOrEqual(0);
+    expect(createIndex).toBeGreaterThan(deleteIndex);
+    expect(messages[deleteIndex]).toEqual({
+      type: 'item_delete',
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [{ id: 'agent-1' }],
+      },
+    });
+    expect(messages[createIndex]).toEqual({
+      type: 'item_create',
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [{ id: 'agent-1', x: 0, y: 0 }],
+      },
+    });
+
+    await session.close();
+  });
 });

@@ -87,7 +87,11 @@ export const SCHELLING_EXAMPLE = defineExample({
   },
   async onParameterChange(model, payload, ctx) {
     model.updateParameter(payload.id, payload.value);
-    await ctx.refreshParameters(payload.id);
+
+    const nextValue = model.getConfig()[payload.id as keyof SchellingConfig];
+    if (!Object.is(nextValue, payload.value)) {
+      await ctx.refreshParameters(payload.id);
+    }
   },
   async step(model, ctx) {
     model.step();

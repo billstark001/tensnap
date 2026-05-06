@@ -14,4 +14,8 @@ export default defineConfig({
     port: 5180,
     open: true,
   },
+  preview: {
+    port: 4180,
+    open: true,
+  }
 });

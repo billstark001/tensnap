@@ -33,6 +33,12 @@ interface PublishedAsset {
   label?: string;
 }
 
+interface SyncedLayerState {
+  envId: string;
+  layerId: string;
+  itemIds: Set<ItemIdentifier>;
+}
+
 export interface LifecycleActionLabels {
   start?: string;
   step?: string;
@@ -46,6 +52,11 @@ export interface ModelSessionContext<TConfig extends object> {
   getConfig(): TConfig;
   replayDefinition(): Promise<void>;
   sync(): Promise<void>;
+  /**
+   * Re-emit parameter definitions after the simulator normalizes or rejects a
+   * renderer-proposed value, or when the parameter schema itself changes.
+   * Accepted values should usually stay renderer-local until the next full sync.
+   */
   refreshParameters(ids?: string | readonly string[]): Promise<void>;
   setTime(time: number): Promise<void>;
   metadata(payload: MetadataUpdatePayload): Promise<void>;
@@ -215,7 +226,7 @@ export function defineModel<
       const initialConfig = resolveConfig(config);
       const model = options.create(initialConfig);
       const assetRegistry = new Map<string, PublishedAsset>();
-      const syncedItemIds = new Map<string, Set<ItemIdentifier>>();
+      const syncedItemIds = new Map<string, SyncedLayerState>();
       let currentDefinition = buildScenarioDefinition(options, initialConfig);
       let registry = ScenarioRegistry.from(currentDefinition);
       let session!: SimulatorSession;
@@ -232,6 +243,20 @@ export function defineModel<
 
       const runSync = async (): Promise<void> => {
         await options.sync?.(model, context);
+      };
+
+      const resetSyncedItems = async (): Promise<void> => {
+        for (const { envId, layerId, itemIds } of syncedItemIds.values()) {
+          if (itemIds.size === 0) {
+            continue;
+          }
+          await session.emitter.itemDelete({
+            env_id: envId,
+            layer_id: layerId,
+            items: cloneItems(Array.from(itemIds, (id) => ({ id }))),
+          });
+        }
+        syncedItemIds.clear();
       };
 
       const context: ModelSessionContext<TConfig> = {
@@ -344,7 +369,8 @@ export function defineModel<
         },
         async syncItems(envId, layerId, items) {
           const layerKey = getLayerKey(envId, layerId);
-          const previousIds = syncedItemIds.get(layerKey) ?? new Set<ItemIdentifier>();
+          const previousState = syncedItemIds.get(layerKey);
+          const previousIds = previousState?.itemIds ?? new Set<ItemIdentifier>();
           const currentIds = new Set<ItemIdentifier>(items.map((item) => item.id));
           const create = items.filter((item) => !previousIds.has(item.id));
           const update = items.filter((item) => previousIds.has(item.id));
@@ -374,7 +400,11 @@ export function defineModel<
             });
           }
 
-          syncedItemIds.set(layerKey, currentIds);
+          syncedItemIds.set(layerKey, {
+            envId,
+            layerId,
+            itemIds: currentIds,
+          });
         },
         finishAction: (payload, shouldContinue = false) => session.emitter.actionEnd({
           id: payload.id,
@@ -428,10 +458,14 @@ export function defineModel<
         }
 
         if (payload.id === 'reset') {
+          await resetSyncedItems();
           if (options.reset) {
             await options.reset(model, context);
           } else if (options.init) {
             await options.init(model, context);
+            rebuildDefinition();
+            await context.replayDefinition();
+            await runSync();
           }
           return false;
         }
