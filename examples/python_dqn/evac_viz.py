@@ -15,17 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
-from pathlib import Path
 
-# Optional: switch between pip-installed and source tensnap
-_USE_SOURCE = os.environ.get("TENSNAP_USE_SOURCE", "0") == "1"
-if _USE_SOURCE:
-    _repo_root = Path(__file__).resolve().parents[2]
-    _src = _repo_root / "packages" / "tensnap-python"
-    if _src.exists():
-        sys.path.insert(0, str(_src))
-        print(f"Using tensnap from source: {_src}")
+# Optional: switch between pip-installed and source tensnap (same as import_config.py)
+from . import import_config  # noqa: F401
 
 import torch
 

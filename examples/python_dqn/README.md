@@ -92,7 +92,7 @@ at <https://tensnap.netlify.app> or run `pnpm dev:web` locally.
 cd examples && python -m python_dqn.evac_viz &
 
 # 2. Start the agent runtime
-pnpm --filter @tensnap/agent dev -- runtime up --context evac-dqn --simulator-url ws://127.0.0.1:8765
+pnpm --filter @tensnap/agent dev -- runtime up --context evac-dqn --simulator-url ws://localhost:8765
 
 # 3. Advance a few steps
 pnpm --filter @tensnap/agent dev -- scene step --context evac-dqn
