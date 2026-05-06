@@ -74,7 +74,7 @@ def rollout(env_config: EnvConfig, episodes: int, seed: int) -> None:
         total_reward = 0.0
         while not model.is_done():
             action = random.randrange(model.action_size)
-            state, reward, done, info = model.step(action)
+            state, reward, done, info = model.env_step(action)
             total_reward += reward
             if done:
                 print(

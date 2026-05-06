@@ -108,7 +108,7 @@ class EvacuationModel(Model):
     def state_size(self) -> int:
         return 16
 
-    def step(self, action: int) -> tuple[torch.Tensor, float, bool, dict[str, float]]:
+    def env_step(self, action: int) -> tuple[torch.Tensor, float, bool, dict[str, float]]:
         self._move_guide(action)
         guided_neighbors = self.count_evacuees_near(
             self.guide.pos, self.config.guide_influence_radius

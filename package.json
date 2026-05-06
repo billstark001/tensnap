@@ -30,6 +30,7 @@
     "dev:py:cgol": "cd examples/python_mesa && python cgol_viz.py",
     "dev:py:sugarscape": "cd examples/python_mesa && python sugarscape_viz.py",
     "dev:py:mushroom": "cd examples/python_mesa && python mushroom_viz.py",
+    "dev:py:evac-dqn": "cd examples && python -m python_dqn.evac_viz",
     "dev:go:schelling": "cd examples/go && make ",
     "dev:js:schelling": "pnpm --filter @tensnap/examples-js demo:ws schelling",
     "dev:js:wolf-sheep": "pnpm --filter @tensnap/examples-js demo:ws wolf-sheep",
