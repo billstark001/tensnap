@@ -2,10 +2,11 @@
 
 Go bindings for the simulator side of the TenSnap protocol v0.2.
 
-This module is intentionally small. It gives Go simulators three pieces:
+This module is intentionally small. It gives Go simulators four pieces:
 
 - `protocol`: wire-level message types, constants, and a default JSON codec.
 - `abm`: a small model interface, `Base`, `TickCounter`, declarative `Scenario`, `ActionRouter`, `ParamMetadata`, and the `Emitter`/`Sink` abstraction.
+- `binding`: optional declarative builders that translate Go model state into `abm`/`protocol` registrations and runtime diffs.
 - `server`: a WebSocket server that binds a model to a TenSnap renderer session.
 
 It does not include a renderer, a browser-side Scenario runtime, or persistence.
@@ -29,6 +30,8 @@ git tag packages/tensnap-go/v0.2.0
 ```
 
 ## Minimal Usage
+
+The lowest-level API is imperative: implement `abm.Model`, emit protocol updates yourself, and optionally let `abm.Base` replay an `abm.Scenario`.
 
 ```go
 type MyModel struct {
@@ -80,6 +83,72 @@ func main() {
 ```
 
 `Base.Setup` and `Base.OnStateSync` replay the registered `Scenario` automatically. If you need custom reset or start behavior, install an `ActionRouter`; if you need runtime state replay, attach `Scenario.WithStateReplay(...)`.
+
+## Declarative Binding
+
+The `binding` package is a higher-level translation layer. It depends on `abm`, but `abm` does not depend on it. You can use it for an entire model or only for selected pieces, such as declarative layers with imperative actions.
+
+```go
+model := binding.NewModel(
+    raw,
+    binding.WithInit(func(m *MyModel) error {
+        m.Initialize()
+        return nil
+    }),
+    binding.WithStep(func(m *MyModel) (bool, error) {
+        return m.Step() > 0, nil
+    }),
+    binding.WithParams(
+        binding.NumberParam("speed", "Speed",
+            func(m *MyModel) float64 { return m.Speed },
+            func(m *MyModel, value float64) error {
+                m.Speed = value
+                return nil
+            },
+        ).Range(0, 5).Step(0.1).Runtime(true).Build(),
+    ),
+    binding.WithEnvs(binding.NewEnv("main",
+        binding.NewAgentLayer[*MyModel, Agent]("agents").
+            Items(func(m *MyModel) []Agent { return m.Agents }).
+            Project(func(_ *MyModel, a Agent) map[string]any {
+                return map[string]any{"id": a.ID, "x": a.X, "y": a.Y}
+            }),
+    )),
+)
+```
+
+`binding.NewModel` supplies default `start`, `step`, and `reset` actions, handles setup/state-sync replay, computes item diffs, updates charts, and emits metadata time. If you need more control, use the smaller registries directly; for example, keep your own `OnAction` method and call `bound.PushEnvDiffs(e)` after an imperative step.
+
+Boundary rule: `binding` translates declarative Go configuration into `abm` and `protocol` objects. It should not redefine wire payloads, and `abm` should remain usable without importing `binding`.
+
+### Tag-Based Binding
+
+`binding` can also compile projectors from scoped struct tags. Untagged fields are ignored by default; there is no name-based auto-binding fallback.
+
+```go
+type Config struct {
+    Width   int     `tensnap:"id=width,scope=param,label=Width,min=10,max=200,step=1; width,scope=space"`
+    Height  int     `tensnap:"id=height,scope=param,label=Height,min=10,max=200,step=1; height,scope=space"`
+    Density float64 `tensnap:"id=density,scope=param,label=Density,min=0.1,max=0.95,step=0.05"`
+}
+
+type Agent struct {
+    ID string  `tensnap:"id"`
+    X  float64 `tensnap:"x"`
+    Y  float64 `tensnap:"y"`
+}
+
+binding.WithParams(binding.MustParamsFromTags(
+    func(m *MyModel) *Config { return &m.Config },
+    binding.TagScope("param"),
+)...)
+
+binding.NewAgentLayer[*MyModel, Agent]("agents").
+    Items(func(m *MyModel) []Agent { return m.Agents }).
+    ProjectTagsRequired("id", "x", "y")
+```
+
+Tags accept `scope=...` as a normal keyword. If omitted, the compiler's default scope is used: params default to `param`, and agent item projectors default to `agent`. A single field can provide multiple scoped entries by separating them with `;`.
 
 For a fuller example, see [../../examples/go/internal/schelling/model.go](../../examples/go/internal/schelling/model.go) and the [Go API reference](../../docs/api-reference/go-api.md).
 

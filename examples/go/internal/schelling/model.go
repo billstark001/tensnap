@@ -21,10 +21,10 @@ type Cell struct {
 }
 
 type Config struct {
-	GridWidth           int     `tensnap:"gridWidth,default=50"`
-	GridHeight          int     `tensnap:"gridHeight,default=50"`
-	Density             float64 `tensnap:"density,default=0.8"`
-	SimilarityThreshold float64 `tensnap:"similarityThreshold,default=0.7"`
+	GridWidth           int     `tensnap:"id=gridWidth,label='Grid Width',min=10,max=200,step=1,runtime=false; width,scope=space"`
+	GridHeight          int     `tensnap:"id=gridHeight,label='Grid Height',min=10,max=200,step=1,runtime=false; height,scope=space"`
+	Density             float64 `tensnap:"id=density,label=Density,min=0.1,max=0.95,step=0.05,runtime=false"`
+	SimilarityThreshold float64 `tensnap:"id=similarityThreshold,label='Similarity Threshold',min=0,max=1,step=0.05,runtime=true,aliases=threshold"`
 }
 
 type Model struct {
@@ -80,7 +80,7 @@ func (m *Model) Step() int {
 	m.rng.Shuffle(len(empty), func(a, b int) { empty[a], empty[b] = empty[b], empty[a] })
 
 	swapped := min(len(unsatisfied), len(empty))
-	for index := 0; index < swapped; index++ {
+	for index := range swapped {
 		fromIndex := unsatisfied[index]
 		toIndex := empty[index]
 		m.Cells[toIndex].Group = m.Cells[fromIndex].Group

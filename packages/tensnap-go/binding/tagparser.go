@@ -198,7 +198,7 @@ func ParseTag(raw string) (Options, error) {
 }
 
 func parseType(t reflect.Type, tagKey string, parentIndex []int, out *TaggedStruct) error {
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		sf := t.Field(i)
 
 		index := appendIndex(parentIndex, i)

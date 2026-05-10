@@ -9,6 +9,11 @@ The recommended workflow is:
 3. Attach custom action behavior with `abm.ActionRouter`.
 4. Let `abm.Base` replay the scenario during `Setup` and `state_sync`.
 
+For a more declarative workflow, use `binding` to generate those `abm` and
+`protocol` objects from Go functions and builders. The package boundary is
+one-way: `binding` depends on `abm`, while `abm` remains the imperative runtime
+layer and never imports `binding`.
+
 ## Quick Start
 
 ```go
@@ -115,6 +120,27 @@ Important types:
 - `Sink`: no-op `Emitter` for detached or headless execution.
 - `TickCounter`: monotonic tick counter for renderer-visible time.
 
+### `binding`
+
+Optional declarative builders that translate model state into `abm`/`protocol`
+registrations and runtime updates.
+
+Important helpers:
+
+- `binding.NewModel`: convenience adapter that implements `abm.Model`.
+- `binding.NumberParam`: number parameter builder that emits `abm.ParamMetadata`.
+- `binding.MustParamsFromTags`: parameter builder from scoped struct tags.
+- `binding.NewEnv`: environment builder.
+- `binding.NewGridLayer`: grid layer metadata builder.
+- `binding.NewAgentLayer`: agent layer builder with replay and diff support.
+- `binding.ProjectTags` and `AgentLayer.ProjectTagsRequired`: item projectors from scoped struct tags.
+- `binding.MustMetadataFromTags`: environment/layer metadata projector from scoped struct tags.
+- `binding.NewChart`: chart metadata plus getter.
+
+Use `binding` when you want Python-style declarations. Use `abm` directly when
+you want full imperative control. Mixed models are expected: an agent layer can
+be declarative while actions remain hand-written.
+
 ### `server`
 
 WebSocket server that binds a Go model to a TenSnap renderer session.
@@ -191,6 +217,129 @@ model.SetActionRouter(router)
 ```
 
 `Base.OnAction` checks the router first. If no handler matches, it falls back to built-in handling for `protocol.ActionIDInit` and `protocol.ActionIDStep`.
+
+## `binding.NewModel`
+
+`binding.NewModel` composes optional registries into an `abm.Model`.
+
+```go
+bound := binding.NewModel(
+    raw,
+    binding.WithInit(func(m *MyModel) error {
+        m.Initialize()
+        return nil
+    }),
+    binding.WithStep(func(m *MyModel) (bool, error) {
+        return m.Step() > 0, nil
+    }),
+    binding.WithParams(
+        binding.NumberParam("density", "Density",
+            func(m *MyModel) float64 { return m.Config.Density },
+            func(m *MyModel, value float64) error {
+                m.Config.Density = value
+                return nil
+            },
+        ).Range(0.1, 0.95).Step(0.05).Runtime(false).Build(),
+    ),
+    binding.WithEnvs(binding.NewEnv("main",
+        binding.NewGridLayer[*MyModel]("grid").
+            Size(func(m *MyModel) (int, int) { return m.GridSize() }),
+        binding.NewAgentLayer[*MyModel, Agent]("agents").
+            Items(func(m *MyModel) []Agent { return m.Agents }).
+            Project(func(_ *MyModel, a Agent) map[string]any {
+                return map[string]any{"id": a.ID, "x": a.X, "y": a.Y}
+            }),
+    )),
+    binding.WithCharts(
+        binding.NewChart("population", "Population", "#16A34A",
+            func(m *MyModel) any { return float64(len(m.Agents)) }),
+    ),
+)
+```
+
+The same configuration can be moved into tags when you want a more declarative
+shape:
+
+```go
+type Agent struct {
+    ID string  `tensnap:"id"`
+    X  float64 `tensnap:"x"`
+    Y  float64 `tensnap:"y"`
+}
+
+type Config struct {
+    Width   int     `tensnap:"id=width,scope=param,label=Width,min=10,max=200,step=1,runtime=false; width,scope=space"`
+    Height  int     `tensnap:"id=height,scope=param,label=Height,min=10,max=200,step=1,runtime=false; height,scope=space"`
+    Density float64 `tensnap:"id=density,scope=param,label=Density,min=0.1,max=0.95,step=0.05"`
+}
+
+bound := binding.NewModel(
+    raw,
+    binding.WithParams(binding.MustParamsFromTags(
+        func(m *MyModel) *Config { return &m.Config },
+        binding.TagScope("param"),
+    )...),
+    binding.WithEnvs(binding.NewEnv("main",
+        binding.NewGridLayer[*MyModel]("grid").
+            Data(binding.MustMetadataFromTags(
+                func(m *MyModel) *Config { return &m.Config },
+                binding.TagScope("space"),
+            )),
+        binding.NewAgentLayer[*MyModel, Agent]("agents").
+            Items(func(m *MyModel) []Agent { return m.Agents }).
+            ProjectTagsRequired("id", "x", "y"),
+    )),
+)
+```
+
+The adapter owns only the pieces registered through its options:
+
+- lifecycle: optional `WithInit`, `WithStep`, and `WithReset`
+- parameters: optional `WithParams`
+- environments and layers: optional `WithEnvs`
+- charts: optional `WithCharts`
+
+By default it registers `start`, `step`, and `reset`, replays owned scenario
+pieces during setup/state-sync, computes item diffs for declared agent layers,
+updates charts, emits metadata time, and sends `action_end`.
+
+For mixed imperative code, embed or store the bound model and call small helpers:
+
+```go
+func (m *VizModel) Step(e abm.Emitter) error {
+    m.raw.Step()
+    if err := m.bound.PushEnvDiffs(e); err != nil {
+        return err
+    }
+    return m.bound.PushCharts(e, float64(m.tick))
+}
+```
+
+### Tag Scope Rules
+
+TenSnap tags use the same comma-separated args/kwargs parser as the lower-level
+`binding.ParseTag` helper. A field without a `tensnap` tag is ignored; there is
+no PascalCase/camelCase auto-binding fallback.
+
+Within a tag, `scope=...` is optional. If it is absent, the compiler's default
+scope is used. For example, `ProjectTags` defaults unscoped item fields to the
+`agent` scope, while `ParamsFromTags` defaults unscoped fields to `param`.
+
+Multiple scoped entries can live on one Go field by separating them with `;`:
+
+```go
+Width int `tensnap:"id=width,scope=param,min=10,max=200; width,scope=space"`
+```
+
+This lets one model field feed both a renderer parameter and layer metadata.
+When a tag root must be mutated by param changes, pass a pointer root:
+
+```go
+binding.MustParamsFromTags(
+    func(m *MyModel) *Config { return &m.Config },
+    binding.TagScope("param"),
+)
+```
 
 ## Incremental Item Diffing
 

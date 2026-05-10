@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/go [0.2.1] - 2026-05-10
+
+### Added
+
+- Added composable Go binding builders for declarative parameters, environments, agent/grid layers, charts, and lifecycle handling.
+- Added scoped `tensnap` tag support for parameter binding, item projectors, and layer metadata projectors with precompiled reflection accessors.
+
+### Changed
+
+- Updated the Go Schelling example to use the new declarative binding layer and tag-based projectors, reducing visualization boilerplate while preserving imperative model logic.
+- Documented the Go `abm` versus `binding` package boundary and the new tag-based binding workflow.
+
 ## [0.2.0] - 2026-05-03
 
 ### Added
