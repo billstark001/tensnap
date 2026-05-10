@@ -18,12 +18,14 @@ func main() {
 	gridHeight := flag.Int("grid-height", 50, "Schelling grid height")
 	flag.Parse()
 
+	rawModel := shared.NewModel(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	log.Println("TenSnap simulator -> ws://localhost:8765/")
 	if err := server.RunFactory(ctx, server.Options{Addr: ":8765"}, func() abm.Model {
-		return shared.NewWithConfig(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
+		return shared.NewVizModel(rawModel)
 	}); err != nil {
 		log.Fatal(err)
 	}

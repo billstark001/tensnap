@@ -70,7 +70,7 @@ func (e *recordingEmitter) ItemCreate(envID, layerID string, items []map[string]
 }
 
 func TestOnStateSyncInitializesFreshModel(t *testing.T) {
-	model := New()
+	model := NewVizModel(NewDefaultModel())
 	emitter := &recordingEmitter{}
 	requestID := "sync-1"
 
@@ -78,7 +78,7 @@ func TestOnStateSyncInitializesFreshModel(t *testing.T) {
 		t.Fatalf("OnStateSync returned error: %v", err)
 	}
 
-	if !model.initialized {
+	if !model.model.Initialized {
 		t.Fatal("expected fresh model to initialize during first state sync")
 	}
 	if len(emitter.stateSyncBegins) != 1 || emitter.stateSyncBegins[0] != requestID {
@@ -107,7 +107,7 @@ func TestOnStateSyncInitializesFreshModel(t *testing.T) {
 }
 
 func TestOnActionStartEchoesTickIDAndActionID(t *testing.T) {
-	model := New()
+	model := NewVizModel(NewDefaultModel())
 	emitter := &recordingEmitter{}
 	requestID := "sync-2"
 	if err := model.OnStateSync(emitter, &protocol.StateSyncPayload{RequestID: abm.StringPtr(requestID)}); err != nil {
@@ -135,7 +135,7 @@ func TestOnActionStartEchoesTickIDAndActionID(t *testing.T) {
 }
 
 func TestOnActionResetReplaysAndStops(t *testing.T) {
-	model := New()
+	model := NewVizModel(NewDefaultModel())
 	emitter := &recordingEmitter{}
 	requestID := "sync-3"
 	if err := model.OnStateSync(emitter, &protocol.StateSyncPayload{RequestID: abm.StringPtr(requestID)}); err != nil {

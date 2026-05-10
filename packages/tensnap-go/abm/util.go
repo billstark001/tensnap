@@ -23,7 +23,7 @@ func ClampFloat(v, lo, hi float64) float64 {
 }
 
 // AsFloat64 converts common numeric types to float64.
-// Returns (0, false) for unrecognised types.
+// Returns (0, false) for unrecognized types.
 func AsFloat64(v any) (float64, bool) {
 	switch n := v.(type) {
 	case float64:
