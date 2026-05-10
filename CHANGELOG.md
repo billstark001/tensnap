@@ -85,6 +85,19 @@ Initial release.
 - **MAJOR** version when you make incompatible API changes.
 - **MINOR** version when you add functionality in a backward-compatible manner (unless the major version is `0`).
 - **PATCH** version when you make backward-compatible bug fixes.
+- All subpackages and publishable subprojects must share the same **MAJOR** version.
+- While the shared **MAJOR** version is `0`, all subpackages and publishable subprojects must also share the same **MINOR** version.
+- The shared version scope includes npm packages, language bindings, examples packages, benchmark packages, and package metadata.
+  - For instance, the Tauri app's internal Rust and app configuration versions must exactly match `@tensnap/tauri`.
+- **PATCH** versions may differ between subpackages when a release affects only one package or a narrow package group.
+
+---
+
+## Changelog Heading Format
+
+- Use `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for a release-line entry that updates the shared **MAJOR**, or the shared **MINOR** while **MAJOR** is `0`.
+- Use `## package-name [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for package-specific patch releases or package-specific releases after the shared **MAJOR** is stable.
+- Prefer exact package names for prefixed entries, such as `## @tensnap/go [0.2.1] - 2026-05-10`, so the changelog remains easy to scan and automate.
 
 ---
 
