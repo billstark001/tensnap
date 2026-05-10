@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	shared "github.com/billstark001/tensnap/examples/go/internal/schelling"
-	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
 )
 
 func main() {
@@ -13,19 +12,19 @@ func main() {
 	gridHeight := flag.Int("grid-height", 50, "Schelling grid height")
 	flag.Parse()
 
-	model := shared.NewWithConfig(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
-	emitter := abm.NewSink()
+	model := shared.NewModel(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
 
-	if err := model.Setup(emitter); err != nil {
-		panic(err)
-	}
+	model.Initialize()
 
-	for tick := 0; tick < 200; tick++ {
-		if err := model.Step(emitter); err != nil {
-			panic(err)
-		}
+	fmt.Printf(
+		"Initialized with parameters:\n  GridWidth: %d\n  GridHeight: %d\n  Density: %.2f\n  SimilarityThreshold: %.2f\n",
+		model.Config.GridWidth, model.Config.GridHeight, model.Config.Density, model.Config.SimilarityThreshold,
+	)
+
+	for tick := range 200 {
+		swapped := model.Step()
 		if tick%10 == 0 {
-			fmt.Printf("tick %d  satisfied %.1f%%\n", tick, shared.SatisfiedPct(model)*100)
+			fmt.Printf("tick %d:  swapped %d agents, satisfied %.1f%%\n", tick, swapped, model.SatisfiedPct()*100)
 		}
 	}
 }
