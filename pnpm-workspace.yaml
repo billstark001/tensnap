@@ -8,6 +8,11 @@ allowBuilds:
   esbuild: true
   sharp: true
 
+minimumReleaseAgeExclude:
+  - '@lingui/swc-plugin@6.2.0'
+  - hono@4.12.22
+  - ws@8.21.0
+
 onlyBuiltDependencies:
   - '@swc/core'
   - canvas
