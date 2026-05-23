@@ -2,6 +2,12 @@ packages:
   - packages/*
   - examples/js
 
+allowBuilds:
+  '@swc/core': true
+  canvas: true
+  esbuild: true
+  sharp: true
+
 onlyBuiltDependencies:
   - '@swc/core'
   - canvas
