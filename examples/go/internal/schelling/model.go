@@ -11,6 +11,7 @@ const (
 	defaultGridH               = 50
 	defaultDensity             = 0.8
 	defaultSimilarityThreshold = 0.7
+	maxNeighbors               = 8
 )
 
 type Cell struct {
@@ -32,6 +33,13 @@ type Model struct {
 	Initialized bool
 	Cells       []Cell
 	Config      Config `tensnap:"type=params"`
+
+	// Cached topology and reusable work buffers. These fields deliberately have no
+	// tensnap tags: visualization still reads Cells and Config exactly as before.
+	neighborIndexes [][maxNeighbors]int
+	neighborCounts  []uint8
+	unsatisfied     []int
+	empty           []int
 }
 
 func NewDefaultModel() *Model {
@@ -65,41 +73,57 @@ func NewModel(cfg Config) *Model {
 }
 
 func (m *Model) Step() int {
-	var unsatisfied []int
-	var empty []int
-	for index, current := range m.Cells {
-		if current.Group == 0 {
-			empty = append(empty, index)
-			continue
-		}
-		if !m.Satisfied(index) {
-			unsatisfied = append(unsatisfied, index)
+	m.ensureTopologyCache()
+
+	m.unsatisfied = m.unsatisfied[:0]
+	m.empty = m.empty[:0]
+	threshold := m.Config.SimilarityThreshold // runtime-tunable; read every step.
+
+	for index := range m.Cells {
+		switch m.Cells[index].Group {
+		case 0:
+			m.empty = append(m.empty, index)
+		default:
+			if !m.satisfiedWithThreshold(index, threshold) {
+				m.unsatisfied = append(m.unsatisfied, index)
+			}
 		}
 	}
-	m.rng.Shuffle(len(unsatisfied), func(a, b int) { unsatisfied[a], unsatisfied[b] = unsatisfied[b], unsatisfied[a] })
-	m.rng.Shuffle(len(empty), func(a, b int) { empty[a], empty[b] = empty[b], empty[a] })
 
-	swapped := min(len(unsatisfied), len(empty))
-	for index := range swapped {
-		fromIndex := unsatisfied[index]
-		toIndex := empty[index]
-		m.Cells[toIndex].Group = m.Cells[fromIndex].Group
-		m.Cells[toIndex].AgentID = m.Cells[fromIndex].AgentID
-		m.Cells[fromIndex].Group = 0
-		m.Cells[fromIndex].AgentID = ""
+	m.rng.Shuffle(len(m.unsatisfied), func(a, b int) {
+		m.unsatisfied[a], m.unsatisfied[b] = m.unsatisfied[b], m.unsatisfied[a]
+	})
+	m.rng.Shuffle(len(m.empty), func(a, b int) {
+		m.empty[a], m.empty[b] = m.empty[b], m.empty[a]
+	})
+
+	swapped := minInt(len(m.unsatisfied), len(m.empty))
+	for i := range swapped {
+		fromIndex := m.unsatisfied[i]
+		toIndex := m.empty[i]
+		from := &m.Cells[fromIndex]
+		to := &m.Cells[toIndex]
+
+		to.Group = from.Group
+		to.AgentID = from.AgentID
+		from.Group = 0
+		from.AgentID = ""
 	}
 	return swapped
 }
 
 func (m *Model) SatisfiedPct() float64 {
+	m.ensureTopologyCache()
+
 	satisfiedCount := 0
 	occupiedCount := 0
-	for index, current := range m.Cells {
-		if current.Group == 0 {
+	threshold := m.Config.SimilarityThreshold
+	for index := range m.Cells {
+		if m.Cells[index].Group == 0 {
 			continue
 		}
 		occupiedCount++
-		if m.Satisfied(index) {
+		if m.satisfiedWithThreshold(index, threshold) {
 			satisfiedCount++
 		}
 	}
@@ -110,21 +134,26 @@ func (m *Model) SatisfiedPct() float64 {
 }
 
 func (m *Model) SegregationIndex() float64 {
+	m.ensureTopologyCache()
+
 	totalRatio := 0.0
 	count := 0
-	for index, current := range m.Cells {
-		if current.Group == 0 {
+	for index := range m.Cells {
+		currentGroup := m.Cells[index].Group
+		if currentGroup == 0 {
 			continue
 		}
+
 		same := 0
 		neighbors := 0
-		for _, neighborIndex := range m.NeighborIndexes(index) {
-			neighbor := m.Cells[neighborIndex]
-			if neighbor.Group == 0 {
+		indexes := m.neighborIndexes[index]
+		for i := 0; i < int(m.neighborCounts[index]); i++ {
+			neighborGroup := m.Cells[indexes[i]].Group
+			if neighborGroup == 0 {
 				continue
 			}
 			neighbors++
-			if neighbor.Group == current.Group {
+			if neighborGroup == currentGroup {
 				same++
 			}
 		}
@@ -147,10 +176,12 @@ func (m *Model) Initialize() {
 
 func (m *Model) RebuildCells() {
 	width, height := m.GridSize()
-	m.Cells = make([]Cell, width*height)
+	size := width * height
+	m.Cells = make([]Cell, size)
 	for index := range m.Cells {
 		m.Cells[index] = Cell{X: index % width, Y: index / width}
 	}
+	m.rebuildTopologyCache(width, height)
 }
 
 func (m *Model) Populate() {
@@ -158,67 +189,109 @@ func (m *Model) Populate() {
 	nextType1 := 0
 	nextType2 := 0
 	for index := range m.Cells {
-		m.Cells[index].AgentID = ""
+		cell := &m.Cells[index]
+		cell.AgentID = ""
 		randomValue := m.rng.Float64()
 		switch {
 		case randomValue < density/2:
-			m.Cells[index].Group = 1
-			m.Cells[index].AgentID = "agent1_" + strconv.Itoa(nextType1)
+			cell.Group = 1
+			cell.AgentID = "agent1_" + strconv.Itoa(nextType1)
 			nextType1++
 		case randomValue < density:
-			m.Cells[index].Group = 2
-			m.Cells[index].AgentID = "agent2_" + strconv.Itoa(nextType2)
+			cell.Group = 2
+			cell.AgentID = "agent2_" + strconv.Itoa(nextType2)
 			nextType2++
 		default:
-			m.Cells[index].Group = 0
+			cell.Group = 0
 		}
 	}
 }
 
 func (m *Model) Satisfied(index int) bool {
-	current := m.Cells[index]
-	if current.Group == 0 {
+	m.ensureTopologyCache()
+	return m.satisfiedWithThreshold(index, m.Config.SimilarityThreshold)
+}
+
+func (m *Model) satisfiedWithThreshold(index int, threshold float64) bool {
+	currentGroup := m.Cells[index].Group
+	if currentGroup == 0 {
 		return true
 	}
-	threshold := m.Config.SimilarityThreshold
+
 	sameGroup := 0
 	occupiedNeighbors := 0
-	for _, neighborIndex := range m.NeighborIndexes(index) {
-		neighbor := m.Cells[neighborIndex]
-		if neighbor.Group == 0 {
+	indexes := m.neighborIndexes[index]
+	for i := 0; i < int(m.neighborCounts[index]); i++ {
+		neighborGroup := m.Cells[indexes[i]].Group
+		if neighborGroup == 0 {
 			continue
 		}
 		occupiedNeighbors++
-		if neighbor.Group == current.Group {
+		if neighborGroup == currentGroup {
 			sameGroup++
 		}
 	}
 	if occupiedNeighbors == 0 {
 		return true
 	}
-	return float64(sameGroup)/float64(occupiedNeighbors) >= threshold
+	// Avoid one division per occupied cell.
+	return float64(sameGroup) >= threshold*float64(occupiedNeighbors)
 }
 
+// NeighborIndexes preserves the public API, but no longer allocates in hot paths.
+// Callers that need zero-allocation access should use the cached arrays internally.
 func (m *Model) NeighborIndexes(index int) []int {
-	current := m.Cells[index]
-	width, height := m.GridSize()
-	neighbors := make([]int, 0, 8)
-	for yOffset := -1; yOffset <= 1; yOffset++ {
-		for xOffset := -1; xOffset <= 1; xOffset++ {
-			if xOffset == 0 && yOffset == 0 {
-				continue
-			}
-			x := current.X + xOffset
-			y := current.Y + yOffset
-			if x < 0 || x >= width || y < 0 || y >= height {
-				continue
-			}
-			neighbors = append(neighbors, y*width+x)
-		}
-	}
+	m.ensureTopologyCache()
+	count := int(m.neighborCounts[index])
+	neighbors := make([]int, count)
+	copy(neighbors, m.neighborIndexes[index][:count])
 	return neighbors
 }
 
 func (m *Model) GridSize() (int, int) {
 	return m.Config.GridWidth, m.Config.GridHeight
+}
+
+func (m *Model) ensureTopologyCache() {
+	if len(m.neighborCounts) == len(m.Cells) && len(m.neighborIndexes) == len(m.Cells) {
+		return
+	}
+	width, height := m.GridSize()
+	m.rebuildTopologyCache(width, height)
+}
+
+func (m *Model) rebuildTopologyCache(width, height int) {
+	size := width * height
+	m.neighborIndexes = make([][maxNeighbors]int, size)
+	m.neighborCounts = make([]uint8, size)
+	m.unsatisfied = make([]int, 0, size)
+	m.empty = make([]int, 0, size)
+
+	for index := 0; index < size; index++ {
+		x := index % width
+		y := index / width
+		count := 0
+		for yOffset := -1; yOffset <= 1; yOffset++ {
+			for xOffset := -1; xOffset <= 1; xOffset++ {
+				if xOffset == 0 && yOffset == 0 {
+					continue
+				}
+				nx := x + xOffset
+				ny := y + yOffset
+				if nx < 0 || nx >= width || ny < 0 || ny >= height {
+					continue
+				}
+				m.neighborIndexes[index][count] = ny*width + nx
+				count++
+			}
+		}
+		m.neighborCounts[index] = uint8(count)
+	}
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
