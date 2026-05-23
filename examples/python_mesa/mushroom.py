@@ -113,8 +113,11 @@ class Patch(mesa.Agent):  # type: ignore[misc]
         }
 
     def to_agent_state(self) -> dict[str, object]:
-        # 直接返回引用，每步节省 2500 次字典构建
-        return self._state
+        # Keep the cached shape/id fields, but return a detached snapshot so
+        # layer diffing never retains mutable nested state from the model.
+        state = dict(self._state)
+        state["data"] = dict(cast(dict[str, object], self._state["data"]))
+        return state
 
 
 # endregion
@@ -125,6 +128,7 @@ class Patch(mesa.Agent):  # type: ignore[misc]
 @trajectory_layer(
     width=False,
     agent_layer_id="hunters",
+    z_index="z_trace",
 )
 @agent_layer(
     "patches",
@@ -143,6 +147,7 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
     grid: "mesa.space.SingleGrid"
 
     z_patch = 35
+    z_trace = 36
     c_patch = "int"
     c_hunter = "float"
 
