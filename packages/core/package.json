@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Core protocol, scenario, and rendering primitives for TenSnap",
   "main": "./src/index.ts",

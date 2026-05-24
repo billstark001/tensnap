@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/go",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Go WebSocket server implementing the TenSnap protocol v0.2 (simulator side)",
   "private": true,
   "scripts": {

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/go [0.2.2] - 2026-05-24
+
+### Changed
+
+- Optimized the Go Schelling example and visualization binding patterns, including tag-based projector improvements.
+- Refactored Go action handling to use the new `BindingActionRouter`, providing a cleaner structure for simulator-side logic.
+
+## @tensnap/core, @tensnap/web [0.2.1] - 2026-05-24
+
+### Added
+
+- Added serialization tests for `TrajectoryStorage` and enhanced the project store with snapshot handling.
+- Introduced `Scheduler` interfaces (`TimeoutScheduler`, `RafScheduler`) for more flexible task scheduling in the simulation loop.
+- Enhanced `LayerRegistry` with support for custom layer creation and third-party layer roles.
+- Added browser-specific runtime and scenario controllers for better environment isolation.
+- Enhanced edit views with new dialogs (ConfirmEdit, EditObjectId), improved metadata handling, and better state management.
+- Improved `EnvironmentView` with customizable Leafer creation and shared viewport utilities.
+
+### Changed
+
+- Refactored the simulation loop to utilize the new scheduling and metrics tracking (`DispatchMetrics`), providing real-time TPS and MSPT telemetry.
+- Updated all examples to use the new declarative definition patterns and unified synchronization methods.
+- Optimized benchmark suite with regression tests for web-scenario cases and improved variation handling.
+
+### Fixed
+
+- Fixed view resizing and folding behavior in the web client.
+- Improved context menu click position handling and enhanced guideline reference views.
+- Refactored view mutation utilities and improved layout calculation accuracy.
+- Fixed mushroom example visualization bug in `python_mesa`.
+- Resolved multiple bugs in web models and session creation logic.
+
 ## @tensnap/go [0.2.1] - 2026-05-10
 
 ### Added
