@@ -5,6 +5,7 @@ import type { PackingOptions, PackingResult, PlacedRectangle } from '@/utils/lay
 import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '@/components/view/constants';
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/components/view/types';
 import { getEffectiveViewBox } from './geometry';
+import { assertValidViewTree } from './container';
 import {
   createDefaultRootLayout,
   createVerticalContainer,
@@ -353,6 +354,7 @@ export function createAutoLayout(
   }
 
   adjustForMainViewPadding(view);
+  assertValidViewTree(view, 'createAutoLayout');
 
   return view;
 }

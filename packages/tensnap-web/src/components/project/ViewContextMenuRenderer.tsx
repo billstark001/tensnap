@@ -17,6 +17,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   const { view, type, parentView, children, node } = props;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingView, setEditingView] = useState<AnyView | null>(null);
 
   const { onViewUpdate } = useViewContext();
   const { deleteView, updateView } = useUpdateAndDeleteView({ parentView, onViewUpdate });
@@ -29,7 +30,15 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   }, [deleteView]);
 
   const handleEdit = useCallback(() => {
+    setEditingView(structuredClone(view));
     setIsEditDialogOpen(true);
+  }, [view]);
+
+  const handleEditDialogOpenChange = useCallback((open: boolean) => {
+    setIsEditDialogOpen(open);
+    if (!open) {
+      setEditingView(null);
+    }
   }, []);
 
   const handleSaveEdit = useCallback((updatedView: AnyView, objectData?: any) => {
@@ -102,12 +111,14 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
         </ContextMenu.Item>
       </ContextMenu.Root>
 
-      <EditViewDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        view={view}
-        onSave={handleSaveEdit}
-      />
+      {editingView && (
+        <EditViewDialog
+          open={isEditDialogOpen}
+          onOpenChange={handleEditDialogOpenChange}
+          view={editingView}
+          onSave={handleSaveEdit}
+        />
+      )}
     </>
   );
 

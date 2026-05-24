@@ -1,57 +1,29 @@
 import { ContainerView, AnyView } from "@/types/ui";
 import { getEffectiveViewBox } from "./geometry";
 
-
-export const findAndUpdateView = (
-  root: ContainerView,
-  viewId: string,
-  updates: Partial<AnyView>,
-  recursive = true,
-): boolean => {
-  if (root.id === viewId) {
-    Object.assign(root, updates);
-    return true;
-  }
-
-  for (const view of root.views) {
-    if (view.id === viewId) {
-      Object.assign(view, updates);
-      return true;
-    }
-    if (!recursive) {
-      continue;
-    }
-    if (view.type === 'container') {
-      if (findAndUpdateView(view as ContainerView, viewId, updates)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+export type ViewParentEntry = {
+  parent: ContainerView;
+  index: number;
+  view: AnyView;
 };
 
-export const findAndDeleteView = (
+export const findView = (
   root: ContainerView,
   viewId: string,
-  recursive = true,
-): [ContainerView, number] | undefined => {
-  const index = root.views.findIndex(view => view.id === viewId);
-
-  if (index !== -1) {
-    root.views.splice(index, 1);
-    return [root, index];
-  }
-
-  if (!recursive) {
-    return undefined;
+  type?: AnyView['type'],
+): AnyView | undefined => {
+  if (root.id === viewId && (!type || root.type === type)) {
+    return root;
   }
 
   for (const view of root.views) {
+    if (view.id === viewId && (!type || view.type === type)) {
+      return view;
+    }
     if (view.type === 'container') {
-      const container = findAndDeleteView(view as ContainerView, viewId);
-      if (container) {
-        return container;
+      const found = findView(view as ContainerView, viewId);
+      if (found) {
+        return found;
       }
     }
   }
@@ -59,93 +31,90 @@ export const findAndDeleteView = (
   return undefined;
 };
 
-export const findAndAddView = (
+export const findViewAndParentEntry = (
   root: ContainerView,
-  parentId: string,
-  newView: AnyView,
-  recursive = true,
-): boolean => {
-  if (root.id === parentId) {
-    root.views.push(newView);
-    return true;
-  }
-
-  if (!recursive) {
-    return false;
+  viewId: string,
+): ViewParentEntry | undefined => {
+  const index = root.views.findIndex((view) => view.id === viewId);
+  if (index !== -1) {
+    return { parent: root, index, view: root.views[index] };
   }
 
   for (const view of root.views) {
     if (view.type === 'container') {
-      if (findAndAddView(view as ContainerView, parentId, newView)) {
-        return true;
+      const found = findViewAndParentEntry(view as ContainerView, viewId);
+      if (found) {
+        return found;
       }
     }
   }
 
-  return false;
+  return undefined;
 };
 
-export const findAndGetUpdatedView = (
+export const isDescendantView = (
   root: ContainerView,
-  viewId: string,
-  updates: Partial<AnyView>,
-): ContainerView => {
-  if (root.id === viewId) {
-    return { ...root, ...updates } as ContainerView;
+  ancestorId: string,
+  descendantId: string,
+): boolean => {
+  const ancestor = findView(root, ancestorId);
+  if (!ancestor || ancestor.type !== 'container') {
+    return false;
   }
 
-  return {
-    ...root,
-    views: root.views.map((view) => {
-      if (view.id === viewId) {
-        return { ...view, ...updates };
-      }
-      if (view.type === 'container') {
-        return findAndGetUpdatedView(view as ContainerView, viewId, updates);
-      }
-      return view;
-    }) as any,
-  };
+  return Boolean(findView(ancestor as ContainerView, descendantId));
 };
 
-export const findAndGetDeletedView = (
-  root: ContainerView,
-  viewId: string,
-): ContainerView => {
-  return {
-    ...root,
-    views: root.views
-      .filter((view) => view.id !== viewId)
-      .map((view) => {
-        if (view.type === 'container') {
-          return findAndGetDeletedView(view as ContainerView, viewId);
-        }
-        return view;
-      }),
+export const validateViewTree = (root: ContainerView): string[] => {
+  const errors: string[] = [];
+  const seenIds = new Set<string>();
+  const seenObjects = new WeakSet<AnyView>();
+  const activeObjects = new WeakSet<AnyView>();
+
+  const visit = (view: AnyView, path: string) => {
+    if (!view.id) {
+      errors.push(`View at ${path} is missing an id`);
+    } else if (seenIds.has(view.id)) {
+      errors.push(`Duplicate view id "${view.id}" at ${path}`);
+    } else {
+      seenIds.add(view.id);
+    }
+
+    if (activeObjects.has(view)) {
+      errors.push(`Cycle detected at ${path}`);
+      return;
+    }
+
+    if (seenObjects.has(view)) {
+      errors.push(`View object "${view.id}" is attached more than once`);
+      return;
+    }
+
+    seenObjects.add(view);
+
+    if (view.type !== 'container') {
+      return;
+    }
+
+    activeObjects.add(view);
+    view.views.forEach((child, index) => {
+      visit(child, `${path}.views[${index}]`);
+    });
+    activeObjects.delete(view);
   };
+
+  visit(root, 'root');
+  return errors;
 };
 
-export const findAndGetAddedView = (
+export const assertValidViewTree = (
   root: ContainerView,
-  parentId: string,
-  newView: AnyView,
-): ContainerView => {
-  if (root.id === parentId) {
-    return {
-      ...root,
-      views: [...root.views, newView],
-    };
+  operation = 'view mutation',
+): void => {
+  const errors = validateViewTree(root);
+  if (errors.length > 0) {
+    throw new Error(`${operation} produced an invalid view tree: ${errors.join('; ')}`);
   }
-
-  return {
-    ...root,
-    views: root.views.map((view) => {
-      if (view.type === 'container') {
-        return findAndGetAddedView(view as ContainerView, parentId, newView);
-      }
-      return view;
-    }),
-  };
 };
 
 

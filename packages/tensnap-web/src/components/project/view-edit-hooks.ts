@@ -3,7 +3,8 @@ import { AnyView, ContainerView } from '@/types/ui';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
 import { EditableEnvironmentDraft } from '@/store/scenario/store';
-import { findAndDeleteView, findAndUpdateView, findAndAddView } from '@/utils/view/container';
+import { findView } from '@/utils/view/container';
+import { addViewToContainerInPlace, deleteViewInPlace, updateViewInPlace } from '@/utils/view/mutation';
 import {
   createButtonView,
   createParameterView,
@@ -63,6 +64,7 @@ export function useCreateView(props: {
   onViewUpdate?: ViewUpdateHandler;
 }) {
   const { onViewUpdate } = props;
+  const rootView = useScenarioStore((store) => store.mainView);
   const setData = useScenarioStore((store) => store.setData);
   const upsertAction = useScenarioStore((store) => store.upsertAction);
 
@@ -74,6 +76,8 @@ export function useCreateView(props: {
     position: { x: number; y: number },
     container: ContainerView
   ) => {
+    if (!rootView) return;
+
     let newView: AnyView;
     let newObject: Parameter | EditableEnvironmentDraft | ChartGroup | Action | null;
 
@@ -106,9 +110,7 @@ export function useCreateView(props: {
         return;
     }
 
-    // Add the view
-    findAndAddView(container, container.id, newView);
-    onViewUpdate?.(container);
+    addViewToContainerInPlace({ rootView, onViewUpdate }, container.id, newView);
 
     // Add the associated object
     if (newObject) {
@@ -130,7 +132,7 @@ export function useCreateView(props: {
         }, { updateLayout: false, preserveExisting: true });
       }
     }
-  }, [onViewUpdate, setData, upsertAction]);
+  }, [rootView, onViewUpdate, setData, upsertAction]);
 
   return { createView };
 }
@@ -142,6 +144,7 @@ export interface UseUpdateAndDeleteViewOptions {
 
 export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
   const { parentView, onViewUpdate } = options;
+  const rootView = useScenarioStore((store) => store.mainView);
 
   // Store actions
   const setData = useScenarioStore((store) => store.setData);
@@ -160,25 +163,9 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
    * Deletes a view and its associated object
    */
   const deleteView = useCallback((viewId: string) => {
-    if (!parentView) return;
+    if (!rootView || !parentView) return;
 
-    // Find the view to get its data
-    const findView = (container: ContainerView, id: string): AnyView | null => {
-      for (const view of container.views) {
-        if (view.id === id) return view;
-        if (view.type === 'container') {
-          const found = findView(view as ContainerView, id);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const view = findView(parentView, viewId);
-
-    // Delete the view
-    findAndDeleteView(parentView, viewId);
-    onViewUpdate?.(parentView);
+    const view = deleteViewInPlace({ rootView, onViewUpdate }, viewId);
 
     // Delete the associated object
     if (view && view.type !== 'container') {
@@ -193,20 +180,24 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
         setData?.({ removedChartIds: [objectId] }, { updateLayout: false, preserveExisting: true });
       }
     }
-  }, [parentView, onViewUpdate, setData]);
+  }, [rootView, parentView, onViewUpdate, setData]);
 
   /**
    * Updates a view and its associated object
    */
   const updateView = useCallback((updatedView: AnyView, objectData?: any) => {
-    const updateRoot = parentView ?? (updatedView.type === 'container' ? updatedView as ContainerView : null);
+    const updateRoot = rootView ?? parentView ?? (updatedView.type === 'container' ? updatedView as ContainerView : null);
     if (!updateRoot) {
+      return;
+    }
+    const targetView = findView(updateRoot, updatedView.id);
+    if (!targetView) {
       return;
     }
 
     // Update the view
-  const { id: viewId, data, ...rest } = updatedView;
-  delete (rest as Partial<AnyView>).type;
+    const { data, ...rest } = updatedView;
+    delete (rest as Partial<AnyView>).type;
     delete (rest as any).views;
 
     const origId = (data as any)?.id;
@@ -250,9 +241,16 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
       data: newId != null ? { ...data, id: newId } : data,
     } as Partial<AnyView>;
 
-    findAndUpdateView(updateRoot, viewId, updates);
-    onViewUpdate?.(updateRoot);
-  }, [parentView, onViewUpdate, renameAction, renameChartGroup, renameEnvironment, renameParameter, updateActionProps, updateChartProps, updateEnvironment, updateParameterProps]);
+    updateViewInPlace(
+      {
+        rootView: updateRoot,
+        onViewUpdate,
+        notifyView: updateRoot,
+      },
+      targetView,
+      updates,
+    );
+  }, [rootView, parentView, onViewUpdate, renameAction, renameChartGroup, renameEnvironment, renameParameter, updateActionProps, updateChartProps, updateEnvironment, updateParameterProps]);
 
   return {
     deleteView,

@@ -10,7 +10,7 @@ import { ViewProps } from './types';
 import { useViewContext } from './useViewContext';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';
-import { adjustForMainViewPadding } from '@/utils/view/pack';
+import { toggleViewExpandedInPlace } from '@/utils/view/mutation';
 
 interface ContainerViewComponentProps extends ViewProps<ContainerView> {
   relativeLeft?: number,
@@ -60,12 +60,8 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
   const handleToggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    // eslint-disable-next-line react-hooks/immutability
-    view.expanded = !view.expanded;
-    if (rootView) {
-      adjustForMainViewPadding(rootView);
-    }
-    onViewUpdate?.(rootView ?? view);
+    if (!rootView) return;
+    toggleViewExpandedInPlace({ rootView, onViewUpdate }, view);
   }, [rootView, view, onViewUpdate]);
 
   const className = cx(

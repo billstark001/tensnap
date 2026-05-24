@@ -9,12 +9,11 @@ import {
 } from '@dnd-kit/core';
 import { ContainerView, AnyView } from '@/types/ui';
 import { useCallbackRef, useThrottled } from '@tensnap/web-common/react';
-import { findAndAddView, findAndDeleteView, findAndGetUpdatedView } from '@/utils/view/container';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
 import { SNAP_THRESHOLD } from './constants';
-import { adjustForMainViewPadding } from '@/utils/view/pack';
 import { getEffectiveViewBox } from '@/utils/view/geometry';
+import { moveViewInPlace, updateViewInPlace } from '@/utils/view/mutation';
 import { ViewUpdateHandler } from './useViewContext';
 import { DraggableViewData, DroppableViewData } from './types';
 
@@ -299,26 +298,15 @@ export function useDragContent({
     );
 
     const snappedCoords = updateSnapState(coords) || coords;
-    Object.assign(draggedView, { left: snappedCoords.left, top: snappedCoords.top });
-
-    // 处理视图移动逻辑
-    if (targetContainerId && sourceParentId !== targetContainerId) {
-      const [container, index] = findAndDeleteView(rootView, draggedView.id, !!sourceParentId) ?? [];
-      const success = findAndAddView(rootView, targetContainerId, draggedView);
-
-      if (!success && container && index !== undefined) {
-        container.views.splice(index, 0, draggedView);
-      }
-      onViewUpdate?.(rootView);
-    } else if (!targetContainerId && sourceParentId) {
-      findAndDeleteView(rootView, draggedView.id, true);
-      rootView.views.push(draggedView);
-      onViewUpdate?.(rootView);
-    } else {
-      onViewUpdate?.(draggedView);
-    }
-
-    adjustForMainViewPadding(rootView);
+    moveViewInPlace({
+      rootView,
+      view: draggedView,
+      left: snappedCoords.left,
+      top: snappedCoords.top,
+      sourceParentId,
+      targetContainerId,
+      onViewUpdate,
+    });
 
     clearState();
     clearMatcher();
@@ -388,7 +376,6 @@ export function useResizeContent({
     updateState({ guideLines: guidelines, suggestedSnap: snap });
   });
 
-  /* eslint-disable react-hooks/immutability */
   const onResize = useCallbackRef((clientX: number, clientY: number) => {
     if (!startPos.current || !isResizing.current || !state.content) {
       return;
@@ -434,13 +421,21 @@ export function useResizeContent({
     const resizedHeight = view.type === 'container' && !view.expanded
       ? newHeight
       : snap?.height ?? newHeight;
-    // DO NOT CHANGE: This is intentional. 
-    // The onViewUpdate increments triggers only, and the view's ref is not changed.
-    view.width = resizedWidth;
-    view.height = resizedHeight;
+    updateViewInPlace(
+      {
+        rootView,
+        onViewUpdate,
+        adjustRootPadding: false,
+        validate: false,
+      },
+      view,
+      {
+        width: resizedWidth,
+        height: resizedHeight,
+      } as Partial<AnyView>,
+    );
 
     updateState({ guideLines: guidelines, suggestedSnap: snap });
-    onViewUpdate?.(view);
   });
 
   const onResizeEnd = useCallbackRef((clientX: number, clientY: number) => {
@@ -479,15 +474,18 @@ export function useResizeContent({
     const resizedHeight = view.type === 'container' && !view.expanded
       ? newHeight
       : snap?.height ?? newHeight;
-    const resizedView = {
-      ...view,
-      width: snap?.width ?? newWidth,
-      height: resizedHeight,
-    };
-    const updatedRoot = findAndGetUpdatedView(rootView, view.id, resizedView) as ContainerView;
-
-    adjustForMainViewPadding(updatedRoot);
-    onViewUpdate?.(updatedRoot);
+    updateViewInPlace(
+      {
+        rootView,
+        onViewUpdate,
+        notifyView: rootView,
+      },
+      view,
+      {
+        width: snap?.width ?? newWidth,
+        height: resizedHeight,
+      } as Partial<AnyView>,
+    );
 
     isResizing.current = undefined;
     startPos.current = undefined;
