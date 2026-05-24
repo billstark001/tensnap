@@ -54,6 +54,7 @@ const DEFAULT_GRAPH_CONFIG: Required<GraphEnvConfig> = {
   component_spacing: 5,
 };
 
+
 // #endregion
 
 export class EdgeLayer extends BaseLayer {
@@ -397,11 +398,30 @@ export class EdgeLayer extends BaseLayer {
     const components = this._findComponents(nodes, edges);
     const scatter = this._simConfig.link_distance * 3;
 
+    // Detect if all nodes with defined positions are overlapping at exactly the same spot
+    let overlapping = false;
+    let firstX: number | null = null;
+    let firstY: number | null = null;
+    let definedCount = 0;
+    for (const n of nodes) {
+      if (n.x != null && n.y != null) {
+        if (firstX === null) {
+          firstX = n.x;
+          firstY = n.y;
+        } else if (Math.abs(n.x - firstX) > 0.001 || Math.abs(n.y - firstY!) > 0.001) {
+          overlapping = false;
+          break;
+        }
+        definedCount++;
+        overlapping = definedCount > 1;
+      }
+    }
+
     if (components.length <= 1) {
       nodes.forEach(n => {
-        if (n.x == null || n.y == null) {
-          n.x = (Math.random() - 0.5) * scatter * 2;
-          n.y = (Math.random() - 0.5) * scatter * 2;
+        if (n.x == null || n.y == null || overlapping) {
+          n.x = (firstX ?? 0) + (Math.random() - 0.5) * scatter * 2;
+          n.y = (firstY ?? 0) + (Math.random() - 0.5) * scatter * 2;
         }
       });
       return;
@@ -417,7 +437,7 @@ export class EdgeLayer extends BaseLayer {
       const cy = -gridH / 2 + Math.floor(idx / cols) * cellSize + cellSize / 2;
       const r = cellSize / 4;
       comp.forEach(n => {
-        if (n.x == null || n.y == null) {
+        if (n.x == null || n.y == null || overlapping) {
           const a = Math.random() * 2 * Math.PI;
           n.x = cx + Math.cos(a) * Math.random() * r;
           n.y = cy + Math.sin(a) * Math.random() * r;
