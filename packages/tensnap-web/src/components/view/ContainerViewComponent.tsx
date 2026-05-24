@@ -10,6 +10,7 @@ import { ViewProps } from './types';
 import { useViewContext } from './useViewContext';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';
+import { adjustForMainViewPadding } from '@/utils/view/pack';
 
 interface ContainerViewComponentProps extends ViewProps<ContainerView> {
   relativeLeft?: number,
@@ -28,7 +29,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 }) => {
 
 
-  const { onViewCreateRequest, onViewUpdate, isAdjusting } = useViewContext();
+  const { rootView, onViewCreateRequest, onViewUpdate, isAdjusting } = useViewContext();
 
   const data = {
     view,
@@ -61,8 +62,11 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
     e.stopPropagation();
     // eslint-disable-next-line react-hooks/immutability
     view.expanded = !view.expanded;
-    onViewUpdate?.(view);
-  }, [view, onViewUpdate]);
+    if (rootView) {
+      adjustForMainViewPadding(rootView);
+    }
+    onViewUpdate?.(rootView ?? view);
+  }, [rootView, view, onViewUpdate]);
 
   const className = cx(
     styles.windowView,

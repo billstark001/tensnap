@@ -10,6 +10,7 @@ export type ViewUpdateHandler = (view: AnyView, updatedView?: AnyView) => void;
 export type ViewCreateRequestHandler = (type: AnyView['type'], position: Point, container: ContainerView,) => void;
 
 export type ViewContextScheme = {
+  rootView: ContainerView | null,
   isAdjusting: boolean,
   onButtonAction: (id: string, continuous?: boolean) => void,
   isRunning: (id: string) => boolean,
@@ -29,6 +30,7 @@ export type ViewContextScheme = {
 };
 
 export const ViewContext = createContext<ViewContextScheme>({
+  rootView: null,
   isAdjusting: false,
   onButtonAction: () => void 0,
   isRunning: () => false,

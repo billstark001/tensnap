@@ -14,6 +14,7 @@ import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
 import { SNAP_THRESHOLD } from './constants';
 import { adjustForMainViewPadding } from '@/utils/view/pack';
+import { getEffectiveViewBox } from '@/utils/view/geometry';
 import { ViewUpdateHandler } from './useViewContext';
 import { DraggableViewData, DroppableViewData } from './types';
 
@@ -50,13 +51,6 @@ type ResizeState = {
 
 const INITIAL_GUIDE_ORIGIN = { relativeLeft: 0, relativeTop: 0 };
 
-const toViewBox = (view: ViewBox): ViewBox => ({
-  left: view.left,
-  top: view.top,
-  width: view.width,
-  height: view.height,
-});
-
 const getGuidelineReferenceViews = (
   views: AnyView[],
   activeView?: AnyView,
@@ -64,10 +58,10 @@ const getGuidelineReferenceViews = (
 ): ViewBox[] => {
   const referenceViews = views
     .filter((view) => view.id !== activeView?.id)
-    .map(toViewBox);
+    .map((view) => getEffectiveViewBox(view));
 
   if (selfOrigin) {
-    referenceViews.push(toViewBox(selfOrigin));
+    referenceViews.push({ ...selfOrigin });
   }
 
   return referenceViews;
@@ -240,7 +234,7 @@ export function useDragContent({
 
     const mouseX = offsetX / window.devicePixelRatio;
     const mouseY = offsetY / window.devicePixelRatio;
-    const coord = { left: view.left, top: view.top, width: view.width, height: view.height };
+    const coord = getEffectiveViewBox(view);
 
     initMatcher(coord, getGuidelineReferenceViews(parentView?.views ?? [], view, coord));
 
@@ -261,7 +255,7 @@ export function useDragContent({
     }
 
     const coord = getCalibratedCoordinates(
-      activeView,
+      getEffectiveViewBox(activeView),
       getData(event.active),
       getData(event.over),
       event.delta,
@@ -271,7 +265,7 @@ export function useDragContent({
       updateViews(getGuidelineReferenceViews(
         (overView as ContainerView).views ?? [],
         activeView,
-        overView.id === sourceParentId ? toViewBox(activeView) : undefined,
+        overView.id === sourceParentId ? getEffectiveViewBox(activeView) : undefined,
       ));
       updateState({
         container: overView as ContainerView,
@@ -297,7 +291,7 @@ export function useDragContent({
     const { containerId: targetContainerId } = getData(over);
 
     const coords = getCalibratedCoordinates(
-      draggedView,
+      getEffectiveViewBox(draggedView),
       getData(active),
       getData(over),
       event.delta,
@@ -305,7 +299,7 @@ export function useDragContent({
     );
 
     const snappedCoords = updateSnapState(coords) || coords;
-    Object.assign(draggedView, snappedCoords);
+    Object.assign(draggedView, { left: snappedCoords.left, top: snappedCoords.top });
 
     // 处理视图移动逻辑
     if (targetContainerId && sourceParentId !== targetContainerId) {
@@ -376,7 +370,7 @@ export function useResizeContent({
     isResizing.current = direction;
     startPos.current = { x: clientX, y: clientY };
 
-    const coord = { left: view.left, top: view.top, width: view.width, height: view.height };
+    const coord = getEffectiveViewBox(view);
     initMatcher(coord, getGuidelineReferenceViews(parentView.views ?? [], view, coord));
 
     updateState({
@@ -430,16 +424,16 @@ export function useResizeContent({
         break;
     }
 
-    const coord = {
-      left: view.left,
-      top: view.top,
+    const coord = getEffectiveViewBox(view, {
       width: newWidth,
       height: newHeight,
-    };
+    });
 
     const { guidelines, snap } = match(coord);
     const resizedWidth = snap?.width ?? newWidth;
-    const resizedHeight = snap?.height ?? newHeight;
+    const resizedHeight = view.type === 'container' && !view.expanded
+      ? newHeight
+      : snap?.height ?? newHeight;
     // DO NOT CHANGE: This is intentional. 
     // The onViewUpdate increments triggers only, and the view's ref is not changed.
     view.width = resizedWidth;
@@ -476,18 +470,19 @@ export function useResizeContent({
         break;
     }
 
-    const coord = {
-      left: view.left,
-      top: view.top,
+    const coord = getEffectiveViewBox(view, {
       width: newWidth,
       height: newHeight,
-    };
+    });
 
     const { snap } = match(coord);
+    const resizedHeight = view.type === 'container' && !view.expanded
+      ? newHeight
+      : snap?.height ?? newHeight;
     const resizedView = {
       ...view,
       width: snap?.width ?? newWidth,
-      height: snap?.height ?? newHeight,
+      height: resizedHeight,
     };
     const updatedRoot = findAndGetUpdatedView(rootView, view.id, resizedView) as ContainerView;
 

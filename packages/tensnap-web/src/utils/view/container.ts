@@ -1,4 +1,5 @@
 import { ContainerView, AnyView } from "@/types/ui";
+import { getEffectiveViewBox } from "./geometry";
 
 
 export const findAndUpdateView = (
@@ -155,12 +156,18 @@ export const getViewSizeByChildren = (
 ) => {
   const children = container.views || [];
   const maxHeight = children.reduce(
-    (acc, child) => acc > (child.top + child.height)
-      ? acc : (child.top + child.height),
+    (acc, child) => {
+      const box = getEffectiveViewBox(child);
+      return acc > (box.top + box.height)
+        ? acc : (box.top + box.height);
+    },
     0);
   const maxWidth = children.reduce(
-    (acc, child) => acc > (child.left + child.width)
-      ? acc : (child.left + child.width),
+    (acc, child) => {
+      const box = getEffectiveViewBox(child);
+      return acc > (box.left + box.width)
+        ? acc : (box.left + box.width);
+    },
     0);
 
   return {

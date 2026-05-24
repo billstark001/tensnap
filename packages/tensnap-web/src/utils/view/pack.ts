@@ -1,8 +1,10 @@
 import { ContainerView, AnyView } from '@/types/ui';
 import { Parameter, Action, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from '@/types/model';
 import { pack } from '@/utils/layout/pack';
+import type { PackingOptions, PackingResult, PlacedRectangle } from '@/utils/layout/pack';
 import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '@/components/view/constants';
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/components/view/types';
+import { getEffectiveViewBox } from './geometry';
 import {
   createDefaultRootLayout,
   createVerticalContainer,
@@ -96,12 +98,43 @@ function getChartSignature(chart: ObjectWithChartMetadata): string {
 
 // #region module entry
 
+type EffectivePackingRectangle = PlacedRectangle & {
+  viewIndex: number;
+};
+
+function packViewsByEffectiveBox(
+  views: AnyView[],
+  options: PackingOptions,
+): PackingResult {
+  const rectangles = views.map((view, viewIndex) => {
+    const box = getEffectiveViewBox(view);
+    return {
+      type: view.type,
+      viewIndex,
+      ...box,
+    };
+  });
+
+  const result = pack(rectangles, { ...options, inPlace: false });
+
+  for (const rectangle of result.rectangles as EffectivePackingRectangle[]) {
+    const view = views[rectangle.viewIndex];
+    if (view) {
+      view.left = rectangle.left;
+      view.top = rectangle.top;
+    }
+  }
+
+  return result;
+}
+
 export function adjustForMainViewPadding(currentView: ContainerView) {
   let maxWidth = 0;
   let maxHeight = 0;
   for (const view of currentView.views) {
-    const rightEdge = view.left + view.width;
-    const bottomEdge = view.top + view.height;
+    const box = getEffectiveViewBox(view);
+    const rightEdge = box.left + box.width;
+    const bottomEdge = box.top + box.height;
     if (rightEdge > maxWidth) {
       maxWidth = rightEdge;
     }
@@ -216,7 +249,7 @@ export function createAutoLayout(
   }
   // Re-layout buttons container if it has views (handles both new and existing overlapping views)
   if (buttonsContainer.views.length > 0) {
-    const { suggestedContainerWidth, suggestedContainerHeight } = pack(buttonsContainer.views, {
+    const { suggestedContainerWidth, suggestedContainerHeight } = packViewsByEffectiveBox(buttonsContainer.views, {
       inPlace: true,
       padding: PADDING,
       paddingBorder: PADDING,
@@ -240,7 +273,7 @@ export function createAutoLayout(
   }
   // Re-layout parameters container if it has views (handles both new and existing overlapping views)
   if (parametersContainer.views.length > 0) {
-    const { suggestedContainerWidth, suggestedContainerHeight } = pack(parametersContainer.views, {
+    const { suggestedContainerWidth, suggestedContainerHeight } = packViewsByEffectiveBox(parametersContainer.views, {
       inPlace: true,
       padding: PADDING,
       paddingBorder: PADDING,
@@ -300,7 +333,7 @@ export function createAutoLayout(
   // Always re-layout if it's a new view or if there are changes
   if (!currentView) {
     // New layout: use area-based sorting for optimal initial placement
-    pack(view.views, {
+    packViewsByEffectiveBox(view.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
       padding: PADDING,
@@ -309,7 +342,7 @@ export function createAutoLayout(
     });
   } else if (rootViewNeedsAdjust || view.views.length > 0) {
     // Existing layout: use position-based sorting to preserve user's layout intent
-    pack(view.views, {
+    packViewsByEffectiveBox(view.views, {
       inPlace: true,
       targetAspectRatio: 4 / 3,
       padding: PADDING,

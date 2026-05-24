@@ -19,6 +19,7 @@ import { Guidelines } from './GuideLines';
 import clsx from 'clsx';
 import { useDragContent, useResizeContent } from './useDragAndResizeContent';
 import { PropsWithChildren, useMemo } from 'react';
+import { getEffectiveViewBox } from '@/utils/view/geometry';
 
 export type ViewRendererProps = ViewProps<ContainerView> &
   Partial<ViewContextScheme>;
@@ -75,6 +76,7 @@ export default function ViewRoot({
   });
 
   const contextValue: ViewContextScheme = useMemo(() => ({
+    rootView,
     isAdjusting,
     onButtonAction,
     isRunning,
@@ -83,9 +85,10 @@ export default function ViewRoot({
     onResizeStart,
     onViewUpdate,
     onViewCreateRequest,
-  }), [isAdjusting, onButtonAction, isRunning, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate, onViewCreateRequest]);
+  }), [rootView, isAdjusting, onButtonAction, isRunning, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate, onViewCreateRequest]);
 
   const { state: resizeStateValue } = resizeState;
+  const dragOverlayBox = state.content ? getEffectiveViewBox(state.content.view) : null;
 
   return (
     <ViewContext.Provider value={contextValue}>
@@ -151,7 +154,7 @@ export default function ViewRoot({
         </div>
 
         <DragOverlay>
-          {state.content && (
+          {state.content && dragOverlayBox && (
             <div
               className={styles.dragOverlayAnchor}
               style={{
@@ -162,8 +165,8 @@ export default function ViewRoot({
               <div
                 className={clsx(styles.dragOverlay, state.suggestedSnap && 'snapping')}
                 style={{
-                  width: state.content.view.width,
-                  height: state.content.view.height,
+                  width: dragOverlayBox.width,
+                  height: dragOverlayBox.height,
                 }}
               />
             </div>

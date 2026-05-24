@@ -4,6 +4,8 @@ import type { AnyView, ContainerView } from '@/types/ui';
 import type { ObjectWithChartMetadata, ObjectWithEnvironmentMetadata } from '@/components/view/types';
 import { createDefaultRootLayout } from './create-view';
 import { adjustForMainViewPadding, createAutoLayout, preservedViewIds } from './pack';
+import { MAIN_VIEW_PADDING, viewConstants } from '@/components/view/constants';
+import { getEffectiveViewBox } from './geometry';
 
 describe('view pack utils', () => {
   it('adjusts root dimensions to cover all children with padding', () => {
@@ -25,6 +27,29 @@ describe('view pack utils', () => {
     expect(Number.isInteger(view.height)).toBe(true);
     expect(view.width).toBeGreaterThan(110);
     expect(view.height).toBeGreaterThan(60);
+  });
+
+  it('uses collapsed container chrome height for effective geometry without mutating stored height', () => {
+    const collapsedContainer = {
+      id: 'collapsed-container',
+      type: 'container',
+      left: 20,
+      top: 30,
+      width: 200,
+      height: 300,
+      expanded: false,
+      disabled: false,
+      data: { title: 'Collapsed' },
+      views: [],
+    } as ContainerView;
+    const view = createDefaultRootLayout([collapsedContainer]);
+
+    const box = getEffectiveViewBox(collapsedContainer);
+    adjustForMainViewPadding(view);
+
+    expect(box.height).toBe(viewConstants.windowHeaderHeight);
+    expect(collapsedContainer.height).toBe(300);
+    expect(view.height).toBe(Math.ceil(30 + viewConstants.windowHeaderHeight + MAIN_VIEW_PADDING));
   });
 
   it('creates the expected containers and anchored views for new layouts', () => {
