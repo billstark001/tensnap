@@ -3,15 +3,18 @@ import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
-import { Parameter } from '@/types/model';
+import { BooleanParameter, EnumParameter, NumberParameter, Parameter, ParameterType, StringParameter } from '@/types/model';
 import * as styles from './EditViews.css';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { ObjectIdentityField } from './ObjectIdentityField';
 
 interface ParameterViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
   objectData: Parameter | null;
   onObjectChange: (field: string, value: any) => void;
+  onEditObjectId: () => void;
+  onRequestTypeChange: (type: ParameterType) => void;
 }
 
 // Helper function
@@ -23,11 +26,11 @@ const parseNumberInput = (value: string, fallback: number = 0): number => {
 
 // TypeSelector Component
 const TypeSelector: React.FC<{
-  value: string;
-  onChange: (value: string) => void;
+  value: ParameterType;
+  onChange: (value: ParameterType) => void;
 }> = ({ value, onChange }) => (
   <Form.Field label={<Trans>Parameter Type</Trans>} htmlFor="param-type">
-    <Select.Root value={value} onValueChange={onChange} triggerClassName={styles.selectTrigger}>
+    <Select.Root value={value} onValueChange={(nextValue) => onChange(nextValue as ParameterType)} triggerClassName={styles.selectTrigger}>
       <Select.Viewport>
         <Select.Item value="number" indicator>Number</Select.Item>
         <Select.Item value="enum" indicator>Enum</Select.Item>
@@ -37,6 +40,72 @@ const TypeSelector: React.FC<{
     </Select.Root>
   </Form.Field>
 );
+
+const ParameterValueFields: React.FC<{
+  param: Parameter;
+  onObjectChange: (field: string, value: any) => void;
+}> = ({ param, onObjectChange }) => {
+  switch (param.type) {
+    case 'number': {
+      const numberParam = param as NumberParameter;
+      return (
+        <Form.Field label={<Trans>Current Value</Trans>} htmlFor="param-value-number">
+          <Form.Input
+            id="param-value-number"
+            type="number"
+            value={numberParam.value}
+            onChange={(e) => onObjectChange('value', parseNumberInput(e.target.value, numberParam.value))}
+          />
+        </Form.Field>
+      );
+    }
+    case 'enum': {
+      const enumParam = param as EnumParameter;
+      return (
+        <Form.Field label={<Trans>Current Value</Trans>} htmlFor="param-value-enum">
+          <Form.Input
+            id="param-value-enum"
+            type="text"
+            value={enumParam.value}
+            onChange={(e) => onObjectChange('value', e.target.value)}
+          />
+        </Form.Field>
+      );
+    }
+    case 'boolean': {
+      const booleanParam = param as BooleanParameter;
+      return (
+        <Form.FieldSet>
+          <Form.Label htmlFor="param-value-boolean" className={styles.checkboxLabel}>
+            <input
+              id="param-value-boolean"
+              type="checkbox"
+              checked={booleanParam.value}
+              onChange={(e) => onObjectChange('value', e.target.checked)}
+              className={styles.checkboxInput}
+            />
+            <Trans>Current Value</Trans>
+          </Form.Label>
+        </Form.FieldSet>
+      );
+    }
+    case 'string': {
+      const stringParam = param as StringParameter;
+      return (
+        <Form.Field label={<Trans>Current Value</Trans>} htmlFor="param-value-string">
+          <Form.Input
+            id="param-value-string"
+            type="text"
+            value={stringParam.value}
+            onChange={(e) => onObjectChange('value', e.target.value)}
+          />
+        </Form.Field>
+      );
+    }
+    default:
+      return null;
+  }
+};
 
 // NumberParameterFields Component
 const NumberParameterFields: React.FC<{
@@ -283,9 +352,9 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({
   objectData: param,
   onChange,
   onObjectChange,
+  onEditObjectId,
+  onRequestTypeChange,
 }) => {
-  if (!param) return <BaseViewFields view={view} onChange={onChange} />;
-
   return (
     <>
       <BaseViewFields view={view} onChange={onChange} />
@@ -299,17 +368,22 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({
         />
       </Form.Field>
 
-      <Form.FieldGroup columns={2}>
-        <Form.Field label={<Trans>Parameter ID</Trans>} htmlFor="param-id">
-          <Form.Input
-            id="param-id"
-            type="text"
-            value={param.id}
-            onChange={(e) => onObjectChange('id', e.target.value)}
-          />
-        </Form.Field>
+      <ObjectIdentityField
+        label={<Trans>Parameter ID</Trans>}
+        value={param?.id ?? view.data.id ?? ''}
+        objectExists={Boolean(param)}
+        onEdit={onEditObjectId}
+      />
 
-        <TypeSelector value={param.type} onChange={(value) => onObjectChange('type', value)} />
+      {!param ? (
+        <div className={styles.infoText}>
+          <Trans>This view can keep its binding, but there is no registered parameter to edit.</Trans>
+        </div>
+      ) : (
+        <>
+      <Form.FieldGroup columns={2}>
+        <TypeSelector value={param.type} onChange={onRequestTypeChange} />
+        <ParameterValueFields param={param} onObjectChange={onObjectChange} />
       </Form.FieldGroup>
 
       <Form.Field label={<Trans>Parameter Label</Trans>} htmlFor="param-label">
@@ -336,6 +410,8 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({
           <Trans>Allow Runtime Change</Trans>
         </Form.Label>
       </Form.FieldSet>
+        </>
+      )}
     </>
   );
 };

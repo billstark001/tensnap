@@ -42,7 +42,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   }, []);
 
   const handleSaveEdit = useCallback((updatedView: AnyView, objectData?: any) => {
-    updateView(updatedView, objectData);
+    return updateView(updatedView, objectData);
   }, [updateView]);
 
   const handleCopyCanvas = useCallback(async () => {

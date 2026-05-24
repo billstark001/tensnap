@@ -31,6 +31,92 @@ export const infoText = style({
   }
 });
 
+export const warningText = style({
+  fontSize: vars.fontSize.sm,
+  color: vars.color.warning,
+});
+
+export const fieldHint = style({
+  marginTop: vars.space.xs,
+  fontSize: vars.fontSize.xs,
+  color: vars.color.foreground,
+  opacity: 0.65,
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const inlineFieldRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.space.sm,
+});
+
+export const inlineFieldGrow = style({
+  flex: 1,
+  minWidth: 0,
+});
+
+export const inlineButton = style({
+  border: `1px solid ${vars.color.inputBorder}`,
+  borderRadius: vars.radius.sm,
+  backgroundColor: vars.color.background,
+  color: vars.color.foreground,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: vars.space.xs,
+  minHeight: 35,
+  padding: `${vars.space.xs} ${vars.space.sm}`,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+
+  ':hover': {
+    backgroundColor: vars.color.subtleBackground,
+  },
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkSecondary,
+      borderColor: vars.color.darkInputBorder,
+      color: vars.color.darkForeground,
+    },
+    'body[data-theme="dark"] &:hover': {
+      backgroundColor: vars.color.darkTertiary,
+    },
+  },
+});
+
+export const objectPanel = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.space.md,
+  padding: vars.space.md,
+  border: `1px solid rgba(0, 0, 0, 0.1)`,
+  borderRadius: vars.radius.sm,
+  backgroundColor: vars.color.subtleBackground,
+
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: vars.color.darkSecondary,
+      borderColor: 'rgba(255, 255, 255, 0.16)',
+    },
+  },
+});
+
+export const panelTitle = style({
+  margin: 0,
+  fontSize: vars.fontSize.md,
+  fontWeight: 600,
+});
+
+export const metadataGrid = style({
+  display: 'grid',
+  gap: vars.space.sm,
+});
+
 // Series list styles
 export const seriesList = style({
   display: 'flex',

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { msg } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
@@ -7,12 +9,23 @@ import { ChartGroup, ChartMetadata } from '@/types/model';
 import * as styles from './EditViews.css';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { generateUniqueId } from '@/utils/common';
+import { ObjectIdentityField } from './ObjectIdentityField';
+import { useToast } from '@/store/toast';
 
 interface ChartViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
   objectData: ChartGroup | null;
   onObjectChange: (field: string, value: any) => void;
+  onEditObjectId: () => void;
 }
+
+const formatChartDataPreview = (chartGroup: ChartGroup): string => {
+  const preview = chartGroup.data.slice(0, 20);
+  const suffix = chartGroup.data.length > preview.length
+    ? `\n... ${chartGroup.data.length - preview.length} more point(s)`
+    : '';
+  return `${JSON.stringify(preview, null, 2)}${suffix}`;
+};
 
 // 新系列表单组件
 const NewSeriesForm: React.FC<{
@@ -164,7 +177,15 @@ const SeriesList: React.FC<{
 };
 
 // 主组件
-export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectData: chartGroup, onChange, onObjectChange }) => {
+export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({
+  view,
+  objectData: chartGroup,
+  onChange,
+  onObjectChange,
+  onEditObjectId,
+}) => {
+  const { _ } = useLingui();
+  const toast = useToast();
   const [editingMetadataId, setEditingMetadataId] = useState<string | null>(null);
   const [newMetadataForm, setNewMetadataForm] = useState<{ id: string; label: string; color: string } | null>(null);
 
@@ -175,9 +196,13 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
       setNewMetadataForm({
         id: `series-${generateUniqueId()}`,
         label: 'New Series',
-        color: '#' + Math.floor(Math.random() * 16777215).toString(16),
+        color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
       });
     } else if (chartGroup && newMetadataForm.id && newMetadataForm.label) {
+      if (newMetadataForm.id in chartGroup.metadataDict) {
+        toast.warning(_(msg`Series ID already exists.`));
+        return;
+      }
       onObjectChange('metadataDict', {
         ...chartGroup.metadataDict,
         [newMetadataForm.id]: newMetadataForm,
@@ -203,6 +228,10 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
 
   const handleUpdateMetadataId = (oldId: string, newId: string) => {
     if (!chartGroup || oldId === newId) return;
+    if (newId in chartGroup.metadataDict) {
+      toast.warning(_(msg`Series ID already exists.`));
+      return;
+    }
     const newMetadataDict = { ...chartGroup.metadataDict };
     newMetadataDict[newId] = { ...chartGroup.metadataDict[oldId], id: newId };
     delete newMetadataDict[oldId];
@@ -226,18 +255,16 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
         />
       </Form.Field>
 
-      {chartGroup && (
+      <ObjectIdentityField
+        label={<Trans>Chart Group ID</Trans>}
+        value={chartGroup?.id ?? view.data.id ?? ''}
+        objectExists={Boolean(chartGroup)}
+        onEdit={onEditObjectId}
+      />
+
+      {chartGroup ? (
         <>
           <Form.FieldGroup columns={2}>
-            <Form.Field label={<Trans>Chart Group ID</Trans>} htmlFor="chart-id">
-              <Form.Input
-                id="chart-id"
-                type="text"
-                value={chartGroup.id}
-                onChange={(e) => onObjectChange('id', e.target.value)}
-              />
-            </Form.Field>
-
             <Form.Field label={<Trans>Data Points</Trans>} htmlFor="data-points">
               <Form.Input
                 id="data-points"
@@ -286,7 +313,21 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({ view, objectDa
               onRemove={handleRemoveMetadata}
             />
           </Form.FieldSet>
+
+          <Form.Field label={<Trans>Chart Data Preview</Trans>} htmlFor="chart-data-preview">
+            <Form.Textarea
+              id="chart-data-preview"
+              value={formatChartDataPreview(chartGroup)}
+              rows={8}
+              disabled
+              className={styles.disabledField}
+            />
+          </Form.Field>
         </>
+      ) : (
+        <div className={styles.infoText}>
+          <Trans>This view can keep its binding, but there is no registered chart group to edit.</Trans>
+        </div>
       )}
     </>
   );

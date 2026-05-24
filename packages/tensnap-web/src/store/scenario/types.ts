@@ -79,14 +79,14 @@ export interface ScenarioStore {
   clearAll: () => void;
   setData: (payload: SetDataPayload, options?: { updateLayout?: boolean; preserveExisting?: boolean }) => void;
   upsertAction: (action: Action) => void;
-  updateActionProps: (id: string, props: Partial<Action>) => void;
-  renameAction: (id: string, newId: string) => void;
-  updateParameterProps: (id: string, props: Partial<Parameter>) => void;
-  renameParameter: (id: string, newId: string) => void;
-  updateEnvironment: (id: string, props: Record<string, unknown>) => void;
-  renameEnvironment: (id: string, newId: string) => void;
-  updateChartProps: (id: string, props: Partial<ChartGroup>) => void;
-  renameChartGroup: (id: string, newId: string) => void;
+  updateActionProps: (id: string, props: Partial<Action>) => boolean;
+  renameAction: (id: string, newId: string) => boolean;
+  updateParameterProps: (id: string, props: Partial<Parameter>) => boolean;
+  renameParameter: (id: string, newId: string) => boolean;
+  updateEnvironment: (id: string, props: Record<string, unknown>) => boolean;
+  renameEnvironment: (id: string, newId: string) => boolean;
+  updateChartProps: (id: string, props: Partial<ChartGroup>) => boolean;
+  renameChartGroup: (id: string, newId: string) => boolean;
 
   createStateSyncMessage: (requestId?: string) => RendererToSimulatorMessage<StateSyncRequest>;
   createParamChangeMessage: (id: string, value: unknown) => RendererToSimulatorMessage<ParameterChangePayload>;

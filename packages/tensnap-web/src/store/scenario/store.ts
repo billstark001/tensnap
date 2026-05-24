@@ -469,48 +469,82 @@ export const createScenarioStore = () => {
 
       updateActionProps: (id, props) => {
         const action = scenario.getAction(id);
-        if (!action) return;
+        if (!action) return false;
         Object.assign(action, structuredClone(props));
         bumpScenarioState();
+        return true;
       },
 
       renameAction: (id, newId) => {
-        if (id === newId) return;
+        if (id === newId) return true;
         const actionMap = scenario.actions as Map<string, Action>;
         const action = actionMap.get(id);
-        if (!action || actionMap.has(newId)) return;
+        if (!action || actionMap.has(newId)) return false;
         actionMap.delete(id);
         action.id = newId;
         actionMap.set(newId, action);
         bumpScenarioState();
+        return true;
       },
 
       updateParameterProps: (id, props) => {
         const parameter = scenario.getParameter(id);
-        if (!parameter) return;
+        if (!parameter) return false;
         Object.assign(parameter, structuredClone(props));
         sanitizeParameter(parameter, true);
         bumpScenarioState({ parameterChanged: true });
+        return true;
       },
 
       renameParameter: (id, newId) => {
-        if (id === newId) return;
+        if (id === newId) return true;
         const parameterMap = scenario.parameters as Map<string, Parameter>;
         const parameter = parameterMap.get(id);
-        if (!parameter || parameterMap.has(newId)) return;
+        if (!parameter || parameterMap.has(newId)) return false;
         parameterMap.delete(id);
         parameter.id = newId;
         parameterMap.set(newId, parameter);
         bumpScenarioState({ parameterChanged: true });
+        return true;
       },
 
       updateEnvironment: (id, props) => {
         const environment = scenario.getEnvironment(id);
-        if (!environment) return;
+        if (!environment) return false;
 
         const entries = Object.entries(props);
         if (entries.length === 0) {
-          return;
+          return true;
+        }
+
+        let changed = false;
+        if (props.type === '2d' || props.type === 'uniform') {
+          if (environment.type !== props.type) {
+            environment.type = props.type;
+            changed = true;
+          }
+        }
+
+        const layerDrafts = Array.isArray((props as any).layers) ? (props as any).layers : null;
+        if (layerDrafts) {
+          for (const layerDraft of layerDrafts) {
+            if (!layerDraft || typeof layerDraft.id !== 'string' || !layerDraft.metadata || typeof layerDraft.metadata !== 'object') {
+              continue;
+            }
+            const layer = environment.layers.get(layerDraft.id);
+            if (!layer) {
+              continue;
+            }
+            scenario.apply({
+              type: 'env_layer_update',
+              payload: {
+                env_id: id,
+                layer_id: layer.id,
+                data: structuredClone(layerDraft.metadata),
+              },
+            });
+            changed = true;
+          }
         }
 
         const dimensionKeys = new Set(['width', 'height']);
@@ -543,23 +577,30 @@ export const createScenarioStore = () => {
             type: 'env_layer_update',
             payload: { env_id: id, layer_id: layer.id, data },
           });
+          changed = true;
         }
+
+        if (changed) {
+          bumpScenarioState({ environmentChanged: true });
+        }
+        return true;
       },
 
       renameEnvironment: (id, newId) => {
-        if (id === newId) return;
+        if (id === newId) return true;
         const environmentMap = scenario.environments as Map<string, ScenarioEnvironmentState>;
         const environment = environmentMap.get(id);
-        if (!environment || environmentMap.has(newId)) return;
+        if (!environment || environmentMap.has(newId)) return false;
         environmentMap.delete(id);
         environment.id = newId;
         environmentMap.set(newId, environment);
         bumpScenarioState({ environmentChanged: true });
+        return true;
       },
 
       updateChartProps: (id, props) => {
         const chart = scenario.charts.getGroup(id);
-        if (!chart) return;
+        if (!chart) return false;
 
         const nextLabel = props.label;
         if (typeof nextLabel === 'string') {
@@ -587,12 +628,14 @@ export const createScenarioStore = () => {
         }
 
         bumpScenarioState();
+        return true;
       },
 
       renameChartGroup: (id, newId) => {
-        if (id === newId) return;
-        if (!scenario.charts.renameGroup(id, newId, () => { })) return;
+        if (id === newId) return true;
+        if (!scenario.charts.renameGroup(id, newId, () => { })) return false;
         bumpScenarioState();
+        return true;
       },
 
       createStateSyncMessage: (requestId) => scenario.createStateSyncMessage(requestId),

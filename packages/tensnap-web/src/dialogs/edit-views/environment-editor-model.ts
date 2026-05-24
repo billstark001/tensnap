@@ -3,7 +3,7 @@ import { getEnvironmentDisplayType } from '@/components/scenario/environment-ada
 
 export type EnvironmentLayerGroup = {
   title: string;
-  entries: Array<{ key: string; value: unknown }>;
+  entries: Array<{ key: string; value: unknown; editable: boolean }>;
 };
 
 export type EditableEnvironmentLayerData = {
@@ -15,7 +15,7 @@ export type EditableEnvironmentLayerData = {
 
 export type EditableEnvironmentData = {
   id: string;
-  type: string;
+  type: ScenarioEnvironmentState['type'];
   displayType: '2d' | 'uniform';
   layers: EditableEnvironmentLayerData[];
 };
@@ -32,7 +32,7 @@ const groupEntries = (
       .filter((key) => key in metadata)
       .map((key) => {
         seenKeys.add(key);
-        return { key, value: metadata[key] };
+        return { key, value: metadata[key], editable: true };
       });
     if (entries.length > 0) {
       result.push({ title: group.title, entries });
@@ -41,7 +41,7 @@ const groupEntries = (
 
   const otherEntries = Object.entries(metadata)
     .filter(([key]) => !seenKeys.has(key))
-    .map(([key, value]) => ({ key, value }));
+    .map(([key, value]) => ({ key, value, editable: true }));
 
   if (otherEntries.length > 0) {
     result.push({ title: 'Other Metadata', entries: otherEntries });
@@ -51,7 +51,7 @@ const groupEntries = (
 };
 
 const groupLayerDependencies = (dependencyLayerIds: Record<string, string>): EnvironmentLayerGroup[] => {
-  const entries = Object.entries(dependencyLayerIds).map(([key, value]) => ({ key, value }));
+  const entries = Object.entries(dependencyLayerIds).map(([key, value]) => ({ key, value, editable: false }));
   return entries.length > 0 ? [{ title: 'Dependencies', entries }] : [];
 };
 
