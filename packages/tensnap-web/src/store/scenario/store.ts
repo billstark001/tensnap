@@ -221,7 +221,7 @@ const subscribeScenario = (
   const rerenderAsset = () => schedule({ changed: true, assetChanged: true });
   const rerenderReset: EventListener = () => {
     resetTimeCorrection(timeCorrection);
-    schedule({ changed: true });
+    schedule({ changed: true, environmentChanged: true, parameterChanged: true });
   };
 
   const handlers: Array<[string, EventListener]> = [
@@ -402,20 +402,23 @@ export const createScenarioStore = () => {
           _revision: state._revision + 1,
           currentTime: getCurrentTime(scenario, timeCorrection),
           stateSync: createIdleStateSyncStatus(),
+          environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
+          parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
         }));
       },
 
       clearAll: () => {
         scenario.reset();
         resetTimeCorrection(timeCorrection);
-        set({
+        set((state) => ({
           connected: false,
           snapshots: [],
           currentTime: null,
           stateSync: createIdleStateSyncStatus(),
-        });
+          environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
+          parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
+        }));
       },
-
       setData: (payload, options) => {
         mutateSnapshot(scenario, (snapshot) => {
           if (payload.removedActionIds?.length) {

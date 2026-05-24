@@ -69,3 +69,37 @@ describe('TrajectoryStorage – trajectory updates', () => {
     expect(listener.mock.calls[1][1]).toMatchObject({ deleted: ['a1'] });
   });
 });
+
+describe('TrajectoryStorage – serialization', () => {
+  it('dump/load round-trips correctly', () => {
+    const storage = new TrajectoryStorage({ length: 500, color: '#f0f' });
+    storage.upsertConfigs([{ id: 'a1', color: '#000' }]);
+    storage.appendTrajectoryPoint('a1', { x: 1, y: 1, time: 0 });
+    storage.appendTrajectoryPoint('a1', { x: 2, y: 2, time: 100 });
+    storage.appendTrajectoryPoint('a2', { x: 10, y: 10, time: 0 });
+
+    const snap = storage.dump();
+    const s2 = new TrajectoryStorage();
+    s2.load(snap);
+
+    const snap2 = s2.dump();
+    expect(snap2.config).toEqual(snap.config);
+    expect(snap2.configs).toEqual(snap.configs);
+    expect(snap2.trajectories).toHaveLength(2);
+    expect(snap2.trajectories).toEqual(expect.arrayContaining([
+      {
+        id: 'a1',
+        points: [
+          { x: 1, y: 1, time: 0, color: '#000' },
+          { x: 2, y: 2, time: 100, color: '#000' },
+        ],
+      },
+      {
+        id: 'a2',
+        points: [
+          { x: 10, y: 10, time: 0, color: '#f0f' },
+        ],
+      },
+    ]));
+  });
+});

@@ -9,6 +9,7 @@ export interface ProjectFileContent {
   url: string;
   mainView: ContainerView;
   scenario: ScenarioSnapshot;
+  snapshots?: ScenarioSnapshot[];
 }
 
 export const defaultProjectSettings = (): ProjectSettings => ({

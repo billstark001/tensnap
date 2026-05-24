@@ -155,10 +155,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       ? JSON.parse(fileContent.content)
       : decode(new Uint8Array(fileContent.content));
 
-    const { scenario, mainView, url } = parsedContent;
+    const { scenario, mainView, url, snapshots = [] } = parsedContent;
 
     const newProject = createProject(url, filepath);
-    newProject.useScenarioStore.setState({ mainView });
+    newProject.useScenarioStore.setState({ mainView, snapshots });
     newProject.useScenarioStore.getState().load(scenario);
 
     const { projects, setActive } = get();
@@ -188,6 +188,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const projectFile: ProjectFileContent = {
       mainView: scenarioStore.mainView,
       scenario: scenarioStore.dump(),
+      snapshots: scenarioStore.snapshots,
       url: connectionId ?? project.url,
     };
 
