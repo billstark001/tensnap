@@ -11,18 +11,130 @@ import { ChartViewEditor } from './ChartViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup } from '@/types/model';
 import { getEditableEnvironmentData } from './environment-editor-model';
+import { useToast } from '@/store';
 
 interface EditViewDialogProps extends DialogOpenProps {
   view: AnyView;
   onSave: (updatedView: AnyView, objectData?: any) => void;
 }
 
+type EditableObjectData = Parameter | ChartGroup | any | null;
+type ScenarioDataSources = {
+  parameters: any;
+  environments: any;
+  charts: any;
+};
+
+const DATA_FIELD_PREFIX = 'data.';
+const DANGEROUS_KEYS: readonly string[] = ['__proto__', 'constructor', 'prototype'] as const;
+const EDITABLE_OBJECT_VIEW_TYPES = new Set<AnyView['type']>(['parameter', 'environment', 'chart']);
+
 const cloneView = (nextView: AnyView): AnyView => ({
   ...nextView,
   data: nextView.data ? structuredClone(nextView.data) : nextView.data,
 } as AnyView);
 
-const dangerousKeys: readonly string[] = ['__proto__', 'constructor', 'prototype'] as const;
+const isSafePath = (path: readonly string[]): boolean => !path.some((part) => DANGEROUS_KEYS.includes(part));
+
+type Warn = (msg: string) => void;
+
+const warnUnsafePath = (path: readonly string[], warn?: Warn): void => {
+  if (!warn) {
+    warn = console.warn;
+  }
+  warn('Attempted to set dangerous property: ' + path.join('.'));
+};
+
+const setNestedValue = (target: Record<string, any>, path: readonly string[], value: any, warn?: Warn): boolean => {
+  if (path.length === 0) {
+    return false;
+  }
+
+  if (!isSafePath(path)) {
+    warnUnsafePath(path, warn);
+    return false;
+  }
+
+  let current = target;
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const part = path[index];
+    if (!Object.prototype.hasOwnProperty.call(current, part) || typeof current[part] !== 'object' || current[part] === null) {
+      current[part] = {};
+    }
+    current = current[part];
+  }
+
+  current[path[path.length - 1]] = value;
+  return true;
+};
+
+const setFieldValue = <T extends Record<string, any>>(target: T, field: keyof T & string, value: any, warn?: Warn): boolean => {
+  const path = field.split('.');
+  if (path.length > 1) {
+    return setNestedValue(target, path, value, warn);
+  }
+
+  if (!isSafePath(path)) {
+    warnUnsafePath(path, warn);
+    return false;
+  }
+
+  target[field] = value;
+  return true;
+};
+
+const updateViewField = (view: AnyView, field: string, value: any, warn?: Warn): AnyView => {
+  const updated = cloneView(view);
+
+  if (!field.startsWith(DATA_FIELD_PREFIX)) {
+    return setFieldValue(updated as Record<string, any>, field, value, warn) ? updated : view;
+  }
+
+  const nextData = structuredClone(view.data ?? {});
+  const dataPath = field.slice(DATA_FIELD_PREFIX.length).split('.');
+  if (!setNestedValue(nextData as Record<string, any>, dataPath, value, warn)) {
+    return view;
+  }
+
+  updated.data = nextData as typeof view.data;
+  return updated;
+};
+
+const updateObjectField = <T extends Record<string, any>>(objectData: T | null, field: string, value: any, warn?: Warn): T | null => {
+  if (!objectData) {
+    return null;
+  }
+
+  const updated = structuredClone(objectData);
+  return setFieldValue(updated, field, value, warn) ? updated : objectData;
+};
+
+const getEditableObjectData = (view: AnyView, sources: ScenarioDataSources): EditableObjectData => {
+  if (!EDITABLE_OBJECT_VIEW_TYPES.has(view.type)) {
+    return null;
+  }
+
+  const id = (view as AnchoredView).data.id;
+
+  switch (view.type) {
+    case 'parameter': {
+      const parameter = sources.parameters?.get(id);
+      return parameter ? { ...parameter } : null;
+    }
+    case 'environment':
+      return getEditableEnvironmentData(sources.environments, id);
+    case 'chart': {
+      const chart = sources.charts?.getGroup(id);
+      return chart ? { ...chart } : null;
+    }
+    default:
+      return null;
+  }
+};
+
+const getObjectDataForSave = (view: AnyView, objectData: EditableObjectData): EditableObjectData | undefined => (
+  view.type === 'environment' ? undefined : objectData
+);
 
 export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   open,
@@ -30,125 +142,46 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   view,
   onSave,
 }) => {
-  const [localView, setLocalView] = useState<AnyView>(view);
-  const [localObjectData, setLocalObjectData] = useState<Parameter | any | ChartGroup | null>(null);
+  const [localView, setLocalView] = useState<AnyView>(() => cloneView(view));
+  const [localObjectData, setLocalObjectData] = useState<EditableObjectData>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   const parameters = useScenarioStore((store) => store.parameters);
   const environments = useScenarioStore((store) => store.environments);
   const charts = useScenarioStore((store) => store.charts);
 
+  const resetLocalState = useCallback(() => {
+    setLocalView(cloneView(view));
+    setLocalObjectData(getEditableObjectData(view, { parameters, environments, charts }));
+    setHasChanges(false);
+  }, [charts, environments, parameters, view]);
 
   useEffect(() => {
     if (!open) {
       return;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    resetLocalState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect 
-    setLocalView(cloneView(view));
-    setHasChanges(false);
-
-    // Load the associated object data for anchored views
-    if (view.type === 'parameter' || view.type === 'environment' || view.type === 'chart') {
-      const anchoredView = view as AnchoredView;
-      if (view.type === 'parameter') {
-        const param = parameters?.get(anchoredView.data.id);
-        setLocalObjectData(param ? { ...param } : null);
-      } else if (view.type === 'environment') {
-        setLocalObjectData(getEditableEnvironmentData(environments, anchoredView.data.id));
-      } else if (view.type === 'chart') {
-        const chart = charts?.getGroup(anchoredView.data.id);
-        setLocalObjectData(chart ? { ...chart } : null);
-      }
-    } else {
-      setLocalObjectData(null);
-    }
-  }, [view, open, parameters, environments, charts]);
-
-
-  const setNestedValue = useCallback((target: Record<string, any>, path: string[], value: any): boolean => {
-    if (path.some((part) => dangerousKeys.includes(part))) {
-      console.warn('Attempted to set dangerous property:', path.join('.'));
-      return false;
-    }
-
-    let current: Record<string, any> = target;
-    for (let index = 0; index < path.length - 1; index += 1) {
-      const part = path[index];
-      if (!Object.prototype.hasOwnProperty.call(current, part) || typeof current[part] !== 'object' || current[part] === null) {
-        current[part] = {};
-      }
-      current = current[part];
-    }
-
-    const lastPart = path[path.length - 1];
-    current[lastPart] = value;
-    return true;
-  }, []);
+  const toast = useToast();
 
   const handleChange = useCallback((field: string, value: any) => {
-    setLocalView((prev) => {
-      const updated = cloneView(prev);
-      if (field.startsWith('data.')) {
-        const dataField = field.substring(5);
-        const nextData = structuredClone(prev.data ?? {});
-        if (!setNestedValue(nextData as Record<string, any>, dataField.split('.'), value)) {
-          return prev;
-        }
-        updated.data = nextData as typeof prev.data;
-      } else {
-        (updated as any)[field] = value;
-      }
-      return updated;
-    });
+    setLocalView((prev) => updateViewField(prev, field, value, toast.warning));
     setHasChanges(true);
-  }, [setNestedValue]);
+  }, [toast.warning]);
 
   const handleObjectChange = useCallback((field: string, value: any) => {
-    setLocalObjectData((prev: any) => {
-      if (!prev) return null;
-      const updated = { ...prev };
-      if (field.includes('.')) {
-        if (!setNestedValue(updated, field.split('.'), value)) {
-          return prev;
-        }
-      } else {
-        if (!dangerousKeys.includes(field)) {
-          (updated as any)[field] = value;
-        } else {
-          console.warn('Attempted to set dangerous property:', field);
-          return prev;
-        }
-      }
-      return updated;
-    });
+    setLocalObjectData((prev: any) => updateObjectField(prev, field, value, toast.warning));
     setHasChanges(true);
-  }, [setNestedValue]);
+  }, [toast.warning]);
 
   const handleSave = useCallback(() => {
-    onSave(localView, localView.type === 'environment' ? undefined : localObjectData);
+    onSave(localView, getObjectDataForSave(localView, localObjectData));
     setHasChanges(false);
     onOpenChange?.(false);
   }, [localView, localObjectData, onSave, onOpenChange]);
-
-  const handleReset = useCallback(() => {
-    setLocalView(cloneView(view));
-    setHasChanges(false);
-
-    // Reset object data
-    if (view.type === 'parameter' || view.type === 'environment' || view.type === 'chart') {
-      const anchoredView = view as AnchoredView;
-      if (view.type === 'parameter') {
-        const param = parameters?.get(anchoredView.data.id);
-        setLocalObjectData(param ? { ...param } : null);
-      } else if (view.type === 'environment') {
-        setLocalObjectData(getEditableEnvironmentData(environments, anchoredView.data.id));
-      } else if (view.type === 'chart') {
-        const chart = charts?.getGroup(anchoredView.data.id);
-        setLocalObjectData(chart ? { ...chart } : null);
-      }
-    }
-  }, [view, parameters, environments, charts]);
 
   const renderEditor = () => {
     switch (localView.type) {
@@ -186,14 +219,14 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
       <Dialog.CloseButton />
       <Dialog.Title><Trans>Edit View</Trans></Dialog.Title>
-      <Dialog.Description></Dialog.Description>
+      <Dialog.Description />
 
       <Dialog.Body>
         {renderEditor()}
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Dialog.Button onClick={handleReset} disabled={!hasChanges}>
+        <Dialog.Button onClick={resetLocalState} disabled={!hasChanges}>
           <Trans>Reset</Trans>
         </Dialog.Button>
         <Dialog.Button variant="primary" onClick={handleSave} disabled={!hasChanges}>
