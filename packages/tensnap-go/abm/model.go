@@ -43,16 +43,31 @@ type ScreenshotResponseHandler interface {
 	OnScreenshotResponse(e Emitter, payload *protocol.ScreenshotResponsePayload) error
 }
 
+// ActionRouter provides a lightweight action dispatch table.
+// Base.OnAction consults it first, then falls back to built-in init/step routing.
+type ActionRouter interface {
+	Dispatch(
+		e Emitter,
+		actionID string,
+		tickID *string,
+		continuous bool,
+	) (handled bool, err error)
+}
+
 // Base provides no-op defaults for all Model methods.
 // Embed it in your model struct and only override what you need.
 type Base struct {
 	params       map[string]any
 	scenario     *Scenario
-	actionRouter *ActionRouter
+	actionRouter ActionRouter
 }
 
-func (b *Base) Setup(e Emitter) error { return b.ReplayScenario(e) }
-func (b *Base) Step(_ Emitter) error  { return nil }
+func (b *Base) Setup(e Emitter) error {
+	return b.ReplayScenario(e)
+}
+func (b *Base) Step(_ Emitter) error {
+	return nil
+}
 
 func (b *Base) OnAction(e Emitter, actionID string, tickID *string, continuous bool) error {
 	if b.actionRouter != nil {
@@ -61,14 +76,22 @@ func (b *Base) OnAction(e Emitter, actionID string, tickID *string, continuous b
 			return err
 		}
 	}
+	var err error
 	switch actionID {
 	case protocol.ActionIDInit:
-		return b.Setup(e)
+		err = b.Setup(e)
 	case protocol.ActionIDStep:
-		return b.Step(e)
+		err = b.Step(e)
 	default:
-		return fmt.Errorf("tensnap: unhandled action %q", actionID)
+		err = fmt.Errorf("tensnap: unhandled action %q", actionID)
 	}
+	f := false
+	e.ActionEnd(&protocol.ActionEndPayload{
+		ID:       protocol.ActionIDStep,
+		TickID:   tickID,
+		Continue: &f,
+	})
+	return err
 }
 
 func (b *Base) OnParamChange(_ Emitter, id string, value any) error {
@@ -149,7 +172,7 @@ func (b *Base) ReplayScenario(e Emitter) error {
 }
 
 // SetActionRouter installs the action router used by Base.OnAction.
-func (b *Base) SetActionRouter(router *ActionRouter) {
+func (b *Base) SetActionRouter(router ActionRouter) {
 	b.actionRouter = router
 }
 
