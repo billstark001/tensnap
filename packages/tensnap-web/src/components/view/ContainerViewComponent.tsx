@@ -45,7 +45,11 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
   const lastClickPositionRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    lastClickPositionRef.current = { x: e.nativeEvent.offsetX || 0, y: e.nativeEvent.offsetY || 0 };
+    const rect = e.currentTarget.getBoundingClientRect();
+    lastClickPositionRef.current = {
+      x: Math.max(0, Math.round(e.clientX - rect.left)),
+      y: Math.max(0, Math.round(e.clientY - rect.top)),
+    };
   }, [lastClickPositionRef]);
 
   const handleCreateView = useCallback((type: AnyView['type'], e: React.MouseEvent) => {

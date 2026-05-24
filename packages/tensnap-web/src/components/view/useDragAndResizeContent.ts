@@ -50,6 +50,29 @@ type ResizeState = {
 
 const INITIAL_GUIDE_ORIGIN = { relativeLeft: 0, relativeTop: 0 };
 
+const toViewBox = (view: ViewBox): ViewBox => ({
+  left: view.left,
+  top: view.top,
+  width: view.width,
+  height: view.height,
+});
+
+const getGuidelineReferenceViews = (
+  views: AnyView[],
+  activeView?: AnyView,
+  selfOrigin?: ViewBox,
+): ViewBox[] => {
+  const referenceViews = views
+    .filter((view) => view.id !== activeView?.id)
+    .map(toViewBox);
+
+  if (selfOrigin) {
+    referenceViews.push(toViewBox(selfOrigin));
+  }
+
+  return referenceViews;
+};
+
 const getCalibratedCoordinates = (
   view: ViewBox,
   source: { relativeLeft?: number; relativeTop?: number },
@@ -80,14 +103,14 @@ const getCalibratedCoordinates = (
 export function useDragGuidelines(mode: 'drag' | 'resize' = 'drag') {
   const matcherRef = useRef<GuideLineMatcher | null>(null);
 
-  const initMatcher = useCallback((coord: ViewBox, views: AnyView[]) => {
+  const initMatcher = useCallback((coord: ViewBox, views: ViewBox[]) => {
     matcherRef.current = new GuideLineMatcher({ coord, views }, SNAP_THRESHOLD, mode, {
       enableSize: true,
       enableSpacing: true,
     });
   }, [mode]);
 
-  const updateViews = useCallback((views: AnyView[]) => {
+  const updateViews = useCallback((views: ViewBox[]) => {
     matcherRef.current?.updateViews(views);
   }, []);
 
@@ -95,14 +118,16 @@ export function useDragGuidelines(mode: 'drag' | 'resize' = 'drag') {
     const result = matcherRef.current?.match(coord);
     if (!result) return { guidelines: [], snap: null };
 
-    const { guidelines = [], snapX, snapY } = result;
+    const { guidelines = [], snapX, snapY, snapWidth, snapHeight } = result;
 
     if (mode === 'resize') {
-      // Resize 模式：snapX 和 snapY 是 width 和 height
-      const snap = (snapX != null || snapY != null) ? {
+      // Resize mode can snap by matching the right/bottom edge or by matching size.
+      const width = snapWidth ?? snapX;
+      const height = snapHeight ?? snapY;
+      const snap = (width != null || height != null) ? {
         ...coord,
-        width: snapX ?? coord.width,
-        height: snapY ?? coord.height,
+        width: width ?? coord.width,
+        height: height ?? coord.height,
       } : null;
       return { guidelines, snap };
     } else {
@@ -217,7 +242,7 @@ export function useDragContent({
     const mouseY = offsetY / window.devicePixelRatio;
     const coord = { left: view.left, top: view.top, width: view.width, height: view.height };
 
-    initMatcher(coord, parentView?.views ?? []);
+    initMatcher(coord, getGuidelineReferenceViews(parentView?.views ?? [], view, coord));
 
     updateState({
       content: { id, view, mouseX, mouseY },
@@ -229,7 +254,7 @@ export function useDragContent({
   }, [initMatcher, updateState, updateSnapState]);
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
-    const { view: activeView } = getData(event.active);
+    const { view: activeView, parentId: sourceParentId } = getData(event.active);
     const { view: overView, relativeLeft, relativeTop } = getData(event.over);
     if (!activeView || !overView) {
       return;
@@ -243,7 +268,11 @@ export function useDragContent({
     );
 
     if (overView.id !== state.container?.id) {
-      updateViews((overView as ContainerView).views ?? []);
+      updateViews(getGuidelineReferenceViews(
+        (overView as ContainerView).views ?? [],
+        activeView,
+        overView.id === sourceParentId ? toViewBox(activeView) : undefined,
+      ));
       updateState({
         container: overView as ContainerView,
         guideOrigin: { relativeLeft, relativeTop },
@@ -348,7 +377,7 @@ export function useResizeContent({
     startPos.current = { x: clientX, y: clientY };
 
     const coord = { left: view.left, top: view.top, width: view.width, height: view.height };
-    initMatcher(coord, parentView.views ?? []);
+    initMatcher(coord, getGuidelineReferenceViews(parentView.views ?? [], view, coord));
 
     updateState({
       content: {
