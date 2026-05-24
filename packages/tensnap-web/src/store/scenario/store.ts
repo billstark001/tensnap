@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
-import { createDefaultRootLayout, createAutoLayout } from '@/view/utils/pack';
+import { createDefaultRootLayout, createAutoLayout } from '@/utils/view/pack';
 import { AnyView, ContainerView } from '@/types/ui';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { getToastState } from '../toast';

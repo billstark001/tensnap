@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './store';
-import { createDefaultRootLayout } from '@/view/utils/create-view';
+import { createDefaultRootLayout } from '@/utils/view/create-view';
 
 describe('scenario store updates preserve assets', () => {
   beforeEach(() => {

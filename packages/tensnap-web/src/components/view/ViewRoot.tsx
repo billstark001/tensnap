@@ -10,7 +10,7 @@ import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import * as styles from './styles.css';
 import { ContainerView } from '@/types/ui';
 import { ContainerViewComponent } from './ContainerViewComponent';
-import { nestedOverlapCollisionDetection } from '@/view/utils/collision';
+import { nestedOverlapCollisionDetection } from '@/utils/view/collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';
 import { useCallbackRef } from '@tensnap/web-common/react';
 import { ViewProps } from './types';

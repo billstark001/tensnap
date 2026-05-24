@@ -3,15 +3,15 @@ import { AnyView, ContainerView } from '@/types/ui';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
 import { EditableEnvironmentDraft } from '@/store/scenario/store';
-import { findAndDeleteView, findAndUpdateView, findAndAddView } from '@/view/utils/container';
+import { findAndDeleteView, findAndUpdateView, findAndAddView } from '@/utils/view/container';
 import {
   createButtonView,
   createParameterView,
   createChartView,
   createEnvironmentView,
-} from '@/view/utils/create-view';
+} from '@/utils/view/create-view';
 import { generateUniqueId } from '@/utils/common';
-import { ViewContextScheme } from '../view/useViewContext';
+import { ViewUpdateHandler } from '../view/useViewContext';
 
 export function createAction(): Action {
   return {
@@ -60,7 +60,7 @@ export function create2DEnvironment(): EditableEnvironmentDraft {
 }
 
 export function useCreateView(props: {
-  onViewUpdate?: ViewContextScheme['onViewUpdate'];
+  onViewUpdate?: ViewUpdateHandler;
 }) {
   const { onViewUpdate } = props;
   const setData = useScenarioStore((store) => store.setData);
@@ -108,7 +108,7 @@ export function useCreateView(props: {
 
     // Add the view
     findAndAddView(container, container.id, newView);
-    onViewUpdate?.(container.id, container);
+    onViewUpdate?.(container);
 
     // Add the associated object
     if (newObject) {
@@ -137,7 +137,7 @@ export function useCreateView(props: {
 
 export interface UseUpdateAndDeleteViewOptions {
   parentView?: ContainerView;
-  onViewUpdate?: (id: string, view: ContainerView) => void;
+  onViewUpdate?: ViewUpdateHandler;
 }
 
 export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
@@ -155,8 +155,6 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
   const renameParameter = useScenarioStore((store) => store.renameParameter);
   const renameEnvironment = useScenarioStore((store) => store.renameEnvironment);
   const renameChartGroup = useScenarioStore((store) => store.renameChartGroup);
-  // const renameChartMetadata = useScenarioStore((store) => store.renameChartMetadata);
-
 
   /**
    * Deletes a view and its associated object
@@ -180,7 +178,7 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
 
     // Delete the view
     findAndDeleteView(parentView, viewId);
-    onViewUpdate?.(parentView.id, parentView);
+    onViewUpdate?.(parentView);
 
     // Delete the associated object
     if (view && view.type !== 'container') {
@@ -253,7 +251,7 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
     } as Partial<AnyView>;
 
     findAndUpdateView(updateRoot, viewId, updates);
-    onViewUpdate?.(updateRoot.id, updateRoot);
+    onViewUpdate?.(updateRoot);
   }, [parentView, onViewUpdate, renameAction, renameChartGroup, renameEnvironment, renameParameter, updateActionProps, updateChartProps, updateEnvironment, updateParameterProps]);
 
   return {

@@ -30,14 +30,16 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
   const { onViewCreateRequest, onViewUpdate, isAdjusting } = useViewContext();
 
+  const data = {
+    view,
+    containerId: view.id,
+    relativeLeft: relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta),
+    relativeTop: relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta),
+  };
+
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${view.id}`,
-    data: {
-      view,
-      containerId: view.id,
-      relativeLeft: relativeLeft + view.left + (isRootView ? 0 : viewConstants.windowLeftDelta),
-      relativeTop: relativeTop + view.top + (isRootView ? 0 : viewConstants.windowTopDelta),
-    },
+    data,
     disabled: isOverlay,
   });
 
@@ -53,10 +55,9 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
   const handleToggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onViewUpdate?.(view.id, {
-      ...view,
-      expanded: !view.expanded,
-    });
+    // eslint-disable-next-line react-hooks/immutability
+    view.expanded = !view.expanded;
+    onViewUpdate?.(view);
   }, [view, onViewUpdate]);
 
   const className = cx(
@@ -92,7 +93,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
   const contextMenuItems = useMemo(() => (
     <>
-    <ContextMenu.Label>
+      <ContextMenu.Label>
         <Trans>New View</Trans>
       </ContextMenu.Label>
       <ContextMenu.Item
@@ -125,7 +126,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
         <Container />
         <Trans>Container</Trans>
       </ContextMenu.Item>
-  </>
+    </>
   ), [handleCreateView]);
 
   const body = (

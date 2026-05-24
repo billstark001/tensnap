@@ -7,7 +7,7 @@ import { ContainerViewComponent } from './ContainerViewComponent';
 import * as styles from './styles.css';
 import { ButtonViewComponent } from './ButtonViewComponent';
 import { AnchoredViewComponent } from './AnchoredViewComponent';
-import { getViewType, ViewProps } from './types';
+import { DraggableViewData, getViewType, ViewProps } from './types';
 import clsx from 'clsx';
 import { useViewContext } from './useViewContext';
 
@@ -33,9 +33,11 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
 
   const [node, setNode] = useState<HTMLElement | null>(null);
 
+  const data: DraggableViewData = { view, siblings, relativeLeft, relativeTop, parentView, parentId: parentView?.id };
+
   const { attributes, listeners, setNodeRef: _setNodeRef, isDragging } = useDraggable({
     id: view.id,
-    data: { view, siblings, relativeLeft, relativeTop, parentView: parentView, parentId: parentView?.id },
+    data,
     disabled: isOverlay,
   });
 

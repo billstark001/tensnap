@@ -1,16 +1,21 @@
+/* eslint-disable no-redeclare */
 import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   DragEndEvent,
   DragStartEvent,
   DragMoveEvent,
+  Active,
+  Over,
 } from '@dnd-kit/core';
 import { ContainerView, AnyView } from '@/types/ui';
 import { useCallbackRef, useThrottled } from '@tensnap/web-common/react';
-import { findAndAddView, findAndDeleteView, findAndGetUpdatedView } from '@/view/utils/container';
+import { findAndAddView, findAndDeleteView, findAndGetUpdatedView } from '@/utils/view/container';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
 import { SNAP_THRESHOLD } from './constants';
-import { adjustForMainViewPadding } from '@/view/utils/pack';
+import { adjustForMainViewPadding } from '@/utils/view/pack';
+import { ViewUpdateHandler } from './useViewContext';
+import { DraggableViewData, DroppableViewData } from './types';
 
 
 type DragContent = {
@@ -172,12 +177,23 @@ export function useResizeState() {
   return { state, updateState, clearState };
 }
 
+
+function getData(obj?: Active | null): DraggableViewData;
+function getData(obj?: Over | null): DroppableViewData;
+function getData(obj?: Active | Over | null | undefined): DraggableViewData | DroppableViewData {
+  const data = obj?.data.current;
+  if (!data) {
+    return { relativeLeft: 0, relativeTop: 0, };
+  }
+  return data as any;
+}
+
 export function useDragContent({
   rootView,
   onViewUpdate,
 }: {
   rootView: ContainerView;
-  onViewUpdate?: (id: string, view: AnyView) => void;
+  onViewUpdate?: ViewUpdateHandler;
 }) {
   const dragState = useDragState();
   const dragGuidelines = useDragGuidelines();
@@ -192,7 +208,7 @@ export function useDragContent({
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { offsetX = 0, offsetY = 0 } = event.activatorEvent as PointerEvent;
-    const { view, parentView, relativeLeft, relativeTop } = event.active.data.current ?? {};
+    const { view, parentView, relativeLeft, relativeTop } = getData(event.active);
     const id = event.active.id as string;
 
     if (!view || !id) return;
@@ -201,7 +217,7 @@ export function useDragContent({
     const mouseY = offsetY / window.devicePixelRatio;
     const coord = { left: view.left, top: view.top, width: view.width, height: view.height };
 
-    initMatcher(coord, parentView.views ?? []);
+    initMatcher(coord, parentView?.views ?? []);
 
     updateState({
       content: { id, view, mouseX, mouseY },
@@ -213,16 +229,16 @@ export function useDragContent({
   }, [initMatcher, updateState, updateSnapState]);
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
-    if (!event.over) {
+    const { view: activeView } = getData(event.active);
+    const { view: overView, relativeLeft, relativeTop } = getData(event.over);
+    if (!activeView || !overView) {
       return;
     }
-    const { view: activeView } = event.active.data.current ?? {};
-    const { view: overView, relativeLeft, relativeTop } = event.over?.data.current ?? {};
 
     const coord = getCalibratedCoordinates(
       activeView,
-      event.active.data.current as any,
-      event.over?.data.current as any,
+      getData(event.active),
+      getData(event.over),
       event.delta,
     );
 
@@ -241,20 +257,20 @@ export function useDragContent({
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+    const { view: draggedView, parentId: sourceParentId } = getData(active);
 
-    if (!over || !active.data.current?.view) {
+    if (!over || !draggedView) {
       clearState();
       clearMatcher();
       return;
     }
 
-    const { view: draggedView, parentId: sourceParentId } = active.data.current;
-    const { containerId: targetContainerId } = over.data.current ?? {};
+    const { containerId: targetContainerId } = getData(over);
 
     const coords = getCalibratedCoordinates(
       draggedView,
-      active.data.current as any,
-      over.data.current as any,
+      getData(active),
+      getData(over),
       event.delta,
       true,
     );
@@ -270,13 +286,13 @@ export function useDragContent({
       if (!success && container && index !== undefined) {
         container.views.splice(index, 0, draggedView);
       }
-      onViewUpdate?.(rootView.id, rootView);
+      onViewUpdate?.(rootView);
     } else if (!targetContainerId && sourceParentId) {
       findAndDeleteView(rootView, draggedView.id, true);
       rootView.views.push(draggedView);
-      onViewUpdate?.(rootView.id, rootView);
+      onViewUpdate?.(rootView);
     } else {
-      onViewUpdate?.(draggedView.id, draggedView);
+      onViewUpdate?.(draggedView);
     }
 
     adjustForMainViewPadding(rootView);
@@ -308,7 +324,7 @@ export function useResizeContent({
   onViewUpdate,
 }: {
   rootView: ContainerView;
-  onViewUpdate?: (id: string, view: AnyView) => void;
+  onViewUpdate?: ViewUpdateHandler;
 }) {
   const resizeState = useResizeState();
   const resizeGuidelines = useDragGuidelines('resize');
@@ -349,12 +365,13 @@ export function useResizeContent({
     updateState({ guideLines: guidelines, suggestedSnap: snap });
   });
 
+  /* eslint-disable react-hooks/immutability */
   const onResize = useCallbackRef((clientX: number, clientY: number) => {
     if (!startPos.current || !isResizing.current || !state.content) {
       return;
     }
 
-    // 简单的时间节流，避免过于频繁的更新
+    // Naive throttle
     const currentTime = Date.now();
     if (currentTime - lastUpdateTime.current < 16) {
       return;
@@ -392,14 +409,15 @@ export function useResizeContent({
     };
 
     const { guidelines, snap } = match(coord);
-    const resizedView = {
-      ...view,
-      width: snap?.width ?? newWidth,
-      height: snap?.height ?? newHeight,
-    };
+    const resizedWidth = snap?.width ?? newWidth;
+    const resizedHeight = snap?.height ?? newHeight;
+    // DO NOT CHANGE: This is intentional. 
+    // The onViewUpdate increments triggers only, and the view's ref is not changed.
+    view.width = resizedWidth;
+    view.height = resizedHeight;
 
     updateState({ guideLines: guidelines, suggestedSnap: snap });
-    onViewUpdate?.(view.id, resizedView);
+    onViewUpdate?.(view);
   });
 
   const onResizeEnd = useCallbackRef((clientX: number, clientY: number) => {
@@ -445,7 +463,7 @@ export function useResizeContent({
     const updatedRoot = findAndGetUpdatedView(rootView, view.id, resizedView) as ContainerView;
 
     adjustForMainViewPadding(updatedRoot);
-    onViewUpdate?.(updatedRoot.id, updatedRoot);
+    onViewUpdate?.(updatedRoot);
 
     isResizing.current = undefined;
     startPos.current = undefined;

@@ -55,3 +55,20 @@ export type ViewContextMenuRendererType = ComponentType<PropsWithChildren<{
   type: AnyView['type'],
   dataType: string | null,
 }>>;
+
+
+export type DraggableViewData = {
+  view?: AnyView;
+  siblings?: AnyView[];
+  relativeLeft: number;
+  relativeTop: number;
+  parentView?: ContainerView;
+  parentId?: string;
+};
+
+export type DroppableViewData = {
+  view?: ContainerView;
+  containerId?: string;
+  relativeLeft: number;
+  relativeTop: number;
+}

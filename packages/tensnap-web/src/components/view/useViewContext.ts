@@ -2,6 +2,12 @@ import { AnyView, ContainerView } from "@/types/ui"
 import { createContext, useContext } from "react"
 import { AnchoredViewRendererType, Point, ViewContextMenuRendererType } from "./types";
 
+/**
+ * @param view the original view. `view.id ===  updateView.id` is guaranteed if updateView is passed.
+ * @param updatedView if passed, the view's reference is changed. Else, the view is changed in-place.
+ */
+export type ViewUpdateHandler = (view: AnyView, updatedView?: AnyView) => void;
+export type ViewCreateRequestHandler = (type: AnyView['type'], position: Point, container: ContainerView,) => void;
 
 export type ViewContextScheme = {
   isAdjusting: boolean,
@@ -18,8 +24,8 @@ export type ViewContextScheme = {
     clientX: number, 
     clientY: number
   ) => void,
-  onViewCreateRequest: (type: AnyView['type'], position: Point, container: ContainerView,) => void,
-  onViewUpdate: (id: string, updatedView: AnyView) => void,
+  onViewCreateRequest: ViewCreateRequestHandler;
+  onViewUpdate: ViewUpdateHandler;
 };
 
 export const ViewContext = createContext<ViewContextScheme>({
