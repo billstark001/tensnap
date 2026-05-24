@@ -8,6 +8,22 @@ import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 type Theme = 'light' | 'dark';
 type ValidationLevel = 'off' | 'warning' | 'error';
 
+function readSetting(key: string): string | null {
+  try {
+    return globalThis.localStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSetting(key: string, value: string): void {
+  try {
+    globalThis.localStorage?.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in tests, SSR, or private browsing modes.
+  }
+}
+
 interface SettingsStore {
 
   settingsDialogOpen: boolean;
@@ -72,22 +88,22 @@ export const useSettingsStore = create<SettingsStore>()(
 
     // Initialize from localStorage
     theme: (() => {
-      const saved = localStorage.getItem('theme');
+      const saved = readSetting('theme');
       return (saved as Theme) || 'light';
     })(),
 
     saveFormat: (() => {
-      const saved = localStorage.getItem('saveFormat');
+      const saved = readSetting('saveFormat');
       return (saved as 'json' | 'msgpack') || 'msgpack';
     })(),
 
     locale: (() => {
-      const saved = localStorage.getItem('locale');
+      const saved = readSetting('locale');
       return (saved as Locale) || 'en';
     })(),
 
     renderTriggerMode: (() => {
-      const saved = localStorage.getItem('renderTriggerMode');
+      const saved = readSetting('renderTriggerMode');
       if (saved === 'setTimeout' || saved === 'requestAnimationFrame' || saved === 'auto') {
         return saved;
       }
@@ -95,7 +111,7 @@ export const useSettingsStore = create<SettingsStore>()(
     })(),
 
     maxTps: (() => {
-      const saved = localStorage.getItem('maxTps');
+      const saved = readSetting('maxTps');
       const parsed = saved ? Number(saved) : NaN;
       if (Number.isFinite(parsed) && parsed >= 0) {
         return Math.floor(parsed);
@@ -104,7 +120,7 @@ export const useSettingsStore = create<SettingsStore>()(
     })(),
 
     maxRenderFps: (() => {
-      const saved = localStorage.getItem('maxRenderFps');
+      const saved = readSetting('maxRenderFps');
       const parsed = saved ? Number(saved) : NaN;
       if (Number.isFinite(parsed) && parsed >= 0) {
         return Math.floor(parsed);
@@ -120,12 +136,12 @@ export const useSettingsStore = create<SettingsStore>()(
 
     // Initialize validation settings from localStorage
     clientMessageValidation: (() => {
-      const saved = localStorage.getItem('clientMessageValidation');
+      const saved = readSetting('clientMessageValidation');
       return (saved as ValidationLevel) || 'off';
     })(),
 
     serverMessageValidation: (() => {
-      const saved = localStorage.getItem('serverMessageValidation');
+      const saved = readSetting('serverMessageValidation');
       return (saved as ValidationLevel) || 'off';
     })(),
 
@@ -196,56 +212,56 @@ export const useSettingsStore = create<SettingsStore>()(
 useSettingsStore.subscribe(
   (state) => state.theme,
   (theme) => {
-    document.body.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
+    globalThis.document?.body?.setAttribute('data-theme', theme);
+    writeSetting('theme', theme);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.saveFormat,
   (format) => {
-    localStorage.setItem('saveFormat', format);
+    writeSetting('saveFormat', format);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.locale,
   (locale) => {
-    localStorage.setItem('locale', locale);
+    writeSetting('locale', locale);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.clientMessageValidation,
   (level) => {
-    localStorage.setItem('clientMessageValidation', level);
+    writeSetting('clientMessageValidation', level);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.serverMessageValidation,
   (level) => {
-    localStorage.setItem('serverMessageValidation', level);
+    writeSetting('serverMessageValidation', level);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.renderTriggerMode,
   (mode) => {
-    localStorage.setItem('renderTriggerMode', mode);
+    writeSetting('renderTriggerMode', mode);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.maxTps,
   (fps) => {
-    localStorage.setItem('maxTps', String(fps));
+    writeSetting('maxTps', String(fps));
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.maxRenderFps,
   (fps) => {
-    localStorage.setItem('maxRenderFps', String(fps));
+    writeSetting('maxRenderFps', String(fps));
   }
 );
