@@ -85,6 +85,35 @@ class TestTenSnapServer:
         assert sent == {"type": "metadata_update", "payload": {"time": 5}}
 
     @pytest.mark.asyncio
+    async def test_action_end_waits_for_queued_state_updates(
+        self, server: TenSnapServer
+    ):
+        mock_client = AsyncMock()
+        mock_client.state = State.OPEN
+        server.clients.add(mock_client)
+
+        await server.broadcast(ServerToClientMessageType.METADATA_UPDATE, {"time": 1})
+        await server.broadcast(
+            ServerToClientMessageType.ITEM_UPDATE,
+            {"env_id": "main", "layer_id": "agents", "items": [{"id": 1, "x": 2}]},
+        )
+        await server.send_action_end(mock_client, "step", tick_id="tick-1")
+
+        sent_messages = [
+            json.loads(call.args[0]) for call in mock_client.send.await_args_list
+        ]
+        assert [message["type"] for message in sent_messages] == [
+            "metadata_update",
+            "item_update",
+            "action_end",
+        ]
+        assert sent_messages[-1]["payload"] == {
+            "id": "step",
+            "tick_id": "tick-1",
+            "timings": {"simulate_ms": 0.0},
+        }
+
+    @pytest.mark.asyncio
     async def test_publish_asset_broadcasts_metadata_and_data(
         self, server: TenSnapServer
     ):

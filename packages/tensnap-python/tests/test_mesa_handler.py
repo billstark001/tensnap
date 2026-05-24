@@ -3,6 +3,11 @@ import pytest
 from tensnap import SimulationScenario
 from tensnap.bindings.mesa import MesaSimulationHandler
 
+try:
+    import mesa
+except ImportError:  # pragma: no cover - optional dev dependency
+    mesa = None
+
 
 class FakeGrid:
     def __init__(self, width: int, height: int):
@@ -24,6 +29,19 @@ class FakeMesaModel:
 
     def step(self) -> None:
         pass
+
+
+if mesa is not None:
+
+    class CountingMesaModel(mesa.Model):  # type: ignore[misc]
+        step_calls = 0
+
+        def __init__(self):
+            super().__init__()
+            self.grid = mesa.space.SingleGrid(1, 1, torus=True)
+
+        def step(self) -> None:
+            type(self).step_calls += 1
 
 
 @pytest.mark.asyncio
@@ -74,3 +92,29 @@ async def test_mesa_handler_reset_uses_explicit_reset_hook_when_provided():
 
     assert handler.model is not None
     assert handler.model.temperature == 7
+
+
+@pytest.mark.skipif(mesa is None, reason="mesa is not installed")
+@pytest.mark.asyncio
+async def test_mesa_handler_reset_does_not_replay_mesa_time():
+    assert mesa is not None
+    CountingMesaModel.step_calls = 0
+    scenario = SimulationScenario()
+    handler = MesaSimulationHandler(model_class=CountingMesaModel)
+
+    await scenario.register_handler(handler)
+
+    assert "time" not in scenario.parameters
+    assert handler.model is not None
+    for _ in range(5):
+        await handler._model_step_impl()
+    assert CountingMesaModel.step_calls == 5
+    assert handler.model.time == 5
+
+    await handler.on_reset()
+
+    assert handler.model is not None
+    assert handler.model.time == 0
+    await handler._model_step_impl()
+    assert CountingMesaModel.step_calls == 6
+    assert handler.model.time == 1

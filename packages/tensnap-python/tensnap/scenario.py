@@ -506,6 +506,7 @@ class SimulationScenario:
         self._time_step: int = 0
         self._initialized: bool = False
         self._init_lock = asyncio.Lock()
+        self._action_lock = asyncio.Lock()
 
         # Handler list — called in registration order for each event
         self._handlers: List[SimulationHandlerProtocol] = []
@@ -714,23 +715,26 @@ class SimulationScenario:
         if handler is None:
             logger.warning(f"No handler for action: {action_id}")
             return
-        started_at = time.perf_counter()
-        try:
-            if inspect.iscoroutinefunction(handler):
-                result = await handler()
-            else:
-                result = await asyncio.get_event_loop().run_in_executor(None, handler)
-            continue_flag = None if result is None else bool(result)
-            await self.server.send_action_end(
-                ws,
-                action_id,  # type: ignore
-                tick_id=tick_id,
-                continue_=continue_flag,
-                simulate_ms=(time.perf_counter() - started_at) * 1000.0,
-            )
-        except Exception as e:
-            logger.exception(f"Action handler error ({action_id}): {e}")
-            await self.server.send_error(ws, f"Error in action '{action_id}': {e}")
+        async with self._action_lock:
+            started_at = time.perf_counter()
+            try:
+                if inspect.iscoroutinefunction(handler):
+                    result = await handler()
+                else:
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        None, handler
+                    )
+                continue_flag = None if result is None else bool(result)
+                await self.server.send_action_end(
+                    ws,
+                    action_id,  # type: ignore
+                    tick_id=tick_id,
+                    continue_=continue_flag,
+                    simulate_ms=(time.perf_counter() - started_at) * 1000.0,
+                )
+            except Exception as e:
+                logger.exception(f"Action handler error ({action_id}): {e}")
+                await self.server.send_error(ws, f"Error in action '{action_id}': {e}")
 
     # endregion
 

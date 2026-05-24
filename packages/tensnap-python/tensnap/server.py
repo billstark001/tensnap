@@ -208,6 +208,7 @@ class TenSnapServer:
             payload["tick_id"] = tick_id
         if continue_ is not None:
             payload["continue"] = continue_
+        await self._queue.flush()
         await self.send(ws, ServerToClientMessageType.ACTION_END, payload)
 
     async def send_error(self, ws: ServerConnection, error: str) -> None:

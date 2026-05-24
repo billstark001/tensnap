@@ -1,5 +1,6 @@
 """Tests for the scenario registry/runtime flow."""
 
+import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -207,6 +208,40 @@ class TestSimulationScenario:
         handler.on_step.assert_not_called()
         assert scenario._time_step == 0
         scenario.server.send.assert_any_await(ws, MT.METADATA_UPDATE, {"time": 0})
+
+    @pytest.mark.asyncio
+    async def test_action_start_serializes_action_handlers(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            def __init__(self):
+                self.active = 0
+                self.max_active = 0
+                self.calls = 0
+
+            @action("slow", "Slow")
+            async def slow(self):
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+                await asyncio.sleep(0)
+                self.calls += 1
+                self.active -= 1
+
+        model = Model()
+        scenario.add_actions(model)
+        scenario.server.send_action_end = AsyncMock()
+
+        await asyncio.gather(
+            scenario._on_action_start(object(), {"id": "slow", "tick_id": "a"}),
+            scenario._on_action_start(object(), {"id": "slow", "tick_id": "b"}),
+        )
+
+        assert model.calls == 2
+        assert model.max_active == 1
+        assert [
+            call.kwargs["tick_id"]
+            for call in scenario.server.send_action_end.await_args_list
+        ] == ["a", "b"]
 
 
 class TestDefaultSimulationHandler:

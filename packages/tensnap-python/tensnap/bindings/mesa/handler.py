@@ -129,7 +129,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         p1 = scenario.add_parameters(
             self.model,
             cfg_suggest=BindParametersConfig(
-                exclude=["running", "steps"], include_private=False
+                exclude=["running", "steps", "time"], include_private=False
             ),
         )
         if not self.on_model_init:

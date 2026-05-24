@@ -80,6 +80,9 @@ def build_default_layered_binder(
 # region Mesa model re-init helper
 
 
+MESA_LIFECYCLE_PARAMETER_IDS = {"running", "steps", "time"}
+
+
 async def mesa_model_reinit(handler: Any) -> None:
     """
     Re-initialize a Mesa-style handler on reset.
@@ -103,6 +106,8 @@ async def mesa_model_reinit(handler: Any) -> None:
 
     replayed: dict[str, Any] = {}
     for key, value in dumped.items():
+        if key in MESA_LIFECYCLE_PARAMETER_IDS:
+            continue
         if key in handler.model_init_kwargs_orig:
             handler.model_init_kwargs[key] = value
         else:

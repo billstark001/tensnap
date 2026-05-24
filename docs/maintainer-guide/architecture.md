@@ -210,6 +210,8 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 
 This keeps loop ownership in the renderer and avoids server-owned hidden timers in the protocol contract.
 
+`action_end` is the action transaction boundary.  A simulator must not send it until all state messages caused by the action have been written to the transport in order.  This applies to reserved actions as well: `step` and one `start` dispatch both advance exactly one tick, while `reset` publishes the rebuilt time-0 state before completing.
+
 ## Python Runtime Architecture
 
 The recommended Python surface is:
@@ -223,6 +225,8 @@ Important semantics:
 - built-in renderer-driven actions are `start`, `step`, and `reset`
 - initial synchronized state is time `0`
 - the first simulated tick after `start` or `step` is time `1`
+- `start` and `step` both execute one tick; `start` is continuous-capable because the renderer may dispatch it repeatedly after each `action_end`
+- `reset` reinitializes the model and broadcasts the resulting time-0 state before its `action_end`
 - if `model_reset` is omitted, reset falls back to `model_init`
 
 Low-level Python integrations should go through `TenSnapServer` and layer-aware update helpers such as:

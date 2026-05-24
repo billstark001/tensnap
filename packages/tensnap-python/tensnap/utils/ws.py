@@ -47,11 +47,15 @@ class BatchedMessageQueue:
 
     async def flush(self) -> None:
         """Public flush method that respects the lock."""
-        if self._closed and not self._queue:
-            return
-        await self._trigger_flush()
-        if self._flush_task:
-            await self._flush_task
+        while True:
+            if self._closed and not self._queue:
+                return
+            await self._trigger_flush()
+            if self._flush_task:
+                await self._flush_task
+            async with self._lock:
+                if not self._queue:
+                    return
 
     async def _flush_impl(self) -> None:
         """Internal flush implementation."""

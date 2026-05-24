@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## tensnap [0.2.1] - 2026-05-25
+
+### Fixed
+
+- Fixed Python action completion ordering so queued state updates are flushed before `action_end`.
+- Fixed Mesa reset handling so lifecycle fields such as `time`, `steps`, and `running` are not replayed as runtime parameters.
+- Serialized Python action execution to prevent concurrent action handlers from interleaving simulator state mutations.
+
 ## @tensnap/go [0.2.2] - 2026-05-24
 
 ### Changed
