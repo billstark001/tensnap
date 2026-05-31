@@ -9,6 +9,7 @@ from tensnap import (
     agent,
     env,
     agent_layer,
+    bind_kwargs,
     grid_layer,
     trajectory_layer,
     bind_datacollector,
@@ -156,6 +157,7 @@ def sugar_field_circular(width: int, height: int):
 )
 @grid_layer()
 @trajectory_layer(agent_layer_id="sugar", width=False, length="t_length")
+@bind_kwargs()
 @bind_datacollector()
 class Sugarscape(Model):
 

@@ -8,7 +8,9 @@ import numpy as np
 import import_config  # noqa: F401
 
 from tensnap import SimulationScenario, chart
-from tensnap.bindings.mesa import MesaSimulationHandler
+from tensnap.bindings.mesa import (
+    BoundModelReinitializer,
+)
 
 from sugarscape import SugarAgent, Sugarscape
 
@@ -16,7 +18,7 @@ from sugarscape import SugarAgent, Sugarscape
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port, use_msgpack=True)
 
-handler: MesaSimulationHandler | None = None
+model: Sugarscape | None = None
 
 # Model configuration
 MODEL_WIDTH = 50
@@ -34,9 +36,7 @@ AGENT_COUNT = 400
 )
 def resource_metrics_chart() -> dict:
     """Get resource metrics"""
-    assert handler is not None
-    assert isinstance(handler.model, Sugarscape)
-    model = handler.model
+    assert model is not None
     if model:
         sugar_on_ground = float(np.sum(model.sugar))
         agent_sugar = sum(cast(SugarAgent, a).sugar for a in model.agents)
@@ -51,18 +51,23 @@ def resource_metrics_chart() -> dict:
 
 # Main function
 async def main() -> None:
-    # The custom handler keeps Mesa's convenience API while exposing the sugar field as a dedicated resource layer.
-    global handler
-    handler = MesaSimulationHandler(
-        model_class=Sugarscape,
-        model_init_kwargs={
-            "width": MODEL_WIDTH,
-            "height": MODEL_HEIGHT,
-            "agent_count": AGENT_COUNT,
-        },
+    global model
+    model = Sugarscape(
+        width=MODEL_WIDTH,
+        height=MODEL_HEIGHT,
+        agent_count=AGENT_COUNT,
+    )
+    reinitializer = BoundModelReinitializer(model)
+    assert model is not None
+
+    reinitializer.register_model(scenario)
+    reinitializer.configure_reinit(scenario)
+    await scenario.register_model_handler(
+        model_init=reinitializer.model_init,
+        model_step=model.step,
+        model_reset=reinitializer.model_reset,
     )
 
-    await scenario.register_handler(handler)
     scenario.add_charts(globals())
 
     print(f"TenSnap Sugarscape visualization starting on ws://localhost:{server_port}")

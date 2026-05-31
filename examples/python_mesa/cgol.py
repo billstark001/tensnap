@@ -4,9 +4,10 @@ import mesa
 import numpy as np
 
 from tensnap import (
-    bind_datacollector,
     agent_layer,
     agent,
+    bind_datacollector,
+    bind_kwargs,
     env,
     grid_layer,
 )
@@ -45,6 +46,7 @@ class Cell(mesa.Agent):
         pass
 
 
+@bind_kwargs()
 @bind_datacollector()
 @agent_layer("cells", item_iterable_projector="agents")
 @grid_layer(width="width", height="height")

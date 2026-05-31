@@ -4,7 +4,13 @@ import pytest
 
 import tensnap.bindings as binding_api
 from tensnap import SimulationScenario
-from tensnap.bindings.mesa import MesaSimulationHandler, bind_datacollector
+from tensnap.bindings.mesa import (
+    BoundModelReinitializer,
+    MesaSimulationHandler,
+    bind_datacollector,
+    bind_kwargs,
+    get_bind_kwargs,
+)
 
 try:
     import mesa as _mesa
@@ -31,6 +37,16 @@ class FakeMesaModel:
         self.grid = FakeGrid(width, height)
         self.temperature = 20
         self.agents = [FakeAgent(index, (index, index)) for index in range(agent_count)]
+
+    def step(self) -> None:
+        pass
+
+
+class WidthFieldMesaModel:
+    def __init__(self, width: int = 5, height: int = 4):
+        self.width = width
+        self.grid = FakeGrid(width, height)
+        self.agents = []
 
     def step(self) -> None:
         pass
@@ -66,7 +82,7 @@ if mesa is not None:
 
 
 @pytest.mark.asyncio
-async def test_mesa_handler_reset_replays_model_and_runtime_parameters():
+async def test_mesa_handler_reset_replays_constructor_kwargs():
     scenario = SimulationScenario()
     handler = MesaSimulationHandler(
         model_class=FakeMesaModel,
@@ -89,7 +105,119 @@ async def test_mesa_handler_reset_replays_model_and_runtime_parameters():
     assert handler.model.grid.width == 8
     assert handler.model.grid.height == 6
     assert len(handler.model.agents) == 5
-    assert handler.model.temperature == 42
+    assert handler.model.temperature == 20
+
+
+@pytest.mark.asyncio
+async def test_mesa_handler_reset_uses_model_field_for_conflicting_kwarg():
+    scenario = SimulationScenario()
+    handler = MesaSimulationHandler(
+        model_class=WidthFieldMesaModel,
+        model_init_kwargs={"width": 8, "height": 6},
+    )
+
+    await scenario.register_handler(handler)
+
+    assert handler.model is not None
+    scenario.set_parameter("width", 11)
+    await handler.on_reset()
+
+    assert handler.model.grid.width == 11
+    assert handler.model.width == 11
+    assert handler.model.grid.height == 6
+
+
+def test_bind_kwargs_uses_static_defaults_before_dynamic_defaults():
+    @bind_kwargs()
+    class ConfiguredModel:
+        def __init__(self, count: int, rate: int, label: str = "static"):
+            self.count = count
+            self.rate = rate
+            self.label = label
+
+    ConfiguredModel(7, rate=9, label="dynamic")
+
+    bindings = {binding.name: binding for binding in get_bind_kwargs(ConfiguredModel)}
+
+    assert bindings["count"].default == 7
+    assert bindings["rate"].default == 9
+    assert bindings["label"].default == "static"
+
+
+def test_bind_kwargs_honors_include_exclude_and_rejects_multiple_configs():
+    @bind_kwargs(include=["width", "height"], exclude=["height"])
+    class ConfiguredModel:
+        def __init__(self, width: int = 5, height: int = 4, seed: int = 1):
+            self.width = width
+            self.height = height
+            self.seed = seed
+
+    bindings = [binding.name for binding in get_bind_kwargs(ConfiguredModel)]
+
+    assert bindings == ["width"]
+    with pytest.raises(ValueError):
+        bind_kwargs()(ConfiguredModel)
+
+
+def test_bound_model_reinitializer_registers_non_conflicting_kwargs_only():
+    class Model:
+        def __init__(self, width: int = 5, agent_count: int = 2):
+            self.width = width
+            self.agent_count_seen = agent_count
+
+    model = Model(width=8, agent_count=3)
+    reinitializer = BoundModelReinitializer(
+        model,
+        init_kwargs={"width": 8, "agent_count": 3},
+    )
+    scenario = SimulationScenario()
+
+    model_changes = scenario.add_parameters(model)
+    kwarg_changes = scenario.add_parameters(reinitializer)
+
+    assert "width" in model_changes["parameters"]
+    assert kwarg_changes == {"parameters": ["agent_count"]}
+
+    scenario.set_parameter("width", 9)
+    scenario.set_parameter("agent_count", 4)
+    reinitializer.reinitialize_model()
+
+    assert model.width == 9
+    assert model.agent_count_seen == 4
+
+
+def test_bound_model_reinitializer_supports_add_all_and_default_registration():
+    class Model:
+        def __init__(self, width: int, agent_count: int):
+            self.width = width
+            self._agent_count_seen = agent_count
+
+    model = Model(width=8, agent_count=3)
+    reinitializer = BoundModelReinitializer(
+        model,
+        init_kwargs={"width": 8, "agent_count": 3},
+    )
+    scenario = SimulationScenario()
+
+    dry_run = scenario.add_all(reinitializer, dry_run=True)
+    registered = reinitializer.register_model(scenario)
+    reinitializer.configure_reinit(scenario)
+
+    assert dry_run == {
+        "environments": [],
+        "layers": [],
+        "parameters": ["agent_count"],
+        "actions": [],
+        "charts": [],
+    }
+    assert registered["parameters"] == ["width", "agent_count"]
+
+    scenario.set_parameter("width", 10)
+    scenario.set_parameter("agent_count", 5)
+    reinitializer.reinitialize_model()
+
+    assert model.width == 10
+    assert model._agent_count_seen == 5
 
 
 def test_bind_datacollector_injects_charts_after_model_init_without_handler_magic():

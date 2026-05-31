@@ -412,9 +412,16 @@ def get_parameter_metadata_from_namespace(
                 and "string"
                 or "number"
             )
-            custom_binding = BindParametersConfig.evaluate_custom_binding(cfg_list, name) or {}
+            custom_binding = (
+                BindParametersConfig.evaluate_custom_binding(cfg_list, name) or {}
+            )
             parameters.append(
-                (name, create_parameter(id=name, type=val_type, value=value, **custom_binding))
+                (
+                    name,
+                    create_parameter(
+                        id=name, type=val_type, value=value, **custom_binding
+                    ),
+                )
             )
     return parameters
 
@@ -451,6 +458,10 @@ def get_parameter_metadata_from_object(
     obj: Any, *cfg_suggest: BindParametersConfig
 ) -> List[Tuple[str, Parameter]]:
     """Find all parameter metadata in a given object."""
+
+    provider = getattr(obj, "__tensnap_parameter_metadata__", None)
+    if callable(provider):
+        return provider(*cfg_suggest)
 
     if isinstance(obj, dict):
         return get_parameter_metadata_from_namespace(obj, *cfg_suggest)
@@ -507,9 +518,16 @@ def get_parameter_metadata_from_object(
                 and "string"
                 or "number"
             )
-            custom_binding = BindParametersConfig.evaluate_custom_binding(cfg_list, name) or {}
+            custom_binding = (
+                BindParametersConfig.evaluate_custom_binding(cfg_list, name) or {}
+            )
             parameters.append(
-                (name, create_parameter(id=name, type=val_type, value=value, **custom_binding))
+                (
+                    name,
+                    create_parameter(
+                        id=name, type=val_type, value=value, **custom_binding
+                    ),
+                )
             )
 
         return parameters

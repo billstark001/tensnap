@@ -10,6 +10,7 @@ from tensnap.bindings.basic.chart import (
 )
 from tensnap.utils.init_hook import OnceInitHookHandle, install_once_init_hook
 
+
 def get_registered_collectors(datacollector: Any) -> list[str]:
     """
     Get a list of all registered collector names in the DataCollector.

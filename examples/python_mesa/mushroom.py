@@ -9,6 +9,7 @@ from tensnap import (
     agent,
     env,
     agent_layer,
+    bind_kwargs,
     grid_layer,
     trajectory_layer,
 )
@@ -139,6 +140,7 @@ class Patch(mesa.Agent):  # type: ignore[misc]
 @agent_layer("hunters", item_iterable_projector="hunters", coord_offset="c_hunter")
 @grid_layer(width="width", height="height")
 @env()
+@bind_kwargs()
 class ForagingModel(mesa.Model):  # type: ignore[misc]
 
     length: int = 10

@@ -178,6 +178,39 @@ class TestSimulationScenario:
             "charts": ["population"],
         }
 
+    def test_add_all_dry_run_reports_changes_without_mutating_state(
+        self, scenario: SimulationScenario
+    ):
+        @grid_layer(width="width", height="height")
+        @env(id="world")
+        class Model:
+            def __init__(self):
+                self.width = 10
+                self.height = 8
+                self.speed = 1
+
+            @chart("population", "Population")
+            def population(self):
+                return 42
+
+            @action("tick", "Tick")
+            def tick(self):
+                pass
+
+        changes = scenario.add_all(Model(), dry_run=True)
+
+        assert changes == {
+            "environments": ["world"],
+            "layers": ["world.grid"],
+            "parameters": ["height", "speed", "width"],
+            "actions": ["tick"],
+            "charts": ["population"],
+        }
+        assert scenario.environments == {}
+        assert scenario.parameters == {}
+        assert set(scenario.actions) == {"start", "step", "reset"}
+        assert scenario.charts == {}
+
     def test_remove_all_returns_changes_without_removing_builtin_actions(
         self, scenario: SimulationScenario
     ):
@@ -215,9 +248,7 @@ class TestSimulationScenario:
         assert {"start", "step", "reset"}.issubset(scenario.actions)
         assert "tick" not in scenario.actions
 
-    def test_remove_by_dict_ignores_missing_entries(
-        self, scenario: SimulationScenario
-    ):
+    def test_remove_by_dict_ignores_missing_entries(self, scenario: SimulationScenario):
         class Model:
             def __init__(self):
                 self.speed = 1

@@ -408,12 +408,18 @@ class SimulationScenario:
     # region State management — environments
 
     def add_environment_binding(
-        self, binding: EnvironmentBinding | EnvironmentRegistration
+        self,
+        binding: EnvironmentBinding | EnvironmentRegistration,
+        *,
+        dry_run: bool = False,
     ) -> Dict[str, List[str]]:
         if not isinstance(binding, (EnvironmentBinding, EnvironmentRegistration)):
             raise TypeError(
                 "add_environment expects an EnvironmentBinding or EnvironmentRegistration."
             )
+
+        if dry_run:
+            return _registry_change("environments", [binding.id])
 
         if isinstance(binding, EnvironmentRegistration):
             registration = binding
@@ -427,10 +433,24 @@ class SimulationScenario:
         self.environments[registration.id] = registration
         return _registry_change("environments", [registration.id])
 
-    def add_environment(self, target: object) -> Dict[str, List[str]]:
+    def add_environment(
+        self, target: object, *, dry_run: bool = False
+    ) -> Dict[str, List[str]]:
         environment_binding, layer_bindings = binding_api.bindings(target)
         if environment_binding is None:
             raise ValueError(f"Target has no attached environment binding: {target}")
+
+        if dry_run:
+            return _merge_registry_changes(
+                _registry_change("environments", [environment_binding.id]),
+                _registry_change(
+                    "layers",
+                    [
+                        _layer_registry_id(environment_binding.id, layer.layer_id)
+                        for layer in layer_bindings
+                    ],
+                ),
+            )
 
         changes = [self.add_environment_binding(environment_binding)]
         for layer_binding in layer_bindings:
@@ -444,9 +464,16 @@ class SimulationScenario:
         env_id: str,
         binding: LayerBinding[Any, Any, Any, Any],
         target: Any,
+        *,
+        dry_run: bool = False,
     ) -> Dict[str, List[str]]:
         if not isinstance(binding, LayerBinding):
             raise TypeError("add_layer expects a LayerBinding.")
+
+        if dry_run:
+            return _registry_change(
+                "layers", [_layer_registry_id(env_id, binding.layer_id)]
+            )
 
         environment = self.environments.get(env_id)
         if environment is None:
@@ -464,10 +491,14 @@ class SimulationScenario:
             "layers", [_layer_registry_id(env_id, binding.layer_id)]
         )
 
-    def add_bound_layers(self, env_id: str, target: object) -> Dict[str, List[str]]:
+    def add_bound_layers(
+        self, env_id: str, target: object, *, dry_run: bool = False
+    ) -> Dict[str, List[str]]:
         changes: List[Dict[str, List[str]]] = []
         for layer_binding in binding_api.layer_bindings(target):
-            changes.append(self.add_layer_binding(env_id, layer_binding, target))
+            changes.append(
+                self.add_layer_binding(env_id, layer_binding, target, dry_run=dry_run)
+            )
         return _merge_registry_changes(*changes) or _registry_change("layers", [])
 
     def set_layer_target(self, env_id: str, layer_id: str, target: Any) -> None:
@@ -526,6 +557,7 @@ class SimulationScenario:
         self,
         target: Union[Dict[str, Any], ModuleType, object],
         *cfg_suggest: BindParametersConfig,
+        dry_run: bool = False,
     ) -> Dict[str, List[str]]:
         """
         Inspect ``target`` and register any annotated parameters.
@@ -534,6 +566,9 @@ class SimulationScenario:
         """
         added_params: List[str] = []
         parameters = binding_api.parameters(target, *cfg_suggest)
+        if dry_run:
+            return _registry_change("parameters", [param.id for _, param in parameters])
+
         if isinstance(target, dict):
             for name, param in parameters:
                 getter, setter = make_dict_getter_and_setter(name, target)
@@ -572,12 +607,18 @@ class SimulationScenario:
     # region State management — charts
 
     def add_charts(
-        self, target: Union[Dict[str, Any], ModuleType, object]
+        self,
+        target: Union[Dict[str, Any], ModuleType, object],
+        *,
+        dry_run: bool = False,
     ) -> Dict[str, List[str]]:
         """Inspect ``target`` and register any annotated chart getters. Returns added IDs."""
         added: List[str] = []
         for _, func, chart in binding_api.charts(target):
             if func is None:
+                continue
+            if dry_run:
+                added.append(chart.id)
                 continue
             self.charts[chart.id] = (chart, func)
             added.append(chart.id)
@@ -605,12 +646,18 @@ class SimulationScenario:
         self._action_handlers[meta.id] = handler
 
     def add_actions(
-        self, target: Union[Dict[str, Any], ModuleType, object]
+        self,
+        target: Union[Dict[str, Any], ModuleType, object],
+        *,
+        dry_run: bool = False,
     ) -> Dict[str, List[str]]:
         """Register actions found on ``target`` (does not re-register built-ins)."""
         added: List[str] = []
         for _, func, meta in binding_api.actions(target):
             if func is None:
+                continue
+            if dry_run:
+                added.append(meta.id)
                 continue
             self._register_action(meta, func)
             added.append(meta.id)
@@ -636,11 +683,12 @@ class SimulationScenario:
         self,
         target: Union[Dict[str, Any], ModuleType, object],
         *cfg_suggest: BindParametersConfig,
+        dry_run: bool = False,
     ) -> Dict[str, List[str]]:
         changes: List[Dict[str, List[str]]] = []
         environment_binding = binding_api.environment_binding(target)
         if environment_binding is not None:
-            changes.append(self.add_environment(target))
+            changes.append(self.add_environment(target, dry_run=dry_run))
         else:
             changes.append(
                 _merge_registry_changes(
@@ -648,9 +696,9 @@ class SimulationScenario:
                     _registry_change("layers", []),
                 )
             )
-        changes.append(self.add_parameters(target, *cfg_suggest))
-        changes.append(self.add_actions(target))
-        changes.append(self.add_charts(target))
+        changes.append(self.add_parameters(target, *cfg_suggest, dry_run=dry_run))
+        changes.append(self.add_actions(target, dry_run=dry_run))
+        changes.append(self.add_charts(target, dry_run=dry_run))
         return _merge_registry_changes(*changes)
 
     def remove_all(self) -> Dict[str, List[str]]:
@@ -662,8 +710,7 @@ class SimulationScenario:
         action_changes = [self.remove_action(action_id) for action_id in action_ids]
         return _merge_registry_changes(
             self.remove_all_charts(),
-            _merge_registry_changes(*action_changes)
-            or _registry_change("actions", []),
+            _merge_registry_changes(*action_changes) or _registry_change("actions", []),
             self.remove_all_parameters(),
             self.remove_all_environments(),
         )

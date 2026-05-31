@@ -1,4 +1,6 @@
-from typing import Dict, TypeVar, Any, Type
+from typing import Dict, TypeVar, Type
+
+import inspect
 
 TKey = TypeVar("TKey", bound=str)
 TValue = TypeVar("TValue")
@@ -35,3 +37,32 @@ def extend(cls: Type[TClass]):
         return func
 
     return decorator
+
+
+def get_init_args(cls: Type[TClass]):
+    sig = inspect.signature(cls)
+    result = {}
+
+    for name, param in sig.parameters.items():
+        if param.kind in (
+            inspect.Parameter.KEYWORD_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            if param.default is inspect.Parameter.empty:
+                default = None
+                required = True
+            else:
+                default = param.default
+                required = False
+
+            result[name] = {
+                "default": default,
+                "required": required,
+                "annotation": (
+                    param.annotation
+                    if param.annotation is not inspect.Parameter.empty
+                    else None
+                ),
+            }
+
+    return result

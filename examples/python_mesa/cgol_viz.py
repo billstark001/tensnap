@@ -1,13 +1,12 @@
 import asyncio
 import os
-from typing import cast
 
 # Configure import path (pip-installed vs source)
 import import_config  # noqa: F401
 
 from tensnap import SimulationScenario
 from tensnap.bindings.mesa import (
-    MesaSimulationHandler,
+    BoundModelReinitializer,
 )
 
 from cgol import GameOfLife
@@ -20,16 +19,19 @@ scenario = SimulationScenario(port=server_port, use_msgpack=True)
 MODEL_WIDTH = 50
 MODEL_HEIGHT = 50
 
+model = GameOfLife(width=MODEL_WIDTH, height=MODEL_HEIGHT)
+reinitializer = BoundModelReinitializer(model)
+
 
 # Main function
 async def main() -> None:
-    # MesaSimulationHandler now syncs through the canonical 2d/layer environment model under the hood.
-    handler = MesaSimulationHandler(
-        model_class=GameOfLife,
-        model_init_kwargs={"width": MODEL_WIDTH, "height": MODEL_HEIGHT},
+    reinitializer.register_model(scenario)
+    reinitializer.configure_reinit(scenario)
+    await scenario.register_model_handler(
+        model_init=reinitializer.model_init,
+        model_step=lambda: model.step(),
+        model_reset=reinitializer.model_reset,
     )
-
-    await scenario.register_handler(handler)
 
     print(
         f"TenSnap Game of Life visualization starting on ws://localhost:{server_port}"

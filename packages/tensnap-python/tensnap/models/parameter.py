@@ -30,7 +30,6 @@ class ParameterState(TypedDict):
 
 from dataclasses import dataclass, asdict, field
 
-
 # region Parameter Classes
 
 
