@@ -188,13 +188,14 @@ TenSnap is organized as a monorepo:
 ```
 tensnap/
 ├── docs/                        # User and maintainer documentation
-├── examples/                    # Runnable Go, Python, JavaScript, and Mesa examples
+├── examples/                    # Runnable Go, Python, Julia, JavaScript, and Mesa examples
 │   └── js/                      # Built-in JS examples, manifests, and local transports
 ├── packages/
 │   ├── benchmark/               # Rendering/runtime benchmarks
 │   ├── core/                    # Shared protocol, Scenario, runtime, rendering primitives
 │   ├── tensnap-agent/           # Headless runtime and agent/session tooling
 │   ├── tensnap-go/              # Go protocol, ABM helpers, and WebSocket server
+│   ├── tensnap-julia/           # Julia bindings and WebSocket simulator server
 │   ├── tensnap-python/          # Python bindings and server/runtime integration
 │   ├── tensnap-tauri/           # Desktop wrapper around the web app
 │   ├── tensnap-web/             # React renderer application
@@ -210,6 +211,7 @@ tensnap/
 - **tensnap-tauri**: Desktop shell reusing the web renderer.
 - **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.
 - **tensnap-go**: Go protocol package, declarative ABM helpers, and WebSocket simulator server.
+- **tensnap-julia**: Julia binding builders, Agents.jl-compatible projectors, JSON WebSocket simulator server, incremental item diffing, and asset helpers.
 - **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
 - **examples/js**: Built-in JavaScript models, example manifests, websocket demo entrypoints, and transport-driven benchmark cases.
 - **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.
@@ -241,6 +243,7 @@ TenSnap was developed to address the gap between NetLogo's excellent interactive
 
 - **[Documentation](./docs/)** - Complete documentation
 - **[Go Examples](./examples/go/)** - Go examples and simulator entry points
+- **[Julia Examples](./examples/julia/)** - Julia examples and simulator entry points
 - **[Python Examples](./examples/python/)** - Standard Python examples
 - **[Mesa Examples](./examples/python_mesa/)** - Mesa-based examples
 - **[Issues](https://github.com/billstark001/tensnap/issues)** - Report bugs or request features

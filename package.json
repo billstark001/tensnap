@@ -42,7 +42,9 @@
     "test": "pnpm -r test",
     "clean": "pnpm -r clean && rm -rf node_modules",
     "update-icons": "node scripts/update-icons.mjs",
-    "release": "node scripts/release.mjs"
+    "release": "node scripts/release.mjs",
+    "dev:julia:el-farol": "pnpm --filter @tensnap/julia demo:el-farol",
+    "test:julia": "pnpm --filter @tensnap/julia test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

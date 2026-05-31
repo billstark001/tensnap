@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/julia [0.2.0] - 2026-05-31
+
+### Added
+
+- Added the initial TenSnap.jl binding package with JSON WebSocket transport, scenario lifecycle actions, parameters, charts, environments, layers, and Agents.jl-compatible projection helpers.
+- Added fine-grained Julia environment/layer CRD helpers, incremental layer item diffing, asset cache synchronization, and screenshot request/response plumbing.
+- Added Julia tests and pnpm static protocol-invariant checks, plus a split El Farol example with pure dynamics and a visualization entrypoint.
+- Added a Python/Go/Julia binding feature matrix documenting parity and remaining Julia follow-up items.
+
+### Changed
+
+- Integrated the Julia binding package with the pnpm workspace helper scripts and aligned package metadata with the `0.2.x` release line.
+
 ## @tensnap/python [0.2.2] - 2026-05-31
 
 ### Changed

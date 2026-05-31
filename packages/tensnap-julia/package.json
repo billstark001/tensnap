@@ -1,0 +1,19 @@
+{
+  "name": "@tensnap/julia",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Julia bindings for the TenSnap visualization protocol.",
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/static-test.mjs",
+    "test:julia": "julia --project=. -e 'using Pkg; Pkg.test()'",
+    "demo:el-farol": "julia --project=. ../../examples/julia/el_farol_viz.jl",
+    "clean": "rm -rf .julia/compiled"
+  },
+  "keywords": [
+    "tensnap",
+    "julia",
+    "agent-based-modeling",
+    "visualization"
+  ]
+}
