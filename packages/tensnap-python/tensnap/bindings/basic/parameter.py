@@ -1,11 +1,13 @@
 # tensnap/bindings/basic/parameters.py
 """Enhanced parameter decorators and bindings with automatic detection"""
 
+from dataclasses import asdict
 from typing import (
     Annotated,
     Any,
     Callable,
     Optional,
+    Pattern,
     List,
     Tuple,
     get_args,
@@ -13,12 +15,14 @@ from typing import (
     get_type_hints,
     overload,
     Union,
+    TypeVar,
     Literal,
     Dict,
 )
 
 import types
 import re
+import importlib
 
 from tensnap.models.parameter import (
     BooleanParameter,
@@ -33,9 +37,9 @@ from tensnap.models.parameter import (
 )
 
 try:
-    from mesa import Model as MesaModel
+    MesaModel: Any = getattr(importlib.import_module("mesa"), "Model", None)
 except ImportError:
-    MesaModel = None  # type: ignore
+    MesaModel = None
 
 
 # region Binding Classes
@@ -150,78 +154,191 @@ class BindParameterConfig:
 
 param = BindParameterConfig  # Alias
 
-_MESA_FIELDS = {
-    "running",
-    "steps",
-}
+
+T = TypeVar("T", bound=type)
+
+FieldSelector = Union[List[str], str, None]
 
 
 class BindParametersConfig:
-    """Configuration for automatic parameter detection"""
+    """
+    Configuration for automatic parameter detection.
+
+    A single config uses tri-state decisions:
+
+    - True: this config explicitly includes/excludes the field.
+    - False: this config explicitly rejects the field.
+    - None: this config has no opinion.
+
+    Multiple configs can be stacked as decorators. They are stored on the
+    decorated class, and later-added configs override earlier-added configs.
+    """
+
+    CONFIG_LIST_ATTR = "_tensnap_bind_parameters_config_list"
 
     def __init__(
         self,
-        include: Optional[List[str] | str] = None,
-        exclude: Optional[List[str] | str] = None,
+        include: FieldSelector = None,
+        exclude: FieldSelector = None,
         include_private: bool = False,
         custom_bindings: Optional[Dict[str, Parameter]] = None,
-    ):
+    ) -> None:
+        self.include_fields: Optional[set[str]]
+        self.exclude_fields: Optional[set[str]]
+        self.include_re: Optional[Pattern[str]]
+        self.exclude_re: Optional[Pattern[str]]
+
         if isinstance(include, str):
-            self.include_re = include
+            self.include_re = re.compile(include)
             self.include_fields = None
         else:
             self.include_fields = set(include) if include else None
             self.include_re = None
+
         if isinstance(exclude, str):
-            self.exclude_re = exclude
+            self.exclude_re = re.compile(exclude)
             self.exclude_fields = None
         else:
             self.exclude_fields = set(exclude) if exclude else None
             self.exclude_re = None
 
         self.include_private = include_private
-        self._exclude_mesa_fields = False
         self.custom_bindings = custom_bindings or {}
 
-    def is_included_raw(self, field_name: str) -> bool:
-        if self.include_re:
-            if not re.match(self.include_re, field_name):
-                return False
-        if self.include_fields:
-            if field_name not in self.include_fields:
-                return False
-        if self.include_private is False:
-            if field_name.startswith("_"):
-                return False
-        return True
+    def is_included_raw(self, field_name: str) -> Optional[bool]:
+        """
+        Return whether this config explicitly includes a field.
 
-    def is_excluded_raw(self, field_name: str) -> bool:
-        if self.exclude_re:
-            if re.match(self.exclude_re, field_name):
+        None means this config has no inclusion opinion.
+        """
+        if not self.include_private and field_name.startswith("_"):
+            return False
+
+        if self.include_re is not None:
+            return bool(self.include_re.match(field_name))
+
+        if self.include_fields is not None:
+            return field_name in self.include_fields
+
+        return None
+
+    def is_excluded_raw(self, field_name: str) -> Optional[bool]:
+        """
+        Return whether this config explicitly excludes a field.
+
+        None means this config has no exclusion opinion.
+        """
+        if self.exclude_re is not None:
+            if self.exclude_re.match(field_name):
                 return True
-        if self.exclude_fields:
+            return None
+
+        if self.exclude_fields is not None:
             if field_name in self.exclude_fields:
                 return True
-        if self._exclude_mesa_fields:
-            # Exclude common Mesa Model fields
-            if field_name in _MESA_FIELDS:
-                return True
-        return False
+            return None
 
-    def is_included(self, field_name: str) -> bool:
-        if not self.is_included_raw(field_name):
+        return None
+
+    def is_excluded(self, field_name: str) -> Optional[bool]:
+        """
+        Return the exclusion decision made by this config.
+
+        This method returns None when no exclusion rule applies.
+        """
+        return self.is_excluded_raw(field_name)
+
+    def is_included(self, field_name: str) -> Optional[bool]:
+        """
+        Return the inclusion decision made by this config.
+
+        Exclusion wins inside a single config. If this config has no relevant
+        include or exclude rule, None is returned.
+        """
+        excluded = self.is_excluded_raw(field_name)
+        if excluded is True:
             return False
-        if self.exclude_fields or self.exclude_re:
-            if self.is_excluded_raw(field_name):
-                return False
-        return True
 
-    def __call__(self, cls):
-        """Decorator to apply config to a class"""
-        cls._tensnap_bind_parameters_config = self  # type: ignore
-        if MesaModel is not None and isinstance(cls, MesaModel):
-            self._exclude_mesa_fields = True
+        return self.is_included_raw(field_name)
+
+    def __call__(self, cls: T) -> T:
+        """
+        Apply this config to a class as a decorator.
+
+        Decorators are appended in the order in which Python calls them.
+        The resolver evaluates the list from back to front, so later-added
+        configs override earlier-added configs.
+        """
+        configs = list(getattr(cls, self.CONFIG_LIST_ATTR, []))
+        configs.append(self)
+        setattr(cls, self.CONFIG_LIST_ATTR, configs)
         return cls
+
+    def get_custom_binding(
+        self, field_name: str, match_type: ParameterType | None = None
+    ):
+        binding = self.custom_bindings.get(field_name, None)
+        if not binding:
+            return None
+        if match_type is not None and binding.type != match_type:
+            return None
+        custom_dict = asdict(binding)
+        custom_dict.pop("id")
+        custom_dict.pop("value")
+
+        return custom_dict
+
+    @classmethod
+    def get_configs(cls, target_cls: type) -> List["BindParametersConfig"]:
+        """Return all configs attached to a class."""
+        return list(getattr(target_cls, cls.CONFIG_LIST_ATTR, []))
+
+    @staticmethod
+    def evaluate_is_included(
+        configs: List["BindParametersConfig"],
+        field_name: str,
+        *,
+        default: bool = True,
+    ) -> bool:
+        """
+        Resolve the final inclusion decision for a field.
+
+        Configs are evaluated from back to front. The first non-None decision
+        wins. If every config returns None, `default` is returned.
+
+        This method always returns a bool.
+        """
+
+        for config in reversed(configs):
+            decision = config.is_included(field_name)
+            if decision is not None:
+                return decision
+
+        return default
+
+    @staticmethod
+    def evaluate_custom_binding(
+        configs: List["BindParametersConfig"],
+        field_name: str,
+    ):
+        p_type: ParameterType | None = None
+        # former dicts override latter dicts
+        result_dicts: List[Dict[str, Any]] = []
+        for config in reversed(configs):
+            custom = config.get_custom_binding(field_name, p_type)
+            if not custom:
+                continue
+
+            if p_type is None:
+                custom_type: ParameterType = custom.pop("type")
+                p_type = custom_type
+            result_dicts.append(custom)
+
+        result_dict = {}
+        for d in reversed(result_dicts):
+            result_dict.update(d)
+
+        return result_dict
 
 
 params = BindParametersConfig  # Alias
@@ -274,15 +391,16 @@ def get_field_metadata(cls: "type"):
 
 
 def get_parameter_metadata_from_namespace(
-    namespace: Dict[str, Any], cfg_suggest: Optional[BindParametersConfig] = None
+    namespace: Dict[str, Any],
+    *cfg_suggest: BindParametersConfig,
 ) -> List[Tuple[str, Parameter]]:
     """Find all parameter metadata in a given namespace."""
-    cfg = cfg_suggest or BindParametersConfig()
+    cfg_list = list(cfg_suggest)
     parameters: List[Tuple[str, Parameter]] = []
     for name, value in namespace.items():
         if name.startswith("__") and name.endswith("__"):
             continue
-        if not cfg.is_included(name):
+        if not BindParametersConfig.evaluate_is_included(cfg_list, name):
             continue
         if isinstance(value, BindParameterConfig):
             parameters.append((name, value.metadata))
@@ -294,42 +412,75 @@ def get_parameter_metadata_from_namespace(
                 and "string"
                 or "number"
             )
+            custom_binding = BindParametersConfig.evaluate_custom_binding(cfg_list, name) or {}
             parameters.append(
-                (name, create_parameter(id=name, type=val_type, value=value))
+                (name, create_parameter(id=name, type=val_type, value=value, **custom_binding))
             )
     return parameters
 
 
+_default_mesa_parameter_config = BindParametersConfig(
+    exclude=["agent_id_counter", "time", "running", "steps"]
+)
+
+
+def _is_probably_mesa_model_class(cls) -> bool:
+    if not isinstance(cls, type):
+        print(f"{cls} is not a class.")
+        return False
+
+    model_cls: Any = None
+    try:
+        import importlib
+
+        model_cls = getattr(importlib.import_module("mesa"), "Model", None)
+    except Exception:
+        pass
+
+    if isinstance(model_cls, type):
+        return issubclass(cls, model_cls)
+
+    return any(
+        base.__name__ == "Agent"
+        and (base.__module__ == "mesa" or base.__module__.startswith("mesa."))
+        for base in getattr(cls, "__mro__", ())
+    )
+
+
 def get_parameter_metadata_from_object(
-    obj: Any, cfg_suggest: Optional[BindParametersConfig] = None
+    obj: Any, *cfg_suggest: BindParametersConfig
 ) -> List[Tuple[str, Parameter]]:
     """Find all parameter metadata in a given object."""
 
     if isinstance(obj, dict):
-        return get_parameter_metadata_from_namespace(obj, cfg_suggest)
+        return get_parameter_metadata_from_namespace(obj, *cfg_suggest)
 
     if isinstance(obj, types.ModuleType) or (
         hasattr(obj, "__dict__") and not hasattr(obj, "__class__")
     ):
-        return get_parameter_metadata_from_namespace(vars(obj), cfg_suggest)
+        return get_parameter_metadata_from_namespace(vars(obj), *cfg_suggest)
 
     if hasattr(obj, "__class__"):
+        # 0. get config list
         cls = obj.__class__
-        cfg = (
-            getattr(cls, "_tensnap_bind_parameters_config", None)
-            or cfg_suggest
-            or BindParametersConfig()
-        )
+        cfg_list: List[BindParametersConfig] = []
+        if _is_probably_mesa_model_class(cls):
+            cfg_list.append(_default_mesa_parameter_config)
+        if cfg_suggest:
+            cfg_list.extend(cfg_suggest)
+        cfg_list.extend(BindParametersConfig.get_configs(cls))
+        if not cfg_suggest:
+            cfg_list.append(BindParametersConfig())
         # 1. fetch class metadata
         # this overrides annotated config, but retains suggested config
-        parameters = get_parameter_metadata_from_namespace(vars(cls), cfg)
+        parameters = get_parameter_metadata_from_namespace(vars(cls), *cfg_list)
         # 2. annotated class fields
         # this also overrides annotated config
         field_metadata = get_field_metadata(cls)
         for field_name, field_info in field_metadata.items():
             if field_name.startswith("__") and field_name.endswith("__"):
                 continue
-            if not cfg.is_included(field_name):
+            if not BindParametersConfig.evaluate_is_included(cfg_list, field_name):
                 continue
             for meta in field_info["metadata"]:
                 if meta.type == "action":
@@ -342,7 +493,9 @@ def get_parameter_metadata_from_object(
                 continue
             if name in keys_fetched:
                 continue
-            if cfg is not None and not cfg.is_included(name):
+            if cfg_list and not BindParametersConfig.evaluate_is_included(
+                cfg_list, name
+            ):
                 continue
             value = getattr(obj, name)
             if not isinstance(value, (int, float, bool, str)) and value is not None:
@@ -354,8 +507,9 @@ def get_parameter_metadata_from_object(
                 and "string"
                 or "number"
             )
+            custom_binding = BindParametersConfig.evaluate_custom_binding(cfg_list, name) or {}
             parameters.append(
-                (name, create_parameter(id=name, type=val_type, value=value))
+                (name, create_parameter(id=name, type=val_type, value=value, **custom_binding))
             )
 
         return parameters

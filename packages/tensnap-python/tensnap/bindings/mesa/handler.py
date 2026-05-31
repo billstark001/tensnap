@@ -11,10 +11,9 @@ start / reset coroutines are registered as actions during __init__.
 import logging
 from collections.abc import Callable
 from typing import (
-    Dict,
+    Any,
     List,
     Optional,
-    Protocol,
     TYPE_CHECKING,
 )
 
@@ -25,14 +24,11 @@ from tensnap.bindings.mesa.helper import (
     build_default_layered_binder,
     mesa_model_reinit,
 )
-from tensnap.models import EnvironmentBinding, EnvironmentState
+from tensnap.models import EnvironmentBinding
 from tensnap.scenario import DefaultSimulationHandler
 from tensnap.utils.func import call_function
 
 if TYPE_CHECKING:
-    from mesa.model import Model
-    from websockets.asyncio.server import ServerConnection
-    from tensnap.models import EnvironmentLayerState
     from tensnap.scenario import SimulationScenario
 
 logger = logging.getLogger(__name__)
@@ -51,7 +47,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
 
     def __init__(
         self,
-        model_class: "type[Model]",
+        model_class: type[Any],
         model_init_args: Optional[list] = None,
         model_init_kwargs: Optional[dict] = None,
         agent_iterable_projector: "str | Callable" = "agents",
@@ -73,7 +69,7 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         self.on_model_step = on_model_step
         self.on_model_reset = on_model_reset
 
-        self.model: Optional["Model"] = None
+        self.model: Optional[Any] = None
         self.environment_id: Optional[str] = None
         self._auto_params: List[str] = []
         self._auto_charts: List[str] = []
@@ -89,9 +85,6 @@ class MesaSimulationHandler(DefaultSimulationHandler):
             self.model.__init__(*self.model_init_args, **self.model_init_kwargs)
             return
         self.model = self.model_class(*self.model_init_args, **self.model_init_kwargs)
-        if hasattr(self.model.__class__, "_tensnap_bind_datacollector_config"):
-            cfg = getattr(self.model.__class__, "_tensnap_bind_datacollector_config")
-            cfg.inject_func(self.model)
 
     def _unregister_auto(self, scenario: "SimulationScenario") -> None:
         scenario.remove_parameters(self._auto_params)
@@ -126,17 +119,12 @@ class MesaSimulationHandler(DefaultSimulationHandler):
             self.environment_id = environment_binding.id
             scenario.add_actions({})
 
-        p1 = scenario.add_parameters(
-            self.model,
-            cfg_suggest=BindParametersConfig(
-                exclude=["running", "steps", "time"], include_private=False
-            ),
-        )
+        p1 = scenario.add_parameters(self.model).get("parameters", [])
         if not self.on_model_init:
-            p2 = scenario.add_parameters(self.model_init_kwargs)
+            p2 = scenario.add_parameters(self.model_init_kwargs).get("parameters", [])
             p1.extend(p2)
         self._auto_params = p1
-        self._auto_charts = scenario.add_charts(self.model)
+        self._auto_charts = scenario.add_charts(self.model).get("charts", [])
 
     async def _model_init_impl(self) -> None:
         if self.on_model_init:

@@ -1,12 +1,17 @@
+from typing import Any
+
 import pytest
 
+import tensnap.bindings as binding_api
 from tensnap import SimulationScenario
-from tensnap.bindings.mesa import MesaSimulationHandler
+from tensnap.bindings.mesa import MesaSimulationHandler, bind_datacollector
 
 try:
-    import mesa
+    import mesa as _mesa
 except ImportError:  # pragma: no cover - optional dev dependency
-    mesa = None
+    _mesa = None
+
+mesa: Any = _mesa
 
 
 class FakeGrid:
@@ -26,6 +31,22 @@ class FakeMesaModel:
         self.grid = FakeGrid(width, height)
         self.temperature = 20
         self.agents = [FakeAgent(index, (index, index)) for index in range(agent_count)]
+
+    def step(self) -> None:
+        pass
+
+
+class FakeDataCollector:
+    def __init__(self):
+        self.model_reporters = {"Temperature": "temperature"}
+        self.model_vars = {"Temperature": [21, 22]}
+
+
+@bind_datacollector()
+class DataCollectorModel:
+    def __init__(self):
+        self.datacollector = FakeDataCollector()
+        self.temperature = 22
 
     def step(self) -> None:
         pass
@@ -69,6 +90,18 @@ async def test_mesa_handler_reset_replays_model_and_runtime_parameters():
     assert handler.model.grid.height == 6
     assert len(handler.model.agents) == 5
     assert handler.model.temperature == 42
+
+
+def test_bind_datacollector_injects_charts_after_model_init_without_handler_magic():
+    model = DataCollectorModel()
+
+    charts = binding_api.charts(model)
+
+    assert [chart.id for _, _, chart in charts] == ["temperature"]
+    _, getter, chart = charts[0]
+    assert chart.data_list is not None
+    assert chart.data_list[0].id == "temperature"
+    assert getter() == 22
 
 
 @pytest.mark.asyncio

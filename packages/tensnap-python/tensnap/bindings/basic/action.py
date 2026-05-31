@@ -102,7 +102,7 @@ def get_action_metadata_from_namespace(
         if name.startswith("__") and name.endswith("__"):
             continue
         if callable(attr) and hasattr(attr, "_tensnap_action"):
-            metadata = attr._tensnap_action
+            metadata = getattr(attr, "_tensnap_action", None)
             if isinstance(metadata, ActionMetadata):
                 actions.append((name, attr, metadata))
     return actions

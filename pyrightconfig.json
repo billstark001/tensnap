@@ -1,0 +1,14 @@
+{
+  "include": ["packages/tensnap-python"],
+  "exclude": ["**/node_modules", "**/__pycache__", ".git"],
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none",
+  "executionEnvironments": [
+    {
+      "root": "packages/tensnap-python",
+      "extraPaths": ["packages/tensnap-python"]
+    }
+  ]
+}

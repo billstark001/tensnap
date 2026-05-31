@@ -30,11 +30,6 @@ class ParameterState(TypedDict):
 
 from dataclasses import dataclass, asdict, field
 
-try:
-    from mesa import Model as MesaModel
-except ImportError:
-    MesaModel = None  # type: ignore
-
 
 # region Parameter Classes
 
@@ -85,7 +80,7 @@ class ParameterBinding:
 
 @dataclass
 class NumberParameter(ParameterBinding):
-    type: Literal["number"] = "number"
+    type: ParameterType = "number"
     value: float = 0.0
     min: float = 0.0
     max: float = 100.0
@@ -98,7 +93,7 @@ class NumberParameter(ParameterBinding):
 
 @dataclass
 class EnumParameter(ParameterBinding):
-    type: Literal["enum"] = "enum"
+    type: ParameterType = "enum"
     value: str = ""
     options: List[str] = field(default_factory=list)
     labels: Optional[Dict[str, str]] = None
@@ -110,7 +105,7 @@ class EnumParameter(ParameterBinding):
 
 @dataclass
 class BooleanParameter(ParameterBinding):
-    type: Literal["boolean"] = "boolean"
+    type: ParameterType = "boolean"
     value: bool = False
 
     @classmethod
@@ -120,7 +115,7 @@ class BooleanParameter(ParameterBinding):
 
 @dataclass
 class StringParameter(ParameterBinding):
-    type: Literal["string"] = "string"
+    type: ParameterType = "string"
     value: str = ""
 
     @classmethod

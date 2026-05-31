@@ -1,19 +1,16 @@
 # tensnap/bindings/mesa/datacollector.py
 """Utility functions for working with Mesa 3 DataCollector"""
 
-from typing import cast, TYPE_CHECKING, Any, List, Type, Dict, Set
+from typing import Any, Dict, List, Type, cast
 
 from tensnap.bindings.basic.chart import (
     ChartGroupMetadata,
     ChartMetadata,
     ChartProperty,
 )
+from tensnap.utils.init_hook import OnceInitHookHandle, install_once_init_hook
 
-if TYPE_CHECKING:
-    from mesa import DataCollector, Model
-
-
-def get_registered_collectors(datacollector: "DataCollector") -> list[str]:
+def get_registered_collectors(datacollector: Any) -> list[str]:
     """
     Get a list of all registered collector names in the DataCollector.
 
@@ -32,7 +29,7 @@ def get_registered_collectors(datacollector: "DataCollector") -> list[str]:
     return collectors
 
 
-def get_registered_agent_collectors(datacollector: "DataCollector") -> list[str]:
+def get_registered_agent_collectors(datacollector: Any) -> list[str]:
     """
     Get a list of all registered agent collector names in the DataCollector.
 
@@ -61,10 +58,8 @@ def make_latest_data_projector(
     if len(_closure_reporter_keys) == 1:
         key = _closure_reporter_keys[0]
 
-        def f_single(self: "Model") -> Any:
-            dc: "DataCollector" = cast(
-                "DataCollector", getattr(self, _closure_datacollector_key)
-            )
+        def f_single(self: Any) -> Any:
+            dc = getattr(self, _closure_datacollector_key)
             values = dc.model_vars.get(key, None)
             if values:
                 return values[-1]
@@ -73,10 +68,8 @@ def make_latest_data_projector(
 
         return f_single
 
-    def f(self: "Model") -> Dict[str, Any]:
-        dc: "DataCollector" = cast(
-            "DataCollector", getattr(self, _closure_datacollector_key)
-        )
+    def f(self: Any) -> Dict[str, Any]:
+        dc = getattr(self, _closure_datacollector_key)
         result: Dict[str, Any] = {}
         for key in _closure_reporter_keys:
             values = dc.model_vars.get(key, None)
@@ -110,12 +103,18 @@ class BindDataCollectorConfig:
         self.model_reporters = model_reporters
         self.agent_reporters = agent_reporters  # TODO this is unimplemented
         self.groups = groups
-        self.bound_class: "Type[Model] | None" = None
+        self.bound_class: Type[Any] | None = None
         self.func_injected = False
+        self.init_hook_handle: OnceInitHookHandle[Any] | None = None
 
     def __call__(self, cls):
         cast(Any, cls)._tensnap_bind_datacollector_config = self
         self.bound_class = cls
+        self.init_hook_handle = install_once_init_hook(
+            cls,
+            lambda instance, _args, _kwargs: self.inject_func(instance),
+            timing="after",
+        )
         return cls
 
     def inject_func(self, instance) -> None:
@@ -190,7 +189,7 @@ class BindDataCollectorConfig:
                     for field in reporters
                 ],
             )
-            func._tensnap_chart = chart_group_metadata
+            cast(Any, func)._tensnap_chart = chart_group_metadata
             chart_property = ChartProperty(chart_group_metadata, func)
 
             func_name = f"get_tensnap_chart_data_{func_id}"

@@ -1,7 +1,8 @@
-from typing import Dict, TypeVar, Any
+from typing import Dict, TypeVar, Any, Type
 
 TKey = TypeVar("TKey", bound=str)
 TValue = TypeVar("TValue")
+TClass = TypeVar("TClass")
 
 
 def dict_diff(
@@ -17,3 +18,20 @@ def dict_diff(
             diff_dict[key] = None  # type: ignore[assignment]
 
     return diff_dict
+
+
+def extend(cls: Type[TClass]):
+    """
+    Extend the function as a method on cls.
+
+    Usage:
+        @extend(SomeClass)
+        def method(self, ...):
+            ...
+    """
+
+    def decorator(func):
+        setattr(cls, func.__name__, func)
+        return func
+
+    return decorator

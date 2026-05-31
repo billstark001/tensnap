@@ -14,9 +14,7 @@ from typing import (
     Generic,
     List,
     Optional,
-    Protocol,
     Tuple,
-    TYPE_CHECKING,
     TypeVar,
     Union,
 )
@@ -25,7 +23,7 @@ import asyncio
 import inspect
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from types import ModuleType
 from dataclasses import dataclass
 
@@ -35,12 +33,17 @@ from .bindings import (
     ActionMetadata,
     BindParametersConfig,
     ChartGroupMetadata,
-    action as action_decorator,
 )
+from .handler import (
+    DefaultSimulationHandler,
+    SimulationHandler,
+    SimulationHandlerProtocol,
+    make_default_handlers,
+)
+from .helper import broadcast_env_update, dispatch_cud, send_env_snapshot
 from .models import (
     EnvironmentBinding,
     EnvironmentRegistration,
-    EnvironmentState,
     LayerBinding,
     Parameter,
     LayerRegistration,
@@ -51,419 +54,49 @@ from .protocol import (
     compute_chart_deltas,
     compute_environment_deltas,
     compute_parameter_deltas,
-    copied_layer_items,
     format_chart_update,
-    layer_create_payload,
-    layer_dependency_layer_ids,
-    layer_metadata,
 )
 from .server import ServerToClientMessageType as MT, TenSnapServer
 from .utils.attr import make_dict_getter_and_setter, make_attr_getter_and_setter
-from .utils.func import call_function
-
-if TYPE_CHECKING:
-    from mesa.model import Model
-    from websockets.asyncio.server import ServerConnection
-    from .models import EnvironmentLayerState
 
 logger = logging.getLogger(__name__)
 
 
-# region Handler protocol & base class
+def _registry_change(kind: str, ids: Iterable[str]) -> Dict[str, List[str]]:
+    return {kind: list(ids)}
 
 
-class SimulationHandlerProtocol(Protocol):
-    """Structural protocol for simulation event handlers."""
+def _merge_registry_changes(
+    *changes: Dict[str, List[str]],
+) -> Dict[str, List[str]]:
+    merged: Dict[str, List[str]] = {}
+    for change in changes:
+        for kind, ids in change.items():
+            merged.setdefault(kind, []).extend(ids)
+    return merged
 
-    async def on_registered(self, scenario: "SimulationScenario") -> None: ...
-    async def on_init(self) -> None: ...
-    async def on_start(self, step: int) -> None: ...
-    async def on_step(self, step: int) -> None: ...
-    async def on_reset(self) -> None: ...
 
+def _layer_registry_id(env_id: str, layer_id: str) -> str:
+    return f"{env_id}.{layer_id}"
 
-class SimulationHandler:
-    """
-    Convenience base class; override only the events you need.
-    All methods are no-ops by default.
-    """
 
-    async def on_registered(self, scenario: "SimulationScenario") -> None:
-        pass
+def _layer_registry_ids(env_id: str, layer_ids: Iterable[str]) -> List[str]:
+    return [_layer_registry_id(env_id, layer_id) for layer_id in layer_ids]
 
-    async def on_init(self) -> None:
-        # Legacy compatibility for custom handlers that only override on_start.
-        await self.on_start(0)
 
-    async def on_start(self, step: int) -> None:
-        pass
+def _split_layer_registry_id(
+    value: str, env_ids: Iterable[str]
+) -> Optional[Tuple[str, str]]:
+    for env_id in sorted(env_ids, key=len, reverse=True):
+        prefix = f"{env_id}."
+        if value.startswith(prefix):
+            layer_id = value[len(prefix) :]
+            return (env_id, layer_id) if layer_id else None
+    if "." not in value:
+        return None
+    env_id, layer_id = value.split(".", 1)
+    return (env_id, layer_id) if layer_id else None
 
-    async def on_step(self, step: int) -> None:
-        pass
-
-    async def on_reset(self) -> None:
-        pass
-
-
-# endregion
-
-
-# region Helpers
-
-
-def make_default_handlers(scenario: "SimulationScenario") -> List[Callable]:
-    """
-    Built-in lifecycle actions.
-
-    `start` and `step` both ensure the scenario is initialized at time 0 and
-    then advance the model once. The first simulated tick is therefore 1.
-    """
-
-    @action_decorator("start", "Start", continuous=True)
-    async def start() -> bool:
-        await scenario._advance_step()
-        return True
-
-    @action_decorator("step", "Step")
-    async def step() -> None:
-        await scenario._advance_step()
-
-    @action_decorator("reset", "Reset")
-    async def reset() -> None:
-        await scenario._fire_reset()
-
-    return [start, step, reset]
-
-
-# endregion
-
-# region DefaultSimulationHandler
-
-
-class DefaultSimulationHandler(SimulationHandler):
-    """
-    Standard handler: advances the model each tick, then pushes environment
-    diffs and chart data to all connected clients.
-    """
-
-    def __init__(
-        self,
-        model_init: Optional[Callable] = None,
-        model_step: Optional[Callable] = None,
-        model_reset: Optional[Callable] = None,
-    ) -> None:
-        self.model_init = model_init
-        self.model_step = model_step
-        self.model_reset = model_reset
-        self.scenario: Optional["SimulationScenario"] = None
-        self._last_env_states: Dict[str, EnvironmentState] = {}
-
-    async def on_registered(self, scenario: "SimulationScenario") -> None:
-        self.scenario = scenario
-        self._last_env_states = {}
-        for environment in scenario.environments.values():
-            for layer in environment.layers.values():
-                layer.reset_diff_state()
-
-    async def _prime_env_states(self) -> None:
-        s = self.scenario
-        if not s:
-            self._last_env_states = {}
-            return
-
-        next_states: Dict[str, EnvironmentState] = {}
-        for env_id, environment in s.environments.items():
-            for layer in environment.layers.values():
-                layer.reset_diff_state()
-            curr = clone_environment_state(environment.build_state())
-            for layer in environment.layers.values():
-                layer.build_item_deltas()
-            next_states[env_id] = curr
-        self._last_env_states = next_states
-
-    async def _push_env_updates(self, replace_all: bool = False) -> None:
-        s = self.scenario
-        if not s:
-            return
-        next_states: Dict[str, EnvironmentState] = {}
-        for env_id, environment in s.environments.items():
-            curr = clone_environment_state(environment.build_state())
-            prev = None if replace_all else self._last_env_states.get(env_id)
-            await _broadcast_env_update(s.server, environment, curr, prev)
-            next_states[env_id] = curr
-        for removed_id in self._last_env_states.keys() - next_states.keys():
-            await s.server.broadcast(MT.ENV_DELETE, {"id": removed_id})
-        self._last_env_states = next_states
-
-    async def on_init(self) -> None:
-        if self.model_init:
-            await call_function(self.model_init)
-        await self._prime_env_states()
-
-    async def on_start(self, step: int) -> None:
-        await self.on_init()
-
-    async def on_step(self, step: int) -> None:
-        s = self.scenario
-        if not s:
-            return
-        if self.model_step:
-            await call_function(self.model_step)
-        await s.server.broadcast_metadata_update({"time": step})
-        await self._push_env_updates()
-        await s.broadcast_charts(step)
-
-    async def on_reset(self) -> None:
-        if self.model_reset:
-            await call_function(self.model_reset)
-        elif self.model_init:
-            await call_function(self.model_init)
-        await self._prime_env_states()
-
-
-# endregion
-
-
-# region Environment broadcast helpers (module-level private)
-
-
-async def _send_layer_full(
-    target: Any,  # ServerConnection for send, None for broadcast
-    server: TenSnapServer,
-    env_id: str,
-    layer: "EnvironmentLayerState",
-) -> None:
-    """Send a full layer create + all items to ``target`` (or broadcast if None)."""
-    payload = layer_create_payload(env_id, layer)
-    lid = layer["layer_id"]
-    if target is None:
-        await server.broadcast(MT.ENV_LAYER_CREATE, payload)
-        items = copied_layer_items(layer)
-        if items:
-            await server.broadcast(
-                MT.ITEM_CREATE, {"env_id": env_id, "layer_id": lid, "items": items}
-            )
-    else:
-        await server.send(target, MT.ENV_LAYER_CREATE, payload)
-        items = copied_layer_items(layer)
-        if items:
-            await server.send(
-                target,
-                MT.ITEM_CREATE,
-                {"env_id": env_id, "layer_id": lid, "items": items},
-            )
-
-
-def _topologically_order_layer_ids(
-    layer_ids: List[str],
-    dependency_lookup: Callable[[str], List[str]],
-) -> List[str]:
-    """Return layer ids ordered so dependencies are emitted before dependents."""
-    pending = set(layer_ids)
-    resolved: List[str] = []
-
-    while pending:
-        progressed = False
-        for layer_id in layer_ids:
-            if layer_id not in pending:
-                continue
-            deps = [
-                dep
-                for dep in dependency_lookup(layer_id)
-                if dep in pending or dep in resolved
-            ]
-            if all(dep in resolved for dep in deps):
-                resolved.append(layer_id)
-                pending.remove(layer_id)
-                progressed = True
-        if not progressed:
-            # Cycle or malformed dependency graph: preserve remaining original order.
-            resolved.extend([layer_id for layer_id in layer_ids if layer_id in pending])
-            break
-
-    return resolved
-
-
-def _ordered_registration_layer_ids(
-    environment: EnvironmentRegistration,
-    current_layers: Dict[str, "EnvironmentLayerState"],
-) -> List[str]:
-    layer_ids = list(current_layers.keys())
-    return _topologically_order_layer_ids(
-        layer_ids,
-        lambda layer_id: (
-            list(environment.layers[layer_id].binding.dependency_layer_ids.values())
-            if layer_id in environment.layers
-            else []
-        ),
-    )
-
-
-def _ordered_state_layers(
-    layers: List["EnvironmentLayerState"],
-) -> List["EnvironmentLayerState"]:
-    by_id = {layer["layer_id"]: layer for layer in layers}
-    ordered_ids = _topologically_order_layer_ids(
-        [layer["layer_id"] for layer in layers],
-        lambda layer_id: (
-            list(by_id[layer_id].get("dependency_layer_ids", {}).values())
-            if layer_id in by_id
-            else []
-        ),
-    )
-    return [by_id[layer_id] for layer_id in ordered_ids if layer_id in by_id]
-
-
-async def _broadcast_env_update(
-    server: TenSnapServer,
-    environment: EnvironmentRegistration,
-    env_state: EnvironmentState,
-    previous_state: Optional[EnvironmentState] = None,
-) -> None:
-    """Diff previous vs. current environment state and broadcast changes."""
-    env_id: str = environment.id
-    current_layers = {layer["layer_id"]: layer for layer in env_state["layers"]}
-
-    if previous_state is None:
-        await server.broadcast(
-            MT.ENV_CREATE, environment.binding.build_create_payload()
-        )
-        ordered_layer_ids = _ordered_registration_layer_ids(environment, current_layers)
-        for layer_id in ordered_layer_ids:
-            registration = environment.layers[layer_id]
-            layer = current_layers[layer_id]
-            registration.reset_diff_state()
-            await _send_layer_full(None, server, env_id, layer)
-            registration.build_item_deltas()
-        return
-
-    if previous_state["type"] != env_state["type"]:
-        await server.broadcast(
-            MT.ENV_DELETE, environment.binding.build_delete_payload()
-        )
-        await _broadcast_env_update(server, environment, env_state, None)
-        return
-
-    prev_layers = {l["layer_id"]: l for l in previous_state["layers"]}
-    curr_layer_ids = set(current_layers)
-
-    for removed_lid in prev_layers.keys() - curr_layer_ids:
-        await server.broadcast(
-            MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": removed_lid}
-        )
-
-    for lid, registration in environment.layers.items():
-        layer = current_layers[lid]
-        prev_layer = prev_layers.get(lid)
-
-        if prev_layer is None or prev_layer["layer_type"] != layer["layer_type"]:
-            if prev_layer is not None:
-                await server.broadcast(
-                    MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
-                )
-            registration.reset_diff_state()
-            await _send_layer_full(None, server, env_id, layer)
-            registration.build_item_deltas()
-            continue
-
-        if layer_dependency_layer_ids(layer) != layer_dependency_layer_ids(prev_layer):
-            await server.broadcast(
-                MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
-            )
-            registration.reset_diff_state()
-            await _send_layer_full(None, server, env_id, layer)
-            registration.build_item_deltas()
-            continue
-
-        meta = layer_metadata(layer)
-        if meta != layer_metadata(prev_layer):
-            await server.broadcast(
-                MT.ENV_LAYER_UPDATE,
-                {"env_id": env_id, "layer_id": lid, "data": meta or {}},
-            )
-
-        creates, updates, deleted_item_ids = registration.build_item_deltas()
-        if creates:
-            await server.broadcast(
-                MT.ITEM_CREATE,
-                {"env_id": env_id, "layer_id": lid, "items": creates},
-            )
-        if updates:
-            await server.broadcast(
-                MT.ITEM_UPDATE,
-                {"env_id": env_id, "layer_id": lid, "items": updates},
-            )
-        delete_payloads = registration.build_item_delete_payloads(deleted_item_ids)
-        if delete_payloads:
-            await server.broadcast(
-                MT.ITEM_DELETE,
-                {"env_id": env_id, "layer_id": lid, "items": delete_payloads},
-            )
-
-
-async def _send_env_snapshot(
-    ws: "ServerConnection",
-    server: TenSnapServer,
-    env_state: EnvironmentState,
-    client_env: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Send a full environment snapshot to a single client (used in state-sync)."""
-    env_id = env_state["id"]
-    recreate = client_env is None or client_env.get("type") != env_state["type"]
-
-    if recreate and client_env is not None:
-        await server.send(ws, MT.ENV_DELETE, {"id": env_id})
-    if recreate:
-        await server.send(ws, MT.ENV_CREATE, {"id": env_id, "type": env_state["type"]})
-
-    client_layer_ids = (
-        {l["layer_id"] for l in client_env.get("layers", [])} if client_env else set()
-    )
-    for removed_lid in client_layer_ids - {l["layer_id"] for l in env_state["layers"]}:
-        await server.send(
-            ws, MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": removed_lid}
-        )
-
-    for layer in _ordered_state_layers(env_state["layers"]):
-        lid = layer["layer_id"]
-        if lid in client_layer_ids:
-            # Destroy the stale layer before recreating
-            await server.send(
-                ws, MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
-            )
-        await _send_layer_full(ws, server, env_id, layer)
-
-
-# endregion
-
-# region CUD dispatch helper  (actions / params / charts share the same pattern)
-
-
-async def _dispatch_cud(
-    send_fn: Callable,
-    deltas: Dict[str, Any],
-    create_type: MT,
-    delete_type: MT,
-    update_type: MT,
-) -> None:
-    """
-    Dispatch create / delete / update messages for a generic delta result.
-
-    Args:
-        send_fn: ``async (msg_type, payload) -> None``
-        deltas:  Dict with keys ``added``, ``removed``, ``updated``.
-    """
-    for item in deltas["added"]:
-        await send_fn(create_type, item)
-    for item_id in deltas["removed"]:
-        await send_fn(delete_type, {"id": item_id})
-    for item in deltas["updated"]:
-        await send_fn(update_type, item)
-
-
-# endregion
-
-# region SimulationScenario
 
 TValue = TypeVar("TValue")
 TBinding = TypeVar("TBinding")
@@ -501,6 +134,7 @@ class SimulationScenario:
         self.actions: Dict[str, ActionMetadata] = {}
         self.charts: Dict[str, Tuple[ChartGroupMetadata, Callable]] = {}
         self._action_handlers: Dict[str, Callable] = {}
+        self._builtin_action_ids: set[str] = set()
 
         # Step state
         self._time_step: int = 0
@@ -521,6 +155,7 @@ class SimulationScenario:
             meta = fn._tensnap_action  # type: ignore[attr-defined]
             self.actions[meta.id] = meta
             self._action_handlers[meta.id] = fn
+            self._builtin_action_ids.add(meta.id)
 
     # endregion
 
@@ -595,7 +230,7 @@ class SimulationScenario:
         await self.server.broadcast_metadata_update({"time": self._time_step})
         for environment in self.environments.values():
             env_state = clone_environment_state(environment.build_state())
-            await _broadcast_env_update(self.server, environment, env_state, None)
+            await broadcast_env_update(self.server, environment, env_state, None)
         await self.broadcast_charts(self._time_step)
 
     async def _send_current_state(self, ws: Any) -> None:
@@ -663,20 +298,20 @@ class SimulationScenario:
 
         try:
             # Actions
-            await _dispatch_cud(
+            await dispatch_cud(
                 _send, action_d, MT.ACTION_CREATE, MT.ACTION_DELETE, MT.ACTION_UPDATE  # type: ignore
             )
             # Parameters
-            await _dispatch_cud(
+            await dispatch_cud(
                 _send, param_d, MT.PARAM_CREATE, MT.PARAM_DELETE, MT.PARAM_UPDATE  # type: ignore
             )
             # Environments
             for env_state in env_d["added"]:
-                await _send_env_snapshot(ws, self.server, env_state)
+                await send_env_snapshot(ws, self.server, env_state)
             for env_id in env_d["removed"]:
                 await self.server.send(ws, MT.ENV_DELETE, {"id": env_id})
             for env_state in env_d["updated"]:
-                await _send_env_snapshot(
+                await send_env_snapshot(
                     ws, self.server, env_state, client_env_map.get(env_state["id"])
                 )
             # Charts (updates are re-sent as creates per protocol)
@@ -774,7 +409,7 @@ class SimulationScenario:
 
     def add_environment_binding(
         self, binding: EnvironmentBinding | EnvironmentRegistration
-    ) -> EnvironmentRegistration:
+    ) -> Dict[str, List[str]]:
         if not isinstance(binding, (EnvironmentBinding, EnvironmentRegistration)):
             raise TypeError(
                 "add_environment expects an EnvironmentBinding or EnvironmentRegistration."
@@ -790,24 +425,26 @@ class SimulationScenario:
                 registration.binding = binding
 
         self.environments[registration.id] = registration
-        return registration
+        return _registry_change("environments", [registration.id])
 
-    def add_environment(self, target: object) -> EnvironmentRegistration:
+    def add_environment(self, target: object) -> Dict[str, List[str]]:
         environment_binding, layer_bindings = binding_api.bindings(target)
         if environment_binding is None:
             raise ValueError(f"Target has no attached environment binding: {target}")
 
-        environment = self.add_environment_binding(environment_binding)
+        changes = [self.add_environment_binding(environment_binding)]
         for layer_binding in layer_bindings:
-            self.add_layer_binding(environment.id, layer_binding, target)
-        return environment
+            changes.append(
+                self.add_layer_binding(environment_binding.id, layer_binding, target)
+            )
+        return _merge_registry_changes(*changes)
 
     def add_layer_binding(
         self,
         env_id: str,
         binding: LayerBinding[Any, Any, Any, Any],
         target: Any,
-    ) -> LayerRegistration[Any, Any, Any, Any]:
+    ) -> Dict[str, List[str]]:
         if not isinstance(binding, LayerBinding):
             raise TypeError("add_layer expects a LayerBinding.")
 
@@ -819,19 +456,19 @@ class SimulationScenario:
         if registration is None:
             registration = LayerRegistration(binding=binding, target=target)
             environment.add_layer(registration)
-            return registration
+        else:
+            registration.binding = binding
+            registration.set_target(target)
+            registration.reset_diff_state()
+        return _registry_change(
+            "layers", [_layer_registry_id(env_id, binding.layer_id)]
+        )
 
-        registration.binding = binding
-        registration.set_target(target)
-        registration.reset_diff_state()
-        return registration
-
-    def add_bound_layers(self, env_id: str, target: object) -> List[str]:
-        added_layer_ids: List[str] = []
+    def add_bound_layers(self, env_id: str, target: object) -> Dict[str, List[str]]:
+        changes: List[Dict[str, List[str]]] = []
         for layer_binding in binding_api.layer_bindings(target):
-            self.add_layer_binding(env_id, layer_binding, target)
-            added_layer_ids.append(layer_binding.layer_id)
-        return added_layer_ids
+            changes.append(self.add_layer_binding(env_id, layer_binding, target))
+        return _merge_registry_changes(*changes) or _registry_change("layers", [])
 
     def set_layer_target(self, env_id: str, layer_id: str, target: Any) -> None:
         environment = self.environments.get(env_id)
@@ -841,23 +478,45 @@ class SimulationScenario:
         environment.layers[layer_id].set_target(target)
         environment.layers[layer_id].reset_diff_state()
 
-    def remove_layer(self, env_id: str, layer_id: str) -> None:
+    def remove_layer(self, env_id: str, layer_id: str) -> Dict[str, List[str]]:
         environment = self.environments.get(env_id)
-        if environment is None:
-            return
+        if environment is None or layer_id not in environment.layers:
+            return _registry_change("layers", [])
         environment.remove_layer(layer_id)
+        return _registry_change("layers", [_layer_registry_id(env_id, layer_id)])
 
-    def remove_all_layers(self, env_id: str) -> None:
+    def remove_all_layers(self, env_id: str) -> Dict[str, List[str]]:
         environment = self.environments.get(env_id)
         if environment is None:
-            return
+            return _registry_change("layers", [])
+        layer_ids = list(environment.layers)
         environment.clear_layers()
+        return _registry_change("layers", _layer_registry_ids(env_id, layer_ids))
 
-    def remove_environment(self, binder_id: str) -> None:
-        self.environments.pop(binder_id, None)
+    def remove_environment(self, binder_id: str) -> Dict[str, List[str]]:
+        environment = self.environments.pop(binder_id, None)
+        if environment is None:
+            return _merge_registry_changes(
+                _registry_change("environments", []),
+                _registry_change("layers", []),
+            )
+        return _merge_registry_changes(
+            _registry_change("environments", [binder_id]),
+            _registry_change(
+                "layers", _layer_registry_ids(binder_id, environment.layers)
+            ),
+        )
 
-    def remove_all_environments(self) -> None:
+    def remove_all_environments(self) -> Dict[str, List[str]]:
+        env_ids = list(self.environments)
+        layer_ids: List[str] = []
+        for env_id, environment in self.environments.items():
+            layer_ids.extend(_layer_registry_ids(env_id, environment.layers))
         self.environments.clear()
+        return _merge_registry_changes(
+            _registry_change("environments", env_ids),
+            _registry_change("layers", layer_ids),
+        )
 
     # endregion
 
@@ -866,15 +525,15 @@ class SimulationScenario:
     def add_parameters(
         self,
         target: Union[Dict[str, Any], ModuleType, object],
-        cfg_suggest: Optional[BindParametersConfig] = None,
-    ) -> List[str]:
+        *cfg_suggest: BindParametersConfig,
+    ) -> Dict[str, List[str]]:
         """
         Inspect ``target`` and register any annotated parameters.
 
-        Returns added parameter IDs.
+        Returns added parameter IDs grouped by registry type.
         """
         added_params: List[str] = []
-        parameters = binding_api.parameters(target, cfg_suggest=cfg_suggest)
+        parameters = binding_api.parameters(target, *cfg_suggest)
         if isinstance(target, dict):
             for name, param in parameters:
                 getter, setter = make_dict_getter_and_setter(name, target)
@@ -885,7 +544,7 @@ class SimulationScenario:
                 getter, setter = make_attr_getter_and_setter(name, target)
                 self._register_parameter(param, getter, setter)
                 added_params.append(param.id)
-        return added_params
+        return _registry_change("parameters", added_params)
 
     def _register_parameter(
         self,
@@ -895,12 +554,18 @@ class SimulationScenario:
     ) -> None:
         self.parameters[param.id] = param.instantiate(getter=getter, setter=setter)
 
-    def remove_parameters(self, param_ids: List[str]) -> None:
+    def remove_parameters(self, param_ids: List[str]) -> Dict[str, List[str]]:
+        removed: List[str] = []
         for pid in param_ids:
-            self.parameters.pop(pid, None)
+            if pid in self.parameters:
+                self.parameters.pop(pid)
+                removed.append(pid)
+        return _registry_change("parameters", removed)
 
-    def remove_all_parameters(self) -> None:
+    def remove_all_parameters(self) -> Dict[str, List[str]]:
+        removed = list(self.parameters)
         self.parameters.clear()
+        return _registry_change("parameters", removed)
 
     # endregion
 
@@ -908,7 +573,7 @@ class SimulationScenario:
 
     def add_charts(
         self, target: Union[Dict[str, Any], ModuleType, object]
-    ) -> List[str]:
+    ) -> Dict[str, List[str]]:
         """Inspect ``target`` and register any annotated chart getters. Returns added IDs."""
         added: List[str] = []
         for _, func, chart in binding_api.charts(target):
@@ -916,14 +581,20 @@ class SimulationScenario:
                 continue
             self.charts[chart.id] = (chart, func)
             added.append(chart.id)
-        return added
+        return _registry_change("charts", added)
 
-    def remove_charts(self, chart_ids: List[str]) -> None:
+    def remove_charts(self, chart_ids: List[str]) -> Dict[str, List[str]]:
+        removed: List[str] = []
         for cid in chart_ids:
-            self.charts.pop(cid, None)
+            if cid in self.charts:
+                self.charts.pop(cid)
+                removed.append(cid)
+        return _registry_change("charts", removed)
 
-    def remove_all_charts(self) -> None:
+    def remove_all_charts(self) -> Dict[str, List[str]]:
+        removed = list(self.charts)
         self.charts.clear()
+        return _registry_change("charts", removed)
 
     # endregion
 
@@ -933,22 +604,112 @@ class SimulationScenario:
         self.actions[meta.id] = meta
         self._action_handlers[meta.id] = handler
 
-    def add_actions(self, target: Union[Dict[str, Any], ModuleType, object]) -> None:
+    def add_actions(
+        self, target: Union[Dict[str, Any], ModuleType, object]
+    ) -> Dict[str, List[str]]:
         """Register actions found on ``target`` (does not re-register built-ins)."""
+        added: List[str] = []
         for _, func, meta in binding_api.actions(target):
             if func is None:
                 continue
             self._register_action(meta, func)
+            added.append(meta.id)
+        return _registry_change("actions", added)
 
-    def remove_action(self, action_id: str) -> None:
+    def remove_action(self, action_id: str) -> Dict[str, List[str]]:
+        existed = action_id in self.actions or action_id in self._action_handlers
         self.actions.pop(action_id, None)
         self._action_handlers.pop(action_id, None)
+        return _registry_change("actions", [action_id] if existed else [])
 
-    def remove_all_actions(self) -> None:
+    def remove_all_actions(self) -> Dict[str, List[str]]:
+        removed = list(dict.fromkeys([*self.actions, *self._action_handlers]))
         self.actions.clear()
         self._action_handlers.clear()
+        return _registry_change("actions", removed)
 
     # endregion
+
+    # region State management - all
+
+    def add_all(
+        self,
+        target: Union[Dict[str, Any], ModuleType, object],
+        *cfg_suggest: BindParametersConfig,
+    ) -> Dict[str, List[str]]:
+        changes: List[Dict[str, List[str]]] = []
+        environment_binding = binding_api.environment_binding(target)
+        if environment_binding is not None:
+            changes.append(self.add_environment(target))
+        else:
+            changes.append(
+                _merge_registry_changes(
+                    _registry_change("environments", []),
+                    _registry_change("layers", []),
+                )
+            )
+        changes.append(self.add_parameters(target, *cfg_suggest))
+        changes.append(self.add_actions(target))
+        changes.append(self.add_charts(target))
+        return _merge_registry_changes(*changes)
+
+    def remove_all(self) -> Dict[str, List[str]]:
+        action_ids = [
+            action_id
+            for action_id in self.actions
+            if action_id not in self._builtin_action_ids
+        ]
+        action_changes = [self.remove_action(action_id) for action_id in action_ids]
+        return _merge_registry_changes(
+            self.remove_all_charts(),
+            _merge_registry_changes(*action_changes)
+            or _registry_change("actions", []),
+            self.remove_all_parameters(),
+            self.remove_all_environments(),
+        )
+
+    def remove_by_dict(self, removals: Dict[str, List[str]]) -> Dict[str, List[str]]:
+        changes: List[Dict[str, List[str]]] = []
+
+        if "charts" in removals:
+            changes.append(self.remove_charts(removals["charts"]))
+        if "actions" in removals:
+            action_changes = [
+                self.remove_action(action_id) for action_id in removals["actions"]
+            ]
+            changes.append(
+                _merge_registry_changes(*action_changes)
+                or _registry_change("actions", [])
+            )
+        if "parameters" in removals:
+            changes.append(self.remove_parameters(removals["parameters"]))
+        if "layers" in removals:
+            layer_changes: List[Dict[str, List[str]]] = []
+            for layer in removals["layers"]:
+                parsed = _split_layer_registry_id(layer, self.environments)
+                if parsed is None:
+                    continue
+                env_id, layer_id = parsed
+                layer_changes.append(self.remove_layer(env_id, layer_id))
+            changes.append(
+                _merge_registry_changes(*layer_changes)
+                or _registry_change("layers", [])
+            )
+        if "environments" in removals:
+            changes.append(
+                _merge_registry_changes(
+                    *[
+                        self.remove_environment(env_id)
+                        for env_id in removals["environments"]
+                    ]
+                )
+                or _merge_registry_changes(
+                    _registry_change("environments", []),
+                    _registry_change("layers", []),
+                )
+            )
+
+        return _merge_registry_changes(*changes)
 
     # region Lifecycle
 

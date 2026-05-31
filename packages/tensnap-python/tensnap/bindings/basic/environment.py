@@ -12,7 +12,6 @@ from tensnap.models.environment import (
 
 
 class BindEnvironmentConfig:
-
     def __init__(
         self,
         id: str = "main",

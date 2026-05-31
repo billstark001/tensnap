@@ -75,7 +75,6 @@ class EnvLayerDeletePayload(TypedDict):
 
 @dataclass(slots=True)
 class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
-
     layer_id: str
     layer_type: str
     item_keys: Tuple[TItemFieldKeys, ...]
@@ -160,9 +159,9 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         layer: TLayer,
         last_items: Dict[Any, Dict[TItemFieldKeys, Any]],
     ):
-        assert (
-            self.has_item_diffing
-        ), "Item diffing is not enabled for this LayerBinding."
+        assert self.has_item_diffing, (
+            "Item diffing is not enabled for this LayerBinding."
+        )
         assert (
             self.item_id_getter is not None
             and self.item_changed_getter is not None

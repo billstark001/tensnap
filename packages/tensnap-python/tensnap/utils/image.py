@@ -1,21 +1,26 @@
+from __future__ import annotations
+
 import io
+from typing import Any
 
 try:
     import numpy as np
 
     HAS_NUMPY = True
 except ImportError:
+    np = None
     HAS_NUMPY = False
 try:
-    import PIL.Image
+    from PIL import Image
 
     HAS_PIL = True
 except ImportError:
+    Image = None
     HAS_PIL = False
 
 
-def img_to_npy_bytes(img: np.ndarray):
-    if not HAS_NUMPY:
+def img_to_npy_bytes(img: Any) -> bytes:
+    if np is None:
         raise ImportError("NumPy is not installed.")
     buffer = io.BytesIO()
     np.save(buffer, img)
@@ -23,10 +28,10 @@ def img_to_npy_bytes(img: np.ndarray):
     return img_bytes
 
 
-def img_to_png_bytes(img: np.ndarray):
-    if not HAS_PIL:
+def img_to_png_bytes(img: Any) -> bytes:
+    if Image is None:
         raise ImportError("PIL (Pillow) is not installed.")
-    pil_img = PIL.Image.fromarray(img)
+    pil_img = Image.fromarray(img)
     buffer = io.BytesIO()
     pil_img.save(buffer, format="PNG")
     img_bytes = buffer.getvalue()

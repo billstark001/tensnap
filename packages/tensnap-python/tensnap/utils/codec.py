@@ -13,6 +13,7 @@ try:
 
     HAS_NUMPY = True
 except ImportError:
+    np = None
     HAS_NUMPY = False
 
 
@@ -288,7 +289,7 @@ def msgpack_default(obj: Any) -> Any:
     Raises:
         TypeError: If object cannot be serialized
     """
-    if not HAS_NUMPY:
+    if np is None:
         raise TypeError(
             f"Object of type {type(obj).__name__} is not msgpack serializable"
         )
@@ -337,7 +338,7 @@ def json_default(obj: Any) -> Any:
         b64_data = base64.b64encode(data).decode("ascii")
         return f"data:{mime_type};base64,{b64_data}"
 
-    if not HAS_NUMPY:
+    if np is None:
         raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
     # Handle numpy types

@@ -1,8 +1,9 @@
 """Tests for the new environment/layer binding surface."""
 
+from typing import Any
+
 from tensnap import bindings as binding_api
 from tensnap.bindings import agent, agent_layer, env, grid_layer
-from tensnap.bindings.mesa.helper import build_default_layered_binder
 from tensnap.models import (
     EnvironmentBinding,
     EnvironmentRegistration,
@@ -42,11 +43,14 @@ class TestBindingsPackage:
 
 class TestEnvironmentRegistration:
     def test_environment_registration_builds_snapshot_from_layer_registrations(self):
-        binding = LayerBinding(
+        def project_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return list(items)
+
+        binding: LayerBinding[list[dict[str, Any]], str, object, str] = LayerBinding(
             layer_id="agents",
             layer_type="agent",
             item_keys=("id",),
-            items_projector=lambda items: list(items),
+            items_projector=project_items,
         )
         registration = LayerRegistration(
             binding=binding,
@@ -73,11 +77,15 @@ class TestEnvironmentRegistration:
 
     def test_layer_registration_tracks_naive_item_deltas(self):
         items = [{"id": "a1", "x": 1, "y": 2}]
-        binding = LayerBinding(
+
+        def project_items(layer: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return list(layer)
+
+        binding: LayerBinding[list[dict[str, Any]], str, object, str] = LayerBinding(
             layer_id="agents",
             layer_type="agent",
             item_keys=("id",),
-            items_projector=lambda layer: list(layer),
+            items_projector=project_items,
         )
         registration = LayerRegistration(binding=binding, target=items)
 
@@ -95,37 +103,3 @@ class TestEnvironmentRegistration:
         items.clear()
         _, _, deleted_ids = registration.build_item_deltas()
         assert registration.build_item_delete_payloads(deleted_ids) == [{"id": "a1"}]
-
-
-class TestMesaDefaults:
-    def test_default_mesa_bindings_produce_grid_and_agent_layers(self):
-        class Agent:
-            def __init__(self, agent_id: int, pos: tuple[int, int]):
-                self.unique_id = agent_id
-                self.pos = pos
-
-        class Grid:
-            width = 8
-            height = 6
-
-        class Model:
-            def __init__(self):
-                self.grid = Grid()
-                self.agents = [Agent(1, (2, 3))]
-
-        model = Model()
-        environment_binding, layer_bindings = build_default_layered_binder(model)
-        registrations = [
-            LayerRegistration(binding=binding, target=model)
-            for binding in layer_bindings
-        ]
-
-        assert environment_binding.id == "Model"
-        assert environment_binding.type == "2d"
-        assert {binding.layer_id for binding in layer_bindings} == {"grid", "agents"}
-        states = {
-            registration.id: registration.build_state()
-            for registration in registrations
-        }
-        assert states["grid"]["data"] == {"width": 8, "height": 6}
-        assert states["agents"]["agents"] == [{"id": 1, "x": 2, "y": 3}]

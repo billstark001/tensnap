@@ -7,6 +7,7 @@ import pytest
 
 from tensnap.bindings import (
     BindParameterConfig,
+    BindParametersConfig,
     action,
     agent,
     agent_layer,
@@ -43,8 +44,10 @@ class TestSimulationScenario:
         self, scenario: SimulationScenario
     ):
         agents = [{"id": "a1", "x": 1, "y": 2}]
-        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
-        scenario.add_layer_binding(
+        env_changes = scenario.add_environment_binding(
+            EnvironmentBinding(id="world", type="2d")
+        )
+        layer_changes = scenario.add_layer_binding(
             "world",
             LayerBinding(
                 layer_id="agents",
@@ -55,6 +58,8 @@ class TestSimulationScenario:
             agents,
         )
 
+        assert env_changes == {"environments": ["world"]}
+        assert layer_changes == {"layers": ["world.agents"]}
         state = scenario.environments["world"].build_state()
 
         assert state == {
@@ -87,8 +92,12 @@ class TestSimulationScenario:
                 self.height = 10
                 self.birds = [Bird(1, (2, 3))]
 
-        scenario.add_environment(Aviary())
+        changes = scenario.add_environment(Aviary())
 
+        assert changes == {
+            "environments": ["aviary"],
+            "layers": ["aviary.birds", "aviary.grid"],
+        }
         assert "aviary" in scenario.environments
         assert set(scenario.environments["aviary"].layers) == {"birds", "grid"}
 
@@ -110,9 +119,9 @@ class TestSimulationScenario:
             def speed(self):
                 return self._speed
 
-        param_ids = scenario.add_parameters(Config())
+        changes = scenario.add_parameters(Config())
 
-        assert set(param_ids) == {"speed", "enabled"}
+        assert set(changes["parameters"]) == {"speed", "enabled"}
         assert set(scenario.parameters) == {"speed", "enabled"}
 
     @pytest.mark.asyncio
@@ -132,15 +141,132 @@ class TestSimulationScenario:
                 self.calls += 1
 
         model = Model()
-        chart_ids = scenario.add_charts(model)
-        scenario.add_actions(model)
+        chart_changes = scenario.add_charts(model)
+        action_changes = scenario.add_actions(model)
 
-        assert chart_ids == ["population"]
+        assert chart_changes == {"charts": ["population"]}
+        assert action_changes == {"actions": ["tick"]}
         assert set(scenario.charts) == {"population"}
         assert set(scenario.actions) >= {"start", "step", "reset", "tick"}
 
         scenario._action_handlers["tick"]()
         assert model.calls == 1
+
+    def test_add_all_returns_changes_and_accepts_targets_without_environment(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            def __init__(self):
+                self.speed = 1
+                self.size = 2
+
+            @chart("population", "Population")
+            def population(self):
+                return 42
+
+            @action("tick", "Tick")
+            def tick(self):
+                pass
+
+        changes = scenario.add_all(Model(), BindParametersConfig(include=["speed"]))
+
+        assert changes == {
+            "environments": [],
+            "layers": [],
+            "parameters": ["speed"],
+            "actions": ["tick"],
+            "charts": ["population"],
+        }
+
+    def test_remove_all_returns_changes_without_removing_builtin_actions(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            def __init__(self):
+                self.speed = 1
+
+            @action("tick", "Tick")
+            def tick(self):
+                pass
+
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_layer_binding(
+            "world",
+            LayerBinding(
+                layer_id="agents",
+                layer_type="agent",
+                item_keys=("id",),
+                items_projector=lambda layer: list(layer),
+            ),
+            [],
+        )
+        scenario.add_parameters(Model())
+        scenario.add_actions(Model())
+
+        changes = scenario.remove_all()
+
+        assert changes == {
+            "charts": [],
+            "actions": ["tick"],
+            "parameters": ["speed"],
+            "environments": ["world"],
+            "layers": ["world.agents"],
+        }
+        assert {"start", "step", "reset"}.issubset(scenario.actions)
+        assert "tick" not in scenario.actions
+
+    def test_remove_by_dict_ignores_missing_entries(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            def __init__(self):
+                self.speed = 1
+
+            @chart("population", "Population")
+            def population(self):
+                return 42
+
+            @action("tick", "Tick")
+            def tick(self):
+                pass
+
+        model = Model()
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_layer_binding(
+            "world",
+            LayerBinding(
+                layer_id="agents",
+                layer_type="agent",
+                item_keys=("id",),
+                items_projector=lambda layer: list(layer),
+            ),
+            [],
+        )
+        scenario.add_parameters(model)
+        scenario.add_charts(model)
+        scenario.add_actions(model)
+
+        changes = scenario.remove_by_dict(
+            {
+                "charts": ["population", "missing"],
+                "actions": ["tick", "missing"],
+                "parameters": ["speed", "missing"],
+                "layers": ["world.agents", "world.missing", "missing"],
+                "environments": ["world", "missing"],
+            }
+        )
+
+        assert changes == {
+            "charts": ["population"],
+            "actions": ["tick"],
+            "parameters": ["speed"],
+            "layers": ["world.agents"],
+            "environments": ["world"],
+        }
+        assert "population" not in scenario.charts
+        assert "tick" not in scenario.actions
+        assert "speed" not in scenario.parameters
+        assert "world" not in scenario.environments
 
     @pytest.mark.asyncio
     async def test_register_handler_invokes_on_registered(

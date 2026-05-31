@@ -237,10 +237,10 @@ class TestBindParametersConfig:
     def test_include_private(self):
         """Test including private fields"""
         config_exclude = BindParametersConfig(include_private=False)
-        assert not config_exclude.is_included("_private")
+        assert config_exclude.is_included("_private") is False
 
         config_include = BindParametersConfig(include_private=True)
-        assert config_include.is_included("_private")
+        assert config_include.is_included("_private") is None
 
     def test_decorator_usage(self):
         """Test using config as a class decorator"""
@@ -251,10 +251,10 @@ class TestBindParametersConfig:
             count = 5
             other = "excluded"
 
-        assert hasattr(TestModel, "_tensnap_bind_parameters_config")
-        config = getattr(TestModel, "_tensnap_bind_parameters_config")
-        assert config.is_included("speed")
-        assert config.is_included("count")
+        assert hasattr(TestModel, "_tensnap_bind_parameters_config_list")
+        config = getattr(TestModel, "_tensnap_bind_parameters_config_list")
+        assert config[0].is_included("speed")
+        assert config[0].is_included("count")
 
 
 class TestGetParameterMetadata:
@@ -316,7 +316,7 @@ class TestGetParameterMetadata:
 
         model = TestModel()
         config = BindParametersConfig(exclude=["_private"])
-        parameters = get_parameter_metadata_from_object(model, cfg_suggest=config)
+        parameters = get_parameter_metadata_from_object(model, config)
 
         param_ids = [p[0] for p in parameters]
         assert "_private" not in param_ids

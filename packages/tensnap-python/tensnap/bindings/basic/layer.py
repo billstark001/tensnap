@@ -75,17 +75,22 @@ def _is_probably_mesa_agent_class(cls) -> bool:
         print(f"{cls} is not a class.")
         return False
 
+    agent_cls: Any = None
     try:
-        from mesa import Agent
-    except Exception:
-        ret = any(
-            base.__name__ == "Agent"
-            and (base.__module__ == "mesa" or base.__module__.startswith("mesa."))
-            for base in getattr(cls, "__mro__", ())
-        )
-        return ret
+        import importlib
 
-    return issubclass(cls, Agent)
+        agent_cls = getattr(importlib.import_module("mesa"), "Agent", None)
+    except Exception:
+        pass
+
+    if isinstance(agent_cls, type):
+        return issubclass(cls, agent_cls)
+
+    return any(
+        base.__name__ == "Agent"
+        and (base.__module__ == "mesa" or base.__module__.startswith("mesa."))
+        for base in getattr(cls, "__mro__", ())
+    )
 
 
 def _try_get_class(cls: Type[Any], target_class_name: str) -> Type[Any] | None:
@@ -327,7 +332,6 @@ def _resolve_projector_dict(
 
 
 class BindItemConfig(Generic[TItemKeys]):
-
     def __init__(
         self,
         **kwargs: ProjectorFieldForInit,
@@ -356,17 +360,17 @@ class BindItemConfig(Generic[TItemKeys]):
         return cls
 
     def assert_attached(self) -> None:
-        assert (
-            self.attached
-        ), "Projector config must be attached before getting projector"
+        assert self.attached, (
+            "Projector config must be attached before getting projector"
+        )
 
     def assert_fields(self, required_fields: List[TItemKeys]) -> None:
         missing_fields = [
             f for f in required_fields if not self.projector_dict.get(f, None)
         ]
-        assert (
-            not missing_fields
-        ), f"Missing required projector fields: {missing_fields}"
+        assert not missing_fields, (
+            f"Missing required projector fields: {missing_fields}"
+        )
 
     def get_projector(self) -> AttrProjector[Any, TItemKeys]:
         return cast(
@@ -401,7 +405,6 @@ _agent_fields: List[Tuple[Callable[[Any], bool], AttrPathMap[AgentItemFields]]] 
 
 
 class BindAgentConfig(BindItemConfig[AgentItemFields]):
-
     binding_name = _binding_name("item", "agent")
 
     def __init__(
@@ -458,7 +461,6 @@ _id_fields: List[Tuple[Callable[[Any], bool], AttrPathMap[Literal["id"]]]] = [
 
 
 class BindUniformAgentConfig(BindItemConfig[UniformAgentItemFields]):
-
     binding_name = _binding_name("item", "uniform_agent")
 
     def __init__(
@@ -500,7 +502,6 @@ uniform_agent = BindUniformAgentConfig
 
 
 class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
-
     binding_name = _binding_name("item", "edge")
 
     def __init__(
@@ -609,7 +610,6 @@ def _append_layer_config(
 
 
 class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
-
     def __init__(
         self,
         layer_id: str,
@@ -825,7 +825,6 @@ background_layer = BindBackgroundLayerConfig
 
 
 class BindGridLayerConfig(BindLayerConfig):
-
     def __init__(
         self,
         layer_id: str = "grid",
@@ -873,7 +872,6 @@ grid_layer = BindGridLayerConfig
 
 
 class BindAgentLayerConfig(BindLayerConfig):
-
     def __init__(
         self,
         layer_id: str = "agents",
@@ -933,7 +931,6 @@ agent_layer = BindAgentLayerConfig
 
 
 class BindEdgeLayerConfig(BindLayerConfig):
-
     def __init__(
         self,
         layer_id: str = "edges",
@@ -998,7 +995,6 @@ edge_layer = BindEdgeLayerConfig
 
 
 class BindTrajectoryLayerConfig(BindLayerConfig):
-
     def __init__(
         self,
         layer_id: str = "trails",

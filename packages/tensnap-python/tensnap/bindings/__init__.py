@@ -49,7 +49,9 @@ def layer_configs(value: Any) -> list[BindLayerConfig[Any, Any]]:
     return list(cast(list[BindLayerConfig[Any, Any]], raw_configs))
 
 
-def bindings(value: Any) -> tuple[
+def bindings(
+    value: Any,
+) -> tuple[
     EnvironmentBinding | None,
     list[LayerBinding[Any, Any, Any, Any]],
 ]:
@@ -93,6 +95,6 @@ def charts(
 
 def parameters(
     value: dict[str, Any] | ModuleType | object,
-    cfg_suggest: BindParametersConfig | None = None,
+    *cfg_suggest: BindParametersConfig,
 ) -> list[tuple[str, Parameter]]:
-    return get_parameter_metadata_from_object(value, cfg_suggest=cfg_suggest)
+    return get_parameter_metadata_from_object(value, *cfg_suggest)

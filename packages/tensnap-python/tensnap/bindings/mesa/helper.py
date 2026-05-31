@@ -7,6 +7,7 @@ from tensnap.models import (
     LayerBinding,
 )
 from tensnap.utils.attr import make_attr_getter, make_attr_projector
+from tensnap.utils.model_reinit import reinitialize_registered_model
 
 # region Built-in action handler factories
 # Each factory returns a coroutine decorated with @action so that the metadata
@@ -87,38 +88,18 @@ async def mesa_model_reinit(handler: Any) -> None:
     """
     Re-initialize a Mesa-style handler on reset.
 
-    Dumps current parameter values, strips auto-registered bindings, rebuilds
-    the model with updated init-kwargs, re-registers, then replays any
-    non-init-kwarg parameters.
+    This is a Mesa policy wrapper around the generic reinitialization helper:
+    Mesa lifecycle counters are excluded from replay, while constructor kwargs
+    and runtime parameters are preserved across the rebuild.
 
     Args:
         handler: A MesaSimulationHandler instance (typed as Any to avoid
             importing Mesa at runtime).
     """
-    scenario = handler.scenario
-    assert scenario is not None, "Handler must be registered before re-init."
-
-    dumped: dict[str, Any] = {
-        pid: scenario._get_param_value(param)
-        for pid, param in scenario.parameters.items()
-    }
-    handler._unregister_auto(scenario)
-
-    replayed: dict[str, Any] = {}
-    for key, value in dumped.items():
-        if key in MESA_LIFECYCLE_PARAMETER_IDS:
-            continue
-        if key in handler.model_init_kwargs_orig:
-            handler.model_init_kwargs[key] = value
-        else:
-            replayed[key] = value
-
-    handler._init_model()
-    await handler.on_registered(scenario)
-
-    for key, value in replayed.items():
-        if key in scenario.parameters:
-            scenario._set_param_value(scenario.parameters[key], value)
+    await reinitialize_registered_model(
+        handler,
+        lifecycle_parameter_ids=MESA_LIFECYCLE_PARAMETER_IDS,
+    )
 
 
 # endregion
