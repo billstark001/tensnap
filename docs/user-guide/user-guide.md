@@ -1,6 +1,6 @@
 # TenSnap User Guide
 
-This guide describes the current 0.2.0 user-facing workflow.
+This guide describes the current 0.2.2 user-facing workflow.
 
 If you need runnable references, start with `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples, but the examples and Python API reference remain the authoritative source for the current release.
 
@@ -20,8 +20,8 @@ The current high-level path is:
 
 1. Define your model objects.
 2. Attach environment/layer/item metadata with decorators from `tensnap.bindings`.
-3. Register the model with `SimulationScenario`.
-4. Register parameters, charts, and optional custom actions.
+3. Register model/config/chart/action bindings with `SimulationScenario.add_all(...)`.
+4. Use targeted `add_*` methods only when you need manual control.
 5. Start the renderer and connect to the running scenario.
 
 ### Minimal Example
@@ -31,12 +31,12 @@ import asyncio
 
 from tensnap import SimulationScenario
 from tensnap.bindings import (
-    BindParametersConfig,
     agent,
     agent_layer,
     chart,
     env,
     grid_layer,
+    params,
 )
 
 
@@ -66,16 +66,17 @@ class Aviary:
         return len(self.birds)
 
 
+@params(include=["speed"])
 class Config:
     speed = 1.0
 
 
 scenario = SimulationScenario(port=8765)
 model = Aviary()
+config = Config()
 
-scenario.add_environment(model)
-scenario.add_parameters(Config(), BindParametersConfig(exclude="^_"))
-scenario.add_charts(model)
+scenario.add_all(model)
+scenario.add_all(config)
 
 
 async def main() -> None:
@@ -104,13 +105,14 @@ The recommended decorator/readback surface lives under `tensnap.bindings`.
 - `trajectory_item(...)`
 - `chart(...)`
 - `action(...)`
+- `params(...)`
 - `BindParametersConfig(...)`
 
 These decorators describe how your own Python objects should be projected into protocol state. They do not create a separate mutable TenSnap-side model object that you manipulate directly.
 
 ## Environments and Layers
 
-TenSnap 0.2.0 uses canonical `uniform` and `2d` environments.
+TenSnap 0.2.2 uses canonical `uniform` and `2d` environments.
 
 Rendering behavior comes from layers.
 
@@ -139,23 +141,30 @@ For resource fields or per-cell state, prefer an explicit square-agent layer ove
 Register parameters with:
 
 ```python
-scenario.add_parameters(config, BindParametersConfig(exclude="^_"))
+@params(include=["speed", "population"])
+class Config:
+    speed = 1.0
+    population = 100
+
+scenario.add_all(config)
 ```
 
-Automatic parameter discovery reads plain attributes from objects, classes, dictionaries, and dataclass-like configs.
+Prefer attaching `@params(...)` to config/model classes and then calling `scenario.add_all(config)`. `BindParametersConfig.EXCLUDE_ALL` is available for explicit calls that should suppress parameter discovery.
+
+Automatic parameter discovery reads plain attributes from objects, classes, dictionaries, and dataclass-like configs when a parameter config opts them in.
 
 ### Charts
 
 Attach charts with `@chart(...)` and register them with:
 
 ```python
-scenario.add_charts(model)
+scenario.add_all(model)
 ```
 
 or, for module-level functions:
 
 ```python
-scenario.add_charts(globals())
+scenario.add_all(globals())
 ```
 
 ### Actions
@@ -171,7 +180,7 @@ There is no built-in `stop` action unless your scenario registers one explicitly
 If you need extra actions, use `@action(...)` and then:
 
 ```python
-scenario.add_actions(target)
+scenario.add_all(target)
 ```
 
 ## Runtime Semantics

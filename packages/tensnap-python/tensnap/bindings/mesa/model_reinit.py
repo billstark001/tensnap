@@ -349,10 +349,10 @@ class BoundModelReinitializer:
         self._cleanup: CleanupCallback | Iterable[CleanupCallback] | None = None
 
         for binding in self.kwarg_bindings:
-            if hasattr(model, binding.name) or hasattr(type(self), binding.name):
+            if hasattr(type(self), binding.name):
                 continue
             self._kwarg_attr_names.add(binding.name)
-            setattr(self, binding.name, binding.default)
+            setattr(self, binding.name, getattr(model, binding.name, binding.default))
 
     def __tensnap_parameter_metadata__(
         self, *cfg_suggest: BindParametersConfig
@@ -372,10 +372,10 @@ class BoundModelReinitializer:
     def current_kwargs(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         for binding in self.kwarg_bindings:
-            if hasattr(self.model, binding.name):
-                result[binding.name] = getattr(self.model, binding.name)
-            elif binding.name in self._kwarg_attr_names:
+            if binding.name in self._kwarg_attr_names:
                 result[binding.name] = getattr(self, binding.name)
+            elif hasattr(self.model, binding.name):
+                result[binding.name] = getattr(self.model, binding.name)
             else:
                 result[binding.name] = binding.default
         return result
@@ -415,9 +415,22 @@ class BoundModelReinitializer:
     def register_model(
         self, scenario: SimulationScenario, *, dry_run: bool = False
     ) -> RegistryChanges:
+        model_changes = scenario.add_all(self.model, dry_run=dry_run)
+        model_param_ids = model_changes.get("parameters", [])
+        if not dry_run:
+            self._kwarg_attr_names.difference_update(model_param_ids)
+        kwarg_parameter_changes = (
+            scenario.add_parameters(
+                self,
+                BindParametersConfig(exclude=model_param_ids),
+                dry_run=dry_run,
+            )
+            if model_param_ids
+            else scenario.add_parameters(self, dry_run=dry_run)
+        )
         return merge_registry_changes(
-            scenario.add_all(self.model, dry_run=dry_run),
-            scenario.add_parameters(self, dry_run=dry_run),
+            model_changes,
+            kwarg_parameter_changes,
         )
 
     async def reinitialize(self) -> RegistryChanges:

@@ -7,9 +7,10 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer
+from tensnap import agent, agent_layer, env, grid_layer, params
 
 
+@params(exclude=["world_size"])
 @dataclass
 class RandomWalkConfig:
     """Configuration for the random-walk simulation."""

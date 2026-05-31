@@ -234,6 +234,14 @@ class TestBindParametersConfig:
         assert config.is_excluded_raw("_internal")
         assert not config.is_excluded_raw("public")
 
+    def test_exclude_all_constant(self):
+        """Test the shared exclude-all config."""
+        config = BindParametersConfig.EXCLUDE_ALL
+
+        assert not config.is_included("speed")
+        assert config.is_excluded_raw("speed")
+        assert not config.is_included("_private")
+
     def test_include_private(self):
         """Test including private fields"""
         config_exclude = BindParametersConfig(include_private=False)

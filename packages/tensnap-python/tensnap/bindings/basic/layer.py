@@ -72,7 +72,6 @@ def _binding_name(scope: str, type: str) -> str:
 
 def _is_probably_mesa_agent_class(cls) -> bool:
     if not isinstance(cls, type):
-        print(f"{cls} is not a class.")
         return False
 
     agent_cls: Any = None

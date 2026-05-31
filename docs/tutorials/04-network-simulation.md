@@ -302,9 +302,8 @@ def network_density() -> float:
 async def main() -> None:
     model.init()
 
-    scenario.add_environment(model)
-    scenario.add_parameters(model)
-    scenario.add_charts(globals())
+    scenario.add_all(model)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         model.init,
@@ -330,9 +329,8 @@ pip install tensnap numpy networkx
 
 ### Why this works
 
-- `scenario.add_environment(model)` reads the `@env`, `@agent_layer`, and `@edge_layer` metadata from `DiscreteHKModel`.
-- `scenario.add_parameters(model)` reads the `@params(...)` declaration and exposes only the selected model attributes.
-- `scenario.add_charts(globals())` registers the three module-level chart functions.
+- `scenario.add_all(model)` reads the `@env`, `@agent_layer`, `@edge_layer`, and `@params(...)` metadata from `DiscreteHKModel`.
+- `scenario.add_all(globals())` registers the three module-level chart functions without turning module constants into parameters.
 - `register_model_handler(model.init, model.step, model.init)` gives the built-in `reset` control a deterministic graph rebuild path.
 
 ## Step 3: Run the Tutorial

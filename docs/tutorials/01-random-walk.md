@@ -45,9 +45,10 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer
+from tensnap import agent, agent_layer, env, grid_layer, params
 
 
+@params(include=["num_agents", "step_size"])
 @dataclass
 class RandomWalkConfig:
     """Configuration for the random-walk simulation."""
@@ -139,7 +140,7 @@ class RandomWalkSimulation:
 - `@agent_layer(...)` tells TenSnap to serialize `self.walkers` as the `walkers` layer.
 - `@env()` attaches the environment binding itself.
 
-Together, these decorators let `SimulationScenario.add_environment(model)` build a canonical `2d` environment plus explicit layers under protocol v0.2.
+Together, these decorators let `SimulationScenario.add_all(model, ...)` build a canonical `2d` environment plus explicit layers under protocol v0.2.
 
 ## Step 2: Create the Visualization Entry Point
 
@@ -155,7 +156,7 @@ import os
 
 import import_config  # noqa: F401
 
-from tensnap import BindParametersConfig, SimulationScenario, chart
+from tensnap import SimulationScenario, chart
 
 from random_walk import RandomWalkConfig, RandomWalkSimulation
 
@@ -179,9 +180,9 @@ def track_population() -> float:
 async def main() -> None:
     model.initialize()
 
-    scenario.add_environment(model)
-    scenario.add_parameters(config, BindParametersConfig(exclude=["world_size"]))
-    scenario.add_charts(globals())
+    scenario.add_all(model)
+    scenario.add_all(config)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         model.initialize,
@@ -202,9 +203,9 @@ If you are copying this example into a fresh directory after installing `tensnap
 ### Why this works
 
 - `SimulationScenario` is the high-level runtime entry point.
-- `add_environment(model)` reads the decorators attached in `random_walk.py`.
-- `add_parameters(...)` auto-discovers plain fields from `RandomWalkConfig`.
-- `BindParametersConfig(exclude=["world_size"])` keeps the world size fixed while still exposing the other two controls.
+- `add_all(model)` reads the environment decorators attached in `random_walk.py`.
+- `add_all(config)` reads the `@params(...)` declaration from `RandomWalkConfig`.
+- `@params(include=["num_agents", "step_size"])` keeps the world size fixed while exposing the other two controls.
 - `register_model_handler(init, step, reset)` gives the built-in `reset` action explicit behavior.
 
 ## Step 3: Run the Tutorial
@@ -305,7 +306,7 @@ def track_total_distance() -> float:
     return sum(walker.total_distance for walker in model.walkers)
 ```
 
-Then register charts exactly as before with `scenario.add_charts(globals())`.
+Then register charts exactly as before with `scenario.add_all(globals())`.
 
 ## References
 

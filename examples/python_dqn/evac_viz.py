@@ -260,8 +260,8 @@ def track_fire() -> float:
 async def main() -> None:
     viz_model.initialize()
 
-    scenario.add_environment(viz_model)
-    scenario.add_charts(globals())
+    scenario.add_all(viz_model)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         viz_model.initialize,

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import import_config  # noqa: F401
 
-from tensnap import BindParametersConfig, SimulationScenario, chart
+from tensnap import SimulationScenario, chart
 
 from predator_prey import (
     PredatorPreyConfig,
@@ -69,9 +69,9 @@ async def main() -> None:
     model.initialize()
     await publish_animal_assets()
 
-    scenario.add_environment(model)
-    scenario.add_parameters(config, BindParametersConfig(exclude=["width", "height"]))
-    scenario.add_charts(globals())
+    scenario.add_all(model)
+    scenario.add_all(config)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         model.initialize,

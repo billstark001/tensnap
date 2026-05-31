@@ -7,7 +7,7 @@ import os
 
 import import_config  # noqa: F401
 
-from tensnap import BindParametersConfig, SimulationScenario, chart
+from tensnap import SimulationScenario, chart
 
 from random_walk import RandomWalkConfig, RandomWalkSimulation
 
@@ -31,9 +31,9 @@ def track_population() -> float:
 async def main() -> None:
     model.initialize()
 
-    scenario.add_environment(model)
-    scenario.add_parameters(config, BindParametersConfig(exclude=["world_size"]))
-    scenario.add_charts(globals())
+    scenario.add_all(model)
+    scenario.add_all(config)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         model.initialize,

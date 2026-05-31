@@ -14,6 +14,7 @@ from tensnap.bindings import (
     chart,
     env,
     grid_layer,
+    params,
 )
 from tensnap.models import EnvironmentBinding, LayerBinding
 from tensnap.scenario import DefaultSimulationHandler, SimulationScenario
@@ -202,7 +203,7 @@ class TestSimulationScenario:
         assert changes == {
             "environments": ["world"],
             "layers": ["world.grid"],
-            "parameters": ["height", "speed", "width"],
+            "parameters": [],
             "actions": ["tick"],
             "charts": ["population"],
         }
@@ -210,6 +211,26 @@ class TestSimulationScenario:
         assert scenario.parameters == {}
         assert set(scenario.actions) == {"start", "step", "reset"}
         assert scenario.charts == {}
+
+    def test_add_all_uses_attached_params_with_default_exclude_all(
+        self, scenario: SimulationScenario
+    ):
+        @params(include=["speed"])
+        class Model:
+            def __init__(self):
+                self.speed = 1
+                self.size = 2
+
+        changes = scenario.add_all(Model())
+
+        assert changes == {
+            "environments": [],
+            "layers": [],
+            "parameters": ["speed"],
+            "actions": [],
+            "charts": [],
+        }
+        assert set(scenario.parameters) == {"speed"}
 
     def test_remove_all_returns_changes_without_removing_builtin_actions(
         self, scenario: SimulationScenario

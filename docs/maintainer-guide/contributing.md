@@ -509,7 +509,8 @@ def sample_environment():
 def test_environment_with_fixture(sample_environment):
   """Test using fixture."""
   scenario = SimulationScenario()
-  registration = scenario.add_environment(sample_environment)
+  scenario.add_all(sample_environment)
+  registration = scenario.environments["main"]
   state = registration.build_state()
   grid = next(layer for layer in state["layers"] if layer["layer_id"] == "grid")
   assert grid["data"]["width"] == 50

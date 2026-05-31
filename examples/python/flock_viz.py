@@ -10,7 +10,6 @@ import import_config  # noqa: F401
 from tensnap import (
     chart,
     SimulationScenario,
-    BindParametersConfig,
 )
 
 from flock import FlockSimulation, FlockConfig
@@ -39,9 +38,9 @@ async def main() -> None:
 
     model.initialize()
 
-    scenario.add_environment(model)
-    scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
-    scenario.add_charts(globals())
+    scenario.add_all(model)
+    scenario.add_all(config)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         model.initialize,

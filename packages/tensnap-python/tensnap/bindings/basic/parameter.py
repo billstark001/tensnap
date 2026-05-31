@@ -8,6 +8,7 @@ from typing import (
     Callable,
     Optional,
     Pattern,
+    ClassVar,
     List,
     Tuple,
     get_args,
@@ -175,6 +176,7 @@ class BindParametersConfig:
     """
 
     CONFIG_LIST_ATTR = "_tensnap_bind_parameters_config_list"
+    EXCLUDE_ALL: ClassVar["BindParametersConfig"]
 
     def __init__(
         self,
@@ -204,6 +206,9 @@ class BindParametersConfig:
 
         self.include_private = include_private
         self.custom_bindings = custom_bindings or {}
+
+    def __str__(self):
+        return f"<BindParametersConfig: include={self.include_re or self.include_fields}, exclude={self.exclude_re or self.exclude_fields}, include_private={self.include_private}>"
 
     def is_included_raw(self, field_name: str) -> Optional[bool]:
         """
@@ -239,14 +244,6 @@ class BindParametersConfig:
             return None
 
         return None
-
-    def is_excluded(self, field_name: str) -> Optional[bool]:
-        """
-        Return the exclusion decision made by this config.
-
-        This method returns None when no exclusion rule applies.
-        """
-        return self.is_excluded_raw(field_name)
 
     def is_included(self, field_name: str) -> Optional[bool]:
         """
@@ -343,6 +340,8 @@ class BindParametersConfig:
 
 params = BindParametersConfig  # Alias
 
+BindParametersConfig.EXCLUDE_ALL = BindParametersConfig(exclude=r".*")
+
 
 # endregion
 
@@ -433,7 +432,6 @@ _default_mesa_parameter_config = BindParametersConfig(
 
 def _is_probably_mesa_model_class(cls) -> bool:
     if not isinstance(cls, type):
-        print(f"{cls} is not a class.")
         return False
 
     model_cls: Any = None
@@ -461,7 +459,7 @@ def get_parameter_metadata_from_object(
 
     provider = getattr(obj, "__tensnap_parameter_metadata__", None)
     if callable(provider):
-        return provider(*cfg_suggest)
+        return provider(*cfg_suggest)  # type: ignore
 
     if isinstance(obj, dict):
         return get_parameter_metadata_from_namespace(obj, *cfg_suggest)
@@ -482,9 +480,11 @@ def get_parameter_metadata_from_object(
         cfg_list.extend(BindParametersConfig.get_configs(cls))
         if not cfg_suggest:
             cfg_list.append(BindParametersConfig())
+
         # 1. fetch class metadata
         # this overrides annotated config, but retains suggested config
         parameters = get_parameter_metadata_from_namespace(vars(cls), *cfg_list)
+
         # 2. annotated class fields
         # this also overrides annotated config
         field_metadata = get_field_metadata(cls)
@@ -497,6 +497,7 @@ def get_parameter_metadata_from_object(
                 if meta.type == "action":
                     continue  # this does not make sense for fields
                 parameters.append((field_name, meta.metadata))
+
         # 3. fetch instance metadata
         keys_fetched = set(name for name, *_ in parameters)
         for name in dir(obj):

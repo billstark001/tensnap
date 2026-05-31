@@ -68,7 +68,7 @@ async def main() -> None:
         model_reset=reinitializer.model_reset,
     )
 
-    scenario.add_charts(globals())
+    scenario.add_all(globals())
 
     print(f"TenSnap Sugarscape visualization starting on ws://localhost:{server_port}")
     await scenario.run()

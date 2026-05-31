@@ -686,6 +686,8 @@ class SimulationScenario:
         dry_run: bool = False,
     ) -> Dict[str, List[str]]:
         changes: List[Dict[str, List[str]]] = []
+
+        # 1. environment
         environment_binding = binding_api.environment_binding(target)
         if environment_binding is not None:
             changes.append(self.add_environment(target, dry_run=dry_run))
@@ -696,9 +698,24 @@ class SimulationScenario:
                     _registry_change("layers", []),
                 )
             )
-        changes.append(self.add_parameters(target, *cfg_suggest, dry_run=dry_run))
+
+        # 2. parameters
+        param_bindings = (
+            BindParametersConfig.get_configs(target.__class__)
+            if hasattr(target, "__class__")
+            else None
+        )
+        parameter_configs = cfg_suggest or (
+            (BindParametersConfig.EXCLUDE_ALL,) if not param_bindings else ()
+        )
+        changes.append(self.add_parameters(target, *parameter_configs, dry_run=dry_run))
+
+        # 3. actions
         changes.append(self.add_actions(target, dry_run=dry_run))
+
+        # 4. charts
         changes.append(self.add_charts(target, dry_run=dry_run))
+
         return _merge_registry_changes(*changes)
 
     def remove_all(self) -> Dict[str, List[str]]:

@@ -233,7 +233,7 @@ class ERNetworkEnvironment(Environment):
             "source": edge[0],
             "target": edge[1],
             "color": "#95A5A6",
-            "width": 1,
+            "width": 0.1,
         }
 
     def init(self, seed: Optional[int] = None):

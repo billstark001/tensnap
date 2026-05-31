@@ -46,12 +46,13 @@ class Cell(mesa.Agent):
         pass
 
 
-@bind_kwargs()
+@bind_kwargs(exclude=["seed"])
 @bind_datacollector()
 @agent_layer("cells", item_iterable_projector="agents")
 @grid_layer(width="width", height="height")
 @env(id="cgol_grid")
 class GameOfLife(mesa.Model):
+
     def __init__(self, width: int = 50, height: int = 50, seed=None):
         super().__init__(seed=seed)
 
@@ -81,9 +82,14 @@ class GameOfLife(mesa.Model):
         # Toroidal Moore-neighborhood count.
         neighbors = np.zeros_like(board, dtype=np.uint8)
         for dx, dy in (
-            (-1, -1), (-1, 0), (-1, 1),
-            (0, -1),           (0, 1),
-            (1, -1),  (1, 0),  (1, 1),
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
         ):
             neighbors += np.roll(np.roll(board, dx, axis=0), dy, axis=1)
 

@@ -52,10 +52,21 @@ from tensnap import (
     env,
     agent_layer,
     grid_layer,
+    params,
     trajectory_layer,
 )
 
 
+@params(
+    include=[
+        "separation_distance",
+        "alignment_distance",
+        "cohesion_distance",
+        "max_speed",
+        "num_agents",
+        "spawn_radius",
+    ]
+)
 @dataclass
 class FlockConfig:
     """Configuration for flocking simulation"""
@@ -252,7 +263,6 @@ import import_config  # noqa: F401
 from tensnap import (
     chart,
     SimulationScenario,
-    BindParametersConfig,
 )
 
 from flock import FlockSimulation, FlockConfig
@@ -279,9 +289,9 @@ async def main() -> None:
 
     model.initialize()
 
-    scenario.add_environment(model)
-    scenario.add_parameters(config, BindParametersConfig(exclude="world_.+"))
-    scenario.add_charts(globals())
+    scenario.add_all(model)
+    scenario.add_all(config)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         model.initialize,
@@ -301,8 +311,8 @@ As in Tutorial 1, remove `import import_config` if you are copying the file outs
 
 ### Why this works
 
-- `BindParametersConfig(exclude="world_.+")` keeps the world dimensions fixed while exposing the flock behavior controls.
-- `scenario.add_charts(globals())` registers the two module-level chart functions.
+- `@params(...)` keeps the world dimensions fixed while exposing the flock behavior controls.
+- `scenario.add_all(globals())` registers the two module-level chart functions without turning module constants into parameters.
 - `register_model_handler(model.initialize, model.step, model.initialize)` gives the built-in `reset` control a deterministic meaning.
 
 ## Step 3: Run the Tutorial

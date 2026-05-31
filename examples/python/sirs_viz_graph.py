@@ -26,11 +26,8 @@ async def main():
 
     model.init()
 
-    scenario.add_environment(env)
-    scenario.add_charts(model)
-    scenario.add_parameters(model)
-    scenario.add_parameters(env)
-    scenario.add_actions({})
+    scenario.add_all(env)
+    scenario.add_all(model)
 
     await scenario.register_model_handler(
         model.init,

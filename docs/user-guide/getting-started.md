@@ -70,21 +70,20 @@ Try these interactions:
 The current recommended Python workflow is:
 
 1. Attach environment/layer/item metadata with decorators from `tensnap.bindings`.
-2. Register the model with `SimulationScenario` using `scenario.add_environment(model)`.
-3. Register parameters, charts, and optional actions.
-4. Let `SimulationScenario` handle sync and incremental updates.
+2. Register model/config/chart/action bindings with `SimulationScenario.add_all(...)`.
+3. Let `SimulationScenario` handle sync and incremental updates.
 
 ```python
 import asyncio
 
 from tensnap import SimulationScenario
 from tensnap.bindings import (
-    BindParametersConfig,
     agent,
     agent_layer,
     chart,
     env,
     grid_layer,
+    params,
 )
 
 
@@ -114,16 +113,17 @@ class Aviary:
         return len(self.birds)
 
 
+@params(include=["speed"])
 class Config:
     speed = 1.0
 
 
 scenario = SimulationScenario(port=8765)
 model = Aviary()
+config = Config()
 
-scenario.add_environment(model)
-scenario.add_parameters(Config(), BindParametersConfig(exclude="^_"))
-scenario.add_charts(model)
+scenario.add_all(model)
+scenario.add_all(config)
 
 
 async def main() -> None:

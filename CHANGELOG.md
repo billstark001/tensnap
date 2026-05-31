@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## tensnap [0.2.1] - 2026-05-25
+## @tensnap/python [0.2.2] - 2026-05-31
+
+### Changed
+
+- Updated Python and Mesa examples to use `SimulationScenario.add_all(...)` for ordinary registration, with parameters declared through `@params(...)`.
+- Refreshed Python API docs, tutorials, and README snippets for the combined registration API and Mesa reinitializer workflow.
+- Changed `SimulationScenario.add_all(...)` to use `BindParametersConfig.EXCLUDE_ALL` by default so incidental public attributes are not exposed as parameters unless opted in.
+
+### Fixed
+
+- Fixed Mesa constructor-parameter registration so `@bind_kwargs` fields such as `width` and `height` remain available after model reinitialization.
+
+## @tensnap/python [0.2.1] - 2026-05-25
 
 ### Fixed
 

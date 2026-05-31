@@ -159,7 +159,7 @@ def test_bind_kwargs_honors_include_exclude_and_rejects_multiple_configs():
         bind_kwargs()(ConfiguredModel)
 
 
-def test_bound_model_reinitializer_registers_non_conflicting_kwargs_only():
+def test_bound_model_reinitializer_registers_constructor_kwargs():
     class Model:
         def __init__(self, width: int = 5, agent_count: int = 2):
             self.width = width
@@ -176,7 +176,7 @@ def test_bound_model_reinitializer_registers_non_conflicting_kwargs_only():
     kwarg_changes = scenario.add_parameters(reinitializer)
 
     assert "width" in model_changes["parameters"]
-    assert kwarg_changes == {"parameters": ["agent_count"]}
+    assert kwarg_changes == {"parameters": ["width", "agent_count"]}
 
     scenario.set_parameter("width", 9)
     scenario.set_parameter("agent_count", 4)
@@ -206,7 +206,7 @@ def test_bound_model_reinitializer_supports_add_all_and_default_registration():
     assert dry_run == {
         "environments": [],
         "layers": [],
-        "parameters": ["agent_count"],
+        "parameters": [],
         "actions": [],
         "charts": [],
     }
@@ -218,6 +218,33 @@ def test_bound_model_reinitializer_supports_add_all_and_default_registration():
 
     assert model.width == 10
     assert model._agent_count_seen == 5
+
+
+def test_bound_model_reinitializer_keeps_conflicting_kwargs_registered_by_model():
+    @binding_api.params(include=["width", "height"])
+    class Model:
+        def __init__(self, width: int = 8, height: int = 6, agent_count: int = 3):
+            self.width = width
+            self.height = height
+            self._agent_count_seen = agent_count
+
+    model = Model()
+    reinitializer = BoundModelReinitializer(model)
+    scenario = SimulationScenario()
+
+    registered = reinitializer.register_model(scenario)
+
+    assert set(registered["parameters"]) == {"width", "height", "agent_count"}
+    assert set(scenario.parameters) == {"width", "height", "agent_count"}
+
+    scenario.set_parameter("width", 11)
+    scenario.set_parameter("height", 7)
+    scenario.set_parameter("agent_count", 4)
+    reinitializer.reinitialize_model()
+
+    assert model.width == 11
+    assert model.height == 7
+    assert model._agent_count_seen == 4
 
 
 def test_bind_datacollector_injects_charts_after_model_init_without_handler_magic():

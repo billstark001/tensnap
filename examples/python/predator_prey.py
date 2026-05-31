@@ -7,8 +7,7 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer
-
+from tensnap import agent, agent_layer, env, grid_layer, params
 
 SHEEP_ASSET_ID = "wolf-sheep:sheep"
 WOLF_ASSET_ID = "wolf-sheep:wolf"
@@ -16,6 +15,7 @@ SHEEP_ICON = f"asset:{SHEEP_ASSET_ID}"
 WOLF_ICON = f"asset:{WOLF_ASSET_ID}"
 
 
+@params(exclude=["width", "height"])
 @dataclass
 class PredatorPreyConfig:
     width: int = 50

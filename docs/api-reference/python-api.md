@@ -15,13 +15,13 @@ import asyncio
 
 from tensnap import SimulationScenario
 from tensnap.bindings import (
-    BindParametersConfig,
     action,
     agent,
     agent_layer,
     chart,
     env,
     grid_layer,
+    params,
 )
 
 
@@ -55,6 +55,7 @@ class Aviary:
         self.birds.reverse()
 
 
+@params(include=["speed", "paused"])
 class Config:
     speed = 1.0
     paused = False
@@ -62,11 +63,10 @@ class Config:
 
 scenario = SimulationScenario(port=8765)
 model = Aviary()
+config = Config()
 
-scenario.add_environment(model)
-scenario.add_parameters(Config(), BindParametersConfig(exclude="^_"))
-scenario.add_charts(model)
-scenario.add_actions(model)
+scenario.add_all(model)
+scenario.add_all(config)
 
 
 async def main() -> None:
@@ -94,7 +94,7 @@ if __name__ == "__main__":
 - `edge(...)`: attach an item projector for edge-like objects.
 - `trajectory_item(...)`: attach an item projector for trajectory config objects.
 - `param(...)` / `BindParameterConfig(...)`: attach explicit parameter metadata.
-- `params(...)` / `BindParametersConfig(...)`: configure automatic parameter discovery.
+- `params(...)` / `BindParametersConfig(...)`: configure automatic parameter discovery. `BindParametersConfig.EXCLUDE_ALL` is the built-in exclude-all config.
 - `chart(...)`: attach chart metadata to a function or method.
 - `action(...)`: attach action metadata to a function or method.
 
@@ -134,29 +134,37 @@ scenario = SimulationScenario(
 
 `SimulationScenario` registers the built-in renderer-driven actions `start`, `step`, and `reset` during construction.
 
+### Combined registration
+
+- `add_all(target, cfg_suggest=None, dry_run=False) -> dict[str, list[str]]`
+- `remove_all() -> dict[str, list[str]]`
+- `remove_by_dict(removals) -> dict[str, list[str]]`
+
+`add_all(...)` is the normal high-level path. It registers any available environment/layer, action, and chart bindings on the target and returns changed registry ids grouped by kind. If no parameter config is passed, it uses `BindParametersConfig.EXCLUDE_ALL`; attach `@params(...)` to opt fields into parameter discovery.
+
 ### Environment and layer registration
 
-- `add_environment_binding(binding: EnvironmentBinding | EnvironmentRegistration) -> EnvironmentRegistration`
-- `add_environment(target: object) -> EnvironmentRegistration`
-- `add_layer_binding(env_id: str, binding: LayerBinding, target: object) -> LayerRegistration`
-- `add_bound_layers(env_id: str, target: object) -> list[str]`
+- `add_environment_binding(binding: EnvironmentBinding | EnvironmentRegistration) -> dict[str, list[str]]`
+- `add_environment(target: object) -> dict[str, list[str]]`
+- `add_layer_binding(env_id: str, binding: LayerBinding, target: object) -> dict[str, list[str]]`
+- `add_bound_layers(env_id: str, target: object) -> dict[str, list[str]]`
 - `set_layer_target(env_id: str, layer_id: str, target: object) -> None`
-- `remove_layer(env_id: str, layer_id: str) -> None`
-- `remove_environment(env_id: str) -> None`
+- `remove_layer(env_id: str, layer_id: str) -> dict[str, list[str]]`
+- `remove_environment(env_id: str) -> dict[str, list[str]]`
 
-`add_environment` is the normal path when your class is decorated with `env(...)` and one or more layer decorators. `add_environment_binding_binding` + `add_layer_binding` is the manual path when you build bindings imperatively.
+`add_all(...)` is the normal path when your class is decorated with `env(...)` and one or more layer decorators. `add_environment_binding(...)` + `add_layer_binding(...)` is the manual path when you build bindings imperatively.
 
 ### Parameters, charts, and actions
 
-- `add_parameters(target, cfg_suggest=None) -> list[str]`
-- `remove_parameters(param_ids) -> None`
-- `remove_all_parameters() -> None`
-- `add_charts(target) -> list[str]`
-- `remove_charts(chart_ids) -> None`
-- `remove_all_charts() -> None`
-- `add_actions(target) -> None`
-- `remove_action(action_id) -> None`
-- `remove_all_actions() -> None`
+- `add_parameters(target, cfg_suggest=None) -> dict[str, list[str]]`
+- `remove_parameters(param_ids) -> dict[str, list[str]]`
+- `remove_all_parameters() -> dict[str, list[str]]`
+- `add_charts(target) -> dict[str, list[str]]`
+- `remove_charts(chart_ids) -> dict[str, list[str]]`
+- `remove_all_charts() -> dict[str, list[str]]`
+- `add_actions(target) -> dict[str, list[str]]`
+- `remove_action(action_id) -> dict[str, list[str]]`
+- `remove_all_actions() -> dict[str, list[str]]`
 
 Automatic parameter discovery excludes private names by default. Pass `BindParametersConfig(include_private=True)` if you want `_private` fields included.
 
@@ -247,18 +255,31 @@ scenario.add_layer_binding(
 
 The Mesa integration lives under `tensnap.bindings.mesa`.
 
-### `MesaSimulationHandler`
+### `BoundModelReinitializer`
 
 ```python
 from tensnap import SimulationScenario
-from tensnap.bindings.mesa import MesaSimulationHandler
+from tensnap.bindings.mesa import BoundModelReinitializer
 
 scenario = SimulationScenario(port=8765)
-await scenario.register_handler(MesaSimulationHandler(MyMesaModel))
+model = MyMesaModel(width=50, height=50)
+reinitializer = BoundModelReinitializer(model)
+
+reinitializer.register_model(scenario)
+reinitializer.configure_reinit(scenario)
+await scenario.register_model_handler(
+    model_init=reinitializer.model_init,
+    model_step=model.step,
+    model_reset=reinitializer.model_reset,
+)
 await scenario.run()
 ```
 
-If your Mesa model class already has `env(...)` / layer decorators attached, the handler reads them through `tensnap.bindings`. Otherwise it falls back to default grid + agent bindings derived from `model.grid` and `model.agents`. `MesaSimulationHandler` also accepts `on_model_reset`; if it is omitted, reset falls back to the same reinitialization path used by init.
+`BoundModelReinitializer` is the recommended Mesa lifecycle helper. It registers the decorated model through `scenario.add_all(model)`, adds constructor kwargs as resettable parameters when they are not already exposed by the model, and rebuilds the model in place on init/reset.
+
+### `MesaSimulationHandler`
+
+`MesaSimulationHandler` remains available for compatibility, but new examples prefer `BoundModelReinitializer` plus `register_model_handler(...)` so registration and reset behavior are explicit.
 
 ## Migration Notes
 
@@ -267,9 +288,10 @@ The following older entrypoints are no longer the recommended public surface:
 - `LayeredEnvironmentBinder`
 - `EnvironmentBindingBuilder`
 - `scenario.add_custom_actions(...)`
+- scattered `scenario.add_environment(...)` / `add_parameters(...)` / `add_charts(...)` calls for ordinary decorated targets
 
 Use these replacements instead:
 
-- `scenario.add_environment(model)`
+- `scenario.add_all(model, ...)`
 - `scenario.add_environment_binding(...)` + `scenario.add_layer_binding(...)`
-- `scenario.add_actions(target)`
+- `scenario.add_all(target)` for chart/action-only registration

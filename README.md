@@ -115,12 +115,12 @@ import asyncio
 
 from tensnap import SimulationScenario
 from tensnap.bindings import (
-    BindParametersConfig,
     agent,
     agent_layer,
     chart,
     env,
     grid_layer,
+    params,
 )
 
 
@@ -150,16 +150,17 @@ class Aviary:
         return len(self.birds)
 
 
+@params(include=["speed"])
 class Config:
     speed = 1.0
 
 
 scenario = SimulationScenario(port=8765)
 model = Aviary()
+config = Config()
 
-scenario.add_environment(model)
-scenario.add_parameters(Config(), BindParametersConfig(exclude="^_"))
-scenario.add_charts(model)
+scenario.add_all(model)
+scenario.add_all(config)
 
 
 async def main() -> None:
@@ -176,6 +177,7 @@ if __name__ == "__main__":
 - `SimulationScenario` is the recommended high-level Python runtime.
 - `abm.Scenario` is the recommended declarative Go surface for simulator-visible state.
 - The current decorator and readback surface lives under `tensnap.bindings`.
+- Use `SimulationScenario.add_all(...)` for the common Python registration path. It registers environment/layer, chart, and action bindings by default; parameter discovery is opt-in through `@params(...)` or an explicit config.
 - Built-in renderer-driven actions are `start`, `step`, and `reset`.
 - Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 are now backed by runnable examples in `examples/python/`; tutorials 5-6 are still planned.
 

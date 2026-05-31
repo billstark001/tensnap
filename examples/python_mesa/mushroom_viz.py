@@ -99,7 +99,7 @@ async def main() -> None:
         model_reset=reinitializer.model_reset,
     )
 
-    scenario.add_charts(globals())
+    scenario.add_all(globals())
 
     print(
         f"TenSnap Mushroom Foraging visualization starting on ws://localhost:{server_port}"

@@ -57,7 +57,7 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer
+from tensnap import agent, agent_layer, env, grid_layer, params
 
 
 SHEEP_ASSET_ID = "wolf-sheep:sheep"
@@ -66,6 +66,20 @@ SHEEP_ICON = f"asset:{SHEEP_ASSET_ID}"
 WOLF_ICON = f"asset:{WOLF_ASSET_ID}"
 
 
+@params(
+    include=[
+        "initial_sheep",
+        "initial_wolves",
+        "sheep_gain_from_food",
+        "wolf_gain_from_food",
+        "sheep_reproduce_rate",
+        "wolf_reproduce_rate",
+        "sheep_energy_loss",
+        "wolf_energy_loss",
+        "wolf_sight_radius",
+        "grass_regrowth_steps",
+    ]
+)
 @dataclass
 class PredatorPreyConfig:
     width: int = 50
@@ -343,7 +357,7 @@ from pathlib import Path
 
 import import_config  # noqa: F401
 
-from tensnap import BindParametersConfig, SimulationScenario, chart
+from tensnap import SimulationScenario, chart
 
 from predator_prey import (
     PredatorPreyConfig,
@@ -404,9 +418,9 @@ async def main() -> None:
     model.initialize()
     await publish_animal_assets()
 
-    scenario.add_environment(model)
-    scenario.add_parameters(config, BindParametersConfig(exclude=["width", "height"]))
-    scenario.add_charts(globals())
+    scenario.add_all(model)
+    scenario.add_all(config)
+    scenario.add_all(globals())
 
     await scenario.register_model_handler(
         model.initialize,

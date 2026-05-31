@@ -11,10 +11,12 @@ from tensnap import (
     env,
     agent_layer,
     grid_layer,
+    params,
     trajectory_layer,
 )
 
 
+@params(exclude=r"world_.+")
 @dataclass
 class FlockConfig:
     """Configuration for flocking simulation"""
