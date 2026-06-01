@@ -211,7 +211,7 @@ tensnap/
 - **tensnap-tauri**: Desktop shell reusing the web renderer.
 - **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.
 - **tensnap-go**: Go protocol package, declarative ABM helpers, and WebSocket simulator server.
-- **tensnap-julia**: Julia binding builders, Agents.jl-compatible projectors, JSON WebSocket simulator server, incremental item diffing, and asset helpers.
+- **tensnap-julia**: Julia binding builders, Agents.jl-compatible projectors, JSON/MessagePack WebSocket simulator server, incremental item diffing, and asset helpers.
 - **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
 - **examples/js**: Built-in JavaScript models, example manifests, websocket demo entrypoints, and transport-driven benchmark cases.
 - **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.

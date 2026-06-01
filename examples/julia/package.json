@@ -1,0 +1,14 @@
+{
+  "name": "@tensnap/examples-julia",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Runnable Julia examples for TenSnap.",
+  "type": "module",
+  "scripts": {
+    "instantiate": "julia --project=. run_example.jl --instantiate-only",
+    "demo:el-farol": "julia --project=. run_example.jl el-farol",
+    "demo:schelling": "julia --project=. run_example.jl schelling",
+    "demo:schelling:makie": "julia --project=. run_example.jl schelling:makie",
+    "test": "julia --project=. test_package.jl"
+  }
+}

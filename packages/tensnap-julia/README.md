@@ -58,12 +58,28 @@ TenSnap.jl now covers the core protocol helpers available in the Python and Go b
 
 ## Transport
 
-The current implementation supports JSON WebSocket transport, which is the same default transport used by the Python and Go examples.  MessagePack can be added later without changing the scenario-facing API.
+The implementation supports JSON and MessagePack WebSocket transport. Incoming frames are auto-detected, and responses follow each client's observed encoding after the first message. Use `Scenario(use_msgpack=true)` for `tensnap-agent`'s default MessagePack mode, or `Scenario(use_msgpack=false)` for JSON-first clients.
 
 ## Examples
 
-The El Farol example follows the repository convention of splitting pure model dynamics from visualization wiring:
+The examples live outside the Julia package so the root `pnpm` workspace does not need a separate `@tensnap/julia` package.
 
 ```bash
-TENSNAP_SERVER_PORT=8765 julia --project=packages/tensnap-julia examples/julia/el_farol_viz.jl
+TENSNAP_SERVER_PORT=8765 pnpm --dir examples/julia run demo:el-farol
+TENSNAP_SERVER_PORT=8765 pnpm --dir examples/julia run demo:schelling
+pnpm --dir examples/julia run demo:schelling:makie
+```
+
+## Release
+
+Release preparation is wired through the repository release helper:
+
+```bash
+pnpm run release:julia -- 0.2.1
+```
+
+The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia package tests, commits the version bump if needed, and creates a `packages/tensnap-julia/vX.Y.Z` tag. For Julia General registration from this monorepo layout, use Registrator with:
+
+```text
+@JuliaRegistrator register subdir=packages/tensnap-julia
 ```

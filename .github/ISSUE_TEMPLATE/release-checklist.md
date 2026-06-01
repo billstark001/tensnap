@@ -18,6 +18,12 @@ assignees: ''
 - [ ] Version updated in `packages/tensnap-python/pyproject.toml`
 - [ ] PyPI trusted publishing configured
 
+### Julia Package
+
+- [ ] Version updated in `packages/tensnap-julia/Project.toml`
+- [ ] Native Julia package tests passing
+- [ ] Registrator comment prepared with `@JuliaRegistrator register subdir=packages/tensnap-julia`
+
 ### Tauri App
 
 - [ ] Version updated in `packages/tensnap-tauri/package.json`

@@ -1,17 +1,19 @@
 # TenSnap visualization entry point for the El Farol Bar Problem.
 #
-# Run from the repository root after developing the package:
-#   julia --project=packages/tensnap-julia examples/julia/el_farol_viz.jl
+# Run from the repository root:
+#   pnpm --dir examples/julia run demo:el-farol
 # Then connect the TenSnap web UI or tensnap-agent to ws://localhost:8765.
 
 using TenSnap
 
+include("utils.jl")
 include("el_farol.jl")
 
-server_port = parse(Int, get(ENV, "TENSNAP_SERVER_PORT", "8765"))
+server_port = parse_env(Int, "TENSNAP_SERVER_PORT", 8765)
+use_msgpack = parse_env(Bool, "TENSNAP_USE_MSGPACK", true)
 
 model = make_model()
-scenario = Scenario(port=server_port)
+scenario = Scenario(port=server_port, use_msgpack=use_msgpack)
 register_model!(scenario, model; init=initialize!, step=advance!, reset=initialize!)
 
 add_parameter!(scenario, parameter("capacity";
