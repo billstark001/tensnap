@@ -96,7 +96,7 @@ Areas where contributions are especially welcome:
 - **Bug fixes**: Fix reported issues
 - **Documentation**: Improve or add documentation
 - **Examples**: Add example simulations
-- **Language bindings**: Java, JavaScript, Go, MATLAB support
+- **Language bindings**: parity work and documentation for Python, Go, JavaScript/TypeScript, and Julia; new bindings for additional languages such as Java or MATLAB
 - **Performance**: Optimize rendering or communication
 - **Testing**: Increase test coverage
 - **UI/UX**: Improve interface design
@@ -120,6 +120,13 @@ When updating Python docs, keep them aligned with the current bindings surface:
 - Do not document nonexistent mutable runtime classes such as `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel`.
 - Default control semantics are renderer-driven: `start`, `step`, and `reset` are the canonical built-ins; `stop` is only present when a scenario registers an explicit backend action.
 - Low-level server examples should use `update_layer_metadata()`, `update_layer_agents()`, `update_layer_edges()`, `replace_layer_state()`, and `replace_environment_layers()` rather than removed layer-less update helpers.
+
+### JavaScript and Julia Documentation Conventions
+
+- JavaScript simulator docs should describe `@tensnap/js` as a workspace-private TypeScript package unless its package metadata changes.
+- Prefer `defineModel(...)`, `defineExample(...)`, `SimulatorSession`, `SimulatorEmitter`, and the postMessage/WebSocket hosts when documenting JavaScript bindings.
+- Julia docs should describe `TenSnap.jl` as a native Julia package under `packages/tensnap-julia`, not as an npm-scoped package.
+- Prefer explicit Julia builders such as `Scenario`, `parameter(...)`, `agents_layer(...)`, `chart(...)`, `publish_asset!`, and `request_screenshot!`.
 
 ## Development Process
 
@@ -158,10 +165,18 @@ git checkout -b feature/your-feature-name
 # Python tests
 cd packages/tensnap-python
 pytest
+cd ../..
 
 # JavaScript tests
-cd packages/tensnap-web
 pnpm test
+
+# Go tests
+cd packages/tensnap-go
+go test ./...
+cd ../..
+
+# Julia tests
+pnpm run test:julia
 
 # Lint checks
 pnpm lint

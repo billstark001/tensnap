@@ -11,26 +11,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the initial TenSnap.jl binding package with JSON WebSocket transport, scenario lifecycle actions, parameters, charts, environments, layers, and Agents.jl-compatible projection helpers.
-- Added fine-grained Julia environment/layer CRD helpers, incremental layer item diffing, asset cache synchronization, and screenshot request/response plumbing.
-- Added Julia tests and pnpm static protocol-invariant checks, plus a split El Farol example with pure dynamics and a visualization entrypoint.
-- Added a Python/Go/Julia binding feature matrix documenting parity and remaining Julia follow-up items.
-
-### Changed
-
-- Integrated the Julia binding package with the pnpm workspace helper scripts and aligned package metadata with the `0.2.x` release line.
+- Added the native `TenSnap.jl` package under `packages/tensnap-julia`, with `Project.toml` metadata, Julia 1.9 compatibility, and JSON/MessagePack WebSocket protocol support.
+- Added `Scenario` lifecycle support with built-in renderer-driven `start`, `step`, and `reset` actions, model registration callbacks, time metadata, chart updates, and state-sync replay.
+- Added explicit Julia builders for parameters, actions, charts, environments, agent/grid/patch/edge layers, and Agents.jl-compatible projectors without taking an Agents.jl dependency.
+- Added environment/layer create/delete helpers, ordered layer replay, manual item create/update/delete helpers, automatic incremental layer item diffing, and layer metadata diffing.
+- Added asset metadata/data/delete helpers, renderer `asset_sync` handling, screenshot request/response plumbing, and simulator log emission.
+- Added native Julia package tests for projectors, lifecycle behavior, codecs, layer diffs, CRD helpers, assets, and example-independent package loading.
+- Added repository scripts for Julia package tests and Julia release tagging through `packages/tensnap-julia/v*` tags.
 
 ## @tensnap/python [0.2.2] - 2026-05-31
 
+### Added
+
+- Added dry-run registration across `SimulationScenario.add_all(...)`, `add_environment_binding(...)`, `add_environment(...)`, `add_layer_binding(...)`, `add_bound_layers(...)`, `add_parameters(...)`, `add_actions(...)`, and `add_charts(...)`.
+- Added `BindParametersConfig.EXCLUDE_ALL` and the `__tensnap_parameter_metadata__(...)` provider hook for parameter sources that should not expose ordinary object attributes.
+- Added `tensnap.bindings.mesa.model_reinit` with `BoundModelReinitializer`, `bind_kwargs(...)`, constructor-kwarg binding discovery, cleanup hooks, and reusable registered-model reinitialization helpers.
+- Exported Mesa reinitialization helpers from `tensnap.bindings.mesa`.
+
 ### Changed
 
-- Updated Python and Mesa examples to use `SimulationScenario.add_all(...)` for ordinary registration, with parameters declared through `@params(...)`.
-- Refreshed Python API docs, tutorials, and README snippets for the combined registration API and Mesa reinitializer workflow.
-- Changed `SimulationScenario.add_all(...)` to use `BindParametersConfig.EXCLUDE_ALL` by default so incidental public attributes are not exposed as parameters unless opted in.
+- Made `SimulationScenario.add_all(...)` the ordinary combined registration path for environment/layer, parameter, action, and chart bindings, while defaulting undecorated targets to `BindParametersConfig.EXCLUDE_ALL` so incidental public attributes are not exposed as parameters.
+- Updated Mesa registration to rebuild whole model registrations through registry-change dictionaries instead of replaying only parameter/chart subsets.
+- Refactored `MesaSimulationHandler` to use `BoundModelReinitializer`, accept kwarg bindings, and remain available as a compatibility wrapper while explicit `BoundModelReinitializer` usage is preferred.
+- Updated Python API docs, tutorials, and package README text for `add_all(...)`, opt-in parameters, dry-run registration, and the Mesa reinitializer workflow.
+
+### Removed
+
+- Removed the older `tensnap.bindings.mesa.helper` module and the previous `tensnap.utils.model_reinit` helper in favor of `tensnap.bindings.mesa.model_reinit`.
 
 ### Fixed
 
-- Fixed Mesa constructor-parameter registration so `@bind_kwargs` fields such as `width` and `height` remain available after model reinitialization.
+- Fixed Mesa constructor-parameter registration so `bind_kwargs(...)` fields such as `width` and `height` remain available after model reinitialization.
+- Fixed constructor/model parameter conflicts so model-owned parameters stay registered while non-conflicting constructor kwargs are added by `BoundModelReinitializer`.
+- Fixed Mesa reinitialization cleanup by removing Mesa's instance-level `step` wrapper before rerunning `__init__`.
+- Removed stray debug printing from Mesa class-detection helpers.
 
 ## @tensnap/python [0.2.1] - 2026-05-25
 

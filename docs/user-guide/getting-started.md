@@ -2,7 +2,7 @@
 
 This guide will help you get up and running with TenSnap in just a few minutes.
 
-The current stable Python surface is `SimulationScenario` plus decorators/readback helpers from `tensnap.bindings`. If you want runnable references, prefer `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples; tutorials 5-6 are still planned.
+The current stable Python surface is `SimulationScenario` plus decorators/readback helpers from `tensnap.bindings`. JavaScript/TypeScript, Go, and Julia bindings are also available; see their API references when you are not starting from Python. If you want runnable Python references, prefer `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples; tutorials 5-6 are still planned.
 
 ## What You'll Need
 
@@ -141,6 +141,9 @@ if __name__ == "__main__":
 - **[User Guide](./user-guide.md)** - Learn about all features in detail
 - **[Tutorials](../tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](../api-reference/python-api.md)** - Explore the complete API
+- **[Go API Reference](../api-reference/go-api.md)** - Use the Go simulator bindings
+- **[JavaScript API Reference](../api-reference/js-api.md)** - Use TypeScript simulator sessions and transports
+- **[Julia API Reference](../api-reference/julia-api.md)** - Use TenSnap.jl
 
 ## Common Issues
 

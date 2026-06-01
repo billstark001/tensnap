@@ -5,7 +5,7 @@
 ## ✨ Features
 
 - **🎨 Interactive Visualization**: Real-time visualization of agent-based simulations with immediate feedback
-- **🌐 Language Agnostic**: Connect simulations written in any language (Python and Go bindings available today; Java/JavaScript/MATLAB planned)
+- **🌐 Language Agnostic**: Connect simulations written in Python, Go, JavaScript/TypeScript, Julia, or directly against the protocol
 - **⚡ Modern Web Interface**: Built with React for a responsive, feature-rich user experience
 - **🎛️ NetLogo-Inspired UI**: Familiar controls (sliders, buttons, charts) with modern enhancements
 - **🔧 Multi-Granularity APIs**: From simple high-level APIs for beginners to low-level protocol access for experts
@@ -43,6 +43,13 @@ Installing Go bindings:
 go get github.com/billstark001/tensnap/packages/tensnap-go@latest
 ```
 
+Installing Julia bindings from this repository:
+
+```julia
+using Pkg
+Pkg.develop(path="packages/tensnap-julia")
+```
+
 Installing Node.js dependencies for frontend development (for advanced users):
 
 ```bash
@@ -72,6 +79,13 @@ cd examples/go
 make run-schelling
 ```
 
+For JavaScript and Julia examples:
+
+```bash
+pnpm dev:js:schelling
+pnpm run dev:julia:schelling
+```
+
 Then open your browser to `http://localhost:3200` and watch the agents interact!
 
 - The [Netlify instance](https://tensnap.netlify.app) is also available at `https://tensnap.netlify.app`. You may access the site to avoid local deployment.
@@ -88,6 +102,8 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[Tutorials](./docs/tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](./docs/api-reference/python-api.md)** - Complete Python API documentation
 - **[Go API Reference](./docs/api-reference/go-api.md)** - Go bindings, declarative Scenario API, and incremental diff helpers
+- **[JavaScript API Reference](./docs/api-reference/js-api.md)** - TypeScript simulator bindings, sessions, and transports
+- **[Julia API Reference](./docs/api-reference/julia-api.md)** - TenSnap.jl scenario, layer, asset, and transport helpers
 
 ### For Maintainers
 
@@ -176,6 +192,8 @@ if __name__ == "__main__":
 
 - `SimulationScenario` is the recommended high-level Python runtime.
 - `abm.Scenario` is the recommended declarative Go surface for simulator-visible state.
+- `defineModel(...)` / `defineExample(...)` are the recommended JavaScript binding builders.
+- `Scenario` plus explicit builders such as `parameter(...)`, `agents_layer(...)`, and `chart(...)` are the Julia binding surface.
 - The current decorator and readback surface lives under `tensnap.bindings`.
 - Use `SimulationScenario.add_all(...)` for the common Python registration path. It registers environment/layer, chart, and action bindings by default; parameter discovery is opt-in through `@params(...)` or an explicit config.
 - Built-in renderer-driven actions are `start`, `step`, and `reset`.
@@ -195,6 +213,7 @@ tensnap/
 │   ├── core/                    # Shared protocol, Scenario, runtime, rendering primitives
 │   ├── tensnap-agent/           # Headless runtime and agent/session tooling
 │   ├── tensnap-go/              # Go protocol, ABM helpers, and WebSocket server
+│   ├── tensnap-js/              # JavaScript/TypeScript simulator bindings and transports
 │   ├── tensnap-julia/           # Julia bindings and WebSocket simulator server
 │   ├── tensnap-python/          # Python bindings and server/runtime integration
 │   ├── tensnap-tauri/           # Desktop wrapper around the web app
@@ -211,6 +230,7 @@ tensnap/
 - **tensnap-tauri**: Desktop shell reusing the web renderer.
 - **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.
 - **tensnap-go**: Go protocol package, declarative ABM helpers, and WebSocket simulator server.
+- **tensnap-js**: TypeScript declarative simulator bindings, low-level sessions/emitters, and postMessage/WebSocket hosts.
 - **tensnap-julia**: Julia binding builders, Agents.jl-compatible projectors, JSON/MessagePack WebSocket simulator server, incremental item diffing, and asset helpers.
 - **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
 - **examples/js**: Built-in JavaScript models, example manifests, websocket demo entrypoints, and transport-driven benchmark cases.
@@ -243,6 +263,7 @@ TenSnap was developed to address the gap between NetLogo's excellent interactive
 
 - **[Documentation](./docs/)** - Complete documentation
 - **[Go Examples](./examples/go/)** - Go examples and simulator entry points
+- **[JavaScript Examples](./examples/js/)** - JavaScript/TypeScript examples and local simulator entry points
 - **[Julia Examples](./examples/julia/)** - Julia examples and simulator entry points
 - **[Python Examples](./examples/python/)** - Standard Python examples
 - **[Mesa Examples](./examples/python_mesa/)** - Mesa-based examples

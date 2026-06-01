@@ -26,7 +26,7 @@ import (
 // Options configures the WebSocket server.
 type Options struct {
 	Addr            string         // e.g. ":8765"
-	Path            string         // WebSocket path, default "/ws"
+	Path            string         // WebSocket path, default "/"
 	Codec           protocol.Codec // default JSONCodec
 	Upgrader        *websocket.Upgrader
 	WriteTimeout    time.Duration // default 10s

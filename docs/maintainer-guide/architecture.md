@@ -14,7 +14,8 @@ TenSnap is organized around a renderer-owned state model.
 ┌──────────────────────┐     protocol v0.2      ┌──────────────────────┐
 │ Simulator runtime    │ <────────────────────> │ Renderer runtime     │
 │                      │   JSON / MessagePack   │                      │
-│ Python / TS / other  │                        │ web / tauri / agent  │
+│ Python / Go / JS /   │                        │ web / tauri / agent  │
+│ Julia / other        │                        │                      │
 │ step executor        │                        │ Scenario owner       │
 └──────────────────────┘                        └──────────────────────┘
 ```
@@ -55,6 +56,7 @@ All other packages must treat this contract as read-only infrastructure.
 
 - `packages/tensnap-web` may own browser lifecycle, React bindings, and browser-only integrations, but must not redefine layer semantics or loop semantics.
 - `packages/tensnap-agent` may own headless runtime lifecycle and backend registration, but must not keep a package-local scene model or package-local rendering rules.
+- `packages/tensnap-js` may own simulator-side TypeScript sessions, emitters, and transports, but must not redefine renderer-owned layer semantics.
 - `packages/benchmark` may own benchmark orchestration and reporting, but must not define an alternative rendering contract and must clearly separate synthetic renderer tests from web-equivalent scenario benchmarks.
 - `examples/js` may own model content and example packaging, but must not introduce package-local rendering adapter abstractions when the same semantics already exist in `packages/core` or `@tensnap/js`.
 
@@ -105,17 +107,45 @@ Owns:
 - default simulation handlers and Mesa integration
 - protocol delta builders for environment/layer/item sync
 
+### `packages/tensnap-go`
+
+Go simulator binding package.
+
+Owns:
+
+- `protocol` wire types and JSON codec
+- `abm` model interface, `Base`, `Scenario`, `ActionRouter`, and `Emitter`
+- `binding` declarative builders, tag-based projectors, and item diff helpers
+- `server` WebSocket integration
+
+### `packages/tensnap-js`
+
+JavaScript/TypeScript simulator binding package.
+
+Owns:
+
+- `defineModel(...)` and `defineExample(...)`
+- `SimulatorSession` and `SimulatorEmitter`
+- `ScenarioRegistry`
+- postMessage and WebSocket simulator hosts
+
+### `packages/tensnap-julia`
+
+Julia simulator binding package.
+
+Owns:
+
+- `Scenario` and explicit Julia builders for parameters, actions, charts, environments, and layers
+- JSON and MessagePack WebSocket handling
+- Agents.jl-compatible projectors without taking an Agents.jl dependency
+- incremental layer item diffing, asset sync, screenshot requests, and package tests
+
 ### Supporting browser packages
 
-- `examples/js`: built-in TypeScript models, renderer adapters, local transport entrypoints, and benchmark fixtures
+- `examples/js`: built-in TypeScript models, local transport entrypoints, manifests, and benchmark fixtures
 - `packages/web-common`: shared browser-side UI/types/helpers
 - `packages/web-adapter`: browser-side filesystem and integration helpers
 - `packages/benchmark`: benchmark harnesses for render/runtime paths
-
-Related planning documents:
-
-- [Agent Painter Downlift Plan](./agent-painter-downlift-plan.md)
-- [Benchmark and JS Example Normalization Plan](./benchmark-js-example-normalization-plan.md)
 
 ## Protocol v0.2 Ownership
 
@@ -287,6 +317,9 @@ Screenshots flow in the opposite direction:
 - Current protocol: `docs/maintainer-guide/protocol-v0.2.md`
 - Historical protocol: `docs/maintainer-guide/protocol-v0.1.md`
 - Current Python API: `docs/api-reference/python-api.md`
-- Runnable references: `examples/python/`, `examples/python_mesa/`, `packages/tensnap-python/README.md`
+- Current Go API: `docs/api-reference/go-api.md`
+- Current JavaScript API: `docs/api-reference/js-api.md`
+- Current Julia API: `docs/api-reference/julia-api.md`
+- Runnable references: `examples/python/`, `examples/python_mesa/`, `examples/go/`, `examples/js/`, `examples/julia/`, and package READMEs
 
 Tutorials 1-4 are backed by runnable examples, while tutorials 5-6 are still planned. When a tutorial and an example diverge, treat the example and API reference as authoritative.

@@ -1,8 +1,9 @@
 # TenSnap User Guide
 
-This guide describes the current 0.2.2 user-facing workflow.
+This guide describes the current protocol v0.2 user-facing workflow, with the
+Python 0.2.2 surface as the primary tutorial path.
 
-If you need runnable references, start with `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples, but the examples and Python API reference remain the authoritative source for the current release.
+If you need runnable Python references, start with `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples, but the examples and Python API reference remain the authoritative source for the current Python release. Go, JavaScript/TypeScript, and Julia users should start from their API references and package READMEs.
 
 ## Core Concepts
 
@@ -13,6 +14,8 @@ TenSnap separates three concerns:
 3. A renderer that owns synchronized state and turns it into an interactive UI.
 
 For Python users, the recommended entry point is `SimulationScenario`.
+For Go, JavaScript/TypeScript, and Julia, see the related API references at the
+end of this guide.
 
 ## Recommended Python Workflow
 
@@ -292,5 +295,8 @@ These repository examples are the best reference implementations today.
 
 - `docs/user-guide/getting-started.md`
 - `docs/api-reference/python-api.md`
+- `docs/api-reference/go-api.md`
+- `docs/api-reference/js-api.md`
+- `docs/api-reference/julia-api.md`
 - `docs/maintainer-guide/protocol-v0.2.md`
 - `packages/tensnap-python/README.md`

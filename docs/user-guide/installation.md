@@ -9,9 +9,17 @@ This guide covers different ways to install and run TenSnap depending on your us
 - **Python 3.10 or higher**
 - **pip** (Python package manager)
 
+### For Go Users
+
+- **Go 1.22 or higher**
+
+### For Julia Users
+
+- **Julia 1.9 or higher**
+
 ### For Web Interface Development
 
-- **Node.js 24.0 or higher**
+- **Node.js 18.0 or higher**
 - **pnpm 8.0 or higher** (preferred package manager)
 
 ### For Desktop Application
@@ -53,15 +61,39 @@ cd ../..
 pnpm install
 ```
 
-### Method 2: Python Package Only
+#### 4. Install Julia Bindings
 
-If you only need the Python bindings (no web interface development):
+```julia
+using Pkg
+Pkg.develop(path="packages/tensnap-julia")
+```
+
+### Method 2: Language Binding Only
+
+If you only need the Python bindings:
 
 ```bash
 git clone https://github.com/billstark001/tensnap.git
 cd tensnap/packages/tensnap-python
 pip install .
 ```
+
+If you only need the Go bindings from another Go module:
+
+```bash
+go get github.com/billstark001/tensnap/packages/tensnap-go@latest
+```
+
+If you only need the Julia bindings from this repository:
+
+```julia
+using Pkg
+Pkg.develop(path="packages/tensnap-julia")
+```
+
+The JavaScript/TypeScript bindings are currently a private workspace package;
+install the repository dependencies with `pnpm install` and import
+`@tensnap/js` from workspace code.
 
 ### Method 3: Desktop Application (Tauri)
 
@@ -118,9 +150,30 @@ import tensnap
 print(tensnap.__version__)  # Should print version number
 
 # Test basic components
-from tensnap import TenSnapServer, AgentModel, GridEnvironmentModel
+from tensnap import SimulationScenario, TenSnapServer
+from tensnap.bindings import env
+
+@env(id="main")
+class Model:
+    pass
+
 server = TenSnapServer(port=8765)
+scenario = SimulationScenario(port=8765)
+scenario.add_all(Model())
 print("TenSnap Python bindings installed successfully!")
+```
+
+### Test Go Installation
+
+```bash
+cd packages/tensnap-go
+go test ./...
+```
+
+### Test Julia Installation
+
+```bash
+julia --project=packages/tensnap-julia -e 'using Pkg; Pkg.test()'
 ```
 
 ### Test Web Interface
@@ -185,6 +238,10 @@ Included in the monorepo:
 - **Vitest**: Testing framework
 - **React Testing Library**: Component testing
 
+### Julia Development Tools
+
+Julia package tests use the standard `Pkg.test()` workflow.
+
 ## Optional Dependencies
 
 ### For Numerical Models Or Preprocessing
@@ -242,6 +299,9 @@ rm -rf tensnap
 
 # Remove Python package if installed separately
 pip uninstall tensnap
+
+# Remove Go module cache entries if needed
+go clean -modcache
 
 # Remove global pnpm cache (optional)
 pnpm store prune

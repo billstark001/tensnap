@@ -12,6 +12,8 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[Tutorials](./tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](./api-reference/python-api.md)** - Complete Python API documentation
 - **[Go API Reference](./api-reference/go-api.md)** - Go simulator bindings, declarative Scenario API, and incremental diff helpers
+- **[JavaScript API Reference](./api-reference/js-api.md)** - TypeScript simulator bindings, sessions, and transports
+- **[Julia API Reference](./api-reference/julia-api.md)** - TenSnap.jl scenario, layer, asset, and transport helpers
 
 ### For Maintainers
 
@@ -25,8 +27,11 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 
 - The current stable Python surface is documented in [Python API Reference](./api-reference/python-api.md) and `packages/tensnap-python/README.md`.
 - The current Go surface is documented in [Go API Reference](./api-reference/go-api.md) and `packages/tensnap-go/README.md`.
+- The current JavaScript/TypeScript surface is documented in [JavaScript API Reference](./api-reference/js-api.md), `packages/tensnap-js/README.md`, and `examples/js/README.md`.
+- The current Julia surface is documented in [Julia API Reference](./api-reference/julia-api.md) and `packages/tensnap-julia/README.md`.
 - `examples/python/` and `examples/python_mesa/` are the authoritative runnable references.
 - `examples/go/` contains the authoritative runnable Go references.
+- `examples/js/` and `examples/julia/` contain the authoritative runnable JavaScript and Julia references.
 - Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 now map directly to runnable examples; tutorials 5-6 are still planned and do not exist yet.
 
 ## What is TenSnap?
@@ -34,7 +39,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 TenSnap is a web-based, framework-agnostic visualization tool designed to bridge the gap between NetLogo's interactive visualization capabilities and modern programming languages. Key features include:
 
 - **Interactive Visualization**: Real-time visualization of agent-based simulations with immediate feedback
-- **Language Agnostic**: Connect simulations written in any language (Python ready, Java/JavaScript/Go/MATLAB planned)
+- **Language Agnostic**: Connect simulations written in Python, Go, JavaScript/TypeScript, Julia, or directly against the protocol
 - **Modern Web Interface**: Built with React for a responsive, feature-rich user experience
 - **NetLogo-Inspired UI**: Familiar controls (sliders, buttons, charts) with modern enhancements
 - **Multi-Granularity APIs**: From simple high-level APIs for beginners to low-level protocol access for experts
@@ -56,11 +61,13 @@ TenSnap aims to:
 - [Python Examples](../examples/python/)
 - [Mesa Examples](../examples/python_mesa/)
 - [Go Examples](../examples/go/)
+- [JavaScript Examples](../examples/js/)
+- [Julia Examples](../examples/julia/)
 
 ## Getting Help
 
 - Check the [User Guide](./user-guide/user-guide.md) for common questions
-- Look at the [Python examples](../examples/python/), [Mesa examples](../examples/python_mesa/), and [Go examples](../examples/go/) for practical implementations
+- Look at the [Python examples](../examples/python/), [Mesa examples](../examples/python_mesa/), [Go examples](../examples/go/), [JavaScript examples](../examples/js/), and [Julia examples](../examples/julia/) for practical implementations
 - Open an issue on [GitHub](https://github.com/billstark001/tensnap/issues) for bugs or feature requests
 
 ## License

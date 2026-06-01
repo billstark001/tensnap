@@ -140,14 +140,16 @@ scenario = SimulationScenario(
 - `remove_all() -> dict[str, list[str]]`
 - `remove_by_dict(removals) -> dict[str, list[str]]`
 
-`add_all(...)` is the normal high-level path. It registers any available environment/layer, action, and chart bindings on the target and returns changed registry ids grouped by kind. If no parameter config is passed, it uses `BindParametersConfig.EXCLUDE_ALL`; attach `@params(...)` to opt fields into parameter discovery.
+`add_all(...)` is the normal high-level path. It registers any available environment/layer, action, and chart bindings on the target and returns changed registry ids grouped by kind. For undecorated targets with no explicit parameter config, it uses `BindParametersConfig.EXCLUDE_ALL` so incidental public attributes are not exposed. Attach `@params(...)` or pass a `BindParametersConfig(...)` to opt fields into parameter discovery.
+
+`dry_run=True` returns the registry ids that would be registered without mutating scenario state. This is used by the Mesa reinitializer and is also useful for custom registration lifecycles.
 
 ### Environment and layer registration
 
-- `add_environment_binding(binding: EnvironmentBinding | EnvironmentRegistration) -> dict[str, list[str]]`
-- `add_environment(target: object) -> dict[str, list[str]]`
-- `add_layer_binding(env_id: str, binding: LayerBinding, target: object) -> dict[str, list[str]]`
-- `add_bound_layers(env_id: str, target: object) -> dict[str, list[str]]`
+- `add_environment_binding(binding: EnvironmentBinding | EnvironmentRegistration, dry_run=False) -> dict[str, list[str]]`
+- `add_environment(target: object, dry_run=False) -> dict[str, list[str]]`
+- `add_layer_binding(env_id: str, binding: LayerBinding, target: object, dry_run=False) -> dict[str, list[str]]`
+- `add_bound_layers(env_id: str, target: object, dry_run=False) -> dict[str, list[str]]`
 - `set_layer_target(env_id: str, layer_id: str, target: object) -> None`
 - `remove_layer(env_id: str, layer_id: str) -> dict[str, list[str]]`
 - `remove_environment(env_id: str) -> dict[str, list[str]]`
@@ -156,17 +158,19 @@ scenario = SimulationScenario(
 
 ### Parameters, charts, and actions
 
-- `add_parameters(target, cfg_suggest=None) -> dict[str, list[str]]`
+- `add_parameters(target, cfg_suggest=None, dry_run=False) -> dict[str, list[str]]`
 - `remove_parameters(param_ids) -> dict[str, list[str]]`
 - `remove_all_parameters() -> dict[str, list[str]]`
-- `add_charts(target) -> dict[str, list[str]]`
+- `add_charts(target, dry_run=False) -> dict[str, list[str]]`
 - `remove_charts(chart_ids) -> dict[str, list[str]]`
 - `remove_all_charts() -> dict[str, list[str]]`
-- `add_actions(target) -> dict[str, list[str]]`
+- `add_actions(target, dry_run=False) -> dict[str, list[str]]`
 - `remove_action(action_id) -> dict[str, list[str]]`
 - `remove_all_actions() -> dict[str, list[str]]`
 
 Automatic parameter discovery excludes private names by default. Pass `BindParametersConfig(include_private=True)` if you want `_private` fields included.
+
+Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in parameter discovery without exposing ordinary attributes. `BoundModelReinitializer` uses this hook for constructor keyword parameters.
 
 ### Handlers and runtime
 
@@ -259,7 +263,12 @@ The Mesa integration lives under `tensnap.bindings.mesa`.
 
 ```python
 from tensnap import SimulationScenario
-from tensnap.bindings.mesa import BoundModelReinitializer
+from tensnap.bindings.mesa import BoundModelReinitializer, bind_kwargs
+
+
+@bind_kwargs(include=["width", "height"])
+class MyMesaModel:
+    ...
 
 scenario = SimulationScenario(port=8765)
 model = MyMesaModel(width=50, height=50)
@@ -276,6 +285,17 @@ await scenario.run()
 ```
 
 `BoundModelReinitializer` is the recommended Mesa lifecycle helper. It registers the decorated model through `scenario.add_all(model)`, adds constructor kwargs as resettable parameters when they are not already exposed by the model, and rebuilds the model in place on init/reset.
+
+Constructor kwargs come from `bind_kwargs(...)`, static `__init__` defaults, captured dynamic defaults from construction, or `init_kwargs` passed to `BoundModelReinitializer`. When a model already exposes a constructor field as a model parameter, the reinitializer keeps the model-owned parameter and only adds non-conflicting kwargs.
+
+Related helpers exported from `tensnap.bindings.mesa`:
+
+- `bind_kwargs(...)`
+- `get_bind_kwargs(...)`
+- `cleanup_mesa_model_step(...)`
+- `default_cleanup_for_model(...)`
+- `reinitialize_registered_model(...)`
+- `merge_registry_changes(...)`
 
 ### `MesaSimulationHandler`
 

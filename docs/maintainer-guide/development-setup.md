@@ -7,6 +7,8 @@ Quick guide to set up a development environment for TenSnap.
 - **Git**: Version control
 - **Python 3.10+**: For Python backend
 - **Node.js 18+** and **pnpm 8+**: For web frontend
+- **Go 1.22+**: For Go bindings and examples
+- **Julia 1.9+**: For TenSnap.jl and Julia examples
 - **Rust & Cargo**: For Tauri desktop app (optional)
 
 ## Setup Steps
@@ -33,6 +35,19 @@ cd packages/tensnap-python
 python -m venv venv
 source venv/bin/activate  # Windows: .\venv\Scripts\activate
 pip install -e ".[dev]"
+```
+
+**Go:**
+
+```bash
+cd packages/tensnap-go
+go test ./...
+```
+
+**Julia:**
+
+```bash
+julia --project=packages/tensnap-julia -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
 ```
 
 ## Development Workflow
@@ -64,6 +79,26 @@ cd examples/python_mesa
 python cgol_viz.py
 ```
 
+**Go simulation examples:**
+
+```bash
+pnpm dev:go:schelling
+```
+
+**JavaScript simulation examples:**
+
+```bash
+pnpm dev:js:schelling
+pnpm dev:js:wolf-sheep
+```
+
+**Julia simulation examples:**
+
+```bash
+pnpm run dev:julia:el-farol
+pnpm run dev:julia:schelling
+```
+
 **Tauri desktop app:**
 
 ```bash
@@ -77,12 +112,17 @@ tensnap/
 ├── docs/                    # Documentation
 ├── examples/
 │   ├── js/                  # JavaScript examples and local simulator manifests
+│   ├── go/                  # Go examples
+│   ├── julia/               # Julia examples
 │   ├── python/              # Python examples (non-Mesa)
 │   └── python_mesa/         # Python examples (Mesa-based)
 ├── packages/
 │   ├── benchmark/           # Benchmarks for render/runtime paths
 │   ├── core/                # Shared protocol, Scenario, runtime, rendering primitives
 │   ├── tensnap-agent/       # Headless runtime and agent/session tooling
+│   ├── tensnap-go/          # Go protocol, ABM helpers, and server
+│   ├── tensnap-js/          # TypeScript simulator bindings and transports
+│   ├── tensnap-julia/       # Julia bindings and WebSocket server
 │   ├── tensnap-python/      # Python bindings and runtime integration
 │   ├── tensnap-tauri/       # Desktop app (Tauri + Rust)
 │   ├── tensnap-web/         # Web frontend (React + Vite)
@@ -118,6 +158,19 @@ pnpm lint
 pnpm lint  # All workspace packages
 ```
 
+### Go
+
+```bash
+cd packages/tensnap-go
+go test ./...
+```
+
+### Julia
+
+```bash
+julia --project=packages/tensnap-julia -e 'using Pkg; Pkg.test()'
+```
+
 ## Testing
 
 ### Python
@@ -135,6 +188,16 @@ The repository already includes TypeScript/Vitest coverage in multiple packages:
 
 ```bash
 pnpm test              # All packages
+```
+
+### Go and Julia
+
+```bash
+cd packages/tensnap-go
+go test ./...
+cd ../..
+
+pnpm run test:julia
 ```
 
 ## Building
@@ -170,7 +233,7 @@ pnpm install
 
 **WebSocket connection fails:**
 
-Ensure Python simulation server is running first (e.g., `pnpm dev:py:flock`), then start web frontend.
+Ensure a simulator server is running first (for example `pnpm dev:py:flock`, `pnpm dev:go:schelling`, `pnpm dev:js:schelling`, or `pnpm run dev:julia:schelling`), then start the web frontend.
 
 **Build fails:**
 

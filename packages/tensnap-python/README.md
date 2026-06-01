@@ -78,6 +78,10 @@ if __name__ == "__main__":
 
 `register_model_handler(model_init=None, model_step=None, model_reset=None)` lets you keep `reset` distinct from `init`. If `model_reset` is omitted, the default handler falls back to `model_init`.
 
+`add_all(..., dry_run=True)` and the targeted `add_*` dry-run modes report registry ids without mutating the scenario. Mesa lifecycle helpers use this to unregister and rebuild model-owned registrations cleanly.
+
+For Mesa models, prefer `BoundModelReinitializer` from `tensnap.bindings.mesa`. Use `bind_kwargs(...)` to expose constructor keyword arguments as resettable parameters when needed.
+
 ## Examples
 
 Example simulations are located in the repository root:

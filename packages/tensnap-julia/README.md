@@ -4,6 +4,8 @@ Julia bindings for TenSnap's WebSocket visualization protocol.
 
 The package mirrors the Python and Go bindings at the protocol level while using Julia-friendly, explicit builders instead of macro-heavy APIs.  Models can be plain Julia mutable structs, dictionaries, or models from packages such as `Agents.jl`; the binding only needs functions that initialize, step, reset, and project model state into TenSnap items.
 
+For the full API surface, see [../../docs/api-reference/julia-api.md](../../docs/api-reference/julia-api.md).
+
 ## Install from this repository
 
 ```julia
@@ -62,7 +64,7 @@ The implementation supports JSON and MessagePack WebSocket transport. Incoming f
 
 ## Examples
 
-The examples live outside the Julia package so the root `pnpm` workspace does not need a separate `@tensnap/julia` package.
+The examples live outside the Julia package so the root `pnpm` workspace does not need a separate npm-scoped Julia package.
 
 ```bash
 TENSNAP_SERVER_PORT=8765 pnpm --dir examples/julia run demo:el-farol
