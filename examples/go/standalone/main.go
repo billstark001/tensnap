@@ -12,13 +12,14 @@ func main() {
 	gridHeight := flag.Int("grid-height", 50, "Schelling grid height")
 	flag.Parse()
 
-	model := shared.NewModel(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
-
+	model := shared.NewDefaultModel()
+	model.Config.GridWidth = *gridWidth
+	model.Config.GridHeight = *gridHeight
 	model.Initialize()
 
 	fmt.Printf(
-		"Initialized with parameters:\n  GridWidth: %d\n  GridHeight: %d\n  Density: %.2f\n  SimilarityThreshold: %.2f\n",
-		model.Config.GridWidth, model.Config.GridHeight, model.Config.Density, model.Config.SimilarityThreshold,
+		"Initialized with parameters:\n  GridWidth: %d\n  GridHeight: %d\n  SimilarityThreshold: %.2f\n  Density: %.2f\n  Balance: %.2f\n",
+		model.Config.GridWidth, model.Config.GridHeight, model.Config.SimilarityThreshold, model.Config.Density, model.Config.Balance,
 	)
 
 	for tick := range 200 {

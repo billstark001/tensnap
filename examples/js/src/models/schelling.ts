@@ -22,10 +22,9 @@ export interface SchellingConfig {
   agentSizeUnsatisfied?: number;
   gridWidth: number;
   gridHeight: number;
-  numAgentsType1: number;
-  numAgentsType2: number;
   similarityThreshold: number;
-  moveDistance: number;
+  density: number;
+  balance: number;
 }
 
 interface Agent {
@@ -74,7 +73,16 @@ export class SchellingModel {
       agentSize: 1,
       agentSizeUnsatisfied: (config.agentSize ?? 1) * 0.6,
       ...config,
+      gridWidth: Math.max(1, Math.floor(config.gridWidth)),
+      gridHeight: Math.max(1, Math.floor(config.gridHeight)),
+      similarityThreshold: SchellingModel.clamp01(config.similarityThreshold),
+      density: SchellingModel.clamp01(config.density),
+      balance: SchellingModel.clamp01(config.balance),
     };
+  }
+
+  private static clamp01(value: number): number {
+    return Math.min(1, Math.max(0, value));
   }
 
   // ── Event handling ──────────────────────────────────────────────────────────
@@ -129,32 +137,31 @@ export class SchellingModel {
     this.emptySpots = Array.from({ length: size }, (_, i) => i);
     this.emptySpotIndexMap = new Map(this.emptySpots.map((enc, i) => [enc, i]));
 
-    const agentCounts = [this.config.numAgentsType1, this.config.numAgentsType2];
-    SchellingModel.AGENT_TYPES.forEach(({ type, prefix }, index) => {
-      for (let i = 0; i < agentCounts[index]; i++) {
-        const agent: Agent = {
-          id: `${prefix}_${i}`,
-          x: 0, y: 0,
-          type: type as 1 | 2,
-          satisfied: false,
-        };
-        this.placeAgentRandomly(agent);
-        this.agents.push(agent);
+    const { density, balance } = this.config;
+    const type1Threshold = density * balance;
+    let nextType1 = 0;
+    let nextType2 = 0;
+
+    for (let enc = 0; enc < size; enc++) {
+      const value = Math.random();
+      if (value >= density) {
+        continue;
       }
-    });
+
+      const isType1 = value < type1Threshold;
+      const agent: Agent = {
+        id: isType1 ? `agent1_${nextType1++}` : `agent2_${nextType2++}`,
+        x: enc % W,
+        y: (enc / W) | 0,
+        type: isType1 ? 1 : 2,
+        satisfied: false,
+      };
+      this.grid[enc] = agent;
+      this.removeEmptySpot(enc);
+      this.agents.push(agent);
+    }
 
     this.updateAllSatisfaction();
-  }
-
-  private placeAgentRandomly(agent: Agent): boolean {
-    if (this.emptySpots.length === 0) return false;
-    const enc = this.emptySpots[(Math.random() * this.emptySpots.length) | 0];
-    const W = this.config.gridWidth;
-    agent.x = enc % W;
-    agent.y = (enc / W) | 0;
-    this.grid[enc] = agent;
-    this.removeEmptySpot(enc);
-    return true;
   }
 
   // ── Neighbour analysis ──────────────────────────────────────────────────────
@@ -267,14 +274,10 @@ export class SchellingModel {
 
   // ── Agent movement ──────────────────────────────────────────────────────────
 
-  private moveAgent(agent: Agent): boolean {
-    const candidates = this.findCandidateLocations(agent);
-    if (candidates.length === 0) return false;
-
+  private moveAgentTo(agent: Agent, newEnc: number): boolean {
     const W = this.config.gridWidth;
     const oldEnc = agent.y * W + agent.x;
-    // Capture newEnc before any pool mutation (safe even when candidates === this.emptySpots)
-    const newEnc = candidates[(Math.random() * candidates.length) | 0];
+    if (this.grid[newEnc] !== null) return false;
 
     this.grid[oldEnc] = null;
     this.addEmptySpot(oldEnc);
@@ -292,58 +295,32 @@ export class SchellingModel {
     return true;
   }
 
-  /**
-   * Candidate search restricted to the Manhattan-distance diamond of radius
-   * moveDistance: O(d²) instead of O(W×H).
-   *
-   * Fallback returns this.emptySpots directly (no copy); newEnc is captured
-   * before the pool is mutated in moveAgent, so this is safe.
-   */
-  private findCandidateLocations(agent: Agent): number[] {
-    const { moveDistance: d, similarityThreshold: thresh, gridWidth: W, gridHeight: H } = this.config;
-    const { x, y } = agent;
-    const grid = this.grid;
-    const satisfying: number[] = [];
-
-    for (let dy = -d; dy <= d; dy++) {
-      const ny = y + dy;
-      if (ny < 0 || ny >= H) continue;
-      const rowOff = ny * W;
-      const maxDx = d - Math.abs(dy);
-      for (let dx = -maxDx; dx <= maxDx; dx++) {
-        const nx = x + dx;
-        if (nx < 0 || nx >= W) continue;
-        const enc = rowOff + nx;
-        if (grid[enc] !== null) continue;
-        if (this.calculateSimilarityRatio(agent, nx, ny) >= thresh) {
-          satisfying.push(enc);
-        }
-      }
-    }
-
-    return satisfying.length > 0 ? satisfying : this.emptySpots;
-  }
-
   // ── Simulation step ─────────────────────────────────────────────────────────
 
-  step() {
+  step(): boolean {
     this.lastUnsatisfiedAgents = undefined;
     this.emit('step_start', { timeStep: this.timeStep });
 
     // O(U) snapshot instead of O(N) filter; satisfaction is maintained incrementally
     const unsatisfied = Array.from(this.unsatisfiedSet);
     this.shuffleArray(unsatisfied);
+    const empties = this.emptySpots.slice();
+    this.shuffleArray(empties);
 
-    const moveCount = Math.ceil(unsatisfied.length * 0.3);
+    const moveCount = Math.min(unsatisfied.length, empties.length);
+    let moved = 0;
     for (let i = 0; i < moveCount; i++) {
-      this.moveAgent(unsatisfied[i]);
+      if (this.moveAgentTo(unsatisfied[i], empties[i])) {
+        moved++;
+      }
     }
 
     this.segregationIndex = this.calculateSegregationIndex();
-    this.lastUnsatisfiedAgents = unsatisfied;
+    this.lastUnsatisfiedAgents = this.agents;
 
     this.emit('step_end', { timeStep: this.timeStep });
     this.timeStep++;
+    return moved > 0;
   }
 
   private shuffleArray<T>(array: T[]): void {
@@ -418,18 +395,19 @@ export class SchellingModel {
       step?: number;
       allowRuntimeChange: boolean;
     }> = [
-      { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
-      { id: 'moveDistance', type: 'number', label: 'Move Distance', min: 1, max: 10, step: 1, allowRuntimeChange: true },
       { id: 'gridWidth', type: 'number', label: 'Grid Width', min: 10, max: 100, step: 1, allowRuntimeChange: false },
       { id: 'gridHeight', type: 'number', label: 'Grid Height', min: 10, max: 100, step: 1, allowRuntimeChange: false },
-      { id: 'numAgentsType1', type: 'number', label: 'Number of Type 1 Agents', min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-      { id: 'numAgentsType2', type: 'number', label: 'Number of Type 2 Agents', min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+      { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
+      { id: 'density', type: 'number', label: 'Density', min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
+      { id: 'balance', type: 'number', label: 'Balance', min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
     ];
     return paramDefs.map(p => ({ ...p, value: this.config[p.id as keyof SchellingConfig] }));
   }
 
   updateParameter(id: string, value: any) {
-    (this.config as any)[id] = value;
+    (this.config as any)[id] = typeof value === 'number' && ['similarityThreshold', 'density', 'balance'].includes(id)
+      ? SchellingModel.clamp01(value)
+      : value;
     if (id === 'similarityThreshold') this.updateAllSatisfaction();
   }
 
@@ -471,6 +449,15 @@ export class SchellingModel {
 
   updateConfig(updates: Partial<SchellingConfig>) {
     Object.assign(this.config, updates);
+    if (updates.similarityThreshold !== undefined) {
+      this.config.similarityThreshold = SchellingModel.clamp01(updates.similarityThreshold);
+    }
+    if (updates.density !== undefined) {
+      this.config.density = SchellingModel.clamp01(updates.density);
+    }
+    if (updates.balance !== undefined) {
+      this.config.balance = SchellingModel.clamp01(updates.balance);
+    }
     if ('similarityThreshold' in updates) this.updateAllSatisfaction();
   }
 }

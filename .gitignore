@@ -53,3 +53,4 @@ _instructions
 .lsp
 .tmp
 .tmp/*
+tmp-*

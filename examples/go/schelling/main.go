@@ -18,7 +18,10 @@ func main() {
 	gridHeight := flag.Int("grid-height", 50, "Schelling grid height")
 	flag.Parse()
 
-	rawModel := shared.NewModel(shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight})
+	rawModel := shared.NewDefaultModel()
+	rawModel.Config.GridWidth = *gridWidth
+	rawModel.Config.GridHeight = *gridHeight
+	rawModel.Initialize()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

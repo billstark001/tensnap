@@ -19,7 +19,7 @@ class SimulationHandlerProtocol(Protocol):
     async def on_registered(self, scenario: "SimulationScenario") -> None: ...
     async def on_init(self) -> None: ...
     async def on_start(self, step: int) -> None: ...
-    async def on_step(self, step: int) -> None: ...
+    async def on_step(self, step: int) -> bool | None: ...
     async def on_reset(self) -> None: ...
 
 
@@ -38,8 +38,8 @@ class SimulationHandler:
     async def on_start(self, step: int) -> None:
         pass
 
-    async def on_step(self, step: int) -> None:
-        pass
+    async def on_step(self, step: int) -> bool | None:
+        return None
 
     async def on_reset(self) -> None:
         pass
@@ -55,8 +55,7 @@ def make_default_handlers(scenario: "SimulationScenario") -> List[Callable]:
 
     @action_decorator("start", "Start", continuous=True)
     async def start() -> bool:
-        await scenario._advance_step()
-        return True
+        return await scenario._advance_step()
 
     @action_decorator("step", "Step")
     async def step() -> None:
@@ -132,15 +131,17 @@ class DefaultSimulationHandler(SimulationHandler):
     async def on_start(self, step: int) -> None:
         await self.on_init()
 
-    async def on_step(self, step: int) -> None:
+    async def on_step(self, step: int) -> bool | None:
         s = self.scenario
         if not s:
-            return
+            return None
+        step_result = None
         if self.model_step:
-            await call_function(self.model_step)
+            step_result = await call_function(self.model_step)
         await s.server.broadcast_metadata_update({"time": step})
         await self._push_env_updates()
         await s.broadcast_charts(step)
+        return None if step_result is None else bool(step_result)
 
     async def on_reset(self) -> None:
         if self.model_reset:

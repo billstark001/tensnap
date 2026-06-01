@@ -13,20 +13,18 @@ const GRID_LAYER = 'grid';
 export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
   gridWidth: 50,
   gridHeight: 50,
-  numAgentsType1: 600,
-  numAgentsType2: 600,
-  similarityThreshold: 0.4,
-  moveDistance: 10,
+  similarityThreshold: 0.7,
+  density: 0.8,
+  balance: 0.5,
 };
 
 function createSchellingParameters(config: SchellingConfig) {
   return defineParameters(
-    { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
-    { id: 'moveDistance', type: 'number', label: 'Move Distance', value: config.moveDistance, min: 1, max: 10, step: 1, allowRuntimeChange: true },
     { id: 'gridWidth', type: 'number', label: 'Grid Width', value: config.gridWidth, min: 10, max: 100, step: 1, allowRuntimeChange: false },
     { id: 'gridHeight', type: 'number', label: 'Grid Height', value: config.gridHeight, min: 10, max: 100, step: 1, allowRuntimeChange: false },
-    { id: 'numAgentsType1', type: 'number', label: 'Type 1 Count', value: config.numAgentsType1, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
-    { id: 'numAgentsType2', type: 'number', label: 'Type 2 Count', value: config.numAgentsType2, min: 10, max: 1000, step: 10, allowRuntimeChange: false },
+    { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
+    { id: 'density', type: 'number', label: 'Density', value: config.density, min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
+    { id: 'balance', type: 'number', label: 'Balance', value: config.balance, min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
   );
 }
 
@@ -94,7 +92,7 @@ export const SCHELLING_EXAMPLE = defineExample({
     }
   },
   async step(model, ctx) {
-    model.step();
+    const shouldContinue = model.step();
     const stats = model.getStatistics();
     await ctx.setTime(stats.timeStep);
     await ctx.syncItems('main', AGENT_LAYER, model.getEnvironmentState().agents);
@@ -102,7 +100,7 @@ export const SCHELLING_EXAMPLE = defineExample({
       satisfaction_rate: stats.satisfactionRate,
       segregation_index: stats.segregationIndex,
     }, stats.timeStep);
-    return true;
+    return shouldContinue;
   },
   async reset(model, ctx) {
     model.reset();

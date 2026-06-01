@@ -10,6 +10,7 @@ const (
 	defaultGridW               = 50
 	defaultGridH               = 50
 	defaultDensity             = 0.8
+	defaultBalance             = 0.5
 	defaultSimilarityThreshold = 0.7
 	maxNeighbors               = 8
 )
@@ -24,8 +25,9 @@ type Cell struct {
 type Config struct {
 	GridWidth           int     `tensnap:"id=gridWidth,label='Grid Width',min=10,max=200,step=1,runtime=false; width,scope=space"`
 	GridHeight          int     `tensnap:"id=gridHeight,label='Grid Height',min=10,max=200,step=1,runtime=false; height,scope=space"`
-	Density             float64 `tensnap:"id=density,label=Density,min=0.1,max=0.95,step=0.05,runtime=false"`
 	SimilarityThreshold float64 `tensnap:"id=similarityThreshold,label='Similarity Threshold',min=0,max=1,step=0.05,runtime=true,aliases=threshold"`
+	Density             float64 `tensnap:"id=density,label=Density,min=0,max=1,step=0.05,runtime=false"`
+	Balance             float64 `tensnap:"id=balance,label=Balance,min=0,max=1,step=0.05,runtime=false"`
 }
 
 type Model struct {
@@ -46,8 +48,9 @@ func NewDefaultModel() *Model {
 	return NewModel(Config{
 		GridWidth:           defaultGridW,
 		GridHeight:          defaultGridH,
-		Density:             defaultDensity,
 		SimilarityThreshold: defaultSimilarityThreshold,
+		Density:             defaultDensity,
+		Balance:             defaultBalance,
 	})
 }
 
@@ -62,11 +65,14 @@ func NewModel(cfg Config) *Model {
 	if model.Config.GridHeight <= 0 {
 		model.Config.GridHeight = defaultGridH
 	}
-	if model.Config.Density <= 0 {
+	if model.Config.SimilarityThreshold < 0 || model.Config.SimilarityThreshold > 1 {
+		model.Config.SimilarityThreshold = defaultSimilarityThreshold
+	}
+	if model.Config.Density < 0 || model.Config.Density > 1 {
 		model.Config.Density = defaultDensity
 	}
-	if model.Config.SimilarityThreshold <= 0 {
-		model.Config.SimilarityThreshold = defaultSimilarityThreshold
+	if model.Config.Balance < 0 || model.Config.Balance > 1 {
+		model.Config.Balance = defaultBalance
 	}
 	model.Initialize()
 	return model
@@ -186,6 +192,7 @@ func (m *Model) RebuildCells() {
 
 func (m *Model) Populate() {
 	density := m.Config.Density
+	type1Threshold := density * m.Config.Balance
 	nextType1 := 0
 	nextType2 := 0
 	for index := range m.Cells {
@@ -193,7 +200,7 @@ func (m *Model) Populate() {
 		cell.AgentID = ""
 		randomValue := m.rng.Float64()
 		switch {
-		case randomValue < density/2:
+		case randomValue < type1Threshold:
 			cell.Group = 1
 			cell.AgentID = "agent1_" + strconv.Itoa(nextType1)
 			nextType1++

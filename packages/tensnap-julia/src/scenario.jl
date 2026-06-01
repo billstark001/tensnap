@@ -25,8 +25,7 @@ function Scenario(; host = "localhost", port = 8765, use_msgpack = false, step_i
 		Dict{String, Environment}(), Dict{String, Asset}(), Dict{String, Channel{Any}}(), nothing, nothing, nothing, nothing, 0, false,
 		HTTP.WebSockets.WebSocket[], IdDict{HTTP.WebSockets.WebSocket, Bool}())
 	add_action!(s, action(ACTION_START, () -> begin
-		step!(s);
-		true
+		_advance_step!(s)
 	end; label = "Start", continuous = true, continue_on_return = true))
 	add_action!(s, action(ACTION_STEP, () -> begin
 		step!(s);

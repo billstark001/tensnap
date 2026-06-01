@@ -16,10 +16,10 @@ function _ensure_initialized!(s::Scenario)
 	return s
 end
 
-function step!(s::Scenario)
+function _advance_step!(s::Scenario)
 	_ensure_initialized!(s)
 	s.time_step += 1
-	s.step !== nothing && _call0or1(s.step, s.model)
+	step_result = s.step === nothing ? true : _call0or1(s.step, s.model)
 	_broadcast(s, "metadata_update", Dict("time" => s.time_step))
 	for e in values(s.environments), l in e.layers
 		data = _layer_data_delta!(l, s.model)
@@ -30,6 +30,11 @@ function step!(s::Scenario)
 		isempty(deletes) || _broadcast(s, "item_delete", Dict("env_id" => e.id, "layer_id" => l.id, "items" => deletes))
 	end
 	broadcast_charts!(s)
+	return step_result === nothing ? true : Bool(step_result)
+end
+
+function step!(s::Scenario)
+	_advance_step!(s)
 	return s
 end
 

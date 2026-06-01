@@ -193,9 +193,13 @@ class SimulationScenario:
         for h in self._handlers:
             await h.on_start(step)
 
-    async def _fire_step(self, step: int) -> None:
+    async def _fire_step(self, step: int) -> bool:
+        should_continue = True
         for h in self._handlers:
-            await h.on_step(step)
+            result = await h.on_step(step)
+            if result is not None:
+                should_continue = should_continue and bool(result)
+        return should_continue
 
     async def _fire_reset(self) -> None:
         self._time_step = 0
@@ -221,10 +225,10 @@ class SimulationScenario:
             await self._broadcast_full_state()
         return True
 
-    async def _advance_step(self) -> None:
+    async def _advance_step(self) -> bool:
         await self._ensure_initialized(broadcast=True)
         self._time_step += 1
-        await self._fire_step(self._time_step)
+        return await self._fire_step(self._time_step)
 
     async def _broadcast_full_state(self) -> None:
         await self.server.broadcast_metadata_update({"time": self._time_step})

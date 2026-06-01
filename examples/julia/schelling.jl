@@ -4,6 +4,7 @@ using Random
 const DEFAULT_GRID_W = 50
 const DEFAULT_GRID_H = 50
 const DEFAULT_DENSITY = 0.8
+const DEFAULT_BALANCE = 0.5
 const DEFAULT_SIMILARITY_THRESHOLD = 0.7
 
 mutable struct SchellingProperties
@@ -84,19 +85,21 @@ function schelling_model_step!(model)
 	end
 
 	abmproperties(model).last_swapped = swapped
-	return nothing
+	return swapped > 0
 end
 
 function initialize_schelling(;
 	gridwidth::Int = DEFAULT_GRID_W,
 	gridheight::Int = DEFAULT_GRID_H,
 	density::Float64 = DEFAULT_DENSITY,
+	balance::Float64 = DEFAULT_BALANCE,
 	similarity_threshold::Float64 = DEFAULT_SIMILARITY_THRESHOLD,
 	seed = nothing,
 )
 	gridwidth = gridwidth > 0 ? gridwidth : DEFAULT_GRID_W
 	gridheight = gridheight > 0 ? gridheight : DEFAULT_GRID_H
 	density = 0 <= density <= 1 ? density : DEFAULT_DENSITY
+	balance = 0 <= balance <= 1 ? balance : DEFAULT_BALANCE
 	similarity_threshold = 0 <= similarity_threshold <= 1 ?
 						   similarity_threshold :
 						   DEFAULT_SIMILARITY_THRESHOLD
@@ -121,6 +124,7 @@ function initialize_schelling(;
 
 	next_type1 = 0
 	next_type2 = 0
+	type1_threshold = density * balance
 
 	# Go 代码是 row-major: index -> x = index % width, y = index / width。
 	# Julia 坐标为 1-based；顺序不影响动力学，只影响同 seed 时的初始随机流对应关系。
@@ -128,7 +132,7 @@ function initialize_schelling(;
 		value = rand(abmrng(model))
 		pos = (x, y)
 
-		if value < density / 2
+		if value < type1_threshold
 			add_agent!(pos, model, 1, "agent1_$(next_type1)")
 			next_type1 += 1
 		elseif value < density

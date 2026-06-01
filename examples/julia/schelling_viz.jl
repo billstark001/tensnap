@@ -9,17 +9,19 @@ using TenSnap
 include("utils.jl")
 include("schelling.jl")
 
-const GRIDWIDTH = parse_env(Int, "TENSNAP_SCHELLING_WIDTH", DEFAULT_GRID_W)
-const GRIDHEIGHT = parse_env(Int, "TENSNAP_SCHELLING_HEIGHT", DEFAULT_GRID_H)
+const GRIDWIDTH = Ref(parse_env(Int, "TENSNAP_SCHELLING_WIDTH", DEFAULT_GRID_W))
+const GRIDHEIGHT = Ref(parse_env(Int, "TENSNAP_SCHELLING_HEIGHT", DEFAULT_GRID_H))
 const DENSITY = Ref(parse_env(Float64, "TENSNAP_SCHELLING_DENSITY", DEFAULT_DENSITY))
+const BALANCE = Ref(parse_env(Float64, "TENSNAP_SCHELLING_BALANCE", DEFAULT_BALANCE))
 const SIMILARITY_THRESHOLD = Ref(parse_env(Float64, "TENSNAP_SCHELLING_THRESHOLD", DEFAULT_SIMILARITY_THRESHOLD))
 const SEED = parse_optional_env(Int, "TENSNAP_SCHELLING_SEED")
 
 function build_model()
 	return initialize_schelling(
-		gridwidth = GRIDWIDTH,
-		gridheight = GRIDHEIGHT,
+		gridwidth = GRIDWIDTH[],
+		gridheight = GRIDHEIGHT[],
 		density = DENSITY[],
+		balance = BALANCE[],
 		similarity_threshold = SIMILARITY_THRESHOLD[],
 		seed = SEED,
 	)
@@ -31,8 +33,19 @@ function initialize!(model_ref::Base.RefValue)
 end
 
 function advance!(model_ref::Base.RefValue)
-	Agents.step!(model_ref[])
-	return nothing
+	return schelling_model_step!(model_ref[])
+end
+
+function set_gridwidth!(value, model_ref::Base.RefValue)
+	GRIDWIDTH[] = max(1, Int(round(value)))
+	initialize!(model_ref)
+	return GRIDWIDTH[]
+end
+
+function set_gridheight!(value, model_ref::Base.RefValue)
+	GRIDHEIGHT[] = max(1, Int(round(value)))
+	initialize!(model_ref)
+	return GRIDHEIGHT[]
 end
 
 function set_similarity_threshold!(value, model_ref::Base.RefValue)
@@ -47,7 +60,13 @@ function set_density!(value, model_ref::Base.RefValue)
 	return DENSITY[]
 end
 
-grid_data(_) = Dict("width" => GRIDWIDTH, "height" => GRIDHEIGHT)
+function set_balance!(value, model_ref::Base.RefValue)
+	BALANCE[] = clamp(Float64(value), 0.0, 1.0)
+	initialize!(model_ref)
+	return BALANCE[]
+end
+
+grid_data(_) = Dict("width" => GRIDWIDTH[], "height" => GRIDHEIGHT[])
 
 function group_color(group::Int)
 	return group == 1 ? "#3498db" : "#e74c3c"
@@ -61,6 +80,34 @@ model_ref = Ref(build_model())
 
 scenario = Scenario(port = server_port, use_msgpack = use_msgpack)
 register_model!(scenario, model_ref; init = initialize!, step = advance!, reset = initialize!)
+
+add_parameter!(
+	scenario,
+	parameter("gridWidth";
+		label = "Grid Width",
+		type = "number",
+		value = GRIDWIDTH[],
+		min = 10,
+		max = 200,
+		step = 1,
+		getter = _ -> GRIDWIDTH[],
+		setter = set_gridwidth!,
+	),
+)
+
+add_parameter!(
+	scenario,
+	parameter("gridHeight";
+		label = "Grid Height",
+		type = "number",
+		value = GRIDHEIGHT[],
+		min = 10,
+		max = 200,
+		step = 1,
+		getter = _ -> GRIDHEIGHT[],
+		setter = set_gridheight!,
+	),
+)
 
 add_parameter!(
 	scenario,
@@ -85,6 +132,17 @@ add_parameter!(scenario, parameter("density";
 	step = 0.01,
 	getter = _ -> DENSITY[],
 	setter = set_density!,
+))
+
+add_parameter!(scenario, parameter("balance";
+	label = "Balance",
+	type = "number",
+	value = BALANCE[],
+	min = 0,
+	max = 1,
+	step = 0.01,
+	getter = _ -> BALANCE[],
+	setter = set_balance!,
 ))
 
 add_chart!(scenario, chart("satisfaction_rate", r -> satisfied_pct(r[]);
@@ -115,4 +173,4 @@ add_layer!(env, agents_layer("agents", r -> Agents.allagents(r[]); projector = a
 add_environment!(scenario, env)
 
 @info "Starting Schelling TenSnap server" url="ws://localhost:$server_port"
-run!(scenario)
+TenSnap.run!(scenario)
