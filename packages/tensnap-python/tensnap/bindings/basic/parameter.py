@@ -280,8 +280,8 @@ class BindParametersConfig:
         if match_type is not None and binding.type != match_type:
             return None
         custom_dict = asdict(binding)
-        custom_dict.pop("id")
-        custom_dict.pop("value")
+        custom_dict.pop("id", None)
+        custom_dict.pop("value", None)
 
         return custom_dict
 
@@ -522,6 +522,7 @@ def get_parameter_metadata_from_object(
             custom_binding = (
                 BindParametersConfig.evaluate_custom_binding(cfg_list, name) or {}
             )
+            custom_binding.pop("type", None)
             parameters.append(
                 (
                     name,

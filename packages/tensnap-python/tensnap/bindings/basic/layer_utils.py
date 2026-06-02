@@ -18,6 +18,7 @@ from tensnap.utils.attr import (
     make_attr_getter,
     make_attr_projector,
 )
+from tensnap.utils.css import is_css_predefined_color_value, is_css_color_literal
 
 TField = TypeVar("TField", bound=str)
 
@@ -92,12 +93,9 @@ _STRING_LITERAL_MATCHERS: dict[str, Callable[[str], bool]] = {
     "interpolation": lambda raw: raw in {"nearest", "linear"},
     "style": lambda raw: raw in {"solid", "dashed", "dotted"},
     "icon": lambda raw: raw in _ICON_LITERAL_VALUES or raw.startswith("asset:"),
+    "color": is_css_predefined_color_value,
 }
 _BOOLEAN_LITERAL_FIELDS = frozenset({"directed"})
-_CSS_LITERAL_PATTERN = re.compile(
-    r"^(?:#[0-9a-fA-F]{3,8}|"
-    r"(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch|color|color-mix|var)\(.+\))$"
-)
 
 
 def _is_json_like_literal(raw_value: str) -> bool:
@@ -115,9 +113,7 @@ def _is_special_literal_string(field: str, raw_value: str) -> bool:
     matcher = _STRING_LITERAL_MATCHERS.get(field)
     if matcher is not None and matcher(raw_value):
         return True
-    return bool(_CSS_LITERAL_PATTERN.match(raw_value)) or _is_json_like_literal(
-        raw_value
-    )
+    return is_css_color_literal(raw_value) or _is_json_like_literal(raw_value)
 
 
 def _target_dynamic_field_names(target: Any) -> tuple[str, ...]:

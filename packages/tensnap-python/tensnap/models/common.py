@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from numbers import Number
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from typing_extensions import NotRequired, TypedDict
@@ -22,7 +21,7 @@ class ProjectorFieldDirective:
     """Base marker for explicit projector-field directives."""
 
 
-ProjectorScalarValue: TypeAlias = Number | str | bool | None
+ProjectorScalarValue: TypeAlias = int | float | complex | str | bool | None
 ProjectorFieldForInit: TypeAlias = (
     ProjectorScalarValue | Callable[[Any], Any] | ProjectorFieldDirective
 )
