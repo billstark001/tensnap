@@ -1,4 +1,4 @@
-import type { RendererToSimulatorMessage } from '@tensnap/core';
+import type { RendererToSimulatorMessage } from '../core-types';
 import type { SimulatorSession } from '../runtime';
 import type { PostMessageEndpoint, PostMessageEnvelope } from './types';
 import { isPostMessageEnvelope } from './types';

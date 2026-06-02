@@ -2,7 +2,7 @@ import type {
   Action,
   ChartGroupMetadata,
   Parameter,
-} from '@tensnap/core';
+} from '../core-types';
 import type {
   ScenarioDefinition,
   ScenarioEnvironmentDefinition,

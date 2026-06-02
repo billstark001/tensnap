@@ -1,7 +1,6 @@
 {
   "name": "@tensnap/js",
   "version": "0.2.0",
-  "private": true,
   "type": "module",
   "description": "JavaScript bindings and postMessage transport primitives for TenSnap",
   "main": "./src/index.ts",
@@ -13,20 +12,57 @@
     "./scenario": "./src/scenario/index.ts",
     "./transport": "./src/transport/index.ts"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
+    "build": "node ./scripts/build.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "pnpm run typecheck",
     "clean": "rm -rf dist node_modules"
   },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./bindings": {
+        "types": "./dist/bindings/index.d.ts",
+        "import": "./dist/bindings/index.js"
+      },
+      "./runtime": {
+        "types": "./dist/runtime/index.d.ts",
+        "import": "./dist/runtime/index.js"
+      },
+      "./scenario": {
+        "types": "./dist/scenario/index.d.ts",
+        "import": "./dist/scenario/index.js"
+      },
+      "./transport": {
+        "types": "./dist/transport/index.d.ts",
+        "import": "./dist/transport/index.js"
+      }
+    }
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
-    "@tensnap/core": "workspace:*",
+    "@types/ws": "^8.18.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@tensnap/core": "workspace:*",
     "@types/node": "^25.9.1",
-    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
   }

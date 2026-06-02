@@ -2,8 +2,12 @@
 
 JavaScript/TypeScript simulator-side bindings for TenSnap protocol v0.2.
 
-This package is currently a private workspace package. It is used by
-`examples/js`, benchmark fixtures, and bundled local simulator transports.
+This package can be published from `packages/tensnap-js` with:
+
+```bash
+pnpm build
+pnpm publish
+```
 
 ## What It Provides
 
@@ -77,4 +81,3 @@ pnpm dev:js:tornberg
 
 For the full API surface, see
 [`docs/api-reference/js-api.md`](../../docs/api-reference/js-api.md).
-

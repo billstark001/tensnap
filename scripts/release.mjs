@@ -8,6 +8,7 @@
  *   go      - Release Go module
  *   python  - Release Python package to PyPI
  *   julia   - Release Julia package
+ *   js      - Release JavaScript bindings package
  *   agent   - Release agent CLI package
  *   app     - Release Tauri desktop app
  *   web     - Deploy web app (automatic on main)
@@ -141,6 +142,7 @@ Components:
   go      - Release Go module
   python  - Release Python package to PyPI
   julia   - Release Julia package
+  js      - Release JavaScript bindings package
   agent   - Release agent CLI package
   app     - Release Tauri desktop app
   web     - Deploy web app (automatic on main)
@@ -149,6 +151,7 @@ Examples:
   node scripts/release.mjs go     0.1.0
   node scripts/release.mjs python 0.1.0
   node scripts/release.mjs julia  0.1.0
+  node scripts/release.mjs js     0.1.0
   node scripts/release.mjs agent  0.1.0
   node scripts/release.mjs app    0.1.0
 `.trim());
@@ -214,6 +217,33 @@ function releaseJulia(version) {
 
   log('\nFor Julia General registration, comment on the release commit or PR:');
   log('  @JuliaRegistrator register subdir=packages/tensnap-julia');
+}
+
+function releaseJs(version) {
+  if (!version) die('Version required for JavaScript release');
+
+  log(`Preparing JavaScript bindings v${version} release...`);
+
+  const pkgPath = join(ROOT, 'packages', 'tensnap-js', 'package.json');
+  const changed = updateJsonVersion(pkgPath, version);
+  if (changed) {
+    log(`  Updated ${toRepoPath(pkgPath)}`);
+  }
+
+  log('  Building JavaScript package...');
+  run('pnpm', ['--dir', 'packages/tensnap-js', 'run', 'build']);
+
+  finalizeRelease({
+    componentLabel: 'JavaScript bindings',
+    version,
+    filePaths: [pkgPath],
+    commitMessage: `Release JavaScript bindings v${version}`,
+    tagName: `js-v${version}`,
+  });
+
+  log('\nPublish from the package directory with:');
+  log('  cd packages/tensnap-js');
+  log('  pnpm publish');
 }
 
 function releaseAgent(version) {
@@ -288,6 +318,7 @@ switch (component) {
   case 'go': releaseGo(version); break;
   case 'python': releasePython(version); break;
   case 'julia': releaseJulia(version); break;
+  case 'js': releaseJs(version); break;
   case 'agent': releaseAgent(version); break;
   case 'app': releaseApp(version); break;
   case 'web': releaseWeb(); break;

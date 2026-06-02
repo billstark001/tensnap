@@ -91,9 +91,11 @@ using Pkg
 Pkg.develop(path="packages/tensnap-julia")
 ```
 
-The JavaScript/TypeScript bindings are currently a private workspace package;
-install the repository dependencies with `pnpm install` and import
-`@tensnap/js` from workspace code.
+If you only need the JavaScript/TypeScript simulator bindings:
+
+```bash
+pnpm add @tensnap/js
+```
 
 ### Method 3: Desktop Application (Tauri)
 

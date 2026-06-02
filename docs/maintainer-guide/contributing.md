@@ -123,7 +123,7 @@ When updating Python docs, keep them aligned with the current bindings surface:
 
 ### JavaScript and Julia Documentation Conventions
 
-- JavaScript simulator docs should describe `@tensnap/js` as a workspace-private TypeScript package unless its package metadata changes.
+- JavaScript simulator docs should describe `@tensnap/js` as the publishable simulator-side bindings package.
 - Prefer `defineModel(...)`, `defineExample(...)`, `SimulatorSession`, `SimulatorEmitter`, and the postMessage/WebSocket hosts when documenting JavaScript bindings.
 - Julia docs should describe `TenSnap.jl` as a native Julia package under `packages/tensnap-julia`, not as an npm-scoped package.
 - Prefer explicit Julia builders such as `Scenario`, `parameter(...)`, `agents_layer(...)`, `chart(...)`, `publish_asset!`, and `request_screenshot!`.

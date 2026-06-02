@@ -48,6 +48,7 @@
     "dev:julia:schelling": "pnpm --dir examples/julia run demo:schelling",
     "dev:julia:schelling:makie": "pnpm --dir examples/julia run demo:schelling:makie",
     "release:julia": "node scripts/release.mjs julia",
+    "release:js": "node scripts/release.mjs js",
     "test:julia": "pnpm --dir examples/julia run test"
   },
   "devDependencies": {

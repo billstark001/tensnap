@@ -1,7 +1,7 @@
 # JavaScript API Reference
 
-This reference describes the current workspace-private `@tensnap/js` package.
-It provides simulator-side helpers for protocol v0.2, not renderer widgets.
+This reference describes the `@tensnap/js` package. It provides simulator-side
+helpers for protocol v0.2, not renderer widgets.
 
 The package exports four groups:
 
