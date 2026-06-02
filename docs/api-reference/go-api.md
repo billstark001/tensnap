@@ -353,6 +353,9 @@ Use this when your model can cheaply answer:
 - whether an item changed this step
 
 It only projects new or changed items.
+Declarative `binding.AgentLayer` uses this tracker when both
+`ItemID(func(T, I) any)` and `Changed(func(T, I) bool)` are configured. If either
+is omitted, `AgentLayer` keeps the default `NaiveItemDiffTracker` path.
 
 ### `NaiveItemDiffTracker`
 

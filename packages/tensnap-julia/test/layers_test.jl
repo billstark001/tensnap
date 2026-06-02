@@ -39,3 +39,35 @@ end
 	@test delta == Dict("width" => 5, "height" => 10)
 	@test TenSnap._layer_data_delta!(l, model) === nothing
 end
+
+@testset "incremental layer source projects changed items only" begin
+	model = ToyModel([ToyAgent(1, 0.0, 0.0), ToyAgent(2, 2.0, 2.0)], 2, 0)
+	changed_ids = Set{Int}()
+	project_calls = Ref(0)
+	projector = a -> begin
+		project_calls[] += 1
+		Dict("id" => a.id, "x" => a.x, "y" => a.y)
+	end
+	scenario = Scenario()
+	register_model!(scenario, model)
+	env = environment("toy")
+	l = agents_layer("agents", m -> m.agents;
+		projector = projector,
+		item_id = a -> a.id,
+		changed = a -> a.id in changed_ids,
+	)
+	add_layer!(env, l)
+	add_environment!(scenario, env)
+
+	@test project_calls[] == 2
+	project_calls[] = 0
+	model.agents[1].x = 1.0
+	push!(changed_ids, 1)
+	delta = replace_layer_items!(scenario, "toy", "agents")
+
+	@test project_calls[] == 1
+	@test isempty(delta.creates)
+	@test length(delta.updates) == 1
+	@test delta.updates[1] == Dict("id" => 1, "x" => 1.0)
+	@test isempty(delta.deletes)
+end

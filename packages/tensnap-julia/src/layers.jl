@@ -62,8 +62,12 @@ function remove_layer!(s::Scenario, env_id, layer_id)
 	return existed
 end
 
+function _normalize_layer_item(item)
+	return Dict(String(k) => _jsonable(v) for (k, v) in pairs(item))
+end
+
 function _layer_items(l::Layer, model)
-	return [Dict(String(k) => _jsonable(v) for (k, v) in pairs(item)) for item in _call0or1(l.items, model)]
+	return [_normalize_layer_item(item) for item in _call0or1(l.items, model)]
 end
 
 function _layer_data(l::Layer, model)
@@ -127,7 +131,53 @@ function _remember_layer_items!(l::Layer, items)
 	return items
 end
 
+function _has_incremental_item_source(l::Layer)
+	return l.source_items !== nothing && l.item_projector !== nothing &&
+		   l.item_id !== nothing && l.item_changed !== nothing
+end
+
+function _project_incremental_item(l::Layer, item, model)
+	return _normalize_layer_item(_call1or2(l.item_projector, item, model))
+end
+
+function _incremental_item_key(l::Layer, item, model)
+	value = _jsonable(_call1or2(l.item_id, item, model))
+	isempty(l.item_key_fields) && return value
+	value isa Tuple && return value
+	value isa AbstractVector && return Tuple(value)
+	return (value,)
+end
+
+function _layer_item_deltas_incremental!(l::Layer, model)
+	raw_items = _call0or1(l.source_items, model)
+	previous = l.last_items
+	current = Dict{Any, Dict{String, Any}}()
+	creates = Dict{String, Any}[]
+	updates = Dict{String, Any}[]
+	for item in raw_items
+		key = _incremental_item_key(l, item, model)
+		if !haskey(previous, key)
+			projected = _project_incremental_item(l, item, model)
+			current[key] = projected
+			push!(creates, projected)
+		elseif Bool(_call1or2(l.item_changed, item, model))
+			projected = _project_incremental_item(l, item, model)
+			current[key] = projected
+			previous[key] != projected && push!(updates, _item_update_payload(l, previous[key], projected))
+		else
+			current[key] = previous[key]
+		end
+	end
+	deletes = Any[]
+	for (key, item) in previous
+		haskey(current, key) || push!(deletes, _item_delete_payload(l, item))
+	end
+	l.last_items = current
+	return creates, updates, deletes
+end
+
 function _layer_item_deltas!(l::Layer, model)
+	_has_incremental_item_source(l) && return _layer_item_deltas_incremental!(l, model)
 	items = _layer_items(l, model)
 	previous = l.last_items
 	current = Dict{Any, Dict{String, Any}}()

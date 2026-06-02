@@ -238,4 +238,55 @@ describe('defineModel', () => {
 
     await session.close();
   });
+
+  it('syncItems sends field-level updates only for changed existing items', async () => {
+    const binding = defineModel({
+      create() {
+        return { tick: 0 };
+      },
+      async sync(model, ctx) {
+        await ctx.syncItems('main', 'agents', [
+          { id: 'agent-1', x: model.tick, y: 0, color: 'red' },
+          { id: 'agent-2', x: 10, y: 0, color: 'blue' },
+        ]);
+      },
+      async step(model, ctx) {
+        await ctx.sync();
+        model.tick += 1;
+      },
+    });
+
+    const messages: AnyProtocolMessage[] = [];
+    const session = binding.createSession();
+    session.attach((message: SimulatorToRendererMessage) => {
+      messages.push(message as AnyProtocolMessage);
+    }, 'sync-items-binding');
+
+    await session.open('sync-items-binding');
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_start',
+      payload: { id: 'step', continuous: false },
+    });
+
+    expect(messages.some((message) => message.type === 'item_update')).toBe(false);
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_start',
+      payload: { id: 'step', continuous: false },
+    });
+
+    expect(messages).toContainEqual({
+      type: 'item_update',
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [{ id: 'agent-1', x: 1 }],
+      },
+    });
+
+    await session.close();
+  });
 });

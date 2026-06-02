@@ -5,7 +5,11 @@ from typing import Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from .bindings import action as action_decorator
 from .helper import broadcast_env_update
-from .models import EnvironmentState, clone_environment_state
+from .models import (
+    EnvironmentState,
+    clone_environment_metadata_state,
+    clone_environment_state,
+)
 from .server import ServerToClientMessageType as MT
 from .utils.func import call_function
 
@@ -104,9 +108,8 @@ class DefaultSimulationHandler(SimulationHandler):
             for layer in environment.layers.values():
                 layer.reset_diff_state()
             curr = clone_environment_state(environment.build_state())
-            for layer in environment.layers.values():
-                layer.build_item_deltas()
-            next_states[env_id] = curr
+            environment.seed_item_deltas_from_state(curr)
+            next_states[env_id] = clone_environment_metadata_state(curr)
         self._last_env_states = next_states
 
     async def _push_env_updates(self, replace_all: bool = False) -> None:
@@ -115,10 +118,12 @@ class DefaultSimulationHandler(SimulationHandler):
             return
         next_states: Dict[str, EnvironmentState] = {}
         for env_id, environment in s.environments.items():
-            curr = clone_environment_state(environment.build_state())
             prev = None if replace_all else self._last_env_states.get(env_id)
+            curr = clone_environment_state(
+                environment.build_state(include_items=prev is None)
+            )
             await broadcast_env_update(s.server, environment, curr, prev)
-            next_states[env_id] = curr
+            next_states[env_id] = clone_environment_metadata_state(curr)
         for removed_id in self._last_env_states.keys() - next_states.keys():
             await s.server.broadcast(MT.ENV_DELETE, {"id": removed_id})
         self._last_env_states = next_states

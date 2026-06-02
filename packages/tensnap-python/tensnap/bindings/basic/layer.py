@@ -627,12 +627,18 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         item_dynamic_projector: (
             DynamicAttrProjector[Any, Any, TItemKeys] | str | None
         ) = None,
+        item_id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
+        item_changed_getter: (
+            AttrGetter[Any] | ProjectorField | Literal[False] | None
+        ) = None,
         items_projector: LayerItemsProjectorForInit[TItemKeys] | None = None,
         dependency_layer_ids: LayerDependencyIds | None = None,
         item_projector_name: ProjectorName | None = None,
         inferred_item_projector: Callable[[Any], Dict[TItemKeys, Any]] | None = None,
         iterable: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
         item: LayerItemProjectorForInit[TItemKeys] | None = None,
+        id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
+        changed_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
     ) -> None:
         if item_iterable_projector is not None and iterable is not None:
             raise ValueError(
@@ -640,6 +646,12 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             )
         if item_projector is not None and item is not None:
             raise ValueError("Use either item_projector or item, not both.")
+        if item_id_getter is not None and id_getter is not None:
+            raise ValueError("Use either item_id_getter or id_getter, not both.")
+        if item_changed_getter is not None and changed_getter is not None:
+            raise ValueError(
+                "Use either item_changed_getter or changed_getter, not both."
+            )
 
         self.layer_id = layer_id
         self.layer_type = layer_type
@@ -650,6 +662,14 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         )
         self.init_item_projector = item if item_projector is None else item_projector
         self.init_item_dynamic_projector = item_dynamic_projector
+        self.init_item_id_getter = (
+            id_getter if item_id_getter is None else item_id_getter
+        )
+        self.init_item_changed_getter = (
+            changed_getter
+            if item_changed_getter is None
+            else item_changed_getter
+        )
         self.init_items_projector = items_projector
         self.item_projector_names = _normalize_projector_names(item_projector_name)
         self.inferred_item_projector = inferred_item_projector
@@ -699,6 +719,11 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         resolved_items_projector = _resolve_items_projector(
             cls,
             self.init_items_projector,
+        )
+        item_id_getter = _resolve_layer_getter(cls, self.init_item_id_getter)
+        item_changed_getter = _resolve_layer_getter(
+            cls,
+            self.init_item_changed_getter,
         )
 
         resolved_item_projector: AttrProjector[Any, TItemKeys] | None = None
@@ -756,6 +781,8 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             iterable_getter=iterable_getter,
             item_projector=resolved_item_projector,
             item_dynamic_projector=resolved_item_dynamic_projector,
+            item_id_getter=item_id_getter,
+            item_changed_getter=item_changed_getter,
             items_projector=resolved_items_projector,
         )
 
@@ -887,6 +914,10 @@ class BindAgentLayerConfig(BindLayerConfig):
         item_dynamic_projector: (
             DynamicAttrProjector[Any, Any, AgentItemFields] | str | None
         ) = None,
+        item_id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
+        item_changed_getter: (
+            AttrGetter[Any] | ProjectorField | Literal[False] | None
+        ) = None,
         items_projector: LayerItemsProjectorForInit[AgentItemFields] | None = None,
     ) -> None:
         resolved_iterable = item_iterable_projector
@@ -906,6 +937,8 @@ class BindAgentLayerConfig(BindLayerConfig):
             item_iterable_projector=resolved_iterable,
             item_projector=item_projector,
             item_dynamic_projector=item_dynamic_projector,
+            item_id_getter=item_id_getter,
+            item_changed_getter=item_changed_getter,
             items_projector=items_projector,
             item_projector_name=(
                 BindUniformAgentConfig.binding_name
@@ -948,6 +981,10 @@ class BindEdgeLayerConfig(BindLayerConfig):
         item_dynamic_projector: (
             DynamicAttrProjector[Any, Any, EdgeItemFields] | str | None
         ) = None,
+        item_id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
+        item_changed_getter: (
+            AttrGetter[Any] | ProjectorField | Literal[False] | None
+        ) = None,
         items_projector: LayerItemsProjectorForInit[EdgeItemFields] | None = None,
         agent_layer_id: str = "agents",
     ) -> None:
@@ -973,6 +1010,8 @@ class BindEdgeLayerConfig(BindLayerConfig):
                 None if item_projector in (None, True, False) else item_projector
             ),
             item_dynamic_projector=item_dynamic_projector,
+            item_id_getter=item_id_getter,
+            item_changed_getter=item_changed_getter,
             items_projector=items_projector,
             dependency_layer_ids={"agent": agent_layer_id},
             item_projector_name=BindEdgeConfig.binding_name,
@@ -1011,6 +1050,10 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
         item_dynamic_projector: (
             DynamicAttrProjector[Any, Any, TrajectoryConfigItemFields] | str | None
         ) = None,
+        item_id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
+        item_changed_getter: (
+            AttrGetter[Any] | ProjectorField | Literal[False] | None
+        ) = None,
         items_projector: (
             LayerItemsProjectorForInit[TrajectoryConfigItemFields] | None
         ) = None,
@@ -1038,6 +1081,8 @@ class BindTrajectoryLayerConfig(BindLayerConfig):
             item_iterable_projector=resolved_iterable,
             item_projector=item_projector,
             item_dynamic_projector=item_dynamic_projector,
+            item_id_getter=item_id_getter,
+            item_changed_getter=item_changed_getter,
             items_projector=items_projector,
             dependency_layer_ids={"agent": agent_layer_id},
             item_projector_name=BindTrajectoryConfigConfig.binding_name,

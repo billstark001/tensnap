@@ -218,21 +218,29 @@ mutable struct Layer
 	data::Union{Nothing, Function}
 	dependency_layer_ids::Dict{String, String}
 	item_key_fields::Vector{String}
+	source_items::Union{Nothing, Function}
+	item_projector::Union{Nothing, Function}
+	item_id::Union{Nothing, Function}
+	item_changed::Union{Nothing, Function}
 	last_items::Dict{Any, Dict{String, Any}}
 	last_data::Any
 end
 
-function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = String[])
+function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = String[],
+	source_items = nothing, projector = nothing, item_id = nothing, changed = nothing)
 	return Layer(String(id), String(type), items, data,
 		Dict(String(k) => String(v) for (k, v) in pairs(dependency_layer_ids)),
-		String.(item_key_fields), Dict{Any, Dict{String, Any}}(), _UNSET)
+		String.(item_key_fields), source_items, projector, item_id, changed,
+		Dict{Any, Dict{String, Any}}(), _UNSET)
 end
 
 function agents_layer(id, getagents = agents_getter; projector = autoagentprojector(), data = nothing,
-	dependency_layer_ids = Dict{String, String}(), item_key_fields = ["id"])
+	dependency_layer_ids = Dict{String, String}(), item_key_fields = ["id"],
+	item_id = nothing, changed = nothing)
 	items = model -> [projector(a) for a in getagents(model)]
 	return layer(id, "agent", items; data = data, dependency_layer_ids = dependency_layer_ids,
-		item_key_fields = item_key_fields)
+		item_key_fields = item_key_fields, source_items = getagents, projector = projector,
+		item_id = item_id, changed = changed)
 end
 
 grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields)

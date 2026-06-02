@@ -178,7 +178,7 @@ Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in
 - `register_model_handler(model_init=None, model_step=None, model_reset=None) -> None`
 - `run() -> None`
 
-`DefaultSimulationHandler` initializes lazily at time `0`, emits the first simulated tick as time `1`, computes full environment snapshots for init/reset, and emits layer-level incremental item diffs on subsequent steps. If `model_reset` is omitted, reset falls back to `model_init`.
+`DefaultSimulationHandler` initializes lazily at time `0`, emits the first simulated tick as time `1`, computes full environment snapshots for init/reset, and emits layer-level incremental item diffs on subsequent steps. Step broadcasts use metadata-only environment snapshots so item projection is not repeated before the layer diff pass. If `model_reset` is omitted, reset falls back to `model_init`.
 
 ## Runtime Models
 
@@ -218,8 +218,14 @@ Typical constructor fields:
 - `iterable_getter`
 - `item_projector`
 - `item_dynamic_projector`
+- `item_id_getter`
+- `item_changed_getter`
 - `items_projector`
 - `dependency_layer_ids`
+
+`item_id_getter` and `item_changed_getter` are optional. Define them together
+with `iterable_getter` and an item projector to avoid projecting unchanged
+items. Leaving them unset keeps the default full-list diff behavior.
 
 ### `LayerRegistration`
 
@@ -229,8 +235,9 @@ Key methods:
 
 - `set_target(target)`
 - `reset_diff_state()`
-- `build_state() -> EnvironmentLayerState`
+- `build_state(include_items=True) -> EnvironmentLayerState`
 - `build_item_deltas()`
+- `seed_item_deltas_from_state(...)`
 - `build_item_delete_payloads(...)`
 
 ## Imperative Registration Example

@@ -2,7 +2,10 @@
 
 from typing import Any
 
+import pytest
+
 from tensnap import bindings as binding_api
+from tensnap.handler import DefaultSimulationHandler
 from tensnap.bindings import agent, agent_layer, env, grid_layer
 from tensnap.models import (
     EnvironmentBinding,
@@ -103,3 +106,122 @@ class TestEnvironmentRegistration:
         items.clear()
         _, _, deleted_ids = registration.build_item_deltas()
         assert registration.build_item_delete_payloads(deleted_ids) == [{"id": "a1"}]
+
+    def test_layer_registration_seeds_deltas_from_existing_snapshot(self):
+        projected_calls = 0
+
+        class Agent:
+            def __init__(self, agent_id: str, x: int, changed: bool = False):
+                self.id = agent_id
+                self.x = x
+                self.changed = changed
+
+        agents = [Agent("a1", 1), Agent("a2", 2)]
+
+        def project(agent: Agent) -> dict[str, Any]:
+            nonlocal projected_calls
+            projected_calls += 1
+            return {"id": agent.id, "x": agent.x, "y": 0}
+
+        binding: LayerBinding[list[Agent], str, Agent, str] = LayerBinding(
+            layer_id="agents",
+            layer_type="agent",
+            item_keys=("id",),
+            iterable_getter=lambda layer: layer,
+            item_projector=project,
+            item_id_getter=lambda agent: agent.id,
+            item_changed_getter=lambda agent: agent.changed,
+        )
+        registration = LayerRegistration(binding=binding, target=agents)
+        state = registration.build_state()
+
+        registration.seed_item_deltas_from_state(state)
+        projected_calls = 0
+        agents[0].x = 3
+        agents[0].changed = True
+
+        creates, updates, deletes = registration.build_item_deltas()
+
+        assert projected_calls == 1
+        assert creates == []
+        assert updates == [{"id": "a1", "x": 3, "y": 0}]
+        assert deletes == []
+
+    def test_agent_layer_decorator_accepts_incremental_diff_getters(self):
+        class Agent:
+            id = "a1"
+            changed = False
+
+        @agent_layer(
+            item_iterable_projector="agents",
+            item_id_getter="id",
+            item_changed_getter="changed",
+        )
+        class Model:
+            agents = [Agent()]
+
+        binding = binding_api.layer_bindings(Model)[0]
+
+        assert binding.item_id_getter is not None
+        assert binding.item_changed_getter is not None
+        assert binding.has_item_diffing
+
+
+class FakeServer:
+    def __init__(self):
+        self.messages: list[tuple[Any, Any]] = []
+
+    async def broadcast(self, message_type: Any, payload: Any) -> None:
+        self.messages.append((message_type, payload))
+
+
+class FakeScenario:
+    def __init__(self, environment: EnvironmentRegistration):
+        self.environments = {environment.id: environment}
+        self.server = FakeServer()
+
+    async def broadcast_charts(self, _step: int) -> None:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_default_handler_step_does_not_project_items_twice():
+    projected_calls = 0
+
+    class Agent:
+        def __init__(self, agent_id: str, x: int, changed: bool = False):
+            self.id = agent_id
+            self.x = x
+            self.changed = changed
+
+    agents = [Agent("a1", 1), Agent("a2", 2)]
+
+    def project(agent: Agent) -> dict[str, Any]:
+        nonlocal projected_calls
+        projected_calls += 1
+        return {"id": agent.id, "x": agent.x, "y": 0}
+
+    layer_binding: LayerBinding[list[Agent], str, Agent, str] = LayerBinding(
+        layer_id="agents",
+        layer_type="agent",
+        item_keys=("id",),
+        iterable_getter=lambda layer: layer,
+        item_projector=project,
+        item_id_getter=lambda agent: agent.id,
+        item_changed_getter=lambda agent: agent.changed,
+    )
+    environment = EnvironmentRegistration(EnvironmentBinding(id="world", type="2d"))
+    environment.add_layer(LayerRegistration(binding=layer_binding, target=agents))
+    scenario = FakeScenario(environment)
+    handler = DefaultSimulationHandler()
+    await handler.on_registered(scenario)  # type: ignore[arg-type]
+    await handler._prime_env_states()
+
+    assert projected_calls == 2
+
+    projected_calls = 0
+    agents[0].x = 3
+    agents[0].changed = True
+    await handler._push_env_updates()
+
+    assert projected_calls == 1

@@ -143,6 +143,53 @@ func TestDeclarativeModelReplaysAndDiffsOwnedState(t *testing.T) {
 	}
 }
 
+func TestAgentLayerUsesIncrementalTrackerWhenConfigured(t *testing.T) {
+	raw := &testModel{
+		agents: []testAgent{
+			{id: "a", x: 1},
+			{id: "b", x: 2},
+		},
+	}
+	changed := map[string]bool{}
+	projectCalls := 0
+	layer := NewAgentLayer[*testModel, testAgent]("agents").
+		Items(func(model *testModel) []testAgent { return model.agents }).
+		ItemID(func(_ *testModel, agent testAgent) any { return agent.id }).
+		Changed(func(_ *testModel, agent testAgent) bool { return changed[agent.id] }).
+		Project(func(_ *testModel, agent testAgent) map[string]any {
+			projectCalls++
+			return map[string]any{"id": agent.id, "x": agent.x, "y": 0.0}
+		})
+	emitter := &testEmitter{}
+
+	if err := layer.ReplayState(raw, "world", emitter); err != nil {
+		t.Fatalf("ReplayState returned error: %v", err)
+	}
+	if projectCalls != 2 {
+		t.Fatalf("initial project calls = %d, want 2", projectCalls)
+	}
+
+	projectCalls = 0
+	raw.agents[0].x = 3
+	changed["a"] = true
+	if err := layer.PushDiffs(raw, "world", emitter); err != nil {
+		t.Fatalf("PushDiffs returned error: %v", err)
+	}
+	if projectCalls != 1 {
+		t.Fatalf("incremental project calls = %d, want 1", projectCalls)
+	}
+	if len(emitter.itemUpdates) != 1 {
+		t.Fatalf("expected one update, got %#v", emitter.itemUpdates)
+	}
+	got := emitter.itemUpdates[0].items[0]
+	if got["id"] != "a" || got["x"] != float64(3) {
+		t.Fatalf("unexpected update payload: %#v", got)
+	}
+	if _, ok := got["y"]; ok {
+		t.Fatalf("unchanged y should not be present: %#v", got)
+	}
+}
+
 func cloneSnapshots(items []map[string]any) []map[string]any {
 	cloned := make([]map[string]any, len(items))
 	for index, item := range items {

@@ -123,12 +123,16 @@ type AgentLayer[T any, I any] struct {
 	project  func(T, I) map[string]any
 	fields   map[string]ItemFieldFunc[T, I]
 	diff     *abm.NaiveItemDiffTracker
+	tracker  *abm.ItemDiffTracker[I]
+	itemID   func(T, I) any
+	changed  func(T, I) bool
 }
 
 func NewAgentLayer[T any, I any](id string) *AgentLayer[T, I] {
 	return &AgentLayer[T, I]{
-		ID:   id,
-		diff: abm.NewNaiveItemDiffTracker("id"),
+		ID:      id,
+		diff:    abm.NewNaiveItemDiffTracker("id"),
+		tracker: abm.NewItemDiffTracker[I](),
 	}
 }
 
@@ -147,6 +151,16 @@ func (l *AgentLayer[T, I]) Size(fn func(T) (int, int)) *AgentLayer[T, I] {
 
 func (l *AgentLayer[T, I]) Items(fn func(T) []I) *AgentLayer[T, I] {
 	l.items = fn
+	return l
+}
+
+func (l *AgentLayer[T, I]) ItemID(fn func(T, I) any) *AgentLayer[T, I] {
+	l.itemID = fn
+	return l
+}
+
+func (l *AgentLayer[T, I]) Changed(fn func(T, I) bool) *AgentLayer[T, I] {
+	l.changed = fn
 	return l
 }
 
@@ -195,18 +209,25 @@ func (l *AgentLayer[T, I]) CreatePayload(target T, envID string) *protocol.EnvLa
 }
 
 func (l *AgentLayer[T, I]) ReplayState(target T, envID string, emitter abm.Emitter) error {
-	items := l.snapshots(target)
-	if len(items) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, items); err != nil {
+	items := l.itemList(target)
+	snapshots := l.projectItems(target, items)
+	if len(snapshots) > 0 {
+		if err := emitter.ItemCreate(envID, l.ID, snapshots); err != nil {
 			return err
 		}
 	}
-	l.diff.Seed(items)
+	if l.usesIncrementalDiff() {
+		l.tracker.SeedSnapshots(items, snapshots, func(item I) any {
+			return l.itemID(target, item)
+		})
+	} else {
+		l.diff.Seed(snapshots)
+	}
 	return nil
 }
 
 func (l *AgentLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
-	created, updated, deleted := l.diff.Compute(l.snapshots(target))
+	created, updated, deleted := l.computeDiffs(target)
 	if len(created) > 0 {
 		if err := emitter.ItemCreate(envID, l.ID, created); err != nil {
 			return err
@@ -227,6 +248,7 @@ func (l *AgentLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter
 
 func (l *AgentLayer[T, I]) Reset() {
 	l.diff.Reset()
+	l.tracker.Reset()
 }
 
 func (l *AgentLayer[T, I]) data(target T) map[string]any {
@@ -236,11 +258,37 @@ func (l *AgentLayer[T, I]) data(target T) map[string]any {
 	return l.metadata(target)
 }
 
-func (l *AgentLayer[T, I]) snapshots(target T) []map[string]any {
-	if l.items == nil || l.project == nil {
+func (l *AgentLayer[T, I]) usesIncrementalDiff() bool {
+	return l.itemID != nil && l.changed != nil
+}
+
+func (l *AgentLayer[T, I]) computeDiffs(target T) (created, updated []map[string]any, deleted []any) {
+	items := l.itemList(target)
+	if l.project == nil {
+		return nil, nil, nil
+	}
+	if l.usesIncrementalDiff() {
+		return l.tracker.Compute(
+			items,
+			func(item I) any { return l.itemID(target, item) },
+			func(item I) bool { return l.changed(target, item) },
+			func(item I) abm.ItemSnapshot { return l.project(target, item) },
+		)
+	}
+	return l.diff.Compute(l.projectItems(target, items))
+}
+
+func (l *AgentLayer[T, I]) itemList(target T) []I {
+	if l.items == nil {
 		return nil
 	}
-	items := l.items(target)
+	return l.items(target)
+}
+
+func (l *AgentLayer[T, I]) projectItems(target T, items []I) []map[string]any {
+	if l.project == nil {
+		return nil
+	}
 	snapshots := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		snapshots = append(snapshots, l.project(target, item))

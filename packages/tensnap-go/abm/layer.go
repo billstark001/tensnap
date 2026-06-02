@@ -22,6 +22,14 @@ func DictDiff(a, b ItemSnapshot) ItemSnapshot {
 	return diff
 }
 
+func cloneSnapshot(item ItemSnapshot) ItemSnapshot {
+	snap := make(ItemSnapshot, len(item))
+	for key, value := range item {
+		snap[key] = value
+	}
+	return snap
+}
+
 // #region ItemDiffTracker — precise change tracking
 
 // ItemDiffTracker tracks projected item state across steps.
@@ -52,7 +60,23 @@ func (t *ItemDiffTracker[T]) Seed(items []T, idFn func(T) any, projFn func(T) It
 	t.prev = make(map[any]ItemSnapshot, len(items))
 	for _, item := range items {
 		id := idFn(item)
-		t.prev[id] = projFn(item)
+		t.prev[id] = cloneSnapshot(projFn(item))
+	}
+}
+
+// SeedSnapshots primes the tracker from raw items and their already-projected
+// snapshots. It is useful after a full replay that already paid projection cost.
+func (t *ItemDiffTracker[T]) SeedSnapshots(
+	items []T,
+	snapshots []ItemSnapshot,
+	idFn func(T) any,
+) {
+	t.prev = make(map[any]ItemSnapshot, len(items))
+	for index, item := range items {
+		if index >= len(snapshots) {
+			break
+		}
+		t.prev[idFn(item)] = cloneSnapshot(snapshots[index])
 	}
 }
 
@@ -80,14 +104,17 @@ func (t *ItemDiffTracker[T]) Compute(
 		if !seen {
 			// New item — full snapshot.
 			snap := projFn(item)
-			t.prev[id] = snap
+			t.prev[id] = cloneSnapshot(snap)
 			created = append(created, snap)
 		} else if changedFn(item) {
 			// Changed item — project and emit only differing fields.
 			snap := projFn(item)
 			diff := DictDiff(prev, snap)
-			t.prev[id] = snap
+			t.prev[id] = cloneSnapshot(snap)
 			if len(diff) > 0 {
+				if _, ok := diff["id"]; !ok {
+					diff["id"] = id
+				}
 				updated = append(updated, diff)
 			}
 		}

@@ -129,6 +129,20 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         else:
             self.item_projection_type = _ITEM_PROJ_TYPE_ITEMS
 
+        if (self.item_id_getter is None) != (self.item_changed_getter is None):
+            raise ValueError(
+                f"LayerBinding {self.layer_id} must define item_id_getter and "
+                "item_changed_getter together."
+            )
+        if (
+            self.item_id_getter is not None
+            and self.item_projection_type == _ITEM_PROJ_TYPE_ITEMS
+        ):
+            raise ValueError(
+                f"LayerBinding {self.layer_id} item diff getters require "
+                "iterable_getter with item_projector or item_dynamic_projector."
+            )
+
         self.has_item_diffing = (
             self.item_id_getter is not None and self.item_changed_getter is not None
         ) and self.item_projection_type != _ITEM_PROJ_TYPE_ITEMS
@@ -153,6 +167,11 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
 
     def get_item_id_naive(self, item: Dict[TItemFieldKeys, Any]) -> Tuple[Any, ...]:
         return tuple(item.get(key) for key in self.item_keys)
+
+    def get_projected_item_cache_key(self, item: Dict[TItemFieldKeys, Any]) -> Any:
+        if self.has_item_diffing and len(self.item_keys) == 1:
+            return item.get(self.item_keys[0])
+        return self.get_item_id_naive(item)
 
     def build_item_list_diff(
         self,
@@ -296,7 +315,7 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
     def reset_diff_state(self) -> None:
         self.last_items.clear()
 
-    def build_state(self) -> "EnvironmentLayerState":
+    def build_state(self, *, include_items: bool = True) -> "EnvironmentLayerState":
         layer: Dict[str, Any] = {
             "layer_id": self.binding.layer_id,
             "layer_type": self.binding.layer_type,
@@ -308,11 +327,25 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         if metadata:
             layer["data"] = metadata
 
-        items = self.binding.build_item_list(self.target)
-        if items:
-            layer[layer_items_field_name(self.binding.layer_type)] = items
+        if include_items:
+            items = self.binding.build_item_list(self.target)
+            if items:
+                layer[layer_items_field_name(self.binding.layer_type)] = items
 
         return cast("EnvironmentLayerState", layer)
+
+    def seed_item_deltas_from_state(self, state: "EnvironmentLayerState") -> None:
+        items: List[Dict[TItemFieldKeys, Any]] = []
+        if "items" in state:
+            items = cast(List[Dict[TItemFieldKeys, Any]], state["items"])
+        elif "agents" in state:
+            items = cast(List[Dict[TItemFieldKeys, Any]], state["agents"])
+        elif "edges" in state:
+            items = cast(List[Dict[TItemFieldKeys, Any]], state["edges"])
+        self.last_items = {
+            self.binding.get_projected_item_cache_key(item): dict(item)
+            for item in items
+        }
 
     def build_create_payload(
         self, env_id: str

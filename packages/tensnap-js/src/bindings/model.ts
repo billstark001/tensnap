@@ -36,7 +36,7 @@ interface PublishedAsset {
 interface SyncedLayerState {
   envId: string;
   layerId: string;
-  itemIds: Set<ItemIdentifier>;
+  items: Map<ItemIdentifier, ItemRecord>;
 }
 
 export interface LifecycleActionLabels {
@@ -158,6 +158,41 @@ function cloneItems<TItem extends object>(items: readonly TItem[]): ItemRecord[]
   return items as unknown as ItemRecord[];
 }
 
+function cloneItem<TItem extends object>(item: TItem): ItemRecord {
+  return { ...(item as unknown as ItemRecord) };
+}
+
+function diffItem(
+  previous: ItemRecord,
+  current: ItemRecord,
+  id: ItemIdentifier,
+): ItemRecord | undefined {
+  const diff: ItemRecord = {};
+  let changed = false;
+  const keys = new Set([...Object.keys(previous), ...Object.keys(current)]);
+
+  for (const key of keys) {
+    if (key === 'id') {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(current, key)) {
+      diff[key] = null;
+      changed = true;
+      continue;
+    }
+    if (!Object.is(previous[key], current[key])) {
+      diff[key] = current[key];
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return undefined;
+  }
+  diff.id = id;
+  return diff;
+}
+
 function getLayerKey(envId: string, layerId: string): string {
   return `${envId}:${layerId}`;
 }
@@ -226,7 +261,7 @@ export function defineModel<
       const initialConfig = resolveConfig(config);
       const model = options.create(initialConfig);
       const assetRegistry = new Map<string, PublishedAsset>();
-      const syncedItemIds = new Map<string, SyncedLayerState>();
+      const syncedItems = new Map<string, SyncedLayerState>();
       let currentDefinition = buildScenarioDefinition(options, initialConfig);
       let registry = ScenarioRegistry.from(currentDefinition);
       let session!: SimulatorSession;
@@ -246,17 +281,17 @@ export function defineModel<
       };
 
       const resetSyncedItems = async (): Promise<void> => {
-        for (const { envId, layerId, itemIds } of syncedItemIds.values()) {
-          if (itemIds.size === 0) {
+        for (const { envId, layerId, items } of syncedItems.values()) {
+          if (items.size === 0) {
             continue;
           }
           await session.emitter.itemDelete({
             env_id: envId,
             layer_id: layerId,
-            items: cloneItems(Array.from(itemIds, (id) => ({ id }))),
+            items: cloneItems(Array.from(items.keys(), (id) => ({ id }))),
           });
         }
-        syncedItemIds.clear();
+        syncedItems.clear();
       };
 
       const context: ModelSessionContext<TConfig> = {
@@ -369,12 +404,30 @@ export function defineModel<
         },
         async syncItems(envId, layerId, items) {
           const layerKey = getLayerKey(envId, layerId);
-          const previousState = syncedItemIds.get(layerKey);
-          const previousIds = previousState?.itemIds ?? new Set<ItemIdentifier>();
+          const previousState = syncedItems.get(layerKey);
+          const previousItems = previousState?.items ?? new Map<ItemIdentifier, ItemRecord>();
           const currentIds = new Set<ItemIdentifier>(items.map((item) => item.id));
-          const create = items.filter((item) => !previousIds.has(item.id));
-          const update = items.filter((item) => previousIds.has(item.id));
-          const remove = Array.from(previousIds)
+          const currentItems = new Map<ItemIdentifier, ItemRecord>();
+          const create: Array<(typeof items)[number]> = [];
+          const update: ItemRecord[] = [];
+
+          for (const item of items) {
+            const snapshot = cloneItem(item);
+            currentItems.set(item.id, snapshot);
+
+            const previous = previousItems.get(item.id);
+            if (!previous) {
+              create.push(item);
+              continue;
+            }
+
+            const diff = diffItem(previous, snapshot, item.id);
+            if (diff) {
+              update.push(diff);
+            }
+          }
+
+          const remove = Array.from(previousItems.keys())
             .filter((id) => !currentIds.has(id))
             .map((id) => ({ id }));
 
@@ -400,10 +453,10 @@ export function defineModel<
             });
           }
 
-          syncedItemIds.set(layerKey, {
+          syncedItems.set(layerKey, {
             envId,
             layerId,
-            itemIds: currentIds,
+            items: currentItems,
           });
         },
         finishAction: (payload, shouldContinue = false) => session.emitter.actionEnd({
@@ -476,7 +529,7 @@ export function defineModel<
       session = new BaseSimulatorSession({
         async onConnect() {
           assetRegistry.clear();
-          syncedItemIds.clear();
+          syncedItems.clear();
           await options.init?.(model, context);
           rebuildDefinition();
           await context.replayDefinition();
@@ -485,11 +538,11 @@ export function defineModel<
         async onDisconnect() {
           await options.dispose?.(model, context);
           assetRegistry.clear();
-          syncedItemIds.clear();
+          syncedItems.clear();
         },
         async onStateSync(payload) {
           rebuildDefinition();
-          syncedItemIds.clear();
+          syncedItems.clear();
           await session.emitter.stateSyncBegin({ request_id: payload.request_id });
           await context.replayDefinition();
           await runSync();

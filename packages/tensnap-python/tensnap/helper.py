@@ -125,7 +125,7 @@ async def broadcast_env_update(
             layer = current_layers[layer_id]
             registration.reset_diff_state()
             await send_layer_full(None, server, env_id, layer)
-            registration.build_item_deltas()
+            registration.seed_item_deltas_from_state(layer)
         return
 
     if previous_state["type"] != env_state["type"]:
@@ -153,8 +153,9 @@ async def broadcast_env_update(
                     MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
                 )
             registration.reset_diff_state()
-            await send_layer_full(None, server, env_id, layer)
-            registration.build_item_deltas()
+            full_layer = registration.build_state()
+            await send_layer_full(None, server, env_id, full_layer)
+            registration.seed_item_deltas_from_state(full_layer)
             continue
 
         if layer_dependency_layer_ids(layer) != layer_dependency_layer_ids(prev_layer):
@@ -162,8 +163,9 @@ async def broadcast_env_update(
                 MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
             )
             registration.reset_diff_state()
-            await send_layer_full(None, server, env_id, layer)
-            registration.build_item_deltas()
+            full_layer = registration.build_state()
+            await send_layer_full(None, server, env_id, full_layer)
+            registration.seed_item_deltas_from_state(full_layer)
             continue
 
         meta = layer_metadata(layer)

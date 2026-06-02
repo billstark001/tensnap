@@ -136,8 +136,11 @@ mutable metadata by accident.
 - `finishAction(...)` for custom action handling.
 - `publishAsset(...)`, `syncAssets(...)`, and `clearPublishedAssets()`.
 
-`syncItems(...)` tracks previously emitted item ids per layer. It sends creates,
-updates, and deletes for items with an `id` field.
+`syncItems(...)` accepts the full current item list and tracks per-layer item
+snapshots internally. It sends creates, field-level updates for changed existing
+items, and deletes for missing ids. Use `createItems(...)`, `updateItems(...)`,
+and `deleteItems(...)` when the model already knows the exact incremental item
+operations to emit.
 
 ## Runtime API
 
@@ -223,4 +226,3 @@ pnpm dev:js:wolf-sheep
 pnpm dev:js:axelrod
 pnpm dev:js:tornberg
 ```
-

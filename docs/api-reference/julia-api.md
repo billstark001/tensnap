@@ -213,6 +213,11 @@ the layer's `item_key_fields`. If no key fields are provided, TenSnap.jl tries
 common keys in this order: `id`, `name`, `uid`, `source/target`, `x/y`, then all
 item keys.
 
+`agents_layer(...; item_id = ..., changed = ...)` can opt into an incremental
+source. When both functions are provided, `replace_layer_items!` projects only
+new or changed raw agents. Without them, the default remains full-list
+projection followed by field-level diffing.
+
 ## Projectors
 
 - `dictprojector(fields=nothing; rename=Dict())`

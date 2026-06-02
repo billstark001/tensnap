@@ -103,12 +103,46 @@ class EnvironmentRegistration:
     def clear_layers(self) -> None:
         self.layers.clear()
 
-    def build_state(self) -> EnvironmentState:
+    def build_state(self, *, include_items: bool = True) -> EnvironmentState:
         return {
             "id": self.binding.id,
             "type": self.binding.type,
-            "layers": [layer.build_state() for layer in self.layers.values()],
+            "layers": [
+                layer.build_state(include_items=include_items)
+                for layer in self.layers.values()
+            ],
         }
+
+    def seed_item_deltas_from_state(self, state: EnvironmentState) -> None:
+        """Prime layer item diff caches from an already projected snapshot."""
+
+        state_layers = {layer["layer_id"]: layer for layer in state["layers"]}
+        for layer_id, registration in self.layers.items():
+            layer_state = state_layers.get(layer_id)
+            if layer_state is not None:
+                registration.seed_item_deltas_from_state(layer_state)
+
+
+def clone_environment_metadata_state(state: EnvironmentState) -> EnvironmentState:
+    """Return a detached environment snapshot without projected item payloads."""
+
+    layers: list[EnvironmentLayerState] = []
+    for layer in state["layers"]:
+        layer_copy: dict[str, Any] = {
+            "layer_id": layer["layer_id"],
+            "layer_type": layer["layer_type"],
+        }
+        if "dependency_layer_ids" in layer:
+            layer_copy["dependency_layer_ids"] = dict(layer["dependency_layer_ids"])
+        if "data" in layer:
+            layer_copy["data"] = dict(layer["data"])
+        layers.append(cast(EnvironmentLayerState, layer_copy))
+
+    return {
+        "id": state["id"],
+        "type": state["type"],
+        "layers": layers,
+    }
 
 
 def clone_environment_state(state: EnvironmentState) -> EnvironmentState:
