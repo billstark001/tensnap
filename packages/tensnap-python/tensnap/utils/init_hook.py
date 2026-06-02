@@ -21,6 +21,33 @@ HookTiming: TypeAlias = Literal["before", "after"]
 InitMethod: TypeAlias = Callable[..., None]
 OnceInitHook: TypeAlias = Callable[[T, Tuple[Any, ...], Dict[str, Any]], Any]
 
+_INIT_HOOK_STATE_ATTR = "_tensnap_init_hook_state"
+
+
+@dataclass(slots=True)
+class _InitHookEntry(Generic[T]):
+    timing: HookTiming
+    hook: OnceInitHook[T]
+
+
+@dataclass(slots=True)
+class _InitHookState(Generic[T]):
+    cls: type[T]
+    original_init: InitMethod
+    lock: RLock = field(default_factory=RLock, repr=False)
+    before_hooks: list[_InitHookEntry[T]] = field(default_factory=list, repr=False)
+    after_hooks: list[_InitHookEntry[T]] = field(default_factory=list, repr=False)
+    wrapper: InitMethod | None = field(default=None, repr=False)
+
+    def hooks_for(self, timing: HookTiming) -> list[_InitHookEntry[T]]:
+        return self.before_hooks if timing == "before" else self.after_hooks
+
+    def has_hooks(self) -> bool:
+        return bool(self.before_hooks or self.after_hooks)
+
+    def contains(self, entry: _InitHookEntry[T]) -> bool:
+        return entry in self.before_hooks or entry in self.after_hooks
+
 
 @dataclass(slots=True)
 class OnceInitHookHandle(Generic[T]):
@@ -40,10 +67,8 @@ class OnceInitHookHandle(Generic[T]):
     cls: type[T]
     original_init: InitMethod
 
-    _wrapper: InitMethod = field(repr=False)
-    _lock: RLock = field(repr=False)
-    _armed: Callable[[], bool] = field(repr=False)
-    _disarm: Callable[[], None] = field(repr=False)
+    _state: _InitHookState[T] = field(repr=False)
+    _entry: _InitHookEntry[T] = field(repr=False)
 
     @property
     def active(self) -> bool:
@@ -53,21 +78,83 @@ class OnceInitHookHandle(Generic[T]):
         Returns `False` after the first construction attempt, after uninstall,
         or if `cls.__init__` has been replaced by something else.
         """
-        with self._lock:
-            return self._armed() and self.cls.__init__ is self._wrapper
+        with self._state.lock:
+            return (
+                self._state.contains(self._entry)
+                and self._state.wrapper is not None
+                and self.cls.__init__ is self._state.wrapper
+            )
 
     def uninstall(self) -> None:
         """
-        Remove the hook if it is still the active `__init__` wrapper.
+        Remove this hook if it has not fired yet.
 
-        This is safe to call multiple times. It does not restore the original
-        initializer if some other code has replaced `cls.__init__` since this
-        hook was installed.
+        This is safe to call multiple times. The original initializer is restored
+        only when this was the final pending hook and no other code has replaced
+        `cls.__init__` since the dispatcher was installed.
         """
-        with self._lock:
-            if self.cls.__init__ is self._wrapper:
-                self.cls.__init__ = self.original_init
-            self._disarm()
+        with self._state.lock:
+            _remove_hook_entry(self._state, self._entry)
+            if (
+                not self._state.has_hooks()
+                and self._state.wrapper is not None
+                and self.cls.__init__ is self._state.wrapper
+            ):
+                self.cls.__init__ = self._state.original_init
+                _clear_state_if_current(self.cls, self._state)
+
+
+def _clear_state_if_current(cls: type[T], state: _InitHookState[T]) -> None:
+    if cls.__dict__.get(_INIT_HOOK_STATE_ATTR) is state:
+        delattr(cls, _INIT_HOOK_STATE_ATTR)
+
+
+def _remove_hook_entry(state: _InitHookState[T], entry: _InitHookEntry[T]) -> None:
+    hooks = state.hooks_for(entry.timing)
+    try:
+        hooks.remove(entry)
+    except ValueError:
+        pass
+
+
+def _make_init_dispatcher(state: _InitHookState[T]) -> InitMethod:
+    original_init = state.original_init
+
+    @wraps(original_init)
+    def init_wrapper(self: T, *args: Any, **kwargs: Any) -> None:
+        with state.lock:
+            should_consume = (
+                state.wrapper is not None and state.cls.__init__ is state.wrapper
+            )
+            if should_consume:
+                before_hooks = tuple(state.before_hooks)
+                after_hooks = tuple(state.after_hooks)
+                state.before_hooks.clear()
+                state.after_hooks.clear()
+                state.cls.__init__ = state.original_init
+                _clear_state_if_current(state.cls, state)
+            else:
+                before_hooks = ()
+                after_hooks = ()
+
+        for entry in before_hooks:
+            entry.hook(self, args, kwargs)
+
+        original_init(self, *args, **kwargs)
+
+        for entry in after_hooks:
+            entry.hook(self, args, kwargs)
+
+    return cast(InitMethod, init_wrapper)
+
+
+def _current_state(cls: type[T]) -> _InitHookState[T] | None:
+    state = cls.__dict__.get(_INIT_HOOK_STATE_ATTR)
+    if not isinstance(state, _InitHookState):
+        return None
+    if state.wrapper is None or cls.__init__ is not state.wrapper:
+        return None
+    return cast(_InitHookState[T], state)
 
 
 def install_once_init_hook(
@@ -79,10 +166,11 @@ def install_once_init_hook(
     """
     Install a hook that runs once for the next construction of `cls`.
 
-    The hook is attached by temporarily wrapping `cls.__init__`. On the first
-    call to `cls.__init__`, the wrapper restores the original initializer before
-    running user code. This prevents recursive or nested construction from
-    triggering the hook again.
+    The hook is attached through one dispatcher wrapper per class. On the first
+    call to `cls.__init__`, the dispatcher snapshots all pending hooks, restores
+    the original initializer before running user code, and consumes the snapshot.
+    This prevents recursive or nested construction from triggering the same
+    hooks again.
 
     Parameters
     ----------
@@ -106,13 +194,14 @@ def install_once_init_hook(
 
     Semantics
     ---------
-    * The hook is consumed on the first construction attempt.
+    * Hooks are consumed on the first construction attempt.
+    * Hooks with the same timing run in installation order.
     * For `timing="after"`, if the original initializer raises, the hook is not
       run, but it is still consumed.
     * For `timing="before"`, if the hook raises, the original initializer is not
       run, and the hook is still consumed.
     * Concurrent first constructions are serialized only around hook state.
-      Exactly one construction attempt consumes the hook.
+      Exactly one construction attempt consumes the pending hooks.
     * If another party replaces `cls.__init__` while the hook is installed,
       this function will not try to manage that later replacement.
 
@@ -121,50 +210,21 @@ def install_once_init_hook(
     This mutates the class object. Avoid using it on classes whose `__init__`
     is also being monkey-patched elsewhere unless you control the ordering.
     """
-    original_init = cast(InitMethod, cls.__init__)
-    lock = RLock()
-    armed = True
+    state = _current_state(cls)
+    if state is None:
+        state = _InitHookState(cls=cls, original_init=cast(InitMethod, cls.__init__))
+        state.wrapper = _make_init_dispatcher(state)
+        setattr(cls, _INIT_HOOK_STATE_ATTR, state)
+        cls.__init__ = state.wrapper
 
-    def is_armed() -> bool:
-        return armed
+    entry = _InitHookEntry(timing=timing, hook=hook)
 
-    def disarm() -> None:
-        nonlocal armed
-        armed = False
-
-    @wraps(original_init)
-    def init_wrapper(self: T, *args: Any, **kwargs: Any) -> None:
-        nonlocal armed
-
-        should_run_hook = False
-
-        with lock:
-            if armed and cls.__init__ is init_wrapper:
-                armed = False
-                should_run_hook = True
-                cls.__init__ = original_init
-
-        if not should_run_hook:
-            original_init(self, *args, **kwargs)
-            return
-
-        if timing == "before":
-            hook(self, args, kwargs)
-            original_init(self, *args, **kwargs)
-        else:
-            original_init(self, *args, **kwargs)
-            hook(self, args, kwargs)
-
-    wrapper = cast(InitMethod, init_wrapper)
-
-    with lock:
-        cls.__init__ = wrapper
+    with state.lock:
+        state.hooks_for(timing).append(entry)
 
     return OnceInitHookHandle(
         cls=cls,
-        original_init=original_init,
-        _wrapper=wrapper,
-        _lock=lock,
-        _armed=is_armed,
-        _disarm=disarm,
+        original_init=state.original_init,
+        _state=state,
+        _entry=entry,
     )

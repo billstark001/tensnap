@@ -30,7 +30,6 @@ from .config import DQNConfig, EnvConfig
 from .dqn import DQNAgent
 from .model import EvacuationModel, EvacueeAgent, GuideAgent
 
-
 WALL_COLOR = "#374151"
 EXIT_COLOR = "#16A34A"
 FIRE_COLOR = "#DC2626"
@@ -137,6 +136,7 @@ dqn_agent = DQNAgent(
 # ---------------------------------------------------------------------------
 # Visualization wrapper
 # ---------------------------------------------------------------------------
+
 
 @env(id="evacuation")
 @grid_layer(width="width", height="height")

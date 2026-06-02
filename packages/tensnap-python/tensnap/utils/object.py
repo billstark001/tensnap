@@ -1,4 +1,4 @@
-from typing import Dict, TypeVar, Type
+from typing import Any, Dict, TypeVar, Type
 
 import inspect
 
@@ -22,19 +22,72 @@ def dict_diff(
     return diff_dict
 
 
-def extend(cls: Type[TClass]):
+def _extend_member_name(member: Any) -> str | None:
+    name = getattr(member, "__name__", None)
+    if name is not None:
+        return name
+
+    property_getter = getattr(member, "fget", None)
+    name = getattr(property_getter, "__name__", None)
+    if name is not None:
+        return name
+
+    wrapped_func = getattr(member, "__func__", None)
+    return getattr(wrapped_func, "__name__", None)
+
+
+def _existing_property(cls: Type[TClass], name: str) -> property:
+    current = getattr(cls, name, None)
+    if not isinstance(current, property):
+        raise TypeError(f"Cannot extend {cls.__name__}.{name} as a property accessor.")
+    return current
+
+
+def extend(
+    cls: Type[TClass],
+    name: str | None = None,
+    *,
+    setter: bool = False,
+    deleter: bool = False,
+):
     """
-    Extend the function as a method on cls.
+    Extend a function or descriptor as a member on cls.
 
     Usage:
         @extend(SomeClass)
         def method(self, ...):
             ...
-    """
 
-    def decorator(func):
-        setattr(cls, func.__name__, func)
-        return func
+        @extend(SomeClass)
+        @property
+        def value(self):
+            ...
+
+        @extend(SomeClass)
+        @value.setter
+        def value(self, next_value):
+            ...
+
+        @extend(SomeClass, "value", setter=True)
+        def set_value(self, next_value):
+            ...
+    """
+    if setter and deleter:
+        raise ValueError("extend cannot install a setter and deleter at the same time.")
+
+    def decorator(member):
+        attr_name = name or _extend_member_name(member)
+        if attr_name is None:
+            raise ValueError("extend requires a name for this member.")
+
+        installed = member
+        if setter:
+            installed = _existing_property(cls, attr_name).setter(member)
+        elif deleter:
+            installed = _existing_property(cls, attr_name).deleter(member)
+
+        setattr(cls, attr_name, installed)
+        return installed
 
     return decorator
 

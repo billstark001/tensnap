@@ -11,7 +11,6 @@ from tensnap import (
 # Import the pure simulation logic
 from sirs import SIRSSimulation, ERNetworkEnvironment
 
-
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port)
 

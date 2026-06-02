@@ -67,9 +67,7 @@ async def main(server_port=8765) -> None:
         model_reset=reinitializer.model_reset,
     )
 
-    print(
-        f"TenSnap Schelling visualization starting on ws://localhost:{server_port}"
-    )
+    print(f"TenSnap Schelling visualization starting on ws://localhost:{server_port}")
     await scenario.run()
 
 
