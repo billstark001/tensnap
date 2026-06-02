@@ -2,21 +2,30 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from numbers import Number
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from typing_extensions import NotRequired, TypedDict
 
 if TYPE_CHECKING:
-    from .parameter import ParameterState
-    from .environment import EnvironmentType
     from tensnap.bindings.basic.chart import ChartMetadataDict
-    from tensnap.bindings.basic.parameter import ParameterType
+
+    from .environment import EnvironmentType
+    from .parameter import ParameterState
 
 
 # region Technical Type Definitions
 
 
-ProjectorFieldForInit: TypeAlias = str | bool | None
+class ProjectorFieldDirective:
+    """Base marker for explicit projector-field directives."""
+
+
+ProjectorScalarValue: TypeAlias = Number | str | bool | None
+ProjectorFieldForInit: TypeAlias = (
+    ProjectorScalarValue | Callable[[Any], Any] | ProjectorFieldDirective
+)
 ProjectorField: TypeAlias = str
 
 # endregion

@@ -6,11 +6,13 @@ import importlib
 import inspect
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 
+import tensnap.bindings as binding_api
 from tensnap.bindings import BindParametersConfig
 from tensnap.models import Parameter, create_parameter
 from tensnap.models.parameter import ParameterType
+from tensnap.utils.attr import make_attr_getter
 from tensnap.utils.init_hook import OnceInitHookHandle, install_once_init_hook
 
 if TYPE_CHECKING:
@@ -130,6 +132,14 @@ class KwargBinding:
     required: bool
     annotation: Any | None
     parameter: Parameter
+
+
+@dataclass
+class KwargValueSource:
+    kwarg_name: str
+    parameter_id: str
+    owner: Literal["kwargs", "model"]
+    getter: Callable[[], Any]
 
 
 def _parameter_type(annotation: Any | None, value: Any) -> ParameterType:
@@ -342,7 +352,7 @@ class BoundModelReinitializer:
             kwarg_bindings
             or get_bind_kwargs(model.__class__, default_overrides=init_kwargs)
         )
-        self._kwarg_attr_names: set[str] = set()
+        self._kwarg_sources: dict[str, KwargValueSource] = {}
         self._registered: RegistryChanges = {}
         self._scenario: SimulationScenario | None = None
         self._register_model: RegisterModelCallback | None = None
@@ -351,8 +361,70 @@ class BoundModelReinitializer:
         for binding in self.kwarg_bindings:
             if hasattr(type(self), binding.name):
                 continue
-            self._kwarg_attr_names.add(binding.name)
             setattr(self, binding.name, getattr(model, binding.name, binding.default))
+        self._refresh_kwarg_sources()
+
+    def _refresh_kwarg_sources(
+        self,
+        model_parameters: Sequence[tuple[str, Parameter]] | None = None,
+    ) -> None:
+        model_parameters = list(model_parameters or [])
+        model_by_source = {
+            source_name: param for source_name, param in model_parameters
+        }
+        model_by_param_id = {
+            param.id: source_name for source_name, param in model_parameters
+        }
+
+        kwarg_sources: dict[str, KwargValueSource] = {}
+        for binding in self.kwarg_bindings:
+            model_param = model_by_source.get(binding.name)
+            if model_param is not None:
+                model_attr = getattr(self.model.__class__, binding.name, None)
+                getter: Callable[[], Any]
+                if inspect.isfunction(model_attr):
+                    getter = lambda fn=model_attr, model=self.model: fn(model)
+                else:
+                    getter = cast(
+                        Callable[[], Any],
+                        make_attr_getter(binding.name, bind_target=self.model),
+                    )
+                kwarg_sources[binding.name] = KwargValueSource(
+                    kwarg_name=binding.name,
+                    parameter_id=model_param.id,
+                    owner="model",
+                    getter=getter,
+                )
+                continue
+
+            conflicting_source = model_by_param_id.get(binding.parameter.id)
+            if conflicting_source is not None:
+                raise ValueError(
+                    "Constructor kwarg parameter id conflict: "
+                    f"kwarg {binding.name!r} and model field {conflicting_source!r} "
+                    f"both publish parameter id {binding.parameter.id!r}."
+                )
+
+            kwarg_sources[binding.name] = KwargValueSource(
+                kwarg_name=binding.name,
+                parameter_id=binding.parameter.id,
+                owner="kwargs",
+                getter=lambda name=binding.name, default=binding.default: getattr(
+                    self, name, default
+                ),
+            )
+
+        self._kwarg_sources = kwarg_sources
+
+    def _planned_model_parameters(self) -> list[tuple[str, Parameter]]:
+        parameter_configs = (
+            tuple(BindParametersConfig.get_configs(self.model.__class__))
+            if hasattr(self.model, "__class__")
+            else ()
+        )
+        if not parameter_configs:
+            parameter_configs = (BindParametersConfig.EXCLUDE_ALL,)
+        return binding_api.parameters(self.model, *parameter_configs)
 
     def __tensnap_parameter_metadata__(
         self, *cfg_suggest: BindParametersConfig
@@ -360,7 +432,8 @@ class BoundModelReinitializer:
         configs = list(cfg_suggest)
         parameters: list[tuple[str, Parameter]] = []
         for binding in self.kwarg_bindings:
-            if binding.name not in self._kwarg_attr_names:
+            source = self._kwarg_sources.get(binding.name)
+            if source is None or source.owner != "kwargs":
                 continue
             if configs and not BindParametersConfig.evaluate_is_included(
                 configs, binding.name
@@ -372,11 +445,13 @@ class BoundModelReinitializer:
     def current_kwargs(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         for binding in self.kwarg_bindings:
-            if binding.name in self._kwarg_attr_names:
-                result[binding.name] = getattr(self, binding.name)
-            elif hasattr(self.model, binding.name):
-                result[binding.name] = getattr(self.model, binding.name)
-            else:
+            source = self._kwarg_sources.get(binding.name)
+            if source is None:
+                result[binding.name] = binding.default
+                continue
+            try:
+                result[binding.name] = source.getter()
+            except AttributeError:
                 result[binding.name] = binding.default
         return result
 
@@ -415,19 +490,9 @@ class BoundModelReinitializer:
     def register_model(
         self, scenario: SimulationScenario, *, dry_run: bool = False
     ) -> RegistryChanges:
+        self._refresh_kwarg_sources(self._planned_model_parameters())
         model_changes = scenario.add_all(self.model, dry_run=dry_run)
-        model_param_ids = model_changes.get("parameters", [])
-        if not dry_run:
-            self._kwarg_attr_names.difference_update(model_param_ids)
-        kwarg_parameter_changes = (
-            scenario.add_parameters(
-                self,
-                BindParametersConfig(exclude=model_param_ids),
-                dry_run=dry_run,
-            )
-            if model_param_ids
-            else scenario.add_parameters(self, dry_run=dry_run)
-        )
+        kwarg_parameter_changes = scenario.add_parameters(self, dry_run=dry_run)
         return merge_registry_changes(
             model_changes,
             kwarg_parameter_changes,

@@ -5,8 +5,18 @@ from typing import Any
 import pytest
 
 from tensnap import bindings as binding_api
+from tensnap.bindings.basic import layer_utils
 from tensnap.handler import DefaultSimulationHandler
-from tensnap.bindings import agent, agent_layer, env, grid_layer
+from tensnap.bindings import (
+    agent,
+    agent_layer,
+    attr,
+    edge,
+    edge_layer,
+    env,
+    grid_layer,
+    value,
+)
 from tensnap.models import (
     EnvironmentBinding,
     EnvironmentRegistration,
@@ -165,6 +175,151 @@ class TestEnvironmentRegistration:
         assert binding.item_id_getter is not None
         assert binding.item_changed_getter is not None
         assert binding.has_item_diffing
+
+    def test_layer_bindings_resolve_literals_helpers_and_instance_only_fields(self):
+        @agent(
+            x=attr("position[0]"),
+            y=attr("position[1]"),
+            color=value("red"),
+            icon="circle",
+            size=lambda bird: bird.size,
+        )
+        class Bird:
+            def __init__(self, bird_id: int, position: tuple[int, int], size: int):
+                self.id = bird_id
+                self.position = position
+                self.size = size
+
+        @agent_layer(
+            "birds",
+            item_iterable_projector="birds",
+            width=None,
+            height=None,
+            coord_offset="float",
+        )
+        class Aviary:
+            def __init__(self):
+                self.width = 20
+                self.height = 10
+                self.birds = [Bird(1, (2, 3), 7)]
+
+        model = Aviary()
+        binding = binding_api.layer_bindings(model)[0]
+
+        assert binding.build_metadata(model) == {
+            "width": 20,
+            "height": 10,
+            "coord_offset": "float",
+        }
+        assert binding.build_item_list(model) == [
+            {
+                "id": 1,
+                "x": 2,
+                "y": 3,
+                "color": "red",
+                "icon": "circle",
+                "size": 7,
+            }
+        ]
+
+    def test_special_string_literals_do_not_make_invalid_selectors_look_valid(self):
+        @agent(
+            x=attr("position[0]"),
+            y=attr("position[1]"),
+            color="#3498db",
+            data='{"species":"bird"}',
+        )
+        class Bird:
+            def __init__(self):
+                self.id = "bird-1"
+                self.position = (2, 3)
+
+        bird = Bird()
+        projector = Bird._tensnap_bind_config_item_agent.get_projector()  # type: ignore
+
+        assert projector(bird) == {
+            "id": "bird-1",
+            "x": 2,
+            "y": 3,
+            "color": "#3498db",
+            "data": '{"species":"bird"}',
+        }
+
+        @agent(x="position[0", y="position[1]")
+        class InvalidBird:
+            def __init__(self):
+                self.id = "invalid"
+                self.position = (1, 2)
+
+        with pytest.raises(ValueError, match="Invalid mapped source field name"):
+            InvalidBird()
+
+    def test_projector_string_selectors_detect_callable_descriptors(self):
+        @agent(x=attr("position[0]"), y=attr("position[1]"), size="size_for")
+        class Bird:
+            def __init__(self):
+                self.id = "bird-1"
+                self.position = (2, 3)
+                self.radius = 9
+
+            @classmethod
+            def size_for(cls, bird):
+                return bird.radius
+
+        bird = Bird()
+        projector = Bird._tensnap_bind_config_item_agent.get_projector()  # type: ignore
+
+        assert projector(bird)["size"] == 9
+
+    def test_instance_field_discovery_stays_out_of_projection_hot_path(
+        self, monkeypatch
+    ):
+        @agent(x=attr("position[0]"), y=attr("position[1]"))
+        class Bird:
+            def __init__(self):
+                self.id = "bird-1"
+                self.position = (2, 3)
+
+        @agent_layer("birds", item_iterable_projector="birds", width=None, height=None)
+        class Aviary:
+            def __init__(self):
+                self.width = 20
+                self.height = 10
+                self.birds = [Bird()]
+
+        model = Aviary()
+        binding = binding_api.layer_bindings(model)[0]
+
+        def fail_dynamic_field_scan(_target):
+            raise AssertionError("instance field discovery entered the hot path")
+
+        monkeypatch.setattr(
+            layer_utils,
+            "_target_dynamic_field_names",
+            fail_dynamic_field_scan,
+        )
+
+        assert binding.build_metadata(model) == {"width": 20, "height": 10}
+        assert binding.build_item_list(model) == [{"id": "bird-1", "x": 2, "y": 3}]
+
+    def test_edge_item_boolean_fields_treat_bool_as_literal(self):
+        @edge(directed=False)
+        class Link:
+            def __init__(self, source: str, target: str):
+                self.source = source
+                self.target = target
+
+        @edge_layer("links", item_iterable_projector="links")
+        class Model:
+            def __init__(self):
+                self.links = [Link("a", "b")]
+
+        model = Model()
+        binding = binding_api.layer_bindings(model)[0]
+
+        assert binding.build_item_list(model) == [
+            {"source": "a", "target": "b", "directed": False}
+        ]
 
 
 class FakeServer:

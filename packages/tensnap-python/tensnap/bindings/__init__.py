@@ -39,6 +39,11 @@ def environment_binding(value: Any) -> EnvironmentBinding | None:
 
 def layer_bindings(value: Any) -> list[LayerBinding[Any, Any, Any, Any]]:
     owner = _binding_owner(value)
+    if not isinstance(value, type) and not isinstance(value, ModuleType):
+        raw_configs = getattr(owner, _LAYER_CONFIGS_ATTR, [])
+        if raw_configs:
+            configs = cast(list[BindLayerConfig[Any, Any]], raw_configs)
+            return [config.get_binding_for_target(value) for config in configs]
     raw_bindings = getattr(owner, _LAYER_BINDINGS_ATTR, [])
     return list(cast(list[LayerBinding[Any, Any, Any, Any]], raw_bindings))
 

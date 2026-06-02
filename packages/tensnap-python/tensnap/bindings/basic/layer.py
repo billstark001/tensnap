@@ -17,6 +17,7 @@ from collections.abc import Callable
 
 from tensnap.models import (
     ProjectorField,
+    ProjectorFieldDirective as ProjectorFieldDirective,
     ProjectorFieldForInit,
     UniformAgentItemFields,
     AgentItemFields,
@@ -34,19 +35,33 @@ from tensnap.models.layer import (
     LayerBinding,
 )
 from tensnap.utils.attr import (
-    make_attr_projector,
-    make_attr_getter,
     AttrGetter,
     AttrProjector,
     AttrPathMap,
+)
+from tensnap.utils.init_hook import install_once_init_hook
+from .layer_utils import (
+    AUTO as AUTO,
+    SKIP as SKIP,
+    MetadataDictForInit,
+    ProjectorAttrSelector as ProjectorAttrSelector,
+    ProjectorAuto as ProjectorAuto,
+    ProjectorDictFilterList,
+    ProjectorDictForInit,
+    ProjectorLiteralValue as ProjectorLiteralValue,
+    ProjectorSkip as ProjectorSkip,
+    attr as attr,
+    auto as auto,
+    make_projector_for_target,
+    resolve_layer_getter,
+    skip as skip,
+    value as value,
 )
 
 TItemKeys = TypeVar("TItemKeys", bound=str)
 TMetadataKeys = TypeVar("TMetadataKeys", bound=str)
 TClass = TypeVar("TClass")
 
-ProjectorDictForInit: TypeAlias = Dict[TItemKeys, ProjectorFieldForInit]
-MetadataDictForInit: TypeAlias = Dict[TMetadataKeys, ProjectorFieldForInit]
 ProjectorName: TypeAlias = str | Tuple[str, ...]
 LayerDependencyIds: TypeAlias = Dict[str, str]
 LayerItemProjectorForInit: TypeAlias = (
@@ -56,11 +71,6 @@ LayerItemProjectorForInit: TypeAlias = (
     | str
 )
 LayerItemsProjectorForInit: TypeAlias = ItemsProjector[Any, TItemKeys] | str
-
-
-ProjectorDictFilterList: TypeAlias = List[
-    Tuple[Callable[[Type[Any]], bool], AttrPathMap[TItemKeys]]
-]
 
 
 # region Utilities
@@ -195,25 +205,6 @@ def _make_inferred_item_dynamic_projector(
     return projector
 
 
-def _resolve_layer_getter(
-    cls: Type[Any],
-    raw_value: AttrGetter[Any] | ProjectorField | bool | None,
-) -> AttrGetter[Any] | None:
-    # Resolution order: disabled sentinel, direct callable, class attribute callable, attribute getter.
-    if raw_value in (None, False):
-        return None
-    if raw_value is True:
-        raise TypeError(
-            f"Layer iterable projector on {cls.__name__} does not support True."
-        )
-    if callable(raw_value):
-        return cast(AttrGetter[Any], raw_value)
-    maybe_callable = getattr(cls, raw_value, None)
-    if callable(maybe_callable):
-        return cast(AttrGetter[Any], maybe_callable)
-    return make_attr_getter(raw_value)
-
-
 def _resolve_items_projector(
     cls: Type[Any],
     raw_value: LayerItemsProjectorForInit[TItemKeys] | None,
@@ -274,56 +265,6 @@ def _try_resolve_item_projector(
     return None
 
 
-def _resolve_projector_dict(
-    cls: Type[Any],
-    projector_dict_init: (
-        ProjectorDictForInit[TItemKeys] | MetadataDictForInit[TItemKeys]
-    ),
-    fields: ProjectorDictFilterList[TItemKeys],
-    default_fields: AttrPathMap[TItemKeys],
-) -> AttrPathMap[TItemKeys]:
-    projector_dict: AttrPathMap[TItemKeys] = {}
-    infer_fields: List[TItemKeys] = []
-
-    # Resolution order: explicit skip, explicit same-name mapping, explicit attr path, inferred same-name mapping.
-    for field, raw_value in projector_dict_init.items():
-        if raw_value is False:
-            continue
-        if raw_value is True:
-            projector_dict[field] = field
-            continue
-        if raw_value is None:
-            infer_fields.append(field)
-            continue
-        if isinstance(raw_value, str):
-            projector_dict[field] = raw_value
-            continue
-        raise TypeError(
-            f"Field {field!r} on {cls.__name__} only supports str, bool, or None mappings."
-        )
-
-    def add_defaults(defaults: AttrPathMap[TItemKeys]) -> None:
-        for field in list(infer_fields):
-            field_key = defaults.get(field, None)
-            if field_key is not None:
-                projector_dict[field] = field_key
-                infer_fields.remove(field)
-
-    for check_fn, defaults in fields:
-        if not infer_fields:
-            break
-        if not check_fn(cls):
-            continue
-        add_defaults(defaults)
-    add_defaults(default_fields)
-
-    annotations = getattr(cls, "__annotations__", {})
-    for field in infer_fields:
-        if hasattr(cls, field) or field in annotations:
-            projector_dict[field] = field
-    return projector_dict
-
-
 # endregion
 
 
@@ -336,7 +277,10 @@ class BindItemConfig(Generic[TItemKeys]):
         **kwargs: ProjectorFieldForInit,
     ) -> None:
         self.projector_dict_init = cast(ProjectorDictForInit[TItemKeys], dict(**kwargs))
-        self.projector_dict: AttrPathMap[TItemKeys] = {}
+        self._attached_class: Type[Any] | None = None
+        self._fields: ProjectorDictFilterList[TItemKeys] = []
+        self._default_fields: AttrPathMap[TItemKeys] = {}
+        self._projector: AttrProjector[Any, TItemKeys] | None = None
         self.attached = False
 
     def attach(
@@ -347,15 +291,18 @@ class BindItemConfig(Generic[TItemKeys]):
         default_fields: AttrPathMap[TItemKeys],
     ) -> Type[TClass]:
         assert not self.attached, "Projector config can only be attached once"
-        projector_dict = _resolve_projector_dict(
-            cls,
-            self.projector_dict_init,
-            fields,
-            default_fields,
-        )
-        self.projector_dict = projector_dict
+        self._attached_class = cls
+        self._fields = list(fields)
+        self._default_fields = dict(default_fields)
         self.attached = True
         setattr(cls, attach_field, self)
+
+        def finalize(
+            instance: Any, _args: Tuple[Any, ...], _kwargs: Dict[str, Any]
+        ) -> None:
+            self.finalize_for_target(instance)
+
+        install_once_init_hook(cls, finalize, timing="after")
         return cls
 
     def assert_attached(self) -> None:
@@ -363,19 +310,33 @@ class BindItemConfig(Generic[TItemKeys]):
             "Projector config must be attached before getting projector"
         )
 
-    def assert_fields(self, required_fields: List[TItemKeys]) -> None:
-        missing_fields = [
-            f for f in required_fields if not self.projector_dict.get(f, None)
-        ]
-        assert not missing_fields, (
-            f"Missing required projector fields: {missing_fields}"
+    def _required_fields(self) -> tuple[TItemKeys, ...]:
+        return ()
+
+    def _build_projector(
+        self,
+        *,
+        target: Any | None = None,
+    ) -> AttrProjector[Any, TItemKeys]:
+        self.assert_attached()
+        assert self._attached_class is not None
+        return make_projector_for_target(
+            self._attached_class,
+            self.projector_dict_init,
+            self._fields,
+            self._default_fields,
+            required_fields=self._required_fields(),
+            target=target,
         )
 
+    def finalize_for_target(self, target: Any) -> None:
+        self._projector = self._build_projector(target=target)
+
     def get_projector(self) -> AttrProjector[Any, TItemKeys]:
-        return cast(
-            AttrProjector[Any, TItemKeys],
-            make_attr_projector([], cast(Dict[str, str], self.projector_dict), {}),
-        )
+        self.assert_attached()
+        if self._projector is None:
+            self._projector = self._build_projector()
+        return self._projector
 
 
 item = BindItemConfig
@@ -436,10 +397,8 @@ class BindAgentConfig(BindItemConfig[AgentItemFields]):
             _agent_field_defaults,
         )
 
-    def get_projector(self):
-        self.assert_attached()
-        self.assert_fields(["id", "x", "y"])
-        return super().get_projector()
+    def _required_fields(self):
+        return ("id", "x", "y")
 
 
 agent = BindAgentConfig
@@ -486,10 +445,8 @@ class BindUniformAgentConfig(BindItemConfig[UniformAgentItemFields]):
             cast(AttrPathMap[UniformAgentItemFields], _id_field_defaults),
         )
 
-    def get_projector(self):
-        self.assert_attached()
-        self.assert_fields(["id"])
-        return super().get_projector()
+    def _required_fields(self):
+        return ("id",)
 
 
 uniform_agent = BindUniformAgentConfig
@@ -524,10 +481,8 @@ class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
     def __call__(self, cls):
         return self.attach(cls, self.binding_name, [], {})
 
-    def get_projector(self):
-        self.assert_attached()
-        self.assert_fields(["source", "target"])
-        return super().get_projector()
+    def _required_fields(self):
+        return ("source", "target")
 
 
 edge = BindEdgeConfig
@@ -563,10 +518,8 @@ class BindTrajectoryConfigConfig(BindItemConfig[TrajectoryConfigItemFields]):
             cast(AttrPathMap[TrajectoryConfigItemFields], _id_field_defaults),
         )
 
-    def get_projector(self):
-        self.assert_attached()
-        self.assert_fields(["id"])
-        return super().get_projector()
+    def _required_fields(self):
+        return ("id",)
 
 
 trajectory_item = BindTrajectoryConfigConfig
@@ -666,15 +619,16 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             id_getter if item_id_getter is None else item_id_getter
         )
         self.init_item_changed_getter = (
-            changed_getter
-            if item_changed_getter is None
-            else item_changed_getter
+            changed_getter if item_changed_getter is None else item_changed_getter
         )
         self.init_items_projector = items_projector
         self.item_projector_names = _normalize_projector_names(item_projector_name)
         self.inferred_item_projector = inferred_item_projector
         self.dependency_layer_ids = dict(dependency_layer_ids or {})
 
+        self._attached_class: Type[Any] | None = None
+        self._metadata_fields: ProjectorDictFilterList[TMetadataKeys] = []
+        self._metadata_default_fields: AttrPathMap[TMetadataKeys] = {}
         self.binding: LayerBinding[Any, TMetadataKeys, Any, TItemKeys] | None = None
         self.attached = False
 
@@ -683,24 +637,21 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         cls: Type[Any],
         metadata_fields: ProjectorDictFilterList[TMetadataKeys],
         metadata_default_fields: AttrPathMap[TMetadataKeys],
+        *,
+        target: Any | None = None,
     ) -> AttrProjector[Any, TMetadataKeys] | None:
         if callable(self.init_metadata):
             return self.init_metadata
         if not isinstance(self.init_metadata, dict):
             return None
-
-        metadata_projector_dict = _resolve_projector_dict(
+        if not self.init_metadata:
+            return None
+        return make_projector_for_target(
             cls,
             self.init_metadata,
             metadata_fields,
             metadata_default_fields,
-        )
-        if not metadata_projector_dict:
-            return None
-        return make_attr_projector(
-            [],
-            metadata_projector_dict,
-            {},
+            target=target,
         )
 
     def _build_binding(
@@ -708,20 +659,23 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         cls: Type[Any],
         metadata_fields: ProjectorDictFilterList[TMetadataKeys],
         metadata_default_fields: AttrPathMap[TMetadataKeys],
+        *,
+        target: Any | None = None,
     ) -> LayerBinding[Any, TMetadataKeys, Any, TItemKeys]:
         metadata_projector = self._build_metadata_projector(
             cls,
             metadata_fields,
             metadata_default_fields,
+            target=target,
         )
 
-        iterable_getter = _resolve_layer_getter(cls, self.init_item_iterable_projector)
+        iterable_getter = resolve_layer_getter(cls, self.init_item_iterable_projector)
         resolved_items_projector = _resolve_items_projector(
             cls,
             self.init_items_projector,
         )
-        item_id_getter = _resolve_layer_getter(cls, self.init_item_id_getter)
-        item_changed_getter = _resolve_layer_getter(
+        item_id_getter = resolve_layer_getter(cls, self.init_item_id_getter)
+        item_changed_getter = resolve_layer_getter(
             cls,
             self.init_item_changed_getter,
         )
@@ -793,13 +747,23 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         metadata_default_fields: AttrPathMap[TMetadataKeys],
     ) -> Type[TClass]:
         assert not self.attached, "Layer config can only be attached once"
+        self._attached_class = cls
+        self._metadata_fields = list(metadata_fields)
+        self._metadata_default_fields = dict(metadata_default_fields)
         self.binding = self._build_binding(
             cls,
-            metadata_fields,
-            metadata_default_fields,
+            self._metadata_fields,
+            self._metadata_default_fields,
         )
 
         self.attached = True
+
+        def finalize(
+            instance: Any, _args: Tuple[Any, ...], _kwargs: Dict[str, Any]
+        ) -> None:
+            self.finalize_for_target(instance)
+
+        install_once_init_hook(cls, finalize, timing="after")
         _append_layer_config(cls, self)
         return _append_layer_binding(cls, self.binding)
 
@@ -807,6 +771,30 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         assert self.attached, "Layer config must be attached before getting binding"
         assert self.binding is not None
         return self.binding
+
+    def get_binding_for_target(
+        self,
+        target: Any,
+    ) -> LayerBinding[Any, TMetadataKeys, Any, TItemKeys]:
+        assert self.attached, "Layer config must be attached before getting binding"
+        assert self._attached_class is not None
+        return self._build_binding(
+            self._attached_class,
+            self._metadata_fields,
+            self._metadata_default_fields,
+            target=target,
+        )
+
+    def finalize_for_target(self, target: Any) -> None:
+        assert self.attached, "Layer config must be attached before finalizing"
+        assert self.binding is not None
+        assert self._attached_class is not None
+        self.binding.metadata_projector = self._build_metadata_projector(
+            self._attached_class,
+            self._metadata_fields,
+            self._metadata_default_fields,
+            target=target,
+        )
 
     def __call__(self, cls: Type[TClass]) -> Type[TClass]:
         return self.attach(cls, [], {})

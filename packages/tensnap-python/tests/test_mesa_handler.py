@@ -6,11 +6,13 @@ import tensnap.bindings as binding_api
 from tensnap import SimulationScenario
 from tensnap.bindings.mesa import (
     BoundModelReinitializer,
+    KwargBinding,
     MesaSimulationHandler,
     bind_datacollector,
     bind_kwargs,
     get_bind_kwargs,
 )
+from tensnap.models import create_parameter
 
 try:
     import mesa as _mesa
@@ -245,6 +247,62 @@ def test_bound_model_reinitializer_keeps_conflicting_kwargs_registered_by_model(
     assert model.width == 11
     assert model.height == 7
     assert model._agent_count_seen == 4
+
+
+def test_bound_model_reinitializer_aliases_same_source_custom_parameter_ids():
+    @binding_api.params(include=["width", "height"])
+    class Model:
+        def __init__(self, width: int = 8, height: int = 6):
+            self._width = width
+            self.height = height
+
+        @binding_api.BindParameterConfig("number", id="gridWidth")
+        def width(self):
+            return self._width
+
+    model = Model()
+    reinitializer = BoundModelReinitializer(model)
+    scenario = SimulationScenario()
+
+    registered = reinitializer.register_model(scenario)
+
+    assert set(registered["parameters"]) == {"gridWidth", "height"}
+    assert set(scenario.parameters) == {"gridWidth", "height"}
+
+    model._width = 11
+    scenario.set_parameter("height", 7)
+    reinitializer.reinitialize_model()
+
+    assert model._width == 11
+    assert model.height == 7
+
+
+def test_bound_model_reinitializer_rejects_parameter_id_conflicts_by_default():
+    @binding_api.params(include=["width"])
+    class Model:
+        def __init__(self, width: int = 8, height: int = 6):
+            self._width = width
+            self.height = height
+
+        @binding_api.BindParameterConfig("number", id="gridWidth")
+        def width(self):
+            return self._width
+
+    reinitializer = BoundModelReinitializer(
+        Model(),
+        kwarg_bindings=[
+            KwargBinding(
+                name="height",
+                default=6,
+                required=False,
+                annotation=int,
+                parameter=create_parameter(id="gridWidth", type="number", value=6),
+            )
+        ],
+    )
+
+    with pytest.raises(ValueError, match="parameter id conflict"):
+        reinitializer.register_model(SimulationScenario())
 
 
 def test_bind_datacollector_injects_charts_after_model_init_without_handler_magic():
