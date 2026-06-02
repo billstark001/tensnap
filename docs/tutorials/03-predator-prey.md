@@ -96,7 +96,7 @@ class PredatorPreyConfig:
     grass_regrowth_steps: int = 30
 
 
-@agent(x=True, y=True, size=True, color=True, icon=True, data=True)
+@agent()
 class Sheep:
     size = 1.0
     color = "#F8FAFC"
@@ -114,7 +114,7 @@ class Sheep:
         return {"energy": round(self.energy, 2), "age": self.age, "species": "sheep"}
 
 
-@agent(x=True, y=True, size=True, color=True, icon=True, data=True)
+@agent()
 class Wolf:
     size = 1.0
     color = "#111827"
@@ -132,10 +132,10 @@ class Wolf:
         return {"energy": round(self.energy, 2), "age": self.age, "species": "wolf"}
 
 
-@agent_layer("wolves", item_iterable_projector="wolves", z_index="z_wolves")
-@agent_layer("sheep", item_iterable_projector="sheep", z_index="z_sheep")
+@agent_layer("wolves", z_index="z_wolves")
+@agent_layer("sheep", z_index="z_sheep")
 @agent_layer("grass", item_iterable_projector="get_grass_layer", z_index="z_grass")
-@grid_layer(width="width", height="height")
+@grid_layer()
 @env(id="predator_prey")
 class PredatorPreySimulation:
     """Simple toroidal predator-prey model with renewable grass."""
@@ -339,6 +339,7 @@ class PredatorPreySimulation:
 
 - The environment has three explicit agent layers on top of the base grid: `grass`, `sheep`, and `wolves`.
 - Birth and death are modeled by inserting and removing objects from `self.sheep` and `self.wolves`.
+- `@agent()` discovers the sheep and wolf fields, while `@agent_layer("sheep")` and `@agent_layer("wolves")` use same-name model attributes as their item sources.
 - The grass field is exposed as a square-agent layer built from dictionaries, so it can be inspected just like any other synchronized layer.
 - Sheep and wolf icons use asset references (`asset:<id>`), so the same SVGs can be reused across many synchronized items without inlining image data into every agent payload.
 

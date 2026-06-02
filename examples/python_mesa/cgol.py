@@ -13,11 +13,10 @@ from tensnap import (
 )
 
 
-@agent(color=True)
+@agent(icon="square")
 class Cell(mesa.Agent):
     model: "GameOfLife"
     pos: "tuple[int, int]"
-    icon = "square"
 
     @property
     def alive(self) -> bool:
@@ -49,7 +48,7 @@ class Cell(mesa.Agent):
 @bind_kwargs(exclude=["seed"])
 @bind_datacollector()
 @agent_layer("cells", item_iterable_projector="agents")
-@grid_layer(width="width", height="height")
+@grid_layer()
 @env(id="cgol_grid")
 class GameOfLife(mesa.Model):
 

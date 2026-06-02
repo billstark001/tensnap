@@ -8,14 +8,14 @@ from mesa.visualization import (
 )
 from mesa.visualization.components import AgentPortrayalStyle
 
-from schelling import SchellingModel
+from schelling import SchellingModel, SchellingAgent
 
 
-def agent_portrayal(agent):
+def agent_portrayal(agent: SchellingAgent):
     return AgentPortrayalStyle(
         x=agent.cell.coordinate[0],
         y=agent.cell.coordinate[1],
-        color=agent.color,
+        color="#3498db" if agent.group == 1 else "#e74c3c",
         marker="s",
         size=55,
         alpha=0.95,

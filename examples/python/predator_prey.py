@@ -7,7 +7,7 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer, params
+from tensnap import agent, agent_layer, env, grid_layer, params, value
 
 SHEEP_ASSET_ID = "wolf-sheep:sheep"
 WOLF_ASSET_ID = "wolf-sheep:wolf"
@@ -32,11 +32,8 @@ class PredatorPreyConfig:
     grass_regrowth_steps: int = 30
 
 
-@agent(x=True, y=True, size=True, color=True, icon=True, data=True)
+@agent(size=1, color="#F8FAFC", icon=value(SHEEP_ICON))
 class Sheep:
-    size = 1.0
-    color = "#F8FAFC"
-    icon = SHEEP_ICON
 
     def __init__(self, sheep_id: str, x: int, y: int, energy: float):
         self.id = sheep_id
@@ -50,11 +47,8 @@ class Sheep:
         return {"energy": round(self.energy, 2), "age": self.age, "species": "sheep"}
 
 
-@agent(x=True, y=True, size=True, color=True, icon=True, data=True)
+@agent(size=1, color="#111827", icon=value(WOLF_ICON))
 class Wolf:
-    size = 1.0
-    color = "#111827"
-    icon = WOLF_ICON
 
     def __init__(self, wolf_id: str, x: int, y: int, energy: float):
         self.id = wolf_id
@@ -68,17 +62,13 @@ class Wolf:
         return {"energy": round(self.energy, 2), "age": self.age, "species": "wolf"}
 
 
-@agent_layer("wolves", item_iterable_projector="wolves", z_index="z_wolves")
-@agent_layer("sheep", item_iterable_projector="sheep", z_index="z_sheep")
-@agent_layer("grass", item_iterable_projector="get_grass_layer", z_index="z_grass")
-@grid_layer(width="width", height="height")
+@agent_layer("wolves", z_index=50)
+@agent_layer("sheep", z_index=40)
+@agent_layer("grass", item_iterable_projector="get_grass_layer", z_index=0)
+@grid_layer()
 @env(id="predator_prey")
 class PredatorPreySimulation:
     """Simple toroidal predator-prey model with renewable grass."""
-
-    z_grass = 0
-    z_sheep = 40
-    z_wolves = 50
 
     def __init__(self, config: PredatorPreyConfig | None = None):
         self.config = config or PredatorPreyConfig()

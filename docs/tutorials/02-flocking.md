@@ -81,7 +81,7 @@ class FlockConfig:
     spawn_radius: float = 10.0
 
 
-@agent(x=True, y=True, size=True, icon=True, color=True, data=True, heading=True)
+@agent()
 class Bird:
     """A single bird agent in the flock"""
 
@@ -124,16 +124,14 @@ class Bird:
 
 
 @trajectory_layer(agent_layer_id="birds", width=False)
-@agent_layer("birds", item_iterable_projector="birds", coord_offset=True)
-@grid_layer(width="width", height="height")
+@agent_layer("birds", coord_offset="float")
+@grid_layer()
 @env()
 class FlockSimulation:
     """Main flocking simulation class"""
 
     length = 5
     color = "#2563EB"
-
-    coord_offset = "float"
 
     def __init__(self, config: Optional[FlockConfig] = None):
         self.config = config or FlockConfig()
@@ -243,8 +241,8 @@ class FlockSimulation:
 
 ### Why this works
 
-- `@agent(...)` includes `heading=True`, so the arrow icon rotates with the bird's direction.
-- `@agent_layer(..., coord_offset=True)` enables floating-point coordinates for smooth movement.
+- `@agent()` discovers `id`, `x`, `y`, `heading`, `size`, `icon`, `color`, and `data` from the `Bird` class and initialized instances.
+- `@agent_layer("birds", coord_offset="float")` enables floating-point coordinates for smooth movement.
 - `@trajectory_layer(agent_layer_id="birds")` creates a dedicated trajectory layer that depends on the bird layer.
 - `length = 5` and `color = "#2563EB"` provide default trajectory metadata.
 
@@ -369,7 +367,7 @@ Use either the local renderer from `pnpm dev:web` or the hosted app at `https://
 Add a predator and a repulsion force:
 
 ```python
-@agent(x=True, y=True, size=True, icon=True, color=True)
+@agent()
 class Predator:
     size = 1.0
     icon = "triangle"
@@ -396,7 +394,7 @@ def color(self) -> str:
     return "#F97316"
 ```
 
-If you do this, the renderer will automatically reflect the new per-bird color because `color=True` is already included in the `@agent(...)` binding.
+If you do this, the renderer will automatically reflect the new per-bird color because `@agent()` already discovers the `color` field.
 
 ### Exercise 3: Tune the Trail Layer
 

@@ -129,8 +129,8 @@ Here's a simple agent-based model with TenSnap:
 ```python
 import asyncio
 
-from tensnap import SimulationScenario
-from tensnap.bindings import (
+from tensnap import (
+    SimulationScenario,
     agent,
     agent_layer,
     chart,
@@ -147,8 +147,8 @@ class Bird:
         self.position = position
 
 
-@grid_layer(width="width", height="height")
-@agent_layer("birds", item_iterable_projector="birds")
+@grid_layer()
+@agent_layer("birds")
 @env(id="main")
 class Aviary:
     def __init__(self):
@@ -195,6 +195,7 @@ if __name__ == "__main__":
 - `defineModel(...)` / `defineExample(...)` are the recommended JavaScript binding builders.
 - `Scenario` plus explicit builders such as `parameter(...)`, `agents_layer(...)`, and `chart(...)` are the Julia binding surface.
 - The current decorator and readback surface lives under `tensnap.bindings`.
+- Binding decorators infer same-name item fields, layer sources, and layer metadata once per initialized instance; use selector strings only when the source path differs, such as `x="position[0]"`.
 - Use `SimulationScenario.add_all(...)` for the common Python registration path. It registers environment/layer, chart, and action bindings by default; parameter discovery is opt-in through `@params(...)` or an explicit config.
 - Built-in renderer-driven actions are `start`, `step`, and `reset`.
 - Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 are now backed by runnable examples in `examples/python/`; tutorials 5-6 are still planned.

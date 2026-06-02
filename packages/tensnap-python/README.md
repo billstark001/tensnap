@@ -13,8 +13,8 @@ pip install tensnap
 ```python
 import asyncio
 
-from tensnap import SimulationScenario
-from tensnap.bindings import (
+from tensnap import (
+    SimulationScenario,
     agent,
     agent_layer,
     chart,
@@ -31,8 +31,8 @@ class Bird:
         self.position = position
 
 
-@grid_layer(width="width", height="height")
-@agent_layer("birds", item_iterable_projector="birds")
+@grid_layer()
+@agent_layer("birds")
 @env(id="main")
 class Aviary:
     def __init__(self):
@@ -74,9 +74,10 @@ if __name__ == "__main__":
 
 `tensnap.bindings` is the unified attach/readback surface for Python bindings. Use it for decorators such as `env`, `grid_layer`, and `agent_layer`, and for readback helpers such as `environment_binding`, `layer_bindings`, and `bindings`.
 
-Layer and item binding fields now support four practical forms:
+Layer and item binding fields now support these common forms:
 
-- selector strings such as `x="pos[0]"` or `item_iterable_projector="agents"`
+- omitted fields, `None`, or `auto()` for one-time same-name discovery from the class or initialized instance
+- selector strings such as `x="pos[0]"` or `item_iterable_projector="agents"` when the source path differs from the output field or layer id
 - literal values such as `coord_offset="float"` or `icon="circle"`; arbitrary strings still default to selectors unless they match a known literal value, CSS-like string such as `"#3498db"`, or JSON-like string
 - explicit helpers such as `attr("pos[0]")`, `value("red")`, `auto()`, and `skip()`
 - direct callables such as `size=lambda agent: agent.radius`
@@ -84,17 +85,18 @@ Layer and item binding fields now support four practical forms:
 `None`/`auto()` field discovery is resolved once when instances initialize or when `layer_bindings(instance)` materializes an instance-specific binding, so fields assigned in `__init__` are picked up without scanning during projection:
 
 ```python
-from tensnap import agent, agent_layer, attr, value
+from tensnap import agent, agent_layer, grid_layer, value
 
 
-@agent(x=attr("position[0]"), y=attr("position[1]"), color=value("red"))
+@agent(x="position[0]", y="position[1]", color=value("red"))
 class Bird:
     def __init__(self, bird_id: int, position: tuple[int, int]):
         self.id = bird_id
         self.position = position
 
 
-@agent_layer("birds", item_iterable_projector="birds", width=None, height=None)
+@grid_layer()
+@agent_layer("birds")
 class Aviary:
     def __init__(self):
         self.width = 20

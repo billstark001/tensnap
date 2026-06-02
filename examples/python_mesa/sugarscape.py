@@ -16,7 +16,7 @@ from tensnap import (
 )
 
 
-@agent(color=True, data=True)
+@agent()
 class SugarAgent(Agent):
 
     model: "Sugarscape"
@@ -88,12 +88,9 @@ class SugarAgent(Agent):
         self.starve()
 
 
-@agent(color=True, data=True, x="pos[0]", y="pos[1]")
+@agent(x="pos[0]", y="pos[1]", icon="square", size=1)
 class SugarPatchView:
     """Presentation-only patch used to render the sugar field as a layer of square agents."""
-
-    icon = "square"
-    size = 1.0
 
     def __init__(self, model: "Sugarscape", pos: Tuple[int, int]):
         self.model = model

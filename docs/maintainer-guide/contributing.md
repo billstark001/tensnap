@@ -116,7 +116,7 @@ Documentation contributions are highly valued:
 When updating Python docs, keep them aligned with the current bindings surface:
 
 - Prefer documenting the current `tensnap.bindings` surface (`env`, `grid_layer`, `agent_layer`, `edge_layer`, `trajectory_layer`, `agent`, `edge`, `chart`, `action`, `BindParametersConfig`) and `SimulationScenario`.
-- Legacy compatibility helpers such as `LayeredEnvironmentBinder` can be mentioned when needed, but they should not be presented as the primary API.
+- Avoid documenting legacy compatibility helpers in new user-facing material.
 - Do not document nonexistent mutable runtime classes such as `AgentModel`, `GridEnvironmentModel`, or `GraphEnvironmentModel`.
 - Default control semantics are renderer-driven: `start`, `step`, and `reset` are the canonical built-ins; `stop` is only present when a scenario registers an explicit backend action.
 - Low-level server examples should use `update_layer_metadata()`, `update_layer_agents()`, `update_layer_edges()`, `replace_layer_state()`, and `replace_environment_layers()` rather than removed layer-less update helpers.
@@ -490,7 +490,7 @@ import pytest
 from tensnap import SimulationScenario, agent, agent_layer, env, grid_layer
 
 
-@agent(x=True, y=True)
+@agent()
 class Bird:
   def __init__(self, bird_id: str, x: int, y: int) -> None:
     self.id = bird_id
@@ -498,8 +498,8 @@ class Bird:
     self.y = y
 
 
-@grid_layer(width="width", height="height")
-@agent_layer("agents", item_iterable_projector="agents")
+@grid_layer()
+@agent_layer("agents")
 @env(id="test")
 class GridEnv:
   def __init__(self) -> None:

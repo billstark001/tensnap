@@ -13,8 +13,8 @@ The recommended workflow is:
 ```python
 import asyncio
 
-from tensnap import SimulationScenario
-from tensnap.bindings import (
+from tensnap import (
+    SimulationScenario,
     action,
     agent,
     agent_layer,
@@ -32,8 +32,8 @@ class Bird:
         self.position = position
 
 
-@grid_layer(width="width", height="height")
-@agent_layer("birds", item_iterable_projector="birds")
+@grid_layer()
+@agent_layer("birds")
 @env(id="main")
 class Aviary:
     def __init__(self):
@@ -104,11 +104,22 @@ if __name__ == "__main__":
 - `layer_bindings(target) -> list[LayerBinding]`
 - `layer_configs(target) -> list[BindLayerConfig]`
 - `bindings(target) -> tuple[EnvironmentBinding | None, list[LayerBinding]]`
-- `parameters(target, cfg_suggest=None)`
+- `parameters(target, *cfg_suggest)`
 - `charts(target)`
 - `actions(target)`
 
 These helpers accept classes, instances, modules, or plain dictionaries where that shape makes sense.
+
+### Projector field forms
+
+Layer metadata and item fields accept a compact set of forms:
+
+- omit a field, pass `None`, or pass `auto()` to discover a same-name field once from the class or initialized instance
+- pass a selector string such as `x="position[0]"` when the source path differs from the output field
+- pass known literal strings such as `coord_offset="float"` or `icon="circle"` directly
+- pass `value(...)` for non-obvious literal values, `attr(...)` for explicit selectors, `skip()` to suppress a field, or a callable such as `size=lambda agent: agent.radius`
+
+Default layer source discovery follows the same idea: `agent_layer("birds")` reads `model.birds`, while `agent_layer("cells", item_iterable_projector="map_cells")` is only needed when the layer id and source member differ.
 
 ## `SimulationScenario`
 
@@ -307,18 +318,3 @@ Related helpers exported from `tensnap.bindings.mesa`:
 ### `MesaSimulationHandler`
 
 `MesaSimulationHandler` remains available for compatibility, but new examples prefer `BoundModelReinitializer` plus `register_model_handler(...)` so registration and reset behavior are explicit.
-
-## Migration Notes
-
-The following older entrypoints are no longer the recommended public surface:
-
-- `LayeredEnvironmentBinder`
-- `EnvironmentBindingBuilder`
-- `scenario.add_custom_actions(...)`
-- scattered `scenario.add_environment(...)` / `add_parameters(...)` / `add_charts(...)` calls for ordinary decorated targets
-
-Use these replacements instead:
-
-- `scenario.add_all(model, ...)`
-- `scenario.add_environment_binding(...)` + `scenario.add_layer_binding(...)`
-- `scenario.add_all(target)` for chart/action-only registration

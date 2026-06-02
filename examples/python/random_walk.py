@@ -20,12 +20,9 @@ class RandomWalkConfig:
     world_size: int = 50
 
 
-@agent(x=True, y=True, size=True, color=True, data=True)
+@agent(size=0.8, color="#2563EB")
 class Walker:
     """A single walker that moves by choosing a random heading every step."""
-
-    size = 0.8
-    color = "#2563EB"
 
     def __init__(self, walker_id: str, world_size: int):
         self.id = walker_id
@@ -56,8 +53,8 @@ class Walker:
         }
 
 
-@grid_layer(width="width", height="height")
-@agent_layer("walkers", item_iterable_projector="walkers")
+@grid_layer()
+@agent_layer("walkers")
 @env()
 class RandomWalkSimulation:
     """A simple 2D random-walk simulation."""

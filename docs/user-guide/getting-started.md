@@ -76,8 +76,8 @@ The current recommended Python workflow is:
 ```python
 import asyncio
 
-from tensnap import SimulationScenario
-from tensnap.bindings import (
+from tensnap import (
+    SimulationScenario,
     agent,
     agent_layer,
     chart,
@@ -94,8 +94,8 @@ class Bird:
         self.position = position
 
 
-@grid_layer(width="width", height="height")
-@agent_layer("birds", item_iterable_projector="birds")
+@grid_layer()
+@agent_layer("birds")
 @env(id="main")
 class Aviary:
     def __init__(self):

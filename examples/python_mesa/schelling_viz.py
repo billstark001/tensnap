@@ -2,12 +2,13 @@ import import_config
 
 import asyncio
 from tensnap import SimulationScenario
-from schelling import SchellingModel
+from schelling import SchellingModel, SchellingAgent
 
 # region TenSnap injection
 # These are monkey patching. They should be decorators by default.
 
 from tensnap import (
+    agent,
     agent_layer,
     env,
     bind_datacollector,
@@ -16,26 +17,17 @@ from tensnap import (
     bind_kwargs,
     BoundModelReinitializer,
 )
-from tensnap.utils.object import extend
+
+agent(
+    x="cell.coordinate[0]",
+    y="cell.coordinate[1]",
+    color=lambda agent: "#3498db" if agent.group == 1 else "#e74c3c",
+    icon="circle",
+    size=lambda agent: 1.0 if agent.is_satisfied() else 0.6,
+)(SchellingAgent)
 
 
-@extend(SchellingModel)
-def project_agent(self, agent):
-    return {
-        "id": str(agent.unique_id),
-        "x": agent.cell.coordinate[0],
-        "y": agent.cell.coordinate[1],
-        "heading": 0,
-        "color": "#3498db" if agent.group == 1 else "#e74c3c",
-        "icon": "circle",
-        "size": 1.0 if agent.is_satisfied() else 0.6,
-        "data": {"group": agent.group},
-    }
-
-
-agent_layer(width=True, height=True, item_dynamic_projector="project_agent")(
-    SchellingModel
-)
+agent_layer()(SchellingModel)
 env()(SchellingModel)
 bind_kwargs(exclude=["rng"])(SchellingModel)
 bind_datacollector()(SchellingModel)

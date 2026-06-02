@@ -31,13 +31,9 @@ class FlockConfig:
     spawn_radius: float = 10.0
 
 
-@agent(x=True, y=True, size=True, icon=True, color=True, data=True, heading=True)
+@agent(size=0.5, icon="arrow", color="#3498DB")
 class Bird:
     """A single bird agent in the flock"""
-
-    size = 0.5
-    icon = "arrow"
-    color = "#3498DB"
 
     def __init__(
         self, bird_id: str, x: float, y: float, heading: Optional[float] = None
@@ -74,17 +70,12 @@ class Bird:
         }
 
 
-@trajectory_layer(agent_layer_id="birds", width=False)
-@agent_layer("birds", item_iterable_projector="birds", coord_offset=True)
-@grid_layer(width="width", height="height")
+@trajectory_layer(agent_layer_id="birds", width=False, length=5, color="#2563EB")
+@agent_layer("birds", coord_offset="float")
+@grid_layer()
 @env()
 class FlockSimulation:
     """Main flocking simulation class"""
-
-    length = 5
-    color = "#2563EB"
-
-    coord_offset = "float"
 
     def __init__(self, config: Optional[FlockConfig] = None):
         self.config = config or FlockConfig()

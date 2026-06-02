@@ -19,11 +19,8 @@ from tensnap import (
 # region Agents
 
 
-@agent(heading=True)
+@agent(icon="arrow", color="blue")
 class Hunter(mesa.Agent):
-
-    icon = "arrow"
-    color = "blue"
 
     model: "ForagingModel"
     pos: Tuple[float, float]
@@ -127,31 +124,21 @@ class Patch(mesa.Agent):  # type: ignore[misc]
 
 
 @trajectory_layer(
-    width=False,
-    agent_layer_id="hunters",
-    z_index="z_trace",
+    width=False, agent_layer_id="hunters", z_index=36, length=10, color="#1D4ED8"
 )
 @agent_layer(
     "patches",
     item_iterable_projector="get_patch_layer_agents",
-    z_index="z_patch",
-    coord_offset="c_patch",
+    z_index=35,
+    coord_offset="int",
 )
-@agent_layer("hunters", item_iterable_projector="hunters", coord_offset="c_hunter")
-@grid_layer(width="width", height="height")
+@agent_layer("hunters", coord_offset="float")
+@grid_layer()
 @env()
 @bind_kwargs()
 class ForagingModel(mesa.Model):  # type: ignore[misc]
 
-    length: int = 10
-    color: str = "#1D4ED8"
-
     grid: "mesa.space.SingleGrid"
-
-    z_patch = 35
-    z_trace = 36
-    c_patch = "int"
-    c_hunter = "float"
 
     def __init__(
         self,

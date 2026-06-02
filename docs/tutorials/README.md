@@ -7,6 +7,7 @@ Step-by-step tutorials for learning TenSnap.
 - Tutorials 1-4 are now backed by runnable examples in `examples/python/`.
 - Tutorials 5-6 are still planned topics only and are not implemented yet.
 - For end-to-end reference code, `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md` remain the source of truth.
+- Tutorial code uses the current Python binding shorthand: decorators infer same-name fields and layer sources unless a selector such as `x="position[0]"` is needed.
 
 ## Tutorial List
 

@@ -34,8 +34,8 @@ class State(IntEnum):
     RECOVERED = 2
 
 
-@agent(x="grid_x", y="grid_y", color=True, icon=True, size=True)
-@uniform_agent(color=True)
+@agent(x="grid_x", y="grid_y")
+@uniform_agent()
 class Agent:
     """
     Represents an individual agent in the SIRS model.
@@ -123,7 +123,7 @@ class Environment:
 
 
 @env(id="sirs_well_mixed", type="uniform")
-@agent_layer("agents", item_iterable_projector="agents")
+@agent_layer("agents")
 class WellMixedEnvironment(Environment):
     """
     Well-mixed environment where all agents can interact with all other agents.
@@ -146,7 +146,7 @@ class WellMixedEnvironment(Environment):
 
 @env(id="sirs_grid")
 @grid_layer(width="rows", height="cols")
-@agent_layer("agents", item_iterable_projector="agents")
+@agent_layer("agents")
 @params(include=["rows", "cols"])
 class GridEnvironment(Environment):
     """
@@ -199,7 +199,7 @@ class GridEnvironment(Environment):
 
 
 @env(id="sirs_graph")
-@agent_layer("agents", item_iterable_projector="agents")
+@agent_layer("agents")
 @edge_layer(
     "edges",
     agent_layer_id="agents",

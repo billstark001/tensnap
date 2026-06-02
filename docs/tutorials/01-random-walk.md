@@ -48,7 +48,7 @@ from typing import Any
 from tensnap import agent, agent_layer, env, grid_layer, params
 
 
-@params(include=["num_agents", "step_size"])
+@params(exclude=["world_size"])
 @dataclass
 class RandomWalkConfig:
     """Configuration for the random-walk simulation."""
@@ -58,7 +58,7 @@ class RandomWalkConfig:
     world_size: int = 50
 
 
-@agent(x=True, y=True, size=True, color=True, data=True)
+@agent()
 class Walker:
     """A single walker that moves by choosing a random heading every step."""
 
@@ -94,8 +94,8 @@ class Walker:
         }
 
 
-@grid_layer(width="width", height="height")
-@agent_layer("walkers", item_iterable_projector="walkers")
+@grid_layer()
+@agent_layer("walkers")
 @env()
 class RandomWalkSimulation:
     """A simple 2D random-walk simulation."""
@@ -135,9 +135,9 @@ class RandomWalkSimulation:
 
 ### Why this works
 
-- `@agent(...)` tells TenSnap which fields of `Walker` should be projected into the synchronized item payload.
-- `@grid_layer(...)` contributes grid metadata such as width and height.
-- `@agent_layer(...)` tells TenSnap to serialize `self.walkers` as the `walkers` layer.
+- `@agent()` automatically discovers standard item fields such as `id`, `x`, and `y`, plus optional fields that exist on `Walker` such as `size`, `color`, and `data`.
+- `@grid_layer()` discovers grid metadata such as `width` and `height` from the model instance.
+- `@agent_layer("walkers")` defaults to serializing `self.walkers` because the layer id and model field have the same name.
 - `@env()` attaches the environment binding itself.
 
 Together, these decorators let `SimulationScenario.add_all(model, ...)` build a canonical `2d` environment plus explicit layers under protocol v0.2.
@@ -205,7 +205,7 @@ If you are copying this example into a fresh directory after installing `tensnap
 - `SimulationScenario` is the high-level runtime entry point.
 - `add_all(model)` reads the environment decorators attached in `random_walk.py`.
 - `add_all(config)` reads the `@params(...)` declaration from `RandomWalkConfig`.
-- `@params(include=["num_agents", "step_size"])` keeps the world size fixed while exposing the other two controls.
+- `@params(exclude=["world_size"])` keeps the world size fixed while exposing the other config fields.
 - `register_model_handler(init, step, reset)` gives the built-in `reset` action explicit behavior.
 
 ## Step 3: Run the Tutorial
@@ -275,7 +275,7 @@ def color(self) -> str:
     return "#DC2626"
 ```
 
-Because the `@agent(...)` decorator already includes `color=True`, the renderer will pick up the new value automatically on subsequent syncs.
+Because `@agent()` discovers the `color` field, the renderer will pick up the new value automatically on subsequent syncs.
 
 ### Exercise 2: Add Trajectories
 
@@ -286,8 +286,8 @@ from tensnap import trajectory_layer
 
 
 @trajectory_layer(agent_layer_id="walkers")
-@grid_layer(width="width", height="height")
-@agent_layer("walkers", item_iterable_projector="walkers")
+@grid_layer()
+@agent_layer("walkers")
 @env()
 class RandomWalkSimulation:
     length = 10

@@ -44,7 +44,7 @@ GUIDE_COLOR = "#2563EB"
 # ---------------------------------------------------------------------------
 
 
-@agent(x=True, y=True, icon=True, size=True, color=True)
+@agent()
 @dataclass(frozen=True, slots=True)
 class MapCell:
     """A renderable grid cell for static obstacles and dynamic hazards."""
@@ -61,10 +61,6 @@ class MapCell:
 @agent(
     x="source.pos[0]",
     y="source.pos[1]",
-    icon=True,
-    size=True,
-    color=True,
-    data=True,
 )
 @dataclass(frozen=True, slots=True)
 class EvacueeView:
@@ -98,9 +94,9 @@ class EvacueeView:
 @agent(
     x="source.pos[0]",
     y="source.pos[1]",
-    icon=True,
-    size=True,
-    color=True,
+    icon="circle",
+    size=0.9,
+    color=GUIDE_COLOR,
 )
 @dataclass(frozen=True, slots=True)
 class GuideView:
@@ -109,9 +105,6 @@ class GuideView:
     source: GuideAgent
 
     id: ClassVar[str] = "guide"
-    icon: ClassVar[str] = "circle"
-    size: ClassVar[float] = 0.9
-    color: ClassVar[str] = GUIDE_COLOR
 
 
 # ---------------------------------------------------------------------------
@@ -139,10 +132,10 @@ dqn_agent = DQNAgent(
 
 
 @env(id="evacuation")
-@grid_layer(width="width", height="height")
+@grid_layer()
 @agent_layer("cells", item_iterable_projector="map_cells")
-@agent_layer("evacuees", item_iterable_projector="evacuees")
-@agent_layer("guide", item_iterable_projector="guide")
+@agent_layer("evacuees")
+@agent_layer("guide")
 class EvacuationVizWrapper:
     """Thin wrapper around EvacuationModel that exposes TenSnap layer data."""
 
