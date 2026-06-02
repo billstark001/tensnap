@@ -114,10 +114,38 @@ Helpers:
 
 - `parameter(id; label=id, type="number", value=nothing, min=nothing, max=nothing, step=nothing, options=nothing, getter=nothing, setter=nothing)`
 - `add_parameter!(scenario, parameter)`
+- `add_parameters!(scenario, parameters...)`
+- `parameters_from_fields(model; target=identity, include=nothing, exclude=(), metadata=Dict(), rename=Dict())`
 - `remove_parameter!(scenario, id)`
 
 Renderer `param_change` messages update the parameter through its setter when
 one is present, then emit `param_sync`.
+
+For common scalar model fields, `parameters_from_fields(...)` can generate
+getter/setter-backed parameters:
+
+```julia
+add_parameters!(scenario, parameters_from_fields(model;
+    include = [:speed, :enabled, "config.mode"],
+    rename = Dict(:enabled => "isEnabled"),
+    metadata = Dict(
+        :speed => (; min = 0, max = 5, step = 0.5,
+            allow_runtime_change = false,
+            setter = set_speed!),
+        "config.mode" => (; options = ["low", "high"]),
+    ),
+))
+```
+
+It auto-discovers `Number`, `Bool`, and `AbstractString` fields. Fields with
+`options` metadata are emitted as enum parameters. Mutable structs and
+dictionaries get setters; read-only targets such as `NamedTuple` get getters
+only. Pass `target = ref -> ref[]` or an equivalent selector when the parameters
+live under a wrapper such as `Ref` or an `Agents.jl` properties object.
+Explicit `include` entries may be direct fields or dotted paths.
+Metadata may include `allow_runtime_change = false` and custom `getter` or
+`setter` functions when changing a field should be staged for the next reset or
+needs side effects such as updating a derived runtime cache.
 
 ### Actions
 
@@ -243,4 +271,3 @@ pnpm run dev:julia:schelling:makie
 ```
 
 Runnable examples live in `examples/julia`.
-

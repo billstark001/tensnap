@@ -39,3 +39,120 @@
 	@test model.ticks == 0
 	@test model.agents[1].x == 0
 end
+
+@testset "declarative parameters from fields" begin
+	config = ToyConfig(1.5, true, "fast", [ToyAgent(1, 0.0, 0.0)])
+	scenario = Scenario()
+	register_model!(scenario, Ref(config))
+
+	function set_speed!(value, _model_ref)
+		config.speed = clamp(Float64(value), 0.0, 10.0)
+	end
+
+	added = add_parameters!(
+		scenario,
+		parameters_from_fields(scenario.model;
+			target = _ -> config,
+			include = [:speed, :enabled, :label, :agents],
+			metadata = Dict(
+				:speed => (; min = 0, max = 10, step = 0.5, label = "Speed",
+					allow_runtime_change = false, setter = set_speed!),
+			),
+			rename = Dict(:enabled => "isEnabled"),
+		),
+	)
+	by_id = scenario.parameters
+
+	@test Set(keys(by_id)) == Set(["speed", "isEnabled", "label"])
+	@test length(added) == 3
+	@test by_id["speed"].type == "number"
+	@test by_id["speed"].label == "Speed"
+	@test by_id["speed"].min == 0
+	@test by_id["speed"].max == 10
+	@test by_id["speed"].step == 0.5
+	@test by_id["speed"].allow_runtime_change == false
+	@test TenSnap._param_payload(by_id["speed"], scenario.model)["allowRuntimeChange"] == false
+	@test by_id["isEnabled"].type == "boolean"
+	@test by_id["isEnabled"].allow_runtime_change == true
+	@test by_id["label"].type == "string"
+
+	TenSnap._set_parameter!(by_id["speed"], 12, scenario.model)
+	TenSnap._set_parameter!(by_id["isEnabled"], false, scenario.model)
+	TenSnap._set_parameter!(by_id["label"], "slow", scenario.model)
+
+	@test config.speed == 10.0
+	@test config.enabled == false
+	@test config.label == "slow"
+
+	wrapped = ToyWrapper(config)
+	wrapped_params = parameters_from_fields(wrapped;
+		include = ["config.speed"],
+		rename = Dict("config.speed" => "wrappedSpeed"),
+	)
+	@test length(wrapped_params) == 1
+	@test wrapped_params[1].id == "wrappedSpeed"
+	TenSnap._set_parameter!(wrapped_params[1], 4, wrapped)
+	@test wrapped.config.speed == 4.0
+end
+
+@testset "structural parameters can be staged for the next initialization" begin
+	pending = ToyConfig(8.0, true, "pending", ToyAgent[])
+	active_speed = Ref(pending.speed)
+	model_ref = Ref(pending)
+
+	function init_config!(ref)
+		active_speed[] = pending.speed
+		ref[] = pending
+	end
+
+	function set_pending_speed!(value, _ref)
+		pending.speed = Float64(value)
+	end
+
+	scenario = Scenario()
+	register_model!(scenario, model_ref; init = init_config!, reset = init_config!)
+	add_parameters!(
+		scenario,
+		parameters_from_fields(model_ref;
+			target = _ -> pending,
+			include = [:speed],
+			metadata = Dict(:speed => (; allow_runtime_change = false, setter = set_pending_speed!)),
+		),
+	)
+
+	@test active_speed[] == 8.0
+	TenSnap._set_parameter!(scenario.parameters["speed"], 3.0, scenario.model)
+	@test pending.speed == 3.0
+	@test active_speed[] == 8.0
+
+	reset!(scenario)
+	@test active_speed[] == 3.0
+end
+
+@testset "declarative parameters support target selectors and read-only targets" begin
+	model_ref = Ref(Dict(:threshold => 0.25, "mode" => "low"))
+	params = parameters_from_fields(model_ref;
+		target = r -> r[],
+		include = [:threshold, :mode],
+		metadata = Dict(
+			:threshold => (; min = 0, max = 1, step = 0.05),
+			:mode => (; options = ["low", "high"]),
+		),
+	)
+	by_id = Dict(p.id => p for p in params)
+
+	@test by_id["threshold"].type == "number"
+	@test by_id["mode"].type == "enum"
+	@test by_id["mode"].options == ["low", "high"]
+
+	TenSnap._set_parameter!(by_id["threshold"], 0.5, model_ref)
+	TenSnap._set_parameter!(by_id["mode"], "high", model_ref)
+
+	@test model_ref[][:threshold] == 0.5
+	@test model_ref[]["mode"] == "high"
+
+	read_only = (count = 3,)
+	read_only_params = parameters_from_fields(read_only; include = [:count])
+	@test length(read_only_params) == 1
+	@test read_only_params[1].setter === nothing
+end

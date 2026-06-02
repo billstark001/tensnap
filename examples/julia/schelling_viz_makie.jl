@@ -38,7 +38,7 @@ function schelling_app()
 	step_button = Button("Step")
 	reset_button = Button("Reset")
 	slider = Slider(0.0:0.01:1.0; value = threshold[])
-	speed_slider = Slider(1:20; value = ticks_per_second[])
+	speed_slider = Slider(1:200; value = ticks_per_second[])
 
 	function step_current_model!()
 		lock(model_lock)

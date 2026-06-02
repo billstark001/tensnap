@@ -13,9 +13,22 @@ function _public_fieldnames(x)
 	return fieldnames(typeof(x))
 end
 
+function _key_candidates(key)
+	candidates = Any[key]
+	if key isa Symbol
+		push!(candidates, String(key))
+	elseif key isa AbstractString
+		push!(candidates, Symbol(key))
+	end
+	return unique(candidates)
+end
+
 function _getvalue(obj, key)
 	if obj isa AbstractDict
-		return get(obj, key, get(obj, Symbol(key), nothing))
+		for candidate in _key_candidates(key)
+			haskey(obj, candidate) && return obj[candidate]
+		end
+		return nothing
 	end
 	sym = key isa Symbol ? key : Symbol(key)
 	return hasproperty(obj, sym) ? getproperty(obj, sym) : nothing
@@ -23,6 +36,12 @@ end
 
 function _setvalue!(obj, key, value)
 	if obj isa AbstractDict
+		for candidate in _key_candidates(key)
+			if haskey(obj, candidate)
+				obj[candidate] = value
+				return value
+			end
+		end
 		obj[key] = value
 	else
 		setproperty!(obj, key isa Symbol ? key : Symbol(key), value)

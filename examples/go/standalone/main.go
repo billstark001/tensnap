@@ -15,6 +15,7 @@ func main() {
 	model := shared.NewDefaultModel()
 	model.Config.GridWidth = *gridWidth
 	model.Config.GridHeight = *gridHeight
+	model.Config.SimilarityThreshold = 1
 	model.Initialize()
 
 	fmt.Printf(
@@ -22,9 +23,9 @@ func main() {
 		model.Config.GridWidth, model.Config.GridHeight, model.Config.SimilarityThreshold, model.Config.Density, model.Config.Balance,
 	)
 
-	for tick := range 200 {
+	for tick := range 200000 {
 		swapped := model.Step()
-		if tick%10 == 0 {
+		if tick%1000 == 0 {
 			fmt.Printf("tick %d:  swapped %d agents, satisfied %.1f%%\n", tick, swapped, model.SatisfiedPct()*100)
 		}
 	}

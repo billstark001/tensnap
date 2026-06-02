@@ -9,3 +9,14 @@ mutable struct ToyModel
 	threshold::Int
 	ticks::Int
 end
+
+mutable struct ToyConfig
+	speed::Float64
+	enabled::Bool
+	label::String
+	agents::Vector{ToyAgent}
+end
+
+mutable struct ToyWrapper
+	config::ToyConfig
+end

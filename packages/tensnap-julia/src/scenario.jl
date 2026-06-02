@@ -44,6 +44,20 @@ function add_parameter!(s::Scenario, p::Parameter)
 	return p
 end
 
+function add_parameters!(s::Scenario, params...)
+	added = Parameter[]
+	for item in params
+		if item isa Parameter
+			push!(added, add_parameter!(s, item))
+		else
+			for p in item
+				push!(added, add_parameter!(s, p))
+			end
+		end
+	end
+	return added
+end
+
 function remove_parameter!(s::Scenario, id)
 	sid = String(id)
 	existed = pop!(s.parameters, sid, nothing) !== nothing
