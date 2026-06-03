@@ -35,6 +35,7 @@ type Model struct {
 	Initialized bool
 	Cells       []Cell
 	Config      Config `tensnap:"type=params"`
+	LastSwapped int
 
 	// Cached topology and reusable work buffers. These fields deliberately have no
 	// tensnap tags: visualization still reads Cells and Config exactly as before.
@@ -78,6 +79,10 @@ func NewModel(cfg Config) *Model {
 	return model
 }
 
+func (m *Model) SetSeed(seed int64) {
+	m.rng = rand.New(rand.NewSource(seed))
+}
+
 func (m *Model) Step() int {
 	m.ensureTopologyCache()
 
@@ -115,6 +120,7 @@ func (m *Model) Step() int {
 		from.Group = 0
 		from.AgentID = ""
 	}
+	m.LastSwapped = swapped
 	return swapped
 }
 
@@ -184,6 +190,7 @@ func (m *Model) RebuildCells() {
 	width, height := m.GridSize()
 	size := width * height
 	m.Cells = make([]Cell, size)
+	m.LastSwapped = 0
 	for index := range m.Cells {
 		m.Cells[index] = Cell{X: index % width, Y: index / width}
 	}

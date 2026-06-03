@@ -206,7 +206,9 @@ make run-standalone
 
 `run-schelling` starts a WebSocket simulator on `:8765`.
 
-`run-standalone` runs the same model headlessly with `abm.NewSink()`.
+`run-standalone` runs the Schelling model headlessly as a threshold-sweep
+scientific task and prints CSV metrics comparable with the Python and Julia
+standalone examples.
 
 ## Validation
 
