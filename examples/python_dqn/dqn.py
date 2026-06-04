@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import random
 from typing import Deque, NamedTuple
 
@@ -140,7 +140,7 @@ class DQNAgent:
             "target": self.target_net.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "total_steps": self.total_steps,
-            "config": self.config.__dict__,
+            "config": asdict(self.config),
         }
         torch.save(payload, path)
 
