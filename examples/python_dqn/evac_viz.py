@@ -25,9 +25,9 @@ from torch.types import Device
 
 from tensnap import (
     BoundModelReinitializer,
-    EnumParameter,
     SimulationScenario,
     action,
+    param,
 )
 
 from .config import DQNConfig, EnvConfig
@@ -76,30 +76,36 @@ class GuideModelManager:
         self.dqn_config = dqn_cfg
         self.device = dqn_device
         self.guide_model_dir = model_dir
-        self.guide_model = UNTRAINED_GUIDE_MODEL
+        self._guide_model = UNTRAINED_GUIDE_MODEL
         self._loaded_guide_model = ""
         self.dqn_agent = self._new_dqn_agent(seed=0)
 
-    def __tensnap_parameter_metadata__(self, *_cfg_suggest):
-        options = discover_guide_models(self.guide_model_dir)
-        if self.guide_model not in options:
-            self.guide_model = options[0]
-        labels = {
+    def guide_model_options(self) -> list[str]:
+        return discover_guide_models(self.guide_model_dir)
+
+    def guide_model_labels(self) -> dict[str, str]:
+        options = self.guide_model_options()
+        return {
             UNTRAINED_GUIDE_MODEL: "Untrained DQN",
             **{name: name for name in options if name != UNTRAINED_GUIDE_MODEL},
         }
-        return [
-            (
-                "guide_model",
-                EnumParameter(
-                    id="guideModel",
-                    label="Guide Model",
-                    value=self.guide_model,
-                    options=options,
-                    labels=labels,
-                ),
-            )
-        ]
+
+    @param(
+        "enum",
+        id="guideModel",
+        label="Guide Model",
+        options=lambda manager: manager.guide_model_options(),
+        labels=lambda manager: manager.guide_model_labels(),
+    )
+    def guide_model(self) -> str:
+        options = self.guide_model_options()
+        if self._guide_model not in options:
+            self._guide_model = options[0]
+        return self._guide_model
+
+    @guide_model.setter
+    def set_guide_model(self, value: str) -> None:
+        self._guide_model = value
 
     def _new_dqn_agent(self, seed: int | None = None) -> DQNAgent:
         if seed is not None:

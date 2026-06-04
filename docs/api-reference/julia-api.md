@@ -174,6 +174,21 @@ add_chart!(scenario, chart("population", m -> length(m.agents);
 `chart(...)` accepts scalar values, dictionaries, tuples, or vectors. Dictionary
 keys and `series` ids become chart series ids.
 
+Grouped charts use the existing `series` keyword and a getter that returns a
+dictionary, tuple, or vector aligned with those series ids:
+
+```julia
+add_chart!(scenario, chart("evacuation_counts",
+    m -> Dict("alive" => m.alive, "evacuated" => m.evacuated, "dead" => m.dead);
+    label = "Evacuation Counts",
+    series = [
+        Dict("id" => "alive", "label" => "Alive", "color" => "#F59E0B"),
+        Dict("id" => "evacuated", "label" => "Evacuated", "color" => "#16A34A"),
+        Dict("id" => "dead", "label" => "Dead", "color" => "#9CA3AF"),
+    ],
+))
+```
+
 Helpers:
 
 - `chart(id, getter; label=id, color="#228be6", series=nothing)`

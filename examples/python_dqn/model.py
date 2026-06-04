@@ -175,40 +175,39 @@ class EvacuationModel(Model):
         self.step_count += 1
         done = self.is_done()
         info = {
-            "alive": float(self._alive_count()),
-            "evacuated": float(self._evacuated_count()),
-            "dead": float(self._dead_count()),
+            "alive": float(self.alive_count),
+            "evacuated": float(self.evacuated_count),
+            "dead": float(self.dead_count),
             "congestion": float(stats.congestion),
         }
         return self.get_state(), reward, done, info
 
     def is_done(self) -> bool:
         everyone_resolved = (
-            self._alive_count() == 0
-            or self._evacuated_count() + self._dead_count() == len(self.evacuees)
+            self.alive_count == 0
+            or self.evacuated_count + self.dead_count == len(self.evacuees)
         )
         return everyone_resolved or self.step_count >= self.config.max_steps
 
-    def _alive_count(self) -> int:
-        return sum(1 for evacuee in self.evacuees if evacuee.alive and not evacuee.evacuated)
+    @t.chart("alive", "Evacuation Outcomes", color=EVACUEE_ALIVE_COLOR)
+    def alive_count(self) -> int:
+        return sum(
+            1
+            for evacuee in self.evacuees
+            if evacuee.alive and not evacuee.evacuated
+        )
 
-    def _evacuated_count(self) -> int:
+    @alive_count.group("evacuated", "Evacuated", color=EVACUEE_EVACUATED_COLOR)
+    def evacuated_count(self) -> int:
         return sum(1 for evacuee in self.evacuees if evacuee.evacuated)
 
-    def _dead_count(self) -> int:
-        return sum(1 for evacuee in self.evacuees if not evacuee.alive and not evacuee.evacuated)
-
-    @t.chart("alive", "Alive Evacuees", color="#F59E0B")
-    def alive_count(self) -> int:
-        return self._alive_count()
-
-    @t.chart("evacuated", "Evacuated", color="#16A34A")
-    def evacuated_count(self) -> int:
-        return self._evacuated_count()
-
-    @t.chart("dead", "Dead", color="#9CA3AF")
+    @alive_count.group("dead", "Dead", color=EVACUEE_DEAD_COLOR)
     def dead_count(self) -> int:
-        return self._dead_count()
+        return sum(
+            1
+            for evacuee in self.evacuees
+            if not evacuee.alive and not evacuee.evacuated
+        )
 
     @t.chart("fire_size", "Fire Size", color="#DC2626")
     def fire_size(self) -> int:
@@ -228,9 +227,9 @@ class EvacuationModel(Model):
             gy / max(1, self.height - 1),
             fx / max(1, self.width - 1),
             fy / max(1, self.height - 1),
-            self._alive_count() / evacuee_count,
-            self._evacuated_count() / evacuee_count,
-            self._dead_count() / evacuee_count,
+            self.alive_count / evacuee_count,
+            self.evacuated_count / evacuee_count,
+            self.dead_count / evacuee_count,
             nearest_exit / max(1, self.width + self.height),
             local_congestion / evacuee_count,
             len(self.fire_cells) / max(1, self.width * self.height),
