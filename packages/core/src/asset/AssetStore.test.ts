@@ -27,4 +27,18 @@ describe('AssetStore binary string decoding', () => {
 
     expect(store.get('asset-2')?.url).toBe('hello');
   });
+
+  it('keeps SVG image assets as inline text for headless rendering', async () => {
+    const store = new AssetStore();
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+
+    await store.receiveData(
+      'asset-3',
+      'hash-3',
+      'image/svg+xml',
+      new TextEncoder().encode(svg),
+    );
+
+    expect(store.get('asset-3')?.url).toBe(svg);
+  });
 });

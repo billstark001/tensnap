@@ -115,7 +115,9 @@ export class AssetStore {
 
     let url: string | Uint8Array;
 
-    if (mime.startsWith('image/') || mime === 'application/octet-stream') {
+    if (mime === 'image/svg+xml') {
+      url = new TextDecoder().decode(bytes);
+    } else if (mime.startsWith('image/') || mime === 'application/octet-stream') {
       const oldUrl = this._blobUrls.get(id);
       if (oldUrl) URL.revokeObjectURL(oldUrl);
       const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -123,7 +125,7 @@ export class AssetStore {
       const blobUrl = URL.createObjectURL(blob);
       this._blobUrls.set(id, blobUrl);
       url = blobUrl;
-    } else if (mime.startsWith('text/') || mime === 'application/json' || mime === 'image/svg+xml') {
+    } else if (mime.startsWith('text/') || mime === 'application/json') {
       url = new TextDecoder().decode(bytes);
     } else {
       url = bytes;
