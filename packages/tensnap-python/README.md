@@ -110,7 +110,7 @@ class Aviary:
 
 `add_all(..., dry_run=True)` and the targeted `add_*` dry-run modes report registry ids without mutating the scenario. Mesa lifecycle helpers use this to unregister and rebuild model-owned registrations cleanly.
 
-For Mesa models, prefer `BoundModelReinitializer` from `tensnap.bindings.mesa`. Use `bind_kwargs(...)` to expose constructor keyword arguments as resettable parameters when needed. When a constructor kwarg and a model-owned parameter publish the same source field during `register_model()`, the model parameter keeps UI ownership and the reinitializer aliases its reset value from the model field instead of registering a duplicate kwarg parameter.
+For Mesa models, prefer `BoundModelReinitializer` from `tensnap` or `tensnap.bindings.lifecycle`. Use `bind_kwargs(...)` to expose constructor keyword arguments as resettable parameters when needed. When a constructor kwarg and a model-owned parameter publish the same source field during `register_model()`, the model parameter keeps UI ownership and the reinitializer aliases its reset value from the model field instead of registering a duplicate kwarg parameter. `configure_reinit(...)` now applies the default Mesa cleanup automatically when no explicit cleanup callback is provided.
 
 ## Examples
 

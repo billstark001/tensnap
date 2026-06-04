@@ -280,17 +280,17 @@ If TenSnap has benefited your research—whether by facilitating your agent-base
 You can cite our IC2S2 2026 presentation as follows:
 
 **Plain Text (APA):**
-> Zhao, J., & Chen, Y. (2026). TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol. Paper presented at the International Conference on Computational Social Science (IC2S2 2026).
+> Zhao, J., & Chen, Y. (2026). TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol. Extended abstract presented at the International Conference on Computational Social Science (IC2S2 2026).
 
 **BibTeX:**
 
 ```bibtex
-@inproceedings{zhao2026tensnap,
+@misc{zhao2026tensnap,
   title={TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol},
   author={Zhao, Junning and Chen, Yu},
-  booktitle={Proceedings of the International Conference on Computational Social Science (IC2S2)},
+  howpublished={Parallel talk presented at the International Conference on Computational Social Science (IC2S2)},
   year={2026},
-  note={Parallel talk}
+  note={Non-archival extended abstract}
 }
 ```
 

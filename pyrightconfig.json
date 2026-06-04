@@ -9,6 +9,10 @@
     {
       "root": "packages/tensnap-python",
       "extraPaths": ["packages/tensnap-python"]
+    },
+    {
+      "root": "examples",
+      "extraPaths": ["packages/tensnap-python", "examples"]
     }
   ]
 }

@@ -31,8 +31,8 @@ msgstr "{0} / {1} 个智能体"
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap 贡献者"
 
-#: src/dialogs/SettingsDialog.tsx:226
-#: src/dialogs/SettingsDialog.tsx:244
+#: src/dialogs/SettingsDialog.tsx:228
+#: src/dialogs/SettingsDialog.tsx:246
 msgid "0 means unlimited"
 msgstr "0 表示无限制"
 
@@ -61,6 +61,10 @@ msgstr "动作 ID"
 msgid "Action Label"
 msgstr "动作标签"
 
+#: src/dialogs/SettingsDialog.tsx:253
+msgid "Action Timeout"
+msgstr "动作超时时长"
+
 #: src/components/toolbar/ToolGroups.tsx:147
 #~ msgid "Adjust Mode"
 #~ msgstr "调整模式"
@@ -79,7 +83,7 @@ msgid "Allow Runtime Change"
 msgstr "允许运行时更改"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:286
+#: src/dialogs/SettingsDialog.tsx:304
 msgid "Apply"
 msgstr "应用"
 
@@ -91,12 +95,12 @@ msgstr "资源"
 msgid "Assets sent by adapters will appear here."
 msgstr "适配器发送的资源将显示在这里。"
 
-#: src/dialogs/SettingsDialog.tsx:202
+#: src/dialogs/SettingsDialog.tsx:204
 msgid "Auto"
 msgstr "自动"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:67
-#: src/dialogs/SettingsDialog.tsx:261
+#: src/dialogs/SettingsDialog.tsx:279
 msgid "Backend URL"
 msgstr "后端地址"
 
@@ -115,7 +119,7 @@ msgstr "按钮文本"
 msgid "Cancel"
 msgstr "取消"
 
-#: src/dialogs/SettingsDialog.tsx:269
+#: src/dialogs/SettingsDialog.tsx:287
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "更改当前项目的 WebSocket 服务器 URL。连接将重新建立。"
 
@@ -156,13 +160,13 @@ msgstr "清除搜索"
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "要拍摄快照，请点击“拍摄快照”按钮。"
 
-#: src/dialogs/SettingsDialog.tsx:164
+#: src/dialogs/SettingsDialog.tsx:166
 msgid "Client Message Validation"
 msgstr "客户端信息格式验证"
 
 #: src/dialogs/AboutDialog.tsx:79
 #: src/dialogs/AgentDetailsDialog.tsx:110
-#: src/dialogs/SettingsDialog.tsx:296
+#: src/dialogs/SettingsDialog.tsx:314
 msgid "Close"
 msgstr "关闭"
 
@@ -242,7 +246,7 @@ msgstr "自定义数据："
 msgid "Cut"
 msgstr "剪切"
 
-#: src/dialogs/SettingsDialog.tsx:130
+#: src/dialogs/SettingsDialog.tsx:132
 msgid "Dark"
 msgstr "深色"
 
@@ -357,8 +361,8 @@ msgstr "环境类型"
 msgid "Environments:"
 msgstr "环境："
 
-#: src/dialogs/SettingsDialog.tsx:174
-#: src/dialogs/SettingsDialog.tsx:191
+#: src/dialogs/SettingsDialog.tsx:176
+#: src/dialogs/SettingsDialog.tsx:193
 msgid "Error"
 msgstr "错误"
 
@@ -497,7 +501,7 @@ msgstr "快捷键"
 #~ msgid "Label"
 #~ msgstr "标签"
 
-#: src/dialogs/SettingsDialog.tsx:137
+#: src/dialogs/SettingsDialog.tsx:139
 msgid "Language"
 msgstr "语言"
 
@@ -509,7 +513,7 @@ msgstr "左"
 msgid "License:"
 msgstr "许可证："
 
-#: src/dialogs/SettingsDialog.tsx:130
+#: src/dialogs/SettingsDialog.tsx:132
 msgid "Light"
 msgstr "浅色"
 
@@ -517,11 +521,11 @@ msgstr "浅色"
 #~ msgid "Loading..."
 #~ msgstr "加载中..."
 
-#: src/dialogs/SettingsDialog.tsx:233
+#: src/dialogs/SettingsDialog.tsx:235
 msgid "Max FPS"
 msgstr "最大 FPS"
 
-#: src/dialogs/SettingsDialog.tsx:215
+#: src/dialogs/SettingsDialog.tsx:217
 msgid "Max TPS"
 msgstr "最大 TPS"
 
@@ -639,8 +643,8 @@ msgstr "未定位"
 msgid "Object ID"
 msgstr "对象 ID"
 
-#: src/dialogs/SettingsDialog.tsx:168
-#: src/dialogs/SettingsDialog.tsx:185
+#: src/dialogs/SettingsDialog.tsx:170
+#: src/dialogs/SettingsDialog.tsx:187
 msgid "Off"
 msgstr "关"
 
@@ -716,7 +720,7 @@ msgstr "位置："
 #~ msgid "Previous page"
 #~ msgstr "上一页"
 
-#: src/dialogs/SettingsDialog.tsx:256
+#: src/dialogs/SettingsDialog.tsx:274
 msgid "Project Settings"
 msgstr "项目设置"
 
@@ -744,7 +748,7 @@ msgstr "重做"
 #~ msgid "Refresh"
 #~ msgstr "刷新"
 
-#: src/dialogs/SettingsDialog.tsx:198
+#: src/dialogs/SettingsDialog.tsx:200
 msgid "Render Trigger"
 msgstr "渲染触发器"
 
@@ -757,7 +761,7 @@ msgid "Repository:"
 msgstr "代码仓库："
 
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
-#: src/dialogs/SettingsDialog.tsx:279
+#: src/dialogs/SettingsDialog.tsx:297
 msgid "Reset"
 msgstr "重置"
 
@@ -796,7 +800,7 @@ msgstr "以CSV格式保存"
 msgid "Save As..."
 msgstr "另存为..."
 
-#: src/dialogs/SettingsDialog.tsx:150
+#: src/dialogs/SettingsDialog.tsx:152
 msgid "Save Format"
 msgstr "存储格式"
 
@@ -816,13 +820,13 @@ msgstr "全选"
 #~ msgid "Select export format"
 #~ msgstr "选择导出格式"
 
-#: src/dialogs/SettingsDialog.tsx:181
+#: src/dialogs/SettingsDialog.tsx:183
 msgid "Server Message Validation"
 msgstr "服务器信息格式验证"
 
 #: src/components/project/StatusBar.tsx:130
 #: src/components/toolbar/MenuBar.tsx:163
-#: src/dialogs/SettingsDialog.tsx:110
+#: src/dialogs/SettingsDialog.tsx:112
 msgid "Settings"
 msgstr "设置"
 
@@ -883,7 +887,7 @@ msgstr "步进"
 #~ msgid "Synchronize State"
 #~ msgstr "同步状态"
 
-#: src/dialogs/SettingsDialog.tsx:116
+#: src/dialogs/SettingsDialog.tsx:118
 msgid "System Settings"
 msgstr "系统设置"
 
@@ -903,7 +907,7 @@ msgstr "按钮可以保持此绑定，但没有可编辑的注册动作。"
 msgid "The current object will be renamed when this edit is saved."
 msgstr "保存此编辑后，当前对象将被重命名。"
 
-#: src/dialogs/SettingsDialog.tsx:119
+#: src/dialogs/SettingsDialog.tsx:121
 msgid "Theme"
 msgstr "主题模式"
 
@@ -1025,8 +1029,8 @@ msgstr "查看所选智能体的详细信息"
 msgid "View Docs"
 msgstr "查看文档"
 
-#: src/dialogs/SettingsDialog.tsx:171
-#: src/dialogs/SettingsDialog.tsx:188
+#: src/dialogs/SettingsDialog.tsx:173
+#: src/dialogs/SettingsDialog.tsx:190
 msgid "Warning"
 msgstr "警告"
 

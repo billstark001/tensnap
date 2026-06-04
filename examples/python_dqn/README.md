@@ -39,7 +39,7 @@ The DQN observes a compact vector that includes:
 - counts of alive / evacuated / dead evacuees,
 - local congestion around the guide,
 - distance to nearest exit,
-- occupancy in 8 directional sectors around the guide.
+- occupancy in 6 local sectors around the guide.
 
 ## Install
 
@@ -63,16 +63,19 @@ python -m python_dqn.main --mode rollout --episodes 1 --seed 7
 python -m python_dqn.main --mode train --episodes 300 --seed 7
 ```
 
+Checkpoints are written to `examples/python_dqn/checkpoints` by default. You can
+override this with `--checkpoint-dir`.
+
 ## Evaluate a saved checkpoint
 
 ```bash
 # From the examples/ directory
-python -m python_dqn.main --mode eval --episodes 20 --checkpoint checkpoints/dqn_latest.pt --seed 7
+python -m python_dqn.main --mode eval --episodes 20 --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 7
 ```
 
 ## TenSnap Visualization
 
-Start the visualization server (uses a DQN agent with random weights — no training needed):
+Start the visualization server:
 
 ```bash
 # From the examples/ directory
@@ -84,6 +87,20 @@ pnpm dev:py:evac-dqn
 
 The server listens on `ws://localhost:8765` by default. Connect the TenSnap renderer
 at <https://tensnap.netlify.app> or run `pnpm dev:web` locally.
+
+### Guide model control
+
+`evac_viz.py` exposes a TenSnap enum parameter named `Guide Model`.
+
+- The options are scanned at startup from `examples/python_dqn/checkpoints` by
+  default, or from `DQN_GUIDE_MODEL_DIR` when that environment variable is set.
+- `.pt` and `.pth` files appear as selectable guide policies.
+- `untrained` is always available and creates deterministic untrained DQN weights.
+- Changing `Guide Model` records the pending model but does not immediately
+  reload the policy.
+- The built-in `Reset` action rebuilds the environment and reloads the selected
+  guide model.
+- The `Reset Guide Model` action reloads only the selected guide policy.
 
 ### Taking a screenshot with agent-cli
 
@@ -118,6 +135,32 @@ pnpm --filter @tensnap/agent dev -- scene render snapshot --context evac-dqn
 | `dead` | Cumulative casualties |
 | `fire_size` | Number of burning cells |
 
+## NetLogo Comparison
+
+A NetLogo 7 version is available at:
+
+```bash
+examples/netlogo/evac_dqn_netlogo.nlogox
+```
+
+It uses NetLogo's bundled `py` extension to initialize Python once, import
+`python_dqn.netlogo_policy`, pass the 16-value guide state with `py:set`, and
+read the DQN action with `py:runresult`.
+
+Open it from the repository root with:
+
+```bash
+pnpm dev:netlogo:evac-dqn
+```
+
+If NetLogo cannot find the repository or Python environment, set the model's
+`repo-root` and `python-executable` inputs before pressing `setup`.
+
+The NetLogo GUI keeps `use-python-policy?` on by default. Its bundled
+BehaviorSpace smoke experiment turns that switch off because NetLogo's
+`py:setup` can stop silently in headless BehaviorSpace on this machine; the
+Python policy bridge is validated separately with `python_dqn.netlogo_policy`.
+
 ## Files
 
 - `main.py`: CLI entry point.
@@ -126,9 +169,20 @@ pnpm --filter @tensnap/agent dev -- scene render snapshot --context evac-dqn
 - `train.py`: training and evaluation loops.
 - `config.py`: typed configuration objects.
 - `evac_viz.py`: TenSnap visualization entrypoint.
+- `netlogo_policy.py`: Python policy bridge used by the NetLogo model.
 
 ## Notes
 
 - The demo avoids extra dependencies beyond `mesa`, `torch`, `tensnap`, and the Python standard library.
 - The environment is intentionally small and readable rather than fully optimized.
 - Because only the guide is controlled by RL, this is a good starting point for explaining **how ABM and DQN interact** in one simulation.
+
+## TenSnap design notes
+
+- Parameter option lists are static after state sync. The guide model directory is
+  scanned when the server starts; adding checkpoint files while the server is
+  running requires restarting the simulator to refresh the enum choices.
+- A custom action can reload Python-side policy state, but the Python binding does
+  not currently provide a compact helper for "run this action and immediately
+  push a full visual refresh." The `Reset Guide Model` action therefore reloads
+  the policy and the visible effect appears on the next step or reset.

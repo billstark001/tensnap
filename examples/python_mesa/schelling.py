@@ -57,6 +57,8 @@ class SchellingModel(Model):
         similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         rng=None,
     ) -> None:
+        if isinstance(rng, str):
+            rng = int(rng) if rng.strip() else None
         super().__init__(rng=rng)
 
         self.width = width if width > 0 else DEFAULT_GRID_W

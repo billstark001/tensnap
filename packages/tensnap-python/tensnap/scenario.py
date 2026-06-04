@@ -30,9 +30,7 @@ from dataclasses import dataclass
 
 from . import bindings as binding_api
 from .bindings import (
-    ActionMetadata,
     BindParametersConfig,
-    ChartGroupMetadata,
 )
 from .handler import (
     DefaultSimulationHandler,
@@ -47,6 +45,8 @@ from .models import (
     LayerBinding,
     Parameter,
     LayerRegistration,
+    ActionMetadata,
+    ChartGroupMetadata,
     clone_environment_state,
 )
 from .protocol import (
@@ -710,7 +710,7 @@ class SimulationScenario:
             else None
         )
         parameter_configs = cfg_suggest or (
-            (BindParametersConfig.EXCLUDE_ALL,) if not param_bindings else ()
+            (BindParametersConfig.EXPLICIT_ONLY,) if not param_bindings else ()
         )
         changes.append(self.add_parameters(target, *parameter_configs, dry_run=dry_run))
 

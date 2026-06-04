@@ -9,6 +9,7 @@ pnpm --dir examples/julia run instantiate
 pnpm --dir examples/julia run demo:el-farol
 pnpm --dir examples/julia run demo:schelling
 pnpm --dir examples/julia run demo:schelling:makie
+pnpm --dir examples/julia run standalone:schelling
 pnpm --dir examples/julia run test
 ```
 
@@ -18,6 +19,19 @@ The root package forwards the TenSnap demos:
 pnpm run dev:julia:el-farol
 pnpm run dev:julia:schelling
 pnpm run dev:julia:schelling:makie
+pnpm run standalone:julia:schelling
+```
+
+## Schelling Standalone Scientific Task
+
+`schelling_standalone.jl` runs the same threshold-sweep task as the Python and
+Go standalone scripts. For each similarity threshold it runs several seeds and
+prints CSV columns for final satisfaction, segregation, last-step movement,
+steps used, and convergence count.
+
+```bash
+cd examples/julia
+julia --project=. schelling_standalone.jl --steps 200 --seeds 5
 ```
 
 ## Environment

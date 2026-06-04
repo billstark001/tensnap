@@ -135,7 +135,9 @@ Important helpers:
 - `binding.NewAgentLayer`: agent layer builder with replay and diff support.
 - `binding.ProjectTags` and `AgentLayer.ProjectTagsRequired`: item projectors from scoped struct tags.
 - `binding.MustMetadataFromTags`: environment/layer metadata projector from scoped struct tags.
-- `binding.NewChart`: chart metadata plus getter.
+- `binding.NewChart`: single-series chart metadata plus getter.
+- `binding.NewChartSeries` and `binding.NewChartGroup`: grouped chart metadata
+  plus per-series getters.
 
 Use `binding` when you want Python-style declarations. Use `abm` directly when
 you want full imperative control. Mixed models are expected: an agent layer can
@@ -253,6 +255,14 @@ bound := binding.NewModel(
     binding.WithCharts(
         binding.NewChart("population", "Population", "#16A34A",
             func(m *MyModel) any { return float64(len(m.Agents)) }),
+        binding.NewChartGroup("evacuation_counts", "Evacuation Counts",
+            binding.NewChartSeries("alive", "Alive", "#F59E0B",
+                func(m *MyModel) any { return m.AliveCount() }),
+            binding.NewChartSeries("evacuated", "Evacuated", "#16A34A",
+                func(m *MyModel) any { return m.EvacuatedCount() }),
+            binding.NewChartSeries("dead", "Dead", "#9CA3AF",
+                func(m *MyModel) any { return m.DeadCount() }),
+        ),
     ),
 )
 ```

@@ -9,10 +9,13 @@ from pathlib import Path
 import random
 
 import torch
+from torch.types import Device
 
 from .config import DQNConfig, EnvConfig, TrainingConfig
 from .model import EvacuationModel
 from .train import evaluate, format_eval, train_dqn
+
+DEFAULT_CHECKPOINT_DIR = Path(__file__).resolve().parent / "checkpoints"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,8 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
-        "--checkpoint", type=Path, default=Path("checkpoints/dqn_latest.pt")
+        "--checkpoint", type=Path, default=DEFAULT_CHECKPOINT_DIR / "dqn_latest.pt"
     )
+    parser.add_argument("--checkpoint-dir", type=Path, default=DEFAULT_CHECKPOINT_DIR)
     parser.add_argument("--width", type=int, default=16)
     parser.add_argument("--height", type=int, default=16)
     parser.add_argument("--evacuees", type=int, default=28)
@@ -93,8 +97,12 @@ def main() -> None:
     set_seed(args.seed)
     env_config = make_env_config(args)
     dqn_config = DQNConfig()
-    train_config = TrainingConfig(episodes=args.episodes, seed=args.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    train_config = TrainingConfig(
+        episodes=args.episodes,
+        seed=args.seed,
+        checkpoint_dir=args.checkpoint_dir,
+    )
+    device: Device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.mode == "rollout":
         rollout(env_config, episodes=args.episodes, seed=args.seed)
@@ -110,7 +118,7 @@ def main() -> None:
         return
 
     model = EvacuationModel(env_config, seed=args.seed)
-    from evac_demo.dqn import DQNAgent
+    from .dqn import DQNAgent
 
     agent = DQNAgent(model.state_size, model.action_size, dqn_config, device=device)
     agent.load(str(args.checkpoint))

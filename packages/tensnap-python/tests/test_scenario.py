@@ -232,6 +232,34 @@ class TestSimulationScenario:
         }
         assert set(scenario.parameters) == {"speed"}
 
+    def test_add_all_default_registers_explicit_params_only(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            def __init__(self):
+                self._speed = 1
+                self.size = 2
+
+            @BindParameterConfig("number", id="speed", min=0, max=10, step=1)
+            def speed(self):
+                return self._speed
+
+            def set_speed(self, value):
+                self._speed = value
+
+            speed = speed.setter(set_speed)
+
+        changes = scenario.add_all(Model())
+
+        assert changes == {
+            "environments": [],
+            "layers": [],
+            "parameters": ["speed"],
+            "actions": [],
+            "charts": [],
+        }
+        assert set(scenario.parameters) == {"speed"}
+
     def test_remove_all_returns_changes_without_removing_builtin_actions(
         self, scenario: SimulationScenario
     ):

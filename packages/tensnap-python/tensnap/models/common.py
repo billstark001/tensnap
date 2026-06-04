@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 from typing_extensions import NotRequired, TypedDict
 
 if TYPE_CHECKING:
-    from tensnap.bindings.basic.chart import ChartMetadataDict
-
+    from .chart import ChartMetadataDict
     from .environment import EnvironmentType
     from .parameter import ParameterState
 

@@ -123,6 +123,22 @@ object.
 These helpers clone shallow protocol objects so example definitions do not share
 mutable metadata by accident.
 
+`defineCharts` accepts protocol `dataList` metadata for grouped charts:
+
+```ts
+const charts = defineCharts({
+  id: 'evacuation_counts',
+  label: 'Evacuation Counts',
+  dataList: [
+    { id: 'alive', label: 'Alive', color: '#f59e0b' },
+    { id: 'evacuated', label: 'Evacuated', color: '#16a34a' },
+    { id: 'dead', label: 'Dead', color: '#9ca3af' },
+  ],
+});
+
+await ctx.setChartValues({ alive: 12, evacuated: 8, dead: 1 }, model.tick);
+```
+
 ## `ModelSessionContext`
 
 `sync`, `step`, `reset`, and protocol hooks receive a context with:

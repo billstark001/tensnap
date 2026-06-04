@@ -1,88 +1,35 @@
 # tensnap/bindings/basic/charts.py
-"""Chart decorators and bindings"""
+"""Chart decorators, grouped-chart discovery, and compatibility exports."""
 
-from typing import (
-    Set,
-    Any,
-    Callable,
-    Optional,
-    Union,
-    List,
-    Dict,
-    Tuple,
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
+from warnings import warn
+
+from tensnap.models.chart import (
+    ChartGroupMetadata as _ChartGroupMetadata,
+    ChartGroupMetadataDict as _ChartGroupMetadataDict,
+    ChartMetadata as _ChartMetadata,
+    ChartMetadataDict as _ChartMetadataDict,
+    ChartProperty as _ChartProperty,
+    SimplifiedChartMetadata as _SimplifiedChartMetadata,
 )
-from typing_extensions import NotRequired, TypedDict
+from tensnap.utils.object import infer_id_from_func_name
 
-from dataclasses import dataclass
+_TENSNAP_CHART_FIELD = "_tensnap_chart"
 
-
-@dataclass
-class ChartMetadata:
-    """Chart configuration"""
-
-    id: str
-    label: str = ""
-    color: Optional[str] = None
-
-    def __post_init__(self):
-        self.label = (
-            self.label or self.id.replace("_", " ").replace("-", " ").title().strip()
-        )
-
-    def to_dict(self) -> Dict[str, Any]:
-        d = {
-            "id": self.id,
-            "label": self.label,
-        }
-        if self.color is not None:
-            d["color"] = self.color
-        return d
-
-
-@dataclass
-class ChartGroupMetadata(ChartMetadata):
-    """Chart group configuration"""
-
-    data_list: List[ChartMetadata] | None = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        d = super().to_dict()
-        d["dataList"] = (
-            [chart.to_dict() for chart in self.data_list] if self.data_list else None
-        )
-        return d
-
-
-class ChartProperty:
-    """Chart decorator that automatically calls getter and sends updates"""
-
-    def __init__(self, chart: ChartGroupMetadata, getter: Callable):
-        self.chart = chart
-        self.getter = getter
-        self._tensnap_chart = chart  # Expose chart for server registration
-
-    def __call__(self, *args, **kwargs) -> Any:
-        """Call the getter function"""
-        return self.getter(*args, **kwargs)
-
-    def __get__(self, obj: Any, objtype: Optional[type] = None) -> "ChartProperty":
-        if obj is None:
-            return self
-        return self
-
-
-class ChartMetadataDict(TypedDict):
-    id: str
-    label: NotRequired[str]
-    color: NotRequired[str]
-
-
-class ChartGroupMetadataDict(ChartMetadataDict):
-    dataList: NotRequired[List[ChartMetadataDict]]
+if TYPE_CHECKING:
+    ChartMetadata = _ChartMetadata
+    ChartGroupMetadata = _ChartGroupMetadata
+    ChartMetadataDict = _ChartMetadataDict
+    ChartGroupMetadataDict = _ChartGroupMetadataDict
+    ChartProperty = _ChartProperty
+    SimplifiedChartMetadata = _SimplifiedChartMetadata
 
 
 def categorize_charts(
-    client_charts: List[ChartMetadataDict], server_charts: List[ChartGroupMetadataDict]
+    client_charts: List[_ChartMetadataDict],
+    server_charts: List[_ChartGroupMetadataDict],
 ):
     """
     Categorize server charts into added, removed, and updated groups.
@@ -97,82 +44,81 @@ def categorize_charts(
     Returns:
         dict with keys 'added', 'removed', 'updated'
     """
-    # Build set of client chart IDs for fast lookup
     client_ids: Set[str] = {chart["id"] for chart in client_charts}
 
-    added: List[ChartGroupMetadataDict] = []
-    updated: List[ChartGroupMetadataDict] = []
+    added: List[_ChartGroupMetadataDict] = []
+    updated: List[_ChartGroupMetadataDict] = []
     server_ids: Set[str] = set()
 
     for group in server_charts:
         data_list = group.get("dataList", [])
 
         if not data_list:
-            # Treat as single chart
             server_ids.add(group["id"])
             if group["id"] not in client_ids:
                 added.append(group)
         else:
-            # Group with children
             group_chart_ids = {chart["id"] for chart in data_list}
             server_ids.update(group_chart_ids)
 
             missing_count = sum(1 for cid in group_chart_ids if cid not in client_ids)
 
             if missing_count == len(group_chart_ids):
-                # All children are new
                 added.append(group)
             elif missing_count > 0:
-                # Some children are new
                 updated.append(group)
 
-    # Find removed: in client but not in server
     removed_ids = list(client_ids - server_ids)
 
     return {"added": added, "removed": removed_ids, "updated": updated}
 
 
-SimplifiedChartMetadata = Union[
-    str,  # id only
-    Tuple[str, str],  # id and color
-    Tuple[str, str, str],  # id, color, and label
-    ChartMetadataDict,
-]
-
-
-def _convert_to_chart_metadata(obj: SimplifiedChartMetadata) -> ChartMetadata:
-    """Convert simplified chart metadata to ChartMetadata object"""
+def _convert_to_chart_metadata(obj: _SimplifiedChartMetadata) -> _ChartMetadata:
+    """Convert simplified chart metadata to ChartMetadata object."""
     if isinstance(obj, str):
-        return ChartMetadata(id=obj)
-    elif isinstance(obj, tuple):
+        metadata = _ChartMetadata(id=obj)
+        metadata.refresh_label()
+        return metadata
+    if isinstance(obj, tuple):
         if len(obj) == 2:
-            return ChartMetadata(id=obj[0], color=obj[1])
-        elif len(obj) == 3:
-            return ChartMetadata(id=obj[0], color=obj[1], label=obj[2])
-        else:
-            raise ValueError(f"Invalid chart metadata tuple: {obj}")
-    elif isinstance(obj, dict):
-        return ChartMetadata(
+            metadata = _ChartMetadata(id=obj[0], color=obj[1])
+            metadata.refresh_label()
+            return metadata
+        if len(obj) == 3:
+            metadata = _ChartMetadata(id=obj[0], color=obj[1], label=obj[2])
+            metadata.refresh_label()
+            return metadata
+        raise ValueError(f"Invalid chart metadata tuple: {obj}")
+    if isinstance(obj, dict):
+        metadata = _ChartMetadata(
             id=obj["id"],
             label=obj.get("label", ""),
             color=obj.get("color"),
         )
-    else:
-        raise ValueError(f"Invalid chart metadata type: {type(obj)}")
+        metadata.refresh_label()
+        return metadata
+    raise ValueError(f"Invalid chart metadata type: {type(obj)}")
 
 
 def chart(
-    id: str,
-    label: str,
+    id: Optional[str] = None,
+    label: Optional[str] = None,
     color: Optional[str] = None,
-    data_list: Optional[List[SimplifiedChartMetadata]] = None,
-) -> Callable[[Callable], ChartProperty]:
-    """Decorator to define a chart data getter"""
+    data_list: Optional[List[_SimplifiedChartMetadata]] = None,
+) -> Callable[[Callable | property], _ChartProperty]:
+    """Decorator to define a chart data getter."""
 
-    def decorator(func: Callable[..., Union[float, int]]) -> ChartProperty:
-        chart_obj = ChartGroupMetadata(
-            id=id,
-            label=label,
+    def decorator(func: Callable | property) -> _ChartProperty:
+        raw_getter = func.fget if isinstance(func, property) else func
+
+        if raw_getter is None:
+            raise ValueError("@chart cannot wrap a property without fget")
+
+        chart_id = id or infer_id_from_func_name(raw_getter.__name__)
+
+        chart_obj = _ChartGroupMetadata(
+            id=chart_id,
+            label=label or "",
             color=color,
             data_list=(
                 [_convert_to_chart_metadata(data) for data in data_list]
@@ -180,24 +126,94 @@ def chart(
                 else None
             ),
         )
-        chart_property = ChartProperty(chart_obj, func)
 
-        # Store chart info on the function for server registration
-        func._tensnap_chart = chart_obj  # type: ignore
+        chart_property = _ChartProperty(chart_obj, func)
+
+        try:
+            setattr(func, _TENSNAP_CHART_FIELD, chart_obj)
+        except Exception:
+            pass
+
+        setattr(chart_property, _TENSNAP_CHART_FIELD, chart_obj)
 
         return chart_property
 
     return decorator
 
 
+def _resolve_chart_property(attr: Any) -> _ChartProperty | None:
+    if isinstance(attr, _ChartProperty):
+        return attr
+    if isinstance(attr, property) and isinstance(attr.fget, _ChartProperty):
+        return attr.fget
+    return None
+
+
 def get_chart_metadata_from_namespace(namespace: Dict[str, Any]):
-    """Find all chart-decorated functions in a given namespace"""
-    charts: List[Tuple[str, Callable, ChartGroupMetadata]] = []
+    """Find all chart-decorated functions/properties in a given namespace."""
+    charts: List[Tuple[str, Callable, _ChartGroupMetadata]] = []
+
     for name, attr in namespace.items():
         if name.startswith("__") and name.endswith("__"):
             continue
-        if callable(attr) and hasattr(attr, "_tensnap_chart"):
-            param = getattr(attr, "_tensnap_chart")
-            if isinstance(param, ChartGroupMetadata):
-                charts.append((name, attr, param))
+
+        param = None
+        callable_attr = attr
+
+        if hasattr(attr, _TENSNAP_CHART_FIELD):
+            param = getattr(attr, _TENSNAP_CHART_FIELD)
+        elif isinstance(attr, property) and attr.fget is not None:
+            callable_attr = attr.fget
+            if hasattr(attr.fget, _TENSNAP_CHART_FIELD):
+                param = getattr(attr.fget, _TENSNAP_CHART_FIELD)
+
+        if not isinstance(param, _ChartGroupMetadata):
+            continue
+
+        chart_property = _resolve_chart_property(attr)
+        if chart_property is not None:
+            if chart_property.group_owner is not None:
+                continue
+            if chart_property.has_group_members():
+                callable_attr = (
+                    lambda obj, chart_prop=chart_property: chart_prop.grouped_value(obj)
+                )
+                param = chart_property.chart
+
+        charts.append((name, callable_attr, param))
+
     return charts
+
+
+def __getattr__(name: str) -> Any:
+    deprecated_exports = {
+        "ChartMetadata": _ChartMetadata,
+        "ChartGroupMetadata": _ChartGroupMetadata,
+        "ChartMetadataDict": _ChartMetadataDict,
+        "ChartGroupMetadataDict": _ChartGroupMetadataDict,
+        "ChartProperty": _ChartProperty,
+        "SimplifiedChartMetadata": _SimplifiedChartMetadata,
+    }
+    if name in deprecated_exports:
+        warn(
+            f"tensnap.bindings.basic.chart.{name} is deprecated; import {name} "
+            "from tensnap.models instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return deprecated_exports[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = [
+    "ChartMetadata",
+    "ChartGroupMetadata",
+    "ChartMetadataDict",
+    "ChartGroupMetadataDict",
+    "ChartProperty",
+    "SimplifiedChartMetadata",
+    "categorize_charts",
+    "chart",
+    "get_chart_metadata_from_namespace",
+    "_TENSNAP_CHART_FIELD",
+]

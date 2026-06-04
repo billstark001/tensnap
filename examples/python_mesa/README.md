@@ -7,6 +7,7 @@ This directory contains Python examples for TenSnap that use the Mesa agent-base
 - **cgol** - Conway's Game of Life
 - **sugarscape** - Sugarscape economic model with resource gathering
 - **mushroom** - Mushroom foraging simulation
+- **schelling** - Schelling segregation model with TenSnap, Solara, and a headless scientific sweep
 
 ## Running Examples
 
@@ -50,6 +51,9 @@ python sugarscape_viz.py
 
 # Run Mushroom example
 python mushroom_viz.py
+
+# Run Schelling in TenSnap
+python schelling_viz.py
 ```
 
 Then open your browser to `http://localhost:3200` (or the Netlify instance) and watch the simulation!
@@ -78,3 +82,32 @@ Each example consists of:
 
 - `{name}.py` - The Mesa model definition
 - `{name}_viz.py` - The visualization setup and TenSnap integration
+
+## Schelling Solara
+
+The Solara version can be launched with:
+
+```bash
+cd examples/python_mesa
+solara run schelling_viz_solara.py
+
+# Or from the repository root
+pnpm dev:py:schelling:solara
+```
+
+It exposes grid width/height, density, balance, similarity threshold, and random
+seed controls.
+
+## Schelling Standalone Scientific Task
+
+The standalone script runs the same threshold-sweep task used by the Julia and
+Go examples: multiple seeds per similarity threshold, fixed grid parameters, and
+CSV output for final satisfaction, segregation, movement, and convergence.
+
+```bash
+cd examples/python_mesa
+python schelling_standalone.py --steps 200 --seeds 5
+
+# Or from the repository root
+pnpm standalone:py:schelling
+```

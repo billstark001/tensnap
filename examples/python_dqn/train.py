@@ -9,7 +9,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Iterable
 
-import torch
+from torch.types import Device
 
 from .config import DQNConfig, EnvConfig, TrainingConfig
 from .dqn import DQNAgent
@@ -57,7 +57,7 @@ def train_dqn(
     env_config: EnvConfig,
     dqn_config: DQNConfig,
     train_config: TrainingConfig,
-    device: torch.device,
+    device: Device | str,
 ) -> TrainArtifacts:
     base_model = EvacuationModel(env_config, seed=train_config.seed)
     agent = DQNAgent(

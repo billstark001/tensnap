@@ -18,14 +18,12 @@ from typing import (
 
 from typing_extensions import TypedDict
 
-from .bindings import (
+from .bindings.basic.chart import categorize_charts
+from .models import (
     ActionMetadata,
     ChartGroupMetadata,
     ChartGroupMetadataDict,
     ChartMetadataDict,
-    categorize_charts,
-)
-from .models import (
     EnvironmentLayerState,
     EnvironmentRegistrationProtocol,
     EnvironmentState,

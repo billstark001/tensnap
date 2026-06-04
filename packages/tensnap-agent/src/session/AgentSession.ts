@@ -204,7 +204,13 @@ export class AgentSession extends EventEmitter {
         id: meta.id,
         hash: meta.hash,
         mime: meta.mime,
-        source: typeof resolved.url === 'string' ? resolved.url : new Uint8Array(resolved.url),
+        source: typeof resolved.source === 'string'
+          ? resolved.source
+          : resolved.source instanceof Uint8Array
+            ? new Uint8Array(resolved.source)
+            : typeof resolved.url === 'string'
+              ? resolved.url
+              : new Uint8Array(resolved.url),
       };
     }
     return assets;

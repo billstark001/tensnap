@@ -9,8 +9,10 @@ import random
 from typing import Iterable
 
 import torch
+from torch import Tensor
 from mesa import Agent, Model
 from mesa.space import MultiGrid
+import tensnap as t
 
 from .config import EnvConfig, Position
 
@@ -22,6 +24,14 @@ ACTION_TO_DELTA: dict[int, Position] = {
     4: (1, 0),
 }
 
+WALL_COLOR = "#374151"
+EXIT_COLOR = "#16A34A"
+FIRE_COLOR = "#DC2626"
+EVACUEE_ALIVE_COLOR = "#F59E0B"
+EVACUEE_EVACUATED_COLOR = "#16A34A"
+EVACUEE_DEAD_COLOR = "#9CA3AF"
+GUIDE_COLOR = "#2563EB"
+
 
 @dataclass(slots=True)
 class StepStats:
@@ -31,19 +41,24 @@ class StepStats:
     guided_neighbors: int = 0
 
 
+@t.agent(icon="circle", color=GUIDE_COLOR)
 class GuideAgent(Agent):
+    pos: Position
+
     def __init__(self, model: "EvacuationModel", pos: Position) -> None:
         super().__init__(model)
-        self.pos = pos
+        self.spawn_pos = pos
 
 
+@t.agent(icon="circle", size=0.6)
 class EvacueeAgent(Agent):
 
     model: "EvacuationModel"
+    pos: Position
 
     def __init__(self, model: "EvacuationModel", pos: Position) -> None:
         super().__init__(model)
-        self.pos = pos
+        self.spawn_pos = pos
         self.alive = True
         self.evacuated = False
 
@@ -65,11 +80,46 @@ class EvacueeAgent(Agent):
         elif self.pos in self.model.fire_cells:
             self.alive = False
 
+    @property
+    def color(self) -> str:
+        if self.evacuated:
+            return EVACUEE_EVACUATED_COLOR
+        if not self.alive:
+            return EVACUEE_DEAD_COLOR
+        return EVACUEE_ALIVE_COLOR
 
+    @property
+    def data(self):
+        return {
+            "alive": self.alive,
+            "evacuated": self.evacuated,
+        }
+
+
+def _make_cell_projector(color: str) -> t.AttrProjector:
+    _color = color
+
+    def f(pos: Position):
+        return dict(
+            id=str(pos), x=pos[0], y=pos[1], color=_color, icon="square", size=1
+        )
+
+    return f
+
+
+@t.agent_layer("guides")
+@t.trajectory_layer("evacuee_trails", agent_layer_id="evacuees", length=3, width=0.1)
+@t.agent_layer("evacuees")
+@t.agent_layer("exit_cells", item_projector=_make_cell_projector(EXIT_COLOR))
+@t.agent_layer("wall_cells", item_projector=_make_cell_projector(WALL_COLOR))
+@t.agent_layer("fire_cells", item_projector=_make_cell_projector(FIRE_COLOR))
+@t.grid_layer()
+@t.env(id="evacuation")
+@t.bind_kwargs(exclude=".*")
 class EvacuationModel(Model):
 
     def __init__(self, config: EnvConfig, seed: int | None = None) -> None:
-        super().__init__(seed=seed)
+        super().__init__(rng=seed)
         self.config = config
         self.width = config.width
         self.height = config.height
@@ -85,7 +135,7 @@ class EvacuationModel(Model):
                 exclude=self.exit_cells | self.wall_cells | self.fire_cells
             ),
         )
-        self.grid.place_agent(self.guide, self.guide.pos)
+        self.grid.place_agent(self.guide, self.guide.spawn_pos)
         self.evacuees: list[EvacueeAgent] = []
         occupied: set[Position] = (
             {self.guide.pos} | self.exit_cells | self.wall_cells | self.fire_cells
@@ -93,12 +143,13 @@ class EvacuationModel(Model):
         for _ in range(config.num_evacuees):
             pos = self._sample_spawn(exclude=occupied)
             agent = EvacueeAgent(self, pos)
-            self.grid.place_agent(agent, pos)
+            self.grid.place_agent(agent, agent.spawn_pos)
             self.evacuees.append(agent)
             occupied.add(pos)
 
-    def reset(self, seed: int | None = None) -> "EvacuationModel":
-        return EvacuationModel(self.config, seed=seed)
+    @property
+    def guides(self):
+        return [self.guide]
 
     @property
     def action_size(self) -> int:
@@ -138,19 +189,31 @@ class EvacuationModel(Model):
         )
         return everyone_resolved or self.step_count >= self.config.max_steps
 
-    @property
+    @t.chart("alive", "Evacuation Outcomes", color=EVACUEE_ALIVE_COLOR)
     def alive_count(self) -> int:
-        return sum(1 for a in self.evacuees if a.alive and not a.evacuated)
+        return sum(
+            1
+            for evacuee in self.evacuees
+            if evacuee.alive and not evacuee.evacuated
+        )
 
-    @property
+    @alive_count.group("evacuated", "Evacuated", color=EVACUEE_EVACUATED_COLOR)
     def evacuated_count(self) -> int:
-        return sum(1 for a in self.evacuees if a.evacuated)
+        return sum(1 for evacuee in self.evacuees if evacuee.evacuated)
 
-    @property
+    @alive_count.group("dead", "Dead", color=EVACUEE_DEAD_COLOR)
     def dead_count(self) -> int:
-        return sum(1 for a in self.evacuees if not a.alive and not a.evacuated)
+        return sum(
+            1
+            for evacuee in self.evacuees
+            if not evacuee.alive and not evacuee.evacuated
+        )
 
-    def get_state(self) -> torch.Tensor:
+    @t.chart("fire_size", "Fire Size", color="#DC2626")
+    def fire_size(self) -> int:
+        return len(self.fire_cells)
+
+    def get_state(self) -> Tensor:
         gx, gy = self.guide.pos
         fx, fy = self.fire_centroid()
         nearest_exit = min(
@@ -158,20 +221,21 @@ class EvacuationModel(Model):
         )
         local_congestion = self.count_evacuees_near(self.guide.pos, radius=2)
         sector_counts = self._sector_counts_around_guide(max_radius=5)
+        evacuee_count = max(1, len(self.evacuees))
         values = [
             gx / max(1, self.width - 1),
             gy / max(1, self.height - 1),
             fx / max(1, self.width - 1),
             fy / max(1, self.height - 1),
-            self.alive_count / max(1, len(self.evacuees)),
-            self.evacuated_count / max(1, len(self.evacuees)),
-            self.dead_count / max(1, len(self.evacuees)),
+            self.alive_count / evacuee_count,
+            self.evacuated_count / evacuee_count,
+            self.dead_count / evacuee_count,
             nearest_exit / max(1, self.width + self.height),
-            local_congestion / max(1, len(self.evacuees)),
+            local_congestion / evacuee_count,
             len(self.fire_cells) / max(1, self.width * self.height),
-            *[count / max(1, len(self.evacuees)) for count in sector_counts],
+            *[count / evacuee_count for count in sector_counts],
         ]
-        return torch.tensor(values, dtype=torch.float32)
+        return torch.Tensor(values)
 
     def valid_position(self, pos: Position) -> bool:
         x, y = pos

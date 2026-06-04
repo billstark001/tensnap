@@ -3,7 +3,7 @@ import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
 import { DialogOpenProps } from '@tensnap/web-common/react';
-import { useSettingsStore } from '@/store/settings';
+import { ACTION_TIMEOUT_SECONDS_OPTIONS, useSettingsStore } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
 import { msg } from '@lingui/macro';
 import { Trans } from '@lingui/react/macro';
@@ -32,6 +32,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     renderTriggerMode,
     maxTps,
     maxRenderFps,
+    actionTimeoutSeconds,
     setSaveFormat,
     toggleTheme,
     setLocale,
@@ -40,6 +41,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     setRenderTriggerMode,
     setMaxTps,
     setMaxRenderFps,
+    setActionTimeoutSeconds,
   } = useSettingsStore();
 
   const { activeProject, activeIndex, changeUrl } = useProjectStore();
@@ -244,6 +246,22 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <Trans>0 means unlimited</Trans>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Action Timeout</Trans></label>
+            <div className={styles.settingControl}>
+              <Select.Root
+                value={String(actionTimeoutSeconds)}
+                onValueChange={(value) => setActionTimeoutSeconds(Number(value))}
+              >
+                {ACTION_TIMEOUT_SECONDS_OPTIONS.map((seconds) => (
+                  <Select.Item key={seconds} value={String(seconds)}>
+                    {seconds}s
+                  </Select.Item>
+                ))}
+              </Select.Root>
             </div>
           </div>
         </div>

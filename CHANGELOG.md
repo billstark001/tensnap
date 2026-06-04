@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/core, @tensnap/web [0.2.2] - 2026-06-05
+
+### Added
+
+- Added a configurable web action timeout with 1s, 5s, 10s, 30s, and 60s options, defaulting to 5s and reporting timed-out actions via toast.
+
+### Fixed
+
+- Fixed SVG image assets resolving to raw inline SVG strings in browser renderers, which could make deployed web clients request escaped `<svg...` paths instead of loadable image URLs.
+- Preserved original asset sources for agent/headless rendering while exposing browser-safe URLs for web rendering.
+- Released timed-out in-flight actions so later state updates can still apply and late matching `action_end` events are discarded by the action loop.
+
+## @tensnap/js, @tensnap/agent [0.2.1] - 2026-06-05
+
+### Fixed
+
+- Included `tick_id` in JavaScript binding `action_end` replies so the renderer can distinguish late completions from newer actions with the same id.
+- Updated agent asset rendering sources to use preserved raw asset content when available.
+
+## @tensnap/python [0.2.3] - 2026-06-05
+
+### Added
+
+- Added shared Python binding metadata models under `tensnap.models` for actions and charts, with compatibility re-exports from `tensnap.bindings.basic`.
+- Added property-style chart composition with id inference, including grouped chart series declared through `ChartProperty.group(...)`.
+- Added framework-neutral lifecycle and reinitialization helpers in `tensnap.bindings.lifecycle`, while keeping the Mesa reinitializer surface as a compatibility wrapper.
+- Added `typing.Annotated` constructor/dataclass parameter binding discovery and dynamic callable metadata support for parameter descriptors.
+
+### Changed
+
+- Updated default `SimulationScenario.add_all(...)` parameter discovery to use explicit-only parameter collection, reducing accidental exposure of ordinary public attributes.
+- Strengthened parameter descriptor typing so property-like parameter decorators type-check cleanly with Pyright.
+
+## @tensnap/go [0.2.3] - 2026-06-05
+
+### Added
+
+- Added grouped chart builders for the Go binding, including `ChartSeries`, `NewChartSeries`, `NewChartSeriesFunc`, and `NewChartGroup`.
+- Added grouped chart update emission so `Model.PushCharts(...)` can publish one update per series while preserving existing single-chart behavior.
+- Documented Go grouped chart registration in the Go API reference.
+
+### Changed
+
+- Bumped `@tensnap/go` package metadata to `0.2.3`.
+- Optimized Go layer diff/projector handling for binding layers and environment state replay.
+
 ## @tensnap/julia [0.2.0] - 2026-05-31
 
 ### Added

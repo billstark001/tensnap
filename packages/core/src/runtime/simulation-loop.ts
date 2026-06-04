@@ -16,6 +16,7 @@ import type { ActionEndPayload, RendererToSimulatorMessage } from '../protocol';
 
 const DEFAULT_MAX_TPS = 300;
 const DEFAULT_MAX_RENDER_FPS = 120;
+const DEFAULT_ACTION_TIMEOUT_MS = 5000;
 const METRIC_WINDOW_MS = 1000;
 const METRIC_EMIT_INTERVAL_MS = 250;
 const RAF_CALIBRATION_SAMPLE_COUNT = 6;
@@ -55,6 +56,13 @@ export type RuntimeMetrics = {
   mspt: number | null;
 };
 
+export interface ActionTimeoutEvent {
+  actionId: string;
+  tickId: string;
+  continuous: boolean;
+  timeoutMs: number;
+}
+
 export type SimulationLoopState = {
   runningActions: ReadonlySet<string>;
 };
@@ -65,7 +73,9 @@ type LoopOptions = {
   mode: RenderTriggerMode;
   maxTps: number;
   maxRenderFps: number;
+  actionTimeoutMs: number;
   onMetricsChange?: (metrics: RuntimeMetrics) => void;
+  onActionTimeout?: (event: ActionTimeoutEvent) => void;
 };
 
 type TriggerFiredCallback = (task: RuntimeTaskSnapshot, now: number) => void;
@@ -390,9 +400,13 @@ export class SimulationLoopController {
     mode: 'auto',
     maxTps: DEFAULT_MAX_TPS,
     maxRenderFps: DEFAULT_MAX_RENDER_FPS,
+    actionTimeoutMs: DEFAULT_ACTION_TIMEOUT_MS,
   };
   private taskPostApplyTimeoutId: number | null = null;
   private taskPostApplyTaskId: string | null = null;
+  private actionTimeoutId: number | null = null;
+  private actionTimeoutTaskId: string | null = null;
+  private readonly timedOutTickIds = new Set<string>();
 
   /**
    * Cached result of `!!(sendMessage && createActionStartMessage)`.
@@ -445,6 +459,8 @@ export class SimulationLoopController {
   private resetControllerState(): void {
     this.trigger.reset();
     this.clearTaskPostApply();
+    this.clearActionTimeout();
+    this.timedOutTickIds.clear();
     this.runtime.reset();
     this.dispatchTimingByKey.clear();
     this.metrics.reset();
@@ -461,12 +477,14 @@ export class SimulationLoopController {
     const previousMode = this.options.mode;
     const previousMaxTps = this.options.maxTps;
     const previousMaxRenderFps = this.options.maxRenderFps;
+    const previousActionTimeoutMs = this.options.actionTimeoutMs;
 
     this.options = {
       ...this.options,
       ...options,
       maxTps: this.normalizeMaxTps(options.maxTps ?? this.options.maxTps),
       maxRenderFps: this.normalizeMaxRenderFps(options.maxRenderFps ?? this.options.maxRenderFps),
+      actionTimeoutMs: this.normalizeActionTimeoutMs(options.actionTimeoutMs ?? this.options.actionTimeoutMs),
     };
     // Recompute once here rather than on every canDispatch() / flushCommands() call.
     this.dispatchReady = !!(this.options.sendMessage && this.options.createActionStartMessage);
@@ -481,6 +499,13 @@ export class SimulationLoopController {
     ) {
       this.trigger.disarm();
       this.schedulePendingDispatch();
+    }
+
+    if (previousActionTimeoutMs !== this.options.actionTimeoutMs) {
+      const activeTask = this.runtime.peekActiveTask();
+      if (activeTask?.stage === 'dispatched') {
+        this.scheduleActionTimeout(activeTask);
+      }
     }
 
     this.emitMetricsIfNeeded(true);
@@ -641,6 +666,7 @@ export class SimulationLoopController {
     this.options.sendMessage(
       this.options.createActionStartMessage(task.key, task.continuous, task.id),
     );
+    this.scheduleActionTimeout(task);
   }
 
   private discardScheduledDispatch(actionId?: string): void {
@@ -689,6 +715,10 @@ export class SimulationLoopController {
   // #region Action Event Handling
 
   private handleActionEnd(payload: ActionEndPayload): void {
+    if (payload.tick_id && this.timedOutTickIds.delete(payload.tick_id)) {
+      return;
+    }
+
     const activeTask = this.runtime.peekActiveTaskRef();
     if (!activeTask) return;
 
@@ -696,6 +726,7 @@ export class SimulationLoopController {
     // getSnapshot() call needed (unlike the original resolveTask design).
     const task = this.matchActiveTask(activeTask, payload);
     if (!task) return;
+    this.clearActionTimeout(task.id);
 
     const now = this.now();
     const timing = this.dispatchTimingByKey.get(task.key);
@@ -729,6 +760,63 @@ export class SimulationLoopController {
   }
 
   // #endregion Action Event Handling
+
+  // #region Action Timeout
+
+  private scheduleActionTimeout(task: RuntimeTaskSnapshot): void {
+    this.clearActionTimeout();
+    const timeoutMs = this.options.actionTimeoutMs;
+    if (timeoutMs <= 0) return;
+
+    this.actionTimeoutTaskId = task.id;
+    this.actionTimeoutId = window.setTimeout(() => {
+      if (this.actionTimeoutTaskId !== task.id) return;
+      this.clearActionTimeout();
+      this.handleActionTimeout(task, timeoutMs);
+    }, timeoutMs);
+  }
+
+  private clearActionTimeout(taskId?: string): void {
+    if (taskId !== undefined && this.actionTimeoutTaskId !== taskId) {
+      return;
+    }
+    if (this.actionTimeoutId !== null) {
+      window.clearTimeout(this.actionTimeoutId);
+      this.actionTimeoutId = null;
+    }
+    this.actionTimeoutTaskId = null;
+  }
+
+  private handleActionTimeout(task: RuntimeTaskSnapshot, timeoutMs: number): void {
+    const activeTask = this.runtime.peekActiveTaskRef();
+    if (!activeTask || activeTask.id !== task.id || activeTask.stage !== 'dispatched') {
+      return;
+    }
+
+    this.timedOutTickIds.add(task.id);
+
+    if (task.continuous) {
+      this.runtime.cancel(task.key);
+      this.dispatchTimingByKey.delete(task.key);
+    }
+
+    this.options.onActionTimeout?.({
+      actionId: task.key,
+      tickId: task.id,
+      continuous: task.continuous,
+      timeoutMs,
+    });
+
+    if (!this.runtime.completeTask(task.id, { continue: false })) {
+      return;
+    }
+    this.runtime.markTaskApplied(task.id);
+    this.scheduleTaskPostApply(task.id);
+    this.emitMetricsIfNeeded(true);
+    this.emit();
+  }
+
+  // #endregion Action Timeout
 
   // #region Task Post-Apply
 
@@ -792,6 +880,11 @@ export class SimulationLoopController {
   private normalizeMaxRenderFps(value: number): number {
     if (!Number.isFinite(value)) return DEFAULT_MAX_RENDER_FPS;
     return Math.max(0, Math.floor(value));
+  }
+
+  private normalizeActionTimeoutMs(value: number): number {
+    if (!Number.isFinite(value) || value <= 0) return DEFAULT_ACTION_TIMEOUT_MS;
+    return Math.max(1, Math.floor(value));
   }
 
   private emit(): void {

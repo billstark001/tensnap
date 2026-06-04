@@ -14,6 +14,7 @@ from typing import (
 
 from collections.abc import Callable
 
+from tensnap.bindings.mesa.utils import is_mesa_agent_class
 
 from tensnap.models import (
     ProjectorField,
@@ -78,28 +79,6 @@ LayerItemsProjectorForInit: TypeAlias = ItemsProjector[Any, TItemKeys] | str
 
 def _binding_name(scope: str, type: str) -> str:
     return f"_tensnap_bind_config_{scope}_{type}"
-
-
-def _is_probably_mesa_agent_class(cls) -> bool:
-    if not isinstance(cls, type):
-        return False
-
-    agent_cls: Any = None
-    try:
-        import importlib
-
-        agent_cls = getattr(importlib.import_module("mesa"), "Agent", None)
-    except Exception:
-        pass
-
-    if isinstance(agent_cls, type):
-        return issubclass(cls, agent_cls)
-
-    return any(
-        base.__name__ == "Agent"
-        and (base.__module__ == "mesa" or base.__module__.startswith("mesa."))
-        for base in getattr(cls, "__mro__", ())
-    )
 
 
 def _try_get_class(cls: Type[Any], target_class_name: str) -> Type[Any] | None:
@@ -354,7 +333,7 @@ _agent_field_defaults: AttrPathMap[AgentItemFields] = {
 
 _agent_fields: List[Tuple[Callable[[Any], bool], AttrPathMap[AgentItemFields]]] = [
     (
-        _is_probably_mesa_agent_class,
+        is_mesa_agent_class,
         {
             "id": "unique_id",
             "x": "pos[0]",
@@ -410,7 +389,7 @@ _id_field_defaults: AttrPathMap[Literal["id"]] = {
 
 _id_fields: List[Tuple[Callable[[Any], bool], AttrPathMap[Literal["id"]]]] = [
     (
-        _is_probably_mesa_agent_class,
+        is_mesa_agent_class,
         {
             "id": "unique_id",
         },

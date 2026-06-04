@@ -18,7 +18,7 @@
  *   6. Server sends `asset_delete` → store revokes blob URLs and removes entries.
  */
 
-import { decodeBinaryString } from '../utils/binary';
+import { decodeBinaryString, encodeBytesAsDataUrl } from '../utils/binary';
 import type { AssetId, AssetMeta, AssetStoreListener, ResolvedAsset } from './types';
 
 // ---------------------------------------------------------------------------
@@ -114,8 +114,12 @@ export class AssetStore {
       typeof raw === 'string' ? decodeBinaryString(raw).bytes : raw;
 
     let url: string | Uint8Array;
+    let source: string | Uint8Array | undefined;
 
-    if (mime.startsWith('image/') || mime === 'application/octet-stream') {
+    if (mime === 'image/svg+xml') {
+      source = new TextDecoder().decode(bytes);
+      url = encodeBytesAsDataUrl(bytes, mime);
+    } else if (mime.startsWith('image/') || mime === 'application/octet-stream') {
       const oldUrl = this._blobUrls.get(id);
       if (oldUrl) URL.revokeObjectURL(oldUrl);
       const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -123,10 +127,13 @@ export class AssetStore {
       const blobUrl = URL.createObjectURL(blob);
       this._blobUrls.set(id, blobUrl);
       url = blobUrl;
-    } else if (mime.startsWith('text/') || mime === 'application/json' || mime === 'image/svg+xml') {
+      source = bytes.slice();
+    } else if (mime.startsWith('text/') || mime === 'application/json') {
       url = new TextDecoder().decode(bytes);
+      source = url;
     } else {
       url = bytes;
+      source = bytes.slice();
     }
 
     // Update or create metadata if we didn't receive asset_meta first
@@ -135,7 +142,7 @@ export class AssetStore {
     meta.mime = mime;
     this._meta.set(id, meta);
 
-    const resolved: ResolvedAsset = { ...meta, url };
+    const resolved: ResolvedAsset = { ...meta, url, source };
     this._resolved.set(id, resolved);
     this._notify(id, resolved);
   }

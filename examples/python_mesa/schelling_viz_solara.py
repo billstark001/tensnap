@@ -34,6 +34,7 @@ model_params = {
     "width": Slider("Grid width", 50, 5, 150, 1, dtype=int),
     "height": Slider("Grid height", 50, 5, 150, 1, dtype=int),
     "density": Slider("Density", 0.8, 0.01, 1.0, 0.01, dtype=float),  # type: ignore
+    "balance": Slider("Balance", 0.5, 0.0, 1.0, 0.01, dtype=float),  # type: ignore
     "similarity_threshold": Slider(
         "Similarity threshold", 0.7, 0.0, 1.0, 0.01, dtype=float  # type: ignore
     ),
@@ -66,5 +67,3 @@ page = SolaraViz(
     model_params=model_params,
     name="Schelling model: Go-equivalent dynamics",
 )
-
-page

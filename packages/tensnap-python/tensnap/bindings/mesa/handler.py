@@ -19,11 +19,10 @@ from typing import (
 
 import tensnap.bindings as binding_api
 
-from tensnap.bindings.mesa.model_reinit import (
+from tensnap.bindings.lifecycle import (
     BoundModelReinitializer,
     KwargBinding,
     RegistryChanges,
-    cleanup_mesa_model_step,
     merge_registry_changes,
 )
 from tensnap.models import EnvironmentBinding, LayerBinding
@@ -31,6 +30,8 @@ from tensnap.scenario import DefaultSimulationHandler
 from tensnap.utils.attr import make_attr_getter, make_attr_projector
 from tensnap.utils.func import call_function
 from typing_extensions import deprecated
+
+from .utils import cleanup_mesa_model_step
 
 if TYPE_CHECKING:
     from tensnap.scenario import SimulationScenario

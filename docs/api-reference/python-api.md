@@ -275,13 +275,18 @@ scenario.add_layer_binding(
 
 ## Mesa Integration
 
-The Mesa integration lives under `tensnap.bindings.mesa`.
+The Mesa integration lives under `tensnap.bindings.mesa`, while the generic
+constructor-driven lifecycle helpers, including `default_cleanup_for_model(...)`,
+now live under `tensnap.bindings.lifecycle`.
 
 ### `BoundModelReinitializer`
 
 ```python
-from tensnap import SimulationScenario
-from tensnap.bindings.mesa import BoundModelReinitializer, bind_kwargs
+from tensnap import (
+    BoundModelReinitializer,
+    SimulationScenario,
+    bind_kwargs,
+)
 
 
 @bind_kwargs(include=["width", "height"])
@@ -304,17 +309,24 @@ await scenario.run()
 
 `BoundModelReinitializer` is the recommended Mesa lifecycle helper. It registers the decorated model through `scenario.add_all(model)`, adds constructor kwargs as resettable parameters when they are not already exposed by the model, and rebuilds the model in place on init/reset.
 
-Constructor kwargs come from `bind_kwargs(...)`, static `__init__` defaults, captured dynamic defaults from construction, or `init_kwargs` passed to `BoundModelReinitializer`. When a model already exposes a constructor field as a model parameter, the reinitializer keeps the model-owned parameter and only adds non-conflicting kwargs.
+Constructor kwargs come from `bind_kwargs(...)`, static `__init__` defaults, captured dynamic defaults from construction, or `init_kwargs` passed to `BoundModelReinitializer`. When a model already exposes a constructor field as a model parameter, the reinitializer keeps the model-owned parameter and only adds non-conflicting kwargs. `configure_reinit(...)` now automatically applies `default_cleanup_for_model(model)` when no cleanup is provided and the model is a Mesa model.
 
-Related helpers exported from `tensnap.bindings.mesa`:
+Related generic helpers exported from `tensnap.bindings.lifecycle`:
 
 - `bind_kwargs(...)`
 - `get_bind_kwargs(...)`
-- `cleanup_mesa_model_step(...)`
-- `default_cleanup_for_model(...)`
 - `reinitialize_registered_model(...)`
 - `merge_registry_changes(...)`
+- `default_cleanup_for_model(...)`
+
+Mesa-specific cleanup helpers that remain under `tensnap.bindings.mesa`:
+
+- `cleanup_mesa_model_step(...)`
+
+`default_cleanup_for_model(...)` is still exported from `tensnap.bindings.lifecycle` and re-exported from the deprecated Mesa compatibility surface for cases where you want to compose it with additional cleanup callbacks explicitly.
 
 ### `MesaSimulationHandler`
+
+Compatibility re-exports from `tensnap.bindings.mesa` remain available for one release cycle, but they now emit deprecation warnings that point to `tensnap.bindings.lifecycle`.
 
 `MesaSimulationHandler` remains available for compatibility, but new examples prefer `BoundModelReinitializer` plus `register_model_handler(...)` so registration and reset behavior are explicit.
