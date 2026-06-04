@@ -1,6 +1,7 @@
 import { useTransportStore } from "@/store/transport";
 import { useScenarioStore } from '@/store/scenario/store';
 import { useSettingsStore } from '@/store/settings';
+import { useToast } from '@/store/toast';
 import type { ActionEndPayload } from '@tensnap/core';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createIdleLoopState, SimulationLoopController } from '@tensnap/core/runtime/browser';
@@ -29,9 +30,11 @@ export function useButtonControls() {
   const renderTriggerMode = useSettingsStore((state) => state.renderTriggerMode);
   const maxTps = useSettingsStore((state) => state.maxTps);
   const maxRenderFps = useSettingsStore((state) => state.maxRenderFps);
+  const actionTimeoutSeconds = useSettingsStore((state) => state.actionTimeoutSeconds);
   const setRuntimeMetrics = useSettingsStore((state) => state.setRuntimeMetrics);
   const setSimulatorMetrics = useSettingsStore((state) => state.setSimulatorMetrics);
   const clearRuntimeMetrics = useSettingsStore((state) => state.clearRuntimeMetrics);
+  const toast = useToast();
 
   const loopController = useMemo(() => {
     if (!scenario) {
@@ -70,9 +73,16 @@ export function useButtonControls() {
       mode: renderTriggerMode,
       maxTps,
       maxRenderFps,
+      actionTimeoutMs: actionTimeoutSeconds * 1000,
       onMetricsChange: setRuntimeMetrics,
+      onActionTimeout: ({ actionId, timeoutMs }) => {
+        toast.error(
+          'Action timed out',
+          `No action_end received for "${actionId}" within ${timeoutMs / 1000}s.`,
+        );
+      },
     });
-  }, [loopController, sendMessage, createActionStartMessage, renderTriggerMode, maxTps, maxRenderFps, setRuntimeMetrics]);
+  }, [loopController, sendMessage, createActionStartMessage, renderTriggerMode, maxTps, maxRenderFps, actionTimeoutSeconds, setRuntimeMetrics, toast]);
 
   useEffect(() => {
     if (!scenario) {

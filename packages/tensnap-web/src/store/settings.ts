@@ -7,6 +7,8 @@ import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 
 type Theme = 'light' | 'dark';
 type ValidationLevel = 'off' | 'warning' | 'error';
+export const ACTION_TIMEOUT_SECONDS_OPTIONS = [1, 5, 10, 30, 60] as const;
+export type ActionTimeoutSeconds = typeof ACTION_TIMEOUT_SECONDS_OPTIONS[number];
 
 function readSetting(key: string): string | null {
   try {
@@ -41,6 +43,7 @@ interface SettingsStore {
   renderTriggerMode: RenderTriggerMode;
   maxTps: number;
   maxRenderFps: number;
+  actionTimeoutSeconds: ActionTimeoutSeconds;
   runtimeTps: number | null;
   runtimeMspt: number | null;
   simulatorMspt: number | null;
@@ -60,6 +63,7 @@ interface SettingsStore {
   setRenderTriggerMode: (mode: RenderTriggerMode) => void;
   setMaxTps: (fps: number) => void;
   setMaxRenderFps: (fps: number) => void;
+  setActionTimeoutSeconds: (seconds: number) => void;
   setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => void;
   setSimulatorMetrics: (metrics?: { simulate_ms?: number; communicate_ms?: number; render_ms?: number }) => void;
   clearRuntimeMetrics: () => void;
@@ -128,6 +132,14 @@ export const useSettingsStore = create<SettingsStore>()(
       return 120;
     })(),
 
+    actionTimeoutSeconds: (() => {
+      const saved = readSetting('actionTimeoutSeconds');
+      const parsed = saved ? Number(saved) : NaN;
+      return ACTION_TIMEOUT_SECONDS_OPTIONS.includes(parsed as ActionTimeoutSeconds)
+        ? parsed as ActionTimeoutSeconds
+        : 5;
+    })(),
+
     runtimeTps: null,
     runtimeMspt: null,
   simulatorMspt: null,
@@ -183,6 +195,13 @@ export const useSettingsStore = create<SettingsStore>()(
     setMaxRenderFps: (fps: number) => {
       const next = Number.isFinite(fps) ? Math.max(0, Math.floor(fps)) : 120;
       set({ maxRenderFps: next });
+    },
+
+    setActionTimeoutSeconds: (seconds: number) => {
+      const next = ACTION_TIMEOUT_SECONDS_OPTIONS.includes(seconds as ActionTimeoutSeconds)
+        ? seconds as ActionTimeoutSeconds
+        : 5;
+      set({ actionTimeoutSeconds: next });
     },
 
     setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => {
@@ -263,5 +282,12 @@ useSettingsStore.subscribe(
   (state) => state.maxRenderFps,
   (fps) => {
     writeSetting('maxRenderFps', String(fps));
+  }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.actionTimeoutSeconds,
+  (seconds) => {
+    writeSetting('actionTimeoutSeconds', String(seconds));
   }
 );

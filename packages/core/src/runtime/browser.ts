@@ -22,4 +22,5 @@ export type {
   ActionEventSource,
   RuntimeMetrics,
   SimulationLoopState,
+  ActionTimeoutEvent,
 } from './simulation-loop';

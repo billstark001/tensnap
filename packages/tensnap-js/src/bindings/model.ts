@@ -88,7 +88,7 @@ export interface ModelSessionContext<TConfig extends object> {
     items: readonly TItem[],
   ): Promise<void>;
   finishAction(
-    payload: Pick<ActionStartPayload, 'id' | 'continuous'>,
+    payload: Pick<ActionStartPayload, 'id' | 'continuous' | 'tick_id'>,
     shouldContinue?: boolean,
   ): Promise<void>;
   publishAsset(
@@ -461,6 +461,7 @@ export function defineModel<
         },
         finishAction: (payload, shouldContinue = false) => session.emitter.actionEnd({
           id: payload.id,
+          tick_id: payload.tick_id,
           continue: !!payload.continuous && shouldContinue,
         }),
         async publishAsset(id, mime, data, label) {

@@ -106,12 +106,12 @@ describe('defineModel', () => {
     messages.length = 0;
     await session.dispatch({
       type: 'action_start',
-      payload: { id: 'start', continuous: true },
+      payload: { id: 'start', continuous: true, tick_id: 'tick-1' },
     });
 
     expect(messages).toContainEqual({
       type: 'action_end',
-      payload: { id: 'start', continue: true },
+      payload: expect.objectContaining({ id: 'start', tick_id: 'tick-1', continue: true }),
     });
     expect(messages.some((message) => message.type === 'item_update')).toBe(true);
 

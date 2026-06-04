@@ -168,4 +168,89 @@ describe('SimulationLoopController', () => {
 
     release();
   });
+
+  it('times out an in-flight action and ignores its late action_end', async () => {
+    const scenario = new EventTarget();
+    const sendMessage = vi.fn();
+    const onActionTimeout = vi.fn();
+    const controller = new SimulationLoopController(scenario);
+
+    const release = controller.retain();
+    controller.updateOptions({
+      sendMessage,
+      createActionStartMessage: createMessage,
+      actionTimeoutMs: 1000,
+      maxTps: 0,
+      mode: 'setTimeout',
+      onActionTimeout,
+    });
+
+    controller.requestAction('step');
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    const firstMessage = sendMessage.mock.calls[0]?.[0] as RendererToSimulatorMessage;
+    const firstTickId = typeof firstMessage.payload === 'object' && firstMessage.payload && 'tick_id' in firstMessage.payload
+      ? firstMessage.payload.tick_id as string
+      : undefined;
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(onActionTimeout).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await Promise.resolve();
+
+    expect(onActionTimeout).toHaveBeenCalledWith(expect.objectContaining({
+      actionId: 'step',
+      tickId: firstTickId,
+      timeoutMs: 1000,
+    }));
+
+    controller.requestAction('step');
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+
+    scenario.dispatchEvent(new CustomEvent('action:end', {
+      detail: {
+        id: 'step',
+        tick_id: firstTickId,
+        continue: true,
+      },
+    }));
+
+    await vi.runAllTimersAsync();
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+
+    release();
+  });
+
+  it('stops a continuous action after timeout instead of redispatching', async () => {
+    const scenario = new EventTarget();
+    const sendMessage = vi.fn();
+    const onActionTimeout = vi.fn();
+    const controller = new SimulationLoopController(scenario);
+
+    const release = controller.retain();
+    controller.updateOptions({
+      sendMessage,
+      createActionStartMessage: createMessage,
+      actionTimeoutMs: 1000,
+      maxTps: 0,
+      mode: 'setTimeout',
+      onActionTimeout,
+    });
+
+    controller.requestAction('start', true);
+    expect(controller.getState().runningActions.has('start')).toBe(true);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(onActionTimeout).toHaveBeenCalledTimes(1);
+    expect(controller.getState().runningActions.has('start')).toBe(false);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    await vi.runAllTimersAsync();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    release();
+  });
 });

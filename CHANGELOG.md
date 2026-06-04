@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/core, @tensnap/web [0.2.2] - 2026-06-05
+
+### Added
+
+- Added a configurable web action timeout with 1s, 5s, 10s, 30s, and 60s options, defaulting to 5s and reporting timed-out actions via toast.
+
+### Fixed
+
+- Fixed SVG image assets resolving to raw inline SVG strings in browser renderers, which could make deployed web clients request escaped `<svg...` paths instead of loadable image URLs.
+- Preserved original asset sources for agent/headless rendering while exposing browser-safe URLs for web rendering.
+- Released timed-out in-flight actions so later state updates can still apply and late matching `action_end` events are discarded by the action loop.
+
+## @tensnap/js, @tensnap/agent [0.2.1] - 2026-06-05
+
+### Fixed
+
+- Included `tick_id` in JavaScript binding `action_end` replies so the renderer can distinguish late completions from newer actions with the same id.
+- Updated agent asset rendering sources to use preserved raw asset content when available.
+
 ## @tensnap/python [0.2.3] - 2026-06-05
 
 ### Added
