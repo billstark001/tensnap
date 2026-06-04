@@ -15,6 +15,10 @@ from typing_extensions import NotRequired, TypedDict
 
 from dataclasses import dataclass
 
+from tensnap.utils.object import infer_id_from_func_name, infer_label_from_id
+
+_TENSNAP_CHART_FIELD = "_tensnap_chart"
+
 
 @dataclass
 class ChartMetadata:
@@ -24,10 +28,9 @@ class ChartMetadata:
     label: str = ""
     color: Optional[str] = None
 
-    def __post_init__(self):
-        self.label = (
-            self.label or self.id.replace("_", " ").replace("-", " ").title().strip()
-        )
+    def refresh_label(self):
+        if not self.label:
+            self.label = infer_label_from_id(self.id)
 
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -54,21 +57,32 @@ class ChartGroupMetadata(ChartMetadata):
 
 
 class ChartProperty:
-    """Chart decorator that automatically calls getter and sends updates"""
+    """Chart decorator that can also behave like a read-only property"""
 
-    def __init__(self, chart: ChartGroupMetadata, getter: Callable):
+    def __init__(self, chart: ChartGroupMetadata, getter: Callable | property):
         self.chart = chart
-        self.getter = getter
-        self._tensnap_chart = chart  # Expose chart for server registration
+        setattr(
+            self, _TENSNAP_CHART_FIELD, chart
+        )  # Expose chart for server registration
+
+        self._property = getter if isinstance(getter, property) else None
+        self.getter = getter.fget if isinstance(getter, property) else getter
+
+        if self.getter is None:
+            raise ValueError("@chart cannot wrap a property without fget")
+
+        # Helpful for introspection/debugging
+        self.__name__ = getattr(self.getter, "__name__", chart.id)
+        self.__doc__ = getattr(self.getter, "__doc__", None)
 
     def __call__(self, *args, **kwargs) -> Any:
         """Call the getter function"""
-        return self.getter(*args, **kwargs)
+        return self.getter(*args, **kwargs)  # type: ignore
 
-    def __get__(self, obj: Any, objtype: Optional[type] = None) -> "ChartProperty":
+    def __get__(self, obj: Any, objtype: Optional[type] = None) -> Any:
         if obj is None:
             return self
-        return self
+        return self.getter(obj)  # type: ignore
 
 
 class ChartMetadataDict(TypedDict):
@@ -162,17 +176,24 @@ def _convert_to_chart_metadata(obj: SimplifiedChartMetadata) -> ChartMetadata:
 
 
 def chart(
-    id: str,
-    label: str,
+    id: Optional[str] = None,
+    label: Optional[str] = None,
     color: Optional[str] = None,
     data_list: Optional[List[SimplifiedChartMetadata]] = None,
-) -> Callable[[Callable], ChartProperty]:
+) -> Callable[[Callable | property], ChartProperty]:
     """Decorator to define a chart data getter"""
 
-    def decorator(func: Callable[..., Union[float, int]]) -> ChartProperty:
+    def decorator(func: Callable | property) -> ChartProperty:
+        raw_getter = func.fget if isinstance(func, property) else func
+
+        if raw_getter is None:
+            raise ValueError("@chart cannot wrap a property without fget")
+
+        chart_id = id or infer_id_from_func_name(raw_getter.__name__)
+
         chart_obj = ChartGroupMetadata(
-            id=id,
-            label=label,
+            id=chart_id,
+            label=label or "",
             color=color,
             data_list=(
                 [_convert_to_chart_metadata(data) for data in data_list]
@@ -180,10 +201,18 @@ def chart(
                 else None
             ),
         )
+
         chart_property = ChartProperty(chart_obj, func)
 
-        # Store chart info on the function for server registration
-        func._tensnap_chart = chart_obj  # type: ignore
+        # Store chart info for server registration.
+        # This works for normal functions and ChartProperty.
+        try:
+            setattr(func, _TENSNAP_CHART_FIELD, chart_obj)
+        except Exception:
+            # Built-in property objects usually cannot accept custom attrs.
+            pass
+
+        setattr(chart_property, _TENSNAP_CHART_FIELD, chart_obj)
 
         return chart_property
 
@@ -191,13 +220,37 @@ def chart(
 
 
 def get_chart_metadata_from_namespace(namespace: Dict[str, Any]):
-    """Find all chart-decorated functions in a given namespace"""
+    """Find all chart-decorated functions/properties in a given namespace"""
     charts: List[Tuple[str, Callable, ChartGroupMetadata]] = []
+
     for name, attr in namespace.items():
         if name.startswith("__") and name.endswith("__"):
             continue
-        if callable(attr) and hasattr(attr, "_tensnap_chart"):
-            param = getattr(attr, "_tensnap_chart")
-            if isinstance(param, ChartGroupMetadata):
-                charts.append((name, attr, param))
+
+        param = None
+        callable_attr = attr
+
+        # Case 1:
+        # @chart()
+        # def prop(...)
+        #
+        # or:
+        # @chart()
+        # @property
+        # def prop(...)
+        if hasattr(attr, _TENSNAP_CHART_FIELD):
+            param = getattr(attr, _TENSNAP_CHART_FIELD)
+
+        # Case 2:
+        # @property
+        # @chart()
+        # def prop(...)
+        elif isinstance(attr, property) and attr.fget is not None:
+            callable_attr = attr.fget
+            if hasattr(attr.fget, _TENSNAP_CHART_FIELD):
+                param = getattr(attr.fget, _TENSNAP_CHART_FIELD)
+
+        if isinstance(param, ChartGroupMetadata):
+            charts.append((name, callable_attr, param))
+
     return charts

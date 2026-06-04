@@ -10,6 +10,8 @@ from typing import (
 )
 from typing_extensions import NotRequired, TypedDict
 
+from tensnap.utils.object import infer_label_from_id
+
 ParameterType: TypeAlias = Literal["number", "enum", "boolean", "string"]
 
 
@@ -45,7 +47,7 @@ class ParameterBinding:
 
     def refresh_label(self):
         if not self.label:
-            self.label = self.id.replace("_", " ").title().strip()
+            self.label = infer_label_from_id(self.id)
 
     def __post_init__(self):
         self.refresh_label()

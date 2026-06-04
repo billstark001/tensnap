@@ -119,3 +119,15 @@ def get_init_args(cls: Type[TClass]):
             }
 
     return result
+
+
+def infer_id_from_func_name(func_name: str):
+    ret = func_name
+    if func_name.startswith("get"):
+        ret = func_name[3:]
+    ret = ret.lstrip("_")
+    return ret or func_name
+
+
+def infer_label_from_id(id: str):
+    return id.replace("_", " ").replace("-", " ").title().strip()
