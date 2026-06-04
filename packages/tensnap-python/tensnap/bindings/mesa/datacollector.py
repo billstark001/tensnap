@@ -3,7 +3,7 @@
 
 from typing import Any, Dict, List, Type, cast
 
-from tensnap.bindings.basic.chart import (
+from tensnap.models.chart import (
     ChartGroupMetadata,
     ChartMetadata,
     ChartProperty,

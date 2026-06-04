@@ -23,8 +23,8 @@ from typing import (
 
 import types
 import re
-import importlib
 
+from tensnap.bindings.mesa.utils import is_mesa_model_class
 from tensnap.models.parameter import (
     BooleanParameter,
     EnumParameter,
@@ -36,11 +36,6 @@ from tensnap.models.parameter import (
     StringParameter,
     create_parameter,
 )
-
-try:
-    MesaModel: Any = getattr(importlib.import_module("mesa"), "Model", None)
-except ImportError:
-    MesaModel = None
 
 
 # region Binding Classes
@@ -382,11 +377,22 @@ def get_field_metadata(cls: "type"):
             typ, *meta = get_args(annotated)
             result[name] = {
                 "type": typ,
-                "metadata": [
-                    m.__dict__ for m in meta if isinstance(m, BindParameterConfig)
-                ],
+                "metadata": [m for m in meta if isinstance(m, BindParameterConfig)],
             }
     return result
+
+
+def _clone_parameter_for_field(
+    field_name: str,
+    binding: BindParameterConfig,
+    value: Any,
+) -> Parameter:
+    metadata_dict = asdict(binding.metadata)
+    metadata_dict["id"] = metadata_dict.get("id") or field_name
+    metadata_dict["value"] = value
+    parameter = create_parameter(**metadata_dict)
+    parameter.refresh_label()
+    return parameter
 
 
 def get_parameter_metadata_from_namespace(
@@ -430,28 +436,6 @@ _default_mesa_parameter_config = BindParametersConfig(
 )
 
 
-def _is_probably_mesa_model_class(cls) -> bool:
-    if not isinstance(cls, type):
-        return False
-
-    model_cls: Any = None
-    try:
-        import importlib
-
-        model_cls = getattr(importlib.import_module("mesa"), "Model", None)
-    except Exception:
-        pass
-
-    if isinstance(model_cls, type):
-        return issubclass(cls, model_cls)
-
-    return any(
-        base.__name__ == "Agent"
-        and (base.__module__ == "mesa" or base.__module__.startswith("mesa."))
-        for base in getattr(cls, "__mro__", ())
-    )
-
-
 def get_parameter_metadata_from_object(
     obj: Any, *cfg_suggest: BindParametersConfig
 ) -> List[Tuple[str, Parameter]]:
@@ -473,7 +457,7 @@ def get_parameter_metadata_from_object(
         # 0. get config list
         cls = obj.__class__
         cfg_list: List[BindParametersConfig] = []
-        if _is_probably_mesa_model_class(cls):
+        if is_mesa_model_class(cls):
             cfg_list.append(_default_mesa_parameter_config)
         if cfg_suggest:
             cfg_list.extend(cfg_suggest)
@@ -493,10 +477,14 @@ def get_parameter_metadata_from_object(
                 continue
             if not BindParametersConfig.evaluate_is_included(cfg_list, field_name):
                 continue
+            field_value = getattr(obj, field_name, None)
             for meta in field_info["metadata"]:
-                if meta.type == "action":
-                    continue  # this does not make sense for fields
-                parameters.append((field_name, meta.metadata))
+                parameters.append(
+                    (
+                        field_name,
+                        _clone_parameter_for_field(field_name, meta, field_value),
+                    )
+                )
 
         # 3. fetch instance metadata
         keys_fetched = set(name for name, *_ in parameters)

@@ -4,19 +4,25 @@ from __future__ import annotations
 
 from types import ModuleType
 from typing import Any, cast
+from warnings import warn
 
+from tensnap.models.action import ActionMetadata as _ActionMetadata
+from tensnap.models.chart import ChartGroupMetadata as _ChartGroupMetadata
 from tensnap.models.environment import EnvironmentBinding
 from tensnap.models.layer import LayerBinding
 from tensnap.models.parameter import Parameter
 
 from .basic import *  # noqa: F403
-from .basic.action import ActionMetadata, get_action_metadata_from_namespace
-from .basic.chart import ChartGroupMetadata, get_chart_metadata_from_namespace
+from .basic.action import get_action_metadata_from_namespace
+from .basic.chart import get_chart_metadata_from_namespace
 from .basic.layer import BindLayerConfig
 from .basic.parameter import (
     BindParametersConfig,
     get_parameter_metadata_from_object,
 )
+
+for _deprecated_name in ("ActionMetadata", "ChartGroupMetadata"):
+    globals().pop(_deprecated_name, None)
 
 _ENVIRONMENT_BINDING_ATTR = "_tensnap_environment_binding_config"
 _LAYER_BINDINGS_ATTR = "_tensnap_layer_binding_configs"
@@ -65,13 +71,13 @@ def bindings(
 
 def actions(
     value: dict[str, Any] | ModuleType | object,
-) -> list[tuple[str, Any, ActionMetadata]]:
+) -> list[tuple[str, Any, _ActionMetadata]]:
     if isinstance(value, dict):
         return get_action_metadata_from_namespace(value)
     if isinstance(value, ModuleType) or isinstance(value, type):
         return get_action_metadata_from_namespace(dict(vars(value)))
 
-    discovered: list[tuple[str, Any, ActionMetadata]] = []
+    discovered: list[tuple[str, Any, _ActionMetadata]] = []
     for name, func, metadata in get_action_metadata_from_namespace(
         dict(vars(value.__class__))
     ):
@@ -83,13 +89,13 @@ def actions(
 
 def charts(
     value: dict[str, Any] | ModuleType | object,
-) -> list[tuple[str, Any, ChartGroupMetadata]]:
+) -> list[tuple[str, Any, _ChartGroupMetadata]]:
     if isinstance(value, dict):
         return get_chart_metadata_from_namespace(value)
     if isinstance(value, ModuleType) or isinstance(value, type):
         return get_chart_metadata_from_namespace(dict(vars(value)))
 
-    discovered: list[tuple[str, Any, ChartGroupMetadata]] = []
+    discovered: list[tuple[str, Any, _ChartGroupMetadata]] = []
     for name, func, metadata in get_chart_metadata_from_namespace(
         dict(vars(value.__class__))
     ):
@@ -103,3 +109,19 @@ def parameters(
     *cfg_suggest: BindParametersConfig,
 ) -> list[tuple[str, Parameter]]:
     return get_parameter_metadata_from_object(value, *cfg_suggest)
+
+
+def __getattr__(name: str) -> Any:
+    deprecated_exports = {
+        "ActionMetadata": _ActionMetadata,
+        "ChartGroupMetadata": _ChartGroupMetadata,
+    }
+    if name in deprecated_exports:
+        warn(
+            f"tensnap.bindings.{name} is deprecated; import {name} from "
+            "tensnap.models instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return deprecated_exports[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

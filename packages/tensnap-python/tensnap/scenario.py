@@ -30,9 +30,7 @@ from dataclasses import dataclass
 
 from . import bindings as binding_api
 from .bindings import (
-    ActionMetadata,
     BindParametersConfig,
-    ChartGroupMetadata,
 )
 from .handler import (
     DefaultSimulationHandler,
@@ -47,6 +45,8 @@ from .models import (
     LayerBinding,
     Parameter,
     LayerRegistration,
+    ActionMetadata,
+    ChartGroupMetadata,
     clone_environment_state,
 )
 from .protocol import (

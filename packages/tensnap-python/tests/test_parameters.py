@@ -6,13 +6,13 @@ from tensnap.bindings.basic import (
     EnumParameter,
     BooleanParameter,
     StringParameter,
-    ActionMetadata,
     BindParameterConfig,
     BindParametersConfig,
     get_parameter_metadata_from_object,
     get_action_metadata_from_namespace,
     action,
 )
+from tensnap.models import ActionMetadata
 from tensnap.bindings.basic.parameter import create_parameter
 
 
