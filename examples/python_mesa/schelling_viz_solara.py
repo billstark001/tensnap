@@ -67,5 +67,3 @@ page = SolaraViz(
     model_params=model_params,
     name="Schelling model: Go-equivalent dynamics",
 )
-
-page

@@ -4,6 +4,8 @@ from pathlib import Path
 import random
 
 import torch
+from torch import Tensor
+from torch.types import Device
 
 from .config import DQNConfig, EnvConfig
 from .dqn import DQNAgent
@@ -13,7 +15,7 @@ UNTRAINED_GUIDE_MODEL = "untrained"
 
 _agent: DQNAgent | None = None
 _loaded_model = UNTRAINED_GUIDE_MODEL
-_device = torch.device("cpu")
+_device: Device = "cpu"
 
 
 def _checkpoint_path(checkpoint_dir: str | None, checkpoint_name: str) -> Path:
@@ -36,7 +38,6 @@ def setup(
 
     random.seed(seed)
     torch.manual_seed(seed)
-    torch.set_num_threads(1)
 
     env_config = EnvConfig(
         width=width,
@@ -63,11 +64,12 @@ def setup(
 def select_action(state_values: list[float]) -> int:
     if _agent is None:
         setup()
+    assert _agent is not None
 
     if len(state_values) != 16:
         raise ValueError(f"Expected 16 state values, received {len(state_values)}.")
 
-    state = torch.tensor([float(value) for value in state_values], dtype=torch.float32)
+    state: Tensor = torch.Tensor([float(value) for value in state_values])
     return int(_agent.select_action(state, greedy=True))
 
 

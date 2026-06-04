@@ -21,10 +21,14 @@ from pathlib import Path
 from . import import_config
 
 import torch
+from torch.types import Device
 
-from tensnap import SimulationScenario, action
-from tensnap import EnumParameter
-from tensnap.bindings.mesa import BoundModelReinitializer
+from tensnap import (
+    BoundModelReinitializer,
+    EnumParameter,
+    SimulationScenario,
+    action,
+)
 
 from .config import DQNConfig, EnvConfig
 from .dqn import DQNAgent
@@ -65,7 +69,7 @@ class GuideModelManager:
         self,
         model: EvacuationModel,
         dqn_cfg: DQNConfig,
-        dqn_device: torch.device,
+        dqn_device: Device,
         model_dir: Path,
     ) -> None:
         self.model = model
@@ -122,6 +126,25 @@ class GuideModelManager:
         print(f"Guide model loaded: {self._loaded_guide_model}")
 
 
+def configure_visualization_scenario(
+    scenario: SimulationScenario,
+    env_config: EnvConfig,
+    dqn_config: DQNConfig,
+    device: Device,
+    guide_model_dir: Path,
+) -> tuple[EvacuationModel, BoundModelReinitializer, GuideModelManager]:
+    model = EvacuationModel(env_config)
+    model_reinitializer = BoundModelReinitializer(model, init_args=(env_config,))
+    guide_mgr = GuideModelManager(model, dqn_config, device, guide_model_dir)
+
+    scenario.add_parameters(env_config)
+    model_reinitializer.register_model(scenario)
+    model_reinitializer.configure_reinit(scenario)
+    scenario.add_all(guide_mgr)
+
+    return model, model_reinitializer, guide_mgr
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -135,12 +158,16 @@ async def main() -> None:
     # Default environment and DQN configs
     env_config = EnvConfig()
     dqn_config = DQNConfig()
-    device = torch.device("cpu")
+    device: Device = "cpu"
     guide_model_dir = guide_model_dir_from_env()
 
-    model = EvacuationModel(env_config)
-    model_reinitializer = BoundModelReinitializer(model, init_args=(env_config,))
-    guide_mgr = GuideModelManager(model, dqn_config, device, guide_model_dir)
+    model, model_reinitializer, guide_mgr = configure_visualization_scenario(
+        scenario,
+        env_config,
+        dqn_config,
+        device,
+        guide_model_dir,
+    )
 
     async def init():
         await model_reinitializer.model_init()
@@ -150,12 +177,6 @@ async def main() -> None:
         state = model.get_state()
         action = guide_mgr.dqn_agent.select_action(state, greedy=True)
         model.env_step(action)
-
-    scenario.add_parameters(env_config)
-    scenario.add_parameters(env_config)
-    model_reinitializer.register_model(scenario)
-    model_reinitializer.configure_reinit(scenario)
-    scenario.add_all(guide_mgr)
 
     await scenario.register_model_handler(init, step, init)
 

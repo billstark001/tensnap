@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 
 import torch
+from torch.types import Device
 
 from .config import DQNConfig, EnvConfig, TrainingConfig
 from .model import EvacuationModel
@@ -101,7 +102,7 @@ def main() -> None:
         seed=args.seed,
         checkpoint_dir=args.checkpoint_dir,
     )
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device: Device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.mode == "rollout":
         rollout(env_config, episodes=args.episodes, seed=args.seed)

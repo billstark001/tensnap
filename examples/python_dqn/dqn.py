@@ -9,16 +9,17 @@ import random
 from typing import Deque, NamedTuple
 
 import torch
-from torch import nn
+from torch import Tensor, nn
+from torch.types import Device
 
 from .config import DQNConfig
 
 
 class Transition(NamedTuple):
-    state: torch.Tensor
+    state: Tensor
     action: int
     reward: float
-    next_state: torch.Tensor
+    next_state: Tensor
     done: bool
 
 
@@ -47,7 +48,7 @@ class QNetwork(nn.Module):
             nn.Linear(hidden_dim, action_dim),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         return self.net(x)
 
 
@@ -59,7 +60,7 @@ class OptimizationStats:
 
 class DQNAgent:
     def __init__(
-        self, state_dim: int, action_dim: int, config: DQNConfig, device: torch.device
+        self, state_dim: int, action_dim: int, config: DQNConfig, device: Device
     ) -> None:
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -73,7 +74,7 @@ class DQNAgent:
         self.buffer = ReplayBuffer(config.buffer_size)
         self.total_steps = 0
 
-    def select_action(self, state: torch.Tensor, greedy: bool = False) -> int:
+    def select_action(self, state: Tensor, greedy: bool = False) -> int:
         epsilon = 0.0 if greedy else self.current_epsilon()
         self.total_steps += 1
         if random.random() < epsilon:
@@ -90,10 +91,10 @@ class DQNAgent:
 
     def store(
         self,
-        state: torch.Tensor,
+        state: Tensor,
         action: int,
         reward: float,
-        next_state: torch.Tensor,
+        next_state: Tensor,
         done: bool,
     ) -> None:
         self.buffer.add(Transition(state, action, reward, next_state, done))
@@ -103,16 +104,11 @@ class DQNAgent:
             return None
         batch = self.buffer.sample(self.config.batch_size)
         states = torch.stack([t.state for t in batch]).to(self.device)
-        actions = torch.tensor(
-            [t.action for t in batch], dtype=torch.long, device=self.device
-        ).unsqueeze(1)
-        rewards = torch.tensor(
-            [t.reward for t in batch], dtype=torch.float32, device=self.device
-        ).unsqueeze(1)
+        actions = torch.Tensor([t.action for t in batch]).to(self.device).unsqueeze(1)
+        actions = actions.long()
+        rewards = torch.Tensor([t.reward for t in batch]).to(self.device).unsqueeze(1)
         next_states = torch.stack([t.next_state for t in batch]).to(self.device)
-        dones = torch.tensor(
-            [t.done for t in batch], dtype=torch.float32, device=self.device
-        ).unsqueeze(1)
+        dones = torch.Tensor([t.done for t in batch]).to(self.device).unsqueeze(1)
 
         current_q = self.policy_net(states).gather(1, actions)
         with torch.no_grad():
@@ -145,7 +141,7 @@ class DQNAgent:
         torch.save(payload, path)
 
     def load(self, path: str) -> None:
-        payload = torch.load(path, map_location=self.device)
+        payload = torch.load(path, map_location=str(self.device))
         self.policy_net.load_state_dict(payload["policy"])
         self.target_net.load_state_dict(payload["target"])
         self.optimizer.load_state_dict(payload["optimizer"])

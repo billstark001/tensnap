@@ -7,9 +7,10 @@ from typing import cast
 # Configure import path (pip-installed vs source)
 import import_config  # noqa: F401
 
-from tensnap import SimulationScenario, chart
-from tensnap.bindings.mesa import (
+from tensnap import (
     BoundModelReinitializer,
+    SimulationScenario,
+    chart,
 )
 
 from mushroom import ForagingModel, Hunter, Patch

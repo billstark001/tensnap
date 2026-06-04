@@ -9,6 +9,7 @@ import random
 from typing import Iterable
 
 import torch
+from torch import Tensor
 from mesa import Agent, Model
 from mesa.space import MultiGrid
 import tensnap as t
@@ -174,41 +175,46 @@ class EvacuationModel(Model):
         self.step_count += 1
         done = self.is_done()
         info = {
-            "alive": float(self.alive_count),
-            "evacuated": float(self.evacuated_count),
-            "dead": float(self.dead_count),
+            "alive": float(self._alive_count()),
+            "evacuated": float(self._evacuated_count()),
+            "dead": float(self._dead_count()),
             "congestion": float(stats.congestion),
         }
         return self.get_state(), reward, done, info
 
     def is_done(self) -> bool:
         everyone_resolved = (
-            self.alive_count == 0
-            or self.evacuated_count + self.dead_count == len(self.evacuees)
+            self._alive_count() == 0
+            or self._evacuated_count() + self._dead_count() == len(self.evacuees)
         )
         return everyone_resolved or self.step_count >= self.config.max_steps
 
+    def _alive_count(self) -> int:
+        return sum(1 for evacuee in self.evacuees if evacuee.alive and not evacuee.evacuated)
+
+    def _evacuated_count(self) -> int:
+        return sum(1 for evacuee in self.evacuees if evacuee.evacuated)
+
+    def _dead_count(self) -> int:
+        return sum(1 for evacuee in self.evacuees if not evacuee.alive and not evacuee.evacuated)
+
     @t.chart("alive", "Alive Evacuees", color="#F59E0B")
-    @property
     def alive_count(self) -> int:
-        return sum(1 for a in self.evacuees if a.alive and not a.evacuated)
+        return self._alive_count()
 
     @t.chart("evacuated", "Evacuated", color="#16A34A")
-    @property
     def evacuated_count(self) -> int:
-        return sum(1 for a in self.evacuees if a.evacuated)
+        return self._evacuated_count()
 
     @t.chart("dead", "Dead", color="#9CA3AF")
-    @property
     def dead_count(self) -> int:
-        return sum(1 for a in self.evacuees if not a.alive and not a.evacuated)
+        return self._dead_count()
 
     @t.chart("fire_size", "Fire Size", color="#DC2626")
-    @property
     def fire_size(self) -> int:
         return len(self.fire_cells)
 
-    def get_state(self) -> torch.Tensor:
+    def get_state(self) -> Tensor:
         gx, gy = self.guide.pos
         fx, fy = self.fire_centroid()
         nearest_exit = min(
@@ -216,20 +222,21 @@ class EvacuationModel(Model):
         )
         local_congestion = self.count_evacuees_near(self.guide.pos, radius=2)
         sector_counts = self._sector_counts_around_guide(max_radius=5)
+        evacuee_count = max(1, len(self.evacuees))
         values = [
             gx / max(1, self.width - 1),
             gy / max(1, self.height - 1),
             fx / max(1, self.width - 1),
             fy / max(1, self.height - 1),
-            self.alive_count / max(1, len(self.evacuees)),
-            self.evacuated_count / max(1, len(self.evacuees)),
-            self.dead_count / max(1, len(self.evacuees)),
+            self._alive_count() / evacuee_count,
+            self._evacuated_count() / evacuee_count,
+            self._dead_count() / evacuee_count,
             nearest_exit / max(1, self.width + self.height),
-            local_congestion / max(1, len(self.evacuees)),
+            local_congestion / evacuee_count,
             len(self.fire_cells) / max(1, self.width * self.height),
-            *[count / max(1, len(self.evacuees)) for count in sector_counts],
+            *[count / evacuee_count for count in sector_counts],
         ]
-        return torch.tensor(values, dtype=torch.float32)
+        return torch.Tensor(values)
 
     def valid_position(self, pos: Position) -> bool:
         x, y = pos

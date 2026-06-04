@@ -8,14 +8,15 @@ from schelling import SchellingModel, SchellingAgent
 # These are monkey patching. They should be decorators by default.
 
 from tensnap import (
+    BoundModelReinitializer,
+    NumberParameter,
+    SimulationScenario,
     agent,
     agent_layer,
+    bind_kwargs,
     env,
     bind_datacollector,
     params,
-    NumberParameter,
-    bind_kwargs,
-    BoundModelReinitializer,
 )
 
 agent(

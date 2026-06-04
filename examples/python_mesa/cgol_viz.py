@@ -4,9 +4,9 @@ import os
 # Configure import path (pip-installed vs source)
 import import_config  # noqa: F401
 
-from tensnap import SimulationScenario
-from tensnap.bindings.mesa import (
+from tensnap import (
     BoundModelReinitializer,
+    SimulationScenario,
 )
 
 from cgol import GameOfLife
