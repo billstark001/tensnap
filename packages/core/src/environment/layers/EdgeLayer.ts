@@ -36,7 +36,10 @@ import { createArrowhead, createEdgeLine } from '../utils/shape';
 // #region Types & Constants
 
 type SimNode = AgentRenderState & d3.SimulationNodeDatum;
-type SimLink = GraphEdge & d3.SimulationLinkDatum<SimNode>;
+type SimLink = GraphEdge & d3.SimulationLinkDatum<SimNode> & {
+  sourceId: AgentId;
+  targetId: AgentId;
+};
 
 interface EdgeShapeEntry {
   line: Line;
@@ -201,12 +204,6 @@ export class EdgeLayer extends BaseLayer {
       // Assign initial positions to new nodes before pushing them back, to prevent
       // a one-frame flicker where AgentLayer renders all agents at (0, 0).
       this._assignInitialPositions(this._simNodes, this._simLinkMap as ReadonlyMap<string, GraphEdge>);
-      for (const link of this._simLinkMap.values()) {
-        const srcId = EdgeStorage.resolveId(link.source as Parameters<typeof EdgeStorage.resolveId>[0]);
-        const tgtId = EdgeStorage.resolveId(link.target as Parameters<typeof EdgeStorage.resolveId>[0]);
-        link.source = this._simNodeMap.get(srcId) ?? srcId;
-        link.target = this._simNodeMap.get(tgtId) ?? tgtId;
-      }
       this._simulation?.nodes(this._simNodes);
       this._syncLinkForce();
       // Push positions synchronously so AgentLayer updates before the browser paints.
@@ -257,12 +254,33 @@ export class EdgeLayer extends BaseLayer {
 
   /** Rebuild _simLinks from _simLinkMap and push to the link force. */
   private _syncLinkForce(): void {
-    this._simLinks = [...this._simLinkMap.values()].filter((link) => {
-      const srcId = EdgeStorage.resolveId(link.source as Parameters<typeof EdgeStorage.resolveId>[0]);
-      const tgtId = EdgeStorage.resolveId(link.target as Parameters<typeof EdgeStorage.resolveId>[0]);
-      return this._simNodeMap.has(srcId) && this._simNodeMap.has(tgtId);
-    });
-    this._linkForce?.links(this._simLinks);
+      const validLinks: SimLink[] = [];
+
+  for (const [key, link] of this._simLinkMap) {
+    const src = this._simNodeMap.get(link.sourceId);
+    const tgt = this._simNodeMap.get(link.targetId);
+
+    if (!src || !tgt) {
+      // valid -> invalid link
+      this._removeEdgeShape(key);
+      continue;
+    }
+
+    link.source = src;
+    link.target = tgt;
+    validLinks.push(link);
+
+    // invalid -> valid link
+    if (!this._edgeShapeMap.has(key)) {
+      this._addEdgeShape(key, link);
+    } else {
+      const entry = this._edgeShapeMap.get(key)!;
+      entry.link = link;
+    }
+  }
+
+  this._simLinks = validLinks;
+  this._linkForce?.links(this._simLinks);
   }
 
   // #endregion
@@ -365,9 +383,16 @@ export class EdgeLayer extends BaseLayer {
 
   /** Build a SimLink, resolving source/target ids to SimNode objects where available. */
   private _buildSimLink(edge: GraphEdge, nodeMap: Map<AgentId, SimNode>): SimLink {
-    const src = EdgeStorage.resolveId(edge.source);
-    const tgt = EdgeStorage.resolveId(edge.target);
-    return { ...edge, source: nodeMap.get(src) ?? src, target: nodeMap.get(tgt) ?? tgt } as SimLink;
+    const sourceId = EdgeStorage.resolveId(edge.source);
+    const targetId = EdgeStorage.resolveId(edge.target);
+
+    return {
+      ...edge,
+      sourceId,
+      targetId,
+      source: nodeMap.get(sourceId) ?? sourceId,
+      target: nodeMap.get(targetId) ?? targetId,
+    } as SimLink;
   }
 
   /**

@@ -7,6 +7,9 @@
 
 // #region Types
 
+/** Supported interaction neighborhoods for the Axelrod model. */
+export type AxelrodNeighborhood = 'von-neumann' | 'moore' | 'extended';
+
 /** Configuration parameters for the Axelrod model */
 export interface AxelrodConfig {
   /** Grid width; total agent count = width × height */
@@ -17,6 +20,10 @@ export interface AxelrodConfig {
   numFeatures: number;
   /** m — number of possible trait values per feature; traits drawn from [0, m-1] */
   numTraits: number;
+  /** Interaction neighborhood. Extended = Moore + four distance-2 cardinal cells. */
+  neighborhood?: AxelrodNeighborhood;
+  /** Number of asynchronous micro-updates per rendered TenSnap tick. */
+  updatesPerTick?: number;
 }
 
 /** A single agent on the 2-D torus lattice */
@@ -44,6 +51,14 @@ export interface AxelrodResult {
   numCultures: number;
   converged: boolean;
   iterations: number;
+}
+
+/** Inspection metrics for a live Axelrod state. */
+export interface AxelrodMetrics {
+  cultures: number;
+  regions: number;
+  activeEdges: number;
+  meanSimilarity: number;
 }
 
 // #endregion
@@ -90,6 +105,52 @@ export function getMooreNeighbors(
     }
   }
   return coords;
+}
+
+export function getAxelrodNeighbors(
+  row: number,
+  col: number,
+  width: number,
+  height: number,
+  neighborhood: AxelrodNeighborhood = 'moore'
+): Array<[number, number]> {
+  const offsets: Array<[number, number]> = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ];
+
+  if (neighborhood === 'moore' || neighborhood === 'extended') {
+    offsets.push(
+      [-1, -1],
+      [-1, 1],
+      [1, -1],
+      [1, 1],
+    );
+  }
+
+  if (neighborhood === 'extended') {
+    offsets.push(
+      [-2, 0],
+      [2, 0],
+      [0, -2],
+      [0, 2],
+    );
+  }
+
+  return offsets.map(([dr, dc]) => [
+    ((row + dr) % height + height) % height,
+    ((col + dc) % width + width) % width,
+  ]);
+}
+
+function normalizeNeighborhood(config: AxelrodConfig): AxelrodNeighborhood {
+  return config.neighborhood ?? 'moore';
+}
+
+function cultureKey(agent: Agent): string {
+  return agent.features.join(',');
 }
 
 // #endregion
@@ -159,7 +220,13 @@ export function stepAxelrod(
   const focal = agents[row][col];
 
   // Step 2 — pick a random Moore neighbor
-  const neighborCoords = getMooreNeighbors(row, col, config.width, config.height);
+  const neighborCoords = getAxelrodNeighbors(
+    row,
+    col,
+    config.width,
+    config.height,
+    normalizeNeighborhood(config),
+  );
   const [nr, nc] = neighborCoords[randomInt(neighborCoords.length, rng)];
   const neighbor = agents[nr][nc];
 
@@ -191,8 +258,85 @@ export function countCultures(state: AxelrodState): number {
   const seen = new Set<string>();
   for (const row of state.agents)
     for (const agent of row)
-      seen.add(agent.features.join(','));
+      seen.add(cultureKey(agent));
   return seen.size;
+}
+
+/** Counts connected regions of identical culture under the configured neighborhood. */
+export function countCulturalRegions(state: AxelrodState): number {
+  const { width, height } = state.config;
+  const neighborhood = normalizeNeighborhood(state.config);
+  const visited = new Set<number>();
+  let regions = 0;
+
+  for (const row of state.agents) {
+    for (const agent of row) {
+      if (visited.has(agent.id)) continue;
+      regions += 1;
+      const targetCulture = cultureKey(agent);
+      const queue: Agent[] = [agent];
+      visited.add(agent.id);
+
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        for (const [nr, nc] of getAxelrodNeighbors(current.row, current.col, width, height, neighborhood)) {
+          const neighbor = state.agents[nr][nc];
+          if (visited.has(neighbor.id) || cultureKey(neighbor) !== targetCulture) continue;
+          visited.add(neighbor.id);
+          queue.push(neighbor);
+        }
+      }
+    }
+  }
+
+  return regions;
+}
+
+export function computeAxelrodPairMetrics(state: AxelrodState): {
+  activeEdges: number;
+  meanSimilarity: number;
+} {
+  const { width, height } = state.config;
+  const neighborhood = normalizeNeighborhood(state.config);
+  const seenPairs = new Set<string>();
+  let activeEdges = 0;
+  let similaritySum = 0;
+  let pairCount = 0;
+
+  for (const row of state.agents) {
+    for (const agent of row) {
+      for (const [nr, nc] of getAxelrodNeighbors(agent.row, agent.col, width, height, neighborhood)) {
+        const neighbor = state.agents[nr][nc];
+        const a = Math.min(agent.id, neighbor.id);
+        const b = Math.max(agent.id, neighbor.id);
+        const key = `${a}:${b}`;
+        if (seenPairs.has(key)) continue;
+        seenPairs.add(key);
+
+        const similarity = computeSimilarity(agent, neighbor);
+        similaritySum += similarity;
+        pairCount += 1;
+        if (similarity > 0 && similarity < 1) {
+          activeEdges += 1;
+        }
+      }
+    }
+  }
+
+  return {
+    activeEdges,
+    meanSimilarity: pairCount > 0 ? similaritySum / pairCount : 0,
+  };
+}
+
+export function computeAxelrodMetrics(state: AxelrodState): AxelrodMetrics {
+  const pairMetrics = computeAxelrodPairMetrics(state);
+  return {
+    cultures: countCultures(state),
+    regions: countCulturalRegions(state),
+    activeEdges: pairMetrics.activeEdges,
+    meanSimilarity: pairMetrics.meanSimilarity,
+  };
 }
 
 // #endregion
