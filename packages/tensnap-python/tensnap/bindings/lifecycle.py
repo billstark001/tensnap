@@ -5,14 +5,19 @@ from __future__ import annotations
 import inspect
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast, get_type_hints
 
 from tensnap.models import Parameter, create_parameter
 from tensnap.models.parameter import ParameterType
 from tensnap.utils.attr import make_attr_getter
 from tensnap.utils.init_hook import OnceInitHookHandle, install_once_init_hook
 
-from .basic.parameter import BindParametersConfig, get_parameter_metadata_from_object
+from .basic.parameter import (
+    BindParametersConfig,
+    get_annotated_parameter_config,
+    get_parameter_metadata_from_object,
+    unwrap_annotated_type,
+)
 from .mesa.utils import cleanup_mesa_model_step as _cleanup_mesa_model_step
 from .mesa.utils import is_mesa_model_class
 
@@ -114,6 +119,7 @@ class KwargValueSource:
 
 
 def _parameter_type(annotation: Any | None, value: Any) -> ParameterType:
+    annotation = unwrap_annotated_type(annotation)
     if annotation is bool or isinstance(value, bool):
         return "boolean"
     if annotation is str or isinstance(value, str):
@@ -127,6 +133,10 @@ def _make_parameter(
     annotation: Any | None,
     config: BindParametersConfig,
 ) -> Parameter:
+    annotated_binding = get_annotated_parameter_config(annotation)
+    if annotated_binding is not None:
+        return annotated_binding.to_parameter(field_name=name, value=value)
+
     p_type = _parameter_type(annotation, value)
     custom = config.get_custom_binding(name, p_type) or {}
     return create_parameter(id=name, type=p_type, value=value, **custom)
@@ -134,6 +144,10 @@ def _make_parameter(
 
 def _static_init_kwargs(cls: type[Any]) -> dict[str, dict[str, Any]]:
     sig = inspect.signature(cls.__init__)
+    try:
+        hints = get_type_hints(cls.__init__, include_extras=True)
+    except (NameError, TypeError, AttributeError):
+        hints = {}
     result: dict[str, dict[str, Any]] = {}
     for name, param in sig.parameters.items():
         if name == "self":
@@ -148,10 +162,13 @@ def _static_init_kwargs(cls: type[Any]) -> dict[str, dict[str, Any]]:
         result[name] = {
             "default": param.default if has_default else _MISSING,
             "required": not has_default,
-            "annotation": (
-                param.annotation
-                if param.annotation is not inspect.Parameter.empty
-                else None
+            "annotation": hints.get(
+                name,
+                (
+                    param.annotation
+                    if param.annotation is not inspect.Parameter.empty
+                    else None
+                ),
             ),
         }
     return result

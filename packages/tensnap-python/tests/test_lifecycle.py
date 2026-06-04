@@ -1,4 +1,5 @@
 import importlib
+from typing import Annotated
 
 import pytest
 
@@ -12,7 +13,7 @@ from tensnap.bindings.lifecycle import (
     default_cleanup_for_model,
     get_bind_kwargs,
 )
-from tensnap.models import create_parameter
+from tensnap.models import NumberParameter, create_parameter
 
 
 def test_bind_kwargs_uses_static_defaults_before_dynamic_defaults():
@@ -45,6 +46,35 @@ def test_bind_kwargs_honors_include_exclude_and_rejects_multiple_configs():
     assert bindings == ["width"]
     with pytest.raises(ValueError):
         bind_kwargs()(ConfiguredModel)
+
+
+def test_bind_kwargs_uses_annotated_param_metadata():
+    @bind_kwargs(include=["threshold"])
+    class ConfiguredModel:
+        def __init__(
+            self,
+            threshold: Annotated[
+                float,
+                binding_api.param(
+                    "number",
+                    label="Threshold",
+                    min=0.0,
+                    max=1.0,
+                    step=0.05,
+                ),
+            ] = 0.7,
+        ):
+            self.threshold = threshold
+
+    bindings = {binding.name: binding for binding in get_bind_kwargs(ConfiguredModel)}
+    threshold = bindings["threshold"].parameter
+
+    assert isinstance(threshold, NumberParameter)
+    assert threshold.label == "Threshold"
+    assert threshold.value == 0.7
+    assert threshold.min == 0.0
+    assert threshold.max == 1.0
+    assert threshold.step == 0.05
 
 
 def test_bound_model_reinitializer_registers_constructor_kwargs():
@@ -258,7 +288,8 @@ def test_old_mesa_package_lifecycle_exports_warn_and_point_to_new_path():
     mesa_bindings = importlib.import_module("tensnap.bindings.mesa")
 
     with pytest.warns(
-        DeprecationWarning, match="import BoundModelReinitializer from tensnap.bindings.lifecycle"
+        DeprecationWarning,
+        match="import BoundModelReinitializer from tensnap.bindings.lifecycle",
     ):
         assert mesa_bindings.BoundModelReinitializer is BoundModelReinitializer
 
@@ -278,7 +309,8 @@ def test_old_mesa_model_reinit_exports_warn_and_point_to_new_path():
     model_reinit = importlib.import_module("tensnap.bindings.mesa.model_reinit")
 
     with pytest.warns(
-        DeprecationWarning, match="import get_bind_kwargs from tensnap.bindings.lifecycle"
+        DeprecationWarning,
+        match="import get_bind_kwargs from tensnap.bindings.lifecycle",
     ):
         assert model_reinit.get_bind_kwargs is get_bind_kwargs
 

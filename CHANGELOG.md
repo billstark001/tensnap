@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/python [0.2.3] - 2026-06-05
+
+### Added
+
+- Added shared Python binding metadata models under `tensnap.models` for actions and charts, with compatibility re-exports from `tensnap.bindings.basic`.
+- Added property-style chart composition with id inference, including grouped chart series declared through `ChartProperty.group(...)`.
+- Added framework-neutral lifecycle and reinitialization helpers in `tensnap.bindings.lifecycle`, while keeping the Mesa reinitializer surface as a compatibility wrapper.
+- Added `typing.Annotated` constructor/dataclass parameter binding discovery and dynamic callable metadata support for parameter descriptors.
+
+### Changed
+
+- Updated default `SimulationScenario.add_all(...)` parameter discovery to use explicit-only parameter collection, reducing accidental exposure of ordinary public attributes.
+- Strengthened parameter descriptor typing so property-like parameter decorators type-check cleanly with Pyright.
+
 ## @tensnap/go [0.2.3] - 2026-06-05
 
 ### Added

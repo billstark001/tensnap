@@ -78,6 +78,7 @@ class ChartProperty:
     ) -> None:
         self.chart = chart
         setattr(self, _TENSNAP_CHART_FIELD, chart)
+        self._has_explicit_data_list = chart.data_list is not None
 
         self._property = getter if isinstance(getter, property) else None
         raw_getter = getter.fget if isinstance(getter, property) else getter
@@ -117,7 +118,7 @@ class ChartProperty:
     ):
         if self._group_owner is not None:
             raise ValueError("Only a root ChartProperty can own grouped series.")
-        if self.chart.data_list:
+        if self._has_explicit_data_list:
             raise ValueError(
                 "ChartProperty.group() cannot extend a chart that already defines "
                 "data_list. Use one grouping style per chart."

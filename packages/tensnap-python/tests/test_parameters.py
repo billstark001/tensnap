@@ -1,5 +1,7 @@
 """Tests for parameter bindings and decorators"""
 
+from typing import Annotated
+
 import pytest
 from tensnap.bindings.basic import (
     NumberParameter,
@@ -195,8 +197,53 @@ class TestBindDecorator:
             def get_value(self):
                 return self._value
 
+            def set_value(self, value):
+                self._value = value
+
+            get_value = get_value.setter(set_value)
+
         model = TestModel()
         assert model.get_value == 10.0
+        model.get_value = 12.0
+        assert model.get_value == 12.0
+
+    def test_bind_dynamic_enum_metadata_from_owner(self):
+        """Test descriptor metadata can be resolved from the owning instance."""
+
+        class TestModel:
+            def __init__(self):
+                self._mode = "fast"
+                self.options = ["fast", "slow"]
+
+            @BindParameterConfig(
+                "enum",
+                id="mode",
+                label="Mode",
+                options=lambda owner: owner.options,
+                labels=lambda owner: {
+                    option: option.title() for option in owner.options
+                },
+            )
+            def mode(self):
+                return self._mode
+
+            def set_mode(self, value):
+                self._mode = value
+
+            mode = mode.setter(set_mode)
+
+        model = TestModel()
+        parameters = get_parameter_metadata_from_object(
+            model, BindParametersConfig.EXPLICIT_ONLY
+        )
+
+        assert len(parameters) == 1
+        _, parameter = parameters[0]
+        assert parameter.id == "mode"
+        assert parameter.value == "fast"
+        assert isinstance(parameter, EnumParameter)
+        assert parameter.options == ["fast", "slow"]
+        assert parameter.labels == {"fast": "Fast", "slow": "Slow"}
 
 
 class TestBindParametersConfig:
@@ -345,3 +392,33 @@ class TestGetParameterMetadata:
         assert param_dict["count"].type == "number"
         assert param_dict["name"].type == "string"
         assert param_dict["enabled"].type == "boolean"
+
+    def test_init_annotated_parameter_metadata_for_instance_fields(self):
+        """Test __init__ Annotated metadata can describe matching instance fields."""
+
+        class TestModel:
+            def __init__(
+                self,
+                speed: Annotated[
+                    float,
+                    BindParameterConfig(
+                        "number", label="Speed", min=0.0, max=10.0, step=0.5
+                    ),
+                ] = 2.5,
+            ):
+                self.speed = speed
+                self.other = 1
+
+        model = TestModel()
+        parameters = get_parameter_metadata_from_object(
+            model, BindParametersConfig.EXPLICIT_ONLY
+        )
+
+        assert [name for name, _ in parameters] == ["speed"]
+        parameter = parameters[0][1]
+        assert parameter.label == "Speed"
+        assert parameter.value == 2.5
+        assert isinstance(parameter, NumberParameter)
+        assert parameter.min == 0.0
+        assert parameter.max == 10.0
+        assert parameter.step == 0.5

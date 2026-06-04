@@ -13,6 +13,7 @@ def test_chart_property_group_keeps_properties_readable_and_registers_one_group(
         def __init__(self):
             self.alive_count_value = 4
             self.evacuated_count_value = 2
+            self.dead_count_value = 1
 
         @chart("alive", "Evacuation Counts", color="#F59E0B")
         @property
@@ -24,22 +25,36 @@ def test_chart_property_group_keeps_properties_readable_and_registers_one_group(
         def evacuated_count(self) -> int:
             return self.evacuated_count_value
 
+        @alive_count.group("dead", "Dead", color="#9CA3AF")
+        @property
+        def dead_count(self) -> int:
+            return self.dead_count_value
+
     model = Model()
 
     assert model.alive_count == 4
     assert model.evacuated_count == 2
+    assert model.dead_count == 1
 
     discovered = binding_api.charts(model)
 
     assert len(discovered) == 1
     name, getter, metadata = discovered[0]
     assert name == "alive_count"
-    assert getter() == {"alive": 4, "evacuated": 2}
+    assert getter() == {"alive": 4, "evacuated": 2, "dead": 1}
     assert metadata.id == "alive"
     assert metadata.label == "Evacuation Counts"
     assert metadata.data_list is not None
-    assert [series.id for series in metadata.data_list] == ["alive", "evacuated"]
-    assert [series.label for series in metadata.data_list] == ["Alive", "Evacuated"]
+    assert [series.id for series in metadata.data_list] == [
+        "alive",
+        "evacuated",
+        "dead",
+    ]
+    assert [series.label for series in metadata.data_list] == [
+        "Alive",
+        "Evacuated",
+        "Dead",
+    ]
 
 
 @pytest.mark.asyncio
