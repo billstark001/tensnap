@@ -143,6 +143,57 @@ func TestDeclarativeModelReplaysAndDiffsOwnedState(t *testing.T) {
 	}
 }
 
+func TestChartGroupMetadataAndUpdates(t *testing.T) {
+	raw := &testModel{
+		agents: []testAgent{
+			{id: "a", x: 1},
+			{id: "b", x: 2},
+		},
+		speed: 2.5,
+	}
+	chart := NewChartGroup(
+		"model_stats", "Model Stats",
+		NewChartSeries("agent_count", "Agent Count", "#16A34A", func(model *testModel) any {
+			return len(model.agents)
+		}),
+		NewChartSeries("speed", "Speed", "#2563EB", func(model *testModel) any {
+			return model.speed
+		}),
+	)
+	metadata := chart.Metadata()
+
+	if metadata.ID != "model_stats" || metadata.Label != "Model Stats" {
+		t.Fatalf("unexpected chart metadata: %#v", metadata)
+	}
+	if len(metadata.DataList) != 2 {
+		t.Fatalf("expected two chart series, got %#v", metadata.DataList)
+	}
+	if metadata.DataList[0].ID != "agent_count" || metadata.DataList[1].ID != "speed" {
+		t.Fatalf("unexpected dataList ids: %#v", metadata.DataList)
+	}
+
+	model := NewModel(raw, WithCharts(chart))
+	emitter := &testEmitter{}
+
+	if err := model.PushCharts(emitter, 4); err != nil {
+		t.Fatalf("PushCharts returned error: %v", err)
+	}
+	if len(emitter.chartValues) != 2 {
+		t.Fatalf("expected two chart updates, got %#v", emitter.chartValues)
+	}
+	if got := emitter.chartValues[0]; got.ID != "agent_count" || got.Value != 2 {
+		t.Fatalf("unexpected first chart update: %#v", got)
+	}
+	if got := emitter.chartValues[1]; got.ID != "speed" || got.Value != 2.5 {
+		t.Fatalf("unexpected second chart update: %#v", got)
+	}
+	for _, update := range emitter.chartValues {
+		if update.Time == nil || *update.Time != 4 {
+			t.Fatalf("unexpected chart update time: %#v", update)
+		}
+	}
+}
+
 func TestAgentLayerUsesIncrementalTrackerWhenConfigured(t *testing.T) {
 	raw := &testModel{
 		agents: []testAgent{

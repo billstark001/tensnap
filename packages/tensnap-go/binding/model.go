@@ -166,15 +166,11 @@ func (m *Model[T]) PushCharts(e abm.Emitter, tick float64) error {
 	}
 	updates := make([]protocol.ChartUpdateEntry, 0, len(m.charts))
 	for _, chart := range m.charts {
-		value, err := chart.Value(m.target)
+		chartUpdates, err := chart.Updates(m.target, tick)
 		if err != nil {
 			return err
 		}
-		updates = append(updates, protocol.ChartUpdateEntry{
-			ID:    chart.ID,
-			Time:  &tick,
-			Value: value,
-		})
+		updates = append(updates, chartUpdates...)
 	}
 	return e.ChartUpdate(&protocol.ChartUpdatePayload{Updates: updates})
 }

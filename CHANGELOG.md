@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/go [0.2.3] - 2026-06-05
+
+### Added
+
+- Added grouped chart builders for the Go binding, including `ChartSeries`, `NewChartSeries`, `NewChartSeriesFunc`, and `NewChartGroup`.
+- Added grouped chart update emission so `Model.PushCharts(...)` can publish one update per series while preserving existing single-chart behavior.
+- Documented Go grouped chart registration in the Go API reference.
+
+### Changed
+
+- Bumped `@tensnap/go` package metadata to `0.2.3`.
+- Optimized Go layer diff/projector handling for binding layers and environment state replay.
+
 ## @tensnap/julia [0.2.0] - 2026-05-31
 
 ### Added
