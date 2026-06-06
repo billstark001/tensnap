@@ -11,9 +11,10 @@ import random
 import torch
 from torch.types import Device
 
-from .config import DQNConfig, EnvConfig, TrainingConfig
-from .model import EvacuationModel
-from .train import evaluate, format_eval, train_dqn
+from .config import DQNConfig, EnvConfig, TrainingConfig, build_evacuation_layout
+from .dqn import DQNAgent
+from .envs import EnvKind, NetLogoEnvConfig, make_evacuation_env
+from .train import evaluate, format_eval, run_episode, train_dqn
 
 DEFAULT_CHECKPOINT_DIR = Path(__file__).resolve().parent / "checkpoints"
 
@@ -25,6 +26,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mode", choices=("rollout", "train", "eval"), default="rollout"
     )
+    parser.add_argument(
+        "--env",
+        choices=("mesa", "netlogo"),
+        default="mesa",
+        help="Environment implementation used for rollout/train/eval.",
+    )
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
@@ -35,31 +42,36 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--height", type=int, default=16)
     parser.add_argument("--evacuees", type=int, default=28)
     parser.add_argument("--max-steps", type=int, default=80)
+    parser.add_argument(
+        "--netlogo-model",
+        type=Path,
+        default=None,
+        help="Optional NetLogo model path for --env netlogo.",
+    )
+    parser.add_argument(
+        "--netlogo-home",
+        type=Path,
+        default=None,
+        help="Optional NetLogo installation path for pyNetLogo.",
+    )
+    parser.add_argument(
+        "--netlogo-gui",
+        action="store_true",
+        help="Open NetLogo GUI while using --env netlogo.",
+    )
     return parser
 
 
 def make_env_config(args: argparse.Namespace) -> EnvConfig:
-    right_exit_x = max(0, args.width - 1)
-    center_y = max(0, min(args.height - 1, args.height // 2))
-    fire_center = (max(0, min(args.width - 1, args.width // 2)), center_y)
-    left_wall_x = max(1, args.width // 3)
-    right_wall_x = min(max(2, args.width - 2), (2 * args.width) // 3)
-    walls: list[tuple[int, int]] = []
-    for y in range(2, max(2, args.height - 2)):
-        if y == center_y:
-            continue
-        if 0 < left_wall_x < args.width - 1:
-            walls.append((left_wall_x, y))
-        if 0 < right_wall_x < args.width - 1 and right_wall_x != left_wall_x:
-            walls.append((right_wall_x, y))
+    exits, fire_sources, walls = build_evacuation_layout(args.width, args.height)
     return EnvConfig(
         width=args.width,
         height=args.height,
         num_evacuees=args.evacuees,
         max_steps=args.max_steps,
-        exits=((0, center_y), (right_exit_x, center_y)),
-        fire_sources=(fire_center,),
-        walls=tuple(walls),
+        exits=exits,
+        fire_sources=fire_sources,
+        walls=walls,
     )
 
 
@@ -70,25 +82,44 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def rollout(env_config: EnvConfig, episodes: int, seed: int) -> None:
+def rollout(
+    env_config: EnvConfig,
+    episodes: int,
+    seed: int,
+    env_kind: EnvKind,
+    netlogo_config: NetLogoEnvConfig | None,
+) -> None:
     rewards: list[float] = []
-    for episode in range(episodes):
-        model = EvacuationModel(env_config, seed=seed + episode)
-        state = model.get_state()
-        total_reward = 0.0
-        while not model.is_done():
-            action = random.randrange(model.action_size)
-            state, reward, done, info = model.env_step(action)
-            total_reward += reward
-            if done:
-                print(
-                    f"episode={episode + 1} reward={total_reward:.3f} "
-                    f"evacuated={int(info['evacuated'])} dead={int(info['dead'])}"
-                )
-                break
-        rewards.append(total_reward)
-    avg_reward = sum(rewards) / max(1, len(rewards))
-    print(f"avg_reward={avg_reward:.3f}")
+    env = make_evacuation_env(
+        env_kind,
+        env_config,
+        seed=seed,
+        netlogo_config=netlogo_config,
+    )
+    try:
+
+        class RandomAgent:
+            def select_action(self, state, greedy: bool = False) -> int:
+                return random.randrange(env.action_size)
+
+        agent = RandomAgent()
+        for episode in range(episodes):
+            summary = run_episode(
+                env,
+                agent,  # type: ignore[arg-type]
+                train=False,
+                seed=seed + episode,
+            )
+            rewards.append(summary.reward)
+            print(
+                f"episode={episode + 1} env={env_kind} "
+                f"reward={summary.reward:.3f} "
+                f"evacuated={summary.evacuated} dead={summary.dead}"
+            )
+        avg_reward = sum(rewards) / max(1, len(rewards))
+        print(f"avg_reward={avg_reward:.3f}")
+    finally:
+        env.close()
 
 
 def main() -> None:
@@ -97,6 +128,11 @@ def main() -> None:
     set_seed(args.seed)
     env_config = make_env_config(args)
     dqn_config = DQNConfig()
+    netlogo_config = NetLogoEnvConfig(
+        model_path=args.netlogo_model,
+        netlogo_home=args.netlogo_home,
+        gui=args.netlogo_gui,
+    )
     train_config = TrainingConfig(
         episodes=args.episodes,
         seed=args.seed,
@@ -105,24 +141,53 @@ def main() -> None:
     device: Device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.mode == "rollout":
-        rollout(env_config, episodes=args.episodes, seed=args.seed)
+        rollout(
+            env_config,
+            episodes=args.episodes,
+            seed=args.seed,
+            env_kind=args.env,
+            netlogo_config=netlogo_config,
+        )
         return
 
     if args.mode == "train":
-        artifacts = train_dqn(env_config, dqn_config, train_config, device=device)
+        artifacts = train_dqn(
+            env_config,
+            dqn_config,
+            train_config,
+            device=device,
+            env_kind=args.env,
+            netlogo_config=netlogo_config,
+        )
         print(f"training_complete episodes={len(artifacts.summaries)}")
         eval_results = evaluate(
-            env_config, artifacts.agent, episodes=10, seed=args.seed
+            env_config,
+            artifacts.agent,
+            episodes=10,
+            seed=args.seed,
+            env_kind=args.env,
+            netlogo_config=netlogo_config,
         )
         print(f"eval {format_eval(eval_results)}")
         return
 
-    model = EvacuationModel(env_config, seed=args.seed)
-    from .dqn import DQNAgent
-
-    agent = DQNAgent(model.state_size, model.action_size, dqn_config, device=device)
+    env = make_evacuation_env(
+        args.env,
+        env_config,
+        seed=args.seed,
+        netlogo_config=netlogo_config,
+    )
+    agent = DQNAgent(env.state_size, env.action_size, dqn_config, device=device)
+    env.close()
     agent.load(str(args.checkpoint))
-    results = evaluate(env_config, agent, episodes=args.episodes, seed=args.seed)
+    results = evaluate(
+        env_config,
+        agent,
+        episodes=args.episodes,
+        seed=args.seed,
+        env_kind=args.env,
+        netlogo_config=netlogo_config,
+    )
     print(f"eval {format_eval(results)}")
 
 

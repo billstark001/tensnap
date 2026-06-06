@@ -11,6 +11,7 @@ from typing import Iterable
 import torch
 from torch import Tensor
 from mesa import Agent, Model
+from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
 import tensnap as t
 
@@ -129,6 +130,7 @@ class EvacuationModel(Model):
         self.wall_cells: set[Position] = set(config.walls)
         self.fire_cells: set[Position] = set(config.fire_sources)
         self.step_count = 0
+        self.running = True
         self.guide = GuideAgent(
             self,
             self._sample_spawn(
@@ -146,6 +148,15 @@ class EvacuationModel(Model):
             self.grid.place_agent(agent, agent.spawn_pos)
             self.evacuees.append(agent)
             occupied.add(pos)
+        self.datacollector = DataCollector(
+            model_reporters={
+                "Alive": lambda model: model.alive_count,
+                "Evacuated": lambda model: model.evacuated_count,
+                "Dead": lambda model: model.dead_count,
+                "Fire Size": lambda model: model.fire_size,
+            }
+        )
+        self.datacollector.collect(self)
 
     @property
     def guides(self):
@@ -174,6 +185,8 @@ class EvacuationModel(Model):
         reward = self._compute_reward(stats)
         self.step_count += 1
         done = self.is_done()
+        self.running = not done
+        self.datacollector.collect(self)
         info = {
             "alive": float(self.alive_count),
             "evacuated": float(self.evacuated_count),
@@ -192,9 +205,7 @@ class EvacuationModel(Model):
     @t.chart("alive", "Evacuation Outcomes", color=EVACUEE_ALIVE_COLOR)
     def alive_count(self) -> int:
         return sum(
-            1
-            for evacuee in self.evacuees
-            if evacuee.alive and not evacuee.evacuated
+            1 for evacuee in self.evacuees if evacuee.alive and not evacuee.evacuated
         )
 
     @alive_count.group("evacuated", "Evacuated", color=EVACUEE_EVACUATED_COLOR)
