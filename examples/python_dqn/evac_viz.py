@@ -161,10 +161,15 @@ async def main() -> None:
         await model_reinitializer.model_init()
         guide_mgr.reset_guide_model()
 
-    def step():
+    def step() -> bool:
+        if not model.running or model.is_done():
+            model.running = False
+            return False
+
         state = model.get_state()
         action = guide_mgr.dqn_agent.select_action(state, greedy=True)
-        model.env_step(action)
+        _, _, done, _ = model.env_step(action)
+        return not done
 
     await scenario.register_model_handler(init, step, init)
 

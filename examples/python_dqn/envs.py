@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import re
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -86,6 +89,10 @@ class NetLogoEvacuationEnv:
 
     action_size = 5
     state_size = 16
+    _CODE_BLOCK_PATTERN = re.compile(
+        r"(<code><!\[CDATA\[)(.*?)(\]\]></code>)",
+        re.DOTALL,
+    )
 
     def __init__(
         self,
@@ -99,6 +106,7 @@ class NetLogoEvacuationEnv:
             self.netlogo_config.model_path
             or Path(__file__).resolve().parent / "netlogo" / "evac_dqn_netlogo.nlogox"
         )
+        self._temporary_model_path: Path | None = None
         self._validate_supported_layout()
 
         try:
@@ -113,8 +121,13 @@ class NetLogoEvacuationEnv:
         if self.netlogo_config.netlogo_home is not None:
             kwargs["netlogo_home"] = str(self.netlogo_config.netlogo_home)
         self._link = pynetlogo.NetLogoLink(**kwargs)
-        self._link.load_model(str(self.model_path))
-        self.reset(seed=seed)
+        load_model_path = self._training_model_path(self.model_path)
+        try:
+            self._link.load_model(str(load_model_path))
+            self.reset(seed=seed)
+        except Exception:
+            self.close()
+            raise
 
     @property
     def evacuated_count(self) -> int:
@@ -154,6 +167,11 @@ class NetLogoEvacuationEnv:
         kill = getattr(self._link, "kill_workspace", None)
         if callable(kill):
             kill()
+        if self._temporary_model_path is not None:
+            try:
+                self._temporary_model_path.unlink(missing_ok=True)
+            finally:
+                self._temporary_model_path = None
 
     def _configure_model(self, seed: int | None) -> None:
         values: dict[str, int | float | str | bool] = {
@@ -205,6 +223,98 @@ class NetLogoEvacuationEnv:
             escaped = value.replace("\\", "\\\\").replace('"', '\\"')
             return f'"{escaped}"'
         return str(value)
+
+    def _training_model_path(self, source_path: Path) -> Path:
+        source_text = source_path.read_text(encoding="utf-8")
+        source_match = self._CODE_BLOCK_PATTERN.search(source_text)
+        if source_match is None:
+            return source_path
+
+        code = source_match.group(2)
+        if "py:" not in code and "extensions [ py" not in code:
+            return source_path
+
+        training_code = self._training_only_code(code)
+        training_text = (
+            source_text[: source_match.start(2)]
+            + training_code
+            + source_text[source_match.end(2) :]
+        )
+        handle, temp_name = tempfile.mkstemp(
+            prefix="tensnap-evac-dqn-training-",
+            suffix=".nlogox",
+        )
+        with os.fdopen(handle, "w", encoding="utf-8") as temp_file:
+            temp_file.write(training_text)
+        self._temporary_model_path = Path(temp_name)
+        return self._temporary_model_path
+
+    @classmethod
+    def _training_only_code(cls, code: str) -> str:
+        code = re.sub(
+            r"(?m)^extensions \[([^\]]*)\]\s*\n",
+            cls._remove_py_extension,
+            code,
+            count=1,
+        )
+        code = cls._replace_procedure(
+            code,
+            "setup-python-policy",
+            """
+to setup-python-policy
+  set loaded-guide-model "training action"
+  set policy-loaded? false
+end
+""",
+        )
+        code = cls._replace_procedure(
+            code,
+            "reset-guide-model",
+            """
+to reset-guide-model
+  set loaded-guide-model "training action"
+  set policy-loaded? false
+end
+""",
+        )
+        code = cls._replace_procedure(
+            code,
+            "python-guide-action",
+            """
+to-report python-guide-action
+  report training-action
+end
+""",
+        )
+        if "py:" in code:
+            raise RuntimeError(
+                "Unable to build a training-only NetLogo model: Python extension "
+                "primitives remain in the generated code."
+            )
+        return code
+
+    @staticmethod
+    def _remove_py_extension(match: re.Match[str]) -> str:
+        extension_names = [
+            name for name in match.group(1).split() if name.strip() != "py"
+        ]
+        if not extension_names:
+            return ""
+        return f"extensions [ {' '.join(extension_names)} ]\n"
+
+    @staticmethod
+    def _replace_procedure(code: str, name: str, replacement: str) -> str:
+        pattern = re.compile(
+            rf"to(?:-report)? {re.escape(name)}\b.*?\nend",
+            re.DOTALL,
+        )
+        updated, count = pattern.subn(replacement.strip(), code, count=1)
+        if count != 1:
+            raise RuntimeError(
+                f"Unable to build a training-only NetLogo model: procedure "
+                f"'{name}' was not found exactly once."
+            )
+        return updated
 
 
 def make_evacuation_env(

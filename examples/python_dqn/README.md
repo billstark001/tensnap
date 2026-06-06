@@ -181,6 +181,9 @@ read the DQN action with `py:runresult`.
 For training with `--env netlogo`, the Python adapter disables
 `use-python-policy?`, writes `training-action`, calls `go`, and reads the same
 16-value state vector, reward, done flag, and count metrics back from NetLogo.
+The Mesa, TenSnap, Solara, and NetLogo variants now share the same stop
+condition: all evacuees are evacuated or dead, and fire has reached every
+burnable non-wall, non-exit cell.
 
 Open it from the repository root with:
 
@@ -190,6 +193,8 @@ pnpm dev:netlogo:evac-dqn
 
 If NetLogo cannot find the repository or Python environment, set the model's
 `repo-root` and `python-executable` inputs before pressing `setup`.
+`python-executable` defaults to `auto`, which tries common project, conda, and
+Homebrew Python paths before falling back to `python3`.
 
 The NetLogo GUI keeps `use-python-policy?` on by default. Its bundled
 BehaviorSpace smoke experiment turns that switch off because NetLogo's

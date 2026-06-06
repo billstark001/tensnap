@@ -35,8 +35,9 @@ Inputs:
 
 - `repo-root`: repository root. The default `auto` searches the current working
   directory and its parents; set an absolute path if import fails.
-- `python-executable`: leave empty to use NetLogo's default Python, or set it to
-  a Python with `mesa` and `torch` installed.
+- `python-executable`: `auto` tries common project, conda, and Homebrew Python
+  paths before falling back to `python3`; set an absolute path if your
+  dependencies live somewhere else.
 - `guide-model`: `untrained` or a checkpoint file name from
   `examples/python_dqn/checkpoints`.
 - `checkpoint-dir`: optional override for the checkpoint directory.
@@ -59,6 +60,10 @@ python -m python_dqn.main --mode train --env netlogo --episodes 300
 The adapter uses pyNetLogo to load this model, turns `use-python-policy?` off,
 sets `training-action` before every `go`, and reads `dqn-state-values`,
 `last-reward`, `done?`, and count monitors after the step.
+
+The stop condition is shared with the Mesa/TenSnap implementation: every
+evacuee must be evacuated or dead, and fire must cover every burnable
+non-wall, non-exit patch.
 
 ## Headless Smoke
 

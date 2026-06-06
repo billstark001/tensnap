@@ -170,9 +170,30 @@ class EvacuationModel(Model):
     def state_size(self) -> int:
         return 16
 
+    @property
+    def burnable_cells(self) -> set[Position]:
+        return {
+            (x, y)
+            for x in range(self.width)
+            for y in range(self.height)
+            if (x, y) not in self.wall_cells and (x, y) not in self.exit_cells
+        }
+
+    @property
+    def burnable_cell_count(self) -> int:
+        return len(self.burnable_cells)
+
+    @property
+    def fire_fully_spread(self) -> bool:
+        return self.burnable_cells.issubset(self.fire_cells)
+
     def env_step(
         self, action: int
     ) -> tuple[torch.Tensor, float, bool, dict[str, float]]:
+        if self.is_done():
+            self.running = False
+            return self.get_state(), 0.0, True, self._step_info(congestion=0)
+
         self._move_guide(action)
         guided_neighbors = self.count_evacuees_near(
             self.guide.pos, self.config.guide_influence_radius
@@ -187,20 +208,14 @@ class EvacuationModel(Model):
         done = self.is_done()
         self.running = not done
         self.datacollector.collect(self)
-        info = {
-            "alive": float(self.alive_count),
-            "evacuated": float(self.evacuated_count),
-            "dead": float(self.dead_count),
-            "congestion": float(stats.congestion),
-        }
+        info = self._step_info(congestion=stats.congestion)
         return self.get_state(), reward, done, info
 
     def is_done(self) -> bool:
-        everyone_resolved = (
-            self.alive_count == 0
-            or self.evacuated_count + self.dead_count == len(self.evacuees)
+        everyone_resolved = self.evacuated_count + self.dead_count == len(
+            self.evacuees
         )
-        return everyone_resolved or self.step_count >= self.config.max_steps
+        return everyone_resolved and self.fire_fully_spread
 
     @t.chart("alive", "Evacuation Outcomes", color=EVACUEE_ALIVE_COLOR)
     def alive_count(self) -> int:
@@ -371,6 +386,14 @@ class EvacuationModel(Model):
         reward += self.config.congestion_penalty * stats.congestion
         reward += self.config.clustering_bonus * stats.guided_neighbors
         return reward
+
+    def _step_info(self, congestion: int) -> dict[str, float]:
+        return {
+            "alive": float(self.alive_count),
+            "evacuated": float(self.evacuated_count),
+            "dead": float(self.dead_count),
+            "congestion": float(congestion),
+        }
 
     def _count_alive_evacuees_at(self, pos: Position) -> int:
         return sum(
