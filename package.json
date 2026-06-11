@@ -33,6 +33,7 @@
     "dev:py:schelling": "cd examples/python_mesa && python schelling_viz.py",
     "dev:py:schelling:solara": "cd examples/python_mesa && solara run schelling_viz_solara.py",
     "standalone:py:schelling": "cd examples/python_mesa && python schelling_standalone.py",
+    "standalone:netlogo:schelling": "cd examples/python_mesa && python schelling_netlogo_standalone.py",
     "dev:py:evac-dqn": "cd examples && python -m python_dqn.evac_viz",
     "dev:py:evac-dqn:solara": "cd examples && solara run python_dqn/evac_viz_solara.py",
     "dev:netlogo:evac-dqn": "open -a '/Applications/NetLogo 7.0.4/NetLogo 7.0.4.app' examples/python_dqn/netlogo/evac_dqn_netlogo.nlogox",
