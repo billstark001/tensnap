@@ -135,12 +135,12 @@ to recolor
 end]]></code>
   <widgets>
     <view x="368" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="0" height="434" showTickCounter="true" patchSize="8.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="49" updateMode="1" maxPxcor="49" minPxcor="0"></view>
-    <slider x="374" step="0.01" y="453" max="1" width="250" display="density" height="50" min="0" direction="Horizontal" default="0.8" variable="density"></slider>
-    <slider x="374" step="0.01" y="518" max="1" width="250" display="balance" height="50" min="0" direction="Horizontal" default="0.5" variable="balance"></slider>
-    <slider x="374" step="0.01" y="583" max="1" width="250" display="similarity-threshold" height="50" min="0" direction="Horizontal" default="0.7" variable="similarity-threshold"></slider>
-    <slider x="374" step="1" y="648" max="10000" width="250" display="seed" height="50" min="0" direction="Horizontal" default="7" variable="seed"></slider>
-    <button x="634" y="578" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
-    <button x="634" y="458" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
+    <slider x="810" step="0.01" y="10" max="1" width="250" display="density" height="50" min="0" direction="Horizontal" default="0.8" variable="density"></slider>
+    <slider x="810" step="1" y="205" max="10000" width="250" display="seed" height="50" min="0" direction="Horizontal" default="7.0" variable="seed"></slider>
+    <slider x="810" step="0.01" y="140" max="1" width="250" display="similarity-threshold" height="50" min="0" direction="Horizontal" default="0.7" variable="similarity-threshold"></slider>
+    <slider x="810" step="0.01" y="75" max="1" width="250" display="balance" height="50" min="0" direction="Horizontal" default="0.5" variable="balance"></slider>
+    <button x="810" y="265" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
+    <button x="875" y="265" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
   </widgets>
   <info>## WHAT IS IT?
 
@@ -1011,6 +1011,7 @@ end]]></code>
       </indicator>
     </shape>
   </linkShapes>
+  <previewCommands>setup repeat 75 [ go ]</previewCommands>
   <experiments>
     <experiment name="scientific-heavy" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="1000">
       <setup>setup</setup>
@@ -1023,13 +1024,30 @@ end]]></code>
       </metrics>
       <subExperiments>
         <subExperiment>
-        <enumeratedValueSet variable="density"><value value="0.8"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="balance"><value value="0.5"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="similarity-threshold"><value value="0.3"></value><value value="0.5"></value><value value="0.7"></value><value value="0.9"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="seed"><value value="7"></value><value value="8"></value><value value="9"></value><value value="10"></value><value value="11"></value><value value="12"></value><value value="13"></value><value value="14"></value></enumeratedValueSet>
+          <enumeratedValueSet variable="density">
+            <value value="0.8"></value>
+          </enumeratedValueSet>
+          <enumeratedValueSet variable="balance">
+            <value value="0.5"></value>
+          </enumeratedValueSet>
+          <enumeratedValueSet variable="similarity-threshold">
+            <value value="0.3"></value>
+            <value value="0.5"></value>
+            <value value="0.7"></value>
+            <value value="0.9"></value>
+          </enumeratedValueSet>
+          <enumeratedValueSet variable="seed">
+            <value value="7"></value>
+            <value value="8"></value>
+            <value value="9"></value>
+            <value value="10"></value>
+            <value value="11"></value>
+            <value value="12"></value>
+            <value value="13"></value>
+            <value value="14"></value>
+          </enumeratedValueSet>
         </subExperiment>
       </subExperiments>
     </experiment>
   </experiments>
-  <previewCommands>setup repeat 75 [ go ]</previewCommands>
 </model>
