@@ -4,6 +4,8 @@
 
 breed [evacuees evacuee]
 breed [guides guide]
+breed [trail-nodes trail-node]
+undirected-link-breed [evacuee-trails evacuee-trail]
 
 patches-own [
   wall?
@@ -15,6 +17,10 @@ patches-own [
 evacuees-own [
   alive?
   evacuated?
+]
+
+evacuee-trails-own [
+  trail-age
 ]
 
 globals [
@@ -38,6 +44,7 @@ to setup
   set dead-count 0
   set fire-size 0
   set training-action 0
+  normalize-python-policy-state
   random-seed seed
   ifelse use-python-policy? [
     setup-python-policy
@@ -52,11 +59,13 @@ to setup
   set last-reward 0
   update-counts
   reset-ticks
+  update-metric-plots
 end
 
 to go
   if done? [ stop ]
 
+  age-agent-trails
   let previous-evacuated evacuated-count
   let previous-dead dead-count
   let guided-neighbors count-guided-neighbors
@@ -77,9 +86,17 @@ to go
     guided-neighbors)
   set total-reward total-reward + last-reward
   tick-advance 1
+  update-metric-plots
+end
+
+to normalize-python-policy-state
+  if policy-loaded? != true [
+    set policy-loaded? false
+  ]
 end
 
 to setup-python-policy
+  normalize-python-policy-state
   if not use-python-policy? [
     set loaded-guide-model "python disabled"
     set policy-loaded? false
@@ -144,6 +161,7 @@ to-report resolved-python-executable
 end
 
 to reset-guide-model
+  normalize-python-policy-state
   if not use-python-policy? [
     set loaded-guide-model "python disabled"
     set policy-loaded? false
@@ -247,10 +265,11 @@ to-report python-guide-action
     report training-action
   ]
   py:set "state_values" dqn-state-values
-  report py:runresult "policy.select_action(state_values)"
+  report normalized-action-code (py:runresult "policy.select_action(state_values)")
 end
 
 to move-guide [action-code]
+  set action-code (normalized-action-code action-code)
   let deltas [[0 0] [0 -1] [0 1] [-1 0] [1 0]]
   let delta item action-code deltas
   ask guides [
@@ -266,10 +285,14 @@ to evacuee-step
     set alive? false
     set color gray
   ] [
+    let previous-patch patch-here
     let candidates (patch-set patch-here neighbors4) with [not wall?]
     if any? candidates [
       let best max-one-of candidates [evacuee-target-score myself self]
       move-to best
+    ]
+    if patch-here != previous-patch [
+      add-evacuee-trail previous-patch patch-here color
     ]
     if [exit?] of patch-here [
       set evacuated? true
@@ -279,6 +302,46 @@ to evacuee-step
       set alive? false
       set color gray
     ]
+  ]
+end
+
+to add-evacuee-trail [from-patch to-patch trail-color]
+  let start-node nobody
+  let end-node nobody
+  ask from-patch [
+    sprout-trail-nodes 1 [
+      hide-turtle
+      set size 0
+      set start-node self
+    ]
+  ]
+  ask to-patch [
+    sprout-trail-nodes 1 [
+      hide-turtle
+      set size 0
+      set end-node self
+    ]
+  ]
+  if start-node != nobody and end-node != nobody [
+    ask start-node [
+      create-evacuee-trail-with end-node [
+        set color trail-color
+        set thickness 0.12
+        set trail-age 0
+      ]
+    ]
+  ]
+end
+
+to age-agent-trails
+  ask evacuee-trails [
+    set trail-age trail-age + 1
+    if trail-age > 3 [
+      die
+    ]
+  ]
+  ask trail-nodes with [not any? my-links] [
+    die
   ]
 end
 
@@ -332,6 +395,33 @@ to update-counts
   set evacuated-count count evacuees with [evacuated?]
   set dead-count count evacuees with [not alive? and not evacuated?]
   set fire-size count patches with [fire?]
+end
+
+to update-metric-plots
+  set-current-plot "Evacuation Outcomes"
+  set-current-plot-pen "alive"
+  plotxy ticks alive-count
+  set-current-plot-pen "evacuated"
+  plotxy ticks evacuated-count
+  set-current-plot-pen "dead"
+  plotxy ticks dead-count
+  set-current-plot "Fire Size"
+  set-current-plot-pen "fire"
+  plotxy ticks fire-size
+end
+
+to-report normalized-action-code [raw-action]
+  if raw-action = true [
+    report 1
+  ]
+  if raw-action = false [
+    report 0
+  ]
+  let action-code floor raw-action
+  if action-code < 0 or action-code > 4 [
+    report 0
+  ]
+  report action-code
 end
 
 to-report compute-reward [evacuated-delta dead-delta guided-neighbors]
@@ -456,10 +546,10 @@ end
     <slider x="535" y="395" width="220" height="50" display="random-move-bias" variable="random-move-bias" min="0.0" max="0.5" default="0.12" step="0.01" direction="Horizontal"></slider>
     <slider x="535" y="450" width="220" height="50" display="fire-spread-interval" variable="fire-spread-interval" min="1.0" max="10.0" default="3.0" step="1.0" direction="Horizontal"></slider>
     <slider x="780" y="65" width="220" height="50" display="seed" variable="seed" min="0.0" max="10000.0" default="7.0" step="1.0" direction="Horizontal"></slider>
-    <input x="780" y="120" width="260" height="45" variable="repo-root" type="string" multiline="false">auto</input>
-    <input x="780" y="170" width="260" height="45" variable="python-executable" type="string" multiline="false">auto</input>
-    <input x="780" y="220" width="260" height="45" variable="checkpoint-dir" type="string" multiline="false"></input>
-    <input x="780" y="270" width="260" height="45" variable="guide-model" type="string" multiline="false">untrained</input>
+    <input x="780" y="120" width="220" height="45" variable="repo-root" type="string" multiline="false">auto</input>
+    <input x="780" y="170" width="220" height="45" variable="python-executable" type="string" multiline="false">auto</input>
+    <input x="780" y="220" width="220" height="45" variable="checkpoint-dir" type="string" multiline="false"></input>
+    <input x="780" y="270" width="220" height="45" variable="guide-model" type="string" multiline="false">untrained</input>
     <switch x="780" y="320" width="190" height="40" display="use-python-policy?" variable="use-python-policy?" on="true"></switch>
     <slider x="1015" y="65" width="220" height="50" display="evacuation-reward" variable="evacuation-reward" min="0.0" max="10.0" default="2.0" step="0.1" direction="Horizontal"></slider>
     <slider x="1015" y="120" width="220" height="50" display="fire-reward-penalty" variable="fire-reward-penalty" min="-20.0" max="0.0" default="-6.0" step="0.1" direction="Horizontal"></slider>
@@ -473,17 +563,17 @@ end
     <monitor x="780" y="420" width="180" height="50" display="loaded guide" precision="0" fontSize="11">loaded-guide-model</monitor>
     <monitor x="970" y="420" width="110" height="50" display="last reward" precision="2" fontSize="11">last-reward</monitor>
     <monitor x="1090" y="420" width="145" height="50" display="total reward" precision="2" fontSize="11">total-reward</monitor>
-    <plot x="780" y="450" width="365" height="200" display="Evacuation Outcomes" xAxis="tick" yAxis="count" xMin="0.0" xMax="100.0" yMin="0.0" yMax="30.0" autoPlotX="true" autoPlotY="true" legend="true">
+    <plot x="780" y="500" width="365" height="200" display="Evacuation Outcomes" xAxis="tick" yAxis="count" xMin="0.0" xMax="100.0" yMin="0.0" yMax="30.0" autoPlotX="true" autoPlotY="true" legend="true">
       <setup></setup>
       <update></update>
-      <pen display="alive" color="-955883" mode="0" interval="1.0" legend="true"><setup></setup><update>plot alive-count</update></pen>
-      <pen display="evacuated" color="-10899396" mode="0" interval="1.0" legend="true"><setup></setup><update>plot evacuated-count</update></pen>
-      <pen display="dead" color="-7500403" mode="0" interval="1.0" legend="true"><setup></setup><update>plot dead-count</update></pen>
+      <pen display="alive" color="-955883" mode="0" interval="1.0" legend="true"><setup></setup><update></update></pen>
+      <pen display="evacuated" color="-10899396" mode="0" interval="1.0" legend="true"><setup></setup><update></update></pen>
+      <pen display="dead" color="-7500403" mode="0" interval="1.0" legend="true"><setup></setup><update></update></pen>
     </plot>
-    <plot x="1155" y="450" width="270" height="200" display="Fire Size" xAxis="tick" yAxis="cells" xMin="0.0" xMax="100.0" yMin="0.0" yMax="80.0" autoPlotX="true" autoPlotY="true" legend="false">
+    <plot x="1155" y="500" width="270" height="200" display="Fire Size" xAxis="tick" yAxis="cells" xMin="0.0" xMax="100.0" yMin="0.0" yMax="80.0" autoPlotX="true" autoPlotY="true" legend="false">
       <setup></setup>
       <update></update>
-      <pen display="fire" color="-2674135" mode="0" interval="1.0" legend="false"><setup></setup><update>plot fire-size</update></pen>
+      <pen display="fire" color="-2674135" mode="0" interval="1.0" legend="false"><setup></setup><update></update></pen>
     </plot>
   </widgets>
   <info><![CDATA[## WHAT IS IT?
