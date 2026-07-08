@@ -1,31 +1,32 @@
 import type { ChartGroup } from '../chart';
-import type { ChartGroupMetadata } from '../chart';
-import type { Action, Parameter } from '../parameter';
 import type {
+  Action,
   ActionEndPayload,
   ActionStartPayload,
-  ItemCreatePayload,
-  ItemDeletePayload,
-  ItemUpdatePayload,
   AssetDataPayload,
   AssetDeletePayload,
   AssetMetaPayload,
   ChartDeletePayload,
+  ChartGroupMetadata,
   ChartUpdatePayload,
   EnvCreatePayload,
   EnvDeletePayload,
   EnvLayerCreatePayload,
   EnvLayerDeletePayload,
   EnvLayerUpdatePayload,
+  ItemCreatePayload,
+  ItemDeletePayload,
+  ItemUpdatePayload,
   MetadataUpdatePayload,
   NormalizedLogPayload,
+  Parameter,
   ParameterChangePayload,
   ParameterSyncPayload,
   ScenarioEnvironmentType,
   ScreenshotRequestPayload,
   StateSyncBoundaryPayload,
   StateSyncRequest,
-} from '../protocol';
+} from '@tensnap/protocol';
 
 export interface ScenarioLayerState {
   id: string;

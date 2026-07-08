@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AnyProtocolMessage } from '@tensnap/core';
+import type { AnyProtocolMessage } from '@tensnap/protocol';
 import { ScenarioRegistry } from '@tensnap/js';
 import { defineActions, defineCharts, defineEnvironment, defineLayer, defineParameters, defineScenario } from '@tensnap/js/bindings';
 import { SimulatorSession } from '@tensnap/js/runtime';

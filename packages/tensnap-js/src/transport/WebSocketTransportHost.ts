@@ -1,12 +1,10 @@
 import {
   decodeProtocolMessage,
   encodeProtocolMessage,
-} from '@tensnap/core/protocol';
-import type {
-  AnyProtocolMessage,
-  ProtocolEncoding,
-  RendererToSimulatorMessage,
-} from '../core-types';
+  type AnyProtocolMessage,
+  type ProtocolEncoding,
+  type RendererToSimulatorMessage,
+} from '@tensnap/protocol';
 import WebSocket, {
   WebSocketServer,
   type RawData,

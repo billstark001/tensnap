@@ -13,7 +13,7 @@ import {
   readRuntimeControl,
   type RuntimeContextPaths,
 } from './runtime/context';
-import type { ProtocolEncoding } from '@tensnap/core/protocol';
+import type { ProtocolEncoding } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 
 interface ParsedArgs {

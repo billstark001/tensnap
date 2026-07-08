@@ -1,18 +1,4 @@
-import { z } from 'zod';
-
-export const AssetIdSchema = z.string();
-
-export type AssetId = z.infer<typeof AssetIdSchema>;
-
-export const AssetMetaSchema = z.object({
-  id: AssetIdSchema,
-  hash: z.string(),
-  mime: z.string(),
-  size: z.number(),
-  label: z.string().optional(),
-});
-
-export type AssetMeta = z.infer<typeof AssetMetaSchema>;
+import type { AssetId, AssetMeta } from '@tensnap/protocol';
 
 export interface ResolvedAsset extends AssetMeta {
   /** Browser/display-safe image URL, text payload, or raw bytes. */

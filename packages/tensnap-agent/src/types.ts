@@ -1,9 +1,14 @@
-import type { AssetMeta } from '@tensnap/core/asset';
-import type { ChartMetadata } from '@tensnap/core/chart';
 import type { ChartSeriesPoint } from '@tensnap/core/chart';
 import type { Viewport } from '@tensnap/core/environment';
-import type { Action, Parameter } from '@tensnap/core/parameter';
-import type { ActionEndPayload, NormalizedLogPayload, ProtocolEncoding } from '@tensnap/core/protocol';
+import type {
+  Action,
+  ActionEndPayload,
+  AssetMeta,
+  ChartMetadata,
+  NormalizedLogPayload,
+  Parameter,
+  ProtocolEncoding,
+} from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { SceneReservedAction } from './session/reserved-actions';
 import type { RenderArtifact } from './runtime/painter';

@@ -1,12 +1,14 @@
 import type {
   ISimulatorTransport,
-  ProtocolEncoding,
-  RendererToSimulatorMessage,
-  SimulatorToRendererMessage,
   TransportConnectionState,
   TransportEventHandler,
   TransportEventMap,
 } from '@tensnap/core';
+import type {
+  ProtocolEncoding,
+  RendererToSimulatorMessage,
+  SimulatorToRendererMessage,
+} from '@tensnap/protocol';
 
 export interface InMemorySimulationHandler {
   connectionId?: string;

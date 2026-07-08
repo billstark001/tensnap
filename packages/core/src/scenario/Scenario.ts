@@ -1,30 +1,31 @@
 import { AssetStore } from '../asset';
 import { ChartStorage } from '../chart/ChartStorage';
 import { instantiateChartMetadata } from '../chart/utils';
-import type { ChartGroupMetadata } from '../chart';
 import { BaseStorage } from '../environment/storages';
-import type { Action, Parameter } from '../parameter';
 import { sanitizeParameter } from '../parameter';
 import type {
+  Action,
   ActionDeletePayload,
   ActionEndPayload,
   ActionStartPayload,
-  ItemCreatePayload,
-  ItemDeletePayload,
-  ItemUpdatePayload,
   AssetDataPayload,
   AssetDeletePayload,
   AssetMetaPayload,
   ChartDeletePayload,
+  ChartGroupMetadata,
   ChartUpdatePayload,
   EnvCreatePayload,
   EnvDeletePayload,
   EnvLayerCreatePayload,
   EnvLayerDeletePayload,
   EnvLayerUpdatePayload,
+  ItemCreatePayload,
+  ItemDeletePayload,
+  ItemUpdatePayload,
   LogPayload,
   MetadataUpdatePayload,
   NormalizedLogPayload,
+  Parameter,
   ParameterChangePayload,
   ParameterDeletePayload,
   ParameterSyncPayload,
@@ -35,7 +36,7 @@ import type {
   StateSyncBoundaryPayload,
   SimulatorToRendererMessage,
   StateSyncRequest,
-} from '../protocol';
+} from '@tensnap/protocol';
 import {
   type ItemLayerController,
   type LayerControllerContext,

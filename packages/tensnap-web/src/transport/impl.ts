@@ -1,14 +1,16 @@
 import { generateUniqueId } from '@/utils/common';
-import {
-  AnyProtocolMessage,
-  decodeProtocolMessage,
-  encodeProtocolMessage,
+import type {
   ISimulatorTransport,
-  RendererToSimulatorMessage,
   TransportConnectionState,
   TransportEventHandler,
   TransportEventMap,
 } from '@tensnap/core';
+import {
+  decodeProtocolMessage,
+  encodeProtocolMessage,
+  type AnyProtocolMessage,
+  type RendererToSimulatorMessage,
+} from '@tensnap/protocol';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
 import { validateClientMessage, validateServerMessage, ValidationLevel } from '@/utils/validation';
 

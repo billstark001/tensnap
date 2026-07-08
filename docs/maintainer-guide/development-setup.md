@@ -118,7 +118,8 @@ tensnap/
 │   └── python_mesa/         # Python examples (Mesa-based)
 ├── packages/
 │   ├── benchmark/           # Benchmarks for render/runtime paths
-│   ├── core/                # Shared protocol, Scenario, runtime, rendering primitives
+│   ├── protocol/            # Protocol payload types, schemas, and codecs
+│   ├── core/                # Scenario, runtime, stores, and rendering primitives
 │   ├── tensnap-agent/       # Headless runtime and agent/session tooling
 │   ├── tensnap-go/          # Go protocol, ABM helpers, and server
 │   ├── tensnap-js/          # TypeScript simulator bindings and transports

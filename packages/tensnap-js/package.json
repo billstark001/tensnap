@@ -56,11 +56,11 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@tensnap/protocol": "workspace:*",
     "@types/ws": "^8.18.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@tensnap/core": "workspace:*",
     "@types/node": "^25.9.1",
     "esbuild": "^0.28.0",
     "typescript": "^6.0.3",

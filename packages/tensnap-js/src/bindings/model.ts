@@ -8,7 +8,7 @@ import type {
   MetadataUpdatePayload,
   Parameter,
   ParameterChangePayload,
-} from '../core-types';
+} from '@tensnap/protocol';
 import type { SimulatorEmitter, SimulatorSession } from '../runtime';
 import { SimulatorSession as BaseSimulatorSession } from '../runtime';
 import {

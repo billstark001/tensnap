@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RendererToSimulatorMessage } from '@tensnap/core/protocol';
+import type { RendererToSimulatorMessage } from '@tensnap/protocol';
 import { AgentSession } from './AgentSession';
 
 

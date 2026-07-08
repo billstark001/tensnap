@@ -44,6 +44,7 @@
     "react-split": "^2.0.14",
     "@tensnap/core": "workspace:*",
     "@tensnap/examples-js": "workspace:*",
+    "@tensnap/protocol": "workspace:*",
     "@tensnap/web-adapter": "workspace:*",
     "@tensnap/web-common": "workspace:*",
     "zod": "^4.4.3",

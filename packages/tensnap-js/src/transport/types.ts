@@ -1,7 +1,7 @@
 import type {
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
-} from '../core-types';
+} from '@tensnap/protocol';
 
 export type PostMessageTransfer = Transferable;
 

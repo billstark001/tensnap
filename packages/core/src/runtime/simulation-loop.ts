@@ -7,7 +7,7 @@
 
 import { PipelineRuntime } from './PipelineRuntime';
 import type { RuntimeTaskSnapshot } from './PipelineRuntime';
-import type { ActionEndPayload, RendererToSimulatorMessage } from '../protocol';
+import type { ActionEndPayload, RendererToSimulatorMessage } from '@tensnap/protocol';
 
 // Hot-path runtime helpers are intentionally consumed here so continuous runs
 // do not allocate cloned command/task snapshots every tick.

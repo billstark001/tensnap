@@ -41,6 +41,9 @@ importers:
       '@tensnap/js':
         specifier: workspace:*
         version: link:../../packages/tensnap-js
+      '@tensnap/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@tensnap/web-adapter':
         specifier: workspace:*
         version: link:../../packages/web-adapter
@@ -75,6 +78,9 @@ importers:
       '@tensnap/js':
         specifier: workspace:*
         version: link:../tensnap-js
+      '@tensnap/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       leafer-ui:
         specifier: ^2.1.0
         version: 2.1.0
@@ -100,9 +106,9 @@ importers:
       '@leafer-ui/core':
         specifier: ^2.1.0
         version: 2.1.0
-      '@msgpack/msgpack':
-        specifier: ^3.1.3
-        version: 3.1.3
+      '@tensnap/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -129,6 +135,28 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(canvas@3.2.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3))
 
+  packages/protocol:
+    dependencies:
+      '@msgpack/msgpack':
+        specifier: ^3.1.3
+        version: 3.1.3
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(canvas@3.2.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3))
+
   packages/tensnap-agent:
     dependencies:
       '@hono/node-server':
@@ -143,6 +171,9 @@ importers:
       '@tensnap/core':
         specifier: workspace:*
         version: link:../core
+      '@tensnap/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       canvas:
         specifier: ^3.2.3
         version: 3.2.3
@@ -176,6 +207,9 @@ importers:
 
   packages/tensnap-js:
     dependencies:
+      '@tensnap/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -183,9 +217,6 @@ importers:
         specifier: ^8.21.0
         version: 8.21.0
     devDependencies:
-      '@tensnap/core':
-        specifier: workspace:*
-        version: link:../core
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.1
@@ -345,6 +376,9 @@ importers:
       '@tensnap/examples-js':
         specifier: workspace:*
         version: link:../../examples/js
+      '@tensnap/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@tensnap/web-adapter':
         specifier: workspace:*
         version: link:../web-adapter
@@ -472,6 +506,9 @@ importers:
       '@tensnap/js':
         specifier: workspace:*
         version: link:../tensnap-js
+      '@tensnap/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@tensnap/web-common':
         specifier: workspace:*
         version: link:../web-common
@@ -561,18 +598,6 @@ importers:
       '@vanilla-extract/css':
         specifier: ^1.20.1
         version: 1.20.1
-
-  packages/web-models:
-    dependencies:
-      '@tensnap/core':
-        specifier: workspace:*
-        version: link:../core
-      '@tensnap/examples-js':
-        specifier: workspace:*
-        version: link:../../examples/js
-      '@tensnap/web-adapter':
-        specifier: workspace:*
-        version: link:../web-adapter
 
 packages:
 

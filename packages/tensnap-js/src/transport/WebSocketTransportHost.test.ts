@@ -4,7 +4,7 @@ import {
   decodeProtocolMessage,
   encodeProtocolMessage,
   type AnyProtocolMessage,
-} from '@tensnap/core/protocol';
+} from '@tensnap/protocol';
 import { defineActions, defineCharts, defineEnvironment, defineLayer, defineParameters, defineScenario } from '../bindings';
 import { ScenarioRegistry } from '../scenario';
 import { SimulatorSession } from '../runtime';

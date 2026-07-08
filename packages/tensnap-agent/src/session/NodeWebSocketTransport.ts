@@ -5,7 +5,7 @@ import {
   type AnyProtocolMessage,
   type ProtocolEncoding,
   type RendererToSimulatorMessage,
-} from '@tensnap/core/protocol';
+} from '@tensnap/protocol';
 import type {
   ISimulatorTransport,
   TransportConnectionState,

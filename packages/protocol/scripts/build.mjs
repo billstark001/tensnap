@@ -13,10 +13,13 @@ const ROOT_LICENSE = resolve(ROOT, '..', '..', 'LICENSE');
 
 const entryPoints = [
   'src/index.ts',
-  'src/bindings/index.ts',
-  'src/runtime/index.ts',
-  'src/scenario/index.ts',
-  'src/transport/index.ts',
+  'src/asset.ts',
+  'src/binary.ts',
+  'src/chart.ts',
+  'src/codec.ts',
+  'src/controls.ts',
+  'src/schemas.ts',
+  'src/types.ts',
 ];
 
 rmSync(DIST, { recursive: true, force: true });
@@ -26,14 +29,14 @@ await build({
   absWorkingDir: ROOT,
   bundle: true,
   entryPoints,
-  external: ['@tensnap/protocol', 'ws'],
+  external: ['@msgpack/msgpack', 'zod'],
   format: 'esm',
   legalComments: 'none',
   outbase: 'src',
   outdir: DIST,
-  platform: 'node',
+  platform: 'neutral',
   sourcemap: true,
-  target: 'node18',
+  target: 'es2020',
 });
 
 execFileSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.build.json'], {

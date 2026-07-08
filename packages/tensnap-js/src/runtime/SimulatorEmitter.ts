@@ -25,7 +25,7 @@ import type {
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
   StateSyncBoundaryPayload,
-} from '../core-types';
+} from '@tensnap/protocol';
 
 export type SimulatorMessageSender = (
   message: SimulatorToRendererMessage,

@@ -33,6 +33,7 @@
     "@radix-ui/react-label": "^2.1.8",
     "@tensnap/core": "workspace:*",
     "@tensnap/js": "workspace:*",
+    "@tensnap/protocol": "workspace:*",
     "@tensnap/web-common": "workspace:*",
     "clsx": "^2.1.1",
     "jszip": "^3.10.1",

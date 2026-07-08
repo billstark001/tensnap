@@ -211,7 +211,8 @@ tensnap/
 │   └── js/                      # Built-in JS examples, manifests, and local transports
 ├── packages/
 │   ├── benchmark/               # Rendering/runtime benchmarks
-│   ├── core/                    # Shared protocol, Scenario, runtime, rendering primitives
+│   ├── protocol/                # Protocol payload types, schemas, and codecs
+│   ├── core/                    # Scenario, runtime, stores, and rendering primitives
 │   ├── tensnap-agent/           # Headless runtime and agent/session tooling
 │   ├── tensnap-go/              # Go protocol, ABM helpers, and WebSocket server
 │   ├── tensnap-js/              # JavaScript/TypeScript simulator bindings and transports

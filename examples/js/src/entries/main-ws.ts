@@ -1,4 +1,4 @@
-import type { ProtocolEncoding } from '@tensnap/core';
+import type { ProtocolEncoding } from '@tensnap/protocol';
 import { createWebSocketTransportHost } from '@tensnap/js/transport';
 import { getJsExampleDefinition } from '../renderers';
 

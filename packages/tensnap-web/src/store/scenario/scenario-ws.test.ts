@@ -1,13 +1,15 @@
 import type {
-  AnyProtocolMessage,
   ISimulatorTransport,
-  ProtocolEncoding,
-  RendererToSimulatorMessage,
-  SimulatorToRendererMessage,
   TransportConnectionState,
   TransportEventHandler,
   TransportEventMap,
 } from '@tensnap/core';
+import type {
+  AnyProtocolMessage,
+  ProtocolEncoding,
+  RendererToSimulatorMessage,
+  SimulatorToRendererMessage,
+} from '@tensnap/protocol';
 import { describe, expect, it } from 'vitest';
 import { createScenarioStore } from './store';
 import { registerEventHandlers, unregisterEventHandlers } from './scenario-ws';

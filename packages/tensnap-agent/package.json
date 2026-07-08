@@ -31,6 +31,7 @@
     "@leafer-ui/core": "^2.1.0",
     "@leafer-ui/node": "^2.1.0",
     "@tensnap/core": "workspace:*",
+    "@tensnap/protocol": "workspace:*",
     "canvas": "^3.2.3",
     "hono": "^4.12.22",
     "ws": "^8.21.0"

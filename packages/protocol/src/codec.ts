@@ -1,5 +1,5 @@
 import { decode, encode } from '@msgpack/msgpack';
-import { decodeBinaryString, encodeBytesAsDataUrl } from '../utils/binary';
+import { decodeBinaryString, encodeBytesAsDataUrl } from './binary';
 import {
   AssetDataPayloadSchema,
   ScreenshotResponsePayloadSchema,
@@ -12,6 +12,12 @@ export function detectProtocolEncoding(data: string | Uint8Array | ArrayBuffer):
   return typeof data === 'string' ? 'json' : 'msgpack';
 }
 
+/**
+ * Encode semantic protocol messages for a transport.
+ *
+ * JSON cannot carry bytes directly, so binary semantic fields become data URLs.
+ * MessagePack keeps those fields as Uint8Array values.
+ */
 export function encodeProtocolMessage(
   message: AnyProtocolMessage,
   encoding: ProtocolEncoding,

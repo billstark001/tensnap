@@ -2,7 +2,7 @@ import { useTransportStore } from "@/store/transport";
 import { useScenarioStore } from '@/store/scenario/store';
 import { useSettingsStore } from '@/store/settings';
 import { useToast } from '@/store/toast';
-import type { ActionEndPayload } from '@tensnap/core';
+import type { ActionEndPayload } from '@tensnap/protocol';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createIdleLoopState, SimulationLoopController } from '@tensnap/core/runtime/browser';
 

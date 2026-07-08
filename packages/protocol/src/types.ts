@@ -1,7 +1,18 @@
-import type { AssetId, AssetMeta } from '../asset/types';
-import type { ChartGroupMetadata, ChartMetadata, ChartUpdateData, ChartUpdateOperation } from '../chart/types';
-import type { Action, Parameter } from '../parameter/types';
+import type { AssetId, AssetMeta } from './asset';
+import type {
+  ChartGroupMetadata,
+  ChartMetadata,
+  ChartUpdateData,
+  ChartUpdateOperation,
+} from './chart';
+import type { Action, Parameter } from './controls';
 
+/**
+ * Protocol v0.2 uses renderer/simulator terms instead of client/server terms.
+ * The renderer owns synchronized session state; the simulator emits updates and
+ * responds to renderer-owned action, parameter, sync, asset, and screenshot
+ * events.
+ */
 export type EnvironmentId = string;
 export type ScenarioEnvironmentType = 'uniform' | '2d';
 export type ItemRecord = Record<string, unknown>;
@@ -50,6 +61,7 @@ export type RendererToSimulatorMessageType =
 
 export type ProtocolMessageType = SimulatorToRendererMessageType | RendererToSimulatorMessageType;
 
+/** Transport-neutral envelope shared by every protocol message. */
 export interface ProtocolMessage<TType extends ProtocolMessageType = ProtocolMessageType, TPayload = unknown> {
   type: TType;
   payload: TPayload;
@@ -62,6 +74,7 @@ export interface SimulatorToRendererMessage<TPayload = unknown>
 export interface RendererToSimulatorMessage<TPayload = unknown>
   extends ProtocolMessage<RendererToSimulatorMessageType, TPayload> {}
 
+/** Scenario-wide metadata update. In v0.2 this replaces v0.1 time-step events. */
 export interface MetadataUpdatePayload {
   time?: number;
   [key: string]: unknown;
@@ -81,6 +94,7 @@ export interface TickTimingBreakdown {
 export interface ActionEndPayload {
   id: string;
   tick_id?: string;
+  /** Renderer-driven continuous loops continue only when this remains true. */
   continue?: boolean;
   timings?: TickTimingBreakdown;
 }
@@ -102,6 +116,7 @@ export interface EnvLayerCreatePayload {
   env_id: EnvironmentId;
   layer_id: string;
   layer_type: string;
+  /** Create-time topology. Change dependencies by recreating the layer. */
   dependency_layer_ids?: Record<string, string>;
   data?: Record<string, unknown>;
 }
@@ -180,6 +195,7 @@ export interface AssetDataPayload {
   id: AssetId;
   hash: string;
   mime: string;
+  /** JSON transports carry base64/data URLs; binary transports carry bytes. */
   data: string | Uint8Array;
 }
 
@@ -208,6 +224,7 @@ export interface ScreenshotResponsePayload {
 
 export interface StateSyncRequest {
   request_id?: string;
+  /** Current renderer-held definitions used by the simulator to replay deltas. */
   parameters: Parameter[];
   actions: Action[];
   envs: Array<{

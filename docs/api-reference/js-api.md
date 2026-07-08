@@ -209,7 +209,7 @@ const host = createWebSocketTransportHost({
 await host.close();
 ```
 
-`encoding` accepts the protocol encodings supported by `@tensnap/core`.
+`encoding` accepts the protocol encodings supported by `@tensnap/protocol`.
 
 ### postMessage
 

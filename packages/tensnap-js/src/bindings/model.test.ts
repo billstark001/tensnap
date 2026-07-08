@@ -3,7 +3,7 @@ import type {
   AssetSyncPayload,
   SimulatorToRendererMessage,
   StateSyncRequest,
-} from '@tensnap/core';
+} from '@tensnap/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   defineCharts,

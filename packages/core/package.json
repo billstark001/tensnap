@@ -2,7 +2,7 @@
   "name": "@tensnap/core",
   "version": "0.2.2",
   "type": "module",
-  "description": "Core protocol, scenario, and rendering primitives for TenSnap",
+  "description": "Core scenario, runtime, and rendering primitives for TenSnap",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -20,7 +20,6 @@
     "./environment/utils": "./src/environment/utils/index.ts",
     "./environment/utils/*": "./src/environment/utils/*.ts",
     "./parameter": "./src/parameter/index.ts",
-    "./protocol": "./src/protocol/index.ts",
     "./runtime": "./src/runtime/index.ts",
     "./runtime/browser": "./src/runtime/browser.ts",
     "./scenario": "./src/scenario/index.ts",
@@ -36,8 +35,8 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@msgpack/msgpack": "^3.1.3",
     "@leafer-ui/core": "^2.1.0",
+    "@tensnap/protocol": "workspace:*",
     "d3": "^7.9.0",
     "zod": "^4.4.3"
   },

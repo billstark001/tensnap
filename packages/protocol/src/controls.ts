@@ -1,6 +1,10 @@
-
 import { z } from 'zod';
 
+/**
+ * Parameters describe mutable simulator configuration exposed to the renderer.
+ * Actions are intentionally separate in protocol v0.2: they have their own
+ * lifecycle and renderer-driven continuous loop semantics.
+ */
 export const ParameterTypeSchema = z.enum(['number', 'enum', 'boolean', 'string']);
 
 export type ParameterType = z.infer<typeof ParameterTypeSchema>;
@@ -56,10 +60,6 @@ export const ParameterSchema = z.union([
 
 export type Parameter = z.infer<typeof ParameterSchema>;
 
-// ---------------------------------------------------------------------------
-// Action — separate from Parameter since v0.2
-// ---------------------------------------------------------------------------
-
 export const ActionSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -67,5 +67,5 @@ export const ActionSchema = z.object({
   allowRuntimeChange: z.boolean().optional(),
 });
 
-/** An action button registered by the server. */
+/** A renderer-visible command exposed by the simulator. */
 export type Action = z.infer<typeof ActionSchema>;

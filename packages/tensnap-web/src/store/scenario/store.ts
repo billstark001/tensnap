@@ -5,21 +5,23 @@ import { AnyView, ContainerView } from '@/types/ui';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { getToastState } from '../toast';
 import {
-  Action,
-  ActionEndPayload,
   ChartStorage,
   GridEnvStorage,
-  MetadataUpdatePayload,
-  NormalizedLogPayload,
-  Parameter,
   Scenario,
   ScenarioEnvironmentState,
   ScenarioSnapshot,
-  StateSyncBoundaryPayload,
-  SimulatorToRendererMessage,
-  ScreenshotResponsePayload,
   sanitizeParameter,
 } from '@tensnap/core';
+import type {
+  Action,
+  ActionEndPayload,
+  MetadataUpdatePayload,
+  NormalizedLogPayload,
+  Parameter,
+  ScreenshotResponsePayload,
+  SimulatorToRendererMessage,
+  StateSyncBoundaryPayload,
+} from '@tensnap/protocol';
 import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft, StateSyncStatus } from './types';
 
 const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot) => void) => {

@@ -1,11 +1,13 @@
 import type {
   ISimulatorTransport,
-  ProtocolEncoding,
-  RendererToSimulatorMessage,
   TransportConnectionState,
   TransportEventHandler,
   TransportEventMap,
 } from '@tensnap/core';
+import type {
+  ProtocolEncoding,
+  RendererToSimulatorMessage,
+} from '@tensnap/protocol';
 import {
   generateConnectionId,
   isPostMessageEnvelope,

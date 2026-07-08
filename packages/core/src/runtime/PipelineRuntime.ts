@@ -5,7 +5,7 @@
  * sub-components while preserving the original runtime API.
  */
 
-import type { StateSyncBoundaryPayload } from '../protocol';
+import type { StateSyncBoundaryPayload } from '@tensnap/protocol';
 import {
   TaskQueue,
   type RuntimeTaskCompletion,

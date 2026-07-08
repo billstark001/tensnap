@@ -1,22 +1,24 @@
 import { SetStateAction } from 'react';
 import {
-  Action,
-  Parameter,
-  StateSyncBoundaryPayload,
   Scenario,
   ScenarioSnapshot,
   ScenarioEnvironmentState,
   ChartStorage,
   ChartGroup,
-  ChartGroupMetadata,
-  RendererToSimulatorMessage,
-  SimulatorToRendererMessage,
-  StateSyncRequest,
-  ParameterChangePayload,
-  ActionStartPayload,
-  NormalizedLogPayload,
-  ScreenshotResponsePayload,
 } from '@tensnap/core';
+import type {
+  Action,
+  ActionStartPayload,
+  ChartGroupMetadata,
+  NormalizedLogPayload,
+  Parameter,
+  ParameterChangePayload,
+  RendererToSimulatorMessage,
+  ScreenshotResponsePayload,
+  SimulatorToRendererMessage,
+  StateSyncBoundaryPayload,
+  StateSyncRequest,
+} from '@tensnap/protocol';
 import { ContainerView } from '../../types/ui';
 import { UpdateTriggerState } from '../update-trigger';
 
