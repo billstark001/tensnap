@@ -5,8 +5,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	shared "github.com/billstark001/tensnap/examples/go/internal/schelling"
+)
+
+const (
+	defaultScientificSteps      = 1000
+	defaultScientificSeeds      = 8
+	defaultScientificThresholds = "0.30,0.50,0.70,0.90"
 )
 
 func parseThresholds(raw string) ([]float64, error) {
@@ -32,6 +39,7 @@ type trialResult struct {
 	lastSwapped int
 	stepsRun    int
 	converged   bool
+	elapsed     time.Duration
 }
 
 func runTrial(cfg shared.Config, seed int64, steps int) trialResult {
@@ -40,6 +48,7 @@ func runTrial(cfg shared.Config, seed int64, steps int) trialResult {
 	model.Initialize()
 
 	result := trialResult{}
+	started := time.Now()
 	for i := 0; i < steps; i++ {
 		result.stepsRun++
 		if model.Step() == 0 {
@@ -47,6 +56,7 @@ func runTrial(cfg shared.Config, seed int64, steps int) trialResult {
 			break
 		}
 	}
+	result.elapsed = time.Since(started)
 	result.satisfied = model.SatisfiedPct()
 	result.segregation = model.SegregationIndex()
 	result.lastSwapped = model.LastSwapped
@@ -58,10 +68,10 @@ func main() {
 	gridHeight := flag.Int("height", 50, "Schelling grid height")
 	density := flag.Float64("density", 0.8, "Initial occupied density")
 	balance := flag.Float64("balance", 0.5, "Share of group 1 among occupied cells")
-	steps := flag.Int("steps", 200, "Maximum steps per trial")
-	seeds := flag.Int("seeds", 5, "Number of seeds per threshold")
+	steps := flag.Int("steps", defaultScientificSteps, "Maximum steps per trial")
+	seeds := flag.Int("seeds", defaultScientificSeeds, "Number of seeds per threshold")
 	seed := flag.Int64("seed", 7, "Base random seed")
-	thresholdsRaw := flag.String("thresholds", "0.30,0.50,0.70,0.90", "Comma-separated similarity thresholds")
+	thresholdsRaw := flag.String("thresholds", defaultScientificThresholds, "Comma-separated similarity thresholds")
 	flag.Parse()
 
 	thresholds, err := parseThresholds(*thresholdsRaw)
@@ -69,7 +79,9 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs")
+	outputRows := make([]string, 0, len(thresholds))
+	totalTicks := 0
+	totalElapsed := time.Duration(0)
 	for _, threshold := range thresholds {
 		cfg := shared.Config{
 			GridWidth:           *gridWidth,
@@ -89,19 +101,37 @@ func main() {
 			segregationTotal += result.segregation
 			lastSwappedTotal += result.lastSwapped
 			stepsTotal += result.stepsRun
+			totalTicks += result.stepsRun
+			totalElapsed += result.elapsed
 			if result.converged {
 				convergedRuns++
 			}
 		}
 		n := float64(*seeds)
-		fmt.Printf(
-			"%.2f,%.4f,%.4f,%.2f,%.2f,%d\n",
+		outputRows = append(outputRows, fmt.Sprintf(
+			"%.2f,%.4f,%.4f,%.2f,%.2f,%d",
 			threshold,
 			satisfiedTotal/n,
 			segregationTotal/n,
 			float64(lastSwappedTotal)/n,
 			float64(stepsTotal)/n,
 			convergedRuns,
-		)
+		))
 	}
+
+	fmt.Println("threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs")
+	for _, row := range outputRows {
+		fmt.Println(row)
+	}
+	elapsedMS := float64(totalElapsed) / float64(time.Millisecond)
+	tpms := 0.0
+	if totalElapsed > 0 {
+		tpms = float64(totalTicks) / elapsedMS
+	}
+	mspt := 0.0
+	if totalTicks > 0 {
+		mspt = elapsedMS / float64(totalTicks)
+	}
+	fmt.Println("performance_metric,total_ticks,elapsed_ms,tpms,mspt")
+	fmt.Printf("performance,%d,%.3f,%.6f,%.6f\n", totalTicks, elapsedMS, tpms, mspt)
 }

@@ -100,14 +100,29 @@ seed controls.
 
 ## Schelling Standalone Scientific Task
 
-The standalone script runs the same threshold-sweep task used by the Julia and
-Go examples: multiple seeds per similarity threshold, fixed grid parameters, and
-CSV output for final satisfaction, segregation, movement, and convergence.
+The standalone scripts run the same heavy threshold-sweep task used by the
+Julia, NetLogo, and Go examples: multiple seeds per similarity threshold, fixed
+grid parameters, and CSV output for final satisfaction, segregation, movement,
+and convergence. After all scientific rows are computed, they print a separate
+performance row with `total_ticks`, `elapsed_ms`, `tpms`, and `mspt`. Timing is
+wrapped around each trial's step loop only, so there is no per-tick timing work
+inside the model hot path.
 
 ```bash
 cd examples/python_mesa
-python schelling_standalone.py --steps 200 --seeds 5
+python schelling_standalone.py --steps 1000 --seeds 8
 
 # Or from the repository root
 pnpm standalone:py:schelling
+```
+
+The NetLogo version uses the same model defaults and can be run headlessly with
+PyNetLogo installed:
+
+```bash
+cd examples/python_mesa
+python schelling_netlogo_standalone.py --steps 1000 --seeds 8
+
+# Or from the repository root
+pnpm standalone:netlogo:schelling
 ```

@@ -7,12 +7,49 @@ from typing import Annotated, Tuple
 import tensnap as t
 
 Position = Tuple[int, int]
+DEFAULT_WIDTH = 16
+DEFAULT_HEIGHT = 16
+
+
+def build_evacuation_layout(
+    width: int,
+    height: int,
+) -> tuple[tuple[Position, ...], tuple[Position, ...], tuple[Position, ...]]:
+    """Return the canonical two-exit, two-wall evacuation map for a grid size."""
+    right_exit_x = max(0, width - 1)
+    center_y = max(0, min(height - 1, height // 2))
+    fire_center = (max(0, min(width - 1, width // 2)), center_y)
+    left_wall_x = max(1, width // 3)
+    right_wall_x = min(max(2, width - 2), (2 * width) // 3)
+    walls: list[Position] = []
+    for y in range(2, max(2, height - 2)):
+        if y == center_y:
+            continue
+        if 0 < left_wall_x < width - 1:
+            walls.append((left_wall_x, y))
+        if 0 < right_wall_x < width - 1 and right_wall_x != left_wall_x:
+            walls.append((right_wall_x, y))
+    return (
+        ((0, center_y), (right_exit_x, center_y)),
+        (fire_center,),
+        tuple(walls),
+    )
+
+
+DEFAULT_EXITS, DEFAULT_FIRE_SOURCES, DEFAULT_WALLS = build_evacuation_layout(
+    DEFAULT_WIDTH,
+    DEFAULT_HEIGHT,
+)
 
 
 @dataclass(slots=True)
 class EnvConfig:
-    width: Annotated[int, t.param("number", label="Width", min=4, max=64, step=1)] = 16
-    height: Annotated[int, t.param("number", label="Height", min=4, max=64, step=1)] = 16
+    width: Annotated[int, t.param("number", label="Width", min=4, max=64, step=1)] = (
+        DEFAULT_WIDTH
+    )
+    height: Annotated[int, t.param("number", label="Height", min=4, max=64, step=1)] = (
+        DEFAULT_HEIGHT
+    )
     num_evacuees: Annotated[
         int,
         t.param("number", label="Evacuees", min=1, max=128, step=1),
@@ -57,14 +94,9 @@ class EnvConfig:
         float,
         t.param("number", label="Clustering Bonus", min=0.0, max=1.0, step=0.01),
     ] = 0.08
-    exits: tuple[Position, ...] = ((0, 7), (15, 7))
-    fire_sources: tuple[Position, ...] = ((7, 7),)
-    walls: tuple[Position, ...] = field(
-        default_factory=lambda: tuple(
-            [(5, y) for y in range(2, 14) if y != 7]
-            + [(10, y) for y in range(2, 14) if y != 7]
-        )
-    )
+    exits: tuple[Position, ...] = DEFAULT_EXITS
+    fire_sources: tuple[Position, ...] = DEFAULT_FIRE_SOURCES
+    walls: tuple[Position, ...] = field(default_factory=lambda: DEFAULT_WALLS)
 
 
 @dataclass(slots=True)

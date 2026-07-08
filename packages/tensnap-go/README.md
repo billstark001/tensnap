@@ -206,9 +206,11 @@ make run-standalone
 
 `run-schelling` starts a WebSocket simulator on `:8765`.
 
-`run-standalone` runs the Schelling model headlessly as a threshold-sweep
-scientific task and prints CSV metrics comparable with the Python and Julia
-standalone examples.
+`run-standalone` runs the Schelling model headlessly as a heavy threshold-sweep
+scientific task and prints CSV metrics comparable with the Python, NetLogo, and
+Julia standalone examples. The final performance row reports `total_ticks`,
+`elapsed_ms`, `tpms`, and `mspt`; timing wraps each trial's step loop only, so
+there is no per-tick timing work in the model hot path.
 
 ## Validation
 

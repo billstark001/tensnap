@@ -24,14 +24,17 @@ pnpm run standalone:julia:schelling
 
 ## Schelling Standalone Scientific Task
 
-`schelling_standalone.jl` runs the same threshold-sweep task as the Python and
-Go standalone scripts. For each similarity threshold it runs several seeds and
-prints CSV columns for final satisfaction, segregation, last-step movement,
-steps used, and convergence count.
+`schelling_standalone.jl` runs the same heavy threshold-sweep task as the
+Python, NetLogo, and Go standalone scripts. For each similarity threshold it
+runs several seeds and prints CSV columns for final satisfaction, segregation,
+last-step movement, steps used, and convergence count. After all scientific rows
+are computed, it prints a separate performance row with `total_ticks`,
+`elapsed_ms`, `tpms`, and `mspt`; timing is wrapped around each trial's step
+loop only, with no per-tick instrumentation in the model hot path.
 
 ```bash
 cd examples/julia
-julia --project=. schelling_standalone.jl --steps 200 --seeds 5
+julia --project=. schelling_standalone.jl --steps 1000 --seeds 8
 ```
 
 ## Environment

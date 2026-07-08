@@ -141,7 +141,12 @@ class DQNAgent:
         torch.save(payload, path)
 
     def load(self, path: str) -> None:
-        payload = torch.load(path, map_location=str(self.device))
+        try:
+            payload = torch.load(
+                path, map_location=str(self.device), weights_only=False
+            )
+        except TypeError:
+            payload = torch.load(path, map_location=str(self.device))
         self.policy_net.load_state_dict(payload["policy"])
         self.target_net.load_state_dict(payload["target"])
         self.optimizer.load_state_dict(payload["optimizer"])

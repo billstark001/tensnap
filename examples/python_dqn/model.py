@@ -11,6 +11,7 @@ from typing import Iterable
 import torch
 from torch import Tensor
 from mesa import Agent, Model
+from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
 import tensnap as t
 
@@ -129,6 +130,7 @@ class EvacuationModel(Model):
         self.wall_cells: set[Position] = set(config.walls)
         self.fire_cells: set[Position] = set(config.fire_sources)
         self.step_count = 0
+        self.running = True
         self.guide = GuideAgent(
             self,
             self._sample_spawn(
@@ -146,6 +148,15 @@ class EvacuationModel(Model):
             self.grid.place_agent(agent, agent.spawn_pos)
             self.evacuees.append(agent)
             occupied.add(pos)
+        self.datacollector = DataCollector(
+            model_reporters={
+                "Alive": lambda model: model.alive_count,
+                "Evacuated": lambda model: model.evacuated_count,
+                "Dead": lambda model: model.dead_count,
+                "Fire Size": lambda model: model.fire_size,
+            }
+        )
+        self.datacollector.collect(self)
 
     @property
     def guides(self):
@@ -159,9 +170,30 @@ class EvacuationModel(Model):
     def state_size(self) -> int:
         return 16
 
+    @property
+    def burnable_cells(self) -> set[Position]:
+        return {
+            (x, y)
+            for x in range(self.width)
+            for y in range(self.height)
+            if (x, y) not in self.wall_cells and (x, y) not in self.exit_cells
+        }
+
+    @property
+    def burnable_cell_count(self) -> int:
+        return len(self.burnable_cells)
+
+    @property
+    def fire_fully_spread(self) -> bool:
+        return self.burnable_cells.issubset(self.fire_cells)
+
     def env_step(
         self, action: int
     ) -> tuple[torch.Tensor, float, bool, dict[str, float]]:
+        if self.is_done():
+            self.running = False
+            return self.get_state(), 0.0, True, self._step_info(congestion=0)
+
         self._move_guide(action)
         guided_neighbors = self.count_evacuees_near(
             self.guide.pos, self.config.guide_influence_radius
@@ -174,27 +206,21 @@ class EvacuationModel(Model):
         reward = self._compute_reward(stats)
         self.step_count += 1
         done = self.is_done()
-        info = {
-            "alive": float(self.alive_count),
-            "evacuated": float(self.evacuated_count),
-            "dead": float(self.dead_count),
-            "congestion": float(stats.congestion),
-        }
+        self.running = not done
+        self.datacollector.collect(self)
+        info = self._step_info(congestion=stats.congestion)
         return self.get_state(), reward, done, info
 
     def is_done(self) -> bool:
-        everyone_resolved = (
-            self.alive_count == 0
-            or self.evacuated_count + self.dead_count == len(self.evacuees)
+        everyone_resolved = self.evacuated_count + self.dead_count == len(
+            self.evacuees
         )
-        return everyone_resolved or self.step_count >= self.config.max_steps
+        return everyone_resolved and self.fire_fully_spread
 
     @t.chart("alive", "Evacuation Outcomes", color=EVACUEE_ALIVE_COLOR)
     def alive_count(self) -> int:
         return sum(
-            1
-            for evacuee in self.evacuees
-            if evacuee.alive and not evacuee.evacuated
+            1 for evacuee in self.evacuees if evacuee.alive and not evacuee.evacuated
         )
 
     @alive_count.group("evacuated", "Evacuated", color=EVACUEE_EVACUATED_COLOR)
@@ -360,6 +386,14 @@ class EvacuationModel(Model):
         reward += self.config.congestion_penalty * stats.congestion
         reward += self.config.clustering_bonus * stats.guided_neighbors
         return reward
+
+    def _step_info(self, congestion: int) -> dict[str, float]:
+        return {
+            "alive": float(self.alive_count),
+            "evacuated": float(self.evacuated_count),
+            "dead": float(self.dead_count),
+            "congestion": float(congestion),
+        }
 
     def _count_alive_evacuees_at(self, pos: Position) -> int:
         return sum(

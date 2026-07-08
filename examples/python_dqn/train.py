@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from statistics import mean
 from typing import Iterable
 
@@ -13,7 +12,7 @@ from torch.types import Device
 
 from .config import DQNConfig, EnvConfig, TrainingConfig
 from .dqn import DQNAgent
-from .model import EvacuationModel
+from .envs import EnvKind, EvacuationEnv, NetLogoEnvConfig, make_evacuation_env
 
 
 @dataclass(slots=True)
@@ -30,13 +29,18 @@ class TrainArtifacts:
     summaries: list[EpisodeSummary]
 
 
-def run_episode(model: EvacuationModel, agent: DQNAgent, train: bool) -> EpisodeSummary:
-    state = model.get_state()
+def run_episode(
+    env: EvacuationEnv,
+    agent: DQNAgent,
+    train: bool,
+    seed: int | None = None,
+) -> EpisodeSummary:
+    state = env.reset(seed=seed)
     total_reward = 0.0
     steps = 0
     while True:
         action = agent.select_action(state, greedy=not train)
-        next_state, reward, done, _ = model.env_step(action)
+        next_state, reward, done, _ = env.step(action)
         if train:
             agent.store(state, action, reward, next_state, done)
             agent.optimize()
@@ -47,8 +51,8 @@ def run_episode(model: EvacuationModel, agent: DQNAgent, train: bool) -> Episode
             break
     return EpisodeSummary(
         reward=total_reward,
-        evacuated=model.evacuated_count,
-        dead=model.dead_count,
+        evacuated=env.evacuated_count,
+        dead=env.dead_count,
         steps=steps,
     )
 
@@ -58,32 +62,45 @@ def train_dqn(
     dqn_config: DQNConfig,
     train_config: TrainingConfig,
     device: Device | str,
+    env_kind: EnvKind = "mesa",
+    netlogo_config: NetLogoEnvConfig | None = None,
 ) -> TrainArtifacts:
-    base_model = EvacuationModel(env_config, seed=train_config.seed)
-    agent = DQNAgent(
-        base_model.state_size, base_model.action_size, dqn_config, device=device
+    env = make_evacuation_env(
+        env_kind,
+        env_config,
+        seed=train_config.seed,
+        netlogo_config=netlogo_config,
     )
-    train_config.checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    summaries: list[EpisodeSummary] = []
+    try:
+        agent = DQNAgent(env.state_size, env.action_size, dqn_config, device=device)
+        train_config.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        summaries: list[EpisodeSummary] = []
 
-    for episode in range(1, train_config.episodes + 1):
-        model = EvacuationModel(env_config, seed=train_config.seed + episode)
-        summary = run_episode(model, agent, train=True)
-        summaries.append(summary)
-        if episode % train_config.log_every == 0:
-            recent = summaries[-train_config.log_every :]
-            print(
-                f"episode={episode:04d} "
-                f"reward={mean(s.reward for s in recent):.3f} "
-                f"evacuated={mean(s.evacuated for s in recent):.2f} "
-                f"dead={mean(s.dead for s in recent):.2f} "
-                f"steps={mean(s.steps for s in recent):.2f}"
+        for episode in range(1, train_config.episodes + 1):
+            summary = run_episode(
+                env,
+                agent,
+                train=True,
+                seed=train_config.seed + episode,
             )
-        if episode % train_config.checkpoint_every == 0:
-            agent.save(str(train_config.checkpoint_dir / f"dqn_ep_{episode}.pt"))
+            summaries.append(summary)
+            if episode % train_config.log_every == 0:
+                recent = summaries[-train_config.log_every :]
+                print(
+                    f"episode={episode:04d} "
+                    f"env={env_kind} "
+                    f"reward={mean(s.reward for s in recent):.3f} "
+                    f"evacuated={mean(s.evacuated for s in recent):.2f} "
+                    f"dead={mean(s.dead for s in recent):.2f} "
+                    f"steps={mean(s.steps for s in recent):.2f}"
+                )
+            if episode % train_config.checkpoint_every == 0:
+                agent.save(str(train_config.checkpoint_dir / f"dqn_ep_{episode}.pt"))
 
-    agent.save(str(train_config.checkpoint_dir / "dqn_latest.pt"))
-    return TrainArtifacts(agent=agent, summaries=summaries)
+        agent.save(str(train_config.checkpoint_dir / "dqn_latest.pt"))
+        return TrainArtifacts(agent=agent, summaries=summaries)
+    finally:
+        env.close()
 
 
 def evaluate(
@@ -91,12 +108,22 @@ def evaluate(
     agent: DQNAgent,
     episodes: int,
     seed: int,
+    env_kind: EnvKind = "mesa",
+    netlogo_config: NetLogoEnvConfig | None = None,
 ) -> list[EpisodeSummary]:
-    results: list[EpisodeSummary] = []
-    for idx in range(episodes):
-        model = EvacuationModel(env_config, seed=seed + 1000 + idx)
-        results.append(run_episode(model, agent, train=False))
-    return results
+    env = make_evacuation_env(
+        env_kind,
+        env_config,
+        seed=seed,
+        netlogo_config=netlogo_config,
+    )
+    try:
+        results: list[EpisodeSummary] = []
+        for idx in range(episodes):
+            results.append(run_episode(env, agent, train=False, seed=seed + 1000 + idx))
+        return results
+    finally:
+        env.close()
 
 
 def format_eval(results: Iterable[EpisodeSummary]) -> str:
