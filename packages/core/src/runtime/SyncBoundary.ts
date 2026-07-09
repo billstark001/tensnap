@@ -7,7 +7,7 @@
  * Contains no task-queue or metrics logic.
  */
 
-import type { StateSyncBoundaryPayload } from '../protocol';
+import type { StateSyncBoundaryPayload } from '@tensnap/protocol';
 
 export type RuntimeSyncPhase = 'idle' | 'requested' | 'receiving';
 

@@ -1,4 +1,11 @@
-import { AnyProtocolMessage, ErrorPayload, ISimulatorTransport, ScreenshotRequestPayload, SimulatorToRendererMessage, StateSyncBoundaryPayload } from '@tensnap/core';
+import type { ISimulatorTransport } from '@tensnap/core';
+import type {
+  AnyProtocolMessage,
+  ErrorPayload,
+  ScreenshotRequestPayload,
+  SimulatorToRendererMessage,
+  StateSyncBoundaryPayload,
+} from '@tensnap/protocol';
 import { StoreApi, UseBoundStore } from 'zustand';
 import { ScenarioStore } from './store';
 import { getToastState } from '../toast';

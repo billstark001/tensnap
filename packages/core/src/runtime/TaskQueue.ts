@@ -7,7 +7,7 @@
  * or metrics logic.
  */
 
-import type { TickTimingBreakdown } from '../protocol';
+import type { TickTimingBreakdown } from '@tensnap/protocol';
 
 export type RuntimeTaskStage = 'queued' | 'dispatched' | 'completed' | 'applied';
 

@@ -4,7 +4,7 @@ import {
   type AnyProtocolMessage,
   type ProtocolEncoding,
   type RendererToSimulatorMessage,
-} from '@tensnap/core/protocol';
+} from '@tensnap/protocol';
 import WebSocket, {
   WebSocketServer,
   type RawData,

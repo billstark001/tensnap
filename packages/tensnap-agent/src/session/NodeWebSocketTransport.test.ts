@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodeProtocolMessage, decodeProtocolMessage, type AnyProtocolMessage } from '@tensnap/core/protocol';
+import { encodeProtocolMessage, decodeProtocolMessage, type AnyProtocolMessage } from '@tensnap/protocol';
 import { normalizeRawData } from './NodeWebSocketTransport';
 
 describe('NodeWebSocketTransport', () => {

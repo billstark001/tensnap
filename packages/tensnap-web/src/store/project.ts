@@ -7,7 +7,8 @@ import { ChartGroup, ChartMetadata } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { ScenarioSnapshot, StateSyncRequest } from '@tensnap/core';
+import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import type { StateSyncRequest } from '@tensnap/protocol';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { getFileSystemState } from "./file-system/provider";
 

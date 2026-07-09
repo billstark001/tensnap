@@ -3,7 +3,7 @@ import {
   SimulatorToRendererMessageSchema,
   RendererToSimulatorMessageSchema,
   getPayloadSchema 
-} from '@tensnap/core';
+} from '@tensnap/protocol';
 
 export type ValidationLevel = 'off' | 'warning' | 'error';
 export type MessageDirection = 'client-to-server' | 'server-to-client';

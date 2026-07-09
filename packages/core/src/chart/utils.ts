@@ -1,4 +1,5 @@
-import { ChartGroup, ChartGroupMetadata } from "./types";
+import type { ChartGroupMetadata } from '@tensnap/protocol';
+import type { ChartGroup } from './types';
 
 export function instantiateChartMetadata(meta: ChartGroupMetadata): ChartGroup {
   const metadataDict = meta.dataList?.length

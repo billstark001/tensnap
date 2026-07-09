@@ -19,6 +19,34 @@ Add GitHub secret:
 
 - `NPM_TOKEN`
 
+### JavaScript Bindings Package (npm)
+
+Publish from `packages/tensnap-js` after preparing the release:
+
+```bash
+pnpm build
+pnpm publish
+```
+
+### Protocol Package (npm)
+
+Publish from `packages/protocol` after preparing the release:
+
+```bash
+pnpm build
+pnpm publish
+```
+
+### Core Package (npm)
+
+Publish from `packages/core` after publishing the matching protocol package:
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm publish
+```
+
 ### Web App (Netlify)
 
 Add GitHub secrets:
@@ -39,6 +67,15 @@ node scripts/release.mjs go 0.1.0
 # Python package
 node scripts/release.mjs python 0.1.0
 
+# JavaScript bindings package
+node scripts/release.mjs js 0.1.0
+
+# Protocol package
+node scripts/release.mjs protocol 0.1.0
+
+# Core package
+node scripts/release.mjs core 0.1.0
+
 # Agent CLI package
 node scripts/release.mjs agent 0.1.0
 
@@ -53,6 +90,9 @@ git push origin main
 
 - **Go**: No dedicated workflow yet (publish by pushing tag `packages/tensnap-go/v*`)
 - **Python**: `.github/workflows/python-publish.yml` (tag `py-v*`)
+- **Protocol**: publish manually from `packages/protocol` after tag `protocol-v*`
+- **Core**: publish manually from `packages/core` after tag `core-v*`
+- **JavaScript Bindings**: publish manually from `packages/tensnap-js` after tag `js-v*`
 - **Agent CLI**: `.github/workflows/agent-publish.yml` (tag `agent-v*`)
 - **Web**: `.github/workflows/web-deploy.yml` (push to `main`)
 - **Tauri**: `.github/workflows/tauri-build.yml` (tag `app-v*`)

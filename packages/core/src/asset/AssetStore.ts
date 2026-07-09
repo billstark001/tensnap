@@ -18,8 +18,8 @@
  *   6. Server sends `asset_delete` → store revokes blob URLs and removes entries.
  */
 
-import { decodeBinaryString, encodeBytesAsDataUrl } from '../utils/binary';
-import type { AssetId, AssetMeta, AssetStoreListener, ResolvedAsset } from './types';
+import { decodeBinaryString, encodeBytesAsDataUrl, type AssetId, type AssetMeta } from '@tensnap/protocol';
+import type { AssetStoreListener, ResolvedAsset } from './types';
 
 // ---------------------------------------------------------------------------
 // AssetStore

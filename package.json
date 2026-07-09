@@ -55,6 +55,9 @@
     "dev:julia:schelling:makie": "pnpm --dir examples/julia run demo:schelling:makie",
     "standalone:julia:schelling": "pnpm --dir examples/julia run standalone:schelling",
     "release:julia": "node scripts/release.mjs julia",
+    "release:protocol": "node scripts/release.mjs protocol",
+    "release:core": "node scripts/release.mjs core",
+    "release:js": "node scripts/release.mjs js",
     "test:julia": "pnpm --dir examples/julia run test"
   },
   "devDependencies": {

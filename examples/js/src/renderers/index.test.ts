@@ -1,4 +1,4 @@
-import type { SimulatorToRendererMessage, StateSyncRequest } from '@tensnap/core';
+import type { SimulatorToRendererMessage, StateSyncRequest } from '@tensnap/protocol';
 import { describe, expect, it } from 'vitest';
 import { getJsExampleDefinition, getJsExampleDefinitions } from './index';
 

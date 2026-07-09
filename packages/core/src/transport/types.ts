@@ -1,4 +1,8 @@
-import type { AnyProtocolMessage, ProtocolEncoding, RendererToSimulatorMessage } from '../protocol';
+import type {
+  AnyProtocolMessage,
+  ProtocolEncoding,
+  RendererToSimulatorMessage,
+} from '@tensnap/protocol';
 
 export type TransportConnectionState = 'connecting' | 'open' | 'closing' | 'closed' | 'destroyed';
 export type TransportEventHandler<T = unknown> = (payload: T) => void;

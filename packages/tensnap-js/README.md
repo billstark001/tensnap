@@ -2,14 +2,19 @@
 
 JavaScript/TypeScript simulator-side bindings for TenSnap protocol v0.2.
 
-This package is currently a private workspace package. It is used by
-`examples/js`, benchmark fixtures, and bundled local simulator transports.
+This package can be published from `packages/tensnap-js` with:
+
+```bash
+pnpm build
+pnpm publish
+```
 
 ## What It Provides
 
-- Declarative model builders: `defineModel(...)` and `defineExample(...)`.
-- Metadata helpers for parameters, actions, charts, environments, and layers.
-- Low-level runtime primitives: `SimulatorSession` and `SimulatorEmitter`.
+- Declarative model builders through `modelBuilder(...)`.
+- Config parameter helpers such as `numberField(...)`, `booleanField(...)`, `stringField(...)`, and `enumField(...)`.
+- Low-level protocol metadata helpers for tests and advanced integrations.
+- Runtime primitives: `SimulatorSession` and `SimulatorEmitter`.
 - Scenario replay helpers through `ScenarioRegistry`.
 - Simulator hosts for WebSocket and postMessage transports.
 
@@ -18,33 +23,51 @@ This package is currently a private workspace package. It is used by
 ```ts
 import {
   createWebSocketTransportHost,
-  defineEnvironment,
-  defineLayer,
-  defineModel,
+  modelBuilder,
+  numberField,
 } from '@tensnap/js';
 
-const binding = defineModel({
-  environments: [
-    defineEnvironment({
-      id: 'main',
-      type: '2d',
-      layers: [defineLayer({ layerId: 'agents', layerType: 'agent' })],
-    }),
-  ],
-  create() {
-    return { tick: 0, agents: [{ id: 'a1', x: 0, y: 0 }] };
+const builder = modelBuilder({
+  id: 'demo',
+  name: 'Demo',
+  description: 'A minimal JavaScript model.',
+}, {
+  defaults: { speed: 1 },
+  create(config) {
+    return {
+      tick: 0,
+      config: { ...config },
+      agents: [{ id: 'a1', x: 0, y: 0 }],
+    };
   },
-  async sync(model, ctx) {
-    await ctx.setTime(model.tick);
-    await ctx.syncItems('main', 'agents', model.agents);
+  getConfig(model) {
+    return model.config;
   },
-  async step(model, ctx) {
+  step(model) {
     model.tick += 1;
-    model.agents[0].x += 1;
-    await ctx.sync();
+    model.agents[0].x += model.config.speed;
     return true;
   },
+  time(model) {
+    return model.tick;
+  },
 });
+
+builder.paramsFromConfig({
+  get: (model) => model.config,
+  set(model, patch) {
+    Object.assign(model.config, patch);
+  },
+  fields: {
+    speed: numberField({ label: 'Speed' }),
+  },
+});
+
+builder.env('main').agentLayer('agents', {
+  items: (model) => model.agents,
+});
+
+const binding = builder.build();
 
 const host = createWebSocketTransportHost({
   serverOptions: { port: 8765 },
@@ -54,9 +77,9 @@ const host = createWebSocketTransportHost({
 console.log(host.url);
 ```
 
-When `actions` is omitted, `defineModel(...)` registers `start`, `step`, and
-`reset`. `start` is continuous-capable and uses the boolean returned by `step` to
-decide whether the renderer may continue dispatching.
+The builder registers `start`, `step`, and `reset` automatically. `start` is
+continuous-capable and uses the boolean returned by `step` to decide whether the
+renderer may continue dispatching.
 
 ## Transport Options
 
@@ -77,4 +100,3 @@ pnpm dev:js:tornberg
 
 For the full API surface, see
 [`docs/api-reference/js-api.md`](../../docs/api-reference/js-api.md).
-

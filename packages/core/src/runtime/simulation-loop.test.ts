@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RendererToSimulatorMessage } from '../protocol';
+import type { RendererToSimulatorMessage } from '@tensnap/protocol';
 import { SimulationLoopController } from './simulation-loop';
 
 const createMessage = (id: string, continuous?: boolean, tickId?: string): RendererToSimulatorMessage => ({

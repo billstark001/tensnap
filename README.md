@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
 - `SimulationScenario` is the recommended high-level Python runtime.
 - `abm.Scenario` is the recommended declarative Go surface for simulator-visible state.
-- `defineModel(...)` / `defineExample(...)` are the recommended JavaScript binding builders.
+- `modelBuilder(...)` is the recommended JavaScript binding builder.
 - `Scenario` plus explicit builders such as `parameter(...)`, `agents_layer(...)`, and `chart(...)` are the Julia binding surface.
 - The current decorator and readback surface lives under `tensnap.bindings`.
 - Binding decorators infer same-name item fields, layer sources, and layer metadata once per initialized instance; use selector strings only when the source path differs, such as `x="position[0]"`.
@@ -211,7 +211,8 @@ tensnap/
 │   └── js/                      # Built-in JS examples, manifests, and local transports
 ├── packages/
 │   ├── benchmark/               # Rendering/runtime benchmarks
-│   ├── core/                    # Shared protocol, Scenario, runtime, rendering primitives
+│   ├── protocol/                # Protocol payload types, schemas, and codecs
+│   ├── core/                    # Scenario, runtime, stores, and rendering primitives
 │   ├── tensnap-agent/           # Headless runtime and agent/session tooling
 │   ├── tensnap-go/              # Go protocol, ABM helpers, and WebSocket server
 │   ├── tensnap-js/              # JavaScript/TypeScript simulator bindings and transports

@@ -19,6 +19,7 @@
     "@tensnap/core": "workspace:*",
     "@tensnap/examples-js": "workspace:*",
     "@tensnap/js": "workspace:*",
+    "@tensnap/protocol": "workspace:*",
     "leafer-ui": "^2.1.0",
     "preact": "^10.29.2"
   },

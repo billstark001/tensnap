@@ -1,4 +1,5 @@
-import { ChartGroup, ChartMetadata, ChartSeriesPoint, ChartUpdateData } from "./types";
+import type { ChartMetadata, ChartUpdateData } from '@tensnap/protocol';
+import type { ChartGroup, ChartSeriesPoint } from './types';
 import { instantiateChartMetadata } from "./utils";
 
 type WarnFn = (msg: string) => void;

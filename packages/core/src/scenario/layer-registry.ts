@@ -1,7 +1,7 @@
 import { z, ZodType } from 'zod';
 import type { AssetStore } from '../asset';
 import type { AgentId, GraphEdge, GridCoordOffset, GraphEnvConfig, OriginMode, TrajectoryPoint } from '../environment';
-import type { ItemDeletePayload } from '../protocol';
+import type { ItemDeletePayload } from '@tensnap/protocol';
 import {
   AgentStorage,
   BackgroundStorage,

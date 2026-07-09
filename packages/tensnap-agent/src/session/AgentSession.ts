@@ -1,15 +1,15 @@
 import { EventEmitter } from 'node:events';
-import type { ChartMetadata } from '@tensnap/core/chart';
-import type { Parameter } from '@tensnap/core/parameter';
 import type {
   ActionEndPayload,
+  ChartMetadata,
+  Parameter,
   ProtocolEncoding,
   RendererToSimulatorMessage,
   ScreenshotRequestPayload,
   ScreenshotResponsePayload,
   SimulatorToRendererMessage,
   StateSyncBoundaryPayload,
-} from '@tensnap/core/protocol';
+} from '@tensnap/protocol';
 import { PipelineRuntime } from '@tensnap/core/runtime';
 import { Scenario, type ScenarioSnapshot } from '@tensnap/core/scenario';
 import { getReservedSceneActionAlias, getReservedSceneActionId, type SceneReservedAction } from './reserved-actions';

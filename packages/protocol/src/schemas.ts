@@ -1,14 +1,13 @@
 import { z } from 'zod';
-import { AssetMetaSchema } from '../asset/types';
+import { AssetMetaSchema } from './asset';
 import {
   ChartGroupMetadataSchema,
   ChartMetadataSchema,
   ChartUpdateDataSchema,
   ChartUpdateOperationSchema,
-} from '../chart/types';
-import { AgentIdSchema } from '../environment/types';
-import { ActionSchema, ParameterSchema } from '../parameter/types';
-import { isEncodedBinaryString } from '../utils/binary';
+} from './chart';
+import { ActionSchema, ParameterSchema } from './controls';
+import { isEncodedBinaryString } from './binary';
 
 const BinaryPayloadStringSchema = z.string().refine(
   (value) => isEncodedBinaryString(value),
@@ -20,6 +19,7 @@ const BinaryPayloadDataSchema = z.union([BinaryPayloadStringSchema, z.instanceof
 export const ItemSchema = z.record(z.string(), z.unknown());
 export const ItemDiffSchema = z.record(z.string(), z.unknown());
 export const ItemKeySchema = z.record(z.string(), z.unknown());
+export const PrimitiveItemKeySchema = z.union([z.string(), z.number()]);
 
 export const MetadataUpdatePayloadSchema = z.object({
   time: z.number().optional(),
@@ -85,7 +85,7 @@ export const ItemUpdatePayloadSchema = z.object({
 export const ItemDeletePayloadSchema = z.object({
   env_id: z.string(),
   layer_id: z.string(),
-  items: z.union([z.array(AgentIdSchema), z.array(ItemKeySchema)]),
+  items: z.union([z.array(PrimitiveItemKeySchema), z.array(ItemKeySchema)]),
 });
 
 export const ParameterDeletePayloadSchema = z.object({ id: z.string() });

@@ -23,6 +23,7 @@
   "dependencies": {
     "@tensnap/core": "workspace:*",
     "@tensnap/js": "workspace:*",
+    "@tensnap/protocol": "workspace:*",
     "@tensnap/web-adapter": "workspace:*"
   },
   "devDependencies": {

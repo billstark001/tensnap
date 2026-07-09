@@ -4,7 +4,7 @@ import type {
   ProtocolEncoding,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
-} from '@tensnap/core/protocol';
+} from '@tensnap/protocol';
 import { AgentSession } from '../session/AgentSession';
 import { getReservedSceneActionId, type SceneReservedAction } from '../session/reserved-actions';
 import type {

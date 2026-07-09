@@ -6,7 +6,7 @@ import {
   BenchmarkSchedulerMode,
   BenchmarkStats,
 } from './types';
-import type { RendererToSimulatorMessage } from '@tensnap/core';
+import type { RendererToSimulatorMessage } from '@tensnap/protocol';
 import { SimulationLoopController, type RenderTriggerMode } from '@tensnap/core/runtime/browser';
 
 const DEFAULT_BROWSER_LOOP_MAX_TPS = 300;

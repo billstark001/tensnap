@@ -1,20 +1,16 @@
 /**
  * @tensnap/core
- * Core protocol, scenario, and rendering primitives for TenSnap.
+ * Core scenario, runtime, and rendering primitives for TenSnap.
  */
 
 export { AssetStore } from './asset';
-export type { AssetId, AssetMeta, ResolvedAsset, AssetStoreListener } from './asset';
+export type { ResolvedAsset, AssetStoreListener } from './asset';
 
 export { ChartStorage } from './chart';
 export type {
 	ChartConfig,
 	ChartDataPoint,
 	ChartGroup,
-	ChartGroupMetadata,
-	ChartMetadata,
-	ChartUpdateData,
-	ChartUpdateOperation,
 	LineConfig,
 } from './chart';
 
@@ -54,7 +50,6 @@ export type {
 } from './environment';
 
 export * from './parameter';
-export * from './protocol';
 export * from './runtime';
 
 export { Scenario } from './scenario';

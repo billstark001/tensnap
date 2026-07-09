@@ -1,4 +1,10 @@
-import { Parameter, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from "./types";
+import type {
+  BooleanParameter,
+  EnumParameter,
+  NumberParameter,
+  Parameter,
+  StringParameter,
+} from '@tensnap/protocol';
 
 export interface RangeHint {
   value: number;

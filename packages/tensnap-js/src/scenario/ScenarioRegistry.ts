@@ -6,7 +6,7 @@ import type {
   Parameter,
   ScenarioEnvironmentType,
   StateSyncRequest,
-} from '@tensnap/core';
+} from '@tensnap/protocol';
 import type { SimulatorSessionHandlers } from '../runtime';
 import { SimulatorSession } from '../runtime';
 

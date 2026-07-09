@@ -7,7 +7,7 @@ import type {
   ScreenshotResponsePayload,
   SimulatorToRendererMessage,
   StateSyncRequest,
-} from '@tensnap/core';
+} from '@tensnap/protocol';
 import { createSimulatorEmitter, SimulatorEmitter } from './SimulatorEmitter';
 
 export interface SimulatorSessionHandlers {

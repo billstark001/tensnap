@@ -24,8 +24,8 @@
 import { Scenario } from '@tensnap/core/scenario';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
 import { LineChartView } from '@tensnap/core/chart/browser';
-import type { SimulatorToRendererMessage } from '@tensnap/core';
-import type { ChartGroupMetadata, ChartDataPoint, LineConfig } from '@tensnap/core';
+import type { ChartDataPoint, LineConfig } from '@tensnap/core';
+import type { ChartGroupMetadata, SimulatorToRendererMessage } from '@tensnap/protocol';
 import type { SimulatorSession } from '@tensnap/js/runtime';
 import type { BenchmarkCase } from '../types';
 

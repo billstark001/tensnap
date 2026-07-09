@@ -24,20 +24,28 @@ The protocol intentionally uses `renderer` / `simulator` terminology rather than
 
 ## Package Map
 
-### `packages/core`
+### `packages/protocol`
 
-Shared runtime and protocol package.
+Shared protocol package.
 
 Owns:
 
 - protocol v0.2 message types, schemas, and codecs
+
+### `packages/core`
+
+Shared runtime and rendering package.
+
+Owns:
+
 - `Scenario` state model and snapshot logic
 - layer registry, dependency graph, and render-plan helpers
 - shared environment storages and built-in render layers
 - shared runtime pipeline helpers
 - project-level `AssetStore`
 
-This package is the architectural center of the repository.
+The protocol package owns wire payloads; core owns renderer-side state and
+rendering semantics built on top of those payloads.
 
 ## Rendering Contract Ownership
 
@@ -124,7 +132,8 @@ JavaScript/TypeScript simulator binding package.
 
 Owns:
 
-- `defineModel(...)` and `defineExample(...)`
+- `modelBuilder(...)` and the modular declarative binding pieces for parameters, layers, charts, actions, assets, and session sync
+- low-level protocol metadata helpers such as `defineScenario(...)`, `defineParameters(...)`, `defineEnvironment(...)`, `defineLayer(...)`, `defineCharts(...)`, and `defineActions(...)`
 - `SimulatorSession` and `SimulatorEmitter`
 - `ScenarioRegistry`
 - postMessage and WebSocket simulator hosts
