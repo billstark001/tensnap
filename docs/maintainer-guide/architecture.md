@@ -323,8 +323,8 @@ Screenshots flow in the opposite direction:
 
 ## Documentation Source of Truth
 
-- Current protocol: `docs/maintainer-guide/protocol-v0.2.md`
-- Historical protocol: `docs/maintainer-guide/protocol-v0.1.md`
+- Current protocol source: `packages/protocol/src/*`
+- Generated protocol documentation: run `pnpm --dir packages/protocol export:protocol` to write `packages/protocol/dist/protocol-types.md`, or pass an output path as the first argument
 - Current Python API: `docs/api-reference/python-api.md`
 - Current Go API: `docs/api-reference/go-api.md`
 - Current JavaScript API: `docs/api-reference/js-api.md`

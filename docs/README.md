@@ -20,7 +20,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[Architecture Overview](./maintainer-guide/architecture.md)** - System architecture and design
 
 - **[Contributing Guidelines](./maintainer-guide/contributing.md)** - How to contribute to TenSnap
-- **[Protocol v0.2](./maintainer-guide/protocol-v0.2.md)** - Current WebSocket protocol specification
+- **[Protocol Package](../packages/protocol/README.md)** - Source of truth for protocol schemas, codecs, and generated Markdown documentation
 - **[Internationalization (i18n)](./maintainer-guide/i18n.md)** - Translation and localization guide
 
 ## Documentation Status

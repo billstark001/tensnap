@@ -110,7 +110,7 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[Architecture Overview](./docs/maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./docs/maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./docs/maintainer-guide/contributing.md)** - How to contribute to TenSnap
-- **[Protocol v0.2](./docs/maintainer-guide/protocol-v0.2.md)** - Current renderer/simulator protocol specification
+- **[Protocol Package](./packages/protocol/README.md)** - Source of truth for renderer/simulator schemas, codecs, and generated protocol documentation
 - **[Internationalization (i18n)](./docs/maintainer-guide/i18n.md)** - Translation and localization guide
 
 ## 🎯 Design Philosophy
@@ -227,7 +227,8 @@ tensnap/
 
 ### Package Responsibilities
 
-- **core**: Protocol v0.2 types/codecs, Scenario state, layer registry, rendering/runtime primitives, and `AssetStore`.
+- **protocol**: Renderer/simulator schemas, type definitions, codecs, built-in layer contracts, and generated protocol reference.
+- **core**: Renderer-side Scenario state, layer registry, rendering/runtime primitives, and `AssetStore`.
 - **tensnap-web**: Main browser renderer, transport wiring, project UI, and scenario store integration.
 - **tensnap-tauri**: Desktop shell reusing the web renderer.
 - **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.

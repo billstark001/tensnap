@@ -74,7 +74,7 @@ If you have specific goals:
 - **Want to visualize existing simulations?** → Start from Tutorials 1-4, then branch into `examples/python/` or `examples/python_mesa/`
 - **Working with networks?** → Start with [Tutorial 4: Network Dynamics](./04-network-simulation.md)
 - **Need layered resource fields?** → See `examples/python_mesa/sugarscape_viz.py`
-- **Need protocol details?** → Read [Protocol v0.2](../maintainer-guide/protocol-v0.2.md)
+- **Need protocol details?** → Generate the protocol reference with `pnpm --dir packages/protocol export:protocol` and read `packages/protocol/dist/protocol-types.md`
 
 ## Example Models
 

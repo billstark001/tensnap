@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/protocol [0.2.1] - 2026-07-10
+
+### Added
+
+- Added protocol-level built-in layer schemas for background, grid, edge, trajectory, and agent layers, including concrete metadata, item, item diff, delete-key, and specialized payload definitions.
+- Added `export:protocol`, which writes the generated protocol Markdown to `dist/protocol-types.md` by default or to the first command argument.
+
+### Changed
+
+- Rebuilt protocol payload types so event payload exports are inferred from Zod schemas instead of duplicated in `types.ts`.
+- Reworked protocol documentation generation to emit concrete TypeScript definitions from Zod schemas, include package metadata, and include the generated Markdown in every protocol build.
+
+### Fixed
+
+- Restored protocol payload semantics in `schemas.ts`, including the parameter contract that accepted `param_change` values do not trigger `param_sync`, while rejected or canonicalized values do.
+
+## Workspace [0.2.0] - 2026-07-10
+
+### Added
+
+- Added standardized `build`, `test`, `lint`, and `format` script entries across workspace packages where existing tools are available, with explicit no-op commands where no tool is configured.
+
+### Changed
+
+- Updated workspace documentation and Codex skills to point protocol references at the generated `@tensnap/protocol` documentation workflow.
+- Upgraded workspace npm dependencies with npm-check-updates while keeping TypeScript on v6.
+
+### Removed
+
+- Removed the stale maintainer-guide `protocol-v0.1.md` and `protocol-v0.2.md` snapshots in favor of generated protocol documentation.
+
+## @tensnap/go [0.2.4] - 2026-07-10
+
+### Added
+
+- Added Go binding support for edge, trajectory, and background layers.
+- Added dynamic enum parameter metadata with option and label updates.
+
+### Fixed
+
+- Fixed parameter correction behavior so Go emits `param_sync` only for rejected or canonicalized parameter values.
+- Fixed multi-key layer delete payloads so edge deletion uses object keys instead of joined strings.
+
+### Changed
+
+- Reduced allocations in Go item diffing hot paths.
+
+## @tensnap/js [0.2.2] - 2026-07-10
+
+### Added
+
+- Added JavaScript binding helpers for background and trajectory layers.
+- Added dynamic enum parameter options and labels.
+
+### Fixed
+
+- Fixed JavaScript binding parameter handling so accepted slider updates no longer trigger definition refreshes that fight the frontend control.
+
+### Changed
+
+- Avoided an extra byte copy when hashing published JavaScript binding assets.
+
+## @tensnap/python [0.2.4] - 2026-07-10
+
+### Fixed
+
+- Fixed Python parameter sync behavior so rejected parameter edits send a correction while accepted edits remain quiet.
+- Fixed Python parameter state-sync diffing so enum option and label changes produce `param_update`.
+
+### Changed
+
+- Reduced deepcopy use in Python layer diffing and screenshot response handling.
+- Aligned Python package metadata with the Python package release version.
+
+## @tensnap/julia [0.2.1] - 2026-07-10
+
+### Added
+
+- Added Julia background and trajectory layer builders.
+- Added `update_parameter!` and repeated-parameter updates that emit `param_update`, enabling enum option updates.
+
+### Fixed
+
+- Fixed Julia runtime parameter changes so accepted edits no longer broadcast `param_sync`.
+
+### Changed
+
+- Avoided copying existing `Vector{UInt8}` payloads during Julia MessagePack encoding.
+
+## @tensnap/protocol [0.2.0] - 2026-07-10
+
+### Added
+
+- Added the standalone `@tensnap/protocol` package as the canonical home for protocol v0.2 schemas, types, codecs, and binary semantic field handling after the protocol split from `@tensnap/core`.
+
 ## @tensnap/core, @tensnap/web [0.2.2] - 2026-06-05
 
 ### Added

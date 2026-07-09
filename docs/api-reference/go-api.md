@@ -402,4 +402,4 @@ _ = model.Step(emitter)
 - `packages/tensnap-go/README.md`
 - `examples/go/internal/schelling/model.go`
 - `examples/go/`
-- `docs/maintainer-guide/protocol-v0.2.md`
+- `packages/protocol/README.md` for the protocol source and generated reference workflow

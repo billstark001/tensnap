@@ -18,6 +18,10 @@ Use this skill when you need an automation agent to drive a TenSnap simulator th
 - Runtime state is persisted under `.tensnap/contexts/<context>/` by default.
 - The daemon exposes local HTTP control endpoints and an SSE event stream.
 - Reserved scene actions map directly to simulator action ids: `start`, `step`, `reset`.
+- Protocol message shapes, screenshot payloads, asset payloads, and built-in layer
+  item contracts come from `packages/protocol`. Generate the current reference
+  with `pnpm --dir packages/protocol export:protocol` when debugging transport
+  or scene-sync issues.
 
 ## Core Commands
 
@@ -153,6 +157,9 @@ pnpm --filter @tensnap/agent dev -- experiment run '{"label":"baseline","paramet
 ## Operational Guidance
 
 - Prefer `scene inspect` before mutating parameters or actions, so the agent has the current ids.
+- If a protocol payload looks wrong, inspect `packages/protocol/src/schemas.ts`
+  and `packages/protocol/src/layers.ts`, then regenerate the Markdown protocol
+  reference before changing agent runtime code.
 - Prefer reserved scene actions when they exist, because they carry simulator semantics directly.
 - Prefer `wait ...` commands over ad-hoc polling when the workflow depends on a time step, chart threshold, or action boundary.
 - Prefer `experiment run` when a workflow would otherwise need several sequential CLI calls and intermediate bookkeeping.

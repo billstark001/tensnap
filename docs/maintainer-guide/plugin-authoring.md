@@ -400,5 +400,5 @@ roles unless you are intentionally overriding a built-in behavior.
 
 ## References
 
-- [Protocol v0.2](./protocol-v0.2.md) - full message spec for `env_layer_*` and `item_*`
+- [Protocol package](../../packages/protocol/README.md) - generate the full message and built-in layer spec with `pnpm --dir packages/protocol export:protocol`
 - [Architecture](./architecture.md) - rendering layer design

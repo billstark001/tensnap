@@ -247,5 +247,5 @@ pnpm build:web
 ## Next Steps
 
 - [Architecture Documentation](./architecture.md) - System design and components
-- [Protocol v0.2](./protocol-v0.2.md) - Current renderer/simulator protocol
+- [Protocol package](../../packages/protocol/README.md) - Current renderer/simulator protocol schemas and generated documentation workflow
 - [Contributing Guidelines](./contributing.md) - Contribution workflow

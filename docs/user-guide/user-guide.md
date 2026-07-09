@@ -298,5 +298,5 @@ These repository examples are the best reference implementations today.
 - `docs/api-reference/go-api.md`
 - `docs/api-reference/js-api.md`
 - `docs/api-reference/julia-api.md`
-- `docs/maintainer-guide/protocol-v0.2.md`
+- `packages/protocol/README.md`
 - `packages/tensnap-python/README.md`

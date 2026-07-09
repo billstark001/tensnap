@@ -9,21 +9,29 @@ concrete WebSocket implementations.
 
 ## Source Files
 
-- [src/types.ts](./src/types.ts): message envelopes and payload interfaces.
+- [src/types.ts](./src/types.ts): message envelopes and schema-inferred payload types.
 - [src/schemas.ts](./src/schemas.ts): runtime zod schemas for protocol payloads.
 - [src/codec.ts](./src/codec.ts): JSON and MessagePack protocol codecs.
 - [src/binary.ts](./src/binary.ts): base64 and data URL handling for binary semantic fields.
 - [src/controls.ts](./src/controls.ts): parameter and action payload definitions.
+- [src/layers.ts](./src/layers.ts): built-in layer metadata, item, and specialized payload definitions.
 - [src/chart.ts](./src/chart.ts): chart metadata and update payload definitions.
 - [src/asset.ts](./src/asset.ts): asset metadata payload definitions.
 
-To export the complete TypeScript definitions into Markdown:
+To export the complete schema-derived TypeScript definitions into Markdown:
 
 ```bash
 pnpm --dir packages/protocol export:types protocol-types.md
+pnpm --dir packages/protocol export:protocol
 ```
 
-Omit the output path to print the Markdown to stdout.
+`export:types` prints to stdout when the output path is omitted.
+`export:protocol` writes to `dist/protocol-types.md` by default, or to the
+first argument when one is provided.
+
+Every package build also writes the generated document to
+`dist/protocol-types.md`, including the package name, version, and source
+metadata used for that build.
 
 ## Scope
 
