@@ -132,7 +132,8 @@ JavaScript/TypeScript simulator binding package.
 
 Owns:
 
-- `defineModel(...)` and `defineExample(...)`
+- `modelBuilder(...)` and the modular declarative binding pieces for parameters, layers, charts, actions, assets, and session sync
+- low-level protocol metadata helpers such as `defineScenario(...)`, `defineParameters(...)`, `defineEnvironment(...)`, `defineLayer(...)`, `defineCharts(...)`, and `defineActions(...)`
 - `SimulatorSession` and `SimulatorEmitter`
 - `ScenarioRegistry`
 - postMessage and WebSocket simulator hosts

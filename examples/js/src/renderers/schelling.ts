@@ -1,9 +1,6 @@
 import {
-  defineCharts,
-  defineExample,
-  defineEnvironment,
-  defineLayer,
-  defineParameters,
+  modelBuilder,
+  numberField,
 } from '@tensnap/js/bindings';
 import { SchellingConfig, SchellingModel } from '../models/schelling';
 
@@ -18,93 +15,74 @@ export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
   balance: 0.5,
 };
 
-function createSchellingParameters(config: SchellingConfig) {
-  return defineParameters(
-    { id: 'gridWidth', type: 'number', label: 'Grid Width', value: config.gridWidth, min: 10, max: 100, step: 1, allowRuntimeChange: false },
-    { id: 'gridHeight', type: 'number', label: 'Grid Height', value: config.gridHeight, min: 10, max: 100, step: 1, allowRuntimeChange: false },
-    { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', value: config.similarityThreshold, min: 0, max: 1, step: 0.05, allowRuntimeChange: true },
-    { id: 'density', type: 'number', label: 'Density', value: config.density, min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
-    { id: 'balance', type: 'number', label: 'Balance', value: config.balance, min: 0, max: 1, step: 0.05, allowRuntimeChange: false },
-  );
-}
-
-const SCHELLING_CHARTS = defineCharts(
-  { id: 'satisfaction_rate', label: 'Satisfaction Rate', color: '#2f9e44' },
-  { id: 'segregation_index', label: 'Segregation Index', color: '#e8590c' },
-);
-
-export const SCHELLING_EXAMPLE = defineExample({
+const builder = modelBuilder({
   id: 'schelling',
   name: 'Schelling Segregation Model',
   description: 'Local similarity preference causes macro segregation patterns.',
 }, {
   defaults: DEFAULT_SCHELLING_CONFIG,
-  parameters: createSchellingParameters,
-  environments(config) {
-    return [
-      defineEnvironment({
-        id: 'main',
-        type: '2d',
-        layers: [
-          defineLayer({
-            layerId: AGENT_LAYER,
-            layerType: 'agent',
-            data: { width: config.gridWidth, height: config.gridHeight },
-          }),
-          defineLayer({
-            layerId: GRID_LAYER,
-            layerType: 'grid',
-            data: { width: config.gridWidth, height: config.gridHeight },
-          }),
-        ],
-      }),
-    ];
-  },
-  charts: SCHELLING_CHARTS,
   create(config) {
     return new SchellingModel(config);
-  },
-  getConfig(model) {
-    return model.getConfig();
   },
   init(model) {
     model.initialize();
   },
+  step(model) {
+    return model.step();
+  },
+  reset(model) {
+    model.reset();
+  },
   dispose(model) {
     model.destroy();
   },
-  async sync(model, ctx) {
-    await ctx.syncItems('main', AGENT_LAYER, model.getEnvironmentState().agents);
-
-    const stats = model.getStatistics();
-    await ctx.setTime(0);
-    await ctx.setChartValues({
-      satisfaction_rate: stats.satisfactionRate,
-      segregation_index: stats.segregationIndex,
-    }, 0);
+  time(model) {
+    return model.getStatistics().timeStep;
   },
-  async onParameterChange(model, payload, ctx) {
-    model.updateParameter(payload.id, payload.value);
-
-    const nextValue = model.getConfig()[payload.id as keyof SchellingConfig];
-    if (!Object.is(nextValue, payload.value)) {
-      await ctx.refreshParameters(payload.id);
-    }
-  },
-  async step(model, ctx) {
-    const shouldContinue = model.step();
-    const stats = model.getStatistics();
-    await ctx.setTime(stats.timeStep);
-    await ctx.syncItems('main', AGENT_LAYER, model.getEnvironmentState().agents);
-    await ctx.setChartValues({
-      satisfaction_rate: stats.satisfactionRate,
-      segregation_index: stats.segregationIndex,
-    }, stats.timeStep);
-    return shouldContinue;
-  },
-  async reset(model, ctx) {
-    model.reset();
-    await ctx.sync();
-    await ctx.clearAllCharts();
+  getConfig(model) {
+    return model.getConfig();
   },
 });
+
+builder.paramsFromConfig<SchellingConfig>({
+  get: (model) => model.getConfig(),
+  set(model, patch) {
+    model.updateConfig(patch);
+  },
+  fields: {
+    gridWidth: numberField({ label: 'Grid Width', integer: true, runtime: false }),
+    gridHeight: numberField({ label: 'Grid Height', integer: true, runtime: false }),
+    similarityThreshold: numberField({ label: 'Similarity Threshold', min: 0, max: 1, step: 0.05 }),
+    density: numberField({ label: 'Density', min: 0, max: 1, step: 0.05, runtime: false }),
+    balance: numberField({ label: 'Balance', min: 0, max: 1, step: 0.05, runtime: false }),
+  },
+});
+
+builder.env('main')
+  .agentLayer(AGENT_LAYER, {
+    data: (model) => {
+      const config = model.getConfig();
+      return { width: config.gridWidth, height: config.gridHeight };
+    },
+    items: (model) => model.getEnvironmentState().agents,
+  })
+  .gridLayer(GRID_LAYER, {
+    data: (model) => {
+      const config = model.getConfig();
+      return { width: config.gridWidth, height: config.gridHeight };
+    },
+  });
+
+builder
+  .chart('satisfaction_rate', {
+    label: 'Satisfaction Rate',
+    color: '#2f9e44',
+    get: (model) => model.getStatistics().satisfactionRate,
+  })
+  .chart('segregation_index', {
+    label: 'Segregation Index',
+    color: '#e8590c',
+    get: (model) => model.getStatistics().segregationIndex,
+  });
+
+export const SCHELLING_EXAMPLE = builder.build();

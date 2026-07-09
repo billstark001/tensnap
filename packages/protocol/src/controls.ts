@@ -21,9 +21,9 @@ export type ParameterBase = z.infer<typeof ParameterBaseSchema>;
 export const NumberParameterSchema = ParameterBaseSchema.extend({
   type: z.literal('number'),
   value: z.number(),
-  min: z.number(),
-  max: z.number(),
-  step: z.number(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().optional(),
 });
 
 export type NumberParameter = z.infer<typeof NumberParameterSchema>;

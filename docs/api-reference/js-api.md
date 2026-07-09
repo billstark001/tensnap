@@ -1,11 +1,11 @@
 # JavaScript API Reference
 
 This reference describes the `@tensnap/js` package. It provides simulator-side
-helpers for protocol v0.2, not renderer widgets.
+bindings for protocol v0.2, not renderer widgets.
 
 The package exports four groups:
 
-- `@tensnap/js/bindings`: declarative model and example builders.
+- `@tensnap/js/bindings`: declarative model builders and low-level metadata helpers.
 - `@tensnap/js/runtime`: low-level `SimulatorSession` and `SimulatorEmitter`.
 - `@tensnap/js/scenario`: `ScenarioRegistry` replay helpers.
 - `@tensnap/js/transport`: postMessage and WebSocket simulator hosts.
@@ -15,11 +15,8 @@ The package exports four groups:
 ```ts
 import {
   createWebSocketTransportHost,
-  defineCharts,
-  defineEnvironment,
-  defineLayer,
-  defineModel,
-  defineParameters,
+  modelBuilder,
+  numberField,
 } from '@tensnap/js';
 
 interface Config {
@@ -32,47 +29,64 @@ interface Agent {
   y: number;
 }
 
-const binding = defineModel<Config, { tick: number; agents: Agent[] }>({
+interface DemoModel {
+  tick: number;
+  config: Config;
+  agents: Agent[];
+}
+
+const builder = modelBuilder<Config, DemoModel>({
+  id: 'demo',
+  name: 'Demo',
+  description: 'A minimal JavaScript model.',
+}, {
   defaults: { speed: 1 },
-  parameters: (config) => defineParameters({
-    id: 'speed',
-    type: 'number',
-    label: 'Speed',
-    value: config.speed,
-    min: 0,
-    max: 5,
-    step: 0.5,
-    allowRuntimeChange: true,
-  }),
-  environments: [
-    defineEnvironment({
-      id: 'main',
-      type: '2d',
-      layers: [defineLayer({ layerId: 'agents', layerType: 'agent' })],
-    }),
-  ],
-  charts: defineCharts({ id: 'count', label: 'Count', color: '#2563eb' }),
-  create() {
-    return { tick: 0, agents: [{ id: 'a1', x: 0, y: 0 }] };
+  create(config) {
+    return {
+      tick: 0,
+      config: { ...config },
+      agents: [{ id: 'a1', x: 0, y: 0 }],
+    };
   },
-  async sync(model, ctx) {
-    await ctx.setTime(model.tick);
-    await ctx.syncItems('main', 'agents', model.agents);
-    await ctx.setChartValues({ count: model.agents.length }, model.tick);
+  getConfig(model) {
+    return model.config;
   },
-  async step(model, ctx) {
+  step(model) {
     model.tick += 1;
-    model.agents[0].x += ctx.getConfig().speed;
-    await ctx.sync();
+    model.agents[0].x += model.config.speed;
     return true;
   },
-  async reset(model, ctx) {
+  reset(model) {
     model.tick = 0;
     model.agents = [{ id: 'a1', x: 0, y: 0 }];
-    await ctx.sync();
-    await ctx.clearAllCharts();
+  },
+  time(model) {
+    return model.tick;
   },
 });
+
+builder.paramsFromConfig<Config>({
+  get: (model) => model.config,
+  set(model, patch) {
+    Object.assign(model.config, patch);
+  },
+  fields: {
+    speed: numberField({ label: 'Speed' }),
+  },
+});
+
+builder.env('main')
+  .agentLayer<Agent>('agents', {
+    items: (model) => model.agents,
+  });
+
+builder.chart('count', {
+  label: 'Agents',
+  color: '#2563eb',
+  get: (model) => model.agents.length,
+});
+
+const binding = builder.build();
 
 const host = createWebSocketTransportHost({
   serverOptions: { port: 8765 },
@@ -82,46 +96,178 @@ const host = createWebSocketTransportHost({
 console.log(host.url);
 ```
 
-## Declarative Bindings
+## Declarative Builder
 
-### `defineModel(options)`
+### `modelBuilder(metadata, options)`
 
-`defineModel(...)` returns a `DeclarativeModelBinding` with:
+`modelBuilder(...)` returns a fluent `ModelBuilder`. Calling `build()` returns an
+object that combines the supplied metadata with:
 
 - `createScenario(config?)`: build a static scenario definition for inspection or manifests.
 - `createSession(config?)`: create a protocol session that can be attached to a transport.
 
 Important options:
 
-- `defaults`: default config merged with per-session overrides.
-- `parameters`, `actions`, `environments`, `charts`: static arrays or factories that receive the current config.
+- `defaults`: optional default config merged with per-session overrides.
 - `create(config)`: construct the model object for one session.
 - `getConfig(model, initialConfig)`: expose model-normalized config values.
-- `init`, `dispose`, `sync`, `step`, `reset`: lifecycle callbacks.
-- `onParameterChange`, `onAction`, `onAssetSync`: protocol event hooks.
+- `init`, `dispose`, `step`, `reset`: lifecycle callbacks.
+- `time(model)`: expose simulation time; otherwise time increments after each step.
+- `lifecycleLabels`: optional labels for built-in `start`, `step`, and `reset`.
 
-If `actions` is omitted, `defineModel(...)` registers the default renderer-driven
-`start`, `step`, and `reset` actions. If `actions` is provided, it replaces that
-default list.
+The builder registers the renderer-driven lifecycle actions automatically:
+`start`, `step`, and `reset`. Custom actions can be added with `.action(...)`.
 
-### `defineExample(metadata, options)`
+### Parameters
 
-`defineExample(...)` merges arbitrary metadata with the `defineModel(...)`
-result. The JavaScript examples use this shape so manifests can expose `id`,
-`name`, `description`, `createScenario(...)`, and `createSession(...)` from one
-object.
+Use explicit parameter methods for individual controls:
 
-### Metadata Helpers
+```ts
+builder.numberParam('temperature', {
+  label: 'Temperature',
+  get: (model) => model.temperature,
+  set(model, value) {
+    model.temperature = value;
+  },
+});
+```
 
+Use `paramsFromConfig(...)` when model configuration is a plain object:
+
+```ts
+builder.paramsFromConfig<Config>({
+  get: (model) => model.config,
+  set(model, patch) {
+    Object.assign(model.config, patch);
+  },
+  fields: {
+    speed: numberField({ label: 'Speed' }),
+  },
+});
+```
+
+`numberField(...)` accepts optional `min`, `max`, `step`, and `integer` hints.
+Leave them undefined when the renderer can infer a reasonable range. Provide
+them when the simulator must clamp, round, or express a domain-specific bound.
+
+Field helpers:
+
+- `numberField(options?)`
+- `booleanField(options?)`
+- `stringField(options?)`
+- `enumField({ options, labels?, ... })`
+
+If `fields` is omitted, `paramsFromConfig(...)` infers number, boolean, and
+string controls from the current config object.
+
+### Environments And Layers
+
+`builder.env(id, options?)` creates an environment builder. Layer methods mutate
+that environment builder and return it, so related layer declarations stay
+grouped. Use `.done()` only when chaining back to the parent model builder.
+
+```ts
+builder.env('main')
+  .gridLayer('grid', {
+    data: (model) => ({ width: model.width, height: model.height }),
+  })
+  .agentLayer('agents', {
+    data: (model) => ({ width: model.width, height: model.height }),
+    items: (model) => model.agents,
+  })
+  .edgeLayer('links', {
+    items: (model) => model.links,
+    key: ['source', 'target'],
+  });
+```
+
+Layer `items(...)` returns the current authoritative item list. The binding
+tracks previous records and emits creates, field-level updates, and deletes.
+
+For models that already know exact incremental changes, declare `updates(...)`.
+When a layer has `updates(...)`, the binding sends update records after the
+initial full sync and reset.
+
+`projectFields(...)` is useful when the model object shape does not match the
+renderer item shape:
+
+```ts
+import { literal, projectFields } from '@tensnap/js/bindings';
+
+builder.env('main').agentLayer('agents', {
+  items: (model) => model.people,
+  project: projectFields({
+    id: 'id',
+    x: 'position.x',
+    y: 'position.y',
+    color: literal('#2563eb'),
+  }),
+});
+```
+
+### Charts
+
+Single series:
+
+```ts
+builder.chart('count', {
+  label: 'Count',
+  color: '#2563eb',
+  get: (model) => model.agents.length,
+});
+```
+
+Grouped series:
+
+```ts
+builder.chartGroup('population', {
+  series: [
+    { id: 'sheep', label: 'Sheep', color: '#ffffff', get: (model) => model.sheep },
+    { id: 'wolves', label: 'Wolves', color: '#111111', get: (model) => model.wolves },
+  ],
+});
+```
+
+### Actions And Assets
+
+Custom actions:
+
+```ts
+builder.action('shuffle', {
+  label: 'Shuffle',
+  run(model) {
+    model.shuffle();
+  },
+});
+```
+
+Static or model-derived assets:
+
+```ts
+builder.asset('wolf-sheep:sheep', {
+  mime: 'image/svg+xml',
+  label: 'Sheep',
+  data: sheepSvg,
+});
+```
+
+Use `assetIcon(id)` for agent icons that reference declared assets.
+
+## Low-Level Metadata Helpers
+
+The package still exports raw protocol helpers for tests, transport fixtures, and
+advanced integrations that already manage their own session lifecycle:
+
+- `defineScenario(definition)`
 - `defineParameters(...parameters)`
 - `defineActions(...actions)`
 - `defineCharts(...charts)`
 - `defineLayer(layer)`
 - `defineEnvironment(environment)`
-- `defineScenario(definition)`
 
-These helpers clone shallow protocol objects so example definitions do not share
-mutable metadata by accident.
+These helpers clone shallow protocol objects so definitions do not share mutable
+metadata by accident. They are not aliases for the model builder and are not the
+recommended authoring API for new examples.
 
 `defineCharts` accepts protocol `dataList` metadata for grouped charts:
 
@@ -135,28 +281,24 @@ const charts = defineCharts({
     { id: 'dead', label: 'Dead', color: '#9ca3af' },
   ],
 });
-
-await ctx.setChartValues({ alive: 12, evacuated: 8, dead: 1 }, model.tick);
 ```
 
 ## `ModelSessionContext`
 
-`sync`, `step`, `reset`, and protocol hooks receive a context with:
+Lifecycle callbacks and custom actions receive a context with:
 
 - `session`, `emitter`, and `registry`.
 - `getConfig()` for current config values.
 - `replayDefinition()` and `sync()` for full metadata/state replay.
 - `refreshParameters(ids?)` for parameter create/update/delete after config normalization.
 - `setTime(...)`, `metadata(...)`, `setChartValues(...)`, `updateCharts(...)`, `clearCharts(...)`, and `clearAllCharts()`.
-- `createItems(...)`, `updateItems(...)`, `deleteItems(...)`, and `syncItems(...)`.
+- `createItems(...)`, `updateItems(...)`, `deleteItems(...)`, `syncRecords(...)`, and `syncItems(...)`.
 - `finishAction(...)` for custom action handling.
 - `publishAsset(...)`, `syncAssets(...)`, and `clearPublishedAssets()`.
 
-`syncItems(...)` accepts the full current item list and tracks per-layer item
-snapshots internally. It sends creates, field-level updates for changed existing
-items, and deletes for missing ids. Use `createItems(...)`, `updateItems(...)`,
-and `deleteItems(...)` when the model already knows the exact incremental item
-operations to emit.
+Most models do not need to call `sync()` manually. The builder publishes
+declared assets, layers, charts, parameters, and time after connect, state sync,
+step, reset, accepted parameter changes, and synced custom actions.
 
 ## Runtime API
 

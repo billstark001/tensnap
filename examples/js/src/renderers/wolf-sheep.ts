@@ -1,10 +1,10 @@
 import type { GridAgentState } from '@tensnap/core/environment';
 import {
-  defineCharts,
-  defineExample,
-  defineEnvironment,
-  defineLayer,
-  defineParameters,
+  assetIcon,
+  booleanField,
+  enumField,
+  modelBuilder,
+  numberField,
 } from '@tensnap/js/bindings';
 import { WolfSheepConfig, WolfSheepModel, World } from '../models/wolf-sheep';
 
@@ -13,43 +13,23 @@ const TERRAIN_LAYER = 'terrain';
 const ANIMAL_LAYER = 'animals';
 const SHEEP_ASSET_ID = 'wolf-sheep:sheep';
 const WOLF_ASSET_ID = 'wolf-sheep:wolf';
-const SHEEP_ICON: `asset:${string}` = `asset:${SHEEP_ASSET_ID}`;
-const WOLF_ICON: `asset:${string}` = `asset:${WOLF_ASSET_ID}`;
+const SHEEP_ASSET_URL = new URL('../../../../assets/sheep.svg', import.meta.url);
+const WOLF_ASSET_URL = new URL('../../../../assets/wolf.svg', import.meta.url);
 
-const SHEEP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <g fill="#f4f4f4" stroke="#3a3a3a" stroke-width="2">
-    <ellipse cx="32" cy="34" rx="18" ry="13" />
-    <circle cx="20" cy="28" r="7" />
-    <circle cx="30" cy="24" r="7" />
-    <circle cx="41" cy="26" r="7" />
-    <circle cx="46" cy="36" r="7" />
-    <circle cx="34" cy="42" r="7" />
-    <circle cx="22" cy="40" r="7" />
-  </g>
-  <g fill="#2f2f2f">
-    <ellipse cx="49" cy="34" rx="7" ry="6" />
-    <circle cx="52" cy="32" r="1.2" fill="#f5f5f5" />
-    <rect x="19" y="45" width="4" height="10" rx="2" />
-    <rect x="29" y="45" width="4" height="10" rx="2" />
-    <rect x="39" y="45" width="4" height="10" rx="2" />
-  </g>
-</svg>`;
+async function loadTextAsset(url: URL): Promise<string> {
+  if (url.protocol === 'file:') {
+    const { readFile } = await import('node:fs/promises');
+    return readFile(url, 'utf8');
+  }
 
-const WOLF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <g fill="#4f5563" stroke="#1d2128" stroke-width="2">
-    <path d="M8 39l8-11 5 4 7-8 12 5 8-3 8 10-7 9-11 4-13-2-9 5-8-3z" />
-    <path d="M42 20l6-8 4 10z" />
-    <path d="M31 21l5-9 2 10z" />
-  </g>
-  <g fill="#171a20">
-    <circle cx="47" cy="31" r="1.5" fill="#f1f4fa" />
-    <path d="M53 35l4 2-4 2z" />
-    <path d="M18 46l6 0" stroke="#171a20" stroke-width="3" stroke-linecap="round" />
-    <path d="M28 48l6 0" stroke="#171a20" stroke-width="3" stroke-linecap="round" />
-  </g>
-</svg>`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load asset ${url.href}: ${response.status}`);
+  }
+  return response.text();
+}
 
-type AnimalObj = { position: { x: number; y: number }; heading: number; config: { color: string; size: number } };
+type AnimalObj = { position: { x: number; y: number }; heading: number; config: { size: number } };
 
 export const DEFAULT_WOLF_SHEEP_CONFIG: WolfSheepConfig = {
   modelVersion: 'sheep-wolves-grass',
@@ -73,26 +53,6 @@ interface WolfSheepRuntime {
   nextWolfId: number;
   previousPatchColors: string[][];
 }
-
-function createWolfSheepParameters(config: WolfSheepConfig) {
-  return defineParameters(
-    { id: 'modelVersion', type: 'enum', label: 'Model Version', value: config.modelVersion, options: ['sheep-wolves', 'sheep-wolves-grass'], allowRuntimeChange: false },
-    { id: 'initialNumberSheep', type: 'number', label: 'Initial Sheep', value: config.initialNumberSheep, min: 0, max: 500, step: 10, allowRuntimeChange: false },
-    { id: 'initialNumberWolves', type: 'number', label: 'Initial Wolves', value: config.initialNumberWolves, min: 0, max: 500, step: 10, allowRuntimeChange: false },
-    { id: 'sheepGainFromFood', type: 'number', label: 'Sheep Gain From Food', value: config.sheepGainFromFood, min: 0, max: 50, step: 1, allowRuntimeChange: true },
-    { id: 'wolfGainFromFood', type: 'number', label: 'Wolf Gain From Food', value: config.wolfGainFromFood, min: 0, max: 100, step: 1, allowRuntimeChange: true },
-    { id: 'grassRegrowthTime', type: 'number', label: 'Grass Regrowth Time', value: config.grassRegrowthTime, min: 0, max: 100, step: 1, allowRuntimeChange: true },
-    { id: 'sheepReproduce', type: 'number', label: 'Sheep Reproduce %', value: config.sheepReproduce, min: 0, max: 20, step: 1, allowRuntimeChange: true },
-    { id: 'wolfReproduce', type: 'number', label: 'Wolf Reproduce %', value: config.wolfReproduce, min: 0, max: 20, step: 1, allowRuntimeChange: true },
-    { id: 'showEnergy', type: 'boolean', label: 'Show Energy', value: config.showEnergy, allowRuntimeChange: true },
-  );
-}
-
-const WOLF_SHEEP_CHARTS = defineCharts(
-  { id: 'sheep_count', label: 'Sheep', color: '#ffffff' },
-  { id: 'wolf_count', label: 'Wolves', color: '#111111' },
-  { id: 'grass_count', label: 'Grass', color: '#62a862' },
-);
 
 function getEffectiveConfig(runtime: WolfSheepRuntime): WolfSheepConfig {
   return {
@@ -131,6 +91,12 @@ function buildTerrainAgents(runtime: WolfSheepRuntime, full: boolean): GridAgent
   return result;
 }
 
+function buildTerrainUpdates(runtime: WolfSheepRuntime): GridAgentState[] {
+  const updates = buildTerrainAgents(runtime, false);
+  capturePatchSnapshot(runtime);
+  return updates;
+}
+
 function getAnimalId(runtime: WolfSheepRuntime, kind: 'sheep' | 'wolf', obj: object): string {
   const existing = runtime.animalIdMap.get(obj);
   if (existing) {
@@ -155,7 +121,7 @@ function buildAnimalAgents(runtime: WolfSheepRuntime): GridAgentState[] {
       y: animal.position.y,
       heading: (animal.heading * Math.PI) / 180,
       color: '#f1f1f1',
-      icon: SHEEP_ICON,
+      icon: assetIcon(SHEEP_ASSET_ID),
       size: animal.config.size,
     })),
     ...wolves.map((animal) => ({
@@ -164,61 +130,19 @@ function buildAnimalAgents(runtime: WolfSheepRuntime): GridAgentState[] {
       y: animal.position.y,
       heading: (animal.heading * Math.PI) / 180,
       color: '#111111',
-      icon: WOLF_ICON,
+      icon: assetIcon(WOLF_ASSET_ID),
       size: animal.config.size,
     })),
   ];
 }
 
-async function registerAnimalAssets(
-  ctx: {
-    publishAsset(
-      id: string,
-      mime: string,
-      data: Uint8Array,
-      label?: string,
-    ): Promise<{ id: string; hash: string }>;
-  },
-): Promise<void> {
-  const encoder = new TextEncoder();
-  await ctx.publishAsset(SHEEP_ASSET_ID, 'image/svg+xml', encoder.encode(SHEEP_SVG), 'Sheep');
-  await ctx.publishAsset(WOLF_ASSET_ID, 'image/svg+xml', encoder.encode(WOLF_SVG), 'Wolf');
-}
-
-export const WOLF_SHEEP_EXAMPLE = defineExample({
+const builder = modelBuilder({
   id: 'wolf-sheep',
   name: 'Wolf Sheep Predation Model',
   description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
 }, {
   defaults: DEFAULT_WOLF_SHEEP_CONFIG,
-  parameters: createWolfSheepParameters,
-  environments(config) {
-    return [
-      defineEnvironment({
-        id: 'main',
-        type: '2d',
-        layers: [
-          defineLayer({
-            layerId: TERRAIN_LAYER,
-            layerType: 'agent',
-            data: { width: config.gridWidth, height: config.gridHeight },
-          }),
-          defineLayer({
-            layerId: GRID_LAYER,
-            layerType: 'grid',
-            data: { width: config.gridWidth, height: config.gridHeight },
-          }),
-          defineLayer({
-            layerId: ANIMAL_LAYER,
-            layerType: 'agent',
-            data: { width: config.gridWidth, height: config.gridHeight },
-          }),
-        ],
-      }),
-    ];
-  },
-  charts: WOLF_SHEEP_CHARTS,
-  create(config) {
+  create(config): WolfSheepRuntime {
     const world: World = {
       width: config.gridWidth,
       height: config.gridHeight,
@@ -226,84 +150,113 @@ export const WOLF_SHEEP_EXAMPLE = defineExample({
 
     return {
       model: new WolfSheepModel(world, config),
-      initialConfig: config,
+      initialConfig: { ...config },
       animalIdMap: new WeakMap<object, string>(),
       nextSheepId: 0,
       nextWolfId: 0,
       previousPatchColors: [],
-    } satisfies WolfSheepRuntime;
+    };
   },
   getConfig(runtime) {
     return getEffectiveConfig(runtime);
   },
   init(runtime) {
     runtime.model.setup();
+    runtime.animalIdMap = new WeakMap();
+    runtime.nextSheepId = 0;
+    runtime.nextWolfId = 0;
     capturePatchSnapshot(runtime);
   },
-  dispose(runtime, ctx) {
+  dispose(runtime) {
     runtime.model.destroy();
-    ctx.clearPublishedAssets();
   },
-  async sync(runtime, ctx) {
-    await registerAnimalAssets(ctx);
-    await ctx.createItems('main', TERRAIN_LAYER, buildTerrainAgents(runtime, true));
-    await ctx.syncItems('main', ANIMAL_LAYER, buildAnimalAgents(runtime));
-    await ctx.setTime(0);
-    await ctx.setChartValues({
-      sheep_count: runtime.model.getSheepCount(),
-      wolf_count: runtime.model.getWolfCount(),
-      grass_count: runtime.model.getGrassCount(),
-    }, 0);
+  step(runtime) {
+    return runtime.model.go();
   },
-  async onParameterChange(runtime, payload, ctx) {
-    const currentConfig = runtime.model.getConfig();
-    if (!Object.prototype.hasOwnProperty.call(currentConfig, payload.id)) {
-      return;
-    }
-
-    runtime.model.updateConfig({ [payload.id]: payload.value } as Partial<typeof currentConfig>);
-
-    const nextValue = runtime.model.getConfig()[payload.id as keyof typeof currentConfig];
-    if (!Object.is(nextValue, payload.value)) {
-      await ctx.refreshParameters(payload.id);
-    }
-  },
-  async step(runtime, ctx) {
-    const canContinue = runtime.model.go();
-    const time = runtime.model.getTicks();
-
-    await ctx.setTime(time);
-
-    const terrainUpdates = buildTerrainAgents(runtime, false);
-    await ctx.updateItems(
-      'main',
-      TERRAIN_LAYER,
-      terrainUpdates.map((agent) => ({
-        id: agent.id,
-        x: agent.x,
-        y: agent.y,
-        color: agent.color,
-        icon: agent.icon,
-        size: agent.size,
-      })),
-    );
-
-    await ctx.syncItems('main', ANIMAL_LAYER, buildAnimalAgents(runtime));
-    await ctx.setChartValues({
-      sheep_count: runtime.model.getSheepCount(),
-      wolf_count: runtime.model.getWolfCount(),
-      grass_count: runtime.model.getGrassCount(),
-    }, time);
-    capturePatchSnapshot(runtime);
-    return canContinue;
-  },
-  async reset(runtime, ctx) {
+  reset(runtime) {
     runtime.model.reset();
     runtime.animalIdMap = new WeakMap();
     runtime.nextSheepId = 0;
     runtime.nextWolfId = 0;
     capturePatchSnapshot(runtime);
-    await ctx.sync();
-    await ctx.clearCharts('sheep_count', 'wolf_count', 'grass_count');
+  },
+  time(runtime) {
+    return runtime.model.getTicks();
   },
 });
+
+builder
+  .asset(SHEEP_ASSET_ID, {
+    mime: 'image/svg+xml',
+    label: 'Sheep',
+    data: () => loadTextAsset(SHEEP_ASSET_URL),
+  })
+  .asset(WOLF_ASSET_ID, {
+    mime: 'image/svg+xml',
+    label: 'Wolf',
+    data: () => loadTextAsset(WOLF_ASSET_URL),
+  });
+
+builder.paramsFromConfig<WolfSheepConfig>({
+  get: (runtime) => getEffectiveConfig(runtime),
+  set(runtime, patch) {
+    runtime.model.updateConfig(patch as Partial<ReturnType<WolfSheepModel['getConfig']>>);
+  },
+  fields: {
+    modelVersion: enumField({
+      label: 'Model Version',
+      options: ['sheep-wolves', 'sheep-wolves-grass'],
+      runtime: false,
+    }),
+    initialNumberSheep: numberField({ label: 'Initial Sheep', integer: true, runtime: false }),
+    initialNumberWolves: numberField({ label: 'Initial Wolves', integer: true, runtime: false }),
+    sheepGainFromFood: numberField({ label: 'Sheep Gain From Food', min: 0, integer: true }),
+    wolfGainFromFood: numberField({ label: 'Wolf Gain From Food', min: 0, integer: true }),
+    grassRegrowthTime: numberField({ label: 'Grass Regrowth Time', min: 0, integer: true }),
+    sheepReproduce: numberField({ label: 'Sheep Reproduce %', min: 0, max: 20, integer: true }),
+    wolfReproduce: numberField({ label: 'Wolf Reproduce %', min: 0, max: 20, integer: true }),
+    showEnergy: booleanField({ label: 'Show Energy' }),
+  },
+});
+
+builder.env('main')
+  .agentLayer(TERRAIN_LAYER, {
+    data: (runtime) => {
+      const config = getEffectiveConfig(runtime);
+      return { width: config.gridWidth, height: config.gridHeight };
+    },
+    items: (runtime) => buildTerrainAgents(runtime, true),
+    updates: (runtime) => buildTerrainUpdates(runtime),
+  })
+  .gridLayer(GRID_LAYER, {
+    data: (runtime) => {
+      const config = getEffectiveConfig(runtime);
+      return { width: config.gridWidth, height: config.gridHeight };
+    },
+  })
+  .agentLayer(ANIMAL_LAYER, {
+    data: (runtime) => {
+      const config = getEffectiveConfig(runtime);
+      return { width: config.gridWidth, height: config.gridHeight };
+    },
+    items: (runtime) => buildAnimalAgents(runtime),
+  });
+
+builder
+  .chart('sheep_count', {
+    label: 'Sheep',
+    color: '#ffffff',
+    get: (runtime) => runtime.model.getSheepCount(),
+  })
+  .chart('wolf_count', {
+    label: 'Wolves',
+    color: '#111111',
+    get: (runtime) => runtime.model.getWolfCount(),
+  })
+  .chart('grass_count', {
+    label: 'Grass',
+    color: '#62a862',
+    get: (runtime) => runtime.model.getGrassCount(),
+  });
+
+export const WOLF_SHEEP_EXAMPLE = builder.build();

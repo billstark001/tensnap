@@ -5,14 +5,7 @@ import type {
   StateSyncRequest,
 } from '@tensnap/protocol';
 import { describe, expect, it } from 'vitest';
-import {
-  defineCharts,
-  defineExample,
-  defineEnvironment,
-  defineLayer,
-  defineModel,
-  defineParameters,
-} from './index';
+import { modelBuilder } from './index';
 
 const emptyStateSync: StateSyncRequest = {
   parameters: [],
@@ -21,64 +14,53 @@ const emptyStateSync: StateSyncRequest = {
   charts: [],
 };
 
-describe('defineModel', () => {
-  it('creates a declarative session with lifecycle defaults and parameter refresh', async () => {
-    const binding = defineExample({
+describe('modelBuilder', () => {
+  it('creates a builder-driven session with lifecycle defaults and parameter refresh', async () => {
+    const builder = modelBuilder({
       id: 'test-binding',
       name: 'Test Binding',
       description: 'test',
     }, {
       defaults: { speed: 1 },
-      parameters: (config) => defineParameters({
-        id: 'speed',
-        type: 'number',
-        label: 'Speed',
-        value: config.speed,
-        min: 1,
-        max: 5,
-        step: 1,
-        allowRuntimeChange: true,
-      }),
-      environments: [
-        defineEnvironment({
-          id: 'main',
-          type: '2d',
-          layers: [defineLayer({ layerId: 'agents', layerType: 'agent' })],
-        }),
-      ],
-      charts: defineCharts({ id: 'count', label: 'Count', color: '#2563eb' }),
       create(config) {
         return { tick: 0, speed: config.speed };
       },
       getConfig(model) {
         return { speed: model.speed };
       },
-      async sync(model, ctx) {
-        await ctx.setTime(model.tick);
-        await ctx.syncItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
-        await ctx.setChartValues({ count: model.tick }, model.tick);
+      time(model) {
+        return model.tick;
       },
-      async step(model, ctx) {
+      step(model) {
         model.tick += model.speed;
-        await ctx.setTime(model.tick);
-        await ctx.syncItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
-        await ctx.setChartValues({ count: model.tick }, model.tick);
         return model.tick < 3;
       },
-      async reset(model, ctx) {
+      reset(model) {
         model.tick = 0;
-        await ctx.sync();
-        await ctx.clearAllCharts();
-      },
-      async onParameterChange(model, payload, ctx) {
-        if (payload.id !== 'speed' || typeof payload.value !== 'number') {
-          return;
-        }
-        model.speed = payload.value;
-        await ctx.refreshParameters(payload.id);
       },
     });
 
+    builder.numberParam('speed', {
+      label: 'Speed',
+      min: 1,
+      max: 5,
+      step: 1,
+      get: (model) => model.speed,
+      set(model, value) {
+        model.speed = value;
+      },
+    });
+    builder.env('main')
+      .agentLayer('agents', {
+        items: (model) => [{ id: 'agent-1', x: model.tick, y: 0 }],
+      });
+    builder.chart('count', {
+      label: 'Count',
+      color: '#2563eb',
+      get: (model) => model.tick,
+    });
+
+    const binding = builder.build();
     const messages: AnyProtocolMessage[] = [];
     const session = binding.createSession();
     session.attach((message: SimulatorToRendererMessage) => {
@@ -95,12 +77,12 @@ describe('defineModel', () => {
     messages.length = 0;
     await session.dispatch({
       type: 'param_change',
-      payload: { id: 'speed', value: 2 },
+      payload: { id: 'speed', value: 99 },
     });
 
     expect(messages).toContainEqual({
       type: 'param_update',
-      payload: expect.objectContaining({ id: 'speed', value: 2 }),
+      payload: expect.objectContaining({ id: 'speed', value: 5 }),
     });
 
     messages.length = 0;
@@ -111,7 +93,7 @@ describe('defineModel', () => {
 
     expect(messages).toContainEqual({
       type: 'action_end',
-      payload: expect.objectContaining({ id: 'start', tick_id: 'tick-1', continue: true }),
+      payload: expect.objectContaining({ id: 'start', tick_id: 'tick-1', continue: false }),
     });
     expect(messages.some((message) => message.type === 'item_update')).toBe(true);
 
@@ -125,19 +107,23 @@ describe('defineModel', () => {
     await session.close();
   });
 
-  it('publishes assets and serves missing data during asset_sync', async () => {
-    const binding = defineModel({
+  it('publishes declared assets and serves missing data during asset_sync', async () => {
+    const binding = modelBuilder({
+      id: 'asset-binding',
+      name: 'Asset Binding',
+      description: 'Asset binding test.',
+    }, {
+      defaults: {},
       create() {
-        return { published: false };
+        return {};
       },
-      async sync(model, ctx) {
-        if (model.published) {
-          return;
-        }
-        model.published = true;
-        await ctx.publishAsset('asset-1', 'text/plain', new TextEncoder().encode('hello'), 'Greeting');
-      },
-    });
+    })
+      .asset('asset-1', {
+        mime: 'text/plain',
+        label: 'Greeting',
+        data: 'hello',
+      })
+      .build();
 
     const messages: AnyProtocolMessage[] = [];
     const session = binding.createSession();
@@ -161,33 +147,33 @@ describe('defineModel', () => {
   });
 
   it('reset deletes previously synced items before replaying the reset state', async () => {
-    const binding = defineModel({
-      environments: [
-        defineEnvironment({
-          id: 'main',
-          type: '2d',
-          layers: [defineLayer({ layerId: 'agents', layerType: 'agent' })],
-        }),
-      ],
+    const builder = modelBuilder({
+      id: 'reset-binding',
+      name: 'Reset Binding',
+      description: 'Reset binding test.',
+    }, {
+      defaults: {},
       create() {
         return { tick: 0 };
       },
-      async sync(model, ctx) {
-        await ctx.syncItems('main', 'agents', [{ id: 'agent-1', x: model.tick, y: 0 }]);
+      time(model) {
+        return model.tick;
       },
-      async step(model, ctx) {
+      step(model) {
         model.tick = 1;
-        await ctx.sync();
-        return false;
       },
-      async reset(model, ctx) {
+      reset(model) {
         model.tick = 0;
-        await ctx.sync();
       },
     });
 
+    builder.env('main')
+      .agentLayer('agents', {
+        items: (model) => [{ id: 'agent-1', x: model.tick, y: 0 }],
+      });
+
     const messages: AnyProtocolMessage[] = [];
-    const session = binding.createSession();
+    const session = builder.build().createSession();
     session.attach((message: SimulatorToRendererMessage) => {
       messages.push(message as AnyProtocolMessage);
     }, 'reset-binding');
@@ -239,25 +225,34 @@ describe('defineModel', () => {
     await session.close();
   });
 
-  it('syncItems sends field-level updates only for changed existing items', async () => {
-    const binding = defineModel({
+  it('declared layers send field-level updates only for changed existing items', async () => {
+    const builder = modelBuilder({
+      id: 'sync-items-binding',
+      name: 'Sync Items Binding',
+      description: 'Sync items binding test.',
+    }, {
+      defaults: {},
       create() {
-        return { tick: 0 };
+        return { tick: 0, shouldMove: false };
       },
-      async sync(model, ctx) {
-        await ctx.syncItems('main', 'agents', [
-          { id: 'agent-1', x: model.tick, y: 0, color: 'red' },
-          { id: 'agent-2', x: 10, y: 0, color: 'blue' },
-        ]);
-      },
-      async step(model, ctx) {
-        await ctx.sync();
-        model.tick += 1;
+      step(model) {
+        if (model.shouldMove) {
+          model.tick += 1;
+        }
+        model.shouldMove = true;
       },
     });
 
+    builder.env('main')
+      .agentLayer('agents', {
+        items: (model) => [
+          { id: 'agent-1', x: model.tick, y: 0, color: 'red' },
+          { id: 'agent-2', x: 10, y: 0, color: 'blue' },
+        ],
+      });
+
     const messages: AnyProtocolMessage[] = [];
-    const session = binding.createSession();
+    const session = builder.build().createSession();
     session.attach((message: SimulatorToRendererMessage) => {
       messages.push(message as AnyProtocolMessage);
     }, 'sync-items-binding');
