@@ -13,6 +13,8 @@ import type { ScenarioDefinition, ScenarioEnvironmentDefinition, ScenarioRegistr
 
 export type MaybePromise<T> = T | Promise<T>;
 export type MaybeFactory<TModel, TValue> = TValue | ((model: TModel) => TValue);
+export type MaybeParameterFactory<TConfig extends object, TModel, TValue> =
+  TValue | ((model: TModel, config: TConfig) => TValue);
 export type ItemRecord = Record<string, unknown>;
 export type PrimitiveItemKey = string | number;
 export type ItemDeleteKey = PrimitiveItemKey | ItemRecord;
@@ -25,7 +27,7 @@ export type ItemKeySelector<TItem> =
 export interface PublishedAsset {
   hash: string;
   mime: string;
-  data: Uint8Array;
+  data: Uint8Array<ArrayBuffer>;
   label?: string;
 }
 
@@ -171,8 +173,8 @@ export interface EnumParameterOptions<
   TModel,
   TValue extends string = string,
 > extends BaseParameterOptions<TConfig, TModel, TValue> {
-  options: readonly TValue[];
-  labels?: Readonly<Record<TValue, string>>;
+  options: MaybeParameterFactory<TConfig, TModel, readonly TValue[]>;
+  labels?: MaybeParameterFactory<TConfig, TModel, Readonly<Record<TValue, string>>>;
 }
 
 export interface ParameterChangeResult {

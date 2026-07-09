@@ -3,6 +3,19 @@ import type { AssetStore } from '../asset';
 import type { AgentId, GraphEdge, GridCoordOffset, GraphEnvConfig, OriginMode, TrajectoryPoint } from '../environment';
 import type { ItemDeletePayload } from '@tensnap/protocol';
 import {
+  AgentItemDiffSchema,
+  AgentItemSchema,
+  AgentLayerMetadataSchema,
+  BackgroundLayerMetadataSchema,
+  EdgeItemDiffSchema,
+  EdgeItemSchema,
+  EdgeLayerMetadataSchema,
+  GridLayerMetadataSchema,
+  TrajectoryItemDiffSchema,
+  TrajectoryItemSchema,
+  TrajectoryLayerMetadataSchema,
+} from '@tensnap/protocol/layers';
+import {
   AgentStorage,
   BackgroundStorage,
   EdgeStorage,
@@ -11,17 +24,6 @@ import {
 import type { AgentRenderState, AgentStorageSnapshot, BackgroundData, EdgeStorageSnapshot, GridEnvData, TrajectoryStorageSnapshot } from '../environment/storages';
 import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
 import {
-  AgentDiffSchema,
-  AgentSchema,
-  AgentLayerMetadataSchema,
-  BackgroundLayerMetadataSchema,
-  EdgeDataSchema,
-  EdgeDiffSchema,
-  EdgeLayerMetadataSchema,
-  GridLayerMetadataSchema,
-  TrajectoryConfigDiffSchema,
-  TrajectoryConfigSchema,
-  TrajectoryLayerMetadataSchema,
   getAssetIdFromIcon,
   isBackgroundAssetReference,
 } from '../environment/types';
@@ -449,10 +451,10 @@ function getEdgePairs(items: DeleteItems): Array<{ source: AgentId; target: Agen
 
 type AgentItem = Readonly<AgentRenderState>;
 type AgentItemDiff = Readonly<Partial<AgentRenderState> & { id: AgentId }>;
-type EdgeItem = z.infer<typeof EdgeDataSchema>;
-type EdgeItemDiff = z.infer<typeof EdgeDiffSchema>;
-type TrajectoryItem = z.infer<typeof TrajectoryConfigSchema>;
-type TrajectoryItemDiff = z.infer<typeof TrajectoryConfigDiffSchema>;
+type EdgeItem = z.infer<typeof EdgeItemSchema>;
+type EdgeItemDiff = z.infer<typeof EdgeItemDiffSchema>;
+type TrajectoryItem = z.infer<typeof TrajectoryItemSchema>;
+type TrajectoryItemDiff = z.infer<typeof TrajectoryItemDiffSchema>;
 
 // #region Built-in renderer helpers
 function isAgentStorageSnapshot(value: unknown): value is AgentStorageSnapshot {
@@ -814,8 +816,8 @@ registerLayerType({
   layer_type: 'agent',
   label: 'Agent Layer',
   metadataSchema: AgentLayerMetadataSchema,
-  itemSchema: AgentSchema,
-  itemDiffSchema: AgentDiffSchema,
+  itemSchema: AgentItemSchema,
+  itemDiffSchema: AgentItemDiffSchema,
   primaryKeyFields: ['id'],
   storageFactory: (_metadata) => new AgentStorage(),
   fromSnapshot: (layer) => {
@@ -848,8 +850,8 @@ registerLayerType({
   layer_type: 'edge',
   label: 'Edge Layer',
   metadataSchema: EdgeLayerMetadataSchema,
-  itemSchema: EdgeDataSchema,
-  itemDiffSchema: EdgeDiffSchema,
+  itemSchema: EdgeItemSchema,
+  itemDiffSchema: EdgeItemDiffSchema,
   primaryKeyFields: ['source', 'target'],
   requiredDependencyLayerTypes: ['agent'],
   storageFactory: (_metadata) => new EdgeStorage(),
@@ -885,8 +887,8 @@ registerLayerType({
   layer_type: 'trajectory',
   label: 'Trajectory Layer',
   metadataSchema: TrajectoryLayerMetadataSchema,
-  itemSchema: TrajectoryConfigSchema,
-  itemDiffSchema: TrajectoryConfigDiffSchema,
+  itemSchema: TrajectoryItemSchema,
+  itemDiffSchema: TrajectoryItemDiffSchema,
   primaryKeyFields: ['id'],
   requiredDependencyLayerTypes: ['agent'],
   storageFactory: (metadata) => new TrajectoryStorage(metadata as any),

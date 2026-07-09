@@ -15,9 +15,11 @@
   },
   "scripts": {
     "demo:ws": "tsx src/entries/main-ws.ts",
+    "build": "pnpm run typecheck",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "lint": "pnpm run typecheck",
+    "format": "echo 'No formatter configured'",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
@@ -27,9 +29,9 @@
     "@tensnap/web-adapter": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
-    "tsx": "^4.22.3",
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.10"
   }
 }

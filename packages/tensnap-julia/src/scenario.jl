@@ -39,8 +39,15 @@ function Scenario(; host = "localhost", port = 8765, use_msgpack = false, step_i
 end
 
 function add_parameter!(s::Scenario, p::Parameter)
+	existed = haskey(s.parameters, p.id)
 	s.parameters[p.id] = p
-	_broadcast(s, "param_create", _param_payload(p, s.model))
+	_broadcast(s, existed ? "param_update" : "param_create", _param_payload(p, s.model))
+	return p
+end
+
+function update_parameter!(s::Scenario, p::Parameter)
+	s.parameters[p.id] = p
+	_broadcast(s, "param_update", _param_payload(p, s.model))
 	return p
 end
 

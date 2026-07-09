@@ -335,15 +335,24 @@ class SimulationScenario:
         if value is None or pid not in self.parameters:
             return
         param = self.parameters[pid]
-        if param.setter:
-            try:
-                await asyncio.get_event_loop().run_in_executor(
-                    None, param.setter, value
+        if not param.setter:
+            await self.server.send(
+                ws, MT.PARAM_SYNC, {"id": pid, "value": self._get_param_value(param)}
+            )
+            return
+        try:
+            await asyncio.get_event_loop().run_in_executor(None, param.setter, value)
+            param.value = self._get_param_value(param) if param.getter else value
+            if param.value != value:
+                await self.server.send(
+                    ws, MT.PARAM_SYNC, {"id": pid, "value": param.value}
                 )
-                param.value = value
-            except Exception as e:
-                logger.exception(f"Error setting param '{pid}': {e}")
-                await self.server.send_error(ws, f"Error setting param '{pid}': {e}")
+        except Exception as e:
+            logger.exception(f"Error setting param '{pid}': {e}")
+            await self.server.send(
+                ws, MT.PARAM_SYNC, {"id": pid, "value": self._get_param_value(param)}
+            )
+            await self.server.send_error(ws, f"Error setting param '{pid}': {e}")
 
     async def _on_action_start(self, ws: Any, payload: Dict[str, Any]) -> None:
         action_id = payload.get("id")

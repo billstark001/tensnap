@@ -42,6 +42,20 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
     return this.layer(id, { ...options, type: 'edge' });
   }
 
+  trajectoryLayer<TItem extends object = ItemRecord>(
+    id: string,
+    options: Omit<LayerOptions<TModel, TItem>, 'type'> = {},
+  ): this {
+    return this.layer(id, { ...options, type: 'trajectory' });
+  }
+
+  backgroundLayer(
+    id: string,
+    options: Omit<LayerOptions<TModel>, 'type' | 'items' | 'updates' | 'project' | 'updateProject' | 'key' | 'updateKey'> = {},
+  ): this {
+    return this.layer(id, { ...options, type: 'background' });
+  }
+
   done(): ModelBuilder<TConfig, TModel> {
     return this.parent;
   }

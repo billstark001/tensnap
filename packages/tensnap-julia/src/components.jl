@@ -247,6 +247,10 @@ grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, 
 patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields)
 edge_layer(id, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = ["source", "target"]) =
 	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+_empty_layer_items(_model = nothing) = Any[]
+trajectory_layer(id, items = _empty_layer_items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"]) =
+	layer(id, "trajectory", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+background_layer(id = "background"; data = nothing) = layer(id, "background", _empty_layer_items; data = data)
 
 mutable struct Environment
 	id::String

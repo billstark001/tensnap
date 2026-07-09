@@ -1,7 +1,7 @@
 """Shared helpers for scenario state synchronization and broadcasts."""
 
 from collections.abc import Callable
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .models import EnvironmentRegistration, EnvironmentState
 from .protocol import (
@@ -10,7 +10,8 @@ from .protocol import (
     layer_dependency_layer_ids,
     layer_metadata,
 )
-from .server import ServerToClientMessageType as MT, TenSnapServer
+from .server import ServerToClientMessageType as MT
+from .server import TenSnapServer
 
 if TYPE_CHECKING:
     from websockets.asyncio.server import ServerConnection
@@ -46,12 +47,12 @@ async def send_layer_full(
 
 
 def topologically_order_layer_ids(
-    layer_ids: List[str],
-    dependency_lookup: Callable[[str], List[str]],
-) -> List[str]:
+    layer_ids: list[str],
+    dependency_lookup: Callable[[str], list[str]],
+) -> list[str]:
     """Return layer ids ordered so dependencies are emitted before dependents."""
     pending = set(layer_ids)
-    resolved: List[str] = []
+    resolved: list[str] = []
 
     while pending:
         progressed = False
@@ -77,8 +78,8 @@ def topologically_order_layer_ids(
 
 def ordered_registration_layer_ids(
     environment: EnvironmentRegistration,
-    current_layers: Dict[str, "EnvironmentLayerState"],
-) -> List[str]:
+    current_layers: dict[str, "EnvironmentLayerState"],
+) -> list[str]:
     layer_ids = list(current_layers.keys())
     return topologically_order_layer_ids(
         layer_ids,
@@ -91,8 +92,8 @@ def ordered_registration_layer_ids(
 
 
 def ordered_state_layers(
-    layers: List["EnvironmentLayerState"],
-) -> List["EnvironmentLayerState"]:
+    layers: list["EnvironmentLayerState"],
+) -> list["EnvironmentLayerState"]:
     by_id = {layer["layer_id"]: layer for layer in layers}
     ordered_ids = topologically_order_layer_ids(
         [layer["layer_id"] for layer in layers],
@@ -109,7 +110,7 @@ async def broadcast_env_update(
     server: TenSnapServer,
     environment: EnvironmentRegistration,
     env_state: EnvironmentState,
-    previous_state: Optional[EnvironmentState] = None,
+    previous_state: EnvironmentState | None = None,
 ) -> None:
     """Diff previous vs. current environment state and broadcast changes."""
     env_id: str = environment.id
@@ -135,7 +136,7 @@ async def broadcast_env_update(
         await broadcast_env_update(server, environment, env_state, None)
         return
 
-    prev_layers = {l["layer_id"]: l for l in previous_state["layers"]}
+    prev_layers = {layer["layer_id"]: layer for layer in previous_state["layers"]}
     curr_layer_ids = set(current_layers)
 
     for removed_lid in prev_layers.keys() - curr_layer_ids:
@@ -198,7 +199,7 @@ async def send_env_snapshot(
     ws: "ServerConnection",
     server: TenSnapServer,
     env_state: EnvironmentState,
-    client_env: Optional[Dict[str, Any]] = None,
+    client_env: dict[str, Any] | None = None,
 ) -> None:
     """Send a full environment snapshot to a single client (used in state-sync)."""
     env_id = env_state["id"]
@@ -210,9 +211,12 @@ async def send_env_snapshot(
         await server.send(ws, MT.ENV_CREATE, {"id": env_id, "type": env_state["type"]})
 
     client_layer_ids = (
-        {l["layer_id"] for l in client_env.get("layers", [])} if client_env else set()
+        {layer["layer_id"] for layer in client_env.get("layers", [])}
+        if client_env
+        else set()
     )
-    for removed_lid in client_layer_ids - {l["layer_id"] for l in env_state["layers"]}:
+    server_layer_ids = {layer["layer_id"] for layer in env_state["layers"]}
+    for removed_lid in client_layer_ids - server_layer_ids:
         await server.send(
             ws, MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": removed_lid}
         )
@@ -228,8 +232,8 @@ async def send_env_snapshot(
 
 
 async def dispatch_cud(
-    send_fn: Callable,
-    deltas: Dict[str, Any],
+    send_fn: Callable[..., Any],
+    deltas: dict[str, Any],
     create_type: MT,
     delete_type: MT,
     update_type: MT,

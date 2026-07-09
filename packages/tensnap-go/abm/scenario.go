@@ -88,6 +88,18 @@ func (s *Scenario) ensureParamIndex() error {
 	return nil
 }
 
+func (s *Scenario) resolveParam(id string) (*ParamMetadata, string, bool) {
+	meta, ok := s.paramByID[id]
+	if ok {
+		return meta, id, true
+	}
+	canonicalID, aliased := s.aliasToID[id]
+	if !aliased {
+		return nil, "", false
+	}
+	return s.paramByID[canonicalID], canonicalID, true
+}
+
 // SeedParams populates Base parameter storage from the scenario's current metadata values.
 func (s *Scenario) SeedParams(base *Base) error {
 	if s == nil {
@@ -115,15 +127,27 @@ func (s *Scenario) ApplyParam(base *Base, id string, value any) (bool, error) {
 	if err := s.ensureParamIndex(); err != nil {
 		return true, err
 	}
-	meta, ok := s.paramByID[id]
+	meta, _, ok := s.resolveParam(id)
 	if !ok {
-		canonicalID, aliased := s.aliasToID[id]
-		if !aliased {
-			return false, nil
-		}
-		meta = s.paramByID[canonicalID]
+		return false, nil
 	}
 	return true, meta.apply(base, value)
+}
+
+// ParamValue returns the current canonical value for id or one of its aliases.
+func (s *Scenario) ParamValue(id string) (any, bool, error) {
+	if s == nil {
+		return nil, false, nil
+	}
+	if err := s.ensureParamIndex(); err != nil {
+		return nil, true, err
+	}
+	meta, _, ok := s.resolveParam(id)
+	if !ok {
+		return nil, false, nil
+	}
+	value, err := meta.value()
+	return value, true, err
 }
 
 // Replay emits all declarative creates and then calls ReplayState, if set.

@@ -24,25 +24,26 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "pnpm run typecheck",
+    "format": "echo 'No formatter configured'",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.3",
-    "@leafer-ui/core": "^2.1.0",
-    "@leafer-ui/node": "^2.1.0",
+    "@hono/node-server": "^2.0.8",
+    "@leafer-ui/core": "^2.1.11",
+    "@leafer-ui/node": "^2.1.11",
     "@tensnap/core": "workspace:*",
     "@tensnap/protocol": "workspace:*",
     "canvas": "^3.2.3",
-    "hono": "^4.12.22",
+    "hono": "^4.12.28",
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
+    "@types/node": "^26.1.1",
     "@types/ws": "^8.18.1",
-    "esbuild": "^0.28.0",
-    "tsx": "^4.22.3",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "tensnap",

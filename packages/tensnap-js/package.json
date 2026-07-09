@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/js",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "JavaScript bindings and postMessage transport primitives for TenSnap",
   "main": "./src/index.ts",
@@ -22,6 +22,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "pnpm run typecheck",
+    "format": "echo 'No formatter configured'",
     "clean": "rm -rf dist node_modules"
   },
   "publishConfig": {
@@ -61,9 +62,9 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
-    "esbuild": "^0.28.0",
+    "@types/node": "^26.1.1",
+    "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.10"
   }
 }

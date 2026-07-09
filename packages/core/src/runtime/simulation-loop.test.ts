@@ -6,7 +6,7 @@ const createMessage = (id: string, continuous?: boolean, tickId?: string): Rende
   type: 'action_start',
   payload: {
     id,
-    continue: continuous,
+    continuous,
     tick_id: tickId,
   },
 });

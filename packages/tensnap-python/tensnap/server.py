@@ -12,7 +12,6 @@ import hashlib
 import json
 import logging
 import time
-from copy import deepcopy
 from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, Optional, Set, Union, cast
 from uuid import uuid4
@@ -437,7 +436,7 @@ class TenSnapServer:
             logger.warning(f"Unknown screenshot request_id: {rid}")
             return
         if not future.done():
-            future.set_result(deepcopy(payload))
+            future.set_result(dict(payload))
 
     # endregion
 

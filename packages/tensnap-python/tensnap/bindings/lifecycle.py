@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast, get_type_hints
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast, get_type_hints
 
 from tensnap.models import Parameter, create_parameter
 from tensnap.models.parameter import ParameterType
@@ -34,6 +34,7 @@ RegisterModelCallback: TypeAlias = Callable[
 _MISSING = object()
 _DEFAULT = object()
 _BIND_KWARGS_CONFIG_ATTR = "_tensnap_bind_kwargs_config"
+TDecoratedClass = TypeVar("TDecoratedClass", bound=type[Any])
 
 
 def merge_registry_changes(*changes: RegistryChanges) -> RegistryChanges:
@@ -78,7 +79,7 @@ def _call_register_model(
 
 
 async def reinitialize_registered_model(
-    scenario: "SimulationScenario",
+    scenario: SimulationScenario,
     *,
     registered: RegistryChanges,
     cleanup: CleanupCallback | Iterable[CleanupCallback] | None = None,
@@ -97,8 +98,8 @@ async def reinitialize_registered_model(
 
     next_registered = _call_register_model(register_model, dry_run=False)
     if inspect.isawaitable(next_registered):
-        next_registered = await cast(Awaitable[RegistryChanges], next_registered)
-    return cast(RegistryChanges, next_registered)
+        next_registered = await next_registered
+    return next_registered
 
 
 @dataclass
@@ -208,7 +209,7 @@ class BindKwargsConfig(BindParametersConfig):
         self.dynamic_defaults: dict[str, Any] = {}
         self.init_hook_handle: OnceInitHookHandle[Any] | None = None
 
-    def __call__(self, cls: type[Any]) -> type[Any]:
+    def __call__(self, cls: TDecoratedClass) -> TDecoratedClass:
         current = getattr(cls, _BIND_KWARGS_CONFIG_ATTR, None)
         if current is not None and current is not self:
             raise ValueError("Only one bind_kwargs config can be attached to a class.")
@@ -371,7 +372,16 @@ class BoundModelReinitializer:
                 model_attr = getattr(self.model.__class__, binding.name, None)
                 getter: Callable[[], Any]
                 if inspect.isfunction(model_attr):
-                    getter = lambda fn=model_attr, model=self.model: fn(model)
+                    model_fn = cast(Callable[[Any], Any], model_attr)
+
+                    def model_getter(
+                        fn: Callable[[Any], Any] = model_fn,
+                        model: Any = self.model,
+                    ) -> Any:
+                        return fn(model)
+
+                    getter = model_getter
+
                 else:
                     getter = cast(
                         Callable[[], Any],
@@ -393,13 +403,17 @@ class BoundModelReinitializer:
                     f"both publish parameter id {binding.parameter.id!r}."
                 )
 
+            def kwarg_getter(
+                name: str = binding.name,
+                default: Any = binding.default,
+            ) -> Any:
+                return getattr(self, name, default)
+
             kwarg_sources[binding.name] = KwargValueSource(
                 kwarg_name=binding.name,
                 parameter_id=binding.parameter.id,
                 owner="kwargs",
-                getter=lambda name=binding.name, default=binding.default: getattr(
-                    self, name, default
-                ),
+                getter=kwarg_getter,
             )
 
         self._kwarg_sources = kwarg_sources
@@ -444,11 +458,12 @@ class BoundModelReinitializer:
         return result
 
     def reinitialize_model(self) -> None:
-        self.model.__init__(*self.init_args, **self.current_kwargs())
+        model_init = cast(Callable[..., None], type(self.model).__init__)
+        model_init(self.model, *self.init_args, **self.current_kwargs())
 
     def configure_reinit(
         self,
-        scenario: "SimulationScenario",
+        scenario: SimulationScenario,
         *,
         registered: RegistryChanges | None = None,
         register_model: RegisterModelCallback | None = None,
@@ -464,7 +479,7 @@ class BoundModelReinitializer:
             inspected = _call_register_model(register_model, dry_run=True)
             if inspect.isawaitable(inspected):
                 raise TypeError("register_model dry_run must return synchronously.")
-            registered = cast(RegistryChanges, inspected)
+            registered = inspected
         if cleanup is _DEFAULT or cleanup is None:
             cleanup = default_cleanup_for_model(self.model)
 
@@ -476,7 +491,7 @@ class BoundModelReinitializer:
         )
 
     def register_model(
-        self, scenario: "SimulationScenario", *, dry_run: bool = False
+        self, scenario: SimulationScenario, *, dry_run: bool = False
     ) -> RegistryChanges:
         self._refresh_kwarg_sources(self._planned_model_parameters())
         model_changes = scenario.add_all(self.model, dry_run=dry_run)

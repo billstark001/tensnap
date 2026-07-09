@@ -145,6 +145,11 @@ func (m *ParamMetadata) apply(base *Base, value any) error {
 		}
 		finalValue = normalized
 	}
+	if m.OnSet != nil {
+		if err := m.OnSet(finalValue); err != nil {
+			return err
+		}
+	}
 	if err := m.setValue(finalValue); err != nil {
 		return err
 	}
@@ -153,8 +158,5 @@ func (m *ParamMetadata) apply(base *Base, value any) error {
 		return err
 	}
 	base.SetParam(id, finalValue)
-	if m.OnSet != nil {
-		return m.OnSet(finalValue)
-	}
 	return nil
 }

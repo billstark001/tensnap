@@ -1,25 +1,32 @@
-from typing import Any, List, Tuple, Union, Set, Type, Callable, Optional
+from __future__ import annotations
 
-
-import json
-import msgpack
-from collections import deque
-import re
 import base64
+import json
+import math
+import re
+from collections import deque
+from collections.abc import Callable
 from io import BytesIO
+from re import Pattern
+from typing import Any, TypeAlias
 
 try:
     import numpy as np
 
     HAS_NUMPY = True
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
     HAS_NUMPY = False
+
+import msgpack
+
+SerializableContainer: TypeAlias = dict[Any, Any] | list[Any] | tuple[Any, ...]
+WEBP_HEADER_LENGTH = 12
 
 
 def find_unserializable_items(
-    data: Union[dict, list, tuple], library: str = "both"
-) -> List[Tuple[str, Any, str]]:
+    data: SerializableContainer, library: str = "both"
+) -> list[tuple[str, Any, str]]:
     """
     Find all items in a data structure that cannot be serialized by json or msgpack.
 
@@ -30,8 +37,8 @@ def find_unserializable_items(
     Returns:
         List of tuples: (path, value, failed_library)
     """
-    unserializable = []
-    queue = deque([(data, "")])
+    unserializable: list[tuple[str, Any, str]] = []
+    queue: deque[tuple[Any, str]] = deque([(data, "")])
 
     while queue:
         current_data, path = queue.popleft()
@@ -61,10 +68,10 @@ def find_unserializable_items(
 
 
 # JSON-serializable types
-_JSON_TYPES: Set[Type] = {type(None), bool, int, float, str, dict, list}
+_JSON_TYPES: set[type[Any]] = {type(None), bool, int, float, str, dict, list}
 
 # msgpack-serializable types (superset of JSON types plus bytes)
-_MSGPACK_TYPES: Set[Type] = _JSON_TYPES | {bytes, bytearray}
+_MSGPACK_TYPES: set[type[Any]] = _JSON_TYPES | {bytes, bytearray}
 
 
 def _is_json_serializable(value: Any) -> bool:
@@ -78,9 +85,7 @@ def _is_json_serializable(value: Any) -> bool:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         # Check for special float values
         if isinstance(value, float):
-            return not (
-                value != value or value == float("inf") or value == float("-inf")
-            )
+            return math.isfinite(value)
         return True
 
     return False
@@ -96,17 +101,20 @@ def _is_msgpack_serializable(value: Any) -> bool:
     # Check for special numeric types
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         if isinstance(value, float):
-            return not (
-                value != value or value == float("inf") or value == float("-inf")
-            )
+            return math.isfinite(value)
         return True
 
     return False
 
 
-def _check_serializable(value: Any, path: str, library: str, results: list):
+def _check_serializable(
+    value: Any,
+    path: str,
+    library: str,
+    results: list[tuple[str, Any, str]],
+) -> None:
     """Check if a value is serializable using efficient type checking."""
-    failed_libs = []
+    failed_libs: list[str] = []
 
     if library in ("json", "both"):
         if not _is_json_serializable(value):
@@ -121,11 +129,11 @@ def _check_serializable(value: Any, path: str, library: str, results: list):
 
 
 def find_objects_by_error(
-    data: Union[dict, list, tuple],
+    data: SerializableContainer,
     error_message: str,
     library: str = "both",
-    test_func: Optional[Callable[[Any, str], Optional[str]]] = None,
-) -> List[Tuple[str, Any]]:
+    test_func: Callable[[Any, str], str | None] | None = None,
+) -> list[tuple[str, Any]]:
     """
     Find objects that cause a specific serialization error.
 
@@ -139,8 +147,8 @@ def find_objects_by_error(
         List of tuples: (path, value)
     """
     pattern = re.compile(error_message, re.IGNORECASE)
-    matching_objects = []
-    queue = deque([(data, "")])
+    matching_objects: list[tuple[str, Any]] = []
+    queue: deque[tuple[Any, str]] = deque([(data, "")])
 
     if test_func is None:
         test_func = _default_test_serialization
@@ -192,7 +200,7 @@ def find_objects_by_error(
     return matching_objects
 
 
-def _default_test_serialization(value: Any, library: str) -> Optional[str]:
+def _default_test_serialization(value: Any, library: str) -> str | None:
     """Test serialization and return error message if it fails."""
     if library == "json":
         try:
@@ -213,10 +221,10 @@ def _test_and_match(
     value: Any,
     path: str,
     library: str,
-    pattern: re.Pattern,
-    test_func: Callable[[Any, str], Optional[str]],
-    results: list,
-):
+    pattern: Pattern[str],
+    test_func: Callable[[Any, str], str | None],
+    results: list[tuple[str, Any]],
+) -> None:
     """Test value and match error against pattern."""
     if library in ("json", "both"):
         error = test_func(value, "json")
@@ -265,7 +273,11 @@ def detect_file_type(data: bytes) -> str:
         return "image/gif"
 
     # Check for WebP format (magic: RIFF....WEBP)
-    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+    if (
+        len(data) >= WEBP_HEADER_LENGTH
+        and data[:4] == b"RIFF"
+        and data[8:WEBP_HEADER_LENGTH] == b"WEBP"
+    ):
         return "image/webp"
 
     # Default to octet-stream
@@ -333,7 +345,7 @@ def json_default(obj: Any) -> Any:
     """
     # Handle bytes and bytearray
     if isinstance(obj, (bytes, bytearray)):
-        data = bytes(obj)
+        data = obj if isinstance(obj, bytes) else bytes(obj)
         mime_type = detect_file_type(data)
         b64_data = base64.b64encode(data).decode("ascii")
         return f"data:{mime_type};base64,{b64_data}"

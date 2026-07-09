@@ -30,7 +30,7 @@ class ActionMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ActionMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> ActionMetadata:
         allow = data.get("allowRuntimeChange", data.get("allow_runtime_change", True))
         return cls(
             id=data["id"],

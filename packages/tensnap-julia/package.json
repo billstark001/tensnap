@@ -1,0 +1,13 @@
+{
+  "name": "@tensnap/julia",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Julia bindings for TenSnap.",
+  "scripts": {
+    "build": "julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'",
+    "test": "julia --project=. -e 'using Pkg; Pkg.test()'",
+    "lint": "echo 'No lint configured'",
+    "format": "echo 'No formatter configured'",
+    "clean": "rm -rf coverage htmlcov"
+  }
+}

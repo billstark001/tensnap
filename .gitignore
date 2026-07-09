@@ -2,6 +2,7 @@
 node_modules/
 *.local
 package-lock.json
+.pnpm-store/
 
 # Production
 dist/

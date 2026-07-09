@@ -5,15 +5,10 @@ All functions here are side-effect-free and safe to unit-test in isolation.
 They consume plain data and return plain data; no I/O, no async.
 """
 
-from copy import deepcopy
+from collections.abc import Callable, Mapping
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
-    Mapping,
-    Set,
-    Tuple,
+    cast,
 )
 
 from typing_extensions import TypedDict
@@ -36,33 +31,33 @@ from .models import (
 
 
 class ActionDeltas(TypedDict):
-    added: List[Dict[str, Any]]
-    removed: List[str]
-    updated: List[Dict[str, Any]]
+    added: list[dict[str, Any]]
+    removed: list[str]
+    updated: list[dict[str, Any]]
 
 
 class ParameterDeltas(TypedDict):
-    added: List[Dict[str, Any]]
-    removed: List[str]
-    updated: List[Dict[str, Any]]
+    added: list[dict[str, Any]]
+    removed: list[str]
+    updated: list[dict[str, Any]]
 
 
 class ChartDeltas(TypedDict):
-    added: List[Dict[str, Any]]
-    removed: List[str]
-    updated: List[Dict[str, Any]]
+    added: list[ChartGroupMetadataDict]
+    removed: list[str]
+    updated: list[ChartGroupMetadataDict]
 
 
 class EnvironmentDeltas(TypedDict):
-    added: "List[EnvironmentState]"
-    removed: List[str]
-    updated: "List[EnvironmentState]"
+    added: "list[EnvironmentState]"
+    removed: list[str]
+    updated: "list[EnvironmentState]"
 
 
 class LayerItemOps(TypedDict):
-    creates: List[Dict[str, Any]]
-    updates: List[Dict[str, Any]]
-    deletes: List[Dict[str, Any]]
+    creates: list[dict[str, Any]]
+    updates: list[dict[str, Any]]
+    deletes: list[dict[str, Any]]
 
 
 # endregion
@@ -70,9 +65,9 @@ class LayerItemOps(TypedDict):
 # region Payload builders
 
 
-def layer_create_payload(env_id: str, layer: "EnvironmentLayerState") -> Dict[str, Any]:
+def layer_create_payload(env_id: str, layer: "EnvironmentLayerState") -> dict[str, Any]:
     """Build the ENV_LAYER_CREATE payload for a layer."""
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "env_id": env_id,
         "layer_id": layer["layer_id"],
         "layer_type": layer["layer_type"],
@@ -88,19 +83,19 @@ def layer_create_payload(env_id: str, layer: "EnvironmentLayerState") -> Dict[st
 
 def layer_dependency_layer_ids(
     layer: "EnvironmentLayerState",
-) -> Dict[str, str] | None:
+) -> dict[str, str] | None:
     if "dependency_layer_ids" not in layer:
         return None
     return dict(layer["dependency_layer_ids"])
 
 
-def layer_metadata(layer: "EnvironmentLayerState") -> Dict[str, Any] | None:
+def layer_metadata(layer: "EnvironmentLayerState") -> dict[str, Any] | None:
     if "data" not in layer:
         return None
     return dict(layer["data"])
 
 
-def layer_items(layer: "EnvironmentLayerState") -> List[Dict[str, Any]]:
+def layer_items(layer: "EnvironmentLayerState") -> list[dict[str, Any]]:
     if "items" in layer:
         return layer["items"]
     if "agents" in layer:
@@ -110,11 +105,11 @@ def layer_items(layer: "EnvironmentLayerState") -> List[Dict[str, Any]]:
     return []
 
 
-def copied_layer_items(layer: "EnvironmentLayerState") -> List[Dict[str, Any]]:
-    return [deepcopy(item) for item in layer_items(layer)]
+def copied_layer_items(layer: "EnvironmentLayerState") -> list[dict[str, Any]]:
+    return [dict(item) for item in layer_items(layer)]
 
 
-def item_identity_fields(layer: "EnvironmentLayerState") -> Tuple[str, ...]:
+def item_identity_fields(layer: "EnvironmentLayerState") -> tuple[str, ...]:
     items = layer_items(layer)
     sample = items[0] if items else {}
 
@@ -133,8 +128,8 @@ def item_identity_fields(layer: "EnvironmentLayerState") -> Tuple[str, ...]:
 
 
 def item_identity_key(
-    layer: "EnvironmentLayerState", item: Dict[str, Any]
-) -> Tuple[Any, ...]:
+    layer: "EnvironmentLayerState", item: dict[str, Any]
+) -> tuple[Any, ...]:
     fields = item_identity_fields(layer)
     if fields:
         return tuple(item.get(field) for field in fields)
@@ -142,20 +137,20 @@ def item_identity_key(
 
 
 def item_key_payload(
-    layer: "EnvironmentLayerState", item: Dict[str, Any]
-) -> Dict[str, Any]:
+    layer: "EnvironmentLayerState", item: dict[str, Any]
+) -> dict[str, Any]:
     fields = item_identity_fields(layer)
     if not fields:
-        return deepcopy(item)
+        return dict(item)
     return {field: item.get(field) for field in fields}
 
 
 def item_diff(
     layer: "EnvironmentLayerState",
-    current_item: Dict[str, Any],
-    previous_item: Dict[str, Any],
-) -> Dict[str, Any]:
-    diff: Dict[str, Any] = {}
+    current_item: dict[str, Any],
+    previous_item: dict[str, Any],
+) -> dict[str, Any]:
+    diff: dict[str, Any] = {}
     for key in set(previous_item) | set(current_item):
         if key not in current_item:
             diff[key] = None
@@ -171,9 +166,9 @@ def format_chart_update(
     chart: ChartGroupMetadata,
     value: Any,
     time: int | None = None,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Convert a chart getter return value into CHART_UPDATE entries."""
-    updates: List[Dict[str, Any]]
+    updates: list[dict[str, Any]]
     if not chart.data_list:
         updates = [{"id": chart.id, "value": value}]
     elif isinstance(value, dict):
@@ -183,7 +178,10 @@ def format_chart_update(
             if dm.id in value
         ]
     elif isinstance(value, (list, tuple)):
-        updates = [{"id": dm.id, "value": v} for dm, v in zip(chart.data_list, value)]
+        updates = [
+            {"id": dm.id, "value": v}
+            for dm, v in zip(chart.data_list, value, strict=False)
+        ]
     elif len(chart.data_list) == 1:
         updates = [{"id": chart.data_list[0].id, "value": value}]
     else:
@@ -204,10 +202,10 @@ def format_chart_update(
 
 
 def compute_action_deltas(
-    server_actions: Dict[str, ActionMetadata],
-    client_actions: List[Dict[str, Any]],
+    server_actions: dict[str, ActionMetadata],
+    client_actions: list[dict[str, Any]],
 ) -> ActionDeltas:
-    client_ids: Set[str] = {x["id"] for x in client_actions}
+    client_ids: set[str] = {x["id"] for x in client_actions}
     server_ids = set(server_actions)
     req = {x["id"]: x for x in client_actions}
 
@@ -229,10 +227,10 @@ def compute_action_deltas(
 
 
 def compute_parameter_deltas(
-    server_params: Dict[str, Parameter],
-    client_params: List[ParameterState],
+    server_params: dict[str, Parameter],
+    client_params: list[ParameterState],
     get_value: Callable[[Parameter], Any],
-) -> Tuple[ParameterDeltas, List[Tuple[str, Any]]]:
+) -> tuple[ParameterDeltas, list[tuple[str, Any]]]:
     """
     Compute parameter CUD deltas against the client's reported state.
 
@@ -241,12 +239,12 @@ def compute_parameter_deltas(
         value_updates: ``(param_id, client_value)`` pairs to apply server-side
                        (client wins on sync for already-known params).
     """
-    client_ids: Set[str] = {x["id"] for x in client_params}
+    client_ids: set[str] = {x["id"] for x in client_params}
     server_ids = set(server_params)
     req = {x["id"]: x for x in client_params}
 
-    updated_ids: Set[str] = set()
-    value_updates: List[Tuple[str, Any]] = []
+    updated_ids: set[str] = set()
+    value_updates: list[tuple[str, Any]] = []
 
     for pid in server_ids & client_ids:
         param = server_params[pid]
@@ -254,6 +252,12 @@ def compute_parameter_deltas(
         if c["type"] != param.type:
             updated_ids.add(pid)
             continue
+        server_descriptor = param.to_dict()
+        client_descriptor = dict(c)
+        server_descriptor.pop("value", None)
+        client_descriptor.pop("value", None)
+        if server_descriptor != client_descriptor:
+            updated_ids.add(pid)
         client_val = c.get("value")
         if client_val is None:
             updated_ids.add(pid)
@@ -271,12 +275,12 @@ def compute_parameter_deltas(
 
 
 def compute_chart_deltas(
-    server_charts: Dict[str, Tuple[ChartGroupMetadata, Any]],
-    client_charts: List[ChartMetadataDict],
+    server_charts: dict[str, tuple[ChartGroupMetadata, Any]],
+    client_charts: list[ChartMetadataDict],
 ) -> ChartDeltas:
-    server_dicts: List[ChartGroupMetadataDict] = [
-        c[0].to_dict() for c in server_charts.values()
-    ]  # type: ignore
+    server_dicts: list[ChartGroupMetadataDict] = [
+        cast(ChartGroupMetadataDict, c[0].to_dict()) for c in server_charts.values()
+    ]
     result = categorize_charts(client_charts, server_dicts)
     return ChartDeltas(
         added=result["added"],
@@ -287,9 +291,9 @@ def compute_chart_deltas(
 
 def compute_environment_deltas(
     server_environments: Mapping[str, "EnvironmentRegistrationProtocol"],
-    client_envs: List[Dict[str, Any]],
+    client_envs: list[dict[str, Any]],
 ) -> EnvironmentDeltas:
-    client_ids: Set[str] = {x["id"] for x in client_envs}
+    client_ids: set[str] = {x["id"] for x in client_envs}
     server_ids = set(server_environments)
     return EnvironmentDeltas(
         added=[
@@ -327,8 +331,8 @@ def diff_layer_items(
 
     id_field_count = len(item_identity_fields(current_layer))
 
-    creates = [deepcopy(item) for k, item in curr.items() if k not in prev]
-    updates: List[Dict[str, Any]] = []
+    creates = [dict(item) for k, item in curr.items() if k not in prev]
+    updates: list[dict[str, Any]] = []
     for k, item in curr.items():
         if k not in prev:
             continue

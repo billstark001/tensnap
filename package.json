@@ -45,7 +45,9 @@
     "dev:js:tornberg": "pnpm --filter @tensnap/examples-js demo:ws tornberg",
     "i18n:extract": "pnpm -r i18n:extract",
     "i18n:compile": "pnpm -r i18n:compile",
+    "build": "pnpm -r build",
     "lint": "pnpm -r lint",
+    "format": "pnpm -r format",
     "test": "pnpm -r test",
     "clean": "pnpm -r clean && rm -rf node_modules",
     "update-icons": "node scripts/update-icons.mjs",
@@ -62,12 +64,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.9.1",
-    "eslint": "^10.4.0",
+    "@types/node": "^26.1.1",
+    "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.6.0",
-    "sharp": "^0.34.5",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.7.0",
+    "sharp": "^0.35.3",
     "typescript": "^6.0.3"
   },
   "engines": {

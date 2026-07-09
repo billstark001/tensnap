@@ -16,6 +16,16 @@ import type {
 } from './types';
 import { normalizeNumber, titleFromId, withDefined } from './utils';
 
+function resolveParameterFactory<TConfig extends object, TModel, TValue>(
+  value: TValue | ((model: TModel, config: TConfig) => TValue),
+  model: TModel,
+  config: TConfig,
+): TValue {
+  return typeof value === 'function'
+    ? (value as (model: TModel, config: TConfig) => TValue)(model, config)
+    : value;
+}
+
 export function numberParameter<TConfig extends object, TModel>(
   id: string,
   options: NumberParameterOptions<TConfig, TModel>,
@@ -118,21 +128,26 @@ export function enumParameter<
   return {
     id,
     metadata(model, config) {
+      const enumOptions = resolveParameterFactory(options.options, model, config);
+      const labels = options.labels
+        ? resolveParameterFactory(options.labels, model, config)
+        : undefined;
       return withDefined({
         id,
         type: 'enum' as const,
         label: options.label ?? titleFromId(id),
         value: options.get(model, config),
-        options: [...options.options],
-        labels: options.labels ? { ...options.labels } : undefined,
+        options: [...enumOptions],
+        labels: labels ? { ...labels } : undefined,
         allowRuntimeChange: options.runtime ?? true,
       }) as Parameter;
     },
-    async apply(model, payload, ctx) {
+    async apply(model, payload, ctx, config) {
       if (!options.set || typeof payload.value !== 'string') {
         return { accepted: false };
       }
-      if (!options.options.includes(payload.value as TValue)) {
+      const enumOptions = resolveParameterFactory(options.options, model, config);
+      if (!enumOptions.includes(payload.value as TValue)) {
         return { accepted: false };
       }
       await options.set(model, payload.value as TValue, ctx);

@@ -12,18 +12,27 @@ type testAgent struct {
 	x  float64
 }
 
+type testEdge struct {
+	source string
+	target string
+	width  float64
+}
+
 type testModel struct {
 	agents []testAgent
+	edges  []testEdge
 	speed  float64
 }
 
 type testEmitter struct {
 	abm.Sink
 	params      []any
+	paramSyncs  []protocol.ParamSyncPayload
 	actions     []*protocol.Action
 	layers      []*protocol.EnvLayerCreatePayload
 	itemCreates []itemCall
 	itemUpdates []itemCall
+	itemDeletes []deleteCall
 	actionEnds  []*protocol.ActionEndPayload
 	chartValues []protocol.ChartUpdateEntry
 }
@@ -34,8 +43,19 @@ type itemCall struct {
 	items   []map[string]any
 }
 
+type deleteCall struct {
+	envID   string
+	layerID string
+	items   []any
+}
+
 func (e *testEmitter) ParamCreate(param any) error {
 	e.params = append(e.params, param)
+	return nil
+}
+
+func (e *testEmitter) ParamSync(id string, value any) error {
+	e.paramSyncs = append(e.paramSyncs, protocol.ParamSyncPayload{ID: id, Value: value})
 	return nil
 }
 
@@ -58,6 +78,11 @@ func (e *testEmitter) ItemCreate(envID, layerID string, items []map[string]any) 
 
 func (e *testEmitter) ItemUpdate(envID, layerID string, items []map[string]any) error {
 	e.itemUpdates = append(e.itemUpdates, itemCall{envID: envID, layerID: layerID, items: cloneSnapshots(items)})
+	return nil
+}
+
+func (e *testEmitter) ItemDelete(envID, layerID string, items []any) error {
+	e.itemDeletes = append(e.itemDeletes, deleteCall{envID: envID, layerID: layerID, items: append([]any(nil), items...)})
 	return nil
 }
 
@@ -238,6 +263,136 @@ func TestAgentLayerUsesIncrementalTrackerWhenConfigured(t *testing.T) {
 	}
 	if _, ok := got["y"]; ok {
 		t.Fatalf("unchanged y should not be present: %#v", got)
+	}
+}
+
+func TestEdgeLayerDiffsWithObjectDeleteKeys(t *testing.T) {
+	raw := &testModel{
+		edges: []testEdge{{source: "a", target: "b", width: 1}},
+	}
+	layer := NewEdgeLayer[*testModel, testEdge]("edges").
+		Items(func(model *testModel) []testEdge { return model.edges }).
+		Project(func(_ *testModel, edge testEdge) map[string]any {
+			return map[string]any{"source": edge.source, "target": edge.target, "width": edge.width}
+		})
+	emitter := &testEmitter{}
+
+	payload := layer.CreatePayload(raw, "world")
+	if payload.LayerType != "edge" || payload.DependencyLayerIDs["agent"] != "agents" {
+		t.Fatalf("unexpected edge create payload: %#v", payload)
+	}
+	if err := layer.ReplayState(raw, "world", emitter); err != nil {
+		t.Fatalf("ReplayState returned error: %v", err)
+	}
+	raw.edges = nil
+	if err := layer.PushDiffs(raw, "world", emitter); err != nil {
+		t.Fatalf("PushDiffs returned error: %v", err)
+	}
+	if len(emitter.itemDeletes) != 1 {
+		t.Fatalf("expected one edge delete, got %#v", emitter.itemDeletes)
+	}
+	key, ok := emitter.itemDeletes[0].items[0].(map[string]any)
+	if !ok || key["source"] != "a" || key["target"] != "b" {
+		t.Fatalf("unexpected edge delete key: %#v", emitter.itemDeletes[0].items[0])
+	}
+}
+
+func TestTrajectoryAndBackgroundLayerCreatePayloads(t *testing.T) {
+	raw := &testModel{}
+	trails := NewEmptyTrajectoryLayer[*testModel]("trails").
+		AgentLayer("agents").
+		Data(func(*testModel) map[string]any {
+			return map[string]any{"length": 25, "color": "#f00"}
+		})
+	background := NewBackgroundLayer[*testModel]("background").
+		Data(func(*testModel) map[string]any {
+			return map[string]any{"background": "asset://map", "interpolation": "nearest"}
+		})
+
+	trailPayload := trails.CreatePayload(raw, "world")
+	if trailPayload.LayerType != "trajectory" || trailPayload.DependencyLayerIDs["agent"] != "agents" {
+		t.Fatalf("unexpected trajectory payload: %#v", trailPayload)
+	}
+	if trailPayload.Data["length"] != 25 {
+		t.Fatalf("unexpected trajectory metadata: %#v", trailPayload.Data)
+	}
+	backgroundPayload := background.CreatePayload(raw, "world")
+	if backgroundPayload.LayerType != "background" || backgroundPayload.Data["background"] != "asset://map" {
+		t.Fatalf("unexpected background payload: %#v", backgroundPayload)
+	}
+}
+
+func TestParamChangeSyncsOnlyCanonicalCorrections(t *testing.T) {
+	raw := &testModel{speed: 1}
+	model := NewModel(
+		raw,
+		WithParams(
+			NumberParam("speed", "Speed",
+				func(model *testModel) float64 { return model.speed },
+				func(model *testModel, value float64) error {
+					model.speed = value
+					return nil
+				},
+			).Range(0, 5).Step(1).Build(),
+		),
+	)
+	emitter := &testEmitter{}
+
+	if err := model.Setup(emitter); err != nil {
+		t.Fatalf("Setup returned error: %v", err)
+	}
+	if err := model.OnParamChange(emitter, "speed", 3.0); err != nil {
+		t.Fatalf("OnParamChange returned error: %v", err)
+	}
+	if len(emitter.paramSyncs) != 0 {
+		t.Fatalf("accepted value should not sync, got %#v", emitter.paramSyncs)
+	}
+	if err := model.OnParamChange(emitter, "speed", 99.0); err != nil {
+		t.Fatalf("OnParamChange returned error: %v", err)
+	}
+	if len(emitter.paramSyncs) != 1 || emitter.paramSyncs[0].Value != 5.0 {
+		t.Fatalf("expected canonical param_sync to 5, got %#v", emitter.paramSyncs)
+	}
+}
+
+func TestEnumParamSupportsDynamicOptions(t *testing.T) {
+	type enumModel struct {
+		mode    string
+		options []string
+	}
+	raw := &enumModel{mode: "a", options: []string{"a", "b"}}
+	param := EnumParam("mode", "Mode",
+		func(model *enumModel) string { return model.mode },
+		func(model *enumModel, value string) error {
+			model.mode = value
+			model.options = []string{value, "c"}
+			return nil
+		},
+	).OptionsFunc(func(model *enumModel) []string {
+		return model.options
+	}).Build()
+	model := NewModel(raw, WithParams(param))
+	emitter := &testEmitter{}
+
+	if err := model.Setup(emitter); err != nil {
+		t.Fatalf("Setup returned error: %v", err)
+	}
+	metadata := param.Metadata(raw).Definition.(protocol.EnumParameter)
+	if len(metadata.Options) != 2 || metadata.Options[0] != "a" || metadata.Options[1] != "b" {
+		t.Fatalf("unexpected enum options: %#v", metadata.Options)
+	}
+	if err := model.OnParamChange(emitter, "mode", "b"); err != nil {
+		t.Fatalf("OnParamChange returned error: %v", err)
+	}
+	metadata = param.Metadata(raw).Definition.(protocol.EnumParameter)
+	if len(metadata.Options) != 2 || metadata.Options[0] != "b" || metadata.Options[1] != "c" {
+		t.Fatalf("unexpected updated enum options: %#v", metadata.Options)
+	}
+	if err := model.OnParamChange(emitter, "mode", "a"); err == nil {
+		t.Fatal("expected invalid enum value to be rejected")
+	}
+	if len(emitter.paramSyncs) != 1 || emitter.paramSyncs[0].Value != "b" {
+		t.Fatalf("expected rejected value sync to b, got %#v", emitter.paramSyncs)
 	}
 }
 

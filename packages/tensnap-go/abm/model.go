@@ -2,6 +2,7 @@ package abm
 
 import (
 	"fmt"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/billstark001/tensnap/packages/tensnap-go/protocol"
@@ -94,10 +95,22 @@ func (b *Base) OnAction(e Emitter, actionID string, tickID *string, continuous b
 	return err
 }
 
-func (b *Base) OnParamChange(_ Emitter, id string, value any) error {
+func (b *Base) OnParamChange(e Emitter, id string, value any) error {
 	if b.scenario != nil {
 		handled, err := b.scenario.ApplyParam(b, id, value)
-		if handled || err != nil {
+		if handled {
+			current, _, valueErr := b.scenario.ParamValue(id)
+			if valueErr != nil {
+				return valueErr
+			}
+			if err != nil || !reflect.DeepEqual(current, value) {
+				if syncErr := e.ParamSync(id, current); syncErr != nil {
+					return syncErr
+				}
+			}
+			return err
+		}
+		if err != nil {
 			return err
 		}
 	}

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, cast
 
 from typing_extensions import NotRequired, TypedDict
 
@@ -18,7 +19,7 @@ class ChartMetadata:
 
     id: str
     label: str = ""
-    color: Optional[str] = None
+    color: str | None = None
 
     def refresh_label(self) -> None:
         if not self.label:
@@ -58,12 +59,9 @@ class ChartGroupMetadataDict(ChartMetadataDict):
     dataList: NotRequired[list[ChartMetadataDict]]
 
 
-SimplifiedChartMetadata = Union[
-    str,
-    tuple[str, str],
-    tuple[str, str, str],
-    ChartMetadataDict,
-]
+SimplifiedChartMetadata = (
+    str | tuple[str, str] | tuple[str, str, str] | ChartMetadataDict
+)
 
 
 class ChartProperty:
@@ -74,7 +72,7 @@ class ChartProperty:
         chart: ChartGroupMetadata,
         getter: Any,
         *,
-        group_owner: "ChartProperty | None" = None,
+        group_owner: ChartProperty | None = None,
     ) -> None:
         self.chart = chart
         setattr(self, _TENSNAP_CHART_FIELD, chart)
@@ -98,13 +96,13 @@ class ChartProperty:
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self.getter(*args, **kwargs)
 
-    def __get__(self, obj: Any, objtype: Optional[type] = None) -> Any:
+    def __get__(self, obj: Any, objtype: type | None = None) -> Any:
         if obj is None:
             return self
         return self.getter(obj)
 
     @property
-    def group_owner(self) -> "ChartProperty | None":
+    def group_owner(self) -> ChartProperty | None:
         return self._group_owner
 
     def has_group_members(self) -> bool:
@@ -112,10 +110,10 @@ class ChartProperty:
 
     def group(
         self,
-        id: Optional[str] = None,
-        label: Optional[str] = None,
-        color: Optional[str] = None,
-    ):
+        id: str | None = None,
+        label: str | None = None,
+        color: str | None = None,
+    ) -> Callable[[Any], ChartProperty]:
         if self._group_owner is not None:
             raise ValueError("Only a root ChartProperty can own grouped series.")
         if self._has_explicit_data_list:
@@ -124,7 +122,7 @@ class ChartProperty:
                 "data_list. Use one grouping style per chart."
             )
 
-        def decorator(member: Any) -> "ChartProperty":
+        def decorator(member: Any) -> ChartProperty:
             raw_getter = member.fget if isinstance(member, property) else member
             if raw_getter is None:
                 raise ValueError("@chart group cannot wrap a property without fget")
@@ -159,7 +157,7 @@ class ChartProperty:
             result[member.chart.id] = member.getter(obj)
         return result
 
-    def _attach_group_member(self, member: "ChartProperty") -> None:
+    def _attach_group_member(self, member: ChartProperty) -> None:
         seen_ids = {self._owner_series_metadata().id}
         seen_ids.update(grouped.chart.id for grouped in self._group_members)
         if member.chart.id in seen_ids:

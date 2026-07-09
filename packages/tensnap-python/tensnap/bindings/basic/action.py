@@ -31,7 +31,7 @@ def action(
             if iscoroutinefunction(func_orig):
 
                 @wraps(func_orig)
-                async def method_wrapper(*args: Any, **kwargs: Any) -> Any:  # type: ignore
+                async def method_wrapper(*args: Any, **kwargs: Any) -> Any:
                     return await func_orig(*args, **kwargs)
 
                 wrapped_func = method_wrapper

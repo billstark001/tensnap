@@ -109,6 +109,131 @@ func (b *NumberParamBuilder[T]) Build() *Param[T] {
 	return b.param
 }
 
+func EnumParam[T any](id, label string, getter func(T) string, setter func(T, string) error, options ...string) *EnumParamBuilder[T] {
+	builder := &EnumParamBuilder[T]{
+		param: &Param[T]{
+			ID:    id,
+			Label: label,
+			get: func(target T) any {
+				return getter(target)
+			},
+		},
+		setter: setter,
+		options: func(T) []string {
+			return append([]string(nil), options...)
+		},
+	}
+	return builder
+}
+
+type EnumParamBuilder[T any] struct {
+	param   *Param[T]
+	setter  func(T, string) error
+	options func(T) []string
+	labels  func(T) map[string]string
+}
+
+func (b *EnumParamBuilder[T]) Options(options ...string) *EnumParamBuilder[T] {
+	b.options = func(T) []string {
+		return append([]string(nil), options...)
+	}
+	return b
+}
+
+func (b *EnumParamBuilder[T]) OptionsFunc(fn func(T) []string) *EnumParamBuilder[T] {
+	b.options = fn
+	return b
+}
+
+func (b *EnumParamBuilder[T]) Labels(labels map[string]string) *EnumParamBuilder[T] {
+	b.labels = func(T) map[string]string {
+		return cloneStringMap(labels)
+	}
+	return b
+}
+
+func (b *EnumParamBuilder[T]) LabelsFunc(fn func(T) map[string]string) *EnumParamBuilder[T] {
+	b.labels = fn
+	return b
+}
+
+func (b *EnumParamBuilder[T]) Runtime(allow bool) *EnumParamBuilder[T] {
+	b.param.AllowRuntimeChange = abm.BoolPtr(allow)
+	return b
+}
+
+func (b *EnumParamBuilder[T]) Alias(aliases ...string) *EnumParamBuilder[T] {
+	b.param.Aliases = append(b.param.Aliases, aliases...)
+	return b
+}
+
+func (b *EnumParamBuilder[T]) Build() *Param[T] {
+	b.param.set = func(target T, value any) error {
+		s, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("tensnap: expected string enum parameter %q", b.param.ID)
+		}
+		if !containsString(b.optionsFor(target), s) {
+			return fmt.Errorf("tensnap: invalid enum value %q for parameter %q", s, b.param.ID)
+		}
+		return b.setter(target, s)
+	}
+	b.param.normalize = func(value any) (any, error) {
+		s, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("tensnap: expected string enum parameter %q", b.param.ID)
+		}
+		return s, nil
+	}
+	b.param.definition = func(target T, param *Param[T]) any {
+		value, _ := param.get(target).(string)
+		return protocol.EnumParameter{
+			ID:                 param.ID,
+			Type:               "enum",
+			Label:              param.Label,
+			Value:              value,
+			Options:            b.optionsFor(target),
+			Labels:             b.labelsFor(target),
+			AllowRuntimeChange: param.AllowRuntimeChange,
+		}
+	}
+	return b.param
+}
+
+func (b *EnumParamBuilder[T]) optionsFor(target T) []string {
+	if b.options == nil {
+		return nil
+	}
+	return append([]string(nil), b.options(target)...)
+}
+
+func (b *EnumParamBuilder[T]) labelsFor(target T) map[string]string {
+	if b.labels == nil {
+		return nil
+	}
+	return cloneStringMap(b.labels(target))
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	if len(source) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
 func (p *Param[T]) Metadata(target T) *abm.ParamMetadata {
 	return &abm.ParamMetadata{
 		ID:         p.ID,

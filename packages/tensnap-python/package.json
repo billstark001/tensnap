@@ -1,8 +1,9 @@
 {
   "name": "@tensnap/python",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "private": true,
   "scripts": {
+    "build": "python -m pip wheel --no-deps . -w dist",
     "test": "pytest",
     "lint": "mypy tensnap && ruff check tensnap",
     "format": "ruff format tensnap",

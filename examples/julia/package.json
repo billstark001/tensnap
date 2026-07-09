@@ -10,6 +10,9 @@
     "demo:schelling": "julia --project=. run_example.jl schelling",
     "demo:schelling:makie": "julia --project=. run_example.jl schelling:makie",
     "standalone:schelling": "julia --project=. schelling_standalone.jl",
-    "test": "julia --project=. test_package.jl"
+    "build": "pnpm run instantiate",
+    "test": "julia --project=. test_package.jl",
+    "lint": "echo 'No lint configured'",
+    "format": "echo 'No formatter configured'"
   }
 }

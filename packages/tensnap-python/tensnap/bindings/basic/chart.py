@@ -6,6 +6,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
 from warnings import warn
 
+from typing_extensions import TypedDict
+
 from tensnap.models.chart import (
     ChartGroupMetadata as _ChartGroupMetadata,
     ChartGroupMetadataDict as _ChartGroupMetadataDict,
@@ -27,10 +29,16 @@ if TYPE_CHECKING:
     SimplifiedChartMetadata = _SimplifiedChartMetadata
 
 
+class ChartCategorization(TypedDict):
+    added: List[_ChartGroupMetadataDict]
+    removed: List[str]
+    updated: List[_ChartGroupMetadataDict]
+
+
 def categorize_charts(
     client_charts: List[_ChartMetadataDict],
     server_charts: List[_ChartGroupMetadataDict],
-):
+) -> ChartCategorization:
     """
     Categorize server charts into added, removed, and updated groups.
 
@@ -149,9 +157,11 @@ def _resolve_chart_property(attr: Any) -> _ChartProperty | None:
     return None
 
 
-def get_chart_metadata_from_namespace(namespace: Dict[str, Any]):
+def get_chart_metadata_from_namespace(
+    namespace: Dict[str, Any],
+) -> list[tuple[str, Callable[..., Any], _ChartGroupMetadata]]:
     """Find all chart-decorated functions/properties in a given namespace."""
-    charts: List[Tuple[str, Callable, _ChartGroupMetadata]] = []
+    charts: List[Tuple[str, Callable[..., Any], _ChartGroupMetadata]] = []
 
     for name, attr in namespace.items():
         if name.startswith("__") and name.endswith("__"):

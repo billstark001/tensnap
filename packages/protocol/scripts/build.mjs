@@ -10,6 +10,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const DIST = resolve(ROOT, 'dist');
 const ROOT_LICENSE = resolve(ROOT, '..', '..', 'LICENSE');
+const TSC = resolve(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
 
 const entryPoints = [
   'src/index.ts',
@@ -18,6 +19,7 @@ const entryPoints = [
   'src/chart.ts',
   'src/codec.ts',
   'src/controls.ts',
+  'src/layers.ts',
   'src/schemas.ts',
   'src/types.ts',
 ];
@@ -39,9 +41,14 @@ await build({
   target: 'es2020',
 });
 
-execFileSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.build.json'], {
+execFileSync(process.execPath, [TSC, '-p', 'tsconfig.build.json'], {
   cwd: ROOT,
   stdio: 'inherit',
 });
 
 copyFileSync(ROOT_LICENSE, resolve(DIST, 'LICENSE'));
+
+execFileSync(process.execPath, ['./scripts/gen-zod-docs.mjs', 'dist/protocol-types.md'], {
+  cwd: ROOT,
+  stdio: 'inherit',
+});

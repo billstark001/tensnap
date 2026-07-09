@@ -1,7 +1,7 @@
 """Simulation handler protocols and default lifecycle handlers."""
 
 from collections.abc import Callable
-from typing import Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 from .bindings import action as action_decorator
 from .helper import broadcast_env_update
@@ -49,7 +49,7 @@ class SimulationHandler:
         pass
 
 
-def make_default_handlers(scenario: "SimulationScenario") -> List[Callable]:
+def make_default_handlers(scenario: "SimulationScenario") -> list[Callable[..., Any]]:
     """
     Built-in lifecycle actions.
 
@@ -80,15 +80,15 @@ class DefaultSimulationHandler(SimulationHandler):
 
     def __init__(
         self,
-        model_init: Optional[Callable] = None,
-        model_step: Optional[Callable] = None,
-        model_reset: Optional[Callable] = None,
+        model_init: Callable[..., Any] | None = None,
+        model_step: Callable[..., Any] | None = None,
+        model_reset: Callable[..., Any] | None = None,
     ) -> None:
         self.model_init = model_init
         self.model_step = model_step
         self.model_reset = model_reset
-        self.scenario: Optional["SimulationScenario"] = None
-        self._last_env_states: Dict[str, EnvironmentState] = {}
+        self.scenario: SimulationScenario | None = None
+        self._last_env_states: dict[str, EnvironmentState] = {}
 
     async def on_registered(self, scenario: "SimulationScenario") -> None:
         self.scenario = scenario
@@ -103,7 +103,7 @@ class DefaultSimulationHandler(SimulationHandler):
             self._last_env_states = {}
             return
 
-        next_states: Dict[str, EnvironmentState] = {}
+        next_states: dict[str, EnvironmentState] = {}
         for env_id, environment in s.environments.items():
             for layer in environment.layers.values():
                 layer.reset_diff_state()
@@ -116,7 +116,7 @@ class DefaultSimulationHandler(SimulationHandler):
         s = self.scenario
         if not s:
             return
-        next_states: Dict[str, EnvironmentState] = {}
+        next_states: dict[str, EnvironmentState] = {}
         for env_id, environment in s.environments.items():
             prev = None if replace_all else self._last_env_states.get(env_id)
             curr = clone_environment_state(

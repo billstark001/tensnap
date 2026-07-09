@@ -77,7 +77,6 @@ function _handle_message(s::Scenario, ws, raw)
 	elseif type == "param_change"
 		id = String(payload["id"])
 		haskey(s.parameters, id) && _set_parameter!(s.parameters[id], payload["value"], s.model)
-		_broadcast(s, "param_sync", Dict("id" => id, "value" => payload["value"]))
 	elseif type == "asset_sync"
 		_handle_asset_sync(s, ws, payload)
 	elseif type == "screenshot_response"

@@ -1,24 +1,20 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import (
-    Any,
-    Dict,
-    Generic,
-    List,
-    Literal,
     TYPE_CHECKING,
-    Tuple,
+    Any,
+    Generic,
+    Literal,
     TypeAlias,
     TypeVar,
-    Union,
     cast,
 )
 
 from typing_extensions import NotRequired, TypedDict
 
 from tensnap.utils.attr import (
-    AttrProjector,
     AttrGetter,
+    AttrProjector,
 )
 from tensnap.utils.object import dict_diff
 
@@ -35,14 +31,14 @@ TLayerFieldKeys = TypeVar("TLayerFieldKeys", bound=str)
 TItemFieldKeys = TypeVar("TItemFieldKeys", bound=str)
 
 
-DynamicAttrProjector: TypeAlias = Callable[[TLayer, TObj], Dict[TKey, Any]]
-ItemsProjector: TypeAlias = Callable[[TLayer], List[Dict[TKey, Any]]]
-
-_ITEM_PROJ_TYPE_ITEMS = 0
-_ITEM_PROJ_TYPE_DYNAMIC = 1
-_ITEM_PROJ_TYPE_STATIC = 2
+DynamicAttrProjector: TypeAlias = Callable[[TLayer, TObj], dict[TKey, Any]]
+ItemsProjector: TypeAlias = Callable[[TLayer], list[dict[TKey, Any]]]
 
 ItemProjectionType: TypeAlias = Literal[0, 1, 2]
+
+_ITEM_PROJ_TYPE_ITEMS: Literal[0] = 0
+_ITEM_PROJ_TYPE_DYNAMIC: Literal[1] = 1
+_ITEM_PROJ_TYPE_STATIC: Literal[2] = 2
 
 
 # region Message Payloads
@@ -52,14 +48,14 @@ class EnvLayerCreatePayload(TypedDict, Generic[TLayerFieldKeys]):
     env_id: str
     layer_id: str
     layer_type: str
-    dependency_layer_ids: NotRequired[Dict[str, str]]
-    data: NotRequired[Dict[TLayerFieldKeys, Any]]
+    dependency_layer_ids: NotRequired[dict[str, str]]
+    data: NotRequired[dict[TLayerFieldKeys, Any]]
 
 
 class EnvLayerUpdatePayload(TypedDict, Generic[TLayerFieldKeys]):
     env_id: str
     layer_id: str
-    data: Dict[TLayerFieldKeys, Any]
+    data: dict[TLayerFieldKeys, Any]
 
 
 class EnvLayerDeletePayload(TypedDict):
@@ -77,8 +73,8 @@ class EnvLayerDeletePayload(TypedDict):
 class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     layer_id: str
     layer_type: str
-    item_keys: Tuple[TItemFieldKeys, ...]
-    dependency_layer_ids: Dict[str, str] = field(default_factory=dict)
+    item_keys: tuple[TItemFieldKeys, ...]
+    dependency_layer_ids: dict[str, str] = field(default_factory=dict)
 
     metadata_projector: AttrProjector[TLayer, TLayerFieldKeys] | None = None
 
@@ -94,7 +90,7 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     item_projection_type: ItemProjectionType = field(init=False)
     has_item_diffing: bool = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         has_iterable = self.iterable_getter is not None
         has_item_proj = self.item_projector is not None
         has_dynamic_proj = self.item_dynamic_projector is not None
@@ -115,7 +111,8 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             )
         if possible_combinations > 1:
             raise ValueError(
-                f"LayerBinding {self.layer_id} has multiple item projection methods defined. "
+                f"LayerBinding {self.layer_id} has multiple item projection methods "
+                "defined. "
                 "Only one of the following is allowed:\n"
                 "- iterable_getter + item_projector\n"
                 "- iterable_getter + item_dynamic_projector\n"
@@ -147,12 +144,12 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             self.item_id_getter is not None and self.item_changed_getter is not None
         ) and self.item_projection_type != _ITEM_PROJ_TYPE_ITEMS
 
-    def build_metadata(self, layer: TLayer) -> Dict[TLayerFieldKeys, Any] | None:
+    def build_metadata(self, layer: TLayer) -> dict[TLayerFieldKeys, Any] | None:
         if self.metadata_projector is None:
             return None
         return self.metadata_projector(layer)
 
-    def build_item_list(self, layer: TLayer) -> List[Dict[TItemFieldKeys, Any]]:
+    def build_item_list(self, layer: TLayer) -> list[dict[TItemFieldKeys, Any]]:
         if self.item_projection_type == _ITEM_PROJ_TYPE_ITEMS:
             assert self.items_projector is not None
             return self.items_projector(layer)
@@ -165,10 +162,10 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         assert self.item_dynamic_projector is not None
         return [self.item_dynamic_projector(layer, item) for item in items]
 
-    def get_item_id_naive(self, item: Dict[TItemFieldKeys, Any]) -> Tuple[Any, ...]:
+    def get_item_id_naive(self, item: dict[TItemFieldKeys, Any]) -> tuple[Any, ...]:
         return tuple(item.get(key) for key in self.item_keys)
 
-    def get_projected_item_cache_key(self, item: Dict[TItemFieldKeys, Any]) -> Any:
+    def get_projected_item_cache_key(self, item: dict[TItemFieldKeys, Any]) -> Any:
         if self.has_item_diffing and len(self.item_keys) == 1:
             return item.get(self.item_keys[0])
         return self.get_item_id_naive(item)
@@ -176,8 +173,13 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     def build_item_list_diff(
         self,
         layer: TLayer,
-        last_items: Dict[Any, Dict[TItemFieldKeys, Any]],
-    ):
+        last_items: dict[Any, dict[TItemFieldKeys, Any]],
+    ) -> tuple[
+        list[dict[TItemFieldKeys, Any]],
+        list[dict[TItemFieldKeys, Any]],
+        list[Any],
+        dict[Any, dict[TItemFieldKeys, Any]],
+    ]:
         assert self.has_item_diffing, (
             "Item diffing is not enabled for this LayerBinding."
         )
@@ -187,16 +189,21 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             and self.iterable_getter is not None
         )
         items = self.iterable_getter(layer)
-        created: List[Dict[TItemFieldKeys, Any]] = []
-        updated: List[Dict[TItemFieldKeys, Any]] = []
-        deleted: List[Any] = []
-        projector: AttrProjector[TItem, TItemFieldKeys] = (
-            self.item_projector
-            if self.item_projection_type == _ITEM_PROJ_TYPE_STATIC
-            else (lambda item: self.item_dynamic_projector(layer, item))  # type: ignore
-        )  # type: ignore
+        created: list[dict[TItemFieldKeys, Any]] = []
+        updated: list[dict[TItemFieldKeys, Any]] = []
+        deleted: list[Any] = []
+        if self.item_projection_type == _ITEM_PROJ_TYPE_STATIC:
+            assert self.item_projector is not None
+            projector = self.item_projector
+        else:
+            assert self.item_dynamic_projector is not None
+            item_dynamic_projector = self.item_dynamic_projector
+
+            def projector(item: TItem) -> dict[TItemFieldKeys, Any]:
+                return item_dynamic_projector(layer, item)
+
         current_ids = set()
-        current_items: Dict[Any, Dict[TItemFieldKeys, Any]] = {
+        current_items: dict[Any, dict[TItemFieldKeys, Any]] = {
             k: v for k, v in last_items.items()
         }
         for item in items:
@@ -220,14 +227,19 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     def build_item_list_diff_naive(
         self,
         layer: TLayer,
-        last_items: Dict[Any, Dict[TItemFieldKeys, Any]],
-    ):
+        last_items: dict[Any, dict[TItemFieldKeys, Any]],
+    ) -> tuple[
+        list[dict[TItemFieldKeys, Any]],
+        list[dict[TItemFieldKeys, Any]],
+        list[Any],
+        dict[Any, dict[TItemFieldKeys, Any]],
+    ]:
         projected_items = self.build_item_list(layer)
-        created: List[Dict[TItemFieldKeys, Any]] = []
-        updated: List[Dict[TItemFieldKeys, Any]] = []
-        deleted: List[Any] = []
+        created: list[dict[TItemFieldKeys, Any]] = []
+        updated: list[dict[TItemFieldKeys, Any]] = []
+        deleted: list[Any] = []
         current_ids = set()
-        current_items: Dict[Any, Dict[TItemFieldKeys, Any]] = {
+        current_items: dict[Any, dict[TItemFieldKeys, Any]] = {
             k: v for k, v in last_items.items()
         }
         for item in projected_items:
@@ -270,7 +282,8 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         metadata = self.build_metadata(layer)
         if metadata is None:
             raise ValueError(
-                f"Cannot build update payload for layer {self.layer_id} without metadata."
+                f"Cannot build update payload for layer {self.layer_id} without "
+                "metadata."
             )
         return {
             "env_id": env_id,
@@ -299,7 +312,7 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
 
     binding: LayerBinding[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]
     target: TLayer
-    last_items: Dict[Any, Dict[TItemFieldKeys, Any]] = field(default_factory=dict)
+    last_items: dict[Any, dict[TItemFieldKeys, Any]] = field(default_factory=dict)
 
     @property
     def id(self) -> str:
@@ -316,7 +329,7 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         self.last_items.clear()
 
     def build_state(self, *, include_items: bool = True) -> "EnvironmentLayerState":
-        layer: Dict[str, Any] = {
+        layer: dict[str, Any] = {
             "layer_id": self.binding.layer_id,
             "layer_type": self.binding.layer_type,
         }
@@ -335,13 +348,13 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         return cast("EnvironmentLayerState", layer)
 
     def seed_item_deltas_from_state(self, state: "EnvironmentLayerState") -> None:
-        items: List[Dict[TItemFieldKeys, Any]] = []
+        items: list[dict[TItemFieldKeys, Any]] = []
         if "items" in state:
-            items = cast(List[Dict[TItemFieldKeys, Any]], state["items"])
+            items = cast(list[dict[TItemFieldKeys, Any]], state["items"])
         elif "agents" in state:
-            items = cast(List[Dict[TItemFieldKeys, Any]], state["agents"])
+            items = cast(list[dict[TItemFieldKeys, Any]], state["agents"])
         elif "edges" in state:
-            items = cast(List[Dict[TItemFieldKeys, Any]], state["edges"])
+            items = cast(list[dict[TItemFieldKeys, Any]], state["edges"])
         self.last_items = {
             self.binding.get_projected_item_cache_key(item): dict(item)
             for item in items
@@ -363,9 +376,9 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
     def build_item_deltas(
         self,
     ) -> tuple[
-        List[Dict[TItemFieldKeys, Any]],
-        List[Dict[TItemFieldKeys, Any]],
-        List[Any],
+        list[dict[TItemFieldKeys, Any]],
+        list[dict[TItemFieldKeys, Any]],
+        list[Any],
     ]:
         if self.binding.has_item_diffing:
             created, updated, deleted, current_items = (
@@ -389,9 +402,9 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         return created, updated, deleted
 
     def build_item_delete_payloads(
-        self, deleted_item_ids: List[Any]
-    ) -> List[Dict[TItemFieldKeys, Any]]:
-        payloads: List[Dict[TItemFieldKeys, Any]] = []
+        self, deleted_item_ids: list[Any]
+    ) -> list[dict[TItemFieldKeys, Any]]:
+        payloads: list[dict[TItemFieldKeys, Any]] = []
         for item_id in deleted_item_ids:
             if isinstance(item_id, tuple):
                 item_values = item_id
@@ -401,7 +414,14 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
                 item_values = tuple(item_id)
 
             payloads.append(
-                {key: value for key, value in zip(self.binding.item_keys, item_values)}
+                {
+                    key: value
+                    for key, value in zip(
+                        self.binding.item_keys,
+                        item_values,
+                        strict=False,
+                    )
+                }
             )
         return payloads
 
@@ -451,10 +471,7 @@ BackgroundLayerMetadataFields: TypeAlias = Literal[
 
 UniformAgentItemFields: TypeAlias = Literal["id", "color", "icon", "size", "data"]
 
-AgentItemFields: TypeAlias = Union[
-    UniformAgentItemFields,
-    Literal["x", "y", "heading"],
-]
+AgentItemFields: TypeAlias = UniformAgentItemFields | Literal["x", "y", "heading"]
 
 EdgeItemFields: TypeAlias = Literal[
     "source", "target", "directed", "style", "width", "color"

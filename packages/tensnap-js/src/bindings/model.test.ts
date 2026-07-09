@@ -81,9 +81,17 @@ describe('modelBuilder', () => {
     });
 
     expect(messages).toContainEqual({
-      type: 'param_update',
-      payload: expect.objectContaining({ id: 'speed', value: 5 }),
+      type: 'param_sync',
+      payload: { id: 'speed', value: 5 },
     });
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'param_change',
+      payload: { id: 'speed', value: 3 },
+    });
+    expect(messages.some((message) => message.type === 'param_sync')).toBe(false);
+    expect(messages.some((message) => message.type === 'param_update')).toBe(false);
 
     messages.length = 0;
     await session.dispatch({
@@ -103,6 +111,67 @@ describe('modelBuilder', () => {
     expect(messages.some((message) => message.type === 'state_sync_begin')).toBe(true);
     expect(messages.some((message) => message.type === 'chart_create')).toBe(true);
     expect(messages.some((message) => message.type === 'state_sync_end')).toBe(true);
+
+    await session.close();
+  });
+
+  it('updates enum option definitions without syncing accepted values', async () => {
+    const builder = modelBuilder({
+      id: 'enum-binding',
+      name: 'Enum Binding',
+      description: 'dynamic enum options test',
+    }, {
+      defaults: {},
+      create() {
+        return { mode: 'a', options: ['a', 'b'] };
+      },
+    });
+
+    builder.enumParam('mode', {
+      get: (model) => model.mode,
+      options: (model) => model.options,
+      set(model, value) {
+        model.mode = value;
+        if (value === 'b') {
+          model.options = ['b', 'c'];
+        }
+      },
+    });
+
+    const messages: AnyProtocolMessage[] = [];
+    const session = builder.build().createSession();
+    session.attach((message: SimulatorToRendererMessage) => {
+      messages.push(message as AnyProtocolMessage);
+    }, 'enum-binding');
+
+    await session.open('enum-binding');
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'param_change',
+      payload: { id: 'mode', value: 'b' },
+    });
+
+    expect(messages.some((message) => message.type === 'param_sync')).toBe(false);
+    expect(messages).toContainEqual({
+      type: 'param_update',
+      payload: expect.objectContaining({
+        id: 'mode',
+        value: 'b',
+        options: ['b', 'c'],
+      }),
+    });
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'param_change',
+      payload: { id: 'mode', value: 'a' },
+    });
+
+    expect(messages).toContainEqual({
+      type: 'param_sync',
+      payload: { id: 'mode', value: 'b' },
+    });
 
     await session.close();
   });
@@ -143,6 +212,59 @@ describe('modelBuilder', () => {
     });
 
     expect(messages.some((message) => message.type === 'asset_data')).toBe(true);
+    await session.close();
+  });
+
+  it('declares background and trajectory layers', async () => {
+    const builder = modelBuilder({
+      id: 'layer-coverage-binding',
+      name: 'Layer Coverage Binding',
+      description: 'built-in layer coverage test',
+    }, {
+      defaults: {},
+      create() {
+        return {};
+      },
+    });
+
+    builder.env('main')
+      .backgroundLayer('background', {
+        data: { background: 'asset://map', interpolation: 'nearest' },
+      })
+      .agentLayer('agents', {
+        items: () => [{ id: 'agent-1', x: 0, y: 0 }],
+      })
+      .trajectoryLayer('trails', {
+        dependencyLayerIds: { agent: 'agents' },
+        data: { length: 20 },
+      });
+
+    const messages: AnyProtocolMessage[] = [];
+    const session = builder.build().createSession();
+    session.attach((message: SimulatorToRendererMessage) => {
+      messages.push(message as AnyProtocolMessage);
+    }, 'layer-coverage-binding');
+
+    await session.open('layer-coverage-binding');
+
+    expect(messages).toContainEqual({
+      type: 'env_layer_create',
+      payload: expect.objectContaining({
+        env_id: 'main',
+        layer_id: 'background',
+        layer_type: 'background',
+      }),
+    });
+    expect(messages).toContainEqual({
+      type: 'env_layer_create',
+      payload: expect.objectContaining({
+        env_id: 'main',
+        layer_id: 'trails',
+        layer_type: 'trajectory',
+        dependency_layer_ids: { agent: 'agents' },
+      }),
+    });
+
     await session.close();
   });
 

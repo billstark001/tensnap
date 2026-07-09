@@ -60,18 +60,18 @@ _DEPRECATED_EXPORTS = {
 
 __all__ = [
     "BindDataCollectorConfig",
-    "bind_datacollector",
-    "get_registered_collectors",
-    "MesaSimulationHandler",
-    "cleanup_mesa_model_step",
     "BindKwargsConfig",
     "BoundModelReinitializer",
     "KwargBinding",
+    "MesaSimulationHandler",
+    "bind_datacollector",
     "bind_kwargs",
+    "cleanup_mesa_model_step",
+    "default_cleanup_for_model",
     "get_bind_kwargs",
+    "get_registered_collectors",
     "merge_registry_changes",
     "reinitialize_registered_model",
-    "default_cleanup_for_model",
 ]
 
 

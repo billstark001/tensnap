@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Literal,
     Protocol,
     TypeAlias,
@@ -51,8 +50,8 @@ class EnvDeletePayload(TypedDict):
 
 
 class EnvironmentRegistrationProtocol(Protocol):
-    binding: "EnvironmentBinding"
-    layers: Dict[str, "LayerRegistration[Any, Any, Any, Any]"]
+    binding: EnvironmentBinding
+    layers: dict[str, LayerRegistration[Any, Any, Any, Any]]
 
     def build_state(self) -> EnvironmentState: ...
 
@@ -82,7 +81,7 @@ class EnvironmentRegistration:
     """Scenario-owned environment entry with a dedicated layer registry."""
 
     binding: EnvironmentBinding
-    layers: Dict[str, "LayerRegistration[Any, Any, Any, Any]"] = field(
+    layers: dict[str, LayerRegistration[Any, Any, Any, Any]] = field(
         default_factory=dict
     )
 
@@ -94,7 +93,7 @@ class EnvironmentRegistration:
     def type(self) -> EnvironmentType:
         return self.binding.type
 
-    def add_layer(self, layer: "LayerRegistration[Any, Any, Any, Any]") -> None:
+    def add_layer(self, layer: LayerRegistration[Any, Any, Any, Any]) -> None:
         self.layers[layer.binding.layer_id] = layer
 
     def remove_layer(self, layer_id: str) -> None:

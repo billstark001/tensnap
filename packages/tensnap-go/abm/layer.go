@@ -12,10 +12,13 @@ type ItemSnapshot = map[string]any
 // Key fields present in a but absent in b are NOT included (they are not "changed").
 // The result is suitable for use as an item_update payload.
 func DictDiff(a, b ItemSnapshot) ItemSnapshot {
-	diff := make(ItemSnapshot)
+	var diff ItemSnapshot
 	for k, bv := range b {
 		av, ok := a[k]
 		if !ok || av != bv {
+			if diff == nil {
+				diff = make(ItemSnapshot)
+			}
 			diff[k] = bv
 		}
 	}
@@ -177,6 +180,17 @@ func (t *NaiveItemDiffTracker) itemKey(item ItemSnapshot) string {
 	return strings.Join(parts, "\x00")
 }
 
+func (t *NaiveItemDiffTracker) itemDeleteKey(item ItemSnapshot) any {
+	if len(t.keyFields) == 1 {
+		return item[t.keyFields[0]]
+	}
+	key := make(map[string]any, len(t.keyFields))
+	for _, field := range t.keyFields {
+		key[field] = item[field]
+	}
+	return key
+}
+
 // Seed primes the tracker with the given snapshots without returning any diff lists.
 // Call this after an ItemCreate that was used to initialize the renderer so that
 // the first subsequent Compute call produces correct incremental diffs instead of
@@ -241,7 +255,7 @@ func (t *NaiveItemDiffTracker) Compute(
 	// Detect deletions.
 	for key := range t.prev {
 		if _, alive := currentKeys[key]; !alive {
-			deleted = append(deleted, key)
+			deleted = append(deleted, t.itemDeleteKey(t.prev[key]))
 			delete(t.prev, key)
 		}
 	}

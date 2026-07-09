@@ -1,6 +1,7 @@
 import type {
   AssetMeta,
   ChartUpdatePayload,
+  Parameter,
   RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import type { SimulatorSession } from '../runtime';
@@ -31,6 +32,12 @@ import {
   resolveItemKey,
   textToBytes,
 } from './utils';
+
+function parameterDefinitionChanged(previous: Parameter, next: Parameter): boolean {
+  const { value: _previousValue, ...previousDefinition } = previous as Parameter & { value: unknown };
+  const { value: _nextValue, ...nextDefinition } = next as Parameter & { value: unknown };
+  return JSON.stringify(previousDefinition) !== JSON.stringify(nextDefinition);
+}
 
 export function createBoundSession<TConfig extends object, TModel>(
   binding: BoundModelDefinition<TConfig, TModel>,
@@ -425,16 +432,23 @@ export function createBoundSession<TConfig extends object, TModel>(
       if (!parameter) {
         return;
       }
+      const previousConfig = getCurrentConfig(binding, model, initialConfig);
+      const previous = parameter.metadata(model, previousConfig);
       const result = await parameter.apply(
         model,
         payload,
         context,
-        getCurrentConfig(binding, model, initialConfig),
+        previousConfig,
       );
+      const nextConfig = getCurrentConfig(binding, model, initialConfig);
+      const next = parameter.metadata(model, nextConfig);
       rebuildDefinition();
-      const next = parameter.metadata(model, getCurrentConfig(binding, model, initialConfig));
+
       if (!result.accepted || !Object.is(next.value, payload.value)) {
-        await context.refreshParameters(payload.id);
+        await session.emitter.paramSync({ id: payload.id, value: next.value });
+      }
+      if (parameterDefinitionChanged(previous, next)) {
+        await session.emitter.paramUpdate(next);
       }
     },
     async onActionStart(payload) {

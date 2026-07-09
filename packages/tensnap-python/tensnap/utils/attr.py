@@ -252,7 +252,8 @@ def make_raw_dict_projector(
     for field, mapped_field in frozen_mapping:
         access = _attr_path_to_dict_access(mapped_field)
         lines.append(
-            f"        {field!r}: obj{access},  # field: {field}, source: {mapped_field}\n"
+            f"        {field!r}: obj{access},"
+            f"  # field: {field}, source: {mapped_field}\n"
         )
     lines.append("    }\n")
     return "".join(lines)
@@ -279,7 +280,8 @@ def make_raw_attr_projector(
         lines.append(f"        {field!r}: obj.{field},  # field: {field}\n")
     for field, mapped_field in frozen_mapping:
         lines.append(
-            f"        {field!r}: obj.{mapped_field},  # field: {field}, source: {mapped_field}\n"
+            f"        {field!r}: obj.{mapped_field},"
+            f"  # field: {field}, source: {mapped_field}\n"
         )
     lines.append("    }\n")
     return "".join(lines)

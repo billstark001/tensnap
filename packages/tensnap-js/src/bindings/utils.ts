@@ -194,7 +194,7 @@ export function textToBytes(value: string): Uint8Array {
 }
 
 export async function hashAssetData(data: Uint8Array): Promise<string> {
-  const buffer = await globalThis.crypto.subtle.digest('SHA-256', data.slice());
+  const buffer = await globalThis.crypto.subtle.digest('SHA-256', data as BufferSource);
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');

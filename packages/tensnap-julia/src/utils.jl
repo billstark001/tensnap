@@ -3,6 +3,7 @@ _jsonable(x::Symbol) = String(x)
 _jsonable(x::Tuple) = collect(x)
 _jsonable(x::NamedTuple) = Dict(String(k) => _jsonable(v) for (k, v) in pairs(x))
 _jsonable(x::AbstractDict) = Dict(String(k) => _jsonable(v) for (k, v) in pairs(x))
+_jsonable(x::Vector{UInt8}) = x
 _jsonable(x::AbstractVector{UInt8}) = Vector{UInt8}(x)
 _jsonable(x::AbstractArray) = [_jsonable(v) for v in x]
 

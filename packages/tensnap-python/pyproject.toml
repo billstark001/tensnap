@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tensnap"
-version = "0.2.3"
+version = "0.2.4"
 description = "Agent-based model visualization toolkit - Python bindings"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -78,7 +78,6 @@ ignore_errors = true
 [tool.ruff]
 line-length = 88
 target-version = "py310"
-select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
 extend-exclude = [
   "tensnap/bindings/basic/parameter.py",
   "tensnap/bindings/basic/chart.py",
@@ -92,11 +91,24 @@ extend-exclude = [
   "tensnap/utils/ws.py",
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tensnap/__init__.py" = ["F401", "F403"]
+"tensnap/models/__init__.py" = ["F401", "F403"]
+"tensnap/bindings/basic/__init__.py" = ["F401", "F403"]
+"tensnap/bindings/basic/layer.py" = ["PLR0913", "PLR2004"]
 "tensnap/bindings/basic/projector.py" = ["PLR0913"]
+"tensnap/handler.py" = ["N814"]
+"tensnap/helper.py" = ["N814"]
 "tensnap/bindings/mesa/projector.py" = ["PLR0913"]
 "tensnap/models/agent.py" = ["PLR0913"]
 "tensnap/models/environment.py" = ["PLR0913"]
+"tensnap/models/parameter.py" = ["PLR0913"]
+"tensnap/utils/attr.py" = ["PLR0913"]
+"tensnap/utils/codec.py" = ["PLR0911", "PLR0913"]
+"tensnap/utils/init_hook.py" = ["B010"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -28,25 +28,27 @@
     "./utils": "./src/utils/index.ts"
   },
   "scripts": {
+    "build": "pnpm run typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "pnpm run typecheck",
+    "format": "echo 'No formatter configured'",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@leafer-ui/core": "^2.1.0",
+    "@leafer-ui/core": "^2.1.11",
     "@tensnap/protocol": "workspace:*",
     "d3": "^7.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",
-    "@types/node": "^25.9.1",
-    "@vitest/coverage-v8": "^4.1.7",
+    "@types/node": "^26.1.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "tensnap",

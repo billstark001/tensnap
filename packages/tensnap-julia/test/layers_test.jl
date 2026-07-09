@@ -40,6 +40,18 @@ end
 	@test TenSnap._layer_data_delta!(l, model) === nothing
 end
 
+@testset "built-in layer constructor coverage" begin
+	trails = trajectory_layer("trails"; data = _ -> Dict("length" => 12))
+	@test trails.type == "trajectory"
+	@test trails.dependency_layer_ids["agent"] == "agents"
+	@test trails.item_key_fields == ["id"]
+
+	background = background_layer("background"; data = _ -> Dict("background" => "asset://map"))
+	@test background.type == "background"
+	@test isempty(background.item_key_fields)
+	@test TenSnap._layer_data(background, nothing)["background"] == "asset://map"
+end
+
 @testset "incremental layer source projects changed items only" begin
 	model = ToyModel([ToyAgent(1, 0.0, 0.0), ToyAgent(2, 2.0, 2.0)], 2, 0)
 	changed_ids = Set{Int}()

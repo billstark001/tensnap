@@ -1,13 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
 from threading import RLock
 from typing import (
     Any,
-    Tuple,
-    Dict,
-    Callable,
     Generic,
     Literal,
     TypeAlias,
@@ -19,7 +17,7 @@ T = TypeVar("T")
 
 HookTiming: TypeAlias = Literal["before", "after"]
 InitMethod: TypeAlias = Callable[..., None]
-OnceInitHook: TypeAlias = Callable[[T, Tuple[Any, ...], Dict[str, Any]], Any]
+OnceInitHook: TypeAlias = Callable[[T, tuple[Any, ...], dict[str, Any]], Any]
 
 _INIT_HOOK_STATE_ATTR = "_tensnap_init_hook_state"
 
@@ -100,7 +98,7 @@ class OnceInitHookHandle(Generic[T]):
                 and self._state.wrapper is not None
                 and self.cls.__init__ is self._state.wrapper
             ):
-                self.cls.__init__ = self._state.original_init
+                setattr(self.cls, "__init__", self._state.original_init)
                 _clear_state_if_current(self.cls, self._state)
 
 
@@ -131,7 +129,7 @@ def _make_init_dispatcher(state: _InitHookState[T]) -> InitMethod:
                 after_hooks = tuple(state.after_hooks)
                 state.before_hooks.clear()
                 state.after_hooks.clear()
-                state.cls.__init__ = state.original_init
+                setattr(state.cls, "__init__", state.original_init)
                 _clear_state_if_current(state.cls, state)
             else:
                 before_hooks = ()
@@ -215,7 +213,7 @@ def install_once_init_hook(
         state = _InitHookState(cls=cls, original_init=cast(InitMethod, cls.__init__))
         state.wrapper = _make_init_dispatcher(state)
         setattr(cls, _INIT_HOOK_STATE_ATTR, state)
-        cls.__init__ = state.wrapper
+        setattr(cls, "__init__", state.wrapper)
 
     entry = _InitHookEntry(timing=timing, hook=hook)
 

@@ -1,13 +1,7 @@
-from typing import (
-    Any,
-    Callable,
-    Optional,
-    List,
-    Union,
-    Literal,
-    Dict,
-    TypeAlias,
-)
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal, TypeAlias
+
 from typing_extensions import NotRequired, TypedDict
 
 from tensnap.utils.object import infer_label_from_id
@@ -28,9 +22,8 @@ class ParameterState(TypedDict):
     max: NotRequired[float]
     step: NotRequired[float]
     options: NotRequired[list[str]]
+    labels: NotRequired[dict[str, str]]
 
-
-from dataclasses import dataclass, asdict, field
 
 # region Parameter Classes
 
@@ -42,18 +35,18 @@ class ParameterBinding:
     label: str = ""
     allow_runtime_change: bool = True
 
-    setter: Optional[Callable] = None
-    getter: Optional[Callable] = None
+    setter: Callable[..., Any] | None = None
+    getter: Callable[..., Any] | None = None
 
-    def refresh_label(self):
+    def refresh_label(self) -> None:
         if not self.label:
             self.label = infer_label_from_id(self.id)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.refresh_label()
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize to dict for communication. Note that getter/setter are not included."""
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict for communication without getter/setter."""
         d = asdict(self)
         if "setter" in d:
             del d["setter"]
@@ -66,7 +59,9 @@ class ParameterBinding:
         return d
 
     def instantiate(
-        self, getter: Callable | None = None, setter: Callable | None = None
+        self,
+        getter: Callable[..., Any] | None = None,
+        setter: Callable[..., Any] | None = None,
     ) -> "Parameter":
         ret = create_parameter(**asdict(self))
         ret.getter = getter
@@ -74,7 +69,7 @@ class ParameterBinding:
         return ret
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]) -> "ParameterBinding":
         """Deserialize from dict"""
         return cls(**data)
 
@@ -88,7 +83,7 @@ class NumberParameter(ParameterBinding):
     step: float = 1.0
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NumberParameter":
+    def from_dict(cls, data: dict[str, Any]) -> "NumberParameter":
         return cls(**data)
 
 
@@ -96,11 +91,11 @@ class NumberParameter(ParameterBinding):
 class EnumParameter(ParameterBinding):
     type: ParameterType = "enum"
     value: str = ""
-    options: List[str] = field(default_factory=list)
-    labels: Optional[Dict[str, str]] = None
+    options: list[str] = field(default_factory=list)
+    labels: dict[str, str] | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EnumParameter":
+    def from_dict(cls, data: dict[str, Any]) -> "EnumParameter":
         return cls(**data)
 
 
@@ -110,7 +105,7 @@ class BooleanParameter(ParameterBinding):
     value: bool = False
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BooleanParameter":
+    def from_dict(cls, data: dict[str, Any]) -> "BooleanParameter":
         return cls(**data)
 
 
@@ -120,27 +115,27 @@ class StringParameter(ParameterBinding):
     value: str = ""
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StringParameter":
+    def from_dict(cls, data: dict[str, Any]) -> "StringParameter":
         return cls(**data)
 
 
-Parameter: TypeAlias = Union[
-    NumberParameter, EnumParameter, BooleanParameter, StringParameter
-]
+Parameter: TypeAlias = (
+    NumberParameter | EnumParameter | BooleanParameter | StringParameter
+)
 
 
 def create_parameter(
     id: str,
     type: ParameterType,
-    label: Optional[str] = None,
-    value: Optional[Union[float, str]] = None,
-    min: Optional[float] = None,
-    max: Optional[float] = None,
-    step: Optional[float] = None,
-    options: Optional[List[str]] = None,
-    labels: Optional[Dict[str, str]] = None,
-    setter: Optional[Callable] = None,
-    getter: Optional[Callable] = None,
+    label: str | None = None,
+    value: float | str | None = None,
+    min: float | None = None,
+    max: float | None = None,
+    step: float | None = None,
+    options: list[str] | None = None,
+    labels: dict[str, str] | None = None,
+    setter: Callable[..., Any] | None = None,
+    getter: Callable[..., Any] | None = None,
     allow_runtime_change: bool = True,
 ) -> Parameter:
     """Create a parameter object based on the provided dictionary data."""

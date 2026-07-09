@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from numbers import Number
@@ -18,7 +17,7 @@ from tensnap.utils.attr import (
     make_attr_getter,
     make_attr_projector,
 )
-from tensnap.utils.css import is_css_predefined_color_value, is_css_color_literal
+from tensnap.utils.css import is_css_color_literal, is_css_predefined_color_value
 
 TField = TypeVar("TField", bound=str)
 
@@ -337,7 +336,7 @@ def resolve_layer_getter(
         )
     if not isinstance(raw_value, str):
         if callable(raw_value):
-            return cast(AttrGetter[Any], raw_value)
+            return raw_value
         raise TypeError(
             f"Layer getter on {cls.__name__} does not support "
             f"{type(raw_value).__name__} values."

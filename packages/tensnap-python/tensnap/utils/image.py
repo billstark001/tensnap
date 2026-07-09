@@ -8,14 +8,14 @@ try:
 
     HAS_NUMPY = True
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
     HAS_NUMPY = False
 try:
     from PIL import Image
 
     HAS_PIL = True
 except ImportError:
-    Image = None
+    Image = None  # type: ignore[assignment]
     HAS_PIL = False
 
 
