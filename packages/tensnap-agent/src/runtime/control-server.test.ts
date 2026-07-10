@@ -86,6 +86,39 @@ describe('RuntimeControlServer', () => {
     }
   });
 
+  it('inspects agents through the shared ScenarioInspector API', async () => {
+    const { runtime, server, renderer, baseUrl } = await createRuntimeServer();
+    try {
+      renderer.scenario.apply({ type: 'env_create', payload: { id: 'world', type: '2d' } });
+      renderer.scenario.apply({
+        type: 'env_layer_create',
+        payload: { env_id: 'world', layer_id: 'agents', layer_type: 'agent' },
+      });
+      renderer.scenario.apply({
+        type: 'item_create',
+        payload: {
+          env_id: 'world', layer_id: 'agents',
+          items: [{ id: 1, x: 2, y: 3 }, { id: 2, x: 4, y: 3 }],
+        },
+      });
+
+      const response = await fetch(`${baseUrl}/v1/agents/world/agents/1?radius=3`);
+      expect(response.ok).toBe(true);
+      expect((await response.json()).inspection).toMatchObject({
+        kind: 'spatial',
+        ref: { environmentId: 'world', layerId: 'agents', agentId: 1 },
+        neighborCount: 1,
+        viewport: { x: -0.5, y: 0.5, width: 6, height: 6 },
+      });
+
+      const missing = await fetch(`${baseUrl}/v1/agents/world/agents/missing`);
+      expect(missing.status).toBe(404);
+    } finally {
+      await server.close();
+      await runtime.stop();
+    }
+  });
+
   it('runs, reports, and stops bounded runs through /v1/runs', async () => {
     const { runtime, server, renderer, baseUrl } = await createRuntimeServer();
     const sent = attachConnectedTransport(renderer, (message) => {

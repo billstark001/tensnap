@@ -190,6 +190,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
         clickable: false,
         showLabel: false,
         fallbackBackgroundSceneBounds,
+        readOnlyGraphLayout: request.options.readOnlyGraphLayout,
       };
 
       const created = layerRegistry.createLayer(layerPlan, factoryContext);

@@ -5,6 +5,7 @@ import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useToast } from '@/store/toast';
+import type { AgentRef } from '@tensnap/core';
 import type { AgentRenderState } from '@tensnap/core/environment';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
@@ -19,10 +20,11 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<EnvironmentRendererController | null>(null);
 
-  const [selectedAgent, setSelectedAgent] = useState<AgentRenderState | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<{ agent: AgentRenderState; ref: AgentRef } | null>(null);
   const scenario = useScenarioStore((store) => store.scenario);
   const toast = useToast();
   const scenarioRef = useRef(scenario);
+  const environmentIdRef = useRef(environment.id);
   const toastErrorRef = useRef(toast.error);
   void updateTrigger;
   void view;
@@ -30,6 +32,10 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   useEffect(() => {
     scenarioRef.current = scenario;
   }, [scenario]);
+
+  useEffect(() => {
+    environmentIdRef.current = environment.id;
+  }, [environment.id]);
 
   useEffect(() => {
     toastErrorRef.current = toast.error;
@@ -41,7 +47,14 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
     }
     const controller = new EnvironmentRendererController(containerRef.current, {
       resolveAssetUrl: (assetId) => scenarioRef.current?.assets.getUrl(assetId),
-      onAgentSelect: (agent) => setSelectedAgent(agent),
+      onAgentSelect: (agent, layerId) => setSelectedAgent({
+        agent,
+        ref: {
+          environmentId: environmentIdRef.current,
+          layerId: layerId ?? '',
+          agentId: agent.id,
+        },
+      }),
       onRenderError: (title, detail) => toastErrorRef.current(title, detail),
     });
     controllerRef.current = controller;
@@ -68,7 +81,9 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       </button>
       <AgentDetailsDialog
         agentType="2d"
-        agent={selectedAgent}
+        agent={selectedAgent?.agent ?? null}
+        agentRef={selectedAgent?.ref ?? null}
+        scenario={scenario}
         resolveAssetUrl={(assetId) => scenarioRef.current?.assets.getUrl(assetId)}
         onClose={() => setSelectedAgent(null)}
       />

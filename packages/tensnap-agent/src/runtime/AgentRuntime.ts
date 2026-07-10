@@ -8,7 +8,9 @@ import type {
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
 import { RendererSession } from '@tensnap/core/runtime';
-import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import { ScenarioInspector } from '@tensnap/core/scenario';
+import type { AgentInspection, AgentInspectionOptions, AgentRef, ScenarioSnapshot } from '@tensnap/core/scenario';
+import { AgentStorage } from '@tensnap/core/environment';
 import { NodeWebSocketTransport } from '../session/NodeWebSocketTransport';
 import type {
   AgentRunSpec,
@@ -216,6 +218,48 @@ export class AgentRuntime extends EventEmitter {
       charts: this.listChartSeries(),
       assets: this.listAssets(),
     };
+  }
+
+  /** Resolve an API path id against the live storage without losing numeric ids. */
+  findAgentRef(environmentId: string, layerId: string, rawAgentId: string): AgentRef | undefined {
+    const layer = this.renderer.scenario.getEnvironment(environmentId)?.layers.get(layerId);
+    if (!(layer?.storage instanceof AgentStorage)) {
+      return undefined;
+    }
+    if (layer.storage.hasAgent(rawAgentId)) {
+      return { environmentId, layerId, agentId: rawAgentId };
+    }
+    const numericId = Number(rawAgentId);
+    if (Number.isFinite(numericId) && String(numericId) === rawAgentId && layer.storage.hasAgent(numericId)) {
+      return { environmentId, layerId, agentId: numericId };
+    }
+    return undefined;
+  }
+
+  inspectAgent(ref: AgentRef, options: AgentInspectionOptions = {}): AgentInspection | undefined {
+    return new ScenarioInspector(this.renderer.scenario).inspect(ref, options);
+  }
+
+  /**
+   * Render the exact filtered scene selected by ScenarioInspector. No parallel
+   * inspection rules or graph layout are introduced on the agent host.
+   */
+  async renderAgentInspection(
+    inspection: Exclude<AgentInspection, { kind: 'none' }>,
+    options: SceneRenderOptions = {},
+  ): Promise<RenderArtifact[]> {
+    const request = this.createRenderRequest({
+      ...options,
+      envId: inspection.environmentId,
+      viewport: options.viewport ?? inspection.viewport,
+      includeData: options.includeData ?? true,
+      persist: options.persist ?? false,
+      // Inspection renders are always snapshots; never calculate a second
+      // force layout in a headless painter.
+      readOnlyGraphLayout: true,
+    }, `agent-inspection:${inspection.environmentId}/${inspection.layerId}/${inspection.ref.agentId}`, 'explicit');
+    request.snapshot = inspection.renderSnapshot;
+    return this.runPainters(request);
   }
 
   listChartSeries(): ChartSeriesSnapshot[] {

@@ -69,7 +69,7 @@ msgstr "アクションタイムアウト"
 #~ msgid "Adjust Mode"
 #~ msgstr "調整モード"
 
-#: src/dialogs/AgentDetailsDialog.tsx:64
+#: src/dialogs/AgentDetailsDialog.tsx:188
 msgid "Agent Details"
 msgstr "エージェントの詳細"
 
@@ -166,7 +166,7 @@ msgid "Client Message Validation"
 msgstr "クライアントメッセージの検証"
 
 #: src/dialogs/AboutDialog.tsx:79
-#: src/dialogs/AgentDetailsDialog.tsx:110
+#: src/dialogs/AgentDetailsDialog.tsx:275
 #: src/dialogs/SettingsDialog.tsx:314
 msgid "Close"
 msgstr "閉じる"
@@ -175,7 +175,7 @@ msgstr "閉じる"
 #~ msgid "Close {0}"
 #~ msgstr "{0}を閉じる"
 
-#: src/dialogs/AgentDetailsDialog.tsx:87
+#: src/dialogs/AgentDetailsDialog.tsx:247
 msgid "Color:"
 msgstr "色："
 
@@ -251,7 +251,7 @@ msgstr "新しいプロジェクトを作成"
 msgid "Current Value"
 msgstr "現在の値"
 
-#: src/dialogs/AgentDetailsDialog.tsx:101
+#: src/dialogs/AgentDetailsDialog.tsx:262
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
@@ -267,7 +267,7 @@ msgstr "ダーク"
 msgid "Data Points"
 msgstr "データポイント"
 
-#: src/dialogs/AgentDetailsDialog.tsx:97
+#: src/dialogs/AgentDetailsDialog.tsx:257
 msgid "default"
 msgstr "デフォルト"
 
@@ -431,6 +431,10 @@ msgstr "ファイル"
 #~ msgid "File Manager"
 #~ msgstr "ファイルマネージャー"
 
+#: src/dialogs/AgentDetailsDialog.tsx:218
+msgid "Follow agent"
+msgstr "エージェントを追従"
+
 #: src/dialogs/edit-views/EnvironmentViewEditor.tsx:112
 #~ msgid "Follow simulator / renderer default"
 #~ msgstr "シミュレーター / レンダラーのデフォルトに従う"
@@ -467,7 +471,7 @@ msgstr "全画面"
 msgid "Hash:"
 msgstr "ハッシュ："
 
-#: src/dialogs/AgentDetailsDialog.tsx:32
+#: src/dialogs/AgentDetailsDialog.tsx:126
 msgid "Heading:"
 msgstr "方向："
 
@@ -487,7 +491,7 @@ msgstr "ヘルプ"
 #~ msgid "Hide Right Panel"
 #~ msgstr "右側パネルを非表示"
 
-#: src/dialogs/AgentDetailsDialog.tsx:79
+#: src/dialogs/AgentDetailsDialog.tsx:239
 msgid "Icon:"
 msgstr "アイコン："
 
@@ -496,7 +500,7 @@ msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:118
-#: src/dialogs/AgentDetailsDialog.tsx:72
+#: src/dialogs/AgentDetailsDialog.tsx:232
 #: src/dialogs/SnapshotDetailDialog.tsx:91
 msgid "ID:"
 msgstr "ID："
@@ -577,6 +581,11 @@ msgstr "MSPT："
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:59
 #~ msgid "Name"
 #~ msgstr "名前"
+
+#. placeholder {0}: inspection.neighborCount
+#: src/dialogs/AgentDetailsDialog.tsx:221
+msgid "Neighbors: {0}"
+msgstr "近傍: {0}"
 
 #: src/components/toolbar/MenuBar.tsx:49
 msgid "New"
@@ -660,7 +669,15 @@ msgstr "まだスナップショットがありません。"
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:27
+#: src/dialogs/AgentDetailsDialog.tsx:228
+msgid "No spatial context is available for this agent."
+msgstr "このエージェントには空間コンテキストがありません。"
+
+#: src/dialogs/AgentDetailsDialog.tsx:263
+msgid "None"
+msgstr "なし"
+
+#: src/dialogs/AgentDetailsDialog.tsx:121
 msgid "Not positioned"
 msgstr "位置指定なし"
 
@@ -737,7 +754,7 @@ msgstr "保留中"
 msgid "Please create or open a project to get started."
 msgstr "プロジェクトを開くか、作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:24
+#: src/dialogs/AgentDetailsDialog.tsx:118
 msgid "Position:"
 msgstr "位置："
 
@@ -752,6 +769,10 @@ msgstr "プロジェクト設定"
 #: src/dialogs/SettingsDialog.tsx:77
 #~ msgid "Project URL updated successfully"
 #~ msgstr "プロジェクトURLを正常に更新しました"
+
+#: src/dialogs/AgentDetailsDialog.tsx:200
+msgid "Radius"
+msgstr "半径"
 
 #: src/components/project/RightPanel.tsx:91
 msgid "Ready"
@@ -795,7 +816,7 @@ msgid "Reset"
 msgstr "リセット"
 
 #. js-lingui-explicit-id
-#: src/components/scenario/Environment2DView.tsx:67
+#: src/components/scenario/Environment2DView.tsx:80
 msgid "environment2d.resetView"
 msgstr "ビューをリセット"
 
@@ -884,7 +905,7 @@ msgstr "ツールバーを表示"
 #~ msgstr "シミュレーション："
 
 #: src/components/project/RightPanel.tsx:126
-#: src/dialogs/AgentDetailsDialog.tsx:96
+#: src/dialogs/AgentDetailsDialog.tsx:256
 msgid "Size:"
 msgstr "サイズ："
 
@@ -1066,7 +1087,7 @@ msgstr "表示"
 msgid "View and manage snapshot"
 msgstr "スナップショットを表示・管理"
 
-#: src/dialogs/AgentDetailsDialog.tsx:67
+#: src/dialogs/AgentDetailsDialog.tsx:191
 msgid "View detailed information about the selected agent"
 msgstr "選択したエージェントの詳細情報を表示"
 

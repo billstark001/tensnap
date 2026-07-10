@@ -128,4 +128,6 @@ export interface SceneRenderOptions {
   outputPath?: string;
   persist?: boolean;
   includeData?: boolean;
+  /** Render graph edges at the stored coordinates without running d3-force. */
+  readOnlyGraphLayout?: boolean;
 }

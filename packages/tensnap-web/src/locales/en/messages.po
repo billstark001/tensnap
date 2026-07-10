@@ -69,7 +69,7 @@ msgstr "Action Timeout"
 #~ msgid "Adjust Mode"
 #~ msgstr "Adjust Mode"
 
-#: src/dialogs/AgentDetailsDialog.tsx:64
+#: src/dialogs/AgentDetailsDialog.tsx:188
 msgid "Agent Details"
 msgstr "Agent Details"
 
@@ -166,7 +166,7 @@ msgid "Client Message Validation"
 msgstr "Client Message Validation"
 
 #: src/dialogs/AboutDialog.tsx:79
-#: src/dialogs/AgentDetailsDialog.tsx:110
+#: src/dialogs/AgentDetailsDialog.tsx:275
 #: src/dialogs/SettingsDialog.tsx:314
 msgid "Close"
 msgstr "Close"
@@ -175,7 +175,7 @@ msgstr "Close"
 #~ msgid "Close {0}"
 #~ msgstr "Close {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:87
+#: src/dialogs/AgentDetailsDialog.tsx:247
 msgid "Color:"
 msgstr "Color:"
 
@@ -251,7 +251,7 @@ msgstr "Create New Project"
 msgid "Current Value"
 msgstr "Current Value"
 
-#: src/dialogs/AgentDetailsDialog.tsx:101
+#: src/dialogs/AgentDetailsDialog.tsx:262
 msgid "Custom Data:"
 msgstr "Custom Data:"
 
@@ -267,7 +267,7 @@ msgstr "Dark"
 msgid "Data Points"
 msgstr "Data Points"
 
-#: src/dialogs/AgentDetailsDialog.tsx:97
+#: src/dialogs/AgentDetailsDialog.tsx:257
 msgid "default"
 msgstr "default"
 
@@ -431,6 +431,10 @@ msgstr "File"
 #~ msgid "File Manager"
 #~ msgstr "File Manager"
 
+#: src/dialogs/AgentDetailsDialog.tsx:218
+msgid "Follow agent"
+msgstr "Follow agent"
+
 #: src/dialogs/edit-views/EnvironmentViewEditor.tsx:112
 #~ msgid "Follow simulator / renderer default"
 #~ msgstr "Follow simulator / renderer default"
@@ -467,7 +471,7 @@ msgstr "Fullscreen"
 msgid "Hash:"
 msgstr "Hash:"
 
-#: src/dialogs/AgentDetailsDialog.tsx:32
+#: src/dialogs/AgentDetailsDialog.tsx:126
 msgid "Heading:"
 msgstr "Heading:"
 
@@ -487,7 +491,7 @@ msgstr "Help"
 #~ msgid "Hide Right Panel"
 #~ msgstr "Hide Right Panel"
 
-#: src/dialogs/AgentDetailsDialog.tsx:79
+#: src/dialogs/AgentDetailsDialog.tsx:239
 msgid "Icon:"
 msgstr "Icon:"
 
@@ -496,7 +500,7 @@ msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:118
-#: src/dialogs/AgentDetailsDialog.tsx:72
+#: src/dialogs/AgentDetailsDialog.tsx:232
 #: src/dialogs/SnapshotDetailDialog.tsx:91
 msgid "ID:"
 msgstr "ID:"
@@ -577,6 +581,11 @@ msgstr "MSPT:"
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:59
 #~ msgid "Name"
 #~ msgstr "Name"
+
+#. placeholder {0}: inspection.neighborCount
+#: src/dialogs/AgentDetailsDialog.tsx:221
+msgid "Neighbors: {0}"
+msgstr "Neighbors: {0}"
 
 #: src/components/toolbar/MenuBar.tsx:49
 msgid "New"
@@ -660,7 +669,15 @@ msgstr "No snapshots yet."
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "No snapshots yet. Click \"Take Snapshot\" to create one."
 
-#: src/dialogs/AgentDetailsDialog.tsx:27
+#: src/dialogs/AgentDetailsDialog.tsx:228
+msgid "No spatial context is available for this agent."
+msgstr "No spatial context is available for this agent."
+
+#: src/dialogs/AgentDetailsDialog.tsx:263
+msgid "None"
+msgstr "None"
+
+#: src/dialogs/AgentDetailsDialog.tsx:121
 msgid "Not positioned"
 msgstr "Not positioned"
 
@@ -737,7 +754,7 @@ msgstr "Pending"
 msgid "Please create or open a project to get started."
 msgstr "Please create or open a project to get started."
 
-#: src/dialogs/AgentDetailsDialog.tsx:24
+#: src/dialogs/AgentDetailsDialog.tsx:118
 msgid "Position:"
 msgstr "Position:"
 
@@ -752,6 +769,10 @@ msgstr "Project Settings"
 #: src/dialogs/SettingsDialog.tsx:77
 #~ msgid "Project URL updated successfully"
 #~ msgstr "Project URL updated successfully"
+
+#: src/dialogs/AgentDetailsDialog.tsx:200
+msgid "Radius"
+msgstr "Radius"
 
 #: src/components/project/RightPanel.tsx:91
 msgid "Ready"
@@ -795,7 +816,7 @@ msgid "Reset"
 msgstr "Reset"
 
 #. js-lingui-explicit-id
-#: src/components/scenario/Environment2DView.tsx:67
+#: src/components/scenario/Environment2DView.tsx:80
 msgid "environment2d.resetView"
 msgstr "Reset View"
 
@@ -884,7 +905,7 @@ msgstr "Show Toolbar"
 #~ msgstr "Sim:"
 
 #: src/components/project/RightPanel.tsx:126
-#: src/dialogs/AgentDetailsDialog.tsx:96
+#: src/dialogs/AgentDetailsDialog.tsx:256
 msgid "Size:"
 msgstr "Size:"
 
@@ -1066,7 +1087,7 @@ msgstr "View"
 msgid "View and manage snapshot"
 msgstr "View and manage snapshot"
 
-#: src/dialogs/AgentDetailsDialog.tsx:67
+#: src/dialogs/AgentDetailsDialog.tsx:191
 msgid "View detailed information about the selected agent"
 msgstr "View detailed information about the selected agent"
 
