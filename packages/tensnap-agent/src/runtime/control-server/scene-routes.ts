@@ -4,12 +4,6 @@ import type { AgentRuntime } from '../AgentRuntime';
 
 // #endregion
 
-// #region Constants
-
-const RESERVED_SCENE_ACTIONS = new Set(['start', 'step', 'reset']);
-
-// #endregion
-
 // #region Routes
 
 export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
@@ -60,19 +54,6 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     return c.json({ artifacts });
   });
 
-  app.post('/v1/scene/actions/:alias', async (c) => {
-    const alias = c.req.param('alias');
-    if (!RESERVED_SCENE_ACTIONS.has(alias)) {
-      return c.json({ error: 'Unknown reserved scene action.' }, 404);
-    }
-
-    const body: { continuous?: boolean } = await c.req
-      .json<{ continuous?: boolean }>()
-      .catch(() => ({}));
-    await runtime.runReservedAction(alias as 'start' | 'step' | 'reset', body);
-    return c.json({ action: alias, accepted: true }, 202);
-  });
-
   app.get('/v1/charts', (c) => {
     return c.json(runtime.listChartSeries());
   });
@@ -114,10 +95,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       return c.json({ error: 'Missing action ID.' }, 404);
     }
 
-    const body: { continuous?: boolean } = await c.req
-      .json<{ continuous?: boolean }>()
-      .catch(() => ({}));
-    await runtime.runAction(actionId, body);
+    await runtime.runAction(actionId);
     return c.json({ actionId, accepted: true }, 202);
   });
 }

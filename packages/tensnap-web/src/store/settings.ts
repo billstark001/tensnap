@@ -1,29 +1,90 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { Locale } from '@/i18n';
+import { getSettingsPersistence } from './settings-persistence';
 
 export type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 
-type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark';
 type ValidationLevel = 'off' | 'warning' | 'error';
 export const ACTION_TIMEOUT_SECONDS_OPTIONS = [1, 5, 10, 30, 60] as const;
 export type ActionTimeoutSeconds = typeof ACTION_TIMEOUT_SECONDS_OPTIONS[number];
 
-function readSetting(key: string): string | null {
+export interface ContinuousRunProfile {
+  maxSteps: number;
+  stopWhen?: string;
+  maxWallTimeMs?: number;
+  record: boolean;
+}
+
+function parseRunProfiles(raw: string | null): Record<string, ContinuousRunProfile> {
+  if (!raw) return {};
   try {
-    return globalThis.localStorage?.getItem(key) ?? null;
+    const parsed = JSON.parse(raw) as Record<string, Partial<ContinuousRunProfile>>;
+    return Object.fromEntries(Object.entries(parsed).flatMap(([actionId, profile]) => {
+      if (!Number.isInteger(profile.maxSteps) || (profile.maxSteps ?? 0) < 1) return [];
+      return [[actionId, {
+        maxSteps: profile.maxSteps!,
+        stopWhen: typeof profile.stopWhen === 'string' && profile.stopWhen.trim() ? profile.stopWhen : undefined,
+        maxWallTimeMs: typeof profile.maxWallTimeMs === 'number' && profile.maxWallTimeMs > 0
+          ? profile.maxWallTimeMs
+          : undefined,
+        record: profile.record === true,
+      }]];
+    }));
   } catch {
-    return null;
+    return {};
   }
 }
 
-function writeSetting(key: string, value: string): void {
-  try {
-    globalThis.localStorage?.setItem(key, value);
-  } catch {
-    // Storage can be unavailable in tests, SSR, or private browsing modes.
-  }
+function parseNonNegativeInteger(raw: string | null, fallback: number): number {
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
+}
+
+function parseActionTimeout(raw: string | null): ActionTimeoutSeconds {
+  const parsed = raw ? Number(raw) : NaN;
+  return ACTION_TIMEOUT_SECONDS_OPTIONS.includes(parsed as ActionTimeoutSeconds)
+    ? parsed as ActionTimeoutSeconds
+    : 5;
+}
+
+export async function hydrateSettings(): Promise<void> {
+  const persistence = getSettingsPersistence();
+  const keys = [
+    'theme',
+    'saveFormat',
+    'locale',
+    'renderTriggerMode',
+    'maxTps',
+    'maxRenderFps',
+    'actionTimeoutSeconds',
+    'continuousRunProfiles',
+    'clientMessageValidation',
+    'serverMessageValidation',
+  ] as const;
+  const values = await Promise.all(keys.map((key) => persistence.get(key)));
+  const setting = Object.fromEntries(keys.map((key, index) => [key, values[index]])) as Record<typeof keys[number], string | null>;
+
+  useSettingsStore.setState({
+    theme: setting.theme === 'dark' ? 'dark' : 'light',
+    saveFormat: setting.saveFormat === 'json' ? 'json' : 'msgpack',
+    locale: setting.locale === 'zh' || setting.locale === 'ja' ? setting.locale : 'en',
+    renderTriggerMode: setting.renderTriggerMode === 'setTimeout' || setting.renderTriggerMode === 'requestAnimationFrame' || setting.renderTriggerMode === 'auto'
+      ? setting.renderTriggerMode
+      : 'auto',
+    maxTps: parseNonNegativeInteger(setting.maxTps, 300),
+    maxRenderFps: parseNonNegativeInteger(setting.maxRenderFps, 120),
+    actionTimeoutSeconds: parseActionTimeout(setting.actionTimeoutSeconds),
+    continuousRunProfiles: parseRunProfiles(setting.continuousRunProfiles),
+    clientMessageValidation: setting.clientMessageValidation === 'warning' || setting.clientMessageValidation === 'error'
+      ? setting.clientMessageValidation
+      : 'off',
+    serverMessageValidation: setting.serverMessageValidation === 'warning' || setting.serverMessageValidation === 'error'
+      ? setting.serverMessageValidation
+      : 'off',
+  });
 }
 
 interface SettingsStore {
@@ -44,6 +105,7 @@ interface SettingsStore {
   maxTps: number;
   maxRenderFps: number;
   actionTimeoutSeconds: ActionTimeoutSeconds;
+  continuousRunProfiles: Record<string, ContinuousRunProfile>;
   runtimeTps: number | null;
   runtimeMspt: number | null;
   simulatorMspt: number | null;
@@ -64,6 +126,7 @@ interface SettingsStore {
   setMaxTps: (fps: number) => void;
   setMaxRenderFps: (fps: number) => void;
   setActionTimeoutSeconds: (seconds: number) => void;
+  setContinuousRunProfile: (actionId: string, profile: ContinuousRunProfile) => void;
   setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => void;
   setSimulatorMetrics: (metrics?: { simulate_ms?: number; communicate_ms?: number; render_ms?: number }) => void;
   clearRuntimeMetrics: () => void;
@@ -90,55 +153,14 @@ export const useSettingsStore = create<SettingsStore>()(
       set({ isAdjusting });
     },
 
-    // Initialize from localStorage
-    theme: (() => {
-      const saved = readSetting('theme');
-      return (saved as Theme) || 'light';
-    })(),
-
-    saveFormat: (() => {
-      const saved = readSetting('saveFormat');
-      return (saved as 'json' | 'msgpack') || 'msgpack';
-    })(),
-
-    locale: (() => {
-      const saved = readSetting('locale');
-      return (saved as Locale) || 'en';
-    })(),
-
-    renderTriggerMode: (() => {
-      const saved = readSetting('renderTriggerMode');
-      if (saved === 'setTimeout' || saved === 'requestAnimationFrame' || saved === 'auto') {
-        return saved;
-      }
-      return 'auto';
-    })(),
-
-    maxTps: (() => {
-      const saved = readSetting('maxTps');
-      const parsed = saved ? Number(saved) : NaN;
-      if (Number.isFinite(parsed) && parsed >= 0) {
-        return Math.floor(parsed);
-      }
-      return 300;
-    })(),
-
-    maxRenderFps: (() => {
-      const saved = readSetting('maxRenderFps');
-      const parsed = saved ? Number(saved) : NaN;
-      if (Number.isFinite(parsed) && parsed >= 0) {
-        return Math.floor(parsed);
-      }
-      return 120;
-    })(),
-
-    actionTimeoutSeconds: (() => {
-      const saved = readSetting('actionTimeoutSeconds');
-      const parsed = saved ? Number(saved) : NaN;
-      return ACTION_TIMEOUT_SECONDS_OPTIONS.includes(parsed as ActionTimeoutSeconds)
-        ? parsed as ActionTimeoutSeconds
-        : 5;
-    })(),
+    theme: 'light',
+    saveFormat: 'msgpack',
+    locale: 'en',
+    renderTriggerMode: 'auto',
+    maxTps: 300,
+    maxRenderFps: 120,
+    actionTimeoutSeconds: 5,
+    continuousRunProfiles: {},
 
     runtimeTps: null,
     runtimeMspt: null,
@@ -146,16 +168,8 @@ export const useSettingsStore = create<SettingsStore>()(
   simulatorCommMs: null,
   simulatorRenderMs: null,
 
-    // Initialize validation settings from localStorage
-    clientMessageValidation: (() => {
-      const saved = readSetting('clientMessageValidation');
-      return (saved as ValidationLevel) || 'off';
-    })(),
-
-    serverMessageValidation: (() => {
-      const saved = readSetting('serverMessageValidation');
-      return (saved as ValidationLevel) || 'off';
-    })(),
+    clientMessageValidation: 'off',
+    serverMessageValidation: 'off',
 
     toggleTheme: () => {
       const currentTheme = get().theme;
@@ -204,6 +218,15 @@ export const useSettingsStore = create<SettingsStore>()(
       set({ actionTimeoutSeconds: next });
     },
 
+    setContinuousRunProfile: (actionId, profile) => {
+      set((state) => ({
+        continuousRunProfiles: {
+          ...state.continuousRunProfiles,
+          [actionId]: { ...profile },
+        },
+      }));
+    },
+
     setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => {
       set({ runtimeTps: metrics.tps, runtimeMspt: metrics.mspt });
     },
@@ -232,62 +255,69 @@ useSettingsStore.subscribe(
   (state) => state.theme,
   (theme) => {
     globalThis.document?.body?.setAttribute('data-theme', theme);
-    writeSetting('theme', theme);
+    void getSettingsPersistence().set('theme', theme);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.saveFormat,
   (format) => {
-    writeSetting('saveFormat', format);
+    void getSettingsPersistence().set('saveFormat', format);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.locale,
   (locale) => {
-    writeSetting('locale', locale);
+    void getSettingsPersistence().set('locale', locale);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.clientMessageValidation,
   (level) => {
-    writeSetting('clientMessageValidation', level);
+    void getSettingsPersistence().set('clientMessageValidation', level);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.serverMessageValidation,
   (level) => {
-    writeSetting('serverMessageValidation', level);
+    void getSettingsPersistence().set('serverMessageValidation', level);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.renderTriggerMode,
   (mode) => {
-    writeSetting('renderTriggerMode', mode);
+    void getSettingsPersistence().set('renderTriggerMode', mode);
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.maxTps,
   (fps) => {
-    writeSetting('maxTps', String(fps));
+    void getSettingsPersistence().set('maxTps', String(fps));
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.maxRenderFps,
   (fps) => {
-    writeSetting('maxRenderFps', String(fps));
+    void getSettingsPersistence().set('maxRenderFps', String(fps));
   }
 );
 
 useSettingsStore.subscribe(
   (state) => state.actionTimeoutSeconds,
   (seconds) => {
-    writeSetting('actionTimeoutSeconds', String(seconds));
+    void getSettingsPersistence().set('actionTimeoutSeconds', String(seconds));
   }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.continuousRunProfiles,
+  (profiles) => {
+    void getSettingsPersistence().set('continuousRunProfiles', JSON.stringify(profiles));
+  },
 );

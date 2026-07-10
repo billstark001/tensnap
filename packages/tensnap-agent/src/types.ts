@@ -2,7 +2,6 @@ import type { ChartSeriesPoint } from '@tensnap/core/chart';
 import type { Viewport } from '@tensnap/core/environment';
 import type {
   Action,
-  ActionEndPayload,
   AssetMeta,
   ChartMetadata,
   NormalizedLogPayload,
@@ -10,8 +9,7 @@ import type {
   ProtocolEncoding,
 } from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
-import type { SceneReservedAction } from './session/reserved-actions';
-import type { RenderArtifact } from './runtime/painter';
+import type { RunSpec, RunStatus } from '@tensnap/core/runtime';
 
 export type RenderTriggerMode = 'manual' | 'action-end';
 export type RenderFormat = 'png' | 'jpeg';
@@ -50,6 +48,7 @@ export interface RuntimeControlFile {
   phase: RuntimePhase;
   simulatorUrl?: string;
   encoding: ProtocolEncoding;
+  maxRunStepsPolicy: number;
   render: RenderSettings;
   painters: string[];
   lastError?: string;
@@ -63,9 +62,7 @@ export interface RuntimeLogEntry {
   data?: unknown;
 }
 
-export interface ActionSummary extends Action {
-  reserved?: SceneReservedAction;
-}
+export type ActionSummary = Action;
 
 export interface SceneEnvironmentSummary {
   id: string;
@@ -96,117 +93,10 @@ export interface SceneAssetSummary extends AssetMeta {
   valueType: 'pending' | 'string' | 'bytes';
 }
 
-export interface WaitForActionEndOptions {
-  id?: string;
-  timeoutMs?: number;
-}
-
 export interface SceneSnapshotInspection {
   snapshot: ScenarioSnapshot;
   charts: ChartSeriesSnapshot[];
   assets: SceneAssetSummary[];
-}
-
-export type WaitForActionEndResult = ActionEndPayload;
-
-export type WaitComparisonOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
-export type WaitMetadataComparisonOperator = WaitComparisonOperator | 'exists';
-
-export interface WaitForTimeOptions {
-  time: number;
-  comparison?: WaitComparisonOperator;
-  timeoutMs?: number;
-}
-
-export interface WaitForTimeResult {
-  kind: 'time';
-  comparison: WaitComparisonOperator;
-  expectedTime: number;
-  actualTime: number;
-}
-
-export interface WaitForChartOptions {
-  id: string;
-  value: number;
-  comparison?: WaitComparisonOperator;
-  atTime?: number;
-  timeoutMs?: number;
-}
-
-export interface WaitForChartResult {
-  kind: 'chart';
-  id: string;
-  comparison: WaitComparisonOperator;
-  expectedValue: number;
-  actualValue: number;
-  atTime?: number;
-}
-
-export interface WaitForMetadataOptions {
-  path: string;
-  value?: unknown;
-  comparison?: WaitMetadataComparisonOperator;
-  timeoutMs?: number;
-}
-
-export interface WaitForMetadataResult {
-  kind: 'metadata';
-  path: string;
-  comparison: WaitMetadataComparisonOperator;
-  expectedValue?: unknown;
-  actualValue: unknown;
-}
-
-export type ExperimentWaitRequest =
-  | ({ kind: 'action-end' } & WaitForActionEndOptions)
-  | ({ kind: 'time' } & WaitForTimeOptions)
-  | ({ kind: 'chart' } & WaitForChartOptions)
-  | ({ kind: 'metadata' } & WaitForMetadataOptions);
-
-export type ExperimentWaitResult =
-  | { kind: 'action-end'; payload: WaitForActionEndResult }
-  | WaitForTimeResult
-  | WaitForChartResult
-  | WaitForMetadataResult;
-
-export interface ExperimentActionRequest {
-  id: string;
-  continuous?: boolean;
-  waitForEnd?: boolean;
-  timeoutMs?: number;
-}
-
-export interface ExperimentResetRequest {
-  enabled?: boolean;
-  actionId?: string;
-  continuous?: boolean;
-  timeoutMs?: number;
-}
-
-export interface ExperimentCollectionOptions {
-  scene?: boolean;
-  snapshot?: boolean;
-}
-
-export interface ExperimentRunRequest {
-  label?: string;
-  parameters?: Record<string, unknown>;
-  reset?: boolean | ExperimentResetRequest;
-  action?: ExperimentActionRequest;
-  waits?: ExperimentWaitRequest[];
-  render?: (SceneRenderOptions & { reason?: string }) | null;
-  collect?: ExperimentCollectionOptions;
-}
-
-export interface ExperimentRunResult {
-  label?: string;
-  startedAt: string;
-  finishedAt: string;
-  parametersApplied: Array<{ id: string; value: unknown }>;
-  waits: ExperimentWaitResult[];
-  scene?: SceneSummary;
-  snapshot?: SceneSnapshotInspection;
-  renderArtifacts?: RenderArtifact[];
 }
 
 export interface RuntimeStatus extends RuntimeControlFile {
@@ -224,9 +114,8 @@ export interface ConnectOptions {
   encoding?: ProtocolEncoding;
 }
 
-export interface ActionRunOptions {
-  continuous?: boolean;
-}
+export type AgentRunSpec = RunSpec;
+export type AgentRunStatus = RunStatus;
 
 export interface SceneRenderOptions {
   envId?: string;

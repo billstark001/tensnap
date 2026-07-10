@@ -1,20 +1,19 @@
 import { EventEmitter } from 'node:events';
 import type {
+  Action,
   ActionEndPayload,
+  Parameter,
   ProtocolEncoding,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
-import { AgentSession } from '../session/AgentSession';
-import { getReservedSceneActionId, type SceneReservedAction } from '../session/reserved-actions';
+import { RendererSession } from '@tensnap/core/runtime';
+import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import { NodeWebSocketTransport } from '../session/NodeWebSocketTransport';
 import type {
-  ActionRunOptions,
+  AgentRunSpec,
   ChartSeriesSnapshot,
   ConnectOptions,
-  ExperimentRunRequest,
-  ExperimentRunResult,
-  ExperimentWaitRequest,
-  ExperimentWaitResult,
   SceneRenderOptions,
   SceneAssetSummary,
   SceneSnapshotInspection,
@@ -26,15 +25,6 @@ import type {
   RuntimePhase,
   RuntimeStatus,
   SceneSummary,
-  WaitComparisonOperator,
-  WaitForChartOptions,
-  WaitForChartResult,
-  WaitForActionEndOptions,
-  WaitForActionEndResult,
-  WaitForMetadataOptions,
-  WaitForMetadataResult,
-  WaitForTimeOptions,
-  WaitForTimeResult,
 } from '../types';
 import {
   appendRuntimeLog,
@@ -43,13 +33,13 @@ import {
   writeRuntimeControl,
   writeSceneSnapshot,
 } from './context';
-import type { RenderArtifact, ScenePainter } from './painter';
-import type { RenderRequest } from './painter';
+import type { RenderArtifact, RenderAssetSource, RenderRequest, ScenePainter } from './painter';
 
 export interface AgentRuntimeOptions {
   host?: string;
   controlPort?: number | null;
   encoding?: ProtocolEncoding;
+  maxRunStepsPolicy?: number;
   render?: Partial<RenderSettings>;
 }
 
@@ -58,78 +48,20 @@ function normalizeBackgroundColor(value: string | undefined, fallback = '#000000
   return trimmed || fallback;
 }
 
-function cloneValue<T>(value: T): T {
-  return structuredClone(value);
-}
+const cloneValue = <T>(value: T): T => structuredClone(value);
 
-function valuesEqual(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) {
-    return true;
-  }
-
-  try {
-    return JSON.stringify(left) === JSON.stringify(right);
-  } catch {
-    return false;
-  }
-}
-
-function compareValues(actual: unknown, comparison: WaitComparisonOperator, expected: unknown): boolean {
-  if (comparison === 'eq') {
-    return valuesEqual(actual, expected);
-  }
-
-  if (comparison === 'neq') {
-    return !valuesEqual(actual, expected);
-  }
-
-  if (typeof actual !== typeof expected) {
-    return false;
-  }
-
-  if (typeof actual !== 'number' && typeof actual !== 'string') {
-    return false;
-  }
-
-  switch (comparison) {
-    case 'gt':
-      return actual > (expected as number | string);
-    case 'gte':
-      return actual >= (expected as number | string);
-    case 'lt':
-      return actual < (expected as number | string);
-    case 'lte':
-      return actual <= (expected as number | string);
-    default:
-      return false;
-  }
-}
-
-function getValueAtPath(source: unknown, path: string): unknown {
-  if (!path.trim()) {
-    return source;
-  }
-
-  return path.split('.').reduce<unknown>((current, segment) => {
-    if (current === undefined || current === null) {
-      return undefined;
-    }
-
-    if (Array.isArray(current)) {
-      const index = Number(segment);
-      return Number.isInteger(index) ? current[index] : undefined;
-    }
-
-    if (typeof current === 'object') {
-      return (current as Record<string, unknown>)[segment];
-    }
-
-    return undefined;
-  }, source);
+function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneSummary['environments'] {
+  return snapshot.environments.map((environment) => ({
+    id: environment.id,
+    type: environment.type,
+    layerCount: environment.layers.length,
+    layerIds: environment.layers.map((layer) => layer.id),
+  }));
 }
 
 export class AgentRuntime extends EventEmitter {
-  private readonly session = new AgentSession();
+  private readonly renderer: RendererSession;
+  private transport: NodeWebSocketTransport | null = null;
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
   private completedStateSyncCount = 0;
@@ -139,6 +71,10 @@ export class AgentRuntime extends EventEmitter {
     options: AgentRuntimeOptions = {},
   ) {
     super();
+
+    this.renderer = new RendererSession({
+      run: { maxStepsPolicy: options.maxRunStepsPolicy },
+    });
 
     const now = new Date().toISOString();
     this.control = {
@@ -152,6 +88,7 @@ export class AgentRuntime extends EventEmitter {
       pid: process.pid,
       phase: 'idle',
       encoding: options.encoding ?? 'msgpack',
+      maxRunStepsPolicy: options.maxRunStepsPolicy ?? 1_000_000,
       render: {
         trigger: options.render?.trigger ?? 'manual',
         backgroundColor: normalizeBackgroundColor(options.render?.backgroundColor),
@@ -159,7 +96,7 @@ export class AgentRuntime extends EventEmitter {
       painters: [],
     };
 
-    this.bindSession();
+    this.bindRenderer();
   }
 
   async initialize(): Promise<void> {
@@ -176,10 +113,14 @@ export class AgentRuntime extends EventEmitter {
     await this.persistStatus();
 
     try {
-      await this.session.connect({
-        url: options.simulatorUrl,
-        encoding: this.control.encoding,
-      });
+      this.destroyTransport();
+      this.renderer.scenario.reset();
+      this.renderer.run.reset();
+      const transport = new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding);
+      this.transport = transport;
+      this.renderer.attachTransport(transport);
+      await transport.connect();
+      this.renderer.requestStateSync();
       await this.log('info', 'runtime', 'Connected to simulator.', {
         simulatorUrl: options.simulatorUrl,
         encoding: this.control.encoding,
@@ -194,13 +135,14 @@ export class AgentRuntime extends EventEmitter {
   }
 
   async disconnect(): Promise<void> {
-    if (!this.session.isConnected) {
+    if (!this.renderer.isConnected) {
       this.setPhase('idle');
       return;
     }
 
     this.setPhase('stopping');
-    await this.session.disconnect();
+    this.transport?.disconnect();
+    this.destroyTransport();
     this.setPhase('idle');
     await this.log('info', 'runtime', 'Disconnected from simulator.');
   }
@@ -217,7 +159,7 @@ export class AgentRuntime extends EventEmitter {
   getStatus(): RuntimeStatus {
     return {
       ...this.control,
-      isConnected: this.session.isConnected,
+      isConnected: this.renderer.isConnected,
     };
   }
 
@@ -255,42 +197,63 @@ export class AgentRuntime extends EventEmitter {
   }
 
   inspectScene(): SceneSummary {
-    return this.session.getSceneSummary();
+    const snapshot = this.renderer.scenario.dump();
+    return {
+      metadata: cloneValue(snapshot.metadata),
+      time: typeof snapshot.metadata.time === 'number' ? snapshot.metadata.time : undefined,
+      environments: summarizeEnvironments(snapshot),
+      parameters: this.listParameters(),
+      actions: this.listActions(),
+      charts: this.renderer.scenario.charts.getAllMeta().map(cloneValue),
+      assets: this.listAssets(),
+      logs: this.renderer.scenario.logs.map(cloneValue),
+    };
   }
 
   inspectSnapshot(): SceneSnapshotInspection {
     return {
-      snapshot: this.session.getSnapshot(),
-      charts: this.session.listChartSeries(),
-      assets: this.session.listAssets(),
+      snapshot: this.renderer.scenario.dump(),
+      charts: this.listChartSeries(),
+      assets: this.listAssets(),
     };
   }
 
   listChartSeries(): ChartSeriesSnapshot[] {
-    return this.session.listChartSeries();
+    return this.renderer.scenario.charts.getAllMeta().map((metadata) => ({
+      id: metadata.id,
+      metadata: cloneValue(metadata),
+      points: (this.renderer.scenario.charts.getData(metadata.id) ?? []).map(cloneValue),
+    }));
   }
 
   getChartSeries(id: string): ChartSeriesSnapshot | null {
-    return this.session.getChartSeries(id);
+    return this.listChartSeries().find((chart) => chart.id === id) ?? null;
   }
 
   listAssets(): SceneAssetSummary[] {
-    return this.session.listAssets();
+    return this.renderer.scenario.assets.listMeta().map((meta) => {
+      const resolved = this.renderer.scenario.assets.get(meta.id);
+      return {
+        ...cloneValue(meta),
+        resolved: Boolean(resolved),
+        valueType: !resolved ? 'pending' : typeof resolved.url === 'string' ? 'string' : 'bytes',
+      };
+    });
   }
 
-  listParameters() {
-    return this.session.getParameters();
+  listParameters(): Parameter[] {
+    return [...this.renderer.scenario.parameters.values()].map(cloneValue);
   }
 
-  listActions() {
-    return this.session.getActions();
+  listActions(): Action[] {
+    return [...this.renderer.scenario.actions.values()].map(cloneValue);
   }
 
   async syncScene(): Promise<void> {
     const targetSyncCount = this.completedStateSyncCount + 1;
     this.assertConnected();
     this.setPhase('syncing');
-    this.session.requestStateSync();
+    this.renderer.requestStateSync();
     await this.log('info', 'scene', 'State sync requested.');
     this.emitRuntimeEvent('scene.sync.requested', {});
     await this.waitForStateSync(targetSyncCount);
@@ -302,258 +265,52 @@ export class AgentRuntime extends EventEmitter {
 
   async setParameter(id: string, value: unknown): Promise<void> {
     this.assertConnected();
-    this.session.setParameter(id, value);
+    this.renderer.setParameter(id, value);
     await this.log('info', 'param', 'Parameter change requested.', { id, value });
     this.emitRuntimeEvent('param.change.requested', { id, value });
   }
 
-  async runAction(id: string, options: ActionRunOptions = {}): Promise<void> {
+  async runAction(id: string): Promise<void> {
     this.assertConnected();
-    if (!options.continuous) {
-      this.session.cancelContinuousActions();
-    }
-    this.session.runAction(id, options.continuous);
+    this.renderer.run.cancelContinuousActions();
+    this.renderer.run.requestAction(id);
     await this.log('info', 'action', 'Action requested.', {
       id,
-      continuous: options.continuous ?? false,
     });
     this.emitRuntimeEvent('action.start.requested', {
       id,
-      continuous: options.continuous ?? false,
     });
   }
 
-  async runReservedAction(alias: SceneReservedAction, options: ActionRunOptions = {}): Promise<void> {
-    await this.runAction(getReservedSceneActionId(alias), options);
-  }
-
-  async waitForActionEnd(options: WaitForActionEndOptions = {}): Promise<WaitForActionEndResult> {
+  startRun(spec: AgentRunSpec) {
     this.assertConnected();
-
-    return await new Promise<WaitForActionEndResult>((resolve, reject) => {
-      const onActionEnd = (payload: ActionEndPayload): void => {
-        if (options.id && payload.id !== options.id) {
-          return;
-        }
-        cleanup();
-        resolve(structuredClone(payload));
-      };
-
-      const onClose = (): void => {
-        cleanup();
-        reject(new Error('Runtime disconnected while waiting for action_end.'));
-      };
-
-      const onError = (error: unknown): void => {
-        cleanup();
-        reject(error instanceof Error ? error : new Error(String(error)));
-      };
-
-      const timeoutId = typeof options.timeoutMs === 'number'
-        ? setTimeout(() => {
-            cleanup();
-            reject(
-              new Error(
-                options.id
-                  ? `Timed out waiting for action_end '${options.id}'.`
-                  : 'Timed out waiting for action_end.',
-              ),
-            );
-          }, options.timeoutMs)
-        : null;
-
-      const cleanup = (): void => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        this.session.off('action-end', onActionEnd);
-        this.session.off('close', onClose);
-        this.session.off('error', onError);
-      };
-
-      this.session.on('action-end', onActionEnd);
-      this.session.on('close', onClose);
-      this.session.on('error', onError);
+    const status = this.renderer.run.start(spec);
+    void this.log('info', 'run', 'Bounded run started.', {
+      runId: status.id,
+      actionId: status.spec.actionId,
+      maxSteps: status.spec.maxSteps,
+      stopWhen: status.spec.stopWhen,
+      maxWallTimeMs: status.spec.maxWallTimeMs,
     });
+    this.emitRuntimeEvent('run.started', status);
+    return status;
   }
 
-  async waitForTime(options: WaitForTimeOptions): Promise<WaitForTimeResult> {
-    const comparison = options.comparison ?? 'gte';
-    return await this.waitForStateCondition(
-      () => {
-        const actualTime = this.session.scenario.time;
-        if (typeof actualTime !== 'number') {
-          return undefined;
-        }
-        if (!compareValues(actualTime, comparison, options.time)) {
-          return undefined;
-        }
-        return {
-          kind: 'time' as const,
-          comparison,
-          expectedTime: options.time,
-          actualTime,
-        };
-      },
-      options.timeoutMs,
-      `time ${comparison} ${options.time}`,
-    );
+  getRun() {
+    return this.renderer.run.status;
   }
 
-  async waitForChart(options: WaitForChartOptions): Promise<WaitForChartResult> {
-    const comparison = options.comparison ?? 'gte';
-    return await this.waitForStateCondition(
-      () => {
-        const actualValue = typeof options.atTime === 'number'
-          ? this.session.scenario.charts.getValueAt(options.id, options.atTime)
-          : this.session.getChartSeries(options.id)?.points.at(-1)?.[options.id];
-
-        if (typeof actualValue !== 'number') {
-          return undefined;
-        }
-        if (!compareValues(actualValue, comparison, options.value)) {
-          return undefined;
-        }
-        return {
-          kind: 'chart' as const,
-          id: options.id,
-          comparison,
-          expectedValue: options.value,
-          actualValue,
-          atTime: options.atTime,
-        };
-      },
-      options.timeoutMs,
-      `chart ${options.id} ${comparison} ${options.value}`,
-    );
-  }
-
-  async waitForMetadata(options: WaitForMetadataOptions): Promise<WaitForMetadataResult> {
-    const comparison = options.comparison ?? 'eq';
-    return await this.waitForStateCondition(
-      () => {
-        const actualValue = getValueAtPath(this.session.getSnapshot().metadata, options.path);
-        if (comparison === 'exists') {
-          if (actualValue === undefined) {
-            return undefined;
-          }
-          return {
-            kind: 'metadata' as const,
-            path: options.path,
-            comparison,
-            actualValue: cloneValue(actualValue),
-          };
-        }
-
-        if (!compareValues(actualValue, comparison, options.value)) {
-          return undefined;
-        }
-        return {
-          kind: 'metadata' as const,
-          path: options.path,
-          comparison,
-          expectedValue: cloneValue(options.value),
-          actualValue: cloneValue(actualValue),
-        };
-      },
-      options.timeoutMs,
-      `metadata ${options.path} ${comparison}`,
-    );
-  }
-
-  async runExperiment(request: ExperimentRunRequest): Promise<ExperimentRunResult> {
-    this.assertConnected();
-
-    const startedAt = new Date().toISOString();
-    const waits: ExperimentWaitResult[] = [];
-    const parametersApplied: Array<{ id: string; value: unknown }> = [];
-    const collect = {
-      scene: true,
-      snapshot: true,
-      ...(request.collect ?? {}),
-    };
-
-    const resetConfig =
-      request.reset === false
-        ? null
-        : request.reset === true || request.reset === undefined
-          ? { enabled: true, actionId: getReservedSceneActionId('reset') }
-          : {
-              enabled: request.reset.enabled !== false,
-              actionId: request.reset.actionId ?? getReservedSceneActionId('reset'),
-              continuous: request.reset.continuous,
-              timeoutMs: request.reset.timeoutMs,
-            };
-
-    if (resetConfig?.enabled) {
-      const resetWait = this.waitForActionEnd({
-        id: resetConfig.actionId,
-        timeoutMs: resetConfig.timeoutMs,
+  stopRun() {
+    const status = this.renderer.run.stop();
+    if (status) {
+      void this.log('info', 'run', 'Bounded run stopped.', {
+        runId: status.id,
+        completedSteps: status.completedSteps,
+        stopReason: status.stopReason,
       });
-      await this.runAction(resetConfig.actionId, { continuous: resetConfig.continuous });
-      waits.push({ kind: 'action-end', payload: await resetWait });
+      this.emitRuntimeEvent('run.stopped', status);
     }
-
-    for (const [id, value] of Object.entries(request.parameters ?? {})) {
-      await this.setParameter(id, value);
-      parametersApplied.push({ id, value: cloneValue(value) });
-    }
-
-    if (request.action) {
-      const actionWait = request.action.waitForEnd === false
-        ? null
-        : this.waitForActionEnd({
-            id: request.action.id,
-            timeoutMs: request.action.timeoutMs,
-          });
-      await this.runAction(request.action.id, { continuous: request.action.continuous });
-      if (actionWait) {
-        waits.push({ kind: 'action-end', payload: await actionWait });
-      }
-    }
-
-    for (const waitRequest of request.waits ?? []) {
-      waits.push(await this.executeExperimentWait(waitRequest));
-    }
-
-    const renderArtifacts = request.render
-      ? await this.requestRender(
-          request.render,
-          request.render.reason ?? request.label ?? 'experiment',
-        )
-      : undefined;
-
-    const result: ExperimentRunResult = {
-      label: request.label,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      parametersApplied,
-      waits,
-    };
-
-    if (collect.scene) {
-      result.scene = this.inspectScene();
-    }
-    if (collect.snapshot) {
-      result.snapshot = this.inspectSnapshot();
-    }
-    if (renderArtifacts?.length) {
-      result.renderArtifacts = renderArtifacts;
-    }
-
-    await this.log('info', 'experiment', 'Experiment run completed.', {
-      label: request.label,
-      parametersApplied: parametersApplied.map((entry) => entry.id),
-      waitKinds: waits.map((entry) => entry.kind),
-      renderArtifactCount: renderArtifacts?.length ?? 0,
-    });
-    this.emitRuntimeEvent('experiment.completed', {
-      label: request.label,
-      waitCount: waits.length,
-      renderArtifactCount: renderArtifacts?.length ?? 0,
-    });
-
-    return result;
+    return status;
   }
 
   async requestRender(options: SceneRenderOptions = {}, reason = 'manual'): Promise<RenderArtifact[]> {
@@ -607,12 +364,12 @@ export class AgentRuntime extends EventEmitter {
       at: new Date().toISOString(),
       reason,
       trigger,
-      snapshot: this.session.getSnapshot(),
+      snapshot: this.renderer.scenario.dump(),
       options: {
         ...options,
         backgroundColor,
       },
-      assets: this.session.getAssetSources(),
+      assets: this.getAssetSources(),
     };
   }
 
@@ -622,33 +379,35 @@ export class AgentRuntime extends EventEmitter {
     await this.persistStatus();
   }
 
-  private bindSession(): void {
-    this.session.on('open', () => {
+  private bindRenderer(): void {
+    this.renderer.addEventListener('transport:open', () => {
       this.setPhase('open');
       this.emitRuntimeEvent('transport.open', { simulatorUrl: this.control.simulatorUrl });
     });
-    this.session.on('close', () => {
+    this.renderer.addEventListener('transport:close', () => {
       this.completedStateSyncCount = 0;
       if (this.control.phase !== 'stopped') {
         this.setPhase('idle');
       }
       this.emitRuntimeEvent('transport.close', { simulatorUrl: this.control.simulatorUrl });
     });
-    this.session.on('error', (error) => {
+    this.renderer.addEventListener('transport:error', (event) => {
+      const error = (event as CustomEvent<unknown>).detail;
       const message = error instanceof Error ? error.message : String(error);
       this.control.lastError = message;
       this.setPhase('error');
       void this.log('error', 'transport', 'Transport error.', { error: message });
       this.emitRuntimeEvent('transport.error', { error: message });
     });
-    this.session.on('message', (message) => {
-      void this.handleProtocolMessage(message as SimulatorToRendererMessage);
-    });
-    this.session.on('action-end', (payload) => {
-      void this.handleActionEnd(payload as ActionEndPayload);
-    });
-    this.session.on('screenshot-request', (payload) => {
-      void this.handleScreenshotRequest(payload as ScreenshotRequestPayload);
+    this.renderer.addEventListener('message', (event) => {
+      const { message } = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail;
+      void this.handleProtocolMessage(message);
+      if (message.type === 'action_end') {
+        void this.handleActionEnd(message.payload as ActionEndPayload);
+      }
+      if (message.type === 'screenshot_request') {
+        void this.handleScreenshotRequest(message.payload as ScreenshotRequestPayload);
+      }
     });
   }
 
@@ -664,7 +423,7 @@ export class AgentRuntime extends EventEmitter {
     if (message.type === 'state_sync_end') {
       this.completedStateSyncCount += 1;
       this.setPhase('ready');
-      await writeSceneSnapshot(this.context, this.session.getSnapshot());
+      await writeSceneSnapshot(this.context, this.renderer.scenario.dump());
       this.emitRuntimeEvent('scene.sync.end', {
         completedCount: this.completedStateSyncCount,
         payload: message.payload,
@@ -673,13 +432,13 @@ export class AgentRuntime extends EventEmitter {
     }
 
     if (message.type === 'metadata_update') {
-      await writeSceneSnapshot(this.context, this.session.getSnapshot());
+      await writeSceneSnapshot(this.context, this.renderer.scenario.dump());
     }
   }
 
   private async handleActionEnd(payload: ActionEndPayload): Promise<void> {
     try {
-      await writeSceneSnapshot(this.context, this.session.getSnapshot());
+      await writeSceneSnapshot(this.context, this.renderer.scenario.dump());
       await this.log('info', 'action', 'Action completed.', payload);
       this.emitRuntimeEvent('action.end', payload);
 
@@ -699,13 +458,13 @@ export class AgentRuntime extends EventEmitter {
         });
       }
     } finally {
-      this.session.markActionRendered(payload);
+      this.renderer.run.markActionRendered(payload);
     }
   }
 
   private async handleScreenshotRequest(payload: ScreenshotRequestPayload): Promise<void> {
     if (payload.chart_id) {
-      this.session.sendScreenshotResponse({
+      this.renderer.sendScreenshotResponse({
         request_id: payload.request_id,
         error: 'Chart screenshots are not implemented in @tensnap/agent yet.',
       });
@@ -726,21 +485,21 @@ export class AgentRuntime extends EventEmitter {
 
       const artifact = artifacts.find((candidate) => candidate.kind === 'environment' && candidate.data?.length);
       if (!artifact?.data?.length) {
-        this.session.sendScreenshotResponse({
+        this.renderer.sendScreenshotResponse({
           request_id: payload.request_id,
           error: 'No environment render artifact was produced for screenshot_request.',
         });
         return;
       }
 
-      this.session.sendScreenshotResponse({
+      this.renderer.sendScreenshotResponse({
         request_id: payload.request_id,
         data: new Uint8Array(artifact.data),
         mime: artifact.mime,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.session.sendScreenshotResponse({
+      this.renderer.sendScreenshotResponse({
         request_id: payload.request_id,
         error: message,
       });
@@ -748,81 +507,37 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private assertConnected(): void {
-    if (!this.session.isConnected) {
+    if (!this.renderer.isConnected) {
       throw new Error('Runtime is not connected to a simulator.');
     }
   }
 
-  private async executeExperimentWait(request: ExperimentWaitRequest): Promise<ExperimentWaitResult> {
-    switch (request.kind) {
-      case 'action-end':
-        return {
-          kind: 'action-end',
-          payload: await this.waitForActionEnd(request),
-        };
-      case 'time':
-        return await this.waitForTime(request);
-      case 'chart':
-        return await this.waitForChart(request);
-      case 'metadata':
-        return await this.waitForMetadata(request);
-      default:
-        throw new Error(`Unsupported wait kind: ${(request as { kind?: string }).kind ?? 'unknown'}`);
+  private getAssetSources(): Record<string, RenderAssetSource> {
+    const assets: Record<string, RenderAssetSource> = {};
+    for (const meta of this.renderer.scenario.assets.listMeta()) {
+      const resolved = this.renderer.scenario.assets.get(meta.id);
+      if (!resolved) continue;
+      assets[meta.id] = {
+        id: meta.id,
+        hash: meta.hash,
+        mime: meta.mime,
+        source: typeof resolved.source === 'string'
+          ? resolved.source
+          : resolved.source instanceof Uint8Array
+            ? new Uint8Array(resolved.source)
+            : typeof resolved.url === 'string'
+              ? resolved.url
+              : new Uint8Array(resolved.url),
+      };
     }
+    return assets;
   }
 
-  private async waitForStateCondition<T>(
-    evaluate: () => T | undefined,
-    timeoutMs: number | undefined,
-    description: string,
-  ): Promise<T> {
-    this.assertConnected();
-
-    const immediate = evaluate();
-    if (immediate !== undefined) {
-      return cloneValue(immediate);
-    }
-
-    return await new Promise<T>((resolve, reject) => {
-      const onMessage = (): void => {
-        const matched = evaluate();
-        if (matched === undefined) {
-          return;
-        }
-        cleanup();
-        resolve(cloneValue(matched));
-      };
-
-      const onClose = (): void => {
-        cleanup();
-        reject(new Error(`Runtime disconnected while waiting for ${description}.`));
-      };
-
-      const onError = (error: unknown): void => {
-        cleanup();
-        reject(error instanceof Error ? error : new Error(String(error)));
-      };
-
-      const timeoutId = typeof timeoutMs === 'number'
-        ? setTimeout(() => {
-            cleanup();
-            reject(new Error(`Timed out waiting for ${description}.`));
-          }, timeoutMs)
-        : null;
-
-      const cleanup = (): void => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        this.session.off('message', onMessage);
-        this.session.off('close', onClose);
-        this.session.off('error', onError);
-      };
-
-      this.session.on('message', onMessage);
-      this.session.on('close', onClose);
-      this.session.on('error', onError);
-    });
+  private destroyTransport(): void {
+    if (!this.transport) return;
+    this.renderer.detachTransport();
+    this.transport.destroy();
+    this.transport = null;
   }
 
   private async waitForStateSync(
@@ -831,7 +546,7 @@ export class AgentRuntime extends EventEmitter {
   ): Promise<RuntimeStatus> {
     const evaluate = (): RuntimeStatus | undefined => {
       if (
-        this.session.isConnected
+        this.renderer.isConnected
         && this.control.phase === 'ready'
         && this.completedStateSyncCount >= minimumCompletedCount
       ) {
@@ -860,7 +575,8 @@ export class AgentRuntime extends EventEmitter {
         reject(new Error('Runtime disconnected before state sync completed.'));
       };
 
-      const onError = (error: unknown): void => {
+      const onError = (event: Event): void => {
+        const error = (event as CustomEvent<unknown>).detail;
         cleanup();
         reject(error instanceof Error ? error : new Error(String(error)));
       };
@@ -876,14 +592,14 @@ export class AgentRuntime extends EventEmitter {
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
-        this.session.off('message', onMessage);
-        this.session.off('close', onClose);
-        this.session.off('error', onError);
+        this.renderer.removeEventListener('message', onMessage);
+        this.renderer.removeEventListener('transport:close', onClose);
+        this.renderer.removeEventListener('transport:error', onError);
       };
 
-      this.session.on('message', onMessage);
-      this.session.on('close', onClose);
-      this.session.on('error', onError);
+      this.renderer.addEventListener('message', onMessage);
+      this.renderer.addEventListener('transport:close', onClose);
+      this.renderer.addEventListener('transport:error', onError);
     });
   }
 

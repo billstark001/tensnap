@@ -48,7 +48,7 @@ export interface TransportStore {
 export const createTransportStore = (
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>,
 ) => create<TransportStore>((set, get) => {
-  const dispatchStateSync = (transport: ISimulatorTransport, state?: StateSyncRequest) => {
+  const dispatchStateSync = (state?: StateSyncRequest) => {
     const requestId = generateUniqueId();
     const scenarioStore = useScenarioStore.getState();
     const payload = buildStateSyncPayload(
@@ -59,7 +59,7 @@ export const createTransportStore = (
     scenarioStore.prepareStateSync(requestId, {
       autoLayoutOnComplete: scenarioStore.isMainViewAutoLayoutCandidate(),
     });
-    transport.send({ type: 'state_sync', payload });
+    scenarioStore.session.requestStateSync(requestId, payload);
   };
 
   return ({
@@ -106,7 +106,7 @@ export const createTransportStore = (
       scenarioStore.setConnected(true);
       const isEmptyState = !state || getStateSyncItemCount(state) === 0;
       if (isEmptyState) {
-        dispatchStateSync(transport);
+        dispatchStateSync();
       }
     };
 
@@ -133,7 +133,7 @@ export const createTransportStore = (
         throw new Error('Connection was aborted');
       }
       if (state && getStateSyncItemCount(state) > 0) {
-        dispatchStateSync(transport, state);
+        dispatchStateSync(state);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
@@ -169,7 +169,7 @@ export const createTransportStore = (
       console.warn('Transport not connected');
       return;
     }
-    dispatchStateSync(transport, currentState);
+    dispatchStateSync(currentState);
   },
 
   disconnect: () => {

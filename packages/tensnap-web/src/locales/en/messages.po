@@ -87,11 +87,11 @@ msgstr "Allow Runtime Change"
 msgid "Apply"
 msgstr "Apply"
 
-#: src/components/project/RightPanel.tsx:154
+#: src/components/project/RightPanel.tsx:155
 msgid "Assets"
 msgstr "Assets"
 
-#: src/components/project/RightPanel.tsx:241
+#: src/components/project/RightPanel.tsx:242
 msgid "Assets sent by adapters will appear here."
 msgstr "Assets sent by adapters will appear here."
 
@@ -112,6 +112,7 @@ msgstr "Button"
 msgid "Button Text"
 msgstr "Button Text"
 
+#: src/dialogs/ContinuousRunDialog.tsx:120
 #: src/dialogs/CreateNewProjectDialog.tsx:100
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:35
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:75
@@ -147,7 +148,7 @@ msgstr "Chart Group Label"
 msgid "Chart Series"
 msgstr "Chart Series"
 
-#: src/components/project/RightPanel.tsx:177
+#: src/components/project/RightPanel.tsx:178
 msgid "Clear All"
 msgstr "Clear All"
 
@@ -156,7 +157,7 @@ msgstr "Clear All"
 msgid "Clear search"
 msgstr "Clear search"
 
-#: src/components/project/RightPanel.tsx:188
+#: src/components/project/RightPanel.tsx:189
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "Click \"Take Snapshot\" to create one."
 
@@ -181,6 +182,10 @@ msgstr "Color:"
 #: src/components/project/StatusBar.tsx:95
 msgid "Comm:"
 msgstr "Comm:"
+
+#: src/dialogs/ContinuousRunDialog.tsx:63
+msgid "Configure a bounded continuous run for action {actionId}."
+msgstr "Configure a bounded continuous run for action {actionId}."
 
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:32
 msgid "Confirm"
@@ -210,7 +215,15 @@ msgstr "Container"
 msgid "Continuous"
 msgstr "Continuous"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:92
+#: src/dialogs/ContinuousRunDialog.tsx:61
+msgid "Continuous run"
+msgstr "Continuous run"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:118
+msgid "Continuous run…"
+msgstr "Continuous run…"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:109
 #: src/components/toolbar/MenuBar.tsx:101
 msgid "Copy"
 msgstr "Copy"
@@ -258,7 +271,7 @@ msgstr "Data Points"
 msgid "default"
 msgstr "default"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:110
+#: src/components/project/ViewContextMenuRenderer.tsx:141
 msgid "Delete"
 msgstr "Delete"
 
@@ -302,7 +315,7 @@ msgstr "Documentation:"
 msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:102
+#: src/components/project/ViewContextMenuRenderer.tsx:133
 #: src/components/toolbar/MenuBar.tsx:83
 msgid "Edit"
 msgstr "Edit"
@@ -356,7 +369,7 @@ msgstr "Environment Type"
 #~ msgid "Environments"
 #~ msgstr "Environments"
 
-#: src/components/project/RightPanel.tsx:215
+#: src/components/project/RightPanel.tsx:216
 #: src/dialogs/SnapshotDetailDialog.tsx:112
 msgid "Environments:"
 msgstr "Environments:"
@@ -450,7 +463,7 @@ msgstr "Fullscreen"
 #~ msgid "Grid Width"
 #~ msgstr "Grid Width"
 
-#: src/components/project/RightPanel.tsx:129
+#: src/components/project/RightPanel.tsx:130
 msgid "Hash:"
 msgstr "Hash:"
 
@@ -482,13 +495,13 @@ msgstr "Icon:"
 msgid "ID"
 msgstr "ID"
 
-#: src/components/project/RightPanel.tsx:117
+#: src/components/project/RightPanel.tsx:118
 #: src/dialogs/AgentDetailsDialog.tsx:72
 #: src/dialogs/SnapshotDetailDialog.tsx:91
 msgid "ID:"
 msgstr "ID:"
 
-#: src/components/project/RightPanel.tsx:140
+#: src/components/project/RightPanel.tsx:141
 msgid "Inspector"
 msgstr "Inspector"
 
@@ -529,11 +542,19 @@ msgstr "Max FPS"
 msgid "Max TPS"
 msgstr "Max TPS"
 
+#: src/dialogs/ContinuousRunDialog.tsx:70
+msgid "Maximum steps"
+msgstr "Maximum steps"
+
+#: src/dialogs/ContinuousRunDialog.tsx:112
+msgid "Maximum steps must be an integer from 1 to 1,000,000."
+msgstr "Maximum steps must be an integer from 1 to 1,000,000."
+
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:124
 msgid "Maximum Value"
 msgstr "Maximum Value"
 
-#: src/components/project/RightPanel.tsx:121
+#: src/components/project/RightPanel.tsx:122
 msgid "MIME:"
 msgstr "MIME:"
 
@@ -589,7 +610,7 @@ msgstr "No agents found matching your search"
 msgid "No agents in this environment"
 msgstr "No agents in this environment"
 
-#: src/components/project/RightPanel.tsx:240
+#: src/components/project/RightPanel.tsx:241
 msgid "No assets registered."
 msgstr "No assets registered."
 
@@ -627,7 +648,7 @@ msgstr "No results found"
 msgid "No series available"
 msgstr "No series available"
 
-#: src/components/project/RightPanel.tsx:187
+#: src/components/project/RightPanel.tsx:188
 msgid "No snapshots yet."
 msgstr "No snapshots yet."
 
@@ -656,7 +677,7 @@ msgstr "Open File"
 #~ msgid "Open Folder"
 #~ msgstr "Open Folder"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:79
+#: src/components/project/ViewContextMenuRenderer.tsx:96
 msgid "Options"
 msgstr "Options"
 
@@ -696,7 +717,7 @@ msgstr "Parameter Type"
 msgid "Parameters"
 msgstr "Parameters"
 
-#: src/components/project/RightPanel.tsx:223
+#: src/components/project/RightPanel.tsx:224
 msgid "Parameters:"
 msgstr "Parameters:"
 
@@ -704,7 +725,7 @@ msgstr "Parameters:"
 msgid "Paste"
 msgstr "Paste"
 
-#: src/components/project/RightPanel.tsx:90
+#: src/components/project/RightPanel.tsx:91
 msgid "Pending"
 msgstr "Pending"
 
@@ -728,7 +749,7 @@ msgstr "Project Settings"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "Project URL updated successfully"
 
-#: src/components/project/RightPanel.tsx:90
+#: src/components/project/RightPanel.tsx:91
 msgid "Ready"
 msgstr "Ready"
 
@@ -739,6 +760,10 @@ msgstr "Reconnect"
 #: src/components/project/StatusBar.tsx:54
 #~ msgid "Reconnected successfully"
 #~ msgstr "Reconnected successfully"
+
+#: src/dialogs/ContinuousRunDialog.tsx:108
+msgid "Record this run"
+msgstr "Record this run"
 
 #: src/components/toolbar/MenuBar.tsx:94
 msgid "Redo"
@@ -787,12 +812,16 @@ msgstr "Restore Snapshot"
 #~ msgid "Retry"
 #~ msgstr "Retry"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:122
+msgid "Run one step"
+msgstr "Run one step"
+
 #: src/components/toolbar/MenuBar.tsx:62
 #: src/dialogs/edit-views/EditViewDialog.tsx:339
 msgid "Save"
 msgstr "Save"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:85
+#: src/components/project/ViewContextMenuRenderer.tsx:102
 msgid "Save As CSV"
 msgstr "Save As CSV"
 
@@ -850,7 +879,7 @@ msgstr "Show Toolbar"
 msgid "Sim:"
 msgstr "Sim:"
 
-#: src/components/project/RightPanel.tsx:125
+#: src/components/project/RightPanel.tsx:126
 #: src/dialogs/AgentDetailsDialog.tsx:96
 msgid "Size:"
 msgstr "Size:"
@@ -859,7 +888,7 @@ msgstr "Size:"
 msgid "Snapshot Details"
 msgstr "Snapshot Details"
 
-#: src/components/project/RightPanel.tsx:147
+#: src/components/project/RightPanel.tsx:148
 msgid "Snapshots"
 msgstr "Snapshots"
 
@@ -870,6 +899,10 @@ msgstr "Srv Render:"
 #: src/components/toolbar/ToolGroups.tsx:107
 #~ msgid "Start"
 #~ msgstr "Start"
+
+#: src/dialogs/ContinuousRunDialog.tsx:122
+msgid "Start continuous run"
+msgstr "Start continuous run"
 
 #: src/components/toolbar/ToolGroups.tsx:101
 #~ msgid "Start/Stop"
@@ -883,6 +916,14 @@ msgstr "Step"
 #~ msgid "Stop"
 #~ msgstr "Stop"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:118
+msgid "Stop continuous run"
+msgstr "Stop continuous run"
+
+#: src/dialogs/ContinuousRunDialog.tsx:81
+msgid "Stop expression (optional)"
+msgstr "Stop expression (optional)"
+
 #: src/components/toolbar/ToolGroups.tsx:166
 #~ msgid "Synchronize State"
 #~ msgstr "Synchronize State"
@@ -891,7 +932,7 @@ msgstr "Step"
 msgid "System Settings"
 msgstr "System Settings"
 
-#: src/components/project/RightPanel.tsx:167
+#: src/components/project/RightPanel.tsx:168
 msgid "Take Snapshot"
 msgstr "Take Snapshot"
 
@@ -936,7 +977,7 @@ msgstr "This view can keep its binding, but there is no registered environment t
 msgid "This view can keep its binding, but there is no registered parameter to edit."
 msgstr "This view can keep its binding, but there is no registered parameter to edit."
 
-#: src/components/project/RightPanel.tsx:209
+#: src/components/project/RightPanel.tsx:210
 #: src/components/project/StatusBar.tsx:78
 #: src/dialogs/SnapshotDetailDialog.tsx:105
 msgid "Time Step:"
@@ -1028,6 +1069,14 @@ msgstr "View detailed information about the selected agent"
 #: src/dialogs/AboutDialog.tsx:62
 msgid "View Docs"
 msgstr "View Docs"
+
+#: src/dialogs/ContinuousRunDialog.tsx:115
+msgid "Wall-clock limit must be a positive number of milliseconds."
+msgstr "Wall-clock limit must be a positive number of milliseconds."
+
+#: src/dialogs/ContinuousRunDialog.tsx:90
+msgid "Wall-clock limit, ms (optional)"
+msgstr "Wall-clock limit, ms (optional)"
 
 #: src/dialogs/SettingsDialog.tsx:173
 #: src/dialogs/SettingsDialog.tsx:190

@@ -87,11 +87,11 @@ msgstr "允许运行时更改"
 msgid "Apply"
 msgstr "应用"
 
-#: src/components/project/RightPanel.tsx:154
+#: src/components/project/RightPanel.tsx:155
 msgid "Assets"
 msgstr "资源"
 
-#: src/components/project/RightPanel.tsx:241
+#: src/components/project/RightPanel.tsx:242
 msgid "Assets sent by adapters will appear here."
 msgstr "适配器发送的资源将显示在这里。"
 
@@ -112,6 +112,7 @@ msgstr "按钮"
 msgid "Button Text"
 msgstr "按钮文本"
 
+#: src/dialogs/ContinuousRunDialog.tsx:120
 #: src/dialogs/CreateNewProjectDialog.tsx:100
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:35
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:75
@@ -147,7 +148,7 @@ msgstr "图表组标签"
 msgid "Chart Series"
 msgstr "图表系列"
 
-#: src/components/project/RightPanel.tsx:177
+#: src/components/project/RightPanel.tsx:178
 msgid "Clear All"
 msgstr "清空所有"
 
@@ -156,7 +157,7 @@ msgstr "清空所有"
 msgid "Clear search"
 msgstr "清除搜索"
 
-#: src/components/project/RightPanel.tsx:188
+#: src/components/project/RightPanel.tsx:189
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "要拍摄快照，请点击“拍摄快照”按钮。"
 
@@ -181,6 +182,10 @@ msgstr "颜色："
 #: src/components/project/StatusBar.tsx:95
 msgid "Comm:"
 msgstr "通信："
+
+#: src/dialogs/ContinuousRunDialog.tsx:63
+msgid "Configure a bounded continuous run for action {actionId}."
+msgstr "为操作 {actionId} 配置有界连续执行。"
 
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:32
 msgid "Confirm"
@@ -210,7 +215,15 @@ msgstr "容器"
 msgid "Continuous"
 msgstr "连续"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:92
+#: src/dialogs/ContinuousRunDialog.tsx:61
+msgid "Continuous run"
+msgstr "连续执行"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:118
+msgid "Continuous run…"
+msgstr "连续执行…"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:109
 #: src/components/toolbar/MenuBar.tsx:101
 msgid "Copy"
 msgstr "复制"
@@ -258,7 +271,7 @@ msgstr "数据点"
 msgid "default"
 msgstr "默认"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:110
+#: src/components/project/ViewContextMenuRenderer.tsx:141
 msgid "Delete"
 msgstr "删除"
 
@@ -302,7 +315,7 @@ msgstr "文档："
 msgid "Drag files here to upload"
 msgstr "拖放文件到此处上传"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:102
+#: src/components/project/ViewContextMenuRenderer.tsx:133
 #: src/components/toolbar/MenuBar.tsx:83
 msgid "Edit"
 msgstr "编辑"
@@ -356,7 +369,7 @@ msgstr "环境类型"
 #~ msgid "Environments"
 #~ msgstr "环境"
 
-#: src/components/project/RightPanel.tsx:215
+#: src/components/project/RightPanel.tsx:216
 #: src/dialogs/SnapshotDetailDialog.tsx:112
 msgid "Environments:"
 msgstr "环境："
@@ -450,7 +463,7 @@ msgstr "全屏"
 #~ msgid "Grid Width"
 #~ msgstr "网格宽度"
 
-#: src/components/project/RightPanel.tsx:129
+#: src/components/project/RightPanel.tsx:130
 msgid "Hash:"
 msgstr "散列值："
 
@@ -482,13 +495,13 @@ msgstr "图标："
 msgid "ID"
 msgstr "ID"
 
-#: src/components/project/RightPanel.tsx:117
+#: src/components/project/RightPanel.tsx:118
 #: src/dialogs/AgentDetailsDialog.tsx:72
 #: src/dialogs/SnapshotDetailDialog.tsx:91
 msgid "ID:"
 msgstr "ID："
 
-#: src/components/project/RightPanel.tsx:140
+#: src/components/project/RightPanel.tsx:141
 msgid "Inspector"
 msgstr "检查器"
 
@@ -529,11 +542,19 @@ msgstr "最大 FPS"
 msgid "Max TPS"
 msgstr "最大 TPS"
 
+#: src/dialogs/ContinuousRunDialog.tsx:70
+msgid "Maximum steps"
+msgstr "最大步数"
+
+#: src/dialogs/ContinuousRunDialog.tsx:112
+msgid "Maximum steps must be an integer from 1 to 1,000,000."
+msgstr "最大步数必须是介于 1 到 1,000,000 之间的整数。"
+
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:124
 msgid "Maximum Value"
 msgstr "最大值"
 
-#: src/components/project/RightPanel.tsx:121
+#: src/components/project/RightPanel.tsx:122
 msgid "MIME:"
 msgstr "MIME："
 
@@ -589,7 +610,7 @@ msgstr "未找到匹配搜索的智能体"
 msgid "No agents in this environment"
 msgstr "此环境中没有智能体"
 
-#: src/components/project/RightPanel.tsx:240
+#: src/components/project/RightPanel.tsx:241
 msgid "No assets registered."
 msgstr "没有注册的资源。"
 
@@ -627,7 +648,7 @@ msgstr "没有找到结果"
 msgid "No series available"
 msgstr "没有可用的系列"
 
-#: src/components/project/RightPanel.tsx:187
+#: src/components/project/RightPanel.tsx:188
 msgid "No snapshots yet."
 msgstr "没有快照。"
 
@@ -656,7 +677,7 @@ msgstr "打开文件"
 #~ msgid "Open Folder"
 #~ msgstr "打开文件夹"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:79
+#: src/components/project/ViewContextMenuRenderer.tsx:96
 msgid "Options"
 msgstr "选项"
 
@@ -696,7 +717,7 @@ msgstr "参数类型"
 msgid "Parameters"
 msgstr "参数"
 
-#: src/components/project/RightPanel.tsx:223
+#: src/components/project/RightPanel.tsx:224
 msgid "Parameters:"
 msgstr "参数："
 
@@ -704,7 +725,7 @@ msgstr "参数："
 msgid "Paste"
 msgstr "粘贴"
 
-#: src/components/project/RightPanel.tsx:90
+#: src/components/project/RightPanel.tsx:91
 msgid "Pending"
 msgstr "待处理"
 
@@ -728,7 +749,7 @@ msgstr "项目设置"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "项目 URL 更新成功"
 
-#: src/components/project/RightPanel.tsx:90
+#: src/components/project/RightPanel.tsx:91
 msgid "Ready"
 msgstr "就绪"
 
@@ -739,6 +760,10 @@ msgstr "重新连接"
 #: src/components/project/StatusBar.tsx:54
 #~ msgid "Reconnected successfully"
 #~ msgstr "重新连接成功"
+
+#: src/dialogs/ContinuousRunDialog.tsx:108
+msgid "Record this run"
+msgstr "记录此次运行"
 
 #: src/components/toolbar/MenuBar.tsx:94
 msgid "Redo"
@@ -787,12 +812,16 @@ msgstr "恢复快照"
 #~ msgid "Retry"
 #~ msgstr "重试"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:122
+msgid "Run one step"
+msgstr "单步执行"
+
 #: src/components/toolbar/MenuBar.tsx:62
 #: src/dialogs/edit-views/EditViewDialog.tsx:339
 msgid "Save"
 msgstr "保存"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:85
+#: src/components/project/ViewContextMenuRenderer.tsx:102
 msgid "Save As CSV"
 msgstr "以CSV格式保存"
 
@@ -850,7 +879,7 @@ msgstr "显示工具栏"
 msgid "Sim:"
 msgstr "模拟："
 
-#: src/components/project/RightPanel.tsx:125
+#: src/components/project/RightPanel.tsx:126
 #: src/dialogs/AgentDetailsDialog.tsx:96
 msgid "Size:"
 msgstr "大小："
@@ -859,7 +888,7 @@ msgstr "大小："
 msgid "Snapshot Details"
 msgstr "快照详情"
 
-#: src/components/project/RightPanel.tsx:147
+#: src/components/project/RightPanel.tsx:148
 msgid "Snapshots"
 msgstr "快照"
 
@@ -870,6 +899,10 @@ msgstr "服务器渲染："
 #: src/components/toolbar/ToolGroups.tsx:107
 #~ msgid "Start"
 #~ msgstr "开始"
+
+#: src/dialogs/ContinuousRunDialog.tsx:122
+msgid "Start continuous run"
+msgstr "开始连续执行"
 
 #: src/components/toolbar/ToolGroups.tsx:101
 #~ msgid "Start/Stop"
@@ -883,6 +916,14 @@ msgstr "步进"
 #~ msgid "Stop"
 #~ msgstr "停止"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:118
+msgid "Stop continuous run"
+msgstr "停止连续执行"
+
+#: src/dialogs/ContinuousRunDialog.tsx:81
+msgid "Stop expression (optional)"
+msgstr "停止表达式（可选）"
+
 #: src/components/toolbar/ToolGroups.tsx:166
 #~ msgid "Synchronize State"
 #~ msgstr "同步状态"
@@ -891,7 +932,7 @@ msgstr "步进"
 msgid "System Settings"
 msgstr "系统设置"
 
-#: src/components/project/RightPanel.tsx:167
+#: src/components/project/RightPanel.tsx:168
 msgid "Take Snapshot"
 msgstr "拍摄快照"
 
@@ -936,7 +977,7 @@ msgstr "视图可以保持此绑定，但没有可编辑的注册环境。"
 msgid "This view can keep its binding, but there is no registered parameter to edit."
 msgstr "视图可以保持此绑定，但没有可编辑的注册参数。"
 
-#: src/components/project/RightPanel.tsx:209
+#: src/components/project/RightPanel.tsx:210
 #: src/components/project/StatusBar.tsx:78
 #: src/dialogs/SnapshotDetailDialog.tsx:105
 msgid "Time Step:"
@@ -1028,6 +1069,14 @@ msgstr "查看所选智能体的详细信息"
 #: src/dialogs/AboutDialog.tsx:62
 msgid "View Docs"
 msgstr "查看文档"
+
+#: src/dialogs/ContinuousRunDialog.tsx:115
+msgid "Wall-clock limit must be a positive number of milliseconds."
+msgstr "墙钟时间上限必须是正数毫秒。"
+
+#: src/dialogs/ContinuousRunDialog.tsx:90
+msgid "Wall-clock limit, ms (optional)"
+msgstr "墙钟时间上限（毫秒，可选）"
 
 #: src/dialogs/SettingsDialog.tsx:173
 #: src/dialogs/SettingsDialog.tsx:190

@@ -87,11 +87,11 @@ msgstr "実行時変更を許可"
 msgid "Apply"
 msgstr "適用"
 
-#: src/components/project/RightPanel.tsx:154
+#: src/components/project/RightPanel.tsx:155
 msgid "Assets"
 msgstr "アセット"
 
-#: src/components/project/RightPanel.tsx:241
+#: src/components/project/RightPanel.tsx:242
 msgid "Assets sent by adapters will appear here."
 msgstr "アダプターから送信されたアセットはここに表示されます。"
 
@@ -112,6 +112,7 @@ msgstr "ボタン"
 msgid "Button Text"
 msgstr "ボタンテキスト"
 
+#: src/dialogs/ContinuousRunDialog.tsx:120
 #: src/dialogs/CreateNewProjectDialog.tsx:100
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:35
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:75
@@ -147,7 +148,7 @@ msgstr "チャートグループラベル"
 msgid "Chart Series"
 msgstr "チャート系列"
 
-#: src/components/project/RightPanel.tsx:177
+#: src/components/project/RightPanel.tsx:178
 msgid "Clear All"
 msgstr "すべてクリア"
 
@@ -156,7 +157,7 @@ msgstr "すべてクリア"
 msgid "Clear search"
 msgstr "検索をクリア"
 
-#: src/components/project/RightPanel.tsx:188
+#: src/components/project/RightPanel.tsx:189
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "「スナップショットを撮る」をクリックして作成してください。"
 
@@ -181,6 +182,10 @@ msgstr "色："
 #: src/components/project/StatusBar.tsx:95
 msgid "Comm:"
 msgstr "通信："
+
+#: src/dialogs/ContinuousRunDialog.tsx:63
+msgid "Configure a bounded continuous run for action {actionId}."
+msgstr "アクション {actionId} の上限付き連続実行を設定します。"
 
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:32
 msgid "Confirm"
@@ -210,7 +215,15 @@ msgstr "コンテイナー"
 msgid "Continuous"
 msgstr "連続"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:92
+#: src/dialogs/ContinuousRunDialog.tsx:61
+msgid "Continuous run"
+msgstr "連続実行"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:118
+msgid "Continuous run…"
+msgstr "連続実行…"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:109
 #: src/components/toolbar/MenuBar.tsx:101
 msgid "Copy"
 msgstr "コピー"
@@ -258,7 +271,7 @@ msgstr "データポイント"
 msgid "default"
 msgstr "デフォルト"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:110
+#: src/components/project/ViewContextMenuRenderer.tsx:141
 msgid "Delete"
 msgstr "削除"
 
@@ -302,7 +315,7 @@ msgstr "ドキュメント："
 msgid "Drag files here to upload"
 msgstr "ファイルをここにドラッグしてアップロード"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:102
+#: src/components/project/ViewContextMenuRenderer.tsx:133
 #: src/components/toolbar/MenuBar.tsx:83
 msgid "Edit"
 msgstr "編集"
@@ -356,7 +369,7 @@ msgstr "環境タイプ"
 #~ msgid "Environments"
 #~ msgstr "環境"
 
-#: src/components/project/RightPanel.tsx:215
+#: src/components/project/RightPanel.tsx:216
 #: src/dialogs/SnapshotDetailDialog.tsx:112
 msgid "Environments:"
 msgstr "環境："
@@ -450,7 +463,7 @@ msgstr "全画面"
 #~ msgid "Grid Width"
 #~ msgstr "グリッドの幅"
 
-#: src/components/project/RightPanel.tsx:129
+#: src/components/project/RightPanel.tsx:130
 msgid "Hash:"
 msgstr "ハッシュ："
 
@@ -482,13 +495,13 @@ msgstr "アイコン："
 msgid "ID"
 msgstr "ID"
 
-#: src/components/project/RightPanel.tsx:117
+#: src/components/project/RightPanel.tsx:118
 #: src/dialogs/AgentDetailsDialog.tsx:72
 #: src/dialogs/SnapshotDetailDialog.tsx:91
 msgid "ID:"
 msgstr "ID："
 
-#: src/components/project/RightPanel.tsx:140
+#: src/components/project/RightPanel.tsx:141
 msgid "Inspector"
 msgstr "インスペクター"
 
@@ -529,11 +542,19 @@ msgstr "最大FPS"
 msgid "Max TPS"
 msgstr "最大TPS"
 
+#: src/dialogs/ContinuousRunDialog.tsx:70
+msgid "Maximum steps"
+msgstr "最大ステップ数"
+
+#: src/dialogs/ContinuousRunDialog.tsx:112
+msgid "Maximum steps must be an integer from 1 to 1,000,000."
+msgstr "最大ステップ数は 1 から 1,000,000 の整数である必要があります。"
+
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:124
 msgid "Maximum Value"
 msgstr "最大値"
 
-#: src/components/project/RightPanel.tsx:121
+#: src/components/project/RightPanel.tsx:122
 msgid "MIME:"
 msgstr "MIME："
 
@@ -589,7 +610,7 @@ msgstr "検索に一致するエージェントが見つかりません"
 msgid "No agents in this environment"
 msgstr "この環境にエージェントがありません"
 
-#: src/components/project/RightPanel.tsx:240
+#: src/components/project/RightPanel.tsx:241
 msgid "No assets registered."
 msgstr "登録されたアセットがありません。"
 
@@ -627,7 +648,7 @@ msgstr "検索結果はありません。"
 msgid "No series available"
 msgstr "利用可能な系列がありません"
 
-#: src/components/project/RightPanel.tsx:187
+#: src/components/project/RightPanel.tsx:188
 msgid "No snapshots yet."
 msgstr "まだスナップショットがありません。"
 
@@ -656,7 +677,7 @@ msgstr "ファイルを開く"
 #~ msgid "Open Folder"
 #~ msgstr "フォルダーを開く"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:79
+#: src/components/project/ViewContextMenuRenderer.tsx:96
 msgid "Options"
 msgstr "オプション"
 
@@ -696,7 +717,7 @@ msgstr "パラメータタイプ"
 msgid "Parameters"
 msgstr "パラメータ"
 
-#: src/components/project/RightPanel.tsx:223
+#: src/components/project/RightPanel.tsx:224
 msgid "Parameters:"
 msgstr "パラメータ："
 
@@ -704,7 +725,7 @@ msgstr "パラメータ："
 msgid "Paste"
 msgstr "貼り付け"
 
-#: src/components/project/RightPanel.tsx:90
+#: src/components/project/RightPanel.tsx:91
 msgid "Pending"
 msgstr "保留中"
 
@@ -728,7 +749,7 @@ msgstr "プロジェクト設定"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "プロジェクトURLを正常に更新しました"
 
-#: src/components/project/RightPanel.tsx:90
+#: src/components/project/RightPanel.tsx:91
 msgid "Ready"
 msgstr "準備完了"
 
@@ -739,6 +760,10 @@ msgstr "再接続"
 #: src/components/project/StatusBar.tsx:54
 #~ msgid "Reconnected successfully"
 #~ msgstr "再接続に成功しました"
+
+#: src/dialogs/ContinuousRunDialog.tsx:108
+msgid "Record this run"
+msgstr "この実行を記録する"
 
 #: src/components/toolbar/MenuBar.tsx:94
 msgid "Redo"
@@ -787,12 +812,16 @@ msgstr "スナップショットを復元"
 #~ msgid "Retry"
 #~ msgstr "再試行"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:122
+msgid "Run one step"
+msgstr "1ステップ実行"
+
 #: src/components/toolbar/MenuBar.tsx:62
 #: src/dialogs/edit-views/EditViewDialog.tsx:339
 msgid "Save"
 msgstr "保存"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:85
+#: src/components/project/ViewContextMenuRenderer.tsx:102
 msgid "Save As CSV"
 msgstr "CSV形式で保存"
 
@@ -850,7 +879,7 @@ msgstr "ツールバーを表示"
 msgid "Sim:"
 msgstr "シミュレーション："
 
-#: src/components/project/RightPanel.tsx:125
+#: src/components/project/RightPanel.tsx:126
 #: src/dialogs/AgentDetailsDialog.tsx:96
 msgid "Size:"
 msgstr "サイズ："
@@ -859,7 +888,7 @@ msgstr "サイズ："
 msgid "Snapshot Details"
 msgstr "スナップショットの詳細"
 
-#: src/components/project/RightPanel.tsx:147
+#: src/components/project/RightPanel.tsx:148
 msgid "Snapshots"
 msgstr "スナップショット"
 
@@ -870,6 +899,10 @@ msgstr "サーバーレンダリング："
 #: src/components/toolbar/ToolGroups.tsx:107
 #~ msgid "Start"
 #~ msgstr "開始"
+
+#: src/dialogs/ContinuousRunDialog.tsx:122
+msgid "Start continuous run"
+msgstr "連続実行を開始"
 
 #: src/components/toolbar/ToolGroups.tsx:101
 #~ msgid "Start/Stop"
@@ -883,6 +916,14 @@ msgstr "ステップ"
 #~ msgid "Stop"
 #~ msgstr "停止"
 
+#: src/components/project/ViewContextMenuRenderer.tsx:118
+msgid "Stop continuous run"
+msgstr "連続実行を停止"
+
+#: src/dialogs/ContinuousRunDialog.tsx:81
+msgid "Stop expression (optional)"
+msgstr "停止条件式（任意）"
+
 #: src/components/toolbar/ToolGroups.tsx:166
 #~ msgid "Synchronize State"
 #~ msgstr "状態を同期"
@@ -891,7 +932,7 @@ msgstr "ステップ"
 msgid "System Settings"
 msgstr "システム設定"
 
-#: src/components/project/RightPanel.tsx:167
+#: src/components/project/RightPanel.tsx:168
 msgid "Take Snapshot"
 msgstr "スナップショットを撮る"
 
@@ -936,7 +977,7 @@ msgstr "ビューはこのバインディングを維持できますが、編集
 msgid "This view can keep its binding, but there is no registered parameter to edit."
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済みパラメータがありません。"
 
-#: src/components/project/RightPanel.tsx:209
+#: src/components/project/RightPanel.tsx:210
 #: src/components/project/StatusBar.tsx:78
 #: src/dialogs/SnapshotDetailDialog.tsx:105
 msgid "Time Step:"
@@ -1028,6 +1069,14 @@ msgstr "選択したエージェントの詳細情報を表示"
 #: src/dialogs/AboutDialog.tsx:62
 msgid "View Docs"
 msgstr "ドキュメントを見る"
+
+#: src/dialogs/ContinuousRunDialog.tsx:115
+msgid "Wall-clock limit must be a positive number of milliseconds."
+msgstr "実時間の上限は正のミリ秒数で指定してください。"
+
+#: src/dialogs/ContinuousRunDialog.tsx:90
+msgid "Wall-clock limit, ms (optional)"
+msgstr "実時間の上限（ミリ秒、任意）"
 
 #: src/dialogs/SettingsDialog.tsx:173
 #: src/dialogs/SettingsDialog.tsx:190

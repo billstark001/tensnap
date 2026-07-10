@@ -1,6 +1,7 @@
 import { SetStateAction } from 'react';
 import {
   Scenario,
+  RendererSession,
   ScenarioSnapshot,
   ScenarioEnvironmentState,
   ChartStorage,
@@ -55,6 +56,7 @@ export interface SetDataPayload {
 }
 
 export interface ScenarioStore {
+  session: RendererSession;
   scenario: Scenario;
   snapshots: ScenarioSnapshot[];
   maxSnapshots: number;

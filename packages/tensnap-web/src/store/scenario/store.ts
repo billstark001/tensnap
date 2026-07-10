@@ -7,6 +7,8 @@ import { getToastState } from '../toast';
 import {
   ChartStorage,
   GridEnvStorage,
+  MAX_INT32_RUN_STEPS,
+  RendererSession,
   Scenario,
   ScenarioEnvironmentState,
   ScenarioSnapshot,
@@ -159,7 +161,8 @@ const matchesActiveStateSync = (activeRequestId: string | null, requestId?: stri
   return requestId === undefined || requestId === activeRequestId;
 };
 
-const subscribeScenario = (
+const subscribeSession = (
+  session: RendererSession,
   scenario: Scenario,
   timeCorrection: TimeCorrectionState,
   applyBatch: (flags: {
@@ -202,63 +205,67 @@ const subscribeScenario = (
     }
   };
 
-  const rerender = () => schedule({ changed: true });
-  const rerenderMetadata: EventListener = (event) => {
-    syncTimeCorrectionFromMetadata(
-      timeCorrection,
-      (event as CustomEvent<MetadataUpdatePayload>).detail,
-    );
-    schedule({ changed: true });
-  };
-  const rerenderActionEnd: EventListener = (event) => {
-    syncTimeCorrectionFromAction(
-      scenario,
-      timeCorrection,
-      (event as CustomEvent<ActionEndPayload>).detail,
-    );
-    schedule({ changed: true });
-  };
-  const rerenderEnv = () => schedule({ changed: true, environmentChanged: true });
-  const rerenderParam = () => schedule({ changed: true, parameterChanged: true });
-  const rerenderAsset = () => schedule({ changed: true, assetChanged: true });
-  const rerenderReset: EventListener = () => {
-    resetTimeCorrection(timeCorrection);
-    schedule({ changed: true, environmentChanged: true, parameterChanged: true });
-  };
+  const onCommit: EventListener = (event) => {
+    const detail = (event as CustomEvent<{ messages: SimulatorToRendererMessage[] }>).detail;
+    const flags = {
+      changed: false,
+      environmentChanged: false,
+      parameterChanged: false,
+      assetChanged: false,
+    };
 
-  const handlers: Array<[string, EventListener]> = [
-    ['metadata:update', rerenderMetadata],
-    ['action:end', rerenderActionEnd],
-    ['action:create', rerender],
-    ['action:update', rerender],
-    ['action:delete', rerender],
-    ['env:create', rerenderEnv],
-    ['env:delete', rerenderEnv],
-    ['layer:create', rerenderEnv],
-    ['layer:update', rerenderEnv],
-    ['layer:delete', rerenderEnv],
-    ['param:create', rerenderParam],
-    ['param:update', rerenderParam],
-    ['param:delete', rerenderParam],
-    ['param:sync', rerenderParam],
-    ['chart:create', rerender],
-    ['chart:update', rerender],
-    ['chart:delete', rerender],
-    ['asset:meta', rerenderAsset as EventListener],
-    ['asset:data', rerenderAsset as EventListener],
-    ['asset:delete', rerenderAsset as EventListener],
-    ['log', rerender],
-    ['reset', rerenderReset],
-  ];
+    for (const message of detail.messages) {
+      switch (message.type) {
+        case 'metadata_update':
+          syncTimeCorrectionFromMetadata(timeCorrection, message.payload as MetadataUpdatePayload);
+          flags.changed = true;
+          break;
+        case 'action_end':
+          syncTimeCorrectionFromAction(scenario, timeCorrection, message.payload as ActionEndPayload);
+          flags.changed = true;
+          break;
+        case 'env_create':
+        case 'env_delete':
+        case 'env_layer_create':
+        case 'env_layer_update':
+        case 'env_layer_delete':
+        case 'item_create':
+        case 'item_update':
+        case 'item_delete':
+          flags.changed = true;
+          flags.environmentChanged = true;
+          break;
+        case 'param_create':
+        case 'param_update':
+        case 'param_delete':
+        case 'param_sync':
+          flags.changed = true;
+          flags.parameterChanged = true;
+          break;
+        case 'asset_meta':
+        case 'asset_data':
+        case 'asset_delete':
+          flags.changed = true;
+          flags.assetChanged = true;
+          break;
+        case 'state_sync_begin':
+        case 'state_sync_end':
+        case 'screenshot_request':
+          break;
+        default:
+          flags.changed = true;
+      }
+    }
+    schedule(flags);
+  };
+  const onRunStatus: EventListener = () => schedule({ changed: true });
 
-  handlers.forEach(([type, handler]) => scenario.addEventListener(type, handler));
-  const unsubscribeAssets = scenario.assets.subscribe(() => {
-    schedule({ assetChanged: true });
-  });
+  session.addEventListener('commit', onCommit);
+  session.addEventListener('run:status', onRunStatus);
 
   return () => {
-    handlers.forEach(([type, handler]) => scenario.removeEventListener(type, handler));
-    unsubscribeAssets();
+    session.removeEventListener('commit', onCommit);
+    session.removeEventListener('run:status', onRunStatus);
   };
 };
 
@@ -276,7 +283,26 @@ const annotateSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): Sc
 };
 
 export const createScenarioStore = () => {
-  const scenario = new Scenario();
+  const session = new RendererSession({
+    run: {
+      // Primary clicks on continuous buttons retain the legacy run-until-stop
+      // behavior through an int32-sized RunSpec. The context-menu dialog
+      // remains bounded by its explicit profile validation.
+      maxStepsPolicy: MAX_INT32_RUN_STEPS,
+      // React and canvas hosts commit on the next frame. This is the browser
+      // render barrier injected into the shared, host-neutral RunController.
+      renderBarrier: {
+        wait: () => new Promise<void>((resolve) => {
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => resolve());
+          } else {
+            queueMicrotask(resolve);
+          }
+        }),
+      },
+    },
+  });
+  const scenario = session.scenario;
   const screenshotCaptures = new Map<string, ScreenshotCaptureHandler>();
   const timeCorrection: TimeCorrectionState = { minimumRuntimeTime: 0 };
 
@@ -300,6 +326,7 @@ export const createScenarioStore = () => {
     };
 
     return {
+      session,
       scenario,
       snapshots: [],
       maxSnapshots: 32,
@@ -388,7 +415,7 @@ export const createScenarioStore = () => {
 
       applyMessage: (message: SimulatorToRendererMessage) => {
         try {
-          scenario.apply(message);
+          session.handleIncoming(message);
         } catch (error) {
           const toast = getToastState();
           toast.error('Scenario apply failed', error instanceof Error ? error.message : String(error));
@@ -706,7 +733,8 @@ export const createScenarioStore = () => {
     };
   });
 
-  const unsubscribeScenario = subscribeScenario(
+  const unsubscribeScenario = subscribeSession(
+    session,
     scenario,
     timeCorrection,
     ({ changed, environmentChanged, parameterChanged, assetChanged }) => {

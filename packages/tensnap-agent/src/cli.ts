@@ -166,6 +166,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     host: getStringFlag(parsed, 'host'),
     controlPort: getStringFlag(parsed, 'port') ? Number(getStringFlag(parsed, 'port')) : undefined,
     encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
+    maxRunStepsPolicy: getNumberFlag(parsed, 'max-steps-policy'),
     render: {
       trigger: (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
       backgroundColor: getColorFlag(parsed, 'background-color'),
@@ -259,6 +260,11 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
   const backgroundColor = getColorFlag(parsed, 'background-color');
   if (backgroundColor) {
     childArgs.push('--background-color', backgroundColor);
+  }
+
+  const maxStepsPolicy = getStringFlag(parsed, 'max-steps-policy');
+  if (maxStepsPolicy) {
+    childArgs.push('--max-steps-policy', maxStepsPolicy);
   }
 
   const child = spawn(process.execPath, childArgs, {
@@ -446,19 +452,6 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  if (group === 'scene' && ['start', 'step', 'reset'].includes(command ?? '')) {
-    const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, `/v1/scene/actions/${command}`, {
-        method: 'POST',
-        body: JSON.stringify({ continuous: parsed.flags.continuous === true }),
-      }),
-      null,
-      2,
-    ));
-    return;
-  }
-
   if (group === 'scene' && command === 'render') {
     const { baseUrl } = await requireRuntime(parsed);
     const viewport = parseViewportFlag(getStringFlag(parsed, 'viewport'));
@@ -515,17 +508,53 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (group === 'action' && command === 'run') {
     const [actionId] = rest;
     if (!actionId) {
-      throw new Error('Usage: tensnap-agent action run <action-id> [--continuous]');
+      throw new Error('Usage: tensnap-agent action run <action-id>');
     }
     const { baseUrl } = await requireRuntime(parsed);
     console.log(JSON.stringify(
       await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
         method: 'POST',
-        body: JSON.stringify({ continuous: parsed.flags.continuous === true }),
+        body: JSON.stringify({}),
       }),
       null,
       2,
     ));
+    return;
+  }
+
+  if (group === 'run' && command === 'start') {
+    const [actionId] = rest;
+    const maxSteps = getNumberFlag(parsed, 'max-steps');
+    if (!actionId || maxSteps === undefined) {
+      throw new Error('Usage: tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>]');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/runs', {
+        method: 'POST',
+        body: JSON.stringify({
+          actionId,
+          maxSteps,
+          stopWhen: getStringFlag(parsed, 'stop-when'),
+          maxWallTimeMs: getNumberFlag(parsed, 'max-wall-time-ms'),
+          record: parsed.flags.record === true,
+        }),
+      }),
+      null,
+      2,
+    ));
+    return;
+  }
+
+  if (group === 'run' && command === 'status') {
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runs'), null, 2));
+    return;
+  }
+
+  if (group === 'run' && command === 'stop') {
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }), null, 2));
     return;
   }
 
@@ -551,118 +580,6 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  if (group === 'wait' && command === 'action-end') {
-    const [actionId] = rest;
-    const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/wait/action-end', {
-        method: 'POST',
-        body: JSON.stringify({
-          id: actionId,
-          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
-        }),
-      }),
-      null,
-      2,
-    ));
-    return;
-  }
-
-  if (group === 'wait' && command === 'time') {
-    const [rawTime] = rest;
-    if (rawTime === undefined) {
-      throw new Error('Usage: tensnap-agent wait time <time> [--comparison <op>] [--timeout-ms <ms>]');
-    }
-    const time = Number(rawTime);
-    if (Number.isNaN(time)) {
-      throw new Error('Time must be a valid number.');
-    }
-    const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/wait/time', {
-        method: 'POST',
-        body: JSON.stringify({
-          time,
-          comparison: getStringFlag(parsed, 'comparison'),
-          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
-        }),
-      }),
-      null,
-      2,
-    ));
-    return;
-  }
-
-  if (group === 'wait' && command === 'chart') {
-    const [chartId, rawValue] = rest;
-    if (!chartId || rawValue === undefined) {
-      throw new Error('Usage: tensnap-agent wait chart <chart-id> <value> [--comparison <op>] [--at-time <time>] [--timeout-ms <ms>]');
-    }
-    const value = Number(rawValue);
-    if (Number.isNaN(value)) {
-      throw new Error('Chart wait value must be a valid number.');
-    }
-    const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/wait/chart', {
-        method: 'POST',
-        body: JSON.stringify({
-          id: chartId,
-          value,
-          comparison: getStringFlag(parsed, 'comparison'),
-          atTime: getNumberFlag(parsed, 'at-time'),
-          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
-        }),
-      }),
-      null,
-      2,
-    ));
-    return;
-  }
-
-  if (group === 'wait' && command === 'metadata') {
-    const [path, rawValue] = rest;
-    if (!path) {
-      throw new Error('Usage: tensnap-agent wait metadata <path> [json-value] [--comparison <op>] [--timeout-ms <ms>]');
-    }
-    const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/wait/metadata', {
-        method: 'POST',
-        body: JSON.stringify({
-          path,
-          value: rawValue === undefined ? undefined : parseJsonValue(rawValue),
-          comparison: getStringFlag(parsed, 'comparison'),
-          timeoutMs: getNumberFlag(parsed, 'timeout-ms'),
-        }),
-      }),
-      null,
-      2,
-    ));
-    return;
-  }
-
-  if (group === 'experiment' && command === 'run') {
-    const rawSpec = rest.join(' ').trim();
-    if (!rawSpec) {
-      throw new Error('Usage: tensnap-agent experiment run <json-spec>');
-    }
-    const spec = parseJsonValue(rawSpec);
-    if (typeof spec !== 'object' || spec === null || Array.isArray(spec)) {
-      throw new Error('Experiment spec must be a JSON object.');
-    }
-    const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/experiment/run', {
-        method: 'POST',
-        body: JSON.stringify(spec),
-      }),
-      null,
-      2,
-    ));
-    return;
-  }
-
   if (group === 'stream' && command === 'events') {
     await streamEvents(parsed);
     return;
@@ -670,25 +587,22 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   console.log([
     'Usage:',
-    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--background-color <css-color>]',
+    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--background-color <css-color>] [--max-steps-policy <n>]',
     '  tensnap-agent runtime status',
     '  tensnap-agent runtime render-trigger manual|action-end',
     '  tensnap-agent scene inspect',
     '  tensnap-agent scene snapshot',
-    '  tensnap-agent scene start|step|reset',
     '  tensnap-agent scene render [reason] [--env <env-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
     '  tensnap-agent param list',
     '  tensnap-agent param set <parameter-id> <json-value>',
     '  tensnap-agent action list',
-    '  tensnap-agent action run <action-id> [--continuous]',
+    '  tensnap-agent action run <action-id>',
+    '  tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>] [--record]',
+    '  tensnap-agent run status',
+    '  tensnap-agent run stop',
     '  tensnap-agent chart list',
     '  tensnap-agent chart get <chart-id>',
     '  tensnap-agent asset list',
-    '  tensnap-agent wait action-end [action-id] [--timeout-ms <ms>]',
-    '  tensnap-agent wait time <time> [--comparison <op>] [--timeout-ms <ms>]',
-    '  tensnap-agent wait chart <chart-id> <value> [--comparison <op>] [--at-time <time>] [--timeout-ms <ms>]',
-    '  tensnap-agent wait metadata <path> [json-value] [--comparison <op>] [--timeout-ms <ms>]',
-    '  tensnap-agent experiment run <json-spec>',
     '  tensnap-agent stream events',
   ].join('\n'));
 }
