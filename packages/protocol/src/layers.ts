@@ -137,11 +137,22 @@ export type EdgeItemKey = z.infer<typeof EdgeItemKeySchema>;
 /**
  * Trajectory layer metadata sets defaults for per-agent trajectory traces.
  * Trajectory layers depend on an agent layer through dependency key `agent`.
+ *
+ * Lifecycle defaults are `on_agent_delete: 'delete'`,
+ * `on_state_sync: 'preserve'`, and `on_reset: 'clear'`. A retained deletion
+ * closes the old trace segment so a later reuse of the same agent id starts a
+ * separate line instead of connecting two lifetimes.
  */
 export const TrajectoryLayerMetadataSchema = BaseLayerMetadataSchema.extend({
   length: z.number().optional(),
   width: z.number().optional(),
   color: z.string().optional(),
+  /** What to do with a trace when its source agent is deleted. */
+  on_agent_delete: z.enum(['delete', 'retain']).optional(),
+  /** What to do with accumulated traces during a state-sync replay. */
+  on_state_sync: z.enum(['preserve', 'clear']).optional(),
+  /** What to do with accumulated traces when the renderer resets its scene. */
+  on_reset: z.enum(['clear', 'preserve']).optional(),
 }).loose();
 
 export type TrajectoryLayerMetadata = z.infer<typeof TrajectoryLayerMetadataSchema>;

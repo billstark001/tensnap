@@ -195,7 +195,7 @@ function findFirstZodObjectLiteral(node) {
   if (!node) {
     return undefined;
   }
-  if (ts.isCallExpression(node) && isZodObjectCall(node)) {
+  if (ts.isCallExpression(node) && (isZodObjectCall(node) || isZodExtendCall(node))) {
     const [argument] = node.arguments;
     if (argument && ts.isObjectLiteralExpression(argument)) {
       return argument;
@@ -219,6 +219,10 @@ function isZodObjectCall(node) {
     && expression.name.text === 'object'
     && expression.expression.getText() === 'z'
   );
+}
+
+function isZodExtendCall(node) {
+  return ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'extend';
 }
 
 function hasExportModifier(node) {
