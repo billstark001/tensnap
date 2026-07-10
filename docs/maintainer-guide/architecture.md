@@ -39,13 +39,16 @@ Shared runtime and rendering package.
 Owns:
 
 - `Scenario` state model and snapshot logic
+- `RendererSession`: transport binding, protocol application, state-sync commit
+  transaction, asset sync, screenshot replies, and outbound controls
+- `RunController`: renderer-driven bounded action runs and safe stop conditions
 - layer registry, dependency graph, and render-plan helpers
 - shared environment storages and built-in render layers
 - shared runtime pipeline helpers
 - project-level `AssetStore`
 
-The protocol package owns wire payloads; core owns renderer-side state and
-rendering semantics built on top of those payloads.
+The protocol package owns wire payloads; core owns renderer-side state, session
+lifecycle, execution, and rendering semantics built on top of those payloads.
 
 ## Rendering Contract Ownership
 
@@ -62,8 +65,8 @@ The core-owned rendering contract includes:
 
 All other packages must treat this contract as read-only infrastructure.
 
-- `packages/tensnap-web` may own browser lifecycle, React bindings, and browser-only integrations, but must not redefine layer semantics or loop semantics.
-- `packages/tensnap-agent` may own headless runtime lifecycle and backend registration, but must not keep a package-local scene model or package-local rendering rules.
+- `packages/tensnap-web` may own browser lifecycle, React bindings, browser render barriers, and browser-only integrations, but must not redefine layer, session, or loop semantics.
+- `packages/tensnap-agent` may own headless runtime lifecycle, backend registration, and Node scheduling, but must not keep a package-local scene model, session, or rendering rules.
 - `packages/tensnap-js` may own simulator-side TypeScript sessions, emitters, and transports, but must not redefine renderer-owned layer semantics.
 - `packages/benchmark` may own benchmark orchestration and reporting, but must not define an alternative rendering contract and must clearly separate synthetic renderer tests from web-equivalent scenario benchmarks.
 - `examples/js` may own model content and example packaging, but must not introduce package-local rendering adapter abstractions when the same semantics already exist in `packages/core` or `@tensnap/js`.
@@ -89,7 +92,8 @@ Desktop wrapper around the web renderer.
 Owns:
 
 - Tauri shell and native menu integration
-- desktop file picker / filesystem integration
+- app-data settings persistence and scoped desktop file picker/filesystem integration
+- the single minimal desktop capability and Content Security Policy
 - renderer build that mirrors the web package's Lingui/SWC pipeline
 
 ### `packages/tensnap-agent`
@@ -98,10 +102,10 @@ Headless runtime and session tooling.
 
 Owns:
 
-- agent/session runtime
+- headless host around core `RendererSession`
 - node-side websocket transport
 - offscreen environment painting
-- control server endpoints for automation and capture workflows
+- HTTP/CLI control endpoints for automation, bounded runs, and capture workflows
 
 ### `packages/tensnap-python`
 
@@ -233,21 +237,33 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 
 ### Initial sync / reconnect
 
-1. Renderer sends `state_sync` with its current summary.
+1. `RendererSession` sends `state_sync` with the current summary.
 2. Simulator replies with `state_sync_begin`.
-3. Simulator replays `*_create`, `*_update`, and `*_delete` messages.
-4. Simulator sends `state_sync_end`.
-5. Renderer continues from the resulting `Scenario` state.
+3. The session applies replayed `*_create`, `*_update`, and `*_delete`
+   messages immediately, but buffers the UI commit.
+4. On `state_sync_end`, the session publishes one `state-sync` commit and the
+   UI renders the reconstructed `Scenario`.
+5. The renderer continues from that state.
 
 ### Continuous execution
 
-1. Renderer starts an action with `action_start`.
+1. `RunController` dispatches an action with `action_start`.
 2. Simulator executes one step.
 3. Simulator emits state mutations.
 4. Simulator ends the tick with `action_end`.
-5. Renderer decides whether to start the next tick.
+5. `RunController` evaluates its optional stop expression, checks the finite
+   step/deadline policy, waits for the host render barrier, then decides whether
+   to start the next tick.
 
 This keeps loop ownership in the renderer and avoids server-owned hidden timers in the protocol contract.
+
+Every continuous run has a positive `maxSteps`; the default policy limit is
+1,000,000. A `stopWhen` expression is parsed once and runs only before the
+first dispatch and after an `action_end`. It has a read-only incremental scope:
+`steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`.
+It cannot invoke arbitrary host functions or rely on a full scenario dump.
+The agent CLI can explicitly raise its policy while starting a runtime with
+`--max-steps-policy <n>`; the configured limit is included in runtime status.
 
 `action_end` is the action transaction boundary.  A simulator must not send it until all state messages caused by the action have been written to the transport in order.  This applies to reserved actions as well: `step` and one `start` dispatch both advance exactly one tick, while `reset` publishes the rebuilt time-0 state before completing.
 
@@ -291,18 +307,44 @@ The web app composes:
 
 Live environment rendering is layer/storage driven. Current render paths read `ScenarioEnvironmentState.layers` directly rather than reconstructing environment views from full agent dumps on every tick.
 
+The primary click of a continuous button preserves the legacy run-until-stopped
+behavior, represented by a `0x7fffffff` step `RunSpec` so it still has the
+shared controller's timeout and explicit stop path. The button's existing
+context menu keeps the normal edit/delete entries and adds a separate continuous
+run configuration item. That dialog records a bounded profile (`maxSteps`,
+optional stop expression/deadline, and recording flag) per action; while active,
+the same menu exposes stop and single-step actions. Changing a button away from
+continuous mode stops and hides its matching run. Button-visible run state is
+deliberately compact (step count plus a stop glyph); the full reason and
+condition value are available from its hover title so narrow action buttons do
+not wrap.
+
 ### Tauri renderer
 
-The Tauri app reuses the web renderer and adds desktop-specific integration. The renderer build must stay aligned with the web package's Lingui/SWC transform setup.
+The Tauri app reuses the web renderer and adds desktop-specific integration.
+It injects `SettingsPersistence` backed by `plugin-store`; the browser host uses
+the guarded localStorage implementation. Files are selected with the official
+dialog plugin and accessed through the scoped fs plugin. The official
+`persisted-scope` Rust plugin restores dialog-granted file scopes across desktop
+restarts. The single `main` capability deliberately avoids wildcard filesystem
+scope and global Tauri APIs; the CSP explicitly permits the application origin,
+assets, and WebSocket connections used by simulator transports. The renderer
+build must stay aligned with the web package's Lingui/SWC transform setup.
 
 ### Headless agent runtime
 
-`packages/tensnap-agent` uses the same shared core model for:
+`packages/tensnap-agent` hosts the same `RendererSession` and `RunController`
+used by the browser for:
 
 - offscreen rendering
 - automation
 - capture workflows
 - agent/session orchestration
+
+Its control API exposes a shared bounded-run resource: `POST /v1/runs`,
+`GET /v1/runs`, and `DELETE /v1/runs`. The CLI maps these to `run start`,
+`run status`, and `run stop`; it has no compatibility aliases for the retired
+wait/experiment or reserved scene-action interfaces.
 
 ## Asset and Screenshot Flow
 

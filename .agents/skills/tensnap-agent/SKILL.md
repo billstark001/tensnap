@@ -5,11 +5,11 @@ Use this skill when you need an automation agent to drive a TenSnap simulator th
 ## When To Use
 
 - You need to connect to a running simulator and inspect the current scene state.
-- You need to trigger reserved simulator actions such as `start`, `step`, or `reset`.
+- You need to trigger one simulator action by id.
 - You need to change parameters from an agent workflow.
-- You need to wait on action completion, time, chart values, or scene metadata before continuing.
+- You need a bounded continuous run with a condition based on time, charts,
+  metadata, parameters, or agent counts.
 - You need an environment render, optionally for a specific viewport.
-- You need to run a structured experiment spec that combines parameter changes, actions, waits, and optional renders.
 - You need a long-lived local runtime instead of a one-shot WebSocket client.
 
 ## Runtime Model
@@ -17,7 +17,8 @@ Use this skill when you need an automation agent to drive a TenSnap simulator th
 - Start the daemon once per working context.
 - Runtime state is persisted under `.tensnap/contexts/<context>/` by default.
 - The daemon exposes local HTTP control endpoints and an SSE event stream.
-- Reserved scene actions map directly to simulator action ids: `start`, `step`, `reset`.
+- The runtime is a Node host for core `RendererSession` and `RunController`.
+  It has no package-local protocol/session lifecycle or action aliases.
 - Protocol message shapes, screenshot payloads, asset payloads, and built-in layer
   item contracts come from `packages/protocol`. Generate the current reference
   with `pnpm --dir packages/protocol export:protocol` when debugging transport
@@ -43,14 +44,6 @@ Inspect the synchronized scene:
 pnpm --filter @tensnap/agent dev -- scene inspect --context demo
 ```
 
-Run reserved scene actions:
-
-```bash
-pnpm --filter @tensnap/agent dev -- scene step --context demo
-pnpm --filter @tensnap/agent dev -- scene reset --context demo
-pnpm --filter @tensnap/agent dev -- scene start --context demo --continuous
-```
-
 List or update parameters:
 
 ```bash
@@ -64,6 +57,33 @@ List or run actions directly by id:
 pnpm --filter @tensnap/agent dev -- action list --context demo
 pnpm --filter @tensnap/agent dev -- action run reseed --context demo
 ```
+
+## Bounded Runs
+
+For a continuous action, use `run start`; `action run` is deliberately a single
+dispatch. `--max-steps` is required even when a condition is present, and the
+default policy rejects values greater than 1,000,000.
+
+Start the runtime with a higher explicit policy only when the automation
+workflow requires it:
+
+```bash
+pnpm --filter @tensnap/agent dev -- runtime up --context demo --simulator-url ws://127.0.0.1:8765 --max-steps-policy 2000000
+```
+
+```bash
+pnpm --filter @tensnap/agent dev -- run start start --max-steps 1000 --context demo
+pnpm --filter @tensnap/agent dev -- run start start --max-steps 10000 --stop-when 'time >= 100 || charts.infected <= 0' --context demo
+pnpm --filter @tensnap/agent dev -- run start start --max-steps 1000 --max-wall-time-ms 60000 --record --context demo
+pnpm --filter @tensnap/agent dev -- run status --context demo
+pnpm --filter @tensnap/agent dev -- run stop --context demo
+```
+
+The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and
+`DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first
+dispatch and after every `action_end`. It can read `steps`, `time`, metadata,
+`parameters`, `charts`, `agent(envId, layerId, id)`, and
+`agentCount(envId, layerId)`; it cannot call arbitrary host functions.
 
 ## Rendering
 
@@ -126,43 +146,17 @@ Useful event families:
 - `action.start.requested`, `action.end`
 - `render.requested`, `render.failed`, `render.trigger.updated`
 
-## Waits And Experiments
-
-Wait for the current or named action to complete:
-
-```bash
-pnpm --filter @tensnap/agent dev -- wait action-end --context demo
-pnpm --filter @tensnap/agent dev -- wait action-end start --context demo --timeout-ms 60000
-```
-
-Wait for simulation time or a chart threshold:
-
-```bash
-pnpm --filter @tensnap/agent dev -- wait time 100 --context demo --comparison gte
-pnpm --filter @tensnap/agent dev -- wait chart infected 25 --context demo --comparison lte
-```
-
-Wait for scene metadata to reach a value:
-
-```bash
-pnpm --filter @tensnap/agent dev -- wait metadata metadata.time 100 --context demo --comparison gte
-```
-
-Run an experiment spec in one request:
-
-```bash
-pnpm --filter @tensnap/agent dev -- experiment run '{"label":"baseline","parameters":{"infection_rate":0.35},"action":{"id":"start","continuous":true},"waits":[{"kind":"time","time":100,"comparison":"gte"}],"render":{"reason":"baseline","envId":"main"}}' --context demo
-```
-
 ## Operational Guidance
 
 - Prefer `scene inspect` before mutating parameters or actions, so the agent has the current ids.
 - If a protocol payload looks wrong, inspect `packages/protocol/src/schemas.ts`
   and `packages/protocol/src/layers.ts`, then regenerate the Markdown protocol
   reference before changing agent runtime code.
-- Prefer reserved scene actions when they exist, because they carry simulator semantics directly.
-- Prefer `wait ...` commands over ad-hoc polling when the workflow depends on a time step, chart threshold, or action boundary.
-- Prefer `experiment run` when a workflow would otherwise need several sequential CLI calls and intermediate bookkeeping.
+- Prefer `action run` for one action and `run start` for every continuous workflow.
+- Use `run status` or the SSE stream to observe a run; do not build a client-side
+  wait loop for conditions the shared controller can evaluate.
+- The retired `scene start|step|reset`, `wait`, and `experiment` commands have
+  no aliases. Use the action id or a bounded run instead.
 - Use `manual` render trigger when you need to separate simulation stepping from image capture.
 - Use `action-end` render trigger when a downstream workflow expects every action to produce a new image.
 - If multiple environments exist and no `--env` is provided, the painter may emit one artifact per environment.

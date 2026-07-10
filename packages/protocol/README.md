@@ -142,9 +142,9 @@ See [src/codec.ts](./src/codec.ts) and [src/binary.ts](./src/binary.ts).
 
 `@tensnap/protocol` is a dependency of higher-level packages:
 
-- `@tensnap/core` owns renderer-side Scenario, rendering primitives, and stores.
+- `@tensnap/core` owns renderer-side Scenario/session/runtime behavior, rendering primitives, and stores.
 - `@tensnap/js` owns JavaScript simulator-side helpers and transports.
-- `@tensnap/agent` owns node-side automation/session runtime code.
+- `@tensnap/agent` hosts core's renderer session for node-side automation and bounded runs.
 - application packages own concrete UI and deployment behavior.
 
 Those packages should import payload types and codecs directly from

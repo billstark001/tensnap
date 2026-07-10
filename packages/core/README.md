@@ -1,6 +1,7 @@
-# tensnap-web-core
+# @tensnap/core
 
-Framework-agnostic core rendering package for TenSnap. Depends on `@leafer-ui/core` and `d3`.
+Framework-agnostic renderer state, runtime, and rendering package for TenSnap.
+It depends on `@leafer-ui/core`, `d3`, and the protocol package.
 
 Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`, and node-side renderers import `@leafer-ui/node`.
 
@@ -8,10 +9,25 @@ Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`
 
 | Import path | Contents |
 | --- | --- |
-| `tensnap-web-core/chart` | `LineChartView`, `ChartStorage`, chart types |
-| `tensnap-web-core/environment` | `EnvironmentView`, storage classes, layer classes, environment types |
-| `tensnap-web-core/parameter` | Parameter range utilities and types |
-| `tensnap-web-core/utils` | Format detection, msgpack, NumPy (`.npy`) parser/renderer |
+| `@tensnap/core/chart` | `LineChartView`, `ChartStorage`, chart types |
+| `@tensnap/core/environment` | `EnvironmentView`, storage classes, layer classes, environment types |
+| `@tensnap/core/parameter` | Parameter range utilities and types |
+| `@tensnap/core/runtime` | `RendererSession`, `RunController`, pipeline helpers, bounded condition scope |
+| `@tensnap/core/utils` | Format detection, msgpack, NumPy (`.npy`) parser/renderer |
+
+## Shared runtime
+
+`RendererSession` is the only renderer-side transport/session implementation
+used by the browser and headless agent hosts. It applies protocol messages to a
+`Scenario`, preserves state-sync as one UI commit at `state_sync_end`, requests
+missing assets, handles screenshot responses, and owns a `RunController`.
+
+`RunController` drives one renderer-dispatched action at a time. Every run
+requires a finite `maxSteps` (default policy limit: 1,000,000); an optional
+`stopWhen` expression is evaluated before the first action and after each
+`action_end`. The scope is read-only and incremental (`steps`, `time`,
+metadata, parameters, charts, `agent()`, and `agentCount()`), so it never needs
+to call `Scenario.dump()` in the tick path.
 
 ## Usage
 
