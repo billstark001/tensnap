@@ -82,4 +82,10 @@ describe('StatusBar', () => {
     expect(reconnectButton).toBeDisabled();
     expect(reconnectButton).toHaveStyle({ opacity: '0.5', cursor: 'not-allowed' });
   });
+
+  it('labels simulator step time as model time', () => {
+    render(<StatusBar />);
+
+    expect(screen.getByText('Model:')).toBeInTheDocument();
+  });
 });

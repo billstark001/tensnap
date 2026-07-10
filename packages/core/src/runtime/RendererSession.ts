@@ -194,8 +194,11 @@ export class RendererSession extends LazyEventTarget {
     if (!this.transport) {
       throw new Error('Renderer session is not attached to a transport.');
     }
-    this.transport.send(message);
+    // Publish before entering the transport. In-memory transports may deliver
+    // a synchronous action_end from send(), and observers need the tick id
+    // before that completion can be applied.
     this.dispatch('outbound', { message, origin: 'optimistic-control' } satisfies RendererSessionOutboundDetail);
+    this.transport.send(message);
   }
 
   private matchesSyncRequest(payload: StateSyncBoundaryPayload): boolean {

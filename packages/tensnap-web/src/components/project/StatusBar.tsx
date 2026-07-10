@@ -87,7 +87,7 @@ export function StatusBar({
         <span className={styles.metricValue}>{runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}</span>
       </span>
       <span className={styles.statusMeta}>
-        <span><Trans>Sim:</Trans></span>
+        <span><Trans>Model:</Trans></span>
         <span className={styles.metricValue}>{simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}</span>
       </span>
       {simulatorCommMs != null && (

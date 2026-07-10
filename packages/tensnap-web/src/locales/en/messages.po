@@ -562,6 +562,10 @@ msgstr "MIME:"
 msgid "Minimum Value"
 msgstr "Minimum Value"
 
+#: src/components/project/StatusBar.tsx:90
+msgid "Model:"
+msgstr "Model:"
+
 #: ../tensnap-web-utils/src/file-system/ActionButtons.tsx:55
 #~ msgid "More Actions"
 #~ msgstr "More Actions"
@@ -876,8 +880,8 @@ msgid "Show Toolbar"
 msgstr "Show Toolbar"
 
 #: src/components/project/StatusBar.tsx:90
-msgid "Sim:"
-msgstr "Sim:"
+#~ msgid "Sim:"
+#~ msgstr "Sim:"
 
 #: src/components/project/RightPanel.tsx:126
 #: src/dialogs/AgentDetailsDialog.tsx:96

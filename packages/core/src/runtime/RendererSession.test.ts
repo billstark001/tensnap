@@ -63,4 +63,20 @@ describe('RendererSession', () => {
 
     expect(sent).toEqual([{ type: 'asset_sync', payload: { assets: {} } }]);
   });
+
+  it('publishes outbound actions before a synchronous transport can respond', () => {
+    const session = new RendererSession();
+    let outboundPublished = false;
+    session.addEventListener('outbound', () => {
+      outboundPublished = true;
+    });
+    session.attachTransport({
+      ...createTransport([]),
+      send: () => {
+        expect(outboundPublished).toBe(true);
+      },
+    });
+
+    session.run.requestAction('step');
+  });
 });
