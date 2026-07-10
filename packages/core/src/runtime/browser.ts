@@ -12,6 +12,14 @@ export {
   SimulationLoopController,
   createIdleLoopState,
 } from './simulation-loop';
+export {
+  BrowserRunRenderBarrier,
+} from './BrowserRunRenderBarrier';
+
+export type {
+  BrowserRunRenderOptions,
+  BrowserRunTimingHost,
+} from './BrowserRunRenderBarrier';
 
 export type {
   RenderTriggerMode,

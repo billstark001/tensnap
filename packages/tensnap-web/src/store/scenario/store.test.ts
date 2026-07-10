@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './store';
 import { createDefaultRootLayout } from '@/utils/view/create-view';
+import { useSettingsStore } from '@/store/settings';
 
 describe('scenario store updates preserve assets', () => {
   beforeEach(() => {
+    vi.useRealTimers();
+    useSettingsStore.setState({ maxRenderFps: 0 });
     vi.stubGlobal('URL', {
       ...URL,
       createObjectURL: vi.fn(() => 'blob:test-asset'),
@@ -97,5 +100,25 @@ describe('scenario store updates preserve assets', () => {
     state.applyMessage({ type: 'metadata_update', payload: { time: 0 } });
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(0);
+  });
+
+  it('limits session-driven UI commits without limiting simulator ticks', async () => {
+    vi.useFakeTimers();
+    useSettingsStore.setState({ maxRenderFps: 10 });
+    const useStore = createScenarioStore();
+    const session = useStore.getState().session;
+    const initialRevision = useStore.getState()._revision;
+
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+    await Promise.resolve();
+    expect(useStore.getState()._revision).toBe(initialRevision + 1);
+
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
+    await Promise.resolve();
+    expect(useStore.getState()._revision).toBe(initialRevision + 1);
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(useStore.getState()._revision).toBe(initialRevision + 2);
+    expect(useStore.getState().currentTime).toBe(2);
   });
 });

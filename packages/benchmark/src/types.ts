@@ -7,7 +7,7 @@ export interface FrameTiming {
 export type BenchmarkSchedulerMode = 'auto' | 'raf' | 'timeout';
 export type BenchmarkSchedulerSelection = BenchmarkSchedulerMode | 'all';
 export type BenchmarkRuntimeMode = 'development' | 'production';
-export type BenchmarkRunnerMode = 'simple' | 'simulation-loop';
+export type BenchmarkRunnerMode = 'simple' | 'renderer-session';
 export type BenchmarkRunnerSelection = BenchmarkRunnerMode | 'all';
 
 export interface BenchmarkRunOptions {

@@ -46,7 +46,11 @@ const DEFAULTS: PersistedConfig = {
 function loadConfig(): PersistedConfig {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (parsed.runnerMode === 'simulation-loop') parsed.runnerMode = 'renderer-session';
+      return { ...DEFAULTS, ...parsed } as PersistedConfig;
+    }
   } catch { }
   return { ...DEFAULTS };
 }
@@ -116,7 +120,7 @@ function resetConfig() {
 
 function getSelectedRunnerModes(selection: BenchmarkRunnerSelection): BenchmarkRunnerMode[] {
   if (selection === 'all') {
-    return ['simple', 'simulation-loop'];
+    return ['simple', 'renderer-session'];
   }
   return [selection];
 }
@@ -236,14 +240,14 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
           style={styles.input}
         >
           <option value="simple">Simple runner</option>
-          <option value="simulation-loop">Browser-aligned simulation loop</option>
+          <option value="renderer-session">RendererSession / RunController</option>
           <option value="all">Both implementations</option>
         </select>
       </label>
 
       <p style={styles.helperText}>
-        The browser-aligned mode reuses the same simulation-loop scheduling semantics as the web app,
-        including the browser defaults for max TPS and render FPS.
+        The RendererSession mode runs the current web execution path, including
+        RunController and the browser defaults for max TPS and render FPS.
       </p>
 
       <label style={styles.label}>
@@ -475,7 +479,7 @@ export function App() {
         <h1 style={styles.title}>TenSnap Web Core — Benchmark Suite</h1>
         <p style={styles.subtitle}>
           Measures per-tick compute latency (MSPT) and effective TPS across both a simple benchmark runner
-          and a browser-aligned simulation loop. Current build mode: <strong>{runtimeMode}</strong>.
+          and the production RendererSession path. Current build mode: <strong>{runtimeMode}</strong>.
         </p>
       </header>
 

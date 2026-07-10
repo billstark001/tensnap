@@ -19,8 +19,7 @@ export function useButtonControls() {
   const connected = useScenarioStore((state) => state.connected);
   const revision = useScenarioStore((state) => state._revision);
   const actionTimeoutSeconds = useSettingsStore((state) => state.actionTimeoutSeconds);
-  const setRuntimeMetrics = useSettingsStore((state) => state.setRuntimeMetrics);
-  const setSimulatorMetrics = useSettingsStore((state) => state.setSimulatorMetrics);
+  const setActionMetrics = useSettingsStore((state) => state.setActionMetrics);
   const clearRuntimeMetrics = useSettingsStore((state) => state.clearRuntimeMetrics);
   const toast = useToast();
   const metricsRunRef = useRef<ActionRunMetrics | null>(null);
@@ -36,8 +35,7 @@ export function useButtonControls() {
       const payload = (event as CustomEvent<ActionEndPayload>).detail;
       const snapshot = metricsRunRef.current?.recordCompletion(payload);
       if (!snapshot) return;
-      setRuntimeMetrics(snapshot.runtime);
-      setSimulatorMetrics(snapshot.simulator);
+      setActionMetrics(snapshot);
     }) as EventListener;
     const handleOutbound = ((event: Event) => {
       const { message } = (event as CustomEvent<RendererSessionOutboundDetail>).detail;
@@ -51,7 +49,7 @@ export function useButtonControls() {
       scenario.removeEventListener('action:end', handleActionEnd);
       session.removeEventListener('outbound', handleOutbound);
     };
-  }, [scenario, session, setRuntimeMetrics, setSimulatorMetrics, clearRuntimeMetrics]);
+  }, [scenario, session, setActionMetrics, clearRuntimeMetrics]);
 
   useEffect(() => {
     if (connected) return;

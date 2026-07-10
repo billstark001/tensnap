@@ -67,7 +67,7 @@ describe('runBenchmark', () => {
     expect(stats.runtimeMode).toBe('production');
   });
 
-  it('runs with the browser-aligned simulation loop implementation', async () => {
+  it('runs with the production RendererSession implementation', async () => {
     vi.useFakeTimers();
 
     let tickCount = 0;
@@ -81,14 +81,14 @@ describe('runBenchmark', () => {
       document.createElement('div'),
       2,
       0,
-      { runnerMode: 'simulation-loop', schedulerMode: 'timeout', runtimeMode: 'development' },
+      { runnerMode: 'renderer-session', schedulerMode: 'timeout', runtimeMode: 'development' },
     );
 
     await vi.runAllTimersAsync();
     const stats = await statsPromise;
 
     expect(tickCount).toBe(2);
-    expect(stats.runnerMode).toBe('simulation-loop');
+    expect(stats.runnerMode).toBe('renderer-session');
     expect(stats.schedulerMode).toBe('timeout');
   });
 });
@@ -100,7 +100,7 @@ describe('resultsToMarkdown', () => {
         caseName: 'Test Case',
         suite: 'synthetic',
         config: { size: 'small' },
-        runnerMode: 'simulation-loop',
+        runnerMode: 'renderer-session',
         schedulerMode: 'raf',
         runtimeMode: 'production',
         frames: 10,
@@ -116,8 +116,8 @@ describe('resultsToMarkdown', () => {
     ]);
 
     expect(markdown).toContain('Runtime: production');
-    expect(markdown).toContain('Runner: simulation-loop');
+    expect(markdown).toContain('Runner: renderer-session');
     expect(markdown).toContain('| Suite | Runner | Scheduler | Runtime | Case |');
-    expect(markdown).toContain('| synthetic | simulation-loop | raf | production | Test Case |');
+    expect(markdown).toContain('| synthetic | renderer-session | raf | production | Test Case |');
   });
 });

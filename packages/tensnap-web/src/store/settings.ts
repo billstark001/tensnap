@@ -129,6 +129,10 @@ interface SettingsStore {
   setContinuousRunProfile: (actionId: string, profile: ContinuousRunProfile) => void;
   setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => void;
   setSimulatorMetrics: (metrics?: { simulate_ms?: number; communicate_ms?: number; render_ms?: number }) => void;
+  setActionMetrics: (metrics: {
+    runtime: { tps: number; mspt: number };
+    simulator: { simulate_ms?: number; communicate_ms?: number; render_ms?: number };
+  }) => void;
   clearRuntimeMetrics: () => void;
 }
 
@@ -236,6 +240,16 @@ export const useSettingsStore = create<SettingsStore>()(
         simulatorMspt: metrics?.simulate_ms ?? null,
         simulatorCommMs: metrics?.communicate_ms ?? null,
         simulatorRenderMs: metrics?.render_ms ?? null,
+      });
+    },
+
+    setActionMetrics: ({ runtime, simulator }) => {
+      set({
+        runtimeTps: runtime.tps,
+        runtimeMspt: runtime.mspt,
+        simulatorMspt: simulator.simulate_ms ?? null,
+        simulatorCommMs: simulator.communicate_ms ?? null,
+        simulatorRenderMs: simulator.render_ms ?? null,
       });
     },
 

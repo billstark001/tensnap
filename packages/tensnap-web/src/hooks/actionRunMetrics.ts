@@ -24,14 +24,17 @@ type SimulatorSample = {
   timings: TickTimingBreakdown;
 };
 
+type SimulatorTimingKey = 'simulate_ms' | 'communicate_ms' | 'render_ms';
+
+const SIMULATOR_TIMING_KEYS: readonly SimulatorTimingKey[] = [
+  'simulate_ms',
+  'communicate_ms',
+  'render_ms',
+];
+
 const defaultNow = () => (
   typeof performance === 'undefined' ? Date.now() : performance.now()
 );
-
-const average = (values: number[]): number | undefined => {
-  if (values.length === 0) return undefined;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-};
 
 /**
  * Metrics for one user-initiated action execution. Instances are deliberately
@@ -42,6 +45,19 @@ export class ActionRunMetrics {
   private readonly dispatchedAtByTickId = new Map<string, number>();
   private readonly runtimeSamples: RuntimeSample[] = [];
   private readonly simulatorSamples: SimulatorSample[] = [];
+  private runtimeHead = 0;
+  private simulatorHead = 0;
+  private runtimeDurationSum = 0;
+  private readonly simulatorSums: Record<SimulatorTimingKey, number> = {
+    simulate_ms: 0,
+    communicate_ms: 0,
+    render_ms: 0,
+  };
+  private readonly simulatorCounts: Record<SimulatorTimingKey, number> = {
+    simulate_ms: 0,
+    communicate_ms: 0,
+    render_ms: 0,
+  };
 
   constructor(
     private readonly actionId: string,
@@ -60,21 +76,26 @@ export class ActionRunMetrics {
     if (dispatchedAt === undefined) return null;
 
     const completedAt = this.now();
+    const durationMs = Math.max(0, completedAt - dispatchedAt);
     this.runtimeSamples.push({
       completedAt,
-      durationMs: Math.max(0, completedAt - dispatchedAt),
+      durationMs,
     });
+    this.runtimeDurationSum += durationMs;
     if (payload.timings) {
       this.simulatorSamples.push({ completedAt, timings: payload.timings });
+      this.addSimulatorTimings(payload.timings, 1);
     }
     this.trimSamples(completedAt);
 
-    const mspt = average(this.runtimeSamples.map((sample) => sample.durationMs));
-    if (mspt === undefined) return null;
+    const runtimeSampleCount = this.runtimeSamples.length - this.runtimeHead;
+    if (runtimeSampleCount === 0) return null;
+    const mspt = this.runtimeDurationSum / runtimeSampleCount;
 
-    const timestamps = this.runtimeSamples.map((sample) => sample.completedAt);
-    const tps = timestamps.length > 1
-      ? ((timestamps.length - 1) * 1_000) / Math.max(1, timestamps[timestamps.length - 1] - timestamps[0])
+    const firstCompletedAt = this.runtimeSamples[this.runtimeHead].completedAt;
+    const lastCompletedAt = this.runtimeSamples[this.runtimeSamples.length - 1].completedAt;
+    const tps = runtimeSampleCount > 1
+      ? ((runtimeSampleCount - 1) * 1_000) / Math.max(1, lastCompletedAt - firstCompletedAt)
       : 1_000 / Math.max(1, mspt);
 
     return {
@@ -105,20 +126,39 @@ export class ActionRunMetrics {
 
   private trimSamples(now: number): void {
     const cutoff = now - METRIC_WINDOW_MS;
-    while (this.runtimeSamples[0]?.completedAt < cutoff) {
-      this.runtimeSamples.shift();
+    while (this.runtimeSamples[this.runtimeHead]?.completedAt < cutoff) {
+      this.runtimeDurationSum -= this.runtimeSamples[this.runtimeHead].durationMs;
+      this.runtimeHead += 1;
     }
-    while (this.simulatorSamples[0]?.completedAt < cutoff) {
-      this.simulatorSamples.shift();
+    while (this.simulatorSamples[this.simulatorHead]?.completedAt < cutoff) {
+      this.addSimulatorTimings(this.simulatorSamples[this.simulatorHead].timings, -1);
+      this.simulatorHead += 1;
+    }
+    this.compactSamples();
+  }
+
+  private addSimulatorTimings(timings: TickTimingBreakdown, direction: 1 | -1): void {
+    for (const key of SIMULATOR_TIMING_KEYS) {
+      const value = timings[key];
+      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
+      this.simulatorSums[key] += value * direction;
+      this.simulatorCounts[key] += direction;
     }
   }
 
-  private averageSimulatorTiming(
-    key: 'simulate_ms' | 'communicate_ms' | 'render_ms',
-  ): number | undefined {
-    return average(this.simulatorSamples.flatMap((sample) => {
-      const value = sample.timings[key];
-      return typeof value === 'number' && Number.isFinite(value) ? [value] : [];
-    }));
+  private averageSimulatorTiming(key: SimulatorTimingKey): number | undefined {
+    const count = this.simulatorCounts[key];
+    return count === 0 ? undefined : this.simulatorSums[key] / count;
+  }
+
+  private compactSamples(): void {
+    if (this.runtimeHead > 256 && this.runtimeHead * 2 >= this.runtimeSamples.length) {
+      this.runtimeSamples.splice(0, this.runtimeHead);
+      this.runtimeHead = 0;
+    }
+    if (this.simulatorHead > 256 && this.simulatorHead * 2 >= this.simulatorSamples.length) {
+      this.simulatorSamples.splice(0, this.simulatorHead);
+      this.simulatorHead = 0;
+    }
   }
 }

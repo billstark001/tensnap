@@ -4,6 +4,7 @@ import { createDefaultRootLayout, createAutoLayout } from '@/utils/view/pack';
 import { AnyView, ContainerView } from '@/types/ui';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { getToastState } from '../toast';
+import { useSettingsStore } from '../settings';
 import {
   ChartStorage,
   GridEnvStorage,
@@ -14,6 +15,7 @@ import {
   ScenarioSnapshot,
   sanitizeParameter,
 } from '@tensnap/core';
+import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
 import type {
   Action,
   ActionEndPayload,
@@ -179,9 +181,13 @@ const subscribeSession = (
     assetChanged: false,
   };
   let queued = false;
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastFlushedAt: number | null = null;
 
   const flush = () => {
     queued = false;
+    flushTimer = null;
+    lastFlushedAt = typeof performance === 'undefined' ? Date.now() : performance.now();
     applyBatch({
       changed: pending.changed,
       environmentChanged: pending.environmentChanged,
@@ -201,7 +207,19 @@ const subscribeSession = (
     if (updates.assetChanged) pending.assetChanged = true;
     if (!queued) {
       queued = true;
-      queueMicrotask(flush);
+      const maxRenderFps = useSettingsStore.getState().maxRenderFps;
+      if (maxRenderFps <= 0 || lastFlushedAt === null) {
+        queueMicrotask(flush);
+        return;
+      }
+
+      const now = typeof performance === 'undefined' ? Date.now() : performance.now();
+      const delayMs = Math.max(0, lastFlushedAt + 1_000 / maxRenderFps - now);
+      if (delayMs <= 0) {
+        queueMicrotask(flush);
+      } else {
+        flushTimer = setTimeout(flush, delayMs);
+      }
     }
   };
 
@@ -266,6 +284,7 @@ const subscribeSession = (
   return () => {
     session.removeEventListener('commit', onCommit);
     session.removeEventListener('run:status', onRunStatus);
+    if (flushTimer !== null) clearTimeout(flushTimer);
   };
 };
 
@@ -283,23 +302,17 @@ const annotateSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): Sc
 };
 
 export const createScenarioStore = () => {
+  const renderBarrier = new BrowserRunRenderBarrier(() => {
+    const { renderTriggerMode, maxTps, maxRenderFps } = useSettingsStore.getState();
+    return { mode: renderTriggerMode, maxTps, maxRenderFps };
+  });
   const session = new RendererSession({
     run: {
       // Primary clicks on continuous buttons retain the legacy run-until-stop
       // behavior through an int32-sized RunSpec. The context-menu dialog
       // remains bounded by its explicit profile validation.
       maxStepsPolicy: MAX_INT32_RUN_STEPS,
-      // React and canvas hosts commit on the next frame. This is the browser
-      // render barrier injected into the shared, host-neutral RunController.
-      renderBarrier: {
-        wait: () => new Promise<void>((resolve) => {
-          if (typeof requestAnimationFrame === 'function') {
-            requestAnimationFrame(() => resolve());
-          } else {
-            queueMicrotask(resolve);
-          }
-        }),
-      },
+      renderBarrier,
     },
   });
   const scenario = session.scenario;
