@@ -1,4 +1,5 @@
 import type { ChartGroup } from '../chart';
+import type { AssetSnapshot } from '../asset';
 import type {
   Action,
   ActionEndPayload,
@@ -69,6 +70,14 @@ export interface ScenarioSnapshot {
   environments: ScenarioEnvironmentSnapshot[];
   charts: ChartGroup[];
   logs: NormalizedLogPayload[];
+  assets: AssetSnapshot[];
+}
+
+/** Selective snapshots keep recorder keyframes from copying append-only streams. */
+export interface ScenarioDumpOptions {
+  includeCharts?: boolean;
+  includeLogs?: boolean;
+  includeAssets?: boolean;
 }
 
 export interface ScenarioEventDetailMap {

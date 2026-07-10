@@ -44,4 +44,17 @@ describe('AssetStore binary string decoding', () => {
     expect(asset?.source).toBe(svg);
     expect(store.getUrl('asset-3')).toBe(asset?.url);
   });
+
+  it('round-trips binary assets through JSON-safe snapshot data', async () => {
+    const source = new AssetStore();
+    source.receiveMeta({ id: 'sprite', hash: 'abc', mime: 'image/png', size: 3 });
+    await source.receiveData('sprite', 'abc', 'image/png', new Uint8Array([1, 2, 3]));
+    const persisted = JSON.parse(JSON.stringify(source.dump()));
+    source.destroy();
+
+    const restored = new AssetStore();
+    restored.load(persisted);
+    expect(restored.get('sprite')?.source).toEqual(new Uint8Array([1, 2, 3]));
+    restored.destroy();
+  });
 });

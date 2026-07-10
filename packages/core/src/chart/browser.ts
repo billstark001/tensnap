@@ -1,2 +1,2 @@
-export { LineChartView } from './LineChartView';
+export { BrowserChartView } from './BrowserChartView';
 export { exportToCSV } from './browser-utils';

@@ -52,6 +52,7 @@ import {
 import type {
   ScenarioEnvironmentSnapshot,
   ScenarioEnvironmentState,
+  ScenarioDumpOptions,
   ScenarioEventDetailMap,
   ScenarioEventType,
   ScenarioLayerSnapshot,
@@ -268,14 +269,15 @@ export class Scenario extends LazyEventTarget {
     return { type: 'screenshot_response', payload };
   }
 
-  dump(): ScenarioSnapshot {
+  dump(options: ScenarioDumpOptions = {}): ScenarioSnapshot {
     return {
       metadata: cloneValue(this.metadataState),
       actions: [...this.actionsState.values()].map(cloneValue),
       parameters: [...this.parametersState.values()].map(cloneValue),
       environments: [...this.environmentsState.values()].map((environment) => this.snapshotEnvironment(environment)),
-      charts: this.chartState.dump().map(cloneValue),
-      logs: this.logsState.map(cloneValue),
+      charts: options.includeCharts === false ? [] : this.chartState.dump().map(cloneValue),
+      logs: options.includeLogs === false ? [] : this.logsState.map(cloneValue),
+      assets: options.includeAssets === false ? [] : this.assetState.dump(),
     };
   }
 
@@ -319,6 +321,7 @@ export class Scenario extends LazyEventTarget {
     this.chartState.load(snapshot.charts.map(cloneValue));
 
     this.logsState.push(...snapshot.logs.map(cloneValue));
+    this.assetState.load(snapshot.assets);
   }
 
   reset(options: { preserveTrajectoryLayers?: boolean } = {}): void {

@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import {
   AgentRuntime,
   HeadlessEnvironmentPainter,
+  HeadlessChartPainter,
   resolveRuntimeContextPaths,
   RuntimeControlServer,
 } from './index';
@@ -178,6 +179,12 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
       capturesDir: context.capturesDir,
       defaultFormat: 'png',
       backgroundColor: getColorFlag(parsed, 'background-color'),
+    }),
+  );
+  runtime.registerPainter(
+    new HeadlessChartPainter({
+      capturesDir: context.capturesDir,
+      defaultFormat: 'png',
     }),
   );
 

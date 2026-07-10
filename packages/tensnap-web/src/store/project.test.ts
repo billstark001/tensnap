@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useProjectStore } from './project';
 import { getFileSystemState } from './file-system/provider';
+import { createSingleSnapshot } from '@tensnap/core/snapshot';
 
 vi.mock('./file-system/provider', () => ({
   getFileSystemState: vi.fn(),
@@ -40,17 +41,18 @@ describe('ProjectStore', () => {
     const activeProject = useProjectStore.getState().activeProject!;
 
     // Add a dummy snapshot
-    const dummySnapshot = {
-      metadata: { id: 'snapshot-1' },
+    const dummySnapshot = createSingleSnapshot({
+      metadata: {},
       actions: [],
       parameters: [],
       environments: [],
       charts: [],
       logs: [],
-    };
+      assets: [],
+    }, { id: 'snapshot-1' });
 
     activeProject.useScenarioStore.setState({
-      snapshots: [dummySnapshot as any]
+      snapshots: [dummySnapshot]
     });
 
     // Save the project

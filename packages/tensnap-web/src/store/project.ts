@@ -8,6 +8,7 @@ import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import { materializeSnapshot, type Snapshot } from '@tensnap/core/snapshot';
 import type { StateSyncRequest } from '@tensnap/protocol';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { getFileSystemState } from "./file-system/provider";
@@ -100,6 +101,7 @@ export interface ProjectStore {
   save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
   changeUrl: (index: number, newUrl: string) => Promise<void>;
+  openOfflineSnapshot: (snapshot: Snapshot, indexHint?: number) => void;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -156,7 +158,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       ? JSON.parse(fileContent.content)
       : decode(new Uint8Array(fileContent.content));
 
-    const { scenario, mainView, url, snapshots = [] } = parsedContent;
+    const { scenario, mainView, url, snapshots } = parsedContent;
 
     const newProject = createProject(url, filepath);
     newProject.useScenarioStore.setState({ mainView, snapshots });
@@ -215,6 +217,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     project.filepath = filepath;
     refreshActiveProject();
+  },
+
+  openOfflineSnapshot(snapshot, indexHint) {
+    const { projects, setActive } = get();
+    const identity = snapshot.metadata.id;
+    const project = createProject(`offline:${identity}`);
+    project.useScenarioStore.getState().load(materializeSnapshot(snapshot));
+    project.useScenarioStore.setState({ snapshots: [structuredClone(snapshot)] });
+    const targetIndex = indexHint ?? projects.length;
+    projects.splice(targetIndex, 0, project);
+    setActive(targetIndex);
   },
 
   close(index) {

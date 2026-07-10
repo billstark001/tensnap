@@ -11,6 +11,8 @@ import { Scenario } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
 import { RunController, type RunControllerOptions } from './RunController';
+import { SnapshotRecorder } from '../snapshot';
+import type { RecordingOptions, Snapshot } from '../snapshot';
 
 export type RendererMessageOrigin = 'live' | 'state-sync' | 'replay' | 'optimistic-control';
 
@@ -27,6 +29,11 @@ export interface RendererSessionCommitDetail {
 export interface RendererSessionOutboundDetail {
   message: RendererToSimulatorMessage;
   origin: 'optimistic-control';
+}
+
+export interface RendererSessionRecordingDetail {
+  snapshot: Snapshot;
+  reason: 'manual' | 'run';
 }
 
 export interface RendererSessionOptions {
@@ -48,6 +55,7 @@ const createRequestId = (prefix: string): string => (
 export class RendererSession extends LazyEventTarget {
   readonly scenario: Scenario;
   readonly run: RunController;
+  readonly recorder: SnapshotRecorder;
 
   private transport: ISimulatorTransport | null = null;
   private syncRequestId: string | null = null;
@@ -65,7 +73,10 @@ export class RendererSession extends LazyEventTarget {
   constructor(options: RendererSessionOptions = {}) {
     super();
     this.scenario = options.scenario ?? new Scenario();
+    this.recorder = new SnapshotRecorder(this.scenario);
     const onRunStateChange = options.run?.onStateChange;
+    const onRunStart = options.run?.onRunStart;
+    const onRunStop = options.run?.onRunStop;
     this.run = new RunController({
       ...options.run,
       scenario: this.scenario,
@@ -73,6 +84,23 @@ export class RendererSession extends LazyEventTarget {
       onStateChange: (status) => {
         onRunStateChange?.(status);
         this.dispatch('run:status', status);
+      },
+      onRunStart: (status) => {
+        onRunStart?.(status);
+        if (status.spec.record) {
+          this.beginRecording({
+            maxSteps: status.spec.record.maxSteps ?? 10_000,
+            maxBytes: status.spec.record.maxBytes ?? 64 * 1024 * 1024,
+            ringBuffer: status.spec.record.ringBuffer ?? true,
+            ...status.spec.record,
+          }, 'run');
+        }
+      },
+      onRunStop: (status) => {
+        onRunStop?.(status);
+        if (!status.spec.record) return;
+        const snapshot = this.recorder.stop();
+        if (snapshot) this.dispatch('recording:complete', { snapshot, reason: 'run' } satisfies RendererSessionRecordingDetail);
       },
     });
   }
@@ -136,6 +164,22 @@ export class RendererSession extends LazyEventTarget {
     this.send(this.scenario.createScreenshotResponseMessage(payload));
   }
 
+  startRecording(options: RecordingOptions = {}): Snapshot {
+    return this.beginRecording(options, 'manual');
+  }
+
+  private beginRecording(options: RecordingOptions, reason: RendererSessionRecordingDetail['reason']): Snapshot {
+    const snapshot = this.recorder.start(options);
+    this.dispatch('recording:start', { snapshot, reason } satisfies RendererSessionRecordingDetail);
+    return snapshot;
+  }
+
+  stopRecording(): Snapshot | null {
+    const snapshot = this.recorder.stop();
+    if (snapshot) this.dispatch('recording:complete', { snapshot, reason: 'manual' } satisfies RendererSessionRecordingDetail);
+    return snapshot;
+  }
+
   /** Apply a recorded/offline message without inventing another wire shape. */
   applyReplay(message: SimulatorToRendererMessage): void {
     this.applyMessage(message, 'replay');
@@ -174,6 +218,7 @@ export class RendererSession extends LazyEventTarget {
 
   private applyMessage(message: SimulatorToRendererMessage, origin: RendererMessageOrigin): void {
     this.scenario.apply(message);
+    this.recorder.recordMessage(message);
     this.dispatch('message', { message, origin } satisfies RendererSessionMessageDetail);
 
     if (origin === 'state-sync' && this.receivingSync) {
@@ -197,6 +242,7 @@ export class RendererSession extends LazyEventTarget {
     // Publish before entering the transport. In-memory transports may deliver
     // a synchronous action_end from send(), and observers need the tick id
     // before that completion can be applied.
+    this.recorder.recordControl(message);
     this.dispatch('outbound', { message, origin: 'optimistic-control' } satisfies RendererSessionOutboundDetail);
     this.transport.send(message);
   }

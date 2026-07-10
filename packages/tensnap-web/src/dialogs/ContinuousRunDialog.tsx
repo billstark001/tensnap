@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import Form from '@tensnap/web-common/components/ui/Form';
@@ -25,15 +25,6 @@ export const ContinuousRunDialog = ({
   const [maxWallTimeMs, setMaxWallTimeMs] = useState(profile?.maxWallTimeMs ? String(profile.maxWallTimeMs) : '');
   const [record, setRecord] = useState(profile?.record ?? false);
   const [error, setError] = useState<'max-steps' | 'wall-time' | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setMaxSteps(String(profile?.maxSteps ?? 1000));
-    setStopWhen(profile?.stopWhen ?? '');
-    setMaxWallTimeMs(profile?.maxWallTimeMs ? String(profile.maxWallTimeMs) : '');
-    setRecord(profile?.record ?? false);
-    setError(null);
-  }, [open, profile]);
 
   const submit = () => {
     const steps = Number(maxSteps);

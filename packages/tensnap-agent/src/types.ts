@@ -119,6 +119,7 @@ export type AgentRunStatus = RunStatus;
 
 export interface SceneRenderOptions {
   envId?: string;
+  chartId?: string;
   width?: number;
   height?: number;
   viewport?: Viewport;

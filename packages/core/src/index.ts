@@ -4,7 +4,7 @@
  */
 
 export { AssetStore } from './asset';
-export type { ResolvedAsset, AssetStoreListener } from './asset';
+export type { AssetSnapshot, ResolvedAsset, AssetStoreListener } from './asset';
 
 export { ChartStorage } from './chart';
 export type {
@@ -55,6 +55,21 @@ export type {
 
 export * from './parameter';
 export * from './runtime';
+export {
+	SnapshotRecorder,
+	SnapshotPlayer,
+	createSingleSnapshot,
+	materializeSnapshot,
+	snapshotFrameAt,
+} from './snapshot';
+export type {
+	Keyframe,
+	Snapshot,
+	SnapshotFrame,
+	SnapshotLayerCodec,
+	SnapshotMetadata,
+	SnapshotSeries,
+} from './snapshot';
 
 export { Scenario } from './scenario';
 export type {
@@ -69,6 +84,7 @@ export type {
 	NonSpatialAgentInspection,
 	ScenarioEnvironmentSnapshot,
 	ScenarioEnvironmentState,
+	ScenarioDumpOptions,
 	ScenarioEventDetailMap,
 	ScenarioEventType,
 	ScenarioLayerSnapshot,

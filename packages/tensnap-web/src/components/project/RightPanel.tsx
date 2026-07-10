@@ -1,15 +1,16 @@
 import { useScenarioStore } from '@/store/scenario/store';
 import * as styles from './RightPanel.css';
 import { Trans } from '@lingui/react/macro';
-import { Camera, Copy, Image, Trash2 } from 'lucide-react';
+import { Camera, Circle, Copy, Image, Square, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import type { Snapshot } from '@tensnap/core/snapshot';
 import type { AssetMeta } from '@tensnap/protocol';
 import { getSnapshotIdentity } from '@/types/model';
 import { SnapshotDetailDialog } from '../../dialogs/SnapshotDetailDialog';
 import { useToast } from '@/store/toast';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
 import { formatTimestamp } from '@/utils/date';
+import { useProjectStore } from '@/store/project';
 
 export const RightPanel = () => {
   const scenario = useScenarioStore((store) => store.scenario);
@@ -19,8 +20,13 @@ export const RightPanel = () => {
   const addSnapshot = useScenarioStore((store) => store.addSnapshot);
   const clearSnapshots = useScenarioStore((store) => store.clearSnapshots);
   const removeSnapshot = useScenarioStore((store) => store.removeSnapshot);
+  const startRecording = useScenarioStore((store) => store.startRecording);
+  const stopRecording = useScenarioStore((store) => store.stopRecording);
+  const renameSnapshot = useScenarioStore((store) => store.renameSnapshot);
+  const isRecording = useScenarioStore((store) => store.isRecording);
+  const openOfflineSnapshot = useProjectStore((store) => store.openOfflineSnapshot);
 
-  const [selectedSnapshot, setSelectedSnapshot] = useState<ScenarioSnapshot | null>(null);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'snapshots' | 'assets'>('snapshots');
   const [assetFilter, setAssetFilter] = useState('');
@@ -43,7 +49,7 @@ export const RightPanel = () => {
     clearSnapshots?.();
   };
 
-  const handleSnapshotClick = (snapshot: ScenarioSnapshot) => {
+  const handleSnapshotClick = (snapshot: Snapshot) => {
     setSelectedSnapshot(snapshot);
     setDialogOpen(true);
   };
@@ -56,13 +62,20 @@ export const RightPanel = () => {
     }
   };
 
-  const handleRestoreSnapshot = () => {
-    // TODO: Implement restore functionality
-    toast.info('Restore snapshot', `ID: ${selectedSnapshot ? getSnapshotIdentity(selectedSnapshot).id : ''}`);
+  const handleOpenOfflineSnapshot = () => {
+    if (!selectedSnapshot) return;
+    openOfflineSnapshot(selectedSnapshot);
+    setDialogOpen(false);
+    setSelectedSnapshot(null);
   };
 
-  const truncateParameters = (snapshot: ScenarioSnapshot, maxLength: number = 50) => {
-    const paramStr = snapshot.parameters
+  const handleRenameSnapshot = (label: string) => {
+    if (!selectedSnapshot) return;
+    renameSnapshot?.(selectedSnapshot.metadata.id, label);
+  };
+
+  const truncateParameters = (snapshot: Snapshot, maxLength: number = 50) => {
+    const paramStr = snapshot.initial.scenario.parameters
       .map(p => `${p.label}: ${p.value}`)
       .join(', ');
 
@@ -160,6 +173,15 @@ export const RightPanel = () => {
         <div className={styles.headerButtons}>
           <button
             className={styles.headerButton}
+            onClick={() => isRecording ? stopRecording?.() : startRecording?.()}
+            title={isRecording ? 'Stop Recording' : 'Start Recording'}
+            aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
+          >
+            {isRecording ? <Square size={16} /> : <Circle size={16} />}
+            <span>{isRecording ? <Trans>Stop recording</Trans> : <Trans>Start recording</Trans>}</span>
+          </button>
+          <button
+            className={styles.headerButton}
             onClick={handleTakeSnapshot}
             title="Take Snapshot"
             aria-label="Take Snapshot"
@@ -192,6 +214,7 @@ export const RightPanel = () => {
           <div className={styles.snapshotList}>
             {snapshots.map((snapshot) => {
               const identity = getSnapshotIdentity(snapshot);
+              const displayName = snapshot.metadata.label?.trim() || identity.id;
               return (
               <div
                 key={identity.id}
@@ -199,7 +222,7 @@ export const RightPanel = () => {
                 onClick={() => handleSnapshotClick(snapshot)}
               >
                 <div className={styles.snapshotHeader}>
-                  <span className={styles.snapshotId}>{identity.id}</span>
+                  <span className={styles.snapshotId}>{displayName}</span>
                   <span className={styles.snapshotTime}>
                     {formatTimestamp(identity.timestamp)}
                   </span>
@@ -209,15 +232,21 @@ export const RightPanel = () => {
                     <span className={styles.snapshotLabel}>
                       <Trans>Time Step:</Trans>
                     </span>
-                    <span className={styles.snapshotValue}>{String(snapshot.metadata.time ?? '-')}</span>
+                    <span className={styles.snapshotValue}>{String(snapshot.initial.scenario.metadata.time ?? '-')}</span>
                   </div>
                   <div className={styles.snapshotInfoRow}>
                     <span className={styles.snapshotLabel}>
                       <Trans>Environments:</Trans>
                     </span>
                     <span className={styles.snapshotValue}>
-                      {snapshot.environments.length}
+                      {snapshot.initial.scenario.environments.length}
                     </span>
+                  </div>
+                  <div className={styles.snapshotInfoRow}>
+                    <span className={styles.snapshotLabel}>
+                      <Trans>Frames:</Trans>
+                    </span>
+                    <span className={styles.snapshotValue}>{snapshot.frames.length}</span>
                   </div>
                   <div className={styles.snapshotInfoRow}>
                     <span className={styles.snapshotLabel}>
@@ -258,11 +287,13 @@ export const RightPanel = () => {
       </div>
 
       <SnapshotDetailDialog
+        key={selectedSnapshot?.metadata.id ?? 'no-snapshot'}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         snapshot={selectedSnapshot}
         onDelete={handleDeleteSnapshot}
-        onRestore={handleRestoreSnapshot}
+        onRename={handleRenameSnapshot}
+        onOpenOffline={handleOpenOfflineSnapshot}
       />
     </div>
   );

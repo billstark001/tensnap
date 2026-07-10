@@ -9,6 +9,7 @@ import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 export type Theme = 'light' | 'dark';
 type ValidationLevel = 'off' | 'warning' | 'error';
 export const ACTION_TIMEOUT_SECONDS_OPTIONS = [1, 5, 10, 30, 60] as const;
+export const MAX_SNAPSHOT_PLAYBACK_FPS = 120;
 export type ActionTimeoutSeconds = typeof ACTION_TIMEOUT_SECONDS_OPTIONS[number];
 
 export interface ContinuousRunProfile {
@@ -50,6 +51,13 @@ function parseActionTimeout(raw: string | null): ActionTimeoutSeconds {
     : 5;
 }
 
+function parseSnapshotPlaybackFps(raw: string | null, fallback: number): number {
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed)
+    ? Math.min(MAX_SNAPSHOT_PLAYBACK_FPS, Math.max(1, Math.floor(parsed)))
+    : fallback;
+}
+
 export async function hydrateSettings(): Promise<void> {
   const persistence = getSettingsPersistence();
   const keys = [
@@ -59,6 +67,7 @@ export async function hydrateSettings(): Promise<void> {
     'renderTriggerMode',
     'maxTps',
     'maxRenderFps',
+    'snapshotPlaybackFps',
     'actionTimeoutSeconds',
     'continuousRunProfiles',
     'clientMessageValidation',
@@ -76,6 +85,7 @@ export async function hydrateSettings(): Promise<void> {
       : 'auto',
     maxTps: parseNonNegativeInteger(setting.maxTps, 300),
     maxRenderFps: parseNonNegativeInteger(setting.maxRenderFps, 120),
+    snapshotPlaybackFps: parseSnapshotPlaybackFps(setting.snapshotPlaybackFps, 30),
     actionTimeoutSeconds: parseActionTimeout(setting.actionTimeoutSeconds),
     continuousRunProfiles: parseRunProfiles(setting.continuousRunProfiles),
     clientMessageValidation: setting.clientMessageValidation === 'warning' || setting.clientMessageValidation === 'error'
@@ -104,6 +114,7 @@ interface SettingsStore {
   renderTriggerMode: RenderTriggerMode;
   maxTps: number;
   maxRenderFps: number;
+  snapshotPlaybackFps: number;
   actionTimeoutSeconds: ActionTimeoutSeconds;
   continuousRunProfiles: Record<string, ContinuousRunProfile>;
   runtimeTps: number | null;
@@ -125,6 +136,7 @@ interface SettingsStore {
   setRenderTriggerMode: (mode: RenderTriggerMode) => void;
   setMaxTps: (fps: number) => void;
   setMaxRenderFps: (fps: number) => void;
+  setSnapshotPlaybackFps: (fps: number) => void;
   setActionTimeoutSeconds: (seconds: number) => void;
   setContinuousRunProfile: (actionId: string, profile: ContinuousRunProfile) => void;
   setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => void;
@@ -163,6 +175,7 @@ export const useSettingsStore = create<SettingsStore>()(
     renderTriggerMode: 'auto',
     maxTps: 300,
     maxRenderFps: 120,
+    snapshotPlaybackFps: 30,
     actionTimeoutSeconds: 5,
     continuousRunProfiles: {},
 
@@ -213,6 +226,13 @@ export const useSettingsStore = create<SettingsStore>()(
     setMaxRenderFps: (fps: number) => {
       const next = Number.isFinite(fps) ? Math.max(0, Math.floor(fps)) : 120;
       set({ maxRenderFps: next });
+    },
+
+    setSnapshotPlaybackFps: (fps: number) => {
+      const next = Number.isFinite(fps)
+        ? Math.min(MAX_SNAPSHOT_PLAYBACK_FPS, Math.max(1, Math.floor(fps)))
+        : 30;
+      set({ snapshotPlaybackFps: next });
     },
 
     setActionTimeoutSeconds: (seconds: number) => {
@@ -319,6 +339,13 @@ useSettingsStore.subscribe(
   (state) => state.maxRenderFps,
   (fps) => {
     void getSettingsPersistence().set('maxRenderFps', String(fps));
+  }
+);
+
+useSettingsStore.subscribe(
+  (state) => state.snapshotPlaybackFps,
+  (fps) => {
+    void getSettingsPersistence().set('snapshotPlaybackFps', String(fps));
   }
 );
 

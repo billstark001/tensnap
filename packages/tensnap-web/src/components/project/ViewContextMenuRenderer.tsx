@@ -152,6 +152,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
       )}
       {continuousActionId && (
         <ContinuousRunDialog
+          key={`${continuousActionId}:${isContinuousRunDialogOpen}:${JSON.stringify(runProfiles[continuousActionId])}`}
           open={isContinuousRunDialogOpen}
           actionId={continuousActionId}
           profile={runProfiles[continuousActionId]}

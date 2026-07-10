@@ -1,5 +1,5 @@
-export { LeaferChartView } from './LeaferChartView';
-export type { LeaferChartViewRef } from './LeaferChartView';
+export { CanvasChartView } from './CanvasChartView';
+export type { CanvasChartViewRef } from './CanvasChartView';
 
 export type { ChartDataPoint, ChartConfig, LineConfig } from '@tensnap/core';
-export { LineChartView } from '@tensnap/core/chart/browser';
+export { BrowserChartView } from '@tensnap/core/chart/browser';

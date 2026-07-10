@@ -1,8 +1,8 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import * as styles from './ChartView.css';
 import { ChartGroup, ChartSeriesPoint } from '@/types/model';
-import { LeaferChartView } from '@/components/chart';
-import type { ChartConfig, LeaferChartViewRef } from '@/components/chart';
+import { CanvasChartView } from '@/components/chart';
+import type { ChartConfig, CanvasChartViewRef } from '@/components/chart';
 import { throttle } from '@tensnap/web-common/react';
 
 // 预定义颜色数组作为模块顶层常量
@@ -44,6 +44,7 @@ const getColorForId = (id: string): string => {
 
 interface ChartViewProps {
   chartGroup: ChartGroup;
+  updateTrigger?: number;
   updateInterval?: number; // 最小更新间隔，单位毫秒，默认500ms
   updateNowLengthThreshold?: number; // 立即更新的长度阈值，默认0
   maxDataPoints?: number; // 最大数据点数，默认无限制
@@ -53,6 +54,7 @@ export function ChartView(props: ChartViewProps) {
   // 缓存处理后的数据和相关状态
   const {
     chartGroup,
+    updateTrigger,
     updateInterval = 200,
     updateNowLengthThreshold = 8,
     maxDataPoints = undefined,
@@ -64,22 +66,26 @@ export function ChartView(props: ChartViewProps) {
   // 显示数据和缓存
   const [displayData, setDisplayData] = useState<Array<ChartSeriesPoint>>([]);
   const [dataVersion, setDataVersion] = useState(0);
-  const chartViewRef = useRef<LeaferChartViewRef>(null);
+  const chartViewRef = useRef<CanvasChartViewRef>(null);
 
   // 缓存上次处理的数据，避免重复slice
   const lastProcessedDataRef = useRef<{
+    source: Array<ChartSeriesPoint>;
     sourceLength: number;
     maxPoints: number | undefined;
+    updateTrigger: number | undefined;
     result: Array<ChartSeriesPoint>;
   } | null>(null);
 
   // 优化的数据处理函数 - 使用ref避免闭包泄漏
-  const processData = useCallback((data: Array<ChartSeriesPoint>, max: number | undefined): Array<ChartSeriesPoint> => {
+  const processData = useCallback((data: Array<ChartSeriesPoint>, max: number | undefined, revision: number | undefined): Array<ChartSeriesPoint> => {
     // 检查缓存是否有效
     const cached = lastProcessedDataRef.current;
     if (cached &&
+      cached.source === data &&
       cached.sourceLength === data.length &&
       cached.maxPoints === max &&
+      cached.updateTrigger === revision &&
       cached.result.length > 0) {
       return cached.result;
     }
@@ -91,8 +97,10 @@ export function ChartView(props: ChartViewProps) {
 
     // 更新缓存
     lastProcessedDataRef.current = {
+      source: data,
       sourceLength: data.length,
       maxPoints: max,
+      updateTrigger: revision,
       result,
     };
 
@@ -117,8 +125,8 @@ export function ChartView(props: ChartViewProps) {
     }
 
     // 创建新的throttle函数 - 移除processData依赖避免频繁重建
-    throttledUpdateRef.current = throttle((data: Array<ChartSeriesPoint>) => {
-      const processed = processData(data, maxDataPointsRef.current);
+    throttledUpdateRef.current = throttle((data: Array<ChartSeriesPoint>, revision?: number) => {
+      const processed = processData(data, maxDataPointsRef.current, revision);
       setDisplayData(processed);
       setDataVersion((v) => (v + 1) | 0);
     }, updateInterval);
@@ -137,7 +145,7 @@ export function ChartView(props: ChartViewProps) {
     // 对于小数据量立即更新，大数据量使用节流
     if (rawData.length <= updateNowLengthThreshold) {
       throttledUpdateRef.current?.cancel();
-      const processed = processData(rawData, maxDataPoints);
+      const processed = processData(rawData, maxDataPoints, updateTrigger);
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) {
@@ -151,9 +159,9 @@ export function ChartView(props: ChartViewProps) {
         cancelled = true;
       };
     }
-    throttledUpdateRef.current?.(rawData);
+    throttledUpdateRef.current?.(rawData, updateTrigger);
     return undefined;
-  }, [rawData, rawData.length, updateNowLengthThreshold, maxDataPoints, processData]);
+  }, [rawData, rawData.length, updateNowLengthThreshold, maxDataPoints, processData, updateTrigger]);
 
   // Build chart configuration from metadata (稳定化依赖)
   const chartConfig: ChartConfig = useMemo(() => {
@@ -183,7 +191,7 @@ export function ChartView(props: ChartViewProps) {
 
   return (
     <div className={styles.chartViewContainer}>
-      <LeaferChartView
+      <CanvasChartView
         ref={chartViewRef}
         data={displayData}
         dataVersion={dataVersion}

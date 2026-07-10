@@ -19,7 +19,7 @@
  */
 
 import { decodeBinaryString, encodeBytesAsDataUrl, type AssetId, type AssetMeta } from '@tensnap/protocol';
-import type { AssetStoreListener, ResolvedAsset } from './types';
+import type { AssetSnapshot, AssetStoreListener, ResolvedAsset } from './types';
 
 // ---------------------------------------------------------------------------
 // AssetStore
@@ -178,6 +178,42 @@ export class AssetStore {
     const r = this._resolved.get(id);
     if (!r) return undefined;
     return typeof r.url === 'string' ? r.url : undefined;
+  }
+
+  /** Capture asset bytes once for persistence instead of duplicating them per keyframe. */
+  dump(): AssetSnapshot[] {
+    return this.listMeta().map((meta) => {
+      const source = this._resolved.get(meta.id)?.source;
+      return {
+        meta: structuredClone(meta),
+        // Persist every resolved value as an encoded binary semantic payload.
+        // JSON project files otherwise turn Uint8Array into object properties,
+        // and plain text/SVG source is not itself a protocol binary string.
+        data: typeof source === 'string'
+          ? encodeBytesAsDataUrl(new TextEncoder().encode(source), meta.mime)
+          : source instanceof Uint8Array
+            ? encodeBytesAsDataUrl(source, meta.mime)
+            : undefined,
+      };
+    });
+  }
+
+  /** Replace the asset cache from a persisted/offline capture. */
+  load(snapshot: AssetSnapshot[]): void {
+    this.clear();
+    for (const entry of snapshot) {
+      this.receiveMeta(structuredClone(entry.meta));
+      if (entry.data !== undefined) {
+        // receiveData is async only for its public contract; its state mutation
+        // is synchronous, so Scenario.load keeps its synchronous semantics.
+        void this.receiveData(
+          entry.meta.id,
+          entry.meta.hash,
+          entry.meta.mime,
+          typeof entry.data === 'string' ? entry.data : entry.data.slice(),
+        );
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -7,6 +7,7 @@ import {
   ChartStorage,
   ChartGroup,
 } from '@tensnap/core';
+import type { RecordingOptions, Snapshot } from '@tensnap/core/snapshot';
 import type {
   Action,
   ActionStartPayload,
@@ -33,6 +34,7 @@ export interface StateSyncStatus extends CoreStateSyncStatus {
 export interface SnapshotDraft {
   id?: string;
   timestamp?: number;
+  label?: string;
 }
 
 export interface EditableEnvironmentDraft {
@@ -58,8 +60,9 @@ export interface SetDataPayload {
 export interface ScenarioStore {
   session: RendererSession;
   scenario: Scenario;
-  snapshots: ScenarioSnapshot[];
+  snapshots: Snapshot[];
   maxSnapshots: number;
+  isRecording: boolean;
   mainView: ContainerView;
   connected: boolean;
   stateSync: StateSyncStatus;
@@ -103,6 +106,9 @@ export interface ScenarioStore {
   getScreenshotCapture: (id: string) => ScreenshotCaptureHandler | undefined;
 
   addSnapshot: (draft?: SnapshotDraft) => void;
+  startRecording: (options?: RecordingOptions) => void;
+  stopRecording: () => void;
+  renameSnapshot: (id: string, label: string) => void;
   removeSnapshot: (id: string) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;

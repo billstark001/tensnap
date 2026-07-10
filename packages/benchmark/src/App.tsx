@@ -294,7 +294,7 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
       <div style={{ marginTop: 16 }}>
         <p style={styles.sectionLabel}>Cases to run</p>
         {[
-          { sig: enableLineChart, label: 'LineChartView (multi-line)' },
+          { sig: enableLineChart, label: 'Canvas chart (multi-line)' },
           { sig: enableParticle, label: 'EnvironmentView (particle bounce)' },
           { sig: enableSpring, label: 'EnvironmentView (E-R spring graph)' },
           { sig: enableSchelling, label: 'Schelling Segregation Model' },

@@ -9,10 +9,12 @@ Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`
 
 | Import path | Contents |
 | --- | --- |
-| `@tensnap/core/chart` | `LineChartView`, `ChartStorage`, chart types |
+| `@tensnap/core/chart` | DOM-free `ChartScene`, `ChartStorage`, chart types |
+| `@tensnap/core/chart/browser` | Browser `BrowserChartView` host |
 | `@tensnap/core/environment` | `EnvironmentView`, storage classes, layer classes, environment types |
 | `@tensnap/core/parameter` | Parameter range utilities and types |
 | `@tensnap/core/runtime` | `RendererSession`, `RunController`, pipeline helpers, bounded condition scope |
+| `@tensnap/core/snapshot` | recording, keyframes, and seekable replay helpers |
 | `@tensnap/core/utils` | Format detection, msgpack, NumPy (`.npy`) parser/renderer |
 
 ## Shared runtime
@@ -31,12 +33,13 @@ to call `Scenario.dump()` in the tick path.
 
 ## Usage
 
-### Line chart
+### Browser chart
 
 ```typescript
-import { LineChartView, ChartDataPoint } from "@tensnap/web-core/chart';
+import { BrowserChartView } from "@tensnap/core/chart/browser";
+import type { ChartDataPoint } from "@tensnap/core/chart";
 
-const chart = new LineChartView(container, {
+const chart = new BrowserChartView(container, {
   lines: [
     { key: 'a', name: 'Series A', color: '#4e79a7', strokeWidth: 1.5 },
   ],
@@ -44,6 +47,7 @@ const chart = new LineChartView(container, {
   showXAxis: true,
   showYAxis: true,
 });
+chart.resize(600, 400);
 
 const data: ChartDataPoint[] = [
   { time: Date.now(), a: 42 },

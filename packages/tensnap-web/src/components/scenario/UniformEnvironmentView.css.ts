@@ -7,6 +7,8 @@ export const container = style({
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
+  minHeight: 0,
+  boxSizing: 'border-box',
   padding: '16px',
   backgroundColor: vars.color.cardBackground,
   borderRadius: '8px',

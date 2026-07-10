@@ -3,7 +3,7 @@ import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
 import { DialogOpenProps } from '@tensnap/web-common/react';
-import { ACTION_TIMEOUT_SECONDS_OPTIONS, useSettingsStore } from '@/store/settings';
+import { ACTION_TIMEOUT_SECONDS_OPTIONS, MAX_SNAPSHOT_PLAYBACK_FPS, useSettingsStore } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
 import { msg } from '@lingui/macro';
 import { Trans } from '@lingui/react/macro';
@@ -32,6 +32,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     renderTriggerMode,
     maxTps,
     maxRenderFps,
+    snapshotPlaybackFps,
     actionTimeoutSeconds,
     setSaveFormat,
     toggleTheme,
@@ -41,6 +42,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     setRenderTriggerMode,
     setMaxTps,
     setMaxRenderFps,
+    setSnapshotPlaybackFps,
     setActionTimeoutSeconds,
   } = useSettingsStore();
 
@@ -244,6 +246,25 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 />
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
                   <Trans>0 means unlimited</Trans>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Snapshot playback FPS</Trans></label>
+            <div className={styles.settingControl}>
+              <div>
+                <Form.Input
+                  type="number"
+                  min={1}
+                  max={MAX_SNAPSHOT_PLAYBACK_FPS}
+                  step={1}
+                  value={snapshotPlaybackFps}
+                  onChange={(e) => setSnapshotPlaybackFps(Number(e.target.value))}
+                />
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                  <Trans>Maximum 120 FPS</Trans>
                 </div>
               </div>
             </div>

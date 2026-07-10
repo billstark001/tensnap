@@ -508,10 +508,23 @@ export class AgentRuntime extends EventEmitter {
 
   private async handleScreenshotRequest(payload: ScreenshotRequestPayload): Promise<void> {
     if (payload.chart_id) {
-      this.renderer.sendScreenshotResponse({
-        request_id: payload.request_id,
-        error: 'Chart screenshots are not implemented in @tensnap/agent yet.',
-      });
+      try {
+        const artifacts = await this.requestRender({
+          chartId: payload.chart_id,
+          format: payload.format ?? 'png',
+          quality: payload.quality,
+          includeData: true,
+          persist: false,
+        }, `screenshot-request:${payload.request_id}`);
+        const artifact = artifacts.find((candidate) => candidate.kind === 'chart' && candidate.data?.length);
+        if (!artifact?.data?.length) throw new Error(`No chart render artifact was produced for ${payload.chart_id}.`);
+        this.renderer.sendScreenshotResponse({ request_id: payload.request_id, data: new Uint8Array(artifact.data), mime: artifact.mime });
+      } catch (error) {
+        this.renderer.sendScreenshotResponse({
+          request_id: payload.request_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       return;
     }
 

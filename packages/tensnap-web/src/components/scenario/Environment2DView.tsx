@@ -8,20 +8,24 @@ import { useToast } from '@/store/toast';
 import type { AgentRef } from '@tensnap/core';
 import type { AgentRenderState } from '@tensnap/core/environment';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
+import type { AssetStore, Scenario } from '@tensnap/core';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
 
 interface Environment2DViewProps {
   environment: ScenarioEnvironmentState;
   updateTrigger?: number;
   view?: AnchoredView;
+  assets?: AssetStore;
+  scenario?: Scenario;
 }
 
-export function Environment2DView({ environment, updateTrigger, view }: Environment2DViewProps) {
+export function Environment2DView({ environment, updateTrigger, view, assets, scenario: scenarioOverride }: Environment2DViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<EnvironmentRendererController | null>(null);
 
   const [selectedAgent, setSelectedAgent] = useState<{ agent: AgentRenderState; ref: AgentRef } | null>(null);
-  const scenario = useScenarioStore((store) => store.scenario);
+  const liveScenario = useScenarioStore((store) => store.scenario);
+  const scenario = scenarioOverride ?? liveScenario;
   const toast = useToast();
   const scenarioRef = useRef(scenario);
   const environmentIdRef = useRef(environment.id);
@@ -46,7 +50,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       return;
     }
     const controller = new EnvironmentRendererController(containerRef.current, {
-      resolveAssetUrl: (assetId) => scenarioRef.current?.assets.getUrl(assetId),
+      resolveAssetUrl: (assetId) => assets?.getUrl(assetId) ?? scenarioRef.current?.assets.getUrl(assetId),
       onAgentSelect: (agent, layerId) => setSelectedAgent({
         agent,
         ref: {
@@ -63,7 +67,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       controller.destroy();
       controllerRef.current = null;
     };
-  }, []);
+  }, [assets]);
 
   useEffect(() => {
     controllerRef.current?.render(environment);

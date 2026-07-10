@@ -10,7 +10,7 @@ import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
-import { ScenarioEnvironmentState } from '@tensnap/core';
+import { AssetStore, Scenario, ScenarioEnvironmentState } from '@tensnap/core';
 import { AgentStorage } from '@tensnap/core/environment';
 import { useScenarioStore } from '@/store/scenario/store';
 
@@ -18,6 +18,8 @@ interface UniformEnvironmentViewProps {
   environment: ScenarioEnvironmentState;
   updateTrigger?: number;
   view?: AnchoredView;
+  assets?: AssetStore;
+  scenario?: Scenario;
 }
 
 const AGENTS_PER_PAGE = 12;
@@ -75,12 +77,15 @@ const EmptyAgentState = ({
 export function UniformEnvironmentView({
   environment,
   updateTrigger,
+  assets,
+  scenario: scenarioOverride,
 }: UniformEnvironmentViewProps) {
   const [selectedAgent, setSelectedAgent] = useState<UniformAgent | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [agentsList, setAgentsList] = useState<UniformAgent[]>([]);
-  const scenario = useScenarioStore((store) => store.scenario);
+  const liveScenario = useScenarioStore((store) => store.scenario);
+  const scenario = scenarioOverride ?? liveScenario;
   useScenarioStore((store) => store._assetRevision);
 
   useEffect(() => {
@@ -175,7 +180,7 @@ export function UniformEnvironmentView({
               <AgentCard
                 key={agent.id}
                 agent={agent}
-                resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
+                resolveAssetUrl={(assetId) => assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)}
                 onClick={() => handleAgentClick(agent)}
               />
             ))}
@@ -191,7 +196,7 @@ export function UniformEnvironmentView({
 
       <AgentDetailsDialog
         agent={selectedAgent}
-        resolveAssetUrl={(assetId) => scenario?.assets.getUrl(assetId)}
+        resolveAssetUrl={(assetId) => assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)}
         onClose={handleCloseDialog}
       />
     </div>

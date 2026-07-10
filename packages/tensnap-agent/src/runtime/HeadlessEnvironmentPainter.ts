@@ -50,6 +50,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
   }
 
   async render(request: RenderRequest): Promise<RenderArtifact[] | void> {
+    if (request.options.chartId) return [];
     const targetEnvironments = request.options.envId
       ? request.snapshot.environments.filter((environment) => environment.id === request.options.envId)
       : request.snapshot.environments;

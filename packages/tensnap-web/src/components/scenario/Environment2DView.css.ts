@@ -5,7 +5,7 @@ export const container = style({
   position: 'relative',
   width: '100%',
   height: '100%',
-  overflow: 'auto',
+  overflow: 'hidden',
 });
 
 export const resetButton = style({

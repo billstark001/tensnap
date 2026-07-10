@@ -19,7 +19,7 @@ msgstr "(選択肢なし)"
 
 #. placeholder {0}: filteredAgents.length
 #. placeholder {1}: agentsList.length
-#: src/components/scenario/UniformEnvironmentView.tsx:154
+#: src/components/scenario/UniformEnvironmentView.tsx:159
 msgid "{0} / {1} agents"
 msgstr "{0} / {1} エージェント"
 
@@ -31,8 +31,8 @@ msgstr "{0} / {1} エージェント"
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap コントリビューター"
 
-#: src/dialogs/SettingsDialog.tsx:228
-#: src/dialogs/SettingsDialog.tsx:246
+#: src/dialogs/SettingsDialog.tsx:230
+#: src/dialogs/SettingsDialog.tsx:248
 msgid "0 means unlimited"
 msgstr "0は無制限を意味します"
 
@@ -61,15 +61,19 @@ msgstr "アクションID"
 msgid "Action Label"
 msgstr "アクションラベル"
 
-#: src/dialogs/SettingsDialog.tsx:253
+#: src/dialogs/SettingsDialog.tsx:274
 msgid "Action Timeout"
 msgstr "アクションタイムアウト"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:112
+msgid "Action:"
+msgstr "アクション："
 
 #: src/components/toolbar/ToolGroups.tsx:147
 #~ msgid "Adjust Mode"
 #~ msgstr "調整モード"
 
-#: src/dialogs/AgentDetailsDialog.tsx:188
+#: src/dialogs/AgentDetailsDialog.tsx:206
 msgid "Agent Details"
 msgstr "エージェントの詳細"
 
@@ -83,24 +87,24 @@ msgid "Allow Runtime Change"
 msgstr "実行時変更を許可"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:304
+#: src/dialogs/SettingsDialog.tsx:325
 msgid "Apply"
 msgstr "適用"
 
-#: src/components/project/RightPanel.tsx:155
+#: src/components/project/RightPanel.tsx:168
 msgid "Assets"
 msgstr "アセット"
 
-#: src/components/project/RightPanel.tsx:242
+#: src/components/project/RightPanel.tsx:271
 msgid "Assets sent by adapters will appear here."
 msgstr "アダプターから送信されたアセットはここに表示されます。"
 
-#: src/dialogs/SettingsDialog.tsx:204
+#: src/dialogs/SettingsDialog.tsx:206
 msgid "Auto"
 msgstr "自動"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:67
-#: src/dialogs/SettingsDialog.tsx:279
+#: src/dialogs/SettingsDialog.tsx:300
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
@@ -112,7 +116,7 @@ msgstr "ボタン"
 msgid "Button Text"
 msgstr "ボタンテキスト"
 
-#: src/dialogs/ContinuousRunDialog.tsx:120
+#: src/dialogs/ContinuousRunDialog.tsx:111
 #: src/dialogs/CreateNewProjectDialog.tsx:100
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:35
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:75
@@ -120,7 +124,7 @@ msgstr "ボタンテキスト"
 msgid "Cancel"
 msgstr "キャンセル"
 
-#: src/dialogs/SettingsDialog.tsx:287
+#: src/dialogs/SettingsDialog.tsx:308
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "現在のプロジェクトのWebSocketサーバーURLを変更します。接続が再確立されます。"
 
@@ -129,8 +133,8 @@ msgid "Chart"
 msgstr "チャート"
 
 #: src/dialogs/SnapshotDetailDialog.tsx:138
-msgid "Chart Data"
-msgstr "チャートデータ"
+#~ msgid "Chart Data"
+#~ msgstr "チャートデータ"
 
 #: src/dialogs/edit-views/ChartViewEditor.tsx:317
 msgid "Chart Data Preview"
@@ -148,26 +152,26 @@ msgstr "チャートグループラベル"
 msgid "Chart Series"
 msgstr "チャート系列"
 
-#: src/components/project/RightPanel.tsx:178
+#: src/components/project/RightPanel.tsx:200
 msgid "Clear All"
 msgstr "すべてクリア"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:196
-#: src/components/scenario/UniformEnvironmentView.tsx:69
+#: src/components/scenario/UniformEnvironmentView.tsx:71
 msgid "Clear search"
 msgstr "検索をクリア"
 
-#: src/components/project/RightPanel.tsx:189
+#: src/components/project/RightPanel.tsx:211
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/SettingsDialog.tsx:166
+#: src/dialogs/SettingsDialog.tsx:168
 msgid "Client Message Validation"
 msgstr "クライアントメッセージの検証"
 
 #: src/dialogs/AboutDialog.tsx:79
-#: src/dialogs/AgentDetailsDialog.tsx:275
-#: src/dialogs/SettingsDialog.tsx:314
+#: src/dialogs/AgentDetailsDialog.tsx:298
+#: src/dialogs/SettingsDialog.tsx:335
 msgid "Close"
 msgstr "閉じる"
 
@@ -175,7 +179,7 @@ msgstr "閉じる"
 #~ msgid "Close {0}"
 #~ msgstr "{0}を閉じる"
 
-#: src/dialogs/AgentDetailsDialog.tsx:247
+#: src/dialogs/AgentDetailsDialog.tsx:270
 msgid "Color:"
 msgstr "色："
 
@@ -183,7 +187,7 @@ msgstr "色："
 msgid "Comm:"
 msgstr "通信："
 
-#: src/dialogs/ContinuousRunDialog.tsx:63
+#: src/dialogs/ContinuousRunDialog.tsx:54
 msgid "Configure a bounded continuous run for action {actionId}."
 msgstr "アクション {actionId} の上限付き連続実行を設定します。"
 
@@ -215,7 +219,7 @@ msgstr "コンテイナー"
 msgid "Continuous"
 msgstr "連続"
 
-#: src/dialogs/ContinuousRunDialog.tsx:61
+#: src/dialogs/ContinuousRunDialog.tsx:52
 msgid "Continuous run"
 msgstr "連続実行"
 
@@ -251,7 +255,7 @@ msgstr "新しいプロジェクトを作成"
 msgid "Current Value"
 msgstr "現在の値"
 
-#: src/dialogs/AgentDetailsDialog.tsx:262
+#: src/dialogs/AgentDetailsDialog.tsx:285
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
@@ -259,7 +263,7 @@ msgstr "カスタムデータ："
 msgid "Cut"
 msgstr "切り取り"
 
-#: src/dialogs/SettingsDialog.tsx:132
+#: src/dialogs/SettingsDialog.tsx:134
 msgid "Dark"
 msgstr "ダーク"
 
@@ -267,7 +271,7 @@ msgstr "ダーク"
 msgid "Data Points"
 msgstr "データポイント"
 
-#: src/dialogs/AgentDetailsDialog.tsx:257
+#: src/dialogs/AgentDetailsDialog.tsx:280
 msgid "default"
 msgstr "デフォルト"
 
@@ -275,9 +279,13 @@ msgstr "デフォルト"
 msgid "Delete"
 msgstr "削除"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:155
+msgid "Delete recording"
+msgstr "録画を削除"
+
 #: src/dialogs/SnapshotDetailDialog.tsx:177
-msgid "Delete Snapshot"
-msgstr "スナップショットを削除"
+#~ msgid "Delete Snapshot"
+#~ msgstr "スナップショットを削除"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:55
 #~ msgid "Directory"
@@ -369,13 +377,12 @@ msgstr "環境タイプ"
 #~ msgid "Environments"
 #~ msgstr "環境"
 
-#: src/components/project/RightPanel.tsx:216
-#: src/dialogs/SnapshotDetailDialog.tsx:112
+#: src/components/project/RightPanel.tsx:239
 msgid "Environments:"
 msgstr "環境："
 
-#: src/dialogs/SettingsDialog.tsx:176
-#: src/dialogs/SettingsDialog.tsx:193
+#: src/dialogs/SettingsDialog.tsx:178
+#: src/dialogs/SettingsDialog.tsx:195
 msgid "Error"
 msgstr "エラー"
 
@@ -431,7 +438,7 @@ msgstr "ファイル"
 #~ msgid "File Manager"
 #~ msgstr "ファイルマネージャー"
 
-#: src/dialogs/AgentDetailsDialog.tsx:218
+#: src/dialogs/AgentDetailsDialog.tsx:241
 msgid "Follow agent"
 msgstr "エージェントを追従"
 
@@ -451,6 +458,18 @@ msgstr "エージェントを追従"
 #~ msgid "Force visible"
 #~ msgstr "強制的に表示"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:111
+msgid "Frame updates:"
+msgstr "フレーム更新："
+
+#: src/dialogs/SnapshotDetailDialog.tsx:109
+msgid "Frame:"
+msgstr "フレーム："
+
+#: src/components/project/RightPanel.tsx:247
+msgid "Frames:"
+msgstr "フレーム数："
+
 #: src/components/toolbar/MenuBar.tsx:142
 msgid "Fullscreen"
 msgstr "全画面"
@@ -467,11 +486,11 @@ msgstr "全画面"
 #~ msgid "Grid Width"
 #~ msgstr "グリッドの幅"
 
-#: src/components/project/RightPanel.tsx:130
+#: src/components/project/RightPanel.tsx:143
 msgid "Hash:"
 msgstr "ハッシュ："
 
-#: src/dialogs/AgentDetailsDialog.tsx:126
+#: src/dialogs/AgentDetailsDialog.tsx:141
 msgid "Heading:"
 msgstr "方向："
 
@@ -491,7 +510,7 @@ msgstr "ヘルプ"
 #~ msgid "Hide Right Panel"
 #~ msgstr "右側パネルを非表示"
 
-#: src/dialogs/AgentDetailsDialog.tsx:239
+#: src/dialogs/AgentDetailsDialog.tsx:262
 msgid "Icon:"
 msgstr "アイコン："
 
@@ -499,13 +518,17 @@ msgstr "アイコン："
 msgid "ID"
 msgstr "ID"
 
-#: src/components/project/RightPanel.tsx:118
-#: src/dialogs/AgentDetailsDialog.tsx:232
-#: src/dialogs/SnapshotDetailDialog.tsx:91
+#: src/components/project/RightPanel.tsx:131
+#: src/dialogs/AgentDetailsDialog.tsx:255
+#: src/dialogs/SnapshotDetailDialog.tsx:107
 msgid "ID:"
 msgstr "ID："
 
-#: src/components/project/RightPanel.tsx:141
+#: src/dialogs/SnapshotDetailDialog.tsx:90
+msgid "Inspect this recording offline. Opening it creates a disconnected copy."
+msgstr "この録画をオフラインで確認します。開くと接続されていないコピーが作成されます。"
+
+#: src/components/project/RightPanel.tsx:154
 msgid "Inspector"
 msgstr "インスペクター"
 
@@ -518,7 +541,7 @@ msgstr "キーボードショートカット"
 #~ msgid "Label"
 #~ msgstr "ラベル"
 
-#: src/dialogs/SettingsDialog.tsx:139
+#: src/dialogs/SettingsDialog.tsx:141
 msgid "Language"
 msgstr "言語"
 
@@ -530,7 +553,7 @@ msgstr "左"
 msgid "License:"
 msgstr "ライセンス："
 
-#: src/dialogs/SettingsDialog.tsx:132
+#: src/dialogs/SettingsDialog.tsx:134
 msgid "Light"
 msgstr "ライト"
 
@@ -538,19 +561,23 @@ msgstr "ライト"
 #~ msgid "Loading..."
 #~ msgstr "読み込み中..."
 
-#: src/dialogs/SettingsDialog.tsx:235
+#: src/dialogs/SettingsDialog.tsx:237
 msgid "Max FPS"
 msgstr "最大FPS"
 
-#: src/dialogs/SettingsDialog.tsx:217
+#: src/dialogs/SettingsDialog.tsx:219
 msgid "Max TPS"
 msgstr "最大TPS"
 
-#: src/dialogs/ContinuousRunDialog.tsx:70
+#: src/dialogs/SettingsDialog.tsx:267
+msgid "Maximum 120 FPS"
+msgstr "最大 120 FPS"
+
+#: src/dialogs/ContinuousRunDialog.tsx:61
 msgid "Maximum steps"
 msgstr "最大ステップ数"
 
-#: src/dialogs/ContinuousRunDialog.tsx:112
+#: src/dialogs/ContinuousRunDialog.tsx:103
 msgid "Maximum steps must be an integer from 1 to 1,000,000."
 msgstr "最大ステップ数は 1 から 1,000,000 の整数である必要があります。"
 
@@ -558,7 +585,7 @@ msgstr "最大ステップ数は 1 から 1,000,000 の整数である必要が�
 msgid "Maximum Value"
 msgstr "最大値"
 
-#: src/components/project/RightPanel.tsx:122
+#: src/components/project/RightPanel.tsx:135
 msgid "MIME:"
 msgstr "MIME："
 
@@ -583,7 +610,7 @@ msgstr "MSPT："
 #~ msgstr "名前"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:221
+#: src/dialogs/AgentDetailsDialog.tsx:244
 msgid "Neighbors: {0}"
 msgstr "近傍: {0}"
 
@@ -615,15 +642,15 @@ msgstr "{itemName}はありません"
 #~ msgid "No active project"
 #~ msgstr "アクティブなプロジェクトがありません"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:66
+#: src/components/scenario/UniformEnvironmentView.tsx:68
 msgid "No agents found matching your search"
 msgstr "検索に一致するエージェントが見つかりません"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:67
+#: src/components/scenario/UniformEnvironmentView.tsx:69
 msgid "No agents in this environment"
 msgstr "この環境にエージェントがありません"
 
-#: src/components/project/RightPanel.tsx:241
+#: src/components/project/RightPanel.tsx:270
 msgid "No assets registered."
 msgstr "登録されたアセットがありません。"
 
@@ -661,7 +688,7 @@ msgstr "検索結果はありません。"
 msgid "No series available"
 msgstr "利用可能な系列がありません"
 
-#: src/components/project/RightPanel.tsx:188
+#: src/components/project/RightPanel.tsx:210
 msgid "No snapshots yet."
 msgstr "まだスナップショットがありません。"
 
@@ -669,15 +696,15 @@ msgstr "まだスナップショットがありません。"
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:228
+#: src/dialogs/AgentDetailsDialog.tsx:251
 msgid "No spatial context is available for this agent."
 msgstr "このエージェントには空間コンテキストがありません。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:263
+#: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "None"
 msgstr "なし"
 
-#: src/dialogs/AgentDetailsDialog.tsx:121
+#: src/dialogs/AgentDetailsDialog.tsx:136
 msgid "Not positioned"
 msgstr "位置指定なし"
 
@@ -685,10 +712,18 @@ msgstr "位置指定なし"
 msgid "Object ID"
 msgstr "オブジェクトID"
 
-#: src/dialogs/SettingsDialog.tsx:170
-#: src/dialogs/SettingsDialog.tsx:187
+#: src/dialogs/SettingsDialog.tsx:172
+#: src/dialogs/SettingsDialog.tsx:189
 msgid "Off"
 msgstr "オフ"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:132
+msgid "Older frames were removed to stay within the recording budget."
+msgstr "録画の容量制限に収めるため、古いフレームは削除されました。"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:156
+msgid "Open as offline copy"
+msgstr "オフラインコピーとして開く"
 
 #: src/components/toolbar/MenuBar.tsx:55
 msgid "Open File"
@@ -734,11 +769,11 @@ msgstr "パラメータラベル"
 msgid "Parameter Type"
 msgstr "パラメータタイプ"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:119
+#: src/dialogs/SnapshotDetailDialog.tsx:134
 msgid "Parameters"
 msgstr "パラメータ"
 
-#: src/components/project/RightPanel.tsx:224
+#: src/components/project/RightPanel.tsx:253
 msgid "Parameters:"
 msgstr "パラメータ："
 
@@ -746,7 +781,7 @@ msgstr "パラメータ："
 msgid "Paste"
 msgstr "貼り付け"
 
-#: src/components/project/RightPanel.tsx:91
+#: src/components/project/RightPanel.tsx:104
 msgid "Pending"
 msgstr "保留中"
 
@@ -754,7 +789,7 @@ msgstr "保留中"
 msgid "Please create or open a project to get started."
 msgstr "プロジェクトを開くか、作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:118
+#: src/dialogs/AgentDetailsDialog.tsx:133
 msgid "Position:"
 msgstr "位置："
 
@@ -762,7 +797,7 @@ msgstr "位置："
 #~ msgid "Previous page"
 #~ msgstr "前のページ"
 
-#: src/dialogs/SettingsDialog.tsx:274
+#: src/dialogs/SettingsDialog.tsx:295
 msgid "Project Settings"
 msgstr "プロジェクト設定"
 
@@ -770,11 +805,11 @@ msgstr "プロジェクト設定"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "プロジェクトURLを正常に更新しました"
 
-#: src/dialogs/AgentDetailsDialog.tsx:200
+#: src/dialogs/AgentDetailsDialog.tsx:223
 msgid "Radius"
 msgstr "半径"
 
-#: src/components/project/RightPanel.tsx:91
+#: src/components/project/RightPanel.tsx:104
 msgid "Ready"
 msgstr "準備完了"
 
@@ -786,9 +821,13 @@ msgstr "再接続"
 #~ msgid "Reconnected successfully"
 #~ msgstr "再接続に成功しました"
 
-#: src/dialogs/ContinuousRunDialog.tsx:108
+#: src/dialogs/ContinuousRunDialog.tsx:99
 msgid "Record this run"
 msgstr "この実行を記録する"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:108
+msgid "Recorded:"
+msgstr "録画日時："
 
 #: src/components/toolbar/MenuBar.tsx:94
 msgid "Redo"
@@ -798,7 +837,7 @@ msgstr "やり直す"
 #~ msgid "Refresh"
 #~ msgstr "更新"
 
-#: src/dialogs/SettingsDialog.tsx:200
+#: src/dialogs/SettingsDialog.tsx:202
 msgid "Render Trigger"
 msgstr "レンダートリガー"
 
@@ -811,12 +850,12 @@ msgid "Repository:"
 msgstr "リポジトリ："
 
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
-#: src/dialogs/SettingsDialog.tsx:297
+#: src/dialogs/SettingsDialog.tsx:318
 msgid "Reset"
 msgstr "リセット"
 
 #. js-lingui-explicit-id
-#: src/components/scenario/Environment2DView.tsx:80
+#: src/components/scenario/Environment2DView.tsx:84
 msgid "environment2d.resetView"
 msgstr "ビューをリセット"
 
@@ -830,8 +869,8 @@ msgid "Reset Zoom"
 msgstr "ズームをリセット"
 
 #: src/dialogs/SnapshotDetailDialog.tsx:180
-msgid "Restore Snapshot"
-msgstr "スナップショットを復元"
+#~ msgid "Restore Snapshot"
+#~ msgstr "スナップショットを復元"
 
 #: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:272
 #~ msgid "Retry"
@@ -854,7 +893,7 @@ msgstr "CSV形式で保存"
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
-#: src/dialogs/SettingsDialog.tsx:152
+#: src/dialogs/SettingsDialog.tsx:154
 msgid "Save Format"
 msgstr "保存形式"
 
@@ -874,13 +913,13 @@ msgstr "すべて選択"
 #~ msgid "Select export format"
 #~ msgstr "エクスポート形式を選択"
 
-#: src/dialogs/SettingsDialog.tsx:183
+#: src/dialogs/SettingsDialog.tsx:185
 msgid "Server Message Validation"
 msgstr "サーバーメッセージバリデーション"
 
 #: src/components/project/StatusBar.tsx:130
 #: src/components/toolbar/MenuBar.tsx:163
-#: src/dialogs/SettingsDialog.tsx:112
+#: src/dialogs/SettingsDialog.tsx:114
 msgid "Settings"
 msgstr "設定"
 
@@ -904,16 +943,32 @@ msgstr "ツールバーを表示"
 #~ msgid "Sim:"
 #~ msgstr "シミュレーション："
 
-#: src/components/project/RightPanel.tsx:126
-#: src/dialogs/AgentDetailsDialog.tsx:256
+#: src/dialogs/SnapshotDetailDialog.tsx:110
+msgid "Simulation time:"
+msgstr "シミュレーション時刻："
+
+#: src/components/project/RightPanel.tsx:139
+#: src/dialogs/AgentDetailsDialog.tsx:279
 msgid "Size:"
 msgstr "サイズ："
 
 #: src/dialogs/SnapshotDetailDialog.tsx:80
-msgid "Snapshot Details"
-msgstr "スナップショットの詳細"
+#~ msgid "Snapshot Details"
+#~ msgstr "スナップショットの詳細"
 
-#: src/components/project/RightPanel.tsx:148
+#: src/dialogs/SnapshotDetailDialog.tsx:94
+msgid "Snapshot name"
+msgstr "スナップショット名"
+
+#: src/dialogs/SettingsDialog.tsx:255
+msgid "Snapshot playback FPS"
+msgstr "スナップショット再生 FPS"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:89
+msgid "Snapshot replay"
+msgstr "スナップショット再生"
+
+#: src/components/project/RightPanel.tsx:161
 msgid "Snapshots"
 msgstr "スナップショット"
 
@@ -925,9 +980,13 @@ msgstr "サーバーレンダリング："
 #~ msgid "Start"
 #~ msgstr "開始"
 
-#: src/dialogs/ContinuousRunDialog.tsx:122
+#: src/dialogs/ContinuousRunDialog.tsx:113
 msgid "Start continuous run"
 msgstr "連続実行を開始"
+
+#: src/components/project/RightPanel.tsx:181
+msgid "Start recording"
+msgstr "録画を開始"
 
 #: src/components/toolbar/ToolGroups.tsx:101
 #~ msgid "Start/Stop"
@@ -945,19 +1004,23 @@ msgstr "ステップ"
 msgid "Stop continuous run"
 msgstr "連続実行を停止"
 
-#: src/dialogs/ContinuousRunDialog.tsx:81
+#: src/dialogs/ContinuousRunDialog.tsx:72
 msgid "Stop expression (optional)"
 msgstr "停止条件式（任意）"
+
+#: src/components/project/RightPanel.tsx:181
+msgid "Stop recording"
+msgstr "録画を停止"
 
 #: src/components/toolbar/ToolGroups.tsx:166
 #~ msgid "Synchronize State"
 #~ msgstr "状態を同期"
 
-#: src/dialogs/SettingsDialog.tsx:118
+#: src/dialogs/SettingsDialog.tsx:120
 msgid "System Settings"
 msgstr "システム設定"
 
-#: src/components/project/RightPanel.tsx:168
+#: src/components/project/RightPanel.tsx:190
 msgid "Take Snapshot"
 msgstr "スナップショットを撮る"
 
@@ -973,7 +1036,7 @@ msgstr "ボタンはこのバインディングを維持できますが、編集
 msgid "The current object will be renamed when this edit is saved."
 msgstr "この編集を保存すると、現在のオブジェクトの名前が変更されます。"
 
-#: src/dialogs/SettingsDialog.tsx:121
+#: src/dialogs/SettingsDialog.tsx:123
 msgid "Theme"
 msgstr "テーマ"
 
@@ -1002,15 +1065,14 @@ msgstr "ビューはこのバインディングを維持できますが、編集
 msgid "This view can keep its binding, but there is no registered parameter to edit."
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済みパラメータがありません。"
 
-#: src/components/project/RightPanel.tsx:210
+#: src/components/project/RightPanel.tsx:233
 #: src/components/project/StatusBar.tsx:78
-#: src/dialogs/SnapshotDetailDialog.tsx:105
 msgid "Time Step:"
 msgstr "タイムステップ："
 
 #: src/dialogs/SnapshotDetailDialog.tsx:98
-msgid "Timestamp:"
-msgstr "タイムスタンプ："
+#~ msgid "Timestamp:"
+#~ msgstr "タイムスタンプ："
 
 #: src/dialogs/edit-views/ChartViewEditor.tsx:249
 #: src/dialogs/edit-views/ContainerViewEditor.tsx:16
@@ -1055,7 +1117,7 @@ msgstr "タイプ"
 msgid "Undo"
 msgstr "元に戻す"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:152
+#: src/components/scenario/UniformEnvironmentView.tsx:157
 msgid "Uniform Environment"
 msgstr "均一環境"
 
@@ -1084,10 +1146,10 @@ msgid "View"
 msgstr "表示"
 
 #: src/dialogs/SnapshotDetailDialog.tsx:83
-msgid "View and manage snapshot"
-msgstr "スナップショットを表示・管理"
+#~ msgid "View and manage snapshot"
+#~ msgstr "スナップショットを表示・管理"
 
-#: src/dialogs/AgentDetailsDialog.tsx:191
+#: src/dialogs/AgentDetailsDialog.tsx:209
 msgid "View detailed information about the selected agent"
 msgstr "選択したエージェントの詳細情報を表示"
 
@@ -1095,16 +1157,16 @@ msgstr "選択したエージェントの詳細情報を表示"
 msgid "View Docs"
 msgstr "ドキュメントを見る"
 
-#: src/dialogs/ContinuousRunDialog.tsx:115
+#: src/dialogs/ContinuousRunDialog.tsx:106
 msgid "Wall-clock limit must be a positive number of milliseconds."
 msgstr "実時間の上限は正のミリ秒数で指定してください。"
 
-#: src/dialogs/ContinuousRunDialog.tsx:90
+#: src/dialogs/ContinuousRunDialog.tsx:81
 msgid "Wall-clock limit, ms (optional)"
 msgstr "実時間の上限（ミリ秒、任意）"
 
-#: src/dialogs/SettingsDialog.tsx:173
-#: src/dialogs/SettingsDialog.tsx:190
+#: src/dialogs/SettingsDialog.tsx:175
+#: src/dialogs/SettingsDialog.tsx:192
 msgid "Warning"
 msgstr "警告"
 

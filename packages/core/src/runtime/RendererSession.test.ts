@@ -2,6 +2,7 @@ import type { ISimulatorTransport, TransportConnectionState, TransportEventHandl
 import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
 import { describe, expect, it } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
+import { materializeSnapshot, type Snapshot } from '../snapshot';
 
 function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTransport {
   return {
@@ -78,5 +79,24 @@ describe('RendererSession', () => {
     });
 
     session.run.requestAction('step');
+  });
+
+  it('starts run recording before the first dispatch and completes a seekable snapshot', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    const completed: Snapshot[] = [];
+    session.addEventListener('recording:complete', (event) => {
+      completed.push((event as CustomEvent<{ snapshot: Snapshot }>).detail.snapshot);
+    });
+    session.attachTransport(createTransport(sent));
+
+    session.run.start({ actionId: 'step', maxSteps: 1, record: { maxSteps: 10, maxBytes: 1_000_000 } });
+    const tickId = (sent[0].payload as { tick_id: string }).tick_id;
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: tickId } });
+
+    expect(completed).toHaveLength(1);
+    expect(completed[0].frames).toHaveLength(1);
+    expect(materializeSnapshot(completed[0]).metadata.time).toBe(1);
   });
 });

@@ -1,5 +1,6 @@
 import type { ActionEndPayload, RendererToSimulatorMessage, StateSyncBoundaryPayload } from '@tensnap/protocol';
 import type { Scenario } from '../scenario';
+import type { RecordingOptions as SnapshotRecordingOptions } from '../snapshot';
 import { PipelineRuntime, type RuntimeTaskSnapshot } from './PipelineRuntime';
 import {
   compileRunCondition,
@@ -11,11 +12,7 @@ export const DEFAULT_RUN_MAX_STEPS = 1_000_000;
 /** A practical stand-in for the legacy "run until stopped" button behavior. */
 export const MAX_INT32_RUN_STEPS = 0x7fffffff;
 
-export interface RecordingOptions {
-  /** Reserved for the recording implementation introduced by the next PR. */
-  maxBytes?: number;
-  maxSteps?: number;
-}
+export interface RecordingOptions extends SnapshotRecordingOptions {}
 
 export interface RunSpec {
   actionId: string;
@@ -59,6 +56,8 @@ export interface RunControllerOptions {
   maxStepsPolicy?: number;
   idFactory?: () => string;
   onStateChange?: (status: RunStatus | null) => void;
+  onRunStart?: (status: RunStatus) => void;
+  onRunStop?: (status: RunStatus) => void;
 }
 
 const nativeScheduler: RunScheduler = {
@@ -163,6 +162,7 @@ export class RunController {
       startedAt: this.scheduler.now(),
     };
     this.activeRun = status;
+    this.options.onRunStart?.(cloneStatus(status));
 
     if (this.evaluateCondition()) {
       this.finish('condition');
@@ -268,6 +268,7 @@ export class RunController {
     run.stoppedAt = this.scheduler.now();
     this.condition = null;
     this.publish();
+    this.options.onRunStop?.(cloneStatus(run));
   }
 
   private matchActiveTask(payload: Pick<ActionEndPayload, 'id' | 'tick_id'>): RuntimeTaskSnapshot | null {

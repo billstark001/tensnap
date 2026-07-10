@@ -16,6 +16,7 @@ import {
   sanitizeParameter,
 } from '@tensnap/core';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
+import { createSingleSnapshot, type RecordingOptions, type Snapshot } from '@tensnap/core/snapshot';
 import type {
   Action,
   ActionEndPayload,
@@ -288,17 +289,18 @@ const subscribeSession = (
   };
 };
 
-const annotateSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): ScenarioSnapshot => {
-  const timestamp = draft?.timestamp ?? Date.now();
-  const id = draft?.id ?? `snapshot-${timestamp}`;
-  return {
-    ...snapshot,
-    metadata: {
-      ...snapshot.metadata,
-      id,
-      timestamp,
-    },
-  };
+const createSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): Snapshot => createSingleSnapshot(snapshot, {
+  id: draft?.id,
+  label: draft?.label,
+  timestamp: draft?.timestamp,
+});
+
+const appendSnapshot = (snapshots: Snapshot[], snapshot: Snapshot, maxSnapshots: number): Snapshot[] => {
+  const next = [...snapshots, snapshot];
+  if (maxSnapshots !== -1 && next.length > maxSnapshots) {
+    next.splice(0, next.length - maxSnapshots);
+  }
+  return next;
 };
 
 export const createScenarioStore = () => {
@@ -343,6 +345,7 @@ export const createScenarioStore = () => {
       scenario,
       snapshots: [],
       maxSnapshots: 32,
+      isRecording: false,
       mainView: createDefaultRootLayout(),
       connected: false,
       stateSync: createIdleStateSyncStatus(),
@@ -455,6 +458,7 @@ export const createScenarioStore = () => {
         set((state) => ({
           connected: false,
           snapshots: [],
+          isRecording: false,
           currentTime: null,
           stateSync: createIdleStateSyncStatus(),
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
@@ -702,15 +706,37 @@ export const createScenarioStore = () => {
       },
 
       addSnapshot: (draft) => {
-        const snapshot = annotateSnapshot(scenario.dump(), draft);
+        const snapshot = createSnapshot(scenario.dump(), draft);
         set((state) => {
-          const snapshots = [...state.snapshots, snapshot];
-          if (state.maxSnapshots !== -1 && snapshots.length > state.maxSnapshots) {
-            snapshots.splice(0, snapshots.length - state.maxSnapshots);
-          }
-          return { snapshots };
+          return { snapshots: appendSnapshot(state.snapshots, snapshot, state.maxSnapshots) };
         });
       },
+
+      startRecording: (options: RecordingOptions = {}) => {
+        session.startRecording({
+          maxSteps: options.maxSteps ?? 10_000,
+          maxBytes: options.maxBytes ?? 64 * 1024 * 1024,
+          ringBuffer: options.ringBuffer ?? true,
+          ...options,
+        });
+        set({ isRecording: true });
+      },
+
+      stopRecording: () => {
+        session.stopRecording();
+      },
+
+      renameSnapshot: (id, label) => set((state) => ({
+        snapshots: state.snapshots.map((snapshot) => snapshot.metadata.id === id
+          ? {
+            ...snapshot,
+            metadata: {
+              ...snapshot.metadata,
+              label: label.trim() || undefined,
+            },
+          }
+          : snapshot),
+      })),
 
       removeSnapshot: (id) => set((state) => ({
         snapshots: state.snapshots.filter((snapshot) => String(snapshot.metadata.id ?? '') !== id),
@@ -767,6 +793,16 @@ export const createScenarioStore = () => {
       });
     },
   );
+  const onRecordingStart: EventListener = () => useStore.setState({ isRecording: true });
+  const onRecordingComplete: EventListener = (event) => {
+    const snapshot = (event as CustomEvent<{ snapshot: Snapshot }>).detail.snapshot;
+    useStore.setState((state) => ({
+      isRecording: false,
+      snapshots: appendSnapshot(state.snapshots, snapshot, state.maxSnapshots),
+    }));
+  };
+  session.addEventListener('recording:start', onRecordingStart);
+  session.addEventListener('recording:complete', onRecordingComplete);
   void unsubscribeScenario;
 
   return useStore;
