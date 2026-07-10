@@ -94,6 +94,31 @@ describe('SnapshotRecorder', () => {
     expect(materializeSnapshot(snapshot).metadata.time).toBe(4);
   });
 
+  it('keeps frame ids monotonic and seeks correctly across repeated ring-buffer evictions', () => {
+    const scenario = new Scenario();
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({ maxSteps: 2, ringBuffer: true, keyframeEvery: 2 });
+    for (let time = 1; time <= 6; time += 1) {
+      const message = { type: 'metadata_update' as const, payload: { time } };
+      scenario.apply(message);
+      recorder.recordMessage(message);
+      recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+    }
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.initial.frame).toBe(4);
+    expect(snapshot.frames.map((frame) => frame.index)).toEqual([5, 6]);
+    expect(new Set(snapshot.frames.map((frame) => frame.index)).size).toBe(snapshot.frames.length);
+    // The retained keyframe is in a later segment than the newly promoted initial state.
+    expect(snapshot.keyframes.map((keyframe) => keyframe.frame)).toEqual([6]);
+
+    const player = new SnapshotPlayer(snapshot);
+    for (const [frame, expectedTime] of [[6, 6], [5, 5], [99, 6], [4, 4], [5, 5], [-1, 4]] as const) {
+      expect(player.seek(frame).metadata.time).toBe(expectedTime);
+      expect(materializeSnapshot(snapshot, frame).metadata.time).toBe(expectedTime);
+    }
+  });
+
   it('applies forward playback deltas without rebuilding the Scenario', () => {
     const scenario = new Scenario();
     const recorder = new SnapshotRecorder(scenario);

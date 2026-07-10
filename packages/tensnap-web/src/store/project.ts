@@ -1,7 +1,7 @@
 import { create, StoreApi, UseBoundStore } from "zustand";
 import { createTransportStore, TransportStore } from "./transport";
 import { generateUniqueId } from "@/utils/common";
-import { ProjectFileContent } from "@/types/project";
+import { parseProjectFileContent, PROJECT_FILE_VERSION, type ProjectFileContent } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
 import { ChartGroup, ChartMetadata } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
@@ -154,9 +154,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw new Error(`File not found: ${filepath}`);
     }
 
-    const parsedContent: ProjectFileContent = typeof fileContent.content === 'string'
+    const rawContent: unknown = typeof fileContent.content === 'string'
       ? JSON.parse(fileContent.content)
       : decode(new Uint8Array(fileContent.content));
+    const parsedContent = parseProjectFileContent(rawContent);
 
     const { scenario, mainView, url, snapshots } = parsedContent;
 
@@ -189,6 +190,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const connectionId = project.useTransportStore.getState().connectionId;
 
     const projectFile: ProjectFileContent = {
+      version: PROJECT_FILE_VERSION,
       mainView: scenarioStore.mainView,
       scenario: scenarioStore.dump(),
       snapshots: scenarioStore.snapshots,

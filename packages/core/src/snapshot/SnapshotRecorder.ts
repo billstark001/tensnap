@@ -243,6 +243,8 @@ export function createSingleSnapshot(
 /** Host-neutral recorder fed by RendererSession's existing protocol events. */
 export class SnapshotRecorder {
   private snapshot: Snapshot | null = null;
+  /** Frame ids identify points on the recording timeline, not array slots. */
+  private nextFrameIndex = 1;
   private pendingMessages: SimulatorToRendererMessage[] = [];
   private pendingControls: RendererToSimulatorMessage[] = [];
   private flushQueued = false;
@@ -283,6 +285,7 @@ export class SnapshotRecorder {
       label: options.label,
       timestamp,
     });
+    this.nextFrameIndex = this.snapshot.initial.frame + 1;
     this.snapshot.metadata.endedAt = undefined;
     this.snapshot.layerCodecs = clone(options.layerCodecs ?? {});
     this.frameByteLengths.clear();
@@ -309,6 +312,7 @@ export class SnapshotRecorder {
     this.snapshot.byteLength = this.estimatedByteLength;
     const complete = clone(this.snapshot);
     this.snapshot = null;
+    this.nextFrameIndex = 1;
     this.pendingMessages = [];
     this.pendingControls = [];
     this.flushQueued = false;
@@ -373,7 +377,7 @@ export class SnapshotRecorder {
       return codec !== 'derived';
     });
     const frame: SnapshotFrame = {
-      index: target.frames.length + 1,
+      index: this.nextFrameIndex++,
       timestamp,
       messages,
       controls: coalesceControls(this.pendingControls),

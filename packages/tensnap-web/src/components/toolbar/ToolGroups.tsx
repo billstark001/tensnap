@@ -33,6 +33,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import { msg } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
+import { MAX_INT32_RUN_STEPS } from '@tensnap/core/runtime';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
   return <div className={styles.toolGroup}>
@@ -99,7 +100,10 @@ export function SimulationControlTools() {
       <ToolButton
         icon={<Play size={16} />}
         tooltip={_(msg`Start`)}
-        onClick={() => handleButtonAction('start')}
+        onClick={() => handleButtonAction('start', true, {
+          maxSteps: MAX_INT32_RUN_STEPS,
+          record: false,
+        })}
       />
       <ToolButton
         icon={<Square size={16} />}

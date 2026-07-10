@@ -4,6 +4,29 @@ import { useProjectStore } from './project';
 import { getFileSystemState } from './file-system/provider';
 import { createSingleSnapshot } from '@tensnap/core/snapshot';
 
+const emptyScenario = () => ({
+  metadata: {},
+  actions: [],
+  parameters: [],
+  environments: [],
+  charts: [],
+  logs: [],
+  assets: [],
+});
+
+const mainView = {
+  id: 'root',
+  type: 'container' as const,
+  left: 0,
+  top: 0,
+  width: 800,
+  height: 600,
+  expanded: true,
+  disabled: false,
+  data: { title: 'Main' },
+  views: [],
+};
+
 vi.mock('./file-system/provider', () => ({
   getFileSystemState: vi.fn(),
 }));
@@ -65,6 +88,50 @@ describe('ProjectStore', () => {
     expect(savedContent).toHaveProperty('snapshots');
     expect(savedContent.snapshots).toHaveLength(1);
     expect(savedContent.snapshots[0].metadata.id).toBe('snapshot-1');
+    expect(savedContent.version).toBe(1);
+  });
+
+  it('migrates legacy one-off snapshots and defaults missing legacy snapshots to an empty list', async () => {
+    const legacySnapshot = emptyScenario();
+    (getFileSystemState as any).mockReturnValue({
+      readFile: vi.fn()
+        .mockResolvedValueOnce({ content: JSON.stringify({
+          url: 'http://legacy.example',
+          mainView,
+          scenario: emptyScenario(),
+          snapshots: [legacySnapshot],
+        }) })
+        .mockResolvedValueOnce({ content: JSON.stringify({
+          url: 'http://legacy-empty.example',
+          mainView,
+          scenario: emptyScenario(),
+        }) }),
+    });
+
+    await useProjectStore.getState().open('/legacy.json');
+    const migrated = useProjectStore.getState().projects[0].useScenarioStore.getState().snapshots;
+    expect(migrated).toHaveLength(1);
+    expect(migrated[0]).toMatchObject({
+      version: 1,
+      initial: { frame: 0, scenario: legacySnapshot },
+      frames: [],
+    });
+
+    await useProjectStore.getState().open('/legacy-without-snapshots.json');
+    expect(useProjectStore.getState().projects[1].useScenarioStore.getState().snapshots).toEqual([]);
+  });
+
+  it('rejects unsupported project versions and malformed current project files before loading them', async () => {
+    (getFileSystemState as any).mockReturnValue({
+      readFile: vi.fn()
+        .mockResolvedValueOnce({ content: JSON.stringify({ version: 2 }) })
+        .mockResolvedValueOnce({ content: JSON.stringify({ version: 1, url: 'http://broken.example' }) }),
+    });
+
+    await expect(useProjectStore.getState().open('/future.json'))
+      .rejects.toThrow('Unsupported project file version: 2.');
+    await expect(useProjectStore.getState().open('/malformed.json')).rejects.toThrow();
+    expect(useProjectStore.getState().projects).toHaveLength(0);
   });
 
   it('should preserve trajectory data when saving and opening a project', async () => {
