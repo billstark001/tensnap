@@ -77,6 +77,9 @@ export class EdgeLayer extends BaseLayer {
   private _simConfig: Required<GraphEnvConfig>;
 
   private readonly _agentStorage: AgentStorage;
+  private readonly _edgeStorage: EdgeStorage;
+  /** Inspection/headless callers can render existing positions without d3-force. */
+  private readonly _readOnlyLayout: boolean;
   private _ticking = false;
   private _dragPinned = new Map<AgentId, { fx: number; fy: number }>();
 
@@ -87,13 +90,17 @@ export class EdgeLayer extends BaseLayer {
   constructor(
     edgeStorage: EdgeStorage,
     agentStorage: AgentStorage,
-    config: GraphEnvConfig = {}
+    config: GraphEnvConfig & { readOnlyLayout?: boolean } = {}
   ) {
     super();
     this._agentStorage = agentStorage;
+    this._edgeStorage = edgeStorage;
+    this._readOnlyLayout = config.readOnlyLayout === true;
     this._simConfig = { ...DEFAULT_GRAPH_CONFIG, ...config };
 
-    this._initSimulation();
+    if (!this._readOnlyLayout) {
+      this._initSimulation();
+    }
     this.registerStorage(edgeStorage, (data, delta) => this._onEdgeData(data, delta));
     this.registerStorage(agentStorage, (_data, delta) => { if (!this._ticking && !delta?.positionsFlushed) this._onAgentData(); });
     this._onEdgeData(edgeStorage.getData());
@@ -126,7 +133,9 @@ export class EdgeLayer extends BaseLayer {
 
   onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
     this.applyViewportTransform(viewport, fitMode);
-    this._simulation?.alpha(0.05).restart();
+    if (!this._readOnlyLayout) {
+      this._simulation?.alpha(0.05).restart();
+    }
   }
 
   // #endregion
@@ -163,14 +172,18 @@ export class EdgeLayer extends BaseLayer {
     }
     if (added.length || updated.length) {
       this._syncLinkForce();
-      this._simulation?.alpha(0.1).restart();
+      if (!this._readOnlyLayout) {
+        this._simulation?.alpha(0.1).restart();
+      }
     }
   }
 
   private _fullEdgeRebuild(edges: ReadonlyMap<string, GraphEdge>): void {
     this._rebuildSimNodes(this._agentStorage.getData().agents);
-    this._assignInitialPositions(this._simNodes, edges);
-    this._pushSimPositions();
+    if (!this._readOnlyLayout) {
+      this._assignInitialPositions(this._simNodes, edges);
+      this._pushSimPositions();
+    }
 
     this._simLinkMap.clear();
     for (const edge of edges.values()) {
@@ -178,12 +191,18 @@ export class EdgeLayer extends BaseLayer {
     }
 
     this._syncLinkForce();
-    this._reconfigureSimulation();
-    this._simulation?.nodes(this._simNodes).alpha(0.3).restart();
+    if (!this._readOnlyLayout) {
+      this._reconfigureSimulation();
+      this._simulation?.nodes(this._simNodes).alpha(0.3).restart();
+    }
     this._rebuildAllEdgeShapes();
   }
 
   private _onAgentData(): void {
+    if (this._readOnlyLayout) {
+      this._fullEdgeRebuild(this._edgeStorage.getData().edges);
+      return;
+    }
     const agents = this._agentStorage.getData().agents;
     const sameSet = agents.size === this._simNodes.length &&
       [...agents.keys()].every(id => this._simNodeMap.has(id));

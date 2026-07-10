@@ -53,9 +53,35 @@ export const TrajectoryLayerMetadataSchema = BaseLayerMetadataSchema.extend({
   length: z.number().optional(),
   width: z.number().optional(),
   color: z.string().optional(),
+  on_agent_delete: z.enum(['delete', 'retain']).optional(),
+  on_state_sync: z.enum(['preserve', 'clear']).optional(),
+  on_reset: z.enum(['clear', 'preserve']).optional(),
 }).loose();
 
 export type TrajectoryLayerMetadata = z.infer<typeof TrajectoryLayerMetadataSchema>;
+
+export type TrajectoryAgentDeletePolicy = 'delete' | 'retain';
+export type TrajectoryStateSyncPolicy = 'preserve' | 'clear';
+export type TrajectoryResetPolicy = 'clear' | 'preserve';
+
+/**
+ * Lifecycle policy carried by a trajectory layer's metadata.  Keep this
+ * renderer-side helper separate from the wire schema so callers always get
+ * explicit, stable defaults even for older simulators.
+ */
+export interface TrajectoryLifecycle {
+  onAgentDelete: TrajectoryAgentDeletePolicy;
+  onStateSync: TrajectoryStateSyncPolicy;
+  onReset: TrajectoryResetPolicy;
+}
+
+export function resolveTrajectoryLifecycle(metadata: Record<string, unknown>): TrajectoryLifecycle {
+  return {
+    onAgentDelete: metadata.on_agent_delete === 'retain' ? 'retain' : 'delete',
+    onStateSync: metadata.on_state_sync === 'clear' ? 'clear' : 'preserve',
+    onReset: metadata.on_reset === 'preserve' ? 'preserve' : 'clear',
+  };
+}
 
 export type Unsubscribe = () => void;
 

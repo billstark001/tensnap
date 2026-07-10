@@ -314,6 +314,92 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     expect(storage.dump().trajectories).toEqual([]);
   });
 
+  it('retains a closed trajectory segment when an agent id is deleted and later reused', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('env_layer_update', {
+      env_id: 'env1', layer_id: 'trails', data: { on_agent_delete: 'retain' },
+    }));
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'items', items: ['a1'] }));
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 10, y: 10 }] }));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(storage.dump().trajectories).toEqual([
+      expect.objectContaining({
+        id: 'a1',
+        segments: [
+          [{ x: 0, y: 0, time: 0, color: '#f00' }],
+          [{ x: 10, y: 10, time: 0, color: '#f00' }],
+        ],
+      }),
+    ]);
+  });
+
+  it('preserves trajectories across reconnect-style state-sync replay without appending points', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('state_sync_begin', {}));
+    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 5, y: 5 }] }));
+    s.apply(msg('state_sync_end', {}));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(storage.dump().trajectories[0]?.points).toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
+  });
+
+  it('clears trajectory points at state-sync begin when configured', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('env_layer_update', {
+      env_id: 'env1', layer_id: 'trails', data: { on_state_sync: 'clear' },
+    }));
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('state_sync_begin', {}));
+    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 5, y: 5 }] }));
+    s.apply(msg('state_sync_end', {}));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(storage.dump().trajectories).toEqual([]);
+  });
+
+  it('reconciles orphan trajectories once state-sync replay finishes', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    const agents = s.environments.get('env1')!.layers.get('items')!.storage as AgentStorage;
+
+    s.apply(msg('state_sync_begin', {}));
+    agents.removeAgent('a1');
+    s.apply(msg('state_sync_end', {}));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(storage.dump().trajectories).toEqual([]);
+  });
+
+  it('honours reset lifecycle defaults and preserves explicitly retained trajectory layers', () => {
+    const clearScenario = new Scenario();
+    setupEnvAndTrajectoryLayer(clearScenario);
+    clearScenario.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    clearScenario.reset();
+    expect(clearScenario.environments.size).toBe(0);
+
+    const retainedScenario = new Scenario();
+    setupEnvAndTrajectoryLayer(retainedScenario);
+    retainedScenario.apply(msg('env_layer_update', {
+      env_id: 'env1', layer_id: 'trails', data: { on_reset: 'preserve' },
+    }));
+    retainedScenario.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }],
+    }));
+    retainedScenario.reset();
+
+    const retainedLayer = retainedScenario.getEnvironment('env1')?.layers.get('trails');
+    expect(retainedLayer?.storage).toBeInstanceOf(TrajectoryStorage);
+    expect((retainedLayer?.storage as TrajectoryStorage).dump().trajectories[0]?.points)
+      .toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
+  });
+
   it('routes dependent layer reactions through registered layer controllers', () => {
     const reactionSpy = vi.fn();
 

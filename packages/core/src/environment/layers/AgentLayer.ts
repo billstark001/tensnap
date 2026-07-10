@@ -87,6 +87,8 @@ export interface AgentLayerConfig {
   sceneBounds?: SceneBounds | Partial<Viewport>;
   /** Resolve an asset-id to URL for `asset:<id>` icons. */
   resolveAssetUrl?: (assetId: string) => string | null | undefined;
+  /** Draw a non-mutating inspection highlight around this agent id. */
+  highlightedAgentId?: AgentId;
 
   onAgentClick?: (agent: AgentRenderState, event: any) => void;
   onAgentContextMenu?: (agent: AgentRenderState, event: any) => void;
@@ -96,8 +98,9 @@ export interface AgentLayerConfig {
   onDragEnd?: (id: AgentId) => void;
 }
 
-type ResolvedConfig = Required<Omit<AgentLayerConfig, 'sceneBounds'>> & {
+type ResolvedConfig = Required<Omit<AgentLayerConfig, 'sceneBounds' | 'highlightedAgentId'>> & {
   sceneBounds?: SceneBounds;
+  highlightedAgentId?: AgentId;
 };
 
 interface AgentShapeEntry {
@@ -282,6 +285,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const assetUrl = this._resolveIconAssetUrl(icon);
 
     const shape: UI = this._createShape(icon, coords.size, color, assetUrl);
+    this._applyInspectionHighlight(shape, agent.id, coords.size);
     const label = this._cfg.showLabel ? createAgentLabel(agent.id, coords.size) : null;
     const group = new Group({ x: coords.x, y: coords.y, rotation: coords.rotation });
 
@@ -306,6 +310,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const shapeTypeChanged = entry.icon !== icon || entry.assetUrl !== assetUrl;
     if (shapeTypeChanged) {
       const nextShape = this._createShape(icon, coords.size, color, assetUrl);
+      this._applyInspectionHighlight(nextShape, agent.id, coords.size);
       entry.group.remove(entry.shape);
       entry.shape.off?.();
       entry.shape = nextShape;
@@ -338,6 +343,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
         }
         entry.color = color;
       }
+      this._appendInspectionHighlight(shapeUpdates, agent.id, coords.size);
       if (Object.keys(shapeUpdates).length) entry.shape.set(shapeUpdates);
     }
 
@@ -386,6 +392,21 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       ...SHAPE_CONFIGS.square(size),
       fill,
     });
+  }
+
+  private _applyInspectionHighlight(shape: UI, id: AgentId, size: number): void {
+    const updates: Record<string, unknown> = {};
+    this._appendInspectionHighlight(updates, id, size);
+    if (Object.keys(updates).length > 0) {
+      shape.set(updates);
+    }
+  }
+
+  private _appendInspectionHighlight(updates: Record<string, unknown>, id: AgentId, size: number): void {
+    if (this._cfg.highlightedAgentId === id) {
+      updates.stroke = '#facc15';
+      updates.strokeWidth = Math.max(1, size * 0.12);
+    }
   }
 
   private _removeAgent(id: AgentId): void {

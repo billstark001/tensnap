@@ -56,6 +56,21 @@ describe('TrajectoryStorage – trajectory updates', () => {
     });
   });
 
+  it('does not resize retained points when only width or color changes', () => {
+    const storage = new TrajectoryStorage({ length: 5 });
+    storage.appendTrajectoryPoint('a1', { x: 0, y: 0, time: 0 });
+    storage.appendTrajectoryPoint('a1', { x: 1, y: 1, time: 1 });
+    const ring = storage.getEntry('a1')!.ring;
+
+    storage.setConfig({ width: 4, color: '#0f0' });
+
+    expect(storage.getEntry('a1')!.ring).toBe(ring);
+    expect(storage.dump().trajectories[0]?.points).toEqual([
+      { x: 0, y: 0, time: 0, color: '#0f0' },
+      { x: 1, y: 1, time: 1, color: '#0f0' },
+    ]);
+  });
+
   it('emits id-only deltas for append and delete operations', () => {
     const storage = new TrajectoryStorage();
     const listener = vi.fn();
@@ -67,6 +82,31 @@ describe('TrajectoryStorage – trajectory updates', () => {
     expect(listener).toHaveBeenCalledTimes(2);
     expect(listener.mock.calls[0][1]).toMatchObject({ created: ['a1'] });
     expect(listener.mock.calls[1][1]).toMatchObject({ deleted: ['a1'] });
+  });
+
+  it('keeps retained id reuses as separate serializable segments', () => {
+    const storage = new TrajectoryStorage({ length: 10 });
+    storage.appendTrajectoryPoint('a1', { x: 0, y: 0, time: 0 });
+    storage.appendTrajectoryPoint('a1', { x: 1, y: 0, time: 1 });
+    storage.closeTrajectory('a1');
+    storage.appendTrajectoryPoint('a1', { x: 10, y: 10, time: 2 });
+    storage.appendTrajectoryPoint('a1', { x: 11, y: 10, time: 3 });
+
+    const snapshot = storage.dump();
+    expect(snapshot.trajectories[0]?.segments).toEqual([
+      [
+        { x: 0, y: 0, time: 0, color: DEFAULT_TRAJECTORY_CONFIG.color },
+        { x: 1, y: 0, time: 1, color: DEFAULT_TRAJECTORY_CONFIG.color },
+      ],
+      [
+        { x: 10, y: 10, time: 2, color: DEFAULT_TRAJECTORY_CONFIG.color },
+        { x: 11, y: 10, time: 3, color: DEFAULT_TRAJECTORY_CONFIG.color },
+      ],
+    ]);
+
+    const restored = new TrajectoryStorage();
+    restored.load(snapshot);
+    expect(restored.dump().trajectories[0]?.segments).toEqual(snapshot.trajectories[0]?.segments);
   });
 });
 

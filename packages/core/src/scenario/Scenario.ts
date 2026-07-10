@@ -1,7 +1,12 @@
 import { AssetStore } from '../asset';
 import { ChartStorage } from '../chart/ChartStorage';
 import { instantiateChartMetadata } from '../chart/utils';
-import { BaseStorage } from '../environment/storages';
+import {
+  AgentStorage,
+  BaseStorage,
+  resolveTrajectoryLifecycle,
+  TrajectoryStorage,
+} from '../environment';
 import { sanitizeParameter } from '../parameter';
 import type {
   Action,
@@ -78,6 +83,7 @@ export class Scenario extends LazyEventTarget {
   private readonly logsState: NormalizedLogPayload[] = [];
   private readonly chartState: ChartStorage;
   private readonly assetState: AssetStore;
+  private stateSyncDepth = 0;
   readonly layerRegistry: LayerRegistryClass;
 
   constructor(options: ScenarioOptions = {}) {
@@ -137,9 +143,11 @@ export class Scenario extends LazyEventTarget {
         this.applyMetadata(message.payload as MetadataUpdatePayload);
         return;
       case 'state_sync_begin':
+        this.beginStateSync();
         this.emit('state_sync:begin', message.payload as StateSyncBoundaryPayload);
         return;
       case 'state_sync_end':
+        this.endStateSync();
         this.emit('state_sync:end', message.payload as StateSyncBoundaryPayload);
         return;
       case 'action_end':
@@ -272,7 +280,9 @@ export class Scenario extends LazyEventTarget {
   }
 
   load(snapshot: ScenarioSnapshot): void {
-    this.reset();
+    // Loading a persisted snapshot is a replacement operation, not a model
+    // reset. Never carry over lifecycle-preserved live layers into it.
+    this.reset({ preserveTrajectoryLayers: false });
     this.metadataState = cloneValue(snapshot.metadata);
 
     for (const action of snapshot.actions) {
@@ -311,16 +321,41 @@ export class Scenario extends LazyEventTarget {
     this.logsState.push(...snapshot.logs.map(cloneValue));
   }
 
-  reset(): void {
+  reset(options: { preserveTrajectoryLayers?: boolean } = {}): void {
     this.metadataState = {};
     this.actionsState.clear();
     this.parametersState.clear();
+    const preservedTrajectoryEnvironments = new Map<string, ScenarioEnvironmentState>();
     for (const environment of this.environmentsState.values()) {
+      const preservedLayers = new Map<string, ScenarioLayerState>();
       for (const layer of environment.layers.values()) {
-        this.disposeLayer(environment, layer);
+        const shouldPreserve = options.preserveTrajectoryLayers !== false
+          && layer.layerType === 'trajectory'
+          && layer.storage instanceof TrajectoryStorage
+          && resolveTrajectoryLifecycle(layer.metadata).onReset === 'preserve';
+        if (shouldPreserve) {
+          preservedLayers.set(layer.id, layer);
+        } else {
+          this.disposeLayer(environment, layer);
+        }
+      }
+      if (preservedLayers.size > 0) {
+        preservedTrajectoryEnvironments.set(environment.id, {
+          id: environment.id,
+          type: environment.type,
+          layers: preservedLayers,
+          dependencyGraph: new Map(),
+        });
       }
     }
     this.environmentsState.clear();
+    for (const environment of preservedTrajectoryEnvironments.values()) {
+      this.environmentsState.set(environment.id, environment);
+      for (const layer of environment.layers.values()) {
+        this.reindexLayerDependencies(environment, layer);
+      }
+    }
+    this.stateSyncDepth = 0;
     this.logsState.splice(0, this.logsState.length);
     this.chartState.load([]);
     this.assetState.clear();
@@ -347,12 +382,17 @@ export class Scenario extends LazyEventTarget {
   }
 
   private createEnvironment(payload: EnvCreatePayload): void {
-    this.environmentsState.set(payload.id, {
-      id: payload.id,
-      type: payload.type,
-      layers: new Map(),
-      dependencyGraph: new Map(),
-    });
+    const existing = this.environmentsState.get(payload.id);
+    if (existing) {
+      existing.type = payload.type;
+    } else {
+      this.environmentsState.set(payload.id, {
+        id: payload.id,
+        type: payload.type,
+        layers: new Map(),
+        dependencyGraph: new Map(),
+      });
+    }
     this.emit('env:create', payload);
   }
 
@@ -765,6 +805,7 @@ export class Scenario extends LazyEventTarget {
       layer,
       assets: this.assetState,
       time: this.time,
+      isStateSync: this.stateSyncDepth > 0,
       requireStorage: <TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string) => (
         this.requireStorage(environment, layer, ctor, expectedLayerType)
       ),
@@ -777,6 +818,54 @@ export class Scenario extends LazyEventTarget {
       const dependents = environment.dependencyGraph.get(dependencyLayerId) ?? new Set<string>();
       dependents.add(layer.id);
       environment.dependencyGraph.set(dependencyLayerId, dependents);
+    }
+  }
+
+  private beginStateSync(): void {
+    if (this.stateSyncDepth === 0) {
+      for (const environment of this.environmentsState.values()) {
+        for (const layer of environment.layers.values()) {
+          if (layer.layerType !== 'trajectory' || !(layer.storage instanceof TrajectoryStorage)) {
+            continue;
+          }
+          if (resolveTrajectoryLifecycle(layer.metadata).onStateSync === 'clear') {
+            layer.storage.clearTrajectories();
+          }
+        }
+      }
+    }
+    this.stateSyncDepth += 1;
+  }
+
+  private endStateSync(): void {
+    if (this.stateSyncDepth === 0) {
+      return;
+    }
+    this.stateSyncDepth -= 1;
+    if (this.stateSyncDepth > 0) {
+      return;
+    }
+
+    // Reconcile once after the entire replay has settled. Doing this per
+    // message would incorrectly remove traces before their source agent layer
+    // is replayed, and would add avoidable work to large reconnects.
+    for (const environment of this.environmentsState.values()) {
+      for (const layer of environment.layers.values()) {
+        if (layer.layerType !== 'trajectory' || !(layer.storage instanceof TrajectoryStorage)) {
+          continue;
+        }
+        const agentLayerId = layer.dependencyLayerIds.agent;
+        const agentLayer = typeof agentLayerId === 'string'
+          ? environment.layers.get(agentLayerId)
+          : undefined;
+        const liveIds = agentLayer?.storage instanceof AgentStorage
+          ? agentLayer.storage.getAgentIds()
+          : [];
+        layer.storage.reconcileAgentIds(
+          liveIds,
+          resolveTrajectoryLifecycle(layer.metadata).onAgentDelete,
+        );
+      }
     }
   }
 

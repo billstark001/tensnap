@@ -9,7 +9,7 @@ import {
 } from '../storages/TrajectoryStorage';
 import { AgentId, GridCoordOffset, Viewport } from '../types';
 import { getCoordOffsetValue } from '../utils';
-import { resolveTrajectoryRenderStyle, splitTrajectoryPoints, TrajectoryWorldBounds } from '../utils/trajectory';
+import { splitTrajectoryPoints, TrajectoryWorldBounds } from '../utils/trajectory';
 
 export interface TrajectoryLayerConfig {
   coordOffset?: GridCoordOffset;
@@ -97,30 +97,30 @@ export class TrajectoryLayer extends BaseLayer {
   }
 
   private _upsertLine(id: AgentId, entry: TrajectoryEntry): void {
-    const points = entry.ring.toArray();
-    const style = resolveTrajectoryRenderStyle(points, {
-      color: entry.defaultColor,
-      width: entry.width,
-    });
-    const strokeWidth = this._toSceneStroke(style.width);
-    const segments = splitTrajectoryPoints(points, this._cfg.worldBounds);
+    // A retained deletion closes the current path.  Preserve that logical
+    // boundary in addition to any world-wrap boundaries so an id reuse never
+    // draws a line from its old location to its new one.
+    const { segments, firstPointColor } = this._collectRenderableSegments(entry);
 
     if (segments.length === 0) {
       this._removeLine(id);
       return;
     }
 
+    const color = firstPointColor ?? entry.defaultColor;
+    const strokeWidth = this._toSceneStroke(entry.width);
+
     let cached = this._lines.get(id);
-    if (!cached || cached.color !== style.color) {
+    if (!cached || cached.color !== color) {
       this._removeLine(id);
-      cached = { lines: [], color: style.color, width: style.width };
+      cached = { lines: [], color, width: entry.width };
       this._lines.set(id, cached);
     }
 
-    cached.width = style.width;
+    cached.width = entry.width;
 
     while (cached.lines.length < segments.length) {
-      const line = new Line({ stroke: style.color, strokeWidth, points: [] });
+      const line = new Line({ stroke: color, strokeWidth, points: [] });
       this.group.add(line);
       cached.lines.push(line);
     }
@@ -138,6 +138,29 @@ export class TrajectoryLayer extends BaseLayer {
       }
       cached.lines[segmentIndex].set({ points: flatPoints, strokeWidth });
     }
+  }
+
+  /**
+   * Materialize each ring at most once per render. The previous implementation
+   * flattened every point once for color resolution and again for splitting,
+   * doubling hot-path allocations as trails grow.
+   */
+  private _collectRenderableSegments(entry: TrajectoryEntry): {
+    segments: ReturnType<typeof splitTrajectoryPoints>;
+    firstPointColor: string | undefined;
+  } {
+    const segments: ReturnType<typeof splitTrajectoryPoints> = [];
+    let firstPointColor: string | undefined;
+    for (const ring of entry.segments) {
+      const points = ring.toArray();
+      if (firstPointColor === undefined) {
+        firstPointColor = points.find((point) => (
+          typeof point.color === 'string' && point.color.length > 0
+        ))?.color;
+      }
+      segments.push(...splitTrajectoryPoints(points, this._cfg.worldBounds));
+    }
+    return { segments, firstPointColor };
   }
 
   private _updateStrokeWidths(): void {

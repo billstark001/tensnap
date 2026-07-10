@@ -45,7 +45,11 @@ export type {
 	EnvironmentViewType,
 	IResizableLayer,
 	TrajectoryConfig,
+	TrajectoryAgentDeletePolicy,
+	TrajectoryLifecycle,
 	TrajectoryLayerConfig,
+	TrajectoryResetPolicy,
+	TrajectoryStateSyncPolicy,
 	TrajectoryPoint,
 } from './environment';
 
@@ -54,6 +58,15 @@ export * from './runtime';
 
 export { Scenario } from './scenario';
 export type {
+	AgentInspection,
+	AgentInspectionBase,
+	AgentInspectionOptions,
+	AgentRef,
+	GraphAgentInspection,
+	LiveAgentInspection,
+	LiveGraphAgentInspection,
+	LiveSpatialAgentInspection,
+	NonSpatialAgentInspection,
 	ScenarioEnvironmentSnapshot,
 	ScenarioEnvironmentState,
 	ScenarioEventDetailMap,
@@ -63,6 +76,8 @@ export type {
 	ScenarioMessageFactory,
 	ScenarioOptions,
 	ScenarioSnapshot,
+	SpatialAgentInspection,
 } from './scenario';
+export { ScenarioInspector } from './scenario';
 
 export * from './transport';

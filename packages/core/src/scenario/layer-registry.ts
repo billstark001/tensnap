@@ -1,6 +1,14 @@
 import { z, ZodType } from 'zod';
 import type { AssetStore } from '../asset';
-import type { AgentId, GraphEdge, GridCoordOffset, GraphEnvConfig, OriginMode, TrajectoryPoint } from '../environment';
+import {
+  resolveTrajectoryLifecycle,
+  type AgentId,
+  type GraphEdge,
+  type GridCoordOffset,
+  type GraphEnvConfig,
+  type OriginMode,
+  type TrajectoryPoint,
+} from '../environment';
 import type { ItemDeletePayload } from '@tensnap/protocol';
 import {
   AgentItemDiffSchema,
@@ -41,6 +49,8 @@ export interface LayerControllerContext {
   layer: ScenarioLayerState;
   assets: AssetStore;
   time?: number;
+  /** True while a state-sync replay is being applied. */
+  isStateSync: boolean;
   requireStorage<TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string): TStorage;
 }
 
@@ -141,6 +151,12 @@ export interface LayerCreateContext {
 
   /** Show agent labels. */
   showLabel?: boolean;
+
+  /** Optional read-only inspection highlight applied by the agent layer. */
+  highlightedAgent?: { layerId: string; agentId: AgentId };
+
+  /** Render graph edges at existing positions without starting a force layout. */
+  readOnlyGraphLayout?: boolean;
 }
 
 /** Return value of createLayer — abstracts the ILayer interface used by both hosts. */
@@ -601,6 +617,13 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
       return;
     }
 
+    // A state-sync is a replay of already-known simulator state, not model
+    // movement. Backfilling here would manufacture new trajectory samples on
+    // every reconnect.
+    if (context.isStateSync) {
+      return;
+    }
+
     const time = typeof context.time === 'number' ? context.time : 0;
     for (const agent of sourceLayer.storage.getData().agents.values()) {
       if (storage.getEntry(agent.id) || agent.x === undefined || agent.y === undefined) {
@@ -630,10 +653,19 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
       if (!ids) {
         return;
       }
-      storage.deleteItems(ids);
+      const lifecycle = resolveTrajectoryLifecycle(context.layer.metadata);
+      if (lifecycle.onAgentDelete === 'retain') {
+        storage.closeTrajectories(ids);
+      } else {
+        storage.deleteItems(ids);
+      }
       return;
     }
     if ((change.kind !== 'create' && change.kind !== 'update') || !(change.sourceLayer.storage instanceof AgentStorage)) {
+      return;
+    }
+
+    if (context.isStateSync) {
       return;
     }
 
@@ -747,7 +779,10 @@ function createEdgeLayerFromPlan(
   plan: EdgeLayerPlan,
   context: LayerCreateContext,
 ): CreatedLayerEntry {
-  const layer = new EdgeLayer(plan.storage, plan.agentStorage, plan.config);
+  const layer = new EdgeLayer(plan.storage, plan.agentStorage, {
+    ...plan.config,
+    readOnlyLayout: context.readOnlyGraphLayout,
+  });
   if (plan.zIndex !== undefined) {
     layer.setZIndex(plan.zIndex);
   }
@@ -785,12 +820,15 @@ function createAgentLayerFromPlan(
   const layer = new AgentLayer(plan.storage, {
     ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
     clickable: context.clickable ?? false,
-    draggable: plan.usesGraphInteraction,
+    draggable: plan.usesGraphInteraction && !context.readOnlyGraphLayout,
     showLabel: context.showLabel ?? false,
     originMode: plan.originMode,
     coordOffset: plan.coordOffset,
     sceneBounds: plan.sceneBounds,
     resolveAssetUrl: context.resolveAssetUrl as ((assetId: string) => string | null) | undefined,
+    highlightedAgentId: context.highlightedAgent?.layerId === plan.layerId
+      ? context.highlightedAgent.agentId
+      : undefined,
     onAgentClick: context.onAgentClick,
     onAgentDoubleClick: context.onAgentDoubleClick,
   });
