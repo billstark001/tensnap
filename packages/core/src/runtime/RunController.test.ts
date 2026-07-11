@@ -2,7 +2,6 @@ import type { ISimulatorTransport, TransportConnectionState, TransportEventHandl
 import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RendererSession } from './RendererSession';
-import { MAX_INT32_RUN_STEPS } from './RunController';
 import { compileRunCondition, createRunConditionScope } from './ScenarioConditionScope';
 
 function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTransport {
@@ -29,12 +28,19 @@ function tickId(message: RendererToSimulatorMessage): string {
 
 describe('RunController', () => {
   afterEach(() => vi.useRealTimers());
+
+  it('rejects requests without an explicit run mode', () => {
+    const session = new RendererSession();
+    expect(() => session.run.start({ actionId: 'step', maxSteps: 2 } as never))
+      .toThrow(/mode/);
+  });
+
   it('runs at most maxSteps and waits for the host render barrier between steps', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
 
-    session.run.start({ actionId: 'step', maxSteps: 2 });
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     const first = tickId(sent[0]!);
     session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
 
@@ -54,17 +60,6 @@ describe('RunController', () => {
       completedSteps: 2,
       stopReason: 'max-steps',
     });
-  });
-
-  it('allows the legacy long-running button limit only when the host explicitly raises its policy', () => {
-    const sent: RendererToSimulatorMessage[] = [];
-    const session = new RendererSession({ run: { maxStepsPolicy: MAX_INT32_RUN_STEPS } });
-    session.attachTransport(createTransport(sent));
-
-    session.run.start({ actionId: 'start', maxSteps: MAX_INT32_RUN_STEPS });
-
-    expect(session.run.status).toMatchObject({ state: 'running', spec: { maxSteps: MAX_INT32_RUN_STEPS } });
-    expect(sent).toHaveLength(1);
   });
 
   it('runs in manual mode without a fake maximum and pauses after the in-flight tick', () => {
@@ -126,7 +121,7 @@ describe('RunController', () => {
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
 
-    session.run.start({ actionId: 'step', maxSteps: 9, stopWhen: 'steps >= 1 && metadata.population === 3' });
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 9, stopWhen: 'steps >= 1 && metadata.population === 3' });
     const first = tickId(sent[0]!);
     session.handleIncoming({ type: 'metadata_update', payload: { population: 3 } });
     session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
@@ -144,7 +139,7 @@ describe('RunController', () => {
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
 
-    session.run.start({ actionId: 'start', maxSteps: 10 });
+    session.run.start({ mode: 'bounded', actionId: 'start', maxSteps: 10 });
     const pendingRunAction = tickId(sent[0]!);
     session.run.requestAction('step');
 
@@ -203,7 +198,7 @@ describe('RunController', () => {
     const session = new RendererSession({ run: { actionTimeoutMs: 10 } });
     session.attachTransport(createTransport(sent));
 
-    session.run.start({ actionId: 'step', maxSteps: 2 });
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     expect(sent).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(10);
 
@@ -221,7 +216,7 @@ describe('RunController', () => {
     });
     session.attachTransport(createTransport(sent));
 
-    session.run.start({ actionId: 'step', maxSteps: 2 });
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     const first = tickId(sent[0]!);
     session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
     await Promise.resolve();

@@ -69,8 +69,7 @@ export function detectLocale(persistedLocale?: string | null): Locale {
     return persistedLocale;
   }
 
-  // Try browser language (includes legacy IE userLanguage property for compatibility)
-  const browserLang = navigator.language || (navigator as any).userLanguage;
+  const browserLang = navigator.language;
   if (browserLang) {
     const locale = browserLang.split('-')[0];
     if (isValidLocale(locale)) {

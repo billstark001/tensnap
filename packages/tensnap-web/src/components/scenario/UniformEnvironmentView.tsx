@@ -1,6 +1,6 @@
 // UniformEnvironmentView.tsx
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Agent as UniformAgent } from '@/types/model';
+import type { AgentItem as UniformAgent } from '@tensnap/protocol/layers';
 import { AnchoredView } from '@/types/ui';
 import { Pagination } from '@tensnap/web-common/components/ui/Pagination';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';

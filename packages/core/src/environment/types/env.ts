@@ -4,15 +4,11 @@
  * Environment configuration types.
  */
 
-import type { GridEnvData } from '../storages/GridEnvStorage';
-
 /** How grid coordinates map to canvas pixels.
  * - 'int'   → agent at (x, y) is centered in cell (x, y)  [integer coords]
  * - 'float' → agent at (x, y) is placed at pixel (x * cellSize, y * cellSize)
  */
 export type GridCoordOffset = 'int' | 'float';
-
-export type GridEnvConfig = GridEnvData;
 
 // ---------------------------------------------------------------------------
 // Graph environment config

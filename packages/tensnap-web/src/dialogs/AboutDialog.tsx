@@ -4,9 +4,7 @@ import * as dialogStyles from './AboutDialog.css';
 import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 
-export type AboutDialogProps = DialogOpenProps;
-
-export const AboutDialog: React.FC<AboutDialogProps> = ({
+export const AboutDialog: React.FC<DialogOpenProps> = ({
   open,
   onOpenChange,
 }) => {

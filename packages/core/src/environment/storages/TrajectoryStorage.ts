@@ -1,18 +1,14 @@
 import { BaseStorage } from './BaseStorage';
-import { AgentId, GlobalTrajectoryConfig, TrajectoryConfig, TrajectoryPoint } from '../types';
+import type { AgentId, TrajectoryItem, TrajectoryPoint } from '@tensnap/protocol/layers';
+import type { GlobalTrajectoryConfig } from '../types';
 import { DEFAULT_TRAJECTORY_CONFIG, resolveTrajectoryConfig, RingBuffer } from '../utils';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
-/**
- * Breaking change: `trajectories` now maps to `TrajectoryEntry` instead of
- * `TrajectoryPoint[]`. Direct consumers of `_data.trajectories` must be updated
- * to iterate `entry.segments` and resolve color via `entry.defaultColor`.
- * `entry.ring` remains the active segment for incremental callers.
- */
+/** Renderer-owned trajectory state grouped into per-agent segments. */
 export interface TrajectoryStorageData {
   config: GlobalTrajectoryConfig;
-  configs: Map<AgentId, TrajectoryConfig>;
+  configs: Map<AgentId, TrajectoryItem>;
   trajectories: Map<AgentId, TrajectoryEntry>;
 }
 
@@ -28,7 +24,7 @@ export interface TrajectorySnapshotItem {
 
 export interface TrajectoryStorageSnapshot {
   config: GlobalTrajectoryConfig;
-  configs: TrajectoryConfig[];
+  configs: TrajectoryItem[];
   trajectories: TrajectorySnapshotItem[];
 }
 
@@ -42,9 +38,9 @@ export interface TrajectoryStorageSnapshot {
  * The color is reattached to points only when exporting via `dump()`.
  */
 export interface TrajectoryEntry {
-  /** The active segment. Kept as an alias for existing consumers. */
-  ring: RingBuffer<TrajectoryPoint>;
-  /** Historical segments in chronological order, including `ring`. */
+  /** The segment receiving incremental appends. */
+  activeSegment: RingBuffer<TrajectoryPoint>;
+  /** Historical segments in chronological order, including `activeSegment`. */
   segments: RingBuffer<TrajectoryPoint>[];
   /** A retained deletion closes the current segment until the id reappears. */
   closed: boolean;
@@ -135,14 +131,14 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     this.notify({ replaced: true });
   }
 
-  upsertConfig(config: TrajectoryConfig): void {
+  upsertConfig(config: TrajectoryItem): void {
     const created = !this._data.configs.has(config.id);
     this._data.configs.set(config.id, config);
     this.refreshEntries([config.id]);
     this.notify({ created: created ? [config.id] : [], updated: created ? [] : [config.id], appended: [], deleted: [] });
   }
 
-  upsertConfigs(configs: TrajectoryConfig[]): void {
+  upsertConfigs(configs: TrajectoryItem[]): void {
     const created: AgentId[] = [];
     const updated: AgentId[] = [];
     for (const config of configs) {
@@ -257,12 +253,12 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     if (entry.closed) {
       const segment = new RingBuffer<TrajectoryPoint>(resolved.length);
       entry.segments.push(segment);
-      entry.ring = segment;
+      entry.activeSegment = segment;
       entry.closed = false;
       startedSegment = true;
     }
 
-    const append = entry.ring.push(point);
+    const append = entry.activeSegment.push(point);
     this.notify({
       created: created ? [id] : [],
       updated: [],
@@ -282,11 +278,11 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
       const resolved = this.resolveConfig(id);
       const segments = sourceSegments
         .filter((segment) => segment?.length)
-        .map((segment) => this.createRing(segment, resolved.length));
-      const ring = segments[segments.length - 1];
+        .map((segment) => this.createSegment(segment, resolved.length));
+      const activeSegment = segments[segments.length - 1];
 
       map.set(id, {
-        ring,
+        activeSegment,
         segments,
         closed: false,
         limit: resolved.length,
@@ -326,7 +322,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
   private applyResolvedConfig(entry: TrajectoryEntry, config: GlobalTrajectoryConfig): void {
     if (entry.limit !== config.length) {
       entry.segments = entry.segments.map((segment) => segment.resize(config.length));
-      entry.ring = entry.segments[entry.segments.length - 1];
+      entry.activeSegment = entry.segments[entry.segments.length - 1];
       entry.limit = config.length;
     }
     entry.width = config.width;
@@ -334,10 +330,10 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
   }
 
   private createEntry(length: number, width: number, color: string): TrajectoryEntry {
-    const ring = new RingBuffer<TrajectoryPoint>(length);
+    const activeSegment = new RingBuffer<TrajectoryPoint>(length);
     return {
-      ring,
-      segments: [ring],
+      activeSegment,
+      segments: [activeSegment],
       closed: false,
       limit: length,
       width,
@@ -345,17 +341,17 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     };
   }
 
-  private createRing(points: TrajectoryPoint[], length: number): RingBuffer<TrajectoryPoint> {
-    const ring = new RingBuffer<TrajectoryPoint>(length);
+  private createSegment(points: TrajectoryPoint[], length: number): RingBuffer<TrajectoryPoint> {
+    const segment = new RingBuffer<TrajectoryPoint>(length);
     const start = length > 0 ? Math.max(0, points.length - length) : 0;
     for (let i = start; i < points.length; i += 1) {
-      ring.push(points[i]);
+      segment.push(points[i]);
     }
-    return ring;
+    return segment;
   }
 
-  private materializePoints(ring: RingBuffer<TrajectoryPoint>, defaultColor: string): TrajectoryPoint[] {
-    return ring.toArray().map((point) => ({
+  private materializePoints(segment: RingBuffer<TrajectoryPoint>, defaultColor: string): TrajectoryPoint[] {
+    return segment.toArray().map((point) => ({
       ...point,
       color: point.color || defaultColor,
     }));

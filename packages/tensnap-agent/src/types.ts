@@ -9,7 +9,6 @@ import type {
   ProtocolEncoding,
 } from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
-import type { RunSpec, RunStatus } from '@tensnap/core/runtime';
 
 export type RenderTriggerMode = 'manual' | 'action-end';
 export type RenderFormat = 'png' | 'jpeg';
@@ -66,8 +65,6 @@ export interface RuntimeLogEntry {
   data?: unknown;
 }
 
-export type ActionSummary = Action;
-
 export interface SceneEnvironmentSummary {
   id: string;
   type: string;
@@ -80,7 +77,7 @@ export interface SceneSummary {
   time?: number;
   environments: SceneEnvironmentSummary[];
   parameters: Parameter[];
-  actions: ActionSummary[];
+  actions: Action[];
   charts: ChartMetadata[];
   assets: SceneAssetSummary[];
   logs: NormalizedLogPayload[];
@@ -117,9 +114,6 @@ export interface ConnectOptions {
   simulatorUrl: string;
   encoding?: ProtocolEncoding;
 }
-
-export type AgentRunSpec = RunSpec;
-export type AgentRunStatus = RunStatus;
 
 export interface SceneRenderOptions {
   envId?: string;

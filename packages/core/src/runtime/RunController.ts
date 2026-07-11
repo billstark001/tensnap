@@ -1,7 +1,8 @@
 import type { ActionEndPayload, RendererToSimulatorMessage, StateSyncBoundaryPayload } from '@tensnap/protocol';
 import type { Scenario } from '../scenario';
 import type { RecordingOptions as SnapshotRecordingOptions } from '../snapshot';
-import { PipelineRuntime, type RuntimeTaskSnapshot } from './PipelineRuntime';
+import { PipelineRuntime } from './PipelineRuntime';
+import type { RuntimeTaskSnapshot } from './TaskQueue';
 import {
   compileRunCondition,
   createRunConditionScope,
@@ -9,14 +10,11 @@ import {
 } from './ScenarioConditionScope';
 
 export const DEFAULT_RUN_MAX_STEPS = 1_000_000;
-/** A practical stand-in for the legacy "run until stopped" button behavior. */
-export const MAX_INT32_RUN_STEPS = 0x7fffffff;
 
 export interface RecordingOptions extends SnapshotRecordingOptions {}
 
-/** Backward-compatible bounded run request used by HTTP/CLI clients. */
-export interface RunSpec {
-  mode?: 'bounded';
+export interface BoundedRunSpec {
+  mode: 'bounded';
   actionId: string;
   maxSteps: number;
   stopWhen?: string;
@@ -31,14 +29,13 @@ export interface ManualRunSpec {
   record?: RecordingOptions | false;
 }
 
-export type RunRequest = RunSpec | ManualRunSpec;
-export type NormalizedRunRequest = (RunSpec & { mode: 'bounded' }) | ManualRunSpec;
+export type RunRequest = BoundedRunSpec | ManualRunSpec;
 
 export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'render-error' | 'simulator' | 'paused' | 'stopped' | 'disconnected';
 
 export interface RunStatus {
   id: string;
-  spec: NormalizedRunRequest;
+  spec: RunRequest;
   state: 'running' | 'paused' | 'stopped';
   completedSteps: number;
   startedAt: number;
@@ -81,29 +78,30 @@ export interface RunControllerOptions {
 }
 
 const nativeScheduler: RunScheduler = {
-  now: () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+  now: () => performance.now(),
   setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
   clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
 const cloneStatus = (status: RunStatus): RunStatus => structuredClone(status);
 
-function normalizeRunSpec(spec: RunRequest, maxStepsPolicy: number): NormalizedRunRequest {
-  if (!spec.actionId.trim()) {
+function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
+  if (spec.mode !== 'bounded' && spec.mode !== 'manual') {
+    throw new Error("RunRequest.mode must be either 'bounded' or 'manual'.");
+  }
+  if (typeof spec.actionId !== 'string' || !spec.actionId.trim()) {
     throw new Error('RunRequest.actionId must not be empty.');
   }
-  if (spec.mode !== 'manual' && (!Number.isInteger(spec.maxSteps) || spec.maxSteps < 1)) {
-    throw new Error('RunSpec.maxSteps must be a positive integer.');
+  if (spec.mode === 'bounded' && (!Number.isInteger(spec.maxSteps) || spec.maxSteps < 1)) {
+    throw new Error('BoundedRunSpec.maxSteps must be a positive integer.');
   }
-  if (spec.mode !== 'manual' && spec.maxSteps > maxStepsPolicy) {
-    throw new Error(`RunSpec.maxSteps exceeds the configured policy limit (${maxStepsPolicy}).`);
+  if (spec.mode === 'bounded' && spec.maxSteps > maxStepsPolicy) {
+    throw new Error(`BoundedRunSpec.maxSteps exceeds the configured policy limit (${maxStepsPolicy}).`);
   }
   if (spec.maxWallTimeMs !== undefined && (!Number.isFinite(spec.maxWallTimeMs) || spec.maxWallTimeMs <= 0)) {
-    throw new Error('RunSpec.maxWallTimeMs must be a positive finite number when specified.');
+    throw new Error('RunRequest.maxWallTimeMs must be a positive finite number when specified.');
   }
-  return spec.mode === 'manual'
-    ? structuredClone(spec)
-    : { ...structuredClone(spec), mode: 'bounded' };
+  return structuredClone(spec);
 }
 
 /**
@@ -129,11 +127,7 @@ export class RunController {
     if (!Number.isInteger(this.maxStepsPolicy) || this.maxStepsPolicy < 1) {
       throw new Error('maxStepsPolicy must be a positive integer.');
     }
-    this.idFactory = options.idFactory ?? (() => (
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `run-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    ));
+    this.idFactory = options.idFactory ?? (() => crypto.randomUUID());
     this.actionTimeoutMs = this.normalizeActionTimeout(options.actionTimeoutMs ?? 5_000);
     this.runtime = new PipelineRuntime({ now: () => this.scheduler.now(), idFactory: this.idFactory });
   }
@@ -212,7 +206,7 @@ export class RunController {
     if (this.runtime.peekActiveTaskRef()) {
       throw new Error('Wait for the current action tick to finish before starting another run.');
     }
-    const normalized = normalizeRunSpec(spec, this.maxStepsPolicy);
+    const normalized = validateRunSpec(spec, this.maxStepsPolicy);
     this.condition = normalized.mode === 'bounded' && normalized.stopWhen !== undefined
       ? compileRunCondition(normalized.stopWhen)
       : null;

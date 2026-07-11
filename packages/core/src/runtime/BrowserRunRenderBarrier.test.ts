@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RuntimeTaskSnapshot } from './PipelineRuntime';
+import type { RuntimeTaskSnapshot } from './TaskQueue';
 import {
   BrowserRunRenderBarrier,
   type BrowserRunRenderOptions,

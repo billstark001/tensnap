@@ -1,6 +1,6 @@
 import { compile, type JSExprNode } from 'pure-expr';
 import { AgentStorage } from '../environment/storages/AgentStorage';
-import type { AgentId } from '../environment/types';
+import type { AgentId } from '@tensnap/protocol/layers';
 import type { Scenario } from '../scenario';
 
 export const MAX_STOP_EXPRESSION_SOURCE_LENGTH = 2 * 1024;

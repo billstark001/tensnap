@@ -41,11 +41,7 @@ export interface RendererSessionOptions {
   run?: Omit<RunControllerOptions, 'scenario' | 'send'>;
 }
 
-const createRequestId = (prefix: string): string => (
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? `${prefix}-${crypto.randomUUID()}`
-    : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
-);
+const createRequestId = (prefix: string): string => `${prefix}-${crypto.randomUUID()}`;
 
 /**
  * The renderer-side protocol session shared by browser and Node hosts.

@@ -4,6 +4,8 @@ Framework-agnostic renderer state, runtime, and rendering package for TenSnap.
 It depends on `@leafer-ui/core`, `d3`, and the protocol package.
 
 Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`, and node-side renderers import `@leafer-ui/node`.
+Import wire-facing layer schemas and item types from `@tensnap/protocol/layers`;
+core exposes only renderer-owned storage, layout, and view state.
 
 ## Modules
 
@@ -11,8 +13,9 @@ Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`
 | --- | --- |
 | `@tensnap/core/chart` | DOM-free `ChartScene`, `ChartStorage`, chart types |
 | `@tensnap/core/chart/browser` | Browser `BrowserChartView` host |
-| `@tensnap/core/environment` | `EnvironmentView`, storage classes, layer classes, environment types |
-| `@tensnap/core/parameter` | Parameter range utilities and types |
+| `@tensnap/core/environment` | storage classes, layer classes, and renderer-owned environment types |
+| `@tensnap/core/environment/browser` | browser `EnvironmentView` host |
+| `@tensnap/core/parameter` | parameter normalization and numeric range utilities |
 | `@tensnap/core/runtime` | `RendererSession`, `RunController`, pipeline helpers, bounded condition scope |
 | `@tensnap/core/snapshot` | recording, keyframes, compressed archive segments, and seekable replay helpers |
 | `@tensnap/core/utils` | Format detection, msgpack, NumPy (`.npy`) parser/renderer |
@@ -24,12 +27,13 @@ used by the browser and headless agent hosts. It applies protocol messages to a
 `Scenario`, preserves state-sync as one UI commit at `state_sync_end`, requests
 missing assets, handles screenshot responses, and owns a `RunController`.
 
-`RunController` drives one renderer-dispatched action at a time. Every run
-requires a finite `maxSteps` (default policy limit: 1,000,000); an optional
-`stopWhen` expression is evaluated before the first action and after each
-`action_end`. The scope is read-only and incremental (`steps`, `time`,
-metadata, parameters, charts, `agent()`, and `agentCount()`), so it never needs
-to call `Scenario.dump()` in the tick path.
+`RunController` drives one renderer-dispatched action at a time. Bounded runs
+require an explicit `mode: 'bounded'` and finite `maxSteps` (default policy
+limit: 1,000,000); manual runs use `mode: 'manual'` and continue until paused.
+An optional `stopWhen` expression is evaluated before the first bounded action
+and after each `action_end`. The scope is read-only and incremental (`steps`,
+`time`, metadata, parameters, charts, `agent()`, and `agentCount()`), so it
+never needs to call `Scenario.dump()` in the tick path.
 
 A host render barrier is part of the run contract. If it rejects, the
 controller reports the host error, marks that run with `render-error`, and
@@ -84,22 +88,22 @@ chart.updateData(data);
 ### Environment view — graph mode
 
 ```typescript
+import { EnvironmentView } from '@tensnap/core/environment/browser';
 import {
-  EnvironmentView,
   AgentStorage, EdgeStorage, BackgroundStorage,
   BackgroundLayer, EdgeLayer, AgentLayer,
   AgentRenderState, GraphEdge,
-} from "@tensnap/web-core/environment';
+} from '@tensnap/core/environment';
 
 const view       = new EnvironmentView(container);
 const agentStore = new AgentStorage();
 const edgeStore  = new EdgeStorage(edges);
 const bgStore    = new BackgroundStorage();
 
-view.addLayer(new BackgroundLayer(view, bgStore));
-const edgeLayer = new EdgeLayer(view, edgeStore, agentStore);
+view.addLayer(new BackgroundLayer(bgStore));
+const edgeLayer = new EdgeLayer(edgeStore, agentStore);
 view.addLayer(edgeLayer);
-view.addLayer(new AgentLayer(view, agentStore, {
+view.addLayer(new AgentLayer(agentStore, {
   ...edgeLayer.buildDragHandlers(),
 }));
 
@@ -110,20 +114,20 @@ edgeStore.setEdges(myEdges);
 ### Environment view — grid mode
 
 ```typescript
+import { EnvironmentView } from '@tensnap/core/environment/browser';
 import {
-  EnvironmentView,
   GridEnvStorage, AgentStorage, BackgroundStorage,
   BackgroundLayer, GridLayer, AgentLayer,
-} from "@tensnap/web-core/environment';
+} from '@tensnap/core/environment';
 
 const view        = new EnvironmentView(container);
 const gridStore   = new GridEnvStorage({ width: 50, height: 50 });
 const agentStore  = new AgentStorage();
 const bgStore     = new BackgroundStorage();
 
-view.addLayer(new BackgroundLayer(view, bgStore));
-view.addLayer(new GridLayer(view, gridStore));
-view.addLayer(new AgentLayer(view, agentStore, { clickable: true }, gridStore));
+view.addLayer(new BackgroundLayer(bgStore));
+view.addLayer(new GridLayer(gridStore));
+view.addLayer(new AgentLayer(agentStore, { clickable: true }));
 
 agentStore.setAgents(myAgents);
 ```

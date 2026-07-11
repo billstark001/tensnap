@@ -2,15 +2,14 @@ import { z, ZodType } from 'zod';
 import type { AssetStore } from '../asset';
 import {
   resolveTrajectoryLifecycle,
-  type AgentId,
   type GraphEdge,
   type GridCoordOffset,
   type GraphEnvConfig,
   type OriginMode,
-  type TrajectoryPoint,
 } from '../environment';
 import type { ItemDeletePayload } from '@tensnap/protocol';
 import {
+  type AgentId,
   AgentItemDiffSchema,
   AgentItemSchema,
   AgentLayerMetadataSchema,
@@ -22,6 +21,7 @@ import {
   TrajectoryItemDiffSchema,
   TrajectoryItemSchema,
   TrajectoryLayerMetadataSchema,
+  type TrajectoryPoint,
 } from '@tensnap/protocol/layers';
 import {
   AgentStorage,
@@ -103,12 +103,6 @@ export interface LayerViewDefinition {
 }
 
 // #region Renderer types
-/**
- * Renderer role is open so third-party layer types can declare their own roles.
- * The built-in role names are preserved as `BUILTIN_RENDERER_ROLES`.
- */
-export type LayerRendererRole = string;
-
 /** The five role names built into the default registry. */
 export const BUILTIN_RENDERER_ROLES = ['background', 'grid', 'edge', 'trajectory', 'agent'] as const;
 export type BuiltinLayerRendererRole = typeof BUILTIN_RENDERER_ROLES[number];
@@ -171,13 +165,13 @@ export interface CreatedLayerEntry {
 /** Describes an inter-layer dependency that the plan engine can resolve. */
 export interface LayerDependencyRule {
   /** The role that this layer depends on. */
-  fromRole: LayerRendererRole;
+  fromRole: string;
   /** What to inject from the depended-upon layer. */
   inject: string;
 }
 
 export interface LayerRendererDefinition {
-  role: LayerRendererRole;
+  role: string;
   /**
    * Controls the relative render/reconcile order of this role within the
    * plan layer list. Lower values are processed first. Built-in priorities:

@@ -56,4 +56,11 @@ describe('ActionRunMetrics', () => {
       runtime: { tps: 50, mspt: 20 },
     });
   });
+
+  it('ignores completions without a tick id', () => {
+    const metrics = new ActionRunMetrics('step', () => 20);
+    metrics.recordDispatch({ id: 'step', tick_id: 'step-tick' });
+
+    expect(metrics.recordCompletion({ id: 'step' })).toBeNull();
+  });
 });

@@ -158,7 +158,7 @@ describe('RuntimeControlServer', () => {
       const start = await fetch(`${baseUrl}/v1/runs`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ actionId: 'step', maxSteps: 2, stopWhen: 'steps >= 2' }),
+        body: JSON.stringify({ mode: 'bounded', actionId: 'step', maxSteps: 2, stopWhen: 'steps >= 2' }),
       });
       expect(start.status).toBe(202);
       expect((await start.json()).run).toMatchObject({ state: 'running', completedSteps: 0 });
@@ -187,7 +187,7 @@ describe('RuntimeControlServer', () => {
       const response = await fetch(`${baseUrl}/v1/runs`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ actionId: 'step' }),
+        body: JSON.stringify({ mode: 'bounded', actionId: 'step' }),
       });
       expect(response.status).toBe(400);
       expect((await response.json()).error).toMatch(/maxSteps/);
@@ -205,7 +205,7 @@ describe('RuntimeControlServer', () => {
       const response = await fetch(`${baseUrl}/v1/runs`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ actionId: 'step', maxSteps: 3 }),
+        body: JSON.stringify({ mode: 'bounded', actionId: 'step', maxSteps: 3 }),
       });
       expect(response.status).toBe(400);
       expect((await response.json()).error).toMatch(/2/);

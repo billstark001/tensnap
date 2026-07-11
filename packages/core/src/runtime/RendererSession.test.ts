@@ -90,7 +90,7 @@ describe('RendererSession', () => {
     });
     session.attachTransport(createTransport(sent));
 
-    session.run.start({ actionId: 'step', maxSteps: 1, record: { maxSteps: 10, maxBytes: 1_000_000 } });
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: { maxSteps: 10, maxBytes: 1_000_000 } });
     const tickId = (sent[0].payload as { tick_id: string }).tick_id;
     session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
     session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: tickId } });

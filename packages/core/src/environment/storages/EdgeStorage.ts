@@ -17,7 +17,8 @@
  */
 
 import { BaseStorage } from './BaseStorage';
-import { GraphEdge, AgentId } from '../types';
+import type { AgentId } from '@tensnap/protocol/layers';
+import type { GraphEdge } from '../types';
 
 // ---------------------------------------------------------------------------
 // Delta / diff type

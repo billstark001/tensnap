@@ -11,7 +11,8 @@
  */
 
 import { EnvironmentView } from '../environment/EnvironmentView';
-import type { AgentId, AgentRenderState, AgentStorage, Viewport } from '../environment';
+import type { AgentId } from '@tensnap/protocol/layers';
+import type { AgentRenderState, AgentStorage, Viewport } from '../environment';
 import { layerRegistry, type LayerCreateContext } from './layer-registry';
 import {
   createRenderPlan,

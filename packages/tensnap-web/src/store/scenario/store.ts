@@ -1,6 +1,7 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
-import { createDefaultRootLayout, createAutoLayout } from '@/utils/view/pack';
+import { createAutoLayout } from '@/utils/view/pack';
+import { createDefaultRootLayout } from '@/utils/view/create-view';
 import { AnyView, ContainerView } from '@/types/ui';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { getToastState } from '../toast';
@@ -193,7 +194,7 @@ const subscribeSession = (
   const flush = () => {
     queued = false;
     flushTimer = null;
-    lastFlushedAt = typeof performance === 'undefined' ? Date.now() : performance.now();
+    lastFlushedAt = performance.now();
     applyBatch({
       changed: pending.changed,
       environmentChanged: pending.environmentChanged,
@@ -219,7 +220,7 @@ const subscribeSession = (
         return;
       }
 
-      const now = typeof performance === 'undefined' ? Date.now() : performance.now();
+      const now = performance.now();
       const delayMs = Math.max(0, lastFlushedAt + 1_000 / maxRenderFps - now);
       if (delayMs <= 0) {
         queueMicrotask(flush);

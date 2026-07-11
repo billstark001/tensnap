@@ -1,5 +1,5 @@
 import { NumpyArrayData } from "./npy-parser";
-import { ImageInterpolation } from '../environment/storages/BackgroundStorage';
+import type { BackgroundInterpolation } from '@tensnap/protocol/layers';
 
 const validateShape = (shape: number[], expectedChannels: number[] = [1, 3, 4]) => {
   if (shape.length !== 3) {
@@ -129,7 +129,7 @@ const createCanvasWithImageData = (pixels: Uint8ClampedArray, w: number, h: numb
 
 export const createNumpyBackground = (
   numpyData: NumpyArrayData,
-  interpolation: ImageInterpolation = 'nearest',
+  interpolation: BackgroundInterpolation = 'nearest',
 ): HTMLImageElement | null => {
   const { data, shape } = numpyData;
   validateShape(shape);

@@ -2,7 +2,7 @@
  * runtime/PipelineRuntime.ts
  *
  * Coordinates task scheduling and sync-boundary state through focused
- * sub-components while preserving the original runtime API.
+ * sub-components.
  */
 
 import type { StateSyncBoundaryPayload } from '@tensnap/protocol';
@@ -11,21 +11,8 @@ import {
   type RuntimeTaskCompletion,
   type RuntimeTaskSnapshot,
   type RuntimeDispatchCommand,
-  type RuntimeCommand,
-  type TaskQueueSnapshot,
 } from './TaskQueue';
 import { SyncBoundary, type RuntimeSyncPhase, type RuntimeSyncSnapshot } from './SyncBoundary';
-
-// Re-export types that callers rely on directly.
-export type { RuntimeSyncPhase, RuntimeSyncSnapshot };
-export type {
-  RuntimeTaskCompletion,
-  RuntimeTaskSnapshot,
-  RuntimeDispatchCommand,
-  RuntimeCommand,
-  TaskQueueSnapshot,
-};
-export type { RuntimeTaskStage } from './TaskQueue';
 
 export type RuntimePhase =
   | 'idle'
@@ -42,7 +29,7 @@ export interface RuntimeSnapshot {
   activeTask: RuntimeTaskSnapshot | null;
   queuedTasks: RuntimeTaskSnapshot[];
   continuousKeys: string[];
-  pendingCommands: RuntimeCommand[];
+  pendingCommands: RuntimeDispatchCommand[];
 }
 
 export interface PipelineRuntimeOptions {
@@ -56,17 +43,7 @@ export class PipelineRuntime {
 
   constructor(options: PipelineRuntimeOptions = {}) {
     const now = options.now ?? (() => performance.now());
-    const idFactory =
-      options.idFactory ??
-      (() => {
-        if (
-          typeof crypto !== 'undefined' &&
-          typeof crypto.randomUUID === 'function'
-        ) {
-          return crypto.randomUUID();
-        }
-        return `runtime-${Math.random().toString(36).slice(2)}`;
-      });
+    const idFactory = options.idFactory ?? (() => crypto.randomUUID());
 
     this.q = new TaskQueue(now, idFactory);
     this.syncBoundary = new SyncBoundary();
@@ -148,7 +125,7 @@ export class PipelineRuntime {
 
   // #region Command access
 
-  consumeCommands(): RuntimeCommand[] {
+  consumeCommands(): RuntimeDispatchCommand[] {
     return this.q.consumeCommands();
   }
 

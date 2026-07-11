@@ -1,6 +1,8 @@
 
 export type {
   Action,
+  AgentIcon,
+  AgentId,
   BooleanParameter,
   ChartGroupMetadata,
   ChartMetadata,
@@ -12,6 +14,7 @@ export type {
   ParameterBase,
   ParameterType,
   StringParameter,
+  TrajectoryPoint,
 } from '@tensnap/protocol';
 
 export type {
@@ -24,15 +27,10 @@ export type {
 } from '@tensnap/core';
 
 export type {
-  AgentIcon,
-  AgentId,
-  Agent,
   GraphAgentState,
   GraphEdge,
   GridAgentState,
   GridCoordOffset,
-  GridEnvConfig,
-  TrajectoryPoint,
 } from '@tensnap/core/environment';
 
 export type { ChartSeriesPoint } from '@tensnap/core/chart';

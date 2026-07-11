@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:342
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:336
 msgid "(No options available)"
 msgstr "(選択肢なし)"
 
@@ -27,16 +27,16 @@ msgstr "{0} / {1} エージェント"
 #~ msgid "{0} points recorded"
 #~ msgstr "{0} ポイント記録済み"
 
-#: src/dialogs/AboutDialog.tsx:72
+#: src/dialogs/AboutDialog.tsx:70
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap コントリビューター"
 
-#: src/dialogs/SettingsDialog.tsx:233
-#: src/dialogs/SettingsDialog.tsx:251
+#: src/dialogs/SettingsDialog.tsx:231
+#: src/dialogs/SettingsDialog.tsx:249
 msgid "0 means unlimited"
 msgstr "0は無制限を意味します"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:213
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:206
 msgid "2D Layer Metadata"
 msgstr "2Dレイヤーメタデータ"
 
@@ -48,12 +48,12 @@ msgstr "この ID のチャートグループは既に存在します。"
 msgid "A parameter with this ID already exists."
 msgstr "この ID のパラメータは既に存在します。"
 
-#: src/components/toolbar/ToolGroups.tsx:296
+#: src/components/toolbar/ToolGroups.tsx:295
 msgid "About"
 msgstr "について"
 
 #: src/components/toolbar/MenuBar.tsx:224
-#: src/dialogs/AboutDialog.tsx:16
+#: src/dialogs/AboutDialog.tsx:14
 msgid "About TenSnap"
 msgstr "TenSnapについて"
 
@@ -73,7 +73,7 @@ msgstr "アクションラベル"
 #~ msgid "Action Role"
 #~ msgstr "アクションの役割"
 
-#: src/dialogs/SettingsDialog.tsx:277
+#: src/dialogs/SettingsDialog.tsx:275
 msgid "Action Timeout"
 msgstr "アクションタイムアウト"
 
@@ -81,7 +81,7 @@ msgstr "アクションタイムアウト"
 msgid "Action:"
 msgstr "アクション："
 
-#: src/components/toolbar/ToolGroups.tsx:233
+#: src/components/toolbar/ToolGroups.tsx:232
 msgid "Adjust Mode"
 msgstr "調整モード"
 
@@ -94,7 +94,7 @@ msgstr "エージェントの詳細"
 #~ msgstr "エージェント："
 
 #: src/dialogs/edit-views/ButtonViewEditor.tsx:82
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:410
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:404
 msgid "Allow Runtime Change"
 msgstr "実行時変更を許可"
 
@@ -107,7 +107,7 @@ msgid "An environment with this ID already exists."
 msgstr "この ID の環境は既に存在します。"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:343
+#: src/dialogs/SettingsDialog.tsx:341
 msgid "Apply"
 msgstr "適用"
 
@@ -119,12 +119,12 @@ msgstr "アセット"
 msgid "Assets sent by adapters will appear here."
 msgstr "アダプターから送信されたアセットはここに表示されます。"
 
-#: src/dialogs/SettingsDialog.tsx:209
+#: src/dialogs/SettingsDialog.tsx:207
 msgid "Auto"
 msgstr "自動"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:67
-#: src/dialogs/SettingsDialog.tsx:318
+#: src/dialogs/SettingsDialog.tsx:316
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
@@ -152,7 +152,7 @@ msgstr "キャンバスをクリップボードにコピーしました！"
 msgid "Canvas not found."
 msgstr "キャンバスが見つかりません。"
 
-#: src/dialogs/SettingsDialog.tsx:326
+#: src/dialogs/SettingsDialog.tsx:324
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "現在のプロジェクトのWebSocketサーバーURLを変更します。接続が再確立されます。"
 
@@ -193,13 +193,13 @@ msgstr "検索をクリア"
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/SettingsDialog.tsx:171
+#: src/dialogs/SettingsDialog.tsx:169
 msgid "Client Message Validation"
 msgstr "クライアントメッセージの検証"
 
-#: src/dialogs/AboutDialog.tsx:79
+#: src/dialogs/AboutDialog.tsx:77
 #: src/dialogs/AgentDetailsDialog.tsx:299
-#: src/dialogs/SettingsDialog.tsx:353
+#: src/dialogs/SettingsDialog.tsx:351
 msgid "Close"
 msgstr "閉じる"
 
@@ -216,7 +216,7 @@ msgstr "色："
 msgid "Comm:"
 msgstr "通信："
 
-#: src/components/toolbar/ToolGroups.tsx:145
+#: src/components/toolbar/ToolGroups.tsx:144
 msgid "Conditional Run…"
 msgstr "条件付き実行…"
 
@@ -224,7 +224,7 @@ msgstr "条件付き実行…"
 msgid "Configure a bounded continuous run for action {actionId}."
 msgstr "アクション {actionId} の上限付き連続実行を設定します。"
 
-#: src/dialogs/SettingsDialog.tsx:116
+#: src/dialogs/SettingsDialog.tsx:114
 msgid "Configure application and project settings."
 msgstr "アプリケーションとプロジェクトの設定を構成します。"
 
@@ -286,10 +286,10 @@ msgstr "作成"
 msgid "Create New Project"
 msgstr "新しいプロジェクトを作成"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:52
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:65
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:87
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:95
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:46
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:59
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:81
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:89
 msgid "Current Value"
 msgstr "現在の値"
 
@@ -305,7 +305,7 @@ msgstr "カスタムデータ："
 msgid "Cut"
 msgstr "切り取り"
 
-#: src/dialogs/SettingsDialog.tsx:137
+#: src/dialogs/SettingsDialog.tsx:135
 msgid "Dark"
 msgstr "ダーク"
 
@@ -337,7 +337,7 @@ msgstr "録画を削除"
 #~ msgid "Directory is empty"
 #~ msgstr "ディレクトリに内容がありません"
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:105
+#: src/dialogs/edit-views/BaseViewEditor.tsx:97
 msgid "Disabled"
 msgstr "無効"
 
@@ -345,7 +345,7 @@ msgstr "無効"
 msgid "Disconnected"
 msgstr "未接続"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:199
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:192
 msgid "Display Type"
 msgstr "表示タイプ"
 
@@ -353,7 +353,7 @@ msgstr "表示タイプ"
 msgid "Documentation"
 msgstr "ドキュメント"
 
-#: src/dialogs/AboutDialog.tsx:55
+#: src/dialogs/AboutDialog.tsx:53
 msgid "Documentation:"
 msgstr "ドキュメント："
 
@@ -383,7 +383,7 @@ msgid "Edit View"
 msgstr "ビューを編集"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:323
+#: src/dialogs/SettingsDialog.tsx:321
 msgid "Enter backend WebSocket server address"
 msgstr "バックエンドWebSocketサーバーアドレスを入力"
 
@@ -395,7 +395,7 @@ msgstr "バックエンドWebSocketサーバーアドレスを入力"
 #~ msgid "Enter file name"
 #~ msgstr "ファイル名を入力"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:309
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:303
 msgid "Enum Options"
 msgstr "列挙変数オプション"
 
@@ -403,7 +403,7 @@ msgstr "列挙変数オプション"
 msgid "Environment"
 msgstr "環境"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:177
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:170
 msgid "Environment ID"
 msgstr "環境ID"
 
@@ -411,7 +411,7 @@ msgstr "環境ID"
 #~ msgid "Environment Label"
 #~ msgstr "環境ラベル"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:186
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:179
 msgid "Environment Type"
 msgstr "環境タイプ"
 
@@ -423,8 +423,8 @@ msgstr "環境タイプ"
 msgid "Environments:"
 msgstr "環境："
 
-#: src/dialogs/SettingsDialog.tsx:181
-#: src/dialogs/SettingsDialog.tsx:198
+#: src/dialogs/SettingsDialog.tsx:179
+#: src/dialogs/SettingsDialog.tsx:196
 msgid "Error"
 msgstr "エラー"
 
@@ -432,7 +432,7 @@ msgstr "エラー"
 msgid "Exit"
 msgstr "終了"
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:95
+#: src/dialogs/edit-views/BaseViewEditor.tsx:87
 msgid "Expanded"
 msgstr "展開済み"
 
@@ -474,7 +474,7 @@ msgstr "再接続に失敗しました"
 msgid "Failed to save file"
 msgstr "ファイルを保存できませんでした"
 
-#: src/dialogs/SettingsDialog.tsx:90
+#: src/dialogs/SettingsDialog.tsx:88
 msgid "Failed to update project URL"
 msgstr "プロジェクトURLの更新に失敗しました"
 
@@ -565,7 +565,7 @@ msgstr "ハッシュ："
 msgid "Heading:"
 msgstr "方向："
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:75
+#: src/dialogs/edit-views/BaseViewEditor.tsx:67
 msgid "Height"
 msgstr "高さ"
 
@@ -585,7 +585,7 @@ msgstr "右側パネルを非表示"
 msgid "Icon:"
 msgstr "アイコン："
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:25
+#: src/dialogs/edit-views/BaseViewEditor.tsx:17
 msgid "ID"
 msgstr "ID"
 
@@ -607,11 +607,11 @@ msgstr "インスペクター"
 msgid "Invalid ID"
 msgstr "無効な ID"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:127
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:120
 msgid "Invalid JSON"
 msgstr "無効な JSON"
 
-#: src/dialogs/SettingsDialog.tsx:105
+#: src/dialogs/SettingsDialog.tsx:103
 msgid "Invalid locale"
 msgstr "無効なロケール"
 
@@ -624,19 +624,19 @@ msgstr "キーボードショートカット"
 #~ msgid "Label"
 #~ msgstr "ラベル"
 
-#: src/dialogs/SettingsDialog.tsx:144
+#: src/dialogs/SettingsDialog.tsx:142
 msgid "Language"
 msgstr "言語"
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:47
+#: src/dialogs/edit-views/BaseViewEditor.tsx:39
 msgid "Left"
 msgstr "左"
 
-#: src/dialogs/AboutDialog.tsx:67
+#: src/dialogs/AboutDialog.tsx:65
 msgid "License:"
 msgstr "ライセンス："
 
-#: src/dialogs/SettingsDialog.tsx:137
+#: src/dialogs/SettingsDialog.tsx:135
 msgid "Light"
 msgstr "ライト"
 
@@ -644,15 +644,15 @@ msgstr "ライト"
 #~ msgid "Loading..."
 #~ msgstr "読み込み中..."
 
-#: src/dialogs/SettingsDialog.tsx:240
+#: src/dialogs/SettingsDialog.tsx:238
 msgid "Max FPS"
 msgstr "最大FPS"
 
-#: src/dialogs/SettingsDialog.tsx:222
+#: src/dialogs/SettingsDialog.tsx:220
 msgid "Max TPS"
 msgstr "最大TPS"
 
-#: src/dialogs/SettingsDialog.tsx:270
+#: src/dialogs/SettingsDialog.tsx:268
 msgid "Maximum 120 FPS"
 msgstr "最大 120 FPS"
 
@@ -664,7 +664,7 @@ msgstr "最大ステップ数"
 msgid "Maximum steps must be an integer from 1 to 1,000,000."
 msgstr "最大ステップ数は 1 から 1,000,000 の整数である必要があります。"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:124
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:118
 msgid "Maximum Value"
 msgstr "最大値"
 
@@ -672,7 +672,7 @@ msgstr "最大値"
 msgid "MIME:"
 msgstr "MIME："
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:116
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:110
 msgid "Minimum Value"
 msgstr "最小値"
 
@@ -680,7 +680,7 @@ msgstr "最小値"
 msgid "Model:"
 msgstr "モデル："
 
-#: src/components/toolbar/ToolGroups.tsx:172
+#: src/components/toolbar/ToolGroups.tsx:171
 msgid "More Actions"
 msgstr "その他の操作"
 
@@ -701,7 +701,7 @@ msgstr "近傍: {0}"
 msgid "New"
 msgstr "新規"
 
-#: src/components/toolbar/ToolGroups.tsx:58
+#: src/components/toolbar/ToolGroups.tsx:57
 msgid "New File"
 msgstr "新しいファイル"
 
@@ -721,7 +721,7 @@ msgstr "次のページ"
 msgid "No {itemName} available"
 msgstr "{itemName}はありません"
 
-#: src/dialogs/SettingsDialog.tsx:77
+#: src/dialogs/SettingsDialog.tsx:75
 msgid "No active project"
 msgstr "アクティブなプロジェクトがありません"
 
@@ -737,8 +737,8 @@ msgstr "この環境にエージェントがありません"
 msgid "No assets registered."
 msgstr "登録されたアセットがありません。"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:243
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:274
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:236
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:267
 msgid "No layers available."
 msgstr "利用可能なレイヤーがありません。"
 
@@ -746,8 +746,8 @@ msgstr "利用可能なレイヤーがありません。"
 msgid "No main view available."
 msgstr "メインビューはありません。"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:239
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:270
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:232
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:263
 msgid "No metadata on this layer."
 msgstr "このレイヤーにメタデータがありません。"
 
@@ -799,8 +799,8 @@ msgstr "位置指定なし"
 msgid "Object ID"
 msgstr "オブジェクトID"
 
-#: src/dialogs/SettingsDialog.tsx:175
-#: src/dialogs/SettingsDialog.tsx:192
+#: src/dialogs/SettingsDialog.tsx:173
+#: src/dialogs/SettingsDialog.tsx:190
 msgid "Off"
 msgstr "オフ"
 
@@ -813,7 +813,7 @@ msgid "Open as offline copy"
 msgstr "オフラインコピーとして開く"
 
 #: src/components/toolbar/MenuBar.tsx:79
-#: src/components/toolbar/ToolGroups.tsx:64
+#: src/components/toolbar/ToolGroups.tsx:63
 #: src/components/toolbar/useFileOperations.ts:58
 msgid "Open File"
 msgstr "ファイルを開く"
@@ -847,15 +847,15 @@ msgstr "ページ {pageNum}"
 msgid "Parameter"
 msgstr "パラメータ"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:372
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:366
 msgid "Parameter ID"
 msgstr "パラメータID"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:389
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:383
 msgid "Parameter Label"
 msgstr "パラメータラベル"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:32
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:26
 msgid "Parameter Type"
 msgstr "パラメータタイプ"
 
@@ -897,7 +897,7 @@ msgstr "位置："
 msgid "Previous page"
 msgstr "前のページ"
 
-#: src/dialogs/SettingsDialog.tsx:304
+#: src/dialogs/SettingsDialog.tsx:302
 msgid "Project File"
 msgstr "プロジェクトファイル"
 
@@ -909,11 +909,11 @@ msgstr "プロジェクトは警告付きで復元されました"
 msgid "Project saved successfully."
 msgstr "プロジェクトを保存しました。"
 
-#: src/dialogs/SettingsDialog.tsx:299
+#: src/dialogs/SettingsDialog.tsx:297
 msgid "Project Settings"
 msgstr "プロジェクト設定"
 
-#: src/dialogs/SettingsDialog.tsx:83
+#: src/dialogs/SettingsDialog.tsx:81
 msgid "Project URL updated successfully"
 msgstr "プロジェクトURLを正常に更新しました"
 
@@ -942,7 +942,7 @@ msgid "Recorded:"
 msgstr "録画日時："
 
 #: src/components/toolbar/MenuBar.tsx:126
-#: src/components/toolbar/ToolGroups.tsx:91
+#: src/components/toolbar/ToolGroups.tsx:90
 msgid "Redo"
 msgstr "やり直す"
 
@@ -950,7 +950,7 @@ msgstr "やり直す"
 #~ msgid "Refresh"
 #~ msgstr "更新"
 
-#: src/dialogs/SettingsDialog.tsx:205
+#: src/dialogs/SettingsDialog.tsx:203
 msgid "Render Trigger"
 msgstr "レンダートリガー"
 
@@ -958,13 +958,13 @@ msgstr "レンダートリガー"
 #~ msgid "Renderer Overrides"
 #~ msgstr "レンダラーオーバーライド"
 
-#: src/dialogs/AboutDialog.tsx:43
+#: src/dialogs/AboutDialog.tsx:41
 msgid "Repository:"
 msgstr "リポジトリ："
 
-#: src/components/toolbar/ToolGroups.tsx:157
+#: src/components/toolbar/ToolGroups.tsx:156
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
-#: src/dialogs/SettingsDialog.tsx:336
+#: src/dialogs/SettingsDialog.tsx:334
 msgid "Reset"
 msgstr "リセット"
 
@@ -1003,7 +1003,7 @@ msgid "Run:"
 msgstr "実行："
 
 #: src/components/toolbar/MenuBar.tsx:86
-#: src/components/toolbar/ToolGroups.tsx:69
+#: src/components/toolbar/ToolGroups.tsx:68
 #: src/dialogs/edit-views/EditViewDialog.tsx:339
 msgid "Save"
 msgstr "保存"
@@ -1021,7 +1021,7 @@ msgstr "CSV形式で保存"
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
-#: src/dialogs/SettingsDialog.tsx:157
+#: src/dialogs/SettingsDialog.tsx:155
 msgid "Save Format"
 msgstr "保存形式"
 
@@ -1046,15 +1046,15 @@ msgstr "すべて選択"
 msgid "Series ID already exists."
 msgstr "この ID の系列は既に存在します。"
 
-#: src/dialogs/SettingsDialog.tsx:188
+#: src/dialogs/SettingsDialog.tsx:186
 msgid "Server Message Validation"
 msgstr "サーバーメッセージバリデーション"
 
 #: src/components/project/StatusBar.tsx:152
 #: src/components/project/StatusBar.tsx:155
 #: src/components/toolbar/MenuBar.tsx:195
-#: src/components/toolbar/ToolGroups.tsx:301
-#: src/dialogs/SettingsDialog.tsx:114
+#: src/components/toolbar/ToolGroups.tsx:300
+#: src/dialogs/SettingsDialog.tsx:112
 msgid "Settings"
 msgstr "設定"
 
@@ -1095,7 +1095,7 @@ msgstr "サイズ："
 msgid "Snapshot name"
 msgstr "スナップショット名"
 
-#: src/dialogs/SettingsDialog.tsx:258
+#: src/dialogs/SettingsDialog.tsx:256
 msgid "Snapshot playback FPS"
 msgstr "スナップショット再生 FPS"
 
@@ -1131,8 +1131,8 @@ msgstr "録画を開始"
 #~ msgid "Start/Stop"
 #~ msgstr "開始/停止"
 
-#: src/components/toolbar/ToolGroups.tsx:151
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:132
+#: src/components/toolbar/ToolGroups.tsx:150
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:126
 msgid "Step"
 msgstr "ステップ"
 
@@ -1152,20 +1152,20 @@ msgstr "停止条件式（任意）"
 msgid "Stop recording"
 msgstr "録画を停止"
 
-#: src/components/toolbar/ToolGroups.tsx:252
+#: src/components/toolbar/ToolGroups.tsx:251
 msgid "Synchronize State"
 msgstr "状態を同期"
 
-#: src/dialogs/SettingsDialog.tsx:122
+#: src/dialogs/SettingsDialog.tsx:120
 msgid "System Settings"
 msgstr "システム設定"
 
 #: src/components/project/RightPanel.tsx:190
-#: src/components/toolbar/ToolGroups.tsx:247
+#: src/components/toolbar/ToolGroups.tsx:246
 msgid "Take Snapshot"
 msgstr "スナップショットを撮る"
 
-#: src/dialogs/AboutDialog.tsx:33
+#: src/dialogs/AboutDialog.tsx:31
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnapは、エージェントベースモデルのインタラクティブ可視化であり、インタラクティブなシミュレーションと可視化を通じて、研究者や学生が複雑なシステムを理解するのを支援するように設計されています。"
 
@@ -1189,7 +1189,7 @@ msgstr "この編集を保存すると、現在のオブジェクトの名前が
 msgid "The environment ID could not be changed."
 msgstr "環境 ID を変更できませんでした。"
 
-#: src/dialogs/SettingsDialog.tsx:314
+#: src/dialogs/SettingsDialog.tsx:312
 msgid "The full path is shown here and is not editable."
 msgstr "完全なパスがここに表示され、編集できません。"
 
@@ -1201,7 +1201,7 @@ msgstr "パラメータ ID を変更できませんでした。"
 msgid "The view no longer exists."
 msgstr "このビューは既に存在しません。"
 
-#: src/dialogs/SettingsDialog.tsx:126
+#: src/dialogs/SettingsDialog.tsx:124
 msgid "Theme"
 msgstr "テーマ"
 
@@ -1226,11 +1226,11 @@ msgstr "この ID は別の登録済みオブジェクトによって既に使�
 msgid "This view can keep its binding, but there is no registered chart group to edit."
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済みチャートグループがありません。"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:281
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:274
 msgid "This view can keep its binding, but there is no registered environment to edit."
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済み環境がありません。"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:380
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:374
 msgid "This view can keep its binding, but there is no registered parameter to edit."
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済みパラメータがありません。"
 
@@ -1245,16 +1245,16 @@ msgstr "タイムステップ："
 
 #: src/dialogs/edit-views/ChartViewEditor.tsx:249
 #: src/dialogs/edit-views/ContainerViewEditor.tsx:16
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:167
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:362
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:160
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:356
 msgid "Title"
 msgstr "タイトル"
 
-#: src/components/toolbar/ToolGroups.tsx:282
+#: src/components/toolbar/ToolGroups.tsx:281
 msgid "Toggle theme"
 msgstr "テーマを切り替え"
 
-#: src/components/toolbar/ToolGroups.tsx:289
+#: src/components/toolbar/ToolGroups.tsx:288
 msgid "Toggle Theme"
 msgstr "テーマを切り替え"
 
@@ -1262,7 +1262,7 @@ msgstr "テーマを切り替え"
 msgid "Tools"
 msgstr "ツール"
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:56
+#: src/dialogs/edit-views/BaseViewEditor.tsx:48
 msgid "Top"
 msgstr "上"
 
@@ -1278,12 +1278,12 @@ msgstr "TPS："
 msgid "Try adjusting your search criteria"
 msgstr "検索条件を調整してください。"
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:35
+#: src/dialogs/edit-views/BaseViewEditor.tsx:27
 msgid "Type"
 msgstr "タイプ"
 
 #: src/components/toolbar/MenuBar.tsx:119
-#: src/components/toolbar/ToolGroups.tsx:85
+#: src/components/toolbar/ToolGroups.tsx:84
 msgid "Undo"
 msgstr "元に戻す"
 
@@ -1291,12 +1291,12 @@ msgstr "元に戻す"
 msgid "Uniform Environment"
 msgstr "均一環境"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:251
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:244
 msgid "Uniform Layer Metadata"
 msgstr "均一レイヤーメタデータ"
 
-#: src/dialogs/SettingsDialog.tsx:310
-#: src/dialogs/SettingsDialog.tsx:311
+#: src/dialogs/SettingsDialog.tsx:308
+#: src/dialogs/SettingsDialog.tsx:309
 msgid "Unsaved project"
 msgstr "未保存のプロジェクト"
 
@@ -1304,7 +1304,7 @@ msgstr "未保存のプロジェクト"
 msgid "Update the object ID used by this view."
 msgstr "このビューで使用されるオブジェクトIDを更新します。"
 
-#: src/components/toolbar/ToolGroups.tsx:260
+#: src/components/toolbar/ToolGroups.tsx:259
 msgid "Update View Layout"
 msgstr "ビューレイアウトを更新"
 
@@ -1312,7 +1312,7 @@ msgstr "ビューレイアウトを更新"
 #~ msgid "Upload Files"
 #~ msgstr "ファイルをアップロード"
 
-#: src/dialogs/AboutDialog.tsx:27
+#: src/dialogs/AboutDialog.tsx:25
 msgid "Version"
 msgstr "バージョン"
 
@@ -1328,7 +1328,7 @@ msgstr "表示"
 msgid "View detailed information about the selected agent"
 msgstr "選択したエージェントの詳細情報を表示"
 
-#: src/dialogs/AboutDialog.tsx:62
+#: src/dialogs/AboutDialog.tsx:60
 msgid "View Docs"
 msgstr "ドキュメントを見る"
 
@@ -1340,21 +1340,21 @@ msgstr "実時間の上限は正のミリ秒数で指定してください。"
 msgid "Wall-clock limit, ms (optional)"
 msgstr "実時間の上限（ミリ秒、任意）"
 
-#: src/dialogs/SettingsDialog.tsx:178
-#: src/dialogs/SettingsDialog.tsx:195
+#: src/dialogs/SettingsDialog.tsx:176
+#: src/dialogs/SettingsDialog.tsx:193
 msgid "Warning"
 msgstr "警告"
 
-#: src/dialogs/edit-views/BaseViewEditor.tsx:65
+#: src/dialogs/edit-views/BaseViewEditor.tsx:57
 msgid "Width"
 msgstr "幅"
 
 #: src/components/toolbar/MenuBar.tsx:157
-#: src/components/toolbar/ToolGroups.tsx:239
+#: src/components/toolbar/ToolGroups.tsx:238
 msgid "Zoom In"
 msgstr "拡大"
 
 #: src/components/toolbar/MenuBar.tsx:160
-#: src/components/toolbar/ToolGroups.tsx:243
+#: src/components/toolbar/ToolGroups.tsx:242
 msgid "Zoom Out"
 msgstr "縮小"

@@ -11,7 +11,7 @@
  */
 
 import { BaseStorage } from './BaseStorage';
-import { AgentId, AgentIcon } from '../types';
+import type { AgentIcon, AgentId } from '@tensnap/protocol/layers';
 
 // ---------------------------------------------------------------------------
 // Data types
@@ -230,27 +230,6 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   updateAgents(updates: Array<Readonly<Partial<AgentRenderState> & { id: AgentId }>>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
     for (const { id, ...data } of updates) {
-      const existing = this._data.agents.get(id);
-      if (existing) {
-        Object.assign(existing, data);
-        this.indexAgent(existing);
-        delta.updated.push(existing);
-      } else {
-        const newAgent = { id, ...data } as AgentRenderState;
-        this._data.agents.set(id, newAgent);
-        this.indexAgent(newAgent);
-        delta.added.push(newAgent);
-      }
-    }
-    if (delta.added.length > 0 || delta.updated.length > 0) {
-      this.notify(delta);
-    }
-  }
-
-  /** Update multiple agents efficiently. Supports different data structures. */
-  updateAgents2(updates: Array<{ id: AgentId; data: Readonly<Partial<AgentRenderState>> }>): void {
-    const delta: AgentDelta = { added: [], updated: [], removed: [] };
-    for (const { id, data } of updates) {
       const existing = this._data.agents.get(id);
       if (existing) {
         Object.assign(existing, data);

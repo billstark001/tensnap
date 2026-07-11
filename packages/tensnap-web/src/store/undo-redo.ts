@@ -209,11 +209,7 @@ export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundS
   });
 };
 
-export const createHistoryCommandId = () => (
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `history-${Date.now()}-${Math.random().toString(36).slice(2)}`
-);
+export const createHistoryCommandId = () => crypto.randomUUID();
 
 export const estimateHistoryBytes = (...values: unknown[]) => (
   new TextEncoder().encode(JSON.stringify(values)).byteLength

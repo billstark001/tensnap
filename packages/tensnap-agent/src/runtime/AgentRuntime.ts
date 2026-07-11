@@ -7,13 +7,12 @@ import type {
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
-import { RendererSession } from '@tensnap/core/runtime';
+import { RendererSession, type BoundedRunSpec } from '@tensnap/core/runtime';
 import { ScenarioInspector } from '@tensnap/core/scenario';
 import type { AgentInspection, AgentInspectionOptions, AgentRef, ScenarioSnapshot } from '@tensnap/core/scenario';
 import { AgentStorage } from '@tensnap/core/environment';
 import { NodeWebSocketTransport } from '../session/NodeWebSocketTransport';
 import type {
-  AgentRunSpec,
   ChartSeriesSnapshot,
   ConnectOptions,
   SceneRenderOptions,
@@ -35,7 +34,7 @@ import {
   writeRuntimeControl,
   writeSceneSnapshot,
 } from './context';
-import type { RenderArtifact, RenderAssetSource, RenderRequest, ScenePainter } from './painter';
+import { normalizeRenderBackgroundColor, type RenderArtifact, type RenderAssetSource, type RenderRequest, type ScenePainter } from './painter';
 
 export interface AgentRuntimeOptions {
   host?: string;
@@ -50,11 +49,6 @@ export interface AgentRuntimeOptions {
 }
 
 const DEFAULT_CHECKPOINT_INTERVAL_MS = 2_000;
-
-function normalizeBackgroundColor(value: string | undefined, fallback = '#000000'): string {
-  const trimmed = value?.trim();
-  return trimmed || fallback;
-}
 
 const cloneValue = <T>(value: T): T => structuredClone(value);
 
@@ -108,7 +102,7 @@ export class AgentRuntime extends EventEmitter {
       maxRunStepsPolicy: options.maxRunStepsPolicy ?? 1_000_000,
       render: {
         trigger: options.render?.trigger ?? 'manual',
-        backgroundColor: normalizeBackgroundColor(options.render?.backgroundColor),
+        backgroundColor: normalizeRenderBackgroundColor(options.render?.backgroundColor),
       },
       painters: [],
       sceneRevision: 0,
@@ -346,7 +340,7 @@ export class AgentRuntime extends EventEmitter {
     });
   }
 
-  startRun(spec: AgentRunSpec) {
+  startRun(spec: BoundedRunSpec) {
     this.assertConnected();
     const status = this.renderer.run.start(spec);
     const boundedSpec = status.spec.mode === 'bounded' ? status.spec : null;
@@ -424,7 +418,7 @@ export class AgentRuntime extends EventEmitter {
     reason: string,
     trigger: RenderTriggerMode | 'explicit',
   ): RenderRequest {
-    const backgroundColor = normalizeBackgroundColor(options.backgroundColor, this.control.render.backgroundColor);
+    const backgroundColor = normalizeRenderBackgroundColor(options.backgroundColor, this.control.render.backgroundColor);
     return {
       at: new Date().toISOString(),
       reason,

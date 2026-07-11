@@ -32,9 +32,6 @@ import {
 } from '../storages/AgentStorage';
 import {
   Viewport,
-  AgentId,
-  AgentIcon,
-  BuiltinAgentIcon,
   GridCoordOffset,
   SceneBounds,
   OriginMode,
@@ -42,6 +39,7 @@ import {
   IBoundedLayer,
   isBuiltinAgentIcon,
 } from '../types';
+import type { AgentIcon, AgentId, BuiltinAgentIcon } from '@tensnap/protocol/layers';
 import { getCoordOffsetValue } from '../utils';
 import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';
 

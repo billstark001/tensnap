@@ -40,9 +40,7 @@ function now(): number {
 }
 
 function createId(): string {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? `snapshot-${crypto.randomUUID()}`
-    : `snapshot-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `snapshot-${crypto.randomUUID()}`;
 }
 
 /** Actual MessagePack-plus-compression bytes, not a JSON-size proxy. */

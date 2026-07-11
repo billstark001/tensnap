@@ -15,11 +15,6 @@ import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
 import { I18nProvider } from '@lingui/react';
 import { registerBuiltinModels } from './transport';
 
-
-if (!window.structuredClone) {
-  window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
-}
-
 registerBuiltinModels(
   getJsExampleEntries().map((entry) => ({
     id: entry.id,
@@ -30,7 +25,7 @@ registerBuiltinModels(
 );
 
 function isDarkMode() {
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
 (async () => {

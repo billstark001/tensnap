@@ -253,6 +253,7 @@ async function runBenchmarkWithRendererSession(
         session.addEventListener('commit', () => runtime.onCommit?.(session));
       }
       session.run.start({
+        mode: 'bounded',
         actionId: STEP_ACTION_ID,
         maxSteps: totalFrames,
         stopWhen: runtime?.stopWhen,

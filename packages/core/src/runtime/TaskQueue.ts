@@ -35,14 +35,12 @@ export interface RuntimeDispatchCommand {
   task: RuntimeTaskSnapshot;
 }
 
-export type RuntimeCommand = RuntimeDispatchCommand;
-
 export interface TaskQueueSnapshot {
   queueDepth: number;
   activeTask: RuntimeTaskSnapshot | null;
   queuedTasks: RuntimeTaskSnapshot[];
   continuousKeys: string[];
-  pendingCommands: RuntimeCommand[];
+  pendingCommands: RuntimeDispatchCommand[];
 }
 
 type RuntimeTaskRecord = RuntimeTaskSnapshot;
@@ -52,7 +50,7 @@ const cloneTask = (task: RuntimeTaskRecord): RuntimeTaskSnapshot => ({
   timings: task.timings !== undefined ? { ...task.timings } : undefined,
 });
 
-const cloneCommand = (command: RuntimeCommand): RuntimeCommand => ({
+const cloneCommand = (command: RuntimeDispatchCommand): RuntimeDispatchCommand => ({
   ...command,
   task: cloneTask(command.task),
 });
@@ -74,7 +72,7 @@ export class TaskQueue {
   /** O(1) deduplication of continuous tasks by key. */
   private readonly continuousTaskByKey = new Map<string, RuntimeTaskRecord>();
 
-  private readonly pendingCommands: RuntimeCommand[] = [];
+  private readonly pendingCommands: RuntimeDispatchCommand[] = [];
   private readonly continuousKeys = new Set<string>();
 
   constructor(
@@ -246,7 +244,7 @@ export class TaskQueue {
     });
   }
 
-  consumeCommands(): RuntimeCommand[] {
+  consumeCommands(): RuntimeDispatchCommand[] {
     const commands = this.pendingCommands.map(cloneCommand);
     this.pendingCommands.length = 0;
     return commands;

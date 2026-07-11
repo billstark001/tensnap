@@ -1,6 +1,7 @@
-import type { RuntimeTaskSnapshot } from './PipelineRuntime';
+import type { RuntimeTaskSnapshot } from './TaskQueue';
 import type { RunRenderBarrier } from './RunController';
-import type { RenderTriggerMode } from './simulation-loop';
+
+export type RenderTriggerMode = 'auto' | 'setTimeout' | 'requestAnimationFrame';
 
 const RAF_CALIBRATION_SAMPLE_COUNT = 6;
 const RAF_ESTIMATE_MAX_AGE_MS = 2_000;
@@ -16,17 +17,13 @@ export interface BrowserRunRenderOptions {
 export interface BrowserRunTimingHost {
   now(): number;
   setTimeout(callback: () => void, delayMs: number): unknown;
-  requestAnimationFrame(callback: (timestamp: number) => void): unknown | null;
+  requestAnimationFrame(callback: (timestamp: number) => void): unknown;
 }
 
 const defaultTimingHost: BrowserRunTimingHost = {
-  now: () => (typeof performance === 'undefined' ? Date.now() : performance.now()),
+  now: () => performance.now(),
   setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
-  requestAnimationFrame: (callback) => (
-    typeof globalThis.requestAnimationFrame === 'function'
-      ? globalThis.requestAnimationFrame(callback)
-      : null
-  ),
+  requestAnimationFrame: (callback) => globalThis.requestAnimationFrame(callback),
 };
 
 class RafCadenceEstimator {
@@ -78,14 +75,10 @@ class RafCadenceEstimator {
         this.finishCalibration();
         return;
       }
-      if (this.host.requestAnimationFrame(tick) === null) {
-        this.finishCalibration();
-      }
+      this.host.requestAnimationFrame(tick);
     };
 
-    if (this.host.requestAnimationFrame(tick) === null) {
-      this.finishCalibration();
-    }
+    this.host.requestAnimationFrame(tick);
   }
 
   private finishCalibration(): void {
@@ -100,9 +93,9 @@ class RafCadenceEstimator {
  *
  * The shared controller calls this after a completed action has been applied.
  * Timeout mode preserves high-throughput runs, while rAF mode deliberately
- * aligns the next dispatch with a display frame. Auto mode mirrors the legacy
- * browser loop by selecting rAF only when the configured TPS cadence is slow
- * enough to benefit from frame alignment.
+ * aligns the next dispatch with a display frame. Auto mode selects rAF only
+ * when the configured TPS cadence is slow enough to benefit from frame
+ * alignment.
  */
 export class BrowserRunRenderBarrier implements RunRenderBarrier {
   private readonly rafEstimator: RafCadenceEstimator;
@@ -145,14 +138,10 @@ export class BrowserRunRenderBarrier implements RunRenderBarrier {
           resolve();
           return;
         }
-        if (this.host.requestAnimationFrame(tick) === null) {
-          void this.waitForTimeout(dueAt).then(resolve);
-        }
+        this.host.requestAnimationFrame(tick);
       };
 
-      if (this.host.requestAnimationFrame(tick) === null) {
-        void this.waitForTimeout(dueAt).then(resolve);
-      }
+      this.host.requestAnimationFrame(tick);
     });
   }
 

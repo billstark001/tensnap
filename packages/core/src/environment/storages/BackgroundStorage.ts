@@ -12,17 +12,15 @@ import { NPYParser } from '../../utils/npy-parser';
 import { createNumpyBackground } from '../../utils/numpy-renderer';
 import { uint8ArrayToArrayBuffer } from '../../utils/msgpack';
 import { detectFileFormat } from '../../utils/format-detector';
+import type { BackgroundInterpolation } from '@tensnap/protocol/layers';
 
 // ---------------------------------------------------------------------------
 // Data type
 // ---------------------------------------------------------------------------
 
-/** Image interpolation mode: 'nearest' = pixelated, 'linear' = smooth. */
-export type ImageInterpolation = 'nearest' | 'linear';
-
 export type BackgroundValue =
   | { kind: 'color'; value: string }
-  | { kind: 'image'; url: string; isBlob: boolean; interpolation: ImageInterpolation };
+  | { kind: 'image'; url: string; isBlob: boolean; interpolation: BackgroundInterpolation };
 
 export type BackgroundData = BackgroundValue | null;
 
@@ -58,7 +56,7 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
    */
   async setBackground(
     background: string | Uint8Array | undefined,
-    interpolation: ImageInterpolation = 'nearest',
+    interpolation: BackgroundInterpolation = 'nearest',
   ): Promise<void> {
     if (background === undefined || background === null) {
       this._setResolved(null);
@@ -90,7 +88,7 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
    */
   setBackgroundUrl(
     url: string | undefined | null,
-    interpolation: ImageInterpolation = 'nearest',
+    interpolation: BackgroundInterpolation = 'nearest',
   ): void {
     if (!url) {
       this._setResolved(null);
@@ -143,7 +141,7 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
 
 export async function loadImageAsync(
   src: string,
-  interpolation: ImageInterpolation = 'nearest',
+  interpolation: BackgroundInterpolation = 'nearest',
 ): Promise<HTMLImageElement> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -161,7 +159,7 @@ export async function loadImageAsync(
 
 async function parseUint8ArrayBackground(
   data: Uint8Array,
-  interpolation: ImageInterpolation = 'nearest',
+  interpolation: BackgroundInterpolation = 'nearest',
 ): Promise<string> {
   const format = detectFileFormat(data);
   if (format === 'npy') {

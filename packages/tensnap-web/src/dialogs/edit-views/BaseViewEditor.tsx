@@ -3,20 +3,12 @@ import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { AnyView } from '@/types/ui';
 import * as styles from './EditViews.css';
+import { parseFiniteNumberInput } from './form-values';
 
 export interface BaseViewEditorProps {
   view: AnyView;
   onChange: (field: string, value: any) => void;
 }
-
-// Helper function to parse number input safely
-const parseNumberInput = (value: string, fallback: number = 0): number => {
-  if (value === '' || value === '-') {
-    return fallback;
-  }
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? fallback : parsed;
-};
 
 export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }) => {
   return (
@@ -49,7 +41,7 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
             id="view-left"
             type="number"
             value={view.left}
-            onChange={(e) => onChange('left', parseNumberInput(e.target.value, view.left))}
+            onChange={(e) => onChange('left', parseFiniteNumberInput(e.target.value, view.left))}
           />
         </Form.Field>
 
@@ -58,7 +50,7 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
             id="view-top"
             type="number"
             value={view.top}
-            onChange={(e) => onChange('top', parseNumberInput(e.target.value, view.top))}
+            onChange={(e) => onChange('top', parseFiniteNumberInput(e.target.value, view.top))}
           />
         </Form.Field>
 
@@ -68,7 +60,7 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
             type="number"
             min={1}
             value={view.width}
-            onChange={(e) => onChange('width', Math.max(1, parseNumberInput(e.target.value, view.width)))}
+            onChange={(e) => onChange('width', Math.max(1, parseFiniteNumberInput(e.target.value, view.width)))}
           />
         </Form.Field>
 
@@ -78,7 +70,7 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
             type="number"
             min={1}
             value={view.height}
-            onChange={(e) => onChange('height', Math.max(1, parseNumberInput(e.target.value, view.height)))}
+            onChange={(e) => onChange('height', Math.max(1, parseFiniteNumberInput(e.target.value, view.height)))}
           />
         </Form.Field>
       </Form.FieldGroup>

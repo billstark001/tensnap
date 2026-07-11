@@ -2,7 +2,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useSettingsStore } from '@/store/settings';
 import { useToast } from '@/store/toast';
 import type { ActionEndPayload, ActionStartPayload } from '@tensnap/protocol';
-import type { RunSpec, RunStatus } from '@tensnap/core/runtime';
+import type { BoundedRunSpec, RunStatus } from '@tensnap/core/runtime';
 import type { RendererSessionOutboundDetail } from '@tensnap/core/runtime';
 import { useCallback, useEffect, useRef } from 'react';
 import { ActionRunMetrics } from './actionRunMetrics';
@@ -63,7 +63,7 @@ export function useButtonControls() {
   }, [session, actionTimeoutSeconds]);
 
   const handleButtonAction = useCallback(
-    (action: string, continuous?: boolean, runSpec?: Omit<RunSpec, 'actionId' | 'mode'>) => {
+    (action: string, continuous?: boolean, runSpec?: Omit<BoundedRunSpec, 'actionId' | 'mode'>) => {
       if (!connected || !session) return;
       const actionMeta = actions?.get(action);
       const isContinuous = continuous ?? actionMeta?.continuous ?? false;
@@ -108,7 +108,7 @@ export function useButtonControls() {
     }
   }, [clearRuntimeMetrics, connected, session, toast]);
 
-  const startBoundedRun = useCallback((actionId: string, spec: Omit<RunSpec, 'actionId' | 'mode'>) => {
+  const startBoundedRun = useCallback((actionId: string, spec: Omit<BoundedRunSpec, 'actionId' | 'mode'>) => {
     if (!connected || !session) return;
     try {
       metricsRunRef.current = new ActionRunMetrics(actionId);

@@ -5,7 +5,7 @@
  */
 
 import { Rect, Ellipse, Polygon, Line, Text, UI } from '@leafer-ui/core';
-import { BuiltinAgentIcon } from '../types';
+import type { BuiltinAgentIcon } from '@tensnap/protocol/layers';
 
 const polygonPoints = (sides: number, radius: number, startDeg = -90): number[] => {
   const points: number[] = [];
@@ -129,12 +129,6 @@ export function disableCanvasSmoothing(canvas: HTMLCanvasElement): void {
   const ctx = canvas.getContext('2d');
   if (ctx) {
     ctx.imageSmoothingEnabled = false;
-    (ctx as any).webkitImageSmoothingEnabled = false;
-    (ctx as any).mozImageSmoothingEnabled = false;
-    (ctx as any).msImageSmoothingEnabled = false;
   }
   canvas.style.imageRendering = 'pixelated';
-  canvas.style.setProperty('image-rendering', '-webkit-crisp-edges', '');
-  canvas.style.setProperty('image-rendering', '-moz-crisp-edges', '');
-  canvas.style.setProperty('image-rendering', 'crisp-edges', '');
 }

@@ -8,7 +8,8 @@ import {
   TrajectoryStorage,
   TrajectoryStorageData,
 } from '../storages/TrajectoryStorage';
-import { AgentId, GridCoordOffset, Viewport } from '../types';
+import type { AgentId } from '@tensnap/protocol/layers';
+import type { GridCoordOffset, Viewport } from '../types';
 import { getCoordOffsetValue } from '../utils';
 import { splitTrajectoryPoints, TrajectoryWorldBounds } from '../utils/trajectory';
 
@@ -201,7 +202,7 @@ export class TrajectoryLayer extends BaseLayer {
   ): void {
     const previous = cached.segments.pop();
     for (const line of previous?.lines ?? []) line.remove();
-    this._appendSegment(cached, entry.ring.toArray(), strokeWidth);
+    this._appendSegment(cached, entry.activeSegment.toArray(), strokeWidth);
   }
 
   private _flattenPoints(points: Array<{ x: number; y: number }>): number[] {

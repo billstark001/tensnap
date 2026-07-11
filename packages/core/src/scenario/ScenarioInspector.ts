@@ -1,4 +1,5 @@
-import type { AgentId, AgentRenderState, GraphEdge, Viewport } from '../environment';
+import type { AgentId } from '@tensnap/protocol/layers';
+import type { AgentRenderState, GraphEdge, Viewport } from '../environment';
 import { AgentStorage, EdgeStorage, getCoordOffsetValue } from '../environment';
 import type {
   ScenarioEnvironmentSnapshot,

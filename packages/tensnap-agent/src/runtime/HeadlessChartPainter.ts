@@ -1,9 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { createCanvas } from 'canvas';
 import { ChartScene, type ChartConfig, type ChartGroup } from '@tensnap/core/chart';
 import type { RenderFormat } from '../types';
 import type { RenderArtifact, RenderRequest, ScenePainter } from './painter';
+import { buildImageOutputPath, imageMimeType } from './image-output';
 
 export interface HeadlessChartPainterOptions {
   id?: string;
@@ -37,10 +38,6 @@ function chartConfig(group: ChartGroup): ChartConfig {
   };
 }
 
-function mime(format: RenderFormat): string {
-  return format === 'jpeg' ? 'image/jpeg' : 'image/png';
-}
-
 /** Node-canvas host for the exact same ChartScene rendered in the browser. */
 export class HeadlessChartPainter implements ScenePainter {
   readonly id: string;
@@ -72,17 +69,14 @@ export class HeadlessChartPainter implements ScenePainter {
 
     let path: string | undefined;
     if (request.options.persist !== false) {
-      const suffix = appendId ? `-${group.id}` : '';
-      const requested = request.options.outputPath;
-      const requestedExtension = requested ? extname(requested) : '';
-      path = requested
-        ? appendId
-          ? join(
-            dirname(requested),
-            `${basename(requested, requestedExtension)}${suffix}${requestedExtension || `.${format}`}`,
-          )
-          : requested
-        : join(this.options.capturesDir, `chart-${group.id}-${Date.now()}.${format}`);
+      path = buildImageOutputPath(
+        this.options.capturesDir,
+        group.id,
+        `chart-${group.id}-${Date.now()}`,
+        format,
+        request.options.outputPath,
+        appendId,
+      );
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, data);
     }
@@ -90,7 +84,7 @@ export class HeadlessChartPainter implements ScenePainter {
     return {
       painterId: this.id,
       kind: 'chart',
-      mime: mime(format),
+      mime: imageMimeType(format),
       path,
       data: request.options.includeData === false ? undefined : new Uint8Array(data),
       metadata: { chartId: group.id, width, height, points: group.data.length },

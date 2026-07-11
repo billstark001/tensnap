@@ -29,7 +29,8 @@ import type { EnvironmentViewFitMode } from '../host';
 import { EdgeDelta, EdgeStorage, EdgeStorageData } from '../storages/EdgeStorage';
 import { AgentStorage, AgentRenderState } from '../storages/AgentStorage';
 import { AgentLayerConfig } from './AgentLayer';
-import { Viewport, AgentId, GraphEdge } from '../types';
+import type { AgentId } from '@tensnap/protocol/layers';
+import type { Viewport, GraphEdge } from '../types';
 import { GraphEnvConfig } from '../types/env';
 import { createArrowhead, createEdgeLine } from '../utils/shape';
 

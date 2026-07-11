@@ -5,7 +5,7 @@ import {
 } from '@tensnap/core/snapshot';
 
 type EncodeRequest = {
-  id: number;
+  id: string;
   snapshots: Snapshot[];
   jsonSafe: boolean;
 };

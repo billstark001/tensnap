@@ -5,7 +5,8 @@ import {
   layerRegistry,
   LayerRegistryClass,
 } from './layer-registry';
-import { BackgroundLayerMetadataSchema, isBackgroundAssetReference } from '../environment/types';
+import { BackgroundLayerMetadataSchema } from '@tensnap/protocol/layers';
+import { isBackgroundAssetReference } from '../environment/types';
 
 describe('background layer metadata schema', () => {
   it('rejects dependency_layer_ids in layer metadata', () => {

@@ -7,8 +7,7 @@ import {
 
 /**
  * Encode persistence segments off the React/Zustand thread when Workers are
- * available. The synchronous fallback keeps SSR, tests, and older browsers
- * functional without changing the archive format.
+ * available. The synchronous path is retained for non-DOM test environments.
  */
 export async function encodeSnapshotArchivesInWorker(
   snapshots: Snapshot[],
@@ -24,9 +23,9 @@ export async function encodeSnapshotArchivesInWorker(
   const worker = new Worker(new URL('./snapshot-archive.worker.ts', import.meta.url), { type: 'module' });
   try {
     return await new Promise<SnapshotArchive[]>((resolve, reject) => {
-      const requestId = Date.now() + Math.floor(Math.random() * 10_000);
+      const requestId = crypto.randomUUID();
       worker.addEventListener('message', (event: MessageEvent<{
-        id: number;
+        id: string;
         archives?: SnapshotArchive[];
         error?: string;
       }>) => {

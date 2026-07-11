@@ -36,7 +36,6 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { resolveActionBindings } from '@tensnap/core/runtime';
 import { useState } from 'react';
 import { ContinuousRunDialog } from '@/dialogs/ContinuousRunDialog';
 
@@ -116,24 +115,24 @@ export function SimulationControlTools() {
   const setProfile = useSettingsStore((state) => state.setContinuousRunProfile);
   const [conditionalOpen, setConditionalOpen] = useState(false);
   void revision;
-  const resolution = resolveActionBindings(actions?.values() ?? []);
-  const runActionId = resolution.bindings.run;
-  const stepActionId = resolution.bindings.step;
-  const resetActionId = resolution.bindings.reset;
+  const runActionId = actions?.has('start') ? 'start' : undefined;
+  const stepActionId = actions?.has('step') ? 'step' : undefined;
+  const resetActionId = actions?.has('reset') ? 'reset' : undefined;
   const primaryActionIds = new Set([runActionId, stepActionId, resetActionId].filter(Boolean));
   const overflowActions = [...(actions?.values() ?? [])].filter((action) => !primaryActionIds.has(action.id));
   const running = runStatus?.state === 'running';
   const waiting = running && runStatus.inFlight;
-  const runDisabled = !connected || !runActionId || Boolean(resolution.errors.run) || Boolean(runStatus?.inFlight && !running);
-  const diagnostic = (role: 'run' | 'step' | 'reset', fallback: string) => resolution.errors[role]
-    ?? (!resolution.bindings[role] ? `No ${role} action is available.` : fallback);
+  const runDisabled = !connected || !runActionId || Boolean(runStatus?.inFlight && !running);
+  const diagnostic = (available: boolean, role: string, fallback: string) => (
+    available ? fallback : `No ${role} action is available.`
+  );
 
   return (
     <>
       <ToolGroupContainer>
       <ToolButton
         icon={running ? <Pause size={16} /> : <Play size={16} />}
-        tooltip={diagnostic('run', running
+        tooltip={diagnostic(Boolean(runActionId), 'run', running
           ? (waiting ? 'Pause after current tick' : 'Pause')
           : runStatus?.inFlight ? 'Waiting for current tick' : 'Run')}
         disabled={runDisabled}
@@ -142,24 +141,22 @@ export function SimulationControlTools() {
       />
       <ToolButton
         icon={<Timer size={16} />}
-        tooltip={diagnostic('run', _(msg`Conditional Run…`))}
+        tooltip={diagnostic(Boolean(runActionId), 'run', _(msg`Conditional Run…`))}
         disabled={runDisabled}
         onClick={() => setConditionalOpen(true)}
       />
       <ToolButton
         icon={<SkipForward size={16} />}
-        tooltip={diagnostic('step', _(msg`Step`))}
-        disabled={!connected || !stepActionId || Boolean(resolution.errors.step)}
+        tooltip={diagnostic(Boolean(stepActionId), 'step', _(msg`Step`))}
+        disabled={!connected || !stepActionId}
         onClick={() => stepActionId && requestStep(stepActionId)}
       />
       <ToolButton
         icon={<TimerReset size={16} />}
-        tooltip={diagnostic('reset', _(msg`Reset`))}
-        disabled={!connected || !resetActionId || Boolean(resolution.errors.reset)}
+        tooltip={diagnostic(Boolean(resetActionId), 'reset', _(msg`Reset`))}
+        disabled={!connected || !resetActionId}
         onClick={() => {
           if (!resetActionId) return;
-          const confirmed = globalThis.confirm('Reset the model? Active recording will stop and renderer edit history will be cleared. Saved snapshots are kept.');
-          if (!confirmed) return;
           stopRecording?.();
           history?.clear();
           requestReset(resetActionId);

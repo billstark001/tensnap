@@ -17,13 +17,12 @@ import {
   type ScenarioEnvironmentSnapshot,
 } from '@tensnap/core/scenario';
 import type { RenderFormat } from '../types';
-import type { RenderArtifact, RenderRequest, ScenePainter } from './painter';
+import { normalizeRenderBackgroundColor, type RenderArtifact, type RenderRequest, type ScenePainter } from './painter';
+import { buildImageOutputPath, imageMimeType } from './image-output';
 import {
-  buildOutputPath,
   resolveAssetUrls,
   resolveBackgroundBounds,
   resolveBackgroundLayer,
-  resolveCanvasBackgroundColor,
   toExportBuffer,
 } from './headless-environment-utils';
 
@@ -83,7 +82,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
       defaultHeight: this.options.defaultHeight,
     });
     const format = request.options.format ?? this.options.defaultFormat ?? 'png';
-    const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const mime = imageMimeType(format);
     const plan = createRenderPlanFromSnapshot(snapshotEnvironment);
     const assetUrlById = await resolveAssetUrls(plan, snapshotEnvironment, request);
 
@@ -108,7 +107,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
       const quality = typeof request.options.quality === 'number' ? request.options.quality : undefined;
       const exportResult = await (envView.leafer as unknown as ExportableLeafer).export(format, {
         quality,
-        fill: resolveCanvasBackgroundColor(request.options.backgroundColor, this.options.backgroundColor ?? '#000000'),
+        fill: normalizeRenderBackgroundColor(request.options.backgroundColor, this.options.backgroundColor ?? '#000000'),
         screenshot: true,
       });
 
@@ -120,9 +119,11 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
 
       let outputPath: string | undefined;
       if (request.options.persist !== false) {
-        outputPath = buildOutputPath(
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        outputPath = buildImageOutputPath(
           this.options.capturesDir,
           environment.id,
+          `${timestamp}-${environment.id}`,
           format,
           request.options.outputPath,
           appendEnvSuffix,

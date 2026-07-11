@@ -30,27 +30,16 @@ export {
 	TrajectoryStorage,
 } from './environment';
 export type {
-	Agent,
-	AgentIcon,
-	AgentId,
 	AgentLayerConfig,
-	AssetAgentIcon,
-	BuiltinAgentIcon,
 	GlobalTrajectoryConfig,
 	GraphEdge,
 	GraphEnvConfig,
 	GridCoordOffset,
-	GridEnvConfig,
 	EnvironmentViewFitMode,
 	EnvironmentViewType,
 	IResizableLayer,
-	TrajectoryConfig,
-	TrajectoryAgentDeletePolicy,
 	TrajectoryLifecycle,
 	TrajectoryLayerConfig,
-	TrajectoryResetPolicy,
-	TrajectoryStateSyncPolicy,
-	TrajectoryPoint,
 } from './environment';
 
 export * from './parameter';

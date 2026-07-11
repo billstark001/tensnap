@@ -60,11 +60,11 @@ describe('TrajectoryStorage – trajectory updates', () => {
     const storage = new TrajectoryStorage({ length: 5 });
     storage.appendTrajectoryPoint('a1', { x: 0, y: 0, time: 0 });
     storage.appendTrajectoryPoint('a1', { x: 1, y: 1, time: 1 });
-    const ring = storage.getEntry('a1')!.ring;
+    const activeSegment = storage.getEntry('a1')!.activeSegment;
 
     storage.setConfig({ width: 4, color: '#0f0' });
 
-    expect(storage.getEntry('a1')!.ring).toBe(ring);
+    expect(storage.getEntry('a1')!.activeSegment).toBe(activeSegment);
     expect(storage.dump().trajectories[0]?.points).toEqual([
       { x: 0, y: 0, time: 0, color: '#0f0' },
       { x: 1, y: 1, time: 1, color: '#0f0' },

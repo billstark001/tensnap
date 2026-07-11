@@ -5,7 +5,7 @@ import type { TrajectoryStorageSnapshot } from '../environment/storages/Trajecto
 import type { AgentStorage, BackgroundStorage, EdgeStorage, GridEnvStorage, TrajectoryStorage } from '../environment/storages';
 import type { GraphEnvConfig, GraphEdge, GridCoordOffset, OriginMode } from '../environment/types';
 import type { ScenarioEnvironmentSnapshot, ScenarioEnvironmentState, ScenarioLayerSnapshot, ScenarioLayerState } from './types';
-import { findSceneBounds, layerRegistry, type LayerRegistryClass, type LayerRendererRole, type LayerSceneBounds, type SnapshotAgentLayerData, type SnapshotTrajectoryLayerData } from './layer-registry';
+import { findSceneBounds, layerRegistry, type LayerRegistryClass, type LayerSceneBounds, type SnapshotAgentLayerData, type SnapshotTrajectoryLayerData } from './layer-registry';
 
 // #region Plan types
 
@@ -249,7 +249,7 @@ export function getRenderBuildKey(environment: ScenarioEnvironmentState): string
 }
 
 // #region Registry helpers
-function getRendererRole(layer: Pick<ScenarioLayerState, 'layerType'>, registry: LayerRegistryClass): LayerRendererRole | undefined {
+function getRendererRole(layer: Pick<ScenarioLayerState, 'layerType'>, registry: LayerRegistryClass): string | undefined {
   return registry.get(layer.layerType)?.renderer?.role;
 }
 

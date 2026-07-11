@@ -32,9 +32,7 @@ const SIMULATOR_TIMING_KEYS: readonly SimulatorTimingKey[] = [
   'render_ms',
 ];
 
-const defaultNow = () => (
-  typeof performance === 'undefined' ? Date.now() : performance.now()
-);
+const defaultNow = () => performance.now();
 
 /**
  * Metrics for one user-initiated action execution. Instances are deliberately
@@ -109,19 +107,10 @@ export class ActionRunMetrics {
   }
 
   private takeDispatchTime(tickId?: string): number | undefined {
-    if (tickId) {
-      const dispatchedAt = this.dispatchedAtByTickId.get(tickId);
-      this.dispatchedAtByTickId.delete(tickId);
-      return dispatchedAt;
-    }
-
-    // Older simulators may omit tick_id. There is only one request in flight
-    // for a RunController, so accept that legacy response only when it cannot
-    // be confused with a prior stopped run of the same action.
-    if (this.dispatchedAtByTickId.size !== 1) return undefined;
-    const [entry] = this.dispatchedAtByTickId;
-    this.dispatchedAtByTickId.delete(entry[0]);
-    return entry[1];
+    if (!tickId) return undefined;
+    const dispatchedAt = this.dispatchedAtByTickId.get(tickId);
+    this.dispatchedAtByTickId.delete(tickId);
+    return dispatchedAt;
   }
 
   private trimSamples(now: number): void {

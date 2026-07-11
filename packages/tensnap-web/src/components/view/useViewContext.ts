@@ -1,7 +1,7 @@
 import { AnyView, ContainerView } from "@/types/ui"
 import { createContext, useContext } from "react"
 import { AnchoredViewRendererType, Point, ViewContextMenuRendererType } from "./types";
-import type { RunSpec } from '@tensnap/core/runtime';
+import type { BoundedRunSpec } from '@tensnap/core/runtime';
 
 /**
  * @param view the original view. `view.id ===  updateView.id` is guaranteed if updateView is passed.
@@ -13,7 +13,7 @@ export type ViewCreateRequestHandler = (type: AnyView['type'], position: Point, 
 export type ViewContextScheme = {
   rootView: ContainerView | null,
   isAdjusting: boolean,
-  onButtonAction: (id: string, continuous?: boolean, runSpec?: Omit<RunSpec, 'actionId' | 'mode'>) => void,
+  onButtonAction: (id: string, continuous?: boolean, runSpec?: Omit<BoundedRunSpec, 'actionId' | 'mode'>) => void,
   isRunning: (id: string) => boolean,
   AnchoredViewRenderer: AnchoredViewRendererType,
   ViewContextMenuRenderer: ViewContextMenuRendererType,

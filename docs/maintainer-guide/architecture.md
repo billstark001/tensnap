@@ -356,17 +356,15 @@ The web app composes:
 
 Live environment rendering is layer/storage driven. Current render paths read `ScenarioEnvironmentState.layers` directly rather than reconstructing environment views from full agent dumps on every tick.
 
-The primary click of a continuous button preserves the legacy run-until-stopped
-behavior, represented by a `0x7fffffff` step `RunSpec` so it still has the
-shared controller's timeout and explicit stop path. The button's existing
-context menu keeps the normal edit/delete entries and adds a separate continuous
-run configuration item. That dialog records a bounded profile (`maxSteps`,
-optional stop expression/deadline, and recording flag) per action; while active,
-the same menu exposes stop and single-step actions. Changing a button away from
-continuous mode stops and hides its matching run. Button-visible run state is
-deliberately compact (step count plus a stop glyph); the full reason and
-condition value are available from its hover title so narrow action buttons do
-not wrap.
+The primary click of a continuous button starts an explicit manual run and
+continues until the user pauses it. The button's context menu keeps the normal
+edit/delete entries and adds a separate continuous-run configuration item. That
+dialog records a bounded profile (`maxSteps`, optional stop expression/deadline,
+and recording flag) per action; while active, the same menu exposes stop and
+single-step actions. Changing a button away from continuous mode stops and
+hides its matching run. Button-visible run state is deliberately compact (step
+count plus a stop glyph); the full reason and condition value are available
+from its hover title so narrow action buttons do not wrap.
 
 ### Tauri renderer
 
@@ -392,14 +390,15 @@ after authorization or run a redundant `mkdir` on the selected parent.
 ### Frontend bundle boundaries
 
 `scripts/vite-chunks.mjs` is the shared Rolldown code-splitting policy for the
-browser renderer and the Tauri webview. It assigns external dependencies before
-workspace packages so a workspace chunk cannot absorb a large dependency
-closure. Stable React/UI/i18n/data, Leafer, and D3 dependencies are cacheable
-independently from the core environment, chart, runtime, scenario, snapshot,
-asset, utility, parameter, and transport modules. The snapshot archive worker
-remains lazy-loaded in its own chunk. Both builds retain Vite's 500 KiB warning
-budget for eager code: solve a genuine over-budget entry point by adjusting
-boundaries or loading behavior instead of raising the warning limit.
+browser renderer, Tauri webview, and benchmark app. It assigns external
+dependencies before workspace packages so a workspace chunk cannot absorb a
+large dependency closure. Stable React/UI/i18n/data, Leafer, and D3 dependencies
+are cacheable independently from the core environment, chart, runtime,
+scenario, snapshot, asset, utility, parameter, and transport modules. The
+snapshot archive worker remains lazy-loaded in its own chunk. All three builds
+retain Vite's 500 KiB warning budget for eager code: solve a genuine over-budget
+entry point by adjusting boundaries or loading behavior instead of raising the
+warning limit.
 
 ### Headless agent runtime
 

@@ -1,6 +1,6 @@
 /**
- * Shared cache-oriented chunk policy for the web renderer and the Tauri
- * webview. External groups are deliberately evaluated before workspace groups:
+ * Shared cache-oriented chunk policy for the web renderer, Tauri webview, and
+ * benchmark app. External groups are deliberately evaluated before workspace groups:
  * Rolldown otherwise absorbs a workspace package's dependency closure into its
  * chunk, which defeats the cache boundary and can hide an oversized vendor.
  */
