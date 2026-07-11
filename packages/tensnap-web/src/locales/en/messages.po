@@ -40,19 +40,19 @@ msgstr "0 means unlimited"
 msgid "2D Layer Metadata"
 msgstr "2D Layer Metadata"
 
-#: src/components/project/view-edit-hooks.ts:331
+#: src/components/project/view-edit-hooks.ts:372
 msgid "A chart group with this ID already exists."
 msgstr "A chart group with this ID already exists."
 
-#: src/components/project/view-edit-hooks.ts:305
+#: src/components/project/view-edit-hooks.ts:346
 msgid "A parameter with this ID already exists."
 msgstr "A parameter with this ID already exists."
 
-#: src/components/toolbar/ToolGroups.tsx:208
+#: src/components/toolbar/ToolGroups.tsx:296
 msgid "About"
 msgstr "About"
 
-#: src/components/toolbar/MenuBar.tsx:192
+#: src/components/toolbar/MenuBar.tsx:224
 #: src/dialogs/AboutDialog.tsx:16
 msgid "About TenSnap"
 msgstr "About TenSnap"
@@ -69,6 +69,10 @@ msgstr "Action ID"
 msgid "Action Label"
 msgstr "Action Label"
 
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:73
+#~ msgid "Action Role"
+#~ msgstr "Action Role"
+
 #: src/dialogs/SettingsDialog.tsx:277
 msgid "Action Timeout"
 msgstr "Action Timeout"
@@ -77,7 +81,7 @@ msgstr "Action Timeout"
 msgid "Action:"
 msgstr "Action:"
 
-#: src/components/toolbar/ToolGroups.tsx:145
+#: src/components/toolbar/ToolGroups.tsx:233
 msgid "Adjust Mode"
 msgstr "Adjust Mode"
 
@@ -94,11 +98,11 @@ msgstr "Agent Details"
 msgid "Allow Runtime Change"
 msgstr "Allow Runtime Change"
 
-#: src/components/project/view-edit-hooks.ts:292
+#: src/components/project/view-edit-hooks.ts:333
 msgid "An action with this ID already exists."
 msgstr "An action with this ID already exists."
 
-#: src/components/project/view-edit-hooks.ts:318
+#: src/components/project/view-edit-hooks.ts:359
 msgid "An environment with this ID already exists."
 msgstr "An environment with this ID already exists."
 
@@ -124,7 +128,7 @@ msgstr "Auto"
 msgid "Backend URL"
 msgstr "Backend URL"
 
-#: src/components/view/ContainerViewComponent.tsx:107
+#: src/components/view/ContainerViewComponent.tsx:111
 msgid "Button"
 msgstr "Button"
 
@@ -152,7 +156,7 @@ msgstr "Canvas not found."
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "Change the WebSocket server URL for the current project. The connection will be reestablished."
 
-#: src/components/view/ContainerViewComponent.tsx:125
+#: src/components/view/ContainerViewComponent.tsx:129
 msgid "Chart"
 msgstr "Chart"
 
@@ -208,9 +212,13 @@ msgstr "Close {0}"
 msgid "Color:"
 msgstr "Color:"
 
-#: src/components/project/StatusBar.tsx:95
+#: src/components/project/StatusBar.tsx:120
 msgid "Comm:"
 msgstr "Comm:"
+
+#: src/components/toolbar/ToolGroups.tsx:145
+msgid "Conditional Run…"
+msgstr "Conditional Run…"
 
 #: src/dialogs/ContinuousRunDialog.tsx:54
 msgid "Configure a bounded continuous run for action {actionId}."
@@ -232,15 +240,15 @@ msgstr "Confirm"
 msgid "Confirm Structural Change"
 msgstr "Confirm Structural Change"
 
-#: src/components/project/StatusBar.tsx:75
+#: src/components/project/StatusBar.tsx:94
 msgid "Connected"
 msgstr "Connected"
 
-#: src/components/project/StatusBar.tsx:62
+#: src/components/project/StatusBar.tsx:81
 msgid "Connection failed, will retry automatically"
 msgstr "Connection failed, will retry automatically"
 
-#: src/components/view/ContainerViewComponent.tsx:131
+#: src/components/view/ContainerViewComponent.tsx:135
 msgid "Container"
 msgstr "Container"
 
@@ -257,7 +265,7 @@ msgid "Continuous run…"
 msgstr "Continuous run…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:109
-#: src/components/toolbar/MenuBar.tsx:101
+#: src/components/toolbar/MenuBar.tsx:133
 #: src/dialogs/SnapshotDetailDialog.tsx:70
 msgid "Copy"
 msgstr "Copy"
@@ -285,11 +293,15 @@ msgstr "Create New Project"
 msgid "Current Value"
 msgstr "Current Value"
 
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:84
+#~ msgid "Custom"
+#~ msgstr "Custom"
+
 #: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "Custom Data:"
 msgstr "Custom Data:"
 
-#: src/components/toolbar/MenuBar.tsx:98
+#: src/components/toolbar/MenuBar.tsx:130
 msgid "Cut"
 msgstr "Cut"
 
@@ -329,7 +341,7 @@ msgstr "Delete recording"
 msgid "Disabled"
 msgstr "Disabled"
 
-#: src/components/project/StatusBar.tsx:75
+#: src/components/project/StatusBar.tsx:94
 msgid "Disconnected"
 msgstr "Disconnected"
 
@@ -337,7 +349,7 @@ msgstr "Disconnected"
 msgid "Display Type"
 msgstr "Display Type"
 
-#: src/components/toolbar/MenuBar.tsx:182
+#: src/components/toolbar/MenuBar.tsx:214
 msgid "Documentation"
 msgstr "Documentation"
 
@@ -354,7 +366,7 @@ msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:133
-#: src/components/toolbar/MenuBar.tsx:83
+#: src/components/toolbar/MenuBar.tsx:107
 msgid "Edit"
 msgstr "Edit"
 
@@ -387,7 +399,7 @@ msgstr "Enter backend WebSocket server address"
 msgid "Enum Options"
 msgstr "Enum Options"
 
-#: src/components/view/ContainerViewComponent.tsx:119
+#: src/components/view/ContainerViewComponent.tsx:123
 msgid "Environment"
 msgstr "Environment"
 
@@ -416,7 +428,7 @@ msgstr "Environments:"
 msgid "Error"
 msgstr "Error"
 
-#: src/components/toolbar/MenuBar.tsx:74
+#: src/components/toolbar/MenuBar.tsx:98
 msgid "Exit"
 msgstr "Exit"
 
@@ -453,7 +465,7 @@ msgstr "Failed to copy canvas to clipboard."
 msgid "Failed to open files"
 msgstr "Failed to open files"
 
-#: src/components/project/StatusBar.tsx:65
+#: src/components/project/StatusBar.tsx:84
 msgid "Failed to reconnect"
 msgstr "Failed to reconnect"
 
@@ -466,8 +478,8 @@ msgstr "Failed to save file"
 msgid "Failed to update project URL"
 msgstr "Failed to update project URL"
 
-#: src/components/project/view-edit-hooks.ts:206
-#: src/components/project/view-edit-hooks.ts:212
+#: src/components/project/view-edit-hooks.ts:250
+#: src/components/project/view-edit-hooks.ts:256
 msgid "Failed to update view"
 msgstr "Failed to update view"
 
@@ -475,7 +487,7 @@ msgstr "Failed to update view"
 #~ msgid "Fallback Background Color"
 #~ msgstr "Fallback Background Color"
 
-#: src/components/toolbar/MenuBar.tsx:38
+#: src/components/toolbar/MenuBar.tsx:62
 msgid "File"
 msgstr "File"
 
@@ -509,7 +521,7 @@ msgstr "Follow agent"
 #~ msgid "Force hidden"
 #~ msgstr "Force hidden"
 
-#: src/components/project/StatusBar.tsx:111
+#: src/components/project/StatusBar.tsx:136
 msgid "Force reconnect to server"
 msgstr "Force reconnect to server"
 
@@ -529,7 +541,7 @@ msgstr "Frame:"
 msgid "Frames:"
 msgstr "Frames:"
 
-#: src/components/toolbar/MenuBar.tsx:142
+#: src/components/toolbar/MenuBar.tsx:174
 msgid "Fullscreen"
 msgstr "Fullscreen"
 
@@ -557,15 +569,15 @@ msgstr "Heading:"
 msgid "Height"
 msgstr "Height"
 
-#: src/components/toolbar/MenuBar.tsx:174
+#: src/components/toolbar/MenuBar.tsx:206
 msgid "Help"
 msgstr "Help"
 
-#: src/components/project/StatusBar.tsx:155
+#: src/components/project/StatusBar.tsx:180
 msgid "Hide Bottom Panel"
 msgstr "Hide Bottom Panel"
 
-#: src/components/project/StatusBar.tsx:146
+#: src/components/project/StatusBar.tsx:171
 msgid "Hide Right Panel"
 msgstr "Hide Right Panel"
 
@@ -603,7 +615,7 @@ msgstr "Invalid JSON"
 msgid "Invalid locale"
 msgstr "Invalid locale"
 
-#: src/components/toolbar/MenuBar.tsx:185
+#: src/components/toolbar/MenuBar.tsx:217
 msgid "Keyboard Shortcuts"
 msgstr "Keyboard Shortcuts"
 
@@ -664,15 +676,15 @@ msgstr "MIME:"
 msgid "Minimum Value"
 msgstr "Minimum Value"
 
-#: src/components/project/StatusBar.tsx:90
+#: src/components/project/StatusBar.tsx:115
 msgid "Model:"
 msgstr "Model:"
 
-#: ../tensnap-web-utils/src/file-system/ActionButtons.tsx:55
-#~ msgid "More Actions"
-#~ msgstr "More Actions"
+#: src/components/toolbar/ToolGroups.tsx:172
+msgid "More Actions"
+msgstr "More Actions"
 
-#: src/components/project/StatusBar.tsx:86
+#: src/components/project/StatusBar.tsx:111
 msgid "MSPT:"
 msgstr "MSPT:"
 
@@ -685,11 +697,11 @@ msgstr "MSPT:"
 msgid "Neighbors: {0}"
 msgstr "Neighbors: {0}"
 
-#: src/components/toolbar/MenuBar.tsx:49
+#: src/components/toolbar/MenuBar.tsx:73
 msgid "New"
 msgstr "New"
 
-#: src/components/toolbar/ToolGroups.tsx:53
+#: src/components/toolbar/ToolGroups.tsx:58
 msgid "New File"
 msgstr "New File"
 
@@ -697,7 +709,7 @@ msgstr "New File"
 msgid "New Tab"
 msgstr "New Tab"
 
-#: src/components/view/ContainerViewComponent.tsx:101
+#: src/components/view/ContainerViewComponent.tsx:105
 msgid "New View"
 msgstr "New View"
 
@@ -771,7 +783,7 @@ msgstr "No snapshots yet."
 msgid "No spatial context is available for this agent."
 msgstr "No spatial context is available for this agent."
 
-#: src/components/project/view-edit-hooks.ts:266
+#: src/components/project/view-edit-hooks.ts:294
 msgid "No view tree is available."
 msgstr "No view tree is available."
 
@@ -800,8 +812,8 @@ msgstr "Older frames were removed to stay within the recording budget."
 msgid "Open as offline copy"
 msgstr "Open as offline copy"
 
-#: src/components/toolbar/MenuBar.tsx:55
-#: src/components/toolbar/ToolGroups.tsx:59
+#: src/components/toolbar/MenuBar.tsx:79
+#: src/components/toolbar/ToolGroups.tsx:64
 #: src/components/toolbar/useFileOperations.ts:58
 msgid "Open File"
 msgstr "Open File"
@@ -831,7 +843,7 @@ msgstr "Or select a built-in model that runs in the browser:"
 msgid "Page {pageNum}"
 msgstr "Page {pageNum}"
 
-#: src/components/view/ContainerViewComponent.tsx:113
+#: src/components/view/ContainerViewComponent.tsx:117
 msgid "Parameter"
 msgstr "Parameter"
 
@@ -855,7 +867,7 @@ msgstr "Parameters"
 msgid "Parameters:"
 msgstr "Parameters:"
 
-#: src/components/toolbar/MenuBar.tsx:104
+#: src/components/toolbar/MenuBar.tsx:136
 msgid "Paste"
 msgstr "Paste"
 
@@ -913,11 +925,11 @@ msgstr "Radius"
 msgid "Ready"
 msgstr "Ready"
 
-#: src/components/project/StatusBar.tsx:121
+#: src/components/project/StatusBar.tsx:146
 msgid "Reconnect"
 msgstr "Reconnect"
 
-#: src/components/project/StatusBar.tsx:59
+#: src/components/project/StatusBar.tsx:78
 msgid "Reconnected successfully"
 msgstr "Reconnected successfully"
 
@@ -929,8 +941,8 @@ msgstr "Record this run"
 msgid "Recorded:"
 msgstr "Recorded:"
 
-#: src/components/toolbar/MenuBar.tsx:94
-#: src/components/toolbar/ToolGroups.tsx:85
+#: src/components/toolbar/MenuBar.tsx:126
+#: src/components/toolbar/ToolGroups.tsx:91
 msgid "Redo"
 msgstr "Redo"
 
@@ -950,7 +962,7 @@ msgstr "Render Trigger"
 msgid "Repository:"
 msgstr "Repository:"
 
-#: src/components/toolbar/ToolGroups.tsx:120
+#: src/components/toolbar/ToolGroups.tsx:157
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
 #: src/dialogs/SettingsDialog.tsx:336
 msgid "Reset"
@@ -966,7 +978,7 @@ msgstr "Reset View"
 #~ msgid "Reset View"
 #~ msgstr "Reset View"
 
-#: src/components/toolbar/MenuBar.tsx:131
+#: src/components/toolbar/MenuBar.tsx:163
 msgid "Reset Zoom"
 msgstr "Reset Zoom"
 
@@ -978,12 +990,20 @@ msgstr "Reset Zoom"
 #~ msgid "Retry"
 #~ msgstr "Retry"
 
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:80
+#~ msgid "Run"
+#~ msgstr "Run"
+
 #: src/components/project/ViewContextMenuRenderer.tsx:122
 msgid "Run one step"
 msgstr "Run one step"
 
-#: src/components/toolbar/MenuBar.tsx:62
-#: src/components/toolbar/ToolGroups.tsx:64
+#: src/components/project/StatusBar.tsx:102
+msgid "Run:"
+msgstr "Run:"
+
+#: src/components/toolbar/MenuBar.tsx:86
+#: src/components/toolbar/ToolGroups.tsx:69
 #: src/dialogs/edit-views/EditViewDialog.tsx:339
 msgid "Save"
 msgstr "Save"
@@ -997,7 +1017,7 @@ msgstr "Save As"
 msgid "Save As CSV"
 msgstr "Save As CSV"
 
-#: src/components/toolbar/MenuBar.tsx:69
+#: src/components/toolbar/MenuBar.tsx:93
 msgid "Save As..."
 msgstr "Save As..."
 
@@ -1013,7 +1033,7 @@ msgstr "Save Format"
 msgid "Search agents by ID, color, or icon..."
 msgstr "Search agents by ID, color, or icon..."
 
-#: src/components/toolbar/MenuBar.tsx:108
+#: src/components/toolbar/MenuBar.tsx:140
 msgid "Select All"
 msgstr "Select All"
 
@@ -1030,27 +1050,27 @@ msgstr "Series ID already exists."
 msgid "Server Message Validation"
 msgstr "Server Message Validation"
 
-#: src/components/project/StatusBar.tsx:127
-#: src/components/project/StatusBar.tsx:130
-#: src/components/toolbar/MenuBar.tsx:163
-#: src/components/toolbar/ToolGroups.tsx:213
+#: src/components/project/StatusBar.tsx:152
+#: src/components/project/StatusBar.tsx:155
+#: src/components/toolbar/MenuBar.tsx:195
+#: src/components/toolbar/ToolGroups.tsx:301
 #: src/dialogs/SettingsDialog.tsx:114
 msgid "Settings"
 msgstr "Settings"
 
-#: src/components/project/StatusBar.tsx:155
+#: src/components/project/StatusBar.tsx:180
 msgid "Show Bottom Panel"
 msgstr "Show Bottom Panel"
 
-#: src/components/toolbar/MenuBar.tsx:135
+#: src/components/toolbar/MenuBar.tsx:167
 msgid "Show Grid"
 msgstr "Show Grid"
 
-#: src/components/project/StatusBar.tsx:146
+#: src/components/project/StatusBar.tsx:171
 msgid "Show Right Panel"
 msgstr "Show Right Panel"
 
-#: src/components/toolbar/MenuBar.tsx:138
+#: src/components/toolbar/MenuBar.tsx:170
 msgid "Show Toolbar"
 msgstr "Show Toolbar"
 
@@ -1091,13 +1111,13 @@ msgstr "Snapshots"
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 
-#: src/components/project/StatusBar.tsx:101
+#: src/components/project/StatusBar.tsx:126
 msgid "Srv Render:"
 msgstr "Srv Render:"
 
 #: src/components/toolbar/ToolGroups.tsx:102
-msgid "Start"
-msgstr "Start"
+#~ msgid "Start"
+#~ msgstr "Start"
 
 #: src/dialogs/ContinuousRunDialog.tsx:113
 msgid "Start continuous run"
@@ -1111,14 +1131,14 @@ msgstr "Start recording"
 #~ msgid "Start/Stop"
 #~ msgstr "Start/Stop"
 
-#: src/components/toolbar/ToolGroups.tsx:115
+#: src/components/toolbar/ToolGroups.tsx:151
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:132
 msgid "Step"
 msgstr "Step"
 
-#: src/components/toolbar/ToolGroups.tsx:110
-msgid "Stop"
-msgstr "Stop"
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:83
+#~ msgid "Stop"
+#~ msgstr "Stop"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:118
 msgid "Stop continuous run"
@@ -1132,7 +1152,7 @@ msgstr "Stop expression (optional)"
 msgid "Stop recording"
 msgstr "Stop recording"
 
-#: src/components/toolbar/ToolGroups.tsx:164
+#: src/components/toolbar/ToolGroups.tsx:252
 msgid "Synchronize State"
 msgstr "Synchronize State"
 
@@ -1141,7 +1161,7 @@ msgid "System Settings"
 msgstr "System Settings"
 
 #: src/components/project/RightPanel.tsx:190
-#: src/components/toolbar/ToolGroups.tsx:159
+#: src/components/toolbar/ToolGroups.tsx:247
 msgid "Take Snapshot"
 msgstr "Take Snapshot"
 
@@ -1149,7 +1169,7 @@ msgstr "Take Snapshot"
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 
-#: src/components/project/view-edit-hooks.ts:293
+#: src/components/project/view-edit-hooks.ts:334
 msgid "The action ID could not be changed."
 msgstr "The action ID could not be changed."
 
@@ -1157,7 +1177,7 @@ msgstr "The action ID could not be changed."
 msgid "The button can keep this binding, but there is no registered action to edit."
 msgstr "The button can keep this binding, but there is no registered action to edit."
 
-#: src/components/project/view-edit-hooks.ts:332
+#: src/components/project/view-edit-hooks.ts:373
 msgid "The chart group ID could not be changed."
 msgstr "The chart group ID could not be changed."
 
@@ -1165,7 +1185,7 @@ msgstr "The chart group ID could not be changed."
 msgid "The current object will be renamed when this edit is saved."
 msgstr "The current object will be renamed when this edit is saved."
 
-#: src/components/project/view-edit-hooks.ts:319
+#: src/components/project/view-edit-hooks.ts:360
 msgid "The environment ID could not be changed."
 msgstr "The environment ID could not be changed."
 
@@ -1173,11 +1193,11 @@ msgstr "The environment ID could not be changed."
 msgid "The full path is shown here and is not editable."
 msgstr "The full path is shown here and is not editable."
 
-#: src/components/project/view-edit-hooks.ts:306
+#: src/components/project/view-edit-hooks.ts:347
 msgid "The parameter ID could not be changed."
 msgstr "The parameter ID could not be changed."
 
-#: src/components/project/view-edit-hooks.ts:271
+#: src/components/project/view-edit-hooks.ts:299
 msgid "The view no longer exists."
 msgstr "The view no longer exists."
 
@@ -1215,7 +1235,7 @@ msgid "This view can keep its binding, but there is no registered parameter to e
 msgstr "This view can keep its binding, but there is no registered parameter to edit."
 
 #: src/components/project/RightPanel.tsx:233
-#: src/components/project/StatusBar.tsx:78
+#: src/components/project/StatusBar.tsx:97
 msgid "Time Step:"
 msgstr "Time Step:"
 
@@ -1230,15 +1250,15 @@ msgstr "Time Step:"
 msgid "Title"
 msgstr "Title"
 
-#: src/components/toolbar/ToolGroups.tsx:194
+#: src/components/toolbar/ToolGroups.tsx:282
 msgid "Toggle theme"
 msgstr "Toggle theme"
 
-#: src/components/toolbar/ToolGroups.tsx:201
+#: src/components/toolbar/ToolGroups.tsx:289
 msgid "Toggle Theme"
 msgstr "Toggle Theme"
 
-#: src/components/toolbar/MenuBar.tsx:151
+#: src/components/toolbar/MenuBar.tsx:183
 msgid "Tools"
 msgstr "Tools"
 
@@ -1246,7 +1266,7 @@ msgstr "Tools"
 msgid "Top"
 msgstr "Top"
 
-#: src/components/project/StatusBar.tsx:82
+#: src/components/project/StatusBar.tsx:107
 msgid "TPS:"
 msgstr "TPS:"
 
@@ -1262,8 +1282,8 @@ msgstr "Try adjusting your search criteria"
 msgid "Type"
 msgstr "Type"
 
-#: src/components/toolbar/MenuBar.tsx:91
-#: src/components/toolbar/ToolGroups.tsx:79
+#: src/components/toolbar/MenuBar.tsx:119
+#: src/components/toolbar/ToolGroups.tsx:85
 msgid "Undo"
 msgstr "Undo"
 
@@ -1284,7 +1304,7 @@ msgstr "Unsaved project"
 msgid "Update the object ID used by this view."
 msgstr "Update the object ID used by this view."
 
-#: src/components/toolbar/ToolGroups.tsx:172
+#: src/components/toolbar/ToolGroups.tsx:260
 msgid "Update View Layout"
 msgstr "Update View Layout"
 
@@ -1296,7 +1316,7 @@ msgstr "Update View Layout"
 msgid "Version"
 msgstr "Version"
 
-#: src/components/toolbar/MenuBar.tsx:117
+#: src/components/toolbar/MenuBar.tsx:149
 msgid "View"
 msgstr "View"
 
@@ -1329,12 +1349,12 @@ msgstr "Warning"
 msgid "Width"
 msgstr "Width"
 
-#: src/components/toolbar/MenuBar.tsx:125
-#: src/components/toolbar/ToolGroups.tsx:151
+#: src/components/toolbar/MenuBar.tsx:157
+#: src/components/toolbar/ToolGroups.tsx:239
 msgid "Zoom In"
 msgstr "Zoom In"
 
-#: src/components/toolbar/MenuBar.tsx:128
-#: src/components/toolbar/ToolGroups.tsx:155
+#: src/components/toolbar/MenuBar.tsx:160
+#: src/components/toolbar/ToolGroups.tsx:243
 msgid "Zoom Out"
 msgstr "Zoom Out"

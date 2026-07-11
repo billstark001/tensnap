@@ -11,6 +11,7 @@ import { useViewContext } from './useViewContext';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';
 import { toggleViewExpandedInPlace } from '@/utils/view/mutation';
+import { useRecordViewHistory } from '@/store/view-history';
 
 interface ContainerViewComponentProps extends ViewProps<ContainerView> {
   relativeLeft?: number,
@@ -30,6 +31,7 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
 
 
   const { rootView, onViewCreateRequest, onViewUpdate, isAdjusting } = useViewContext();
+  const recordViewHistory = useRecordViewHistory();
 
   const data = {
     view,
@@ -61,8 +63,10 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
   const handleToggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (!rootView) return;
+    const before = structuredClone(rootView);
     toggleViewExpandedInPlace({ rootView, onViewUpdate }, view);
-  }, [rootView, view, onViewUpdate]);
+    recordViewHistory(view.expanded ? 'Expand container' : 'Collapse container', 'layout', before, rootView);
+  }, [rootView, view, onViewUpdate, recordViewHistory]);
 
   const className = cx(
     styles.windowView,

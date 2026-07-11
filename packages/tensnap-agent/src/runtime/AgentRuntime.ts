@@ -349,11 +349,12 @@ export class AgentRuntime extends EventEmitter {
   startRun(spec: AgentRunSpec) {
     this.assertConnected();
     const status = this.renderer.run.start(spec);
+    const boundedSpec = status.spec.mode === 'bounded' ? status.spec : null;
     void this.log('info', 'run', 'Bounded run started.', {
       runId: status.id,
       actionId: status.spec.actionId,
-      maxSteps: status.spec.maxSteps,
-      stopWhen: status.spec.stopWhen,
+      maxSteps: boundedSpec?.maxSteps,
+      stopWhen: boundedSpec?.stopWhen,
       maxWallTimeMs: status.spec.maxWallTimeMs,
     });
     this.emitRuntimeEvent('run.started', status);

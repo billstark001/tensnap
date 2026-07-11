@@ -14,7 +14,9 @@ export const MAX_INT32_RUN_STEPS = 0x7fffffff;
 
 export interface RecordingOptions extends SnapshotRecordingOptions {}
 
+/** Backward-compatible bounded run request used by HTTP/CLI clients. */
 export interface RunSpec {
+  mode?: 'bounded';
   actionId: string;
   maxSteps: number;
   stopWhen?: string;
@@ -22,12 +24,22 @@ export interface RunSpec {
   record?: RecordingOptions | false;
 }
 
-export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'render-error' | 'simulator' | 'stopped' | 'disconnected';
+export interface ManualRunSpec {
+  mode: 'manual';
+  actionId: string;
+  maxWallTimeMs?: number;
+  record?: RecordingOptions | false;
+}
+
+export type RunRequest = RunSpec | ManualRunSpec;
+export type NormalizedRunRequest = (RunSpec & { mode: 'bounded' }) | ManualRunSpec;
+
+export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'render-error' | 'simulator' | 'paused' | 'stopped' | 'disconnected';
 
 export interface RunStatus {
   id: string;
-  spec: RunSpec;
-  state: 'running' | 'stopped';
+  spec: NormalizedRunRequest;
+  state: 'running' | 'paused' | 'stopped';
   completedSteps: number;
   startedAt: number;
   stoppedAt?: number;
@@ -36,6 +48,10 @@ export interface RunStatus {
   conditionError?: string;
   /** Error reported by the host render barrier for the final completed tick. */
   renderError?: string;
+  /** Pause has been requested; an already-dispatched action is allowed to finish. */
+  pauseRequested: boolean;
+  /** True while the simulator/render barrier still owns the current tick. */
+  inFlight: boolean;
 }
 
 export interface RunScheduler {
@@ -72,20 +88,22 @@ const nativeScheduler: RunScheduler = {
 
 const cloneStatus = (status: RunStatus): RunStatus => structuredClone(status);
 
-function normalizeRunSpec(spec: RunSpec, maxStepsPolicy: number): RunSpec {
+function normalizeRunSpec(spec: RunRequest, maxStepsPolicy: number): NormalizedRunRequest {
   if (!spec.actionId.trim()) {
-    throw new Error('RunSpec.actionId must not be empty.');
+    throw new Error('RunRequest.actionId must not be empty.');
   }
-  if (!Number.isInteger(spec.maxSteps) || spec.maxSteps < 1) {
+  if (spec.mode !== 'manual' && (!Number.isInteger(spec.maxSteps) || spec.maxSteps < 1)) {
     throw new Error('RunSpec.maxSteps must be a positive integer.');
   }
-  if (spec.maxSteps > maxStepsPolicy) {
+  if (spec.mode !== 'manual' && spec.maxSteps > maxStepsPolicy) {
     throw new Error(`RunSpec.maxSteps exceeds the configured policy limit (${maxStepsPolicy}).`);
   }
   if (spec.maxWallTimeMs !== undefined && (!Number.isFinite(spec.maxWallTimeMs) || spec.maxWallTimeMs <= 0)) {
     throw new Error('RunSpec.maxWallTimeMs must be a positive finite number when specified.');
   }
-  return structuredClone(spec);
+  return spec.mode === 'manual'
+    ? structuredClone(spec)
+    : { ...structuredClone(spec), mode: 'bounded' };
 }
 
 /**
@@ -128,6 +146,10 @@ export class RunController {
     return this.activeRun?.state === 'running';
   }
 
+  get isPaused(): boolean {
+    return this.activeRun?.state === 'paused';
+  }
+
   setActionTimeoutMs(timeoutMs: number): void {
     this.actionTimeoutMs = this.normalizeActionTimeout(timeoutMs);
     const activeTask = this.runtime.peekActiveTaskRef();
@@ -154,21 +176,59 @@ export class RunController {
     return taskId;
   }
 
-  start(spec: RunSpec): RunStatus {
+  /** Pause a run without fabricating a simulator domain action. */
+  pause(): RunStatus | null {
+    const run = this.activeRun;
+    if (!run || run.state !== 'running') return this.status;
+    run.pauseRequested = true;
+    this.runtime.cancel(run.spec.actionId);
+    const activeTask = this.runtime.peekActiveTaskRef();
+    run.inFlight = activeTask?.key === run.spec.actionId;
+    if (!run.inFlight) this.finish('paused');
+    else this.publish();
+    return this.status;
+  }
+
+  /** Pause first, then enqueue exactly one model action behind any in-flight tick. */
+  requestStep(actionId: string): string {
+    this.pause();
+    return this.requestOneShot(actionId);
+  }
+
+  /** Reset is still a model action; the host owns confirmation/history policy. */
+  requestReset(actionId: string): string {
+    this.pause();
+    return this.requestOneShot(actionId);
+  }
+
+  private requestOneShot(actionId: string): string {
+    const taskId = this.runtime.enqueue(actionId, { continuous: false });
+    this.flushCommands();
+    return taskId;
+  }
+
+  start(spec: RunRequest): RunStatus {
     this.stop('stopped');
+    if (this.runtime.peekActiveTaskRef()) {
+      throw new Error('Wait for the current action tick to finish before starting another run.');
+    }
     const normalized = normalizeRunSpec(spec, this.maxStepsPolicy);
-    this.condition = normalized.stopWhen === undefined ? null : compileRunCondition(normalized.stopWhen);
+    this.condition = normalized.mode === 'bounded' && normalized.stopWhen !== undefined
+      ? compileRunCondition(normalized.stopWhen)
+      : null;
     const status: RunStatus = {
       id: this.idFactory(),
       spec: normalized,
       state: 'running',
       completedSteps: 0,
       startedAt: this.scheduler.now(),
+      pauseRequested: false,
+      inFlight: false,
     };
     this.activeRun = status;
     this.options.onRunStart?.(cloneStatus(status));
 
-    if (this.evaluateCondition()) {
+    if (normalized.mode === 'bounded' && this.evaluateCondition()) {
       this.finish('condition');
       return this.status!;
     }
@@ -180,6 +240,7 @@ export class RunController {
     this.runtime.cancel();
     this.runtime.enqueue(normalized.actionId, { continuous: true });
     this.flushCommands();
+    status.inFlight = this.runtime.peekActiveTaskRef()?.key === normalized.actionId;
     this.publish();
     return this.status!;
   }
@@ -210,10 +271,12 @@ export class RunController {
     const run = this.activeRun;
     if (run?.state === 'running' && task.key === run.spec.actionId) {
       run.completedSteps += 1;
-      const conditionMatched = this.evaluateCondition();
-      if (conditionMatched) {
+      const conditionMatched = run.spec.mode === 'bounded' && this.evaluateCondition();
+      if (run.pauseRequested) {
+        this.finish('paused');
+      } else if (conditionMatched) {
         this.finish('condition');
-      } else if (run.completedSteps >= run.spec.maxSteps) {
+      } else if (run.spec.mode === 'bounded' && run.completedSteps >= run.spec.maxSteps) {
         this.finish('max-steps');
       } else if (payload.continue === false) {
         this.finish('simulator');
@@ -238,7 +301,13 @@ export class RunController {
     const task = this.matchActiveTask(payload);
     if (!task) return false;
     const rendered = this.runtime.markTaskRendered(task.id);
-    if (rendered) this.flushCommands();
+    if (rendered) {
+      this.flushCommands();
+      if (this.activeRun && this.activeRun.spec.actionId === task.key) {
+        this.activeRun.inFlight = this.runtime.peekActiveTaskRef()?.key === this.activeRun.spec.actionId;
+        this.publish();
+      }
+    }
     return rendered;
   }
 
@@ -247,7 +316,7 @@ export class RunController {
   }
 
   private evaluateCondition(): boolean {
-    if (!this.activeRun || !this.condition) return false;
+    if (!this.activeRun || this.activeRun.spec.mode !== 'bounded' || !this.condition) return false;
     try {
       const value = this.condition.evaluate(createRunConditionScope(this.options.scenario, this.activeRun.completedSteps));
       this.activeRun.conditionValue = structuredClone(value);
@@ -268,9 +337,10 @@ export class RunController {
     }
     this.clearActionTimeout();
     this.runtime.cancel(run.spec.actionId);
-    run.state = 'stopped';
+    run.state = reason === 'paused' ? 'paused' : 'stopped';
     run.stopReason = reason;
     run.stoppedAt = this.scheduler.now();
+    run.inFlight = this.runtime.peekActiveTaskRef()?.key === run.spec.actionId;
     this.condition = null;
     this.publish();
     this.options.onRunStop?.(cloneStatus(run));

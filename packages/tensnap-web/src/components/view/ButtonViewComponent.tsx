@@ -4,7 +4,6 @@ import { useViewContext } from "./useViewContext";
 import clsx from 'clsx';
 import { Play, Pause } from 'lucide-react';
 import { useScenarioStore } from '@/store/scenario/store';
-import { MAX_INT32_RUN_STEPS } from '@tensnap/core/runtime';
 import { useEffect } from 'react';
 
 export type ButtonViewProps = {
@@ -19,6 +18,7 @@ const stopReasonGlyph = {
   'action-timeout': '!',
   'render-error': '!',
   simulator: '■',
+  paused: 'Ⅱ',
   stopped: '■',
   disconnected: '×',
 } as const;
@@ -43,18 +43,18 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
     : undefined;
   const runTitle = isRunForContinuousButton
     ? status.state === 'running'
-      ? `${status.completedSteps}/${status.spec.maxSteps === MAX_INT32_RUN_STEPS ? '∞' : status.spec.maxSteps}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
+      ? `${status.completedSteps}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}${status.inFlight ? ' · waiting' : ''}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
       : `${status.completedSteps} · ${status.stopReason ?? 'stopped'}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
     : undefined;
   const runIndicator = isRunForContinuousButton
     ? status.state === 'running'
-      ? `${status.completedSteps}/${status.spec.maxSteps === MAX_INT32_RUN_STEPS ? '∞' : status.spec.maxSteps}`
+      ? `${status.completedSteps}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}`
       : `${status.completedSteps} · ${stopReasonGlyph[status.stopReason ?? 'stopped']}`
     : undefined;
 
   useEffect(() => {
     if (!isContinuous && status?.state === 'running' && status.spec.actionId === view.data.id) {
-      session?.run.stop();
+      session?.run.pause();
     }
   }, [isContinuous, session, status?.state, status?.spec.actionId, view.data.id]);
 
@@ -70,10 +70,7 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
           onButtonAction(view.data.id, false);
           return;
         }
-        onButtonAction(view.data.id, true, {
-          maxSteps: MAX_INT32_RUN_STEPS,
-          record: false,
-        });
+        onButtonAction(view.data.id, true);
       }}
       title={runTitle}
     >

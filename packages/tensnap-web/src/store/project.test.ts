@@ -80,6 +80,11 @@ describe('ProjectStore', () => {
     activeProject.useScenarioStore.setState({
       snapshots: [dummySnapshot]
     });
+    activeProject.useScenarioStore.getState().setMainView({
+      ...activeProject.useScenarioStore.getState().mainView,
+      width: 901,
+    });
+    expect(activeProject.useUndoRedoStore.getState().isDirty()).toBe(true);
 
     // Save the project
     await useProjectStore.getState().save(0, '/test/project.json');
@@ -93,6 +98,7 @@ describe('ProjectStore', () => {
     expect(savedContent.snapshots[0].metadata.id).toBe('snapshot-1');
     expect(savedContent.version).toBe(2);
     expect(savedContent.snapshots[0].segments).toHaveLength(1);
+    expect(activeProject.useUndoRedoStore.getState().isDirty()).toBe(false);
     expect(useProjectStore.getState().tabs).toEqual([
       expect.objectContaining({ name: 'project.json', title: '/test/project.json' }),
     ]);

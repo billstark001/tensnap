@@ -27,6 +27,9 @@ export function StatusBar({
   const toast = useToast();
   const connected = useScenarioStore((store) => store.connected);
   const currentTime = useScenarioStore((store) => store.currentTime);
+  const session = useScenarioStore((store) => store.session);
+  const isRecording = useScenarioStore((store) => store.isRecording);
+  const revision = useScenarioStore((store) => store._revision);
   const runtimeTps = useSettingsStore((store) => store.runtimeTps);
   const runtimeMspt = useSettingsStore((store) => store.runtimeMspt);
   const simulatorMspt = useSettingsStore((store) => store.simulatorMspt);
@@ -41,6 +44,22 @@ export function StatusBar({
   const isConnecting = transportStore?.isConnecting ?? false;
   const canReconnect = transportStore?.canReconnect?.() ?? false;
   const reconnectDisabled = isReconnecting || isConnecting || !canReconnect;
+  void revision;
+  const runStatus = session?.run.status;
+  const runSummary = runStatus
+    ? [
+      runStatus.spec.actionId,
+      runStatus.spec.mode,
+      runStatus.spec.mode === 'bounded'
+        ? `${runStatus.completedSteps}/${runStatus.spec.maxSteps}`
+        : `${runStatus.completedSteps}/∞`,
+      runStatus.inFlight ? 'waiting for tick' : runStatus.state,
+      runStatus.stopReason,
+      runStatus.spec.maxWallTimeMs ? `deadline ${runStatus.spec.maxWallTimeMs}ms` : undefined,
+      runStatus.conditionValue === undefined ? undefined : `condition ${JSON.stringify(runStatus.conditionValue)}`,
+      isRecording ? 'recording' : undefined,
+    ].filter(Boolean).join(' · ')
+    : null;
 
   const handleReconnect = useCallback(async () => {
     if (reconnectDisabled || !reconnect || !transportStore) return;
@@ -78,6 +97,12 @@ export function StatusBar({
         <span><Trans>Time Step:</Trans></span>
         <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
       </span>
+      {runSummary && (
+        <span className={styles.statusMeta} title={runSummary}>
+          <span><Trans>Run:</Trans></span>
+          <span className={styles.metricValue}>{runSummary}</span>
+        </span>
+      )}
       <span className={styles.statusMeta}>
         <span><Trans>TPS:</Trans></span>
         <span className={styles.metricValue}>{runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}</span>

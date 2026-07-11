@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './store';
 import { createDefaultRootLayout } from '@/utils/view/create-view';
 import { useSettingsStore } from '@/store/settings';
+import { createHistoryStore } from '@/store/undo-redo';
 
 describe('scenario store updates preserve assets', () => {
   beforeEach(() => {
@@ -120,5 +121,27 @@ describe('scenario store updates preserve assets', () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(useStore.getState()._revision).toBe(initialRevision + 2);
     expect(useStore.getState().currentTime).toBe(2);
+  });
+
+  it('records renderer layout commands while excluding live simulator updates', async () => {
+    const history = createHistoryStore();
+    const useStore = createScenarioStore(history);
+    const original = structuredClone(useStore.getState().mainView);
+    const edited = createDefaultRootLayout([{
+      id: 'view-1', type: 'button', left: 1, top: 2, width: 120, height: 40,
+      expanded: true, disabled: false, data: { id: 'step', text: 'Step' },
+    }]);
+
+    useStore.getState().setMainView(edited);
+    expect(history.getState().past.map((command) => command.scope)).toEqual(['view-config']);
+    await history.getState().undo();
+    expect(useStore.getState().mainView).toEqual(original);
+    await history.getState().redo();
+    expect(useStore.getState().mainView).toEqual(edited);
+
+    const commandCount = history.getState().past.length;
+    useStore.getState().applyMessage({ type: 'metadata_update', payload: { time: 3 } });
+    await Promise.resolve();
+    expect(history.getState().past).toHaveLength(commandCount);
   });
 });

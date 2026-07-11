@@ -13,7 +13,7 @@ export type ViewCreateRequestHandler = (type: AnyView['type'], position: Point, 
 export type ViewContextScheme = {
   rootView: ContainerView | null,
   isAdjusting: boolean,
-  onButtonAction: (id: string, continuous?: boolean, runSpec?: Omit<RunSpec, 'actionId'>) => void,
+  onButtonAction: (id: string, continuous?: boolean, runSpec?: Omit<RunSpec, 'actionId' | 'mode'>) => void,
   isRunning: (id: string) => boolean,
   AnchoredViewRenderer: AnchoredViewRendererType,
   ViewContextMenuRenderer: ViewContextMenuRendererType,

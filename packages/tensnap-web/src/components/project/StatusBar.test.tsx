@@ -8,6 +8,9 @@ import { StatusBar } from './StatusBar';
 const mockScenarioStore = {
   connected: false,
   currentTime: null as number | null,
+  session: null,
+  isRecording: false,
+  _revision: 0,
 };
 
 const mockSettingsStore = {

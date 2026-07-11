@@ -16,6 +16,7 @@ import { getEffectiveViewBox } from '@/utils/view/geometry';
 import { moveViewInPlace, updateViewInPlace } from '@/utils/view/mutation';
 import { ViewUpdateHandler } from './useViewContext';
 import { DraggableViewData, DroppableViewData } from './types';
+import { useRecordViewHistory } from '@/store/view-history';
 
 
 type DragContent = {
@@ -217,6 +218,8 @@ export function useDragContent({
   const dragGuidelines = useDragGuidelines();
   const { state, updateState, clearState } = dragState;
   const { initMatcher, updateViews, match, clear: clearMatcher } = dragGuidelines;
+  const recordViewHistory = useRecordViewHistory();
+  const transactionStart = useRef<ContainerView | null>(null);
 
   const updateSnapState = useCallback((coord: ViewBox) => {
     const { guidelines, snap } = match(coord);
@@ -230,6 +233,7 @@ export function useDragContent({
     const id = event.active.id as string;
 
     if (!view || !id) return;
+    transactionStart.current = structuredClone(rootView);
 
     const mouseX = offsetX / window.devicePixelRatio;
     const mouseY = offsetY / window.devicePixelRatio;
@@ -244,7 +248,7 @@ export function useDragContent({
     });
 
     updateSnapState(coord);
-  }, [initMatcher, updateState, updateSnapState]);
+  }, [initMatcher, rootView, updateState, updateSnapState]);
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {
     const { view: activeView, parentId: sourceParentId } = getData(event.active);
@@ -282,6 +286,7 @@ export function useDragContent({
     const { view: draggedView, parentId: sourceParentId } = getData(active);
 
     if (!over || !draggedView) {
+      transactionStart.current = null;
       clearState();
       clearMatcher();
       return;
@@ -308,9 +313,14 @@ export function useDragContent({
       onViewUpdate,
     });
 
+    if (transactionStart.current) {
+      recordViewHistory('Move view', 'layout', transactionStart.current, rootView);
+      transactionStart.current = null;
+    }
+
     clearState();
     clearMatcher();
-  }, [rootView, clearState, clearMatcher, onViewUpdate, updateSnapState]);
+  }, [rootView, clearState, clearMatcher, onViewUpdate, updateSnapState, recordViewHistory]);
 
   // cleanup
   useEffect(() => {
@@ -341,6 +351,8 @@ export function useResizeContent({
   const resizeGuidelines = useDragGuidelines('resize');
   const { state, updateState, clearState } = resizeState;
   const { initMatcher, match, clear: clearMatcher } = resizeGuidelines;
+  const recordViewHistory = useRecordViewHistory();
+  const transactionStart = useRef<ContainerView | null>(null);
 
   const isResizing = useRef<string | undefined>(undefined);
   const startPos = useRef<{ x: number; y: number } | undefined>(undefined);
@@ -355,6 +367,7 @@ export function useResizeContent({
     clientX: number,
     clientY: number,
   ) => {
+    transactionStart.current = structuredClone(rootView);
     isResizing.current = direction;
     startPos.current = { x: clientX, y: clientY };
 
@@ -434,6 +447,11 @@ export function useResizeContent({
         height: resizedHeight,
       } as Partial<AnyView>,
     );
+
+    if (transactionStart.current) {
+      recordViewHistory('Resize view', 'layout', transactionStart.current, rootView);
+      transactionStart.current = null;
+    }
 
     updateState({ guideLines: guidelines, suggestedSnap: snap });
   });

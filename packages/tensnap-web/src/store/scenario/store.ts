@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
 import { createDefaultRootLayout, createAutoLayout } from '@/utils/view/pack';
 import { AnyView, ContainerView } from '@/types/ui';
@@ -8,7 +8,6 @@ import { useSettingsStore } from '../settings';
 import {
   ChartStorage,
   GridEnvStorage,
-  MAX_INT32_RUN_STEPS,
   RendererSession,
   Scenario,
   ScenarioEnvironmentState,
@@ -28,6 +27,12 @@ import type {
   StateSyncBoundaryPayload,
 } from '@tensnap/protocol';
 import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft, StateSyncStatus } from './types';
+import {
+  createHistoryCommandId,
+  estimateHistoryBytes,
+  type HistoryCommandScope,
+  type HistoryState,
+} from '../undo-redo';
 
 const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot) => void) => {
   const snapshot = scenario.dump();
@@ -303,17 +308,13 @@ const appendSnapshot = (snapshots: Snapshot[], snapshot: Snapshot, maxSnapshots:
   return next;
 };
 
-export const createScenarioStore = () => {
+export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<HistoryState>>) => {
   const renderBarrier = new BrowserRunRenderBarrier(() => {
     const { renderTriggerMode, maxTps, maxRenderFps } = useSettingsStore.getState();
     return { mode: renderTriggerMode, maxTps, maxRenderFps };
   });
   const session = new RendererSession({
     run: {
-      // Primary clicks on continuous buttons retain the legacy run-until-stop
-      // behavior through an int32-sized RunSpec. The context-menu dialog
-      // remains bounded by its explicit profile validation.
-      maxStepsPolicy: MAX_INT32_RUN_STEPS,
       renderBarrier,
     },
   });
@@ -322,6 +323,41 @@ export const createScenarioStore = () => {
   const timeCorrection: TimeCorrectionState = { minimumRuntimeTime: 0 };
 
   const useStore = create<ScenarioStore>((set, get) => {
+    const recordMainViewChange = (
+      label: string,
+      scope: HistoryCommandScope,
+      before: ContainerView,
+      after: ContainerView,
+      mergeKey?: string,
+    ) => {
+      if (!historyStore || JSON.stringify(before) === JSON.stringify(after)) return;
+      const beforePatch = structuredClone(before);
+      const afterPatch = structuredClone(after);
+      historyStore.getState().recordApplied({
+        id: createHistoryCommandId(),
+        label,
+        scope,
+        mergeKey,
+        byteSize: estimateHistoryBytes(beforePatch, afterPatch),
+        apply: () => set({ mainView: structuredClone(afterPatch) }),
+        revert: () => set({ mainView: structuredClone(beforePatch) }),
+      });
+    };
+
+    const recordSnapshotChange = (label: string, before: Snapshot[], after: Snapshot[]) => {
+      if (!historyStore || JSON.stringify(before) === JSON.stringify(after)) return;
+      const beforePatch = structuredClone(before);
+      const afterPatch = structuredClone(after);
+      historyStore.getState().recordApplied({
+        id: createHistoryCommandId(),
+        label,
+        scope: 'snapshot',
+        byteSize: estimateHistoryBytes(beforePatch, afterPatch),
+        apply: () => set({ snapshots: structuredClone(afterPatch) }),
+        revert: () => set({ snapshots: structuredClone(beforePatch) }),
+      });
+    };
+
     const bumpScenarioState = (flags?: {
       environmentChanged?: boolean;
       parameterChanged?: boolean;
@@ -399,7 +435,7 @@ export const createScenarioStore = () => {
         const shouldAutoLayout = activeStateSync.autoLayoutOnComplete && get().isMainViewAutoLayoutCandidate();
         set({ stateSync: createIdleStateSyncStatus() });
         if (shouldAutoLayout) {
-          get().updateMainViewLayout();
+          get().updateMainViewLayout({ recordHistory: false });
         }
       },
 
@@ -408,25 +444,31 @@ export const createScenarioStore = () => {
       isMainViewAutoLayoutCandidate: () => isMainViewAutoLayoutCandidate(get().mainView),
 
       setMainView: (view) => {
-        if (typeof view === 'function') {
-          set((state) => ({ mainView: view(state.mainView) }));
-        } else {
-          set({ mainView: view });
-        }
+        const before = structuredClone(get().mainView);
+        const after = typeof view === 'function' ? view(structuredClone(before)) : view;
+        set({ mainView: after });
+        recordMainViewChange('Update view', 'view-config', before, after);
       },
 
-      updateMainViewLayout: () => {
+      replaceMainView: (view) => set({ mainView: structuredClone(view) }),
+
+      updateMainViewLayout: (options) => {
         const state = get();
+        const before = structuredClone(state.mainView);
+        const after = createAutoLayout(
+          state.mainView,
+          Array.from(state.scenario.environments.values()).map(getEnvironmentMetadata),
+          Array.from(state.scenario.parameters.values()),
+          state.scenario.charts.getGroupList(),
+          { disableMissingViews: true },
+          Array.from(state.scenario.actions.values()),
+        );
         set({
-          mainView: createAutoLayout(
-            state.mainView,
-            Array.from(state.scenario.environments.values()).map(getEnvironmentMetadata),
-            Array.from(state.scenario.parameters.values()),
-            state.scenario.charts.getGroupList(),
-            { disableMissingViews: true },
-            Array.from(state.scenario.actions.values()),
-          ),
+          mainView: after,
         });
+        if (options?.recordHistory !== false) {
+          recordMainViewChange('Update view layout', 'layout', before, after);
+        }
       },
 
       applyMessage: (message: SimulatorToRendererMessage) => {
@@ -464,6 +506,7 @@ export const createScenarioStore = () => {
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
           parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
         }));
+        historyStore?.getState().clear();
       },
       setData: (payload, options) => {
         mutateSnapshot(scenario, (snapshot) => {
@@ -707,9 +750,10 @@ export const createScenarioStore = () => {
 
       addSnapshot: (draft) => {
         const snapshot = createSnapshot(scenario.dump(), draft);
-        set((state) => {
-          return { snapshots: appendSnapshot(state.snapshots, snapshot, state.maxSnapshots) };
-        });
+        const before = get().snapshots;
+        const after = appendSnapshot(before, snapshot, get().maxSnapshots);
+        set({ snapshots: after });
+        recordSnapshotChange('Take snapshot', before, after);
       },
 
       startRecording: (options: RecordingOptions = {}) => {
@@ -726,8 +770,9 @@ export const createScenarioStore = () => {
         session.stopRecording();
       },
 
-      renameSnapshot: (id, label) => set((state) => ({
-        snapshots: state.snapshots.map((snapshot) => snapshot.metadata.id === id
+      renameSnapshot: (id, label) => {
+        const before = get().snapshots;
+        const after = before.map((snapshot) => snapshot.metadata.id === id
           ? {
             ...snapshot,
             metadata: {
@@ -735,14 +780,23 @@ export const createScenarioStore = () => {
               label: label.trim() || undefined,
             },
           }
-          : snapshot),
-      })),
+          : snapshot);
+        set({ snapshots: after });
+        recordSnapshotChange('Rename snapshot', before, after);
+      },
 
-      removeSnapshot: (id) => set((state) => ({
-        snapshots: state.snapshots.filter((snapshot) => String(snapshot.metadata.id ?? '') !== id),
-      })),
+      removeSnapshot: (id) => {
+        const before = get().snapshots;
+        const after = before.filter((snapshot) => String(snapshot.metadata.id ?? '') !== id);
+        set({ snapshots: after });
+        recordSnapshotChange('Delete snapshot', before, after);
+      },
 
-      clearSnapshots: () => set({ snapshots: [] }),
+      clearSnapshots: () => {
+        const before = get().snapshots;
+        set({ snapshots: [] });
+        recordSnapshotChange('Clear snapshots', before, []);
+      },
 
       setMaxSnapshots: (max) => set({ maxSnapshots: max }),
 

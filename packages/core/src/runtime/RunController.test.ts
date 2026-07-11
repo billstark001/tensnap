@@ -67,6 +67,60 @@ describe('RunController', () => {
     expect(sent).toHaveLength(1);
   });
 
+  it('runs in manual mode without a fake maximum and pauses after the in-flight tick', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+
+    session.run.start({ mode: 'manual', actionId: 'start' });
+    const first = tickId(sent[0]!);
+    expect(session.run.status).toMatchObject({
+      state: 'running',
+      spec: { mode: 'manual', actionId: 'start' },
+      inFlight: true,
+    });
+
+    session.run.pause();
+    expect(session.run.status).toMatchObject({ state: 'running', pauseRequested: true, inFlight: true });
+    session.handleIncoming({ type: 'action_end', payload: { id: 'start', tick_id: first, continue: true } });
+    expect(session.run.status).toMatchObject({ state: 'paused', stopReason: 'paused', completedSteps: 1 });
+    session.run.markActionRendered({ id: 'start', tick_id: first });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('queues one step behind a manual run tick without duplicate dispatch', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+
+    session.run.start({ mode: 'manual', actionId: 'start' });
+    const first = tickId(sent[0]!);
+    session.run.requestStep('step');
+    expect(sent).toHaveLength(1);
+
+    session.handleIncoming({ type: 'action_end', payload: { id: 'start', tick_id: first, continue: true } });
+    session.run.markActionRendered({ id: 'start', tick_id: first });
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({ type: 'action_start', payload: { id: 'step', continuous: false } });
+  });
+
+  it('does not start a second continuous generation before the prior tick renders', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    session.run.start({ mode: 'manual', actionId: 'start' });
+    const first = tickId(sent[0]!);
+    session.run.pause();
+    session.handleIncoming({ type: 'action_end', payload: { id: 'start', tick_id: first, continue: true } });
+
+    expect(session.run.status).toMatchObject({ state: 'paused', inFlight: true });
+    expect(() => session.run.start({ mode: 'manual', actionId: 'start' })).toThrow(/current action tick/);
+    session.run.markActionRendered({ id: 'start', tick_id: first });
+    expect(session.run.status).toMatchObject({ state: 'paused', inFlight: false });
+    expect(() => session.run.start({ mode: 'manual', actionId: 'start' })).not.toThrow();
+    expect(sent).toHaveLength(2);
+  });
+
   it('evaluates a compiled condition against incremental scenario state after action_end', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();

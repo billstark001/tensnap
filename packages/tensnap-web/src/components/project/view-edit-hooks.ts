@@ -17,6 +17,8 @@ import { generateUniqueId } from '@/utils/common';
 import { ViewUpdateHandler } from '../view/useViewContext';
 import { useToast } from '@/store/toast';
 import { MessageDescriptor } from '@lingui/core';
+import { useRecordViewHistory } from '@/store/view-history';
+import { getEditableEnvironmentData, type EditableEnvironmentData } from '@/dialogs/edit-views/environment-editor-model';
 
 // #region Types
 
@@ -126,6 +128,7 @@ export function useCreateView(props: { onViewUpdate?: ViewUpdateHandler }) {
   const rootView = useScenarioStore((store) => store.mainView);
   const setData = useScenarioStore((store) => store.setData);
   const upsertAction = useScenarioStore((store) => store.upsertAction);
+  const recordViewHistory = useRecordViewHistory();
 
   /** Creates a view and persists its backing object in the scenario store. */
   const createView = useCallback((
@@ -138,6 +141,7 @@ export function useCreateView(props: { onViewUpdate?: ViewUpdateHandler }) {
     const result = buildView(type as CreatableViewType, position);
     if (!result) return;
 
+    const before = structuredClone(rootView);
     addViewToContainerInPlace({ rootView, onViewUpdate }, container.id, result.view);
 
     switch (type) {
@@ -156,7 +160,8 @@ export function useCreateView(props: { onViewUpdate?: ViewUpdateHandler }) {
       default:
         break;
     }
-  }, [rootView, onViewUpdate, setData, upsertAction]);
+    recordViewHistory(`Create ${type} view`, 'layout', before, rootView);
+  }, [rootView, onViewUpdate, setData, upsertAction, recordViewHistory]);
 
   return { createView };
 }
@@ -190,7 +195,6 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
   const environments = useScenarioStore((store) => store.environments);
   const charts = useScenarioStore((store) => store.charts);
 
-  const setData = useScenarioStore((store) => store.setData);
   const updateActionProps = useScenarioStore((store) => store.updateActionProps);
   const updateParameterProps = useScenarioStore((store) => store.updateParameterProps);
   const updateEnvironment = useScenarioStore((store) => store.updateEnvironment);
@@ -200,6 +204,46 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
   const renameParameter = useScenarioStore((store) => store.renameParameter);
   const renameEnvironment = useScenarioStore((store) => store.renameEnvironment);
   const renameChartGroup = useScenarioStore((store) => store.renameChartGroup);
+  const recordViewHistory = useRecordViewHistory();
+
+  const restoreLinkedObject = useCallback((
+    type: AnyView['type'],
+    fromId: string,
+    target: Action | Parameter | ChartGroup | EditableEnvironmentData,
+  ) => {
+    const targetId = target.id;
+    const rename = () => {
+      if (fromId === targetId) return true;
+      switch (type) {
+        case 'button': return renameAction?.(fromId, targetId) ?? false;
+        case 'parameter': return renameParameter?.(fromId, targetId) ?? false;
+        case 'environment': return renameEnvironment?.(fromId, targetId) ?? false;
+        case 'chart': return renameChartGroup?.(fromId, targetId) ?? false;
+        default: return true;
+      }
+    };
+    if (!rename()) throw new Error(`The ${type} object is no longer available for history replay.`);
+    const props = { ...target } as any;
+    delete props.id;
+    let updated = true;
+    switch (type) {
+      case 'button': updated = updateActionProps?.(targetId, props) ?? false; break;
+      case 'parameter': updated = updateParameterProps?.(targetId, props) ?? false; break;
+      case 'environment': updated = updateEnvironment?.(targetId, props) ?? false; break;
+      case 'chart': updated = updateChartProps?.(targetId, props) ?? false; break;
+      default: break;
+    }
+    if (!updated) throw new Error(`The ${type} object could not be restored.`);
+  }, [
+    renameAction,
+    renameParameter,
+    renameEnvironment,
+    renameChartGroup,
+    updateActionProps,
+    updateParameterProps,
+    updateEnvironment,
+    updateChartProps,
+  ]);
 
   const fail = useCallback((messageDescriptor: MessageDescriptor): UpdateViewResult => {
     const message = _(messageDescriptor);
@@ -235,29 +279,13 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
   const deleteView = useCallback((viewId: string) => {
     if (!rootView || !parentView) return;
 
+    const before = structuredClone(rootView);
     const view = deleteViewInPlace({ rootView, onViewUpdate }, viewId);
-    if (!view || view.type === 'container') return;
-
-    const objectId = view.data.id;
-    const options = { updateLayout: false, preserveExisting: true };
-
-    switch (view.type) {
-      case 'button':
-        setData?.({ removedActionIds: [objectId] }, options);
-        break;
-      case 'parameter':
-        setData?.({ removedParameterIds: [objectId] }, options);
-        break;
-      case 'environment':
-        setData?.({ removedEnvironmentIds: [objectId] }, options);
-        break;
-      case 'chart':
-        setData?.({ removedChartIds: [objectId] }, options);
-        break;
-      default:
-        break;
-    }
-  }, [rootView, parentView, onViewUpdate, setData]);
+    if (!view) return;
+    // Deleting a renderer view must not delete the live simulator object it
+    // references; this also makes undo safe while the session keeps running.
+    recordViewHistory(`Delete ${view.type} view`, 'layout', before, rootView);
+  }, [rootView, parentView, onViewUpdate, recordViewHistory]);
 
   /** Updates view props and, when provided, keeps backing object data in sync. */
   const updateView = useCallback((updatedView: AnyView, objectData?: any): UpdateViewResult => {
@@ -270,12 +298,25 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
     if (!targetView) {
       return fail(msg`The view no longer exists.`);
     }
+    const before = structuredClone(updateRoot);
 
     const { data, ...viewProps } = updatedView;
     delete (viewProps as Partial<AnyView>).type;
     delete (viewProps as any).views;
 
     const currentObjectId = (targetView as any).data?.id as string | undefined;
+    const beforeObject = currentObjectId ? (() => {
+      switch (updatedView.type) {
+        case 'button': return actions?.get(currentObjectId) ? structuredClone(actions.get(currentObjectId)!) : null;
+        case 'parameter': return parameters?.get(currentObjectId) ? structuredClone(parameters.get(currentObjectId)!) : null;
+        case 'environment': return getEditableEnvironmentData(environments, currentObjectId);
+        case 'chart': {
+          const chart = charts?.getGroup(currentObjectId);
+          return chart ? { id: chart.id, label: chart.label, metadataDict: structuredClone(chart.metadataDict), data: [] } : null;
+        }
+        default: return null;
+      }
+    })() : null;
     let nextObjectId: string | undefined;
 
     if (objectData) {
@@ -355,6 +396,25 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
       } as Partial<AnyView>,
     );
 
+    const afterObject = objectData
+      ? updatedView.type === 'chart'
+        ? { id: objectData.id, label: objectData.label, metadataDict: structuredClone(objectData.metadataDict), data: [] }
+        : structuredClone(objectData)
+      : null;
+    const sideEffects = beforeObject && afterObject ? {
+      byteSize: new TextEncoder().encode(JSON.stringify([beforeObject, afterObject])).byteLength,
+      apply: () => restoreLinkedObject(updatedView.type, beforeObject.id, afterObject),
+      revert: () => restoreLinkedObject(updatedView.type, afterObject.id, beforeObject),
+    } : undefined;
+    recordViewHistory(
+      `Edit ${updatedView.type} view`,
+      'view-config',
+      before,
+      updateRoot,
+      sideEffects ? undefined : `view-config:${updatedView.id}`,
+      sideEffects,
+    );
+
     return { ok: true };
   }, [
     rootView,
@@ -374,6 +434,8 @@ export function useUpdateAndDeleteView(options: UseUpdateAndDeleteViewOptions) {
     updateEnvironment,
     updateChartProps,
     onViewUpdate,
+    recordViewHistory,
+    restoreLinkedObject,
   ]);
 
   return {

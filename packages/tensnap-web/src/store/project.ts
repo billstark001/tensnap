@@ -10,7 +10,7 @@ import {
 } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
 import { ChartGroup, ChartMetadata } from "@/types/model";
-import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
+import { createHistoryStore, type HistoryState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
@@ -18,6 +18,7 @@ import { materializeSnapshot, type Snapshot } from '@tensnap/core/snapshot';
 import type { StateSyncRequest } from '@tensnap/protocol';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { getFileSystemState } from "./file-system/provider";
+import { getToastState } from './toast';
 
 export interface ProjectSettings {
   url: string;
@@ -33,7 +34,7 @@ export interface ProjectContextScheme extends ProjectSettings {
   filepath: string | null;
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useTransportStore: UseBoundStore<StoreApi<TransportStore>>;
-  useUndoRedoStore: UseBoundStore<StoreApi<UndoRedoState<ScenarioStore>>>;
+  useUndoRedoStore: UseBoundStore<StoreApi<HistoryState>>;
 }
 
 function projectTabName(project: ProjectContextScheme): string {
@@ -73,9 +74,16 @@ export const createStateSyncRequestFromStore = (store?: ScenarioSnapshot): State
 };
 
 const createProject = (url: string, filepath: string | null = null): ProjectContextScheme => {
-  const useScenarioStore = createScenarioStore();
+  const useUndoRedoStore = createHistoryStore({
+    maxCommands: 64,
+    maxBytes: 4 * 1024 * 1024,
+    onError: (error, command) => getToastState().error(
+      `Unable to ${command.label}`,
+      error instanceof Error ? error.message : String(error),
+    ),
+  });
+  const useScenarioStore = createScenarioStore(useUndoRedoStore);
   const useTransportStore = createTransportStore(useScenarioStore);
-  const useUndoRedoStore = createUndoRedoStore(64, useScenarioStore);
 
   return {
     id: generateUniqueId(),
@@ -258,6 +266,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     console.log('Project saved to', filepath);
 
     project.filepath = filepath;
+    project.useUndoRedoStore.getState().markClean();
     refreshActiveProject();
   },
 
@@ -277,6 +286,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     if (index < 0 || index >= projects.length) {
       throw new Error("Invalid project index");
+    }
+
+    const history = projects[index].useUndoRedoStore.getState();
+    if (history.isDirty() && typeof globalThis.confirm === 'function') {
+      const confirmed = globalThis.confirm('Close this project and discard renderer edits that have not been saved?');
+      if (!confirmed) return;
     }
 
     projects[index].useTransportStore.getState().destroy();

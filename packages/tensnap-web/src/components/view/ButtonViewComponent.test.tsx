@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ButtonViewComponent } from './ButtonViewComponent';
-import { MAX_INT32_RUN_STEPS } from '@tensnap/core/runtime';
 
 const onButtonAction = vi.fn();
 const scenarioState: { session: any; _revision: number } = { session: null, _revision: 0 };
@@ -24,7 +23,7 @@ describe('ButtonViewComponent', () => {
     scenarioState._revision = 0;
   });
 
-  it('keeps primary click as the legacy run-until-stopped action dispatch', () => {
+  it('starts a true manual run without a fake max-step profile', () => {
     render(
       <ButtonViewComponent
         view={{
@@ -43,10 +42,7 @@ describe('ButtonViewComponent', () => {
 
     fireEvent.click(screen.getByText('Start'));
 
-    expect(onButtonAction).toHaveBeenCalledWith('start', true, {
-      maxSteps: MAX_INT32_RUN_STEPS,
-      record: false,
-    });
+    expect(onButtonAction).toHaveBeenCalledWith('start', true);
   });
 
   it('keeps long stop reasons in the hover title and renders a compact glyph in the button', () => {
@@ -54,7 +50,7 @@ describe('ButtonViewComponent', () => {
       run: {
         status: {
           state: 'stopped',
-          spec: { actionId: 'start', maxSteps: MAX_INT32_RUN_STEPS },
+          spec: { mode: 'manual', actionId: 'start' },
           completedSteps: 14,
           stopReason: 'simulator',
         },
@@ -76,15 +72,15 @@ describe('ButtonViewComponent', () => {
   });
 
   it('clears and stops an active run when the button is changed to one-step mode', () => {
-    const stop = vi.fn();
+    const pause = vi.fn();
     scenarioState.session = {
       run: {
         status: {
           state: 'running',
-          spec: { actionId: 'start', maxSteps: MAX_INT32_RUN_STEPS },
+          spec: { mode: 'manual', actionId: 'start' },
           completedSteps: 14,
         },
-        stop,
+        pause,
       },
     };
 
@@ -97,7 +93,7 @@ describe('ButtonViewComponent', () => {
       />,
     );
 
-    expect(stop).toHaveBeenCalledOnce();
+    expect(pause).toHaveBeenCalledOnce();
     expect(screen.queryByText('14 ·')).not.toBeInTheDocument();
     expect(screen.getByText('Start').parentElement).not.toHaveAttribute('title');
   });

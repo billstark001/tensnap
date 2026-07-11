@@ -1,4 +1,5 @@
 export * from './PipelineRuntime';
+export * from './ActionBindings';
 export * from './RendererSession';
 export * from './RunController';
 export * from './ScenarioConditionScope';

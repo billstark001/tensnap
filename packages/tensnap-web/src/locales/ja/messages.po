@@ -40,19 +40,19 @@ msgstr "0は無制限を意味します"
 msgid "2D Layer Metadata"
 msgstr "2Dレイヤーメタデータ"
 
-#: src/components/project/view-edit-hooks.ts:331
+#: src/components/project/view-edit-hooks.ts:372
 msgid "A chart group with this ID already exists."
 msgstr "この ID のチャートグループは既に存在します。"
 
-#: src/components/project/view-edit-hooks.ts:305
+#: src/components/project/view-edit-hooks.ts:346
 msgid "A parameter with this ID already exists."
 msgstr "この ID のパラメータは既に存在します。"
 
-#: src/components/toolbar/ToolGroups.tsx:208
+#: src/components/toolbar/ToolGroups.tsx:296
 msgid "About"
 msgstr "について"
 
-#: src/components/toolbar/MenuBar.tsx:192
+#: src/components/toolbar/MenuBar.tsx:224
 #: src/dialogs/AboutDialog.tsx:16
 msgid "About TenSnap"
 msgstr "TenSnapについて"
@@ -69,6 +69,10 @@ msgstr "アクションID"
 msgid "Action Label"
 msgstr "アクションラベル"
 
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:73
+#~ msgid "Action Role"
+#~ msgstr "アクションの役割"
+
 #: src/dialogs/SettingsDialog.tsx:277
 msgid "Action Timeout"
 msgstr "アクションタイムアウト"
@@ -77,7 +81,7 @@ msgstr "アクションタイムアウト"
 msgid "Action:"
 msgstr "アクション："
 
-#: src/components/toolbar/ToolGroups.tsx:145
+#: src/components/toolbar/ToolGroups.tsx:233
 msgid "Adjust Mode"
 msgstr "調整モード"
 
@@ -94,11 +98,11 @@ msgstr "エージェントの詳細"
 msgid "Allow Runtime Change"
 msgstr "実行時変更を許可"
 
-#: src/components/project/view-edit-hooks.ts:292
+#: src/components/project/view-edit-hooks.ts:333
 msgid "An action with this ID already exists."
 msgstr "この ID のアクションは既に存在します。"
 
-#: src/components/project/view-edit-hooks.ts:318
+#: src/components/project/view-edit-hooks.ts:359
 msgid "An environment with this ID already exists."
 msgstr "この ID の環境は既に存在します。"
 
@@ -124,7 +128,7 @@ msgstr "自動"
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
-#: src/components/view/ContainerViewComponent.tsx:107
+#: src/components/view/ContainerViewComponent.tsx:111
 msgid "Button"
 msgstr "ボタン"
 
@@ -152,7 +156,7 @@ msgstr "キャンバスが見つかりません。"
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "現在のプロジェクトのWebSocketサーバーURLを変更します。接続が再確立されます。"
 
-#: src/components/view/ContainerViewComponent.tsx:125
+#: src/components/view/ContainerViewComponent.tsx:129
 msgid "Chart"
 msgstr "チャート"
 
@@ -208,9 +212,13 @@ msgstr "{0}を閉じる"
 msgid "Color:"
 msgstr "色："
 
-#: src/components/project/StatusBar.tsx:95
+#: src/components/project/StatusBar.tsx:120
 msgid "Comm:"
 msgstr "通信："
+
+#: src/components/toolbar/ToolGroups.tsx:145
+msgid "Conditional Run…"
+msgstr "条件付き実行…"
 
 #: src/dialogs/ContinuousRunDialog.tsx:54
 msgid "Configure a bounded continuous run for action {actionId}."
@@ -232,15 +240,15 @@ msgstr "確認"
 msgid "Confirm Structural Change"
 msgstr "構造変更の確認"
 
-#: src/components/project/StatusBar.tsx:75
+#: src/components/project/StatusBar.tsx:94
 msgid "Connected"
 msgstr "接続済み"
 
-#: src/components/project/StatusBar.tsx:62
+#: src/components/project/StatusBar.tsx:81
 msgid "Connection failed, will retry automatically"
 msgstr "接続に失敗しました。自動的に再試行します"
 
-#: src/components/view/ContainerViewComponent.tsx:131
+#: src/components/view/ContainerViewComponent.tsx:135
 msgid "Container"
 msgstr "コンテイナー"
 
@@ -257,7 +265,7 @@ msgid "Continuous run…"
 msgstr "連続実行…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:109
-#: src/components/toolbar/MenuBar.tsx:101
+#: src/components/toolbar/MenuBar.tsx:133
 #: src/dialogs/SnapshotDetailDialog.tsx:70
 msgid "Copy"
 msgstr "コピー"
@@ -285,11 +293,15 @@ msgstr "新しいプロジェクトを作成"
 msgid "Current Value"
 msgstr "現在の値"
 
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:84
+#~ msgid "Custom"
+#~ msgstr "カスタム"
+
 #: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
-#: src/components/toolbar/MenuBar.tsx:98
+#: src/components/toolbar/MenuBar.tsx:130
 msgid "Cut"
 msgstr "切り取り"
 
@@ -329,7 +341,7 @@ msgstr "録画を削除"
 msgid "Disabled"
 msgstr "無効"
 
-#: src/components/project/StatusBar.tsx:75
+#: src/components/project/StatusBar.tsx:94
 msgid "Disconnected"
 msgstr "未接続"
 
@@ -337,7 +349,7 @@ msgstr "未接続"
 msgid "Display Type"
 msgstr "表示タイプ"
 
-#: src/components/toolbar/MenuBar.tsx:182
+#: src/components/toolbar/MenuBar.tsx:214
 msgid "Documentation"
 msgstr "ドキュメント"
 
@@ -354,7 +366,7 @@ msgid "Drag files here to upload"
 msgstr "ファイルをここにドラッグしてアップロード"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:133
-#: src/components/toolbar/MenuBar.tsx:83
+#: src/components/toolbar/MenuBar.tsx:107
 msgid "Edit"
 msgstr "編集"
 
@@ -387,7 +399,7 @@ msgstr "バックエンドWebSocketサーバーアドレスを入力"
 msgid "Enum Options"
 msgstr "列挙変数オプション"
 
-#: src/components/view/ContainerViewComponent.tsx:119
+#: src/components/view/ContainerViewComponent.tsx:123
 msgid "Environment"
 msgstr "環境"
 
@@ -416,7 +428,7 @@ msgstr "環境："
 msgid "Error"
 msgstr "エラー"
 
-#: src/components/toolbar/MenuBar.tsx:74
+#: src/components/toolbar/MenuBar.tsx:98
 msgid "Exit"
 msgstr "終了"
 
@@ -453,7 +465,7 @@ msgstr "キャンバスをクリップボードにコピーできませんでし
 msgid "Failed to open files"
 msgstr "ファイルを開けませんでした"
 
-#: src/components/project/StatusBar.tsx:65
+#: src/components/project/StatusBar.tsx:84
 msgid "Failed to reconnect"
 msgstr "再接続に失敗しました"
 
@@ -466,8 +478,8 @@ msgstr "ファイルを保存できませんでした"
 msgid "Failed to update project URL"
 msgstr "プロジェクトURLの更新に失敗しました"
 
-#: src/components/project/view-edit-hooks.ts:206
-#: src/components/project/view-edit-hooks.ts:212
+#: src/components/project/view-edit-hooks.ts:250
+#: src/components/project/view-edit-hooks.ts:256
 msgid "Failed to update view"
 msgstr "ビューの更新に失敗しました"
 
@@ -475,7 +487,7 @@ msgstr "ビューの更新に失敗しました"
 #~ msgid "Fallback Background Color"
 #~ msgstr "フォールバック背景色"
 
-#: src/components/toolbar/MenuBar.tsx:38
+#: src/components/toolbar/MenuBar.tsx:62
 msgid "File"
 msgstr "ファイル"
 
@@ -509,7 +521,7 @@ msgstr "エージェントを追従"
 #~ msgid "Force hidden"
 #~ msgstr "強制的に非表示"
 
-#: src/components/project/StatusBar.tsx:111
+#: src/components/project/StatusBar.tsx:136
 msgid "Force reconnect to server"
 msgstr "サーバーに強制再接続"
 
@@ -529,7 +541,7 @@ msgstr "フレーム："
 msgid "Frames:"
 msgstr "フレーム数："
 
-#: src/components/toolbar/MenuBar.tsx:142
+#: src/components/toolbar/MenuBar.tsx:174
 msgid "Fullscreen"
 msgstr "全画面"
 
@@ -557,15 +569,15 @@ msgstr "方向："
 msgid "Height"
 msgstr "高さ"
 
-#: src/components/toolbar/MenuBar.tsx:174
+#: src/components/toolbar/MenuBar.tsx:206
 msgid "Help"
 msgstr "ヘルプ"
 
-#: src/components/project/StatusBar.tsx:155
+#: src/components/project/StatusBar.tsx:180
 msgid "Hide Bottom Panel"
 msgstr "下部パネルを非表示"
 
-#: src/components/project/StatusBar.tsx:146
+#: src/components/project/StatusBar.tsx:171
 msgid "Hide Right Panel"
 msgstr "右側パネルを非表示"
 
@@ -603,7 +615,7 @@ msgstr "無効な JSON"
 msgid "Invalid locale"
 msgstr "無効なロケール"
 
-#: src/components/toolbar/MenuBar.tsx:185
+#: src/components/toolbar/MenuBar.tsx:217
 msgid "Keyboard Shortcuts"
 msgstr "キーボードショートカット"
 
@@ -664,15 +676,15 @@ msgstr "MIME："
 msgid "Minimum Value"
 msgstr "最小値"
 
-#: src/components/project/StatusBar.tsx:90
+#: src/components/project/StatusBar.tsx:115
 msgid "Model:"
 msgstr "モデル："
 
-#: ../tensnap-web-utils/src/file-system/ActionButtons.tsx:55
-#~ msgid "More Actions"
-#~ msgstr "その他の操作"
+#: src/components/toolbar/ToolGroups.tsx:172
+msgid "More Actions"
+msgstr "その他の操作"
 
-#: src/components/project/StatusBar.tsx:86
+#: src/components/project/StatusBar.tsx:111
 msgid "MSPT:"
 msgstr "MSPT："
 
@@ -685,11 +697,11 @@ msgstr "MSPT："
 msgid "Neighbors: {0}"
 msgstr "近傍: {0}"
 
-#: src/components/toolbar/MenuBar.tsx:49
+#: src/components/toolbar/MenuBar.tsx:73
 msgid "New"
 msgstr "新規"
 
-#: src/components/toolbar/ToolGroups.tsx:53
+#: src/components/toolbar/ToolGroups.tsx:58
 msgid "New File"
 msgstr "新しいファイル"
 
@@ -697,7 +709,7 @@ msgstr "新しいファイル"
 msgid "New Tab"
 msgstr "新しいタブ"
 
-#: src/components/view/ContainerViewComponent.tsx:101
+#: src/components/view/ContainerViewComponent.tsx:105
 msgid "New View"
 msgstr "新しいビュー"
 
@@ -771,7 +783,7 @@ msgstr "まだスナップショットがありません。"
 msgid "No spatial context is available for this agent."
 msgstr "このエージェントには空間コンテキストがありません。"
 
-#: src/components/project/view-edit-hooks.ts:266
+#: src/components/project/view-edit-hooks.ts:294
 msgid "No view tree is available."
 msgstr "利用可能なビューツリーがありません。"
 
@@ -800,8 +812,8 @@ msgstr "録画の容量制限に収めるため、古いフレームは削除さ
 msgid "Open as offline copy"
 msgstr "オフラインコピーとして開く"
 
-#: src/components/toolbar/MenuBar.tsx:55
-#: src/components/toolbar/ToolGroups.tsx:59
+#: src/components/toolbar/MenuBar.tsx:79
+#: src/components/toolbar/ToolGroups.tsx:64
 #: src/components/toolbar/useFileOperations.ts:58
 msgid "Open File"
 msgstr "ファイルを開く"
@@ -831,7 +843,7 @@ msgstr "またはブラウザで実行される組み込みモデルを選択：
 msgid "Page {pageNum}"
 msgstr "ページ {pageNum}"
 
-#: src/components/view/ContainerViewComponent.tsx:113
+#: src/components/view/ContainerViewComponent.tsx:117
 msgid "Parameter"
 msgstr "パラメータ"
 
@@ -855,7 +867,7 @@ msgstr "パラメータ"
 msgid "Parameters:"
 msgstr "パラメータ："
 
-#: src/components/toolbar/MenuBar.tsx:104
+#: src/components/toolbar/MenuBar.tsx:136
 msgid "Paste"
 msgstr "貼り付け"
 
@@ -913,11 +925,11 @@ msgstr "半径"
 msgid "Ready"
 msgstr "準備完了"
 
-#: src/components/project/StatusBar.tsx:121
+#: src/components/project/StatusBar.tsx:146
 msgid "Reconnect"
 msgstr "再接続"
 
-#: src/components/project/StatusBar.tsx:59
+#: src/components/project/StatusBar.tsx:78
 msgid "Reconnected successfully"
 msgstr "再接続に成功しました"
 
@@ -929,8 +941,8 @@ msgstr "この実行を記録する"
 msgid "Recorded:"
 msgstr "録画日時："
 
-#: src/components/toolbar/MenuBar.tsx:94
-#: src/components/toolbar/ToolGroups.tsx:85
+#: src/components/toolbar/MenuBar.tsx:126
+#: src/components/toolbar/ToolGroups.tsx:91
 msgid "Redo"
 msgstr "やり直す"
 
@@ -950,7 +962,7 @@ msgstr "レンダートリガー"
 msgid "Repository:"
 msgstr "リポジトリ："
 
-#: src/components/toolbar/ToolGroups.tsx:120
+#: src/components/toolbar/ToolGroups.tsx:157
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
 #: src/dialogs/SettingsDialog.tsx:336
 msgid "Reset"
@@ -966,7 +978,7 @@ msgstr "ビューをリセット"
 #~ msgid "Reset View"
 #~ msgstr "ビューをリセット"
 
-#: src/components/toolbar/MenuBar.tsx:131
+#: src/components/toolbar/MenuBar.tsx:163
 msgid "Reset Zoom"
 msgstr "ズームをリセット"
 
@@ -978,12 +990,20 @@ msgstr "ズームをリセット"
 #~ msgid "Retry"
 #~ msgstr "再試行"
 
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:80
+#~ msgid "Run"
+#~ msgstr "実行"
+
 #: src/components/project/ViewContextMenuRenderer.tsx:122
 msgid "Run one step"
 msgstr "1ステップ実行"
 
-#: src/components/toolbar/MenuBar.tsx:62
-#: src/components/toolbar/ToolGroups.tsx:64
+#: src/components/project/StatusBar.tsx:102
+msgid "Run:"
+msgstr "実行："
+
+#: src/components/toolbar/MenuBar.tsx:86
+#: src/components/toolbar/ToolGroups.tsx:69
 #: src/dialogs/edit-views/EditViewDialog.tsx:339
 msgid "Save"
 msgstr "保存"
@@ -997,7 +1017,7 @@ msgstr "名前を付けて保存"
 msgid "Save As CSV"
 msgstr "CSV形式で保存"
 
-#: src/components/toolbar/MenuBar.tsx:69
+#: src/components/toolbar/MenuBar.tsx:93
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
@@ -1013,7 +1033,7 @@ msgstr "保存形式"
 msgid "Search agents by ID, color, or icon..."
 msgstr "ID、色、またはアイコンでエージェントを検索..."
 
-#: src/components/toolbar/MenuBar.tsx:108
+#: src/components/toolbar/MenuBar.tsx:140
 msgid "Select All"
 msgstr "すべて選択"
 
@@ -1030,27 +1050,27 @@ msgstr "この ID の系列は既に存在します。"
 msgid "Server Message Validation"
 msgstr "サーバーメッセージバリデーション"
 
-#: src/components/project/StatusBar.tsx:127
-#: src/components/project/StatusBar.tsx:130
-#: src/components/toolbar/MenuBar.tsx:163
-#: src/components/toolbar/ToolGroups.tsx:213
+#: src/components/project/StatusBar.tsx:152
+#: src/components/project/StatusBar.tsx:155
+#: src/components/toolbar/MenuBar.tsx:195
+#: src/components/toolbar/ToolGroups.tsx:301
 #: src/dialogs/SettingsDialog.tsx:114
 msgid "Settings"
 msgstr "設定"
 
-#: src/components/project/StatusBar.tsx:155
+#: src/components/project/StatusBar.tsx:180
 msgid "Show Bottom Panel"
 msgstr "下部パネルを表示"
 
-#: src/components/toolbar/MenuBar.tsx:135
+#: src/components/toolbar/MenuBar.tsx:167
 msgid "Show Grid"
 msgstr "グリッドを表示"
 
-#: src/components/project/StatusBar.tsx:146
+#: src/components/project/StatusBar.tsx:171
 msgid "Show Right Panel"
 msgstr "右側パネルを表示"
 
-#: src/components/toolbar/MenuBar.tsx:138
+#: src/components/toolbar/MenuBar.tsx:170
 msgid "Show Toolbar"
 msgstr "ツールバーを表示"
 
@@ -1091,13 +1111,13 @@ msgstr "スナップショット"
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "一部のデータが無効でした。有効なデータを読み込みました。プロジェクトを確認し、新しいコピーとして保存してください。"
 
-#: src/components/project/StatusBar.tsx:101
+#: src/components/project/StatusBar.tsx:126
 msgid "Srv Render:"
 msgstr "サーバーレンダリング："
 
 #: src/components/toolbar/ToolGroups.tsx:102
-msgid "Start"
-msgstr "開始"
+#~ msgid "Start"
+#~ msgstr "開始"
 
 #: src/dialogs/ContinuousRunDialog.tsx:113
 msgid "Start continuous run"
@@ -1111,14 +1131,14 @@ msgstr "録画を開始"
 #~ msgid "Start/Stop"
 #~ msgstr "開始/停止"
 
-#: src/components/toolbar/ToolGroups.tsx:115
+#: src/components/toolbar/ToolGroups.tsx:151
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:132
 msgid "Step"
 msgstr "ステップ"
 
-#: src/components/toolbar/ToolGroups.tsx:110
-msgid "Stop"
-msgstr "停止"
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:83
+#~ msgid "Stop"
+#~ msgstr "停止"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:118
 msgid "Stop continuous run"
@@ -1132,7 +1152,7 @@ msgstr "停止条件式（任意）"
 msgid "Stop recording"
 msgstr "録画を停止"
 
-#: src/components/toolbar/ToolGroups.tsx:164
+#: src/components/toolbar/ToolGroups.tsx:252
 msgid "Synchronize State"
 msgstr "状態を同期"
 
@@ -1141,7 +1161,7 @@ msgid "System Settings"
 msgstr "システム設定"
 
 #: src/components/project/RightPanel.tsx:190
-#: src/components/toolbar/ToolGroups.tsx:159
+#: src/components/toolbar/ToolGroups.tsx:247
 msgid "Take Snapshot"
 msgstr "スナップショットを撮る"
 
@@ -1149,7 +1169,7 @@ msgstr "スナップショットを撮る"
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnapは、エージェントベースモデルのインタラクティブ可視化であり、インタラクティブなシミュレーションと可視化を通じて、研究者や学生が複雑なシステムを理解するのを支援するように設計されています。"
 
-#: src/components/project/view-edit-hooks.ts:293
+#: src/components/project/view-edit-hooks.ts:334
 msgid "The action ID could not be changed."
 msgstr "アクション ID を変更できませんでした。"
 
@@ -1157,7 +1177,7 @@ msgstr "アクション ID を変更できませんでした。"
 msgid "The button can keep this binding, but there is no registered action to edit."
 msgstr "ボタンはこのバインディングを維持できますが、編集対象の登録済みアクションがありません。"
 
-#: src/components/project/view-edit-hooks.ts:332
+#: src/components/project/view-edit-hooks.ts:373
 msgid "The chart group ID could not be changed."
 msgstr "チャートグループ ID を変更できませんでした。"
 
@@ -1165,7 +1185,7 @@ msgstr "チャートグループ ID を変更できませんでした。"
 msgid "The current object will be renamed when this edit is saved."
 msgstr "この編集を保存すると、現在のオブジェクトの名前が変更されます。"
 
-#: src/components/project/view-edit-hooks.ts:319
+#: src/components/project/view-edit-hooks.ts:360
 msgid "The environment ID could not be changed."
 msgstr "環境 ID を変更できませんでした。"
 
@@ -1173,11 +1193,11 @@ msgstr "環境 ID を変更できませんでした。"
 msgid "The full path is shown here and is not editable."
 msgstr "完全なパスがここに表示され、編集できません。"
 
-#: src/components/project/view-edit-hooks.ts:306
+#: src/components/project/view-edit-hooks.ts:347
 msgid "The parameter ID could not be changed."
 msgstr "パラメータ ID を変更できませんでした。"
 
-#: src/components/project/view-edit-hooks.ts:271
+#: src/components/project/view-edit-hooks.ts:299
 msgid "The view no longer exists."
 msgstr "このビューは既に存在しません。"
 
@@ -1215,7 +1235,7 @@ msgid "This view can keep its binding, but there is no registered parameter to e
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済みパラメータがありません。"
 
 #: src/components/project/RightPanel.tsx:233
-#: src/components/project/StatusBar.tsx:78
+#: src/components/project/StatusBar.tsx:97
 msgid "Time Step:"
 msgstr "タイムステップ："
 
@@ -1230,15 +1250,15 @@ msgstr "タイムステップ："
 msgid "Title"
 msgstr "タイトル"
 
-#: src/components/toolbar/ToolGroups.tsx:194
+#: src/components/toolbar/ToolGroups.tsx:282
 msgid "Toggle theme"
 msgstr "テーマを切り替え"
 
-#: src/components/toolbar/ToolGroups.tsx:201
+#: src/components/toolbar/ToolGroups.tsx:289
 msgid "Toggle Theme"
 msgstr "テーマを切り替え"
 
-#: src/components/toolbar/MenuBar.tsx:151
+#: src/components/toolbar/MenuBar.tsx:183
 msgid "Tools"
 msgstr "ツール"
 
@@ -1246,7 +1266,7 @@ msgstr "ツール"
 msgid "Top"
 msgstr "上"
 
-#: src/components/project/StatusBar.tsx:82
+#: src/components/project/StatusBar.tsx:107
 msgid "TPS:"
 msgstr "TPS："
 
@@ -1262,8 +1282,8 @@ msgstr "検索条件を調整してください。"
 msgid "Type"
 msgstr "タイプ"
 
-#: src/components/toolbar/MenuBar.tsx:91
-#: src/components/toolbar/ToolGroups.tsx:79
+#: src/components/toolbar/MenuBar.tsx:119
+#: src/components/toolbar/ToolGroups.tsx:85
 msgid "Undo"
 msgstr "元に戻す"
 
@@ -1284,7 +1304,7 @@ msgstr "未保存のプロジェクト"
 msgid "Update the object ID used by this view."
 msgstr "このビューで使用されるオブジェクトIDを更新します。"
 
-#: src/components/toolbar/ToolGroups.tsx:172
+#: src/components/toolbar/ToolGroups.tsx:260
 msgid "Update View Layout"
 msgstr "ビューレイアウトを更新"
 
@@ -1296,7 +1316,7 @@ msgstr "ビューレイアウトを更新"
 msgid "Version"
 msgstr "バージョン"
 
-#: src/components/toolbar/MenuBar.tsx:117
+#: src/components/toolbar/MenuBar.tsx:149
 msgid "View"
 msgstr "表示"
 
@@ -1329,12 +1349,12 @@ msgstr "警告"
 msgid "Width"
 msgstr "幅"
 
-#: src/components/toolbar/MenuBar.tsx:125
-#: src/components/toolbar/ToolGroups.tsx:151
+#: src/components/toolbar/MenuBar.tsx:157
+#: src/components/toolbar/ToolGroups.tsx:239
 msgid "Zoom In"
 msgstr "拡大"
 
-#: src/components/toolbar/MenuBar.tsx:128
-#: src/components/toolbar/ToolGroups.tsx:155
+#: src/components/toolbar/MenuBar.tsx:160
+#: src/components/toolbar/ToolGroups.tsx:243
 msgid "Zoom Out"
 msgstr "縮小"

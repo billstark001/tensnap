@@ -78,7 +78,9 @@ export interface ScenarioStore {
   resetStateSync: () => void;
   isMainViewAutoLayoutCandidate: () => boolean;
   setMainView: (view: SetStateAction<ContainerView>) => void;
-  updateMainViewLayout: () => void;
+  /** Applies a renderer-history patch without recording another command. */
+  replaceMainView: (view: ContainerView) => void;
+  updateMainViewLayout: (options?: { recordHistory?: boolean }) => void;
 
   applyMessage: (message: SimulatorToRendererMessage) => void;
   dump: () => ScenarioSnapshot;

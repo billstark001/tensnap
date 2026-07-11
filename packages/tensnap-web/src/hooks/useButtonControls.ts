@@ -2,7 +2,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useSettingsStore } from '@/store/settings';
 import { useToast } from '@/store/toast';
 import type { ActionEndPayload, ActionStartPayload } from '@tensnap/protocol';
-import type { RunSpec } from '@tensnap/core/runtime';
+import type { RunSpec, RunStatus } from '@tensnap/core/runtime';
 import type { RendererSessionOutboundDetail } from '@tensnap/core/runtime';
 import { useCallback, useEffect, useRef } from 'react';
 import { ActionRunMetrics } from './actionRunMetrics';
@@ -63,7 +63,7 @@ export function useButtonControls() {
   }, [session, actionTimeoutSeconds]);
 
   const handleButtonAction = useCallback(
-    (action: string, continuous?: boolean, runSpec?: Omit<RunSpec, 'actionId'>) => {
+    (action: string, continuous?: boolean, runSpec?: Omit<RunSpec, 'actionId' | 'mode'>) => {
       if (!connected || !session) return;
       const actionMeta = actions?.get(action);
       const isContinuous = continuous ?? actionMeta?.continuous ?? false;
@@ -79,15 +79,13 @@ export function useButtonControls() {
         if (isContinuous) {
           const current = session.run.status;
           if (current?.state === 'running' && current.spec.actionId === action) {
-            session.run.stop();
-            return;
-          }
-          if (!runSpec) {
-            toast.warning('Run profile required', 'Choose a maximum step count before starting a continuous run.');
+            session.run.pause();
             return;
           }
           beginMetrics();
-          session.run.start({ actionId: action, ...runSpec });
+          session.run.start(runSpec
+            ? { actionId: action, ...runSpec, mode: 'bounded' }
+            : { actionId: action, mode: 'manual', record: false });
           return;
         }
         beginMetrics();
@@ -98,6 +96,63 @@ export function useButtonControls() {
     },
     [actions, clearRuntimeMetrics, connected, session, toast],
   );
+
+  const startManualRun = useCallback((actionId: string) => {
+    if (!connected || !session) return;
+    try {
+      metricsRunRef.current = new ActionRunMetrics(actionId);
+      clearRuntimeMetrics();
+      session.run.start({ mode: 'manual', actionId, record: false });
+    } catch (error) {
+      toast.error('Unable to run action', error instanceof Error ? error.message : String(error));
+    }
+  }, [clearRuntimeMetrics, connected, session, toast]);
+
+  const startBoundedRun = useCallback((actionId: string, spec: Omit<RunSpec, 'actionId' | 'mode'>) => {
+    if (!connected || !session) return;
+    try {
+      metricsRunRef.current = new ActionRunMetrics(actionId);
+      clearRuntimeMetrics();
+      session.run.start({ mode: 'bounded', actionId, ...spec });
+    } catch (error) {
+      toast.error('Unable to run action', error instanceof Error ? error.message : String(error));
+    }
+  }, [clearRuntimeMetrics, connected, session, toast]);
+
+  const pauseRun = useCallback(() => session?.run.pause(), [session]);
+  const requestStep = useCallback((actionId: string) => {
+    if (!connected || !session) return;
+    try {
+      metricsRunRef.current = new ActionRunMetrics(actionId);
+      clearRuntimeMetrics();
+      session.run.requestStep(actionId);
+    } catch (error) {
+      toast.error('Unable to step', error instanceof Error ? error.message : String(error));
+    }
+  }, [clearRuntimeMetrics, connected, session, toast]);
+  const requestReset = useCallback((actionId: string) => {
+    if (!connected || !session) return;
+    try {
+      session.run.requestReset(actionId);
+    } catch (error) {
+      toast.error('Unable to reset', error instanceof Error ? error.message : String(error));
+    }
+  }, [connected, session, toast]);
+  const requestModelAction = useCallback((actionId: string) => {
+    if (!connected || !session) return;
+    try {
+      metricsRunRef.current = new ActionRunMetrics(actionId);
+      clearRuntimeMetrics();
+      session.run.requestAction(actionId, false);
+    } catch (error) {
+      toast.error('Unable to run model action', error instanceof Error ? error.message : String(error));
+    }
+  }, [clearRuntimeMetrics, connected, session, toast]);
+
+  const runStatus: RunStatus | null = (() => {
+    void revision;
+    return session?.run.status ?? null;
+  })();
 
   const isRunning = useCallback(
     (id: string) => {
@@ -110,5 +165,15 @@ export function useButtonControls() {
     [revision, session],
   );
 
-  return { handleButtonAction, isRunning };
+  return {
+    handleButtonAction,
+    isRunning,
+    runStatus,
+    startManualRun,
+    startBoundedRun,
+    pauseRun,
+    requestStep,
+    requestReset,
+    requestModelAction,
+  };
 }
