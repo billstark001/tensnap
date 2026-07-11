@@ -33,11 +33,12 @@ function useLiveInspection(
   scenario: Scenario | null | undefined,
   agentRef: AgentRef | null | undefined,
   radius: number,
+  enabled: boolean,
 ): LiveAgentInspection | undefined {
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    if (!scenario || !agentRef) {
+    if (!enabled || !scenario || !agentRef) {
       return;
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -57,14 +58,14 @@ function useLiveInspection(
         scenario.removeEventListener(event, scheduleUpdate);
       }
     };
-  }, [scenario, agentRef]);
+  }, [scenario, agentRef, enabled]);
 
   return useMemo(() => {
     void revision;
-    return scenario && agentRef
+    return enabled && scenario && agentRef
       ? new ScenarioInspector(scenario).inspectLive(agentRef, { radius })
       : undefined;
-  }, [agentRef, radius, revision, scenario]);
+  }, [agentRef, radius, revision, scenario, enabled]);
 }
 
 function AgentInspectionCanvas({
@@ -165,7 +166,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   const [radius, setRadius] = useState(3);
   const [radiusInput, setRadiusInput] = useState('3');
   const [follow, setFollow] = useState(true);
-  const inspection = useLiveInspection(scenario, agentRef, radius);
+  const inspection = useLiveInspection(scenario, agentRef, radius, isOpen);
   const liveAgent = scenario && agentRef ? inspection?.agent : agent;
   const inspectionEnvironment = inspection && inspection.kind !== 'none'
     ? scenario?.getEnvironment(inspection.environmentId)

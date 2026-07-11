@@ -6,6 +6,11 @@
  * - **Pre-allocated backing store** — no heap growth or reallocation after construction.
  * - **`capacity = 0`** → unbounded mode (plain growing array, no eviction).
  */
+export interface RingBufferPushResult<T> {
+  /** The overwritten oldest item when a bounded ring wraps. */
+  evicted?: T;
+}
+
 export class RingBuffer<T> {
   /**
    * Backing store. Sized to `capacity` for bounded buffers;
@@ -29,15 +34,17 @@ export class RingBuffer<T> {
     return this._size;
   }
 
-  push(item: T): void {
+  push(item: T): RingBufferPushResult<T> {
     if (this.capacity === 0) {
       (this.buf as T[]).push(item);
       this._size++;
-    } else {
-      this.buf[this.head] = item;
-      this.head = (this.head + 1) % this.capacity;
-      if (this._size < this.capacity) this._size++;
+      return {};
     }
+    const evicted = this._size === this.capacity ? this.buf[this.head] : undefined;
+    this.buf[this.head] = item;
+    this.head = (this.head + 1) % this.capacity;
+    if (this._size < this.capacity) this._size++;
+    return evicted === undefined ? {} : { evicted };
   }
 
   /**

@@ -84,6 +84,25 @@ describe('TrajectoryStorage – trajectory updates', () => {
     expect(listener.mock.calls[1][1]).toMatchObject({ deleted: ['a1'] });
   });
 
+  it('reports append and eviction deltas so renderers can update only the tail', () => {
+    const storage = new TrajectoryStorage({ length: 1 });
+    const listener = vi.fn();
+    storage.subscribe(listener);
+
+    storage.appendTrajectoryPoint('a1', { x: 0, y: 0, time: 0 });
+    storage.appendTrajectoryPoint('a1', { x: 1, y: 0, time: 1 });
+
+    expect(listener.mock.calls[1][1]).toMatchObject({
+      appended: ['a1'],
+      appendDeltas: [{
+        id: 'a1',
+        point: { x: 1, y: 0, time: 1 },
+        evicted: { x: 0, y: 0, time: 0 },
+        startedSegment: false,
+      }],
+    });
+  });
+
   it('keeps retained id reuses as separate serializable segments', () => {
     const storage = new TrajectoryStorage({ length: 10 });
     storage.appendTrajectoryPoint('a1', { x: 0, y: 0, time: 0 });

@@ -4,6 +4,7 @@ import { useWithLoading } from '@/store/loading';
 import { useProjectStore } from '@/store/project';
 import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialogStore';
 import { useToast } from '@/store/toast';
+import { t } from '@lingui/macro';
 
 export interface FileOperationsContextValue {
   canSaveFile: boolean;
@@ -44,32 +45,38 @@ export const useFileOperations = (): FileOperationsContextValue => {
   const onFileSave = useCallback(async () => {
     try {
       await withLoading(() => save(undefined));
-      toast.success('File saved', activeFilepath ?? 'Project saved successfully.');
+      toast.success(t`File saved`, activeFilepath ?? t`Project saved successfully.`);
     } catch (error) {
-      toast.error('Failed to save file', String(error));
+      toast.error(t`Failed to save file`, String(error));
     }
   }, [withLoading, save, toast, activeFilepath]);
 
   const onFileOpen = useCallback(async () => {
     try {
-      const file = await openFile('打开文件');
+      const file = await openFile(t`Open File`);
       if (file) {
-        withLoading(() => open(file.path));
+        const result = await withLoading(() => open(file.path));
+        if (result.recovered) {
+          toast.warning(
+            t`Project recovered with warnings`,
+            t`Some data was invalid. Valid data was loaded; review the project and save a new copy.`,
+          );
+        }
       }
     } catch (error) {
-      toast.error('Failed to open files', String(error));
+      toast.error(t`Failed to open files`, String(error));
     }
   }, [withLoading, openFile, open, toast]);
 
   const onFileSaveAs = useCallback(async () => {
     try {
-      const file = await saveFileAs('另存为');
+      const file = await saveFileAs(t`Save As`);
       if (file) {
         await withLoading(() => save(undefined, file.path));
-        toast.success('File saved', file.path);
+        toast.success(t`File saved`, file.path);
       }
     } catch (error) {
-      toast.error('Failed to save file', String(error));
+      toast.error(t`Failed to save file`, String(error));
     }
   }, [withLoading, saveFileAs, save, toast]);
 

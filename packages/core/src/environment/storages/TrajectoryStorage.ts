@@ -56,10 +56,21 @@ export interface TrajectoryEntry {
   defaultColor: string;
 }
 
+export interface TrajectoryAppendDelta {
+  id: AgentId;
+  point: TrajectoryPoint;
+  /** Defined when the active ring wrapped and must be locally rebuilt. */
+  evicted?: TrajectoryPoint;
+  /** The append opened a new logical segment after a retained deletion. */
+  startedSegment: boolean;
+}
+
 export type TrajectoryDelta = {
   created: AgentId[];
   updated: AgentId[];
   appended: AgentId[];
+  /** Point-level append data for renderers that can update their tail chunk. */
+  appendDeltas?: TrajectoryAppendDelta[];
   deleted: AgentId[];
   replaced?: false;
 } | {
@@ -233,6 +244,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     const resolved = this.resolveConfig(id);
 
     let entry = this._data.trajectories.get(id);
+    const created = entry === undefined;
 
     if (entry === undefined) {
       entry = this.createEntry(resolved.length, resolved.width, resolved.color);
@@ -241,15 +253,23 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
       this.applyResolvedConfig(entry, resolved);
     }
 
+    let startedSegment = false;
     if (entry.closed) {
       const segment = new RingBuffer<TrajectoryPoint>(resolved.length);
       entry.segments.push(segment);
       entry.ring = segment;
       entry.closed = false;
+      startedSegment = true;
     }
 
-    entry.ring.push(point);
-    this.notify({ created: entry.ring.size === 1 ? [id] : [], updated: [], appended: entry.ring.size === 1 ? [] : [id], deleted: [] });
+    const append = entry.ring.push(point);
+    this.notify({
+      created: created ? [id] : [],
+      updated: [],
+      appended: created ? [] : [id],
+      appendDeltas: [{ id, point, evicted: append.evicted, startedSegment }],
+      deleted: [],
+    });
   }
 
   setTrajectories(trajectories: TrajectorySnapshotItem[]): void {

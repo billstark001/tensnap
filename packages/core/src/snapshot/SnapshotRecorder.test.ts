@@ -119,6 +119,26 @@ describe('SnapshotRecorder', () => {
     }
   });
 
+  it('rejects a byte budget below the initial baseline and never retains an over-budget frame', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'metadata_update', payload: { description: 'x'.repeat(4_096) } });
+    const recorder = new SnapshotRecorder(scenario);
+
+    expect(() => recorder.start({ maxBytes: 1 })).toThrow(/initial snapshot baseline/);
+    expect(recorder.active).toBe(false);
+
+    const baseline = recorder.start().byteLength;
+    recorder.stop();
+    recorder.start({ maxBytes: baseline + 128, ringBuffer: true });
+    recorder.recordMessage({ type: 'metadata_update', payload: { description: 'y'.repeat(8_192) } });
+    recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.frames).toEqual([]);
+    expect(snapshot.truncated).toBe(true);
+    expect(snapshot.byteLength).toBeLessThanOrEqual(baseline + 128);
+  });
+
   it('applies forward playback deltas without rebuilding the Scenario', () => {
     const scenario = new Scenario();
     const recorder = new SnapshotRecorder(scenario);

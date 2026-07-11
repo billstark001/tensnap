@@ -274,6 +274,9 @@ export class SnapshotRecorder {
 
   start(options: RecordingOptions = {}): Snapshot {
     this.stop();
+    if (options.maxBytes !== undefined && (!Number.isFinite(options.maxBytes) || options.maxBytes < 1)) {
+      throw new Error('RecordingOptions.maxBytes must be a positive finite number.');
+    }
     const timestamp = options.timestamp ?? now();
     this.options = {
       ...options,
@@ -302,6 +305,18 @@ export class SnapshotRecorder {
     this.bytesSinceKeyframe = 0;
     this.awaitingActionEnd = false;
     this.retentionExhausted = false;
+    if (this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes) {
+      const baseline = this.estimatedByteLength;
+      this.snapshot = null;
+      this.frameByteLengths.clear();
+      this.keyframeByteLengths.clear();
+      this.keyframeScenarioByteLengths.clear();
+      this.estimatedByteLength = 0;
+      this.initialByteLength = 0;
+      throw new Error(
+        `RecordingOptions.maxBytes (${this.options.maxBytes}) is smaller than the initial snapshot baseline (${baseline}).`,
+      );
+    }
     return clone(this.snapshot);
   }
 
@@ -434,15 +449,19 @@ export class SnapshotRecorder {
   private enforceRetention(): void {
     const target = this.snapshot;
     if (!target) return;
+    const exceedsBytes = (): boolean => (
+      this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes
+    );
     const exceeds = (): boolean => {
       const frames = target.frames;
       const first = frames[0];
       return (this.options.maxSteps !== undefined && frames.length > this.options.maxSteps)
         || (this.options.maxDurationMs !== undefined && first !== undefined && now() - first.timestamp > this.options.maxDurationMs)
-        || (this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes);
+        || exceedsBytes();
     };
     if (!exceeds()) return;
     if (!this.options.ringBuffer) {
+      if (exceedsBytes()) this.discardNewestFrame();
       target.truncated = true;
       this.retentionExhausted = true;
       return;
@@ -471,6 +490,53 @@ export class SnapshotRecorder {
       this.bytesSinceKeyframe = 0;
       target.truncated = true;
     }
+
+    // A single encoded frame can be larger than the remaining budget. It has
+    // no seekable suffix to retain, so discard it rather than publishing a
+    // snapshot that claims a strict byte budget while exceeding it.
+    if (exceedsBytes()) {
+      this.discardNewestFrame();
+      target.truncated = true;
+      this.retentionExhausted = true;
+    } else if (exceeds()) {
+      target.truncated = true;
+      this.retentionExhausted = true;
+    }
+  }
+
+  /** Drop an unretainable tail frame and rebuild accounting from retained segments. */
+  private discardNewestFrame(): void {
+    const target = this.snapshot;
+    const removed = target?.frames.pop();
+    if (!target || !removed) return;
+
+    const lastFrame = target.frames[target.frames.length - 1]?.index ?? target.initial.frame;
+    target.keyframes = target.keyframes.filter((keyframe) => keyframe.frame <= lastFrame);
+    this.frameByteLengths.clear();
+    this.keyframeByteLengths.clear();
+    this.keyframeScenarioByteLengths.clear();
+    this.initialByteLength = byteLength(target.initial);
+    this.keyframeScenarioByteLengths.set(target.initial.frame, byteLength(target.initial.scenario));
+    this.estimatedByteLength = this.initialByteLength + byteLength({
+      version: target.version,
+      metadata: target.metadata,
+      layerCodecs: target.layerCodecs,
+    });
+    for (const frame of target.frames) {
+      const length = byteLength(frame);
+      this.frameByteLengths.set(frame.index, length);
+      this.estimatedByteLength += length;
+    }
+    for (const keyframe of target.keyframes) {
+      const length = byteLength(keyframe);
+      this.keyframeByteLengths.set(keyframe.frame, length);
+      this.keyframeScenarioByteLengths.set(keyframe.frame, byteLength(keyframe.scenario));
+      this.estimatedByteLength += length;
+    }
+    const previousKeyframe = target.keyframes[target.keyframes.length - 1] ?? target.initial;
+    this.bytesSinceKeyframe = target.frames
+      .filter((frame) => frame.index > previousKeyframe.frame)
+      .reduce((total, frame) => total + (this.frameByteLengths.get(frame.index) ?? 0), 0);
   }
 }
 

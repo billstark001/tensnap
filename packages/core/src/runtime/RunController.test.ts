@@ -119,6 +119,30 @@ describe('RunController', () => {
     expect(() => compileRunCondition('/x/.test("x")')).toThrow();
   });
 
+  it('reuses read-only condition views until their source revisions change', () => {
+    const session = new RendererSession();
+    session.scenario.apply({ type: 'param_create', payload: { id: 'speed', type: 'number', label: 'Speed', value: 2 } });
+    session.scenario.apply({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
+    session.scenario.apply({ type: 'chart_update', payload: { updates: [{ id: 'population', time: 1, value: 10 }] } });
+    const getData = vi.spyOn(session.scenario.charts, 'getData');
+
+    const first = createRunConditionScope(session.scenario, 1);
+    const second = createRunConditionScope(session.scenario, 2);
+    expect(second.metadata).toBe(first.metadata);
+    expect(second.parameters).toBe(first.parameters);
+    expect(second.charts).toBe(first.charts);
+    expect(second.charts.population).toBe(10);
+    expect(getData).not.toHaveBeenCalled();
+
+    session.scenario.apply({ type: 'metadata_update', payload: { phase: 'next' } });
+    session.scenario.apply({ type: 'chart_update', payload: { updates: [{ id: 'population', time: 2, value: 11 }] } });
+    const updated = createRunConditionScope(session.scenario, 3);
+    expect(updated.metadata).not.toBe(first.metadata);
+    expect(updated.parameters).toBe(first.parameters);
+    expect(updated.charts).not.toBe(first.charts);
+    expect(updated.charts.population).toBe(11);
+  });
+
   it('stops a bounded run when its in-flight action times out', async () => {
     vi.useFakeTimers();
     const sent: RendererToSimulatorMessage[] = [];

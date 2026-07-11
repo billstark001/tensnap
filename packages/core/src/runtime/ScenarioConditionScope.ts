@@ -25,6 +25,17 @@ export interface CompiledRunCondition {
 
 const cloneReadonly = <T>(value: T): T => structuredClone(value);
 
+type CachedConditionViews = {
+  metadataRevision: number;
+  metadata: Readonly<Record<string, unknown>>;
+  parameterRevision: number;
+  parameters: Readonly<Record<string, unknown>>;
+  chartRevision: number;
+  charts: Readonly<Record<string, unknown>>;
+};
+
+const conditionViews = new WeakMap<Scenario, CachedConditionViews>();
+
 const isNode = (value: unknown): value is JSExprNode => (
   typeof value === 'object'
   && value !== null
@@ -141,13 +152,42 @@ function createParameterView(scenario: Scenario): Readonly<Record<string, unknow
 function createChartView(scenario: Scenario): Readonly<Record<string, unknown>> {
   const values = Object.create(null) as Record<string, unknown>;
   for (const metadata of scenario.charts.getAllMeta()) {
-    const points = scenario.charts.getData(metadata.id);
-    const point = points && points.length > 0 ? points[points.length - 1] : undefined;
-    if (point && metadata.id in point) {
-      values[metadata.id] = cloneReadonly(point[metadata.id]);
-    }
+    const value = scenario.charts.getLatestValue(metadata.id);
+    if (value !== undefined) values[metadata.id] = cloneReadonly(value);
   }
   return Object.freeze(values);
+}
+
+function getCachedConditionViews(scenario: Scenario): CachedConditionViews {
+  const cached = conditionViews.get(scenario);
+  const metadataRevision = scenario.metadataRevision;
+  const parameterRevision = scenario.parameterRevision;
+  const chartRevision = scenario.charts.revision;
+  if (
+    cached
+    && cached.metadataRevision === metadataRevision
+    && cached.parameterRevision === parameterRevision
+    && cached.chartRevision === chartRevision
+  ) {
+    return cached;
+  }
+
+  const next: CachedConditionViews = {
+    metadataRevision,
+    metadata: cached?.metadataRevision === metadataRevision
+      ? cached.metadata
+      : Object.freeze(scenario.metadata),
+    parameterRevision,
+    parameters: cached?.parameterRevision === parameterRevision
+      ? cached.parameters
+      : createParameterView(scenario),
+    chartRevision,
+    charts: cached?.chartRevision === chartRevision
+      ? cached.charts
+      : createChartView(scenario),
+  };
+  conditionViews.set(scenario, next);
+  return next;
 }
 
 function findAgentStorage(
@@ -166,6 +206,7 @@ function findAgentStorage(
  * resolved lazily through the authoritative AgentStorage.
  */
 export function createRunConditionScope(scenario: Scenario, steps: number): RunConditionScope {
+  const views = getCachedConditionViews(scenario);
   const agent = (environmentId: string, layerId: string, id: string | number) => {
     const value = findAgentStorage(scenario, environmentId, layerId)?.getAgent(id as AgentId);
     return value === undefined ? undefined : Object.freeze(cloneReadonly(value));
@@ -177,9 +218,9 @@ export function createRunConditionScope(scenario: Scenario, steps: number): RunC
   return Object.freeze({
     steps,
     time: scenario.time,
-    metadata: Object.freeze(scenario.metadata),
-    parameters: createParameterView(scenario),
-    charts: createChartView(scenario),
+    metadata: views.metadata,
+    parameters: views.parameters,
+    charts: views.charts,
     agent,
     agentCount,
   });

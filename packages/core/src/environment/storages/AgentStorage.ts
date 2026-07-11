@@ -88,6 +88,10 @@ export interface AgentStorageSnapshot {
 }
 
 export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
+  private static readonly SPATIAL_CELL_SIZE = 4;
+  private readonly spatialCells = new Map<string, Set<AgentId>>();
+  private readonly agentCells = new Map<AgentId, string>();
+
   constructor() {
     super({ agents: new Map() });
   }
@@ -112,6 +116,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const map: Map<AgentId, AgentRenderState> = new Map();
     for (const a of agents) map.set(a.id, { ...a });
     this._data = { agents: map };
+    this.rebuildSpatialIndex();
     this.notify({ replaced: true });
   }
 
@@ -134,6 +139,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
         agent.y = pos.y;
         if (pos.vx !== undefined) agent.vx = pos.vx;
         if (pos.vy !== undefined) agent.vy = pos.vy;
+        this.indexAgent(agent);
       }
     });
     // NOTE: deliberately no notify() here — call flushPositions() when ready.
@@ -172,10 +178,12 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     if (existing) {
       // Update existing agent in place to maintain reference stability
       Object.assign(existing, agent);
+      this.indexAgent(existing);
       this.notify({ added: [], updated: [existing], removed: [] });
     } else {
       const clonedAgent = { ...agent };
       this._data.agents.set(agent.id, clonedAgent);
+      this.indexAgent(clonedAgent);
       this.notify({ added: [clonedAgent], updated: [], removed: [] });
     }
   }
@@ -188,9 +196,11 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
       const existing = this._data.agents.get(agent.id);
       if (existing) {
         Object.assign(existing, agent);
+        this.indexAgent(existing);
         updated.push(existing);
       } else {
         this._data.agents.set(agent.id, agent);
+        this.indexAgent(agent);
         added.push(agent);
       }
     }
@@ -205,10 +215,12 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const existing = this._data.agents.get(id);
     if (existing) {
       Object.assign(existing, updates);
+      this.indexAgent(existing);
       delta.updated.push(existing);
     } else {
       const newAgent = { id, ...updates } as AgentRenderState;
       this._data.agents.set(id, newAgent);
+      this.indexAgent(newAgent);
       delta.added.push(newAgent);
     }
     this.notify(delta);
@@ -221,10 +233,12 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
       const existing = this._data.agents.get(id);
       if (existing) {
         Object.assign(existing, data);
+        this.indexAgent(existing);
         delta.updated.push(existing);
       } else {
         const newAgent = { id, ...data } as AgentRenderState;
         this._data.agents.set(id, newAgent);
+        this.indexAgent(newAgent);
         delta.added.push(newAgent);
       }
     }
@@ -240,10 +254,12 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
       const existing = this._data.agents.get(id);
       if (existing) {
         Object.assign(existing, data);
+        this.indexAgent(existing);
         delta.updated.push(existing);
       } else {
         const newAgent = { id, ...data } as AgentRenderState;
         this._data.agents.set(id, newAgent);
+        this.indexAgent(newAgent);
         delta.added.push(newAgent);
       }
     }
@@ -255,6 +271,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /** Remove a single agent by ID. */
   removeAgent(id: AgentId): void {
     if (this._data.agents.delete(id)) {
+      this.unindexAgent(id);
       this.notify({ added: [], updated: [], removed: [id] });
     }
   }
@@ -265,6 +282,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const removed = Array.from(ids);
     for (const id of removed) {
       if (this._data.agents.delete(id)) {
+        this.unindexAgent(id);
         changed = true;
       }
     }
@@ -294,11 +312,79 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /** Clear all agents. */
   clearAgents(): void {
     this._data.agents.clear();
+    this.spatialCells.clear();
+    this.agentCells.clear();
     this.notify({ replaced: true });
   }
 
   /** Read-only view of the current agent map. */
   get agents(): ReadonlyMap<AgentId, AgentRenderState> {
     return this._data.agents;
+  }
+
+  /** Exact radius query backed by an incrementally maintained spatial hash. */
+  getAgentsWithinRadius(x: number, y: number, radius: number): AgentRenderState[] {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(radius) || radius < 0) return [];
+    const size = AgentStorage.SPATIAL_CELL_SIZE;
+    const minX = Math.floor((x - radius) / size);
+    const maxX = Math.floor((x + radius) / size);
+    const minY = Math.floor((y - radius) / size);
+    const maxY = Math.floor((y + radius) / size);
+    const squaredRadius = radius * radius;
+    const result: AgentRenderState[] = [];
+    for (let cellX = minX; cellX <= maxX; cellX += 1) {
+      for (let cellY = minY; cellY <= maxY; cellY += 1) {
+        const ids = this.spatialCells.get(`${cellX}:${cellY}`);
+        if (!ids) continue;
+        for (const id of ids) {
+          const agent = this._data.agents.get(id);
+          const agentX = agent?.x;
+          const agentY = agent?.y;
+          if (
+            agent
+            && typeof agentX === 'number'
+            && Number.isFinite(agentX)
+            && typeof agentY === 'number'
+            && Number.isFinite(agentY)
+            && (agentX - x) ** 2 + (agentY - y) ** 2 <= squaredRadius
+          ) {
+            result.push(agent);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  private rebuildSpatialIndex(): void {
+    this.spatialCells.clear();
+    this.agentCells.clear();
+    for (const agent of this._data.agents.values()) this.indexAgent(agent);
+  }
+
+  private indexAgent(agent: AgentRenderState): void {
+    this.unindexAgent(agent.id);
+    const x = agent.x;
+    const y = agent.y;
+    if (typeof x !== 'number' || !Number.isFinite(x) || typeof y !== 'number' || !Number.isFinite(y)) return;
+    const key = this.cellKey(x, y);
+    const cell = this.spatialCells.get(key) ?? new Set<AgentId>();
+    cell.add(agent.id);
+    this.spatialCells.set(key, cell);
+    this.agentCells.set(agent.id, key);
+  }
+
+  private unindexAgent(id: AgentId): void {
+    const key = this.agentCells.get(id);
+    if (!key) return;
+    const cell = this.spatialCells.get(key);
+    cell?.delete(id);
+    if (cell?.size === 0) this.spatialCells.delete(key);
+    this.agentCells.delete(id);
+  }
+
+  private cellKey(x: number, y: number): string {
+    const size = AgentStorage.SPATIAL_CELL_SIZE;
+    return `${Math.floor(x / size)}:${Math.floor(y / size)}`;
   }
 }

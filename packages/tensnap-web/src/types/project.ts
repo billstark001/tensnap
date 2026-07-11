@@ -11,7 +11,8 @@ import {
   SimulatorToRendererMessageSchema,
 } from '@tensnap/protocol';
 import { z } from 'zod';
-import { ContainerView } from "./ui";
+import type { ContainerView } from "./ui";
+import { createDefaultRootLayout } from '@/utils/view/create-view';
 
 export const PROJECT_FILE_VERSION = 1;
 
@@ -25,32 +26,40 @@ const ScenarioLayerSnapshotSchema = z.object({
   storageSnapshot: z.unknown(),
 });
 
+const ScenarioEnvironmentSnapshotSchema = z.object({
+  id: z.string(),
+  type: z.enum(['uniform', '2d']),
+  layers: z.array(ScenarioLayerSnapshotSchema),
+});
+
+const ChartGroupSnapshotSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  metadataDict: z.record(z.string(), ChartMetadataSchema),
+  data: z.array(z.object({ time: z.number() }).catchall(z.union([z.number(), z.string()]))),
+});
+
+const LogSnapshotSchema = z.object({
+  message: z.string(),
+  level: LogLevelSchema,
+  target: z.string().optional(),
+  timestamp: z.number(),
+  data: z.unknown().optional(),
+});
+
+const AssetSnapshotSchema = z.object({
+  meta: AssetMetaSchema,
+  data: z.union([z.string(), z.instanceof(Uint8Array)]).optional(),
+});
+
 const ScenarioSnapshotSchema = z.object({
   metadata: UnknownRecordSchema,
   actions: z.array(ActionSchema),
   parameters: z.array(ParameterSchema),
-  environments: z.array(z.object({
-    id: z.string(),
-    type: z.enum(['uniform', '2d']),
-    layers: z.array(ScenarioLayerSnapshotSchema),
-  })),
-  charts: z.array(z.object({
-    id: z.string(),
-    label: z.string(),
-    metadataDict: z.record(z.string(), ChartMetadataSchema),
-    data: z.array(z.object({ time: z.number() }).catchall(z.union([z.number(), z.string()]))),
-  })),
-  logs: z.array(z.object({
-    message: z.string(),
-    level: LogLevelSchema,
-    target: z.string().optional(),
-    timestamp: z.number(),
-    data: z.unknown().optional(),
-  })),
-  assets: z.array(z.object({
-    meta: AssetMetaSchema,
-    data: z.union([z.string(), z.instanceof(Uint8Array)]).optional(),
-  })),
+  environments: z.array(ScenarioEnvironmentSnapshotSchema),
+  charts: z.array(ChartGroupSnapshotSchema),
+  logs: z.array(LogSnapshotSchema),
+  assets: z.array(AssetSnapshotSchema),
 });
 
 const SnapshotKeyframeSchema = z.object({
@@ -64,8 +73,10 @@ const SnapshotSchema = z.object({
   metadata: z.object({
     id: z.string(),
     createdAt: z.number(),
-    endedAt: z.number().optional(),
-    label: z.string().optional(),
+    // MessagePack serializes explicit `undefined` object properties as null.
+    // Accept existing files and normalize them back to the optional shape.
+    endedAt: z.number().nullable().optional().transform((value) => value ?? undefined),
+    label: z.string().nullable().optional().transform((value) => value ?? undefined),
   }),
   initial: SnapshotKeyframeSchema,
   keyframes: z.array(SnapshotKeyframeSchema),
@@ -74,13 +85,17 @@ const SnapshotSchema = z.object({
     timestamp: z.number(),
     messages: z.array(SimulatorToRendererMessageSchema),
     controls: z.array(RendererToSimulatorMessageSchema),
-    action: ActionEndPayloadSchema.optional(),
+    action: ActionEndPayloadSchema.nullable().optional().transform((value) => value ?? undefined),
     kind: z.enum(['action', 'control', 'sync']),
   })),
   layerCodecs: z.record(z.string(), z.enum(['delta', 'keyframe', 'adaptive', 'derived'])),
   byteLength: z.number().nonnegative(),
   truncated: z.boolean(),
 });
+
+// Version-zero projects may contain either their original one-off scenario
+// snapshots or recordings created before the project file version was added.
+const LegacySnapshotSchema = z.union([ScenarioSnapshotSchema, SnapshotSchema]);
 
 const BaseViewSchema = z.object({
   id: z.string(),
@@ -128,7 +143,7 @@ const LegacyProjectFileSchema = z.object({
   url: z.string(),
   mainView: AnyViewSchema,
   scenario: ScenarioSnapshotSchema,
-  snapshots: z.array(ScenarioSnapshotSchema).optional(),
+  snapshots: z.array(LegacySnapshotSchema).optional(),
 });
 
 export interface ProjectSettings {
@@ -141,6 +156,124 @@ export interface ProjectFileContent {
   mainView: ContainerView;
   scenario: ScenarioSnapshot;
   snapshots: Snapshot[];
+}
+
+export interface ProjectRecovery {
+  content: ProjectFileContent;
+  warnings: string[];
+}
+
+const asRecord = (value: unknown): Record<string, unknown> | null => (
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+);
+
+function recoverArray<T>(
+  value: unknown,
+  schema: z.ZodType<T>,
+  label: string,
+  warnings: string[],
+): T[] {
+  if (!Array.isArray(value)) {
+    warnings.push(`${label} was missing or malformed and was reset.`);
+    return [];
+  }
+  const result: T[] = [];
+  let discarded = 0;
+  for (const entry of value) {
+    const parsed = schema.safeParse(entry);
+    if (parsed.success) result.push(parsed.data);
+    else discarded += 1;
+  }
+  if (discarded > 0) warnings.push(`${discarded} invalid ${label} entr${discarded === 1 ? 'y was' : 'ies were'} skipped.`);
+  return result;
+}
+
+function recoverScenarioSnapshot(value: unknown, warnings: string[], label: string): ScenarioSnapshot | null {
+  const strict = ScenarioSnapshotSchema.safeParse(value);
+  if (strict.success) return strict.data as ScenarioSnapshot;
+
+  const source = asRecord(value);
+  if (!source) return null;
+  warnings.push(`${label} was partially recovered.`);
+  const metadata = UnknownRecordSchema.safeParse(source.metadata);
+  const recovered = {
+    metadata: metadata.success ? metadata.data : {},
+    actions: recoverArray(source.actions, ActionSchema, `${label} actions`, warnings),
+    parameters: recoverArray(source.parameters, ParameterSchema, `${label} parameters`, warnings),
+    environments: recoverArray(source.environments, ScenarioEnvironmentSnapshotSchema, `${label} environments`, warnings),
+    charts: recoverArray(source.charts, ChartGroupSnapshotSchema, `${label} charts`, warnings),
+    logs: recoverArray(source.logs, LogSnapshotSchema, `${label} logs`, warnings),
+    assets: recoverArray(source.assets, AssetSnapshotSchema, `${label} assets`, warnings),
+  };
+  const parsed = ScenarioSnapshotSchema.safeParse(recovered);
+  return parsed.success ? parsed.data as ScenarioSnapshot : null;
+}
+
+function recoverRecordingSnapshot(value: unknown, warnings: string[], index: number): Snapshot | null {
+  const recorded = SnapshotSchema.safeParse(value);
+  if (recorded.success) return recorded.data as Snapshot;
+
+  const oneOff = ScenarioSnapshotSchema.safeParse(value);
+  if (oneOff.success) {
+    warnings.push(`Snapshot ${index + 1} used the legacy format and was migrated.`);
+    return createSingleSnapshot(oneOff.data as ScenarioSnapshot);
+  }
+
+  const source = asRecord(value);
+  const initial = source ? SnapshotKeyframeSchema.safeParse(source.initial) : null;
+  if (!initial?.success) {
+    warnings.push(`Snapshot ${index + 1} could not be recovered and was skipped.`);
+    return null;
+  }
+  const metadata = asRecord(source?.metadata);
+  warnings.push(`Snapshot ${index + 1} was recovered from its initial state; its timeline was discarded.`);
+  return createSingleSnapshot(initial.data.scenario as ScenarioSnapshot, {
+    id: typeof metadata?.id === 'string' ? metadata.id : undefined,
+    label: typeof metadata?.label === 'string' ? metadata.label : undefined,
+    timestamp: typeof metadata?.createdAt === 'number' ? metadata.createdAt : undefined,
+  });
+}
+
+/**
+ * Best-effort recovery for a project that failed strict validation. It never
+ * tries to interpret a future project version, but preserves every validated
+ * scenario section and falls back to a snapshot's initial state when possible.
+ */
+export function recoverProjectFileContent(value: unknown): ProjectRecovery | null {
+  const source = asRecord(value);
+  if (!source || (Object.prototype.hasOwnProperty.call(source, 'version') && source.version !== PROJECT_FILE_VERSION)) return null;
+
+  const warnings = ['Project validation failed. Valid data was recovered where possible.'];
+  const url = typeof source.url === 'string' ? source.url : '';
+  if (!url) warnings.push('The project connection URL was missing or invalid and was left disconnected.');
+  const scenario = recoverScenarioSnapshot(source.scenario, warnings, 'The main scenario');
+  if (!scenario) return null;
+
+  const parsedView = AnyViewSchema.safeParse(source.mainView);
+  const mainView = parsedView.success
+    ? parsedView.data as ContainerView
+    : createDefaultRootLayout();
+  if (!parsedView.success) warnings.push('The view layout was invalid and was reset to the default layout.');
+
+  const sourceSnapshots = Array.isArray(source.snapshots) ? source.snapshots : [];
+  if (!Array.isArray(source.snapshots)) warnings.push('Snapshots were missing or malformed and were reset.');
+  const snapshots = sourceSnapshots.flatMap((snapshot, index) => {
+    const recovered = recoverRecordingSnapshot(snapshot, warnings, index);
+    return recovered ? [recovered] : [];
+  });
+
+  return {
+    content: {
+      version: PROJECT_FILE_VERSION,
+      url,
+      mainView,
+      scenario,
+      snapshots,
+    },
+    warnings,
+  };
 }
 
 /**
@@ -168,7 +301,11 @@ export function parseProjectFileContent(value: unknown): ProjectFileContent {
     url: legacy.url,
     mainView: legacy.mainView as ContainerView,
     scenario: legacy.scenario as ScenarioSnapshot,
-    snapshots: (legacy.snapshots ?? []).map((snapshot) => createSingleSnapshot(snapshot as ScenarioSnapshot)),
+    snapshots: (legacy.snapshots ?? []).map((snapshot) => (
+      'version' in snapshot && snapshot.version === 1
+        ? snapshot as Snapshot
+        : createSingleSnapshot(snapshot as ScenarioSnapshot)
+    )),
   };
 }
 

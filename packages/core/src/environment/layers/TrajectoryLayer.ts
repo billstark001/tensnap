@@ -3,6 +3,7 @@ import { BaseLayer } from './BaseLayer';
 import type { EnvironmentViewFitMode } from '../host';
 import {
   TrajectoryDelta,
+  TrajectoryAppendDelta,
   TrajectoryEntry,
   TrajectoryStorage,
   TrajectoryStorageData,
@@ -11,13 +12,20 @@ import { AgentId, GridCoordOffset, Viewport } from '../types';
 import { getCoordOffsetValue } from '../utils';
 import { splitTrajectoryPoints, TrajectoryWorldBounds } from '../utils/trajectory';
 
+const TRAJECTORY_CHUNK_POINTS = 1_024;
+
 export interface TrajectoryLayerConfig {
   coordOffset?: GridCoordOffset;
   worldBounds?: TrajectoryWorldBounds;
 }
 
-interface TrajectoryLineCacheEntry {
+interface TrajectorySegmentCache {
   lines: Line[];
+  pointChunks: number[][];
+}
+
+interface TrajectoryLineCacheEntry {
+  segments: TrajectorySegmentCache[];
   color: string;
   width: number;
 }
@@ -80,10 +88,18 @@ export class TrajectoryLayer extends BaseLayer {
       this._removeLine(id);
     }
 
+    const incrementallyApplied = new Set<AgentId>();
+    for (const append of delta.appendDeltas ?? []) {
+      const entry = data.trajectories.get(append.id);
+      if (entry && this._appendTail(append.id, entry, append)) {
+        incrementallyApplied.add(append.id);
+      }
+    }
+
     const idsToRefresh = new Set<AgentId>([
-      ...delta.created,
-      ...delta.updated,
-      ...delta.appended,
+      ...delta.created.filter((id) => !incrementallyApplied.has(id)),
+      ...delta.updated.filter((id) => !incrementallyApplied.has(id)),
+      ...delta.appended.filter((id) => !incrementallyApplied.has(id)),
     ]);
 
     for (const id of idsToRefresh) {
@@ -110,34 +126,91 @@ export class TrajectoryLayer extends BaseLayer {
     const color = firstPointColor ?? entry.defaultColor;
     const strokeWidth = this._toSceneStroke(entry.width);
 
-    let cached = this._lines.get(id);
-    if (!cached || cached.color !== color) {
-      this._removeLine(id);
-      cached = { lines: [], color, width: entry.width };
-      this._lines.set(id, cached);
+    this._removeLine(id);
+    const cached: TrajectoryLineCacheEntry = { segments: [], color, width: entry.width };
+    this._lines.set(id, cached);
+
+    for (const segment of segments) this._appendSegment(cached, segment, strokeWidth);
+  }
+
+  /**
+   * Append only to the active chunk. Ring wrap, segment closure and world-wrap
+   * splitting change earlier geometry, so those intentionally fall back to a
+   * local full rebuild of this trajectory.
+   */
+  private _appendTail(
+    id: AgentId,
+    entry: TrajectoryEntry,
+    append: TrajectoryAppendDelta,
+  ): boolean {
+    if (this._cfg.worldBounds) return false;
+    const cached = this._lines.get(id);
+    if (!cached) return false;
+    const strokeWidth = this._toSceneStroke(entry.width);
+    if (append.evicted) {
+      if (cached.segments.length !== entry.segments.length) return false;
+      this._rebuildActiveSegment(cached, entry, strokeWidth);
+      cached.width = entry.width;
+      return true;
     }
+    if (append.startedSegment) {
+      if (cached.segments.length + 1 !== entry.segments.length) return false;
+      this._appendSegment(cached, [append.point], strokeWidth);
+      cached.width = entry.width;
+      return true;
+    }
+    if (cached.segments.length !== entry.segments.length) return false;
+    const segment = cached.segments[cached.segments.length - 1];
+    if (!segment) return false;
 
-    cached.width = entry.width;
-
-    while (cached.lines.length < segments.length) {
-      const line = new Line({ stroke: color, strokeWidth, points: [] });
+    let chunk = segment.pointChunks[segment.pointChunks.length - 1];
+    let line = segment.lines[segment.lines.length - 1];
+    if (!chunk || !line || chunk.length / 2 >= TRAJECTORY_CHUNK_POINTS) {
+      chunk = [];
+      line = new Line({ stroke: cached.color, strokeWidth, points: chunk });
       this.group.add(line);
-      cached.lines.push(line);
+      segment.pointChunks.push(chunk);
+      segment.lines.push(line);
     }
+    chunk.push(append.point.x + this._posOffset, append.point.y + this._posOffset);
+    line.set({ points: chunk, strokeWidth });
+    cached.width = entry.width;
+    return true;
+  }
 
-    while (cached.lines.length > segments.length) {
-      cached.lines.pop()?.remove();
+  private _appendSegment(
+    cached: TrajectoryLineCacheEntry,
+    points: Array<{ x: number; y: number }>,
+    strokeWidth: number,
+  ): void {
+    const segmentCache: TrajectorySegmentCache = { lines: [], pointChunks: [] };
+    for (let start = 0; start < points.length; start += TRAJECTORY_CHUNK_POINTS) {
+      const chunk = this._flattenPoints(points.slice(start, start + TRAJECTORY_CHUNK_POINTS));
+      const line = new Line({ stroke: cached.color, strokeWidth, points: chunk });
+      this.group.add(line);
+      segmentCache.lines.push(line);
+      segmentCache.pointChunks.push(chunk);
     }
+    cached.segments.push(segmentCache);
+  }
 
-    for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
-      const segment = segments[segmentIndex];
-      const flatPoints = new Array<number>(segment.length * 2);
-      for (let pointIndex = 0; pointIndex < segment.length; pointIndex += 1) {
-        flatPoints[pointIndex * 2] = segment[pointIndex].x + this._posOffset;
-        flatPoints[pointIndex * 2 + 1] = segment[pointIndex].y + this._posOffset;
-      }
-      cached.lines[segmentIndex].set({ points: flatPoints, strokeWidth });
+  private _rebuildActiveSegment(
+    cached: TrajectoryLineCacheEntry,
+    entry: TrajectoryEntry,
+    strokeWidth: number,
+  ): void {
+    const previous = cached.segments.pop();
+    for (const line of previous?.lines ?? []) line.remove();
+    this._appendSegment(cached, entry.ring.toArray(), strokeWidth);
+  }
+
+  private _flattenPoints(points: Array<{ x: number; y: number }>): number[] {
+    const flatPoints = new Array<number>(points.length * 2);
+    for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+      flatPoints[pointIndex * 2] = points[pointIndex].x + this._posOffset;
+      flatPoints[pointIndex * 2 + 1] = points[pointIndex].y + this._posOffset;
     }
+    return flatPoints;
   }
 
   /**
@@ -166,8 +239,8 @@ export class TrajectoryLayer extends BaseLayer {
   private _updateStrokeWidths(): void {
     for (const cached of this._lines.values()) {
       const strokeWidth = this._toSceneStroke(cached.width);
-      for (const line of cached.lines) {
-        line.set({ strokeWidth });
+      for (const segment of cached.segments) {
+        for (const line of segment.lines) line.set({ strokeWidth });
       }
     }
   }
@@ -177,16 +250,16 @@ export class TrajectoryLayer extends BaseLayer {
     if (!cached) {
       return;
     }
-    for (const line of cached.lines) {
-      line.remove();
+    for (const segment of cached.segments) {
+      for (const line of segment.lines) line.remove();
     }
     this._lines.delete(id);
   }
 
   private _clearLines(): void {
     for (const cached of this._lines.values()) {
-      for (const line of cached.lines) {
-        line.remove();
+      for (const segment of cached.segments) {
+        for (const line of segment.lines) line.remove();
       }
     }
     this._lines.clear();

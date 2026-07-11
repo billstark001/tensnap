@@ -14,6 +14,7 @@ import { StorageListener, IMutableStorage, Unsubscribe } from '../types';
 export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta> {
   protected _data: T;
   private readonly _listeners = new Set<StorageListener<T, TDelta>>();
+  private _revision = 0;
 
   constructor(initialData: T) {
     this._data = initialData;
@@ -25,6 +26,11 @@ export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta
 
   getData(): T {
     return this._data;
+  }
+
+  /** Incremented for every observable storage mutation. */
+  get revision(): number {
+    return this._revision;
   }
 
   subscribe(listener: StorageListener<T, TDelta>): Unsubscribe {
@@ -88,6 +94,7 @@ export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta
   // -------------------------------------------------------------------------
 
   private _notify(delta?: TDelta): void {
+    this._revision += 1;
     this._listeners.forEach((l) => l(this._data, delta));
   }
 }

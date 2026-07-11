@@ -236,6 +236,20 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     return result;
   }
 
+  /** Resolve the induced edge set in O(sum(degree)) rather than scanning E. */
+  getEdgesForAgents(agentIds: Iterable<AgentId>): GraphEdge[] {
+    const keys = new Set<string>();
+    for (const id of agentIds) {
+      for (const key of this._data.adjacentMap.get(id) ?? []) keys.add(key);
+    }
+    const result: GraphEdge[] = [];
+    for (const key of keys) {
+      const edge = this._data.edges.get(key);
+      if (edge) result.push(edge);
+    }
+    return result;
+  }
+
   /** Get number of edges. O(1). */
   getEdgeCount(): number {
     return this._data.edges.size;

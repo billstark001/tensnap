@@ -65,7 +65,7 @@ msgstr "动作标签"
 msgid "Action Timeout"
 msgstr "动作超时时长"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:112
+#: src/dialogs/SnapshotDetailDialog.tsx:150
 msgid "Action:"
 msgstr "动作："
 
@@ -73,7 +73,7 @@ msgstr "动作："
 #~ msgid "Adjust Mode"
 #~ msgstr "调整模式"
 
-#: src/dialogs/AgentDetailsDialog.tsx:206
+#: src/dialogs/AgentDetailsDialog.tsx:207
 msgid "Agent Details"
 msgstr "智能体详情"
 
@@ -170,7 +170,7 @@ msgid "Client Message Validation"
 msgstr "客户端信息格式验证"
 
 #: src/dialogs/AboutDialog.tsx:79
-#: src/dialogs/AgentDetailsDialog.tsx:298
+#: src/dialogs/AgentDetailsDialog.tsx:299
 #: src/dialogs/SettingsDialog.tsx:335
 msgid "Close"
 msgstr "关闭"
@@ -179,7 +179,7 @@ msgstr "关闭"
 #~ msgid "Close {0}"
 #~ msgstr "关闭 {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:270
+#: src/dialogs/AgentDetailsDialog.tsx:271
 msgid "Color:"
 msgstr "颜色："
 
@@ -229,6 +229,7 @@ msgstr "连续执行…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:109
 #: src/components/toolbar/MenuBar.tsx:101
+#: src/dialogs/SnapshotDetailDialog.tsx:70
 msgid "Copy"
 msgstr "复制"
 
@@ -255,7 +256,7 @@ msgstr "创建新项目"
 msgid "Current Value"
 msgstr "当前值"
 
-#: src/dialogs/AgentDetailsDialog.tsx:285
+#: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "Custom Data:"
 msgstr "自定义数据："
 
@@ -271,7 +272,7 @@ msgstr "深色"
 msgid "Data Points"
 msgstr "数据点"
 
-#: src/dialogs/AgentDetailsDialog.tsx:280
+#: src/dialogs/AgentDetailsDialog.tsx:281
 msgid "default"
 msgstr "默认"
 
@@ -279,7 +280,7 @@ msgstr "默认"
 msgid "Delete"
 msgstr "删除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:155
+#: src/dialogs/SnapshotDetailDialog.tsx:193
 msgid "Delete recording"
 msgstr "删除录制"
 
@@ -438,7 +439,7 @@ msgstr "文件"
 #~ msgid "File Manager"
 #~ msgstr "文件管理器"
 
-#: src/dialogs/AgentDetailsDialog.tsx:241
+#: src/dialogs/AgentDetailsDialog.tsx:242
 msgid "Follow agent"
 msgstr "跟随智能体"
 
@@ -458,11 +459,11 @@ msgstr "跟随智能体"
 #~ msgid "Force visible"
 #~ msgstr "强制显示"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:111
+#: src/dialogs/SnapshotDetailDialog.tsx:149
 msgid "Frame updates:"
 msgstr "帧更新："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:109
+#: src/dialogs/SnapshotDetailDialog.tsx:147
 msgid "Frame:"
 msgstr "帧："
 
@@ -490,7 +491,7 @@ msgstr "全屏"
 msgid "Hash:"
 msgstr "散列值："
 
-#: src/dialogs/AgentDetailsDialog.tsx:141
+#: src/dialogs/AgentDetailsDialog.tsx:142
 msgid "Heading:"
 msgstr "朝向："
 
@@ -510,7 +511,7 @@ msgstr "帮助"
 #~ msgid "Hide Right Panel"
 #~ msgstr "隐藏右侧面板"
 
-#: src/dialogs/AgentDetailsDialog.tsx:262
+#: src/dialogs/AgentDetailsDialog.tsx:263
 msgid "Icon:"
 msgstr "图标："
 
@@ -519,12 +520,12 @@ msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:131
-#: src/dialogs/AgentDetailsDialog.tsx:255
-#: src/dialogs/SnapshotDetailDialog.tsx:107
+#: src/dialogs/AgentDetailsDialog.tsx:256
+#: src/dialogs/SnapshotDetailDialog.tsx:145
 msgid "ID:"
 msgstr "ID："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:90
+#: src/dialogs/SnapshotDetailDialog.tsx:128
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "离线查看此录制。打开后将创建一个断开连接的副本。"
 
@@ -610,7 +611,7 @@ msgstr "MSPT："
 #~ msgstr "名称"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:244
+#: src/dialogs/AgentDetailsDialog.tsx:245
 msgid "Neighbors: {0}"
 msgstr "邻居：{0}"
 
@@ -696,15 +697,15 @@ msgstr "没有快照。"
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "暂无快照。点击\"拍摄快照\"创建一个。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:251
+#: src/dialogs/AgentDetailsDialog.tsx:252
 msgid "No spatial context is available for this agent."
 msgstr "此智能体没有可用的空间上下文。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:286
+#: src/dialogs/AgentDetailsDialog.tsx:287
 msgid "None"
 msgstr "无"
 
-#: src/dialogs/AgentDetailsDialog.tsx:136
+#: src/dialogs/AgentDetailsDialog.tsx:137
 msgid "Not positioned"
 msgstr "未定位"
 
@@ -717,11 +718,11 @@ msgstr "对象 ID"
 msgid "Off"
 msgstr "关"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:132
+#: src/dialogs/SnapshotDetailDialog.tsx:170
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "为符合录制预算，较早的帧已被移除。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:194
 msgid "Open as offline copy"
 msgstr "作为离线副本打开"
 
@@ -734,6 +735,7 @@ msgstr "打开文件"
 #~ msgstr "打开文件夹"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:96
+#: src/dialogs/SnapshotDetailDialog.tsx:68
 msgid "Options"
 msgstr "选项"
 
@@ -769,7 +771,7 @@ msgstr "参数标签"
 msgid "Parameter Type"
 msgstr "参数类型"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:134
+#: src/dialogs/SnapshotDetailDialog.tsx:172
 msgid "Parameters"
 msgstr "参数"
 
@@ -789,7 +791,7 @@ msgstr "待处理"
 msgid "Please create or open a project to get started."
 msgstr "要开始，请新建或打开一个项目。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:133
+#: src/dialogs/AgentDetailsDialog.tsx:134
 msgid "Position:"
 msgstr "位置："
 
@@ -805,7 +807,7 @@ msgstr "项目设置"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "项目 URL 更新成功"
 
-#: src/dialogs/AgentDetailsDialog.tsx:223
+#: src/dialogs/AgentDetailsDialog.tsx:224
 msgid "Radius"
 msgstr "半径"
 
@@ -825,7 +827,7 @@ msgstr "重新连接"
 msgid "Record this run"
 msgstr "记录此次运行"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:108
+#: src/dialogs/SnapshotDetailDialog.tsx:146
 msgid "Recorded:"
 msgstr "录制时间："
 
@@ -886,6 +888,7 @@ msgid "Save"
 msgstr "保存"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:102
+#: src/dialogs/SnapshotDetailDialog.tsx:69
 msgid "Save As CSV"
 msgstr "以CSV格式保存"
 
@@ -943,12 +946,12 @@ msgstr "显示工具栏"
 #~ msgid "Sim:"
 #~ msgstr "模拟："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:110
+#: src/dialogs/SnapshotDetailDialog.tsx:148
 msgid "Simulation time:"
 msgstr "模拟时间："
 
 #: src/components/project/RightPanel.tsx:139
-#: src/dialogs/AgentDetailsDialog.tsx:279
+#: src/dialogs/AgentDetailsDialog.tsx:280
 msgid "Size:"
 msgstr "大小："
 
@@ -956,7 +959,7 @@ msgstr "大小："
 #~ msgid "Snapshot Details"
 #~ msgstr "快照详情"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:94
+#: src/dialogs/SnapshotDetailDialog.tsx:132
 msgid "Snapshot name"
 msgstr "快照名称"
 
@@ -964,7 +967,7 @@ msgstr "快照名称"
 msgid "Snapshot playback FPS"
 msgstr "快照播放帧率"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:89
+#: src/dialogs/SnapshotDetailDialog.tsx:127
 msgid "Snapshot replay"
 msgstr "快照回放"
 
@@ -1149,7 +1152,7 @@ msgstr "视图"
 #~ msgid "View and manage snapshot"
 #~ msgstr "查看和管理快照"
 
-#: src/dialogs/AgentDetailsDialog.tsx:209
+#: src/dialogs/AgentDetailsDialog.tsx:210
 msgid "View detailed information about the selected agent"
 msgstr "查看所选智能体的详细信息"
 

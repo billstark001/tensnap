@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,7 +8,7 @@ import { RuntimeControlServer } from './control-server';
 
 const tempDirs: string[] = [];
 
-async function createRuntimeServer(options: { maxRunStepsPolicy?: number } = {}) {
+async function createRuntimeServer(options: { maxRunStepsPolicy?: number; checkpointIntervalMs?: number } = {}) {
   const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-'));
   tempDirs.push(rootDir);
   const context = resolveRuntimeContextPaths({ rootDir, contextName: 'test-agent' });
@@ -60,6 +60,29 @@ afterEach(async () => {
 });
 
 describe('RuntimeControlServer', () => {
+  it('keeps live state in memory and checkpoints dirty scenes at sync boundaries', async () => {
+    const { runtime, server, renderer } = await createRuntimeServer({ checkpointIntervalMs: 1_000 });
+    try {
+      renderer.handleIncoming({ type: 'metadata_update', payload: { time: 7 } });
+      expect(runtime.getStatus()).toMatchObject({ sceneRevision: 1, sceneDirty: true });
+      await expect(readFile(runtime.context.snapshotFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+
+      renderer.handleIncoming({ type: 'state_sync_end', payload: {} });
+      const saved = await waitFor(async () => {
+        try {
+          return JSON.parse(await readFile(runtime.context.snapshotFile, 'utf8')) as { metadata: { time?: number } };
+        } catch {
+          return undefined;
+        }
+      });
+      expect(saved.metadata.time).toBe(7);
+      expect(runtime.getStatus().sceneDirty).toBe(false);
+    } finally {
+      await server.close();
+      await runtime.stop();
+    }
+  });
+
   it('exposes raw snapshot, chart series, and asset summaries', async () => {
     const { runtime, server, renderer, baseUrl } = await createRuntimeServer();
     try {

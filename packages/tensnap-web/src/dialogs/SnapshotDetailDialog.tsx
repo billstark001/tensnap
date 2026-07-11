@@ -1,13 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
+import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
-import { msg } from '@lingui/macro';
+import { msg, t } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import type { AssetStore, Scenario } from '@tensnap/core';
+import type { ChartGroup } from '@tensnap/core/chart';
+import { exportToCSV } from '@tensnap/core/chart/browser';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 import { SnapshotPlayer, type Snapshot } from '@tensnap/core/snapshot';
-import { Pause, Play, SkipBack } from 'lucide-react';
+import { ClipboardCopy, Pause, Play, Sheet, SkipBack } from 'lucide-react';
 import { getSnapshotIdentity } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import { Environment2DView } from '../components/scenario/Environment2DView';
@@ -17,6 +20,8 @@ import { getEnvironmentDisplayType } from '../components/scenario/environment-ad
 import { ViewErrorBoundary } from '../components/view/ViewErrorBoundary';
 import { formatTimestamp } from '@/utils/date';
 import { useSettingsStore } from '@/store/settings';
+import { useToast } from '@/store/toast';
+import { copyCanvas } from '@/utils/data';
 
 const OfflineEnvironment = (props: {
   environment: ScenarioEnvironmentState;
@@ -33,6 +38,38 @@ const OfflineEnvironment = (props: {
     return <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}><UniformEnvironmentView environment={environment} assets={assets} scenario={scenario} updateTrigger={updateTrigger} /></ViewErrorBoundary>;
   }
   return <div>Unsupported environment type: {environment.type}</div>;
+};
+
+/** Gives replay previews the same export/copy actions as their live-view counterparts. */
+const SnapshotPreviewContextMenu: React.FC<{
+  chartGroup?: ChartGroup;
+  className: string;
+  children: React.ReactNode;
+}> = ({ chartGroup, className, children }) => {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
+
+  const handleCopy = useCallback(async () => {
+    const canvas = previewRef.current?.querySelector('canvas');
+    if (!canvas) {
+      toast.error(t`Canvas not found.`);
+      return;
+    }
+    try {
+      if (await copyCanvas(canvas)) toast.success(t`Canvas copied to clipboard!`);
+      else toast.error(t`Failed to copy canvas to clipboard.`);
+    } catch (error) {
+      toast.error(t`Failed to copy canvas to clipboard.`, String(error));
+    }
+  }, [toast]);
+
+  return (
+    <ContextMenu.Root trigger={<div ref={previewRef} className={className}>{children}</div>}>
+      <ContextMenu.Label><Trans>Options</Trans></ContextMenu.Label>
+      {chartGroup && <ContextMenu.Item onSelect={() => exportToCSV(chartGroup)}><Sheet /><Trans>Save As CSV</Trans></ContextMenu.Item>}
+      <ContextMenu.Item onSelect={handleCopy}><ClipboardCopy /><Trans>Copy</Trans></ContextMenu.Item>
+    </ContextMenu.Root>
+  );
 };
 
 export interface SnapshotDetailDialogProps extends DialogOpenProps {
@@ -141,14 +178,14 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
         <div className={styles.replayContent}>
           <div className={styles.environmentList}>
             {[...replay.environments.values()].map((environment) => (
-              <div key={environment.id} className={styles.environmentItem}>
+              <SnapshotPreviewContextMenu key={environment.id} className={styles.environmentItem}>
                 <div className={styles.environmentHeader}><span className={styles.environmentType}>{environment.type}</span><span className={styles.environmentLabel}>{environment.id}</span></div>
                 <div className={styles.environmentDisplay}><OfflineEnvironment environment={environment} assets={replay.assets} scenario={replay} updateTrigger={frame} /></div>
-              </div>
+              </SnapshotPreviewContextMenu>
             ))}
           </div>
           {replay.charts.getGroupList().length > 0 && <div className={styles.chartList}>
-            {replay.charts.getGroupList().map((group) => <div key={group.id} className={styles.chartItem}><h4 className={styles.sectionTitle}>{group.label || group.id}</h4><ChartView chartGroup={group} updateInterval={0} updateTrigger={frame} /></div>)}
+            {replay.charts.getGroupList().map((group) => <SnapshotPreviewContextMenu key={group.id} className={styles.chartItem} chartGroup={group}><h4 className={styles.sectionTitle}>{group.label || group.id}</h4><ChartView chartGroup={group} updateInterval={0} updateTrigger={frame} /></SnapshotPreviewContextMenu>)}
           </div>}
         </div>
       </Dialog.Body>

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Scenario } from './Scenario';
 import { ScenarioInspector } from './ScenarioInspector';
+import { EdgeStorage } from '../environment';
 
 function message(type: string, payload: unknown) {
   return { type, payload } as any;
@@ -105,6 +106,19 @@ describe('ScenarioInspector', () => {
 
     expect(inspection).toMatchObject({ kind: 'spatial', neighborCount: 1 });
     expect(inspection).not.toHaveProperty('renderSnapshot');
+  });
+
+  it('uses storage indexes rather than dumping every graph edge for live inspection', () => {
+    const scenario = createSpatialScenario(true);
+    const edgeStorage = scenario.getEnvironment('world')!.layers.get('edges')!.storage as EdgeStorage;
+    const dump = vi.spyOn(edgeStorage, 'dump');
+
+    const inspection = new ScenarioInspector(scenario).inspectLive(
+      { environmentId: 'world', layerId: 'agents', agentId: 'target' },
+    );
+
+    expect(inspection).toMatchObject({ kind: 'graph', neighborCount: 2 });
+    expect(dump).not.toHaveBeenCalled();
   });
 
   it('uses the same coord offset as the rendered agent layer when centering a viewport', () => {

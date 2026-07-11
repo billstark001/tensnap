@@ -92,6 +92,21 @@ describe('AgentStorage – setAgents full replace', () => {
     expect(s.getData().agents.size).toBe(1);
     expect(s.getData().agents.has('new1')).toBe(true);
   });
+
+  it('queries a spatial hash and keeps it in sync with updates and removals', () => {
+    const s = new AgentStorage();
+    s.addAgents([
+      { id: 'near', x: 1, y: 1 },
+      { id: 'far', x: 100, y: 100 },
+      { id: 'edge', x: 3, y: 4 },
+    ]);
+    expect(s.getAgentsWithinRadius(0, 0, 5).map((agent) => agent.id).sort()).toEqual(['edge', 'near']);
+
+    s.updateAgent('near', { x: 50, y: 50 });
+    s.removeAgent('edge');
+    expect(s.getAgentsWithinRadius(0, 0, 5)).toEqual([]);
+    expect(s.revision).toBeGreaterThan(0);
+  });
 });
 
 // ── Subscription / notification ───────────────────────────────────────────────

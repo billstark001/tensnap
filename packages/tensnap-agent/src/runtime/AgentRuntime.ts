@@ -43,7 +43,11 @@ export interface AgentRuntimeOptions {
   encoding?: ProtocolEncoding;
   maxRunStepsPolicy?: number;
   render?: Partial<RenderSettings>;
+  /** Delay between dirty scene updates and disk checkpoints. */
+  checkpointIntervalMs?: number;
 }
+
+const DEFAULT_CHECKPOINT_INTERVAL_MS = 2_000;
 
 function normalizeBackgroundColor(value: string | undefined, fallback = '#000000'): string {
   const trimmed = value?.trim();
@@ -67,6 +71,9 @@ export class AgentRuntime extends EventEmitter {
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
   private completedStateSyncCount = 0;
+  private readonly checkpointIntervalMs: number;
+  private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
+  private checkpointChain: Promise<void> = Promise.resolve();
 
   constructor(
     readonly context: RuntimeContextPaths,
@@ -77,6 +84,10 @@ export class AgentRuntime extends EventEmitter {
     this.renderer = new RendererSession({
       run: { maxStepsPolicy: options.maxRunStepsPolicy },
     });
+    const requestedCheckpointInterval = options.checkpointIntervalMs ?? DEFAULT_CHECKPOINT_INTERVAL_MS;
+    this.checkpointIntervalMs = Number.isFinite(requestedCheckpointInterval)
+      ? Math.min(5_000, Math.max(1_000, requestedCheckpointInterval))
+      : DEFAULT_CHECKPOINT_INTERVAL_MS;
 
     const now = new Date().toISOString();
     this.control = {
@@ -96,6 +107,8 @@ export class AgentRuntime extends EventEmitter {
         backgroundColor: normalizeBackgroundColor(options.render?.backgroundColor),
       },
       painters: [],
+      sceneRevision: 0,
+      sceneDirty: false,
     };
 
     this.bindRenderer();
@@ -138,11 +151,13 @@ export class AgentRuntime extends EventEmitter {
 
   async disconnect(): Promise<void> {
     if (!this.renderer.isConnected) {
+      await this.checkpointScene();
       this.setPhase('idle');
       return;
     }
 
     this.setPhase('stopping');
+    await this.checkpointScene();
     this.transport?.disconnect();
     this.destroyTransport();
     this.setPhase('idle');
@@ -152,6 +167,7 @@ export class AgentRuntime extends EventEmitter {
   async stop(): Promise<void> {
     this.setPhase('stopping');
     await this.disconnect();
+    await this.checkpointScene();
     this.control.pid = null;
     this.control.controlPort = null;
     this.setPhase('stopped');
@@ -360,7 +376,7 @@ export class AgentRuntime extends EventEmitter {
   async requestRender(options: SceneRenderOptions = {}, reason = 'manual'): Promise<RenderArtifact[]> {
     const request = this.createRenderRequest(options, reason, 'explicit');
     const artifacts = await this.runPainters(request);
-    await writeSceneSnapshot(this.context, request.snapshot);
+    await this.checkpointScene(request.snapshot, true);
     await this.log('info', 'render', 'Render requested.', {
       reason,
       trigger: 'explicit',
@@ -443,6 +459,12 @@ export class AgentRuntime extends EventEmitter {
       void this.log('error', 'transport', 'Transport error.', { error: message });
       this.emitRuntimeEvent('transport.error', { error: message });
     });
+    this.renderer.addEventListener('run:status', (event) => {
+      const status = (event as CustomEvent<{ state?: string }>).detail;
+      if (status?.state === 'stopped') {
+        void this.checkpointScene();
+      }
+    });
     this.renderer.addEventListener('message', (event) => {
       const { message } = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail;
       void this.handleProtocolMessage(message);
@@ -467,7 +489,8 @@ export class AgentRuntime extends EventEmitter {
     if (message.type === 'state_sync_end') {
       this.completedStateSyncCount += 1;
       this.setPhase('ready');
-      await writeSceneSnapshot(this.context, this.renderer.scenario.dump());
+      this.markSceneDirty();
+      await this.checkpointScene();
       this.emitRuntimeEvent('scene.sync.end', {
         completedCount: this.completedStateSyncCount,
         payload: message.payload,
@@ -475,22 +498,22 @@ export class AgentRuntime extends EventEmitter {
       return;
     }
 
-    if (message.type === 'metadata_update') {
-      await writeSceneSnapshot(this.context, this.renderer.scenario.dump());
+    if (message.type !== 'action_end' && message.type !== 'screenshot_request') {
+      this.markSceneDirty();
     }
   }
 
   private async handleActionEnd(payload: ActionEndPayload): Promise<void> {
     try {
-      await writeSceneSnapshot(this.context, this.renderer.scenario.dump());
-      await this.log('info', 'action', 'Action completed.', payload);
+      void this.log('info', 'action', 'Action completed.', payload);
       this.emitRuntimeEvent('action.end', payload);
 
       if (this.control.render.trigger === 'action-end') {
         const request = this.createRenderRequest({}, `action-end:${payload.id}`, 'action-end');
         const artifacts = await this.runPainters(request);
+        await this.checkpointScene(request.snapshot, true);
 
-        await this.log('info', 'render', 'Auto render executed after action_end.', {
+        void this.log('info', 'render', 'Auto render executed after action_end.', {
           actionId: payload.id,
           artifactCount: artifacts.length,
         });
@@ -502,7 +525,10 @@ export class AgentRuntime extends EventEmitter {
         });
       }
     } finally {
-      this.renderer.run.markActionRendered(payload);
+      // RendererSession emits its message event before RunController marks the
+      // task applied. Defer one microtask so removing synchronous disk I/O
+      // does not race the next-tick render barrier.
+      queueMicrotask(() => this.renderer.run.markActionRendered(payload));
     }
   }
 
@@ -663,6 +689,39 @@ export class AgentRuntime extends EventEmitter {
   private setPhase(phase: RuntimePhase): void {
     this.control.phase = phase;
     void this.persistStatus();
+  }
+
+  private markSceneDirty(): void {
+    this.control.sceneRevision += 1;
+    this.control.sceneDirty = true;
+    if (this.checkpointTimer) return;
+    this.checkpointTimer = setTimeout(() => {
+      this.checkpointTimer = null;
+      void this.checkpointScene();
+    }, this.checkpointIntervalMs);
+  }
+
+  /** Serialize checkpoints so an older async write can never overwrite a newer one. */
+  private async checkpointScene(snapshot?: ScenarioSnapshot, force = false): Promise<void> {
+    if (this.checkpointTimer) {
+      clearTimeout(this.checkpointTimer);
+      this.checkpointTimer = null;
+    }
+    if (!force && !this.control.sceneDirty) return this.checkpointChain;
+
+    const revision = this.control.sceneRevision;
+    const checkpoint = snapshot ?? this.renderer.scenario.dump();
+    const write = async () => {
+      await writeSceneSnapshot(this.context, checkpoint);
+      if (revision === this.control.sceneRevision) {
+        this.control.sceneDirty = false;
+      }
+    };
+    const queued = this.checkpointChain.then(write, write);
+    this.checkpointChain = queued.catch((error) => {
+      this.control.lastError = error instanceof Error ? error.message : String(error);
+    });
+    await queued;
   }
 
   private emitRuntimeEvent<T>(type: string, data: T): void {

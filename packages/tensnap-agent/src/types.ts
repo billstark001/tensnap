@@ -51,6 +51,10 @@ export interface RuntimeControlFile {
   maxRunStepsPolicy: number;
   render: RenderSettings;
   painters: string[];
+  /** Monotonic in-memory scene state revision. */
+  sceneRevision: number;
+  /** True when memory is newer than the persisted checkpoint. */
+  sceneDirty: boolean;
   lastError?: string;
 }
 

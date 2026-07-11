@@ -85,6 +85,8 @@ export class Scenario extends LazyEventTarget {
   private readonly chartState: ChartStorage;
   private readonly assetState: AssetStore;
   private stateSyncDepth = 0;
+  private metadataRevisionState = 0;
+  private parameterRevisionState = 0;
   readonly layerRegistry: LayerRegistryClass;
 
   constructor(options: ScenarioOptions = {}) {
@@ -100,6 +102,15 @@ export class Scenario extends LazyEventTarget {
 
   get time(): number | undefined {
     return typeof this.metadataState.time === 'number' ? this.metadataState.time : undefined;
+  }
+
+  /** Revisions let read-mostly consumers reuse immutable derived views. */
+  get metadataRevision(): number {
+    return this.metadataRevisionState;
+  }
+
+  get parameterRevision(): number {
+    return this.parameterRevisionState;
   }
 
   get actions(): ReadonlyMap<string, Action> {
@@ -286,6 +297,7 @@ export class Scenario extends LazyEventTarget {
     // reset. Never carry over lifecycle-preserved live layers into it.
     this.reset({ preserveTrajectoryLayers: false });
     this.metadataState = cloneValue(snapshot.metadata);
+    this.metadataRevisionState += 1;
 
     for (const action of snapshot.actions) {
       this.actionsState.set(action.id, cloneValue(action));
@@ -294,6 +306,7 @@ export class Scenario extends LazyEventTarget {
     for (const parameter of snapshot.parameters) {
       this.parametersState.set(parameter.id, cloneValue(parameter));
     }
+    this.parameterRevisionState += 1;
 
     for (const environment of snapshot.environments) {
       const restoredEnv: ScenarioEnvironmentState = {
@@ -359,6 +372,8 @@ export class Scenario extends LazyEventTarget {
       }
     }
     this.stateSyncDepth = 0;
+    this.metadataRevisionState += 1;
+    this.parameterRevisionState += 1;
     this.logsState.splice(0, this.logsState.length);
     this.chartState.load([]);
     this.assetState.clear();
@@ -369,6 +384,7 @@ export class Scenario extends LazyEventTarget {
   // because websocket payloads are never mutated, so shared value references are safe.
   private applyMetadata(payload: MetadataUpdatePayload): void {
     Object.assign(this.metadataState, payload);
+    this.metadataRevisionState += 1;
     this.emit('metadata:update', payload);
   }
 
@@ -627,11 +643,13 @@ export class Scenario extends LazyEventTarget {
   private upsertParameter(payload: Parameter, eventType: 'param:create' | 'param:update'): void {
     const param = sanitizeParameter(cloneValue(payload) as Parameter) as Parameter;
     this.parametersState.set(param.id, param);
+    this.parameterRevisionState += 1;
     this.emit(eventType, param);
   }
 
   private deleteParameter(payload: ParameterDeletePayload): void {
     this.parametersState.delete(payload.id);
+    this.parameterRevisionState += 1;
     this.emit('param:delete', payload);
   }
 
@@ -643,6 +661,7 @@ export class Scenario extends LazyEventTarget {
       parameter.value = cloneValue(payload.value as string | number | boolean);
       sanitizeParameter(parameter, true);
     }
+    this.parameterRevisionState += 1;
     this.emit('param:sync', payload);
   }
 

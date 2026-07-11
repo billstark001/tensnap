@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { RuntimeContextOptions, RuntimeControlFile, RuntimeLogEntry } from '../types';
@@ -97,7 +97,13 @@ export async function appendRuntimeLog(paths: RuntimeContextPaths, entry: Runtim
 
 export async function writeSceneSnapshot(paths: RuntimeContextPaths, snapshot: ScenarioSnapshot): Promise<void> {
   await ensureRuntimeContext(paths);
-  await writeFile(paths.snapshotFile, `${JSON.stringify(snapshot, snapshotReplacer, 2)}\n`, 'utf8');
+  const temporaryFile = `${paths.snapshotFile}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  try {
+    await writeFile(temporaryFile, `${JSON.stringify(snapshot, snapshotReplacer, 2)}\n`, 'utf8');
+    await rename(temporaryFile, paths.snapshotFile);
+  } finally {
+    await rm(temporaryFile, { force: true });
+  }
 }
 
 export function isProcessAlive(pid: number): boolean {

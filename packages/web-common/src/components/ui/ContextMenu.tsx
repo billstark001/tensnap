@@ -30,6 +30,7 @@ export const Root = (props: ContextMenuProps) => {
       <RadixContextMenu.Portal {...portalProps}>
         <RadixContextMenu.Content
           {...contentProps}
+          style={{ zIndex: 1_000, ...contentProps?.style }}
           className={clsx(
             styles.contextMenu,
             contentProps?.className

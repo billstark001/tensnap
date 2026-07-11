@@ -2,6 +2,8 @@ import { vars } from "../../styles/global.css";
 import { globalStyle, style } from "@vanilla-extract/css";
 
 export const contextMenu = style({
+  position: 'relative',
+  zIndex: 1_000,
   backgroundColor: vars.color.inputBackground,
   borderRadius: '6px',
   boxShadow: vars.shadow.lg,

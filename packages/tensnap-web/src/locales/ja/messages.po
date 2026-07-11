@@ -65,7 +65,7 @@ msgstr "アクションラベル"
 msgid "Action Timeout"
 msgstr "アクションタイムアウト"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:112
+#: src/dialogs/SnapshotDetailDialog.tsx:150
 msgid "Action:"
 msgstr "アクション："
 
@@ -73,7 +73,7 @@ msgstr "アクション："
 #~ msgid "Adjust Mode"
 #~ msgstr "調整モード"
 
-#: src/dialogs/AgentDetailsDialog.tsx:206
+#: src/dialogs/AgentDetailsDialog.tsx:207
 msgid "Agent Details"
 msgstr "エージェントの詳細"
 
@@ -170,7 +170,7 @@ msgid "Client Message Validation"
 msgstr "クライアントメッセージの検証"
 
 #: src/dialogs/AboutDialog.tsx:79
-#: src/dialogs/AgentDetailsDialog.tsx:298
+#: src/dialogs/AgentDetailsDialog.tsx:299
 #: src/dialogs/SettingsDialog.tsx:335
 msgid "Close"
 msgstr "閉じる"
@@ -179,7 +179,7 @@ msgstr "閉じる"
 #~ msgid "Close {0}"
 #~ msgstr "{0}を閉じる"
 
-#: src/dialogs/AgentDetailsDialog.tsx:270
+#: src/dialogs/AgentDetailsDialog.tsx:271
 msgid "Color:"
 msgstr "色："
 
@@ -229,6 +229,7 @@ msgstr "連続実行…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:109
 #: src/components/toolbar/MenuBar.tsx:101
+#: src/dialogs/SnapshotDetailDialog.tsx:70
 msgid "Copy"
 msgstr "コピー"
 
@@ -255,7 +256,7 @@ msgstr "新しいプロジェクトを作成"
 msgid "Current Value"
 msgstr "現在の値"
 
-#: src/dialogs/AgentDetailsDialog.tsx:285
+#: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
@@ -271,7 +272,7 @@ msgstr "ダーク"
 msgid "Data Points"
 msgstr "データポイント"
 
-#: src/dialogs/AgentDetailsDialog.tsx:280
+#: src/dialogs/AgentDetailsDialog.tsx:281
 msgid "default"
 msgstr "デフォルト"
 
@@ -279,7 +280,7 @@ msgstr "デフォルト"
 msgid "Delete"
 msgstr "削除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:155
+#: src/dialogs/SnapshotDetailDialog.tsx:193
 msgid "Delete recording"
 msgstr "録画を削除"
 
@@ -438,7 +439,7 @@ msgstr "ファイル"
 #~ msgid "File Manager"
 #~ msgstr "ファイルマネージャー"
 
-#: src/dialogs/AgentDetailsDialog.tsx:241
+#: src/dialogs/AgentDetailsDialog.tsx:242
 msgid "Follow agent"
 msgstr "エージェントを追従"
 
@@ -458,11 +459,11 @@ msgstr "エージェントを追従"
 #~ msgid "Force visible"
 #~ msgstr "強制的に表示"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:111
+#: src/dialogs/SnapshotDetailDialog.tsx:149
 msgid "Frame updates:"
 msgstr "フレーム更新："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:109
+#: src/dialogs/SnapshotDetailDialog.tsx:147
 msgid "Frame:"
 msgstr "フレーム："
 
@@ -490,7 +491,7 @@ msgstr "全画面"
 msgid "Hash:"
 msgstr "ハッシュ："
 
-#: src/dialogs/AgentDetailsDialog.tsx:141
+#: src/dialogs/AgentDetailsDialog.tsx:142
 msgid "Heading:"
 msgstr "方向："
 
@@ -510,7 +511,7 @@ msgstr "ヘルプ"
 #~ msgid "Hide Right Panel"
 #~ msgstr "右側パネルを非表示"
 
-#: src/dialogs/AgentDetailsDialog.tsx:262
+#: src/dialogs/AgentDetailsDialog.tsx:263
 msgid "Icon:"
 msgstr "アイコン："
 
@@ -519,12 +520,12 @@ msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:131
-#: src/dialogs/AgentDetailsDialog.tsx:255
-#: src/dialogs/SnapshotDetailDialog.tsx:107
+#: src/dialogs/AgentDetailsDialog.tsx:256
+#: src/dialogs/SnapshotDetailDialog.tsx:145
 msgid "ID:"
 msgstr "ID："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:90
+#: src/dialogs/SnapshotDetailDialog.tsx:128
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "この録画をオフラインで確認します。開くと接続されていないコピーが作成されます。"
 
@@ -610,7 +611,7 @@ msgstr "MSPT："
 #~ msgstr "名前"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:244
+#: src/dialogs/AgentDetailsDialog.tsx:245
 msgid "Neighbors: {0}"
 msgstr "近傍: {0}"
 
@@ -696,15 +697,15 @@ msgstr "まだスナップショットがありません。"
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:251
+#: src/dialogs/AgentDetailsDialog.tsx:252
 msgid "No spatial context is available for this agent."
 msgstr "このエージェントには空間コンテキストがありません。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:286
+#: src/dialogs/AgentDetailsDialog.tsx:287
 msgid "None"
 msgstr "なし"
 
-#: src/dialogs/AgentDetailsDialog.tsx:136
+#: src/dialogs/AgentDetailsDialog.tsx:137
 msgid "Not positioned"
 msgstr "位置指定なし"
 
@@ -717,11 +718,11 @@ msgstr "オブジェクトID"
 msgid "Off"
 msgstr "オフ"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:132
+#: src/dialogs/SnapshotDetailDialog.tsx:170
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "録画の容量制限に収めるため、古いフレームは削除されました。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:194
 msgid "Open as offline copy"
 msgstr "オフラインコピーとして開く"
 
@@ -734,6 +735,7 @@ msgstr "ファイルを開く"
 #~ msgstr "フォルダーを開く"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:96
+#: src/dialogs/SnapshotDetailDialog.tsx:68
 msgid "Options"
 msgstr "オプション"
 
@@ -769,7 +771,7 @@ msgstr "パラメータラベル"
 msgid "Parameter Type"
 msgstr "パラメータタイプ"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:134
+#: src/dialogs/SnapshotDetailDialog.tsx:172
 msgid "Parameters"
 msgstr "パラメータ"
 
@@ -789,7 +791,7 @@ msgstr "保留中"
 msgid "Please create or open a project to get started."
 msgstr "プロジェクトを開くか、作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:133
+#: src/dialogs/AgentDetailsDialog.tsx:134
 msgid "Position:"
 msgstr "位置："
 
@@ -805,7 +807,7 @@ msgstr "プロジェクト設定"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "プロジェクトURLを正常に更新しました"
 
-#: src/dialogs/AgentDetailsDialog.tsx:223
+#: src/dialogs/AgentDetailsDialog.tsx:224
 msgid "Radius"
 msgstr "半径"
 
@@ -825,7 +827,7 @@ msgstr "再接続"
 msgid "Record this run"
 msgstr "この実行を記録する"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:108
+#: src/dialogs/SnapshotDetailDialog.tsx:146
 msgid "Recorded:"
 msgstr "録画日時："
 
@@ -886,6 +888,7 @@ msgid "Save"
 msgstr "保存"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:102
+#: src/dialogs/SnapshotDetailDialog.tsx:69
 msgid "Save As CSV"
 msgstr "CSV形式で保存"
 
@@ -943,12 +946,12 @@ msgstr "ツールバーを表示"
 #~ msgid "Sim:"
 #~ msgstr "シミュレーション："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:110
+#: src/dialogs/SnapshotDetailDialog.tsx:148
 msgid "Simulation time:"
 msgstr "シミュレーション時刻："
 
 #: src/components/project/RightPanel.tsx:139
-#: src/dialogs/AgentDetailsDialog.tsx:279
+#: src/dialogs/AgentDetailsDialog.tsx:280
 msgid "Size:"
 msgstr "サイズ："
 
@@ -956,7 +959,7 @@ msgstr "サイズ："
 #~ msgid "Snapshot Details"
 #~ msgstr "スナップショットの詳細"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:94
+#: src/dialogs/SnapshotDetailDialog.tsx:132
 msgid "Snapshot name"
 msgstr "スナップショット名"
 
@@ -964,7 +967,7 @@ msgstr "スナップショット名"
 msgid "Snapshot playback FPS"
 msgstr "スナップショット再生 FPS"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:89
+#: src/dialogs/SnapshotDetailDialog.tsx:127
 msgid "Snapshot replay"
 msgstr "スナップショット再生"
 
@@ -1149,7 +1152,7 @@ msgstr "表示"
 #~ msgid "View and manage snapshot"
 #~ msgstr "スナップショットを表示・管理"
 
-#: src/dialogs/AgentDetailsDialog.tsx:209
+#: src/dialogs/AgentDetailsDialog.tsx:210
 msgid "View detailed information about the selected agent"
 msgstr "選択したエージェントの詳細情報を表示"
 

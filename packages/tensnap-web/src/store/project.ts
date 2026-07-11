@@ -1,7 +1,12 @@
 import { create, StoreApi, UseBoundStore } from "zustand";
 import { createTransportStore, TransportStore } from "./transport";
 import { generateUniqueId } from "@/utils/common";
-import { parseProjectFileContent, PROJECT_FILE_VERSION, type ProjectFileContent } from "@/types/project";
+import {
+  parseProjectFileContent,
+  PROJECT_FILE_VERSION,
+  recoverProjectFileContent,
+  type ProjectFileContent,
+} from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
 import { ChartGroup, ChartMetadata } from "@/types/model";
 import { createUndoRedoStore, UndoRedoState } from "./undo-redo";
@@ -15,6 +20,11 @@ import { getFileSystemState } from "./file-system/provider";
 
 export interface ProjectSettings {
   url: string;
+}
+
+export interface ProjectOpenResult {
+  recovered: boolean;
+  warnings: string[];
 }
 
 export interface ProjectContextScheme extends ProjectSettings {
@@ -86,6 +96,31 @@ const getParentDirectory = (path: string): string => {
   return normalized.slice(0, lastSlash) || '/';
 };
 
+/**
+ * JSON omits undefined object properties, whereas MessagePack writes them as
+ * null. Strip them explicitly so both save formats have the same on-disk
+ * shape and continue to satisfy the project schema after a round trip.
+ */
+const omitUndefinedObjectProperties = (value: unknown): unknown => {
+  if (value === undefined || value === null || typeof value !== 'object') return value;
+  if (value instanceof Uint8Array || value instanceof ArrayBuffer) return value;
+  if (Array.isArray(value)) {
+    return value.map((item, index) => {
+      if (item === undefined) {
+        throw new Error(`Project data contains an undefined array item at index ${index}.`);
+      }
+      return omitUndefinedObjectProperties(item);
+    });
+  }
+  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return value;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (item !== undefined) result[key] = omitUndefinedObjectProperties(item);
+  }
+  return result;
+};
+
 export interface ProjectStore {
   projects: ProjectContextScheme[];
   activeIndex: number | null;
@@ -97,7 +132,7 @@ export interface ProjectStore {
   refreshActiveProject: () => void;
 
   new: (url: string, indexHint?: number) => void;
-  open: (filepath: string, indexHint?: number) => Promise<void>;
+  open: (filepath: string, indexHint?: number) => Promise<ProjectOpenResult>;
   save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
   changeUrl: (index: number, newUrl: string) => Promise<void>;
@@ -157,7 +192,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const rawContent: unknown = typeof fileContent.content === 'string'
       ? JSON.parse(fileContent.content)
       : decode(new Uint8Array(fileContent.content));
-    const parsedContent = parseProjectFileContent(rawContent);
+    let parsedContent: ProjectFileContent;
+    let warnings: string[] = [];
+    try {
+      parsedContent = parseProjectFileContent(rawContent);
+    } catch (error) {
+      const recovery = recoverProjectFileContent(rawContent);
+      if (!recovery) throw error;
+      parsedContent = recovery.content;
+      warnings = recovery.warnings;
+    }
 
     const { scenario, mainView, url, snapshots } = parsedContent;
 
@@ -171,10 +215,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     setActive(targetIndex);
 
-    newProject.useTransportStore.getState().initialize(
-      url,
-      createStateSyncRequestFromStore(scenario)
-    );
+    if (url) {
+      newProject.useTransportStore.getState().initialize(url, createStateSyncRequestFromStore(scenario));
+    }
+    return { recovered: warnings.length > 0, warnings };
   },
 
   async save(index, saveAsPath) {
@@ -207,7 +251,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const fileSystemState = getFileSystemState();
     const content = saveFormat === 'msgpack'
-      ? (checkMsgpackCompatibility(projectFile), uint8ArrayToArrayBuffer(encode(projectFile)))
+      ? (() => {
+        const serializableProject = omitUndefinedObjectProperties(projectFile);
+        checkMsgpackCompatibility(serializableProject);
+        return uint8ArrayToArrayBuffer(encode(serializableProject));
+      })()
       : JSON.stringify(projectFile, null, 2); // 添加格式化以提高可读性
 
     const parentDirectory = getParentDirectory(filepath);

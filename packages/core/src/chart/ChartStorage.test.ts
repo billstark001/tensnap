@@ -300,6 +300,18 @@ describe('ChartStorage – getData / getValueAt', () => {
     expect(s.getValueAt('m1', 3)).toBe(0);   // closer to 0
     expect(s.getValueAt('m1', 15)).toBe(10); // equidistant – lower wins per bisect
   });
+
+  it('maintains latest values without merging a chart history', () => {
+    const s = new ChartStorage([makeGroup('g', 'g', ['m1'])]);
+    s.push(10, [{ id: 'm1', value: 10 }]);
+    s.push(5, [{ id: 'm1', value: 5 }]);
+    expect(s.getLatestValue('m1')).toBe(10);
+
+    s.push(11, [{ id: 'm1', value: 11 }]);
+    expect(s.getLatestValue('m1')).toBe(11);
+    s.clearMetas(['m1']);
+    expect(s.getLatestValue('m1')).toBeUndefined();
+  });
 });
 
 // ── Clear operations ──────────────────────────────────────────────────────────

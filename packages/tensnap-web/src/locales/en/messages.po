@@ -65,7 +65,7 @@ msgstr "Action Label"
 msgid "Action Timeout"
 msgstr "Action Timeout"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:112
+#: src/dialogs/SnapshotDetailDialog.tsx:150
 msgid "Action:"
 msgstr "Action:"
 
@@ -73,7 +73,7 @@ msgstr "Action:"
 #~ msgid "Adjust Mode"
 #~ msgstr "Adjust Mode"
 
-#: src/dialogs/AgentDetailsDialog.tsx:206
+#: src/dialogs/AgentDetailsDialog.tsx:207
 msgid "Agent Details"
 msgstr "Agent Details"
 
@@ -170,7 +170,7 @@ msgid "Client Message Validation"
 msgstr "Client Message Validation"
 
 #: src/dialogs/AboutDialog.tsx:79
-#: src/dialogs/AgentDetailsDialog.tsx:298
+#: src/dialogs/AgentDetailsDialog.tsx:299
 #: src/dialogs/SettingsDialog.tsx:335
 msgid "Close"
 msgstr "Close"
@@ -179,7 +179,7 @@ msgstr "Close"
 #~ msgid "Close {0}"
 #~ msgstr "Close {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:270
+#: src/dialogs/AgentDetailsDialog.tsx:271
 msgid "Color:"
 msgstr "Color:"
 
@@ -229,6 +229,7 @@ msgstr "Continuous run…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:109
 #: src/components/toolbar/MenuBar.tsx:101
+#: src/dialogs/SnapshotDetailDialog.tsx:70
 msgid "Copy"
 msgstr "Copy"
 
@@ -255,7 +256,7 @@ msgstr "Create New Project"
 msgid "Current Value"
 msgstr "Current Value"
 
-#: src/dialogs/AgentDetailsDialog.tsx:285
+#: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "Custom Data:"
 msgstr "Custom Data:"
 
@@ -271,7 +272,7 @@ msgstr "Dark"
 msgid "Data Points"
 msgstr "Data Points"
 
-#: src/dialogs/AgentDetailsDialog.tsx:280
+#: src/dialogs/AgentDetailsDialog.tsx:281
 msgid "default"
 msgstr "default"
 
@@ -279,7 +280,7 @@ msgstr "default"
 msgid "Delete"
 msgstr "Delete"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:155
+#: src/dialogs/SnapshotDetailDialog.tsx:193
 msgid "Delete recording"
 msgstr "Delete recording"
 
@@ -438,7 +439,7 @@ msgstr "File"
 #~ msgid "File Manager"
 #~ msgstr "File Manager"
 
-#: src/dialogs/AgentDetailsDialog.tsx:241
+#: src/dialogs/AgentDetailsDialog.tsx:242
 msgid "Follow agent"
 msgstr "Follow agent"
 
@@ -458,11 +459,11 @@ msgstr "Follow agent"
 #~ msgid "Force visible"
 #~ msgstr "Force visible"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:111
+#: src/dialogs/SnapshotDetailDialog.tsx:149
 msgid "Frame updates:"
 msgstr "Frame updates:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:109
+#: src/dialogs/SnapshotDetailDialog.tsx:147
 msgid "Frame:"
 msgstr "Frame:"
 
@@ -490,7 +491,7 @@ msgstr "Fullscreen"
 msgid "Hash:"
 msgstr "Hash:"
 
-#: src/dialogs/AgentDetailsDialog.tsx:141
+#: src/dialogs/AgentDetailsDialog.tsx:142
 msgid "Heading:"
 msgstr "Heading:"
 
@@ -510,7 +511,7 @@ msgstr "Help"
 #~ msgid "Hide Right Panel"
 #~ msgstr "Hide Right Panel"
 
-#: src/dialogs/AgentDetailsDialog.tsx:262
+#: src/dialogs/AgentDetailsDialog.tsx:263
 msgid "Icon:"
 msgstr "Icon:"
 
@@ -519,12 +520,12 @@ msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:131
-#: src/dialogs/AgentDetailsDialog.tsx:255
-#: src/dialogs/SnapshotDetailDialog.tsx:107
+#: src/dialogs/AgentDetailsDialog.tsx:256
+#: src/dialogs/SnapshotDetailDialog.tsx:145
 msgid "ID:"
 msgstr "ID:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:90
+#: src/dialogs/SnapshotDetailDialog.tsx:128
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "Inspect this recording offline. Opening it creates a disconnected copy."
 
@@ -610,7 +611,7 @@ msgstr "MSPT:"
 #~ msgstr "Name"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:244
+#: src/dialogs/AgentDetailsDialog.tsx:245
 msgid "Neighbors: {0}"
 msgstr "Neighbors: {0}"
 
@@ -696,15 +697,15 @@ msgstr "No snapshots yet."
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "No snapshots yet. Click \"Take Snapshot\" to create one."
 
-#: src/dialogs/AgentDetailsDialog.tsx:251
+#: src/dialogs/AgentDetailsDialog.tsx:252
 msgid "No spatial context is available for this agent."
 msgstr "No spatial context is available for this agent."
 
-#: src/dialogs/AgentDetailsDialog.tsx:286
+#: src/dialogs/AgentDetailsDialog.tsx:287
 msgid "None"
 msgstr "None"
 
-#: src/dialogs/AgentDetailsDialog.tsx:136
+#: src/dialogs/AgentDetailsDialog.tsx:137
 msgid "Not positioned"
 msgstr "Not positioned"
 
@@ -717,11 +718,11 @@ msgstr "Object ID"
 msgid "Off"
 msgstr "Off"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:132
+#: src/dialogs/SnapshotDetailDialog.tsx:170
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "Older frames were removed to stay within the recording budget."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:194
 msgid "Open as offline copy"
 msgstr "Open as offline copy"
 
@@ -734,6 +735,7 @@ msgstr "Open File"
 #~ msgstr "Open Folder"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:96
+#: src/dialogs/SnapshotDetailDialog.tsx:68
 msgid "Options"
 msgstr "Options"
 
@@ -769,7 +771,7 @@ msgstr "Parameter Label"
 msgid "Parameter Type"
 msgstr "Parameter Type"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:134
+#: src/dialogs/SnapshotDetailDialog.tsx:172
 msgid "Parameters"
 msgstr "Parameters"
 
@@ -789,7 +791,7 @@ msgstr "Pending"
 msgid "Please create or open a project to get started."
 msgstr "Please create or open a project to get started."
 
-#: src/dialogs/AgentDetailsDialog.tsx:133
+#: src/dialogs/AgentDetailsDialog.tsx:134
 msgid "Position:"
 msgstr "Position:"
 
@@ -805,7 +807,7 @@ msgstr "Project Settings"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "Project URL updated successfully"
 
-#: src/dialogs/AgentDetailsDialog.tsx:223
+#: src/dialogs/AgentDetailsDialog.tsx:224
 msgid "Radius"
 msgstr "Radius"
 
@@ -825,7 +827,7 @@ msgstr "Reconnect"
 msgid "Record this run"
 msgstr "Record this run"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:108
+#: src/dialogs/SnapshotDetailDialog.tsx:146
 msgid "Recorded:"
 msgstr "Recorded:"
 
@@ -886,6 +888,7 @@ msgid "Save"
 msgstr "Save"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:102
+#: src/dialogs/SnapshotDetailDialog.tsx:69
 msgid "Save As CSV"
 msgstr "Save As CSV"
 
@@ -943,12 +946,12 @@ msgstr "Show Toolbar"
 #~ msgid "Sim:"
 #~ msgstr "Sim:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:110
+#: src/dialogs/SnapshotDetailDialog.tsx:148
 msgid "Simulation time:"
 msgstr "Simulation time:"
 
 #: src/components/project/RightPanel.tsx:139
-#: src/dialogs/AgentDetailsDialog.tsx:279
+#: src/dialogs/AgentDetailsDialog.tsx:280
 msgid "Size:"
 msgstr "Size:"
 
@@ -956,7 +959,7 @@ msgstr "Size:"
 #~ msgid "Snapshot Details"
 #~ msgstr "Snapshot Details"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:94
+#: src/dialogs/SnapshotDetailDialog.tsx:132
 msgid "Snapshot name"
 msgstr "Snapshot name"
 
@@ -964,7 +967,7 @@ msgstr "Snapshot name"
 msgid "Snapshot playback FPS"
 msgstr "Snapshot playback FPS"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:89
+#: src/dialogs/SnapshotDetailDialog.tsx:127
 msgid "Snapshot replay"
 msgstr "Snapshot replay"
 
@@ -1149,7 +1152,7 @@ msgstr "View"
 #~ msgid "View and manage snapshot"
 #~ msgstr "View and manage snapshot"
 
-#: src/dialogs/AgentDetailsDialog.tsx:209
+#: src/dialogs/AgentDetailsDialog.tsx:210
 msgid "View detailed information about the selected agent"
 msgstr "View detailed information about the selected agent"
 

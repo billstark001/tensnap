@@ -87,13 +87,13 @@ function resolveEdgeId(endpoint: GraphEdge['source']): AgentId {
     : endpoint;
 }
 
-function collectEdges(environment: ScenarioEnvironmentState, agentLayerId: string): GraphEdge[] {
-  const result: GraphEdge[] = [];
+function collectEdgeStorages(environment: ScenarioEnvironmentState, agentLayerId: string): EdgeStorage[] {
+  const result: EdgeStorage[] = [];
   for (const layer of environment.layers.values()) {
     if (layer.dependencyLayerIds.agent !== agentLayerId || !(layer.storage instanceof EdgeStorage)) {
       continue;
     }
-    result.push(...layer.storage.dump().edges as GraphEdge[]);
+    result.push(layer.storage);
   }
   return result;
 }
@@ -242,27 +242,29 @@ export class ScenarioInspector {
     if (!environment || !agentLayer || !(agentLayer.storage instanceof AgentStorage)) {
       return undefined;
     }
+    const agentStorage = agentLayer.storage;
 
-    const liveAgent = agentLayer.storage.getAgent(ref.agentId);
+    const liveAgent = agentStorage.getAgent(ref.agentId);
     if (!liveAgent) {
       return undefined;
     }
 
     const radius = Math.max(MIN_VIEWPORT_EXTENT / 2, options.radius ?? DEFAULT_RADIUS);
     const agent = cloneValue(liveAgent);
-    const allEdges = collectEdges(environment, ref.layerId);
-    const agents = [...agentLayer.storage.agents.values()];
+    const edgeStorages = collectEdgeStorages(environment, ref.layerId);
     const graph = isGraphEnvironment(environment, ref.layerId);
 
     if (graph) {
-      const edges = allEdges.filter((edge) => endpointIds(edge).includes(ref.agentId));
+      const edges = edgeStorages.flatMap((storage) => storage.getEdgesForAgent(ref.agentId));
       const neighborIds = new Set<AgentId>();
       for (const edge of edges) {
         const [source, target] = endpointIds(edge);
         neighborIds.add(source === ref.agentId ? target : source);
       }
-      const neighbors = agents
-        .filter((candidate) => neighborIds.has(candidate.id) && candidate.id !== ref.agentId)
+      const neighbors = [...neighborIds]
+        .filter((id) => id !== ref.agentId)
+        .map((id) => agentStorage.getAgent(id))
+        .filter((candidate): candidate is AgentRenderState => candidate !== undefined)
         .map(cloneValue);
       const relevantIds = new Set<AgentId>([ref.agentId, ...neighbors.map((neighbor) => neighbor.id)]);
       const base: LiveGraphAgentInspection = {
@@ -312,16 +314,16 @@ export class ScenarioInspector {
       };
     }
 
-    const positionedAgents = agents.filter(isPositioned);
-    const neighbors = positionedAgents
+    const neighbors = agentStorage.getAgentsWithinRadius(agent.x, agent.y, radius)
       .filter((candidate) => candidate.id !== ref.agentId)
-      .filter((candidate) => Math.hypot(candidate.x - agent.x, candidate.y - agent.y) <= radius)
       .map(cloneValue);
     const relevantIds = new Set<AgentId>([ref.agentId, ...neighbors.map((neighbor) => neighbor.id)]);
-    const edges = allEdges.filter((edge) => {
-      const [source, target] = endpointIds(edge);
-      return relevantIds.has(source) && relevantIds.has(target);
-    });
+    const edges = edgeStorages
+      .flatMap((storage) => storage.getEdgesForAgents(relevantIds))
+      .filter((edge) => {
+        const [source, target] = endpointIds(edge);
+        return relevantIds.has(source) && relevantIds.has(target);
+      });
     const base: LiveSpatialAgentInspection = {
       kind: 'spatial',
       ref: { ...ref },
