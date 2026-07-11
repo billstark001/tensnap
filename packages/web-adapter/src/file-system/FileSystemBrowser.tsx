@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { t } from '@lingui/macro';
+import { t } from '@lingui/core/macro';
 import { DirectoryEntry, FileSystemAdapter } from '@tensnap/web-common/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';

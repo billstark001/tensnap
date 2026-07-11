@@ -24,14 +24,11 @@ vi.mock('@/dialogs/AboutDialog', () => ({
 }));
 
 vi.mock('@lingui/react', () => ({
-  useLingui: () => ({ _: (value: unknown) => String(value ?? '') }),
-}));
-
-vi.mock('@lingui/macro', () => ({
-  msg: (strings: TemplateStringsArray, ...values: unknown[]) => strings.reduce(
-    (result, part, index) => result + part + String(values[index] ?? ''),
-    '',
-  ),
+  useLingui: () => ({
+    _: (value: unknown) => typeof value === 'string'
+      ? value
+      : (value as { message?: string; id?: string }).message ?? (value as { id?: string }).id ?? '',
+  }),
 }));
 
 describe('SimulationControlTools', () => {

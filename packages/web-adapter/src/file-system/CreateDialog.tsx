@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Dialog, Form } from '@tensnap/web-common/components/ui';
-import { t } from '@lingui/macro';
+import { t } from '@lingui/core/macro';
 
 import { DialogOpenProps, useCallbackRef } from '@tensnap/web-common/react';
 

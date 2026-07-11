@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@/types/ui';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DialogOpenProps } from '@tensnap/web-common/react';

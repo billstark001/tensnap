@@ -3,7 +3,7 @@ import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
-import { msg, t } from '@lingui/macro';
+import { msg, t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import type { AssetStore, Scenario } from '@tensnap/core';
 import type { ChartGroup } from '@tensnap/core/chart';

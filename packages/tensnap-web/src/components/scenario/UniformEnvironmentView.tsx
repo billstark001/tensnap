@@ -7,7 +7,7 @@ import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { createIconElement } from '../../dialogs/AgentIconElement';
 import * as styles from './UniformEnvironmentView.css';
 import { Trans } from '@lingui/react/macro';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
 import { AssetStore, Scenario, ScenarioEnvironmentState } from '@tensnap/core';

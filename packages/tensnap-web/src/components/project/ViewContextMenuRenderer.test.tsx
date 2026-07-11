@@ -32,8 +32,8 @@ vi.mock('@tensnap/core/chart/browser', () => ({
   exportToCSV: vi.fn(),
 }));
 
-vi.mock('@lingui/react/macro', () => ({
-  Trans: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+vi.mock('@lingui/react', () => ({
+  Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
 }));
 
 describe('ViewContextMenuRenderer', () => {

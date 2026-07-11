@@ -3,7 +3,7 @@ import { useTransportStore } from '@/store/transport';
 import { useToast } from '@/store/toast';
 import { useSettingsStore } from '@/store/settings';
 import { Trans } from '@lingui/react/macro';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw, Wrench } from 'lucide-react';
 import { useState, useCallback } from 'react';

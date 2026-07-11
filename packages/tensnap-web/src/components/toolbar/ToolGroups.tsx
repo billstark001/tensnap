@@ -31,7 +31,7 @@ import { useSettingsStore } from '@/store/settings';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { MAX_INT32_RUN_STEPS } from '@tensnap/core/runtime';
 

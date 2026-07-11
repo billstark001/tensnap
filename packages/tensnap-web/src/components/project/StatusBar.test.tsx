@@ -50,19 +50,11 @@ vi.mock('@/store/toast', () => ({
 
 vi.mock('@lingui/react', () => ({
   useLingui: () => ({
-    _: (value: unknown) => String(value ?? ''),
+    _: (value: unknown) => typeof value === 'string'
+      ? value
+      : (value as { message?: string; id?: string }).message ?? (value as { id?: string }).id ?? '',
   }),
-}));
-
-vi.mock('@lingui/react/macro', () => ({
   Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
-}));
-
-vi.mock('@lingui/macro', () => ({
-  msg: (strings: TemplateStringsArray, ...values: unknown[]) => strings.reduce(
-    (result, part, index) => result + part + String(values[index] ?? ''),
-    '',
-  ),
 }));
 
 describe('StatusBar', () => {

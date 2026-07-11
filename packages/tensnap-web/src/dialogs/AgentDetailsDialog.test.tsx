@@ -20,13 +20,9 @@ vi.mock('@lingui/react', async () => {
   const actual = await vi.importActual<typeof import('@lingui/react')>('@lingui/react');
   return {
     ...actual,
-    Trans: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+    Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
   };
 });
-
-vi.mock('@lingui/react/macro', () => ({
-  Trans: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-}));
 
 vi.mock('@tensnap/core/scenario/browser', () => ({
   EnvironmentRendererController: class {

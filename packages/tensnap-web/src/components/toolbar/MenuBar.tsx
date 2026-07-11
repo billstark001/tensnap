@@ -23,13 +23,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore(x => x.setAboutDialogOpen);
 
-  const { environment, system } = useContext(MenuBarContext);
+  const { environment, system, isFullscreen } = useContext(MenuBarContext);
 
   return (
     <>
       <div className={clsx(
         styles.menuBar,
-        environment === 'tauri' && system === 'mac' && 'mac',
+        environment === 'tauri' && system === 'mac' && !isFullscreen && 'mac',
         className
       )} data-tauri-drag-region>
         {/* File Menu */}

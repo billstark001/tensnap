@@ -2,7 +2,7 @@
 import { memo } from 'react';
 import * as styles from './Pagination.css';
 import clsx from 'clsx';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 
 interface PaginationProps {

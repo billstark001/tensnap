@@ -5,7 +5,7 @@ import { useProjectStore } from '@/store/project';
 import { useSettingsStore } from '@/store/settings';
 import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialogStore';
 import { useToast } from '@/store/toast';
-import { t } from '@lingui/macro';
+import { t } from '@lingui/core/macro';
 
 export interface FileOperationsContextValue {
   canSaveFile: boolean;

@@ -46,11 +46,10 @@ vi.mock('@/store/toast', () => ({
   useToast: () => mocks.toast,
 }));
 
-vi.mock('@lingui/macro', () => ({
-  t: (parts: TemplateStringsArray, ...values: unknown[]) => parts.reduce(
-    (result, part, index) => result + part + (index < values.length ? String(values[index]) : ''),
-    '',
-  ),
+vi.mock('@lingui/core', () => ({
+  i18n: {
+    _: (descriptor: { message?: string; id?: string }) => descriptor.message ?? descriptor.id ?? '',
+  },
 }));
 
 describe('useFileOperations', () => {

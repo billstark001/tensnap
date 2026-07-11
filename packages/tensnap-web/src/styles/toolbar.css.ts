@@ -174,7 +174,6 @@ export const tabsContainer = style({
 
 export const tabList = style({
   display: 'flex',
-  flex: 1,
   minWidth: 0,
   alignItems: 'center',
   gap: '4px',
@@ -218,6 +217,7 @@ export const tab = style({
 });
 
 export const tabLabel = style({
+  flex: 1,
   minWidth: 0,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -240,8 +240,13 @@ export const activeTab = style([tab, {
 
 export const tabCloseButton = style({
   flexShrink: 0,
-  marginLeft: vars.space.xs,
-  padding: '2px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '20px',
+  height: '20px',
+  marginLeft: vars.space.sm,
+  padding: 0,
   backgroundColor: 'transparent',
   border: 'none',
   borderRadius: vars.radius.sm,

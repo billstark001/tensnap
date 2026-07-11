@@ -29,10 +29,37 @@ async function isDarkMode() {
 
 export const TauriApp: React.FC = () => {
   const [isMac, setIsMac] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const setTheme = useSettingsStore((state) => state.setTheme);
+
+  useEffect(() => {
+    const window = getCurrentWindow();
+    let disposed = false;
+
+    const syncFullscreenState = async () => {
+      try {
+        const fullscreen = await window.isFullscreen();
+        if (!disposed) {
+          setIsFullscreen(fullscreen);
+        }
+      } catch (error) {
+        console.warn('Failed to read the Tauri fullscreen state:', error);
+      }
+    };
+
+    void syncFullscreenState();
+    const unlisten = window.onResized(() => {
+      void syncFullscreenState();
+    });
+
+    return () => {
+      disposed = true;
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
 
   useEffect(() => {
     const initialize = async () => {
@@ -112,7 +139,11 @@ export const TauriApp: React.FC = () => {
   return (
     <Providers>
       <TauriMenuEventsLoader />
-      <App environment='tauri' system={isMac ? 'mac' : 'other'} />
+      <App
+        environment="tauri"
+        system={isMac ? 'mac' : 'other'}
+        isFullscreen={isFullscreen}
+      />
     </Providers>
   );
 };

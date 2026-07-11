@@ -40,9 +40,17 @@ msgstr "0 表示无限制"
 msgid "2D Layer Metadata"
 msgstr "二维图层元数据"
 
-#: src/components/toolbar/ToolGroups.tsx:210
-#~ msgid "About"
-#~ msgstr "关于"
+#: src/components/project/view-edit-hooks.ts:331
+msgid "A chart group with this ID already exists."
+msgstr "具有此 ID 的图表组已存在。"
+
+#: src/components/project/view-edit-hooks.ts:305
+msgid "A parameter with this ID already exists."
+msgstr "具有此 ID 的参数已存在。"
+
+#: src/components/toolbar/ToolGroups.tsx:208
+msgid "About"
+msgstr "关于"
 
 #: src/components/toolbar/MenuBar.tsx:192
 #: src/dialogs/AboutDialog.tsx:16
@@ -69,9 +77,9 @@ msgstr "动作超时时长"
 msgid "Action:"
 msgstr "动作："
 
-#: src/components/toolbar/ToolGroups.tsx:147
-#~ msgid "Adjust Mode"
-#~ msgstr "调整模式"
+#: src/components/toolbar/ToolGroups.tsx:145
+msgid "Adjust Mode"
+msgstr "调整模式"
 
 #: src/dialogs/AgentDetailsDialog.tsx:207
 msgid "Agent Details"
@@ -85,6 +93,14 @@ msgstr "智能体详情"
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:410
 msgid "Allow Runtime Change"
 msgstr "允许运行时更改"
+
+#: src/components/project/view-edit-hooks.ts:292
+msgid "An action with this ID already exists."
+msgstr "具有此 ID 的动作已存在。"
+
+#: src/components/project/view-edit-hooks.ts:318
+msgid "An environment with this ID already exists."
+msgstr "具有此 ID 的环境已存在。"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
 #: src/dialogs/SettingsDialog.tsx:343
@@ -123,6 +139,14 @@ msgstr "按钮文本"
 #: src/dialogs/edit-views/EditViewDialog.tsx:342
 msgid "Cancel"
 msgstr "取消"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:59
+msgid "Canvas copied to clipboard!"
+msgstr "画布已复制到剪贴板！"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:55
+msgid "Canvas not found."
+msgstr "未找到画布。"
 
 #: src/dialogs/SettingsDialog.tsx:326
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
@@ -175,9 +199,10 @@ msgstr "客户端信息格式验证"
 msgid "Close"
 msgstr "关闭"
 
-#: src/components/toolbar/TabBar.tsx:69
-#~ msgid "Close {0}"
-#~ msgstr "关闭 {0}"
+#. placeholder {0}: tab.name
+#: src/components/toolbar/TabBar.tsx:72
+msgid "Close {0}"
+msgstr "关闭 {0}"
 
 #: src/dialogs/AgentDetailsDialog.tsx:271
 msgid "Color:"
@@ -211,9 +236,9 @@ msgstr "确认结构变更"
 msgid "Connected"
 msgstr "已连接"
 
-#: src/components/project/StatusBar.tsx:57
-#~ msgid "Connection failed, will retry automatically"
-#~ msgstr "连接失败，将自动重试"
+#: src/components/project/StatusBar.tsx:62
+msgid "Connection failed, will retry automatically"
+msgstr "连接失败，将自动重试"
 
 #: src/components/view/ContainerViewComponent.tsx:131
 msgid "Container"
@@ -345,10 +370,10 @@ msgstr "编辑对象 ID"
 msgid "Edit View"
 msgstr "编辑视图"
 
-#: src/dialogs/CreateNewProjectDialog.tsx:73
-#: src/dialogs/SettingsDialog.tsx:244
-#~ msgid "Enter backend WebSocket server address"
-#~ msgstr "输入后端 WebSocket 服务器地址"
+#: src/dialogs/CreateNewProjectDialog.tsx:72
+#: src/dialogs/SettingsDialog.tsx:323
+msgid "Enter backend WebSocket server address"
+msgstr "输入后端 WebSocket 服务器地址"
 
 #: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:64
 #~ msgid "Enter directory name"
@@ -415,17 +440,36 @@ msgstr "已展开"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "正在导出，请稍候..."
 
+#: src/dialogs/SnapshotDetailDialog.tsx:60
+#: src/dialogs/SnapshotDetailDialog.tsx:62
+msgid "Failed to copy canvas to clipboard."
+msgstr "复制画布到剪贴板失败。"
+
 #: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:270
 #~ msgid "Failed to load: {error}"
 #~ msgstr "加载失败: {error}"
 
-#: src/components/project/StatusBar.tsx:60
-#~ msgid "Failed to reconnect"
-#~ msgstr "重新连接失败"
+#: src/components/toolbar/useFileOperations.ts:69
+msgid "Failed to open files"
+msgstr "打开文件失败"
 
-#: src/dialogs/SettingsDialog.tsx:80
-#~ msgid "Failed to update project URL"
-#~ msgstr "更新项目 URL 失败"
+#: src/components/project/StatusBar.tsx:65
+msgid "Failed to reconnect"
+msgstr "重新连接失败"
+
+#: src/components/toolbar/useFileOperations.ts:52
+#: src/components/toolbar/useFileOperations.ts:89
+msgid "Failed to save file"
+msgstr "保存文件失败"
+
+#: src/dialogs/SettingsDialog.tsx:90
+msgid "Failed to update project URL"
+msgstr "更新项目 URL 失败"
+
+#: src/components/project/view-edit-hooks.ts:206
+#: src/components/project/view-edit-hooks.ts:212
+msgid "Failed to update view"
+msgstr "更新视图失败"
 
 #: src/dialogs/edit-views/EnvironmentViewEditor.tsx:118
 #~ msgid "Fallback Background Color"
@@ -443,6 +487,16 @@ msgstr "文件"
 #~ msgid "File Manager"
 #~ msgstr "文件管理器"
 
+#: src/components/toolbar/useFileOperations.ts:50
+#: src/components/toolbar/useFileOperations.ts:86
+msgid "File saved"
+msgstr "文件已保存"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:152
+#: src/dialogs/SnapshotDetailDialog.tsx:152
+msgid "First frame"
+msgstr "第一帧"
+
 #: src/dialogs/AgentDetailsDialog.tsx:242
 msgid "Follow agent"
 msgstr "跟随智能体"
@@ -455,9 +509,9 @@ msgstr "跟随智能体"
 #~ msgid "Force hidden"
 #~ msgstr "强制隐藏"
 
-#: src/components/project/StatusBar.tsx:90
-#~ msgid "Force reconnect to server"
-#~ msgstr "强制重新连接到服务器"
+#: src/components/project/StatusBar.tsx:111
+msgid "Force reconnect to server"
+msgstr "强制重新连接到服务器"
 
 #: src/dialogs/edit-views/EnvironmentViewEditor.tsx:113
 #~ msgid "Force visible"
@@ -507,13 +561,13 @@ msgstr "高度"
 msgid "Help"
 msgstr "帮助"
 
-#: src/components/project/StatusBar.tsx:134
-#~ msgid "Hide Bottom Panel"
-#~ msgstr "隐藏底部面板"
+#: src/components/project/StatusBar.tsx:155
+msgid "Hide Bottom Panel"
+msgstr "隐藏底部面板"
 
-#: src/components/project/StatusBar.tsx:125
-#~ msgid "Hide Right Panel"
-#~ msgstr "隐藏右侧面板"
+#: src/components/project/StatusBar.tsx:146
+msgid "Hide Right Panel"
+msgstr "隐藏右侧面板"
 
 #: src/dialogs/AgentDetailsDialog.tsx:263
 msgid "Icon:"
@@ -536,6 +590,18 @@ msgstr "离线查看此录制。打开后将创建一个断开连接的副本。
 #: src/components/project/RightPanel.tsx:154
 msgid "Inspector"
 msgstr "检查器"
+
+#: src/dialogs/edit-views/EditObjectIdDialog.tsx:36
+msgid "Invalid ID"
+msgstr "无效的 ID"
+
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:127
+msgid "Invalid JSON"
+msgstr "无效的 JSON"
+
+#: src/dialogs/SettingsDialog.tsx:105
+msgid "Invalid locale"
+msgstr "无效的语言区域"
 
 #: src/components/toolbar/MenuBar.tsx:185
 msgid "Keyboard Shortcuts"
@@ -623,29 +689,29 @@ msgstr "邻居：{0}"
 msgid "New"
 msgstr "新建"
 
-#: src/components/toolbar/ToolGroups.tsx:52
-#~ msgid "New File"
-#~ msgstr "新建文件"
+#: src/components/toolbar/ToolGroups.tsx:53
+msgid "New File"
+msgstr "新建文件"
 
-#: src/components/toolbar/TabBar.tsx:81
-#~ msgid "New Tab"
-#~ msgstr "新建标签页"
+#: src/components/toolbar/TabBar.tsx:84
+msgid "New Tab"
+msgstr "新建标签页"
 
 #: src/components/view/ContainerViewComponent.tsx:101
 msgid "New View"
 msgstr "新建视图"
 
-#: src/components/ui/Pagination.tsx:95
-#~ msgid "Next page"
-#~ msgstr "下一页"
+#: ../web-common/src/components/ui/Pagination.tsx:95
+msgid "Next page"
+msgstr "下一页"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:209
 msgid "No {itemName} available"
 msgstr "没有{itemName}"
 
-#: src/dialogs/SettingsDialog.tsx:71
-#~ msgid "No active project"
-#~ msgstr "没有活动项目"
+#: src/dialogs/SettingsDialog.tsx:77
+msgid "No active project"
+msgstr "没有活动项目"
 
 #: src/components/scenario/UniformEnvironmentView.tsx:68
 msgid "No agents found matching your search"
@@ -705,6 +771,10 @@ msgstr "没有快照。"
 msgid "No spatial context is available for this agent."
 msgstr "此智能体没有可用的空间上下文。"
 
+#: src/components/project/view-edit-hooks.ts:266
+msgid "No view tree is available."
+msgstr "没有可用的视图树。"
+
 #: src/dialogs/AgentDetailsDialog.tsx:287
 msgid "None"
 msgstr "无"
@@ -731,6 +801,8 @@ msgid "Open as offline copy"
 msgstr "作为离线副本打开"
 
 #: src/components/toolbar/MenuBar.tsx:55
+#: src/components/toolbar/ToolGroups.tsx:59
+#: src/components/toolbar/useFileOperations.ts:58
 msgid "Open File"
 msgstr "打开文件"
 
@@ -755,9 +827,9 @@ msgstr "或选择一个在浏览器中运行的内置模型："
 #~ msgid "Or use the \"Upload Files\" button above"
 #~ msgstr "或使用上方的\"上传文件\"按钮"
 
-#: src/components/ui/Pagination.tsx:83
-#~ msgid "Page {pageNum}"
-#~ msgstr "第 {pageNum} 页"
+#: ../web-common/src/components/ui/Pagination.tsx:83
+msgid "Page {pageNum}"
+msgstr "第 {pageNum} 页"
 
 #: src/components/view/ContainerViewComponent.tsx:113
 msgid "Parameter"
@@ -787,9 +859,19 @@ msgstr "参数："
 msgid "Paste"
 msgstr "粘贴"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:153
+#: src/dialogs/SnapshotDetailDialog.tsx:153
+msgid "Pause"
+msgstr "暂停"
+
 #: src/components/project/RightPanel.tsx:104
 msgid "Pending"
 msgstr "待处理"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:153
+#: src/dialogs/SnapshotDetailDialog.tsx:153
+msgid "Play"
+msgstr "播放"
 
 #: src/components/project/MainViewRenderer.tsx:30
 msgid "Please create or open a project to get started."
@@ -799,21 +881,29 @@ msgstr "要开始，请新建或打开一个项目。"
 msgid "Position:"
 msgstr "位置："
 
-#: src/components/ui/Pagination.tsx:60
-#~ msgid "Previous page"
-#~ msgstr "上一页"
+#: ../web-common/src/components/ui/Pagination.tsx:60
+msgid "Previous page"
+msgstr "上一页"
 
 #: src/dialogs/SettingsDialog.tsx:304
 msgid "Project File"
 msgstr "项目文件"
 
+#: src/components/toolbar/useFileOperations.ts:63
+msgid "Project recovered with warnings"
+msgstr "项目已恢复，但存在警告"
+
+#: src/components/toolbar/useFileOperations.ts:50
+msgid "Project saved successfully."
+msgstr "项目已成功保存。"
+
 #: src/dialogs/SettingsDialog.tsx:299
 msgid "Project Settings"
 msgstr "项目设置"
 
-#: src/dialogs/SettingsDialog.tsx:77
-#~ msgid "Project URL updated successfully"
-#~ msgstr "项目 URL 更新成功"
+#: src/dialogs/SettingsDialog.tsx:83
+msgid "Project URL updated successfully"
+msgstr "项目 URL 更新成功"
 
 #: src/dialogs/AgentDetailsDialog.tsx:224
 msgid "Radius"
@@ -827,9 +917,9 @@ msgstr "就绪"
 msgid "Reconnect"
 msgstr "重新连接"
 
-#: src/components/project/StatusBar.tsx:54
-#~ msgid "Reconnected successfully"
-#~ msgstr "重新连接成功"
+#: src/components/project/StatusBar.tsx:59
+msgid "Reconnected successfully"
+msgstr "重新连接成功"
 
 #: src/dialogs/ContinuousRunDialog.tsx:99
 msgid "Record this run"
@@ -840,6 +930,7 @@ msgid "Recorded:"
 msgstr "录制时间："
 
 #: src/components/toolbar/MenuBar.tsx:94
+#: src/components/toolbar/ToolGroups.tsx:85
 msgid "Redo"
 msgstr "重做"
 
@@ -859,6 +950,7 @@ msgstr "渲染触发器"
 msgid "Repository:"
 msgstr "代码仓库："
 
+#: src/components/toolbar/ToolGroups.tsx:120
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
 #: src/dialogs/SettingsDialog.tsx:336
 msgid "Reset"
@@ -891,9 +983,14 @@ msgid "Run one step"
 msgstr "单步执行"
 
 #: src/components/toolbar/MenuBar.tsx:62
+#: src/components/toolbar/ToolGroups.tsx:64
 #: src/dialogs/edit-views/EditViewDialog.tsx:339
 msgid "Save"
 msgstr "保存"
+
+#: src/components/toolbar/useFileOperations.ts:77
+msgid "Save As"
+msgstr "另存为"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:102
 #: src/dialogs/SnapshotDetailDialog.tsx:69
@@ -912,9 +1009,9 @@ msgstr "存储格式"
 #~ msgid "Scenario Properties"
 #~ msgstr "场景属性"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:155
-#~ msgid "Search agents by ID, color, or icon..."
-#~ msgstr "按 ID、颜色或图标搜索智能体..."
+#: src/components/scenario/UniformEnvironmentView.tsx:165
+msgid "Search agents by ID, color, or icon..."
+msgstr "按 ID、颜色或图标搜索智能体..."
 
 #: src/components/toolbar/MenuBar.tsx:108
 msgid "Select All"
@@ -924,27 +1021,34 @@ msgstr "全选"
 #~ msgid "Select export format"
 #~ msgstr "选择导出格式"
 
+#: src/dialogs/edit-views/ChartViewEditor.tsx:203
+#: src/dialogs/edit-views/ChartViewEditor.tsx:232
+msgid "Series ID already exists."
+msgstr "序列 ID 已存在。"
+
 #: src/dialogs/SettingsDialog.tsx:188
 msgid "Server Message Validation"
 msgstr "服务器信息格式验证"
 
+#: src/components/project/StatusBar.tsx:127
 #: src/components/project/StatusBar.tsx:130
 #: src/components/toolbar/MenuBar.tsx:163
+#: src/components/toolbar/ToolGroups.tsx:213
 #: src/dialogs/SettingsDialog.tsx:114
 msgid "Settings"
 msgstr "设置"
 
-#: src/components/project/StatusBar.tsx:134
-#~ msgid "Show Bottom Panel"
-#~ msgstr "显示底部面板"
+#: src/components/project/StatusBar.tsx:155
+msgid "Show Bottom Panel"
+msgstr "显示底部面板"
 
 #: src/components/toolbar/MenuBar.tsx:135
 msgid "Show Grid"
 msgstr "显示网格"
 
-#: src/components/project/StatusBar.tsx:125
-#~ msgid "Show Right Panel"
-#~ msgstr "显示右侧面板"
+#: src/components/project/StatusBar.tsx:146
+msgid "Show Right Panel"
+msgstr "显示右侧面板"
 
 #: src/components/toolbar/MenuBar.tsx:138
 msgid "Show Toolbar"
@@ -983,13 +1087,17 @@ msgstr "快照回放"
 msgid "Snapshots"
 msgstr "快照"
 
+#: src/components/toolbar/useFileOperations.ts:64
+msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
+msgstr "部分数据无效。已加载有效数据；请检查项目并另存为新的副本。"
+
 #: src/components/project/StatusBar.tsx:101
 msgid "Srv Render:"
 msgstr "服务器渲染："
 
-#: src/components/toolbar/ToolGroups.tsx:107
-#~ msgid "Start"
-#~ msgstr "开始"
+#: src/components/toolbar/ToolGroups.tsx:102
+msgid "Start"
+msgstr "开始"
 
 #: src/dialogs/ContinuousRunDialog.tsx:113
 msgid "Start continuous run"
@@ -1003,13 +1111,14 @@ msgstr "开始录制"
 #~ msgid "Start/Stop"
 #~ msgstr "开始/停止"
 
+#: src/components/toolbar/ToolGroups.tsx:115
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:132
 msgid "Step"
 msgstr "步进"
 
-#: src/components/toolbar/ToolGroups.tsx:112
-#~ msgid "Stop"
-#~ msgstr "停止"
+#: src/components/toolbar/ToolGroups.tsx:110
+msgid "Stop"
+msgstr "停止"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:118
 msgid "Stop continuous run"
@@ -1023,15 +1132,16 @@ msgstr "停止表达式（可选）"
 msgid "Stop recording"
 msgstr "停止录制"
 
-#: src/components/toolbar/ToolGroups.tsx:166
-#~ msgid "Synchronize State"
-#~ msgstr "同步状态"
+#: src/components/toolbar/ToolGroups.tsx:164
+msgid "Synchronize State"
+msgstr "同步状态"
 
 #: src/dialogs/SettingsDialog.tsx:122
 msgid "System Settings"
 msgstr "系统设置"
 
 #: src/components/project/RightPanel.tsx:190
+#: src/components/toolbar/ToolGroups.tsx:159
 msgid "Take Snapshot"
 msgstr "拍摄快照"
 
@@ -1039,17 +1149,37 @@ msgstr "拍摄快照"
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnap 是一个主体模型（ABM）的互动可视化工具，旨在通过交互式模拟和可视化帮助研究人员和学生理解复杂系统。"
 
+#: src/components/project/view-edit-hooks.ts:293
+msgid "The action ID could not be changed."
+msgstr "无法更改动作 ID。"
+
 #: src/dialogs/edit-views/ButtonViewEditor.tsx:88
 msgid "The button can keep this binding, but there is no registered action to edit."
 msgstr "按钮可以保持此绑定，但没有可编辑的注册动作。"
+
+#: src/components/project/view-edit-hooks.ts:332
+msgid "The chart group ID could not be changed."
+msgstr "无法更改图表组 ID。"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:62
 msgid "The current object will be renamed when this edit is saved."
 msgstr "保存此编辑后，当前对象将被重命名。"
 
+#: src/components/project/view-edit-hooks.ts:319
+msgid "The environment ID could not be changed."
+msgstr "无法更改环境 ID。"
+
 #: src/dialogs/SettingsDialog.tsx:314
 msgid "The full path is shown here and is not editable."
 msgstr "完整路径显示在这里，且不可编辑。"
+
+#: src/components/project/view-edit-hooks.ts:306
+msgid "The parameter ID could not be changed."
+msgstr "无法更改参数 ID。"
+
+#: src/components/project/view-edit-hooks.ts:271
+msgid "The view no longer exists."
+msgstr "该视图已不存在。"
 
 #: src/dialogs/SettingsDialog.tsx:126
 msgid "Theme"
@@ -1067,6 +1197,10 @@ msgstr "此更改可能会改变对象的解释方式。现有数据将尽可能
 #: ../web-common/src/components/ui/EmptyState.tsx:220
 msgid "This directory is empty"
 msgstr "此目录为空"
+
+#: src/dialogs/edit-views/EditViewDialog.tsx:213
+msgid "This ID is already used by another registered object."
+msgstr "此 ID 已被另一个已注册对象使用。"
 
 #: src/dialogs/edit-views/ChartViewEditor.tsx:329
 msgid "This view can keep its binding, but there is no registered chart group to edit."
@@ -1096,13 +1230,13 @@ msgstr "时间步："
 msgid "Title"
 msgstr "标题"
 
-#: src/components/toolbar/ToolGroups.tsx:196
-#~ msgid "Toggle theme"
-#~ msgstr "切换主题"
+#: src/components/toolbar/ToolGroups.tsx:194
+msgid "Toggle theme"
+msgstr "切换主题"
 
-#: src/components/toolbar/ToolGroups.tsx:203
-#~ msgid "Toggle Theme"
-#~ msgstr "切换主题"
+#: src/components/toolbar/ToolGroups.tsx:201
+msgid "Toggle Theme"
+msgstr "切换主题"
 
 #: src/components/toolbar/MenuBar.tsx:151
 msgid "Tools"
@@ -1129,6 +1263,7 @@ msgid "Type"
 msgstr "类型"
 
 #: src/components/toolbar/MenuBar.tsx:91
+#: src/components/toolbar/ToolGroups.tsx:79
 msgid "Undo"
 msgstr "撤销"
 
@@ -1140,13 +1275,18 @@ msgstr "统一环境"
 msgid "Uniform Layer Metadata"
 msgstr "统一图层元数据"
 
+#: src/dialogs/SettingsDialog.tsx:310
+#: src/dialogs/SettingsDialog.tsx:311
+msgid "Unsaved project"
+msgstr "未保存的项目"
+
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:48
 msgid "Update the object ID used by this view."
 msgstr "更新此视图使用的对象 ID。"
 
-#: src/components/toolbar/ToolGroups.tsx:174
-#~ msgid "Update View Layout"
-#~ msgstr "更新视图布局"
+#: src/components/toolbar/ToolGroups.tsx:172
+msgid "Update View Layout"
+msgstr "更新视图布局"
 
 #: ../tensnap-web-utils/src/file-system/ActionButtons.tsx:50
 #~ msgid "Upload Files"
@@ -1190,9 +1330,11 @@ msgid "Width"
 msgstr "宽度"
 
 #: src/components/toolbar/MenuBar.tsx:125
+#: src/components/toolbar/ToolGroups.tsx:151
 msgid "Zoom In"
 msgstr "放大"
 
 #: src/components/toolbar/MenuBar.tsx:128
+#: src/components/toolbar/ToolGroups.tsx:155
 msgid "Zoom Out"
 msgstr "缩小"

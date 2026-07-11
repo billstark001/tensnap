@@ -45,6 +45,8 @@
     "dev:js:tornberg": "pnpm --filter @tensnap/examples-js demo:ws tornberg",
     "i18n:extract": "pnpm -r i18n:extract",
     "i18n:compile": "pnpm -r i18n:compile",
+    "i18n:check": "pnpm -r --if-present i18n:check",
+    "i18n:verify": "pnpm i18n:extract && pnpm i18n:check",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
