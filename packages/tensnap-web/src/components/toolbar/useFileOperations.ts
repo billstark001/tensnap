@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useFileSystem } from '@/store/file-system/provider';
 import { useWithLoading } from '@/store/loading';
 import { useProjectStore } from '@/store/project';
+import { useSettingsStore } from '@/store/settings';
 import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialogStore';
 import { useToast } from '@/store/toast';
 import { t } from '@lingui/macro';
@@ -25,6 +26,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
 
   const activeTabId = useProjectStore((store) => store.activeProject?.id);
   const activeFilepath = useProjectStore((store) => store.activeFilepath);
+  const saveFormat = useSettingsStore((store) => store.saveFormat);
 
   const createNewProject = useProjectStore((store) => store.new);
   const open = useProjectStore((store) => store.open);
@@ -70,7 +72,15 @@ export const useFileOperations = (): FileOperationsContextValue => {
 
   const onFileSaveAs = useCallback(async () => {
     try {
-      const file = await saveFileAs(t`Save As`);
+      const extension = saveFormat === 'msgpack' ? 'msgpack' : 'json';
+      const file = await saveFileAs({
+        title: t`Save As`,
+        defaultPath: `project.${extension}`,
+        filters: [{
+          name: saveFormat === 'msgpack' ? 'TenSnap MessagePack project' : 'TenSnap JSON project',
+          extensions: [extension],
+        }],
+      });
       if (file) {
         await withLoading(() => save(undefined, file.path));
         toast.success(t`File saved`, file.path);
@@ -78,7 +88,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
     } catch (error) {
       toast.error(t`Failed to save file`, String(error));
     }
-  }, [withLoading, saveFileAs, save, toast]);
+  }, [withLoading, saveFileAs, save, saveFormat, toast]);
 
 
   const contextValue: FileOperationsContextValue = {

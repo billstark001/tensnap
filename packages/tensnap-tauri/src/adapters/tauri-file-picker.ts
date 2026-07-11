@@ -23,10 +23,10 @@ export class TauriFilePicker extends FileSystemPicker {
       throw new Error('File picker not initialized. Call initialize() first.');
     }
 
-    const { title, multiSelect = false, mode = 'open' } = options ?? {};
+    const { title, multiSelect = false, mode = 'open', filters, defaultPath } = options ?? {};
     try {
       if (mode === 'save') {
-        const path = await save({ title: title || 'Save File' });
+        const path = await save({ title: title || 'Save File', filters, defaultPath });
         return path ? [this.newFileMetadata(path)] : [];
       }
 

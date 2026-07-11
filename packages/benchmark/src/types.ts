@@ -48,6 +48,26 @@ export interface BenchmarkCase {
   tick(frameIndex: number): Promise<void> | void;
   /** Called once after the run to destroy resources. */
   teardown(): Promise<void> | void;
+  /**
+   * Optional hooks that put the case through the real RendererSession path.
+   * Hosts can use `onCommit` to include their production store/UI commit in
+   * the timing path without creating a second session runner.
+   */
+  runtime?: {
+    record?: RecordingOptions | false;
+    stopWhen?: string;
+    setupSession?: (session: RendererSession) => void;
+    applySessionStep?: (session: RendererSession, frameIndex: number) => Promise<void> | void;
+    onCommit?: (session: RendererSession) => void;
+  };
+}
+
+export interface BenchmarkRegressionGate {
+  name: string;
+  /** Maximum permitted p95 regression against the checked-in baseline. */
+  maxP95RegressionPercent: number;
+  /** Optional minimum throughput to catch gross scheduler/checkpoint regressions. */
+  minTps?: number;
 }
 
 /** A named group of related benchmark cases with parameter variations. */
@@ -61,3 +81,4 @@ export interface CaseVariation {
   /** Ordered list of cases, typically from lightest to heaviest. Index 1 is the default "medium" configuration. */
   cases: BenchmarkCase[];
 }
+import type { RecordingOptions, RendererSession } from '@tensnap/core/runtime';

@@ -228,8 +228,8 @@ tensnap/
 ### Package Responsibilities
 
 - **protocol**: Renderer/simulator schemas, type definitions, codecs, built-in layer contracts, and generated protocol reference.
-- **core**: Renderer-side `Scenario`, `RendererSession`, bounded `RunController`, condition evaluation, layer registry, rendering primitives, and `AssetStore`.
-- **tensnap-web**: Main browser renderer, transport wiring, project UI, and scenario store integration.
+- **core**: Renderer-side `Scenario`, `RendererSession`, bounded `RunController`, condition evaluation, inspection/trajectory semantics, recording/replay, layer registry, rendering primitives, and `AssetStore`.
+- **tensnap-web**: Main browser renderer, transport wiring, project UI (including offline recordings and content-addressed assets), and scenario store integration.
 - **tensnap-tauri**: Desktop shell reusing the web renderer, with scoped native file access and app-data settings persistence.
 - **tensnap-agent**: Headless host for the shared renderer session, HTTP/CLI bounded runs, and offscreen rendering utilities.
 - **tensnap-go**: Go protocol package, declarative ABM helpers, and WebSocket simulator server.

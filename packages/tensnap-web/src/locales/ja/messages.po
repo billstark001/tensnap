@@ -31,8 +31,8 @@ msgstr "{0} / {1} エージェント"
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap コントリビューター"
 
-#: src/dialogs/SettingsDialog.tsx:230
-#: src/dialogs/SettingsDialog.tsx:248
+#: src/dialogs/SettingsDialog.tsx:233
+#: src/dialogs/SettingsDialog.tsx:251
 msgid "0 means unlimited"
 msgstr "0は無制限を意味します"
 
@@ -61,7 +61,7 @@ msgstr "アクションID"
 msgid "Action Label"
 msgstr "アクションラベル"
 
-#: src/dialogs/SettingsDialog.tsx:274
+#: src/dialogs/SettingsDialog.tsx:277
 msgid "Action Timeout"
 msgstr "アクションタイムアウト"
 
@@ -87,7 +87,7 @@ msgid "Allow Runtime Change"
 msgstr "実行時変更を許可"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:325
+#: src/dialogs/SettingsDialog.tsx:343
 msgid "Apply"
 msgstr "適用"
 
@@ -99,12 +99,12 @@ msgstr "アセット"
 msgid "Assets sent by adapters will appear here."
 msgstr "アダプターから送信されたアセットはここに表示されます。"
 
-#: src/dialogs/SettingsDialog.tsx:206
+#: src/dialogs/SettingsDialog.tsx:209
 msgid "Auto"
 msgstr "自動"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:67
-#: src/dialogs/SettingsDialog.tsx:300
+#: src/dialogs/SettingsDialog.tsx:318
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
@@ -124,7 +124,7 @@ msgstr "ボタンテキスト"
 msgid "Cancel"
 msgstr "キャンセル"
 
-#: src/dialogs/SettingsDialog.tsx:308
+#: src/dialogs/SettingsDialog.tsx:326
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "現在のプロジェクトのWebSocketサーバーURLを変更します。接続が再確立されます。"
 
@@ -165,13 +165,13 @@ msgstr "検索をクリア"
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/SettingsDialog.tsx:168
+#: src/dialogs/SettingsDialog.tsx:171
 msgid "Client Message Validation"
 msgstr "クライアントメッセージの検証"
 
 #: src/dialogs/AboutDialog.tsx:79
 #: src/dialogs/AgentDetailsDialog.tsx:299
-#: src/dialogs/SettingsDialog.tsx:335
+#: src/dialogs/SettingsDialog.tsx:353
 msgid "Close"
 msgstr "閉じる"
 
@@ -190,6 +190,10 @@ msgstr "通信："
 #: src/dialogs/ContinuousRunDialog.tsx:54
 msgid "Configure a bounded continuous run for action {actionId}."
 msgstr "アクション {actionId} の上限付き連続実行を設定します。"
+
+#: src/dialogs/SettingsDialog.tsx:116
+msgid "Configure application and project settings."
+msgstr "アプリケーションとプロジェクトの設定を構成します。"
 
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:32
 msgid "Confirm"
@@ -264,7 +268,7 @@ msgstr "カスタムデータ："
 msgid "Cut"
 msgstr "切り取り"
 
-#: src/dialogs/SettingsDialog.tsx:134
+#: src/dialogs/SettingsDialog.tsx:137
 msgid "Dark"
 msgstr "ダーク"
 
@@ -382,8 +386,8 @@ msgstr "環境タイプ"
 msgid "Environments:"
 msgstr "環境："
 
-#: src/dialogs/SettingsDialog.tsx:178
-#: src/dialogs/SettingsDialog.tsx:195
+#: src/dialogs/SettingsDialog.tsx:181
+#: src/dialogs/SettingsDialog.tsx:198
 msgid "Error"
 msgstr "エラー"
 
@@ -542,7 +546,7 @@ msgstr "キーボードショートカット"
 #~ msgid "Label"
 #~ msgstr "ラベル"
 
-#: src/dialogs/SettingsDialog.tsx:141
+#: src/dialogs/SettingsDialog.tsx:144
 msgid "Language"
 msgstr "言語"
 
@@ -554,7 +558,7 @@ msgstr "左"
 msgid "License:"
 msgstr "ライセンス："
 
-#: src/dialogs/SettingsDialog.tsx:134
+#: src/dialogs/SettingsDialog.tsx:137
 msgid "Light"
 msgstr "ライト"
 
@@ -562,15 +566,15 @@ msgstr "ライト"
 #~ msgid "Loading..."
 #~ msgstr "読み込み中..."
 
-#: src/dialogs/SettingsDialog.tsx:237
+#: src/dialogs/SettingsDialog.tsx:240
 msgid "Max FPS"
 msgstr "最大FPS"
 
-#: src/dialogs/SettingsDialog.tsx:219
+#: src/dialogs/SettingsDialog.tsx:222
 msgid "Max TPS"
 msgstr "最大TPS"
 
-#: src/dialogs/SettingsDialog.tsx:267
+#: src/dialogs/SettingsDialog.tsx:270
 msgid "Maximum 120 FPS"
 msgstr "最大 120 FPS"
 
@@ -713,8 +717,8 @@ msgstr "位置指定なし"
 msgid "Object ID"
 msgstr "オブジェクトID"
 
-#: src/dialogs/SettingsDialog.tsx:172
-#: src/dialogs/SettingsDialog.tsx:189
+#: src/dialogs/SettingsDialog.tsx:175
+#: src/dialogs/SettingsDialog.tsx:192
 msgid "Off"
 msgstr "オフ"
 
@@ -799,7 +803,11 @@ msgstr "位置："
 #~ msgid "Previous page"
 #~ msgstr "前のページ"
 
-#: src/dialogs/SettingsDialog.tsx:295
+#: src/dialogs/SettingsDialog.tsx:304
+msgid "Project File"
+msgstr "プロジェクトファイル"
+
+#: src/dialogs/SettingsDialog.tsx:299
 msgid "Project Settings"
 msgstr "プロジェクト設定"
 
@@ -839,7 +847,7 @@ msgstr "やり直す"
 #~ msgid "Refresh"
 #~ msgstr "更新"
 
-#: src/dialogs/SettingsDialog.tsx:202
+#: src/dialogs/SettingsDialog.tsx:205
 msgid "Render Trigger"
 msgstr "レンダートリガー"
 
@@ -852,7 +860,7 @@ msgid "Repository:"
 msgstr "リポジトリ："
 
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
-#: src/dialogs/SettingsDialog.tsx:318
+#: src/dialogs/SettingsDialog.tsx:336
 msgid "Reset"
 msgstr "リセット"
 
@@ -896,7 +904,7 @@ msgstr "CSV形式で保存"
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
-#: src/dialogs/SettingsDialog.tsx:154
+#: src/dialogs/SettingsDialog.tsx:157
 msgid "Save Format"
 msgstr "保存形式"
 
@@ -916,7 +924,7 @@ msgstr "すべて選択"
 #~ msgid "Select export format"
 #~ msgstr "エクスポート形式を選択"
 
-#: src/dialogs/SettingsDialog.tsx:185
+#: src/dialogs/SettingsDialog.tsx:188
 msgid "Server Message Validation"
 msgstr "サーバーメッセージバリデーション"
 
@@ -963,7 +971,7 @@ msgstr "サイズ："
 msgid "Snapshot name"
 msgstr "スナップショット名"
 
-#: src/dialogs/SettingsDialog.tsx:255
+#: src/dialogs/SettingsDialog.tsx:258
 msgid "Snapshot playback FPS"
 msgstr "スナップショット再生 FPS"
 
@@ -1019,7 +1027,7 @@ msgstr "録画を停止"
 #~ msgid "Synchronize State"
 #~ msgstr "状態を同期"
 
-#: src/dialogs/SettingsDialog.tsx:120
+#: src/dialogs/SettingsDialog.tsx:122
 msgid "System Settings"
 msgstr "システム設定"
 
@@ -1039,7 +1047,11 @@ msgstr "ボタンはこのバインディングを維持できますが、編集
 msgid "The current object will be renamed when this edit is saved."
 msgstr "この編集を保存すると、現在のオブジェクトの名前が変更されます。"
 
-#: src/dialogs/SettingsDialog.tsx:123
+#: src/dialogs/SettingsDialog.tsx:314
+msgid "The full path is shown here and is not editable."
+msgstr "完全なパスがここに表示され、編集できません。"
+
+#: src/dialogs/SettingsDialog.tsx:126
 msgid "Theme"
 msgstr "テーマ"
 
@@ -1168,8 +1180,8 @@ msgstr "実時間の上限は正のミリ秒数で指定してください。"
 msgid "Wall-clock limit, ms (optional)"
 msgstr "実時間の上限（ミリ秒、任意）"
 
-#: src/dialogs/SettingsDialog.tsx:175
-#: src/dialogs/SettingsDialog.tsx:192
+#: src/dialogs/SettingsDialog.tsx:178
+#: src/dialogs/SettingsDialog.tsx:195
 msgid "Warning"
 msgstr "警告"
 

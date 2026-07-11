@@ -91,7 +91,11 @@ describe('ProjectStore', () => {
     expect(savedContent).toHaveProperty('snapshots');
     expect(savedContent.snapshots).toHaveLength(1);
     expect(savedContent.snapshots[0].metadata.id).toBe('snapshot-1');
-    expect(savedContent.version).toBe(1);
+    expect(savedContent.version).toBe(2);
+    expect(savedContent.snapshots[0].segments).toHaveLength(1);
+    expect(useProjectStore.getState().tabs).toEqual([
+      expect.objectContaining({ name: 'project.json', title: '/test/project.json' }),
+    ]);
   });
 
   it('migrates legacy one-off snapshots and defaults missing legacy snapshots to an empty list', async () => {
@@ -193,12 +197,12 @@ describe('ProjectStore', () => {
   it('rejects unsupported project versions and malformed current project files before loading them', async () => {
     (getFileSystemState as any).mockReturnValue({
       readFile: vi.fn()
-        .mockResolvedValueOnce({ content: JSON.stringify({ version: 2 }) })
+          .mockResolvedValueOnce({ content: JSON.stringify({ version: 3 }) })
         .mockResolvedValueOnce({ content: JSON.stringify({ version: 1, url: 'http://broken.example' }) }),
     });
 
     await expect(useProjectStore.getState().open('/future.json'))
-      .rejects.toThrow('Unsupported project file version: 2.');
+      .rejects.toThrow('Unsupported project file version: 3.');
     await expect(useProjectStore.getState().open('/malformed.json')).rejects.toThrow();
     expect(useProjectStore.getState().projects).toHaveLength(0);
   });
@@ -308,5 +312,39 @@ describe('ProjectStore', () => {
     expect(dumped.config.length).toBe(0);
     expect(dumped.trajectories).toHaveLength(1);
     expect(dumped.trajectories[0].points).toHaveLength(2);
+  });
+
+  it('stores identical live and recorded assets once in the project asset table', async () => {
+    let savedContent = '';
+    (getFileSystemState as any).mockReturnValue({
+      writeFile: vi.fn().mockImplementation((_path: string, content: string) => {
+        savedContent = content;
+        return Promise.resolve();
+      }),
+    });
+    const asset = {
+      meta: { id: 'sprite', hash: 'same-bytes', mime: 'image/png', size: 3 },
+      data: 'data:image/png;base64,AQID',
+    };
+    const scenario = { ...emptyScenario(), assets: [asset] };
+    useProjectStore.getState().new('http://assets.example');
+    const project = useProjectStore.getState().activeProject!;
+    project.useScenarioStore.getState().load(scenario);
+    project.useScenarioStore.setState({ snapshots: [createSingleSnapshot(scenario, { id: 'asset-recording' })] });
+
+    await useProjectStore.getState().save(0, '/allowed/assets.json');
+
+    const archive = JSON.parse(savedContent);
+    expect(archive.assetTable).toEqual({ 'same-bytes': { mime: 'image/png', data: asset.data } });
+    expect(archive.scenario.assets[0]).not.toHaveProperty('data');
+    expect(archive.snapshots[0].segments[0].data).toEqual(expect.any(String));
+
+    (getFileSystemState as any).mockReturnValue({
+      readFile: vi.fn().mockResolvedValue({ content: savedContent }),
+    });
+    await useProjectStore.getState().open('/allowed/assets.json', 1);
+    const opened = useProjectStore.getState().projects[1]!.useScenarioStore.getState();
+    expect(opened.dump().assets[0]?.data).toBe(asset.data);
+    expect(opened.snapshots[0]?.initial.scenario.assets[0]?.data).toBe(asset.data);
   });
 });

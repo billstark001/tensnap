@@ -155,4 +155,30 @@ describe('RunController', () => {
 
     expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'action-timeout' });
   });
+
+  it('records a rejected render barrier and stops the affected run without an unhandled rejection', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const onRenderBarrierError = vi.fn();
+    const session = new RendererSession({
+      run: {
+        renderBarrier: { wait: () => Promise.reject(new Error('canvas lost')) },
+        onRenderBarrierError,
+      },
+    });
+    session.attachTransport(createTransport(sent));
+
+    session.run.start({ actionId: 'step', maxSteps: 2 });
+    const first = tickId(sent[0]!);
+    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onRenderBarrierError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ id: first }), expect.anything());
+    expect(session.run.status).toMatchObject({
+      state: 'stopped',
+      stopReason: 'render-error',
+      renderError: 'canvas lost',
+    });
+    expect(sent).toHaveLength(1);
+  });
 });

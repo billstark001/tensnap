@@ -45,6 +45,8 @@ export interface AgentRuntimeOptions {
   render?: Partial<RenderSettings>;
   /** Delay between dirty scene updates and disk checkpoints. */
   checkpointIntervalMs?: number;
+  /** Injectable for checkpoint regression tests and alternative durable stores. */
+  checkpointWriter?: (context: RuntimeContextPaths, snapshot: ScenarioSnapshot) => Promise<void>;
 }
 
 const DEFAULT_CHECKPOINT_INTERVAL_MS = 2_000;
@@ -74,6 +76,7 @@ export class AgentRuntime extends EventEmitter {
   private readonly checkpointIntervalMs: number;
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpointChain: Promise<void> = Promise.resolve();
+  private readonly checkpointWriter: (context: RuntimeContextPaths, snapshot: ScenarioSnapshot) => Promise<void>;
 
   constructor(
     readonly context: RuntimeContextPaths,
@@ -88,6 +91,7 @@ export class AgentRuntime extends EventEmitter {
     this.checkpointIntervalMs = Number.isFinite(requestedCheckpointInterval)
       ? Math.min(5_000, Math.max(1_000, requestedCheckpointInterval))
       : DEFAULT_CHECKPOINT_INTERVAL_MS;
+    this.checkpointWriter = options.checkpointWriter ?? writeSceneSnapshot;
 
     const now = new Date().toISOString();
     this.control = {
@@ -712,7 +716,7 @@ export class AgentRuntime extends EventEmitter {
     const revision = this.control.sceneRevision;
     const checkpoint = snapshot ?? this.renderer.scenario.dump();
     const write = async () => {
-      await writeSceneSnapshot(this.context, checkpoint);
+      await this.checkpointWriter(this.context, checkpoint);
       if (revision === this.control.sceneRevision) {
         this.control.sceneDirty = false;
       }

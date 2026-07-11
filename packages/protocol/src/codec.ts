@@ -8,6 +8,19 @@ import type { AnyProtocolMessage } from './types';
 
 export type ProtocolEncoding = 'json' | 'msgpack';
 
+/**
+ * Generic MessagePack helpers for higher-level persistence formats. Keeping
+ * them here gives core and hosts one pinned MessagePack implementation instead
+ * of relying on transitive dependencies.
+ */
+export function encodeMessagePack(value: unknown): Uint8Array {
+  return encode(value);
+}
+
+export function decodeMessagePack<T>(data: Uint8Array | ArrayBuffer): T {
+  return decode(data instanceof Uint8Array ? data : new Uint8Array(data)) as T;
+}
+
 export function detectProtocolEncoding(data: string | Uint8Array | ArrayBuffer): ProtocolEncoding {
   return typeof data === 'string' ? 'json' : 'msgpack';
 }

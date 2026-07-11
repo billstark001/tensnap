@@ -17,6 +17,7 @@ const stopReasonGlyph = {
   'max-steps': '✓',
   'wall-time': '⌛',
   'action-timeout': '!',
+  'render-error': '!',
   simulator: '■',
   stopped: '■',
   disconnected: '×',

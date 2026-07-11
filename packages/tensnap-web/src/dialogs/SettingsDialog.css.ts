@@ -4,20 +4,20 @@ import { vars } from '@tensnap/web-common/styles/global.css';
 export const settingsContainer = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.space.lg,
+  gap: vars.space.md,
 });
 
 export const sectionContainer = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.space.md,
+  gap: vars.space.sm,
 });
 
 export const sectionTitle = style({
   fontSize: vars.fontSize.md,
   fontWeight: '600',
   color: vars.color.foreground,
-  marginBottom: vars.space.sm,
+  margin: 0,
 
   selectors: {
     'body[data-theme="dark"] &': {
@@ -27,10 +27,24 @@ export const sectionTitle = style({
 });
 
 export const settingItem = style({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: `${vars.space.sm} 0`,
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) minmax(118px, 0.9fr)',
+  alignItems: 'start',
+  gap: vars.space.sm,
+  minWidth: 0,
+});
+
+export const systemSettingsGrid = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  columnGap: vars.space.lg,
+  rowGap: vars.space.md,
+
+  '@media': {
+    '(max-width: 680px)': {
+      gridTemplateColumns: 'minmax(0, 1fr)',
+    },
+  },
 });
 
 export const settingLabel = style({
@@ -45,8 +59,8 @@ export const settingLabel = style({
 });
 
 export const settingControl = style({
-  minWidth: '120px',
-  textAlign: 'right',
+  minWidth: 0,
+  textAlign: 'left',
 });
 
 export const switchContainer = style({
@@ -102,6 +116,31 @@ export const projectSettingsForm = style({
   display: 'flex',
   flexDirection: 'column',
   gap: vars.space.md,
+});
+
+export const projectPathInput = style({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  cursor: 'default',
+});
+
+export const fieldHint = style({
+  fontSize: '0.75rem',
+  color: 'var(--color-text-secondary)',
+  marginTop: '0.25rem',
+});
+
+export const visuallyHidden = style({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
 });
 
 export const projectSettingsFooter = style({

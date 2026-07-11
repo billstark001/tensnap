@@ -1,5 +1,15 @@
 import type { ScenarioSnapshot } from '@tensnap/core';
-import { createSingleSnapshot, type Snapshot } from '@tensnap/core/snapshot';
+import {
+  createSingleSnapshot,
+  decodeSnapshotArchive,
+  encodeSnapshotArchive,
+  isSnapshotArchive,
+  snapshotArchiveForJson,
+  type Snapshot,
+  type SnapshotArchive,
+} from '@tensnap/core/snapshot';
+import { encodeBytesAsDataUrl } from '@tensnap/protocol';
+import { encodeSnapshotArchivesInWorker } from '@/workers/snapshot-archive';
 import {
   ActionEndPayloadSchema,
   ActionSchema,
@@ -14,7 +24,7 @@ import { z } from 'zod';
 import type { ContainerView } from "./ui";
 import { createDefaultRootLayout } from '@/utils/view/create-view';
 
-export const PROJECT_FILE_VERSION = 1;
+export const PROJECT_FILE_VERSION = 2;
 
 const UnknownRecordSchema = z.record(z.string(), z.unknown());
 
@@ -131,8 +141,23 @@ const AnyViewSchema: z.ZodType = z.lazy(() => z.union([
   }),
 ]));
 
+const ProjectAssetBlobSchema = z.object({
+  mime: z.string(),
+  data: z.union([z.string(), z.instanceof(Uint8Array)]),
+});
+
 const ProjectFileSchema = z.object({
   version: z.literal(PROJECT_FILE_VERSION),
+  url: z.string(),
+  mainView: AnyViewSchema,
+  scenario: ScenarioSnapshotSchema,
+  /** Archives are decoded by core after structural project validation. */
+  snapshots: z.array(z.unknown()),
+  assetTable: z.record(z.string(), ProjectAssetBlobSchema),
+});
+
+const VersionOneProjectFileSchema = z.object({
+  version: z.literal(1),
   url: z.string(),
   mainView: AnyViewSchema,
   scenario: ScenarioSnapshotSchema,
@@ -156,6 +181,16 @@ export interface ProjectFileContent {
   mainView: ContainerView;
   scenario: ScenarioSnapshot;
   snapshots: Snapshot[];
+}
+
+export interface ProjectFileArchive {
+  version: typeof PROJECT_FILE_VERSION;
+  url: string;
+  mainView: ContainerView;
+  scenario: ScenarioSnapshot;
+  snapshots: SnapshotArchive[];
+  /** Content-addressed binary payloads shared by the live state and recordings. */
+  assetTable: Record<string, { mime: string; data: string | Uint8Array }>;
 }
 
 export interface ProjectRecovery {
@@ -236,6 +271,148 @@ function recoverRecordingSnapshot(value: unknown, warnings: string[], index: num
   });
 }
 
+type ProjectAssetTable = ProjectFileArchive['assetTable'];
+
+function sameAssetData(left: string | Uint8Array, right: string | Uint8Array): boolean {
+  if (typeof left === 'string' || typeof right === 'string') return left === right;
+  return left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
+}
+
+function storeAsset(
+  table: ProjectAssetTable,
+  hash: string,
+  mime: string,
+  data: string | Uint8Array,
+): void {
+  const existing = table[hash];
+  if (existing && (existing.mime !== mime || !sameAssetData(existing.data, data))) {
+    throw new Error(`Project asset hash collision for ${hash}.`);
+  }
+  table[hash] = { mime, data: typeof data === 'string' ? data : data.slice() };
+}
+
+function extractScenarioAssets(snapshot: ScenarioSnapshot, table: ProjectAssetTable): ScenarioSnapshot {
+  const next = structuredClone(snapshot);
+  next.assets = next.assets.map((asset) => {
+    if (asset.data !== undefined) storeAsset(table, asset.meta.hash, asset.meta.mime, asset.data);
+    return { ...asset, data: undefined };
+  });
+  return next;
+}
+
+function hydrateScenarioAssets(snapshot: ScenarioSnapshot, table: ProjectAssetTable): ScenarioSnapshot {
+  const next = structuredClone(snapshot);
+  next.assets = next.assets.map((asset) => ({
+    ...asset,
+    data: asset.data ?? table[asset.meta.hash]?.data,
+  }));
+  return next;
+}
+
+function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
+  const next = structuredClone(snapshot);
+  next.initial.scenario = extractScenarioAssets(next.initial.scenario, table);
+  for (const keyframe of next.keyframes) keyframe.scenario = extractScenarioAssets(keyframe.scenario, table);
+  for (const frame of next.frames) {
+    for (const message of frame.messages) {
+      if (message.type !== 'asset_data') continue;
+      const payload = message.payload as { hash: string; mime: string; data: string | Uint8Array };
+      storeAsset(table, payload.hash, payload.mime, payload.data);
+      // Frame payloads are rehydrated from the same table before Scenario replay.
+      delete (payload as { data?: string | Uint8Array }).data;
+    }
+  }
+  return next;
+}
+
+function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
+  const next = structuredClone(snapshot);
+  next.initial.scenario = hydrateScenarioAssets(next.initial.scenario, table);
+  for (const keyframe of next.keyframes) keyframe.scenario = hydrateScenarioAssets(keyframe.scenario, table);
+  for (const frame of next.frames) {
+    for (const message of frame.messages) {
+      if (message.type !== 'asset_data') continue;
+      const payload = message.payload as { hash: string; data?: string | Uint8Array };
+      payload.data ??= table[payload.hash]?.data;
+    }
+  }
+  return next;
+}
+
+/**
+ * Build the project persistence shape. Snapshot segments and every resolved
+ * asset are written once, with snapshots referencing the shared hash table.
+ */
+export function archiveProjectFileContent(content: ProjectFileContent, jsonSafe = false): ProjectFileArchive {
+  const assetTable: ProjectAssetTable = {};
+  const snapshots = content.snapshots.map((snapshot) => {
+    const archive = encodeSnapshotArchive(extractSnapshotAssets(snapshot, assetTable));
+    return jsonSafe ? snapshotArchiveForJson(archive) : archive;
+  });
+  const scenario = extractScenarioAssets(content.scenario, assetTable);
+  const normalizedAssetTable = jsonSafe
+    ? Object.fromEntries(Object.entries(assetTable).map(([hash, blob]) => [hash, {
+      ...blob,
+      data: typeof blob.data === 'string' ? blob.data : encodeBytesAsDataUrl(blob.data, blob.mime),
+    }]))
+    : assetTable;
+  return {
+    version: PROJECT_FILE_VERSION,
+    url: content.url,
+    mainView: structuredClone(content.mainView),
+    scenario,
+    snapshots,
+    assetTable: normalizedAssetTable,
+  };
+}
+
+/** Same archive layout as `archiveProjectFileContent`, with segment encoding in a Worker. */
+export async function archiveProjectFileContentInWorker(
+  content: ProjectFileContent,
+  jsonSafe = false,
+): Promise<ProjectFileArchive> {
+  const assetTable: ProjectAssetTable = {};
+  const snapshots = await encodeSnapshotArchivesInWorker(
+    content.snapshots.map((snapshot) => extractSnapshotAssets(snapshot, assetTable)),
+    jsonSafe,
+  );
+  const scenario = extractScenarioAssets(content.scenario, assetTable);
+  const normalizedAssetTable = jsonSafe
+    ? Object.fromEntries(Object.entries(assetTable).map(([hash, blob]) => [hash, {
+      ...blob,
+      data: typeof blob.data === 'string' ? blob.data : encodeBytesAsDataUrl(blob.data, blob.mime),
+    }]))
+    : assetTable;
+  return {
+    version: PROJECT_FILE_VERSION,
+    url: content.url,
+    mainView: structuredClone(content.mainView),
+    scenario,
+    snapshots,
+    assetTable: normalizedAssetTable,
+  };
+}
+
+function decodeProjectArchive(archive: ProjectFileArchive): ProjectFileContent {
+  const snapshots = archive.snapshots.map((snapshot, index) => {
+    try {
+      return hydrateSnapshotAssets(decodeSnapshotArchive(snapshot), archive.assetTable);
+    } catch (error) {
+      throw new Error(
+        `Invalid snapshot archive ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  });
+  return {
+    version: PROJECT_FILE_VERSION,
+    url: archive.url,
+    mainView: archive.mainView,
+    scenario: hydrateScenarioAssets(archive.scenario, archive.assetTable),
+    snapshots,
+  };
+}
+
 /**
  * Best-effort recovery for a project that failed strict validation. It never
  * tries to interpret a future project version, but preserves every validated
@@ -243,7 +420,7 @@ function recoverRecordingSnapshot(value: unknown, warnings: string[], index: num
  */
 export function recoverProjectFileContent(value: unknown): ProjectRecovery | null {
   const source = asRecord(value);
-  if (!source || (Object.prototype.hasOwnProperty.call(source, 'version') && source.version !== PROJECT_FILE_VERSION)) return null;
+  if (!source || (Object.prototype.hasOwnProperty.call(source, 'version') && source.version !== 1 && source.version !== PROJECT_FILE_VERSION)) return null;
 
   const warnings = ['Project validation failed. Valid data was recovered where possible.'];
   const url = typeof source.url === 'string' ? source.url : '';
@@ -289,10 +466,24 @@ export function parseProjectFileContent(value: unknown): ProjectFileContent {
   const project = value as Record<string, unknown>;
 
   if (Object.prototype.hasOwnProperty.call(project, 'version')) {
-    if (project.version !== PROJECT_FILE_VERSION) {
+    if (project.version === PROJECT_FILE_VERSION) {
+      const archive = ProjectFileSchema.parse(project) as ProjectFileArchive;
+      if (!archive.snapshots.every(isSnapshotArchive)) {
+        throw new Error('Invalid project file: snapshots must use the segmented archive format.');
+      }
+      return decodeProjectArchive(archive);
+    }
+    if (project.version !== 1) {
       throw new Error(`Unsupported project file version: ${String(project.version)}.`);
     }
-    return ProjectFileSchema.parse(project) as ProjectFileContent;
+    const versionOne = VersionOneProjectFileSchema.parse(project);
+    return {
+      version: PROJECT_FILE_VERSION,
+      url: versionOne.url,
+      mainView: versionOne.mainView as ContainerView,
+      scenario: versionOne.scenario as ScenarioSnapshot,
+      snapshots: versionOne.snapshots as Snapshot[],
+    };
   }
 
   const legacy = LegacyProjectFileSchema.parse(project);

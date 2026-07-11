@@ -11,6 +11,7 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             get_os_name_handler,
+            set_menu_locale_handler,
         ])
         .menu(create_menu)
         .on_menu_event(menu::handle_menu_event)

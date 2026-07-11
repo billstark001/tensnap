@@ -8,6 +8,8 @@ import { useLingui } from '@lingui/react';
 export interface Tab {
   id: string;
   name: string;
+  /** Full project path/URL, exposed as a hover hint instead of tab text. */
+  title?: string;
   content?: React.ReactNode;
 }
 
@@ -55,14 +57,15 @@ export const TabBar: React.FC<TabBarProps> = ({
   return (
     <Tabs.Root value={currentActiveTab} onValueChange={handleTabChange}>
       <div className={clsx(styles.tabsContainer, className)}>
-        <Tabs.List style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <Tabs.List className={styles.tabList}>
           {tabs.map((tab) => (
             <Tabs.Trigger
               key={tab.id}
               value={tab.id}
               className={currentActiveTab === tab.id ? styles.activeTab : styles.tab}
+              title={tab.title ?? tab.name}
             >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>{tab.name}</span>
+              <span className={styles.tabLabel}>{tab.name}</span>
               <span
                 className={styles.tabCloseButton}
                 onClick={(e) => handleTabClose(e, tab.id)}

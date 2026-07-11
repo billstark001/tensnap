@@ -4,6 +4,7 @@ import { lingui } from '@lingui/vite-plugin';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import path from 'path';
 import pkg from './package.json';
+import { tensnapCodeSplitting } from '../../scripts/vite-chunks.mjs';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -44,6 +45,14 @@ export default defineConfig({
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     // Produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_DEBUG,
+    // Match the browser renderer's cache boundaries and retain Vite's normal
+    // 500 KiB budget as a guard for eager webview code.
+    chunkSizeWarningLimit: 500,
+    rolldownOptions: {
+      output: {
+        codeSplitting: tensnapCodeSplitting,
+      },
+    },
   },
 
 });

@@ -51,6 +51,45 @@ export interface Snapshot {
   truncated: boolean;
 }
 
+/** Lossless compression applied to an independently decodable segment. */
+export type SnapshotCompression = 'none' | 'rle';
+
+/**
+ * The persisted unit of a recording. Its payload is MessagePack bytes and it
+ * always starts from a complete keyframe, so a later segment can be decoded
+ * without decoding the recording prefix.
+ */
+export interface SnapshotSegment {
+  firstFrame: number;
+  lastFrame: number;
+  encoding: 'msgpack';
+  compression: SnapshotCompression;
+  data: Uint8Array | string;
+  byteLength: number;
+}
+
+/** Storage-only representation used in project files and worker hand-off. */
+export interface SnapshotArchive {
+  version: 1;
+  metadata: SnapshotMetadata;
+  layerCodecs: Record<string, SnapshotLayerCodec>;
+  segments: SnapshotSegment[];
+  byteLength: number;
+  truncated: boolean;
+}
+
+/** Pluggable policy for a layer's recorded deltas. */
+export interface SnapshotLayerCodecImplementation {
+  id: SnapshotLayerCodec;
+  retainItemDelta?: (input: {
+    envId: string;
+    layerId: string;
+    layerType?: string;
+    messageType: 'item_create' | 'item_update' | 'item_delete';
+  }) => boolean;
+  forceKeyframe?: boolean;
+}
+
 /** A named collection for project-level recordings. */
 export interface SnapshotSeries {
   snapshots: Snapshot[];
@@ -69,6 +108,8 @@ export interface RecordingOptions {
   keyframeEvery?: number;
   /** Per-layer storage preferences, keyed by layer id or layer type. */
   layerCodecs?: Record<string, SnapshotLayerCodec>;
+  /** Host/application codecs can replace the built-in item-delta policies. */
+  layerCodecImplementations?: Partial<Record<SnapshotLayerCodec, SnapshotLayerCodecImplementation>>;
   id?: string;
   label?: string;
   timestamp?: number;

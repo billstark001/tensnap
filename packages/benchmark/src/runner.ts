@@ -158,6 +158,7 @@ async function runBenchmarkWithRendererSession(
     maxRenderFps: DEFAULT_BROWSER_LOOP_MAX_RENDER_FPS,
   }));
   const session = new RendererSession({ run: { renderBarrier } });
+  const runtime = benchCase.runtime;
 
   let frameIndex = 0;
   let runStartedAt: number | null = null;
@@ -207,6 +208,7 @@ async function runBenchmarkWithRendererSession(
           const t0 = performance.now();
           try {
             await benchCase.tick(currentFrame);
+            await runtime?.applySessionStep?.(session, currentFrame);
           } catch (error) {
             settle(undefined, error);
             return;
@@ -246,7 +248,16 @@ async function runBenchmarkWithRendererSession(
         })();
       }));
 
-      session.run.start({ actionId: STEP_ACTION_ID, maxSteps: totalFrames });
+      runtime?.setupSession?.(session);
+      if (runtime?.onCommit) {
+        session.addEventListener('commit', () => runtime.onCommit?.(session));
+      }
+      session.run.start({
+        actionId: STEP_ACTION_ID,
+        maxSteps: totalFrames,
+        stopWhen: runtime?.stopWhen,
+        record: runtime?.record,
+      });
     });
 
     return completion;

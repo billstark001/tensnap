@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   createProject: vi.fn(),
   invokeCreateProject: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+  saveFormat: 'msgpack' as 'json' | 'msgpack',
 }));
 
 vi.mock('@/store/file-system/provider', () => ({
@@ -31,6 +32,10 @@ vi.mock('@/store/project', () => ({
     open: mocks.openProject,
     save: mocks.saveProject,
   }),
+}));
+
+vi.mock('@/store/settings', () => ({
+  useSettingsStore: (selector: (state: Record<string, unknown>) => unknown) => selector({ saveFormat: mocks.saveFormat }),
 }));
 
 vi.mock('@/dialogs/CreateNewProjectDialogStore', () => ({
@@ -76,5 +81,20 @@ describe('useFileOperations', () => {
       'Project recovered with warnings',
       'Some data was invalid. Valid data was loaded; review the project and save a new copy.',
     );
+  });
+
+  it('asks the native picker for the final project extension before saving', async () => {
+    mocks.saveFileAs.mockResolvedValue({ path: '/allowed/project.msgpack' });
+    mocks.saveProject.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useFileOperations());
+
+    await result.current.onFileSaveAs();
+
+    expect(mocks.saveFileAs).toHaveBeenCalledWith({
+      title: 'Save As',
+      defaultPath: 'project.msgpack',
+      filters: [{ name: 'TenSnap MessagePack project', extensions: ['msgpack'] }],
+    });
+    expect(mocks.saveProject).toHaveBeenCalledWith(undefined, '/allowed/project.msgpack');
   });
 });

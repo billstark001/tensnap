@@ -31,8 +31,8 @@ msgstr "{0} / {1} 个智能体"
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap 贡献者"
 
-#: src/dialogs/SettingsDialog.tsx:230
-#: src/dialogs/SettingsDialog.tsx:248
+#: src/dialogs/SettingsDialog.tsx:233
+#: src/dialogs/SettingsDialog.tsx:251
 msgid "0 means unlimited"
 msgstr "0 表示无限制"
 
@@ -61,7 +61,7 @@ msgstr "动作 ID"
 msgid "Action Label"
 msgstr "动作标签"
 
-#: src/dialogs/SettingsDialog.tsx:274
+#: src/dialogs/SettingsDialog.tsx:277
 msgid "Action Timeout"
 msgstr "动作超时时长"
 
@@ -87,7 +87,7 @@ msgid "Allow Runtime Change"
 msgstr "允许运行时更改"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:325
+#: src/dialogs/SettingsDialog.tsx:343
 msgid "Apply"
 msgstr "应用"
 
@@ -99,12 +99,12 @@ msgstr "资源"
 msgid "Assets sent by adapters will appear here."
 msgstr "适配器发送的资源将显示在这里。"
 
-#: src/dialogs/SettingsDialog.tsx:206
+#: src/dialogs/SettingsDialog.tsx:209
 msgid "Auto"
 msgstr "自动"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:67
-#: src/dialogs/SettingsDialog.tsx:300
+#: src/dialogs/SettingsDialog.tsx:318
 msgid "Backend URL"
 msgstr "后端地址"
 
@@ -124,7 +124,7 @@ msgstr "按钮文本"
 msgid "Cancel"
 msgstr "取消"
 
-#: src/dialogs/SettingsDialog.tsx:308
+#: src/dialogs/SettingsDialog.tsx:326
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "更改当前项目的 WebSocket 服务器 URL。连接将重新建立。"
 
@@ -165,13 +165,13 @@ msgstr "清除搜索"
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "要拍摄快照，请点击“拍摄快照”按钮。"
 
-#: src/dialogs/SettingsDialog.tsx:168
+#: src/dialogs/SettingsDialog.tsx:171
 msgid "Client Message Validation"
 msgstr "客户端信息格式验证"
 
 #: src/dialogs/AboutDialog.tsx:79
 #: src/dialogs/AgentDetailsDialog.tsx:299
-#: src/dialogs/SettingsDialog.tsx:335
+#: src/dialogs/SettingsDialog.tsx:353
 msgid "Close"
 msgstr "关闭"
 
@@ -190,6 +190,10 @@ msgstr "通信："
 #: src/dialogs/ContinuousRunDialog.tsx:54
 msgid "Configure a bounded continuous run for action {actionId}."
 msgstr "为操作 {actionId} 配置有界连续执行。"
+
+#: src/dialogs/SettingsDialog.tsx:116
+msgid "Configure application and project settings."
+msgstr "配置应用程序和项目设置。"
 
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:32
 msgid "Confirm"
@@ -264,7 +268,7 @@ msgstr "自定义数据："
 msgid "Cut"
 msgstr "剪切"
 
-#: src/dialogs/SettingsDialog.tsx:134
+#: src/dialogs/SettingsDialog.tsx:137
 msgid "Dark"
 msgstr "深色"
 
@@ -382,8 +386,8 @@ msgstr "环境类型"
 msgid "Environments:"
 msgstr "环境："
 
-#: src/dialogs/SettingsDialog.tsx:178
-#: src/dialogs/SettingsDialog.tsx:195
+#: src/dialogs/SettingsDialog.tsx:181
+#: src/dialogs/SettingsDialog.tsx:198
 msgid "Error"
 msgstr "错误"
 
@@ -542,7 +546,7 @@ msgstr "快捷键"
 #~ msgid "Label"
 #~ msgstr "标签"
 
-#: src/dialogs/SettingsDialog.tsx:141
+#: src/dialogs/SettingsDialog.tsx:144
 msgid "Language"
 msgstr "语言"
 
@@ -554,7 +558,7 @@ msgstr "左"
 msgid "License:"
 msgstr "许可证："
 
-#: src/dialogs/SettingsDialog.tsx:134
+#: src/dialogs/SettingsDialog.tsx:137
 msgid "Light"
 msgstr "浅色"
 
@@ -562,15 +566,15 @@ msgstr "浅色"
 #~ msgid "Loading..."
 #~ msgstr "加载中..."
 
-#: src/dialogs/SettingsDialog.tsx:237
+#: src/dialogs/SettingsDialog.tsx:240
 msgid "Max FPS"
 msgstr "最大 FPS"
 
-#: src/dialogs/SettingsDialog.tsx:219
+#: src/dialogs/SettingsDialog.tsx:222
 msgid "Max TPS"
 msgstr "最大 TPS"
 
-#: src/dialogs/SettingsDialog.tsx:267
+#: src/dialogs/SettingsDialog.tsx:270
 msgid "Maximum 120 FPS"
 msgstr "最高 120 FPS"
 
@@ -713,8 +717,8 @@ msgstr "未定位"
 msgid "Object ID"
 msgstr "对象 ID"
 
-#: src/dialogs/SettingsDialog.tsx:172
-#: src/dialogs/SettingsDialog.tsx:189
+#: src/dialogs/SettingsDialog.tsx:175
+#: src/dialogs/SettingsDialog.tsx:192
 msgid "Off"
 msgstr "关"
 
@@ -799,7 +803,11 @@ msgstr "位置："
 #~ msgid "Previous page"
 #~ msgstr "上一页"
 
-#: src/dialogs/SettingsDialog.tsx:295
+#: src/dialogs/SettingsDialog.tsx:304
+msgid "Project File"
+msgstr "项目文件"
+
+#: src/dialogs/SettingsDialog.tsx:299
 msgid "Project Settings"
 msgstr "项目设置"
 
@@ -839,7 +847,7 @@ msgstr "重做"
 #~ msgid "Refresh"
 #~ msgstr "刷新"
 
-#: src/dialogs/SettingsDialog.tsx:202
+#: src/dialogs/SettingsDialog.tsx:205
 msgid "Render Trigger"
 msgstr "渲染触发器"
 
@@ -852,7 +860,7 @@ msgid "Repository:"
 msgstr "代码仓库："
 
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
-#: src/dialogs/SettingsDialog.tsx:318
+#: src/dialogs/SettingsDialog.tsx:336
 msgid "Reset"
 msgstr "重置"
 
@@ -896,7 +904,7 @@ msgstr "以CSV格式保存"
 msgid "Save As..."
 msgstr "另存为..."
 
-#: src/dialogs/SettingsDialog.tsx:154
+#: src/dialogs/SettingsDialog.tsx:157
 msgid "Save Format"
 msgstr "存储格式"
 
@@ -916,7 +924,7 @@ msgstr "全选"
 #~ msgid "Select export format"
 #~ msgstr "选择导出格式"
 
-#: src/dialogs/SettingsDialog.tsx:185
+#: src/dialogs/SettingsDialog.tsx:188
 msgid "Server Message Validation"
 msgstr "服务器信息格式验证"
 
@@ -963,7 +971,7 @@ msgstr "大小："
 msgid "Snapshot name"
 msgstr "快照名称"
 
-#: src/dialogs/SettingsDialog.tsx:255
+#: src/dialogs/SettingsDialog.tsx:258
 msgid "Snapshot playback FPS"
 msgstr "快照播放帧率"
 
@@ -1019,7 +1027,7 @@ msgstr "停止录制"
 #~ msgid "Synchronize State"
 #~ msgstr "同步状态"
 
-#: src/dialogs/SettingsDialog.tsx:120
+#: src/dialogs/SettingsDialog.tsx:122
 msgid "System Settings"
 msgstr "系统设置"
 
@@ -1039,7 +1047,11 @@ msgstr "按钮可以保持此绑定，但没有可编辑的注册动作。"
 msgid "The current object will be renamed when this edit is saved."
 msgstr "保存此编辑后，当前对象将被重命名。"
 
-#: src/dialogs/SettingsDialog.tsx:123
+#: src/dialogs/SettingsDialog.tsx:314
+msgid "The full path is shown here and is not editable."
+msgstr "完整路径显示在这里，且不可编辑。"
+
+#: src/dialogs/SettingsDialog.tsx:126
 msgid "Theme"
 msgstr "主题模式"
 
@@ -1168,8 +1180,8 @@ msgstr "墙钟时间上限必须是正数毫秒。"
 msgid "Wall-clock limit, ms (optional)"
 msgstr "墙钟时间上限（毫秒，可选）"
 
-#: src/dialogs/SettingsDialog.tsx:175
-#: src/dialogs/SettingsDialog.tsx:192
+#: src/dialogs/SettingsDialog.tsx:178
+#: src/dialogs/SettingsDialog.tsx:195
 msgid "Warning"
 msgstr "警告"
 

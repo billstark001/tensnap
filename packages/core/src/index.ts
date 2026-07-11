@@ -59,15 +59,24 @@ export {
 	SnapshotRecorder,
 	SnapshotPlayer,
 	createSingleSnapshot,
+	decodeSnapshotArchive,
+	encodeSnapshotArchive,
+	isSnapshotArchive,
 	materializeSnapshot,
+	snapshotArchiveForJson,
+	snapshotEncodedByteLength,
 	snapshotFrameAt,
 } from './snapshot';
 export type {
 	Keyframe,
 	Snapshot,
+	SnapshotArchive,
+	SnapshotCompression,
 	SnapshotFrame,
 	SnapshotLayerCodec,
+	SnapshotLayerCodecImplementation,
 	SnapshotMetadata,
+	SnapshotSegment,
 	SnapshotSeries,
 } from './snapshot';
 

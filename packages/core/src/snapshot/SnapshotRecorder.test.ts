@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Scenario } from '../scenario';
 import { SnapshotPlayer, SnapshotRecorder, materializeSnapshot } from './SnapshotRecorder';
+import { decodeSnapshotArchive, encodeSnapshotArchive } from './SnapshotArchive';
 
 describe('SnapshotRecorder', () => {
   it('replays coalesced atomic frames to the exact recorded Scenario state', () => {
@@ -160,5 +161,47 @@ describe('SnapshotRecorder', () => {
     expect(player.scenario.metadata.time).toBe(3);
     player.seek(1);
     expect(player.scenario.metadata.time).toBe(1);
+  });
+
+  it('persists independently decodable MessagePack-compressed segments without changing replay', () => {
+    const scenario = new Scenario();
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({ keyframeEvery: 1 });
+    for (let time = 1; time <= 3; time += 1) {
+      const update = { type: 'metadata_update' as const, payload: { time, repeated: 'x'.repeat(64) } };
+      scenario.apply(update);
+      recorder.recordMessage(update);
+      recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+    }
+    const snapshot = recorder.stop()!;
+
+    const archive = encodeSnapshotArchive(snapshot, 1);
+    expect(archive.segments.length).toBeGreaterThan(1);
+    expect(archive.segments.every((segment) => segment.encoding === 'msgpack' && segment.byteLength > 0)).toBe(true);
+    expect(archive.segments.every((segment) => segment.data instanceof Uint8Array)).toBe(true);
+    expect(archive.byteLength).toBeLessThanOrEqual(snapshot.byteLength + 2_048);
+    expect(materializeSnapshot(decodeSnapshotArchive(archive))).toEqual(scenario.dump());
+  });
+
+  it('allows a host to replace a layer delta policy with a real codec implementation', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({
+      layerCodecs: { agents: 'delta' },
+      layerCodecImplementations: {
+        delta: { id: 'delta', forceKeyframe: true, retainItemDelta: () => false },
+      },
+    });
+    const create = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] } };
+    scenario.apply(create);
+    recorder.recordMessage(create);
+    recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.frames[0]?.messages.some((message) => message.type === 'item_create')).toBe(false);
+    expect(snapshot.keyframes[0]?.frame).toBe(1);
+    expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
 });

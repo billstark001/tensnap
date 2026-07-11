@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## Unreleased
+
+### Added
+
+- Added shared `SnapshotArchive` persistence: independently decodable
+  MessagePack segments, lossless byte compression, worker encoding in the web
+  host, and pluggable layer codec implementations.
+- Added project format v2 with a content-addressed asset table shared by the
+  live scenario and all recordings; older project formats remain readable.
+- Added RendererSession benchmark coverage for real React/Zustand commits,
+  recording, long-history conditions, trajectories, checkpoint behavior, and
+  reusable p95/TPS regression gates.
+
+### Fixed
+
+- Converted render-barrier failures into an observable `render-error` run stop
+  instead of leaving an unhandled rejection or stalled pipeline.
+- Fixed multi-chart headless output paths so suffixes apply only to filenames,
+  for both relative and absolute destinations.
+- Made Tauri Save As request the final extension/filter in the native dialog
+  and write exactly the returned scoped path.
+- Made Tauri's native menu follow the renderer language setting, with complete
+  English, Chinese, and Japanese menu labels.
+- Prevented project tabs from wrapping long filesystem paths; tabs now show a
+  compact filename and Project Settings exposes the full path read-only.
+- Compacted the settings dialog's system controls into a responsive grid so
+  ordinary desktop viewports do not require scrolling.
+
+### Changed
+
+- Updated runtime, snapshot, project, protocol, desktop-adapter, and user
+  documentation for shared session control, offline replay, trajectory
+  lifecycle behavior, and scoped native saves.
+- Split stable UI, rendering, runtime, and data dependencies into shared Vite
+  chunks for both web and Tauri builds while retaining the 500 KiB eager-code
+  warning budget.
+
 ## @tensnap/protocol [0.2.1] - 2026-07-10
 
 ### Added

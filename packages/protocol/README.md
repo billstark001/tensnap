@@ -127,6 +127,12 @@ The simulator replies by replaying the required create/update/delete messages.
 That replay is bracketed by `state_sync_begin` and `state_sync_end`, making
 initial sync and reconnect a transaction rather than a timing convention.
 
+Trajectory lifecycle metadata belongs to the trajectory layer contract. It
+declares how a renderer handles `on_state_sync`, `on_reset`, and
+`on_agent_delete`. Simulators should emit normal layer/item messages during
+sync; renderers use the sync boundary to avoid treating replayed creates and
+updates as new trajectory movement.
+
 ## Binary Payloads
 
 The protocol has binary semantic fields, notably `asset_data.data` and

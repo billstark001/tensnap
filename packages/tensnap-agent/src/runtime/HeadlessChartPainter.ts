@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, extname, join } from 'node:path';
+import { basename, dirname, extname, join } from 'node:path';
 import { createCanvas } from 'canvas';
 import { ChartScene, type ChartConfig, type ChartGroup } from '@tensnap/core/chart';
 import type { RenderFormat } from '../types';
@@ -74,9 +74,13 @@ export class HeadlessChartPainter implements ScenePainter {
     if (request.options.persist !== false) {
       const suffix = appendId ? `-${group.id}` : '';
       const requested = request.options.outputPath;
+      const requestedExtension = requested ? extname(requested) : '';
       path = requested
         ? appendId
-          ? join(dirname(requested), `${requested.slice(0, -extname(requested).length)}${suffix}${extname(requested) || `.${format}`}`)
+          ? join(
+            dirname(requested),
+            `${basename(requested, requestedExtension)}${suffix}${requestedExtension || `.${format}`}`,
+          )
           : requested
         : join(this.options.capturesDir, `chart-${group.id}-${Date.now()}.${format}`);
       await mkdir(dirname(path), { recursive: true });

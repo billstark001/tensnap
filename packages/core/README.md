@@ -14,7 +14,7 @@ Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`
 | `@tensnap/core/environment` | `EnvironmentView`, storage classes, layer classes, environment types |
 | `@tensnap/core/parameter` | Parameter range utilities and types |
 | `@tensnap/core/runtime` | `RendererSession`, `RunController`, pipeline helpers, bounded condition scope |
-| `@tensnap/core/snapshot` | recording, keyframes, and seekable replay helpers |
+| `@tensnap/core/snapshot` | recording, keyframes, compressed archive segments, and seekable replay helpers |
 | `@tensnap/core/utils` | Format detection, msgpack, NumPy (`.npy`) parser/renderer |
 
 ## Shared runtime
@@ -30,6 +30,32 @@ requires a finite `maxSteps` (default policy limit: 1,000,000); an optional
 `action_end`. The scope is read-only and incremental (`steps`, `time`,
 metadata, parameters, charts, `agent()`, and `agentCount()`), so it never needs
 to call `Scenario.dump()` in the tick path.
+
+A host render barrier is part of the run contract. If it rejects, the
+controller reports the host error, marks that run with `render-error`, and
+releases the pipeline rather than leaving an unhandled rejection or a stalled
+continuous action.
+
+## Recordings and project archives
+
+`SnapshotRecorder` captures atomic frames at `action_end` (plus explicit
+control/sync frames), with adaptive keyframes and a strict retention budget.
+The live `Snapshot` stays convenient for replay APIs. Use
+`encodeSnapshotArchive(snapshot)` before persistence to create independently
+decodable MessagePack segments; each segment carries a complete base keyframe
+and uses lossless byte compression when it reduces size. The matching
+`decodeSnapshotArchive(archive)` restores the normal in-memory replay shape.
+
+Layer policies (`delta`, `keyframe`, `adaptive`, and `derived`) select the
+built-in recording behavior. `RecordingOptions.layerCodecImplementations` can
+replace that policy with a concrete host/application codec instead of treating
+the policy label as a serialization implementation.
+
+The web project format is version 2. It puts resolved asset bytes in one
+project-level content-addressed table keyed by protocol hash, so live state,
+recording keyframes, and asset-data frames do not repeat the same data URL.
+Version-0 and version-1 project files remain readable and are upgraded in
+memory.
 
 ## Usage
 
@@ -121,7 +147,11 @@ Storage classes are reactive data containers. Layers subscribe to them and re-re
 pnpm test
 
 # Interactive browser benchmarks (Vite dev server)
-pnpm benchmark
+pnpm dev:benchmark
 ```
 
-The benchmark suite (`src-benchmark/`) covers: multi-line chart updates, bouncing-particle agent rendering, spring-layout graph, Schelling segregation model, and Wolf–Sheep predator–prey model.
+The benchmark suite covers multi-line chart updates, bouncing-particle agent
+rendering, spring-layout graph, a real React/Zustand commit driven by
+`RendererSession`, Schelling segregation, and Wolf–Sheep predator–prey. The
+runtime gate helpers also cover recording on/off, long-history conditions,
+long trajectories, and agent checkpoint baselines.

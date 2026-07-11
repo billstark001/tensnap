@@ -2,6 +2,7 @@ import { create, StoreApi, UseBoundStore } from "zustand";
 import { createTransportStore, TransportStore } from "./transport";
 import { generateUniqueId } from "@/utils/common";
 import {
+  archiveProjectFileContentInWorker,
   parseProjectFileContent,
   PROJECT_FILE_VERSION,
   recoverProjectFileContent,
@@ -33,6 +34,12 @@ export interface ProjectContextScheme extends ProjectSettings {
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useTransportStore: UseBoundStore<StoreApi<TransportStore>>;
   useUndoRedoStore: UseBoundStore<StoreApi<UndoRedoState<ScenarioStore>>>;
+}
+
+function projectTabName(project: ProjectContextScheme): string {
+  if (!project.filepath) return project.url;
+  const normalized = project.filepath.replace(/\\/g, '/').replace(/\/+$/, '');
+  return normalized.slice(normalized.lastIndexOf('/') + 1) || project.filepath;
 }
 
 const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
@@ -80,22 +87,6 @@ const createProject = (url: string, filepath: string | null = null): ProjectCont
   };
 };
 
-const determineFilePath = (basePath: string, format: 'json' | 'msgpack'): string => {
-  if (basePath.endsWith('.json') || basePath.endsWith('.msgpack')) {
-    return basePath;
-  }
-  return `${basePath}.${format}`;
-};
-
-const getParentDirectory = (path: string): string => {
-  const normalized = path.replace(/\\/g, '/').replace(/\/+/g, '/');
-  const lastSlash = normalized.lastIndexOf('/');
-  if (lastSlash <= 0) {
-    return '/';
-  }
-  return normalized.slice(0, lastSlash) || '/';
-};
-
 /**
  * JSON omits undefined object properties, whereas MessagePack writes them as
  * null. Strip them explicitly so both save formats have the same on-disk
@@ -126,7 +117,7 @@ export interface ProjectStore {
   activeIndex: number | null;
   activeProject: ProjectContextScheme | null;
   activeFilepath: string | null;
-  tabs: { id: string; name: string }[];
+  tabs: { id: string; name: string; title: string }[];
 
   setActive: (index: number | null) => void;
   refreshActiveProject: () => void;
@@ -151,7 +142,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({
       tabs: projects.map(project => ({
         id: project.id,
-        name: project.filepath ?? project.url,
+        name: projectTabName(project),
+        title: project.filepath ?? project.url,
       })),
       activeProject: activeIndex !== null ? projects[activeIndex] : null,
       activeFilepath: activeIndex !== null ? projects[activeIndex].filepath : null,
@@ -247,21 +239,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     const saveFormat = useSettingsStore.getState().saveFormat;
-    const filepath = determineFilePath(basePath, saveFormat);
+    // Save dialogs return the exact path whose fs scope they authorize. The
+    // extension/filter is supplied before the dialog opens; never rewrite it
+    // after selection or write through a separately-authorized parent path.
+    const filepath = basePath;
+    const archive = await archiveProjectFileContentInWorker(projectFile, saveFormat === 'json');
 
     const fileSystemState = getFileSystemState();
     const content = saveFormat === 'msgpack'
       ? (() => {
-        const serializableProject = omitUndefinedObjectProperties(projectFile);
+        const serializableProject = omitUndefinedObjectProperties(archive);
         checkMsgpackCompatibility(serializableProject);
         return uint8ArrayToArrayBuffer(encode(serializableProject));
       })()
-      : JSON.stringify(projectFile, null, 2); // 添加格式化以提高可读性
+      : JSON.stringify(archive, null, 2);
 
-    const parentDirectory = getParentDirectory(filepath);
-    if (parentDirectory !== '/') {
-      await fileSystemState.createDirectory(parentDirectory, true);
-    }
     await fileSystemState.writeFile(filepath, content);
     console.log('Project saved to', filepath);
 

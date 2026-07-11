@@ -11,7 +11,9 @@ import type {
   Snapshot,
   SnapshotFrame,
   SnapshotLayerCodec,
+  SnapshotLayerCodecImplementation,
 } from './types';
+import { snapshotEncodedByteLength } from './SnapshotArchive';
 
 const DEFAULT_KEYFRAME_EVERY = 120;
 
@@ -43,18 +45,8 @@ function createId(): string {
     : `snapshot-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function byteLength(value: unknown): number {
-  const seen = new WeakSet<object>();
-  const text = JSON.stringify(value, (_key, current) => {
-    if (current instanceof Uint8Array) return { $bytes: current.byteLength };
-    if (typeof current === 'object' && current !== null) {
-      if (seen.has(current)) return '[circular]';
-      seen.add(current);
-    }
-    return current;
-  });
-  return new TextEncoder().encode(text ?? '').byteLength;
-}
+/** Actual MessagePack-plus-compression bytes, not a JSON-size proxy. */
+const byteLength = snapshotEncodedByteLength;
 
 function itemKey(item: Record<string, unknown>): string {
   if ('id' in item) return `id:${String(item.id)}`;
@@ -383,13 +375,17 @@ export class SnapshotRecorder {
       if (message.type !== 'item_create' && message.type !== 'item_update' && message.type !== 'item_delete') return true;
       const payload = message.payload as { env_id: string; layer_id: string };
       const codec = this.resolveLayerCodec(payload);
-      if (codec === 'keyframe') {
+      const implementation = this.resolveLayerCodecImplementation(codec);
+      if (implementation.forceKeyframe) {
         forceKeyframe = true;
         return false;
       }
-      // Derived layers are reconstructed by their storage/parent layer and do
-      // not own independent item deltas in a recording.
-      return codec !== 'derived';
+      return implementation.retainItemDelta?.({
+        envId: payload.env_id,
+        layerId: payload.layer_id,
+        layerType: this.scenario.getEnvironment(payload.env_id)?.layers.get(payload.layer_id)?.layerType,
+        messageType: message.type,
+      }) ?? true;
     });
     const frame: SnapshotFrame = {
       index: this.nextFrameIndex++,
@@ -444,6 +440,14 @@ export class SnapshotRecorder {
       ?? this.options.layerCodecs?.[payload.layer_id]
       ?? (layer ? this.options.layerCodecs?.[layer.layerType] : undefined)
       ?? 'adaptive';
+  }
+
+  private resolveLayerCodecImplementation(codec: SnapshotLayerCodec): SnapshotLayerCodecImplementation {
+    const custom = this.options.layerCodecImplementations?.[codec];
+    if (custom) return custom;
+    if (codec === 'keyframe') return { id: codec, forceKeyframe: true };
+    if (codec === 'derived') return { id: codec, retainItemDelta: () => false };
+    return { id: codec, retainItemDelta: () => true };
   }
 
   private enforceRetention(): void {

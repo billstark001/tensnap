@@ -245,6 +245,41 @@ The current renderer UI typically includes:
 
 Exact layout can vary by package (`tensnap-web` vs `tensnap-tauri`) and by current application state.
 
+## Running, Recording, and Offline Replay
+
+Continuous actions are renderer-driven. A run has a maximum step count and can
+also have a stop expression or wall-clock deadline. The UI shows the completed
+step count and stop reason; use Stop to end a run that you started manually.
+
+You can record a configured continuous run, or start/stop recording from the
+snapshot controls to capture manual steps, external simulator updates, and
+parameter changes. Recordings are replayed as a disconnected, offline copy.
+Opening one does **not** restore a connected simulator or modify the simulator
+process that produced it.
+
+Saved projects deduplicate resolved image/data assets across the live scenario
+and every recording. MessagePack is the compact default; JSON remains useful
+for inspecting a project by hand. Both preserve the same project semantics.
+
+On the desktop app, choose JSON or MessagePack in Settings before Save As. The
+native dialog proposes the matching extension and authorizes the exact path it
+returns, so avoid renaming the file outside the dialog before the first save.
+The desktop native menu follows the language selected in Settings. Project tabs
+show compact filenames to keep the workspace stable; use Project Settings to
+view the complete, read-only project path.
+
+## Inspecting Agents and Trails
+
+Selecting an agent opens a live inspection view. Spatial environments show the
+target, nearby agents, edges, and trajectory context; non-spatial environments
+explicitly report that there is no spatial viewport. Follow and radius controls
+change only the inspection view, not the simulation state.
+
+Trajectory behavior is configured by its layer. Reconnect, reset, and agent
+deletion may preserve or clear trails depending on layer metadata. A preserved
+trail for a deleted agent is displayed as a closed historical segment; if the
+same id later returns, its new path starts separately.
+
 ## Low-Level Python API
 
 If you are not using `SimulationScenario`, the low-level server surface is still available through `TenSnapServer`.

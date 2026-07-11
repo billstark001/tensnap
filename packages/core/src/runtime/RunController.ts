@@ -22,7 +22,7 @@ export interface RunSpec {
   record?: RecordingOptions | false;
 }
 
-export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'simulator' | 'stopped' | 'disconnected';
+export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'render-error' | 'simulator' | 'stopped' | 'disconnected';
 
 export interface RunStatus {
   id: string;
@@ -34,6 +34,8 @@ export interface RunStatus {
   stopReason?: RunStopReason;
   conditionValue?: unknown;
   conditionError?: string;
+  /** Error reported by the host render barrier for the final completed tick. */
+  renderError?: string;
 }
 
 export interface RunScheduler {
@@ -53,6 +55,8 @@ export interface RunControllerOptions {
   renderBarrier?: RunRenderBarrier;
   actionTimeoutMs?: number;
   onActionTimeout?: (task: RuntimeTaskSnapshot) => void;
+  /** Observability hook for host rendering failures; errors are never left unhandled. */
+  onRenderBarrierError?: (error: unknown, task: RuntimeTaskSnapshot, payload: ActionEndPayload) => void;
   maxStepsPolicy?: number;
   idFactory?: () => string;
   onStateChange?: (status: RunStatus | null) => void;
@@ -224,7 +228,8 @@ export class RunController {
 
     if (this.options.renderBarrier) {
       void Promise.resolve(this.options.renderBarrier.wait(task, payload))
-        .finally(() => this.markActionRendered(payload));
+        .catch((error: unknown) => this.handleRenderBarrierError(error, task, payload))
+        .then(() => this.markActionRendered(payload));
     }
     return true;
   }
@@ -325,6 +330,23 @@ export class RunController {
   private normalizeActionTimeout(value: number): number {
     if (!Number.isFinite(value) || value <= 0) return 5_000;
     return Math.max(1, Math.floor(value));
+  }
+
+  private handleRenderBarrierError(error: unknown, task: RuntimeTaskSnapshot, payload: ActionEndPayload): void {
+    try {
+      this.options.onRenderBarrierError?.(error, task, payload);
+    } catch {
+      // Observability hooks must not turn a handled host-render failure back
+      // into an unhandled Promise rejection.
+    }
+
+    // A rejection must not leave a continuous run stalled behind an unresolved
+    // render gate. Only stop the run that still owns this exact task; a later
+    // run may already have superseded it while the host was rendering.
+    const activeTask = this.runtime.peekActiveTaskRef();
+    if (activeTask?.id !== task.id || this.activeRun?.state !== 'running') return;
+    this.activeRun.renderError = error instanceof Error ? error.message : String(error);
+    this.finish('render-error');
   }
 
   private publish(): void {

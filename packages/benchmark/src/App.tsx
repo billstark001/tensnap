@@ -27,19 +27,21 @@ interface PersistedConfig {
   enableSpring: boolean;
   enableSchelling: boolean;
   enableWolfSheep: boolean;
+  enableReactZustandCommit: boolean;
   enableVariations: boolean;
 }
 
 const DEFAULTS: PersistedConfig = {
   frameCount: 300,
   warmupCount: 10,
-  runnerMode: 'simple',
+  runnerMode: 'renderer-session',
   schedulerMode: 'all',
   enableLineChart: true,
   enableParticle: true,
   enableSpring: true,
   enableSchelling: true,
   enableWolfSheep: true,
+  enableReactZustandCommit: true,
   enableVariations: false,
 };
 
@@ -83,6 +85,7 @@ const enableSpring = signal(_initial.enableSpring);
 // Enable/disable model cases
 const enableSchelling = signal(_initial.enableSchelling);
 const enableWolfSheep = signal(_initial.enableWolfSheep);
+const enableReactZustandCommit = signal(_initial.enableReactZustandCommit);
 
 // Enable variations mode
 const enableVariations = signal(_initial.enableVariations);
@@ -101,6 +104,7 @@ effect(() => {
     enableSpring: enableSpring.value,
     enableSchelling: enableSchelling.value,
     enableWolfSheep: enableWolfSheep.value,
+    enableReactZustandCommit: enableReactZustandCommit.value,
     enableVariations: enableVariations.value,
   });
 });
@@ -115,6 +119,7 @@ function resetConfig() {
   enableSpring.value = DEFAULTS.enableSpring;
   enableSchelling.value = DEFAULTS.enableSchelling;
   enableWolfSheep.value = DEFAULTS.enableWolfSheep;
+  enableReactZustandCommit.value = DEFAULTS.enableReactZustandCommit;
   enableVariations.value = DEFAULTS.enableVariations;
 }
 
@@ -157,6 +162,7 @@ async function handleRun(containerRef: HTMLElement) {
     'SpringGraph': enableSpring.value,
     'Schelling': enableSchelling.value,
     'WolfSheep': enableWolfSheep.value,
+    'ReactZustandCommit': enableReactZustandCommit.value,
   };
 
   if (enableVariations.value) {
@@ -247,7 +253,8 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
 
       <p style={styles.helperText}>
         The RendererSession mode runs the current web execution path, including
-        RunController and the browser defaults for max TPS and render FPS.
+        RunController and the browser defaults for max TPS and render FPS. The
+        React/Zustand commit case requires this mode.
       </p>
 
       <label style={styles.label}>
@@ -299,6 +306,7 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
           { sig: enableSpring, label: 'EnvironmentView (E-R spring graph)' },
           { sig: enableSchelling, label: 'Schelling Segregation Model' },
           { sig: enableWolfSheep, label: 'Wolf-Sheep Predation Model' },
+          { sig: enableReactZustandCommit, label: 'React/Zustand RendererSession commit' },
         ].map(({ sig, label }) => (
           <label key={label} style={styles.checkLabel}>
             <input

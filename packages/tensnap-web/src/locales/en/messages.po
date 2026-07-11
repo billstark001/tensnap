@@ -31,8 +31,8 @@ msgstr "{0} / {1} agents"
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap Contributors"
 
-#: src/dialogs/SettingsDialog.tsx:230
-#: src/dialogs/SettingsDialog.tsx:248
+#: src/dialogs/SettingsDialog.tsx:233
+#: src/dialogs/SettingsDialog.tsx:251
 msgid "0 means unlimited"
 msgstr "0 means unlimited"
 
@@ -61,7 +61,7 @@ msgstr "Action ID"
 msgid "Action Label"
 msgstr "Action Label"
 
-#: src/dialogs/SettingsDialog.tsx:274
+#: src/dialogs/SettingsDialog.tsx:277
 msgid "Action Timeout"
 msgstr "Action Timeout"
 
@@ -87,7 +87,7 @@ msgid "Allow Runtime Change"
 msgstr "Allow Runtime Change"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:325
+#: src/dialogs/SettingsDialog.tsx:343
 msgid "Apply"
 msgstr "Apply"
 
@@ -99,12 +99,12 @@ msgstr "Assets"
 msgid "Assets sent by adapters will appear here."
 msgstr "Assets sent by adapters will appear here."
 
-#: src/dialogs/SettingsDialog.tsx:206
+#: src/dialogs/SettingsDialog.tsx:209
 msgid "Auto"
 msgstr "Auto"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:67
-#: src/dialogs/SettingsDialog.tsx:300
+#: src/dialogs/SettingsDialog.tsx:318
 msgid "Backend URL"
 msgstr "Backend URL"
 
@@ -124,7 +124,7 @@ msgstr "Button Text"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/dialogs/SettingsDialog.tsx:308
+#: src/dialogs/SettingsDialog.tsx:326
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "Change the WebSocket server URL for the current project. The connection will be reestablished."
 
@@ -165,13 +165,13 @@ msgstr "Clear search"
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "Click \"Take Snapshot\" to create one."
 
-#: src/dialogs/SettingsDialog.tsx:168
+#: src/dialogs/SettingsDialog.tsx:171
 msgid "Client Message Validation"
 msgstr "Client Message Validation"
 
 #: src/dialogs/AboutDialog.tsx:79
 #: src/dialogs/AgentDetailsDialog.tsx:299
-#: src/dialogs/SettingsDialog.tsx:335
+#: src/dialogs/SettingsDialog.tsx:353
 msgid "Close"
 msgstr "Close"
 
@@ -190,6 +190,10 @@ msgstr "Comm:"
 #: src/dialogs/ContinuousRunDialog.tsx:54
 msgid "Configure a bounded continuous run for action {actionId}."
 msgstr "Configure a bounded continuous run for action {actionId}."
+
+#: src/dialogs/SettingsDialog.tsx:116
+msgid "Configure application and project settings."
+msgstr "Configure application and project settings."
 
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:32
 msgid "Confirm"
@@ -264,7 +268,7 @@ msgstr "Custom Data:"
 msgid "Cut"
 msgstr "Cut"
 
-#: src/dialogs/SettingsDialog.tsx:134
+#: src/dialogs/SettingsDialog.tsx:137
 msgid "Dark"
 msgstr "Dark"
 
@@ -382,8 +386,8 @@ msgstr "Environment Type"
 msgid "Environments:"
 msgstr "Environments:"
 
-#: src/dialogs/SettingsDialog.tsx:178
-#: src/dialogs/SettingsDialog.tsx:195
+#: src/dialogs/SettingsDialog.tsx:181
+#: src/dialogs/SettingsDialog.tsx:198
 msgid "Error"
 msgstr "Error"
 
@@ -542,7 +546,7 @@ msgstr "Keyboard Shortcuts"
 #~ msgid "Label"
 #~ msgstr "Label"
 
-#: src/dialogs/SettingsDialog.tsx:141
+#: src/dialogs/SettingsDialog.tsx:144
 msgid "Language"
 msgstr "Language"
 
@@ -554,7 +558,7 @@ msgstr "Left"
 msgid "License:"
 msgstr "License:"
 
-#: src/dialogs/SettingsDialog.tsx:134
+#: src/dialogs/SettingsDialog.tsx:137
 msgid "Light"
 msgstr "Light"
 
@@ -562,15 +566,15 @@ msgstr "Light"
 #~ msgid "Loading..."
 #~ msgstr "Loading..."
 
-#: src/dialogs/SettingsDialog.tsx:237
+#: src/dialogs/SettingsDialog.tsx:240
 msgid "Max FPS"
 msgstr "Max FPS"
 
-#: src/dialogs/SettingsDialog.tsx:219
+#: src/dialogs/SettingsDialog.tsx:222
 msgid "Max TPS"
 msgstr "Max TPS"
 
-#: src/dialogs/SettingsDialog.tsx:267
+#: src/dialogs/SettingsDialog.tsx:270
 msgid "Maximum 120 FPS"
 msgstr "Maximum 120 FPS"
 
@@ -713,8 +717,8 @@ msgstr "Not positioned"
 msgid "Object ID"
 msgstr "Object ID"
 
-#: src/dialogs/SettingsDialog.tsx:172
-#: src/dialogs/SettingsDialog.tsx:189
+#: src/dialogs/SettingsDialog.tsx:175
+#: src/dialogs/SettingsDialog.tsx:192
 msgid "Off"
 msgstr "Off"
 
@@ -799,7 +803,11 @@ msgstr "Position:"
 #~ msgid "Previous page"
 #~ msgstr "Previous page"
 
-#: src/dialogs/SettingsDialog.tsx:295
+#: src/dialogs/SettingsDialog.tsx:304
+msgid "Project File"
+msgstr "Project File"
+
+#: src/dialogs/SettingsDialog.tsx:299
 msgid "Project Settings"
 msgstr "Project Settings"
 
@@ -839,7 +847,7 @@ msgstr "Redo"
 #~ msgid "Refresh"
 #~ msgstr "Refresh"
 
-#: src/dialogs/SettingsDialog.tsx:202
+#: src/dialogs/SettingsDialog.tsx:205
 msgid "Render Trigger"
 msgstr "Render Trigger"
 
@@ -852,7 +860,7 @@ msgid "Repository:"
 msgstr "Repository:"
 
 #: src/dialogs/edit-views/EditViewDialog.tsx:336
-#: src/dialogs/SettingsDialog.tsx:318
+#: src/dialogs/SettingsDialog.tsx:336
 msgid "Reset"
 msgstr "Reset"
 
@@ -896,7 +904,7 @@ msgstr "Save As CSV"
 msgid "Save As..."
 msgstr "Save As..."
 
-#: src/dialogs/SettingsDialog.tsx:154
+#: src/dialogs/SettingsDialog.tsx:157
 msgid "Save Format"
 msgstr "Save Format"
 
@@ -916,7 +924,7 @@ msgstr "Select All"
 #~ msgid "Select export format"
 #~ msgstr "Select export format"
 
-#: src/dialogs/SettingsDialog.tsx:185
+#: src/dialogs/SettingsDialog.tsx:188
 msgid "Server Message Validation"
 msgstr "Server Message Validation"
 
@@ -963,7 +971,7 @@ msgstr "Size:"
 msgid "Snapshot name"
 msgstr "Snapshot name"
 
-#: src/dialogs/SettingsDialog.tsx:255
+#: src/dialogs/SettingsDialog.tsx:258
 msgid "Snapshot playback FPS"
 msgstr "Snapshot playback FPS"
 
@@ -1019,7 +1027,7 @@ msgstr "Stop recording"
 #~ msgid "Synchronize State"
 #~ msgstr "Synchronize State"
 
-#: src/dialogs/SettingsDialog.tsx:120
+#: src/dialogs/SettingsDialog.tsx:122
 msgid "System Settings"
 msgstr "System Settings"
 
@@ -1039,7 +1047,11 @@ msgstr "The button can keep this binding, but there is no registered action to e
 msgid "The current object will be renamed when this edit is saved."
 msgstr "The current object will be renamed when this edit is saved."
 
-#: src/dialogs/SettingsDialog.tsx:123
+#: src/dialogs/SettingsDialog.tsx:314
+msgid "The full path is shown here and is not editable."
+msgstr "The full path is shown here and is not editable."
+
+#: src/dialogs/SettingsDialog.tsx:126
 msgid "Theme"
 msgstr "Theme"
 
@@ -1168,8 +1180,8 @@ msgstr "Wall-clock limit must be a positive number of milliseconds."
 msgid "Wall-clock limit, ms (optional)"
 msgstr "Wall-clock limit, ms (optional)"
 
-#: src/dialogs/SettingsDialog.tsx:175
-#: src/dialogs/SettingsDialog.tsx:192
+#: src/dialogs/SettingsDialog.tsx:178
+#: src/dialogs/SettingsDialog.tsx:195
 msgid "Warning"
 msgstr "Warning"
 
