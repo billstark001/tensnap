@@ -107,6 +107,26 @@ describe('AgentStorage – setAgents full replace', () => {
     expect(s.getAgentsWithinRadius(0, 0, 5)).toEqual([]);
     expect(s.revision).toBeGreaterThan(0);
   });
+
+  it('maintains the spatial hash only while retained', () => {
+    const s = new AgentStorage();
+    s.setAgents([
+      { id: 'near', x: 1, y: 1 },
+      { id: 'far', x: 20, y: 20 },
+    ]);
+
+    // One-shot callers remain correct without enabling incremental indexing.
+    expect(s.getAgentsWithinRadius(0, 0, 3).map((agent) => agent.id)).toEqual(['near']);
+
+    const release = s.retainSpatialIndex();
+    s.updateAgent('near', { x: 10, y: 10 });
+    s.updateAgent('far', { x: 2, y: 2 });
+    expect(s.getAgentsWithinRadius(0, 0, 3).map((agent) => agent.id)).toEqual(['far']);
+
+    release();
+    s.updateAgent('near', { x: 1, y: 1 });
+    expect(s.getAgentsWithinRadius(0, 0, 3).map((agent) => agent.id).sort()).toEqual(['far', 'near']);
+  });
 });
 
 // ── Subscription / notification ───────────────────────────────────────────────

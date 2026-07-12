@@ -62,6 +62,24 @@ describe('RunController', () => {
     });
   });
 
+  it('publishes one continuing status update per completed render', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    const onStatus = vi.fn();
+    session.addEventListener('run:status', onStatus);
+    session.attachTransport(createTransport(sent));
+
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 3 });
+    expect(onStatus).toHaveBeenCalledTimes(1);
+
+    const first = tickId(sent[0]!);
+    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
+    expect(onStatus).toHaveBeenCalledTimes(1);
+
+    session.run.markActionRendered({ id: 'step', tick_id: first });
+    expect(onStatus).toHaveBeenCalledTimes(2);
+  });
+
   it('runs in manual mode without a fake maximum and pauses after the in-flight tick', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();

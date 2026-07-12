@@ -14,7 +14,7 @@ const scenarioState = {
     ['reset', { id: 'reset', label: 'Reset' }],
   ]),
   connected: true,
-  _revision: 0,
+  actionRevision: 0,
   stopRecording: vi.fn(),
 };
 

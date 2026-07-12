@@ -63,4 +63,23 @@ describe('ActionRunMetrics', () => {
 
     expect(metrics.recordCompletion({ id: 'step' })).toBeNull();
   });
+
+  it('updates samples every tick but emits UI snapshots at most four times per second', () => {
+    let now = 0;
+    const metrics = new ActionRunMetrics('step', () => now);
+
+    metrics.recordDispatch({ id: 'step', tick_id: 'one' });
+    now = 10;
+    expect(metrics.recordCompletion({ id: 'step', tick_id: 'one' })).not.toBeNull();
+
+    metrics.recordDispatch({ id: 'step', tick_id: 'two' });
+    now = 20;
+    expect(metrics.recordCompletion({ id: 'step', tick_id: 'two' })).toBeNull();
+
+    metrics.recordDispatch({ id: 'step', tick_id: 'three' });
+    now = 270;
+    expect(metrics.recordCompletion({ id: 'step', tick_id: 'three' })).toMatchObject({
+      runtime: { tps: expect.any(Number), mspt: expect.any(Number) },
+    });
+  });
 });

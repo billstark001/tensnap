@@ -108,13 +108,13 @@ export function SimulationControlTools() {
   const { _ } = useLingui();
   const actions = useScenarioStore((state) => state.actions);
   const connected = useScenarioStore((state) => state.connected);
-  const revision = useScenarioStore((state) => state._revision);
+  const actionRevision = useScenarioStore((state) => state.actionRevision);
   const history = useScenarioUndoRedoStore();
   const stopRecording = useScenarioStore((state) => state.stopRecording);
   const profiles = useSettingsStore((state) => state.continuousRunProfiles);
   const setProfile = useSettingsStore((state) => state.setContinuousRunProfile);
   const [conditionalOpen, setConditionalOpen] = useState(false);
-  void revision;
+  void actionRevision;
   const runActionId = actions?.has('start') ? 'start' : undefined;
   const stepActionId = actions?.has('step') ? 'step' : undefined;
   const resetActionId = actions?.has('reset') ? 'reset' : undefined;

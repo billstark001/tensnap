@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ButtonViewComponent } from './ButtonViewComponent';
 
 const onButtonAction = vi.fn();
-const scenarioState: { session: any; _revision: number } = { session: null, _revision: 0 };
+const scenarioState: { session: any; runRevision: number } = { session: null, runRevision: 0 };
 
 vi.mock('./useViewContext', () => ({
   useViewContext: () => ({
@@ -20,7 +20,7 @@ describe('ButtonViewComponent', () => {
   beforeEach(() => {
     onButtonAction.mockReset();
     scenarioState.session = null;
-    scenarioState._revision = 0;
+    scenarioState.runRevision = 0;
   });
 
   it('starts a true manual run without a fake max-step profile', () => {

@@ -14,7 +14,7 @@ import { useProjectStore } from '@/store/project';
 
 export const RightPanel = () => {
   const scenario = useScenarioStore((store) => store.scenario);
-  useScenarioStore((store) => store._assetRevision);
+  useScenarioStore((store) => store.assetRevision);
 
   const snapshots = useScenarioStore((store) => store.snapshots);
   const addSnapshot = useScenarioStore((store) => store.addSnapshot);

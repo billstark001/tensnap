@@ -41,6 +41,7 @@ function useLiveInspection(
     if (!enabled || !scenario || !agentRef) {
       return;
     }
+    const releaseSpatialIndex = new ScenarioInspector(scenario).retainSpatialIndex(agentRef);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const scheduleUpdate = () => {
       if (timer) return;
@@ -57,6 +58,7 @@ function useLiveInspection(
       for (const event of INSPECTION_EVENTS) {
         scenario.removeEventListener(event, scheduleUpdate);
       }
+      releaseSpatialIndex();
     };
   }, [scenario, agentRef, enabled]);
 

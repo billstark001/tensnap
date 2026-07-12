@@ -1,5 +1,5 @@
 // UniformEnvironmentView.tsx
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useSyncExternalStore } from 'react';
 import type { AgentItem as UniformAgent } from '@tensnap/protocol/layers';
 import { AnchoredView } from '@/types/ui';
 import { Pagination } from '@tensnap/web-common/components/ui/Pagination';
@@ -11,6 +11,7 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
 import { AssetStore, Scenario, ScenarioEnvironmentState } from '@tensnap/core';
+import type { AgentRef } from '@tensnap/core';
 import { AgentStorage } from '@tensnap/core/environment';
 import { useScenarioStore } from '@/store/scenario/store';
 
@@ -23,6 +24,23 @@ interface UniformEnvironmentViewProps {
 }
 
 const AGENTS_PER_PAGE = 12;
+
+interface UniformAgentSource {
+  layerId: string;
+  storage: AgentStorage;
+}
+
+interface UniformAgentRow {
+  key: string;
+  agent: UniformAgent;
+  ref: AgentRef;
+}
+
+const matchesAgentSearch = (agent: UniformAgent, term: string) => (
+  String(agent.id).toLowerCase().includes(term)
+  || agent.color?.toLowerCase().includes(term)
+  || agent.icon?.toLowerCase().includes(term)
+);
 
 // Agent card component
 const AgentCard = ({
@@ -80,54 +98,82 @@ export function UniformEnvironmentView({
   assets,
   scenario: scenarioOverride,
 }: UniformEnvironmentViewProps) {
-  const [selectedAgent, setSelectedAgent] = useState<UniformAgent | null>(null);
+  const [selectedAgentRef, setSelectedAgentRef] = useState<AgentRef | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [agentsList, setAgentsList] = useState<UniformAgent[]>([]);
   const liveScenario = useScenarioStore((store) => store.scenario);
   const scenario = scenarioOverride ?? liveScenario;
-  useScenarioStore((store) => store._assetRevision);
+  useScenarioStore((store) => store.assetRevision);
 
-  useEffect(() => {
-    const storages = [...environment.layers.values()]
+  const sources = useMemo<UniformAgentSource[]>(() => {
+    void updateTrigger;
+    return [...environment.layers.values()]
       .filter((layer) => layer.storage instanceof AgentStorage)
-      .map((layer) => layer.storage as AgentStorage);
-
-    const collectAgents = () => {
-      const merged: UniformAgent[] = [];
-      for (const storage of storages) {
-        merged.push(...Array.from(storage.getData().agents.values()) as UniformAgent[]);
-      }
-      setAgentsList(merged);
-    };
-
-    collectAgents();
-    const unsubscribers = storages.map((storage) => storage.subscribe(() => collectAgents()));
-
-    return () => {
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
-    };
+      .map((layer) => ({ layerId: layer.id, storage: layer.storage as AgentStorage }));
   }, [environment, updateTrigger]);
 
-  const filteredAgents = useMemo(() => {
-    if (!searchTerm.trim()) return agentsList;
+  const subscribeToAgents = useCallback((onStoreChange: () => void) => {
+    const unsubscribers = sources.map(({ storage }) => storage.subscribe(onStoreChange));
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [sources]);
+  const getAgentsRevision = useCallback(() => (
+    sources.reduce((revision, { storage }) => revision + storage.revision, 0)
+  ), [sources]);
+  const agentsRevision = useSyncExternalStore(
+    subscribeToAgents,
+    getAgentsRevision,
+    getAgentsRevision,
+  );
 
-    const term = searchTerm.toLowerCase();
-    return agentsList.filter(
-      (agent) =>
-        agent.id.toString().toLowerCase().includes(term) ||
-        agent.color?.toLowerCase().includes(term) ||
-        agent.icon?.toLowerCase().includes(term)
-    );
-  }, [agentsList, searchTerm]);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const totalAgentCount = useMemo(() => {
+    void agentsRevision;
+    return sources.reduce((count, { storage }) => count + storage.getData().agents.size, 0);
+  }, [agentsRevision, sources]);
+  const matchingAgentCount = useMemo(() => {
+    void agentsRevision;
+    if (!normalizedSearch) return totalAgentCount;
+    let count = 0;
+    for (const { storage } of sources) {
+      for (const agent of storage.getData().agents.values() as Iterable<UniformAgent>) {
+        if (matchesAgentSearch(agent, normalizedSearch)) count += 1;
+      }
+    }
+    return count;
+  }, [agentsRevision, normalizedSearch, sources, totalAgentCount]);
 
-  const totalPages = Math.ceil(filteredAgents.length / AGENTS_PER_PAGE);
+  const totalPages = Math.ceil(matchingAgentCount / AGENTS_PER_PAGE);
   const safeCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
 
-  const paginatedAgents = useMemo(() => {
+  const paginatedAgents = useMemo<UniformAgentRow[]>(() => {
+    void agentsRevision;
     const startIndex = (safeCurrentPage - 1) * AGENTS_PER_PAGE;
-    return filteredAgents.slice(startIndex, startIndex + AGENTS_PER_PAGE);
-  }, [filteredAgents, safeCurrentPage]);
+    const endIndex = startIndex + AGENTS_PER_PAGE;
+    const rows: UniformAgentRow[] = [];
+    let matchedIndex = 0;
+    for (const { layerId, storage } of sources) {
+      for (const agent of storage.getData().agents.values() as Iterable<UniformAgent>) {
+        if (normalizedSearch && !matchesAgentSearch(agent, normalizedSearch)) continue;
+        if (matchedIndex >= startIndex && matchedIndex < endIndex) {
+          rows.push({
+            key: `${layerId}:${typeof agent.id}:${agent.id}`,
+            agent,
+            ref: { environmentId: environment.id, layerId, agentId: agent.id },
+          });
+        }
+        matchedIndex += 1;
+        if (matchedIndex >= endIndex) return rows;
+      }
+    }
+    return rows;
+  }, [agentsRevision, environment.id, normalizedSearch, safeCurrentPage, sources]);
+
+  const selectedAgent = useMemo(() => {
+    void agentsRevision;
+    if (!selectedAgentRef) return null;
+    const source = sources.find(({ layerId }) => layerId === selectedAgentRef.layerId);
+    return source?.storage.getData().agents.get(selectedAgentRef.agentId) as UniformAgent | undefined ?? null;
+  }, [agentsRevision, selectedAgentRef, sources]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,12 +187,12 @@ export function UniformEnvironmentView({
     setSearchTerm('');
   }, []);
 
-  const handleAgentClick = useCallback((agent: UniformAgent) => {
-    setSelectedAgent(agent);
+  const handleAgentClick = useCallback((agentRef: AgentRef) => {
+    setSelectedAgentRef(agentRef);
   }, []);
 
   const handleCloseDialog = useCallback(() => {
-    setSelectedAgent(null);
+    setSelectedAgentRef(null);
   }, []);
 
   const { _ } = useLingui();
@@ -156,7 +202,7 @@ export function UniformEnvironmentView({
       <div className={styles.header}>
         <div className={styles.title}><Trans>Uniform Environment</Trans></div>
         <div className={styles.agentCount}>
-          <Trans>{filteredAgents.length} / {agentsList.length} agents</Trans>
+          <Trans>{matchingAgentCount} / {totalAgentCount} agents</Trans>
         </div>
       </div>
 
@@ -168,7 +214,7 @@ export function UniformEnvironmentView({
         className={styles.searchBox}
       />
 
-      {filteredAgents.length === 0 ? (
+      {matchingAgentCount === 0 ? (
         <EmptyAgentState
           hasSearch={!!searchTerm}
           onClearSearch={handleClearSearch}
@@ -176,12 +222,12 @@ export function UniformEnvironmentView({
       ) : (
         <>
           <div className={styles.agentsList}>
-            {paginatedAgents.map((agent) => (
+            {paginatedAgents.map(({ key, agent, ref }) => (
               <AgentCard
-                key={agent.id}
+                key={key}
                 agent={agent}
                 resolveAssetUrl={(assetId) => assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)}
-                onClick={() => handleAgentClick(agent)}
+                onClick={() => handleAgentClick(ref)}
               />
             ))}
           </div>
@@ -196,6 +242,9 @@ export function UniformEnvironmentView({
 
       <AgentDetailsDialog
         agent={selectedAgent}
+        agentRef={selectedAgentRef}
+        scenario={scenario}
+        agentType="uniform"
         resolveAssetUrl={(assetId) => assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)}
         onClose={handleCloseDialog}
       />

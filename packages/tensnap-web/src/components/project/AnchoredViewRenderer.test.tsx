@@ -10,7 +10,7 @@ const mockState = {
   environmentUpdateTrigger: { value: 0 },
   parameters: new Map(),
   charts: { getGroup: vi.fn() },
-  _revision: 0,
+  chartRevision: 0,
 };
 
 vi.mock('../../store/scenario/store', () => ({

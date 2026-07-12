@@ -175,17 +175,25 @@ const subscribeSession = (
   scenario: Scenario,
   timeCorrection: TimeCorrectionState,
   applyBatch: (flags: {
-    changed: boolean;
+    timeChanged: boolean;
+    runChanged: boolean;
+    actionChanged: boolean;
     environmentChanged: boolean;
     parameterChanged: boolean;
+    chartChanged: boolean;
     assetChanged: boolean;
+    logChanged: boolean;
   }) => void,
 ) => {
   const pending = {
-    changed: false,
+    timeChanged: false,
+    runChanged: false,
+    actionChanged: false,
     environmentChanged: false,
     parameterChanged: false,
+    chartChanged: false,
     assetChanged: false,
+    logChanged: false,
   };
   let queued = false;
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -196,22 +204,43 @@ const subscribeSession = (
     flushTimer = null;
     lastFlushedAt = performance.now();
     applyBatch({
-      changed: pending.changed,
+      timeChanged: pending.timeChanged,
+      runChanged: pending.runChanged,
+      actionChanged: pending.actionChanged,
       environmentChanged: pending.environmentChanged,
       parameterChanged: pending.parameterChanged,
+      chartChanged: pending.chartChanged,
       assetChanged: pending.assetChanged,
+      logChanged: pending.logChanged,
     });
-    pending.changed = false;
+    pending.timeChanged = false;
+    pending.runChanged = false;
+    pending.actionChanged = false;
     pending.environmentChanged = false;
     pending.parameterChanged = false;
+    pending.chartChanged = false;
     pending.assetChanged = false;
+    pending.logChanged = false;
   };
 
   const schedule = (updates: Partial<typeof pending>) => {
-    if (updates.changed) pending.changed = true;
+    const hasUpdates = updates.timeChanged
+      || updates.runChanged
+      || updates.actionChanged
+      || updates.environmentChanged
+      || updates.parameterChanged
+      || updates.chartChanged
+      || updates.assetChanged
+      || updates.logChanged;
+    if (!hasUpdates) return;
+    if (updates.timeChanged) pending.timeChanged = true;
+    if (updates.runChanged) pending.runChanged = true;
+    if (updates.actionChanged) pending.actionChanged = true;
     if (updates.environmentChanged) pending.environmentChanged = true;
     if (updates.parameterChanged) pending.parameterChanged = true;
+    if (updates.chartChanged) pending.chartChanged = true;
     if (updates.assetChanged) pending.assetChanged = true;
+    if (updates.logChanged) pending.logChanged = true;
     if (!queued) {
       queued = true;
       const maxRenderFps = useSettingsStore.getState().maxRenderFps;
@@ -233,57 +262,74 @@ const subscribeSession = (
   const onCommit: EventListener = (event) => {
     const detail = (event as CustomEvent<{ messages: SimulatorToRendererMessage[] }>).detail;
     const flags = {
-      changed: false,
+      timeChanged: false,
+      runChanged: false,
+      actionChanged: false,
       environmentChanged: false,
       parameterChanged: false,
+      chartChanged: false,
       assetChanged: false,
+      logChanged: false,
     };
 
     for (const message of detail.messages) {
       switch (message.type) {
         case 'metadata_update':
           syncTimeCorrectionFromMetadata(timeCorrection, message.payload as MetadataUpdatePayload);
-          flags.changed = true;
+          flags.timeChanged = true;
           break;
         case 'action_end':
           syncTimeCorrectionFromAction(scenario, timeCorrection, message.payload as ActionEndPayload);
-          flags.changed = true;
+          flags.timeChanged = true;
+          flags.runChanged = true;
+          break;
+        case 'action_create':
+        case 'action_update':
+        case 'action_delete':
+          flags.actionChanged = true;
           break;
         case 'env_create':
         case 'env_delete':
         case 'env_layer_create':
         case 'env_layer_update':
         case 'env_layer_delete':
+          flags.environmentChanged = true;
+          break;
         case 'item_create':
         case 'item_update':
         case 'item_delete':
-          flags.changed = true;
-          flags.environmentChanged = true;
+          // Layer storages publish item deltas directly. Raising the structural
+          // environment trigger here would rebuild/reconcile the whole scene.
           break;
         case 'param_create':
         case 'param_update':
         case 'param_delete':
         case 'param_sync':
-          flags.changed = true;
           flags.parameterChanged = true;
+          break;
+        case 'chart_create':
+        case 'chart_update':
+        case 'chart_delete':
+          flags.chartChanged = true;
           break;
         case 'asset_meta':
         case 'asset_data':
         case 'asset_delete':
-          flags.changed = true;
           flags.assetChanged = true;
+          break;
+        case 'log':
+        case 'error':
+          flags.logChanged = true;
           break;
         case 'state_sync_begin':
         case 'state_sync_end':
         case 'screenshot_request':
           break;
-        default:
-          flags.changed = true;
       }
     }
     schedule(flags);
   };
-  const onRunStatus: EventListener = () => schedule({ changed: true });
+  const onRunStatus: EventListener = () => schedule({ runChanged: true });
 
   session.addEventListener('commit', onCommit);
   session.addEventListener('run:status', onRunStatus);
@@ -359,15 +405,21 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       });
     };
 
-    const bumpScenarioState = (flags?: {
+    const bumpScenarioState = (flags: {
+      actionChanged?: boolean;
       environmentChanged?: boolean;
       parameterChanged?: boolean;
+      chartChanged?: boolean;
       assetChanged?: boolean;
+      logChanged?: boolean;
+      runChanged?: boolean;
     }) => {
       set((state) => ({
-        _revision: state._revision + 1,
-        currentTime: getCurrentTime(scenario, timeCorrection),
-        _assetRevision: flags?.assetChanged ? state._assetRevision + 1 : state._assetRevision,
+        actionRevision: flags?.actionChanged ? state.actionRevision + 1 : state.actionRevision,
+        chartRevision: flags?.chartChanged ? state.chartRevision + 1 : state.chartRevision,
+        logRevision: flags?.logChanged ? state.logRevision + 1 : state.logRevision,
+        runRevision: flags?.runChanged ? state.runRevision + 1 : state.runRevision,
+        assetRevision: flags?.assetChanged ? state.assetRevision + 1 : state.assetRevision,
         environmentUpdateTrigger: flags?.environmentChanged
           ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }
           : state.environmentUpdateTrigger,
@@ -386,8 +438,11 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       mainView: createDefaultRootLayout(),
       connected: false,
       stateSync: createIdleStateSyncStatus(),
-      _revision: 0,
-      _assetRevision: 0,
+      actionRevision: 0,
+      chartRevision: 0,
+      logRevision: 0,
+      runRevision: 0,
+      assetRevision: 0,
       currentTime: null,
       viewUpdateTrigger: createUpdateTriggerStoreFunction(
         (x) => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })),
@@ -487,7 +542,11 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         scenario.load(snapshot);
         resetTimeCorrection(timeCorrection);
         set((state) => ({
-          _revision: state._revision + 1,
+          actionRevision: state.actionRevision + 1,
+          chartRevision: state.chartRevision + 1,
+          logRevision: state.logRevision + 1,
+          runRevision: state.runRevision + 1,
+          assetRevision: state.assetRevision + 1,
           currentTime: getCurrentTime(scenario, timeCorrection),
           stateSync: createIdleStateSyncStatus(),
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
@@ -504,6 +563,11 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
           isRecording: false,
           currentTime: null,
           stateSync: createIdleStateSyncStatus(),
+          actionRevision: state.actionRevision + 1,
+          chartRevision: state.chartRevision + 1,
+          logRevision: state.logRevision + 1,
+          runRevision: state.runRevision + 1,
+          assetRevision: state.assetRevision + 1,
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
           parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
         }));
@@ -547,6 +611,19 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
           }
         });
 
+        bumpScenarioState({
+          // mutateSnapshot currently reloads the entire Scenario, replacing
+          // every environment/layer storage even when only one editor domain
+          // changed. Publish every affected stable-reference domain until
+          // that editor path is converted to targeted mutations.
+          actionChanged: true,
+          environmentChanged: true,
+          parameterChanged: true,
+          chartChanged: true,
+          assetChanged: true,
+          logChanged: true,
+        });
+
         if (options?.updateLayout !== false) {
           get().updateMainViewLayout();
         }
@@ -558,13 +635,21 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
           if (index >= 0) snapshot.actions[index] = structuredClone(action);
           else snapshot.actions.push(structuredClone(action));
         });
+        bumpScenarioState({
+          actionChanged: true,
+          environmentChanged: true,
+          parameterChanged: true,
+          chartChanged: true,
+          assetChanged: true,
+          logChanged: true,
+        });
       },
 
       updateActionProps: (id, props) => {
         const action = scenario.getAction(id);
         if (!action) return false;
         Object.assign(action, structuredClone(props));
-        bumpScenarioState();
+        bumpScenarioState({ actionChanged: true });
         return true;
       },
 
@@ -576,7 +661,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         actionMap.delete(id);
         action.id = newId;
         actionMap.set(newId, action);
-        bumpScenarioState();
+        bumpScenarioState({ actionChanged: true });
         return true;
       },
 
@@ -720,14 +805,14 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
           }
         }
 
-        bumpScenarioState();
+        bumpScenarioState({ chartChanged: true });
         return true;
       },
 
       renameChartGroup: (id, newId) => {
         if (id === newId) return true;
         if (!scenario.charts.renameGroup(id, newId, () => { })) return false;
-        bumpScenarioState();
+        bumpScenarioState({ chartChanged: true });
         return true;
       },
 
@@ -831,12 +916,24 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
     session,
     scenario,
     timeCorrection,
-    ({ changed, environmentChanged, parameterChanged, assetChanged }) => {
+    ({
+      timeChanged,
+      runChanged,
+      actionChanged,
+      environmentChanged,
+      parameterChanged,
+      chartChanged,
+      assetChanged,
+      logChanged,
+    }) => {
       useStore.setState((state) => {
         const next = {
-          _revision: changed ? state._revision + 1 : state._revision,
-          currentTime: changed ? getCurrentTime(scenario, timeCorrection) : state.currentTime,
-          _assetRevision: assetChanged ? state._assetRevision + 1 : state._assetRevision,
+          actionRevision: actionChanged ? state.actionRevision + 1 : state.actionRevision,
+          chartRevision: chartChanged ? state.chartRevision + 1 : state.chartRevision,
+          logRevision: logChanged ? state.logRevision + 1 : state.logRevision,
+          runRevision: runChanged ? state.runRevision + 1 : state.runRevision,
+          assetRevision: assetChanged ? state.assetRevision + 1 : state.assetRevision,
+          currentTime: timeChanged ? getCurrentTime(scenario, timeCorrection) : state.currentTime,
           environmentUpdateTrigger: environmentChanged
             ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }
             : state.environmentUpdateTrigger,

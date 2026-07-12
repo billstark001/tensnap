@@ -29,7 +29,7 @@ export function StatusBar({
   const currentTime = useScenarioStore((store) => store.currentTime);
   const session = useScenarioStore((store) => store.session);
   const isRecording = useScenarioStore((store) => store.isRecording);
-  const revision = useScenarioStore((store) => store._revision);
+  const runRevision = useScenarioStore((store) => store.runRevision);
   const runtimeTps = useSettingsStore((store) => store.runtimeTps);
   const runtimeMspt = useSettingsStore((store) => store.runtimeMspt);
   const simulatorMspt = useSettingsStore((store) => store.simulatorMspt);
@@ -44,7 +44,7 @@ export function StatusBar({
   const isConnecting = transportStore?.isConnecting ?? false;
   const canReconnect = transportStore?.canReconnect?.() ?? false;
   const reconnectDisabled = isReconnecting || isConnecting || !canReconnect;
-  void revision;
+  void runRevision;
   const runStatus = session?.run.status;
   const runSummary = runStatus
     ? [

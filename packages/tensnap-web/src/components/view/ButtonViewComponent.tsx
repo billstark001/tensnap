@@ -27,12 +27,12 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
 
   const { onButtonAction, isRunning } = useViewContext();
   const session = useScenarioStore((state) => state.session);
-  const revision = useScenarioStore((state) => state._revision);
+  const runRevision = useScenarioStore((state) => state.runRevision);
   const isDisabled = view.disabled;
   const isContinuous = (view as ButtonView).data.continuous ?? false;
   const running = isContinuous && isRunning(view.data.id);
   const status = (() => {
-    void revision;
+    void runRevision;
     return session?.run.status;
   })();
   const isRunForContinuousButton = isContinuous && status?.spec.actionId === view.data.id;

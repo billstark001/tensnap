@@ -91,6 +91,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   private static readonly SPATIAL_CELL_SIZE = 4;
   private readonly spatialCells = new Map<string, Set<AgentId>>();
   private readonly agentCells = new Map<AgentId, string>();
+  private spatialIndexRetainers = 0;
 
   constructor() {
     super({ agents: new Map() });
@@ -116,7 +117,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const map: Map<AgentId, AgentRenderState> = new Map();
     for (const a of agents) map.set(a.id, { ...a });
     this._data = { agents: map };
-    this.rebuildSpatialIndex();
+    if (this.spatialIndexRetainers > 0) this.rebuildSpatialIndex();
     this.notify({ replaced: true });
   }
 
@@ -301,9 +302,41 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     return this._data.agents;
   }
 
+  /**
+   * Keep the spatial hash hot only while a neighborhood inspector needs it.
+   * Normal rendering updates every visible agent and must not pay indexing
+   * costs for an otherwise unused UI feature.
+   */
+  retainSpatialIndex(): () => void {
+    this.spatialIndexRetainers += 1;
+    if (this.spatialIndexRetainers === 1) this.rebuildSpatialIndex();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.spatialIndexRetainers = Math.max(0, this.spatialIndexRetainers - 1);
+      if (this.spatialIndexRetainers === 0) {
+        this.spatialCells.clear();
+        this.agentCells.clear();
+      }
+    };
+  }
+
   /** Exact radius query backed by an incrementally maintained spatial hash. */
   getAgentsWithinRadius(x: number, y: number, radius: number): AgentRenderState[] {
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(radius) || radius < 0) return [];
+    if (this.spatialIndexRetainers === 0) {
+      const squaredRadius = radius * radius;
+      return [...this._data.agents.values()].filter((agent) => {
+        const agentX = agent.x;
+        const agentY = agent.y;
+        return typeof agentX === 'number'
+          && Number.isFinite(agentX)
+          && typeof agentY === 'number'
+          && Number.isFinite(agentY)
+          && (agentX - x) ** 2 + (agentY - y) ** 2 <= squaredRadius;
+      });
+    }
     const size = AgentStorage.SPATIAL_CELL_SIZE;
     const minX = Math.floor((x - radius) / size);
     const maxX = Math.floor((x + radius) / size);
@@ -342,6 +375,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   private indexAgent(agent: AgentRenderState): void {
+    if (this.spatialIndexRetainers === 0) return;
     this.unindexAgent(agent.id);
     const x = agent.x;
     const y = agent.y;
@@ -354,6 +388,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   }
 
   private unindexAgent(id: AgentId): void {
+    if (this.spatialIndexRetainers === 0) return;
     const key = this.agentCells.get(id);
     if (!key) return;
     const cell = this.spatialCells.get(key);

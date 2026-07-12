@@ -65,8 +65,11 @@ export interface ScenarioStore {
   mainView: ContainerView;
   connected: boolean;
   stateSync: StateSyncStatus;
-  _revision: number;
-  _assetRevision: number;
+  actionRevision: number;
+  chartRevision: number;
+  logRevision: number;
+  runRevision: number;
+  assetRevision: number;
   viewUpdateTrigger: UpdateTriggerState;
   environmentUpdateTrigger: UpdateTriggerState;
   parameterUpdateTrigger: UpdateTriggerState;

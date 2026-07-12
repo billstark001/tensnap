@@ -83,7 +83,18 @@ const nativeScheduler: RunScheduler = {
   clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
-const cloneStatus = (status: RunStatus): RunStatus => structuredClone(status);
+const cloneStatus = (status: RunStatus): RunStatus => {
+  // The common non-recording run contains only primitives. Avoid invoking the
+  // structured-clone machinery for every status read and every completed tick.
+  // Complex condition/recording payloads keep the stronger deep-copy boundary.
+  if (
+    status.spec.record
+    || (typeof status.conditionValue === 'object' && status.conditionValue !== null)
+  ) {
+    return structuredClone(status);
+  }
+  return { ...status, spec: { ...status.spec } };
+};
 
 function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
   if (spec.mode !== 'bounded' && spec.mode !== 'manual') {
@@ -274,8 +285,6 @@ export class RunController {
         this.finish('max-steps');
       } else if (payload.continue === false) {
         this.finish('simulator');
-      } else {
-        this.publish();
       }
     }
 

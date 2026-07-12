@@ -1,6 +1,7 @@
 import type { ActionEndPayload, ActionStartPayload, TickTimingBreakdown } from '@tensnap/protocol';
 
 const METRIC_WINDOW_MS = 1_000;
+const METRIC_EMIT_INTERVAL_MS = 250;
 
 export interface ActionRunMetricSnapshot {
   runtime: {
@@ -46,6 +47,7 @@ export class ActionRunMetrics {
   private runtimeHead = 0;
   private simulatorHead = 0;
   private runtimeDurationSum = 0;
+  private lastEmitAt: number | null = null;
   private readonly simulatorSums: Record<SimulatorTimingKey, number> = {
     simulate_ms: 0,
     communicate_ms: 0,
@@ -85,6 +87,11 @@ export class ActionRunMetrics {
       this.addSimulatorTimings(payload.timings, 1);
     }
     this.trimSamples(completedAt);
+
+    if (this.lastEmitAt !== null && completedAt - this.lastEmitAt < METRIC_EMIT_INTERVAL_MS) {
+      return null;
+    }
+    this.lastEmitAt = completedAt;
 
     const runtimeSampleCount = this.runtimeSamples.length - this.runtimeHead;
     if (runtimeSampleCount === 0) return null;

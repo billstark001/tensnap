@@ -17,7 +17,8 @@ export function useButtonControls() {
   const scenario = useScenarioStore((state) => state.scenario);
   const session = useScenarioStore((state) => state.session);
   const connected = useScenarioStore((state) => state.connected);
-  const revision = useScenarioStore((state) => state._revision);
+  const actionRevision = useScenarioStore((state) => state.actionRevision);
+  const runRevision = useScenarioStore((state) => state.runRevision);
   const actionTimeoutSeconds = useSettingsStore((state) => state.actionTimeoutSeconds);
   const setActionMetrics = useSettingsStore((state) => state.setActionMetrics);
   const clearRuntimeMetrics = useSettingsStore((state) => state.clearRuntimeMetrics);
@@ -150,19 +151,18 @@ export function useButtonControls() {
   }, [clearRuntimeMetrics, connected, session, toast]);
 
   const runStatus: RunStatus | null = (() => {
-    void revision;
+    void actionRevision;
+    void runRevision;
     return session?.run.status ?? null;
   })();
 
   const isRunning = useCallback(
     (id: string) => {
-      // A protocol commit increments revision after every action_end, which
-      // makes status updates observable without a second runtime store.
-      void revision;
+      void runRevision;
       const run = session?.run.status;
       return run?.state === 'running' && run.spec.actionId === id;
     },
-    [revision, session],
+    [runRevision, session],
   );
 
   return {

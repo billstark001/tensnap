@@ -220,6 +220,21 @@ function filterSnapshot(
 export class ScenarioInspector {
   constructor(private readonly scenario: Scenario) {}
 
+  /** Retain incremental spatial indexing for the lifetime of a live inspector. */
+  retainSpatialIndex(ref: AgentRef): () => void {
+    const environment = this.scenario.getEnvironment(ref.environmentId);
+    const layer = environment?.layers.get(ref.layerId);
+    if (
+      !environment
+      || !(layer?.storage instanceof AgentStorage)
+      || environment.type === 'uniform'
+      || isGraphEnvironment(environment, ref.layerId)
+    ) {
+      return () => {};
+    }
+    return layer.storage.retainSpatialIndex();
+  }
+
   inspect(ref: AgentRef, options: AgentInspectionOptions = {}): AgentInspection | undefined {
     return this.inspectInternal(ref, options, true) as AgentInspection | undefined;
   }

@@ -10,7 +10,7 @@ const mockScenarioStore = {
   currentTime: null as number | null,
   session: null,
   isRecording: false,
-  _revision: 0,
+  runRevision: 0,
 };
 
 const mockSettingsStore = {

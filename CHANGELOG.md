@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stopped maintaining the agent-neighborhood spatial hash while no inspector
+  is open, removed item-delta full-scene rebuild triggers, split broad UI
+  revisions by domain, and made uniform agent lists derive only their visible
+  page. This restores non-recording Web throughput for agent-heavy models.
 - Converted render-barrier failures into an observable `render-error` run stop
   instead of leaving an unhandled rejection or stalled pipeline.
 - Required action completions to match their dispatched `tick_id`, preventing

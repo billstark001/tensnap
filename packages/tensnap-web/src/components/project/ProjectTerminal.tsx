@@ -4,7 +4,7 @@ import * as styles from './ProjectTerminal.css'
 import { useEffect, useRef } from 'react';
 
 export function ProjectTerminal() {
-  const lastLogs = useScenarioStore((store) => store.lastLogs); // to trigger update
+  const logRevision = useScenarioStore((store) => store.logRevision);
   const logs = useScenarioStore((store) => store.logs);
 
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -13,7 +13,7 @@ export function ProjectTerminal() {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, [lastLogs?.timestamp]);
+  }, [logRevision]);
 
   const getLogClassName = (level: string) => {
     switch (level) {
