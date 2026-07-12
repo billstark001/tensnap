@@ -7,6 +7,12 @@ import type { RendererSessionOutboundDetail } from '@tensnap/core/runtime';
 import { useCallback, useEffect, useRef } from 'react';
 import { ActionRunMetrics } from './actionRunMetrics';
 
+export function isActionVisiblyRunning(status: RunStatus | null | undefined, actionId: string): boolean {
+  return status?.state === 'running'
+    && !status.pauseRequested
+    && status.spec.actionId === actionId;
+}
+
 /**
  * Browser host adapter for the shared RendererSession RunController. The
  * controller owns protocol queueing and stop conditions; this hook only maps
@@ -160,7 +166,7 @@ export function useButtonControls() {
     (id: string) => {
       void runRevision;
       const run = session?.run.status;
-      return run?.state === 'running' && run.spec.actionId === id;
+      return isActionVisiblyRunning(run, id);
     },
     [runRevision, session],
   );

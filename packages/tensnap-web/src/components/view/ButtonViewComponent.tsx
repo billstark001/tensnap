@@ -41,15 +41,18 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
       ? status.conditionValue
       : JSON.stringify(status.conditionValue)
     : undefined;
+  const visibleStopReason = status?.pauseRequested
+    ? 'paused'
+    : status?.stopReason ?? 'stopped';
   const runTitle = isRunForContinuousButton
-    ? status.state === 'running'
+    ? status.state === 'running' && !status.pauseRequested
       ? `${status.completedSteps}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}${status.inFlight ? ' · waiting' : ''}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
-      : `${status.completedSteps} · ${status.stopReason ?? 'stopped'}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
+      : `${status.completedSteps} · ${visibleStopReason}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
     : undefined;
   const runIndicator = isRunForContinuousButton
-    ? status.state === 'running'
+    ? status.state === 'running' && !status.pauseRequested
       ? `${status.completedSteps}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}`
-      : `${status.completedSteps} · ${stopReasonGlyph[status.stopReason ?? 'stopped']}`
+      : `${status.completedSteps} · ${stopReasonGlyph[visibleStopReason]}`
     : undefined;
 
   useEffect(() => {

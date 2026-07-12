@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/web",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -78,6 +78,7 @@
     "./i18n": "./src/i18n.ts",
     "./store": "./src/store/index.ts",
     "./hooks": "./src/hooks/index.ts",
+    "./benchmark": "./src/benchmark.tsx",
     "./utils": "./src/utils/index.ts"
   }
 }

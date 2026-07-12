@@ -5,7 +5,39 @@ All notable changes to TenSnap will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Version Format
+
+- All formats should be `MAJOR.MINOR.PATCH`
+- **MAJOR** version when you make incompatible API changes.
+- **MINOR** version when you add functionality in a backward-compatible manner (unless the major version is `0`).
+- **PATCH** version when you make backward-compatible bug fixes.
+- All subpackages and publishable subprojects must share the same **MAJOR** version.
+- While the shared **MAJOR** version is `0`, all subpackages and publishable subprojects must also share the same **MINOR** version.
+- The shared version scope includes npm packages, language bindings, examples packages, benchmark packages, and package metadata.
+  - For instance, the Tauri app's internal Rust and app configuration versions must exactly match `@tensnap/tauri`.
+- **PATCH** versions may differ between subpackages when a release affects only one package or a narrow package group.
+
+## Changelog Heading Format
+
+- Use `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for a release-line entry that updates the shared **MAJOR**, or the shared **MINOR** while **MAJOR** is `0`.
+- Use `## package-name [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for package-specific patch releases or package-specific releases after the shared **MAJOR** is stable.
+- Prefer exact package names for prefixed entries, such as `## @tensnap/go [0.2.1] - 2026-05-10`, so the changelog remains easy to scan and automate.
+
 ---
+
+## @tensnap/web [0.2.4] - 2026-07-12
+
+### Added
+
+- Added a production benchmark host that mounts the real transport store,
+  `RendererSession`, Zustand subscriptions, auto-layout, React view tree, and
+  the Web chart/environment components for benchmark consumers.
+
+### Fixed
+
+- Made continuous-action buttons leave their visible running state as soon as
+  pause is requested, so one click immediately restores the play icon and
+  paused indicator while the in-flight tick finishes safely.
 
 ## Workspace [0.2.1], @tensnap/protocol [0.2.2] - 2026-07-12
 
@@ -387,28 +419,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-11-10
 
 Initial release.
-
----
-
-## Version Format
-
-- All formats should be `MAJOR.MINOR.PATCH`
-- **MAJOR** version when you make incompatible API changes.
-- **MINOR** version when you add functionality in a backward-compatible manner (unless the major version is `0`).
-- **PATCH** version when you make backward-compatible bug fixes.
-- All subpackages and publishable subprojects must share the same **MAJOR** version.
-- While the shared **MAJOR** version is `0`, all subpackages and publishable subprojects must also share the same **MINOR** version.
-- The shared version scope includes npm packages, language bindings, examples packages, benchmark packages, and package metadata.
-  - For instance, the Tauri app's internal Rust and app configuration versions must exactly match `@tensnap/tauri`.
-- **PATCH** versions may differ between subpackages when a release affects only one package or a narrow package group.
-
----
-
-## Changelog Heading Format
-
-- Use `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for a release-line entry that updates the shared **MAJOR**, or the shared **MINOR** while **MAJOR** is `0`.
-- Use `## package-name [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for package-specific patch releases or package-specific releases after the shared **MAJOR** is stable.
-- Prefer exact package names for prefixed entries, such as `## @tensnap/go [0.2.1] - 2026-05-10`, so the changelog remains easy to scan and automate.
 
 ---
 

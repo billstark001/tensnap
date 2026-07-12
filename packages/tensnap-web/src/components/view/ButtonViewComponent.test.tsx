@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ButtonViewComponent } from './ButtonViewComponent';
 
 const onButtonAction = vi.fn();
-const scenarioState: { session: any; runRevision: number } = { session: null, runRevision: 0 };
+const scenarioState: { session: any; runRevision: number; running: boolean } = { session: null, runRevision: 0, running: false };
 
 vi.mock('./useViewContext', () => ({
   useViewContext: () => ({
     onButtonAction,
-    isRunning: () => false,
+    isRunning: () => scenarioState.running,
   }),
 }));
 
@@ -21,6 +21,51 @@ describe('ButtonViewComponent', () => {
     onButtonAction.mockReset();
     scenarioState.session = null;
     scenarioState.runRevision = 0;
+    scenarioState.running = false;
+  });
+
+  it('switches to the play state as soon as one pause click is requested', () => {
+    scenarioState.running = true;
+    scenarioState.session = {
+      run: {
+        status: {
+          state: 'running',
+          pauseRequested: false,
+          inFlight: true,
+          spec: { mode: 'manual', actionId: 'start' },
+          completedSteps: 3,
+        },
+      },
+    };
+
+    const { container, rerender } = render(
+      <ButtonViewComponent
+        view={{
+          id: 'start-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
+          expanded: false, disabled: false, data: { id: 'start', text: 'Start', continuous: true },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Start'));
+    expect(onButtonAction).toHaveBeenCalledOnce();
+
+    scenarioState.running = false;
+    scenarioState.session.run.status.pauseRequested = true;
+    scenarioState.runRevision += 1;
+    rerender(
+      <ButtonViewComponent
+        view={{
+          id: 'start-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
+          expanded: false, disabled: false, data: { id: 'start', text: 'Start', continuous: true },
+        }}
+      />,
+    );
+
+    expect(container.querySelector('.lucide-play')).toBeInTheDocument();
+    expect(container.querySelector('.lucide-pause')).not.toBeInTheDocument();
+    expect(screen.getByText('3 · Ⅱ')).toBeVisible();
+    expect(screen.getByText('Start').parentElement).toHaveAttribute('title', '3 · paused');
   });
 
   it('starts a true manual run without a fake max-step profile', () => {
