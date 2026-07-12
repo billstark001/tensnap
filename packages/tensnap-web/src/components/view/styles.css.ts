@@ -153,11 +153,29 @@ export const buttonView = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  gap: vars.space.xs,
+  minWidth: 0,
+  overflow: 'hidden',
   cursor: 'pointer',
   transition: 'background-color 0.2s, opacity 0.2s',
   ':hover': {
     backgroundColor: vars.color.primaryHover,
   },
+});
+
+export const buttonLabel = style({
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+export const buttonRunIndicator = style({
+  flexShrink: 0,
+  fontSize: vars.fontSize.xs,
+  lineHeight: 1,
+  whiteSpace: 'nowrap',
+  opacity: 0.9,
 });
 
 export const buttonViewDisabled = style({

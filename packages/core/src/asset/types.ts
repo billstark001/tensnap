@@ -7,4 +7,10 @@ export interface ResolvedAsset extends AssetMeta {
   source?: string | Uint8Array;
 }
 
+/** Serializable asset payload retained by projects and offline recordings. */
+export interface AssetSnapshot {
+  meta: AssetMeta;
+  data?: string | Uint8Array;
+}
+
 export type AssetStoreListener = (id: AssetId, asset: ResolvedAsset | null) => void;

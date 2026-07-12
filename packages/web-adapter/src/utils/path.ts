@@ -19,10 +19,6 @@ export function validatePath(path: string): boolean {
   return true;
 }
 
-export function resolvePath(path: string): string {
-  return normalizePath(path);
-}
-
 export function getParentPath(path: string): string {
   const normalized = normalizePath(path);
   if (normalized === '/') return '/';
@@ -34,8 +30,6 @@ export function getParentPath(path: string): string {
 export function joinPath(...paths: string[]): string {
   return normalizePath(paths.filter(Boolean).join('/'));
 }
-
-export const joinPaths = joinPath;
 
 export function getPathDepth(path: string): number {
   const normalized = normalizePath(path);
@@ -62,14 +56,11 @@ export function calculateChecksum(content: ArrayBuffer | Uint8Array | string): s
       ? content
       : new Uint8Array(content);
 
-  const str = new TextDecoder().decode(bytes);
-  let hash = 0;
-
-  for (let index = 0; index < str.length; index += 1) {
-    const char = str.charCodeAt(index);
-    hash = ((hash << 5) - hash) + char;
-    hash &= hash;
+  let hash = 0x811c9dc5;
+  for (const byte of bytes) {
+    hash ^= byte;
+    hash = Math.imul(hash, 0x01000193);
   }
 
-  return Math.abs(hash).toString(16);
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }

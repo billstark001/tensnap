@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { t } from '@lingui/macro';
+import { t } from '@lingui/core/macro';
 import { parseBreadcrumbs } from './utils';
 import * as styles from './FileSystemBrowser.css';
 

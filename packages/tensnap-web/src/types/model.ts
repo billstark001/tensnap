@@ -1,6 +1,8 @@
 
 export type {
   Action,
+  AgentIcon,
+  AgentId,
   BooleanParameter,
   ChartGroupMetadata,
   ChartMetadata,
@@ -12,6 +14,7 @@ export type {
   ParameterBase,
   ParameterType,
   StringParameter,
+  TrajectoryPoint,
 } from '@tensnap/protocol';
 
 export type {
@@ -24,28 +27,23 @@ export type {
 } from '@tensnap/core';
 
 export type {
-  AgentIcon,
-  AgentId,
-  Agent,
   GraphAgentState,
   GraphEdge,
   GridAgentState,
   GridCoordOffset,
-  GridEnvConfig,
-  TrajectoryPoint,
 } from '@tensnap/core/environment';
 
 export type { ChartSeriesPoint } from '@tensnap/core/chart';
-import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import type { Snapshot } from '@tensnap/core/snapshot';
 
 export interface SnapshotIdentity {
   id: string;
   timestamp: number;
 }
 
-export function getSnapshotIdentity(snapshot: ScenarioSnapshot): SnapshotIdentity {
+export function getSnapshotIdentity(snapshot: Snapshot): SnapshotIdentity {
   return {
-    id: String(snapshot.metadata.id ?? ''),
-    timestamp: Number(snapshot.metadata.timestamp ?? 0),
+    id: snapshot.metadata.id,
+    timestamp: snapshot.metadata.createdAt,
   };
 }

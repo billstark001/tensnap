@@ -127,6 +127,12 @@ The simulator replies by replaying the required create/update/delete messages.
 That replay is bracketed by `state_sync_begin` and `state_sync_end`, making
 initial sync and reconnect a transaction rather than a timing convention.
 
+Trajectory lifecycle metadata belongs to the trajectory layer contract. It
+declares how a renderer handles `on_state_sync`, `on_reset`, and
+`on_agent_delete`. Simulators should emit normal layer/item messages during
+sync; renderers use the sync boundary to avoid treating replayed creates and
+updates as new trajectory movement.
+
 ## Binary Payloads
 
 The protocol has binary semantic fields, notably `asset_data.data` and
@@ -142,9 +148,9 @@ See [src/codec.ts](./src/codec.ts) and [src/binary.ts](./src/binary.ts).
 
 `@tensnap/protocol` is a dependency of higher-level packages:
 
-- `@tensnap/core` owns renderer-side Scenario, rendering primitives, and stores.
+- `@tensnap/core` owns renderer-side Scenario/session/runtime behavior, rendering primitives, and stores.
 - `@tensnap/js` owns JavaScript simulator-side helpers and transports.
-- `@tensnap/agent` owns node-side automation/session runtime code.
+- `@tensnap/agent` hosts core's renderer session for node-side automation and bounded runs.
 - application packages own concrete UI and deployment behavior.
 
 Those packages should import payload types and codecs directly from

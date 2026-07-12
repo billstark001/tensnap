@@ -6,3 +6,4 @@
 
 export { TauriFileSystemAdapter } from './tauri-adapter';
 export { TauriFilePicker } from './tauri-file-picker';
+export { TauriSettingsPersistence } from './tauri-settings-persistence';

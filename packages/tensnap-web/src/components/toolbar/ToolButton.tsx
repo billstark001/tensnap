@@ -29,7 +29,7 @@ export const ToolButton: React.FC<ToolButtonProps> = ({
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
-        <button className={buttonClass} onClick={onClick} disabled={disabled}>
+        <button className={buttonClass} onClick={onClick} disabled={disabled} aria-label={tooltip}>
           {icon}
         </button>
       </Tooltip.Trigger>

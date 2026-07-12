@@ -213,7 +213,7 @@ function summarize(
     _agentShapes: Map<string, { group: unknown; assetUrl: string | null }>;
   };
   const trajectoryLayer = layers.find((entry) => entry.role === 'trajectory')?.layer as unknown as {
-    _lines: Map<string, { lines: unknown[] }>;
+    _lines: Map<string, { segments: Array<{ lines: unknown[] }> }>;
   };
   const edgeLayer = layers.find((entry) => entry.role === 'edge')?.layer as unknown as {
     _simLinks: unknown[];
@@ -231,7 +231,8 @@ function summarize(
       x: readNumber(sprite?.group, 'x'),
       y: readNumber(sprite?.group, 'y'),
     },
-    trajectorySegmentCount: trajectoryLayer._lines.get('sprite')?.lines.length ?? 0,
+    trajectorySegmentCount: trajectoryLayer._lines.get('sprite')?.segments
+      .reduce((count, segment) => count + segment.lines.length, 0) ?? 0,
     graphLinkCount: edgeLayer._simLinks.length,
   };
 }

@@ -18,7 +18,8 @@ const WOLF_ASSET_URL = new URL('../../../../assets/wolf.svg', import.meta.url);
 
 async function loadTextAsset(url: URL): Promise<string> {
   if (url.protocol === 'file:') {
-    const { readFile } = await import('node:fs/promises');
+    const nodeFileSystem = 'node:fs/promises';
+    const { readFile } = await import(/* @vite-ignore */ nodeFileSystem);
     return readFile(url, 'utf8');
   }
 

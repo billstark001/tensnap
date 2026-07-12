@@ -6,7 +6,7 @@ import {
   Undo,
   Redo,
   Play,
-  Square,
+  Pause,
   SkipForward,
   ZoomIn,
   ZoomOut,
@@ -18,8 +18,11 @@ import {
   Moon,
   Sun,
   RefreshCcw,
-  LayoutTemplate
+  LayoutTemplate,
+  Timer,
+  MoreHorizontal,
 } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as styles from '@/styles/toolbar.css';
 import { useButtonControls } from '../../hooks/useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
@@ -31,8 +34,10 @@ import { useSettingsStore } from '@/store/settings';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { useState } from 'react';
+import { ContinuousRunDialog } from '@/dialogs/ContinuousRunDialog';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
   return <div className={styles.toolGroup}>
@@ -71,17 +76,18 @@ export function FileOperationTools() {
 export function UndoRedoTools() {
   const undoRedoStore = useScenarioUndoRedoStore();
   const { _ } = useLingui();
+  const undoCommand = undoRedoStore?.past[undoRedoStore.past.length - 1];
   return (
     <ToolGroupContainer>
       <ToolButton
         icon={<Undo size={16} />}
-        tooltip={_(msg`Undo`)}
+        tooltip={undoCommand?.label ? `Undo ${undoCommand.label}` : _(msg`Undo`)}
         disabled={!undoRedoStore?.canUndo()}
         onClick={() => undoRedoStore?.undo()}
       />
       <ToolButton
         icon={<Redo size={16} />}
-        tooltip={_(msg`Redo`)}
+        tooltip={undoRedoStore?.future[0]?.label ? `Redo ${undoRedoStore.future[0].label}` : _(msg`Redo`)}
         disabled={!undoRedoStore?.canRedo()}
         onClick={() => undoRedoStore?.redo()}
       />
@@ -90,33 +96,116 @@ export function UndoRedoTools() {
 }
 
 export function SimulationControlTools() {
-
-  const { handleButtonAction } = useButtonControls();
+  const {
+    runStatus,
+    startManualRun,
+    startBoundedRun,
+    pauseRun,
+    requestStep,
+    requestReset,
+    requestModelAction,
+  } = useButtonControls();
   const { _ } = useLingui();
+  const actions = useScenarioStore((state) => state.actions);
+  const connected = useScenarioStore((state) => state.connected);
+  const actionRevision = useScenarioStore((state) => state.actionRevision);
+  const history = useScenarioUndoRedoStore();
+  const stopRecording = useScenarioStore((state) => state.stopRecording);
+  const profiles = useSettingsStore((state) => state.continuousRunProfiles);
+  const setProfile = useSettingsStore((state) => state.setContinuousRunProfile);
+  const [conditionalOpen, setConditionalOpen] = useState(false);
+  void actionRevision;
+  const runActionId = actions?.has('start') ? 'start' : undefined;
+  const stepActionId = actions?.has('step') ? 'step' : undefined;
+  const resetActionId = actions?.has('reset') ? 'reset' : undefined;
+  const primaryActionIds = new Set([runActionId, stepActionId, resetActionId].filter(Boolean));
+  const overflowActions = [...(actions?.values() ?? [])].filter((action) => !primaryActionIds.has(action.id));
+  const running = runStatus?.state === 'running';
+  const waiting = running && runStatus.inFlight;
+  const runDisabled = !connected || !runActionId || Boolean(runStatus?.inFlight && !running);
+  const diagnostic = (available: boolean, role: string, fallback: string) => (
+    available ? fallback : `No ${role} action is available.`
+  );
 
   return (
-    <ToolGroupContainer>
+    <>
+      <ToolGroupContainer>
       <ToolButton
-        icon={<Play size={16} />}
-        tooltip={_(msg`Start`)}
-        onClick={() => handleButtonAction('start')}
+        icon={running ? <Pause size={16} /> : <Play size={16} />}
+        tooltip={diagnostic(Boolean(runActionId), 'run', running
+          ? (waiting ? 'Pause after current tick' : 'Pause')
+          : runStatus?.inFlight ? 'Waiting for current tick' : 'Run')}
+        disabled={runDisabled}
+        isActive={running}
+        onClick={() => runActionId && (running ? pauseRun() : startManualRun(runActionId))}
       />
       <ToolButton
-        icon={<Square size={16} />}
-        tooltip={_(msg`Stop`)}
-        onClick={() => handleButtonAction('stop')}
+        icon={<Timer size={16} />}
+        tooltip={diagnostic(Boolean(runActionId), 'run', _(msg`Conditional Run…`))}
+        disabled={runDisabled}
+        onClick={() => setConditionalOpen(true)}
       />
       <ToolButton
         icon={<SkipForward size={16} />}
-        tooltip={_(msg`Step`)}
-        onClick={() => handleButtonAction('step')}
+        tooltip={diagnostic(Boolean(stepActionId), 'step', _(msg`Step`))}
+        disabled={!connected || !stepActionId}
+        onClick={() => stepActionId && requestStep(stepActionId)}
       />
       <ToolButton
         icon={<TimerReset size={16} />}
-        tooltip={_(msg`Reset`)}
-        onClick={() => handleButtonAction('reset')}
+        tooltip={diagnostic(Boolean(resetActionId), 'reset', _(msg`Reset`))}
+        disabled={!connected || !resetActionId}
+        onClick={() => {
+          if (!resetActionId) return;
+          stopRecording?.();
+          history?.clear();
+          requestReset(resetActionId);
+        }}
       />
-    </ToolGroupContainer>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button
+            className={styles.toolButton}
+            aria-label={_(msg`More Actions`)}
+            disabled={!connected || overflowActions.length === 0}
+          >
+            <MoreHorizontal size={16} />
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+            {overflowActions.map((action) => (
+              <DropdownMenu.Item
+                key={action.id}
+                className={styles.dropdownItem}
+                onSelect={() => requestModelAction(action.id)}
+              >
+                {`Model action: ${action.label}`}
+              </DropdownMenu.Item>
+            ))}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+      </ToolGroupContainer>
+      {runActionId && (
+        <ContinuousRunDialog
+          key={`${runActionId}:${conditionalOpen}:${JSON.stringify(profiles[runActionId])}`}
+          open={conditionalOpen}
+          actionId={runActionId}
+          profile={profiles[runActionId]}
+          onOpenChange={setConditionalOpen}
+          onRun={(profile) => {
+            setProfile(runActionId, profile);
+            startBoundedRun(runActionId, {
+              maxSteps: profile.maxSteps,
+              stopWhen: profile.stopWhen,
+              maxWallTimeMs: profile.maxWallTimeMs,
+              record: profile.record ? {} : false,
+            });
+          }}
+        />
+      )}
+    </>
   )
 }
 

@@ -1,14 +1,14 @@
 /**
  * cases/lineChart.ts
  *
- * Benchmark: LineChartView with random multi-line data updates.
+ * Benchmark: BrowserChartView with random multi-line data updates.
  *
  * Each tick generates N_POINTS random data points across N_LINES lines
  * and calls `lineChart.updateData(data)`, which fully re-renders canvas.
  */
 
 import { ChartDataPoint } from '@tensnap/core/chart';
-import { LineChartView } from '@tensnap/core/chart/browser';
+import { BrowserChartView } from '@tensnap/core/chart/browser';
 import { BenchmarkCase } from '../types';
 
 interface Config {
@@ -62,11 +62,11 @@ export function createLineChartCase(partial: Partial<Config> = {}): BenchmarkCas
     height: partial.height ?? 300,
   };
 
-  let chart: LineChartView | null = null;
+  let chart: BrowserChartView | null = null;
   let host: HTMLElement | null = null;
 
   return {
-    name: 'LineChartView (multi-line random)',
+    name: 'Canvas chart (multi-line random)',
     suite: 'synthetic' as const,
     config: cfg as unknown as Record<string, unknown>,
 
@@ -77,7 +77,8 @@ export function createLineChartCase(partial: Partial<Config> = {}): BenchmarkCas
         overflow: hidden;
       `;
       container.appendChild(host);
-      chart = new LineChartView(host, makeConfig(cfg));
+      chart = new BrowserChartView(host, makeConfig(cfg));
+      chart.resize(cfg.width, cfg.height);
       // Initial render with some data
       chart.updateData(randomData(cfg));
     },

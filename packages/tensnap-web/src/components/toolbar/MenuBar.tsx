@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useFileOperations } from './useFileOperations';
 import * as styles from '@/styles/toolbar.css';
@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/store/settings';
 import clsx from 'clsx';
 import { Trans } from '@lingui/react/macro';
 import { MenuBarContext } from './MenuBarContext';
+import { useScenarioUndoRedoStore } from '@/store/undo-redo';
 
 export interface MenuBarProps {
   className?: string;
@@ -22,14 +23,37 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
   const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore(x => x.setAboutDialogOpen);
+  const history = useScenarioUndoRedoStore();
 
-  const { environment, system } = useContext(MenuBarContext);
+  useEffect(() => {
+    if (!history) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && event.shiftKey) {
+        event.preventDefault();
+        void history.redo();
+      } else if (key === 'z') {
+        event.preventDefault();
+        void history.undo();
+      } else if (key === 'y' && event.ctrlKey) {
+        event.preventDefault();
+        void history.redo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [history]);
+
+  const { environment, system, isFullscreen } = useContext(MenuBarContext);
 
   return (
     <>
       <div className={clsx(
         styles.menuBar,
-        environment === 'tauri' && system === 'mac' && 'mac',
+        environment === 'tauri' && system === 'mac' && !isFullscreen && 'mac',
         className
       )} data-tauri-drag-region>
         {/* File Menu */}
@@ -87,10 +111,18 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               className={styles.dropdownContent}
               sideOffset={5}
             >
-              <DropdownMenu.Item className={styles.dropdownItem}>
+              <DropdownMenu.Item
+                className={styles.dropdownItem}
+                disabled={!history?.canUndo()}
+                onSelect={() => { void history?.undo(); }}
+              >
                 <Trans>Undo</Trans>
               </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
+              <DropdownMenu.Item
+                className={styles.dropdownItem}
+                disabled={!history?.canRedo()}
+                onSelect={() => { void history?.redo(); }}
+              >
                 <Trans>Redo</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />

@@ -44,6 +44,10 @@ export interface FilePickerOptions {
   multiSelect?: boolean;
   mode?: 'open' | 'save';
   allowUpload?: boolean;
+  /** File types offered by native save/open dialogs. */
+  filters?: Array<{ name: string; extensions: string[] }>;
+  /** Suggested final filename. Native dialogs grant this exact returned path. */
+  defaultPath?: string;
 }
 
 /**
@@ -85,4 +89,3 @@ export interface FileSystemAdapterFactory {
   description: string;
   supported: boolean;
 }
-

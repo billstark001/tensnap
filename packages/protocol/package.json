@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/protocol",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "Canonical TenSnap renderer/simulator protocol payload types, schemas, and codecs.",
   "main": "./src/index.ts",

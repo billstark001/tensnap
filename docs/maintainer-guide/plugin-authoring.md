@@ -376,9 +376,9 @@ To render a custom layer type:
 4. If you use a custom role, `createRenderPlan()` emits a `GenericLayerPlan` and your `renderer.createLayer()` must handle it.
 5. Register the definition before the host initializes its renderer.
 
-Hosts that use `createRenderPlan()`, `createRenderPlanFromSnapshot()`,
-`EnvironmentRendererController`, or the backward-compatible
-`createLayerForPlan()` helper will pick up registered renderers automatically.
+Hosts that use `createRenderPlan()`, `createRenderPlanFromSnapshot()`, or
+`EnvironmentRendererController` will pick up registered renderers
+automatically.
 
 ---
 

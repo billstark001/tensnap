@@ -11,6 +11,7 @@
 import { createLineChartCase } from './lineChart';
 import { createParticleBounceCase } from './particleBounce';
 import { createSpringGraphCase } from './springGraph';
+import { createReactZustandCommitCase } from './reactZustandCommit';
 import { schellingScenarioVariations } from './schellingScenario';
 import { wolfSheepScenarioVariations } from './wolfSheepScenario';
 import { CaseVariation } from '../types';
@@ -129,6 +130,14 @@ export const springGraphVariations: CaseVariation = {
   ],
 };
 
+/** Production React/Zustand state commit driven by RendererSession events. */
+export const reactZustandCommitVariations: CaseVariation = {
+  name: 'ReactZustandCommit',
+  description: 'React 19 and Zustand 5 commits from RendererSession updates',
+  suite: 'synthetic',
+  cases: [createReactZustandCommitCase(), createReactZustandCommitCase()],
+};
+
 /**
  * Schelling Segregation Model Variations (web-scenario)
  * Uses the canonical @tensnap/js session instead of transport-based benchmark fixtures.
@@ -159,6 +168,7 @@ export function getAllVariations(): CaseVariation[] {
     lineChartVariations,
     particleBounceVariations,
     springGraphVariations,
+    reactZustandCommitVariations,
     schellingVariations,
     wolfSheepVariations,
   ];

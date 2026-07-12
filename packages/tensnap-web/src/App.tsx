@@ -15,7 +15,8 @@ export function App(props: Partial<MenuBarConfig>) {
   
   const {
     environment = 'web',
-    system = 'other'
+    system = 'other',
+    isFullscreen = false,
   } = props;
 
   const settingsDialogOpen = useSettingsStore((store) => store.settingsDialogOpen);
@@ -23,7 +24,7 @@ export function App(props: Partial<MenuBarConfig>) {
 
   return (
     <div className={styles.appContainer}>
-      <MenuBarContext.Provider value={{ environment, system }}>
+      <MenuBarContext.Provider value={{ environment, system, isFullscreen }}>
         <ToolBarLayout />
       </MenuBarContext.Provider>
 

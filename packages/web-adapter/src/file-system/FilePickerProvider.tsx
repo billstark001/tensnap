@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useRef, ReactNode } from 'react';
 import { Dialog } from '@tensnap/web-common/components/ui';
-import { t } from '@lingui/macro';
+import { t } from '@lingui/core/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
 import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter } from '@tensnap/web-common/types/file';
 import { FilePickerContext, FilePickerContextValue } from './FilePickerContext';
@@ -216,4 +216,3 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     </FilePickerContext.Provider>
   );
 };
-

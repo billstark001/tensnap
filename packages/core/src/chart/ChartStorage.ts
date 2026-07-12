@@ -52,9 +52,17 @@ export class ChartStorage {
 
   /** Per-group point buffers used during push(). */
   private readonly pushBuffer = new Map<string, Map<number, ChartSeriesPoint>>();
+  /** Latest logical value per metadata id, maintained as data changes. */
+  private readonly latestValues = new Map<string, { time: number; value: unknown }>();
+  private _revision = 0;
 
   constructor(groups: ChartGroup[] = []) {
     for (const g of groups) this.addGroup(g);
+  }
+
+  /** Changes whenever chart metadata or series data changes. */
+  get revision(): number {
+    return this._revision;
   }
 
   // #region Snapshot 
@@ -64,6 +72,8 @@ export class ChartStorage {
     this.groups.forEach((g, id) => { copy.groups.set(id, g); copy.pushBuffer.set(id, new Map()); });
     this.metaMap.forEach((list, id) => copy.metaMap.set(id, list));
     this.metaGroups.forEach((list, id) => copy.metaGroups.set(id, list));
+    this.latestValues.forEach((value, id) => copy.latestValues.set(id, { ...value }));
+    copy._revision = this._revision;
     return copy;
   }
 
@@ -83,6 +93,7 @@ export class ChartStorage {
     this.metaMap.clear();
     this.metaGroups.clear();
     this.pushBuffer.clear();
+    this.latestValues.clear();
     for (const group of snapshot) {
       this.addGroup({
         id: group.id,
@@ -93,6 +104,8 @@ export class ChartStorage {
         data: group.data.map((point) => ({ ...point })),
       });
     }
+    this.rebuildLatestValues();
+    this.touch();
   }
 
   // #endregion
@@ -166,6 +179,30 @@ export class ChartStorage {
     }
   }
 
+  private touch(): void {
+    this._revision += 1;
+  }
+
+  private recordLatest(metaId: string, time: number, value: unknown): void {
+    if (value === undefined || !Number.isFinite(time)) return;
+    const current = this.latestValues.get(metaId);
+    if (!current || time >= current.time) {
+      this.latestValues.set(metaId, { time, value });
+    }
+  }
+
+  /** Rebuild only on structural edits; append updates stay O(updated points). */
+  private rebuildLatestValues(): void {
+    this.latestValues.clear();
+    for (const group of this.groups.values()) {
+      for (const point of group.data) {
+        for (const metaId of Object.keys(group.metadataDict)) {
+          if (metaId in point) this.recordLatest(metaId, point.time, point[metaId]);
+        }
+      }
+    }
+  }
+
   // #endregion
   // #region Groups 
 
@@ -183,19 +220,28 @@ export class ChartStorage {
     if (upsert && existing) {
       existing.label = group.label;
       for (const [id, meta] of Object.entries(group.metadataDict)) {
-        if (!(id in existing.metadataDict)) {
+        if (id in existing.metadataDict) {
+          Object.assign(existing.metadataDict[id], meta);
+        } else {
           existing.metadataDict[id] = meta;
           this._register(id, meta, existing);
         }
       }
       existing.data.push(...group.data);
     } else {
+      if (existing) {
+        for (const metaId of Object.keys(existing.metadataDict)) {
+          this._unregister(metaId, existing);
+        }
+      }
       this.groups.set(group.id, group);
       this.pushBuffer.set(group.id, new Map());
       for (const [id, meta] of Object.entries(group.metadataDict)) {
         this._register(id, meta, group);
       }
     }
+    this.rebuildLatestValues();
+    this.touch();
   }
 
   removeGroup(groupId: string): boolean {
@@ -205,6 +251,8 @@ export class ChartStorage {
     for (const metaId of Object.keys(group.metadataDict)) this._unregister(metaId, group);
     this.groups.delete(groupId);
     this.pushBuffer.delete(groupId);
+    this.rebuildLatestValues();
+    this.touch();
     return true;
   }
 
@@ -221,6 +269,7 @@ export class ChartStorage {
     const buf = this.pushBuffer.get(oldId) ?? new Map<number, ChartSeriesPoint>();
     this.pushBuffer.delete(oldId);
     this.pushBuffer.set(newId, buf);
+    this.touch();
     return true;
   }
 
@@ -238,6 +287,7 @@ export class ChartStorage {
     } else {
       this.addGroup(instantiateChartMetadata(meta));
     }
+    this.touch();
   }
 
   addMeta(groupId: string, meta: ChartMetadata, warn: WarnFn = console.warn): boolean {
@@ -249,6 +299,7 @@ export class ChartStorage {
     }
     group.metadataDict[meta.id] = meta;
     this._register(meta.id, meta, group);
+    this.touch();
     return true;
   }
 
@@ -256,6 +307,7 @@ export class ChartStorage {
     const list = this.metaMap.get(metaId);
     if (!list?.length) return false;
     list.forEach(m => Object.assign(m, update));
+    this.touch();
     return true;
   }
 
@@ -275,6 +327,8 @@ export class ChartStorage {
     const result = returnData ? this._mergePoints([...groups], metaId) : [];
 
     for (const group of [...groups]) this._detachMeta(metaId, group, persistData);
+    this.rebuildLatestValues();
+    this.touch();
     return returnData ? result : [];
   }
 
@@ -299,6 +353,8 @@ export class ChartStorage {
     const { persistData = false, returnData = false } = opts ?? {};
     const result = returnData ? this._extractPoints(group.data, metaId) : null;
     this._detachMeta(metaId, group, persistData);
+    this.rebuildLatestValues();
+    this.touch();
     return result;
   }
 
@@ -336,6 +392,8 @@ export class ChartStorage {
     }
 
     if (points.length) this.pushMany(metaId, points);
+    this.rebuildLatestValues();
+    this.touch();
     return true;
   }
 
@@ -369,6 +427,9 @@ export class ChartStorage {
 
     const groupList = this.metaGroups.get(oldId);
     if (groupList) { this.metaGroups.delete(oldId); this.metaGroups.set(newId, groupList); }
+
+    this.rebuildLatestValues();
+    this.touch();
 
     return true;
   }
@@ -405,6 +466,14 @@ export class ChartStorage {
     if (!groups?.length) return null;
     const result = this._mergePoints(groups, metaId);
     return result.length ? result : null;
+  }
+
+  /**
+   * Return the newest value without merging, sorting, or allocating a series.
+   * This is the hot-path query used by continuous-run stop conditions.
+   */
+  getLatestValue(metaId: string): unknown {
+    return this.latestValues.get(metaId)?.value;
   }
 
   /** Returns the value at the time point closest to `time`, or `undefined`. */
@@ -450,6 +519,10 @@ export class ChartStorage {
       if (!buf.size) return;
       this._appendToGroup(this.groups.get(groupId)!, [...buf.values()]);
     });
+    for (const { id, time = currentTime, value } of points) {
+      if (this.metaGroups.has(id)) this.recordLatest(id, time, value);
+    }
+    if (points.length) this.touch();
   }
 
   pushMany(metaId: string, points: ChartSeriesPoint[], warn: WarnFn = console.warn): void {
@@ -471,10 +544,14 @@ export class ChartStorage {
       }
       group.data = [...index.values()].sort((a, b) => a.time - b.time);
     }
+    this.rebuildLatestValues();
+    this.touch();
   }
 
   clearAll(): void {
     this.groups.forEach(g => { g.data = []; });
+    this.latestValues.clear();
+    this.touch();
   }
 
   clearGroups(groupIds: string[]): Set<string> {
@@ -482,6 +559,10 @@ export class ChartStorage {
     for (const id of groupIds) {
       const group = this.groups.get(id);
       if (group) { group.data = []; cleared.add(id); }
+    }
+    if (cleared.size) {
+      this.rebuildLatestValues();
+      this.touch();
     }
     return cleared;
   }
@@ -514,6 +595,11 @@ export class ChartStorage {
         });
       }
     });
+
+    if (cleared.size) {
+      this.rebuildLatestValues();
+      this.touch();
+    }
 
     return cleared;
   }

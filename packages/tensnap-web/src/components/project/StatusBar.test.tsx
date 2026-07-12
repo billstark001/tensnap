@@ -8,6 +8,9 @@ import { StatusBar } from './StatusBar';
 const mockScenarioStore = {
   connected: false,
   currentTime: null as number | null,
+  session: null,
+  isRecording: false,
+  runRevision: 0,
 };
 
 const mockSettingsStore = {
@@ -50,19 +53,11 @@ vi.mock('@/store/toast', () => ({
 
 vi.mock('@lingui/react', () => ({
   useLingui: () => ({
-    _: (value: unknown) => String(value ?? ''),
+    _: (value: unknown) => typeof value === 'string'
+      ? value
+      : (value as { message?: string; id?: string }).message ?? (value as { id?: string }).id ?? '',
   }),
-}));
-
-vi.mock('@lingui/react/macro', () => ({
   Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
-}));
-
-vi.mock('@lingui/macro', () => ({
-  msg: (strings: TemplateStringsArray, ...values: unknown[]) => strings.reduce(
-    (result, part, index) => result + part + String(values[index] ?? ''),
-    '',
-  ),
 }));
 
 describe('StatusBar', () => {
@@ -81,5 +76,11 @@ describe('StatusBar', () => {
     const reconnectButton = screen.getByRole('button', { name: 'Reconnect' });
     expect(reconnectButton).toBeDisabled();
     expect(reconnectButton).toHaveStyle({ opacity: '0.5', cursor: 'not-allowed' });
+  });
+
+  it('labels simulator step time as model time', () => {
+    render(<StatusBar />);
+
+    expect(screen.getByText('Model:')).toBeInTheDocument();
   });
 });

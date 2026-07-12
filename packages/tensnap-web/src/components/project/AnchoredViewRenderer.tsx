@@ -47,17 +47,14 @@ const AnchoredParameterView = ({ id }: { id: string }) => {
 };
 
 const AnchoredChartView = ({ id }: { id: string }) => {
-  // Subscribe to _revision instead of currentTime: currentTime is a getter that gets
-  // inlined as a stale value by Zustand's Object.assign after the first setState, so
-  // it never changes. _revision is an explicit counter that increments every step.
-  const revision = useScenarioStore((store) => store._revision);
+  const chartRevision = useScenarioStore((store) => store.chartRevision);
   const charts = useScenarioStore((store) => store.charts);
   const chartGroup = charts?.getGroup(id);
   if (!chartGroup) return <div>Chart not found: {id}</div>;
 
   return (
-    <ViewErrorBoundary kind="chart" identifier={id} resetKey={revision}>
-      <ChartView chartGroup={chartGroup} />
+    <ViewErrorBoundary kind="chart" identifier={id} resetKey={chartRevision}>
+      <ChartView chartGroup={chartGroup} updateTrigger={chartRevision} />
     </ViewErrorBoundary>
   );
 }

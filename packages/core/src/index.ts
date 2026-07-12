@@ -4,7 +4,7 @@
  */
 
 export { AssetStore } from './asset';
-export type { ResolvedAsset, AssetStoreListener } from './asset';
+export type { AssetSnapshot, ResolvedAsset, AssetStoreListener } from './asset';
 
 export { ChartStorage } from './chart';
 export type {
@@ -30,32 +30,59 @@ export {
 	TrajectoryStorage,
 } from './environment';
 export type {
-	Agent,
-	AgentIcon,
-	AgentId,
 	AgentLayerConfig,
-	AssetAgentIcon,
-	BuiltinAgentIcon,
 	GlobalTrajectoryConfig,
 	GraphEdge,
 	GraphEnvConfig,
 	GridCoordOffset,
-	GridEnvConfig,
 	EnvironmentViewFitMode,
 	EnvironmentViewType,
 	IResizableLayer,
-	TrajectoryConfig,
+	TrajectoryLifecycle,
 	TrajectoryLayerConfig,
-	TrajectoryPoint,
 } from './environment';
 
 export * from './parameter';
 export * from './runtime';
+export {
+	SnapshotRecorder,
+	SnapshotPlayer,
+	createSingleSnapshot,
+	decodeSnapshotArchive,
+	encodeSnapshotArchive,
+	isSnapshotArchive,
+	materializeSnapshot,
+	snapshotArchiveForJson,
+	snapshotEncodedByteLength,
+	snapshotFrameAt,
+} from './snapshot';
+export type {
+	Keyframe,
+	Snapshot,
+	SnapshotArchive,
+	SnapshotCompression,
+	SnapshotFrame,
+	SnapshotLayerCodec,
+	SnapshotLayerCodecImplementation,
+	SnapshotMetadata,
+	SnapshotSegment,
+	SnapshotSeries,
+} from './snapshot';
 
 export { Scenario } from './scenario';
 export type {
+	AgentInspection,
+	AgentInspectionBase,
+	AgentInspectionOptions,
+	AgentRef,
+	GraphAgentInspection,
+	LiveAgentInspection,
+	LiveGraphAgentInspection,
+	LiveSpatialAgentInspection,
+	NonSpatialAgentInspection,
 	ScenarioEnvironmentSnapshot,
 	ScenarioEnvironmentState,
+	ScenarioDumpOptions,
 	ScenarioEventDetailMap,
 	ScenarioEventType,
 	ScenarioLayerSnapshot,
@@ -63,6 +90,8 @@ export type {
 	ScenarioMessageFactory,
 	ScenarioOptions,
 	ScenarioSnapshot,
+	SpatialAgentInspection,
 } from './scenario';
+export { ScenarioInspector } from './scenario';
 
 export * from './transport';

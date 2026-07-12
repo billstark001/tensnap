@@ -1,122 +1,221 @@
 import { createStoreContext } from '@/utils/zustand';
-import { create, StoreApi, UseBoundStore } from 'zustand';
-import { ScenarioStore } from './scenario/store';
+import { create, type StoreApi, type UseBoundStore } from 'zustand';
 
-// Types for the undo/redo store
-export interface UndoRedoState<T> {
-  // Configuration
-  maxHistorySteps: number;
-  targetStore: UseBoundStore<StoreApi<T>>; // The target store instance
+export type HistoryCommandScope = 'layout' | 'view-config' | 'renderer-override' | 'snapshot' | 'remote-param';
+export type HistoryStatus = 'idle' | 'applying' | 'reverting' | 'failed';
 
-  // State management
-  history: Partial<T>[]; // Array of historical states
-  currentIndex: number; // Current position in history
+export interface HistoryCommand {
+  id: string;
+  label: string;
+  scope: HistoryCommandScope;
+  apply(): void | Promise<void>;
+  revert(): void | Promise<void>;
+  mergeKey?: string;
+  byteSize: number;
+  timestamp?: number;
+  /** Internal state markers keep dirty tracking correct across undo branches. */
+  beforeStateId?: string;
+  afterStateId?: string;
+}
 
-  // Actions
-  pushState: (state: Partial<T>) => void;
-  undo: () => void;
-  redo: () => void;
+export interface HistoryState {
+  past: HistoryCommand[];
+  future: HistoryCommand[];
+  status: HistoryStatus;
+  error?: string;
+  maxCommands: number;
+  maxBytes: number;
+  retainedBytes: number;
+  currentStateId: string;
+  cleanStateId: string;
+
+  execute: (command: HistoryCommand) => Promise<boolean>;
+  recordApplied: (command: HistoryCommand) => void;
+  undo: () => Promise<boolean>;
+  redo: () => Promise<boolean>;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  isDirty: () => boolean;
+  markClean: () => void;
   clear: () => void;
 }
 
-// Factory function to create an undo/redo store for any target store
-export const createUndoRedoStore = <T>(
-  maxHistorySteps: number,
-  targetStore: UseBoundStore<StoreApi<T>>
-) => {
-  return create<UndoRedoState<T>>((set, get) => ({
-    // Configuration
-    maxHistorySteps,
-    targetStore,
+export interface HistoryStoreOptions {
+  maxCommands?: number;
+  maxBytes?: number;
+  onError?: (error: unknown, command: HistoryCommand) => void;
+}
 
-    // Initial state
-    history: [],
-    currentIndex: -1,
+const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
 
-    // Push a new state to history when target store changes
-    pushState: (state: Partial<T>) => {
-      set((prevState) => {
-        const { history, currentIndex, maxHistorySteps } = prevState;
+/** Project-scoped command history. Commands contain renderer-owned patches only. */
+export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundStore<StoreApi<HistoryState>> => {
+  const maxCommands = options.maxCommands ?? 64;
+  const maxBytes = options.maxBytes ?? 4 * 1024 * 1024;
+  const rootStateId = createHistoryCommandId();
 
-        // Remove any future history if we're not at the end
-        const newHistory = history.slice(0, currentIndex + 1);
-        newHistory.push(state);
+  return create<HistoryState>((set, get) => {
+    const retainWithinBudget = (commands: HistoryCommand[]) => {
+      const next = [...commands];
+      let bytes = next.reduce((sum, command) => sum + command.byteSize, 0);
+      while (next.length > maxCommands || (bytes > maxBytes && next.length > 1)) {
+        bytes -= next.shift()!.byteSize;
+      }
+      return { commands: next, bytes };
+    };
 
-        // Ensure we don't exceed max history steps
-        const trimmedHistory = newHistory.length > maxHistorySteps
-          ? newHistory.slice(-maxHistorySteps)
-          : newHistory;
-
-        return {
-          ...prevState,
-          history: trimmedHistory,
-          currentIndex: trimmedHistory.length - 1
-        };
+    const recordApplied = (command: HistoryCommand) => {
+      if (!Number.isFinite(command.byteSize) || command.byteSize < 0) {
+        throw new Error('History command byteSize must be a non-negative finite number.');
+      }
+      if (command.byteSize > maxBytes) {
+        set({
+          future: [],
+          error: `History command exceeds the ${maxBytes}-byte budget.`,
+          currentStateId: createHistoryCommandId(),
+        });
+        return;
+      }
+      const state = get();
+      if (state.status !== 'idle') return;
+      const stamped = {
+        ...command,
+        timestamp: command.timestamp ?? Date.now(),
+        beforeStateId: state.currentStateId,
+        afterStateId: createHistoryCommandId(),
+      };
+      const last = state.past[state.past.length - 1];
+      const canMerge = Boolean(
+        last?.mergeKey
+        && stamped.mergeKey === last.mergeKey
+        && (stamped.timestamp! - (last.timestamp ?? 0)) <= 750,
+      );
+      const merged = canMerge
+        ? {
+          ...stamped,
+          id: last.id,
+          label: command.label,
+          byteSize: Math.max(last.byteSize, command.byteSize),
+          revert: last.revert,
+          beforeStateId: last.beforeStateId,
+        }
+        : stamped;
+      const candidate = canMerge
+        ? [...state.past.slice(0, -1), merged]
+        : [...state.past, stamped];
+      const retained = retainWithinBudget(candidate);
+      set({
+        past: retained.commands,
+        future: [],
+        retainedBytes: retained.bytes,
+        currentStateId: merged.afterStateId!,
+        error: undefined,
       });
-    },
+    };
 
-    // Undo to previous state
-    undo: () => {
-      const { history, currentIndex, targetStore } = get();
+    return {
+      past: [],
+      future: [],
+      status: 'idle',
+      maxCommands,
+      maxBytes,
+      retainedBytes: 0,
+      currentStateId: rootStateId,
+      cleanStateId: rootStateId,
 
-      if (currentIndex > 0) {
-        const previousState = history[currentIndex - 1];
+      execute: async (command) => {
+        if (get().status !== 'idle') return false;
+        set({ status: 'applying', error: undefined });
+        try {
+          await command.apply();
+          set({ status: 'idle' });
+          recordApplied(command);
+          return true;
+        } catch (error) {
+          set({ status: 'failed', error: messageOf(error) });
+          options.onError?.(error, command);
+          set({ status: 'idle' });
+          return false;
+        }
+      },
 
-        // Apply the previous state to target store
-        targetStore.setState(previousState);
+      recordApplied,
 
-        // Update current index
-        set((prevState) => ({
-          ...prevState,
-          currentIndex: prevState.currentIndex - 1
-        }));
-      }
-    },
+      undo: async () => {
+        const state = get();
+        const command = state.past[state.past.length - 1];
+        if (!command || state.status !== 'idle') return false;
+        set({ status: 'reverting', error: undefined });
+        try {
+          await command.revert();
+          const current = get();
+          set({
+            past: current.past.slice(0, -1),
+            future: [command, ...current.future],
+            retainedBytes: Math.max(0, current.retainedBytes - command.byteSize),
+            currentStateId: command.beforeStateId ?? createHistoryCommandId(),
+            status: 'idle',
+          });
+          return true;
+        } catch (error) {
+          set({ status: 'failed', error: messageOf(error) });
+          options.onError?.(error, command);
+          set({ status: 'idle' });
+          return false;
+        }
+      },
 
-    // Redo to next state
-    redo: () => {
-      const { history, currentIndex, targetStore } = get();
+      redo: async () => {
+        const state = get();
+        const command = state.future[0];
+        if (!command || state.status !== 'idle') return false;
+        set({ status: 'applying', error: undefined });
+        try {
+          await command.apply();
+          const retained = retainWithinBudget([...get().past, command]);
+          set({
+            past: retained.commands,
+            future: get().future.slice(1),
+            retainedBytes: retained.bytes,
+            currentStateId: command.afterStateId ?? createHistoryCommandId(),
+            status: 'idle',
+          });
+          return true;
+        } catch (error) {
+          set({ status: 'failed', error: messageOf(error) });
+          options.onError?.(error, command);
+          set({ status: 'idle' });
+          return false;
+        }
+      },
 
-      if (currentIndex < history.length - 1) {
-        const nextState = history[currentIndex + 1];
-
-        // Apply the next state to target store
-        targetStore.setState(nextState);
-
-        // Update current index
-        set((prevState) => ({
-          ...prevState,
-          currentIndex: prevState.currentIndex + 1
-        }));
-      }
-    },
-
-    // Check if undo is possible
-    canUndo: () => {
-      const { currentIndex } = get();
-      return currentIndex > 0;
-    },
-
-    // Check if redo is possible
-    canRedo: () => {
-      const { history, currentIndex } = get();
-      return currentIndex < history.length - 1;
-    },
-
-    // Clear all history
-    clear: () => {
-      set((prevState) => ({
-        ...prevState,
-        history: [],
-        currentIndex: -1
-      }));
-    }
-  }));
+      canUndo: () => get().past.length > 0 && get().status === 'idle',
+      canRedo: () => get().future.length > 0 && get().status === 'idle',
+      isDirty: () => get().currentStateId !== get().cleanStateId,
+      markClean: () => set({ cleanStateId: get().currentStateId }),
+      clear: () => {
+        const stateId = createHistoryCommandId();
+        set({
+          past: [],
+          future: [],
+          retainedBytes: 0,
+          currentStateId: stateId,
+          cleanStateId: stateId,
+          status: 'idle',
+          error: undefined,
+        });
+      },
+    };
+  });
 };
+
+export const createHistoryCommandId = () => crypto.randomUUID();
+
+export const estimateHistoryBytes = (...values: unknown[]) => (
+  new TextEncoder().encode(JSON.stringify(values)).byteLength
+);
 
 export const {
   Provider: ScenarioUndoRedoStoreProvider,
   useStore: useScenarioUndoRedoStore,
-} = createStoreContext<UndoRedoState<ScenarioStore>>();
+} = createStoreContext<HistoryState>();

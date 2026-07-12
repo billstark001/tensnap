@@ -159,6 +159,8 @@ export const separator = style({
 export const tabsContainer = style({
   display: 'flex',
   alignItems: 'center',
+  minWidth: 0,
+  width: '100%',
   padding: `${vars.space.sm} ${vars.space.md} 0 ${vars.space.md}`,
   backgroundColor: vars.color.background,
   gap: vars.space.xs,
@@ -170,9 +172,21 @@ export const tabsContainer = style({
   },
 });
 
+export const tabList = style({
+  display: 'flex',
+  minWidth: 0,
+  alignItems: 'center',
+  gap: '4px',
+  overflowX: 'auto',
+  overflowY: 'hidden',
+  scrollbarWidth: 'thin',
+});
+
 export const tab = style({
   display: 'flex',
   alignItems: 'center',
+  flex: '0 1 200px',
+  minWidth: '72px',
   padding: `${vars.space.xs} ${vars.space.sm}`,
   fontSize: vars.fontSize.sm,
   backgroundColor: vars.color.gridBackground,
@@ -181,7 +195,9 @@ export const tab = style({
   borderRadius: `${vars.radius.sm} ${vars.radius.sm} 0 0`,
   cursor: 'pointer',
   transition: 'all 0.2s',
-  maxWidth: '200px',
+  maxWidth: '220px',
+  overflow: 'hidden',
+  whiteSpace: 'nowrap',
   color: vars.color.foreground,
 
   ':hover': {
@@ -200,6 +216,14 @@ export const tab = style({
   },
 });
 
+export const tabLabel = style({
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
 export const activeTab = style([tab, {
   backgroundColor: vars.color.background,
   borderColor: vars.color.primary,
@@ -215,8 +239,14 @@ export const activeTab = style([tab, {
 }]);
 
 export const tabCloseButton = style({
-  marginLeft: vars.space.xs,
-  padding: '2px',
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '20px',
+  height: '20px',
+  marginLeft: vars.space.sm,
+  padding: 0,
   backgroundColor: 'transparent',
   border: 'none',
   borderRadius: vars.radius.sm,
@@ -232,6 +262,7 @@ export const tabCloseButton = style({
 });
 
 export const newTabButton = style({
+  flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

@@ -17,7 +17,8 @@
  */
 
 import { BaseStorage } from './BaseStorage';
-import { GraphEdge, AgentId } from '../types';
+import type { AgentId } from '@tensnap/protocol/layers';
+import type { GraphEdge } from '../types';
 
 // ---------------------------------------------------------------------------
 // Delta / diff type
@@ -228,6 +229,20 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
   getEdgesForAgent(agentId: AgentId): GraphEdge[] {
     const keys = this._data.adjacentMap.get(agentId);
     if (!keys) return [];
+    const result: GraphEdge[] = [];
+    for (const key of keys) {
+      const edge = this._data.edges.get(key);
+      if (edge) result.push(edge);
+    }
+    return result;
+  }
+
+  /** Resolve the induced edge set in O(sum(degree)) rather than scanning E. */
+  getEdgesForAgents(agentIds: Iterable<AgentId>): GraphEdge[] {
+    const keys = new Set<string>();
+    for (const id of agentIds) {
+      for (const key of this._data.adjacentMap.get(id) ?? []) keys.add(key);
+    }
     const result: GraphEdge[] = [];
     for (const key of keys) {
       const edge = this._data.edges.get(key);

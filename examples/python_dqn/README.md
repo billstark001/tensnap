@@ -143,7 +143,7 @@ cd examples && python -m python_dqn.evac_viz &
 pnpm --filter @tensnap/agent dev -- runtime up --context evac-dqn --simulator-url ws://localhost:8765
 
 # 3. Advance a few steps
-pnpm --filter @tensnap/agent dev -- scene step --context evac-dqn
+pnpm --filter @tensnap/agent dev -- action run step --context evac-dqn
 
 # 4. Render a snapshot
 pnpm --filter @tensnap/agent dev -- scene render snapshot --context evac-dqn

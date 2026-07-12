@@ -1,93 +1,62 @@
 import {
-  type FileMetadata,
-  type FileContent,
-  type DirectoryMetadata,
   type DirectoryEntry,
+  type DirectoryMetadata,
+  type FileContent,
+  type FileMetadata,
+  FileSystemAdapter,
   type FileSystemStats,
-  FileSystemAdapter
 } from '@tensnap/web-common/types/file';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  exists,
+  mkdir,
+  readDir,
+  readFile,
+  remove,
+  stat,
+  writeFile,
+} from '@tauri-apps/plugin-fs';
 
-interface TauriFileMetadata {
-  name: string;
-  path: string;
-  parent_path: string;
-  size: number;
-  mime_type: string;
-  created_at: number;
-  modified_at: number;
-  tags?: string[];
-  description?: string;
-}
-
-interface TauriDirectoryMetadata {
-  name: string;
-  path: string;
-  parent_path: string;
-  created_at: number;
-  modified_at: number;
-  description?: string;
-  tags?: string[];
-}
-
-interface TauriDirectoryEntry {
-  type: 'file' | 'directory';
-  name: string;
-  path: string;
-}
-
+/**
+ * Native filesystem adapter backed by Tauri's scoped fs plugin.
+ *
+ * The dialog plugin grants the selected paths to the fs scope for the current
+ * application session. No renderer-controlled path is sent through a custom
+ * Rust command.
+ */
 export class TauriFileSystemAdapter extends FileSystemAdapter {
-  private initialized = false;
-
   async initialize(): Promise<void> {
-    if (this.initialized) return;
-    this.initialized = true;
+    // The scoped fs plugin has no per-adapter initialization.
   }
 
   async cleanup(): Promise<void> {
-    this.initialized = false;
+    // The scoped fs plugin has no per-adapter cleanup.
   }
 
-  // File operations
   async writeFile(
     path: string,
     content: ArrayBuffer | string,
-    _metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>
+    _metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
   ): Promise<FileContent> {
     void _metadata;
-
-    const buffer = content instanceof ArrayBuffer
-      ? Array.from(new Uint8Array(content))
-      : Array.from(new TextEncoder().encode(content));
-
-    const tauriMetadata: TauriFileMetadata = await invoke('create_file_handler', {
-      path,
-      content: buffer
-    });
-
-    const fileMetadata = this.convertTauriFileMetadata(tauriMetadata);
-    const contentBuffer = content instanceof ArrayBuffer ? content : new TextEncoder().encode(content).buffer;
+    const bytes = content instanceof ArrayBuffer ? new Uint8Array(content) : new TextEncoder().encode(content);
+    await writeFile(path, bytes);
+    const contentBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 
     return {
-      metadata: fileMetadata,
+      metadata: await this.getFileMetadata(path),
       content: contentBuffer,
-      checksum: await this.calculateChecksum(contentBuffer)
+      checksum: await this.calculateChecksum(contentBuffer),
     };
   }
 
   async readFile(path: string): Promise<FileContent | null> {
     try {
-      const [content, metadata]: [number[], TauriFileMetadata] = await Promise.all([
-        invoke('read_file_handler', { path }) as any,
-        invoke('get_file_metadata_handler', { path }) as any
-      ]);
-
-      const contentBuffer = new Uint8Array(content).buffer;
-
+      const [bytes, metadata] = await Promise.all([readFile(path), this.getFileMetadata(path)]);
+      const content = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       return {
-        metadata: this.convertTauriFileMetadata(metadata),
-        content: contentBuffer,
-        checksum: await this.calculateChecksum(contentBuffer)
+        metadata,
+        content,
+        checksum: await this.calculateChecksum(content),
       };
     } catch (error) {
       console.error('Failed to read file:', error);
@@ -96,110 +65,107 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
   }
 
   async deleteFile(path: string): Promise<void> {
-    await invoke('delete_file_handler', { path });
+    await remove(path);
   }
 
   async fileExists(path: string): Promise<boolean> {
-    return await invoke('file_exists_handler', { path });
+    if (!await exists(path)) return false;
+    return (await stat(path)).isFile;
   }
 
-  // Directory operations
   async createDirectory(path: string, allowExist?: boolean): Promise<DirectoryMetadata> {
-    const tauriMetadata: TauriDirectoryMetadata = await invoke('create_directory_handler', {
-      path,
-      allowExist
-    });
-
-    return this.convertTauriDirectoryMetadata(tauriMetadata);
+    await mkdir(path, { recursive: allowExist === true });
+    return this.getDirectoryMetadata(path);
   }
 
   async deleteDirectory(path: string, recursive?: boolean): Promise<void> {
-    await invoke('delete_directory_handler', { path, recursive });
+    await remove(path, { recursive });
   }
 
   async list(path: string): Promise<DirectoryEntry[]> {
-    const tauriEntries: TauriDirectoryEntry[] = await invoke('read_directory_handler', { path });
-
-    // Convert entries to full DirectoryEntry with metadata
-    const entries: DirectoryEntry[] = [];
-    
-    for (const entry of tauriEntries) {
-      if (entry.type === 'file') {
-        try {
-          const fileMetadata = await this.getFileMetadata(entry.path);
-          entries.push({ type: 'file', ...fileMetadata });
-        } catch (error) {
-          console.warn(`Failed to get metadata for file: ${entry.path}`, error);
-        }
-      } else {
-        // For directories, create basic metadata since Tauri doesn't provide full metadata
-        const dirMetadata: DirectoryMetadata = {
-          name: entry.name,
-          path: entry.path,
-          parentPath: path,
-          createdAt: new Date(),
-          modifiedAt: new Date()
-        };
-        entries.push({ type: 'directory', ...dirMetadata });
-      }
-    }
-
-    return entries;
-  }
-
-  private async getFileMetadata(path: string): Promise<FileMetadata> {
-    const tauriMetadata: TauriFileMetadata = await invoke('get_file_metadata_handler', { path });
-    return this.convertTauriFileMetadata(tauriMetadata);
+    const entries = await readDir(path);
+    return Promise.all(entries.flatMap(async (entry): Promise<DirectoryEntry[]> => {
+      const entryPath = this.joinPath(path, entry.name);
+      if (entry.isFile) return [{ type: 'file', ...await this.getFileMetadata(entryPath) }];
+      if (entry.isDirectory) return [{ type: 'directory', ...await this.getDirectoryMetadata(entryPath) }];
+      return [];
+    })).then((groups) => groups.flat());
   }
 
   async directoryExists(path: string): Promise<boolean> {
-    return await invoke('directory_exists_handler', { path });
+    if (!await exists(path)) return false;
+    return (await stat(path)).isDirectory;
   }
 
-  // File system operations
   async getStats(): Promise<FileSystemStats> {
-    // This is a simplified implementation
-    // In a real implementation, you might want to call system APIs
     return {
       totalFiles: 0,
       totalDirectories: 0,
       totalSize: 0,
       lastBackup: undefined,
       storageQuota: undefined,
-      storageUsed: undefined
+      storageUsed: undefined,
     };
   }
 
-  // Helper methods
-  private convertTauriFileMetadata(tauriMetadata: TauriFileMetadata): FileMetadata {
+  private async getFileMetadata(path: string): Promise<FileMetadata> {
+    const info = await stat(path);
     return {
-      name: tauriMetadata.name,
-      path: tauriMetadata.path,
-      parentPath: tauriMetadata.parent_path,
-      size: tauriMetadata.size,
-      mimeType: tauriMetadata.mime_type,
-      createdAt: new Date(tauriMetadata.created_at * 1000),
-      modifiedAt: new Date(tauriMetadata.modified_at * 1000),
-      tags: tauriMetadata.tags,
-      description: tauriMetadata.description
+      name: this.fileName(path),
+      path,
+      parentPath: this.parentPath(path),
+      size: info.size,
+      mimeType: this.guessMimeType(path),
+      createdAt: info.birthtime ?? info.mtime ?? new Date(),
+      modifiedAt: info.mtime ?? info.birthtime ?? new Date(),
     };
   }
 
-  private convertTauriDirectoryMetadata(tauriMetadata: TauriDirectoryMetadata): DirectoryMetadata {
+  private async getDirectoryMetadata(path: string): Promise<DirectoryMetadata> {
+    const info = await stat(path);
     return {
-      name: tauriMetadata.name,
-      path: tauriMetadata.path,
-      parentPath: tauriMetadata.parent_path,
-      createdAt: new Date(tauriMetadata.created_at * 1000),
-      modifiedAt: new Date(tauriMetadata.modified_at * 1000),
-      description: tauriMetadata.description,
-      tags: tauriMetadata.tags
+      name: this.fileName(path),
+      path,
+      parentPath: this.parentPath(path),
+      createdAt: info.birthtime ?? info.mtime ?? new Date(),
+      modifiedAt: info.mtime ?? info.birthtime ?? new Date(),
     };
+  }
+
+  private fileName(path: string): string {
+    const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
+    const parts = normalized.split('/');
+    return parts[parts.length - 1] || 'unknown';
+  }
+
+  private parentPath(path: string): string {
+    const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
+    const separator = normalized.lastIndexOf('/');
+    if (separator < 0) return '.';
+    return separator === 0 ? '/' : normalized.slice(0, separator);
+  }
+
+  private joinPath(parent: string, child: string): string {
+    if (parent.endsWith('/') || parent.endsWith('\\')) return `${parent}${child}`;
+    return `${parent}${parent.includes('\\') ? '\\' : '/'}${child}`;
+  }
+
+  private guessMimeType(path: string): string {
+    const parts = path.split('.');
+    const extension = parts[parts.length - 1]?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      txt: 'text/plain', json: 'application/json', js: 'application/javascript',
+      ts: 'application/typescript', tsx: 'application/typescript', jsx: 'application/javascript',
+      html: 'text/html', css: 'text/css', png: 'image/png', jpg: 'image/jpeg',
+      jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', pdf: 'application/pdf',
+      zip: 'application/zip', npy: 'application/octet-stream', md: 'text/markdown',
+      xml: 'application/xml', csv: 'text/csv',
+    };
+    return mimeTypes[extension ?? ''] ?? 'application/octet-stream';
   }
 
   private async calculateChecksum(content: ArrayBuffer): Promise<string> {
     const hashBuffer = await crypto.subtle.digest('SHA-256', content);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 }

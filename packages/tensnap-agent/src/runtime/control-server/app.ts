@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import type { AgentRuntime } from '../AgentRuntime';
 import { registerRuntimeRoutes } from './runtime-routes';
 import { registerSceneRoutes } from './scene-routes';
-import { registerWaitRoutes } from './wait-routes';
+import { registerRunRoutes } from './run-routes';
 import type { RuntimeSseBroker } from './sse-broker';
 
 // #endregion
@@ -19,7 +19,7 @@ export function buildControlApp(
 
   registerRuntimeRoutes(app, runtime, broker, onShutdownRequested);
   registerSceneRoutes(app, runtime);
-  registerWaitRoutes(app, runtime);
+  registerRunRoutes(app, runtime);
 
   app.options('*', (c) => c.body(null, 204));
   app.notFound((c) => c.text('Not found\n', 404));

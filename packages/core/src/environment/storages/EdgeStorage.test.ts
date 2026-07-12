@@ -53,6 +53,18 @@ describe('EdgeStorage – findEdge / getEdgesForAgent', () => {
     const s = new EdgeStorage();
     expect(s.getEdgesForAgent('ghost')).toEqual([]);
   });
+
+  it('deduplicates the induced edge set for several agents', () => {
+    const s = new EdgeStorage([
+      { source: 'a', target: 'b' },
+      { source: 'b', target: 'c' },
+      { source: 'd', target: 'e' },
+    ]);
+    expect(s.getEdgesForAgents(['a', 'b'])).toEqual([
+      { source: 'a', target: 'b' },
+      { source: 'b', target: 'c' },
+    ]);
+  });
 });
 
 describe('EdgeStorage – updateEdge / updateEdges', () => {

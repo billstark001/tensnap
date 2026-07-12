@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/core",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "description": "Core scenario, runtime, and rendering primitives for TenSnap",
   "main": "./src/index.ts",
@@ -22,6 +22,7 @@
     "./parameter": "./src/parameter/index.ts",
     "./runtime": "./src/runtime/index.ts",
     "./runtime/browser": "./src/runtime/browser.ts",
+    "./snapshot": "./src/snapshot/index.ts",
     "./scenario": "./src/scenario/index.ts",
     "./scenario/browser": "./src/scenario/browser.ts",
     "./transport": "./src/transport/index.ts",
@@ -40,6 +41,7 @@
     "@leafer-ui/core": "^2.1.11",
     "@tensnap/protocol": "workspace:*",
     "d3": "^7.9.0",
+    "pure-expr": "0.2.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

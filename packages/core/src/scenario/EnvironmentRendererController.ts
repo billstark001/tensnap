@@ -11,7 +11,8 @@
  */
 
 import { EnvironmentView } from '../environment/EnvironmentView';
-import type { AgentRenderState, AgentStorage } from '../environment';
+import type { AgentId } from '@tensnap/protocol/layers';
+import type { AgentRenderState, AgentStorage, Viewport } from '../environment';
 import { layerRegistry, type LayerCreateContext } from './layer-registry';
 import {
   createRenderPlan,
@@ -22,8 +23,12 @@ import type { ScenarioEnvironmentState } from './types';
 
 export interface EnvironmentRendererControllerOptions {
   resolveAssetUrl?: (assetId: string) => string | undefined;
-  onAgentSelect?: (agent: AgentRenderState) => void;
+  onAgentSelect?: (agent: AgentRenderState, layerId?: string) => void;
   onRenderError?: (title: string, detail: string) => void;
+  /** Highlight one agent without mutating Scenario storage. */
+  highlightedAgent?: { layerId: string; agentId: AgentId };
+  /** Do not create a second d3-force simulation for inspection renders. */
+  readOnlyGraphLayout?: boolean;
 }
 
 interface LayerEntry {
@@ -36,7 +41,7 @@ interface LayerEntry {
 
 export class EnvironmentRendererController {
   private envView: EnvironmentView | null = null;
-  private agentStorages: AgentStorage[] = [];
+  private agentStorages: Array<{ layerId: string; storage: AgentStorage }> = [];
   /** Keyed by string role to support third-party layer types. */
   private readonly layerEntriesByRole = new Map<string, Map<string, LayerEntry>>();
   private lastPlan: RenderPlan | null = null;
@@ -79,6 +84,11 @@ export class EnvironmentRendererController {
 
   resetView(): void {
     this.envView?.fitToScene({ padding: this.fitPadding });
+  }
+
+  /** Set an explicit inspection viewport after the render plan is reconciled. */
+  setViewport(viewport: Viewport): void {
+    this.envView?.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
   }
 
   destroy(): void {
@@ -154,7 +164,7 @@ export class EnvironmentRendererController {
     nextByRole.forEach((entries, role) => this.layerEntriesByRole.set(role, entries));
 
     this.agentStorages = [...(this.layerEntriesByRole.get('agent')?.values() ?? [])]
-      .flatMap((entry) => (entry.storage ? [entry.storage] : []));
+      .flatMap((entry) => (entry.storage ? [{ layerId: entry.layerId, storage: entry.storage }] : []));
 
     this.syncSceneBounds(plan);
 
@@ -191,8 +201,14 @@ export class EnvironmentRendererController {
       resolveAssetUrl: this.options.resolveAssetUrl,
       clickable: true,
       showLabel: false,
-      onAgentClick: (isGraphInteraction ? undefined : this.handleAgentSelect) as ((agent: unknown) => void) | undefined,
-      onAgentDoubleClick: (isGraphInteraction ? this.handleAgentSelect : undefined) as ((agent: unknown) => void) | undefined,
+      onAgentClick: (isGraphInteraction
+        ? undefined
+        : (agent: unknown) => this.handleAgentSelect(agent as AgentRenderState, layerPlan.layerId)) as ((agent: unknown) => void) | undefined,
+      onAgentDoubleClick: (isGraphInteraction
+        ? (agent: unknown) => this.handleAgentSelect(agent as AgentRenderState, layerPlan.layerId)
+        : undefined) as ((agent: unknown) => void) | undefined,
+      highlightedAgent: this.options.highlightedAgent,
+      readOnlyGraphLayout: this.options.readOnlyGraphLayout,
     };
 
     const created = layerRegistry.createLayer(layerPlan, factoryContext);
@@ -240,14 +256,19 @@ export class EnvironmentRendererController {
     });
   }
 
-  private handleAgentSelect = (agent: AgentRenderState): void => {
+  private handleAgentSelect = (agent: AgentRenderState, sourceLayerId?: string): void => {
     if (!this.options.onAgentSelect) {
       return;
     }
-    for (const storage of this.agentStorages) {
+    if (sourceLayerId) {
+      const source = this.layerEntriesByRole.get('agent')?.get(sourceLayerId)?.storage;
+      this.options.onAgentSelect(source?.getAgent(agent.id) ?? agent, sourceLayerId);
+      return;
+    }
+    for (const { layerId, storage } of this.agentStorages) {
       const found = storage.getAgent(agent.id);
       if (found) {
-        this.options.onAgentSelect(found as AgentRenderState);
+        this.options.onAgentSelect(found as AgentRenderState, layerId);
         return;
       }
     }

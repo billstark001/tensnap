@@ -1,6 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { t } from '@lingui/macro';
+import { t } from '@lingui/core/macro';
 import * as styles from './FileSystemBrowser.css';
 
 export interface ActionButtonsProps {

@@ -24,7 +24,7 @@ This guide covers different ways to install and run TenSnap depending on your us
 
 ### For Desktop Application
 
-- **Rust and Cargo** (for building Tauri)
+- **Rust 1.77.2 or later and Cargo** (for building Tauri)
 - All prerequisites for Web Interface Development
 
 ## Installation Methods

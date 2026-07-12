@@ -5,24 +5,30 @@ import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { Trans } from '@lingui/react';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useToast } from '@/store/toast';
+import type { AgentRef } from '@tensnap/core';
 import type { AgentRenderState } from '@tensnap/core/environment';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
+import type { AssetStore, Scenario } from '@tensnap/core';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
 
 interface Environment2DViewProps {
   environment: ScenarioEnvironmentState;
   updateTrigger?: number;
   view?: AnchoredView;
+  assets?: AssetStore;
+  scenario?: Scenario;
 }
 
-export function Environment2DView({ environment, updateTrigger, view }: Environment2DViewProps) {
+export function Environment2DView({ environment, updateTrigger, view, assets, scenario: scenarioOverride }: Environment2DViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<EnvironmentRendererController | null>(null);
 
-  const [selectedAgent, setSelectedAgent] = useState<AgentRenderState | null>(null);
-  const scenario = useScenarioStore((store) => store.scenario);
+  const [selectedAgent, setSelectedAgent] = useState<{ agent: AgentRenderState; ref: AgentRef } | null>(null);
+  const liveScenario = useScenarioStore((store) => store.scenario);
+  const scenario = scenarioOverride ?? liveScenario;
   const toast = useToast();
   const scenarioRef = useRef(scenario);
+  const environmentIdRef = useRef(environment.id);
   const toastErrorRef = useRef(toast.error);
   void updateTrigger;
   void view;
@@ -30,6 +36,10 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
   useEffect(() => {
     scenarioRef.current = scenario;
   }, [scenario]);
+
+  useEffect(() => {
+    environmentIdRef.current = environment.id;
+  }, [environment.id]);
 
   useEffect(() => {
     toastErrorRef.current = toast.error;
@@ -40,8 +50,15 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       return;
     }
     const controller = new EnvironmentRendererController(containerRef.current, {
-      resolveAssetUrl: (assetId) => scenarioRef.current?.assets.getUrl(assetId),
-      onAgentSelect: (agent) => setSelectedAgent(agent),
+      resolveAssetUrl: (assetId) => assets?.getUrl(assetId) ?? scenarioRef.current?.assets.getUrl(assetId),
+      onAgentSelect: (agent, layerId) => setSelectedAgent({
+        agent,
+        ref: {
+          environmentId: environmentIdRef.current,
+          layerId: layerId ?? '',
+          agentId: agent.id,
+        },
+      }),
       onRenderError: (title, detail) => toastErrorRef.current(title, detail),
     });
     controllerRef.current = controller;
@@ -50,7 +67,7 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       controller.destroy();
       controllerRef.current = null;
     };
-  }, []);
+  }, [assets]);
 
   useEffect(() => {
     controllerRef.current?.render(environment);
@@ -68,7 +85,9 @@ export function Environment2DView({ environment, updateTrigger, view }: Environm
       </button>
       <AgentDetailsDialog
         agentType="2d"
-        agent={selectedAgent}
+        agent={selectedAgent?.agent ?? null}
+        agentRef={selectedAgent?.ref ?? null}
+        scenario={scenario}
         resolveAssetUrl={(assetId) => scenarioRef.current?.assets.getUrl(assetId)}
         onClose={() => setSelectedAgent(null)}
       />

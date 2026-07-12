@@ -27,26 +27,32 @@ interface PersistedConfig {
   enableSpring: boolean;
   enableSchelling: boolean;
   enableWolfSheep: boolean;
+  enableReactZustandCommit: boolean;
   enableVariations: boolean;
 }
 
 const DEFAULTS: PersistedConfig = {
   frameCount: 300,
   warmupCount: 10,
-  runnerMode: 'simple',
+  runnerMode: 'renderer-session',
   schedulerMode: 'all',
   enableLineChart: true,
   enableParticle: true,
   enableSpring: true,
   enableSchelling: true,
   enableWolfSheep: true,
+  enableReactZustandCommit: true,
   enableVariations: false,
 };
 
 function loadConfig(): PersistedConfig {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (parsed.runnerMode === 'simulation-loop') parsed.runnerMode = 'renderer-session';
+      return { ...DEFAULTS, ...parsed } as PersistedConfig;
+    }
   } catch { }
   return { ...DEFAULTS };
 }
@@ -79,6 +85,7 @@ const enableSpring = signal(_initial.enableSpring);
 // Enable/disable model cases
 const enableSchelling = signal(_initial.enableSchelling);
 const enableWolfSheep = signal(_initial.enableWolfSheep);
+const enableReactZustandCommit = signal(_initial.enableReactZustandCommit);
 
 // Enable variations mode
 const enableVariations = signal(_initial.enableVariations);
@@ -97,6 +104,7 @@ effect(() => {
     enableSpring: enableSpring.value,
     enableSchelling: enableSchelling.value,
     enableWolfSheep: enableWolfSheep.value,
+    enableReactZustandCommit: enableReactZustandCommit.value,
     enableVariations: enableVariations.value,
   });
 });
@@ -111,12 +119,13 @@ function resetConfig() {
   enableSpring.value = DEFAULTS.enableSpring;
   enableSchelling.value = DEFAULTS.enableSchelling;
   enableWolfSheep.value = DEFAULTS.enableWolfSheep;
+  enableReactZustandCommit.value = DEFAULTS.enableReactZustandCommit;
   enableVariations.value = DEFAULTS.enableVariations;
 }
 
 function getSelectedRunnerModes(selection: BenchmarkRunnerSelection): BenchmarkRunnerMode[] {
   if (selection === 'all') {
-    return ['simple', 'simulation-loop'];
+    return ['simple', 'renderer-session'];
   }
   return [selection];
 }
@@ -153,6 +162,7 @@ async function handleRun(containerRef: HTMLElement) {
     'SpringGraph': enableSpring.value,
     'Schelling': enableSchelling.value,
     'WolfSheep': enableWolfSheep.value,
+    'ReactZustandCommit': enableReactZustandCommit.value,
   };
 
   if (enableVariations.value) {
@@ -236,14 +246,15 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
           style={styles.input}
         >
           <option value="simple">Simple runner</option>
-          <option value="simulation-loop">Browser-aligned simulation loop</option>
+          <option value="renderer-session">RendererSession / RunController</option>
           <option value="all">Both implementations</option>
         </select>
       </label>
 
       <p style={styles.helperText}>
-        The browser-aligned mode reuses the same simulation-loop scheduling semantics as the web app,
-        including the browser defaults for max TPS and render FPS.
+        The RendererSession mode runs the current web execution path, including
+        RunController and the browser defaults for max TPS and render FPS. The
+        React/Zustand commit case requires this mode.
       </p>
 
       <label style={styles.label}>
@@ -290,11 +301,12 @@ function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | 
       <div style={{ marginTop: 16 }}>
         <p style={styles.sectionLabel}>Cases to run</p>
         {[
-          { sig: enableLineChart, label: 'LineChartView (multi-line)' },
+          { sig: enableLineChart, label: 'Canvas chart (multi-line)' },
           { sig: enableParticle, label: 'EnvironmentView (particle bounce)' },
           { sig: enableSpring, label: 'EnvironmentView (E-R spring graph)' },
           { sig: enableSchelling, label: 'Schelling Segregation Model' },
           { sig: enableWolfSheep, label: 'Wolf-Sheep Predation Model' },
+          { sig: enableReactZustandCommit, label: 'React/Zustand RendererSession commit' },
         ].map(({ sig, label }) => (
           <label key={label} style={styles.checkLabel}>
             <input
@@ -475,7 +487,7 @@ export function App() {
         <h1 style={styles.title}>TenSnap Web Core — Benchmark Suite</h1>
         <p style={styles.subtitle}>
           Measures per-tick compute latency (MSPT) and effective TPS across both a simple benchmark runner
-          and a browser-aligned simulation loop. Current build mode: <strong>{runtimeMode}</strong>.
+          and the production RendererSession path. Current build mode: <strong>{runtimeMode}</strong>.
         </p>
       </header>
 

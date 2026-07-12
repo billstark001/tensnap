@@ -268,7 +268,7 @@ End-to-end simulator smoke:
 ```bash
 pnpm --filter @tensnap/agent dev -- runtime up --context demo --simulator-url ws://localhost:8765
 pnpm --filter @tensnap/agent dev -- scene inspect --context demo
-pnpm --filter @tensnap/agent dev -- scene step --context demo
+pnpm --filter @tensnap/agent dev -- action run step --context demo
 pnpm --filter @tensnap/agent dev -- scene render snapshot --context demo
 ```
 

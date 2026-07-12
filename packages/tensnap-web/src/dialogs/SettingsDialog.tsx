@@ -3,9 +3,9 @@ import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
 import { DialogOpenProps } from '@tensnap/web-common/react';
-import { ACTION_TIMEOUT_SECONDS_OPTIONS, useSettingsStore } from '@/store/settings';
+import { ACTION_TIMEOUT_SECONDS_OPTIONS, MAX_SNAPSHOT_PLAYBACK_FPS, useSettingsStore } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
@@ -14,9 +14,7 @@ import { useToast } from '@/store/toast';
 import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
 
-export type SettingsDialogProps = DialogOpenProps;
-
-export const SettingsDialog: React.FC<SettingsDialogProps> = ({
+export const SettingsDialog: React.FC<DialogOpenProps> = ({
   open,
   onOpenChange,
 }) => {
@@ -32,6 +30,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     renderTriggerMode,
     maxTps,
     maxRenderFps,
+    snapshotPlaybackFps,
     actionTimeoutSeconds,
     setSaveFormat,
     toggleTheme,
@@ -41,6 +40,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     setRenderTriggerMode,
     setMaxTps,
     setMaxRenderFps,
+    setSnapshotPlaybackFps,
     setActionTimeoutSeconds,
   } = useSettingsStore();
 
@@ -100,24 +100,27 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   const handleLocaleChange = useCallback(async (newLocale: string) => {
     if (!isValidLocale(newLocale)) {
-      toast.error('Invalid locale', newLocale);
+      toast.error(_(msg`Invalid locale`), newLocale);
       return;
     }
     await activateLocale(newLocale);
     setLocale(newLocale);
-  }, [setLocale, toast]);
+  }, [_, setLocale, toast]);
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={onOpenChange} size="lg">
       <Dialog.Title><Trans>Settings</Trans></Dialog.Title>
-      <Dialog.Description></Dialog.Description>
+      <Dialog.Description className={styles.visuallyHidden}>
+        <Trans>Configure application and project settings.</Trans>
+      </Dialog.Description>
 
       <div className={styles.settingsContainer}>
         {/* System Settings */}
         <div className={styles.sectionContainer}>
           <h3 className={styles.sectionTitle}><Trans>System Settings</Trans></h3>
 
-          <div className={styles.settingItem}>
+          <div className={styles.systemSettingsGrid}>
+            <div className={styles.settingItem}>
             <label className={styles.settingLabel}><Trans>Theme</Trans></label>
             <div className={styles.settingControl}>
               <div className={styles.switchContainer}>
@@ -224,7 +227,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   value={maxTps}
                   onChange={(e) => setMaxTps(Number(e.target.value))}
                 />
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                <div className={styles.fieldHint}>
                   <Trans>0 means unlimited</Trans>
                 </div>
               </div>
@@ -242,8 +245,27 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   value={maxRenderFps}
                   onChange={(e) => setMaxRenderFps(Number(e.target.value))}
                 />
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                <div className={styles.fieldHint}>
                   <Trans>0 means unlimited</Trans>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <label className={styles.settingLabel}><Trans>Snapshot playback FPS</Trans></label>
+            <div className={styles.settingControl}>
+              <div>
+                <Form.Input
+                  type="number"
+                  min={1}
+                  max={MAX_SNAPSHOT_PLAYBACK_FPS}
+                  step={1}
+                  value={snapshotPlaybackFps}
+                  onChange={(e) => setSnapshotPlaybackFps(Number(e.target.value))}
+                />
+                <div className={styles.fieldHint}>
+                  <Trans>Maximum 120 FPS</Trans>
                 </div>
               </div>
             </div>
@@ -264,6 +286,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               </Select.Root>
             </div>
           </div>
+          </div>
         </div>
 
         <Dialog.Separator />
@@ -276,6 +299,20 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <div className={styles.projectSettingsContainer}>
               <div className={styles.projectSettingsForm}>
                 <Form.FieldSet>
+                  <Form.Label><Trans>Project File</Trans></Form.Label>
+                  <Form.Input
+                    className={styles.projectPathInput}
+                    type="text"
+                    value={activeProject.filepath ?? ''}
+                    readOnly
+                    title={activeProject.filepath ?? _(msg`Unsaved project`)}
+                    placeholder={_(msg`Unsaved project`)}
+                  />
+                  <div className={styles.fieldHint}>
+                    <Trans>The full path is shown here and is not editable.</Trans>
+                  </div>
+                </Form.FieldSet>
+                <Form.FieldSet>
                   <Form.Label><Trans>Backend URL</Trans></Form.Label>
                   <Form.Input
                     type="text"
@@ -283,7 +320,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                     onChange={(e) => handleBackendUrlChange(e.target.value)}
                     placeholder={_(msg`Enter backend WebSocket server address`)}
                   />
-                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
+                  <div className={styles.fieldHint}>
                     <Trans>Change the WebSocket server URL for the current project. The connection will be reestablished.</Trans>
                   </div>
                 </Form.FieldSet>

@@ -4,58 +4,26 @@
  * Core interfaces for the Layer / Storage pattern.
  */
 
-import { z } from 'zod';
+import type { TrajectoryLayerMetadata } from '@tensnap/protocol/layers';
 import { SceneBounds, OriginMode } from './viewport';
 
-export const BaseLayerMetadataSchema = z.object({
-  dependency_layer_ids: z.never().optional(),
-  z_index: z.number().optional(),
-}).loose();
+/**
+ * Renderer-side lifecycle policy with explicit defaults for optional protocol
+ * metadata.
+ */
+export interface TrajectoryLifecycle {
+  onAgentDelete: NonNullable<TrajectoryLayerMetadata['on_agent_delete']>;
+  onStateSync: NonNullable<TrajectoryLayerMetadata['on_state_sync']>;
+  onReset: NonNullable<TrajectoryLayerMetadata['on_reset']>;
+}
 
-export type BaseLayerMetadata = z.infer<typeof BaseLayerMetadataSchema>;
-
-export const AgentLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  width: z.number().optional(),
-  height: z.number().optional(),
-  coord_offset: z.enum(['int', 'float']).optional(),
-}).loose();
-
-export type AgentLayerMetadata = z.infer<typeof AgentLayerMetadataSchema>;
-
-export const EdgeLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  link_distance: z.number().optional(),
-  charge_strength: z.number().optional(),
-  centering_strength: z.number().optional(),
-  collision_radius: z.number().optional(),
-  max_component_distance: z.number().optional(),
-  component_spacing: z.number().optional(),
-}).loose();
-
-export type EdgeLayerMetadata = z.infer<typeof EdgeLayerMetadataSchema>;
-
-export const GridLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  width: z.number().optional(),
-  height: z.number().optional(),
-  x_origin: z.number().optional(),
-  x_unit: z.number().optional(),
-  x_interval: z.number().optional(),
-  x_ratio: z.number().int().min(2).optional(),
-  y_origin: z.number().optional(),
-  y_unit: z.number().optional(),
-  y_interval: z.number().optional(),
-  y_ratio: z.number().int().min(2).optional(),
-  stroke_color: z.string().optional(),
-}).loose();
-
-export type GridLayerMetadata = z.infer<typeof GridLayerMetadataSchema>;
-
-export const TrajectoryLayerMetadataSchema = BaseLayerMetadataSchema.extend({
-  length: z.number().optional(),
-  width: z.number().optional(),
-  color: z.string().optional(),
-}).loose();
-
-export type TrajectoryLayerMetadata = z.infer<typeof TrajectoryLayerMetadataSchema>;
+export function resolveTrajectoryLifecycle(metadata: Record<string, unknown>): TrajectoryLifecycle {
+  return {
+    onAgentDelete: metadata.on_agent_delete === 'retain' ? 'retain' : 'delete',
+    onStateSync: metadata.on_state_sync === 'clear' ? 'clear' : 'preserve',
+    onReset: metadata.on_reset === 'preserve' ? 'preserve' : 'clear',
+  };
+}
 
 export type Unsubscribe = () => void;
 

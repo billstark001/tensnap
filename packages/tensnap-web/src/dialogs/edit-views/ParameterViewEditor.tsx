@@ -8,6 +8,7 @@ import * as styles from './EditViews.css';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { ObjectIdentityField } from './ObjectIdentityField';
+import { parseFiniteNumberInput } from './form-values';
 
 interface ParameterViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
@@ -16,13 +17,6 @@ interface ParameterViewEditorProps extends BaseViewEditorProps {
   onEditObjectId: () => void;
   onRequestTypeChange: (type: ParameterType) => void;
 }
-
-// Helper function
-const parseNumberInput = (value: string, fallback: number = 0): number => {
-  if (value === '' || value === '-') return fallback;
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? fallback : parsed;
-};
 
 // TypeSelector Component
 const TypeSelector: React.FC<{
@@ -54,7 +48,7 @@ const ParameterValueFields: React.FC<{
             id="param-value-number"
             type="number"
             value={numberParam.value}
-            onChange={(e) => onObjectChange('value', parseNumberInput(e.target.value, numberParam.value))}
+            onChange={(e) => onObjectChange('value', parseFiniteNumberInput(e.target.value, numberParam.value))}
           />
         </Form.Field>
       );
@@ -118,7 +112,7 @@ const NumberParameterFields: React.FC<{
         id="param-min"
         type="number"
         value={param.min ?? ''}
-        onChange={(e) => onObjectChange('min', parseNumberInput(e.target.value, param.min ?? 0))}
+        onChange={(e) => onObjectChange('min', parseFiniteNumberInput(e.target.value, param.min ?? 0))}
       />
     </Form.Field>
     <Form.Field label={<Trans>Maximum Value</Trans>} htmlFor="param-max">
@@ -126,7 +120,7 @@ const NumberParameterFields: React.FC<{
         id="param-max"
         type="number"
         value={param.max ?? ''}
-        onChange={(e) => onObjectChange('max', parseNumberInput(e.target.value, param.max ?? 100))}
+        onChange={(e) => onObjectChange('max', parseFiniteNumberInput(e.target.value, param.max ?? 100))}
       />
     </Form.Field>
     <Form.Field label={<Trans>Step</Trans>} htmlFor="param-step">
@@ -134,7 +128,7 @@ const NumberParameterFields: React.FC<{
         id="param-step"
         type="number"
         value={param.step ?? ''}
-        onChange={(e) => onObjectChange('step', parseNumberInput(e.target.value, param.step ?? 1))}
+        onChange={(e) => onObjectChange('step', parseFiniteNumberInput(e.target.value, param.step ?? 1))}
       />
     </Form.Field>
   </Form.FieldGroup>

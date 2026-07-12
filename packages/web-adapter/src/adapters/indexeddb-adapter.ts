@@ -1,5 +1,5 @@
 import LightningFS from '@isomorphic-git/lightning-fs';
-import * as PathUtils from './utils/path';
+import * as PathUtils from '../utils/path';
 import {
   type FileMetadata,
   type FileContent,

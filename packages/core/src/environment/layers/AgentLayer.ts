@@ -15,6 +15,7 @@
  */
 
 import {
+  Ellipse,
   Group,
   UI,
   Text,
@@ -31,9 +32,6 @@ import {
 } from '../storages/AgentStorage';
 import {
   Viewport,
-  AgentId,
-  AgentIcon,
-  BuiltinAgentIcon,
   GridCoordOffset,
   SceneBounds,
   OriginMode,
@@ -41,12 +39,16 @@ import {
   IBoundedLayer,
   isBuiltinAgentIcon,
 } from '../types';
+import type { AgentIcon, AgentId, BuiltinAgentIcon } from '@tensnap/protocol/layers';
 import { getCoordOffsetValue } from '../utils';
 import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';
 
 // #region Constants & Defaults
 
 const DEFAULT_AGENT_COLOR = '#69b3a2';
+const INSPECTION_HIGHLIGHT_COLOR = '#facc15';
+const INSPECTION_HIGHLIGHT_INNER_RADIUS = 0.82;
+const INSPECTION_HIGHLIGHT_Z_INDEX = 1_000;
 const NOOP = () => { };
 
 /**
@@ -87,6 +89,8 @@ export interface AgentLayerConfig {
   sceneBounds?: SceneBounds | Partial<Viewport>;
   /** Resolve an asset-id to URL for `asset:<id>` icons. */
   resolveAssetUrl?: (assetId: string) => string | null | undefined;
+  /** Draw a non-mutating inspection highlight around this agent id. */
+  highlightedAgentId?: AgentId;
 
   onAgentClick?: (agent: AgentRenderState, event: any) => void;
   onAgentContextMenu?: (agent: AgentRenderState, event: any) => void;
@@ -96,13 +100,15 @@ export interface AgentLayerConfig {
   onDragEnd?: (id: AgentId) => void;
 }
 
-type ResolvedConfig = Required<Omit<AgentLayerConfig, 'sceneBounds'>> & {
+type ResolvedConfig = Required<Omit<AgentLayerConfig, 'sceneBounds' | 'highlightedAgentId'>> & {
   sceneBounds?: SceneBounds;
+  highlightedAgentId?: AgentId;
 };
 
 interface AgentShapeEntry {
   group: Group;
   shape: UI;
+  highlight: UI | null;
   label: Text | null;
   icon: AgentIcon;
   assetUrl: string | null;
@@ -284,13 +290,18 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const shape: UI = this._createShape(icon, coords.size, color, assetUrl);
     const label = this._cfg.showLabel ? createAgentLabel(agent.id, coords.size) : null;
     const group = new Group({ x: coords.x, y: coords.y, rotation: coords.rotation });
+    const highlight = this._createInspectionHighlight(agent.id, coords.size);
 
     group.add(shape);
     if (label) group.add(label);
+    if (highlight) {
+      group.add(highlight);
+      group.set({ zIndex: INSPECTION_HIGHLIGHT_Z_INDEX });
+    }
 
     this._bindEvents(shape, group, agent.id);
     this._agentsGroup.add(group);
-    this._agentShapes.set(agent.id, { group, shape, label, icon, assetUrl, size: coords.size, color });
+    this._agentShapes.set(agent.id, { group, shape, highlight, label, icon, assetUrl, size: coords.size, color });
   }
 
   /** Merged shape-appearance + position update (the two are always applied together). */
@@ -341,6 +352,8 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       if (Object.keys(shapeUpdates).length) entry.shape.set(shapeUpdates);
     }
 
+    this._updateInspectionHighlight(entry, agent.id, coords.size);
+
     if (entry.label) {
       const fs = Math.max(8, coords.size * 0.6);
       entry.label.set({
@@ -386,6 +399,41 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       ...SHAPE_CONFIGS.square(size),
       fill,
     });
+  }
+
+  /** Keep inspection state separate from agent appearance: asset and color remain meaningful. */
+  private _createInspectionHighlight(id: AgentId, size: number): UI | null {
+    if (this._cfg.highlightedAgentId !== id) return null;
+    const diameter = Math.max(1, size * 1.5);
+    // Use a geometric donut instead of a transparent fill. Some Leafer
+    // render paths flatten transparent fills into an opaque disk.
+    return new Ellipse({
+      width: diameter,
+      height: diameter,
+      x: -diameter / 2,
+      y: -diameter / 2,
+      innerRadius: INSPECTION_HIGHLIGHT_INNER_RADIUS,
+      fill: INSPECTION_HIGHLIGHT_COLOR,
+      hitTest: false,
+    });
+  }
+
+  private _updateInspectionHighlight(entry: AgentShapeEntry, id: AgentId, size: number): void {
+    if (this._cfg.highlightedAgentId !== id) return;
+    const diameter = Math.max(1, size * 1.5);
+    if (!entry.highlight) {
+      entry.highlight = this._createInspectionHighlight(id, size);
+      if (entry.highlight) entry.group.add(entry.highlight);
+    } else {
+      entry.highlight.set({
+        width: diameter,
+        height: diameter,
+        x: -diameter / 2,
+        y: -diameter / 2,
+      });
+    }
+    // A selected agent stays above siblings even when they are updated later.
+    entry.group.set({ zIndex: INSPECTION_HIGHLIGHT_Z_INDEX });
   }
 
   private _removeAgent(id: AgentId): void {

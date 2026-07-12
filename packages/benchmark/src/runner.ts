@@ -6,8 +6,21 @@ import {
   BenchmarkSchedulerMode,
   BenchmarkStats,
 } from './types';
-import type { RendererToSimulatorMessage } from '@tensnap/protocol';
-import { SimulationLoopController, type RenderTriggerMode } from '@tensnap/core/runtime/browser';
+import type {
+  ProtocolEncoding,
+  RendererToSimulatorMessage,
+} from '@tensnap/protocol';
+import type {
+  ISimulatorTransport,
+  TransportConnectionState,
+  TransportEventHandler,
+  TransportEventMap,
+} from '@tensnap/core';
+import { RendererSession } from '@tensnap/core/runtime';
+import {
+  BrowserRunRenderBarrier,
+  type RenderTriggerMode,
+} from '@tensnap/core/runtime/browser';
 
 const DEFAULT_BROWSER_LOOP_MAX_TPS = 300;
 const DEFAULT_BROWSER_LOOP_MAX_RENDER_FPS = 120;
@@ -61,21 +74,6 @@ function mapSchedulerModeToRenderTriggerMode(mode: BenchmarkSchedulerMode): Rend
   return 'auto';
 }
 
-function createActionStartMessage(
-  id: string,
-  continuous?: boolean,
-  tickId?: string,
-): RendererToSimulatorMessage {
-  return {
-    type: 'action_start',
-    payload: {
-      id,
-      continuous,
-      tick_id: tickId,
-    },
-  };
-}
-
 async function runBenchmarkWithSimpleLoop(
   benchCase: BenchmarkCase,
   frames: number,
@@ -121,7 +119,31 @@ async function runBenchmarkWithSimpleLoop(
   };
 }
 
-async function runBenchmarkWithSimulationLoop(
+function createBenchmarkTransport(
+  send: (message: RendererToSimulatorMessage) => void,
+): ISimulatorTransport {
+  return {
+    connectionId: 'benchmark://renderer-session',
+    transportKind: 'benchmark',
+    encoding: 'json' as ProtocolEncoding,
+    connectionState: 'open' as TransportConnectionState,
+    isConnected: true,
+    connect: async () => {},
+    disconnect: () => {},
+    destroy: () => {},
+    on: <K extends keyof TransportEventMap>(
+      _type: K,
+      _handler: TransportEventHandler<TransportEventMap[K]>,
+    ) => {},
+    off: <K extends keyof TransportEventMap>(
+      _type: K,
+      _handler?: TransportEventHandler<TransportEventMap[K]>,
+    ) => {},
+    send,
+  };
+}
+
+async function runBenchmarkWithRendererSession(
   benchCase: BenchmarkCase,
   frames: number,
   warmupFrames: number,
@@ -130,9 +152,13 @@ async function runBenchmarkWithSimulationLoop(
 ): Promise<BenchmarkTimingResult> {
   const totalFrames = warmupFrames + frames;
   const timings: number[] = [];
-  const eventSource = new EventTarget();
-  const controller = new SimulationLoopController(eventSource);
-  const release = controller.retain();
+  const renderBarrier = new BrowserRunRenderBarrier(() => ({
+    mode: mapSchedulerModeToRenderTriggerMode(schedulerMode),
+    maxTps: DEFAULT_BROWSER_LOOP_MAX_TPS,
+    maxRenderFps: DEFAULT_BROWSER_LOOP_MAX_RENDER_FPS,
+  }));
+  const session = new RendererSession({ run: { renderBarrier } });
+  const runtime = benchCase.runtime;
 
   let frameIndex = 0;
   let runStartedAt: number | null = null;
@@ -163,76 +189,81 @@ async function runBenchmarkWithSimulationLoop(
         settle();
       };
 
-      controller.updateOptions({
-        sendMessage: (message) => {
-          void (async () => {
-            if (settled || message.type !== 'action_start') {
-              return;
-            }
+      session.attachTransport(createBenchmarkTransport((message) => {
+        void (async () => {
+          if (settled || message.type !== 'action_start') {
+            return;
+          }
 
-            const currentFrame = frameIndex;
-            if (currentFrame >= totalFrames) {
-              return;
-            }
+          const currentFrame = frameIndex;
+          if (currentFrame >= totalFrames) {
+            return;
+          }
 
-            const isMeasuredFrame = currentFrame >= warmupFrames;
-            if (isMeasuredFrame && runStartedAt == null) {
-              runStartedAt = performance.now();
-            }
+          const isMeasuredFrame = currentFrame >= warmupFrames;
+          if (isMeasuredFrame && runStartedAt == null) {
+            runStartedAt = performance.now();
+          }
 
-            const t0 = performance.now();
-            try {
-              await benchCase.tick(currentFrame);
-            } catch (error) {
-              settle(undefined, error);
-              return;
-            }
+          const t0 = performance.now();
+          try {
+            await benchCase.tick(currentFrame);
+            await runtime?.applySessionStep?.(session, currentFrame);
+          } catch (error) {
+            settle(undefined, error);
+            return;
+          }
 
-            const computeElapsed = performance.now() - t0;
-            if (isMeasuredFrame) {
-              timings.push(computeElapsed);
-            }
+          const computeElapsed = performance.now() - t0;
+          if (isMeasuredFrame) {
+            timings.push(computeElapsed);
+          }
 
-            frameIndex += 1;
-            if (isMeasuredFrame) {
-              onProgress?.(frameIndex - warmupFrames, frames);
+          frameIndex += 1;
+          if (isMeasuredFrame) {
+            onProgress?.(frameIndex - warmupFrames, frames);
+          } else {
+            onProgress?.(0, frames);
+          }
+
+          const payload = message.payload as { id: string; tick_id?: string };
+          const shouldContinue = frameIndex < totalFrames;
+
+          session.handleIncoming({
+            type: 'action_end',
+            payload: {
+              id: payload.id,
+              tick_id: payload.tick_id,
+              continue: shouldContinue,
+            },
+          });
+
+          if (!shouldContinue) {
+            if (typeof queueMicrotask === 'function') {
+              queueMicrotask(finalize);
             } else {
-              onProgress?.(0, frames);
+              window.setTimeout(finalize, 0);
             }
+          }
+        })();
+      }));
 
-            const payload = message.payload as { id: string; tick_id?: string };
-            const shouldContinue = frameIndex < totalFrames;
-
-            eventSource.dispatchEvent(new CustomEvent('action:end', {
-              detail: {
-                id: payload.id,
-                tick_id: payload.tick_id,
-                continue: shouldContinue,
-              },
-            }));
-
-            if (!shouldContinue) {
-              if (typeof queueMicrotask === 'function') {
-                queueMicrotask(finalize);
-              } else {
-                window.setTimeout(finalize, 0);
-              }
-            }
-          })();
-        },
-        createActionStartMessage,
-        mode: mapSchedulerModeToRenderTriggerMode(schedulerMode),
-        maxTps: DEFAULT_BROWSER_LOOP_MAX_TPS,
-        maxRenderFps: DEFAULT_BROWSER_LOOP_MAX_RENDER_FPS,
+      runtime?.setupSession?.(session);
+      if (runtime?.onCommit) {
+        session.addEventListener('commit', () => runtime.onCommit?.(session));
+      }
+      session.run.start({
+        mode: 'bounded',
+        actionId: STEP_ACTION_ID,
+        maxSteps: totalFrames,
+        stopWhen: runtime?.stopWhen,
+        record: runtime?.record,
       });
-
-      controller.requestAction(STEP_ACTION_ID, true);
     });
 
     return completion;
   } finally {
-    controller.reset();
-    release();
+    session.destroy();
   }
 }
 
@@ -260,8 +291,8 @@ export async function runBenchmark(
   await benchCase.setup(container);
 
   try {
-    const { timings, runDurationMs } = runnerMode === 'simulation-loop'
-      ? await runBenchmarkWithSimulationLoop(
+    const { timings, runDurationMs } = runnerMode === 'renderer-session'
+      ? await runBenchmarkWithRendererSession(
         benchCase,
         frames,
         warmupFrames,

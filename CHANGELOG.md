@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## Workspace [0.2.1], @tensnap/protocol [0.2.2] - 2026-07-12
+
+### Added
+
+- Added a shared `RendererSession` and `RunController` for browser and headless
+  hosts, with explicit manual/bounded runs, stop expressions, deadlines,
+  pause/step/reset semantics, render barriers, action timeouts, and observable
+  stop reasons.
+- Added shared `SnapshotArchive` persistence: independently decodable
+  MessagePack segments, lossless byte compression, worker encoding in the web
+  host, and pluggable layer codec implementations.
+- Added project format v2 with a content-addressed asset table shared by the
+  live scenario and all recordings; older project formats remain readable.
+- Added scenario inspection, agent-focused rendering, headless chart painting,
+  scene/run HTTP routes, and matching CLI controls for automation workflows.
+- Added `ChartScene` and `BrowserChartView`, canvas-backed chart rendering,
+  snapshot detail playback/export, continuous-run profiles, live TPS/MSPT
+  metrics, and project-scoped undo/redo history.
+- Added RendererSession benchmark coverage for real React/Zustand commits,
+  recording, long-history conditions, trajectories, checkpoint behavior, and
+  reusable p95/TPS regression gates.
+
+### Fixed
+
+- Restored replace-by-default handling for repeated create messages in core,
+  preventing model resets from retaining stale agents, edges, trajectories, or
+  chart history; internal upsert paths now preserve those states explicitly.
+- Kept dependent-layer indexes valid when a source layer is recreated, and
+  removed stale chart metadata registrations when a chart group is replaced.
+- Stopped maintaining the agent-neighborhood spatial hash while no inspector
+  is open, removed item-delta full-scene rebuild triggers, split broad UI
+  revisions by domain, and made uniform agent lists derive only their visible
+  page. This restores non-recording Web throughput for agent-heavy models.
+- Converted render-barrier failures into an observable `render-error` run stop
+  instead of leaving an unhandled rejection or stalled pipeline.
+- Required action completions to match their dispatched `tick_id`, preventing
+  stale or ambiguous completions from contaminating run metrics.
+- Fixed multi-chart headless output paths so suffixes apply only to filenames,
+  for both relative and absolute destinations.
+- Fixed binary filesystem checksums so distinct invalid UTF-8 byte sequences no
+  longer collapse to the same decoded-text hash.
+- Made Tauri Save As request the final extension/filter in the native dialog
+  and write exactly the returned scoped path.
+- Made Tauri's native menu follow the renderer language setting, with complete
+  English, Chinese, and Japanese menu labels.
+- Prevented project tabs from wrapping long filesystem paths; tabs now show a
+  compact filename and Project Settings exposes the full path read-only.
+- Compacted the settings dialog's system controls into a responsive grid so
+  ordinary desktop viewports do not require scrolling.
+
+### Changed
+
+- Made `@tensnap/protocol` the sole source of built-in layer schemas and
+  protocol item types; core now keeps only renderer-owned state and helpers.
+- Made bounded-run mode explicit and made standard toolbar controls bind only
+  to the canonical `start`, `step`, and `reset` action IDs.
+- Reworked trajectory storage around explicit active/historical segments and
+  lifecycle policies for deletion, state sync, reset, and agent-ID reuse.
+- Unified renderer settings, native persistence, scoped file access, runtime
+  checkpoint recovery, and localized Tauri menus across web and desktop hosts.
+- Updated runtime, snapshot, project, protocol, desktop-adapter, and user
+  documentation for shared session control, offline replay, trajectory
+  lifecycle behavior, and scoped native saves.
+- Split stable UI, rendering, runtime, and data dependencies into shared Vite
+  chunks for web, Tauri, and benchmark builds while retaining the 500 KiB
+  eager-code warning budget.
+
+### Removed
+
+- Removed the superseded browser `SimulationLoopController`, agent-session and
+  reserved-action wrappers, retired wait routes, and the old Leafer-specific
+  line-chart view.
+- Removed compatibility-only action-role inference, optional bounded-run mode,
+  tickless action-metric matching, duplicate core protocol schemas, redundant
+  type/path/export aliases, legacy browser polyfills, and vendor-prefixed
+  canvas smoothing assignments.
+- Removed the unused dummy Rust crate beside the real `src-tauri` application.
+
 ## @tensnap/protocol [0.2.1] - 2026-07-10
 
 ### Added

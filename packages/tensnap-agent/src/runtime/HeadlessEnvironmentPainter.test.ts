@@ -65,6 +65,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',
@@ -119,6 +120,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',
@@ -176,6 +178,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',
@@ -230,6 +233,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',
@@ -290,6 +294,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',
@@ -339,6 +344,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',
@@ -406,6 +412,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',
@@ -446,6 +453,7 @@ describe('HeadlessEnvironmentPainter', () => {
       parameters: [],
       charts: [],
       logs: [],
+      assets: [],
       environments: [
         {
           id: 'main',

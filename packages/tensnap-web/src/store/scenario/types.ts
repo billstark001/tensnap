@@ -1,11 +1,13 @@
 import { SetStateAction } from 'react';
 import {
   Scenario,
+  RendererSession,
   ScenarioSnapshot,
   ScenarioEnvironmentState,
   ChartStorage,
   ChartGroup,
 } from '@tensnap/core';
+import type { RecordingOptions, Snapshot } from '@tensnap/core/snapshot';
 import type {
   Action,
   ActionStartPayload,
@@ -22,16 +24,16 @@ import type {
 import { ContainerView } from '../../types/ui';
 import { UpdateTriggerState } from '../update-trigger';
 
-export type { StateSyncPhase } from '@tensnap/core/runtime/browser';
-import type { StateSyncStatus as CoreStateSyncStatus } from '@tensnap/core/runtime/browser';
-
-export interface StateSyncStatus extends CoreStateSyncStatus {
+export interface StateSyncStatus {
+  requestId: string | null;
+  phase: 'idle' | 'requested' | 'receiving';
   autoLayoutOnComplete: boolean;
 }
 
 export interface SnapshotDraft {
   id?: string;
   timestamp?: number;
+  label?: string;
 }
 
 export interface EditableEnvironmentDraft {
@@ -55,14 +57,19 @@ export interface SetDataPayload {
 }
 
 export interface ScenarioStore {
+  session: RendererSession;
   scenario: Scenario;
-  snapshots: ScenarioSnapshot[];
+  snapshots: Snapshot[];
   maxSnapshots: number;
+  isRecording: boolean;
   mainView: ContainerView;
   connected: boolean;
   stateSync: StateSyncStatus;
-  _revision: number;
-  _assetRevision: number;
+  actionRevision: number;
+  chartRevision: number;
+  logRevision: number;
+  runRevision: number;
+  assetRevision: number;
   viewUpdateTrigger: UpdateTriggerState;
   environmentUpdateTrigger: UpdateTriggerState;
   parameterUpdateTrigger: UpdateTriggerState;
@@ -73,7 +80,9 @@ export interface ScenarioStore {
   resetStateSync: () => void;
   isMainViewAutoLayoutCandidate: () => boolean;
   setMainView: (view: SetStateAction<ContainerView>) => void;
-  updateMainViewLayout: () => void;
+  /** Applies a renderer-history patch without recording another command. */
+  replaceMainView: (view: ContainerView) => void;
+  updateMainViewLayout: (options?: { recordHistory?: boolean }) => void;
 
   applyMessage: (message: SimulatorToRendererMessage) => void;
   dump: () => ScenarioSnapshot;
@@ -101,6 +110,9 @@ export interface ScenarioStore {
   getScreenshotCapture: (id: string) => ScreenshotCaptureHandler | undefined;
 
   addSnapshot: (draft?: SnapshotDraft) => void;
+  startRecording: (options?: RecordingOptions) => void;
+  stopRecording: () => void;
+  renameSnapshot: (id: string, label: string) => void;
   removeSnapshot: (id: string) => void;
   clearSnapshots: () => void;
   setMaxSnapshots: (max: number) => void;

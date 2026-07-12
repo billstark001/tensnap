@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { useFileOperations } from '@tensnap/web/hooks';
 import { useSettingsStore } from '@tensnap/web/store';
+import { setNativeMenuLocale } from '../adapters/common';
 
 export const useTauriMenuEvents = () => {
   const {
@@ -13,6 +14,13 @@ export const useTauriMenuEvents = () => {
 
   const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore(x => x.setAboutDialogOpen);
+  const locale = useSettingsStore(x => x.locale);
+
+  useEffect(() => {
+    void setNativeMenuLocale(locale).catch((error) => {
+      console.error('Failed to update the native menu locale:', error);
+    });
+  }, [locale]);
 
   useEffect(() => {
     const unlistenPromises: Promise<() => void>[] = [];

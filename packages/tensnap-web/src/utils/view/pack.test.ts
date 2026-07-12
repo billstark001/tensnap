@@ -3,8 +3,8 @@ import type { Action, BooleanParameter } from '@/types/model';
 import type { AnyView, ContainerView } from '@/types/ui';
 import type { ObjectWithChartMetadata, ObjectWithEnvironmentMetadata } from '@/components/view/types';
 import { createDefaultRootLayout } from './create-view';
-import { adjustForMainViewPadding, createAutoLayout, preservedViewIds } from './pack';
-import { MAIN_VIEW_PADDING, viewConstants } from '@/components/view/constants';
+import { adjustForMainViewPadding, createAutoLayout } from './pack';
+import { MAIN_VIEW_PADDING, preservedViewIds, viewConstants } from '@/components/view/constants';
 import { getEffectiveViewBox } from './geometry';
 
 describe('view pack utils', () => {

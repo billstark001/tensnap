@@ -3,7 +3,7 @@ import { useTransportStore } from '@/store/transport';
 import { useToast } from '@/store/toast';
 import { useSettingsStore } from '@/store/settings';
 import { Trans } from '@lingui/react/macro';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw, Wrench } from 'lucide-react';
 import { useState, useCallback } from 'react';
@@ -27,6 +27,9 @@ export function StatusBar({
   const toast = useToast();
   const connected = useScenarioStore((store) => store.connected);
   const currentTime = useScenarioStore((store) => store.currentTime);
+  const session = useScenarioStore((store) => store.session);
+  const isRecording = useScenarioStore((store) => store.isRecording);
+  const runRevision = useScenarioStore((store) => store.runRevision);
   const runtimeTps = useSettingsStore((store) => store.runtimeTps);
   const runtimeMspt = useSettingsStore((store) => store.runtimeMspt);
   const simulatorMspt = useSettingsStore((store) => store.simulatorMspt);
@@ -41,6 +44,22 @@ export function StatusBar({
   const isConnecting = transportStore?.isConnecting ?? false;
   const canReconnect = transportStore?.canReconnect?.() ?? false;
   const reconnectDisabled = isReconnecting || isConnecting || !canReconnect;
+  void runRevision;
+  const runStatus = session?.run.status;
+  const runSummary = runStatus
+    ? [
+      runStatus.spec.actionId,
+      runStatus.spec.mode,
+      runStatus.spec.mode === 'bounded'
+        ? `${runStatus.completedSteps}/${runStatus.spec.maxSteps}`
+        : `${runStatus.completedSteps}/∞`,
+      runStatus.inFlight ? 'waiting for tick' : runStatus.state,
+      runStatus.stopReason,
+      runStatus.spec.maxWallTimeMs ? `deadline ${runStatus.spec.maxWallTimeMs}ms` : undefined,
+      runStatus.conditionValue === undefined ? undefined : `condition ${JSON.stringify(runStatus.conditionValue)}`,
+      isRecording ? 'recording' : undefined,
+    ].filter(Boolean).join(' · ')
+    : null;
 
   const handleReconnect = useCallback(async () => {
     if (reconnectDisabled || !reconnect || !transportStore) return;
@@ -78,6 +97,12 @@ export function StatusBar({
         <span><Trans>Time Step:</Trans></span>
         <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
       </span>
+      {runSummary && (
+        <span className={styles.statusMeta} title={runSummary}>
+          <span><Trans>Run:</Trans></span>
+          <span className={styles.metricValue}>{runSummary}</span>
+        </span>
+      )}
       <span className={styles.statusMeta}>
         <span><Trans>TPS:</Trans></span>
         <span className={styles.metricValue}>{runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}</span>
@@ -87,7 +112,7 @@ export function StatusBar({
         <span className={styles.metricValue}>{runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}</span>
       </span>
       <span className={styles.statusMeta}>
-        <span><Trans>Sim:</Trans></span>
+        <span><Trans>Model:</Trans></span>
         <span className={styles.metricValue}>{simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}</span>
       </span>
       {simulatorCommMs != null && (

@@ -1,17 +1,22 @@
-import { create } from 'zustand';
+import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
-import { createDefaultRootLayout, createAutoLayout } from '@/utils/view/pack';
+import { createAutoLayout } from '@/utils/view/pack';
+import { createDefaultRootLayout } from '@/utils/view/create-view';
 import { AnyView, ContainerView } from '@/types/ui';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { getToastState } from '../toast';
+import { useSettingsStore } from '../settings';
 import {
   ChartStorage,
   GridEnvStorage,
+  RendererSession,
   Scenario,
   ScenarioEnvironmentState,
   ScenarioSnapshot,
   sanitizeParameter,
 } from '@tensnap/core';
+import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
+import { createSingleSnapshot, type RecordingOptions, type Snapshot } from '@tensnap/core/snapshot';
 import type {
   Action,
   ActionEndPayload,
@@ -23,6 +28,12 @@ import type {
   StateSyncBoundaryPayload,
 } from '@tensnap/protocol';
 import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft, StateSyncStatus } from './types';
+import {
+  createHistoryCommandId,
+  estimateHistoryBytes,
+  type HistoryCommandScope,
+  type HistoryState,
+} from '../undo-redo';
 
 const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot) => void) => {
   const snapshot = scenario.dump();
@@ -159,137 +170,256 @@ const matchesActiveStateSync = (activeRequestId: string | null, requestId?: stri
   return requestId === undefined || requestId === activeRequestId;
 };
 
-const subscribeScenario = (
+const subscribeSession = (
+  session: RendererSession,
   scenario: Scenario,
   timeCorrection: TimeCorrectionState,
   applyBatch: (flags: {
-    changed: boolean;
+    timeChanged: boolean;
+    runChanged: boolean;
+    actionChanged: boolean;
     environmentChanged: boolean;
     parameterChanged: boolean;
+    chartChanged: boolean;
     assetChanged: boolean;
+    logChanged: boolean;
   }) => void,
 ) => {
   const pending = {
-    changed: false,
+    timeChanged: false,
+    runChanged: false,
+    actionChanged: false,
     environmentChanged: false,
     parameterChanged: false,
+    chartChanged: false,
     assetChanged: false,
+    logChanged: false,
   };
   let queued = false;
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastFlushedAt: number | null = null;
 
   const flush = () => {
     queued = false;
+    flushTimer = null;
+    lastFlushedAt = performance.now();
     applyBatch({
-      changed: pending.changed,
+      timeChanged: pending.timeChanged,
+      runChanged: pending.runChanged,
+      actionChanged: pending.actionChanged,
       environmentChanged: pending.environmentChanged,
       parameterChanged: pending.parameterChanged,
+      chartChanged: pending.chartChanged,
       assetChanged: pending.assetChanged,
+      logChanged: pending.logChanged,
     });
-    pending.changed = false;
+    pending.timeChanged = false;
+    pending.runChanged = false;
+    pending.actionChanged = false;
     pending.environmentChanged = false;
     pending.parameterChanged = false;
+    pending.chartChanged = false;
     pending.assetChanged = false;
+    pending.logChanged = false;
   };
 
   const schedule = (updates: Partial<typeof pending>) => {
-    if (updates.changed) pending.changed = true;
+    const hasUpdates = updates.timeChanged
+      || updates.runChanged
+      || updates.actionChanged
+      || updates.environmentChanged
+      || updates.parameterChanged
+      || updates.chartChanged
+      || updates.assetChanged
+      || updates.logChanged;
+    if (!hasUpdates) return;
+    if (updates.timeChanged) pending.timeChanged = true;
+    if (updates.runChanged) pending.runChanged = true;
+    if (updates.actionChanged) pending.actionChanged = true;
     if (updates.environmentChanged) pending.environmentChanged = true;
     if (updates.parameterChanged) pending.parameterChanged = true;
+    if (updates.chartChanged) pending.chartChanged = true;
     if (updates.assetChanged) pending.assetChanged = true;
+    if (updates.logChanged) pending.logChanged = true;
     if (!queued) {
       queued = true;
-      queueMicrotask(flush);
+      const maxRenderFps = useSettingsStore.getState().maxRenderFps;
+      if (maxRenderFps <= 0 || lastFlushedAt === null) {
+        queueMicrotask(flush);
+        return;
+      }
+
+      const now = performance.now();
+      const delayMs = Math.max(0, lastFlushedAt + 1_000 / maxRenderFps - now);
+      if (delayMs <= 0) {
+        queueMicrotask(flush);
+      } else {
+        flushTimer = setTimeout(flush, delayMs);
+      }
     }
   };
 
-  const rerender = () => schedule({ changed: true });
-  const rerenderMetadata: EventListener = (event) => {
-    syncTimeCorrectionFromMetadata(
-      timeCorrection,
-      (event as CustomEvent<MetadataUpdatePayload>).detail,
-    );
-    schedule({ changed: true });
-  };
-  const rerenderActionEnd: EventListener = (event) => {
-    syncTimeCorrectionFromAction(
-      scenario,
-      timeCorrection,
-      (event as CustomEvent<ActionEndPayload>).detail,
-    );
-    schedule({ changed: true });
-  };
-  const rerenderEnv = () => schedule({ changed: true, environmentChanged: true });
-  const rerenderParam = () => schedule({ changed: true, parameterChanged: true });
-  const rerenderAsset = () => schedule({ changed: true, assetChanged: true });
-  const rerenderReset: EventListener = () => {
-    resetTimeCorrection(timeCorrection);
-    schedule({ changed: true, environmentChanged: true, parameterChanged: true });
-  };
+  const onCommit: EventListener = (event) => {
+    const detail = (event as CustomEvent<{ messages: SimulatorToRendererMessage[] }>).detail;
+    const flags = {
+      timeChanged: false,
+      runChanged: false,
+      actionChanged: false,
+      environmentChanged: false,
+      parameterChanged: false,
+      chartChanged: false,
+      assetChanged: false,
+      logChanged: false,
+    };
 
-  const handlers: Array<[string, EventListener]> = [
-    ['metadata:update', rerenderMetadata],
-    ['action:end', rerenderActionEnd],
-    ['action:create', rerender],
-    ['action:update', rerender],
-    ['action:delete', rerender],
-    ['env:create', rerenderEnv],
-    ['env:delete', rerenderEnv],
-    ['layer:create', rerenderEnv],
-    ['layer:update', rerenderEnv],
-    ['layer:delete', rerenderEnv],
-    ['param:create', rerenderParam],
-    ['param:update', rerenderParam],
-    ['param:delete', rerenderParam],
-    ['param:sync', rerenderParam],
-    ['chart:create', rerender],
-    ['chart:update', rerender],
-    ['chart:delete', rerender],
-    ['asset:meta', rerenderAsset as EventListener],
-    ['asset:data', rerenderAsset as EventListener],
-    ['asset:delete', rerenderAsset as EventListener],
-    ['log', rerender],
-    ['reset', rerenderReset],
-  ];
+    for (const message of detail.messages) {
+      switch (message.type) {
+        case 'metadata_update':
+          syncTimeCorrectionFromMetadata(timeCorrection, message.payload as MetadataUpdatePayload);
+          flags.timeChanged = true;
+          break;
+        case 'action_end':
+          syncTimeCorrectionFromAction(scenario, timeCorrection, message.payload as ActionEndPayload);
+          flags.timeChanged = true;
+          flags.runChanged = true;
+          break;
+        case 'action_create':
+        case 'action_update':
+        case 'action_delete':
+          flags.actionChanged = true;
+          break;
+        case 'env_create':
+        case 'env_delete':
+        case 'env_layer_create':
+        case 'env_layer_update':
+        case 'env_layer_delete':
+          flags.environmentChanged = true;
+          break;
+        case 'item_create':
+        case 'item_update':
+        case 'item_delete':
+          // Layer storages publish item deltas directly. Raising the structural
+          // environment trigger here would rebuild/reconcile the whole scene.
+          break;
+        case 'param_create':
+        case 'param_update':
+        case 'param_delete':
+        case 'param_sync':
+          flags.parameterChanged = true;
+          break;
+        case 'chart_create':
+        case 'chart_update':
+        case 'chart_delete':
+          flags.chartChanged = true;
+          break;
+        case 'asset_meta':
+        case 'asset_data':
+        case 'asset_delete':
+          flags.assetChanged = true;
+          break;
+        case 'log':
+        case 'error':
+          flags.logChanged = true;
+          break;
+        case 'state_sync_begin':
+        case 'state_sync_end':
+        case 'screenshot_request':
+          break;
+      }
+    }
+    schedule(flags);
+  };
+  const onRunStatus: EventListener = () => schedule({ runChanged: true });
 
-  handlers.forEach(([type, handler]) => scenario.addEventListener(type, handler));
-  const unsubscribeAssets = scenario.assets.subscribe(() => {
-    schedule({ assetChanged: true });
-  });
+  session.addEventListener('commit', onCommit);
+  session.addEventListener('run:status', onRunStatus);
 
   return () => {
-    handlers.forEach(([type, handler]) => scenario.removeEventListener(type, handler));
-    unsubscribeAssets();
+    session.removeEventListener('commit', onCommit);
+    session.removeEventListener('run:status', onRunStatus);
+    if (flushTimer !== null) clearTimeout(flushTimer);
   };
 };
 
-const annotateSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): ScenarioSnapshot => {
-  const timestamp = draft?.timestamp ?? Date.now();
-  const id = draft?.id ?? `snapshot-${timestamp}`;
-  return {
-    ...snapshot,
-    metadata: {
-      ...snapshot.metadata,
-      id,
-      timestamp,
+const createSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): Snapshot => createSingleSnapshot(snapshot, {
+  id: draft?.id,
+  label: draft?.label,
+  timestamp: draft?.timestamp,
+});
+
+const appendSnapshot = (snapshots: Snapshot[], snapshot: Snapshot, maxSnapshots: number): Snapshot[] => {
+  const next = [...snapshots, snapshot];
+  if (maxSnapshots !== -1 && next.length > maxSnapshots) {
+    next.splice(0, next.length - maxSnapshots);
+  }
+  return next;
+};
+
+export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<HistoryState>>) => {
+  const renderBarrier = new BrowserRunRenderBarrier(() => {
+    const { renderTriggerMode, maxTps, maxRenderFps } = useSettingsStore.getState();
+    return { mode: renderTriggerMode, maxTps, maxRenderFps };
+  });
+  const session = new RendererSession({
+    run: {
+      renderBarrier,
     },
-  };
-};
-
-export const createScenarioStore = () => {
-  const scenario = new Scenario();
+  });
+  const scenario = session.scenario;
   const screenshotCaptures = new Map<string, ScreenshotCaptureHandler>();
   const timeCorrection: TimeCorrectionState = { minimumRuntimeTime: 0 };
 
   const useStore = create<ScenarioStore>((set, get) => {
-    const bumpScenarioState = (flags?: {
+    const recordMainViewChange = (
+      label: string,
+      scope: HistoryCommandScope,
+      before: ContainerView,
+      after: ContainerView,
+      mergeKey?: string,
+    ) => {
+      if (!historyStore || JSON.stringify(before) === JSON.stringify(after)) return;
+      const beforePatch = structuredClone(before);
+      const afterPatch = structuredClone(after);
+      historyStore.getState().recordApplied({
+        id: createHistoryCommandId(),
+        label,
+        scope,
+        mergeKey,
+        byteSize: estimateHistoryBytes(beforePatch, afterPatch),
+        apply: () => set({ mainView: structuredClone(afterPatch) }),
+        revert: () => set({ mainView: structuredClone(beforePatch) }),
+      });
+    };
+
+    const recordSnapshotChange = (label: string, before: Snapshot[], after: Snapshot[]) => {
+      if (!historyStore || JSON.stringify(before) === JSON.stringify(after)) return;
+      const beforePatch = structuredClone(before);
+      const afterPatch = structuredClone(after);
+      historyStore.getState().recordApplied({
+        id: createHistoryCommandId(),
+        label,
+        scope: 'snapshot',
+        byteSize: estimateHistoryBytes(beforePatch, afterPatch),
+        apply: () => set({ snapshots: structuredClone(afterPatch) }),
+        revert: () => set({ snapshots: structuredClone(beforePatch) }),
+      });
+    };
+
+    const bumpScenarioState = (flags: {
+      actionChanged?: boolean;
       environmentChanged?: boolean;
       parameterChanged?: boolean;
+      chartChanged?: boolean;
       assetChanged?: boolean;
+      logChanged?: boolean;
+      runChanged?: boolean;
     }) => {
       set((state) => ({
-        _revision: state._revision + 1,
-        currentTime: getCurrentTime(scenario, timeCorrection),
-        _assetRevision: flags?.assetChanged ? state._assetRevision + 1 : state._assetRevision,
+        actionRevision: flags?.actionChanged ? state.actionRevision + 1 : state.actionRevision,
+        chartRevision: flags?.chartChanged ? state.chartRevision + 1 : state.chartRevision,
+        logRevision: flags?.logChanged ? state.logRevision + 1 : state.logRevision,
+        runRevision: flags?.runChanged ? state.runRevision + 1 : state.runRevision,
+        assetRevision: flags?.assetChanged ? state.assetRevision + 1 : state.assetRevision,
         environmentUpdateTrigger: flags?.environmentChanged
           ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }
           : state.environmentUpdateTrigger,
@@ -300,14 +430,19 @@ export const createScenarioStore = () => {
     };
 
     return {
+      session,
       scenario,
       snapshots: [],
       maxSnapshots: 32,
+      isRecording: false,
       mainView: createDefaultRootLayout(),
       connected: false,
       stateSync: createIdleStateSyncStatus(),
-      _revision: 0,
-      _assetRevision: 0,
+      actionRevision: 0,
+      chartRevision: 0,
+      logRevision: 0,
+      runRevision: 0,
+      assetRevision: 0,
       currentTime: null,
       viewUpdateTrigger: createUpdateTriggerStoreFunction(
         (x) => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })),
@@ -356,7 +491,7 @@ export const createScenarioStore = () => {
         const shouldAutoLayout = activeStateSync.autoLayoutOnComplete && get().isMainViewAutoLayoutCandidate();
         set({ stateSync: createIdleStateSyncStatus() });
         if (shouldAutoLayout) {
-          get().updateMainViewLayout();
+          get().updateMainViewLayout({ recordHistory: false });
         }
       },
 
@@ -365,30 +500,36 @@ export const createScenarioStore = () => {
       isMainViewAutoLayoutCandidate: () => isMainViewAutoLayoutCandidate(get().mainView),
 
       setMainView: (view) => {
-        if (typeof view === 'function') {
-          set((state) => ({ mainView: view(state.mainView) }));
-        } else {
-          set({ mainView: view });
-        }
+        const before = structuredClone(get().mainView);
+        const after = typeof view === 'function' ? view(structuredClone(before)) : view;
+        set({ mainView: after });
+        recordMainViewChange('Update view', 'view-config', before, after);
       },
 
-      updateMainViewLayout: () => {
+      replaceMainView: (view) => set({ mainView: structuredClone(view) }),
+
+      updateMainViewLayout: (options) => {
         const state = get();
+        const before = structuredClone(state.mainView);
+        const after = createAutoLayout(
+          state.mainView,
+          Array.from(state.scenario.environments.values()).map(getEnvironmentMetadata),
+          Array.from(state.scenario.parameters.values()),
+          state.scenario.charts.getGroupList(),
+          { disableMissingViews: true },
+          Array.from(state.scenario.actions.values()),
+        );
         set({
-          mainView: createAutoLayout(
-            state.mainView,
-            Array.from(state.scenario.environments.values()).map(getEnvironmentMetadata),
-            Array.from(state.scenario.parameters.values()),
-            state.scenario.charts.getGroupList(),
-            { disableMissingViews: true },
-            Array.from(state.scenario.actions.values()),
-          ),
+          mainView: after,
         });
+        if (options?.recordHistory !== false) {
+          recordMainViewChange('Update view layout', 'layout', before, after);
+        }
       },
 
       applyMessage: (message: SimulatorToRendererMessage) => {
         try {
-          scenario.apply(message);
+          session.handleIncoming(message);
         } catch (error) {
           const toast = getToastState();
           toast.error('Scenario apply failed', error instanceof Error ? error.message : String(error));
@@ -401,7 +542,11 @@ export const createScenarioStore = () => {
         scenario.load(snapshot);
         resetTimeCorrection(timeCorrection);
         set((state) => ({
-          _revision: state._revision + 1,
+          actionRevision: state.actionRevision + 1,
+          chartRevision: state.chartRevision + 1,
+          logRevision: state.logRevision + 1,
+          runRevision: state.runRevision + 1,
+          assetRevision: state.assetRevision + 1,
           currentTime: getCurrentTime(scenario, timeCorrection),
           stateSync: createIdleStateSyncStatus(),
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
@@ -415,11 +560,18 @@ export const createScenarioStore = () => {
         set((state) => ({
           connected: false,
           snapshots: [],
+          isRecording: false,
           currentTime: null,
           stateSync: createIdleStateSyncStatus(),
+          actionRevision: state.actionRevision + 1,
+          chartRevision: state.chartRevision + 1,
+          logRevision: state.logRevision + 1,
+          runRevision: state.runRevision + 1,
+          assetRevision: state.assetRevision + 1,
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
           parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
         }));
+        historyStore?.getState().clear();
       },
       setData: (payload, options) => {
         mutateSnapshot(scenario, (snapshot) => {
@@ -459,6 +611,19 @@ export const createScenarioStore = () => {
           }
         });
 
+        bumpScenarioState({
+          // mutateSnapshot currently reloads the entire Scenario, replacing
+          // every environment/layer storage even when only one editor domain
+          // changed. Publish every affected stable-reference domain until
+          // that editor path is converted to targeted mutations.
+          actionChanged: true,
+          environmentChanged: true,
+          parameterChanged: true,
+          chartChanged: true,
+          assetChanged: true,
+          logChanged: true,
+        });
+
         if (options?.updateLayout !== false) {
           get().updateMainViewLayout();
         }
@@ -470,13 +635,21 @@ export const createScenarioStore = () => {
           if (index >= 0) snapshot.actions[index] = structuredClone(action);
           else snapshot.actions.push(structuredClone(action));
         });
+        bumpScenarioState({
+          actionChanged: true,
+          environmentChanged: true,
+          parameterChanged: true,
+          chartChanged: true,
+          assetChanged: true,
+          logChanged: true,
+        });
       },
 
       updateActionProps: (id, props) => {
         const action = scenario.getAction(id);
         if (!action) return false;
         Object.assign(action, structuredClone(props));
-        bumpScenarioState();
+        bumpScenarioState({ actionChanged: true });
         return true;
       },
 
@@ -488,7 +661,7 @@ export const createScenarioStore = () => {
         actionMap.delete(id);
         action.id = newId;
         actionMap.set(newId, action);
-        bumpScenarioState();
+        bumpScenarioState({ actionChanged: true });
         return true;
       },
 
@@ -632,14 +805,14 @@ export const createScenarioStore = () => {
           }
         }
 
-        bumpScenarioState();
+        bumpScenarioState({ chartChanged: true });
         return true;
       },
 
       renameChartGroup: (id, newId) => {
         if (id === newId) return true;
         if (!scenario.charts.renameGroup(id, newId, () => { })) return false;
-        bumpScenarioState();
+        bumpScenarioState({ chartChanged: true });
         return true;
       },
 
@@ -662,21 +835,54 @@ export const createScenarioStore = () => {
       },
 
       addSnapshot: (draft) => {
-        const snapshot = annotateSnapshot(scenario.dump(), draft);
-        set((state) => {
-          const snapshots = [...state.snapshots, snapshot];
-          if (state.maxSnapshots !== -1 && snapshots.length > state.maxSnapshots) {
-            snapshots.splice(0, snapshots.length - state.maxSnapshots);
-          }
-          return { snapshots };
-        });
+        const snapshot = createSnapshot(scenario.dump(), draft);
+        const before = get().snapshots;
+        const after = appendSnapshot(before, snapshot, get().maxSnapshots);
+        set({ snapshots: after });
+        recordSnapshotChange('Take snapshot', before, after);
       },
 
-      removeSnapshot: (id) => set((state) => ({
-        snapshots: state.snapshots.filter((snapshot) => String(snapshot.metadata.id ?? '') !== id),
-      })),
+      startRecording: (options: RecordingOptions = {}) => {
+        session.startRecording({
+          maxSteps: options.maxSteps ?? 10_000,
+          maxBytes: options.maxBytes ?? 64 * 1024 * 1024,
+          ringBuffer: options.ringBuffer ?? true,
+          ...options,
+        });
+        set({ isRecording: true });
+      },
 
-      clearSnapshots: () => set({ snapshots: [] }),
+      stopRecording: () => {
+        session.stopRecording();
+      },
+
+      renameSnapshot: (id, label) => {
+        const before = get().snapshots;
+        const after = before.map((snapshot) => snapshot.metadata.id === id
+          ? {
+            ...snapshot,
+            metadata: {
+              ...snapshot.metadata,
+              label: label.trim() || undefined,
+            },
+          }
+          : snapshot);
+        set({ snapshots: after });
+        recordSnapshotChange('Rename snapshot', before, after);
+      },
+
+      removeSnapshot: (id) => {
+        const before = get().snapshots;
+        const after = before.filter((snapshot) => String(snapshot.metadata.id ?? '') !== id);
+        set({ snapshots: after });
+        recordSnapshotChange('Delete snapshot', before, after);
+      },
+
+      clearSnapshots: () => {
+        const before = get().snapshots;
+        set({ snapshots: [] });
+        recordSnapshotChange('Clear snapshots', before, []);
+      },
 
       setMaxSnapshots: (max) => set({ maxSnapshots: max }),
 
@@ -706,15 +912,28 @@ export const createScenarioStore = () => {
     };
   });
 
-  const unsubscribeScenario = subscribeScenario(
+  const unsubscribeScenario = subscribeSession(
+    session,
     scenario,
     timeCorrection,
-    ({ changed, environmentChanged, parameterChanged, assetChanged }) => {
+    ({
+      timeChanged,
+      runChanged,
+      actionChanged,
+      environmentChanged,
+      parameterChanged,
+      chartChanged,
+      assetChanged,
+      logChanged,
+    }) => {
       useStore.setState((state) => {
         const next = {
-          _revision: changed ? state._revision + 1 : state._revision,
-          currentTime: changed ? getCurrentTime(scenario, timeCorrection) : state.currentTime,
-          _assetRevision: assetChanged ? state._assetRevision + 1 : state._assetRevision,
+          actionRevision: actionChanged ? state.actionRevision + 1 : state.actionRevision,
+          chartRevision: chartChanged ? state.chartRevision + 1 : state.chartRevision,
+          logRevision: logChanged ? state.logRevision + 1 : state.logRevision,
+          runRevision: runChanged ? state.runRevision + 1 : state.runRevision,
+          assetRevision: assetChanged ? state.assetRevision + 1 : state.assetRevision,
+          currentTime: timeChanged ? getCurrentTime(scenario, timeCorrection) : state.currentTime,
           environmentUpdateTrigger: environmentChanged
             ? { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 }
             : state.environmentUpdateTrigger,
@@ -726,6 +945,16 @@ export const createScenarioStore = () => {
       });
     },
   );
+  const onRecordingStart: EventListener = () => useStore.setState({ isRecording: true });
+  const onRecordingComplete: EventListener = (event) => {
+    const snapshot = (event as CustomEvent<{ snapshot: Snapshot }>).detail.snapshot;
+    useStore.setState((state) => ({
+      isRecording: false,
+      snapshots: appendSnapshot(state.snapshots, snapshot, state.maxSnapshots),
+    }));
+  };
+  session.addEventListener('recording:start', onRecordingStart);
+  session.addEventListener('recording:complete', onRecordingComplete);
   void unsubscribeScenario;
 
   return useStore;

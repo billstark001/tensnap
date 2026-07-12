@@ -156,6 +156,31 @@ export abstract class BaseLayer implements IResizableLayer {
   }
 
   /**
+   * Return the scene-coordinate rectangle mapped onto the complete surface.
+   * With `contain`/`cover`, this differs from the logical viewport in the
+   * letterboxed or cropped axis. Infinite layers (such as a grid) use it so
+   * they cover the canvas instead of stopping at the fitted scene bounds.
+   */
+  protected getCanvasSceneCoverage(
+    viewport: Viewport = this._viewport,
+    fitMode: EnvironmentViewFitMode = this._fitMode,
+  ): Viewport {
+    const container = this.getContainerSize();
+    const scale = this.calculateViewportScale(viewport, fitMode);
+    const renderedWidth = viewport.width * scale.scaleX;
+    const renderedHeight = viewport.height * scale.scaleY;
+    const padX = (container.width - renderedWidth) / 2;
+    const padY = (container.height - renderedHeight) / 2;
+
+    return {
+      x: viewport.x - padX / scale.scaleX,
+      y: viewport.y - padY / scale.scaleY,
+      width: container.width / scale.scaleX,
+      height: container.height / scale.scaleY,
+    };
+  }
+
+  /**
    * Apply viewport transformation to the layer's group.
    * This translates and scales the group to show the correct portion of the scene.
    * 

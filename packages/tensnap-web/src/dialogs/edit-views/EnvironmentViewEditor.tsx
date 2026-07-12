@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
@@ -10,6 +10,7 @@ import * as styles from './EditViews.css';
 import type { EditableEnvironmentData } from './environment-editor-model';
 import { ObjectIdentityField } from './ObjectIdentityField';
 import { useToast } from '@/store/toast';
+import { parseFiniteNumberInput } from './form-values';
 
 interface EnvironmentViewEditorProps extends BaseViewEditorProps {
   view: AnchoredView;
@@ -45,14 +46,6 @@ const ReadOnlyMetadataField = ({ id, label, value }: { id: string; label: string
       <Form.Input id={id} type="text" value={textValue} disabled className={styles.disabledField} />
     </Form.Field>
   );
-};
-
-const parseNumberInput = (value: string, fallback: number): number => {
-  if (value === '' || value === '-') {
-    return fallback;
-  }
-  const parsed = parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
 const MetadataValueField: React.FC<{
@@ -94,7 +87,7 @@ const MetadataValueField: React.FC<{
           id={id}
           type="number"
           value={value}
-          onChange={(event) => onChange(parseNumberInput(event.target.value, value))}
+          onChange={(event) => onChange(parseFiniteNumberInput(event.target.value, value))}
         />
       </Form.Field>
     );

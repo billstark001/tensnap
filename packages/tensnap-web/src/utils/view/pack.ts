@@ -15,10 +15,6 @@ import {
   createChartViews,
 } from './create-view';
 
-// Re-export for backward compatibility
-export { preservedViewIds, createDefaultRootLayout };
-
-
 // #region other utility functions
 
 interface WalkState {
@@ -84,7 +80,7 @@ function getParameterSignature(param: { id: string, type?: string }): string {
 }
 
 function getActionSignature(action: { id: string }): string {
-  return `param:action:${action.id}`;
+  return `action:${action.id}`;
 }
 
 function getEnvironmentSignature(env: ObjectWithEnvironmentMetadata): string {

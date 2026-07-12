@@ -9,7 +9,7 @@ Quick guide to set up a development environment for TenSnap.
 - **Node.js 18+** and **pnpm 8+**: For web frontend
 - **Go 1.22+**: For Go bindings and examples
 - **Julia 1.9+**: For TenSnap.jl and Julia examples
-- **Rust & Cargo**: For Tauri desktop app (optional)
+- **Rust 1.77.2+ & Cargo**: For Tauri desktop app (optional)
 
 ## Setup Steps
 
@@ -120,7 +120,7 @@ tensnap/
 │   ├── benchmark/           # Benchmarks for render/runtime paths
 │   ├── protocol/            # Protocol payload types, schemas, and codecs
 │   ├── core/                # Scenario, runtime, stores, and rendering primitives
-│   ├── tensnap-agent/       # Headless runtime and agent/session tooling
+│   ├── tensnap-agent/       # Headless shared-session host and automation CLI
 │   ├── tensnap-go/          # Go protocol, ABM helpers, and server
 │   ├── tensnap-js/          # TypeScript simulator bindings and transports
 │   ├── tensnap-julia/       # Julia bindings and WebSocket server

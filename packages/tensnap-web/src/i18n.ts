@@ -53,11 +53,11 @@ export function isValidLocale(locale: string): locale is Locale {
 /**
  * Detect the user's preferred locale from various sources:
  * 1. URL parameter (?lang=xx)
- * 2. LocalStorage
+ * 2. A persisted locale supplied by the host
  * 3. Browser/System language
  * 4. Default to English
  */
-export function detectLocale(): Locale {
+export function detectLocale(persistedLocale?: string | null): Locale {
   // Try URL parameter
   const urlParams = new URLSearchParams(window.location.search);
   const langParam = urlParams.get('lang');
@@ -65,14 +65,11 @@ export function detectLocale(): Locale {
     return langParam;
   }
 
-  // Try localStorage
-  const storedLocale = localStorage.getItem('locale');
-  if (storedLocale && isValidLocale(storedLocale)) {
-    return storedLocale;
+  if (persistedLocale && isValidLocale(persistedLocale)) {
+    return persistedLocale;
   }
 
-  // Try browser language (includes legacy IE userLanguage property for compatibility)
-  const browserLang = navigator.language || (navigator as any).userLanguage;
+  const browserLang = navigator.language;
   if (browserLang) {
     const locale = browserLang.split('-')[0];
     if (isValidLocale(locale)) {

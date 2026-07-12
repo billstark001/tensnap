@@ -213,7 +213,7 @@ tensnap/
 │   ├── benchmark/               # Rendering/runtime benchmarks
 │   ├── protocol/                # Protocol payload types, schemas, and codecs
 │   ├── core/                    # Scenario, runtime, stores, and rendering primitives
-│   ├── tensnap-agent/           # Headless runtime and agent/session tooling
+│   ├── tensnap-agent/           # Headless shared-session host and automation CLI
 │   ├── tensnap-go/              # Go protocol, ABM helpers, and WebSocket server
 │   ├── tensnap-js/              # JavaScript/TypeScript simulator bindings and transports
 │   ├── tensnap-julia/           # Julia bindings and WebSocket simulator server
@@ -228,10 +228,10 @@ tensnap/
 ### Package Responsibilities
 
 - **protocol**: Renderer/simulator schemas, type definitions, codecs, built-in layer contracts, and generated protocol reference.
-- **core**: Renderer-side Scenario state, layer registry, rendering/runtime primitives, and `AssetStore`.
-- **tensnap-web**: Main browser renderer, transport wiring, project UI, and scenario store integration.
-- **tensnap-tauri**: Desktop shell reusing the web renderer.
-- **tensnap-agent**: Headless runtime, session management, and offscreen rendering utilities.
+- **core**: Renderer-side `Scenario`, `RendererSession`, bounded `RunController`, condition evaluation, inspection/trajectory semantics, recording/replay, layer registry, rendering primitives, and `AssetStore`.
+- **tensnap-web**: Main browser renderer, transport wiring, project UI (including offline recordings and content-addressed assets), and scenario store integration.
+- **tensnap-tauri**: Desktop shell reusing the web renderer, with scoped native file access and app-data settings persistence.
+- **tensnap-agent**: Headless host for the shared renderer session, HTTP/CLI bounded runs, and offscreen rendering utilities.
 - **tensnap-go**: Go protocol package, declarative ABM helpers, and WebSocket simulator server.
 - **tensnap-js**: TypeScript declarative simulator bindings, low-level sessions/emitters, and postMessage/WebSocket hosts.
 - **tensnap-julia**: Julia binding builders, Agents.jl-compatible projectors, JSON/MessagePack WebSocket simulator server, incremental item diffing, and asset helpers.

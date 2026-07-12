@@ -4,12 +4,6 @@ import type { AgentRuntime } from '../AgentRuntime';
 
 // #endregion
 
-// #region Constants
-
-const RESERVED_SCENE_ACTIONS = new Set(['start', 'step', 'reset']);
-
-// #endregion
-
 // #region Routes
 
 export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
@@ -24,6 +18,50 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
 
   app.get('/v1/scene/snapshot', (c) => {
     return c.json(runtime.inspectSnapshot());
+  });
+
+  app.get('/v1/agents/:environmentId/:layerId/:agentId', async (c) => {
+    const ref = runtime.findAgentRef(
+      c.req.param('environmentId'),
+      c.req.param('layerId'),
+      c.req.param('agentId'),
+    );
+    if (!ref) {
+      return c.json({ error: 'Unknown agent reference.' }, 404);
+    }
+
+    const rawRadius = c.req.query('radius');
+    const radius = rawRadius === undefined ? undefined : Number(rawRadius);
+    if (radius !== undefined && (!Number.isFinite(radius) || radius <= 0)) {
+      return c.json({ error: 'radius must be a positive number.' }, 400);
+    }
+
+    const inspection = runtime.inspectAgent(ref, { radius });
+    if (!inspection) {
+      return c.json({ error: 'Agent no longer exists.' }, 404);
+    }
+
+    if (c.req.query('render') !== 'png' || inspection.kind === 'none') {
+      return c.json({ inspection });
+    }
+
+    const width = c.req.query('width');
+    const height = c.req.query('height');
+    const artifacts = await runtime.renderAgentInspection(inspection, {
+      format: 'png',
+      width: width === undefined ? undefined : Number(width),
+      height: height === undefined ? undefined : Number(height),
+      includeData: true,
+      persist: false,
+    });
+    return c.json({
+      inspection,
+      artifacts: artifacts.map((artifact) => ({
+        ...artifact,
+        data: artifact.data ? Buffer.from(artifact.data).toString('base64') : undefined,
+        dataEncoding: artifact.data ? 'base64' : undefined,
+      })),
+    });
   });
 
   app.post('/v1/scene/render', async (c) => {
@@ -58,19 +96,6 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     );
 
     return c.json({ artifacts });
-  });
-
-  app.post('/v1/scene/actions/:alias', async (c) => {
-    const alias = c.req.param('alias');
-    if (!RESERVED_SCENE_ACTIONS.has(alias)) {
-      return c.json({ error: 'Unknown reserved scene action.' }, 404);
-    }
-
-    const body: { continuous?: boolean } = await c.req
-      .json<{ continuous?: boolean }>()
-      .catch(() => ({}));
-    await runtime.runReservedAction(alias as 'start' | 'step' | 'reset', body);
-    return c.json({ action: alias, accepted: true }, 202);
   });
 
   app.get('/v1/charts', (c) => {
@@ -114,10 +139,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       return c.json({ error: 'Missing action ID.' }, 404);
     }
 
-    const body: { continuous?: boolean } = await c.req
-      .json<{ continuous?: boolean }>()
-      .catch(() => ({}));
-    await runtime.runAction(actionId, body);
+    await runtime.runAction(actionId);
     return c.json({ actionId, accepted: true }, 202);
   });
 }

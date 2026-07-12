@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { App, Providers } from '@tensnap/web';
-import { TauriFileSystemAdapter, TauriFilePicker } from './adapters';
-import { registerFileSystemAdapter, registerFileSystemPicker, useSettingsStore } from '@tensnap/web/store';
-import { detectLocale, initI18n, isValidLocale } from '@tensnap/web/i18n';
+import { TauriFileSystemAdapter, TauriFilePicker, TauriSettingsPersistence } from './adapters';
+import {
+  configureSettingsPersistence,
+  getSettingsPersistence,
+  hydrateSettings,
+  registerFileSystemAdapter,
+  registerFileSystemPicker,
+  useSettingsStore,
+} from '@tensnap/web/store';
+import { detectLocale, initI18n } from '@tensnap/web/i18n';
 import { useTauriMenuEvents } from './hooks/useTauriMenuEvents';
 import { getOsName } from './adapters/common';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -13,28 +20,46 @@ const TauriMenuEventsLoader = () => {
   return null;
 }
 
+configureSettingsPersistence(new TauriSettingsPersistence());
+
 async function isDarkMode() {
   const theme = await getCurrentWindow().theme();
   return theme === 'dark';
 }
 
-const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-if (!savedTheme) {
-  isDarkMode().then(dark => {
-    const initialTheme = dark ? 'dark' : 'light';
-    document.body.setAttribute('data-theme', initialTheme);
-    localStorage.setItem('theme', initialTheme);
-  });
-} else {
-  document.body.setAttribute('data-theme', savedTheme);
-}
-
 export const TauriApp: React.FC = () => {
   const [isMac, setIsMac] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const setTheme = useSettingsStore((state) => state.setTheme);
+
+  useEffect(() => {
+    const window = getCurrentWindow();
+    let disposed = false;
+
+    const syncFullscreenState = async () => {
+      try {
+        const fullscreen = await window.isFullscreen();
+        if (!disposed) {
+          setIsFullscreen(fullscreen);
+        }
+      } catch (error) {
+        console.warn('Failed to read the Tauri fullscreen state:', error);
+      }
+    };
+
+    void syncFullscreenState();
+    const unlisten = window.onResized(() => {
+      void syncFullscreenState();
+    });
+
+    return () => {
+      disposed = true;
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
 
   useEffect(() => {
     const initialize = async () => {
@@ -44,27 +69,31 @@ export const TauriApp: React.FC = () => {
         const osName = await getOsName();
         setIsMac(osName === 'macos' || osName === 'darwin' || osName === 'macOS');
 
-        // Initialize i18n with detected locale
-        const savedLocale = localStorage.getItem('locale');
-        const initialLocale = (savedLocale && isValidLocale(savedLocale)) ? savedLocale : detectLocale();
+        await hydrateSettings();
+        const persistence = getSettingsPersistence();
+        const [savedLocale, savedTheme] = await Promise.all([
+          persistence.get('locale'),
+          persistence.get('theme'),
+        ]);
+
+        const initialLocale = detectLocale(savedLocale);
+        useSettingsStore.getState().setLocale(initialLocale);
         await initI18n(initialLocale);
 
-        // Initialize theme in settings store
-        if (!localStorage.getItem('theme')) {
+        if (savedTheme !== 'light' && savedTheme !== 'dark') {
           const darkMode = await isDarkMode();
           const initialTheme = darkMode ? 'dark' : 'light';
           setTheme(initialTheme);
         }
+        document.body.setAttribute('data-theme', useSettingsStore.getState().theme);
 
-        // Register the Tauri file system adapter
         await registerFileSystemAdapter({
           name: 'tauri',
           description: 'Native file system access via Tauri',
-          supported: typeof window !== 'undefined' && '__TAURI__' in window,
-          create: () => new TauriFileSystemAdapter()
+          supported: true,
+          create: () => new TauriFileSystemAdapter(),
         });
 
-        // Register the Tauri file picker
         await registerFileSystemPicker(new TauriFilePicker());
 
         setIsReady(true);
@@ -110,7 +139,11 @@ export const TauriApp: React.FC = () => {
   return (
     <Providers>
       <TauriMenuEventsLoader />
-      <App environment='tauri' system={isMac ? 'mac' : 'other'} />
+      <App
+        environment="tauri"
+        system={isMac ? 'mac' : 'other'}
+        isFullscreen={isFullscreen}
+      />
     </Providers>
   );
 };

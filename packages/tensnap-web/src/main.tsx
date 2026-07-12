@@ -8,16 +8,12 @@ import { App } from './App';
 import '@tensnap/web-common/styles/global.css';
 import { InBrowserFilePicker, registerWebAdapterLocaleCatalog } from '@tensnap/web-adapter';
 import { getJsExampleEntries } from '@tensnap/examples-js';
-import { initI18n, detectLocale, isValidLocale, i18n, registerLocaleCatalog } from './i18n';
+import { initI18n, detectLocale, i18n, registerLocaleCatalog } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
+import { getSettingsPersistence, hydrateSettings, useSettingsStore } from './store';
 import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
 import { I18nProvider } from '@lingui/react';
 import { registerBuiltinModels } from './transport';
-
-
-if (!window.structuredClone) {
-  window.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
-}
 
 registerBuiltinModels(
   getJsExampleEntries().map((entry) => ({
@@ -29,18 +25,24 @@ registerBuiltinModels(
 );
 
 function isDarkMode() {
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-const initialTheme = savedTheme || (isDarkMode() ? 'dark' : 'light');
-document.body.setAttribute('data-theme', initialTheme);
-
-// Initialize i18n with detected locale
-const savedLocale = localStorage.getItem('locale');
-const initialLocale = (savedLocale && isValidLocale(savedLocale)) ? savedLocale : detectLocale();
-
 (async () => {
+  await hydrateSettings();
+  const persistence = getSettingsPersistence();
+  const [savedTheme, savedLocale] = await Promise.all([
+    persistence.get('theme'),
+    persistence.get('locale'),
+  ]);
+  const initialTheme = savedTheme === 'light' || savedTheme === 'dark'
+    ? savedTheme
+    : (isDarkMode() ? 'dark' : 'light');
+  useSettingsStore.getState().setTheme(initialTheme);
+  const initialLocale = detectLocale(savedLocale);
+  useSettingsStore.getState().setLocale(initialLocale);
+  document.body.setAttribute('data-theme', initialTheme);
+
   registerWebAdapterLocaleCatalog(registerLocaleCatalog);
   await initI18n(initialLocale);
 

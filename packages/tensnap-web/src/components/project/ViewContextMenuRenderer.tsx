@@ -1,16 +1,18 @@
 import { Trans } from "@lingui/react/macro";
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { ViewContextMenuRendererType } from "../view/types";
-import { ClipboardCopy, Edit, Sheet, Trash2 } from "lucide-react";
+import { ClipboardCopy, Edit, Pause, Play, Sheet, StepForward, Trash2 } from "lucide-react";
 import { EditViewDialog } from "@/dialogs/edit-views/EditViewDialog";
 import { useCallback, useState } from "react";
-import { AnyView } from "@/types/ui";
+import { AnyView, ButtonView } from "@/types/ui";
 import { useViewContext } from "../view/useViewContext";
 import { useToast } from "@/store/toast";
 import { useScenarioStore } from "@/store/scenario/store";
 import { exportToCSV } from '@tensnap/core/chart/browser';
 import { useUpdateAndDeleteView } from "./view-edit-hooks";
 import { copyCanvas } from "@/utils/data";
+import { ContinuousRunDialog } from '@/dialogs/ContinuousRunDialog';
+import { useSettingsStore } from '@/store/settings';
 
 export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
@@ -18,12 +20,18 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingView, setEditingView] = useState<AnyView | null>(null);
+  const [isContinuousRunDialogOpen, setIsContinuousRunDialogOpen] = useState(false);
 
-  const { onViewUpdate } = useViewContext();
+  const { onViewUpdate, onButtonAction, isRunning } = useViewContext();
   const { deleteView, updateView } = useUpdateAndDeleteView({ parentView, onViewUpdate });
 
   const charts = useScenarioStore((store) => store.charts);
+  const runProfiles = useSettingsStore((state) => state.continuousRunProfiles);
+  const setRunProfile = useSettingsStore((state) => state.setContinuousRunProfile);
   const toast = useToast();
+  const button = type === 'button' ? view as ButtonView : null;
+  const continuousActionId = button?.data.continuous ? button.data.id : null;
+  const continuousRunIsActive = continuousActionId !== null && isRunning(continuousActionId);
 
   const handleDelete = useCallback((id: string) => {
     deleteView(id);
@@ -71,6 +79,15 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
     exportToCSV(chartGroup);
   }, [charts, view, toast]);
 
+  const handleContinuousRun = useCallback(() => {
+    if (!continuousActionId) return;
+    if (continuousRunIsActive) {
+      onButtonAction(continuousActionId, true);
+      return;
+    }
+    setIsContinuousRunDialogOpen(true);
+  }, [continuousActionId, continuousRunIsActive, onButtonAction]);
+
   return (
     <>
       <ContextMenu.Root trigger={children} >
@@ -91,6 +108,20 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
             <ClipboardCopy />
             <Trans>Copy</Trans>
           </ContextMenu.Item>
+        )}
+
+        {continuousActionId && (
+          <>
+            <ContextMenu.Separator />
+            <ContextMenu.Item onSelect={handleContinuousRun}>
+              {continuousRunIsActive ? <Pause /> : <Play />}
+              {continuousRunIsActive ? <Trans>Stop continuous run</Trans> : <Trans>Continuous run…</Trans>}
+            </ContextMenu.Item>
+            <ContextMenu.Item onSelect={() => onButtonAction(continuousActionId, false)}>
+              <StepForward />
+              <Trans>Run one step</Trans>
+            </ContextMenu.Item>
+          </>
         )}
 
         <ContextMenu.Separator />
@@ -117,6 +148,24 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
           onOpenChange={handleEditDialogOpenChange}
           view={editingView}
           onSave={handleSaveEdit}
+        />
+      )}
+      {continuousActionId && (
+        <ContinuousRunDialog
+          key={`${continuousActionId}:${isContinuousRunDialogOpen}:${JSON.stringify(runProfiles[continuousActionId])}`}
+          open={isContinuousRunDialogOpen}
+          actionId={continuousActionId}
+          profile={runProfiles[continuousActionId]}
+          onOpenChange={setIsContinuousRunDialogOpen}
+          onRun={(profile) => {
+            setRunProfile(continuousActionId, profile);
+            onButtonAction(continuousActionId, true, {
+              maxSteps: profile.maxSteps,
+              stopWhen: profile.stopWhen,
+              maxWallTimeMs: profile.maxWallTimeMs,
+              record: profile.record ? {} : false,
+            });
+          }}
         />
       )}
     </>

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "TenSnap",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "io.tensnap.tauri",
   "build": {
     "beforeDevCommand": "pnpm dev:web",
@@ -25,11 +25,11 @@
     ],
     "security": {
       "capabilities": [
-        "dialog",
-        "file"
-      ]
+        "main"
+      ],
+      "csp": "default-src 'self'; connect-src 'self' ws: wss: http://localhost:3250; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     },
-    "withGlobalTauri": true
+    "withGlobalTauri": false
   },
   "bundle": {
     "active": true,
@@ -49,14 +49,6 @@
     },
     "windows": {
       "digestAlgorithm": "sha256"
-    }
-  },
-  "plugins": {
-    "shell": {
-      "open": true
-    },
-    "fs": {
-      "scope": ["**"]
     }
   }
 }

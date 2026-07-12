@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/web-common",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -28,7 +28,7 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@lingui/macro": "^5.9.5",
+    "@lingui/core": "^6.5.0",
     "@lingui/react": "^6.5.0",
     "@radix-ui/react-context-menu": "^2.3.3",
     "@radix-ui/react-dialog": "^1.1.19",

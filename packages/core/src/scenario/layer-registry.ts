@@ -1,8 +1,15 @@
 import { z, ZodType } from 'zod';
 import type { AssetStore } from '../asset';
-import type { AgentId, GraphEdge, GridCoordOffset, GraphEnvConfig, OriginMode, TrajectoryPoint } from '../environment';
+import {
+  resolveTrajectoryLifecycle,
+  type GraphEdge,
+  type GridCoordOffset,
+  type GraphEnvConfig,
+  type OriginMode,
+} from '../environment';
 import type { ItemDeletePayload } from '@tensnap/protocol';
 import {
+  type AgentId,
   AgentItemDiffSchema,
   AgentItemSchema,
   AgentLayerMetadataSchema,
@@ -14,6 +21,7 @@ import {
   TrajectoryItemDiffSchema,
   TrajectoryItemSchema,
   TrajectoryLayerMetadataSchema,
+  type TrajectoryPoint,
 } from '@tensnap/protocol/layers';
 import {
   AgentStorage,
@@ -41,6 +49,8 @@ export interface LayerControllerContext {
   layer: ScenarioLayerState;
   assets: AssetStore;
   time?: number;
+  /** True while a state-sync replay is being applied. */
+  isStateSync: boolean;
   requireStorage<TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string): TStorage;
 }
 
@@ -68,6 +78,8 @@ export interface ItemLayerController<
   TUpdateItem extends Record<string, unknown> = TCreateItem,
 > {
   applyMetadata?(context: LayerControllerContext): void;
+  /** Return keys which already exist before a create recreates its identities. */
+  getExistingItemKeys?(context: LayerControllerContext, items: TCreateItem[]): DeleteItems;
   createItems?(context: LayerControllerContext, items: TCreateItem[]): void;
   updateItems?(context: LayerControllerContext, items: TUpdateItem[]): void;
   deleteItems?(context: LayerControllerContext, items: DeleteItems): void;
@@ -93,12 +105,6 @@ export interface LayerViewDefinition {
 }
 
 // #region Renderer types
-/**
- * Renderer role is open so third-party layer types can declare their own roles.
- * The built-in role names are preserved as `BUILTIN_RENDERER_ROLES`.
- */
-export type LayerRendererRole = string;
-
 /** The five role names built into the default registry. */
 export const BUILTIN_RENDERER_ROLES = ['background', 'grid', 'edge', 'trajectory', 'agent'] as const;
 export type BuiltinLayerRendererRole = typeof BUILTIN_RENDERER_ROLES[number];
@@ -141,6 +147,12 @@ export interface LayerCreateContext {
 
   /** Show agent labels. */
   showLabel?: boolean;
+
+  /** Optional read-only inspection highlight applied by the agent layer. */
+  highlightedAgent?: { layerId: string; agentId: AgentId };
+
+  /** Render graph edges at existing positions without starting a force layout. */
+  readOnlyGraphLayout?: boolean;
 }
 
 /** Return value of createLayer — abstracts the ILayer interface used by both hosts. */
@@ -155,13 +167,13 @@ export interface CreatedLayerEntry {
 /** Describes an inter-layer dependency that the plan engine can resolve. */
 export interface LayerDependencyRule {
   /** The role that this layer depends on. */
-  fromRole: LayerRendererRole;
+  fromRole: string;
   /** What to inject from the depended-upon layer. */
   inject: string;
 }
 
 export interface LayerRendererDefinition {
-  role: LayerRendererRole;
+  role: string;
   /**
    * Controls the relative render/reconcile order of this role within the
    * plan layer list. Lower values are processed first. Built-in priorities:
@@ -540,6 +552,10 @@ function getSnapshotBackground(layer: ScenarioLayerSnapshot): BackgroundData | n
 
 // #region Built-in controllers
 const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
+  getExistingItemKeys: (context, items) => {
+    const storage = context.requireStorage(AgentStorage, 'agent');
+    return items.filter((item) => storage.hasAgent(item.id)).map((item) => item.id);
+  },
   createItems: (context, items) => {
     context.requireStorage(AgentStorage, 'agent').addAgents(items);
   },
@@ -569,6 +585,12 @@ const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
 };
 
 const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
+  getExistingItemKeys: (context, items) => {
+    const storage = context.requireStorage(EdgeStorage, 'edge');
+    return items
+      .filter((item) => storage.findEdge(item.source, item.target))
+      .map((item) => ({ source: item.source, target: item.target }));
+  },
   createItems: (context, items) => {
     context.requireStorage(EdgeStorage, 'edge').addEdges(items);
   },
@@ -601,6 +623,13 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
       return;
     }
 
+    // A state-sync is a replay of already-known simulator state, not model
+    // movement. Backfilling here would manufacture new trajectory samples on
+    // every reconnect.
+    if (context.isStateSync) {
+      return;
+    }
+
     const time = typeof context.time === 'number' ? context.time : 0;
     for (const agent of sourceLayer.storage.getData().agents.values()) {
       if (storage.getEntry(agent.id) || agent.x === undefined || agent.y === undefined) {
@@ -609,6 +638,13 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
       const point: TrajectoryPoint = { x: agent.x, y: agent.y, time };
       storage.appendTrajectoryPoint(agent.id, point);
     }
+  },
+  getExistingItemKeys: (context, items) => {
+    const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
+    const { configs } = storage.getData();
+    return items
+      .filter((item) => configs.has(item.id) || storage.getEntry(item.id) !== undefined)
+      .map((item) => item.id);
   },
   createItems: (context, items) => {
     context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items);
@@ -630,10 +666,19 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
       if (!ids) {
         return;
       }
-      storage.deleteItems(ids);
+      const lifecycle = resolveTrajectoryLifecycle(context.layer.metadata);
+      if (lifecycle.onAgentDelete === 'retain') {
+        storage.closeTrajectories(ids);
+      } else {
+        storage.deleteItems(ids);
+      }
       return;
     }
     if ((change.kind !== 'create' && change.kind !== 'update') || !(change.sourceLayer.storage instanceof AgentStorage)) {
+      return;
+    }
+
+    if (context.isStateSync) {
       return;
     }
 
@@ -747,7 +792,10 @@ function createEdgeLayerFromPlan(
   plan: EdgeLayerPlan,
   context: LayerCreateContext,
 ): CreatedLayerEntry {
-  const layer = new EdgeLayer(plan.storage, plan.agentStorage, plan.config);
+  const layer = new EdgeLayer(plan.storage, plan.agentStorage, {
+    ...plan.config,
+    readOnlyLayout: context.readOnlyGraphLayout,
+  });
   if (plan.zIndex !== undefined) {
     layer.setZIndex(plan.zIndex);
   }
@@ -785,12 +833,15 @@ function createAgentLayerFromPlan(
   const layer = new AgentLayer(plan.storage, {
     ...(linkedEdgeLayer ? linkedEdgeLayer.buildDragHandlers() : {}),
     clickable: context.clickable ?? false,
-    draggable: plan.usesGraphInteraction,
+    draggable: plan.usesGraphInteraction && !context.readOnlyGraphLayout,
     showLabel: context.showLabel ?? false,
     originMode: plan.originMode,
     coordOffset: plan.coordOffset,
     sceneBounds: plan.sceneBounds,
     resolveAssetUrl: context.resolveAssetUrl as ((assetId: string) => string | null) | undefined,
+    highlightedAgentId: context.highlightedAgent?.layerId === plan.layerId
+      ? context.highlightedAgent.agentId
+      : undefined,
     onAgentClick: context.onAgentClick,
     onAgentDoubleClick: context.onAgentDoubleClick,
   });

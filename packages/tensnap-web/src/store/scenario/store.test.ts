@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './store';
 import { createDefaultRootLayout } from '@/utils/view/create-view';
+import { useSettingsStore } from '@/store/settings';
+import { createHistoryStore } from '@/store/undo-redo';
+import { AgentStorage } from '@tensnap/core/environment';
 
 describe('scenario store updates preserve assets', () => {
   beforeEach(() => {
+    vi.useRealTimers();
+    useSettingsStore.setState({ maxRenderFps: 0 });
     vi.stubGlobal('URL', {
       ...URL,
       createObjectURL: vi.fn(() => 'blob:test-asset'),
@@ -97,5 +102,118 @@ describe('scenario store updates preserve assets', () => {
     state.applyMessage({ type: 'metadata_update', payload: { time: 0 } });
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(0);
+  });
+
+  it('limits session-driven UI commits without limiting simulator ticks', async () => {
+    vi.useFakeTimers();
+    useSettingsStore.setState({ maxRenderFps: 10 });
+    const useStore = createScenarioStore();
+    const session = useStore.getState().session;
+
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+    await Promise.resolve();
+    expect(useStore.getState().currentTime).toBe(1);
+
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
+    await Promise.resolve();
+    expect(useStore.getState().currentTime).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(useStore.getState().currentTime).toBe(2);
+  });
+
+  it('keeps item deltas out of structural and unrelated scenario revisions', async () => {
+    const useStore = createScenarioStore();
+    const state = useStore.getState();
+    state.applyMessage({ type: 'env_create', payload: { id: 'uniform', type: 'uniform' } });
+    state.applyMessage({
+      type: 'env_layer_create',
+      payload: { env_id: 'uniform', layer_id: 'agents', layer_type: 'agent' },
+    });
+    await Promise.resolve();
+
+    const before = useStore.getState();
+    const environmentRevision = before.environmentUpdateTrigger.value;
+    const domainRevisions = {
+      action: before.actionRevision,
+      chart: before.chartRevision,
+      log: before.logRevision,
+      run: before.runRevision,
+      asset: before.assetRevision,
+    };
+    const storage = before.scenario.getEnvironment('uniform')?.layers.get('agents')?.storage;
+    expect(storage).toBeInstanceOf(AgentStorage);
+    const agentStorage = storage as AgentStorage;
+    const storageRevision = agentStorage.revision;
+
+    state.applyMessage({
+      type: 'item_create',
+      payload: { env_id: 'uniform', layer_id: 'agents', items: [{ id: 'agent-1' }] },
+    });
+    await Promise.resolve();
+
+    const after = useStore.getState();
+    expect(after.environmentUpdateTrigger.value).toBe(environmentRevision);
+    expect({
+      action: after.actionRevision,
+      chart: after.chartRevision,
+      log: after.logRevision,
+      run: after.runRevision,
+      asset: after.assetRevision,
+    }).toEqual(domainRevisions);
+    expect(agentStorage.revision).toBe(storageRevision + 1);
+  });
+
+  it('publishes action, chart, log, and run changes through independent revisions', async () => {
+    const useStore = createScenarioStore();
+    const state = useStore.getState();
+    const initial = {
+      action: state.actionRevision,
+      chart: state.chartRevision,
+      log: state.logRevision,
+      run: state.runRevision,
+    };
+
+    state.applyMessage({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
+    await Promise.resolve();
+    expect(useStore.getState().actionRevision).toBe(initial.action + 1);
+    expect(useStore.getState().chartRevision).toBe(initial.chart);
+
+    state.applyMessage({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
+    await Promise.resolve();
+    expect(useStore.getState().chartRevision).toBe(initial.chart + 1);
+    expect(useStore.getState().logRevision).toBe(initial.log);
+
+    state.applyMessage({ type: 'log', payload: { level: 'info', message: 'ready' } });
+    await Promise.resolve();
+    expect(useStore.getState().logRevision).toBe(initial.log + 1);
+    expect(useStore.getState().runRevision).toBe(initial.run);
+
+    state.applyMessage({ type: 'action_end', payload: { id: 'step' } });
+    await Promise.resolve();
+    expect(useStore.getState().runRevision).toBe(initial.run + 1);
+    expect(useStore.getState().actionRevision).toBe(initial.action + 1);
+  });
+
+  it('records renderer layout commands while excluding live simulator updates', async () => {
+    const history = createHistoryStore();
+    const useStore = createScenarioStore(history);
+    const original = structuredClone(useStore.getState().mainView);
+    const edited = createDefaultRootLayout([{
+      id: 'view-1', type: 'button', left: 1, top: 2, width: 120, height: 40,
+      expanded: true, disabled: false, data: { id: 'step', text: 'Step' },
+    }]);
+
+    useStore.getState().setMainView(edited);
+    expect(history.getState().past.map((command) => command.scope)).toEqual(['view-config']);
+    await history.getState().undo();
+    expect(useStore.getState().mainView).toEqual(original);
+    await history.getState().redo();
+    expect(useStore.getState().mainView).toEqual(edited);
+
+    const commandCount = history.getState().past.length;
+    useStore.getState().applyMessage({ type: 'metadata_update', payload: { time: 3 } });
+    await Promise.resolve();
+    expect(history.getState().past).toHaveLength(commandCount);
   });
 });

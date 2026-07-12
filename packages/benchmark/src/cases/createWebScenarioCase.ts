@@ -7,7 +7,7 @@
  * wolfSheepScenario.ts by extracting:
  *   - Scenario instance creation & event wiring
  *   - EnvironmentRendererController lifecycle (with resolveAssetUrl injection)
- *   - LineChartView lazy-create / update / destroy
+ *   - BrowserChartView lazy-create / update / destroy
  *   - Session attach / open / state_sync
  *   - Tick dispatcher ("action_start: step")
  *   - Teardown
@@ -23,7 +23,7 @@
 
 import { Scenario } from '@tensnap/core/scenario';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
-import { LineChartView } from '@tensnap/core/chart/browser';
+import { BrowserChartView } from '@tensnap/core/chart/browser';
 import type { ChartDataPoint, LineConfig } from '@tensnap/core';
 import type { ChartGroupMetadata, SimulatorToRendererMessage } from '@tensnap/protocol';
 import type { SimulatorSession } from '@tensnap/js/runtime';
@@ -59,7 +59,7 @@ export interface WebScenarioHooks {
 // Local helpers
 // ---------------------------------------------------------------------------
 
-/** Build a LineChartView config from a chart group's metadata dictionary. */
+/** Build a browser chart config from a chart group's metadata dictionary. */
 function buildChartConfig(meta: ChartGroupMetadata): LineConfig[] {
   const entries = meta.dataList?.length
     ? meta.dataList
@@ -97,7 +97,7 @@ export function createWebScenarioCase(
   let envContainer: HTMLDivElement | null = null;
   let chartsContainer: HTMLDivElement | null = null;
   let envController: EnvironmentRendererController | null = null;
-  const chartViews = new Map<string, LineChartView>();
+  const chartViews = new Map<string, BrowserChartView>();
   let scenario: Scenario | null = null;
   let session: SimulatorSession | null = null;
 
@@ -124,7 +124,7 @@ export function createWebScenarioCase(
     div.style.cssText = `width:${cfg.chartWidth}px;height:${cfg.chartHeight}px;overflow:hidden;border:1px solid #ccc;`;
     chartsContainer.appendChild(div);
     const lines = buildChartConfig(meta);
-    const view = new LineChartView(div, {
+    const view = new BrowserChartView(div, {
       lines,
       showGrid: true,
       showXAxis: true,
@@ -132,6 +132,7 @@ export function createWebScenarioCase(
       showLegend: true,
       showTooltip: false,
     });
+    view.resize(cfg.chartWidth, cfg.chartHeight);
     chartViews.set(meta.id, view);
   };
 

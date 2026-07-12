@@ -12,7 +12,7 @@ vi.mock('./FileSystemBrowser.css', () => ({
   selectionBarButtons: 'selectionBarButtons',
 }));
 
-vi.mock('@lingui/macro', () => ({
+vi.mock('@lingui/core/macro', () => ({
   t: (strings: TemplateStringsArray, ...values: unknown[]) => strings.reduce(
     (result, segment, index) => result + segment + (values[index] ?? ''),
     ''

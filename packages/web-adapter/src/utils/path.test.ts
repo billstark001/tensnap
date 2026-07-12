@@ -6,9 +6,7 @@ import {
   getPathComponents,
   getPathDepth,
   joinPath,
-  joinPaths,
   normalizePath,
-  resolvePath,
   validatePath,
 } from './path';
 
@@ -20,7 +18,6 @@ describe('path utils', () => {
 
   it('joins path segments consistently', () => {
     expect(joinPath('/projects/', 'demo', 'model.json')).toBe('/projects/demo/model.json');
-    expect(joinPaths('/projects', 'demo', 'model.json')).toBe('/projects/demo/model.json');
   });
 
   it('derives parent and basename metadata', () => {
@@ -30,10 +27,9 @@ describe('path utils', () => {
     expect(getPathComponents('/projects/demo/model.json')).toEqual(['projects', 'demo', 'model.json']);
   });
 
-  it('validates and resolves supported paths', () => {
+  it('validates supported paths', () => {
     expect(validatePath('/projects/demo')).toBe(true);
     expect(validatePath('../secret')).toBe(false);
-    expect(resolvePath('projects/demo')).toBe('/projects/demo');
   });
 
   it('produces the same checksum for equivalent text content', () => {
@@ -42,5 +38,10 @@ describe('path utils', () => {
 
     expect(calculateChecksum(text)).toBe(calculateChecksum(bytes));
     expect(calculateChecksum(text)).toBe(calculateChecksum(bytes.buffer));
+  });
+
+  it('hashes raw bytes without lossy text decoding', () => {
+    expect(calculateChecksum(new Uint8Array([0x80])))
+      .not.toBe(calculateChecksum(new Uint8Array([0x81])));
   });
 });

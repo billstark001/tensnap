@@ -99,4 +99,25 @@ describe('scenario ws event handlers', () => {
 
     unregisterEventHandlers(transport);
   });
+
+  it('publishes a state-sync replay to the UI only after its end boundary', async () => {
+    const useStore = createScenarioStore();
+    const transport = new MockTransport();
+    const before = useStore.getState().environmentUpdateTrigger.value;
+
+    useStore.getState().prepareStateSync('sync-1');
+    registerEventHandlers(transport, useStore);
+    transport.emitMessage({ type: 'state_sync_begin', payload: { request_id: 'sync-1' } });
+    transport.emitMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
+    await Promise.resolve();
+
+    expect(useStore.getState().environments.has('env-1')).toBe(true);
+    expect(useStore.getState().environmentUpdateTrigger.value).toBe(before);
+
+    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: 'sync-1' } });
+    await Promise.resolve();
+
+    expect(useStore.getState().environmentUpdateTrigger.value).toBe(before + 1);
+    unregisterEventHandlers(transport);
+  });
 });

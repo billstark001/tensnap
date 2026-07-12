@@ -1,4 +1,4 @@
-import { join, parse, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadImage } from 'canvas';
 import {
@@ -6,16 +6,15 @@ import {
   isBackgroundAssetReference,
   isCssColor,
   type BackgroundData,
-  type BackgroundSource,
   type BackgroundStorage,
   type Viewport,
 } from '@tensnap/core/environment';
+import type { BackgroundSource } from '@tensnap/protocol/layers';
 import {
   type RenderData,
   type RenderPlan,
   type ScenarioEnvironmentSnapshot,
 } from '@tensnap/core/scenario';
-import type { RenderFormat } from '../types';
 import type { RenderRequest } from './painter';
 
 export interface CanvasImageSource {
@@ -40,15 +39,6 @@ export interface ResolvedBackgroundLayer {
 }
 
 
-export function sanitizeFileName(value: string): string {
-  const normalized = value
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return normalized || 'scene';
-}
-
 
 export function cloneValue<T>(value: T): T {
   if (value === null || value === undefined || typeof value !== 'object') {
@@ -65,11 +55,6 @@ export function isInlineSvgString(value: string): boolean {
   return /^\s*(<svg[\s>]|<\?xml)/i.test(value);
 }
 
-
-export function resolveCanvasBackgroundColor(requested: string | undefined, fallback = '#000000'): string {
-  const candidate = typeof requested === 'string' ? requested.trim() : '';
-  return candidate || fallback;
-}
 
 export function toImageDataUrl(bytes: Uint8Array, mime: string): string {
   return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
@@ -191,35 +176,6 @@ export async function loadCanvasImageSource(input: CanvasImageSource): Promise<A
 
   throw new Error(`Unsupported image source protocol: ${parsedUrl.protocol}`);
 }
-
-export function buildOutputPath(
-  capturesDir: string,
-  envId: string,
-  format: RenderFormat,
-  explicitOutputPath: string | undefined,
-  appendEnvSuffix: boolean,
-): string {
-  const extension = format === 'jpeg' ? '.jpg' : '.png';
-
-  if (!explicitOutputPath) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    return join(capturesDir, `${timestamp}-${sanitizeFileName(envId)}${extension}`);
-  }
-
-  const resolvedPath = resolve(explicitOutputPath);
-  if (!appendEnvSuffix) {
-    const parsed = parse(resolvedPath);
-    if (parsed.ext) {
-      return resolvedPath;
-    }
-    return join(parsed.dir, `${parsed.name || sanitizeFileName(envId)}${extension}`);
-  }
-
-  const parsed = parse(resolvedPath);
-  const baseName = parsed.name || sanitizeFileName(envId);
-  return join(parsed.dir, `${baseName}-${sanitizeFileName(envId)}${parsed.ext || extension}`);
-}
-
 
 export async function resolveAssetUrls(
   plan: RenderPlan,

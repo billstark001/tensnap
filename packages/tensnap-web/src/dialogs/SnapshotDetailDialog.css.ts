@@ -2,12 +2,86 @@ import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const detailContainer = style({
-  height: '100%',
+  height: 'min(72vh, 760px)',
   display: 'flex',
   flexDirection: 'row',
   gap: vars.space.sm,
   maxHeight: '60vh',
+  overflow: 'hidden',
+});
+
+export const replaySidebar = style({
+  width: '300px',
+  minWidth: '260px',
   overflowY: 'auto',
+  minHeight: 0,
+});
+
+export const replayContent = style({
+  flex: 1,
+  minWidth: 0,
+  overflowY: 'auto',
+  minHeight: 0,
+});
+
+export const timelineControls = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.space.xs,
+  margin: `${vars.space.md} 0`,
+});
+
+export const timelineButton = style({
+  width: '30px',
+  height: '30px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: `1px solid ${vars.color.inputBorder}`,
+  borderRadius: vars.radius.sm,
+  background: vars.color.inputBackground,
+  color: vars.color.foreground,
+  cursor: 'pointer',
+  selectors: {
+    'body[data-theme="dark"] &': { borderColor: vars.color.darkInputBorder, background: vars.color.darkInputBackground, color: vars.color.darkForeground },
+  },
+});
+
+export const timelineRange = style({
+  flex: 1,
+  minWidth: 0,
+});
+
+export const truncatedNotice = style({
+  fontSize: vars.fontSize.xs,
+  color: vars.color.secondary,
+  margin: `${vars.space.xs} 0 ${vars.space.md}`,
+});
+
+export const chartList = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gap: vars.space.md,
+  marginTop: vars.space.md,
+});
+
+export const chartItem = style({
+  height: '260px',
+  minWidth: 0,
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexDirection: 'column',
+  border: `1px solid ${vars.color.gridLine}`,
+  borderRadius: vars.radius.sm,
+  padding: vars.space.sm,
+  selectors: {
+    'body[data-theme="dark"] &': { borderColor: vars.color.darkGridLine },
+  },
+});
+
+globalStyle(`${chartItem} > div`, {
+  flex: 1,
+  minHeight: 0,
 });
 
 export const detailSection = style({
@@ -65,6 +139,24 @@ export const detailValue = style({
 
   selectors: {
     'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const snapshotNameInput = style({
+  minWidth: 0,
+  width: '170px',
+  border: `1px solid ${vars.color.inputBorder}`,
+  borderRadius: vars.radius.sm,
+  padding: `${vars.space.xs} ${vars.space.sm}`,
+  background: vars.color.inputBackground,
+  color: vars.color.foreground,
+  fontSize: vars.fontSize.sm,
+  selectors: {
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkInputBorder,
+      background: vars.color.darkInputBackground,
       color: vars.color.darkForeground,
     },
   },
@@ -178,10 +270,12 @@ export const environmentLabel = style({
 export const environmentDisplay = style({
   fontSize: vars.fontSize.xs,
   color: vars.color.secondary,
-  minHeight: '300px',
-  maxHeight: '600px',
-  minWidth: '300px',
-  maxWidth: '800px',
+  height: 'min(46vh, 440px)',
+  minHeight: '220px',
+  minWidth: 0,
+  width: '100%',
+  maxWidth: 'none',
+  overflow: 'hidden',
   padding: 0,
 
   selectors: {
@@ -194,11 +288,15 @@ export const environmentDisplay = style({
 globalStyle(`${environmentDisplay} > *`, {
   width: '100%',
   height: '100%',
+  minWidth: 0,
+  minHeight: 0,
 });
 
 globalStyle(`${environmentDisplay} > * > div`, {
-  minHeight: '500px',
-  minWidth: '500px',
+  minHeight: 0,
+  minWidth: 0,
+  width: '100%',
+  height: '100%',
 });
 
 globalStyle(`${environmentDisplay} svg`, {

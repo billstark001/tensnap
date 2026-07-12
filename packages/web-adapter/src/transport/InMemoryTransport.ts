@@ -27,7 +27,7 @@ export class InMemoryTransport implements ISimulatorTransport {
   private destroyed = false;
 
   constructor(private readonly simulation: InMemorySimulationHandler, connectionId?: string) {
-    this.connectionId = connectionId ?? simulation.connectionId ?? `inmemory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.connectionId = connectionId ?? simulation.connectionId ?? `inmemory-${crypto.randomUUID()}`;
   }
 
   async connect(signal?: AbortSignal): Promise<void> {

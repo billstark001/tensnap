@@ -1,4 +1,5 @@
-import { GlobalTrajectoryConfig, TrajectoryPoint } from '../types';
+import type { TrajectoryPoint } from '@tensnap/protocol/layers';
+import type { GlobalTrajectoryConfig } from '../types';
 
 export const DEFAULT_TRAJECTORY_LENGTH = 1000;
 export const DEFAULT_TRAJECTORY_WIDTH = 2;

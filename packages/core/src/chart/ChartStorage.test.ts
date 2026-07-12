@@ -61,6 +61,26 @@ describe('ChartStorage – group operations', () => {
     expect(Object.keys(groups[0].metadataDict)).toEqual(expect.arrayContaining(['m1', 'm2']));
   });
 
+  it('addGroup with upsert updates metadata already in the group', () => {
+    const s = new ChartStorage([makeGroup('g', 'old', ['m1'])]);
+    const update = makeGroup('g', 'new', ['m1']);
+    update.metadataDict.m1.label = 'Updated';
+
+    s.addGroup(update, true);
+
+    expect(s.getAllMeta().find((meta) => meta.id === 'm1')?.label).toBe('Updated');
+  });
+
+  it('addGroup replacement unregisters metadata from the previous group', () => {
+    const s = new ChartStorage([makeGroup('g', 'old', ['old-meta'])]);
+
+    s.addGroup(makeGroup('g', 'new', ['new-meta']));
+
+    expect(s.getMetaIds()).toEqual(['new-meta']);
+    expect(s.updateMeta('old-meta', { label: 'detached' })).toBe(false);
+    expect(s.getGroup('g')?.label).toBe('new');
+  });
+
   it('removeGroup returns true and deletes the group', () => {
     const s = new ChartStorage([makeGroup('g1')]);
     expect(s.removeGroup('g1')).toBe(true);
@@ -299,6 +319,18 @@ describe('ChartStorage – getData / getValueAt', () => {
     expect(s.getValueAt('m1', 7)).toBe(10);  // closer to 10
     expect(s.getValueAt('m1', 3)).toBe(0);   // closer to 0
     expect(s.getValueAt('m1', 15)).toBe(10); // equidistant – lower wins per bisect
+  });
+
+  it('maintains latest values without merging a chart history', () => {
+    const s = new ChartStorage([makeGroup('g', 'g', ['m1'])]);
+    s.push(10, [{ id: 'm1', value: 10 }]);
+    s.push(5, [{ id: 'm1', value: 5 }]);
+    expect(s.getLatestValue('m1')).toBe(10);
+
+    s.push(11, [{ id: 'm1', value: 11 }]);
+    expect(s.getLatestValue('m1')).toBe(11);
+    s.clearMetas(['m1']);
+    expect(s.getLatestValue('m1')).toBeUndefined();
   });
 });
 

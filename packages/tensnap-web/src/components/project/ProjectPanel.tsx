@@ -5,32 +5,36 @@ import { StatusBar } from './StatusBar';
 import { ProjectTerminal } from './ProjectTerminal';
 import { RightPanel } from './RightPanel';
 import { useState, useCallback, useEffect } from 'react';
+import { getSettingsPersistence } from '@/store/settings-persistence';
 
 const RIGHT_PANEL_KEY = 'tensnap:panel:right';
 const BOTTOM_PANEL_KEY = 'tensnap:panel:bottom';
 
-const readPanelState = (key: string, fallback: boolean): boolean => {
-  if (typeof window === 'undefined') {
-    return fallback;
-  }
-  const raw = window.localStorage.getItem(key);
-  if (raw == null) {
-    return fallback;
-  }
-  return raw === 'true';
-};
-
 export const ProjectPanel = () => {
-  const [rightPanelVisible, setRightPanelVisible] = useState(() => readPanelState(RIGHT_PANEL_KEY, true));
-  const [bottomPanelVisible, setBottomPanelVisible] = useState(() => readPanelState(BOTTOM_PANEL_KEY, true));
+  const [rightPanelVisible, setRightPanelVisible] = useState(true);
+  const [bottomPanelVisible, setBottomPanelVisible] = useState(true);
+  const [panelStateLoaded, setPanelStateLoaded] = useState(false);
 
   useEffect(() => {
-    window.localStorage.setItem(RIGHT_PANEL_KEY, String(rightPanelVisible));
-  }, [rightPanelVisible]);
+    void Promise.all([
+      getSettingsPersistence().get(RIGHT_PANEL_KEY),
+      getSettingsPersistence().get(BOTTOM_PANEL_KEY),
+    ]).then(([rightPanel, bottomPanel]) => {
+      if (rightPanel != null) setRightPanelVisible(rightPanel === 'true');
+      if (bottomPanel != null) setBottomPanelVisible(bottomPanel === 'true');
+      setPanelStateLoaded(true);
+    }).catch(() => setPanelStateLoaded(true));
+  }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(BOTTOM_PANEL_KEY, String(bottomPanelVisible));
-  }, [bottomPanelVisible]);
+    if (!panelStateLoaded) return;
+    void getSettingsPersistence().set(RIGHT_PANEL_KEY, String(rightPanelVisible));
+  }, [panelStateLoaded, rightPanelVisible]);
+
+  useEffect(() => {
+    if (!panelStateLoaded) return;
+    void getSettingsPersistence().set(BOTTOM_PANEL_KEY, String(bottomPanelVisible));
+  }, [bottomPanelVisible, panelStateLoaded]);
 
   const mainContent = <div className={styles.panelWrapper}>
     <MainViewRenderer />

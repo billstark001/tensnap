@@ -152,7 +152,10 @@ export class GridLayer extends BaseLayer {
     if (xRatio <= 1 || yRatio <= 1) return;
 
     const scale = this.calculateViewportScale(this._viewport, this._fitMode);
-    const { x: viewLeft, y: viewBottom, width: viewW, height: viewH } = this._viewport;
+    // The fitted viewport can be narrower/taller than the physical canvas
+    // when their aspect ratios differ. Draw through the whole canvas coverage
+    // so the grid remains a background rather than a centered rectangle.
+    const { x: viewLeft, y: viewBottom, width: viewW, height: viewH } = this.getCanvasSceneCoverage();
     const viewRight = viewLeft + viewW;
     const viewTop = viewBottom + viewH;
     const horizontalMargin = Math.max(viewW * VIEWPORT_MARGIN_FACTOR, xUnit * xInterval);

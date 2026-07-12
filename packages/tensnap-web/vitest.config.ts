@@ -6,7 +6,9 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      plugins: [['@lingui/swc-plugin', {}]],
+    }),
     lingui(),
     vanillaExtractPlugin(),
   ],
