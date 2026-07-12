@@ -68,7 +68,7 @@ All other packages must treat this contract as read-only infrastructure.
 - `packages/tensnap-web` may own browser lifecycle, React bindings, browser render barriers, and browser-only integrations, but must not redefine layer, session, or loop semantics.
 - `packages/tensnap-agent` may own headless runtime lifecycle, backend registration, and Node scheduling, but must not keep a package-local scene model, session, or rendering rules.
 - `packages/tensnap-js` may own simulator-side TypeScript sessions, emitters, and transports, but must not redefine renderer-owned layer semantics.
-- `packages/benchmark` may own benchmark orchestration and reporting, but must not define an alternative rendering contract and must clearly separate synthetic renderer tests from web-equivalent scenario benchmarks.
+- `packages/benchmark` may own benchmark orchestration and reporting, but its browser cases must mount the production Web host instead of defining an alternative renderer or runtime loop.
 - `examples/js` may own model content and example packaging, but must not introduce package-local rendering adapter abstractions when the same semantics already exist in `packages/core` or `@tensnap/js`.
 
 Any new rendering backend or benchmark harness must consume the core-owned render plan and runtime contract rather than inventing a package-local projection model.
@@ -295,11 +295,20 @@ their legacy reader and are upgraded on load.
 delta/keyframe behavior for a host-specific layer; the policy label is not a
 claim that the data already has a custom binary codec.
 
-`packages/benchmark` has no second runtime loop. Its `renderer-session` mode
-drives `RendererSession + RunController + BrowserRunRenderBarrier` and can
-attach a real React/Zustand commit callback. CI baselines must run the named
-gates for that commit, recording on/off, long-history conditions, trajectories,
-and agent checkpoints; `assertBenchmarkRegressionGate` fails p95/TPS regressions
+`packages/benchmark` has three explicit suites. Component cases mount production
+Web chart/environment components and update their core storages directly, so
+they measure rendering without transport. Complete-model cases supply bundled
+simulator transports to the benchmark entry point exported by
+`packages/tensnap-web`; that host mounts the production transport store,
+`RendererSession`, Zustand subscriptions, auto-layout, React view tree, and
+canvas renderers. The random-walk comparison runs one seeded workload through
+raw Leafer, core layers without transport, and the full Web transport path.
+
+All suites use `BrowserRunRenderBarrier` and report complete cycle latency/TPS.
+Direct component/layer cases additionally report synchronous mutation cost.
+Model cases report requested steps, actual completed steps, and their stop
+reason; a simulator-requested early stop is a valid partial result rather than
+a benchmark failure. `assertBenchmarkRegressionGate` compares p95/TPS results
 against the selected machine-class baseline.
 
 ## Inspection and Trajectory Semantics

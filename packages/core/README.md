@@ -154,8 +154,15 @@ pnpm test
 pnpm dev:benchmark
 ```
 
-The benchmark suite covers multi-line chart updates, bouncing-particle agent
-rendering, spring-layout graph, a real React/Zustand commit driven by
-`RendererSession`, Schelling segregation, and Wolf–Sheep predator–prey. The
-runtime gate helpers also cover recording on/off, long-history conditions,
-long trajectories, and agent checkpoint baselines.
+The benchmark app contains three suites:
+
+- six production Web component cases without transport (chart, particles,
+  spring graph, dense grid, trajectories, and uniform agents);
+- Axelrod, Schelling, and Wolf–Sheep through the full Web transport/session/UI
+  path;
+- one seeded random walk through raw Leafer, core layers without transport,
+  and the full Web transport path.
+
+All suites report cycle latency/TPS under the Web render-trigger settings.
+No-transport cases also report mutation cost, while complete models preserve
+their actual completed-step count and simulator stop reason.

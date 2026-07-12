@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/benchmark",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,19 +15,24 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@preact/preset-vite": "^2.10.5",
-    "@preact/signals": "^2.9.3",
+    "@leafer-ui/core": "^2.1.11",
+    "@lingui/react": "^6.5.0",
     "@tensnap/core": "workspace:*",
     "@tensnap/examples-js": "workspace:*",
     "@tensnap/js": "workspace:*",
     "@tensnap/protocol": "workspace:*",
+    "@tensnap/web": "workspace:*",
+    "@tensnap/web-adapter": "workspace:*",
+    "@tensnap/web-common": "workspace:*",
     "leafer-ui": "^2.1.11",
-    "preact": "^10.29.7",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "zustand": "^5.0.14"
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@lingui/swc-plugin": "^6.5.1",
+    "@lingui/vite-plugin": "^6.5.0",
+    "@vanilla-extract/vite-plugin": "^5.2.4",
+    "@vitejs/plugin-react-swc": "^4.3.1",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

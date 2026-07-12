@@ -24,10 +24,13 @@ export function assertBenchmarkRegressionGate(
 
 /** Required runtime-path gate names for CI baseline artifacts. */
 export const runtimeRegressionGates: readonly BenchmarkRegressionGate[] = [
-  { name: 'react-zustand-renderer-session-commit', maxP95RegressionPercent: 10 },
-  { name: 'recording-off', maxP95RegressionPercent: 2 },
-  { name: 'recording-on', maxP95RegressionPercent: 15 },
-  { name: 'condition-long-history', maxP95RegressionPercent: 10 },
-  { name: 'trajectory-long-path', maxP95RegressionPercent: 10 },
-  { name: 'agent-checkpoint', maxP95RegressionPercent: 15 },
+  { name: 'chart-component', maxP95RegressionPercent: 10 },
+  { name: 'particle-layer-component', maxP95RegressionPercent: 10 },
+  { name: 'spring-graph-component', maxP95RegressionPercent: 15 },
+  { name: 'axelrod-web-e2e', maxP95RegressionPercent: 15 },
+  { name: 'schelling-web-e2e', maxP95RegressionPercent: 10 },
+  { name: 'wolf-sheep-web-e2e', maxP95RegressionPercent: 15 },
+  { name: 'random-walk-raw-leafer', maxP95RegressionPercent: 10 },
+  { name: 'random-walk-layers', maxP95RegressionPercent: 10 },
+  { name: 'random-walk-transport', maxP95RegressionPercent: 15 },
 ];

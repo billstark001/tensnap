@@ -1,715 +1,158 @@
-import { signal, computed, effect } from '@preact/signals';
-import { useRef } from 'preact/hooks';
-import {
-  BenchmarkStats,
-  BenchmarkCase,
-  BenchmarkRunnerMode,
-  BenchmarkRunnerSelection,
-  BenchmarkRuntimeMode,
-  BenchmarkSchedulerMode,
-  BenchmarkSchedulerSelection,
-} from './types';
-import { runBenchmark, resultsToJson, resultsToMarkdown } from './runner';
-import {
-  getAllVariations,
-} from './cases/variations';
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import type { BenchmarkCase, BenchmarkRenderTriggerSelection, BenchmarkRuntimeMode, BenchmarkStats } from './types';
+import { getCaseGroups } from './cases/variations';
+import { resultsToJson, resultsToMarkdown, runBenchmark } from './runner';
 
-// ─── Persistence ─────────────────────────────────────────────────────────────
-const LS_KEY = 'tensnap-benchmark-config';
-
-interface PersistedConfig {
-  frameCount: number;
-  warmupCount: number;
-  runnerMode: BenchmarkRunnerSelection;
-  schedulerMode: BenchmarkSchedulerSelection;
-  enableLineChart: boolean;
-  enableParticle: boolean;
-  enableSpring: boolean;
-  enableSchelling: boolean;
-  enableWolfSheep: boolean;
-  enableReactZustandCommit: boolean;
-  enableVariations: boolean;
-}
-
-const DEFAULTS: PersistedConfig = {
-  frameCount: 300,
-  warmupCount: 10,
-  runnerMode: 'renderer-session',
-  schedulerMode: 'all',
-  enableLineChart: true,
-  enableParticle: true,
-  enableSpring: true,
-  enableSchelling: true,
-  enableWolfSheep: true,
-  enableReactZustandCommit: true,
-  enableVariations: false,
-};
-
-function loadConfig(): PersistedConfig {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (parsed.runnerMode === 'simulation-loop') parsed.runnerMode = 'renderer-session';
-      return { ...DEFAULTS, ...parsed } as PersistedConfig;
-    }
-  } catch { }
-  return { ...DEFAULTS };
-}
-
-function saveConfig(cfg: PersistedConfig) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(cfg));
-  } catch { }
-}
-
-// ─── State ────────────────────────────────────────────────────────────────────
-const _initial = loadConfig();
-
-const running = signal(false);
-const progressText = signal('');
-const results = signal<BenchmarkStats[]>([]);
-const copyStatus = signal<'idle' | 'json' | 'md'>('idle');
+const STORAGE_KEY = 'tensnap-web-benchmark-v3';
 const runtimeMode: BenchmarkRuntimeMode = import.meta.env.PROD ? 'production' : 'development';
 
-const frameCount = signal(_initial.frameCount);
-const warmupCount = signal(_initial.warmupCount);
-const runnerMode = signal<BenchmarkRunnerSelection>(_initial.runnerMode);
-const schedulerMode = signal<BenchmarkSchedulerSelection>(_initial.schedulerMode);
+interface Config {
+  frameCount: number;
+  warmupCount: number;
+  renderTrigger: BenchmarkRenderTriggerSelection;
+  maxTps: number;
+  maxRenderFps: number;
+  components: boolean;
+  models: boolean;
+  randomWalk: boolean;
+  allModelVariations: boolean;
+}
 
-// Enable/disable existing cases
-const enableLineChart = signal(_initial.enableLineChart);
-const enableParticle = signal(_initial.enableParticle);
-const enableSpring = signal(_initial.enableSpring);
+const defaults: Config = {
+  frameCount: 100,
+  warmupCount: 10,
+  renderTrigger: 'auto',
+  maxTps: 300,
+  maxRenderFps: 120,
+  components: true,
+  models: true,
+  randomWalk: true,
+  allModelVariations: false,
+};
 
-// Enable/disable model cases
-const enableSchelling = signal(_initial.enableSchelling);
-const enableWolfSheep = signal(_initial.enableWolfSheep);
-const enableReactZustandCommit = signal(_initial.enableReactZustandCommit);
+function loadConfig(): Config {
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') } as Config; }
+  catch { return defaults; }
+}
 
-// Enable variations mode
-const enableVariations = signal(_initial.enableVariations);
+function selectedCases(config: Config): BenchmarkCase[] {
+  const enabled = { component: config.components, model: config.models, 'random-walk': config.randomWalk };
+  return getCaseGroups(config.allModelVariations).flatMap((group) => enabled[group.category] ? group.cases : []);
+}
 
-const hasResults = computed(() => results.value.length > 0);
+function download(filename: string, content: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const anchor = document.createElement('a');
+  anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
+}
 
-// Persist config changes to localStorage
-effect(() => {
-  saveConfig({
-    frameCount: frameCount.value,
-    warmupCount: warmupCount.value,
-    runnerMode: runnerMode.value,
-    schedulerMode: schedulerMode.value,
-    enableLineChart: enableLineChart.value,
-    enableParticle: enableParticle.value,
-    enableSpring: enableSpring.value,
-    enableSchelling: enableSchelling.value,
-    enableWolfSheep: enableWolfSheep.value,
-    enableReactZustandCommit: enableReactZustandCommit.value,
-    enableVariations: enableVariations.value,
+export function App() {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [config, setConfigState] = useState(loadConfig);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [results, setResults] = useState<BenchmarkStats[]>([]);
+
+  const setConfig = (patch: Partial<Config>) => setConfigState((current) => {
+    const next = { ...current, ...patch };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    return next;
   });
-});
 
-function resetConfig() {
-  frameCount.value = DEFAULTS.frameCount;
-  warmupCount.value = DEFAULTS.warmupCount;
-  runnerMode.value = DEFAULTS.runnerMode;
-  schedulerMode.value = DEFAULTS.schedulerMode;
-  enableLineChart.value = DEFAULTS.enableLineChart;
-  enableParticle.value = DEFAULTS.enableParticle;
-  enableSpring.value = DEFAULTS.enableSpring;
-  enableSchelling.value = DEFAULTS.enableSchelling;
-  enableWolfSheep.value = DEFAULTS.enableWolfSheep;
-  enableReactZustandCommit.value = DEFAULTS.enableReactZustandCommit;
-  enableVariations.value = DEFAULTS.enableVariations;
-}
-
-function getSelectedRunnerModes(selection: BenchmarkRunnerSelection): BenchmarkRunnerMode[] {
-  if (selection === 'all') {
-    return ['simple', 'renderer-session'];
-  }
-  return [selection];
-}
-
-function getSelectedSchedulerModes(selection: BenchmarkSchedulerSelection): BenchmarkSchedulerMode[] {
-  if (selection === 'all') {
-    return ['auto', 'raf', 'timeout'];
-  }
-  return [selection];
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function download(filename: string, content: string, mime = 'text/plain') {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function handleRun(containerRef: HTMLElement) {
-  if (running.value) return;
-  running.value = true;
-  results.value = [];
-
-  let cases: BenchmarkCase[] = [];
-
-  // Map each variation name to its enable signal
-  const enabledMap: Record<string, boolean> = {
-    'LineChart': enableLineChart.value,
-    'ParticleBounce': enableParticle.value,
-    'SpringGraph': enableSpring.value,
-    'Schelling': enableSchelling.value,
-    'WolfSheep': enableWolfSheep.value,
-    'ReactZustandCommit': enableReactZustandCommit.value,
+  const run = async () => {
+    const preview = previewRef.current;
+    if (!preview || running) return;
+    const cases = selectedCases(config);
+    if (cases.length === 0) { setProgress('Select at least one benchmark category.'); return; }
+    const modes = config.renderTrigger === 'all'
+      ? (['auto', 'requestAnimationFrame', 'setTimeout'] as const)
+      : [config.renderTrigger];
+    const totalRuns = cases.length * modes.length;
+    const nextResults: BenchmarkStats[] = [];
+    setRunning(true); setResults([]);
+    try {
+      let runIndex = 0;
+      for (const renderTriggerMode of modes) {
+        for (const benchCase of cases) {
+          runIndex += 1;
+          const identity = benchCase.variant ? `${benchCase.name} — ${benchCase.variant}` : benchCase.name;
+          const label = `[${runIndex}/${totalRuns}] [${benchCase.category}] ${identity}`;
+          setProgress(`${label} · mounting…`);
+          const result = await runBenchmark(benchCase, preview, config.frameCount, config.warmupCount, {
+            renderTriggerMode, maxTps: config.maxTps, maxRenderFps: config.maxRenderFps, runtimeMode,
+            onProgress: (done, total) => setProgress(`${label} · ${done}/${total} measured cycles`),
+          });
+          if (result.category === 'random-walk') {
+            const raw = result.variant === 'raw-leafer'
+              ? result
+              : nextResults.find((candidate) => candidate.category === 'random-walk'
+                && candidate.variant === 'raw-leafer'
+                && candidate.renderTriggerMode === result.renderTriggerMode);
+            if (raw && raw.meanMs > 0) {
+              result.overheadVsRawPercent = Math.round(((result.meanMs / raw.meanMs) - 1) * 1_000) / 10;
+            }
+            if (raw?.mutation && result.mutation && raw.mutation.meanMs > 0) {
+              result.mutationOverheadVsRawPercent = Math.round(((result.mutation.meanMs / raw.mutation.meanMs) - 1) * 1_000) / 10;
+            }
+          }
+          nextResults.push(result);
+          setResults([...nextResults]);
+        }
+      }
+      setProgress('Done. Models that stopped early are included with their actual stop reason.');
+    } catch (error) {
+      setProgress(`Failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      preview.replaceChildren(); setRunning(false);
+    }
   };
 
-  if (enableVariations.value) {
-    // Run all parameter variations of every selected case
-    for (const variation of getAllVariations()) {
-      if (enabledMap[variation.name]) {
-        cases.push(...variation.cases);
-      }
-    }
-  } else {
-    // Run single default (medium, index 1) configuration of each selected case
-    for (const variation of getAllVariations()) {
-      if (enabledMap[variation.name] && variation.cases.length > 1) {
-        cases.push(variation.cases[1]); // medium config
-      }
-    }
-  }
-
-  if (cases.length === 0) {
-    running.value = false;
-    progressText.value = 'Please select at least one benchmark.';
-    return;
-  }
-
-  const selectedRunnerModes = getSelectedRunnerModes(runnerMode.value);
-  const selectedModes = getSelectedSchedulerModes(schedulerMode.value);
-  const allResults: BenchmarkStats[] = [];
-  const totalRuns = cases.length * selectedModes.length * selectedRunnerModes.length;
-
-  for (let runnerIndex = 0; runnerIndex < selectedRunnerModes.length; runnerIndex++) {
-    const selectedRunnerMode = selectedRunnerModes[runnerIndex];
-    for (let modeIndex = 0; modeIndex < selectedModes.length; modeIndex++) {
-      const mode = selectedModes[modeIndex];
-      for (let ci = 0; ci < cases.length; ci++) {
-        const bc = cases[ci];
-        const runIndex = (runnerIndex * selectedModes.length * cases.length) + (modeIndex * cases.length) + ci + 1;
-        progressText.value = `Running [${runIndex}/${totalRuns}] ${bc.name} (${selectedRunnerMode}, ${mode})…`;
-
-        const res = await runBenchmark(
-          bc,
-          containerRef,
-          frameCount.value,
-          warmupCount.value,
-          {
-            runnerMode: selectedRunnerMode,
-            schedulerMode: mode,
-            runtimeMode,
-            onProgress: (done, total) => {
-              progressText.value = `[${runIndex}/${totalRuns}] ${bc.name} (${selectedRunnerMode}, ${mode}) — ${done}/${total} frames`;
-            },
-          },
-        );
-        allResults.push(res);
-      }
-    }
-  }
-
-  results.value = allResults;
-  progressText.value = 'Done!';
-  running.value = false;
-}
-
-async function copyText(text: string, which: 'json' | 'md') {
-  await navigator.clipboard.writeText(text);
-  copyStatus.value = which;
-  setTimeout(() => { copyStatus.value = 'idle'; }, 1500);
-}
-
-// ─── Components ───────────────────────────────────────────────────────────────
-function ConfigPanel({ containerRef }: { containerRef: { current: HTMLElement | null } }) {
-  return (
-    <div style={styles.panel}>
-      <h2 style={styles.panelTitle}>Configuration</h2>
-
-      <label style={styles.label}>
-        Runner implementation
-        <select
-          value={runnerMode.value}
-          disabled={running.value}
-          onChange={(e) => { runnerMode.value = (e.target as HTMLSelectElement).value as BenchmarkRunnerSelection; }}
-          style={styles.input}
-        >
-          <option value="simple">Simple runner</option>
-          <option value="renderer-session">RendererSession / RunController</option>
-          <option value="all">Both implementations</option>
-        </select>
-      </label>
-
-      <p style={styles.helperText}>
-        The RendererSession mode runs the current web execution path, including
-        RunController and the browser defaults for max TPS and render FPS. The
-        React/Zustand commit case requires this mode.
-      </p>
-
-      <label style={styles.label}>
-        Scheduler mode
-        <select
-          value={schedulerMode.value}
-          disabled={running.value}
-          onChange={(e) => { schedulerMode.value = (e.target as HTMLSelectElement).value as BenchmarkSchedulerSelection; }}
-          style={styles.input}
-        >
-          <option value="all">All modes (auto, raf, timeout)</option>
-          <option value="auto">Auto</option>
-          <option value="raf">requestAnimationFrame</option>
-          <option value="timeout">setTimeout</option>
-        </select>
-      </label>
-
-      <label style={styles.label}>
-        Frames per benchmark
-        <input
-          type="number"
-          min={10}
-          max={1000}
-          value={frameCount.value}
-          disabled={running.value}
-          onInput={(e) => { frameCount.value = Number((e.target as HTMLInputElement).value); }}
-          style={styles.input}
-        />
-      </label>
-
-      <label style={styles.label}>
-        Warmup frames
-        <input
-          type="number"
-          min={0}
-          max={100}
-          value={warmupCount.value}
-          disabled={running.value}
-          onInput={(e) => { warmupCount.value = Number((e.target as HTMLInputElement).value); }}
-          style={styles.input}
-        />
-      </label>
-
-      <div style={{ marginTop: 16 }}>
-        <p style={styles.sectionLabel}>Cases to run</p>
-        {[
-          { sig: enableLineChart, label: 'Canvas chart (multi-line)' },
-          { sig: enableParticle, label: 'EnvironmentView (particle bounce)' },
-          { sig: enableSpring, label: 'EnvironmentView (E-R spring graph)' },
-          { sig: enableSchelling, label: 'Schelling Segregation Model' },
-          { sig: enableWolfSheep, label: 'Wolf-Sheep Predation Model' },
-          { sig: enableReactZustandCommit, label: 'React/Zustand RendererSession commit' },
-        ].map(({ sig, label }) => (
-          <label key={label} style={styles.checkLabel}>
-            <input
-              type="checkbox"
-              checked={sig.value}
-              disabled={running.value}
-              onChange={() => { sig.value = !sig.value; }}
-              style={{ marginRight: 8, accentColor: '#6ee7b7' }}
-            />
-            {label}
-          </label>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 16 }}>
-        <label style={styles.checkLabel}>
-          <input
-            type="checkbox"
-            checked={enableVariations.value}
-            disabled={running.value}
-            onChange={() => { enableVariations.value = !enableVariations.value; }}
-            style={{ marginRight: 8, accentColor: '#fbbf24' }}
-          />
-          <strong>Run all parameter variations</strong>
-        </label>
-        <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, marginLeft: 24 }}>
-          When enabled, runs 3-4 configurations of each selected case
-        </p>
-        <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8, marginLeft: 24 }}>
-          Current build mode: <strong>{runtimeMode}</strong>
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <button
-          onClick={() => containerRef.current && handleRun(containerRef.current)}
-          disabled={running.value}
-          style={{ ...styles.button, marginTop: 0, flex: 1, ...(running.value ? styles.buttonDisabled : {}) }}
-        >
-          {running.value ? 'Running…' : 'Run Benchmarks'}
-        </button>
-        <button
-          onClick={resetConfig}
-          disabled={running.value}
-          style={{ ...styles.button, marginTop: 0, background: '#374151', ...(running.value ? styles.buttonDisabled : { background: '#374151' }) }}
-          title="Reset all settings to defaults"
-        >
-          Reset
-        </button>
-      </div>
-
-      {progressText.value && (
-        <p style={styles.progressText}>{progressText.value}</p>
-      )}
-    </div>
-  );
-}
-
-function ResultsTable() {
-  if (!hasResults.value) {
-    return (
-      <div style={styles.emptyState}>
-        <p style={{ color: '#888', fontSize: 14 }}>
-          No results yet. Configure and click <strong>Run Benchmarks</strong>.
-        </p>
-      </div>
-    );
-  }
-
-  const rows = results.value;
-  const jsonStr = resultsToJson(rows);
-  const mdStr = resultsToMarkdown(rows);
-  const runtimeSummary = Array.from(new Set(rows.map((row) => row.runtimeMode))).join(', ');
-
-  return (
-    <div>
-      <p style={styles.metaText}>
-        Report build mode: <strong>{runtimeSummary}</strong>
-      </p>
-      <div style={styles.tableWrapper}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              {['Suite', 'Runner', 'Scheduler', 'Build', 'Case', 'Frames', 'Mean ms', 'Median ms', 'Min ms', 'Max ms', 'p95 ms', 'TPS'].map(
-                (h) => <th key={h} style={styles.th}>{h}</th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
-                <td style={{ ...styles.td, color: r.suite === 'web-scenario' ? '#6ee7b7' : '#fcd34d', fontWeight: 600, fontSize: 11 }}>
-                  {r.suite}
-                </td>
-                <td style={styles.td}>{r.runnerMode}</td>
-                <td style={{ ...styles.td, fontVariantNumeric: 'tabular-nums' }}>{r.schedulerMode}</td>
-                <td style={styles.td}>{r.runtimeMode}</td>
-                <td style={{ ...styles.td, fontWeight: 600 }}>{r.caseName}</td>
-                <td style={styles.tdNum}>{r.frames}</td>
-                <td style={styles.tdNum}>{r.meanMs}</td>
-                <td style={styles.tdNum}>{r.medianMs}</td>
-                <td style={styles.tdNum}>{r.minMs}</td>
-                <td style={styles.tdNum}>{r.maxMs}</td>
-                <td style={styles.tdNum}>{r.p95Ms}</td>
-                <td style={{ ...styles.tdNum, color: tpsColor(r.tps) }}>{r.tps}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div style={styles.exportRow}>
-        {/* Copy JSON */}
-        <button
-          style={styles.exportBtn}
-          onClick={() => copyText(jsonStr, 'json')}
-        >
-          {copyStatus.value === 'json' ? '✓ Copied!' : 'Copy JSON'}
-        </button>
-
-        {/* Download JSON */}
-        <button
-          style={styles.exportBtn}
-          onClick={() => download('benchmark-results.json', jsonStr, 'application/json')}
-        >
-          Download JSON
-        </button>
-
-        {/* Copy Markdown */}
-        <button
-          style={styles.exportBtn}
-          onClick={() => copyText(mdStr, 'md')}
-        >
-          {copyStatus.value === 'md' ? '✓ Copied!' : 'Copy Markdown'}
-        </button>
-
-        {/* Download Markdown */}
-        <button
-          style={styles.exportBtn}
-          onClick={() => download('benchmark-results.md', mdStr, 'text/markdown')}
-        >
-          Download Markdown
-        </button>
-      </div>
-
-      {/* Raw JSON preview */}
-      <details style={styles.details}>
-        <summary style={{ cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
-          Raw JSON
-        </summary>
-        <pre style={styles.pre}>{jsonStr}</pre>
-      </details>
-
-      {/* Markdown preview */}
-      <details style={styles.details}>
-        <summary style={{ cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
-          Markdown
-        </summary>
-        <pre style={styles.pre}>{mdStr}</pre>
-      </details>
-    </div>
-  );
-}
-
-function tpsColor(tps: number): string {
-  if (tps >= 50) return '#6ee7b7';
-  if (tps >= 30) return '#fcd34d';
-  return '#f87171';
-}
-
-// ─── Main App ─────────────────────────────────────────────────────────────────
-export function App() {
-  const containerRef = useRef<HTMLElement | null>(null);
-
-  return (
-    <div style={styles.root}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>TenSnap Web Core — Benchmark Suite</h1>
-        <p style={styles.subtitle}>
-          Measures per-tick compute latency (MSPT) and effective TPS across both a simple benchmark runner
-          and the production RendererSession path. Current build mode: <strong>{runtimeMode}</strong>.
-        </p>
-      </header>
-
-      <main style={styles.main}>
-        <ConfigPanel containerRef={containerRef} />
-        <section style={styles.results}>
-          <h2 style={styles.panelTitle}>Results</h2>
-          <ResultsTable />
-        </section>
-      </main>
-
-      {/* Visible container for benchmark canvases */}
-      <section style={styles.canvasSection}>
-        <h2 style={styles.panelTitle}>Live Preview</h2>
-        <div
-          ref={(el) => { containerRef.current = el; }}
-          style={styles.canvasContainer}
-        />
+  return <div style={styles.root}>
+    <header style={styles.header}>
+      <h1 style={styles.title}>TenSnap Web Benchmark</h1>
+      <p style={styles.muted}>Three suites: isolated production Web components, complete transported models, and a controlled random-walk overhead comparison. Build: <strong>{runtimeMode}</strong>.</p>
+    </header>
+    <main style={styles.main}>
+      <section style={styles.panel}>
+        <h2 style={styles.heading}>Configuration</h2>
+        <Field label="Render trigger"><select value={config.renderTrigger} disabled={running} onChange={(event) => setConfig({ renderTrigger: event.target.value as BenchmarkRenderTriggerSelection })} style={styles.input}>
+          <option value="all">All production modes</option><option value="auto">auto</option><option value="requestAnimationFrame">requestAnimationFrame</option><option value="setTimeout">setTimeout</option>
+        </select></Field>
+        <NumberField label="Measured cycles" value={config.frameCount} min={1} max={1000} disabled={running} onChange={(frameCount) => setConfig({ frameCount })} />
+        <NumberField label="Warmup cycles" value={config.warmupCount} min={0} max={200} disabled={running} onChange={(warmupCount) => setConfig({ warmupCount })} />
+        <NumberField label="Web max TPS (0 = unlimited)" value={config.maxTps} min={0} max={1000} disabled={running} onChange={(maxTps) => setConfig({ maxTps })} />
+        <NumberField label="Web max render FPS (0 = unlimited)" value={config.maxRenderFps} min={0} max={240} disabled={running} onChange={(maxRenderFps) => setConfig({ maxRenderFps })} />
+        <h3 style={styles.subheading}>Suites</h3>
+        <Check label="Components (6 no-transport cases)" checked={config.components} disabled={running} onChange={(components) => setConfig({ components })} />
+        <Check label="Complete models (Axelrod, Schelling, Wolf-Sheep)" checked={config.models} disabled={running} onChange={(models) => setConfig({ models })} />
+        <Check label="Random walk (raw / layers / transport)" checked={config.randomWalk} disabled={running} onChange={(randomWalk) => setConfig({ randomWalk })} />
+        <Check label="Run all complete-model size variations" checked={config.allModelVariations} disabled={running} onChange={(allModelVariations) => setConfig({ allModelVariations })} />
+        <div style={styles.actions}><button type="button" onClick={() => void run()} disabled={running} style={styles.primaryButton}>{running ? 'Running…' : 'Run benchmarks'}</button><button type="button" onClick={() => setConfig(defaults)} disabled={running} style={styles.secondaryButton}>Reset</button></div>
+        {progress && <p style={styles.progress}>{progress}</p>}
       </section>
-    </div>
-  );
+      <Results results={results} />
+    </main>
+    <section style={styles.previewSection}><h2 style={styles.heading}>Live benchmark preview</h2><div ref={previewRef} style={styles.preview} /></section>
+  </div>;
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const styles: Record<string, import('preact').JSX.CSSProperties> = {
-  root: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    background: '#0f0f13',
-    color: '#e0e0e0',
-  },
-  header: {
-    padding: '24px 32px 16px',
-    borderBottom: '1px solid #2a2a35',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: '#f3f4f6',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#9ca3af',
-  },
-  main: {
-    display: 'flex',
-    flexDirection: 'row',
-    gap: 24,
-    padding: '24px 32px',
-    flex: 1,
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
-  },
-  panel: {
-    background: '#1a1a22',
-    border: '1px solid #2a2a35',
-    borderRadius: 10,
-    padding: '20px 24px',
-    minWidth: 280,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  results: {
-    flex: 1,
-    background: '#1a1a22',
-    border: '1px solid #2a2a35',
-    borderRadius: 10,
-    padding: '20px 24px',
-    minWidth: 300,
-  },
-  panelTitle: {
-    fontSize: 15,
-    fontWeight: 600,
-    color: '#c7d2fe',
-    marginBottom: 4,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    color: '#9ca3af',
-    marginBottom: 8,
-  },
-  label: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-    fontSize: 13,
-    color: '#d1d5db',
-  },
-  input: {
-    background: '#0f0f18',
-    border: '1px solid #3a3a50',
-    borderRadius: 6,
-    color: '#e0e0e0',
-    padding: '5px 10px',
-    fontSize: 13,
-    outline: 'none',
-    width: '100%',
-  },
-  checkLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    fontSize: 13,
-    color: '#d1d5db',
-    marginBottom: 6,
-    cursor: 'pointer',
-  },
-  button: {
-    marginTop: 8,
-    padding: '9px 18px',
-    background: '#4f46e5',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: 14,
-    transition: 'background 0.2s',
-  },
-  buttonDisabled: {
-    background: '#374151',
-    cursor: 'not-allowed',
-    color: '#9ca3af',
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#6ee7b7',
-    wordBreak: 'break-all',
-    marginTop: 4,
-  },
-  metaText: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginBottom: 12,
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: -4,
-    marginBottom: 4,
-    lineHeight: 1.5,
-  },
-  tableWrapper: {
-    overflowX: 'auto',
-    marginBottom: 16,
-  },
-  table: {
-    borderCollapse: 'collapse',
-    width: '100%',
-    fontSize: 13,
-  },
-  th: {
-    background: '#232330',
-    color: '#9ca3af',
-    padding: '8px 14px',
-    textAlign: 'left',
-    borderBottom: '1px solid #2a2a35',
-    whiteSpace: 'nowrap',
-  },
-  td: {
-    padding: '7px 14px',
-    borderBottom: '1px solid #1e1e28',
-    color: '#e0e0e0',
-  },
-  tdNum: {
-    padding: '7px 14px',
-    borderBottom: '1px solid #1e1e28',
-    textAlign: 'right',
-    color: '#e0e0e0',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  rowEven: {},
-  rowOdd: { background: '#181820' },
-  exportRow: {
-    display: 'flex',
-    gap: 10,
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  exportBtn: {
-    padding: '6px 14px',
-    background: '#232330',
-    border: '1px solid #3a3a50',
-    borderRadius: 7,
-    color: '#d1d5db',
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 500,
-  },
-  canvasSection: {
-    background: '#1a1a22',
-    borderTop: '1px solid #2a2a35',
-    padding: '20px 32px',
-  },
-  canvasContainer: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginTop: 12,
-    minHeight: 40,
-  },
-  emptyState: {
-    padding: '40px 0',
-    textAlign: 'center',
-  },
-  details: {
-    marginBottom: 12,
-  },
-  pre: {
-    background: '#0f0f18',
-    border: '1px solid #2a2a35',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 11,
-    color: '#9ca3af',
-    overflowX: 'auto',
-    maxHeight: 300,
-    overflow: 'auto',
-    marginTop: 8,
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-all',
-  },
+function Field({ label, children }: { label: string; children: ReactNode }) { return <label style={styles.field}><span>{label}</span>{children}</label>; }
+function NumberField(props: { label: string; value: number; min: number; max: number; disabled: boolean; onChange(value: number): void }) { return <Field label={props.label}><input type="number" value={props.value} min={props.min} max={props.max} disabled={props.disabled} onChange={(event) => props.onChange(Number(event.target.value))} style={styles.input} /></Field>; }
+function Check(props: { label: string; checked: boolean; disabled: boolean; onChange(value: boolean): void }) { return <label style={styles.check}><input type="checkbox" checked={props.checked} disabled={props.disabled} onChange={(event) => props.onChange(event.target.checked)} />{props.label}</label>; }
+
+function Results({ results }: { results: BenchmarkStats[] }) {
+  const json = useMemo(() => resultsToJson(results), [results]);
+  const markdown = useMemo(() => resultsToMarkdown(results), [results]);
+  return <section style={{ ...styles.panel, ...styles.results }}><h2 style={styles.heading}>Results</h2>{results.length === 0 ? <p style={styles.muted}>No results yet.</p> : <>
+    <div style={styles.tableWrap}><table style={styles.table}><thead><tr>{['Suite', 'Variant', 'Trigger', 'Case', 'Completed', 'Stop', 'Cycle mean', 'Cycle p95', 'TPS', 'Mutation mean', 'Mutation p95', 'vs raw'].map((label) => <th key={label} style={styles.cell}>{label}</th>)}</tr></thead>
+      <tbody>{results.map((result, index) => <tr key={`${result.category}-${result.caseName}-${result.variant}-${result.renderTriggerMode}-${index}`}>
+        <td style={styles.cell}>{result.category}</td><td style={styles.cell}>{result.variant ?? '—'}</td><td style={styles.cell}>{result.renderTriggerMode}</td><td style={styles.cell}>{result.caseName}</td>
+        <td style={styles.number}>{result.completedFrames}/{result.requestedFrames}</td><td style={styles.cell}>{result.stopReason}</td><td style={styles.number}>{result.meanMs}</td><td style={styles.number}>{result.p95Ms}</td><td style={styles.number}>{result.tps}</td><td style={styles.number}>{result.mutation?.meanMs ?? '—'}</td><td style={styles.number}>{result.mutation?.p95Ms ?? '—'}</td><td style={styles.number}>{result.overheadVsRawPercent === undefined ? '—' : `${result.overheadVsRawPercent}%`}</td>
+      </tr>)}</tbody></table></div>
+    <div style={styles.actions}><button type="button" style={styles.secondaryButton} onClick={() => void navigator.clipboard.writeText(json)}>Copy JSON</button><button type="button" style={styles.secondaryButton} onClick={() => download('tensnap-web-benchmark.json', json, 'application/json')}>Download JSON</button><button type="button" style={styles.secondaryButton} onClick={() => void navigator.clipboard.writeText(markdown)}>Copy Markdown</button><button type="button" style={styles.secondaryButton} onClick={() => download('tensnap-web-benchmark.md', markdown, 'text/markdown')}>Download Markdown</button></div>
+  </>}</section>;
+}
+
+const styles: Record<string, CSSProperties> = {
+  root: { minHeight: '100vh', background: '#0f0f13', color: '#e5e7eb', fontFamily: 'system-ui, sans-serif' }, header: { padding: '24px 32px', borderBottom: '1px solid #2d2d38' }, title: { margin: 0, fontSize: 24 }, muted: { color: '#9ca3af', fontSize: 13, lineHeight: 1.5 }, main: { display: 'flex', gap: 24, padding: 24, alignItems: 'flex-start', flexWrap: 'wrap' }, panel: { background: '#1a1a22', border: '1px solid #2d2d38', borderRadius: 10, padding: 20, minWidth: 320 }, results: { flex: 1, overflow: 'hidden' }, heading: { margin: '0 0 14px', fontSize: 16, color: '#c7d2fe' }, subheading: { margin: '16px 0 8px', fontSize: 13, color: '#c7d2fe' }, field: { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 11, fontSize: 13 }, input: { background: '#101018', color: '#e5e7eb', border: '1px solid #3f3f50', borderRadius: 6, padding: '7px 9px' }, check: { display: 'flex', gap: 8, alignItems: 'center', margin: '9px 0', fontSize: 13 }, actions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }, primaryButton: { padding: '8px 14px', border: 0, borderRadius: 7, background: '#4f46e5', color: 'white', fontWeight: 600 }, secondaryButton: { padding: '7px 12px', border: '1px solid #3f3f50', borderRadius: 7, background: '#242430', color: '#e5e7eb' }, progress: { marginBottom: 0, color: '#6ee7b7', fontSize: 12, maxWidth: 420 }, tableWrap: { overflowX: 'auto' }, table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 }, cell: { padding: '8px 10px', borderBottom: '1px solid #30303b', textAlign: 'left', whiteSpace: 'nowrap' }, number: { padding: '8px 10px', borderBottom: '1px solid #30303b', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }, previewSection: { padding: 24, borderTop: '1px solid #2d2d38' }, preview: { minHeight: 80, overflow: 'auto', background: '#f5f5f5', borderRadius: 8 },
 };

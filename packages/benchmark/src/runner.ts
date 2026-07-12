@@ -1,282 +1,140 @@
-import {
+import type { RendererSessionOutboundDetail, RunStatus, RuntimeTaskSnapshot } from '@tensnap/core/runtime';
+import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
+import type { ActionStartPayload } from '@tensnap/protocol';
+import type { RenderTriggerMode } from '@tensnap/web/store';
+import type {
   BenchmarkCase,
   BenchmarkRunOptions,
   BenchmarkRuntimeMode,
-  BenchmarkRunnerMode,
-  BenchmarkSchedulerMode,
   BenchmarkStats,
+  MetricSummary,
+  MountedComponentBenchmark,
+  MountedModelBenchmark,
 } from './types';
-import type {
-  ProtocolEncoding,
-  RendererToSimulatorMessage,
-} from '@tensnap/protocol';
-import type {
-  ISimulatorTransport,
-  TransportConnectionState,
-  TransportEventHandler,
-  TransportEventMap,
-} from '@tensnap/core';
-import { RendererSession } from '@tensnap/core/runtime';
-import {
-  BrowserRunRenderBarrier,
-  type RenderTriggerMode,
-} from '@tensnap/core/runtime/browser';
 
-const DEFAULT_BROWSER_LOOP_MAX_TPS = 300;
-const DEFAULT_BROWSER_LOOP_MAX_RENDER_FPS = 120;
-const STEP_ACTION_ID = 'step';
+const DEFAULT_MAX_TPS = 300;
+const DEFAULT_MAX_RENDER_FPS = 120;
 
-type BenchmarkTimingResult = {
+interface TimingResult {
   timings: number[];
-  runDurationMs: number;
-};
-
-/**
- * Yield one browser frame (or one macro task when rAF is unavailable).
- *
- * Even web-scenario cases need a frame boundary so renderer-side rAF work can
- * progress between ticks; otherwise long async loops may starve animation
- * callbacks and appear as a deadlock.
- */
-function waitForRaf(): Promise<number> {
-  return new Promise((resolve) => requestAnimationFrame(resolve));
+  mutationTimings?: number[];
+  completedFrames: number;
+  stopReason: string;
 }
 
-function waitForTimeout(): Promise<number> {
-  return new Promise((resolve) => setTimeout(() => resolve(performance.now()), 0));
-}
-
-function waitFrame(mode: BenchmarkSchedulerMode): Promise<number> {
-  if (mode === 'timeout') {
-    return waitForTimeout();
-  }
-
-  if (mode === 'raf') {
-    if (typeof requestAnimationFrame !== 'function') {
-      return waitForTimeout();
-    }
-    return waitForRaf();
-  }
-
-  if (typeof requestAnimationFrame !== 'function') {
-    return waitForTimeout();
-  }
-  return waitForRaf();
-}
-
-function mapSchedulerModeToRenderTriggerMode(mode: BenchmarkSchedulerMode): RenderTriggerMode {
-  if (mode === 'raf') {
-    return 'requestAnimationFrame';
-  }
-  if (mode === 'timeout') {
-    return 'setTimeout';
-  }
-  return 'auto';
-}
-
-async function runBenchmarkWithSimpleLoop(
-  benchCase: BenchmarkCase,
+async function measureModelRun(
+  mounted: MountedModelBenchmark,
+  actionId: string,
   frames: number,
   warmupFrames: number,
-  schedulerMode: BenchmarkSchedulerMode,
   onProgress?: (done: number, total: number) => void,
-): Promise<BenchmarkTimingResult> {
-  const totalFrames = warmupFrames + frames;
+): Promise<TimingResult> {
+  const session = mounted.session;
+  const totalSteps = frames + warmupFrames;
   const timings: number[] = [];
-  let runStartedAt: number | null = null;
-  let frameIndex = 0;
+  let dispatchIndex = 0;
+  let activeDispatch: { index: number; startedAt: number } | null = null;
 
-  while (frameIndex < totalFrames) {
-    const isMeasuredFrame = frameIndex >= warmupFrames;
-    if (isMeasuredFrame && runStartedAt == null) {
-      runStartedAt = performance.now();
+  return new Promise<TimingResult>((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      session.removeEventListener('outbound', onOutbound);
+      session.removeEventListener('run:status', onRunStatus);
+    };
+    const settle = (result?: TimingResult, error?: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error !== undefined) reject(error);
+      else resolve(result!);
+    };
+    const completeActiveCycle = (completedAt: number) => {
+      if (!activeDispatch) return;
+      if (activeDispatch.index >= warmupFrames) {
+        timings.push(completedAt - activeDispatch.startedAt);
+        onProgress?.(timings.length, frames);
+      } else {
+        onProgress?.(0, frames);
+      }
+      activeDispatch = null;
+    };
+    const onOutbound = ((event: Event) => {
+      const detail = (event as CustomEvent<RendererSessionOutboundDetail>).detail;
+      if (detail.message.type !== 'action_start') return;
+      const payload = detail.message.payload as ActionStartPayload;
+      if (payload.id !== actionId) return;
+      const now = performance.now();
+      completeActiveCycle(now);
+      activeDispatch = { index: dispatchIndex, startedAt: now };
+      dispatchIndex += 1;
+    }) as EventListener;
+    const onRunStatus = ((event: Event) => {
+      const status = (event as CustomEvent<RunStatus | null>).detail;
+      if (!status || status.id !== session.run.status?.id || status.state === 'running' || status.inFlight) return;
+      completeActiveCycle(performance.now());
+      settle({
+        timings,
+        completedFrames: status.completedSteps,
+        stopReason: status.stopReason ?? status.state,
+      });
+    }) as EventListener;
+
+    session.addEventListener('outbound', onOutbound);
+    session.addEventListener('run:status', onRunStatus);
+    try {
+      session.run.start({ mode: 'bounded', actionId, maxSteps: totalSteps, record: false });
+    } catch (error) {
+      settle(undefined, error);
     }
+  });
+}
 
-    const t0 = performance.now();
-    await benchCase.tick(frameIndex);
-    const computeElapsed = performance.now() - t0;
-    if (isMeasuredFrame) {
-      timings.push(computeElapsed);
-    }
+async function measureComponentRun(
+  mounted: MountedComponentBenchmark,
+  frames: number,
+  warmupFrames: number,
+  options: { renderTriggerMode: RenderTriggerMode; maxTps: number; maxRenderFps: number },
+  onProgress?: (done: number, total: number) => void,
+): Promise<TimingResult> {
+  const barrier = new BrowserRunRenderBarrier(() => ({
+    mode: options.renderTriggerMode,
+    maxTps: options.maxTps,
+    maxRenderFps: options.maxRenderFps,
+  }));
+  const totalFrames = frames + warmupFrames;
+  const timings: number[] = [];
+  const mutationTimings: number[] = [];
 
-    await waitFrame(schedulerMode);
-
-    if (isMeasuredFrame) {
-      onProgress?.(frameIndex - warmupFrames + 1, frames);
+  for (let frameIndex = 0; frameIndex < totalFrames; frameIndex += 1) {
+    const cycleStartedAt = performance.now();
+    const mutationStartedAt = performance.now();
+    await mounted.tick(frameIndex);
+    const mutationElapsed = performance.now() - mutationStartedAt;
+    const task: RuntimeTaskSnapshot = {
+      id: `component-${frameIndex}`,
+      key: 'component-render',
+      continuous: true,
+      stage: 'applied',
+      enqueuedAt: cycleStartedAt,
+      dispatchedAt: cycleStartedAt,
+      completedAt: performance.now(),
+      appliedAt: performance.now(),
+      renderedAt: null,
+      continueRequested: true,
+    };
+    await barrier.wait(task);
+    if (frameIndex >= warmupFrames) {
+      timings.push(performance.now() - cycleStartedAt);
+      mutationTimings.push(mutationElapsed);
+      onProgress?.(timings.length, frames);
     } else {
       onProgress?.(0, frames);
     }
-
-    frameIndex += 1;
   }
 
-  const runEndedAt = performance.now();
-  return {
-    timings,
-    runDurationMs: runStartedAt == null
-      ? 1
-      : Math.max(1, runEndedAt - runStartedAt),
-  };
+  return { timings, mutationTimings, completedFrames: totalFrames, stopReason: 'completed' };
 }
 
-function createBenchmarkTransport(
-  send: (message: RendererToSimulatorMessage) => void,
-): ISimulatorTransport {
-  return {
-    connectionId: 'benchmark://renderer-session',
-    transportKind: 'benchmark',
-    encoding: 'json' as ProtocolEncoding,
-    connectionState: 'open' as TransportConnectionState,
-    isConnected: true,
-    connect: async () => {},
-    disconnect: () => {},
-    destroy: () => {},
-    on: <K extends keyof TransportEventMap>(
-      _type: K,
-      _handler: TransportEventHandler<TransportEventMap[K]>,
-    ) => {},
-    off: <K extends keyof TransportEventMap>(
-      _type: K,
-      _handler?: TransportEventHandler<TransportEventMap[K]>,
-    ) => {},
-    send,
-  };
-}
-
-async function runBenchmarkWithRendererSession(
-  benchCase: BenchmarkCase,
-  frames: number,
-  warmupFrames: number,
-  schedulerMode: BenchmarkSchedulerMode,
-  onProgress?: (done: number, total: number) => void,
-): Promise<BenchmarkTimingResult> {
-  const totalFrames = warmupFrames + frames;
-  const timings: number[] = [];
-  const renderBarrier = new BrowserRunRenderBarrier(() => ({
-    mode: mapSchedulerModeToRenderTriggerMode(schedulerMode),
-    maxTps: DEFAULT_BROWSER_LOOP_MAX_TPS,
-    maxRenderFps: DEFAULT_BROWSER_LOOP_MAX_RENDER_FPS,
-  }));
-  const session = new RendererSession({ run: { renderBarrier } });
-  const runtime = benchCase.runtime;
-
-  let frameIndex = 0;
-  let runStartedAt: number | null = null;
-  let runEndedAt: number | null = null;
-  let settled = false;
-
-  try {
-    const completion = await new Promise<BenchmarkTimingResult>((resolve, reject) => {
-      const settle = (result?: BenchmarkTimingResult, error?: unknown) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        if (error !== undefined) {
-          reject(error);
-          return;
-        }
-        resolve(result ?? {
-          timings,
-          runDurationMs: runStartedAt == null || runEndedAt == null
-            ? 1
-            : Math.max(1, runEndedAt - runStartedAt),
-        });
-      };
-
-      const finalize = () => {
-        runEndedAt = performance.now();
-        settle();
-      };
-
-      session.attachTransport(createBenchmarkTransport((message) => {
-        void (async () => {
-          if (settled || message.type !== 'action_start') {
-            return;
-          }
-
-          const currentFrame = frameIndex;
-          if (currentFrame >= totalFrames) {
-            return;
-          }
-
-          const isMeasuredFrame = currentFrame >= warmupFrames;
-          if (isMeasuredFrame && runStartedAt == null) {
-            runStartedAt = performance.now();
-          }
-
-          const t0 = performance.now();
-          try {
-            await benchCase.tick(currentFrame);
-            await runtime?.applySessionStep?.(session, currentFrame);
-          } catch (error) {
-            settle(undefined, error);
-            return;
-          }
-
-          const computeElapsed = performance.now() - t0;
-          if (isMeasuredFrame) {
-            timings.push(computeElapsed);
-          }
-
-          frameIndex += 1;
-          if (isMeasuredFrame) {
-            onProgress?.(frameIndex - warmupFrames, frames);
-          } else {
-            onProgress?.(0, frames);
-          }
-
-          const payload = message.payload as { id: string; tick_id?: string };
-          const shouldContinue = frameIndex < totalFrames;
-
-          session.handleIncoming({
-            type: 'action_end',
-            payload: {
-              id: payload.id,
-              tick_id: payload.tick_id,
-              continue: shouldContinue,
-            },
-          });
-
-          if (!shouldContinue) {
-            if (typeof queueMicrotask === 'function') {
-              queueMicrotask(finalize);
-            } else {
-              window.setTimeout(finalize, 0);
-            }
-          }
-        })();
-      }));
-
-      runtime?.setupSession?.(session);
-      if (runtime?.onCommit) {
-        session.addEventListener('commit', () => runtime.onCommit?.(session));
-      }
-      session.run.start({
-        mode: 'bounded',
-        actionId: STEP_ACTION_ID,
-        maxSteps: totalFrames,
-        stopWhen: runtime?.stopWhen,
-        record: runtime?.record,
-      });
-    });
-
-    return completion;
-  } finally {
-    session.destroy();
-  }
-}
-
-/**
- * Run a benchmark case for `frames` ticks.
- *
- * Per-tick protocol:
- *   1. `tick(frameIndex)` — update data/model
- *   2. For synthetic cases only: `requestAnimationFrame` — yield to browser to paint
- *   3. Record compute time and wall-clock throughput
- *
- * The first `warmupFrames` frames are discarded from timing.
- */
 export async function runBenchmark(
   benchCase: BenchmarkCase,
   container: HTMLElement,
@@ -284,134 +142,95 @@ export async function runBenchmark(
   warmupFrames = 10,
   options: BenchmarkRunOptions = {},
 ): Promise<BenchmarkStats> {
-  const schedulerMode = options.schedulerMode ?? 'auto';
-  const runtimeMode = options.runtimeMode ?? 'development';
-  const runnerMode = options.runnerMode ?? 'simple';
+  if (!Number.isInteger(frames) || frames < 1) throw new Error('frames must be a positive integer.');
+  if (!Number.isInteger(warmupFrames) || warmupFrames < 0) throw new Error('warmupFrames must be a non-negative integer.');
 
-  await benchCase.setup(container);
+  const renderTriggerMode = options.renderTriggerMode ?? 'auto';
+  const maxTps = options.maxTps ?? DEFAULT_MAX_TPS;
+  const maxRenderFps = options.maxRenderFps ?? DEFAULT_MAX_RENDER_FPS;
+  const runtimeMode = options.runtimeMode ?? 'development';
+  const mounted = await benchCase.mount(container, { renderTriggerMode, maxTps, maxRenderFps });
 
   try {
-    const { timings, runDurationMs } = runnerMode === 'renderer-session'
-      ? await runBenchmarkWithRendererSession(
-        benchCase,
-        frames,
-        warmupFrames,
-        schedulerMode,
-        options.onProgress,
-      )
-      : await runBenchmarkWithSimpleLoop(
-        benchCase,
-        frames,
-        warmupFrames,
-        schedulerMode,
-        options.onProgress,
-      );
-
-    return computeStats(
-      benchCase.name,
-      benchCase.suite,
-      benchCase.config,
-      runnerMode,
-      schedulerMode,
-      runtimeMode,
-      timings,
-      runDurationMs,
-    );
+    const result = mounted.kind === 'model'
+      ? await measureModelRun(mounted, benchCase.actionId ?? 'start', frames, warmupFrames, options.onProgress)
+      : await measureComponentRun(mounted, frames, warmupFrames, { renderTriggerMode, maxTps, maxRenderFps }, options.onProgress);
+    return computeStats(benchCase, renderTriggerMode, maxTps, maxRenderFps, runtimeMode, frames + warmupFrames, warmupFrames, result);
   } finally {
-    await benchCase.teardown();
+    mounted.destroy();
   }
 }
 
-function computeStats(
-  caseName: string,
-  suite: 'synthetic' | 'web-scenario',
-  config: Record<string, unknown>,
-  runnerMode: BenchmarkRunnerMode,
-  schedulerMode: BenchmarkSchedulerMode,
-  runtimeMode: BenchmarkRuntimeMode,
-  timings: number[],
-  runDurationMs: number,
-): BenchmarkStats {
+function summarize(timings: number[]): MetricSummary {
+  if (timings.length === 0) {
+    return { totalMs: 0, meanMs: 0, medianMs: 0, minMs: 0, maxMs: 0, p95Ms: 0, tps: 0 };
+  }
   const sorted = [...timings].sort((a, b) => a - b);
-  const n = sorted.length;
-  const total = sorted.reduce((s, v) => s + v, 0);
-  const mean = total / n;
-  const median = n % 2 === 0
-    ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2
-    : sorted[Math.floor(n / 2)];
-  const p95 = sorted[Math.floor(n * 0.95)];
-  const min = sorted[0];
-  const max = sorted[n - 1];
-  const tps = (n * 1000) / runDurationMs;
-
+  const total = sorted.reduce((sum, value) => sum + value, 0);
+  const round2 = (value: number) => Math.round(value * 100) / 100;
+  const median = sorted.length % 2 === 0
+    ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+    : sorted[Math.floor(sorted.length / 2)];
+  const p95 = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)];
   return {
-    caseName,
-    suite,
-    config,
-    runnerMode,
-    schedulerMode,
-    runtimeMode,
-    frames: n,
-    totalMs: Math.round(total * 100) / 100,
-    meanMs: Math.round(mean * 100) / 100,
-    medianMs: Math.round(median * 100) / 100,
-    minMs: Math.round(min * 100) / 100,
-    maxMs: Math.round(max * 100) / 100,
-    p95Ms: Math.round(p95 * 100) / 100,
-    tps: Math.round(tps * 10) / 10,
-    timings: timings.map((v) => Math.round(v * 100) / 100),
+    totalMs: round2(total),
+    meanMs: round2(total / sorted.length),
+    medianMs: round2(median),
+    minMs: round2(sorted[0]),
+    maxMs: round2(sorted[sorted.length - 1]),
+    p95Ms: round2(p95),
+    tps: Math.round((sorted.length * 1000 / Math.max(0.001, total)) * 10) / 10,
   };
 }
 
-/** Serialize results as a pretty-printed JSON string. */
+export function computeStats(
+  benchCase: Pick<BenchmarkCase, 'name' | 'category' | 'variant' | 'config'>,
+  renderTriggerMode: RenderTriggerMode,
+  maxTps: number,
+  maxRenderFps: number,
+  runtimeMode: BenchmarkRuntimeMode,
+  requestedFrames: number,
+  warmupFrames: number,
+  result: TimingResult,
+): BenchmarkStats {
+  const cycle = summarize(result.timings);
+  const mutation = result.mutationTimings
+    ? { ...summarize(result.mutationTimings), timings: result.mutationTimings.map((value) => Math.round(value * 100) / 100) }
+    : undefined;
+  return {
+    ...cycle,
+    caseName: benchCase.name,
+    category: benchCase.category,
+    variant: benchCase.variant,
+    config: benchCase.config,
+    host: 'tensnap-web',
+    renderTriggerMode,
+    maxTps,
+    maxRenderFps,
+    runtimeMode,
+    requestedFrames,
+    completedFrames: result.completedFrames,
+    warmupFrames,
+    measuredFrames: result.timings.length,
+    stopReason: result.stopReason,
+    timings: result.timings.map((value) => Math.round(value * 100) / 100),
+    mutation,
+  };
+}
+
 export function resultsToJson(results: BenchmarkStats[]): string {
   return JSON.stringify(results, null, 2);
 }
 
-/** Serialize results as a Markdown table grouped by suite. */
 export function resultsToMarkdown(results: BenchmarkStats[]): string {
-  const date = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-  const runtimeModes = Array.from(new Set(results.map((result) => result.runtimeMode)));
-  const runtimeLabel = runtimeModes.length === 1 ? runtimeModes[0] : runtimeModes.join(', ');
-  const runnerModes = Array.from(new Set(results.map((result) => result.runnerMode)));
-  const runnerLabel = runnerModes.length === 1 ? runnerModes[0] : runnerModes.join(', ');
-  let header = `# TenSnap Web Core — Benchmark Results\n\n_Generated: ${date}_\n\n_Runtime: ${runtimeLabel}_\n\n_Runner: ${runnerLabel}_\n\n`;
-
-  const synthetic = results.filter((r) => r.suite === 'synthetic');
-  const webScenario = results.filter((r) => r.suite === 'web-scenario');
-
-  const tableHeader = [
-    '| Suite | Runner | Scheduler | Runtime | Case | Frames | Mean (ms) | Median (ms) | Min (ms) | Max (ms) | p95 (ms) | TPS |',
-    '|-------|--------|-----------|---------|------|-------:|----------:|------------:|---------:|---------:|---------:|----:|',
-  ].join('\n');
-
-  function buildRows(rows: BenchmarkStats[]): string {
-    return rows
-      .map(
-        (r) =>
-          `| ${r.suite} | ${r.runnerMode} | ${r.schedulerMode} | ${r.runtimeMode} | ${r.caseName} | ${r.frames} | ${r.meanMs} | ${r.medianMs} | ${r.minMs} | ${r.maxMs} | ${r.p95Ms} | ${r.tps} |`
-      )
-      .join('\n');
-  }
-
-  if (synthetic.length > 0) {
-    header += '\n## Synthetic Suite\n\n';
-    header += tableHeader + '\n' + buildRows(synthetic) + '\n';
-  }
-
-  if (webScenario.length > 0) {
-    header += '\n## Web-Scenario Suite\n\n';
-    header += tableHeader + '\n' + buildRows(webScenario) + '\n';
-  }
-
-  const configBlock =
-    '\n## Configurations\n\n' +
-    results
-      .map(
-        (r) =>
-          `### [${r.suite}] ${r.caseName} (${r.runnerMode}, ${r.schedulerMode}, ${r.runtimeMode})\n\n\`\`\`json\n${JSON.stringify(r.config, null, 2)}\n\`\`\``
-      )
-      .join('\n\n');
-
-  return header + configBlock;
+  const generatedAt = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const tableHeader = '| Category | Variant | Trigger | Case | Completed / requested | Stop | Cycle mean | Cycle p95 | Cycle TPS | Mutation mean | Mutation p95 | vs raw |';
+  const divider = '|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|';
+  const rows = results.map((result) => (
+    `| ${result.category} | ${result.variant ?? '-'} | ${result.renderTriggerMode} | ${result.caseName} | ${result.completedFrames} / ${result.requestedFrames} | ${result.stopReason} | ${result.meanMs} | ${result.p95Ms} | ${result.tps} | ${result.mutation?.meanMs ?? '-'} | ${result.mutation?.p95Ms ?? '-'} | ${result.overheadVsRawPercent === undefined ? '-' : `${result.overheadVsRawPercent}%`} |`
+  )).join('\n');
+  const configurations = results.map((result) => (
+    `### [${result.category}] ${result.caseName}${result.variant ? ` — ${result.variant}` : ''}\n\n\`\`\`json\n${JSON.stringify(result.config, null, 2)}\n\`\`\``
+  )).join('\n\n');
+  return `# TenSnap Web Benchmark\n\n_Generated: ${generatedAt}_\n\nCycle latency is shared by all suites. Component and direct-layer cases additionally report synchronous mutation cost. Model runs report their actual stop reason and completed steps.\n\n${tableHeader}\n${divider}\n${rows}\n\n## Configurations\n\n${configurations}`;
 }

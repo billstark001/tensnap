@@ -1,198 +1,77 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resultsToMarkdown, runBenchmark } from './runner';
-import type { BenchmarkCase, BenchmarkStats } from './types';
+import { describe, expect, it, vi } from 'vitest';
+import type { RendererSession, RendererSessionOutboundDetail, RunStatus } from '@tensnap/core/runtime';
+import type { BenchmarkCase } from './types';
 import { assertBenchmarkRegressionGate } from './regression-gates';
-import { createReactZustandCommitCase } from './cases/reactZustandCommit';
+import { computeStats, resultsToMarkdown, runBenchmark } from './runner';
 
-function createBenchCase(): BenchmarkCase {
-  return {
-    name: 'Test Case',
-    suite: 'synthetic',
-    config: { size: 'small' },
-    setup() {
-      return;
-    },
-    tick() {
-      return;
-    },
-    teardown() {
-      return;
+function createFakeModelCase(options: { stopReason?: RunStatus['stopReason']; stopAt?: number } = {}) {
+  const destroy = vi.fn();
+  const benchCase: BenchmarkCase = {
+    name: 'Production path test', category: 'model', config: { model: 'test' }, actionId: 'start',
+    async mount() {
+      const events = new EventTarget();
+      let currentStatus: RunStatus | null = null;
+      const run = {
+        get status() { return currentStatus; },
+        start(spec: { actionId: string; maxSteps: number }) {
+          const completedSteps = Math.min(options.stopAt ?? spec.maxSteps, spec.maxSteps);
+          currentStatus = { id: 'run-1', spec: { mode: 'bounded', actionId: spec.actionId, maxSteps: spec.maxSteps }, state: 'running', completedSteps: 0, startedAt: 0, pauseRequested: false, inFlight: true };
+          for (let index = 0; index < completedSteps; index += 1) {
+            events.dispatchEvent(new CustomEvent<RendererSessionOutboundDetail>('outbound', { detail: {
+              origin: 'optimistic-control', message: { type: 'action_start', payload: { id: spec.actionId, tick_id: `tick-${index}` } },
+            } }));
+          }
+          currentStatus = { ...currentStatus, state: 'stopped', completedSteps, stopReason: options.stopReason ?? 'max-steps', inFlight: false };
+          events.dispatchEvent(new CustomEvent('run:status', { detail: currentStatus }));
+          return currentStatus;
+        },
+      };
+      Object.defineProperty(events, 'run', { value: run });
+      return { kind: 'model' as const, session: events as unknown as RendererSession, destroy };
     },
   };
+  return { benchCase, destroy };
 }
 
 describe('runBenchmark', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it('uses requestAnimationFrame in auto mode when available', async () => {
-    const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
-      callback(performance.now());
-      return 1;
+  it('measures action cycles from the production session boundary and discards warmup', async () => {
+    const { benchCase, destroy } = createFakeModelCase();
+    const stats = await runBenchmark(benchCase, document.createElement('div'), 3, 2, {
+      renderTriggerMode: 'requestAnimationFrame', maxTps: 60, maxRenderFps: 60,
     });
-
-    const stats = await runBenchmark(
-      createBenchCase(),
-      document.createElement('div'),
-      1,
-      0,
-      { schedulerMode: 'auto', runtimeMode: 'development' },
-    );
-
-    expect(rafSpy).toHaveBeenCalled();
-    expect(stats.runnerMode).toBe('simple');
-    expect(stats.schedulerMode).toBe('auto');
-    expect(stats.runtimeMode).toBe('development');
+    expect(stats).toMatchObject({
+      category: 'model', host: 'tensnap-web', requestedFrames: 5,
+      completedFrames: 5, measuredFrames: 3, stopReason: 'max-steps',
+    });
+    expect(destroy).toHaveBeenCalledOnce();
   });
 
-  it('uses setTimeout in timeout mode', async () => {
-    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: TimerHandler) => {
-      if (typeof callback === 'function') {
-        callback();
-      }
-      return 1 as unknown as ReturnType<typeof setTimeout>;
-    }) as unknown as typeof setTimeout);
-
-    const stats = await runBenchmark(
-      createBenchCase(),
-      document.createElement('div'),
-      1,
-      0,
-      { schedulerMode: 'timeout', runtimeMode: 'production' },
-    );
-
-    expect(timeoutSpy).toHaveBeenCalled();
-    expect(stats.runnerMode).toBe('simple');
-    expect(stats.schedulerMode).toBe('timeout');
-    expect(stats.runtimeMode).toBe('production');
-  });
-
-  it('runs with the production RendererSession implementation', async () => {
-    vi.useFakeTimers();
-
-    let tickCount = 0;
-    const statsPromise = runBenchmark(
-      {
-        ...createBenchCase(),
-        tick() {
-          tickCount += 1;
-        },
-      },
-      document.createElement('div'),
-      2,
-      0,
-      { runnerMode: 'renderer-session', schedulerMode: 'timeout', runtimeMode: 'development' },
-    );
-
-    await vi.runAllTimersAsync();
-    const stats = await statsPromise;
-
-    expect(tickCount).toBe(2);
-    expect(stats.runnerMode).toBe('renderer-session');
-    expect(stats.schedulerMode).toBe('timeout');
-  });
-
-  it('covers recording, long-history conditions, trajectory updates, and host commits in one shared session', async () => {
-    vi.useFakeTimers();
-    let commits = 0;
-    let recordedFrames = 0;
-    const statsPromise = runBenchmark(
-      {
-        ...createBenchCase(),
-        runtime: {
-          record: { maxSteps: 10, maxBytes: 1024 * 1024 },
-          stopWhen: 'charts.history >= 3 && metadata.tick >= 3',
-          setupSession(session) {
-            session.handleIncoming({ type: 'chart_create', payload: { id: 'history', label: 'History' } });
-            session.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-            session.handleIncoming({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
-            session.handleIncoming({ type: 'env_layer_create', payload: {
-              env_id: 'main', layer_id: 'trails', layer_type: 'trajectory', dependency_layer_ids: { agent: 'agents' },
-            } });
-            session.handleIncoming({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } });
-          },
-          applySessionStep(session, frame) {
-            session.handleIncoming({ type: 'metadata_update', payload: { tick: frame + 1 } });
-            session.handleIncoming({ type: 'chart_update', payload: { updates: [{ id: 'history', time: frame + 1, value: frame + 1 }] } });
-            session.handleIncoming({ type: 'item_update', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: frame + 1, y: frame + 1 }] } });
-            recordedFrames = session.recorder.current?.frames.length ?? 0;
-          },
-          onCommit() { commits += 1; },
-        },
-      },
-      document.createElement('div'),
-      3,
-      0,
-      { runnerMode: 'renderer-session', schedulerMode: 'timeout' },
-    );
-
-    await vi.runAllTimersAsync();
-    const stats = await statsPromise;
-    expect(stats.frames).toBe(3);
-    expect(commits).toBeGreaterThan(3);
-    expect(recordedFrames).toBeGreaterThan(0);
-  });
-
-  it('runs a real React/Zustand commit from RendererSession messages', async () => {
-    vi.useFakeTimers();
-    const container = document.createElement('div');
-    const statsPromise = runBenchmark(
-      createReactZustandCommitCase(),
-      container,
-      2,
-      0,
-      { runnerMode: 'renderer-session', schedulerMode: 'timeout' },
-    );
-
-    await vi.runAllTimersAsync();
-    const stats = await statsPromise;
-    expect(stats.frames).toBe(2);
-    expect(container.querySelector('[data-benchmark="zustand-react-commit"]')).toBeNull();
+  it('returns partial metrics when the simulator stops early', async () => {
+    const { benchCase, destroy } = createFakeModelCase({ stopReason: 'simulator', stopAt: 93 });
+    const stats = await runBenchmark(benchCase, document.createElement('div'), 100, 10);
+    expect(stats).toMatchObject({
+      requestedFrames: 110, completedFrames: 93, measuredFrames: 83, stopReason: 'simulator',
+    });
+    expect(destroy).toHaveBeenCalledOnce();
   });
 });
 
-describe('assertBenchmarkRegressionGate', () => {
-  it('rejects a p95 regression or throughput below the configured floor', () => {
+describe('reports and regression gates', () => {
+  it('reports shared cycle and component mutation metrics', () => {
+    const stats = computeStats(
+      { name: 'Case', category: 'component', config: {} },
+      'setTimeout', 300, 120, 'production', 4, 1,
+      { timings: [2, 4, 3], mutationTimings: [0.5, 0.7, 0.6], completedFrames: 4, stopReason: 'completed' },
+    );
+    const markdown = resultsToMarkdown([stats]);
+    expect(stats.mutation).toMatchObject({ meanMs: 0.6, p95Ms: 0.7 });
+    expect(markdown).toContain('| component | - | setTimeout | Case | 4 / 4 | completed |');
+  });
+
+  it('rejects p95 and throughput regressions', () => {
     expect(() => assertBenchmarkRegressionGate(
-      { name: 'recording-off', maxP95RegressionPercent: 2, minTps: 100 },
-      { p95Ms: 1, tps: 200 },
-      { p95Ms: 1.03, tps: 99 },
+      { name: 'web-e2e', maxP95RegressionPercent: 2, minTps: 100 },
+      { p95Ms: 1, tps: 200 }, { p95Ms: 1.03, tps: 99 },
     )).toThrow(/p95 regressed/);
-    expect(() => assertBenchmarkRegressionGate(
-      { name: 'recording-off', maxP95RegressionPercent: 5, minTps: 100 },
-      { p95Ms: 1, tps: 200 },
-      { p95Ms: 1.03, tps: 99 },
-    )).toThrow(/throughput/);
-  });
-});
-
-describe('resultsToMarkdown', () => {
-  it('includes scheduler and runtime metadata in reports', () => {
-    const markdown = resultsToMarkdown([
-      {
-        caseName: 'Test Case',
-        suite: 'synthetic',
-        config: { size: 'small' },
-        runnerMode: 'renderer-session',
-        schedulerMode: 'raf',
-        runtimeMode: 'production',
-        frames: 10,
-        totalMs: 12,
-        meanMs: 1.2,
-        medianMs: 1.1,
-        minMs: 1,
-        maxMs: 1.5,
-        p95Ms: 1.4,
-        tps: 60,
-        timings: [1, 1.1, 1.2],
-      } satisfies BenchmarkStats,
-    ]);
-
-    expect(markdown).toContain('Runtime: production');
-    expect(markdown).toContain('Runner: renderer-session');
-    expect(markdown).toContain('| Suite | Runner | Scheduler | Runtime | Case |');
-    expect(markdown).toContain('| synthetic | renderer-session | raf | production | Test Case |');
   });
 });

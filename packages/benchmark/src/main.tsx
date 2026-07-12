@@ -1,6 +1,7 @@
 import './runtime/leafer-runtime';
 
-import { render } from 'preact';
+import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import '@tensnap/web-common/styles/global.css';
 
-render(<App />, document.getElementById('app')!);
+createRoot(document.getElementById('app')!).render(<App />);

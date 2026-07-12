@@ -1,10 +1,24 @@
 import { defineConfig } from 'vite';
-import preact from '@preact/preset-vite';
+import react from '@vitejs/plugin-react-swc';
+import { lingui } from '@lingui/vite-plugin';
+import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import path from 'path';
 import { tensnapCodeSplitting } from '../../scripts/vite-chunks.mjs';
 
 export default defineConfig({
-  plugins: [preact()],
+  define: {
+    __APP_VERSION__: JSON.stringify('benchmark'),
+  },
+  plugins: [
+    react({ plugins: [['@lingui/swc-plugin', {}]] }),
+    lingui(),
+    vanillaExtractPlugin(),
+  ],
+  resolve: {
+    alias: [
+      { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
+    ],
+  },
   root: __dirname,
   base: './',
   build: {

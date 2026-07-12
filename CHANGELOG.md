@@ -25,6 +25,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/benchmark [0.2.2] - 2026-07-12
+
+### Added
+
+- Added three explicit benchmark suites: six production Web component cases
+  without transport, complete Axelrod/Schelling/Wolf-Sheep model runs, and a
+  seeded random-walk comparison across raw Leafer, core layers, and the full
+  Web transport path.
+- Added shared cycle latency/TPS metrics, component mutation metrics, complete
+  model stop metadata, and random-walk overhead percentages relative to raw
+  Leafer.
+
+### Changed
+
+- Rebuilt the benchmark app on React and the production Web host so component
+  and model results follow the current Web render-trigger, TPS, store, layout,
+  session, and canvas behavior.
+- Reorganized benchmark configuration, JSON/Markdown reports, regression gate
+  names, tests, and documentation around component, model, and random-walk
+  categories.
+
+### Fixed
+
+- Preserved partial benchmark results when a simulator stops before the
+  requested step count, including actual completed/measured frames and the
+  simulator stop reason instead of failing the run.
+
 ## @tensnap/web [0.2.4] - 2026-07-12
 
 ### Added

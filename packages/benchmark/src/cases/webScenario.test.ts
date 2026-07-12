@@ -1,131 +1,51 @@
-/**
- * cases/webScenario.test.ts
- *
- * Regression tests for web-scenario benchmark cases:
- *   - Factory output structure (name, suite, config, setup/tick/teardown)
- *   - Asset resolution injection (wolf-sheep agent layer visibility)
- *   - Schelling and Wolf-Sheep agent layer count validation
- *
- * These tests are light-weight and run in jsdom.  They validate that the
- * factory produces well-formed BenchmarkCase objects with the correct
- * structure and that asset resolution wiring is in place.
- */
-
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { ISimulatorTransport } from '@tensnap/core';
 import { createSchellingScenarioCase, schellingScenarioVariations } from './schellingScenario';
 import { createWolfSheepScenarioCase, wolfSheepScenarioVariations } from './wolfSheepScenario';
-import { createWebScenarioCase, type WebScenarioHooks } from './createWebScenarioCase';
-import type { BenchmarkCase } from '../types';
+import { createAxelrodScenarioCase, axelrodScenarioVariations } from './axelrodScenario';
+import { createRandomWalkCases } from './randomWalk';
+import { getCaseGroups } from './variations';
+import { createWebScenarioCase } from './createWebScenarioCase';
 
-// ---------------------------------------------------------------------------
-// Shared structure tests
-// ---------------------------------------------------------------------------
-
-describe('web-scenario factory', () => {
-  const casesToTest: [string, BenchmarkCase][] = [
-    ['Schelling', createSchellingScenarioCase()],
-    ['WolfSheep', createWolfSheepScenarioCase()],
-  ];
-
-  it.each(casesToTest)('%s has correct suite and structure', (_, benchCase) => {
-    expect(benchCase).toBeDefined();
-    expect(benchCase.suite).toBe('web-scenario');
-    expect(benchCase.name).toBeTruthy();
-    expect(benchCase.config).toBeDefined();
-    expect(typeof benchCase.config).toBe('object');
-    expect(typeof benchCase.setup).toBe('function');
-    expect(typeof benchCase.tick).toBe('function');
-    expect(typeof benchCase.teardown).toBe('function');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Schelling case-specific
-// ---------------------------------------------------------------------------
-
-describe('Schelling scenario case', () => {
-  it('createSchellingScenarioCase produces a valid BenchmarkCase', () => {
-    const c = createSchellingScenarioCase();
-    expect(c.name).toContain('Schelling');
+describe('production web scenario benchmark definitions', () => {
+  it.each([
+    createSchellingScenarioCase(),
+    createWolfSheepScenarioCase(),
+    createAxelrodScenarioCase(),
+  ])('$name only describes a model and mounts through the web host', (benchCase) => {
+    expect(benchCase.actionId).toBe('start');
+    expect(typeof benchCase.mount).toBe('function');
+    expect(benchCase.config).toEqual(expect.objectContaining({ previewWidth: 1000, previewHeight: 760 }));
+    expect(benchCase).not.toHaveProperty('tick');
+    expect(benchCase).not.toHaveProperty('setup');
   });
 
-  it('accepts partial config overrides', () => {
-    const c = createSchellingScenarioCase({ gridWidth: 80, envWidth: 1000 });
-    expect(c.config.gridWidth).toBe(80);
-    expect(c.config.envWidth).toBe(1000);
-  });
-
-  it('exports schellingScenarioVariations with 4 entries', () => {
+  it('keeps the intended model-size variations', () => {
     expect(schellingScenarioVariations).toHaveLength(4);
-    schellingScenarioVariations.forEach((v: BenchmarkCase) => {
-      expect(v.suite).toBe('web-scenario');
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Wolf-Sheep case-specific
-// ---------------------------------------------------------------------------
-
-describe('Wolf-Sheep scenario case', () => {
-  it('createWolfSheepScenarioCase produces a valid BenchmarkCase', () => {
-    const c = createWolfSheepScenarioCase();
-    expect(c.name).toContain('Wolf-Sheep');
-  });
-
-  it('accepts partial config overrides', () => {
-    const c = createWolfSheepScenarioCase({ initialNumberSheep: 200, envWidth: 800 });
-    expect(c.config.initialNumberSheep).toBe(200);
-    expect(c.config.envWidth).toBe(800);
-  });
-
-  it('passes envBackground in layout config', () => {
-    // The WOLF_SHEEP_HOOKS adds a background color '#D2B48C'
-    const c = createWolfSheepScenarioCase();
-    expect(c.config.envBackground).toBe('#D2B48C');
-  });
-
-  it('exports wolfSheepScenarioVariations with 3 entries', () => {
     expect(wolfSheepScenarioVariations).toHaveLength(3);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Custom hooks test
-// ---------------------------------------------------------------------------
-
-describe('createWebScenarioCase with custom hooks', () => {
-  it('produces a case with the given name', () => {
-    const hooks: WebScenarioHooks = {
-      name: 'Custom Test',
-      createSession: () => {
-        throw new Error('Session factory should not be called during construction');
-      },
-    };
-
-    const benchCase = createWebScenarioCase({}, hooks);
-    expect(benchCase.name).toBe('Custom Test');
-    expect(benchCase.suite).toBe('web-scenario');
-    expect(typeof benchCase.setup).toBe('function');
-    expect(typeof benchCase.tick).toBe('function');
-    expect(typeof benchCase.teardown).toBe('function');
+    expect(axelrodScenarioVariations).toHaveLength(3);
   });
 
-  it('buildModelConfig is called during construction', () => {
-    let called = false;
-    const hooks: WebScenarioHooks = {
-      name: 'Custom Test 2',
-      createSession: () => {
-        throw new Error('Session factory should not be called during construction');
-      },
-      buildModelConfig(partial) {
-        called = true;
-        return { ...partial, customKey: 42 };
-      },
-    };
+  it('defines the three requested suites and six component cases', () => {
+    const groups = getCaseGroups();
+    expect(groups.map((group) => group.category)).toEqual(['component', 'model', 'random-walk']);
+    expect(groups[0].cases).toHaveLength(6);
+    expect(groups[1].cases).toHaveLength(3);
+    expect(createRandomWalkCases().map((benchCase) => benchCase.variant)).toEqual([
+      'raw-leafer', 'layers-no-transport', 'production-transport',
+    ]);
+  });
 
-    const benchCase = createWebScenarioCase({}, hooks);
-    expect(called).toBe(true); // buildModelConfig is called during construction
-    expect(benchCase.name).toBe('Custom Test 2');
+  it('does not construct a second simulator session while defining a case', () => {
+    const createTransport = vi.fn(() => ({}) as ISimulatorTransport);
+    const benchCase = createWebScenarioCase({
+      name: 'Custom',
+      config: {},
+      width: 800,
+      height: 600,
+      createTransport,
+    });
+    expect(benchCase.name).toBe('Custom');
+    expect(createTransport).not.toHaveBeenCalled();
   });
 });

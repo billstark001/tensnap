@@ -10,7 +10,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "preact"
+    "types": ["vitest/globals"],
+    "paths": {
+      "@/*": ["../tensnap-web/src/*"]
+    }
   },
   "include": ["src"]
 }

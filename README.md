@@ -238,7 +238,7 @@ tensnap/
 - **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
 - **examples/js**: Built-in JavaScript models, example manifests, websocket demo entrypoints, and transport-driven benchmark cases.
 - **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.
-- **benchmark**: Performance harnesses for render/runtime paths.
+- **benchmark**: Browser component, full-model, and raw/layer/transport comparison performance suites aligned with the production Web host.
 
 ## 🤝 Contributing
 
