@@ -61,6 +61,26 @@ describe('ChartStorage – group operations', () => {
     expect(Object.keys(groups[0].metadataDict)).toEqual(expect.arrayContaining(['m1', 'm2']));
   });
 
+  it('addGroup with upsert updates metadata already in the group', () => {
+    const s = new ChartStorage([makeGroup('g', 'old', ['m1'])]);
+    const update = makeGroup('g', 'new', ['m1']);
+    update.metadataDict.m1.label = 'Updated';
+
+    s.addGroup(update, true);
+
+    expect(s.getAllMeta().find((meta) => meta.id === 'm1')?.label).toBe('Updated');
+  });
+
+  it('addGroup replacement unregisters metadata from the previous group', () => {
+    const s = new ChartStorage([makeGroup('g', 'old', ['old-meta'])]);
+
+    s.addGroup(makeGroup('g', 'new', ['new-meta']));
+
+    expect(s.getMetaIds()).toEqual(['new-meta']);
+    expect(s.updateMeta('old-meta', { label: 'detached' })).toBe(false);
+    expect(s.getGroup('g')?.label).toBe('new');
+  });
+
   it('removeGroup returns true and deletes the group', () => {
     const s = new ChartStorage([makeGroup('g1')]);
     expect(s.removeGroup('g1')).toBe(true);

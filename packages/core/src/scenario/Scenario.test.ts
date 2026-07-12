@@ -48,6 +48,32 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect(s.environments.has('env1')).toBe(true);
   });
 
+  it('env_create recreates an existing environment by default', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'stale' }],
+    }));
+
+    s.apply(msg('env_create', { id: 'env1', type: 'uniform' }));
+
+    const environment = s.environments.get('env1')!;
+    expect(environment.type).toBe('uniform');
+    expect(environment.layers.size).toBe(0);
+  });
+
+  it('env_create upsert preserves existing layers', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    const environment = s.environments.get('env1')!;
+
+    (s as any).createEnvironment({ id: 'env1', type: 'uniform' }, true);
+
+    expect(s.environments.get('env1')).toBe(environment);
+    expect(environment.type).toBe('uniform');
+    expect(environment.layers.has('layer1')).toBe(true);
+  });
+
   it('env_layer_create registers a layer in the environment', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
@@ -78,7 +104,7 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect(layer.dependencyLayerIds).toEqual({ agent: 'items' });
   });
 
-  it('reuses storage when env_layer_create refreshes an existing layer', () => {
+  it('recreates storage when env_layer_create targets an existing layer by default', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
 
@@ -100,9 +126,10 @@ describe('Scenario – environment and layer lifecycle', () => {
     }));
 
     const refreshedLayer = env.layers.get('layer1')!;
-    expect(refreshedLayer).toBe(originalLayer);
-    expect(refreshedLayer.storage).toBe(originalStorage);
+    expect(refreshedLayer).not.toBe(originalLayer);
+    expect(refreshedLayer.storage).not.toBe(originalStorage);
     expect(refreshedLayer.metadata).toEqual({ coord_offset: 'float' });
+    expect((refreshedLayer.storage as AgentStorage).getAgentCount()).toBe(0);
 
     s.apply(msg('item_create', {
       env_id: 'env1',
@@ -110,8 +137,40 @@ describe('Scenario – environment and layer lifecycle', () => {
       items: [{ id: 'a2', x: 3, y: 4 }],
     }));
 
-    expect(originalStorage.getData().agents.get('a1')).toMatchObject({ x: 1, y: 2 });
-    expect(originalStorage.getData().agents.get('a2')).toMatchObject({ x: 3, y: 4 });
+    expect((refreshedLayer.storage as AgentStorage).getData().agents.has('a1')).toBe(false);
+    expect((refreshedLayer.storage as AgentStorage).getData().agents.get('a2')).toMatchObject({ x: 3, y: 4 });
+  });
+
+  it('env_layer_create upsert reuses storage', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    const layer = s.environments.get('env1')!.layers.get('layer1')!;
+    const storage = layer.storage;
+
+    (s as any).createLayer({
+      env_id: 'env1', layer_id: 'layer1', layer_type: 'agent', data: { coord_offset: 'float' },
+    }, true);
+
+    expect(s.environments.get('env1')!.layers.get('layer1')).toBe(layer);
+    expect(layer.storage).toBe(storage);
+    expect(layer.metadata).toEqual({ coord_offset: 'float' });
+  });
+
+  it('keeps dependent layers indexed when their source layer is recreated', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+
+    s.apply(msg('env_layer_create', {
+      env_id: 'env1', layer_id: 'items', layer_type: 'agent',
+    }));
+    s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }],
+    }));
+
+    const trajectories = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(trajectories.dump().trajectories[0]?.points).toEqual([
+      { x: 1, y: 2, time: 0, color: '#f00' },
+    ]);
   });
 
   it('env_layer_update does not mutate dependencyLayerIds', () => {
@@ -167,6 +226,38 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     s.apply(msg('item_update', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 99 }] }));
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.get('a1')?.x).toBe(99);
+  });
+
+  it('item_create recreates matching identities without removing unrelated items', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'layer1',
+      items: [{ id: 'a1', x: 1, y: 2, color: '#f00' }, { id: 'a2', x: 3 }],
+    }));
+
+    s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }],
+    }));
+
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getAgent('a1')).toEqual({ id: 'a1', x: 10 });
+    expect(storage.getAgent('a2')).toMatchObject({ id: 'a2', x: 3 });
+  });
+
+  it('item_create upsert merges matching identities', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1, y: 2 }],
+    }));
+
+    (s as any).createItems({
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }],
+    }, true);
+
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getAgent('a1')).toMatchObject({ id: 'a1', x: 10, y: 2 });
   });
 
   it('item_delete removes the agent', () => {
@@ -266,6 +357,20 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     const points = storage.dump().trajectories[0]?.points ?? [];
     expect(points).toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
+  });
+
+  it('recreating an agent identity clears its previous trajectory', () => {
+    const s = new Scenario();
+    setupEnvAndTrajectoryLayer(s);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 1 }] }));
+
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 10, y: 10 }] }));
+
+    const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    expect(storage.dump().trajectories[0]?.points).toEqual([
+      { x: 10, y: 10, time: 0, color: '#f00' },
+    ]);
   });
 
   it('trajectory layers backfill existing agent positions when created after agent items', () => {
@@ -495,6 +600,33 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     expect(storage.findEdge('a', 'b')).toBeDefined();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('object keys'));
     warn.mockRestore();
+  });
+});
+
+// ── Chart create semantics ───────────────────────────────────────────────────
+
+describe('Scenario – chart_create', () => {
+  it('recreates an existing chart and clears its renderer-held history by default', () => {
+    const s = new Scenario();
+    s.apply(msg('chart_create', { id: 'population', label: 'Population' }));
+    s.apply(msg('chart_update', { updates: [{ id: 'population', value: 3 }] }));
+    expect(s.charts.getGroup('population')?.data).toHaveLength(1);
+
+    s.apply(msg('chart_create', { id: 'population', label: 'Reset population' }));
+
+    expect(s.charts.getGroup('population')?.label).toBe('Reset population');
+    expect(s.charts.getGroup('population')?.data).toEqual([]);
+  });
+
+  it('chart_create upsert preserves renderer-held history', () => {
+    const s = new Scenario();
+    s.apply(msg('chart_create', { id: 'population', label: 'Population' }));
+    s.apply(msg('chart_update', { updates: [{ id: 'population', value: 3 }] }));
+
+    (s as any).createChart({ id: 'population', label: 'Updated population' }, true);
+
+    expect(s.charts.getGroup('population')?.label).toBe('Updated population');
+    expect(s.charts.getGroup('population')?.data).toHaveLength(1);
   });
 });
 

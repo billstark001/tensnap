@@ -220,13 +220,20 @@ export class ChartStorage {
     if (upsert && existing) {
       existing.label = group.label;
       for (const [id, meta] of Object.entries(group.metadataDict)) {
-        if (!(id in existing.metadataDict)) {
+        if (id in existing.metadataDict) {
+          Object.assign(existing.metadataDict[id], meta);
+        } else {
           existing.metadataDict[id] = meta;
           this._register(id, meta, existing);
         }
       }
       existing.data.push(...group.data);
     } else {
+      if (existing) {
+        for (const metaId of Object.keys(existing.metadataDict)) {
+          this._unregister(metaId, existing);
+        }
+      }
       this.groups.set(group.id, group);
       this.pushBuffer.set(group.id, new Map());
       for (const [id, meta] of Object.entries(group.metadataDict)) {

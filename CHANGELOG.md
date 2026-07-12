@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restored replace-by-default handling for repeated create messages in core,
+  preventing model resets from retaining stale agents, edges, trajectories, or
+  chart history; internal upsert paths now preserve those states explicitly.
+- Kept dependent-layer indexes valid when a source layer is recreated, and
+  removed stale chart metadata registrations when a chart group is replaced.
 - Stopped maintaining the agent-neighborhood spatial hash while no inspector
   is open, removed item-delta full-scene rebuild triggers, split broad UI
   revisions by domain, and made uniform agent lists derive only their visible

@@ -78,6 +78,8 @@ export interface ItemLayerController<
   TUpdateItem extends Record<string, unknown> = TCreateItem,
 > {
   applyMetadata?(context: LayerControllerContext): void;
+  /** Return keys which already exist before a create recreates its identities. */
+  getExistingItemKeys?(context: LayerControllerContext, items: TCreateItem[]): DeleteItems;
   createItems?(context: LayerControllerContext, items: TCreateItem[]): void;
   updateItems?(context: LayerControllerContext, items: TUpdateItem[]): void;
   deleteItems?(context: LayerControllerContext, items: DeleteItems): void;
@@ -550,6 +552,10 @@ function getSnapshotBackground(layer: ScenarioLayerSnapshot): BackgroundData | n
 
 // #region Built-in controllers
 const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
+  getExistingItemKeys: (context, items) => {
+    const storage = context.requireStorage(AgentStorage, 'agent');
+    return items.filter((item) => storage.hasAgent(item.id)).map((item) => item.id);
+  },
   createItems: (context, items) => {
     context.requireStorage(AgentStorage, 'agent').addAgents(items);
   },
@@ -579,6 +585,12 @@ const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
 };
 
 const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
+  getExistingItemKeys: (context, items) => {
+    const storage = context.requireStorage(EdgeStorage, 'edge');
+    return items
+      .filter((item) => storage.findEdge(item.source, item.target))
+      .map((item) => ({ source: item.source, target: item.target }));
+  },
   createItems: (context, items) => {
     context.requireStorage(EdgeStorage, 'edge').addEdges(items);
   },
@@ -626,6 +638,13 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
       const point: TrajectoryPoint = { x: agent.x, y: agent.y, time };
       storage.appendTrajectoryPoint(agent.id, point);
     }
+  },
+  getExistingItemKeys: (context, items) => {
+    const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
+    const { configs } = storage.getData();
+    return items
+      .filter((item) => configs.has(item.id) || storage.getEntry(item.id) !== undefined)
+      .map((item) => item.id);
   },
   createItems: (context, items) => {
     context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items);
