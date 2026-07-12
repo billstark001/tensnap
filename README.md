@@ -12,7 +12,8 @@
 - **💻 Dual Deployment**: Run in browser or as desktop app via Tauri
 - **🌍 Internationalization**: Full i18n support with English, Chinese, and Japanese languages
 
-![A screenshot of the example S/I/R/S model's visualization using TenSnap](./assets/screenshot_sirs.png)
+![A screenshot of the example S/I/R/S model's visualization](./assets/screenshot_sirs.png)
+![A screenshot of the example Schelling model's agent inspection & A screenshot of the example Flock model's snapshot recording](./assets/screenshot_inspect_snapshot.png)
 
 ## 🚀 Quick Start
 
