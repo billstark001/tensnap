@@ -10,6 +10,8 @@ implementations.
 
 ## Source Files
 
+- [V0.3-DRAFT.md](./V0.3-DRAFT.md): proposed v0.3 wire shapes and behavior definition;
+  until it is frozen, it does not replace the current v0.2 schemas.
 - [src/types.ts](./src/types.ts): message envelopes and schema-inferred payload types.
 - [src/schemas.ts](./src/schemas.ts): runtime zod schemas for protocol payloads.
 - [src/codec.ts](./src/codec.ts): JSON and MessagePack protocol codecs.
