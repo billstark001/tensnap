@@ -1,11 +1,12 @@
 # @tensnap/protocol
 
 `@tensnap/protocol` is the source of truth for TenSnap protocol v0.2 payload
-shapes, runtime schemas, and wire codecs.
+shapes, runtime schemas, wire codecs, and cross-runtime observable behavior.
 
 The package is intentionally about the renderer/simulator contract only. It
-does not define rendering layers, React state, storage adapters, project UI, or
-concrete WebSocket implementations.
+owns both wire shapes and their transport-independent behavior. It does not
+define React state, storage adapters, project UI, or concrete WebSocket
+implementations.
 
 ## Source Files
 

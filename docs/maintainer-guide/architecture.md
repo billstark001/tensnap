@@ -30,7 +30,8 @@ Shared protocol package.
 
 Owns:
 
-- protocol v0.2 message types, schemas, and codecs
+- protocol v0.2 message types, schemas, codecs, and transport-independent
+  observable behavior
 
 ### `packages/core`
 
@@ -47,8 +48,9 @@ Owns:
 - shared runtime pipeline helpers
 - project-level `AssetStore`
 
-The protocol package owns wire payloads; core owns renderer-side state, session
-lifecycle, execution, and rendering semantics built on top of those payloads.
+The protocol package owns wire payloads and cross-runtime lifecycle behavior.
+Core owns the renderer-side state and reference implementation, plus
+renderer-local rendering semantics built on top of that contract.
 
 ## Rendering Contract Ownership
 
@@ -60,7 +62,8 @@ The core-owned rendering contract includes:
 - scene-bound discovery and view metadata resolution
 - render-plan generation and snapshot render-data collection
 - shared environment and chart rendering semantics
-- renderer-driven dispatch/apply/render pipeline semantics
+- the renderer-side implementation of the protocol-defined
+  dispatch/apply/render pipeline
 - asset, icon, background, and trajectory interpretation rules needed to render a `Scenario`
 
 All other packages must treat this contract as read-only infrastructure.
@@ -162,7 +165,9 @@ Owns:
 
 ## Protocol v0.2 Ownership
 
-`packages/core` owns the canonical wire contract.
+`packages/protocol` owns the canonical wire contract and its behavior
+definition. `packages/core` is the reference renderer implementation of that
+contract; it must not redefine protocol behavior.
 
 Important message families:
 
