@@ -1,18 +1,38 @@
 import { decode, encode } from '@msgpack/msgpack';
 import { decodeBinaryString, encodeBytesAsDataUrl } from './binary';
 import {
+  AnyProtocolMessageSchema,
   AssetDataPayloadSchema,
+  SceneCaptureResultPayloadSchema,
+  SceneRestorePayloadSchema,
   ScreenshotResponsePayloadSchema,
 } from './schemas';
 import type { AnyProtocolMessage } from './types';
 
 export type ProtocolEncoding = 'json' | 'msgpack';
+export type ProtocolCodecMode = 'strict' | 'legacy';
 
-/**
- * Generic MessagePack helpers for higher-level persistence formats. Keeping
- * them here gives core and hosts one pinned MessagePack implementation instead
- * of relying on transitive dependencies.
- */
+export interface ProtocolCodecWarning {
+  code: 'legacy_alias' | 'legacy_discarded' | 'legacy_duplicate';
+  message: string;
+  path: string;
+}
+
+export interface ProtocolCodecOptions {
+  /** Select once at session setup; it is deliberately immutable afterwards. */
+  mode?: ProtocolCodecMode;
+  onWarning?: (warning: ProtocolCodecWarning) => void;
+}
+
+/** Raised when a peer requests a v0.2 representation that would lose v0.3 data. */
+export class UnsupportedLegacyMessageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnsupportedLegacyMessageError';
+  }
+}
+
+/** Generic MessagePack helpers for persistence formats outside the wire codec. */
 export function encodeMessagePack(value: unknown): Uint8Array {
   return encode(value);
 }
@@ -25,43 +45,76 @@ export function detectProtocolEncoding(data: string | Uint8Array | ArrayBuffer):
   return typeof data === 'string' ? 'json' : 'msgpack';
 }
 
+/** Compare parsed major/minor numbers, never lexical version strings. */
+export function selectProtocolCodecMode(protocolVersion: string | undefined): ProtocolCodecMode {
+  if (!protocolVersion) return 'legacy';
+  const match = /^(\d+)\.(\d+)/.exec(protocolVersion);
+  if (!match) throw new Error(`Invalid protocol version: ${protocolVersion}`);
+  const major = Number.parseInt(match[1], 10);
+  const minor = Number.parseInt(match[2], 10);
+  return major > 0 || (major === 0 && minor >= 3) ? 'strict' : 'legacy';
+}
+
 /**
- * Encode semantic protocol messages for a transport.
- *
- * JSON cannot carry bytes directly, so binary semantic fields become data URLs.
- * MessagePack keeps those fields as Uint8Array values.
+ * Session-local protocol codec. Strict v0.3 is the default. Legacy conversion
+ * is deliberately opt-in and path-aware: arbitrary user maps are untouched.
  */
+export class ProtocolCodec {
+  readonly mode: ProtocolCodecMode;
+  private readonly onWarning?: (warning: ProtocolCodecWarning) => void;
+
+  constructor(options: ProtocolCodecOptions = {}) {
+    this.mode = options.mode ?? 'strict';
+    this.onWarning = options.onWarning;
+  }
+
+  encode(message: AnyProtocolMessage, encoding: ProtocolEncoding): string | Uint8Array {
+    const canonical = AnyProtocolMessageSchema.parse(message) as AnyProtocolMessage;
+    const semantic = this.mode === 'legacy'
+      ? encodeLegacyMessage(canonical)
+      : canonical;
+    const normalized = normalizeBinarySemanticMessage(semantic, encoding);
+    return encoding === 'json' ? JSON.stringify(normalized) : encode(normalized);
+  }
+
+  decode(data: string | Uint8Array | ArrayBuffer): AnyProtocolMessage {
+    const decoded = typeof data === 'string'
+      ? JSON.parse(data) as unknown
+      : decode(data instanceof Uint8Array ? data : new Uint8Array(data));
+    const normalized = this.mode === 'legacy'
+      ? normalizeLegacyMessage(decoded, (warning) => this.onWarning?.(warning))
+      : decoded;
+    const canonical = AnyProtocolMessageSchema.parse(normalized) as AnyProtocolMessage;
+    return normalizeDecodedBinarySemanticMessage(canonical);
+  }
+}
+
+export function createProtocolCodec(options: ProtocolCodecOptions = {}): ProtocolCodec {
+  return new ProtocolCodec(options);
+}
+
+/** Strict v0.3 convenience function for stateless transport integrations. */
 export function encodeProtocolMessage(
   message: AnyProtocolMessage,
   encoding: ProtocolEncoding,
 ): string | Uint8Array {
-  const normalized = normalizeBinarySemanticMessage(message, encoding);
-  return encoding === 'json' ? JSON.stringify(normalized) : encode(normalized);
+  return new ProtocolCodec().encode(message, encoding);
 }
 
+/** Strict v0.3 convenience function for stateless transport integrations. */
 export function decodeProtocolMessage(data: string | Uint8Array | ArrayBuffer): AnyProtocolMessage {
-  if (typeof data === 'string') {
-    return normalizeDecodedBinarySemanticMessage(JSON.parse(data) as AnyProtocolMessage);
-  }
-
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-  return normalizeDecodedBinarySemanticMessage(decode(bytes) as AnyProtocolMessage);
+  return new ProtocolCodec().decode(data);
 }
 
 function normalizeBinarySemanticMessage(
-  message: AnyProtocolMessage,
+  message: Record<string, unknown>,
   encoding: ProtocolEncoding,
-): AnyProtocolMessage {
+): Record<string, unknown> {
+  if (!isRecord(message) || !isRecord(message.payload)) return message;
   switch (message.type) {
     case 'asset_data': {
       const payload = AssetDataPayloadSchema.parse(message.payload);
-      return {
-        ...message,
-        payload: {
-          ...payload,
-          data: normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding),
-        },
-      };
+      return { ...message, payload: { ...payload, data: normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding) } };
     }
     case 'screenshot_response': {
       const payload = ScreenshotResponsePayloadSchema.parse(message.payload);
@@ -69,10 +122,24 @@ function normalizeBinarySemanticMessage(
         ...message,
         payload: {
           ...payload,
-          data: typeof payload.data === 'undefined'
-            ? undefined
-            : normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding),
+          data: payload.data === undefined ? undefined : normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding),
         },
+      };
+    }
+    case 'scene_restore': {
+      const payload = SceneRestorePayloadSchema.parse(message.payload);
+      return {
+        ...message,
+        payload: payload.checkpoint === undefined
+          ? payload
+          : { ...payload, checkpoint: { ...payload.checkpoint, data: normalizeBinaryDataForEncoding(payload.checkpoint.data, undefined, encoding) } },
+      };
+    }
+    case 'scene_capture_result': {
+      const payload = SceneCaptureResultPayloadSchema.parse(message.payload);
+      return {
+        ...message,
+        payload: { ...payload, checkpoint: { ...payload.checkpoint, data: normalizeBinaryDataForEncoding(payload.checkpoint.data, undefined, encoding) } },
       };
     }
     default:
@@ -81,30 +148,40 @@ function normalizeBinarySemanticMessage(
 }
 
 function normalizeDecodedBinarySemanticMessage(message: AnyProtocolMessage): AnyProtocolMessage {
+  if (!isRecord(message.payload)) return message;
   switch (message.type) {
     case 'asset_data': {
       const payload = AssetDataPayloadSchema.parse(message.payload);
-      return {
-        ...message,
-        payload: {
-          ...payload,
-          data: typeof payload.data === 'string' ? decodeBinaryString(payload.data).bytes : payload.data,
-        },
-      };
+      return { ...message, payload: { ...payload, data: decodeBinaryValue(payload.data) } } as AnyProtocolMessage;
     }
     case 'screenshot_response': {
       const payload = ScreenshotResponsePayloadSchema.parse(message.payload);
+      return { ...message, payload: { ...payload, data: payload.data === undefined ? undefined : decodeBinaryValue(payload.data) } } as AnyProtocolMessage;
+    }
+    case 'scene_restore': {
+      const payload = SceneRestorePayloadSchema.parse(message.payload);
       return {
         ...message,
-        payload: {
+        payload: payload.checkpoint === undefined ? payload : {
           ...payload,
-          data: typeof payload.data === 'string' ? decodeBinaryString(payload.data).bytes : payload.data,
+          checkpoint: { ...payload.checkpoint, data: decodeBinaryValue(payload.checkpoint.data) },
         },
-      };
+      } as AnyProtocolMessage;
+    }
+    case 'scene_capture_result': {
+      const payload = SceneCaptureResultPayloadSchema.parse(message.payload);
+      return {
+        ...message,
+        payload: { ...payload, checkpoint: { ...payload.checkpoint, data: decodeBinaryValue(payload.checkpoint.data) } },
+      } as AnyProtocolMessage;
     }
     default:
       return message;
   }
+}
+
+function decodeBinaryValue(value: string | Uint8Array): Uint8Array {
+  return typeof value === 'string' ? decodeBinaryString(value).bytes : value;
 }
 
 function normalizeBinaryDataForEncoding(
@@ -117,6 +194,225 @@ function normalizeBinaryDataForEncoding(
       ? value
       : encodeBytesAsDataUrl(value, mime ?? 'application/octet-stream');
   }
-
   return typeof value === 'string' ? decodeBinaryString(value).bytes : value;
+}
+
+function normalizeLegacyMessage(
+  input: unknown,
+  warn: (warning: ProtocolCodecWarning) => void,
+): Record<string, unknown> {
+  if (!isRecord(input) || typeof input.type !== 'string' || !isRecord(input.payload)) {
+    throw new Error('Legacy protocol message must be an envelope with object payload.');
+  }
+  const type = legacyMessageTypes[input.type] ?? input.type;
+  const payload = cloneRecord(input.payload);
+  if (type !== input.type) warnLegacy(warn, 'legacy_alias', `Translated ${input.type} to ${type}.`, 'type');
+
+  if (input.type === 'action_start') {
+    renameKnownKey(payload, 'request_id', 'tick_id', 'payload', warn);
+  }
+  if (input.type === 'action_end') {
+    renameKnownKey(payload, 'request_id', 'tick_id', 'payload', warn);
+    renameKnownKey(payload, 'should_continue', 'continue', 'payload', warn);
+  }
+  if (input.type === 'asset_meta') {
+    // The message discriminator is the only difference for this payload.
+  }
+  if (type === 'env_layer_create' || type === 'env_layer_update') {
+    renameKnownKey(payload, 'metadata', 'data', 'payload', warn);
+  }
+  if (type === 'action_create' || type === 'action_update') {
+    discardKnownKey(payload, 'allowRuntimeChange', 'payload', warn);
+  }
+  if (type === 'param_create' || type === 'param_update') {
+    renameKnownKey(payload, 'allow_runtime_change', 'allowRuntimeChange', 'payload', warn);
+  }
+  if (type === 'chart_create') {
+    renameKnownKey(payload, 'data_list', 'dataList', 'payload', warn);
+  }
+  if (type === 'state_sync') {
+    normalizeLegacyStateSync(payload, warn);
+  }
+  if (type === 'chart_update') {
+    normalizeLegacyChartUpdate(payload, warn);
+  }
+  if (type === 'chart_delete' && Object.prototype.hasOwnProperty.call(payload, 'id') && !Object.prototype.hasOwnProperty.call(payload, 'kind')) {
+    throw new UnsupportedLegacyMessageError('Legacy chart_delete requires renderer compatibility resolution and cannot be decoded as canonical v0.3.');
+  }
+
+  return { ...input, type, payload };
+}
+
+const legacyMessageTypes: Record<string, string> = {
+  action_start: 'action_invoke',
+  action_end: 'action_result',
+  asset_meta: 'asset_metadata',
+};
+
+function normalizeLegacyStateSync(payload: Record<string, unknown>, warn: (warning: ProtocolCodecWarning) => void): void {
+  if (typeof payload.request_id !== 'string') {
+    payload.request_id = 'legacy-state-sync';
+    warnLegacy(warn, 'legacy_alias', 'Added legacy state sync request_id.', 'payload.request_id');
+  }
+  if (typeof payload.model_id !== 'string') {
+    payload.model_id = 'legacy';
+    warnLegacy(warn, 'legacy_alias', 'Added opaque legacy model_id.', 'payload.model_id');
+  }
+  if (!Array.isArray(payload.monitors)) payload.monitors = [];
+  normalizeParameterArray(payload.parameters, 'payload.parameters', warn);
+  normalizeActionArray(payload.actions, 'payload.actions', warn);
+  normalizeChartArray(payload.charts, 'payload.charts', warn);
+}
+
+function normalizeParameterArray(value: unknown, path: string, warn: (warning: ProtocolCodecWarning) => void): void {
+  if (!Array.isArray(value)) return;
+  value.forEach((entry, index) => {
+    if (isRecord(entry)) renameKnownKey(entry, 'allow_runtime_change', 'allowRuntimeChange', `${path}[${index}]`, warn);
+  });
+}
+
+function normalizeActionArray(value: unknown, path: string, warn: (warning: ProtocolCodecWarning) => void): void {
+  if (!Array.isArray(value)) return;
+  value.forEach((entry, index) => {
+    if (isRecord(entry)) discardKnownKey(entry, 'allowRuntimeChange', `${path}[${index}]`, warn);
+  });
+}
+
+function normalizeChartArray(value: unknown, path: string, warn: (warning: ProtocolCodecWarning) => void): void {
+  if (!Array.isArray(value)) return;
+  value.forEach((entry, index) => {
+    if (isRecord(entry)) renameKnownKey(entry, 'data_list', 'dataList', `${path}[${index}]`, warn);
+  });
+}
+
+function normalizeLegacyChartUpdate(payload: Record<string, unknown>, warn: (warning: ProtocolCodecWarning) => void): void {
+  if (!Array.isArray(payload.operations)) return;
+  for (const [index, operation] of payload.operations.entries()) {
+    if (!isRecord(operation)) continue;
+    if (operation.operation === 'clear' && typeof operation.id === 'string' && operation.kind === undefined) {
+      throw new UnsupportedLegacyMessageError(
+        `Legacy chart_update.operations[${index}] needs renderer group-first compatibility resolution; decode it through the legacy renderer adapter.`,
+      );
+    }
+  }
+  void warn;
+}
+
+function encodeLegacyMessage(message: AnyProtocolMessage): Record<string, unknown> {
+  const payload = isRecord(message.payload) ? cloneRecord(message.payload) : message.payload;
+  let type: string = message.type;
+  switch (message.type) {
+    case 'action_invoke': {
+      const invocation = payload as Record<string, unknown>;
+      if (invocation.target !== undefined || invocation.kwargs !== undefined) {
+        throw new UnsupportedLegacyMessageError('v0.2 cannot represent action targets or kwargs.');
+      }
+      renameKnownKey(invocation, 'tick_id', 'request_id', 'payload', () => undefined);
+      type = 'action_start';
+      break;
+    }
+    case 'action_result': {
+      const result = payload as Record<string, unknown>;
+      if (result.error !== undefined) throw new UnsupportedLegacyMessageError('v0.2 cannot represent correlated action errors.');
+      renameKnownKey(result, 'tick_id', 'request_id', 'payload', () => undefined);
+      renameKnownKey(result, 'continue', 'should_continue', 'payload', () => undefined);
+      type = 'action_end';
+      break;
+    }
+    case 'asset_metadata':
+      type = 'asset_meta';
+      break;
+    case 'scene_restore':
+    case 'scene_restore_begin':
+    case 'scene_restore_end':
+    case 'scene_capture':
+    case 'scene_capture_result':
+    case 'monitor_create':
+    case 'monitor_update':
+    case 'monitor_delete':
+    case 'simulator_info':
+      throw new UnsupportedLegacyMessageError(`v0.2 cannot represent ${message.type}.`);
+    default:
+      break;
+  }
+  if (isRecord(payload)) {
+    if (type === 'param_create' || type === 'param_update') renameKnownKey(payload, 'allowRuntimeChange', 'allow_runtime_change', 'payload', () => undefined);
+    if (type === 'chart_create') renameKnownKey(payload, 'dataList', 'data_list', 'payload', () => undefined);
+    if (type === 'env_layer_create' || type === 'env_layer_update') renameKnownKey(payload, 'data', 'metadata', 'payload', () => undefined);
+  }
+  return { ...message, type, payload };
+}
+
+function renameKnownKey(
+  object: Record<string, unknown>,
+  canonical: string,
+  legacy: string,
+  path: string,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
+  if (!Object.prototype.hasOwnProperty.call(object, legacy)) return;
+  const legacyValue = object[legacy];
+  if (Object.prototype.hasOwnProperty.call(object, canonical)) {
+    if (!deepEqual(object[canonical], legacyValue)) {
+      throw new Error(`Conflicting canonical and legacy fields at ${path}.${canonical}.`);
+    }
+    delete object[legacy];
+    warnLegacy(warn, 'legacy_duplicate', `Discarded duplicate legacy ${legacy} field.`, `${path}.${legacy}`);
+    return;
+  }
+  object[canonical] = legacyValue;
+  delete object[legacy];
+  warnLegacy(warn, 'legacy_alias', `Translated ${legacy} to ${canonical}.`, `${path}.${legacy}`);
+}
+
+function discardKnownKey(
+  object: Record<string, unknown>,
+  key: string,
+  path: string,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
+  if (!Object.prototype.hasOwnProperty.call(object, key)) return;
+  delete object[key];
+  warnLegacy(warn, 'legacy_discarded', `Discarded obsolete ${key}.`, `${path}.${key}`);
+}
+
+function warnLegacy(
+  warn: (warning: ProtocolCodecWarning) => void,
+  code: ProtocolCodecWarning['code'],
+  message: string,
+  path: string,
+): void {
+  warn({ code, message, path });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Uint8Array);
+}
+
+function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneValue(item)]));
+}
+
+function cloneValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(cloneValue);
+  if (value instanceof Uint8Array) return value.slice();
+  if (isRecord(value)) return cloneRecord(value);
+  return value;
+}
+
+function deepEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (left instanceof Uint8Array && right instanceof Uint8Array) {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+  }
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => deepEqual(value, right[index]));
+  }
+  if (isRecord(left) && isRecord(right)) {
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    return leftKeys.length === rightKeys.length
+      && leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && deepEqual(left[key], right[key]));
+  }
+  return false;
 }

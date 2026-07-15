@@ -33,6 +33,7 @@ export const BuiltinAgentIconSchema = z.enum(BUILTIN_AGENT_ICONS);
 /** Asset-backed icons use the `asset:<asset_id>` reference form. */
 export const AssetAgentIconSchema = z.string().regex(/^asset:.+$/);
 
+/** Built-in symbolic or asset-backed icon accepted by an agent item. */
 export const AgentIconSchema = z.union([BuiltinAgentIconSchema, AssetAgentIconSchema]);
 
 export type BuiltinAgentIcon = z.infer<typeof BuiltinAgentIconSchema>;
@@ -201,6 +202,7 @@ export const GridLayerMetadataSchema = BaseLayerMetadataSchema.extend({
 
 export type GridLayerMetadata = z.infer<typeof GridLayerMetadataSchema>;
 
+/** Sampling mode for a background image. */
 export const BackgroundInterpolationSchema = z.enum(['nearest', 'linear']);
 
 export type BackgroundInterpolation = z.infer<typeof BackgroundInterpolationSchema>;

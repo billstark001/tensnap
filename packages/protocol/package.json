@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/protocol",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "type": "module",
   "description": "Canonical TenSnap renderer/simulator protocol payload types, schemas, and codecs.",
   "main": "./src/index.ts",
@@ -19,7 +19,9 @@
   "files": [
     "dist",
     "README.md",
-    "V0.3-DRAFT.md"
+    "V0.3-DRAFT.md",
+    "BEHAVIOR.md",
+    "conformance"
   ],
   "scripts": {
     "build": "node ./scripts/build.mjs",

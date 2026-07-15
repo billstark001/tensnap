@@ -1,0 +1,10 @@
+{
+  "name": "monitor-and-chart-truncate",
+  "outcome": "monitor is last-value-wins; inclusive truncate removes the boundary",
+  "messages": [
+    { "type": "monitor_create", "payload": { "id": "diagnostics", "label": "Diagnostics", "render_hint": "tree" } },
+    { "type": "monitor_update", "payload": { "id": "diagnostics", "value": { "phase": "one" }, "revision": "1" } },
+    { "type": "monitor_update", "payload": { "id": "diagnostics", "value": { "phase": "two" }, "revision": "2" } },
+    { "type": "chart_update", "payload": { "operations": [{ "operation": "truncate", "kind": "series", "id": "population", "time": 4, "inclusive": true }] } }
+  ]
+}

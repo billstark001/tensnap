@@ -1,0 +1,11 @@
+{
+  "name": "handshake-and-replace-sync",
+  "outcome": "renderer commits only after matching state_sync_end",
+  "messages": [
+    { "type": "simulator_info", "payload": { "protocol_version": "0.3", "binding": { "name": "fixture", "version": "0.3.0" }, "model": { "id": "fixture.model" }, "instance_id": "instance-1", "capabilities": [] } },
+    { "type": "state_sync", "payload": { "request_id": "sync-1", "model_id": "fixture.model", "parameters": [], "actions": [], "envs": [], "charts": [], "monitors": [] } },
+    { "type": "state_sync_begin", "payload": { "request_id": "sync-1", "model_id": "fixture.model", "instance_id": "instance-1", "mode": "replace" } },
+    { "type": "metadata_update", "payload": { "time": 0 } },
+    { "type": "state_sync_end", "payload": { "request_id": "sync-1", "state_revision": "1" } }
+  ]
+}
