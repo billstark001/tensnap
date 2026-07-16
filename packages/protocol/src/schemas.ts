@@ -294,7 +294,7 @@ export const RestorableEnvironmentSchema = z.object({
 
 /** Opaque full-state checkpoint carried as base64/data URL JSON or MessagePack bytes. */
 export const CheckpointSchema = z.object({
-  /** Binding-defined checkpoint encoding. */
+  /** Canonical checkpoint wire encoding selected by the emitting binding. */
   encoding: NonEmptyStringSchema,
   /** JSON-compatible encoded bytes or native MessagePack `Uint8Array`. */
   data: BinaryPayloadDataSchema,

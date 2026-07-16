@@ -178,7 +178,7 @@ Important message families:
 - layer-owned entities: `item_create`, `item_update`, `item_delete`
 - controls: `param_*`, `action_*`
 - charts: `chart_*`
-- assets: `asset_meta`, `asset_sync`, `asset_data`, `asset_delete`
+- assets: `asset_metadata`, `asset_sync`, `asset_data`, `asset_delete`
 - screenshots: `screenshot_request`, `screenshot_response`
 
 The old v0.1 messages (`time_step_start`, `time_step_end`, `environment_update`, `agent_batch_update`, `button_click`, `parameter_change`) are historical only and should not be used for current runtime work.
@@ -252,10 +252,10 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 
 ### Continuous execution
 
-1. `RunController` dispatches an action with `action_start`.
+1. `RunController` dispatches an action with `action_invoke`.
 2. Simulator executes one step.
 3. Simulator emits state mutations.
-4. Simulator ends the tick with `action_end`.
+4. Simulator ends the tick with `action_result`.
 5. `RunController` evaluates its optional stop expression, checks the finite
    step/deadline policy, waits for the host render barrier, then decides whether
    to start the next tick.
@@ -264,13 +264,13 @@ This keeps loop ownership in the renderer and avoids server-owned hidden timers 
 
 Every continuous run has a positive `maxSteps`; the default policy limit is
 1,000,000. A `stopWhen` expression is parsed once and runs only before the
-first dispatch and after an `action_end`. It has a read-only incremental scope:
+first dispatch and after an `action_result`. It has a read-only incremental scope:
 `steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`.
 It cannot invoke arbitrary host functions or rely on a full scenario dump.
 The agent CLI can explicitly raise its policy while starting a runtime with
 `--max-steps-policy <n>`; the configured limit is included in runtime status.
 
-`action_end` is the action transaction boundary.  A simulator must not send it until all state messages caused by the action have been written to the transport in order.  This applies to reserved actions as well: `step` and one `start` dispatch both advance exactly one tick, while `reset` publishes the rebuilt time-0 state before completing.
+`action_result` is the action transaction boundary. A simulator must not send it until all state messages caused by the action have been written to the transport in order. This applies to reserved actions as well: `step` and one `start` dispatch both advance exactly one tick, while `reset` publishes the rebuilt time-0 state before completing.
 
 The render barrier is a host boundary, not a best-effort Promise. A rejection
 is caught by `RunController`, reported through its host-error callback, and
@@ -343,8 +343,8 @@ Important semantics:
 - built-in renderer-driven actions are `start`, `step`, and `reset`
 - initial synchronized state is time `0`
 - the first simulated tick after `start` or `step` is time `1`
-- `start` and `step` both execute one tick; `start` is continuous-capable because the renderer may dispatch it repeatedly after each `action_end`
-- `reset` reinitializes the model and broadcasts the resulting time-0 state before its `action_end`
+- `start` and `step` both execute one tick; `start` is continuous-capable because the renderer may dispatch it repeatedly after each `action_result`
+- `reset` reinitializes the model and broadcasts the resulting time-0 state before its `action_result`
 - if `model_reset` is omitted, reset falls back to `model_init`
 
 Low-level Python integrations should go through `TenSnapServer` and layer-aware update helpers such as:
@@ -435,7 +435,7 @@ Assets are protocol-level resources keyed by id/hash.
 
 Typical flow:
 
-1. Simulator sends `asset_meta`.
+1. Simulator sends `asset_metadata`.
 2. Renderer asks for missing assets with `asset_sync`.
 3. Simulator sends `asset_data`.
 4. Renderer resolves and caches the asset.

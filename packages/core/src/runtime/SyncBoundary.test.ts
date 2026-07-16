@@ -85,6 +85,19 @@ describe('SyncBoundary – recordBoundary', () => {
     expect(ok).toBe(false);
     expect(sb.isIdle).toBe(true);
   });
+
+  it('aborts a matching requested or receiving transaction', () => {
+    const sb = new SyncBoundary();
+    sb.requestSync('sync-1');
+    expect(sb.abort('other')).toBe(false);
+    expect(sb.abort('sync-1')).toBe(true);
+    expect(sb.isIdle).toBe(true);
+
+    sb.requestSync('sync-2');
+    sb.recordBoundary('begin', { request_id: 'sync-2' });
+    expect(sb.abort('sync-2')).toBe(true);
+    expect(sb.isIdle).toBe(true);
+  });
 });
 
 describe('SyncBoundary – reset', () => {

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
@@ -230,9 +230,15 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
     return;
   }
 
-  const scriptPath = fileURLToPath(import.meta.url);
+  const modulePath = fileURLToPath(import.meta.url);
+  const isSourceEntry = modulePath.endsWith('.ts');
+  const scriptPath = isSourceEntry
+    ? fileURLToPath(new URL('./bin.ts', import.meta.url))
+    : modulePath;
   const childArgs = [
-    ...process.execArgv,
+    ...(isSourceEntry
+      ? ['--import', fileURLToPath(new URL('../node_modules/tsx/dist/loader.mjs', import.meta.url))]
+      : process.execArgv),
     scriptPath,
     'daemon',
     'serve',
@@ -453,6 +459,55 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
+  if (group === 'scene' && command === 'capture') {
+    const { baseUrl } = await requireRuntime(parsed);
+    const result = await requestJson(baseUrl, '/v1/scene/capture', { method: 'POST' });
+    const outputPath = getStringFlag(parsed, 'output');
+    if (outputPath) {
+      await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+    }
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (group === 'scene' && command === 'restore') {
+    const checkpointPath = getStringFlag(parsed, 'checkpoint');
+    const input: Record<string, unknown> = {};
+    if (checkpointPath) {
+      let parsedCheckpoint: unknown;
+      try {
+        parsedCheckpoint = JSON.parse(await readFile(checkpointPath, 'utf8'));
+      } catch (error) {
+        throw new Error(`Unable to read checkpoint file ${checkpointPath}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (typeof parsedCheckpoint !== 'object' || parsedCheckpoint === null || Array.isArray(parsedCheckpoint)) {
+        throw new Error('Checkpoint file must contain a JSON object.');
+      }
+      const record = parsedCheckpoint as Record<string, unknown>;
+      input.checkpoint = record.checkpoint ?? record;
+    }
+    const time = getNumberFlag(parsed, 'time');
+    if (time !== undefined) input.time = time;
+    const parameters = getStringFlag(parsed, 'parameters');
+    if (parameters !== undefined) input.parameters = parseJsonValue(parameters);
+    const envs = getStringFlag(parsed, 'envs');
+    if (envs !== undefined) input.envs = parseJsonValue(envs);
+    const chartPolicy = getStringFlag(parsed, 'chart-policy');
+    if (chartPolicy !== undefined) input.chartPolicy = chartPolicy;
+    if (Object.keys(input).length === 0) {
+      throw new Error('Usage: tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>]');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/scene/restore', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+      null,
+    ));
+    return;
+  }
+
   if (group === 'scene' && command === 'sync') {
     const { baseUrl } = await requireRuntime(parsed);
     console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }), null, 2));
@@ -596,9 +651,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     'Usage:',
     '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--background-color <css-color>] [--max-steps-policy <n>]',
     '  tensnap-agent runtime status',
-    '  tensnap-agent runtime render-trigger manual|action-end',
+    '  tensnap-agent runtime render-trigger manual|action-result',
     '  tensnap-agent scene inspect',
     '  tensnap-agent scene snapshot',
+    '  tensnap-agent scene capture [--output <capture.json>]',
+    '  tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>] [--chart-policy preserve|replace|truncate]',
     '  tensnap-agent scene render [reason] [--env <env-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
     '  tensnap-agent param list',
     '  tensnap-agent param set <parameter-id> <json-value>',

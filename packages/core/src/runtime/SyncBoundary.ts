@@ -69,6 +69,14 @@ export class SyncBoundary {
     return true;
   }
 
+  /** Abort a requested or receiving sync after a correlated simulator error. */
+  abort(requestId: string, onIdle?: () => void): boolean {
+    if (!this.matchesRequest(requestId)) return false;
+    this.sync = createIdleSyncState();
+    onIdle?.();
+    return true;
+  }
+
   // #region Lightweight accessors
 
   get phase(): RuntimeSyncPhase {

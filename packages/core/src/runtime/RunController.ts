@@ -162,6 +162,11 @@ export class RunController {
     return this.activeRun?.state === 'paused';
   }
 
+  /** True while any simulator action, including the lifecycle stop hook, is active. */
+  get hasInFlightAction(): boolean {
+    return this.runtime.peekActiveTaskRef() !== null;
+  }
+
   setActionTimeoutMs(timeoutMs: number): void {
     this.actionTimeoutMs = this.normalizeActionTimeout(timeoutMs);
     const activeTask = this.runtime.peekActiveTaskRef();
@@ -178,14 +183,20 @@ export class RunController {
     return accepted;
   }
 
+  abortStateSync(requestId: string): boolean {
+    const accepted = this.runtime.abortStateSync(requestId);
+    if (accepted) this.flushCommands();
+    return accepted;
+  }
+
   requestAction(
     actionId: string,
     continuous = false,
     invocation: Pick<ActionInvokePayload, 'target' | 'kwargs'> = {},
   ): string {
     if (!continuous) {
-      this.finish('stopped');
       this.discardInvocations(this.runtime.cancel());
+      this.finish('stopped');
     }
     const taskId = this.runtime.enqueue(actionId, { continuous });
     if (invocation.target !== undefined || invocation.kwargs !== undefined) this.invocationByTaskId.set(taskId, invocation);
@@ -322,8 +333,8 @@ export class RunController {
     if (rendered) {
       this.invocationByTaskId.delete(task.id);
       this.flushCommands();
-      if (this.activeRun && this.activeRun.spec.actionId === task.key) {
-        this.activeRun.inFlight = this.runtime.peekActiveTaskRef()?.key === this.activeRun.spec.actionId;
+      if (this.activeRun) {
+        this.activeRun.inFlight = this.hasInFlightAction;
         this.publish();
       }
     }
@@ -356,13 +367,17 @@ export class RunController {
     }
     this.clearActionTimeout();
     this.discardInvocations(this.runtime.cancel(run.spec.actionId));
+    if (reason !== 'disconnected' && this.canInvokeStopHook(run.spec.actionId)) {
+      this.runtime.enqueueFront('stop');
+    }
     run.state = reason === 'paused' ? 'paused' : 'stopped';
     run.stopReason = reason;
     run.stoppedAt = this.scheduler.now();
-    run.inFlight = this.runtime.peekActiveTaskRef()?.key === run.spec.actionId;
+    run.inFlight = this.hasInFlightAction;
     this.condition = null;
     this.publish();
     this.options.onRunStop?.(cloneStatus(run));
+    this.flushCommands();
   }
 
   private matchActiveTask(payload: Pick<ActionResultPayload, 'id' | 'request_id'>): RuntimeTaskSnapshot | null {
@@ -424,6 +439,14 @@ export class RunController {
 
   private discardInvocations(taskIds: readonly string[]): void {
     for (const taskId of taskIds) this.invocationByTaskId.delete(taskId);
+  }
+
+  private canInvokeStopHook(runActionId: string): boolean {
+    if (runActionId === 'stop' || this.runtime.hasContinuousKey('stop')) return false;
+    const stopAction = this.options.scenario.getAction('stop');
+    return stopAction !== undefined
+      && (stopAction.scope === undefined || stopAction.scope === 'model')
+      && !stopAction.kwargs?.some((argument) => argument.required === true);
   }
 
   private handleRenderBarrierError(error: unknown, task: RuntimeTaskSnapshot, payload: ActionResultPayload): void {

@@ -83,6 +83,19 @@ export class TaskQueue {
   // #region Enqueue / Cancel
 
   enqueue(key: string, options: { continuous?: boolean } = {}): string {
+    return this.enqueueAt(key, options, false);
+  }
+
+  /** Queue non-continuous lifecycle work immediately after the active task. */
+  enqueueFront(key: string, options: { continuous?: boolean } = {}): string {
+    return this.enqueueAt(key, options, true);
+  }
+
+  private enqueueAt(
+    key: string,
+    options: { continuous?: boolean },
+    front: boolean,
+  ): string {
     const continuous = options.continuous ?? false;
 
     if (continuous) {
@@ -110,7 +123,8 @@ export class TaskQueue {
     if (continuous) {
       this.continuousTaskByKey.set(key, task);
     }
-    this.queue.push(task);
+    if (front) this.queue.unshift(task);
+    else this.queue.push(task);
     return task.id;
   }
 

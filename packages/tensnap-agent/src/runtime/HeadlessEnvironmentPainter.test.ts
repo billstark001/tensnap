@@ -64,6 +64,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [
@@ -119,6 +120,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [
@@ -177,6 +179,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [
@@ -232,6 +235,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [
@@ -293,6 +297,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [
@@ -343,6 +348,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [
@@ -411,6 +417,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [
@@ -452,6 +459,7 @@ describe('HeadlessEnvironmentPainter', () => {
       actions: [],
       parameters: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
       environments: [

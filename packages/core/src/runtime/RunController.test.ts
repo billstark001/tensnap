@@ -201,6 +201,29 @@ describe('RunController', () => {
     expect(sent[sent.length - 1]).toMatchObject({ type: 'action_invoke', payload: { id: 'step', continuous: false } });
   });
 
+  it('invokes a declared stop hook after the current action renders', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.scenario.apply({ type: 'action_create', payload: { id: 'stop', label: 'Stop' } });
+
+    session.run.start({ mode: 'manual', actionId: 'step' });
+    const stepId = tickId(sent[0]!);
+    session.run.stop();
+    expect(sent).toHaveLength(1);
+
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: stepId, should_continue: true } });
+    session.run.markActionRendered({ id: 'step', request_id: stepId });
+
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({ type: 'action_invoke', payload: { id: 'stop', continuous: false } });
+    const stopId = tickId(sent[1]!);
+    session.handleIncoming({ type: 'action_result', payload: { id: 'stop', request_id: stopId } });
+    session.run.markActionRendered({ id: 'stop', request_id: stopId });
+    expect(session.run.status).toMatchObject({ state: 'stopped', inFlight: false });
+  });
+
   it('allows only the documented agent capabilities in stop expressions', () => {
     const session = new RendererSession();
     session.scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });

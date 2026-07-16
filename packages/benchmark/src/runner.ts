@@ -1,6 +1,6 @@
 import type { RendererSessionOutboundDetail, RunStatus, RuntimeTaskSnapshot } from '@tensnap/core/runtime';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
-import type { ActionStartPayload } from '@tensnap/protocol';
+import type { ActionInvokePayload } from '@tensnap/protocol';
 import type { RenderTriggerMode } from '@tensnap/web/store';
 import type {
   BenchmarkCase,
@@ -60,8 +60,8 @@ async function measureModelRun(
     };
     const onOutbound = ((event: Event) => {
       const detail = (event as CustomEvent<RendererSessionOutboundDetail>).detail;
-      if (detail.message.type !== 'action_start') return;
-      const payload = detail.message.payload as ActionStartPayload;
+      if (detail.message.type !== 'action_invoke') return;
+      const payload = detail.message.payload as ActionInvokePayload;
       if (payload.id !== actionId) return;
       const now = performance.now();
       completeActiveCycle(now);

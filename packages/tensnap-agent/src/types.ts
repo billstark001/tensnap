@@ -10,7 +10,7 @@ import type {
 } from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 
-export type RenderTriggerMode = 'manual' | 'action-end';
+export type RenderTriggerMode = 'manual' | 'action-result';
 export type RenderFormat = 'png' | 'jpeg';
 
 export type RuntimePhase =

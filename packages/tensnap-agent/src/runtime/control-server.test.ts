@@ -8,18 +8,34 @@ import { RuntimeControlServer } from './control-server';
 
 const tempDirs: string[] = [];
 
-async function createRuntimeServer(options: { maxRunStepsPolicy?: number; checkpointIntervalMs?: number } = {}) {
+async function createRuntimeServer(options: {
+  maxRunStepsPolicy?: number;
+  checkpointIntervalMs?: number;
+  capabilities?: string[];
+} = {}) {
+  const { capabilities = [], ...runtimeOptions } = options;
   const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-'));
   tempDirs.push(rootDir);
   const context = resolveRuntimeContextPaths({ rootDir, contextName: 'test-agent' });
-  const runtime = new AgentRuntime(context, { controlPort: 0, encoding: 'json', ...options });
+  const runtime = new AgentRuntime(context, { controlPort: 0, encoding: 'json', ...runtimeOptions });
   await runtime.initialize();
+  const renderer = (runtime as any).renderer;
+  renderer.handleIncoming({
+    type: 'simulator_info',
+    payload: {
+      protocol_version: '0.3',
+      binding: { name: 'test-binding', version: '0.3.0' },
+      model: { id: 'test-model' },
+      instance_id: 'test-instance',
+      capabilities,
+    },
+  });
   const server = new RuntimeControlServer(runtime, { host: '127.0.0.1', port: 0 });
   const address = await server.listen();
   return {
     runtime,
     server,
-    renderer: (runtime as any).renderer,
+    renderer,
     baseUrl: `http://${address.host}:${address.port}`,
   };
 }
@@ -63,11 +79,17 @@ describe('RuntimeControlServer', () => {
   it('keeps live state in memory and checkpoints dirty scenes at sync boundaries', async () => {
     const { runtime, server, renderer } = await createRuntimeServer({ checkpointIntervalMs: 1_000 });
     try {
+      attachConnectedTransport(renderer);
+      renderer.requestStateSync('sync-1');
+      renderer.handleIncoming({
+        type: 'state_sync_begin',
+        payload: { request_id: 'sync-1', model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' },
+      });
       renderer.handleIncoming({ type: 'metadata_update', payload: { time: 7 } });
-      expect(runtime.getStatus()).toMatchObject({ sceneRevision: 1, sceneDirty: true });
+      expect(runtime.getStatus()).toMatchObject({ sceneRevision: 0, sceneDirty: false });
       await expect(readFile(runtime.context.snapshotFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
 
-      renderer.handleIncoming({ type: 'state_sync_end', payload: {} });
+      renderer.handleIncoming({ type: 'state_sync_end', payload: { request_id: 'sync-1', state_revision: '1' } });
       const saved = await waitFor(async () => {
         try {
           return JSON.parse(await readFile(runtime.context.snapshotFile, 'utf8')) as { metadata: { time?: number } };
@@ -89,7 +111,7 @@ describe('RuntimeControlServer', () => {
       renderer.scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
       renderer.scenario.apply({
         type: 'env_layer_create',
-        payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent', data: { width: 8, height: 6 } },
+        payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent', metadata: { width: 8, height: 6 } },
       });
       renderer.scenario.apply({
         type: 'item_create',
@@ -103,6 +125,64 @@ describe('RuntimeControlServer', () => {
       expect(snapshotResponse.ok).toBe(true);
       expect(snapshotPayload.snapshot.environments[0].layers[0].storageSnapshot.agents).toHaveLength(1);
       expect((await (await fetch(`${baseUrl}/v1/charts`)).json())[0].points).toEqual([{ time: 1, alive: 3 }]);
+    } finally {
+      await server.close();
+      await runtime.stop();
+    }
+  });
+
+  it('captures and restores scenes through HTTP protocol endpoints', async () => {
+    const { runtime, server, renderer, baseUrl } = await createRuntimeServer({
+      capabilities: ['scene.restore.checkpoint', 'scene.restore.projected'],
+    });
+    try {
+      attachConnectedTransport(renderer, (message) => {
+        if (message.type === 'scene_capture') {
+          renderer.handleIncoming({
+            type: 'scene_capture_result',
+            payload: {
+              request_id: message.payload.request_id,
+              model_id: 'test-model',
+              checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1, 2]) },
+            },
+          });
+        }
+        if (message.type === 'scene_restore') {
+          renderer.handleIncoming({ type: 'scene_restore_begin', payload: { request_id: message.payload.request_id } });
+          renderer.handleIncoming({ type: 'metadata_update', payload: { time: message.payload.time ?? 0 } });
+          renderer.handleIncoming({ type: 'scene_restore_end', payload: { request_id: message.payload.request_id, status: 'ok' } });
+        }
+      });
+
+      const capture = await fetch(`${baseUrl}/v1/scene/capture`, { method: 'POST' });
+      expect(capture.status).toBe(200);
+      expect(await capture.json()).toMatchObject({
+        model_id: 'test-model',
+        checkpoint: { encoding: 'application/octet-stream', data: 'AQI=' },
+      });
+
+      const restore = await fetch(`${baseUrl}/v1/scene/restore`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ time: 8 }),
+      });
+      expect(restore.status).toBe(200);
+      expect(await restore.json()).toMatchObject({ status: 'ok' });
+      expect(runtime.inspectScene().time).toBe(8);
+    } finally {
+      await server.close();
+      await runtime.stop();
+    }
+  });
+
+  it('reports unsupported checkpoint capture without sending control traffic', async () => {
+    const { runtime, server, renderer, baseUrl } = await createRuntimeServer();
+    try {
+      const sent = attachConnectedTransport(renderer);
+      const response = await fetch(`${baseUrl}/v1/scene/capture`, { method: 'POST' });
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toMatch(/checkpoint scene capture/);
+      expect(sent).toHaveLength(0);
     } finally {
       await server.close();
       await runtime.stop();
@@ -145,11 +225,11 @@ describe('RuntimeControlServer', () => {
   it('runs, reports, and stops bounded runs through /v1/runs', async () => {
     const { runtime, server, renderer, baseUrl } = await createRuntimeServer();
     const sent = attachConnectedTransport(renderer, (message) => {
-      if (message.type !== 'action_start') return;
+      if (message.type !== 'action_invoke') return;
       setTimeout(() => {
         renderer.handleIncoming({
-          type: 'action_end',
-          payload: { id: message.payload.id, tick_id: message.payload.tick_id, continue: true },
+          type: 'action_result',
+          payload: { id: message.payload.id, request_id: message.payload.request_id, should_continue: true },
         });
       }, 0);
     });
@@ -169,7 +249,7 @@ describe('RuntimeControlServer', () => {
         return payload.run?.state === 'stopped' ? payload.run : undefined;
       });
       expect(stopped).toMatchObject({ completedSteps: 2, stopReason: 'condition', conditionValue: true });
-      expect(sent.filter((message) => message.type === 'action_start')).toHaveLength(2);
+      expect(sent.filter((message) => message.type === 'action_invoke')).toHaveLength(2);
 
       const stoppedAgain = await fetch(`${baseUrl}/v1/runs`, { method: 'DELETE' });
       expect(stoppedAgain.ok).toBe(true);

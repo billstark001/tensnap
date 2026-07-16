@@ -18,7 +18,7 @@ function createFakeModelCase(options: { stopReason?: RunStatus['stopReason']; st
           currentStatus = { id: 'run-1', spec: { mode: 'bounded', actionId: spec.actionId, maxSteps: spec.maxSteps }, state: 'running', completedSteps: 0, startedAt: 0, pauseRequested: false, inFlight: true };
           for (let index = 0; index < completedSteps; index += 1) {
             events.dispatchEvent(new CustomEvent<RendererSessionOutboundDetail>('outbound', { detail: {
-              origin: 'optimistic-control', message: { type: 'action_start', payload: { id: spec.actionId, tick_id: `tick-${index}` } },
+              origin: 'optimistic-control', message: { type: 'action_invoke', payload: { id: spec.actionId, request_id: `request-${index}` } },
             } }));
           }
           currentStatus = { ...currentStatus, state: 'stopped', completedSteps, stopReason: options.stopReason ?? 'max-steps', inFlight: false };

@@ -63,12 +63,27 @@ export class PipelineRuntime {
     });
   }
 
+  abortStateSync(requestId: string): boolean {
+    return this.syncBoundary.abort(requestId, () => {
+      this.q.maybeDispatchNext();
+    });
+  }
+
   // #endregion
 
   // #region Task lifecycle
 
   enqueue(key: string, options: { continuous?: boolean } = {}): string {
     const id = this.q.enqueue(key, options);
+    if (this.syncBoundary.isIdle) {
+      this.q.maybeDispatchNext();
+    }
+    return id;
+  }
+
+  /** Enqueue lifecycle cleanup directly behind the current in-flight task. */
+  enqueueFront(key: string, options: { continuous?: boolean } = {}): string {
+    const id = this.q.enqueueFront(key, options);
     if (this.syncBoundary.isIdle) {
       this.q.maybeDispatchNext();
     }

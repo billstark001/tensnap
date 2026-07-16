@@ -79,6 +79,60 @@ describe('RendererSession', () => {
     expect(sent).toHaveLength(1);
   });
 
+  it('clears a pending state sync after a correlated simulator error', () => {
+    const session = new RendererSession();
+    session.attachTransport(createTransport([]));
+    announce(session);
+
+    const requestId = session.requestStateSync('sync-1');
+    session.handleIncoming({ type: 'error', payload: { code: 'busy', message: 'Try again.', request_id: requestId } });
+
+    expect(() => session.requestStateSync('sync-2')).not.toThrow();
+  });
+
+  it('clears a pending scene restore after a correlated simulator error', () => {
+    const session = new RendererSession();
+    session.attachTransport(createTransport([]));
+    announce(session, 'test-instance', ['scene.restore.projected']);
+
+    const requestId = session.requestSceneRestore({ time: 2 });
+    session.handleIncoming({ type: 'error', payload: { code: 'busy', message: 'Try again.', request_id: requestId } });
+
+    expect(() => session.requestSceneRestore({ time: 3 })).not.toThrow();
+  });
+
+  it('correlates checkpoint capture results without committing a scene mutation', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    const captures: unknown[] = [];
+    const commits: RendererSessionCommitDetail[] = [];
+    session.addEventListener('scene:capture', (event) => {
+      captures.push((event as CustomEvent<{ result: unknown }>).detail.result);
+    });
+    session.addEventListener('commit', (event) => {
+      commits.push((event as CustomEvent<RendererSessionCommitDetail>).detail);
+    });
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+
+    const requestId = session.requestSceneCapture('capture-1');
+    expect(requestId).toBe('capture-1');
+    expect(sent).toContainEqual({ type: 'scene_capture', payload: { request_id: 'capture-1' } });
+
+    session.handleIncoming({
+      type: 'scene_capture_result',
+      payload: {
+        request_id: 'capture-1',
+        model_id: 'test-model',
+        checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1, 2]) },
+      },
+    });
+
+    expect(captures).toEqual([expect.objectContaining({ request_id: 'capture-1' })]);
+    expect(commits).toHaveLength(0);
+    expect(() => session.requestSceneCapture('capture-2')).not.toThrow();
+  });
+
   it('sends asset_sync through the same optimistic control path', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
