@@ -147,9 +147,12 @@ export const resizeHandle = styleVariants({
 export const buttonView = style({
   backgroundColor: vars.color.primary,
   color: vars.color.terminalForeground,
+  border: 0,
   borderRadius: '6px',
+  font: 'inherit',
   padding: '8px',
   height: '100%',
+  width: '100%',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

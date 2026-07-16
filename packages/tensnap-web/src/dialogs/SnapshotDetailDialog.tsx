@@ -6,10 +6,11 @@ import { Trans } from '@lingui/react/macro';
 import { msg, t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import type { AssetStore, Scenario } from '@tensnap/core';
+import type { RendererSession } from '@tensnap/core/runtime';
 import type { ChartGroup } from '@tensnap/core/chart';
 import { exportToCSV } from '@tensnap/core/chart/browser';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
-import { SnapshotPlayer, type Snapshot } from '@tensnap/core/snapshot';
+import { SnapshotPlaybackSource, type Snapshot } from '@tensnap/core/snapshot';
 import { ClipboardCopy, Pause, Play, Sheet, SkipBack } from 'lucide-react';
 import { getSnapshotIdentity } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
@@ -22,6 +23,7 @@ import { formatTimestamp } from '@/utils/date';
 import { useSettingsStore } from '@/store/settings';
 import { useToast } from '@/store/toast';
 import { copyCanvas } from '@/utils/data';
+import { SceneRestoreDialog } from './SceneRestoreDialog';
 
 const OfflineEnvironment = (props: {
   environment: ScenarioEnvironmentState;
@@ -75,8 +77,10 @@ const SnapshotPreviewContextMenu: React.FC<{
 export interface SnapshotDetailDialogProps extends DialogOpenProps {
   snapshot: Snapshot | null;
   onDelete: () => void;
+  deleteDisabled?: boolean;
   onRename: (label: string) => void;
-  onOpenOffline: () => void;
+  onOpenOffline: (frame?: number) => void;
+  session?: RendererSession | null;
 }
 
 /** Offline replay UI. It never writes a replayed state into a live renderer. */
@@ -85,16 +89,19 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   onOpenChange,
   snapshot,
   onDelete,
+  deleteDisabled = false,
   onRename,
   onOpenOffline,
+  session,
 }) => {
   const { _ } = useLingui();
   const firstFrame = snapshot?.initial.frame ?? 0;
   const lastFrame = snapshot?.frames[snapshot.frames.length - 1]?.index ?? firstFrame;
-  const player = useMemo(() => snapshot ? new SnapshotPlayer(snapshot) : null, [snapshot]);
+  const player = useMemo(() => snapshot ? new SnapshotPlaybackSource(snapshot) : null, [snapshot]);
   const [frame, setFrame] = useState(firstFrame);
   const [playing, setPlaying] = useState(false);
   const [label, setLabel] = useState(snapshot?.metadata.label ?? '');
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const playbackFps = useSettingsStore((state) => state.snapshotPlaybackFps);
   const isStatic = !snapshot || snapshot.frames.length === 0;
 
@@ -102,13 +109,12 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
     if (!playing || !snapshot || !player || isStatic) return;
     const handle = window.setInterval(() => {
       setFrame((current) => {
-        const next = snapshot.frames.find((candidate) => candidate.index > current)?.index;
-        if (next === undefined) {
+        const next = player.stepFrame();
+        if (!next) {
           setPlaying(false);
           return current;
         }
-        player.seek(next);
-        return next;
+        return next.index;
       });
     }, 1_000 / playbackFps);
     return () => window.clearInterval(handle);
@@ -121,7 +127,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const replay = player.scenario;
   const time = replay.metadata.time ?? '-';
 
-  return (
+  return <>
     <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
       <Dialog.CloseButton />
       <Dialog.Title><Trans>Snapshot replay</Trans></Dialog.Title>
@@ -149,7 +155,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
           <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>Frame updates:</Trans></span><span className={styles.detailValue}>{currentFrame?.messages.length ?? 0}</span></div>
           <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>Action:</Trans></span><span className={styles.detailValue}>{currentFrame?.action?.id ?? '-'}</span></div>
           {!isStatic && <div className={styles.timelineControls}>
-            <button type="button" className={styles.timelineButton} onClick={() => { player.seek(firstFrame); setFrame(firstFrame); }} title={_(msg`First frame`)} aria-label={_(msg`First frame`)}><SkipBack size={15} /></button>
+            <button type="button" className={styles.timelineButton} onClick={() => { player.reset(); setFrame(firstFrame); }} title={_(msg`First frame`)} aria-label={_(msg`First frame`)}><SkipBack size={15} /></button>
             <button type="button" className={styles.timelineButton} onClick={() => setPlaying((value) => !value)} title={playing ? _(msg`Pause`) : _(msg`Play`)} aria-label={playing ? _(msg`Pause`) : _(msg`Play`)}>
               {playing ? <Pause size={15} /> : <Play size={15} />}
             </button>
@@ -190,9 +196,11 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
         </div>
       </Dialog.Body>
       <Dialog.Footer>
-        <Dialog.Button variant="danger" onClick={onDelete}><Trans>Delete recording</Trans></Dialog.Button>
-        <Dialog.Button variant="primary" onClick={onOpenOffline}><Trans>Open as offline copy</Trans></Dialog.Button>
+        <Dialog.Button variant="danger" onClick={onDelete} disabled={deleteDisabled}><Trans>Delete recording</Trans></Dialog.Button>
+        <Dialog.Button onClick={() => setRestoreOpen(true)} disabled={!session?.isConnected || !session.simulatorInfo}><Trans>Restore to live simulator</Trans></Dialog.Button>
+        <Dialog.Button variant="primary" onClick={() => onOpenOffline(frame)}><Trans>Open as offline copy</Trans></Dialog.Button>
       </Dialog.Footer>
     </Dialog.Root>
-  );
+    <SceneRestoreDialog open={restoreOpen} onOpenChange={setRestoreOpen} snapshot={snapshot} session={session} />
+  </>;
 };

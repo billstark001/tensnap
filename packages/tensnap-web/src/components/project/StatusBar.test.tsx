@@ -10,15 +10,11 @@ const mockScenarioStore = {
   currentTime: null as number | null,
   session: null,
   isRecording: false,
+  actionMetrics: null,
   runRevision: 0,
 };
 
 const mockSettingsStore = {
-  runtimeTps: null as number | null,
-  runtimeMspt: null as number | null,
-  simulatorMspt: null as number | null,
-  simulatorCommMs: null as number | null,
-  simulatorRenderMs: null as number | null,
   setSettingsDialogOpen: vi.fn(),
 };
 

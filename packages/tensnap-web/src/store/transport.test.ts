@@ -7,8 +7,9 @@ import type {
 import type {
   ProtocolEncoding,
   RendererToSimulatorMessage,
+  SimulatorToRendererMessage,
 } from '@tensnap/protocol';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './scenario/store';
 import { createTransportStore } from './transport';
 
@@ -18,6 +19,7 @@ class DeferredTransport implements ISimulatorTransport {
   private state: TransportConnectionState = 'closed';
   private handlers = new Map<keyof TransportEventMap, Set<TransportEventHandler<any>>>();
   private resolveConnect: (() => void) | null = null;
+  readonly sent: RendererToSimulatorMessage[] = [];
 
   constructor(
     readonly connectionId: string,
@@ -83,13 +85,18 @@ class DeferredTransport implements ISimulatorTransport {
   }
 
   send(message: RendererToSimulatorMessage): void {
-    void message;
-    // no-op for tests
+    this.sent.push(message);
   }
 
   open(): void {
     this.resolveConnect?.();
     this.resolveConnect = null;
+  }
+
+  receive(message: SimulatorToRendererMessage): void {
+    const group = this.handlers.get('message');
+    if (!group) return;
+    for (const handler of group) handler(message);
   }
 
   private emit<K extends keyof TransportEventMap>(type: K, payload: TransportEventMap[K]): void {
@@ -104,7 +111,90 @@ class DeferredTransport implements ISimulatorTransport {
   }
 }
 
+class FailingTransport extends DeferredTransport {
+  override connect(): Promise<void> {
+    return Promise.reject(new Error('candidate connection failed'));
+  }
+}
+
 describe('transport store reconnect state', () => {
+  it('keeps the current transport alive until a replacement connects', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const firstTransport = new DeferredTransport('mock://first');
+    const secondTransport = new DeferredTransport('mock://second');
+
+    const firstInit = useTransportStore.getState().initialize(firstTransport);
+    firstTransport.open();
+    await firstInit;
+
+    const replacement = useTransportStore.getState().changeTransport(secondTransport);
+    expect(useTransportStore.getState().transport).toBe(firstTransport);
+    expect(firstTransport.isConnected).toBe(true);
+    expect(useScenarioStore.getState().connected).toBe(true);
+
+    secondTransport.open();
+    secondTransport.receive({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'transport-test', version: '0.3.0' },
+        model: { id: 'replacement-model' },
+        instance_id: 'replacement-instance',
+        capabilities: [],
+      },
+    });
+    await replacement;
+
+    expect(useTransportStore.getState().transport).toBe(secondTransport);
+    expect(firstTransport.connectionState).toBe('destroyed');
+    expect(useScenarioStore.getState().connected).toBe(true);
+  });
+
+  it('preserves the current transport when a replacement fails to connect', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const currentTransport = new DeferredTransport('mock://current');
+    const failingTransport = new FailingTransport('mock://failing');
+
+    const initialized = useTransportStore.getState().initialize(currentTransport);
+    currentTransport.open();
+    await initialized;
+
+    await expect(useTransportStore.getState().changeTransport(failingTransport))
+      .rejects.toThrow('candidate connection failed');
+
+    expect(useTransportStore.getState().transport).toBe(currentTransport);
+    expect(currentTransport.isConnected).toBe(true);
+    expect(useScenarioStore.getState().connected).toBe(true);
+  });
+
+  it('preserves the current transport when replacement handshake times out', async () => {
+    vi.useFakeTimers();
+    try {
+      const useScenarioStore = createScenarioStore();
+      const useTransportStore = createTransportStore(useScenarioStore);
+      const currentTransport = new DeferredTransport('mock://current');
+      const silentTransport = new DeferredTransport('mock://silent');
+
+      const initialized = useTransportStore.getState().initialize(currentTransport);
+      currentTransport.open();
+      await initialized;
+
+      const replacement = useTransportStore.getState().changeTransport(silentTransport);
+      const rejection = expect(replacement).rejects.toThrow(/did not send simulator_info/);
+      silentTransport.open();
+      await vi.advanceTimersByTimeAsync(10_000);
+      await rejection;
+
+      expect(useTransportStore.getState().transport).toBe(currentTransport);
+      expect(currentTransport.isConnected).toBe(true);
+      expect(useScenarioStore.getState().connected).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('marks the scenario disconnected before swapping transports', async () => {
     const useScenarioStore = createScenarioStore();
     const useTransportStore = createTransportStore(useScenarioStore);
@@ -154,5 +244,68 @@ describe('transport store reconnect state', () => {
     await init;
 
     expect(useTransportStore.getState().canReconnect()).toBe(true);
+  });
+
+  it('removes a superseded simulator-info listener before the next source announces', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const firstTransport = new DeferredTransport('mock://first');
+    const secondTransport = new DeferredTransport('mock://second');
+
+    const firstInit = useTransportStore.getState().initialize(firstTransport, {
+      parameters: [{ id: 'old-only', label: 'Old only', type: 'number', value: 1 }], actions: [], envs: [], charts: [], monitors: [],
+    });
+    firstTransport.open();
+    await firstInit;
+
+    const secondInit = useTransportStore.getState().initialize(secondTransport);
+    secondTransport.open();
+    await secondInit;
+    secondTransport.receive({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'transport-test', version: '0.3.0' },
+        model: { id: 'replacement-model' },
+        instance_id: 'replacement-instance',
+        capabilities: [],
+      },
+    });
+
+    const stateSyncs = secondTransport.sent.filter((message) => message.type === 'state_sync');
+    expect(stateSyncs).toHaveLength(1);
+    expect(stateSyncs[0]).toMatchObject({
+      payload: { model_id: 'replacement-model', parameters: [], actions: [], envs: [], charts: [], monitors: [] },
+    });
+  });
+
+  it('does not auto-sync a persisted project into a different model', async () => {
+    const useScenarioStore = createScenarioStore();
+    useScenarioStore.getState().session.setExpectedSimulatorIdentity({
+      model_id: 'saved-model',
+      state_schema_version: '1',
+      instance_id: 'saved-instance',
+    });
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new DeferredTransport('mock://mismatch');
+
+    const initialized = useTransportStore.getState().initialize(transport, {
+      parameters: [], actions: [], envs: [], charts: [], monitors: [],
+    });
+    transport.open();
+    await initialized;
+    transport.receive({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'transport-test', version: '0.3.0' },
+        model: { id: 'other-model', state_schema_version: '1' },
+        instance_id: 'other-instance',
+        capabilities: [],
+      },
+    });
+
+    expect(transport.sent.filter((message) => message.type === 'state_sync')).toEqual([]);
+    expect(useTransportStore.getState().connectionError).toMatch(/does not match this project/i);
   });
 });

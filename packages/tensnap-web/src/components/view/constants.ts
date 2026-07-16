@@ -12,6 +12,9 @@ export const ENVIRONMENT_CARD_HEIGHT = 600;
 export const CHART_CARD_WIDTH = 500;
 export const CHART_CARD_HEIGHT = 400;
 
+export const MONITOR_CARD_WIDTH = 360;
+export const MONITOR_CARD_HEIGHT = 260;
+
 export const LAYOUT_PADDING = 10;
 
 const windowHeaderHeight = 40;

@@ -37,6 +37,7 @@ export function validateMessage(
     
     // Validate the payload based on message type
     const payloadSchema = getPayloadSchema(parsedMessage.type);
+    if (!payloadSchema) throw new Error(`No payload schema registered for ${parsedMessage.type}.`);
     payloadSchema.parse(parsedMessage.payload);
     
     return { valid: true };

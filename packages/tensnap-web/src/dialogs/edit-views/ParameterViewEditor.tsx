@@ -397,8 +397,8 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({
           <input
             id="param-runtime-change"
             type="checkbox"
-            checked={param.allowRuntimeChange || false}
-            onChange={(e) => onObjectChange('allowRuntimeChange', e.target.checked)}
+            checked={param.allow_runtime_change || false}
+            onChange={(e) => onObjectChange('allow_runtime_change', e.target.checked)}
             className={styles.checkboxInput}
           />
           <Trans>Allow Runtime Change</Trans>

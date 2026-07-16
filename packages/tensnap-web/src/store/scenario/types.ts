@@ -7,19 +7,15 @@ import {
   ChartStorage,
   ChartGroup,
 } from '@tensnap/core';
-import type { RecordingOptions, Snapshot } from '@tensnap/core/snapshot';
+import type { ActionRunMetricSnapshot } from '@tensnap/core/runtime';
+import type { RecordingOptions, Snapshot, SnapshotCheckpoint, SnapshotModelIdentity } from '@tensnap/core/snapshot';
 import type {
   Action,
-  ActionStartPayload,
   ChartGroupMetadata,
   NormalizedLogPayload,
   Parameter,
-  ParameterChangePayload,
-  RendererToSimulatorMessage,
-  ScreenshotResponsePayload,
-  SimulatorToRendererMessage,
-  StateSyncBoundaryPayload,
-  StateSyncRequest,
+  StateSyncBeginPayload,
+  StateSyncEndPayload,
 } from '@tensnap/protocol';
 import { ContainerView } from '../../types/ui';
 import { UpdateTriggerState } from '../update-trigger';
@@ -34,6 +30,8 @@ export interface SnapshotDraft {
   id?: string;
   timestamp?: number;
   label?: string;
+  modelIdentity?: SnapshotModelIdentity;
+  checkpoint?: SnapshotCheckpoint;
 }
 
 export interface EditableEnvironmentDraft {
@@ -64,9 +62,11 @@ export interface ScenarioStore {
   isRecording: boolean;
   mainView: ContainerView;
   connected: boolean;
+  actionMetrics: ActionRunMetricSnapshot | null;
   stateSync: StateSyncStatus;
   actionRevision: number;
   chartRevision: number;
+  monitorRevision: number;
   logRevision: number;
   runRevision: number;
   assetRevision: number;
@@ -76,7 +76,10 @@ export interface ScenarioStore {
 
   setConnected: (connected: boolean) => void;
   prepareStateSync: (requestId: string, options?: { autoLayoutOnComplete?: boolean }) => void;
-  handleStateSyncBoundary: (phase: 'begin' | 'end', payload: StateSyncBoundaryPayload) => void;
+  handleStateSyncBoundary: (
+    phase: 'begin' | 'end',
+    payload: StateSyncBeginPayload | StateSyncEndPayload,
+  ) => void;
   resetStateSync: () => void;
   isMainViewAutoLayoutCandidate: () => boolean;
   setMainView: (view: SetStateAction<ContainerView>) => void;
@@ -84,7 +87,6 @@ export interface ScenarioStore {
   replaceMainView: (view: ContainerView) => void;
   updateMainViewLayout: (options?: { recordHistory?: boolean }) => void;
 
-  applyMessage: (message: SimulatorToRendererMessage) => void;
   dump: () => ScenarioSnapshot;
   load: (snapshot: ScenarioSnapshot) => void;
   clearAll: () => void;
@@ -99,17 +101,13 @@ export interface ScenarioStore {
   updateChartProps: (id: string, props: Partial<ChartGroup>) => boolean;
   renameChartGroup: (id: string, newId: string) => boolean;
 
-  createStateSyncMessage: (requestId?: string) => RendererToSimulatorMessage<StateSyncRequest>;
-  createParamChangeMessage: (id: string, value: unknown) => RendererToSimulatorMessage<ParameterChangePayload>;
-  createActionStartMessage: (id: string, continuous?: boolean, tickId?: string) => RendererToSimulatorMessage<ActionStartPayload>;
-  createAssetSyncMessage: () => RendererToSimulatorMessage<{ assets: Record<string, string> }>;
-  createScreenshotResponseMessage: (payload: ScreenshotResponsePayload) => RendererToSimulatorMessage<ScreenshotResponsePayload>;
-
   registerScreenshotCapture: (id: string, handler: ScreenshotCaptureHandler) => void;
   unregisterScreenshotCapture: (id: string) => void;
   getScreenshotCapture: (id: string) => ScreenshotCaptureHandler | undefined;
 
   addSnapshot: (draft?: SnapshotDraft) => void;
+  /** Captures an exact checkpoint when the connected simulator supports it. */
+  captureSnapshot: (draft?: SnapshotDraft) => Promise<void>;
   startRecording: (options?: RecordingOptions) => void;
   stopRecording: () => void;
   renameSnapshot: (id: string, label: string) => void;
@@ -122,6 +120,7 @@ export interface ScenarioStore {
   get parameters(): ReadonlyMap<string, Parameter>;
   get actions(): ReadonlyMap<string, Action>;
   get charts(): ChartStorage;
+  get monitors(): Scenario['monitors'];
   get logs(): readonly NormalizedLogPayload[];
   get lastLogs(): NormalizedLogPayload | undefined;
 }

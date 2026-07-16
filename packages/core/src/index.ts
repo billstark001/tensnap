@@ -44,6 +44,7 @@ export type {
 
 export * from './parameter';
 export * from './monitor';
+export * from './value-inspector';
 export * from './runtime';
 export {
 	SnapshotRecorder,
@@ -58,6 +59,7 @@ export {
 	snapshotArchiveForJson,
 	snapshotEncodedByteLength,
 	snapshotFrameAt,
+	projectSnapshotForRestore,
 } from './snapshot';
 export type {
 	Keyframe,
@@ -67,11 +69,14 @@ export type {
 	SnapshotFrame,
 	SnapshotLayerCodec,
 	SnapshotLayerCodecImplementation,
+	SnapshotCheckpoint,
+	SnapshotModelIdentity,
 	SnapshotMetadata,
 	SnapshotSegment,
 	SnapshotSeries,
 	ProjectSource,
 	SnapshotPlaybackState,
+	ProjectedRestoreState,
 } from './snapshot';
 
 export { Scenario } from './scenario';

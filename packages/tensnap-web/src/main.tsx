@@ -20,6 +20,7 @@ registerBuiltinModels(
     id: entry.id,
     name: entry.name,
     description: entry.description,
+    protocolVersion: entry.protocolVersion,
     create: entry.createTransport,
   }))
 );

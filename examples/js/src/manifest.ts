@@ -14,6 +14,8 @@ export interface JsExampleEntry {
   id: string;
   name: string;
   description: string;
+  /** The bundled examples use the strict canonical v0.3 wire contract. */
+  protocolVersion: '0.3';
   defaultTransportMode: JsExampleTransportMode;
   createTransport: (options?: BundledExampleTransportOptions) => ISimulatorTransport;
   startDemoServer: (options?: StartJsExampleWebSocketDemoOptions) => Promise<RunningJsExampleDemo>;
@@ -23,6 +25,7 @@ const jsExampleEntries: JsExampleEntry[] = getJsExampleDefinitions().map((defini
   id: definition.id,
   name: definition.name,
   description: definition.description,
+  protocolVersion: '0.3',
   defaultTransportMode: 'inmemory',
   createTransport: (options) => createBundledExampleTransport(definition.id, options),
   startDemoServer: async (options) => {

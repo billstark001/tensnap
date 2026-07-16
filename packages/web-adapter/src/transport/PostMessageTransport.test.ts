@@ -31,7 +31,7 @@ describe('browser-side transports', () => {
       charts: defineCharts({
         id: 'population',
         label: 'Population',
-        dataList: [{ id: 'count', label: 'Count' }],
+        data_list: [{ id: 'count', label: 'Count' }],
       }),
     });
     const registry = ScenarioRegistry.from(scenario);
@@ -40,7 +40,15 @@ describe('browser-side transports', () => {
     const transport = createPostMessageTransport({ endpoint: renderer, connectionId: 'conn-1' });
     const host = createPostMessageSimulatorHost({
       endpoint: simulator,
-      session: registry.createSession(),
+      session: registry.createSession({
+        simulatorInfo: {
+          protocol_version: '0.3',
+          binding: { name: 'registry-test', version: '0.3.0' },
+          model: { id: 'registry-model' },
+          instance_id: 'registry-instance',
+          capabilities: [],
+        },
+      }),
       connectionId: 'conn-1',
     });
 
@@ -54,15 +62,18 @@ describe('browser-side transports', () => {
       type: 'state_sync',
       payload: {
         request_id: 'req-1',
+        model_id: 'registry-model',
         parameters: [],
         actions: [],
         envs: [],
         charts: [],
+        monitors: [],
       },
     });
 
     await vi.waitFor(() => {
       expect(messages.map((message) => message.type)).toEqual([
+        'simulator_info',
         'state_sync_begin',
         'param_create',
         'action_create',
@@ -73,6 +84,50 @@ describe('browser-side transports', () => {
       ]);
     });
 
+    await host.destroy();
+    transport.destroy();
+  });
+
+  it('opens before forwarding simulator_info so its state-sync response is not dropped', async () => {
+    const scenario = defineScenario({
+      actions: defineActions({ id: 'step', label: 'Step', continuous: true }),
+    });
+    const registry = ScenarioRegistry.from(scenario);
+    const { renderer, simulator } = createLinkedEndpoints();
+    const transport = createPostMessageTransport({ endpoint: renderer, connectionId: 'handshake-order' });
+    const host = createPostMessageSimulatorHost({
+      endpoint: simulator,
+      connectionId: 'handshake-order',
+      session: registry.createSession({
+        simulatorInfo: {
+          protocol_version: '0.3',
+          binding: { name: 'handshake-test', version: '0.3.0' },
+          model: { id: 'handshake-model' },
+          instance_id: 'handshake-instance',
+          capabilities: [],
+        },
+      }),
+    });
+
+    const messages: AnyProtocolMessage[] = [];
+    transport.on('message', (message) => {
+      messages.push(message);
+      if (message.type !== 'simulator_info') return;
+      transport.send({
+        type: 'state_sync',
+        payload: {
+          request_id: 'handshake-sync',
+          model_id: 'handshake-model',
+          parameters: [], actions: [], envs: [], charts: [], monitors: [],
+        },
+      });
+    });
+
+    await transport.connect();
+    await vi.waitFor(() => {
+      expect(transport.isConnected).toBe(true);
+      expect(messages).toContainEqual(expect.objectContaining({ type: 'action_create', payload: expect.objectContaining({ id: 'step' }) }));
+    });
     await host.destroy();
     transport.destroy();
   });
@@ -99,20 +154,29 @@ describe('browser-side transports', () => {
       { type: 'metadata_update', payload: { time: 1 } },
     ]);
 
-    transport.send({ type: 'action_start', payload: { id: 'step' } });
-    expect(onMessage).toHaveBeenCalledWith({ type: 'action_start', payload: { id: 'step' } });
+    transport.send({ type: 'action_invoke', payload: { id: 'step', request_id: 'action-1' } });
+    expect(onMessage).toHaveBeenCalledWith({ type: 'action_invoke', payload: { id: 'step', request_id: 'action-1' } });
   });
 
-  it('routes action_start to the simulator session and returns action_end', async () => {
-    const onActionStart = vi.fn(async (payload, session: SimulatorSession) => {
-      await session.emitter.actionEnd({ id: payload.id, continue: false });
+  it('routes action_invoke to the simulator session and returns action_result', async () => {
+    const onActionInvoke = vi.fn(async (payload, session: SimulatorSession) => {
+      await session.emitter.actionResult({ id: payload.id, request_id: payload.request_id, should_continue: false });
     });
 
     const { renderer, simulator } = createLinkedEndpoints();
     const transport = createPostMessageTransport({ endpoint: renderer, connectionId: 'conn-2' });
     const host = createPostMessageSimulatorHost({
       endpoint: simulator,
-      session: new SimulatorSession({ onActionStart }),
+      session: new SimulatorSession({
+        simulatorInfo: {
+          protocol_version: '0.3',
+          binding: { name: 'session-test', version: '0.3.0' },
+          model: { id: 'session-model' },
+          instance_id: 'session-instance',
+          capabilities: [],
+        },
+        onActionInvoke,
+      }),
       connectionId: 'conn-2',
     });
 
@@ -123,15 +187,15 @@ describe('browser-side transports', () => {
 
     await transport.connect();
     transport.send({
-      type: 'action_start',
-      payload: { id: 'step' },
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'action-1' },
     });
 
     await vi.waitFor(() => {
-      expect(onActionStart).toHaveBeenCalledTimes(1);
+      expect(onActionInvoke).toHaveBeenCalledTimes(1);
       expect(messages).toContainEqual({
-        type: 'action_end',
-        payload: { id: 'step', continue: false },
+        type: 'action_result',
+        payload: { id: 'step', request_id: 'action-1', should_continue: false },
       });
     });
 

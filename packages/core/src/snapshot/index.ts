@@ -1,10 +1,14 @@
 export {
   SnapshotRecorder,
   SnapshotPlayer,
+  applySnapshotFrame,
   createSingleSnapshot,
   materializeSnapshot,
   snapshotFrameAt,
 } from './SnapshotRecorder';
+export type { ApplySnapshotFrameOptions } from './SnapshotRecorder';
+export { projectedRestoreChangesTopology, projectSnapshotForRestore } from './projected-restore';
+export type { ProjectedRestoreState } from './projected-restore';
 export {
   decodeSnapshotArchive,
   encodeSnapshotArchive,
@@ -25,6 +29,8 @@ export type {
   SnapshotFrame,
   SnapshotLayerCodecImplementation,
   SnapshotLayerCodec,
+  SnapshotCheckpoint,
+  SnapshotModelIdentity,
   SnapshotMetadata,
   SnapshotSegment,
   SnapshotSeries,

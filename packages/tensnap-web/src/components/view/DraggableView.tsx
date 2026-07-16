@@ -89,6 +89,7 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       case 'environment':
       case 'parameter':
       case 'chart':
+      case 'monitor':
         return <AnchoredViewComponent view={view as AnchoredView} parentView={parentView} />;
 
       default:

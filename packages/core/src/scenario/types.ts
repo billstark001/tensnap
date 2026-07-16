@@ -106,6 +106,8 @@ export interface ScenarioEventDetailMap {
   'param:create': Parameter;
   'param:update': Parameter;
   'param:delete': { id: string };
+  /** Local renderer echo of an accepted `param_change` request. */
+  'param:optimistic': ParameterSyncPayload;
   'param:sync': ParameterSyncPayload;
   'chart:create': ChartGroupMetadata;
   'chart:update': ChartUpdatePayload;

@@ -4,6 +4,7 @@ import { useLingui } from '@lingui/react';
 import { AnyView, ContainerView } from '@/types/ui';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
+import type { MonitorState } from '@tensnap/core/monitor';
 import { EditableEnvironmentDraft } from '@/store/scenario/store';
 import { findView } from '@/utils/view/container';
 import { addViewToContainerInPlace, deleteViewInPlace, updateViewInPlace } from '@/utils/view/mutation';
@@ -12,6 +13,7 @@ import {
   createParameterView,
   createChartView,
   createEnvironmentView,
+  createMonitorView,
 } from '@/utils/view/create-view';
 import { generateUniqueId } from '@/utils/common';
 import { ViewUpdateHandler } from '../view/useViewContext';
@@ -23,7 +25,7 @@ import { getEditableEnvironmentData, type EditableEnvironmentData } from '@/dial
 // #region Types
 
 type Position = { x: number; y: number };
-type CreatableViewType = Extract<AnyView['type'], 'button' | 'parameter' | 'chart' | 'environment'>;
+type CreatableViewType = Extract<AnyView['type'], 'button' | 'parameter' | 'chart' | 'environment' | 'monitor'>;
 type ViewObject = Parameter | EditableEnvironmentDraft | ChartGroup | Action;
 
 type CreateViewResult<TObject extends ViewObject = ViewObject> = {
@@ -48,7 +50,6 @@ export function createAction(): Action {
   return {
     id: generateUniqueId(),
     label: 'New Button',
-    allowRuntimeChange: false,
   };
 }
 
@@ -59,7 +60,7 @@ export function createBooleanParameter(): BooleanParameter {
     type: 'boolean',
     label: 'New Parameter',
     value: false,
-    allowRuntimeChange: true,
+    allow_runtime_change: true,
   };
 }
 
@@ -88,7 +89,7 @@ export function create2DEnvironment(): EditableEnvironmentDraft {
 
 // #region View creation helpers
 
-function buildView(type: CreatableViewType, position: Position): CreateViewResult | null {
+function buildView(type: CreatableViewType, position: Position, monitors: readonly MonitorState[]): CreateViewResult | null {
   switch (type) {
     case 'button': {
       const action = createAction();
@@ -106,6 +107,10 @@ function buildView(type: CreatableViewType, position: Position): CreateViewResul
       const environment = create2DEnvironment();
       return { object: environment, view: createEnvironmentView(environment, position) };
     }
+    case 'monitor': {
+      const monitor = monitors[0];
+      return monitor ? { object: monitor as never, view: createMonitorView(monitor, position) } : null;
+    }
     default:
       return null;
   }
@@ -115,7 +120,7 @@ function toChartPayload(chartGroup: ChartGroup) {
   return {
     id: chartGroup.id,
     label: chartGroup.label,
-    dataList: Object.values(chartGroup.metadataDict),
+    data_list: Object.values(chartGroup.metadataDict),
   };
 }
 
@@ -128,6 +133,7 @@ export function useCreateView(props: { onViewUpdate?: ViewUpdateHandler }) {
   const rootView = useScenarioStore((store) => store.mainView);
   const setData = useScenarioStore((store) => store.setData);
   const upsertAction = useScenarioStore((store) => store.upsertAction);
+  const scenario = useScenarioStore((store) => store.scenario);
   const recordViewHistory = useRecordViewHistory();
 
   /** Creates a view and persists its backing object in the scenario store. */
@@ -138,7 +144,7 @@ export function useCreateView(props: { onViewUpdate?: ViewUpdateHandler }) {
   ) => {
     if (!rootView) return;
 
-    const result = buildView(type as CreatableViewType, position);
+    const result = buildView(type as CreatableViewType, position, scenario ? [...scenario.monitors.all.values()] : []);
     if (!result) return;
 
     const before = structuredClone(rootView);
@@ -157,11 +163,14 @@ export function useCreateView(props: { onViewUpdate?: ViewUpdateHandler }) {
       case 'chart':
         setData?.({ charts: [toChartPayload(result.object as ChartGroup)] }, { updateLayout: false, preserveExisting: true });
         break;
+      case 'monitor':
+        // Monitors belong to the simulator. A local view only binds to one.
+        break;
       default:
         break;
     }
     recordViewHistory(`Create ${type} view`, 'layout', before, rootView);
-  }, [rootView, onViewUpdate, setData, upsertAction, recordViewHistory]);
+  }, [rootView, onViewUpdate, setData, upsertAction, scenario, recordViewHistory]);
 
   return { createView };
 }

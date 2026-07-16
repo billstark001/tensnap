@@ -5,10 +5,11 @@ import { useSettingsStore } from '@/store/settings';
 import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw, Wrench } from 'lucide-react';
+import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw, Wrench, Info } from 'lucide-react';
 import { useState, useCallback } from 'react';
 
 import * as styles from './StatusBar.css';
+import { SimulatorInfoDialog } from '@/dialogs/SimulatorInfoDialog';
 
 interface StatusBarProps {
   onToggleRightPanel?: () => void;
@@ -28,17 +29,15 @@ export function StatusBar({
   const connected = useScenarioStore((store) => store.connected);
   const currentTime = useScenarioStore((store) => store.currentTime);
   const session = useScenarioStore((store) => store.session);
+  const scenario = useScenarioStore((store) => store.scenario);
   const isRecording = useScenarioStore((store) => store.isRecording);
+  const actionMetrics = useScenarioStore((store) => store.actionMetrics);
   const runRevision = useScenarioStore((store) => store.runRevision);
-  const runtimeTps = useSettingsStore((store) => store.runtimeTps);
-  const runtimeMspt = useSettingsStore((store) => store.runtimeMspt);
-  const simulatorMspt = useSettingsStore((store) => store.simulatorMspt);
-  const simulatorCommMs = useSettingsStore((store) => store.simulatorCommMs);
-  const simulatorRenderMs = useSettingsStore((store) => store.simulatorRenderMs);
   const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
   const transportStore = useTransportStore();
   
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const reconnect = transportStore?.reconnect;
   const isConnecting = transportStore?.isConnecting ?? false;
@@ -46,6 +45,11 @@ export function StatusBar({
   const reconnectDisabled = isReconnecting || isConnecting || !canReconnect;
   void runRevision;
   const runStatus = session?.run.status;
+  const runtimeTps = actionMetrics?.runtime.tps ?? null;
+  const runtimeMspt = actionMetrics?.runtime.mspt ?? null;
+  const simulatorMspt = actionMetrics?.simulator.simulate_ms ?? null;
+  const simulatorCommMs = actionMetrics?.simulator.communicate_ms ?? null;
+  const simulatorRenderMs = actionMetrics?.simulator.render_ms ?? null;
   const runSummary = runStatus
     ? [
       runStatus.spec.actionId,
@@ -147,6 +151,14 @@ export function StatusBar({
         </button>
 
         <button
+          onClick={() => setInfoOpen(true)}
+          className={styles.toggleButton}
+          title={_(msg`Simulator information`)}
+        >
+          <Info size={16} />
+          <span><Trans>Info</Trans></span>
+        </button>
+        <button
           onClick={() => setSettingsDialogOpen(true)}
           className={styles.toggleButton}
           title={_(msg`Settings`)}
@@ -183,6 +195,12 @@ export function StatusBar({
           </button>
         )}
       </div>
+      <SimulatorInfoDialog
+        open={infoOpen}
+        onOpenChange={setInfoOpen}
+        simulatorInfo={session?.simulatorInfo ?? null}
+        scenario={scenario ?? null}
+      />
     </div>
   )
 }

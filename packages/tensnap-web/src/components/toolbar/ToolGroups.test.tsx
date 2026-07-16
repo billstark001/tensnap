@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { SimulationControlTools } from './ToolGroups';
+import { resolveToolbarActionIds } from './toolbar-action-model';
 
 const startManualRun = vi.fn();
 const pauseRun = vi.fn();
@@ -70,5 +71,19 @@ describe('SimulationControlTools', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
     expect(startManualRun).toHaveBeenCalledWith('start');
+  });
+
+  it('falls back to step and excludes actions that need a target or required arguments', () => {
+    const actions = new Map([
+      ['start', { id: 'start', label: 'Start', scope: 'agent' as const, continuous: true }],
+      ['step', { id: 'step', label: 'Step', continuous: true }],
+      ['reset', { id: 'reset', label: 'Reset', kwargs: [{ name: 'seed', type: 'integer' as const, required: true }] }],
+    ]);
+
+    expect(resolveToolbarActionIds(actions)).toEqual({
+      runActionId: 'step',
+      stepActionId: 'step',
+      resetActionId: undefined,
+    });
   });
 });

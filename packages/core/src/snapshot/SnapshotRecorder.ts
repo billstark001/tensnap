@@ -1,5 +1,6 @@
 import type {
   ActionResultPayload,
+  ProtocolData,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
@@ -215,12 +216,19 @@ function loadKeyframe(scenario: Scenario, snapshot: Snapshot, keyframe: Snapshot
 
 export function createSingleSnapshot(
   scenario: ScenarioSnapshot,
-  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp'> = {},
+  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint'> = {},
 ): Snapshot {
   const timestamp = options.timestamp ?? now();
   return {
     version: 1,
-    metadata: { id: options.id ?? createId(), createdAt: timestamp, endedAt: timestamp, label: options.label },
+    metadata: {
+      id: options.id ?? createId(),
+      createdAt: timestamp,
+      endedAt: timestamp,
+      label: options.label,
+      ...(options.modelIdentity === undefined ? {} : { model_identity: clone(options.modelIdentity) }),
+      ...(options.checkpoint === undefined ? {} : { checkpoint: clone(options.checkpoint) }),
+    },
     initial: { frame: 0, timestamp, scenario: clone(scenario) },
     keyframes: [],
     frames: [],
@@ -277,6 +285,8 @@ export class SnapshotRecorder {
       id: options.id,
       label: options.label,
       timestamp,
+      modelIdentity: options.modelIdentity,
+      checkpoint: options.checkpoint,
     });
     this.nextFrameIndex = this.snapshot.initial.frame + 1;
     this.snapshot.metadata.endedAt = undefined;
@@ -558,9 +568,37 @@ export function materializeSnapshot(snapshot: Snapshot, frame = snapshot.frames[
   loadKeyframe(scenario, snapshot, keyframe);
   for (const recordedFrame of snapshot.frames) {
     if (recordedFrame.index <= keyframe.frame || recordedFrame.index > bounded) continue;
-    for (const message of recordedFrame.messages) scenario.apply(clone(message));
+    applySnapshotFrame(scenario, recordedFrame);
   }
   return scenario.dump();
+}
+
+export interface ApplySnapshotFrameOptions {
+  /** Uses a host's normal commit path while retaining the shared replay ordering. */
+  applyMessage?: (message: SimulatorToRendererMessage) => void;
+}
+
+/** Apply the renderer-visible effects of one recording frame. */
+export function applySnapshotFrame(
+  scenario: Scenario,
+  frame: SnapshotFrame,
+  options: ApplySnapshotFrameOptions = {},
+): void {
+  // Controls are optimistic UI changes. Apply them before simulator messages
+  // so an in-frame canonical `param_sync` remains authoritative.
+  for (const control of frame.controls) {
+    if (control.type !== 'param_change') continue;
+    const payload = control.payload as { id: string; value: ProtocolData };
+    if (!scenario.getParameter(payload.id)) continue;
+    try {
+      scenario.applyOptimisticParameterChange(payload.id, payload.value);
+    } catch {
+      // A recording can outlive a parameter definition change. Keep replaying
+      // the remaining valid frame data instead of failing the whole snapshot.
+    }
+  }
+  const applyMessage = options.applyMessage ?? ((message: SimulatorToRendererMessage) => scenario.apply(message));
+  for (const message of frame.messages) applyMessage(clone(message));
 }
 
 export function snapshotFrameAt(snapshot: Snapshot, frame: number): SnapshotFrame | undefined {
@@ -599,7 +637,7 @@ export class SnapshotPlayer {
 
     for (const recordedFrame of this.snapshot.frames) {
       if (recordedFrame.index <= this.currentFrame || recordedFrame.index > target) continue;
-      for (const message of recordedFrame.messages) this.scenario.apply(message);
+      applySnapshotFrame(this.scenario, recordedFrame);
       this.currentFrame = recordedFrame.index;
     }
     return this.scenario;

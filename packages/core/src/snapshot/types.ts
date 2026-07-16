@@ -1,5 +1,6 @@
 import type {
   ActionResultPayload,
+  Checkpoint,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
@@ -33,6 +34,23 @@ export interface SnapshotMetadata {
   createdAt: number;
   endedAt?: number;
   label?: string;
+  /** Immutable simulator identity that produced this snapshot. */
+  model_identity?: SnapshotModelIdentity;
+  /** Optional exact model-state capture for checkpoint-capable simulators. */
+  checkpoint?: SnapshotCheckpoint;
+}
+
+/** The compatibility fields required to safely reuse persisted scenario data. */
+export interface SnapshotModelIdentity {
+  model_id: string;
+  state_schema_version?: string;
+  instance_id?: string;
+}
+
+/** A checkpoint is deliberately tied to the model/schema that encoded it. */
+export interface SnapshotCheckpoint extends Checkpoint {
+  model_id: string;
+  state_schema_version?: string;
 }
 
 /**
@@ -113,4 +131,6 @@ export interface RecordingOptions {
   id?: string;
   label?: string;
   timestamp?: number;
+  modelIdentity?: SnapshotModelIdentity;
+  checkpoint?: SnapshotCheckpoint;
 }

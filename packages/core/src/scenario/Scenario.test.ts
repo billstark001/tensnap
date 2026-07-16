@@ -687,6 +687,14 @@ describe('Scenario – param_create with sanitization', () => {
     expect((s.parameters.get('e1') as any).value).toBe('a');
   });
 
+  it('rejects invalid optimistic parameter values without mutating local state', () => {
+    const s = new Scenario();
+    s.apply(msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'a', options: ['a', 'b'] }));
+
+    expect(() => s.applyOptimisticParameterChange('e1', 'missing')).toThrow('Invalid value');
+    expect((s.parameters.get('e1') as any).value).toBe('a');
+  });
+
   it('param_delete removes parameter', () => {
     const s = new Scenario();
     s.apply(msg('param_create', { id: 'p1', type: 'boolean', label: '', value: true }));

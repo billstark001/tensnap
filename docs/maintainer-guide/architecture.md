@@ -289,11 +289,15 @@ must not be treated as a restore of a still-connected simulator.
 For persistence, core turns a `Snapshot` into independently decodable
 MessagePack segments. Each segment carries a base keyframe and lossless
 compression metadata, enabling worker-based encoding and random access without
-requiring an earlier segment. Project files use format version 2: the live
+requiring an earlier segment. Project files use format version 3: the live
 scenario and all recordings reference one project-level asset table by hash.
 The browser encoder runs in a Worker when available and has a synchronous
-fallback for tests and unsupported hosts. Version-0/1 project files retain
-their legacy reader and are upgraded on load.
+fallback for tests and unsupported hosts. Project-file migration is a
+persistence compatibility promise: unversioned version-0 files and explicit
+version-1/version-2 files must remain readable, are upgraded to version 3 in
+memory, and are written as version 3 on the next save. Unknown future versions
+are rejected. Best-effort recovery of damaged files is separate from this
+promise and may discard invalid sections with explicit warnings.
 
 `layerCodecs` remain recording policies (`delta`, `keyframe`, `adaptive`, and
 `derived`). A concrete `SnapshotLayerCodecImplementation` can override the

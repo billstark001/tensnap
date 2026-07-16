@@ -1,6 +1,6 @@
 import type { ISimulatorTransport, TransportConnectionState, TransportEventHandler, TransportEventMap } from '../transport';
 import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
 import { materializeSnapshot, type Snapshot } from '../snapshot';
 
@@ -66,6 +66,23 @@ describe('RendererSession', () => {
     ]);
   });
 
+  it('releases the transaction gate before flushing actions queued during state sync', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    const requestId = session.requestStateSync('sync-with-queued-action');
+    session.run.requestAction('step');
+
+    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
+    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+
+    expect(sent).toContainEqual(expect.objectContaining({
+      type: 'action_invoke',
+      payload: expect.objectContaining({ id: 'step' }),
+    }));
+  });
+
   it('treats a requested state sync as an active transaction before begin', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
@@ -101,6 +118,105 @@ describe('RendererSession', () => {
     expect(() => session.requestSceneRestore({ time: 3 })).not.toThrow();
   });
 
+  it('requires topology capability when projected restore changes layer dependencies', () => {
+    const session = new RendererSession();
+    session.attachTransport(createTransport([]));
+    announce(session, 'test-instance', ['scene.restore.projected']);
+    session.scenario.apply({ type: 'env_create', payload: { id: 'world', type: '2d' } });
+    session.scenario.apply({ type: 'env_layer_create', payload: { env_id: 'world', layer_id: 'agents-a', layer_type: 'agent' } });
+    session.scenario.apply({ type: 'env_layer_create', payload: { env_id: 'world', layer_id: 'agents-b', layer_type: 'agent' } });
+    session.scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'world', layer_id: 'edges', layer_type: 'edge', dependency_layer_ids: { agent: 'agents-a' } },
+    });
+
+    expect(() => session.requestSceneRestore({
+      envs: [{
+        id: 'world', type: '2d', layers: [
+          { layer_id: 'agents-a', layer_type: 'agent' },
+          { layer_id: 'agents-b', layer_type: 'agent' },
+          { layer_id: 'edges', layer_type: 'edge', dependency_layer_ids: { agent: 'agents-b' } },
+        ],
+      }],
+    })).toThrow('topology');
+  });
+
+  it('forgets identity before a project source is replaced', () => {
+    const firstMessages: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(firstMessages));
+    announce(session);
+    const firstSync = session.requestStateSync('first-sync');
+    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: firstSync, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
+    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: firstSync, state_revision: '1' } });
+
+    session.detachTransport();
+    session.resetSimulatorIdentity();
+    const secondMessages: RendererToSimulatorMessage[] = [];
+    session.attachTransport(createTransport(secondMessages));
+    session.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test-binding', version: '0.3.0' },
+        model: { id: 'replacement-model' },
+        instance_id: 'replacement-instance',
+        capabilities: [],
+      },
+    });
+
+    expect(session.identityStatus).toBe('matching');
+    expect(() => session.requestStateSync('replacement-sync')).not.toThrow();
+    expect(secondMessages).toContainEqual(expect.objectContaining({
+      type: 'state_sync',
+      payload: expect.objectContaining({ model_id: 'replacement-model' }),
+    }));
+  });
+
+  it('blocks state sync when a persisted project identity does not match the handshake', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.setExpectedSimulatorIdentity({
+      model_id: 'saved-model',
+      state_schema_version: '1',
+      instance_id: 'saved-instance',
+    });
+    session.attachTransport(createTransport(sent));
+    session.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test-binding', version: '0.3.0' },
+        model: { id: 'other-model', state_schema_version: '1' },
+        instance_id: 'other-instance',
+        capabilities: [],
+      },
+    });
+
+    expect(session.identityStatus).toBe('model-mismatch');
+    expect(() => session.requestStateSync('blocked-sync')).toThrow(/does not match/);
+    expect(sent).toEqual([]);
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 99 } });
+    expect(session.scenario.metadata.time).toBeUndefined();
+  });
+
+  it('treats a persisted state-schema mismatch as a model mismatch', () => {
+    const session = new RendererSession();
+    session.setExpectedSimulatorIdentity({ model_id: 'test-model', state_schema_version: 'old-schema' });
+    session.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test-binding', version: '0.3.0' },
+        model: { id: 'test-model', state_schema_version: 'new-schema' },
+        instance_id: 'test-instance',
+        capabilities: [],
+      },
+    });
+
+    expect(session.identityStatus).toBe('model-mismatch');
+  });
+
   it('correlates checkpoint capture results without committing a scene mutation', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
@@ -133,6 +249,68 @@ describe('RendererSession', () => {
     expect(() => session.requestSceneCapture('capture-2')).not.toThrow();
   });
 
+  it('settles capture failures rejected by session validation and releases the transaction', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+
+    const capture = session.captureScene();
+    const requestId = (sent[sent.length - 1]?.payload as { request_id: string }).request_id;
+    session.handleIncoming({
+      type: 'scene_capture_result',
+      payload: {
+        request_id: requestId,
+        model_id: 'other-model',
+        checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1]) },
+      },
+    });
+
+    await expect(capture).rejects.toThrow(/different model or state schema/);
+    expect(session.identityStatus).toBe('matching');
+    expect(() => session.requestSceneCapture('capture-after-rejection')).not.toThrow();
+  });
+
+  it('times out scene operations, rejects their Promise, and releases the command gate', async () => {
+    vi.useFakeTimers();
+    try {
+      const sent: RendererToSimulatorMessage[] = [];
+      const session = new RendererSession({ transactionTimeoutMs: 25 });
+      session.attachTransport(createTransport(sent));
+      announce(session, 'test-instance', ['scene.restore.checkpoint']);
+
+      const capture = session.captureScene();
+      const rejection = expect(capture).rejects.toThrow(/timed out/);
+      await vi.advanceTimersByTimeAsync(25);
+
+      await rejection;
+      expect(() => session.requestSceneCapture('capture-after-timeout')).not.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rolls back an active request when transport send fails synchronously', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    let failNextSend = true;
+    const session = new RendererSession();
+    session.attachTransport({
+      ...createTransport(sent),
+      send: (message) => {
+        if (failNextSend) {
+          failNextSend = false;
+          throw new Error('send failed');
+        }
+        sent.push(message);
+      },
+    });
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+
+    await expect(session.captureScene()).rejects.toThrow('send failed');
+    expect(() => session.requestSceneCapture('capture-after-send-failure')).not.toThrow();
+    expect(sent).toContainEqual({ type: 'scene_capture', payload: { request_id: 'capture-after-send-failure' } });
+  });
+
   it('sends asset_sync through the same optimistic control path', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
@@ -162,6 +340,59 @@ describe('RendererSession', () => {
     announce(session);
 
     session.run.requestAction('step');
+  });
+
+  it('owns one action-metrics window across synchronous dispatch and completion', () => {
+    const session = new RendererSession();
+    const metrics: unknown[] = [];
+    session.addEventListener('action:metrics', (event) => {
+      metrics.push((event as CustomEvent).detail.metrics);
+    });
+    session.attachTransport({
+      ...createTransport([]),
+      send: (message) => {
+        if (message.type !== 'action_invoke') return;
+        const payload = message.payload as { id: string; request_id: string };
+        session.handleIncoming({
+          type: 'action_result',
+          payload: { id: payload.id, request_id: payload.request_id, timings: { simulate_ms: 2 } },
+        });
+      },
+    });
+    announce(session);
+
+    session.beginActionMetrics('step');
+    session.run.requestAction('step');
+
+    expect(metrics).toEqual([
+      null,
+      expect.objectContaining({
+        runtime: { tps: expect.any(Number), mspt: expect.any(Number) },
+        simulator: expect.objectContaining({ simulate_ms: 2 }),
+      }),
+    ]);
+  });
+
+  it('echoes parameter changes locally without fabricating a simulator param_sync', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    const optimistic: unknown[] = [];
+    session.scenario.addEventListener('param:optimistic', (event) => {
+      optimistic.push((event as CustomEvent).detail);
+    });
+
+    session.startRecording();
+    session.setParameter('density', 3);
+    const snapshot = session.stopRecording()!;
+
+    expect(sent).toContainEqual({ type: 'param_change', payload: { id: 'density', value: 3 } });
+    expect(session.scenario.getParameter('density')?.value).toBe(3);
+    expect(optimistic).toEqual([{ id: 'density', value: 3 }]);
+    expect(snapshot.frames[0]?.controls).toEqual([{ type: 'param_change', payload: { id: 'density', value: 3 } }]);
+    expect(snapshot.frames[0]?.messages.some((message) => message.type === 'param_sync')).toBe(false);
   });
 
   it('starts run recording before the first dispatch and completes a seekable snapshot', () => {
@@ -212,5 +443,26 @@ describe('RendererSession', () => {
 
     expect(session.scenario.charts.getGroup('forbidden')).toBeUndefined();
     expect(session.scenario.metadata.time).toBeUndefined();
+  });
+
+  it('rejects an invalid restore transaction and requires replacement sync before mutations', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.projected']);
+    session.scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+
+    const restore = session.restoreScene({ request_id: 'restore-invalid-chart', time: 3 });
+    session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id: 'restore-invalid-chart' } });
+    session.handleIncoming({ type: 'chart_create', payload: { id: 'forbidden', label: 'Forbidden' } });
+
+    await expect(restore).rejects.toThrow(/Chart messages are forbidden/);
+    expect(session.identityStatus).toBe('sync-required');
+    expect(() => session.setParameter('density', 2)).toThrow(/replacement state sync/);
+
+    const syncId = session.requestStateSync('recover-sync');
+    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: syncId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
+    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: syncId, state_revision: '2' } });
+    expect(session.identityStatus).toBe('matching');
   });
 });

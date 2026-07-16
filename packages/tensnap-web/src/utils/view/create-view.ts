@@ -5,12 +5,15 @@ import {
   BooleanParameter,
 } from '@/types/model';
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata, Point } from '@/components/view/types';
+import type { MonitorMetadata } from '@tensnap/protocol';
 import {
   ENVIRONMENT_GRID_WIDTH,
   ENVIRONMENT_CARD_WIDTH,
   ENVIRONMENT_CARD_HEIGHT,
   CHART_CARD_WIDTH,
   CHART_CARD_HEIGHT,
+  MONITOR_CARD_WIDTH,
+  MONITOR_CARD_HEIGHT,
   WINDOW_X_DELTA,
   WINDOW_Y_DELTA,
   preservedViewIds,
@@ -147,6 +150,30 @@ export function createChartView(
   };
 }
 
+/** Creates a local renderer view for a simulator-owned current-value monitor. */
+export function createMonitorView(
+  monitor: MonitorMetadata,
+  position?: Point,
+  randomId = true,
+): AnchoredView {
+  const { x = 0, y = 0 } = position || {};
+  return {
+    id: randomId ? generateUniqueId() : `monitor-${monitor.id}`,
+    type: 'monitor',
+    left: x,
+    top: y,
+    width: MONITOR_CARD_WIDTH,
+    height: MONITOR_CARD_HEIGHT,
+    expanded: true,
+    disabled: false,
+    data: {
+      id: monitor.id,
+      title: monitor.label,
+      renderHint: monitor.render_hint,
+    },
+  };
+}
+
 /**
  * Creates an environment view from an environment object
  * @param environment The environment object (required)
@@ -204,4 +231,9 @@ export function createEnvironmentViews(environments: ObjectWithEnvironmentMetada
  */
 export function createChartViews(charts: ObjectWithChartMetadata[]): AnchoredView[] {
   return charts.map((chart) => createChartView(chart, undefined, false));
+}
+
+/** Creates views for simulator-owned monitors without creating any protocol object. */
+export function createMonitorViews(monitors: MonitorMetadata[]): AnchoredView[] {
+  return monitors.map((monitor) => createMonitorView(monitor, undefined, false));
 }

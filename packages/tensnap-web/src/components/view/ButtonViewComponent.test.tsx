@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ButtonViewComponent } from './ButtonViewComponent';
 
 const onButtonAction = vi.fn();
-const scenarioState: { session: any; runRevision: number; running: boolean } = { session: null, runRevision: 0, running: false };
+const scenarioState: { session: any; runRevision: number; actionRevision: number; running: boolean; actions: Map<string, any> } = {
+  session: null,
+  runRevision: 0,
+  actionRevision: 0,
+  running: false,
+  actions: new Map([['start', { id: 'start', label: 'Start' }]]),
+};
 
 vi.mock('./useViewContext', () => ({
   useViewContext: () => ({
@@ -21,7 +27,9 @@ describe('ButtonViewComponent', () => {
     onButtonAction.mockReset();
     scenarioState.session = null;
     scenarioState.runRevision = 0;
+    scenarioState.actionRevision = 0;
     scenarioState.running = false;
+    scenarioState.actions = new Map([['start', { id: 'start', label: 'Start' }]]);
   });
 
   it('switches to the play state as soon as one pause click is requested', () => {
@@ -141,5 +149,31 @@ describe('ButtonViewComponent', () => {
     expect(pause).toHaveBeenCalledOnce();
     expect(screen.queryByText('14 ·')).not.toBeInTheDocument();
     expect(screen.getByText('Start').parentElement).not.toHaveAttribute('title');
+  });
+
+  it('does not invoke actions that need a target or required arguments', () => {
+    scenarioState.actions = new Map([
+      ['agent-action', { id: 'agent-action', label: 'Agent action', scope: 'agent' }],
+      ['seed', { id: 'seed', label: 'Seed', kwargs: [{ name: 'value', type: 'number', required: true }] }],
+    ]);
+
+    const { rerender } = render(
+      <ButtonViewComponent view={{
+        id: 'agent-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
+        expanded: false, disabled: false, data: { id: 'agent-action', text: 'Agent action' },
+      }} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Agent action' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Agent action' }));
+    expect(onButtonAction).not.toHaveBeenCalled();
+
+    rerender(
+      <ButtonViewComponent view={{
+        id: 'seed-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
+        expanded: false, disabled: false, data: { id: 'seed', text: 'Seed' },
+      }} />,
+    );
+    expect(screen.getByRole('button', { name: 'Seed' })).toBeDisabled();
   });
 });

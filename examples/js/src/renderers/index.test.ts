@@ -28,7 +28,14 @@ describe('JS example sessions', () => {
 
       await session.open(`test-${definition.id}`);
 
-      expect(messages).toContainEqual(expect.objectContaining({ type: 'simulator_info' }));
+      expect(messages).toContainEqual({
+        type: 'simulator_info',
+        payload: expect.objectContaining({
+          protocol_version: '0.3',
+          binding: expect.objectContaining({ name: 'tensnap-js', version: '0.3.0', language: 'JavaScript' }),
+          model: expect.objectContaining({ id: definition.id }),
+        }),
+      });
 
       messages.length = 0;
       await session.dispatch({

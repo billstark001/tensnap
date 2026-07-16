@@ -6,6 +6,19 @@ import { createHistoryStore } from '@/store/undo-redo';
 import { AgentStorage } from '@tensnap/core/environment';
 
 describe('scenario store updates preserve assets', () => {
+  const announce = (state: { session: { handleIncoming: (message: any) => void } }) => {
+    state.session.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'store-test', version: '0.3.0' },
+        model: { id: 'store-model' },
+        instance_id: 'store-instance',
+        capabilities: [],
+      },
+    });
+  };
+
   beforeEach(() => {
     vi.useRealTimers();
     useSettingsStore.setState({ maxRenderFps: 0 });
@@ -19,15 +32,16 @@ describe('scenario store updates preserve assets', () => {
   it('updateEnvironment does not clear resolved assets', async () => {
     const useStore = createScenarioStore();
     const state = useStore.getState();
+    announce(state);
 
-    state.applyMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
-    state.applyMessage({
+    state.session.handleIncoming({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
+    state.session.handleIncoming({
       type: 'env_layer_create',
       payload: {
         env_id: 'env-1',
         layer_id: 'agents',
         layer_type: 'agent',
-        data: { coord_offset: 'int' },
+        metadata: { coord_offset: 'int' },
       },
     });
 
@@ -50,10 +64,11 @@ describe('scenario store updates preserve assets', () => {
   it('auto-applies layout when a matching sync ends on a default main view', () => {
     const useStore = createScenarioStore();
     const state = useStore.getState();
+    announce(state);
 
-    state.applyMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
+    state.session.handleIncoming({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
     state.prepareStateSync('sync-1', { autoLayoutOnComplete: true });
-    state.handleStateSyncBoundary('end', { request_id: 'sync-1' });
+    state.handleStateSyncBoundary('end', { request_id: 'sync-1', state_revision: '1' });
 
     expect(useStore.getState().mainView.views.length).toBeGreaterThan(0);
     expect(useStore.getState().stateSync.phase).toBe('idle');
@@ -62,8 +77,9 @@ describe('scenario store updates preserve assets', () => {
   it('does not auto-apply layout when the main view already has user content', () => {
     const useStore = createScenarioStore();
     const state = useStore.getState();
+    announce(state);
 
-    state.applyMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
+    state.session.handleIncoming({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
     state.setMainView(createDefaultRootLayout([{
       id: 'custom-button',
       type: 'button',
@@ -77,7 +93,7 @@ describe('scenario store updates preserve assets', () => {
     }]));
 
     state.prepareStateSync('sync-2', { autoLayoutOnComplete: true });
-    state.handleStateSyncBoundary('end', { request_id: 'sync-2' });
+    state.handleStateSyncBoundary('end', { request_id: 'sync-2', state_revision: '1' });
 
     expect(useStore.getState().mainView.views).toHaveLength(1);
     expect(useStore.getState().mainView.views[0].id).toBe('custom-button');
@@ -86,20 +102,21 @@ describe('scenario store updates preserve assets', () => {
   it('promotes the first runtime tick to one and clears the correction on reset', async () => {
     const useStore = createScenarioStore();
     const state = useStore.getState();
+    announce(state);
 
-    state.applyMessage({ type: 'metadata_update', payload: { time: 0 } });
+    state.session.handleIncoming({ type: 'metadata_update', payload: { time: 0 } });
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(0);
 
-    state.applyMessage({ type: 'action_end', payload: { id: 'start' } });
+    state.session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: 'start-1' } });
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(1);
 
-    state.applyMessage({ type: 'metadata_update', payload: { time: 2 } });
+    state.session.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(2);
 
-    state.applyMessage({ type: 'metadata_update', payload: { time: 0 } });
+    state.session.handleIncoming({ type: 'metadata_update', payload: { time: 0 } });
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(0);
   });
@@ -109,6 +126,7 @@ describe('scenario store updates preserve assets', () => {
     useSettingsStore.setState({ maxRenderFps: 10 });
     const useStore = createScenarioStore();
     const session = useStore.getState().session;
+    announce(useStore.getState());
 
     session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
     await Promise.resolve();
@@ -125,8 +143,9 @@ describe('scenario store updates preserve assets', () => {
   it('keeps item deltas out of structural and unrelated scenario revisions', async () => {
     const useStore = createScenarioStore();
     const state = useStore.getState();
-    state.applyMessage({ type: 'env_create', payload: { id: 'uniform', type: 'uniform' } });
-    state.applyMessage({
+    announce(state);
+    state.session.handleIncoming({ type: 'env_create', payload: { id: 'uniform', type: 'uniform' } });
+    state.session.handleIncoming({
       type: 'env_layer_create',
       payload: { env_id: 'uniform', layer_id: 'agents', layer_type: 'agent' },
     });
@@ -146,7 +165,7 @@ describe('scenario store updates preserve assets', () => {
     const agentStorage = storage as AgentStorage;
     const storageRevision = agentStorage.revision;
 
-    state.applyMessage({
+    state.session.handleIncoming({
       type: 'item_create',
       payload: { env_id: 'uniform', layer_id: 'agents', items: [{ id: 'agent-1' }] },
     });
@@ -167,6 +186,7 @@ describe('scenario store updates preserve assets', () => {
   it('publishes action, chart, log, and run changes through independent revisions', async () => {
     const useStore = createScenarioStore();
     const state = useStore.getState();
+    announce(state);
     const initial = {
       action: state.actionRevision,
       chart: state.chartRevision,
@@ -174,25 +194,44 @@ describe('scenario store updates preserve assets', () => {
       run: state.runRevision,
     };
 
-    state.applyMessage({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
+    state.session.handleIncoming({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
     await Promise.resolve();
     expect(useStore.getState().actionRevision).toBe(initial.action + 1);
     expect(useStore.getState().chartRevision).toBe(initial.chart);
 
-    state.applyMessage({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
+    state.session.handleIncoming({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
     await Promise.resolve();
     expect(useStore.getState().chartRevision).toBe(initial.chart + 1);
     expect(useStore.getState().logRevision).toBe(initial.log);
 
-    state.applyMessage({ type: 'log', payload: { level: 'info', message: 'ready' } });
+    state.session.handleIncoming({ type: 'log', payload: { level: 'info', message: 'ready' } });
     await Promise.resolve();
     expect(useStore.getState().logRevision).toBe(initial.log + 1);
     expect(useStore.getState().runRevision).toBe(initial.run);
 
-    state.applyMessage({ type: 'action_end', payload: { id: 'step' } });
+    state.session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: 'step-1' } });
     await Promise.resolve();
     expect(useStore.getState().runRevision).toBe(initial.run + 1);
     expect(useStore.getState().actionRevision).toBe(initial.action + 1);
+  });
+
+  it('publishes monitor metadata through the global revision but leaves value updates per-monitor', async () => {
+    const useStore = createScenarioStore();
+    const state = useStore.getState();
+    announce(state);
+    const revision = state.monitorRevision;
+
+    state.session.handleIncoming({ type: 'monitor_create', payload: { id: 'health', label: 'Health' } });
+    await Promise.resolve();
+    expect(useStore.getState().monitorRevision).toBe(revision + 1);
+
+    state.session.handleIncoming({ type: 'monitor_update', payload: { id: 'health', value: { ready: true }, revision: 1 } });
+    await Promise.resolve();
+    expect(useStore.getState().monitorRevision).toBe(revision + 1);
+
+    state.session.handleIncoming({ type: 'monitor_delete', payload: { id: 'health' } });
+    await Promise.resolve();
+    expect(useStore.getState().monitorRevision).toBe(revision + 2);
   });
 
   it('records renderer layout commands while excluding live simulator updates', async () => {
@@ -212,7 +251,7 @@ describe('scenario store updates preserve assets', () => {
     expect(useStore.getState().mainView).toEqual(edited);
 
     const commandCount = history.getState().past.length;
-    useStore.getState().applyMessage({ type: 'metadata_update', payload: { time: 3 } });
+    useStore.getState().session.handleIncoming({ type: 'metadata_update', payload: { time: 3 } });
     await Promise.resolve();
     expect(history.getState().past).toHaveLength(commandCount);
   });

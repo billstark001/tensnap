@@ -75,6 +75,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function acceptsOptimisticParameterValue(parameter: Parameter, value: ParameterChangePayload['value']): boolean {
+  switch (parameter.type) {
+    case 'number': return typeof value === 'number' && Number.isFinite(value);
+    case 'enum': return typeof value === 'string' && parameter.options.includes(value);
+    case 'boolean': return typeof value === 'boolean';
+    case 'string': return typeof value === 'string';
+  }
+}
+
 // TODO(protocol-v0.3): Read the optional `upsert` field from each create
 // payload. Until the protocol owns that field, create messages keep the
 // backwards-compatible replace/recreate default.
@@ -162,6 +171,25 @@ export class Scenario extends LazyEventTarget {
 
   getAction(id: string): Action | undefined {
     return this.actionsState.get(id);
+  }
+
+  /**
+   * Apply the renderer's optimistic parameter echo without inventing a
+   * simulator-originated `param_sync` message. A real `param_sync` can still
+   * correct or reject this value when it arrives.
+   */
+  applyOptimisticParameterChange(id: string, value: ParameterChangePayload['value']): ParameterSyncPayload {
+    const parameter = this.parametersState.get(id);
+    if (!parameter) throw new Error(`Unknown parameter: ${id}.`);
+    if (!acceptsOptimisticParameterValue(parameter, value)) {
+      throw new Error(`Invalid value for parameter: ${id}.`);
+    }
+    const previous: ParameterSyncPayload = { id, value: cloneValue(parameter.value) };
+    parameter.value = cloneValue(value) as string | number | boolean;
+    sanitizeParameter(parameter, true);
+    this.parameterRevisionState += 1;
+    this.emit('param:optimistic', { id, value: cloneValue(parameter.value) });
+    return previous;
   }
 
   apply(message: SimulatorToRendererMessage): void {

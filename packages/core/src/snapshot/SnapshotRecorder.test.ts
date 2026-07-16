@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Scenario } from '../scenario';
-import { SnapshotPlayer, SnapshotRecorder, materializeSnapshot } from './SnapshotRecorder';
-import { decodeSnapshotArchive, encodeSnapshotArchive } from './SnapshotArchive';
+import { applySnapshotFrame, SnapshotPlayer, SnapshotRecorder, materializeSnapshot } from './SnapshotRecorder';
+import { decodeSnapshotArchive, encodeSnapshotArchive, snapshotArchiveForJson } from './SnapshotArchive';
 
 describe('SnapshotRecorder', () => {
   it('replays coalesced atomic frames to the exact recorded Scenario state', () => {
@@ -44,6 +44,42 @@ describe('SnapshotRecorder', () => {
     expect(snapshot.frames).toHaveLength(1);
     expect(snapshot.frames[0].controls).toEqual([{ type: 'param_change', payload: { id: 'density', value: 3 } }]);
     expect(materializeSnapshot(snapshot).parameters[0].value).toBe(2.5);
+  });
+
+  it('replays an optimistic parameter control when the simulator did not need to correct it', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start();
+    scenario.applyOptimisticParameterChange('density', 3);
+    recorder.recordControl({ type: 'param_change', payload: { id: 'density', value: 3 } });
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step', request_id: 'step-1' } });
+    const snapshot = recorder.stop()!;
+
+    expect(materializeSnapshot(snapshot).parameters[0].value).toBe(3);
+    expect(new SnapshotPlayer(snapshot).seek(1).getParameter('density')?.value).toBe(3);
+  });
+
+  it('shares frame ordering with hosts that commit replay messages through their own path', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    const committed: string[] = [];
+
+    applySnapshotFrame(scenario, {
+      index: 1,
+      timestamp: 1,
+      kind: 'control',
+      controls: [{ type: 'param_change', payload: { id: 'density', value: 3 } }],
+      messages: [{ type: 'param_sync', payload: { id: 'density', value: 2.5 } }],
+    }, {
+      applyMessage: (message) => {
+        committed.push(message.type);
+        scenario.apply(message);
+      },
+    });
+
+    expect(committed).toEqual(['param_sync']);
+    expect(scenario.getParameter('density')?.value).toBe(2.5);
   });
 
   it('uses requested keyframe codecs without retaining redundant item deltas', () => {
@@ -181,6 +217,57 @@ describe('SnapshotRecorder', () => {
     expect(archive.segments.every((segment) => segment.data instanceof Uint8Array)).toBe(true);
     expect(archive.byteLength).toBeLessThanOrEqual(snapshot.byteLength + 2_048);
     expect(materializeSnapshot(decodeSnapshotArchive(archive))).toEqual(scenario.dump());
+  });
+
+  it('rejects corrupt segment lengths, ranges, and duplicate frame ranges', () => {
+    const scenario = new Scenario();
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({ keyframeEvery: 1 });
+    for (let time = 1; time <= 3; time += 1) {
+      const update = { type: 'metadata_update' as const, payload: { time } };
+      scenario.apply(update);
+      recorder.recordMessage(update);
+      recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+    }
+    const archive = encodeSnapshotArchive(recorder.stop()!, 1);
+
+    const invalidLength = structuredClone(archive);
+    invalidLength.segments[0]!.byteLength += 1;
+    expect(() => decodeSnapshotArchive(invalidLength)).toThrow(/byteLength mismatch/);
+
+    const invalidRange = structuredClone(archive);
+    invalidRange.segments[0]!.firstFrame += 1;
+    expect(() => decodeSnapshotArchive(invalidRange)).toThrow(/declared frame range/);
+
+    const overlapping = structuredClone(archive);
+    overlapping.segments = [overlapping.segments[0]!, structuredClone(overlapping.segments[0]!)];
+    expect(() => decodeSnapshotArchive(overlapping)).toThrow(/duplicated|overlap|out of order/);
+  });
+
+  it('keeps identity and binary checkpoint metadata through JSON archive conversion', () => {
+    const scenario = new Scenario();
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({
+      modelIdentity: { model_id: 'checkpoint-model', state_schema_version: '2', instance_id: 'instance-1' },
+      checkpoint: {
+        model_id: 'checkpoint-model',
+        state_schema_version: '2',
+        encoding: 'application/octet-stream',
+        data: new Uint8Array([4, 5, 6]),
+      },
+    });
+    const archive = snapshotArchiveForJson(encodeSnapshotArchive(recorder.stop()!));
+
+    expect(typeof archive.metadata.checkpoint?.data).toBe('string');
+    expect(decodeSnapshotArchive(archive).metadata).toMatchObject({
+      model_identity: { model_id: 'checkpoint-model', state_schema_version: '2', instance_id: 'instance-1' },
+      checkpoint: {
+        model_id: 'checkpoint-model',
+        state_schema_version: '2',
+        encoding: 'application/octet-stream',
+        data: 'data:application/octet-stream;base64,BAUG',
+      },
+    });
   });
 
   it('allows a host to replace a layer delta policy with a real codec implementation', () => {

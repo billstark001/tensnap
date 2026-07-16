@@ -4,6 +4,7 @@ import { pack } from '@/utils/layout/pack';
 import type { PackingOptions, PackingResult, PlacedRectangle } from '@/utils/layout/pack';
 import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '@/components/view/constants';
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/components/view/types';
+import type { MonitorMetadata } from '@tensnap/protocol';
 import { getEffectiveViewBox } from './geometry';
 import { assertValidViewTree } from './container';
 import {
@@ -13,6 +14,7 @@ import {
   createParameterViews,
   createEnvironmentViews,
   createChartViews,
+  createMonitorViews,
 } from './create-view';
 
 // #region other utility functions
@@ -91,6 +93,10 @@ function getChartSignature(chart: ObjectWithChartMetadata): string {
   return `chart:${chart.id}`;
 }
 
+function getMonitorSignature(monitor: MonitorMetadata): string {
+  return `monitor:${monitor.id}`;
+}
+
 // #endregion
 
 // #region module entry
@@ -158,6 +164,7 @@ export interface CreateAutoLayoutOptions {
  * @param charts List of all active charts
  * @param options Layout options
  * @param actions List of all active actions (buttons)
+ * @param monitors List of all active simulator-owned monitors
  * @returns Updated container view
  */
 export function createAutoLayout(
@@ -167,6 +174,7 @@ export function createAutoLayout(
   charts: ObjectWithChartMetadata[],
   options: CreateAutoLayoutOptions = {},
   actions: Action[] = [],
+  monitors: MonitorMetadata[] = [],
 ): ContainerView {
   const { inPlace = false, disableMissingViews = false } = options;
   const view = currentView
@@ -179,6 +187,7 @@ export function createAutoLayout(
   parameters.forEach(p => statesFound.set(getParameterSignature(p), false));
   environments.forEach(e => statesFound.set(getEnvironmentSignature(e), false));
   charts.forEach(c => statesFound.set(getChartSignature(c), false));
+  monitors.forEach(m => statesFound.set(getMonitorSignature(m), false));
 
   // this maintains statesFound and viewsShouldDisable
   const viewsShouldDisable = walkAndFilter(view, (v) => {
@@ -188,6 +197,7 @@ export function createAutoLayout(
     const sign = v.type === 'parameter' ? getParameterSignature(v.data) :
       v.type === 'environment' ? getEnvironmentSignature(v.data as ObjectWithEnvironmentMetadata) :
         v.type === 'chart' ? getChartSignature(v.data as ObjectWithChartMetadata) :
+          v.type === 'monitor' ? getMonitorSignature(v.data as MonitorMetadata) :
           v.type === 'button' ? getActionSignature({ id: v.data.id }) : undefined;
     if (!sign) {
       return false;
@@ -298,6 +308,15 @@ export function createAutoLayout(
   if (newCharts.length > 0) {
     const newChartViews = createChartViews(newCharts);
     view.views.push(...newChartViews);
+    rootViewNeedsAdjust = true;
+  }
+
+  // Process monitors. Like charts, monitors are simulator-owned values with
+  // renderer-local view placement and display preferences.
+  const newMonitors = monitors.filter(monitor => !statesFound.get(getMonitorSignature(monitor)));
+  if (newMonitors.length > 0) {
+    const newMonitorViews = createMonitorViews(newMonitors);
+    view.views.push(...newMonitorViews);
     rootViewNeedsAdjust = true;
   }
 

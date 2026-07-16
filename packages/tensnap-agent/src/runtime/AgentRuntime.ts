@@ -326,20 +326,12 @@ export class AgentRuntime extends EventEmitter {
   /** Capture an exact simulator checkpoint; the protocol result is preserved verbatim. */
   async captureScene(): Promise<SceneCaptureResultPayload> {
     this.assertConnected();
-    const requestId = `capture-${crypto.randomUUID()}`;
-    const result = await this.awaitSceneResponse<SceneCaptureResultPayload>(
-      requestId,
-      () => this.renderer.requestSceneCapture(requestId),
-      (message) => message.type === 'scene_capture_result'
-        && (message.payload as SceneCaptureResultPayload).request_id === requestId
-        ? message.payload as SceneCaptureResultPayload
-        : undefined,
-    );
+    const result = await this.renderer.captureScene();
     await this.log('info', 'scene', 'Scene checkpoint captured.', {
-      requestId,
+      requestId: result.request_id,
       encoding: result.checkpoint.encoding,
     });
-    this.emitRuntimeEvent('scene.capture.completed', { requestId, result });
+    this.emitRuntimeEvent('scene.capture.completed', { requestId: result.request_id, result });
     return result;
   }
 
@@ -359,14 +351,7 @@ export class AgentRuntime extends EventEmitter {
       expected_instance_id: (input as Partial<SceneRestorePayload>).expected_instance_id ?? info.instance_id,
       state_schema_version: (input as Partial<SceneRestorePayload>).state_schema_version ?? info.model.state_schema_version,
     });
-    const result = await this.awaitSceneResponse<SceneRestoreEndPayload>(
-      requestId,
-      () => this.renderer.requestSceneRestore(parsed, options),
-      (message) => message.type === 'scene_restore_end'
-        && (message.payload as SceneRestoreEndPayload).request_id === requestId
-        ? message.payload as SceneRestoreEndPayload
-        : undefined,
-    );
+    const result = await this.renderer.restoreScene(parsed, options);
     await this.log(result.status === 'ok' ? 'info' : 'warn', 'scene', 'Scene restore completed.', result);
     this.emitRuntimeEvent('scene.restore.completed', { requestId, result });
     return result;
@@ -666,61 +651,6 @@ export class AgentRuntime extends EventEmitter {
     if (!this.renderer.isConnected) {
       throw new Error('Runtime is not connected to a simulator.');
     }
-  }
-
-  private async awaitSceneResponse<T>(
-    requestId: string,
-    issue: () => string,
-    select: (message: SimulatorToRendererMessage) => T | undefined,
-  ): Promise<T> {
-    return await new Promise<T>((resolve, reject) => {
-      const onMessage = (event: Event): void => {
-        const message = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail.message;
-        if (message.type === 'error' && (message.payload as { request_id?: string }).request_id === requestId) {
-          cleanup();
-          const payload = message.payload as { code: string; message: string };
-          reject(new Error(`${payload.code}: ${payload.message}`));
-          return;
-        }
-        const result = select(message);
-        if (result === undefined) return;
-        cleanup();
-        resolve(result);
-      };
-      const onClose = (): void => {
-        cleanup();
-        reject(new Error('Runtime disconnected before the scene operation completed.'));
-      };
-      const onError = (event: Event): void => {
-        cleanup();
-        const error = (event as CustomEvent<unknown>).detail;
-        reject(error instanceof Error ? error : new Error(String(error)));
-      };
-      const onProtocolError = (event: Event): void => {
-        const payload = (event as CustomEvent<{ request_id?: string; code: string; message: string }>).detail;
-        if (payload.request_id !== requestId) return;
-        cleanup();
-        reject(new Error(`${payload.code}: ${payload.message}`));
-      };
-      const cleanup = (): void => {
-        this.renderer.removeEventListener('message', onMessage);
-        this.renderer.removeEventListener('transport:close', onClose);
-        this.renderer.removeEventListener('transport:error', onError);
-        this.renderer.removeEventListener('protocol:error', onProtocolError);
-      };
-
-      this.renderer.addEventListener('message', onMessage);
-      this.renderer.addEventListener('transport:close', onClose);
-      this.renderer.addEventListener('transport:error', onError);
-      this.renderer.addEventListener('protocol:error', onProtocolError);
-      try {
-        const issuedId = issue();
-        if (issuedId !== requestId) throw new Error('Renderer issued a mismatched scene operation request ID.');
-      } catch (error) {
-        cleanup();
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
   }
 
   private getAssetSources(): Record<string, RenderAssetSource> {

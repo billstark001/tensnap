@@ -1,4 +1,5 @@
 import type {
+  ActionInvokePayload,
   ActionResultPayload,
   AnyProtocolMessage,
   ErrorPayload,
@@ -18,12 +19,13 @@ import { Scenario } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
 import { RunController, type RunControllerOptions } from './RunController';
-import { SnapshotRecorder } from '../snapshot';
-import type { RecordingOptions, Snapshot } from '../snapshot';
+import { applySnapshotFrame, projectedRestoreChangesTopology, SnapshotRecorder } from '../snapshot';
+import type { RecordingOptions, Snapshot, SnapshotFrame, SnapshotModelIdentity } from '../snapshot';
 import type { ChartGroup } from '../chart';
+import { ActionRunMetrics, type ActionRunMetricSnapshot } from './ActionRunMetrics';
 
 export type RendererMessageOrigin = 'live' | 'state-sync' | 'scene-restore' | 'replay' | 'optimistic-control';
-export type RendererIdentityStatus = 'awaiting-info' | 'matching' | 'instance-changed' | 'model-mismatch';
+export type RendererIdentityStatus = 'awaiting-info' | 'matching' | 'instance-changed' | 'sync-required' | 'model-mismatch';
 
 export interface RendererSessionMessageDetail {
   message: SimulatorToRendererMessage;
@@ -38,6 +40,10 @@ export interface RendererSessionCommitDetail {
 export interface RendererSessionOutboundDetail {
   message: RendererToSimulatorMessage;
   origin: 'optimistic-control';
+}
+
+export interface RendererSessionActionMetricsDetail {
+  metrics: ActionRunMetricSnapshot | null;
 }
 
 export interface RendererSessionRecordingDetail {
@@ -58,6 +64,8 @@ export interface RendererIdentityDetail {
 export interface RendererSessionOptions {
   scenario?: Scenario;
   run?: Omit<RunControllerOptions, 'scenario' | 'send'>;
+  /** Upper bound for state sync, scene restore, and scene capture requests. */
+  transactionTimeoutMs?: number;
 }
 
 interface IncomingTransaction {
@@ -72,11 +80,39 @@ interface IncomingTransaction {
 
 export type RestoreChartPolicy = 'preserve' | 'replace' | 'truncate';
 
-export interface SceneRestoreOptions {
+export interface SceneOperationOptions {
+  /** Overrides the session transaction timeout for this operation. */
+  timeoutMs?: number;
+  /** Cancels the operation locally; simulator state is then considered unknown. */
+  signal?: AbortSignal;
+}
+
+export interface SceneRestoreOptions extends SceneOperationOptions {
   /** Renderer-local chart handling; charts are never sent to the simulator. */
   chartPolicy?: RestoreChartPolicy;
   /** Required only when replacing live charts with a local snapshot's charts. */
   replacementCharts?: ChartGroup[];
+}
+
+type ActiveProtocolRequestKind = 'state-sync' | 'scene-restore' | 'scene-capture';
+
+interface ActiveProtocolRequest {
+  kind: ActiveProtocolRequestKind;
+  requestId: string;
+  timeoutHandle: ReturnType<typeof setTimeout> | null;
+  removeAbortListener?: () => void;
+  resolve?: (payload: unknown) => void;
+  reject?: (error: Error) => void;
+  restoreOptions?: Pick<IncomingTransaction, 'chartPolicy' | 'replacementCharts' | 'truncateTime'>;
+}
+
+const DEFAULT_TRANSACTION_TIMEOUT_MS = 30_000;
+
+function normalizeTransactionTimeout(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error('transactionTimeoutMs must be a positive finite number.');
+  }
+  return Math.floor(value);
 }
 
 const createRequestId = (prefix: string): string => `${prefix}-${crypto.randomUUID()}`;
@@ -102,25 +138,45 @@ export class RendererSession extends LazyEventTarget {
   readonly recorder: SnapshotRecorder;
 
   private transport: ISimulatorTransport | null = null;
-  private syncRequestId: string | null = null;
-  private restoreRequestId: string | null = null;
-  private captureRequestId: string | null = null;
+  private activeRequest: ActiveProtocolRequest | null = null;
   private transaction: IncomingTransaction | null = null;
-  private pendingRestoreOptions: Pick<IncomingTransaction, 'requestId' | 'chartPolicy' | 'replacementCharts' | 'truncateTime'> | null = null;
   private announcedInfo: SimulatorInfoPayload | null = null;
   private committedInfo: SimulatorInfoPayload | null = null;
+  /** Identity loaded from project storage before the first simulator handshake. */
+  private expectedIdentity: SnapshotModelIdentity | null = null;
   private identityStatusState: RendererIdentityStatus = 'awaiting-info';
+  private actionMetrics: ActionRunMetrics | null = null;
+  private readonly transactionTimeoutMs: number;
 
   private readonly transportMessageHandler = (message: TransportEventMap['message']) => {
     if (!this.isSimulatorMessage(message)) return;
     this.handleIncoming(message as SimulatorToRendererMessage);
   };
   private readonly transportOpenHandler = () => this.dispatch('transport:open', undefined);
-  private readonly transportCloseHandler = () => this.dispatch('transport:close', undefined);
-  private readonly transportErrorHandler = (error: unknown) => this.dispatch('transport:error', error);
+  private readonly transportCloseHandler = () => {
+    this.failActiveRequest(
+      'transaction_disconnected',
+      'The simulator connection closed before the protocol transaction completed.',
+    );
+    this.clearActionMetrics();
+    this.dispatch('transport:close', undefined);
+  };
+  private readonly transportErrorHandler = (error: unknown) => {
+    this.failActiveRequest(
+      'transaction_transport_error',
+      error instanceof Error ? error.message : String(error),
+      true,
+      true,
+    );
+    this.clearActionMetrics();
+    this.dispatch('transport:error', error);
+  };
 
   constructor(options: RendererSessionOptions = {}) {
     super();
+    this.transactionTimeoutMs = normalizeTransactionTimeout(
+      options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS,
+    );
     this.scenario = options.scenario ?? new Scenario();
     this.recorder = new SnapshotRecorder(this.scenario);
     const onRunStateChange = options.run?.onStateChange;
@@ -170,6 +226,45 @@ export class RendererSession extends LazyEventTarget {
     return this.identityStatusState;
   }
 
+  /** The latest durable identity, suitable for project and snapshot persistence. */
+  get modelIdentity(): SnapshotModelIdentity | null {
+    const info = this.committedInfo
+      ?? (this.expectedIdentity !== null && this.identityStatusState !== 'matching' ? null : this.announcedInfo);
+    if (info) {
+      return {
+        model_id: info.model.id,
+        ...(info.model.state_schema_version === undefined ? {} : { state_schema_version: info.model.state_schema_version }),
+        ...(info.instance_id === undefined ? {} : { instance_id: info.instance_id }),
+      };
+    }
+    return this.expectedIdentity === null ? null : structuredClone(this.expectedIdentity);
+  }
+
+  /** Identity to include in a state-sync request before the next sync commits. */
+  get stateSyncIdentity(): SnapshotModelIdentity | null {
+    if (this.committedInfo) {
+      return {
+        model_id: this.committedInfo.model.id,
+        ...(this.committedInfo.model.state_schema_version === undefined ? {} : { state_schema_version: this.committedInfo.model.state_schema_version }),
+        instance_id: this.committedInfo.instance_id,
+      };
+    }
+    return this.expectedIdentity === null ? null : structuredClone(this.expectedIdentity);
+  }
+
+  /**
+   * Installs the identity persisted with a project before a transport opens.
+   * A later incompatible handshake remains disconnected from the project state.
+   */
+  setExpectedSimulatorIdentity(identity: SnapshotModelIdentity | null | undefined): void {
+    this.expectedIdentity = identity === null || identity === undefined ? null : structuredClone(identity);
+    if (!this.announcedInfo) {
+      this.identityStatusState = 'awaiting-info';
+      return;
+    }
+    this.updateIdentityStatus(this.announcedInfo);
+  }
+
   attachTransport(transport: ISimulatorTransport): void {
     if (this.transport === transport) return;
     this.detachTransport();
@@ -182,33 +277,49 @@ export class RendererSession extends LazyEventTarget {
 
   detachTransport(): void {
     const transport = this.transport;
-    if (!transport) return;
-    transport.off('message', this.transportMessageHandler);
-    transport.off('open', this.transportOpenHandler);
-    transport.off('close', this.transportCloseHandler);
-    transport.off('error', this.transportErrorHandler);
-    this.transport = null;
-    this.discardTransaction();
-    this.syncRequestId = null;
-    this.restoreRequestId = null;
-    this.captureRequestId = null;
-    this.pendingRestoreOptions = null;
-    this.run.reset('disconnected');
+    if (transport) {
+      transport.off('message', this.transportMessageHandler);
+      transport.off('open', this.transportOpenHandler);
+      transport.off('close', this.transportCloseHandler);
+      transport.off('error', this.transportErrorHandler);
+      this.transport = null;
+      this.cancelActiveRequest('The renderer session detached from its transport.');
+      this.run.reset('disconnected');
+    }
+    this.clearActionMetrics();
   }
 
   destroy(): void {
     this.detachTransport();
   }
 
+  /**
+   * Forget the identity associated with a deliberately replaced project
+   * source. Reconnects keep identity so they can reconcile; source changes
+   * must start a replace sync and never send the former model's inventory.
+   */
+  resetSimulatorIdentity(): void {
+    this.cancelActiveRequest('The simulator source was replaced.');
+    this.announcedInfo = null;
+    this.committedInfo = null;
+    this.expectedIdentity = null;
+    this.identityStatusState = 'awaiting-info';
+    this.clearActionMetrics();
+  }
+
+  /** Starts the one metrics window owned by this session's next action run. */
+  beginActionMetrics(actionId: string): void {
+    this.actionMetrics = new ActionRunMetrics(actionId);
+    this.dispatch('action:metrics', { metrics: null } satisfies RendererSessionActionMetricsDetail);
+  }
+
   requestStateSync(requestId = createRequestId('sync'), request?: StateSyncRequest): string {
-    const info = this.requireCompatibleSimulator();
-    if (this.transaction || this.syncRequestId || this.restoreRequestId || this.captureRequestId) {
-      throw new Error('Cannot request state sync during another protocol transaction.');
-    }
+    const info = this.requireCompatibleSimulator(true);
+    this.assertNoActiveRequest();
     const payload = request ?? this.scenario.createStateSyncMessage(
       info.model.id,
       requestId,
-      this.committedInfo?.instance_id,
+      this.stateSyncIdentity?.instance_id,
     ).payload;
     if (payload.request_id !== requestId || payload.model_id !== info.model.id) {
       throw new Error('state_sync identity must match the active simulator session.');
@@ -216,8 +327,13 @@ export class RendererSession extends LazyEventTarget {
     if (!this.run.requestStateSync(requestId)) {
       throw new Error('Cannot request state sync while another state sync is active.');
     }
-    this.syncRequestId = requestId;
-    this.send({ type: 'state_sync', payload });
+    this.activateRequest('state-sync', requestId);
+    try {
+      this.send({ type: 'state_sync', payload });
+    } catch (error) {
+      this.failActiveRequest('transaction_send_failed', error instanceof Error ? error.message : String(error), false);
+      throw error;
+    }
     return requestId;
   }
 
@@ -225,10 +341,32 @@ export class RendererSession extends LazyEventTarget {
     payload: Omit<SceneRestorePayload, 'request_id' | 'model_id'> & { request_id?: string },
     options: SceneRestoreOptions = {},
   ): string {
+    return this.issueSceneRestore(payload, options);
+  }
+
+  restoreScene(
+    payload: Omit<SceneRestorePayload, 'request_id' | 'model_id'> & { request_id?: string },
+    options: SceneRestoreOptions = {},
+  ): Promise<SceneRestoreEndPayload> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.issueSceneRestore(payload, options, {
+          resolve: (result) => resolve(result as SceneRestoreEndPayload),
+          reject,
+        });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  private issueSceneRestore(
+    payload: Omit<SceneRestorePayload, 'request_id' | 'model_id'> & { request_id?: string },
+    options: SceneRestoreOptions,
+    completion?: Pick<ActiveProtocolRequest, 'resolve' | 'reject'>,
+  ): string {
     const info = this.requireCompatibleSimulator();
-    if (this.transaction || this.syncRequestId || this.restoreRequestId || this.captureRequestId) {
-      throw new Error('A protocol transaction is already active.');
-    }
+    this.assertNoActiveRequest();
     const status = this.run.status;
     if (status?.inFlight) throw new Error('Wait for the in-flight action before scene restore.');
     this.assertRestoreCapability(info, payload);
@@ -242,26 +380,48 @@ export class RendererSession extends LazyEventTarget {
     this.run.stop('stopped');
     if (this.run.hasInFlightAction) throw new Error('Wait for the in-flight action before scene restore.');
     const requestId = payload.request_id ?? createRequestId('restore');
-    this.restoreRequestId = requestId;
-    this.pendingRestoreOptions = {
-      requestId,
+    this.activateRequest('scene-restore', requestId, options, completion, {
       chartPolicy,
       replacementCharts: options.replacementCharts === undefined ? undefined : structuredClone(options.replacementCharts),
       truncateTime: payload.time,
-    };
-    this.send({
-      type: 'scene_restore',
-      payload: { ...payload, request_id: requestId, model_id: info.model.id },
     });
+    try {
+      this.send({
+        type: 'scene_restore',
+        payload: { ...payload, request_id: requestId, model_id: info.model.id },
+      });
+    } catch (error) {
+      this.failActiveRequest('transaction_send_failed', error instanceof Error ? error.message : String(error), false);
+      throw error;
+    }
     return requestId;
   }
 
   /** Request an exact scene checkpoint at an action boundary. */
-  requestSceneCapture(requestId = createRequestId('capture')): string {
+  requestSceneCapture(requestId = createRequestId('capture'), options: SceneOperationOptions = {}): string {
+    return this.issueSceneCapture(requestId, options);
+  }
+
+  captureScene(options: SceneOperationOptions = {}): Promise<SceneCaptureResultPayload> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.issueSceneCapture(createRequestId('capture'), options, {
+          resolve: (result) => resolve(result as SceneCaptureResultPayload),
+          reject,
+        });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  private issueSceneCapture(
+    requestId: string,
+    options: SceneOperationOptions,
+    completion?: Pick<ActiveProtocolRequest, 'resolve' | 'reject'>,
+  ): string {
     const info = this.requireCompatibleSimulator();
-    if (this.transaction || this.syncRequestId || this.restoreRequestId || this.captureRequestId) {
-      throw new Error('A protocol transaction or scene capture is already active.');
-    }
+    this.assertNoActiveRequest();
     if (this.run.status?.inFlight) {
       throw new Error('Wait for the in-flight action before scene capture.');
     }
@@ -272,13 +432,28 @@ export class RendererSession extends LazyEventTarget {
     if (this.run.hasInFlightAction) {
       throw new Error('Wait for the in-flight action before scene capture.');
     }
-    this.captureRequestId = requestId;
-    this.send({ type: 'scene_capture', payload: { request_id: requestId } });
+    this.activateRequest('scene-capture', requestId, options, completion);
+    try {
+      this.send({ type: 'scene_capture', payload: { request_id: requestId } });
+    } catch (error) {
+      this.failActiveRequest('transaction_send_failed', error instanceof Error ? error.message : String(error), false);
+      throw error;
+    }
     return requestId;
   }
 
   setParameter(id: string, value: ProtocolData): void {
-    this.send(this.scenario.createParamChangeMessage(id, value));
+    this.requireCompatibleSimulator();
+    const previous = this.scenario.applyOptimisticParameterChange(id, value);
+    try {
+      this.send(this.scenario.createParamChangeMessage(id, value));
+    } catch (error) {
+      // A synchronous transport failure did not reach the simulator, so put
+      // the UI back on its last canonical value rather than leaving a phantom
+      // optimistic parameter behind.
+      this.scenario.applyOptimisticParameterChange(id, previous.value);
+      throw error;
+    }
   }
 
   sendScreenshotResponse(payload: ScreenshotResponsePayload): void {
@@ -290,7 +465,10 @@ export class RendererSession extends LazyEventTarget {
   }
 
   private beginRecording(options: RecordingOptions, reason: RendererSessionRecordingDetail['reason']): Snapshot {
-    const snapshot = this.recorder.start(options);
+    const snapshot = this.recorder.start({
+      ...options,
+      ...(options.modelIdentity === undefined && this.modelIdentity !== null ? { modelIdentity: this.modelIdentity } : {}),
+    });
     this.dispatch('recording:start', { snapshot, reason } satisfies RendererSessionRecordingDetail);
     return snapshot;
   }
@@ -306,6 +484,13 @@ export class RendererSession extends LazyEventTarget {
     this.applyCommittedMessage(message, 'replay');
   }
 
+  /** Apply a recorded frame, including locally optimistic parameter controls. */
+  applyReplayFrame(frame: SnapshotFrame): void {
+    applySnapshotFrame(this.scenario, frame, {
+      applyMessage: (message) => this.applyReplay(message),
+    });
+  }
+
   handleIncoming(message: SimulatorToRendererMessage): void {
     if (message.type === 'simulator_info') {
       this.acceptSimulatorInfo(message.payload as SimulatorInfoPayload);
@@ -313,6 +498,17 @@ export class RendererSession extends LazyEventTarget {
     }
     if (!this.announcedInfo) {
       this.reportSessionError('handshake_required', 'simulator_info must be the first simulator message.');
+      return;
+    }
+    // A persisted project may be attached to a different model at the same
+    // endpoint. Keep its loaded Scenario entirely isolated until the user
+    // explicitly changes source or discards the old state.
+    if (this.identityStatusState === 'model-mismatch') return;
+    if ((this.identityStatusState === 'sync-required' || this.identityStatusState === 'instance-changed')
+      && !this.transaction
+      && message.type !== 'state_sync_begin'
+      && message.type !== 'error') {
+      this.reportSessionError('state_sync_required', 'A replacement state sync is required before accepting simulator mutations.');
       return;
     }
     if (message.type === 'state_sync_begin') {
@@ -345,19 +541,24 @@ export class RendererSession extends LazyEventTarget {
       return;
     }
     this.applyCommittedMessage(message, 'live');
-    if (message.type === 'action_result') this.run.observeActionResult(message.payload as ActionResultPayload);
+    if (message.type === 'action_result') {
+      const payload = message.payload as ActionResultPayload;
+      this.run.observeActionResult(payload);
+      const metrics = this.actionMetrics?.recordCompletion(payload);
+      if (metrics) {
+        this.dispatch('action:metrics', { metrics } satisfies RendererSessionActionMetricsDetail);
+      }
+    }
     if (message.type === 'asset_metadata') this.send(this.scenario.createAssetSyncMessage());
   }
 
   private acceptSimulatorInfo(info: SimulatorInfoPayload): void {
     const previous = this.announcedInfo;
+    const recoveryRequired = this.identityStatusState === 'sync-required';
     this.announcedInfo = structuredClone(info);
-    if (this.committedInfo && this.committedInfo.model.id !== info.model.id) {
-      this.identityStatusState = 'model-mismatch';
-    } else if (this.committedInfo && this.committedInfo.instance_id !== info.instance_id) {
-      this.identityStatusState = 'instance-changed';
-    } else {
-      this.identityStatusState = 'matching';
+    this.updateIdentityStatus(info);
+    if (recoveryRequired && this.identityStatusState === 'matching') {
+      this.identityStatusState = 'sync-required';
     }
     this.dispatch('simulator:info', {
       status: this.identityStatusState,
@@ -368,14 +569,25 @@ export class RendererSession extends LazyEventTarget {
 
   private beginStateSync(payload: StateSyncBeginPayload, message: SimulatorToRendererMessage): void {
     const info = this.announcedInfo!;
-    if (this.transaction || !this.syncRequestId || payload.request_id !== this.syncRequestId || payload.model_id !== info.model.id || payload.instance_id !== info.instance_id || (payload.mode === 'reconcile' && this.committedInfo?.instance_id !== payload.instance_id)) {
+    const active = this.activeRequest;
+    if (this.transaction || active?.kind !== 'state-sync' || payload.request_id !== active.requestId || payload.model_id !== info.model.id || payload.instance_id !== info.instance_id || (payload.mode === 'reconcile' && this.stateSyncIdentity?.instance_id !== payload.instance_id)) {
       this.reportSessionError('invalid_state_sync', 'Rejected unmatched state_sync_begin.');
       return;
     }
     const staging = new Scenario({ layerRegistry: this.scenario.layerRegistry });
     if (payload.mode === 'reconcile') staging.load(this.scenario.dump());
     this.transaction = { kind: 'state-sync', requestId: payload.request_id, scenario: staging, messages: [message] };
-    staging.apply(message);
+    try {
+      staging.apply(message);
+    } catch (error) {
+      this.failActiveRequest(
+        'invalid_state_sync',
+        `Unable to begin state sync: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+        true,
+      );
+      return;
+    }
     this.run.recordStateSyncBoundary('begin', payload);
     this.dispatch('message', { message, origin: 'state-sync' } satisfies RendererSessionMessageDetail);
   }
@@ -386,30 +598,41 @@ export class RendererSession extends LazyEventTarget {
       this.reportSessionError('invalid_state_sync', 'Rejected unmatched state_sync_end.');
       return;
     }
-    transaction.scenario.apply(message);
-    transaction.messages.push(message);
-    this.scenario.load(transaction.scenario.dump());
-    this.recorder.recordMessages(transaction.messages);
+    try {
+      transaction.scenario.apply(message);
+      transaction.messages.push(message);
+      this.scenario.load(transaction.scenario.dump());
+      this.recorder.recordMessages(transaction.messages);
+    } catch (error) {
+      this.failActiveRequest(
+        'invalid_state_sync',
+        `Unable to complete state sync: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+        true,
+      );
+      return;
+    }
     this.dispatch('commit', { origin: 'state-sync', messages: transaction.messages } satisfies RendererSessionCommitDetail);
     this.dispatch('message', { message, origin: 'state-sync' } satisfies RendererSessionMessageDetail);
     this.committedInfo = structuredClone(this.announcedInfo!);
+    this.expectedIdentity = this.modelIdentity;
     this.identityStatusState = 'matching';
     this.transaction = null;
-    this.syncRequestId = null;
+    this.completeActiveRequest('state-sync');
     this.run.recordStateSyncBoundary('end', payload);
     if (transaction.messages.some((entry) => entry.type === 'asset_metadata')) this.send(this.scenario.createAssetSyncMessage());
   }
 
   private beginSceneRestore(message: SimulatorToRendererMessage): void {
     const payload = message.payload as { request_id: string };
-    if (this.transaction || !this.restoreRequestId || payload.request_id !== this.restoreRequestId) {
+    const active = this.activeRequest;
+    if (this.transaction || active?.kind !== 'scene-restore' || payload.request_id !== active.requestId) {
       this.reportSessionError('invalid_scene_restore', 'Rejected unmatched scene_restore_begin.');
       return;
     }
     const staging = new Scenario({ layerRegistry: this.scenario.layerRegistry });
     staging.load(this.scenario.dump());
-    const options = this.pendingRestoreOptions;
-    this.pendingRestoreOptions = null;
+    const options = active.restoreOptions;
     this.transaction = {
       kind: 'scene-restore',
       requestId: payload.request_id,
@@ -428,53 +651,75 @@ export class RendererSession extends LazyEventTarget {
       this.reportSessionError('invalid_scene_restore', 'Rejected unmatched scene_restore_end.');
       return;
     }
-    transaction.messages.push(message);
-    if (payload.status === 'ok') {
-      if (transaction.chartPolicy === 'replace') {
-        const snapshot = transaction.scenario.dump();
-        snapshot.charts = structuredClone(transaction.replacementCharts ?? []);
-        transaction.scenario.load(snapshot);
+    try {
+      transaction.messages.push(message);
+      if (payload.status === 'ok') {
+        if (transaction.chartPolicy === 'replace') {
+          const snapshot = transaction.scenario.dump();
+          snapshot.charts = structuredClone(transaction.replacementCharts ?? []);
+          transaction.scenario.load(snapshot);
+        }
+        if (transaction.chartPolicy === 'truncate' && transaction.truncateTime !== undefined) {
+          transaction.scenario.charts.truncateAll(transaction.truncateTime, false);
+        }
+        this.scenario.load(transaction.scenario.dump());
+        this.recorder.recordMessages(transaction.messages);
+        this.dispatch('commit', { origin: 'scene-restore', messages: transaction.messages } satisfies RendererSessionCommitDetail);
       }
-      if (transaction.chartPolicy === 'truncate' && transaction.truncateTime !== undefined) {
-        transaction.scenario.charts.truncateAll(transaction.truncateTime, false);
-      }
-      this.scenario.load(transaction.scenario.dump());
-      this.recorder.recordMessages(transaction.messages);
-      this.dispatch('commit', { origin: 'scene-restore', messages: transaction.messages } satisfies RendererSessionCommitDetail);
+    } catch (error) {
+      this.failActiveRequest(
+        'invalid_scene_restore',
+        `Unable to commit scene restore: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+        true,
+      );
+      return;
     }
     this.dispatch('message', { message, origin: 'scene-restore' } satisfies RendererSessionMessageDetail);
     this.transaction = null;
-    this.restoreRequestId = null;
+    this.completeActiveRequest('scene-restore', structuredClone(payload));
   }
 
   private completeSceneCapture(payload: SceneCaptureResultPayload, message: SimulatorToRendererMessage): void {
     const info = this.announcedInfo!;
-    if (!this.captureRequestId || payload.request_id !== this.captureRequestId) {
+    const active = this.activeRequest;
+    if (active?.kind !== 'scene-capture' || payload.request_id !== active.requestId) {
       this.reportSessionError('invalid_scene_capture', 'Rejected unmatched scene_capture_result.', payload.request_id);
       return;
     }
-    this.captureRequestId = null;
     if (payload.model_id !== info.model.id
       || (payload.state_schema_version !== undefined
         && info.model.state_schema_version !== undefined
         && payload.state_schema_version !== info.model.state_schema_version)) {
-      this.reportSessionError('invalid_scene_capture', 'Rejected scene_capture_result for a different model or state schema.', payload.request_id);
+      this.failActiveRequest(
+        'invalid_scene_capture',
+        'Rejected scene_capture_result for a different model or state schema.',
+      );
       return;
     }
     this.recorder.recordMessage(message);
     this.dispatch('message', { message, origin: 'live' } satisfies RendererSessionMessageDetail);
     this.dispatch('scene:capture', { result: structuredClone(payload) } satisfies RendererSceneCaptureDetail);
+    this.completeActiveRequest('scene-capture', structuredClone(payload));
   }
 
   private applyTransactionMessage(message: SimulatorToRendererMessage): void {
     const transaction = this.transaction!;
     if (transaction.kind === 'scene-restore' && message.type.startsWith('chart_')) {
-      this.reportSessionError('invalid_scene_restore', 'Chart messages are forbidden during scene restore.');
-      this.transaction = null;
-      this.restoreRequestId = null;
+      this.failActiveRequest('invalid_scene_restore', 'Chart messages are forbidden during scene restore.', true, true);
       return;
     }
-    transaction.scenario.apply(message);
+    try {
+      transaction.scenario.apply(message);
+    } catch (error) {
+      this.failActiveRequest(
+        transaction.kind === 'state-sync' ? 'invalid_state_sync' : 'invalid_scene_restore',
+        `Rejected invalid transaction data: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+        true,
+      );
+      return;
+    }
     transaction.messages.push(message);
     this.dispatch('message', {
       message,
@@ -489,28 +734,102 @@ export class RendererSession extends LazyEventTarget {
     this.dispatch('commit', { origin, messages: [message] } satisfies RendererSessionCommitDetail);
   }
 
-  private discardTransaction(): void {
-    this.transaction = null;
-    this.pendingRestoreOptions = null;
+  private abortCorrelatedControl(payload: ErrorPayload): void {
+    if (payload.request_id === undefined || payload.request_id !== this.activeRequest?.requestId) return;
+    this.failActiveRequest(payload.code, payload.message, false);
   }
 
-  private abortCorrelatedControl(payload: ErrorPayload): void {
-    if (payload.request_id === undefined) return;
-    if (payload.request_id === this.syncRequestId) {
-      this.transaction = null;
-      this.syncRequestId = null;
-      this.run.abortStateSync(payload.request_id);
-      return;
+  private assertNoActiveRequest(): void {
+    if (this.activeRequest || this.transaction) {
+      throw new Error('A protocol transaction is already active.');
     }
-    if (payload.request_id === this.restoreRequestId) {
-      this.transaction = null;
-      this.restoreRequestId = null;
-      this.pendingRestoreOptions = null;
-      return;
+  }
+
+  private activateRequest(
+    kind: ActiveProtocolRequestKind,
+    requestId: string,
+    options: SceneOperationOptions = {},
+    completion?: Pick<ActiveProtocolRequest, 'resolve' | 'reject'>,
+    restoreOptions?: ActiveProtocolRequest['restoreOptions'],
+  ): void {
+    if (options.signal?.aborted) throw new Error('The protocol transaction was aborted before it started.');
+    const timeoutMs = normalizeTransactionTimeout(options.timeoutMs ?? this.transactionTimeoutMs);
+    const active: ActiveProtocolRequest = {
+      kind,
+      requestId,
+      timeoutHandle: null,
+      ...completion,
+      ...(restoreOptions === undefined ? {} : { restoreOptions }),
+    };
+    this.activeRequest = active;
+
+    active.timeoutHandle = setTimeout(() => {
+      if (this.activeRequest !== active) return;
+      this.failActiveRequest(
+        'transaction_timeout',
+        `The ${kind} transaction timed out after ${timeoutMs} ms.`,
+        true,
+        kind !== 'scene-capture',
+      );
+    }, timeoutMs);
+    (active.timeoutHandle as ReturnType<typeof setTimeout> & { unref?: () => void }).unref?.();
+
+    if (options.signal) {
+      const onAbort = () => {
+        if (this.activeRequest !== active) return;
+        this.failActiveRequest(
+          'transaction_aborted',
+          `The ${kind} transaction was aborted.`,
+          true,
+          kind === 'scene-restore',
+        );
+      };
+      options.signal.addEventListener('abort', onAbort, { once: true });
+      active.removeAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
     }
-    if (payload.request_id === this.captureRequestId) {
-      this.captureRequestId = null;
+  }
+
+  private releaseActiveRequest(): ActiveProtocolRequest | null {
+    const active = this.activeRequest;
+    if (!active) return null;
+    if (active.timeoutHandle !== null) clearTimeout(active.timeoutHandle);
+    active.removeAbortListener?.();
+    this.activeRequest = null;
+    this.transaction = null;
+    return active;
+  }
+
+  private completeActiveRequest(kind: ActiveProtocolRequestKind, payload?: unknown): boolean {
+    if (this.activeRequest?.kind !== kind) return false;
+    const active = this.releaseActiveRequest()!;
+    active.resolve?.(payload);
+    return true;
+  }
+
+  private failActiveRequest(
+    code: string,
+    message: string,
+    report = true,
+    requiresStateSync = false,
+  ): boolean {
+    const requestId = this.activeRequest?.requestId;
+    const kind = this.activeRequest?.kind;
+    const active = this.releaseActiveRequest();
+    if (!active) return false;
+    if (requiresStateSync && kind !== 'scene-capture' && this.isConnected) {
+      this.identityStatusState = 'sync-required';
     }
+    if (kind === 'state-sync') {
+      if (requiresStateSync) this.run.reset('disconnected');
+      else this.run.abortStateSync(active.requestId);
+    }
+    active.reject?.(new Error(message));
+    if (report) this.reportSessionError(code, message, requestId);
+    return true;
+  }
+
+  private cancelActiveRequest(message: string): void {
+    this.failActiveRequest('transaction_cancelled', message, false);
   }
 
   private assertRestoreCapability(
@@ -530,31 +849,45 @@ export class RendererSession extends LazyEventTarget {
     if ((payload.time !== undefined || payload.parameters !== undefined || payload.envs !== undefined) && !capabilities.has('scene.restore.projected')) {
       throw new Error('The connected simulator does not support projected scene restore.');
     }
-    if (payload.envs !== undefined && !capabilities.has('scene.restore.topology')) {
-      for (const environment of payload.envs) {
-        const existing = this.scenario.getEnvironment(environment.id);
-        if (!existing || existing.type !== environment.type) {
-          throw new Error('Changing scene topology requires scene.restore.topology capability.');
-        }
-        if (existing.layers.size !== environment.layers.length) {
-          throw new Error('Changing scene topology requires scene.restore.topology capability.');
-        }
-        for (const layer of environment.layers) {
-          const current = existing.layers.get(layer.layer_id);
-          if (!current || current.layerType !== layer.layer_type) {
-            throw new Error('Changing scene topology requires scene.restore.topology capability.');
-          }
-        }
-      }
+    if (payload.envs !== undefined
+      && !capabilities.has('scene.restore.topology')
+      && projectedRestoreChangesTopology(this.scenario, payload.envs)) {
+      throw new Error('Changing scene topology requires scene.restore.topology capability.');
     }
   }
 
-  private requireCompatibleSimulator(): SimulatorInfoPayload {
+  private requireCompatibleSimulator(allowStateSyncRecovery = false): SimulatorInfoPayload {
     if (!this.announcedInfo) throw new Error('Wait for simulator_info before sending renderer messages.');
     if (this.identityStatusState === 'model-mismatch') {
       throw new Error('The connected simulator model does not match this renderer project.');
     }
+    if (!allowStateSyncRecovery && this.identityStatusState !== 'matching') {
+      throw new Error('Complete a replacement state sync before mutating the simulator.');
+    }
     return this.announcedInfo;
+  }
+
+  private updateIdentityStatus(info: SimulatorInfoPayload): void {
+    const expected = this.committedInfo
+      ? {
+        model_id: this.committedInfo.model.id,
+        ...(this.committedInfo.model.state_schema_version === undefined ? {} : { state_schema_version: this.committedInfo.model.state_schema_version }),
+        instance_id: this.committedInfo.instance_id,
+      }
+      : this.expectedIdentity;
+    if (!expected) {
+      this.identityStatusState = 'matching';
+      return;
+    }
+    if (expected.model_id !== info.model.id
+      || (expected.state_schema_version !== undefined
+        && expected.state_schema_version !== info.model.state_schema_version)) {
+      this.identityStatusState = 'model-mismatch';
+      return;
+    }
+    this.identityStatusState = expected.instance_id !== undefined && expected.instance_id !== info.instance_id
+      ? 'instance-changed'
+      : 'matching';
   }
 
   private reportSessionError(code: string, message: string, requestId?: string): void {
@@ -568,16 +901,38 @@ export class RendererSession extends LazyEventTarget {
 
   private send(message: RendererToSimulatorMessage): void {
     if (!this.transport) throw new Error('Renderer session is not attached to a transport.');
+    const activeKind = this.activeRequest?.kind;
+    if ((message.type === 'param_change' || message.type === 'action_invoke') && activeKind) {
+      throw new Error('Cannot mutate the simulator while a protocol transaction is active.');
+    }
+    if (message.type === 'state_sync' && activeKind !== 'state-sync') {
+      throw new Error('state_sync must belong to the active state-sync transaction.');
+    }
+    if (message.type === 'scene_restore' && activeKind !== 'scene-restore') {
+      throw new Error('scene_restore must belong to the active restore transaction.');
+    }
+    if (message.type === 'scene_capture' && activeKind !== 'scene-capture') {
+      throw new Error('scene_capture must belong to the active capture transaction.');
+    }
     if (message.type === 'state_sync'
       || message.type === 'param_change'
       || message.type === 'action_invoke'
       || message.type === 'scene_restore'
       || message.type === 'scene_capture') {
-      this.requireCompatibleSimulator();
+      this.requireCompatibleSimulator(message.type === 'state_sync');
     }
     this.recorder.recordControl(message);
+    if (message.type === 'action_invoke') {
+      this.actionMetrics?.recordDispatch(message.payload as ActionInvokePayload);
+    }
     this.dispatch('outbound', { message, origin: 'optimistic-control' } satisfies RendererSessionOutboundDetail);
     this.transport.send(message);
+  }
+
+  private clearActionMetrics(): void {
+    if (!this.actionMetrics) return;
+    this.actionMetrics = null;
+    this.dispatch('action:metrics', { metrics: null } satisfies RendererSessionActionMetricsDetail);
   }
 
   private isSimulatorMessage(message: AnyProtocolMessage): boolean {

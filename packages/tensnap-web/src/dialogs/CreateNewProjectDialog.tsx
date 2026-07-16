@@ -5,13 +5,14 @@ import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import Form from '@tensnap/web-common/components/ui/Form';
-import { listBuiltinModels, makeInMemoryConnectionId } from '@/transport';
+import { listBuiltinModels } from '@/transport';
+import type { ProjectSource } from '@tensnap/core/snapshot';
 import * as styles from './CreateNewProjectDialog.css';
 
 
 const FakeModelCard: React.FC<{
-  model: { id: string; name: string; description: string };
-  onSelect: (model: { id: string; name: string; description: string }) => void;
+  model: { id: string; name: string; description: string; protocolVersion?: string };
+  onSelect: (model: { id: string; name: string; description: string; protocolVersion?: string }) => void;
 }> = ({ model, onSelect }) => (
   <div
     onClick={() => onSelect(model)}
@@ -23,12 +24,13 @@ const FakeModelCard: React.FC<{
     <p className={styles.fakeModelDescription}>
       {model.description}
     </p>
+    {model.protocolVersion && <small><Trans>Protocol {model.protocolVersion}</Trans></small>}
   </div>
 );
 
 
 export interface CreateNewDialogProps extends DialogOpenProps {
-  onCreateItem: (name: string) => void;
+  onCreateItem: (source: ProjectSource) => void;
 }
 
 export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
@@ -37,13 +39,13 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
   onCreateItem
 }) => {
   const { _ } = useLingui();
-  const [newItemName, setNewItemName] = useState('http://localhost:8765');
+  const [newItemName, setNewItemName] = useState('ws://localhost:8765');
 
   const handleCreateItem = useCallback(() => {
     if (!newItemName.trim()) return;
 
     try {
-      onCreateItem(newItemName);
+      onCreateItem({ kind: 'websocket', url: newItemName.trim() });
       onOpenChange?.(false);
     } catch (error) {
       console.error('Failed to create item:', error);
@@ -87,7 +89,7 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
               key={model.id}
               model={model}
               onSelect={() => {
-                onCreateItem(makeInMemoryConnectionId(model.id));
+                onCreateItem({ kind: 'inmemory', model_id: model.id });
                 onOpenChange?.(false);
               }}
             />

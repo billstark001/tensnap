@@ -89,6 +89,16 @@ describe('scenario ws event handlers', () => {
 
     useStore.getState().prepareStateSync('sync-1');
     registerEventHandlers(transport, useStore);
+    transport.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance',
+        capabilities: [],
+      },
+    });
 
     transport.emitMessage({
       type: 'env_create',
@@ -107,16 +117,31 @@ describe('scenario ws event handlers', () => {
 
     useStore.getState().prepareStateSync('sync-1');
     registerEventHandlers(transport, useStore);
-    transport.emitMessage({ type: 'state_sync_begin', payload: { request_id: 'sync-1' } });
+    transport.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance',
+        capabilities: [],
+      },
+    });
+    useStore.getState().session.requestStateSync('sync-1');
+    transport.emitMessage({
+      type: 'state_sync_begin',
+      payload: { request_id: 'sync-1', model_id: 'ws-model', instance_id: 'ws-instance', mode: 'replace' },
+    });
     transport.emitMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
     await Promise.resolve();
 
-    expect(useStore.getState().environments.has('env-1')).toBe(true);
+    expect(useStore.getState().environments.has('env-1')).toBe(false);
     expect(useStore.getState().environmentUpdateTrigger.value).toBe(before);
 
-    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: 'sync-1' } });
+    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: 'sync-1', state_revision: '1' } });
     await Promise.resolve();
 
+    expect(useStore.getState().environments.has('env-1')).toBe(true);
     expect(useStore.getState().environmentUpdateTrigger.value).toBe(before + 1);
     unregisterEventHandlers(transport);
   });

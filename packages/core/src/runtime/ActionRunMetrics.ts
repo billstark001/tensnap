@@ -1,4 +1,4 @@
-import type { ActionEndPayload, ActionStartPayload, TickTimingBreakdown } from '@tensnap/protocol';
+import type { ActionInvokePayload, ActionResultPayload, TickTimingBreakdown } from '@tensnap/protocol';
 
 const METRIC_WINDOW_MS = 1_000;
 const METRIC_EMIT_INTERVAL_MS = 250;
@@ -35,13 +35,9 @@ const SIMULATOR_TIMING_KEYS: readonly SimulatorTimingKey[] = [
 
 const defaultNow = () => performance.now();
 
-/**
- * Metrics for one user-initiated action execution. Instances are deliberately
- * short-lived: beginning another action means creating a new instance, so a
- * status bar can never blend measurements from separate runs.
- */
+/** Sliding-window metrics for one user-initiated action execution. */
 export class ActionRunMetrics {
-  private readonly dispatchedAtByTickId = new Map<string, number>();
+  private readonly dispatchedAtByRequestId = new Map<string, number>();
   private readonly runtimeSamples: RuntimeSample[] = [];
   private readonly simulatorSamples: SimulatorSample[] = [];
   private runtimeHead = 0;
@@ -64,23 +60,20 @@ export class ActionRunMetrics {
     private readonly now: () => number = defaultNow,
   ) {}
 
-  recordDispatch(payload: ActionStartPayload): void {
-    if (payload.id !== this.actionId || !payload.tick_id) return;
-    this.dispatchedAtByTickId.set(payload.tick_id, this.now());
+  recordDispatch(payload: ActionInvokePayload): void {
+    if (payload.id !== this.actionId) return;
+    this.dispatchedAtByRequestId.set(payload.request_id, this.now());
   }
 
-  recordCompletion(payload: ActionEndPayload): ActionRunMetricSnapshot | null {
+  recordCompletion(payload: ActionResultPayload): ActionRunMetricSnapshot | null {
     if (payload.id !== this.actionId) return null;
 
-    const dispatchedAt = this.takeDispatchTime(payload.tick_id);
+    const dispatchedAt = this.takeDispatchTime(payload.request_id);
     if (dispatchedAt === undefined) return null;
 
     const completedAt = this.now();
     const durationMs = Math.max(0, completedAt - dispatchedAt);
-    this.runtimeSamples.push({
-      completedAt,
-      durationMs,
-    });
+    this.runtimeSamples.push({ completedAt, durationMs });
     this.runtimeDurationSum += durationMs;
     if (payload.timings) {
       this.simulatorSamples.push({ completedAt, timings: payload.timings });
@@ -113,10 +106,9 @@ export class ActionRunMetrics {
     };
   }
 
-  private takeDispatchTime(tickId?: string): number | undefined {
-    if (!tickId) return undefined;
-    const dispatchedAt = this.dispatchedAtByTickId.get(tickId);
-    this.dispatchedAtByTickId.delete(tickId);
+  private takeDispatchTime(requestId: string): number | undefined {
+    const dispatchedAt = this.dispatchedAtByRequestId.get(requestId);
+    this.dispatchedAtByRequestId.delete(requestId);
     return dispatchedAt;
   }
 

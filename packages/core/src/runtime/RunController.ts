@@ -392,11 +392,18 @@ export class RunController {
       if (command.type !== 'dispatch') continue;
       const invocation = this.invocationByTaskId.get(command.task.id);
       this.invocationByTaskId.delete(command.task.id);
-      this.options.send(this.options.scenario.createActionInvokeMessage(
-        command.task.key,
-        command.task.id,
-        { continuous: command.task.continuous, ...invocation },
-      ));
+      try {
+        this.options.send(this.options.scenario.createActionInvokeMessage(
+          command.task.key,
+          command.task.id,
+          { continuous: command.task.continuous, ...invocation },
+        ));
+      } catch (error) {
+        // The dispatch never reached the simulator. Release the task instead
+        // of leaving the pipeline wedged until its normal action timeout.
+        this.runtime.cancelPendingDispatch(command.task.id);
+        throw error;
+      }
       this.scheduleActionTimeout(command.task);
     }
   }

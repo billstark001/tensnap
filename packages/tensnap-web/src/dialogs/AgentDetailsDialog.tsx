@@ -9,6 +9,7 @@ import type { AgentRenderState } from '@tensnap/core/environment';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
 import { createIconElement } from './AgentIconElement';
+import { ValueInspector } from '../components/value-inspector';
 
 // Union type for all agent types
 
@@ -289,9 +290,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
             {!hasCustomData && <span className={styles.dataEmpty}><Trans>None</Trans></span>}
           </div>
           {hasCustomData && (
-            <pre className={styles.dataContent}>
-              {JSON.stringify(liveAgent.data, null, 2)}
-            </pre>
+            <ValueInspector value={liveAgent.data} compact className={styles.dataContent} />
           )}
         </div>
       </Dialog.Body>

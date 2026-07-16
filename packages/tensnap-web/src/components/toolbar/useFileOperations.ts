@@ -38,9 +38,9 @@ export const useFileOperations = (): FileOperationsContextValue => {
   const { invoke } = useCreateNewProjectStore();
 
   const onNewFile = useCallback(async () => {
-    const url = await invoke();
-    if (url) {
-      createNewProject(url);
+    const source = await invoke();
+    if (source) {
+      createNewProject(source);
     }
   }, [createNewProject, invoke]);
 
