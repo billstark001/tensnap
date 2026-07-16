@@ -21,9 +21,22 @@ function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTranspor
 }
 
 function tickId(message: RendererToSimulatorMessage): string {
-  const payload = message.payload as { tick_id?: string };
-  if (!payload.tick_id) throw new Error('Expected dispatched action to have a tick id.');
-  return payload.tick_id;
+  const payload = message.payload as { request_id?: string };
+  if (!payload.request_id) throw new Error('Expected dispatched action to have a tick id.');
+  return payload.request_id;
+}
+
+function announce(session: RendererSession): void {
+  session.handleIncoming({
+    type: 'simulator_info',
+    payload: {
+      protocol_version: '0.3',
+      binding: { name: 'test-binding', version: '0.3.0' },
+      model: { id: 'test-model' },
+      instance_id: 'test-instance',
+      capabilities: [],
+    },
+  });
 }
 
 describe('RunController', () => {
@@ -35,24 +48,39 @@ describe('RunController', () => {
       .toThrow(/mode/);
   });
 
+  it('requires request_id to correlate an action result', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+
+    session.run.requestAction('step');
+    const requestId = tickId(sent[0]!);
+
+    expect(session.run.observeActionResult({ id: 'step' } as never)).toBe(false);
+    expect(session.run.observeActionResult({ id: 'step', request_id: 'other' } as never)).toBe(false);
+    expect(session.run.observeActionResult({ id: 'step', request_id: requestId })).toBe(true);
+  });
+
   it('runs at most maxSteps and waits for the host render barrier between steps', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     const first = tickId(sent[0]!);
-    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
 
     expect(sent).toHaveLength(1);
     expect(session.run.status).toMatchObject({ state: 'running', completedSteps: 1 });
 
-    session.run.markActionRendered({ id: 'step', tick_id: first });
+    session.run.markActionRendered({ id: 'step', request_id: first });
     expect(sent).toHaveLength(2);
 
     const second = tickId(sent[1]!);
-    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: second, continue: true } });
-    session.run.markActionRendered({ id: 'step', tick_id: second });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: second, should_continue: true } });
+    session.run.markActionRendered({ id: 'step', request_id: second });
 
     expect(sent).toHaveLength(2);
     expect(session.run.status).toMatchObject({
@@ -68,15 +96,16 @@ describe('RunController', () => {
     const onStatus = vi.fn();
     session.addEventListener('run:status', onStatus);
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 3 });
     expect(onStatus).toHaveBeenCalledTimes(1);
 
     const first = tickId(sent[0]!);
-    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
     expect(onStatus).toHaveBeenCalledTimes(1);
 
-    session.run.markActionRendered({ id: 'step', tick_id: first });
+    session.run.markActionRendered({ id: 'step', request_id: first });
     expect(onStatus).toHaveBeenCalledTimes(2);
   });
 
@@ -84,6 +113,7 @@ describe('RunController', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'manual', actionId: 'start' });
     const first = tickId(sent[0]!);
@@ -95,9 +125,9 @@ describe('RunController', () => {
 
     session.run.pause();
     expect(session.run.status).toMatchObject({ state: 'running', pauseRequested: true, inFlight: true });
-    session.handleIncoming({ type: 'action_end', payload: { id: 'start', tick_id: first, continue: true } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: first, should_continue: true } });
     expect(session.run.status).toMatchObject({ state: 'paused', stopReason: 'paused', completedSteps: 1 });
-    session.run.markActionRendered({ id: 'start', tick_id: first });
+    session.run.markActionRendered({ id: 'start', request_id: first });
     expect(sent).toHaveLength(1);
   });
 
@@ -105,44 +135,47 @@ describe('RunController', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'manual', actionId: 'start' });
     const first = tickId(sent[0]!);
     session.run.requestStep('step');
     expect(sent).toHaveLength(1);
 
-    session.handleIncoming({ type: 'action_end', payload: { id: 'start', tick_id: first, continue: true } });
-    session.run.markActionRendered({ id: 'start', tick_id: first });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: first, should_continue: true } });
+    session.run.markActionRendered({ id: 'start', request_id: first });
     expect(sent).toHaveLength(2);
-    expect(sent[1]).toMatchObject({ type: 'action_start', payload: { id: 'step', continuous: false } });
+    expect(sent[1]).toMatchObject({ type: 'action_invoke', payload: { id: 'step', continuous: false } });
   });
 
   it('does not start a second continuous generation before the prior tick renders', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
+    announce(session);
     session.run.start({ mode: 'manual', actionId: 'start' });
     const first = tickId(sent[0]!);
     session.run.pause();
-    session.handleIncoming({ type: 'action_end', payload: { id: 'start', tick_id: first, continue: true } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: first, should_continue: true } });
 
     expect(session.run.status).toMatchObject({ state: 'paused', inFlight: true });
     expect(() => session.run.start({ mode: 'manual', actionId: 'start' })).toThrow(/current action tick/);
-    session.run.markActionRendered({ id: 'start', tick_id: first });
+    session.run.markActionRendered({ id: 'start', request_id: first });
     expect(session.run.status).toMatchObject({ state: 'paused', inFlight: false });
     expect(() => session.run.start({ mode: 'manual', actionId: 'start' })).not.toThrow();
     expect(sent).toHaveLength(2);
   });
 
-  it('evaluates a compiled condition against incremental scenario state after action_end', () => {
+  it('evaluates a compiled condition against incremental scenario state after action_result', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 9, stopWhen: 'steps >= 1 && metadata.population === 3' });
     const first = tickId(sent[0]!);
     session.handleIncoming({ type: 'metadata_update', payload: { population: 3 } });
-    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
 
     expect(session.run.status).toMatchObject({
       state: 'stopped',
@@ -156,15 +189,16 @@ describe('RunController', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'bounded', actionId: 'start', maxSteps: 10 });
     const pendingRunAction = tickId(sent[0]!);
     session.run.requestAction('step');
 
     expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'stopped' });
-    session.handleIncoming({ type: 'action_end', payload: { id: 'start', tick_id: pendingRunAction, continue: true } });
-    session.run.markActionRendered({ id: 'start', tick_id: pendingRunAction });
-    expect(sent[sent.length - 1]).toMatchObject({ type: 'action_start', payload: { id: 'step', continuous: false } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: pendingRunAction, should_continue: true } });
+    session.run.markActionRendered({ id: 'start', request_id: pendingRunAction });
+    expect(sent[sent.length - 1]).toMatchObject({ type: 'action_invoke', payload: { id: 'step', continuous: false } });
   });
 
   it('allows only the documented agent capabilities in stop expressions', () => {
@@ -172,7 +206,7 @@ describe('RunController', () => {
     session.scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
     session.scenario.apply({
       type: 'env_layer_create',
-      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent', data: {} },
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent', metadata: {} },
     });
     session.scenario.apply({
       type: 'item_create',
@@ -215,6 +249,7 @@ describe('RunController', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession({ run: { actionTimeoutMs: 10 } });
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     expect(sent).toHaveLength(1);
@@ -233,10 +268,11 @@ describe('RunController', () => {
       },
     });
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     const first = tickId(sent[0]!);
-    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: first, continue: true } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
     await Promise.resolve();
     await Promise.resolve();
 

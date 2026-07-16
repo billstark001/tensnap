@@ -43,10 +43,13 @@ export type {
 } from './environment';
 
 export * from './parameter';
+export * from './monitor';
 export * from './runtime';
 export {
 	SnapshotRecorder,
 	SnapshotPlayer,
+	SnapshotPlaybackSource,
+	SNAPSHOT_PLAYBACK_ACTIONS,
 	createSingleSnapshot,
 	decodeSnapshotArchive,
 	encodeSnapshotArchive,
@@ -67,6 +70,8 @@ export type {
 	SnapshotMetadata,
 	SnapshotSegment,
 	SnapshotSeries,
+	ProjectSource,
+	SnapshotPlaybackState,
 } from './snapshot';
 
 export { Scenario } from './scenario';

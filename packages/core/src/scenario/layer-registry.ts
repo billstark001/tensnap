@@ -662,7 +662,7 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
   onDependencyItemsChanged: (context, change) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     if (change.kind === 'delete') {
-      const ids = getAgentIds(change.items);
+      const ids = getAgentIds(change.items as DeleteItems);
       if (!ids) {
         return;
       }

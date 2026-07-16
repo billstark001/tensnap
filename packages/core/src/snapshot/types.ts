@@ -1,5 +1,5 @@
 import type {
-  ActionEndPayload,
+  ActionResultPayload,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
@@ -24,7 +24,7 @@ export interface SnapshotFrame {
   messages: SimulatorToRendererMessage[];
   /** Renderer control requests issued during this frame. */
   controls: RendererToSimulatorMessage[];
-  action?: ActionEndPayload;
+  action?: ActionResultPayload;
   kind: 'action' | 'control' | 'sync';
 }
 

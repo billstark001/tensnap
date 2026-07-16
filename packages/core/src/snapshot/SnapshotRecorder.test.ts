@@ -17,7 +17,7 @@ describe('SnapshotRecorder', () => {
     recorder.recordMessage(create);
     scenario.apply(update);
     recorder.recordMessage(update);
-    const actionEnd = { type: 'action_end' as const, payload: { id: 'step', tick_id: 'one' } };
+    const actionEnd = { type: 'action_result' as const, payload: { id: 'step', request_id: 'one' } };
     scenario.apply(actionEnd);
     recorder.recordMessage(actionEnd);
 
@@ -55,7 +55,7 @@ describe('SnapshotRecorder', () => {
     const create = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 2 }] } };
     scenario.apply(create);
     recorder.recordMessage(create);
-    recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
     expect(snapshot.frames[0].messages.some((message) => message.type === 'item_create')).toBe(false);
@@ -71,7 +71,7 @@ describe('SnapshotRecorder', () => {
     const update = { type: 'chart_update' as const, payload: { updates: [{ id: 'population', time: 1, value: 42 }] } };
     scenario.apply(update);
     recorder.recordMessage(update);
-    recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
     expect(snapshot.keyframes[0]?.scenario.charts).toEqual([]);
@@ -87,7 +87,7 @@ describe('SnapshotRecorder', () => {
       const message = { type: 'metadata_update' as const, payload: { time } };
       scenario.apply(message);
       recorder.recordMessage(message);
-      recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+      recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
     }
     const snapshot = recorder.stop()!;
     expect(snapshot.truncated).toBe(true);
@@ -103,7 +103,7 @@ describe('SnapshotRecorder', () => {
       const message = { type: 'metadata_update' as const, payload: { time } };
       scenario.apply(message);
       recorder.recordMessage(message);
-      recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+      recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
     }
 
     const snapshot = recorder.stop()!;
@@ -132,7 +132,7 @@ describe('SnapshotRecorder', () => {
     recorder.stop();
     recorder.start({ maxBytes: baseline + 128, ringBuffer: true });
     recorder.recordMessage({ type: 'metadata_update', payload: { description: 'y'.repeat(8_192) } });
-    recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
     expect(snapshot.frames).toEqual([]);
@@ -148,7 +148,7 @@ describe('SnapshotRecorder', () => {
       const update = { type: 'metadata_update' as const, payload: { time } };
       scenario.apply(update);
       recorder.recordMessage(update);
-      recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+      recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
     }
     const snapshot = recorder.stop()!;
     const player = new SnapshotPlayer(snapshot);
@@ -171,7 +171,7 @@ describe('SnapshotRecorder', () => {
       const update = { type: 'metadata_update' as const, payload: { time, repeated: 'x'.repeat(64) } };
       scenario.apply(update);
       recorder.recordMessage(update);
-      recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+      recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
     }
     const snapshot = recorder.stop()!;
 
@@ -197,7 +197,7 @@ describe('SnapshotRecorder', () => {
     const create = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] } };
     scenario.apply(create);
     recorder.recordMessage(create);
-    recorder.recordMessage({ type: 'action_end', payload: { id: 'step' } });
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
     expect(snapshot.frames[0]?.messages.some((message) => message.type === 'item_create')).toBe(false);

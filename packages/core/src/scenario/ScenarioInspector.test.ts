@@ -11,7 +11,7 @@ function createSpatialScenario(graph = false): Scenario {
   const scenario = new Scenario();
   scenario.apply(message('env_create', { id: 'world', type: '2d' }));
   scenario.apply(message('env_layer_create', {
-    env_id: 'world', layer_id: 'agents', layer_type: 'agent', data: {
+    env_id: 'world', layer_id: 'agents', layer_type: 'agent', metadata: {
       width: 100,
       height: 100,
       ...(graph ? { uses_graph_interaction: true } : {}),
@@ -130,7 +130,7 @@ describe('ScenarioInspector', () => {
       .toMatchObject({ kind: 'spatial', viewport: { x: 2.5, y: 2.5, width: 6, height: 6 } });
 
     scenario.apply(message('env_layer_update', {
-      env_id: 'world', layer_id: 'agents', data: { coord_offset: 'float' },
+      env_id: 'world', layer_id: 'agents', metadata: { coord_offset: 'float' },
     }));
     expect(new ScenarioInspector(scenario).inspectLive(ref, { radius: 3 }))
       .toMatchObject({ kind: 'spatial', viewport: { x: 2, y: 2, width: 6, height: 6 } });

@@ -20,6 +20,19 @@ function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTranspor
   };
 }
 
+function announce(session: RendererSession, instanceId = 'test-instance', capabilities: string[] = []): void {
+  session.handleIncoming({
+    type: 'simulator_info',
+    payload: {
+      protocol_version: '0.3',
+      binding: { name: 'test-binding', version: '0.3.0' },
+      model: { id: 'test-model' },
+      instance_id: instanceId,
+      capabilities,
+    },
+  });
+}
+
 describe('RendererSession', () => {
   it('commits a state-sync replay once at the end boundary', () => {
     const session = new RendererSession();
@@ -29,15 +42,16 @@ describe('RendererSession', () => {
     });
 
     session.attachTransport(createTransport([]));
+    announce(session);
     const requestId = session.requestStateSync();
-    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId } });
+    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
     session.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
     session.handleIncoming({ type: 'metadata_update', payload: { time: 4 } });
 
     expect(commits).toHaveLength(0);
-    expect(session.scenario.getEnvironment('main')).toBeDefined();
+    expect(session.scenario.getEnvironment('main')).toBeUndefined();
 
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId } });
+    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
 
     expect(commits).toEqual([
       expect.objectContaining({
@@ -52,13 +66,27 @@ describe('RendererSession', () => {
     ]);
   });
 
+  it('treats a requested state sync as an active transaction before begin', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.projected']);
+
+    session.requestStateSync('sync-1');
+
+    expect(() => session.requestStateSync('sync-2')).toThrow(/protocol transaction/);
+    expect(() => session.requestSceneRestore({ time: 2 })).toThrow(/protocol transaction/);
+    expect(sent).toHaveLength(1);
+  });
+
   it('sends asset_sync through the same optimistic control path', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.handleIncoming({
-      type: 'asset_meta',
+      type: 'asset_metadata',
       payload: { assets: [{ id: 'sprite', hash: 'a', mime: 'image/png', size: 1 }] },
     });
 
@@ -77,6 +105,7 @@ describe('RendererSession', () => {
         expect(outboundPublished).toBe(true);
       },
     });
+    announce(session);
 
     session.run.requestAction('step');
   });
@@ -89,14 +118,45 @@ describe('RendererSession', () => {
       completed.push((event as CustomEvent<{ snapshot: Snapshot }>).detail.snapshot);
     });
     session.attachTransport(createTransport(sent));
+    announce(session);
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: { maxSteps: 10, maxBytes: 1_000_000 } });
-    const tickId = (sent[0].payload as { tick_id: string }).tick_id;
+    const tickId = (sent[0].payload as { request_id: string }).request_id;
     session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
-    session.handleIncoming({ type: 'action_end', payload: { id: 'step', tick_id: tickId } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: tickId } });
 
     expect(completed).toHaveLength(1);
     expect(completed[0].frames).toHaveLength(1);
     expect(materializeSnapshot(completed[0]).metadata.time).toBe(1);
+  });
+
+  it('requires restore capabilities and commits a chart-free restore only on ok', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.projected']);
+
+    expect(() => session.requestSceneRestore({ time: 2, checkpoint: { encoding: 'raw', data: 'AQ==' } })).toThrow(/checkpoint/);
+    const requestId = session.requestSceneRestore({ time: 2 });
+    expect(sent[sent.length - 1]).toEqual(expect.objectContaining({ type: 'scene_restore' }));
+
+    session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id: requestId } });
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
+    expect(session.scenario.metadata.time).toBeUndefined();
+    session.handleIncoming({ type: 'scene_restore_end', payload: { request_id: requestId, status: 'ok' } });
+    expect(session.scenario.metadata.time).toBe(2);
+  });
+
+  it('rejects chart messages inside a scene restore transaction without mutating live state', () => {
+    const session = new RendererSession();
+    session.attachTransport(createTransport([]));
+    announce(session, 'test-instance', ['scene.restore.projected']);
+    const requestId = session.requestSceneRestore({ time: 3 });
+    session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id: requestId } });
+    session.handleIncoming({ type: 'chart_create', payload: { id: 'forbidden', label: 'Forbidden' } });
+    session.handleIncoming({ type: 'scene_restore_end', payload: { request_id: requestId, status: 'ok' } });
+
+    expect(session.scenario.charts.getGroup('forbidden')).toBeUndefined();
+    expect(session.scenario.metadata.time).toBeUndefined();
   });
 });

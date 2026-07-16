@@ -25,11 +25,18 @@ describe('SyncBoundary – requestSync', () => {
     expect(sb.isIdle).toBe(false);
   });
 
-  it('accepts undefined requestId', () => {
+  it('rejects an empty request id', () => {
     const sb = new SyncBoundary();
-    sb.requestSync();
-    expect(sb.phase).toBe('requested');
+    expect(sb.requestSync('')).toBe(false);
+    expect(sb.phase).toBe('idle');
     expect(sb.requestId).toBeNull();
+  });
+
+  it('does not overwrite a pending request', () => {
+    const sb = new SyncBoundary();
+    expect(sb.requestSync('sync-1')).toBe(true);
+    expect(sb.requestSync('sync-2')).toBe(false);
+    expect(sb.getSnapshot()).toEqual({ requestId: 'sync-1', phase: 'requested' });
   });
 });
 
@@ -60,6 +67,16 @@ describe('SyncBoundary – recordBoundary', () => {
     const ok = sb.recordBoundary('end', { request_id: 'other-sync' });
     expect(ok).toBe(false);
     expect(sb.phase).toBe('requested');
+  });
+
+  it('rejects an end before begin and duplicate boundaries', () => {
+    const sb = new SyncBoundary();
+    sb.requestSync('sync-1');
+    expect(sb.recordBoundary('end', { request_id: 'sync-1' })).toBe(false);
+    expect(sb.recordBoundary('begin', { request_id: 'sync-1' })).toBe(true);
+    expect(sb.recordBoundary('begin', { request_id: 'sync-1' })).toBe(false);
+    expect(sb.recordBoundary('end', { request_id: 'sync-1' })).toBe(true);
+    expect(sb.recordBoundary('end', { request_id: 'sync-1' })).toBe(false);
   });
 
   it('rejects boundary when no requestId is set', () => {

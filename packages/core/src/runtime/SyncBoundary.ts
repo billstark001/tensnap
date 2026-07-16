@@ -7,8 +7,6 @@
  * Contains no task-queue or metrics logic.
  */
 
-import type { StateSyncBoundaryPayload } from '@tensnap/protocol';
-
 export type RuntimeSyncPhase = 'idle' | 'requested' | 'receiving';
 
 export interface RuntimeSyncSnapshot {
@@ -28,11 +26,17 @@ export class SyncBoundary {
     this.sync = createIdleSyncState();
   }
 
-  requestSync(requestId?: string): void {
+  /**
+   * Starts one state-sync handshake. A pending or receiving handshake is
+   * deliberately left untouched: v0.3 transactions are non-nestable.
+   */
+  requestSync(requestId: string): boolean {
+    if (!requestId || !this.isIdle) return false;
     this.sync = {
-      requestId: requestId ?? null,
+      requestId,
       phase: 'requested',
     };
+    return true;
   }
 
   /**
@@ -46,7 +50,7 @@ export class SyncBoundary {
    */
   recordBoundary(
     phase: 'begin' | 'end',
-    payload: StateSyncBoundaryPayload = {},
+    payload: { request_id: string },
     onEndIdle?: () => void,
   ): boolean {
     if (!this.matchesRequest(payload.request_id)) {
@@ -54,10 +58,12 @@ export class SyncBoundary {
     }
 
     if (phase === 'begin') {
+      if (this.sync.phase !== 'requested') return false;
       this.sync = { ...this.sync, phase: 'receiving' };
       return true;
     }
 
+    if (this.sync.phase !== 'receiving') return false;
     this.sync = createIdleSyncState();
     onEndIdle?.();
     return true;
@@ -83,10 +89,10 @@ export class SyncBoundary {
 
   // #endregion
 
-  private matchesRequest(requestId?: string): boolean {
+  private matchesRequest(requestId: string): boolean {
     if (this.sync.requestId === null) {
       return false;
     }
-    return requestId === undefined || requestId === this.sync.requestId;
+    return requestId === this.sync.requestId;
   }
 }

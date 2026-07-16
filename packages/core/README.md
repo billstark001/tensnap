@@ -31,7 +31,7 @@ missing assets, handles screenshot responses, and owns a `RunController`.
 require an explicit `mode: 'bounded'` and finite `maxSteps` (default policy
 limit: 1,000,000); manual runs use `mode: 'manual'` and continue until paused.
 An optional `stopWhen` expression is evaluated before the first bounded action
-and after each `action_end`. The scope is read-only and incremental (`steps`,
+and after each `action_result`. The scope is read-only and incremental (`steps`,
 `time`, metadata, parameters, charts, `agent()`, and `agentCount()`), so it
 never needs to call `Scenario.dump()` in the tick path.
 
@@ -42,7 +42,7 @@ continuous action.
 
 ## Recordings and project archives
 
-`SnapshotRecorder` captures atomic frames at `action_end` (plus explicit
+`SnapshotRecorder` captures atomic frames at `action_result` (plus explicit
 control/sync frames), with adaptive keyframes and a strict retention budget.
 The live `Snapshot` stays convenient for replay APIs. Use
 `encodeSnapshotArchive(snapshot)` before persistence to create independently

@@ -35,7 +35,7 @@ function setupEnvAndTrajectoryLayer(s: Scenario, envId = 'env1', agentLayerId = 
     layer_id: trajectoryLayerId,
     layer_type: 'trajectory',
     dependency_layer_ids: { agent: agentLayerId },
-    data: { length: 3, color: '#f00' },
+    metadata: { length: 3, color: '#f00' },
   }));
 }
 
@@ -122,7 +122,7 @@ describe('Scenario – environment and layer lifecycle', () => {
       env_id: 'env1',
       layer_id: 'layer1',
       layer_type: 'agent',
-      data: { coord_offset: 'float' },
+      metadata: { coord_offset: 'float' },
     }));
 
     const refreshedLayer = env.layers.get('layer1')!;
@@ -148,7 +148,7 @@ describe('Scenario – environment and layer lifecycle', () => {
     const storage = layer.storage;
 
     (s as any).createLayer({
-      env_id: 'env1', layer_id: 'layer1', layer_type: 'agent', data: { coord_offset: 'float' },
+      env_id: 'env1', layer_id: 'layer1', layer_type: 'agent', metadata: { coord_offset: 'float' },
     }, true);
 
     expect(s.environments.get('env1')!.layers.get('layer1')).toBe(layer);
@@ -180,7 +180,7 @@ describe('Scenario – environment and layer lifecycle', () => {
     s.apply(msg('env_layer_update', {
       env_id: 'env1',
       layer_id: 'trails',
-      data: { dependency_layer_ids: { agent: 'other-items' }, length: 5 },
+      metadata: { dependency_layer_ids: { agent: 'other-items' }, length: 5 },
     } as any));
 
     const layer = s.environments.get('env1')!.layers.get('trails')!;
@@ -383,7 +383,7 @@ describe('Scenario – item_create / item_update / item_delete', () => {
       layer_id: 'trails',
       layer_type: 'trajectory',
       dependency_layer_ids: { agent: 'items' },
-      data: { length: 3, color: '#f00' },
+      metadata: { length: 3, color: '#f00' },
     }));
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
@@ -423,7 +423,7 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
     s.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'trails', data: { on_agent_delete: 'retain' },
+      env_id: 'env1', layer_id: 'trails', metadata: { on_agent_delete: 'retain' },
     }));
     s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
     s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'items', items: ['a1'] }));
@@ -457,7 +457,7 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
     s.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'trails', data: { on_state_sync: 'clear' },
+      env_id: 'env1', layer_id: 'trails', metadata: { on_state_sync: 'clear' },
     }));
     s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
     s.apply(msg('state_sync_begin', {}));
@@ -492,7 +492,7 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const retainedScenario = new Scenario();
     setupEnvAndTrajectoryLayer(retainedScenario);
     retainedScenario.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'trails', data: { on_reset: 'preserve' },
+      env_id: 'env1', layer_id: 'trails', metadata: { on_reset: 'preserve' },
     }));
     retainedScenario.apply(msg('item_create', {
       env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }],
@@ -790,7 +790,7 @@ describe('Scenario – createStateSyncMessage', () => {
   it('includes current environments and layers', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    const msg2 = s.createStateSyncMessage();
+    const msg2 = s.createStateSyncMessage('model-1', 'sync-1');
     expect(msg2.type).toBe('state_sync');
     const envList = msg2.payload.envs;
     expect(envList).toHaveLength(1);
@@ -798,15 +798,15 @@ describe('Scenario – createStateSyncMessage', () => {
     expect(envList[0].layers[0].layer_type).toBe('agent');
   });
 
-  it('includes an optional request id for sync correlation', () => {
+  it('includes the supplied request id for sync correlation', () => {
     const s = new Scenario();
-    const msg2 = s.createStateSyncMessage('sync-1');
+    const msg2 = s.createStateSyncMessage('model-1', 'sync-1');
     expect(msg2.payload.request_id).toBe('sync-1');
   });
 
-  it('includes an optional tick id for action correlation', () => {
+  it('includes a request id for action correlation', () => {
     const s = new Scenario();
-    const msg2 = s.createActionStartMessage('start', true, 'tick-1');
-    expect(msg2.payload).toEqual({ id: 'start', continuous: true, tick_id: 'tick-1' });
+    const msg2 = s.createActionInvokeMessage('start', 'action-1', { continuous: true });
+    expect(msg2.payload).toEqual({ id: 'start', continuous: true, request_id: 'action-1' });
   });
 });

@@ -1,5 +1,5 @@
 import type {
-  ActionEndPayload,
+  ActionResultPayload,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
@@ -184,7 +184,7 @@ function isAppendOnlyStreamMessage(message: SimulatorToRendererMessage): boolean
   return message.type === 'chart_create'
     || message.type === 'chart_update'
     || message.type === 'chart_delete'
-    || message.type === 'asset_meta'
+    || message.type === 'asset_metadata'
     || message.type === 'asset_data'
     || message.type === 'asset_delete'
     || message.type === 'log'
@@ -238,7 +238,7 @@ export class SnapshotRecorder {
   private pendingMessages: SimulatorToRendererMessage[] = [];
   private pendingControls: RendererToSimulatorMessage[] = [];
   private flushQueued = false;
-  private awaitingActionEnd = false;
+  private awaitingActionResult = false;
   private retentionExhausted = false;
   /** Incremental accounting keeps recording work constant per frame. */
   private estimatedByteLength = 0;
@@ -293,7 +293,7 @@ export class SnapshotRecorder {
     });
     this.snapshot.byteLength = this.estimatedByteLength;
     this.bytesSinceKeyframe = 0;
-    this.awaitingActionEnd = false;
+    this.awaitingActionResult = false;
     this.retentionExhausted = false;
     if (this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes) {
       const baseline = this.estimatedByteLength;
@@ -321,7 +321,7 @@ export class SnapshotRecorder {
     this.pendingMessages = [];
     this.pendingControls = [];
     this.flushQueued = false;
-    this.awaitingActionEnd = false;
+    this.awaitingActionResult = false;
     this.retentionExhausted = false;
     this.estimatedByteLength = 0;
     this.initialByteLength = 0;
@@ -335,22 +335,27 @@ export class SnapshotRecorder {
   recordMessage(message: SimulatorToRendererMessage): void {
     if (!this.snapshot || this.retentionExhausted) return;
     this.pendingMessages.push(cloneRecordedMessage(message));
-    if (message.type === 'action_end') {
-      this.flush('action', message.payload as ActionEndPayload);
-      this.awaitingActionEnd = false;
+    if (message.type === 'action_result') {
+      this.flush('action', message.payload as ActionResultPayload);
+      this.awaitingActionResult = false;
     } else if (message.type === 'state_sync_end') {
       this.flush('sync');
-    } else if (!this.awaitingActionEnd) {
+    } else if (!this.awaitingActionResult) {
       this.queueControlFlush();
     }
+  }
+
+  /** Record a successfully committed sync/restore transaction in wire order. */
+  recordMessages(messages: readonly SimulatorToRendererMessage[]): void {
+    for (const message of messages) this.recordMessage(message);
   }
 
   recordControl(message: RendererToSimulatorMessage): void {
     if (!this.snapshot || this.retentionExhausted) return;
     this.pendingControls.push(cloneRecordedMessage(message));
-    if (message.type === 'action_start') {
-      this.awaitingActionEnd = true;
-    } else if (!this.awaitingActionEnd) {
+    if (message.type === 'action_invoke') {
+      this.awaitingActionResult = true;
+    } else if (!this.awaitingActionResult) {
       this.queueControlFlush();
     }
   }
@@ -364,7 +369,7 @@ export class SnapshotRecorder {
     });
   }
 
-  private flush(kind: SnapshotFrame['kind'], action?: ActionEndPayload): void {
+  private flush(kind: SnapshotFrame['kind'], action?: ActionResultPayload): void {
     const target = this.snapshot;
     if (!target || (!this.pendingMessages.length && !this.pendingControls.length)) return;
     const timestamp = now();

@@ -5,7 +5,6 @@
  * sub-components.
  */
 
-import type { StateSyncBoundaryPayload } from '@tensnap/protocol';
 import {
   TaskQueue,
   type RuntimeTaskCompletion,
@@ -51,13 +50,13 @@ export class PipelineRuntime {
 
   // #region Sync boundary
 
-  requestStateSync(requestId?: string): void {
-    this.syncBoundary.requestSync(requestId);
+  requestStateSync(requestId: string): boolean {
+    return this.syncBoundary.requestSync(requestId);
   }
 
   recordStateSyncBoundary(
     phase: 'begin' | 'end',
-    payload: StateSyncBoundaryPayload = {},
+    payload: { request_id: string },
   ): boolean {
     return this.syncBoundary.recordBoundary(phase, payload, () => {
       this.q.maybeDispatchNext();
@@ -76,8 +75,8 @@ export class PipelineRuntime {
     return id;
   }
 
-  cancel(key?: string): void {
-    this.q.cancel(key);
+  cancel(key?: string): string[] {
+    return this.q.cancel(key);
   }
 
   reset(): void {
@@ -111,7 +110,7 @@ export class PipelineRuntime {
   }
 
   /**
-   * Cancel a 'dispatched' active task whose action_start has NOT been sent.
+   * Cancel a 'dispatched' active task whose action_invoke has NOT been sent.
    */
   cancelPendingDispatch(taskId: string): boolean {
     const cancelled = this.q.cancelPendingDispatch(taskId);
