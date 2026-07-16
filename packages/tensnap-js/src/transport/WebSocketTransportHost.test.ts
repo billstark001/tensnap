@@ -14,9 +14,13 @@ import {
   type WebSocketTransportHost,
 } from './WebSocketTransportHost';
 
-async function connectClient(url: string): Promise<WebSocket> {
+async function connectClient(
+  url: string,
+  onMessage?: (data: WebSocket.RawData, isBinary: boolean) => void,
+): Promise<WebSocket> {
   return new Promise<WebSocket>((resolve, reject) => {
     const client = new WebSocket(url);
+    if (onMessage) client.on('message', onMessage);
     client.once('open', () => resolve(client));
     client.once('error', reject);
   });
@@ -51,20 +55,27 @@ describe('WebSocketTransportHost', () => {
       charts: defineCharts({
         id: 'population',
         label: 'Population',
-        dataList: [{ id: 'count', label: 'Count' }],
+        data_list: [{ id: 'count', label: 'Count' }],
       }),
     }));
 
     const host = createWebSocketTransportHost({
       serverOptions: { port: 0 },
-      sessionFactory: () => registry.createSession(),
+      sessionFactory: () => registry.createSession({
+        simulatorInfo: {
+          protocol_version: '0.3',
+          binding: { name: 'registry-test', version: '0.3.0' },
+          model: { id: 'registry-model' },
+          instance_id: 'registry-instance',
+          capabilities: [],
+        },
+      }),
       encoding: 'json',
     });
     hosts.push(host);
 
-    const client = await connectClient(host.url!);
     const messages: AnyProtocolMessage[] = [];
-    client.on('message', (data, isBinary) => {
+    const client = await connectClient(host.url!, (data, isBinary) => {
       messages.push(decodeProtocolMessage(normalizeWebSocketRawData(data, isBinary)));
     });
 
@@ -72,15 +83,18 @@ describe('WebSocketTransportHost', () => {
       type: 'state_sync',
       payload: {
         request_id: 'req-1',
+        model_id: 'registry-model',
         parameters: [],
         actions: [],
         envs: [],
         charts: [],
+        monitors: [],
       },
     }, 'json'));
 
     await vi.waitFor(() => {
       expect(messages.map((message) => message.type)).toEqual([
+        'simulator_info',
         'state_sync_begin',
         'param_create',
         'action_create',
@@ -95,33 +109,41 @@ describe('WebSocketTransportHost', () => {
   });
 
   it('routes renderer messages into the simulator session', async () => {
-    const onActionStart = vi.fn(async (payload, session: SimulatorSession) => {
-      await session.emitter.actionEnd({ id: payload.id, continue: false });
+    const onActionInvoke = vi.fn(async (payload, session: SimulatorSession) => {
+      await session.emitter.actionResult({ id: payload.id, request_id: payload.request_id, should_continue: false });
     });
 
     const host = createWebSocketTransportHost({
       serverOptions: { port: 0 },
-      sessionFactory: () => new SimulatorSession({ onActionStart }),
+      sessionFactory: () => new SimulatorSession({
+        simulatorInfo: {
+          protocol_version: '0.3',
+          binding: { name: 'session-test', version: '0.3.0' },
+          model: { id: 'session-model' },
+          instance_id: 'session-instance',
+          capabilities: [],
+        },
+        onActionInvoke,
+      }),
       encoding: 'json',
     });
     hosts.push(host);
 
-    const client = await connectClient(host.url!);
     const messages: AnyProtocolMessage[] = [];
-    client.on('message', (data, isBinary) => {
+    const client = await connectClient(host.url!, (data, isBinary) => {
       messages.push(decodeProtocolMessage(normalizeWebSocketRawData(data, isBinary)));
     });
 
     client.send(encodeProtocolMessage({
-      type: 'action_start',
-      payload: { id: 'step' },
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'action-1' },
     }, 'json'));
 
     await vi.waitFor(() => {
-      expect(onActionStart).toHaveBeenCalledTimes(1);
+      expect(onActionInvoke).toHaveBeenCalledTimes(1);
       expect(messages).toContainEqual({
-        type: 'action_end',
-        payload: { id: 'step', continue: false },
+        type: 'action_result',
+        payload: { id: 'step', request_id: 'action-1', should_continue: false },
       });
     });
 

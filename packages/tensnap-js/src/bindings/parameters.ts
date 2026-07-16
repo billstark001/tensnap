@@ -41,7 +41,7 @@ export function numberParameter<TConfig extends object, TModel>(
         min: options.min,
         max: options.max,
         step: options.step,
-        allowRuntimeChange: options.runtime ?? true,
+        allow_runtime_change: options.runtime ?? true,
       }) as Parameter;
     },
     async apply(model, payload, ctx, config) {
@@ -78,7 +78,7 @@ export function booleanParameter<TConfig extends object, TModel>(
         type: 'boolean',
         label: options.label ?? titleFromId(id),
         value: options.get(model, config),
-        allowRuntimeChange: options.runtime ?? true,
+        allow_runtime_change: options.runtime ?? true,
       };
     },
     async apply(model, payload, ctx) {
@@ -103,7 +103,7 @@ export function stringParameter<TConfig extends object, TModel>(
         type: 'string',
         label: options.label ?? titleFromId(id),
         value: options.get(model, config),
-        allowRuntimeChange: options.runtime ?? true,
+        allow_runtime_change: options.runtime ?? true,
       };
     },
     async apply(model, payload, ctx) {
@@ -139,7 +139,7 @@ export function enumParameter<
         value: options.get(model, config),
         options: [...enumOptions],
         labels: labels ? { ...labels } : undefined,
-        allowRuntimeChange: options.runtime ?? true,
+        allow_runtime_change: options.runtime ?? true,
       }) as Parameter;
     },
     async apply(model, payload, ctx, config) {

@@ -34,7 +34,7 @@ export function chartGroupBinding<TConfig extends object, TModel>(
         id,
         label: options.label ?? titleFromId(id),
         color: options.color,
-        dataList: options.series.map((series) => withDefined({
+        data_list: options.series.map((series) => withDefined({
           id: series.id,
           label: series.label ?? titleFromId(series.id),
           color: series.color,

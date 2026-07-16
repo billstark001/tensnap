@@ -24,10 +24,11 @@ export function buildScenarioDefinition<TConfig extends object, TModel>(
         layerId: layer.id,
         layerType: layer.type,
         dependencyLayerIds: layer.dependencyLayerIds,
-        data: resolveMaybeFactory(layer.data, model),
+        metadata: resolveMaybeFactory(layer.metadata, model),
       })),
     })),
     charts: binding.charts.map((chart) => chart.metadata()),
+    monitors: binding.monitors.map((monitor) => monitor.metadata()),
   });
 }
 

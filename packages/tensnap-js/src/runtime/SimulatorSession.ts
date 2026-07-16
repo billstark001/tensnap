@@ -1,16 +1,21 @@
 import type {
-  ActionStartPayload,
+  ActionInvokePayload,
   AssetSyncPayload,
   ErrorPayload,
   ParameterChangePayload,
   RendererToSimulatorMessage,
+  SceneCapturePayload,
+  SceneRestorePayload,
   ScreenshotResponsePayload,
   SimulatorToRendererMessage,
+  SimulatorInfoPayload,
   StateSyncRequest,
 } from '@tensnap/protocol';
 import { createSimulatorEmitter, SimulatorEmitter } from './SimulatorEmitter';
 
 export interface SimulatorSessionHandlers {
+  /** Immutable identity emitted before every other simulator message. */
+  simulatorInfo: SimulatorInfoPayload;
   onConnect?(session: SimulatorSession): void | Promise<void>;
   onDisconnect?(session: SimulatorSession): void | Promise<void>;
   onRendererMessage?(
@@ -19,8 +24,10 @@ export interface SimulatorSessionHandlers {
   ): void | Promise<void>;
   onStateSync?(payload: StateSyncRequest, session: SimulatorSession): void | Promise<void>;
   onParamChange?(payload: ParameterChangePayload, session: SimulatorSession): void | Promise<void>;
-  onActionStart?(payload: ActionStartPayload, session: SimulatorSession): void | Promise<void>;
+  onActionInvoke?(payload: ActionInvokePayload, session: SimulatorSession): void | Promise<void>;
   onAssetSync?(payload: AssetSyncPayload, session: SimulatorSession): void | Promise<void>;
+  onSceneRestore?(payload: SceneRestorePayload, session: SimulatorSession): void | Promise<void>;
+  onSceneCapture?(payload: SceneCapturePayload, session: SimulatorSession): void | Promise<void>;
   onScreenshotResponse?(
     payload: ScreenshotResponsePayload,
     session: SimulatorSession,
@@ -39,7 +46,7 @@ export class SimulatorSession {
   private currentConnectionId?: string;
   private connected = false;
 
-  constructor(private readonly handlers: SimulatorSessionHandlers = {}) {
+  constructor(private readonly handlers: SimulatorSessionHandlers) {
     this.emitter = createSimulatorEmitter((message) => {
       if (!this.sender) {
         throw new Error('Simulator session is not attached to a sender');
@@ -70,6 +77,7 @@ export class SimulatorSession {
   async open(connectionId?: string): Promise<void> {
     this.currentConnectionId = connectionId;
     this.connected = true;
+    await this.emitter.simulatorInfo(this.handlers.simulatorInfo);
     await this.handlers.onConnect?.(this);
   }
 
@@ -92,11 +100,17 @@ export class SimulatorSession {
       case 'param_change':
         await this.handlers.onParamChange?.(message.payload as ParameterChangePayload, this);
         return;
-      case 'action_start':
-        await this.handlers.onActionStart?.(message.payload as ActionStartPayload, this);
+      case 'action_invoke':
+        await this.handlers.onActionInvoke?.(message.payload as ActionInvokePayload, this);
         return;
       case 'asset_sync':
         await this.handlers.onAssetSync?.(message.payload as AssetSyncPayload, this);
+        return;
+      case 'scene_restore':
+        await this.handlers.onSceneRestore?.(message.payload as SceneRestorePayload, this);
+        return;
+      case 'scene_capture':
+        await this.handlers.onSceneCapture?.(message.payload as SceneCapturePayload, this);
         return;
       case 'screenshot_response':
         await this.handlers.onScreenshotResponse?.(message.payload as ScreenshotResponsePayload, this);

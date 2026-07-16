@@ -128,7 +128,8 @@ export class WebSocketTransportHost {
       const decoded = decodeProtocolMessage(normalized) as RendererToSimulatorMessage;
       void session.dispatch(decoded).catch((error) => {
         void session.emitter.error({
-          error: error instanceof Error ? error.message : String(error),
+          code: 'dispatch_failed',
+          message: error instanceof Error ? error.message : String(error),
         });
       });
     });
