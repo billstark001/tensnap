@@ -9,3 +9,8 @@ pub fn get_os_name_handler() -> String {
 pub fn set_menu_locale_handler(app: AppHandle, locale: String) -> Result<(), String> {
     crate::menu::set_menu_locale(&app, &locale)
 }
+
+#[tauri::command]
+pub fn exit_application_handler(app: AppHandle) {
+    app.exit(0);
+}

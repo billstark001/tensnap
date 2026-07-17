@@ -56,12 +56,17 @@ export const virtualHeaderCell = style({
   position: 'absolute', top: 0, height: '28px', padding: vars.space.xs,
   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600,
 });
-export const virtualRow = style({ position: 'absolute', left: 0, height: '28px', minWidth: '100%' });
+export const virtualRow = style({
+  position: 'absolute',
+  left: 0,
+  width: '100%',
+  height: '28px',
+  borderTop: `1px solid ${vars.color.inputBorder}`,
+  selectors: { 'body[data-theme="dark"] &': { borderTopColor: vars.color.darkInputBorder } },
+});
 export const virtualCell = style({
   position: 'absolute', top: 0, height: '28px', padding: vars.space.xs,
   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-  borderTop: `1px solid ${vars.color.inputBorder}`,
-  selectors: { 'body[data-theme="dark"] &': { borderTopColor: vars.color.darkInputBorder } },
 });
 export const table = style({ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: 'inherit' });
 globalStyle(`${table} th`, { position: 'sticky', top: 0, background: vars.color.inputBackground, textAlign: 'left', padding: vars.space.xs });

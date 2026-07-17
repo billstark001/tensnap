@@ -443,19 +443,10 @@ export const dropdownItemDanger = style([dropdownItem, {
 // File picker selection bar styles
 export const selectionBar = style({
   display: 'flex',
+  flex: '1 1 360px',
+  minWidth: 0,
   alignItems: 'center',
   gap: '12px',
-  padding: '12px 16px',
-  backgroundColor: vars.color.background,
-  borderTop: `1px solid ${vars.color.border}`,
-  minHeight: '60px',
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkSecondary,
-      borderTopColor: vars.color.darkBorder,
-    },
-  },
 });
 
 export const selectionBarLabel = style({
@@ -473,6 +464,7 @@ export const selectionBarLabel = style({
 
 export const selectionBarInput = style({
   flex: 1,
+  minWidth: '8rem',
   padding: '8px 12px',
   borderRadius: vars.radius.sm,
   border: `1px solid ${vars.color.inputBorder}`,

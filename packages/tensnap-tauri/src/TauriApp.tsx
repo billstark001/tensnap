@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { App, Providers } from '@tensnap/web';
 import { TauriFileSystemAdapter, TauriFilePicker, TauriSettingsPersistence } from './adapters';
 import {
@@ -13,6 +13,7 @@ import { detectLocale, initI18n } from '@tensnap/web/i18n';
 import { useTauriMenuEvents } from './hooks/useTauriMenuEvents';
 import { getOsName } from './adapters/common';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { registerTauriLocaleCatalog } from './i18n/register-catalog';
 
 const TauriMenuEventsLoader = () => {
@@ -34,6 +35,17 @@ export const TauriApp: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const setTheme = useSettingsStore((state) => state.setTheme);
+
+  const exitApplication = useCallback(async () => {
+    await invoke('exit_application_handler');
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const window = getCurrentWindow();
+    const fullscreen = await window.isFullscreen();
+    await window.setFullscreen(!fullscreen);
+    setIsFullscreen(!fullscreen);
+  }, []);
 
   useEffect(() => {
     const window = getCurrentWindow();
@@ -143,6 +155,8 @@ export const TauriApp: React.FC = () => {
         environment="tauri"
         system={isMac ? 'mac' : 'other'}
         isFullscreen={isFullscreen}
+        onExit={exitApplication}
+        onToggleFullscreen={toggleFullscreen}
       />
     </Providers>
   );

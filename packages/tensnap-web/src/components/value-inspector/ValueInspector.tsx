@@ -92,7 +92,9 @@ function VirtualizedTable({
         role="table"
         style={{
           height: (rows.length + 1) * ROW_HEIGHT,
-          width: Math.max(COLUMN_WIDTH, columns.length * COLUMN_WIDTH),
+          // Keep a short table at least as wide as its viewport while still
+          // allowing horizontal scrolling for a large column set.
+          width: `max(100%, ${Math.max(COLUMN_WIDTH, columns.length * COLUMN_WIDTH)}px)`,
         }}
       >
         <div className={styles.virtualHeader} role="row">

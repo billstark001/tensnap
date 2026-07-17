@@ -23,7 +23,6 @@ struct MenuLabels {
     zoom_out: &'static str,
     reset_zoom: &'static str,
     show_grid: &'static str,
-    show_toolbar: &'static str,
     fullscreen: &'static str,
     settings: &'static str,
     documentation: &'static str,
@@ -55,7 +54,6 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             zoom_out: "Zoom Out",
             reset_zoom: "Reset Zoom",
             show_grid: "Show Grid",
-            show_toolbar: "Show Toolbar",
             fullscreen: "Fullscreen",
             settings: "Settings",
             documentation: "Documentation",
@@ -84,7 +82,6 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             zoom_out: "缩小",
             reset_zoom: "重置缩放",
             show_grid: "显示网格",
-            show_toolbar: "显示工具栏",
             fullscreen: "全屏",
             settings: "设置",
             documentation: "文档",
@@ -113,7 +110,6 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             zoom_out: "縮小",
             reset_zoom: "ズームをリセット",
             show_grid: "グリッドを表示",
-            show_toolbar: "ツールバーを表示",
             fullscreen: "フルスクリーン",
             settings: "設定",
             documentation: "ドキュメント",
@@ -201,7 +197,6 @@ fn create_menu_for_locale(app: &AppHandle, locale: &str) -> Result<Menu<tauri::W
             )?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "show_grid", labels.show_grid, true, None::<&str>)?,
-            &MenuItem::with_id(app, "show_toolbar", labels.show_toolbar, true, None::<&str>)?,
             &MenuItem::with_id(app, "fullscreen", labels.fullscreen, true, Some("F11"))?,
         ],
     )?;
@@ -292,7 +287,6 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             "zoom_out" => emit_event(&window, "menu:zoom-out"),
             "reset_zoom" => emit_event(&window, "menu:reset-zoom"),
             "show_grid" => emit_event(&window, "menu:show-grid"),
-            "show_toolbar" => emit_event(&window, "menu:show-toolbar"),
             "fullscreen" => {
                 if let Ok(is_fullscreen) = window.is_fullscreen() {
                     let _ = window.set_fullscreen(!is_fullscreen);

@@ -8,6 +8,17 @@ const startManualRun = vi.fn();
 const pauseRun = vi.fn();
 const requestStep = vi.fn();
 const requestReset = vi.fn();
+const controlsState = {
+  runStatus: null as any,
+  isSnapshotSource: false,
+  isSnapshotPlaying: false,
+  startManualRun,
+  startBoundedRun: vi.fn(),
+  pauseRun,
+  requestStep,
+  requestReset,
+  requestModelAction: vi.fn(),
+};
 const scenarioState = {
   actions: new Map([
     ['start', { id: 'start', label: 'Start', continuous: true }],
@@ -20,14 +31,12 @@ const scenarioState = {
 };
 
 vi.mock('../../hooks/useButtonControls', () => ({
-  useButtonControls: () => ({
-    runStatus: null,
-    startManualRun,
-    startBoundedRun: vi.fn(),
-    pauseRun,
-    requestStep,
-    requestReset,
-  }),
+  useButtonControls: () => controlsState,
+  isActionVisiblyRunning: (status: { state?: string; pauseRequested?: boolean; spec?: { actionId?: string } } | null, actionId: string) => (
+    status?.state === 'running'
+    && !status.pauseRequested
+    && status.spec?.actionId === actionId
+  ),
 }));
 
 vi.mock('@/store/scenario/store', () => ({
@@ -59,6 +68,10 @@ vi.mock('@lingui/react', () => ({
 describe('SimulationControlTools', () => {
   beforeEach(() => {
     startManualRun.mockReset();
+    pauseRun.mockReset();
+    controlsState.runStatus = null;
+    controlsState.isSnapshotSource = false;
+    controlsState.isSnapshotPlaying = false;
   });
 
   it('starts the toolbar action as an explicit manual persistent run', () => {
@@ -71,6 +84,30 @@ describe('SimulationControlTools', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
     expect(startManualRun).toHaveBeenCalledWith('start');
+  });
+
+  it('shows a pending pause as non-running and blocks another control click until its tick completes', () => {
+    controlsState.runStatus = {
+      id: 'run-1',
+      state: 'running',
+      pauseRequested: true,
+      inFlight: true,
+      completedSteps: 4,
+      startedAt: 0,
+      spec: { mode: 'manual', actionId: 'start' },
+    };
+
+    render(
+      <Tooltip.Provider>
+        <SimulationControlTools />
+      </Tooltip.Provider>,
+    );
+
+    const control = screen.getByRole('button', { name: 'Waiting for current tick' });
+    expect(control).toBeDisabled();
+    fireEvent.click(control);
+    expect(pauseRun).not.toHaveBeenCalled();
+    expect(startManualRun).not.toHaveBeenCalled();
   });
 
   it('falls back to step and excludes actions that need a target or required arguments', () => {

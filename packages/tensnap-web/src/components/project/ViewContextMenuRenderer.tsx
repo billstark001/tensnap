@@ -13,6 +13,9 @@ import { useUpdateAndDeleteView } from "./view-edit-hooks";
 import { copyCanvas } from "@/utils/data";
 import { ContinuousRunDialog } from '@/dialogs/ContinuousRunDialog';
 import { useSettingsStore } from '@/store/settings';
+import { valueInspectorText } from '@tensnap/core/value-inspector';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 
 export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
@@ -26,9 +29,11 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   const { deleteView, updateView } = useUpdateAndDeleteView({ parentView, onViewUpdate });
 
   const charts = useScenarioStore((store) => store.charts);
+  const monitors = useScenarioStore((store) => store.scenario.monitors);
   const runProfiles = useSettingsStore((state) => state.continuousRunProfiles);
   const setRunProfile = useSettingsStore((state) => state.setContinuousRunProfile);
   const toast = useToast();
+  const { _ } = useLingui();
   const button = type === 'button' ? view as ButtonView : null;
   const continuousActionId = button?.data.continuous ? button.data.id : null;
   const continuousRunIsActive = continuousActionId !== null && isRunning(continuousActionId);
@@ -79,6 +84,28 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
     exportToCSV(chartGroup);
   }, [charts, view, toast]);
 
+  const handleCopyMonitor = useCallback(async () => {
+    const monitorId = (view.data as { id?: string } | undefined)?.id;
+    const monitor = monitorId ? monitors?.getSnapshot(monitorId) : undefined;
+    if (!monitor) {
+      toast.error(_(msg`Monitor not found.`));
+      return;
+    }
+
+    try {
+      // Copy the storage snapshot at selection time, rather than the visible
+      // page of the inspector, so table/tree display modes produce the same
+      // complete text representation.
+      await navigator.clipboard.writeText(valueInspectorText(monitor.value ?? null, 1_000_000).text);
+      toast.success(_(msg`Monitor data copied to clipboard.`));
+    } catch (error) {
+      toast.error(
+        _(msg`Failed to copy monitor data to clipboard.`),
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }, [_, monitors, toast, view.data]);
+
   const handleContinuousRun = useCallback(() => {
     if (!continuousActionId) return;
     if (continuousRunIsActive) {
@@ -105,6 +132,13 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
         {(type === 'chart' || type === 'environment') && (
           <ContextMenu.Item onSelect={handleCopyCanvas}>
+            <ClipboardCopy />
+            <Trans>Copy</Trans>
+          </ContextMenu.Item>
+        )}
+
+        {type === 'monitor' && (
+          <ContextMenu.Item onSelect={handleCopyMonitor}>
             <ClipboardCopy />
             <Trans>Copy</Trans>
           </ContextMenu.Item>

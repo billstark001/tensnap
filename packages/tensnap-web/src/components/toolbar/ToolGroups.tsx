@@ -42,6 +42,7 @@ import { useProjectStore } from '@/store/project';
 import { useToast } from '@/store/toast';
 import { isDirectModelAction } from '@/utils/direct-model-action';
 import { resolveToolbarActionIds } from './toolbar-action-model';
+import { isActionVisiblyRunning } from '../../hooks/useButtonControls';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
   return <div className={styles.toolGroup}>
@@ -128,7 +129,13 @@ export function SimulationControlTools() {
   const overflowActions = isSnapshotSource
     ? []
     : [...(actions?.values() ?? [])].filter((action) => isDirectModelAction(action) && !primaryActionIds.has(action.id));
-  const running = isSnapshotSource ? isSnapshotPlaying : runStatus?.state === 'running';
+  // A local run remains technically "running" until its dispatched tick has
+  // completed, but it is no longer actionable as a running control once pause
+  // has been requested. Keep this in lockstep with view buttons so the second
+  // click cannot be swallowed as another pause request.
+  const running = isSnapshotSource
+    ? isSnapshotPlaying
+    : isActionVisiblyRunning(runStatus, runActionId ?? '');
   const waiting = Boolean(running && runStatus?.inFlight);
   const runDisabled = (!isSnapshotSource && !connected) || !runActionId || Boolean(runStatus?.inFlight && !running);
   const diagnostic = (available: boolean, role: string, fallback: string) => (
