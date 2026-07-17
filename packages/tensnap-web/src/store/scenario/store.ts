@@ -880,7 +880,7 @@ export const createScenarioStore = (
 
       captureSnapshot: async (draft) => {
         const info = session.simulatorInfo;
-        if (!info?.capabilities.includes('scene.restore.checkpoint')) {
+        if (!Array.isArray(info?.capabilities) || !info.capabilities.includes('scene.restore.checkpoint')) {
           get().addSnapshot(draft);
           return;
         }

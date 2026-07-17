@@ -33,6 +33,10 @@ export function SimulatorInfoDialog({ open, onOpenChange, simulatorInfo, scenari
     };
   }, [open, scenario]);
   const info = simulatorInfo;
+  // The core session normalizes handshake data, while this guard also keeps
+  // this diagnostic dialog safe when it is rendered with externally supplied
+  // simulator info.
+  const capabilities = Array.isArray(info?.capabilities) ? info.capabilities : [];
   void metadataRevision;
   const metadata = scenario?.metadata ?? {};
   return (
@@ -57,7 +61,7 @@ export function SimulatorInfoDialog({ open, onOpenChange, simulatorInfo, scenari
           </section>
           <section className={styles.section}>
             <h3><Trans>Capabilities</Trans></h3>
-            {info.capabilities.length ? <ul className={styles.capabilities}>{info.capabilities.map((capability) => <li key={capability}>{capability}</li>)}</ul> : <p className={styles.empty}><Trans>This model has not declared optional capabilities.</Trans></p>}
+            {capabilities.length ? <ul className={styles.capabilities}>{capabilities.map((capability) => <li key={capability}>{capability}</li>)}</ul> : <p className={styles.empty}><Trans>This model has not declared optional capabilities.</Trans></p>}
             {info.capability_details && <ValueInspector value={info.capability_details} renderHint="tree" compact />}
           </section>
         </>}

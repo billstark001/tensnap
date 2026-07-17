@@ -118,6 +118,18 @@ function normalizeTransactionTimeout(value: number): number {
 
 const createRequestId = (prefix: string): string => `${prefix}-${crypto.randomUUID()}`;
 
+/**
+ * A simulator_info frame is immutable for the lifetime of its connection, but
+ * it is still transport input.  Keep the session usable when a permissive
+ * codec (or an older binding) supplies a null/malformed capability list.
+ */
+function normalizeSimulatorInfo(info: SimulatorInfoPayload): SimulatorInfoPayload {
+  const capabilities = Array.isArray(info.capabilities)
+    ? info.capabilities.filter((capability): capability is string => typeof capability === 'string')
+    : [];
+  return { ...info, capabilities };
+}
+
 const rendererToSimulatorMessageTypes = new Set<string>([
   'state_sync',
   'param_change',
@@ -562,10 +574,11 @@ export class RendererSession extends LazyEventTarget {
   }
 
   private acceptSimulatorInfo(info: SimulatorInfoPayload): void {
+    const normalizedInfo = normalizeSimulatorInfo(info);
     const previous = this.announcedInfo;
     const recoveryRequired = this.identityStatusState === 'sync-required';
-    this.announcedInfo = structuredClone(info);
-    this.updateIdentityStatus(info);
+    this.announcedInfo = structuredClone(normalizedInfo);
+    this.updateIdentityStatus(normalizedInfo);
     if (recoveryRequired && this.identityStatusState === 'matching') {
       this.identityStatusState = 'sync-required';
     }

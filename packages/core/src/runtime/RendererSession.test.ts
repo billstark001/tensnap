@@ -34,6 +34,22 @@ function announce(session: RendererSession, instanceId = 'test-instance', capabi
 }
 
 describe('RendererSession', () => {
+  it('normalizes malformed handshake capabilities before UI consumers observe them', () => {
+    const session = new RendererSession();
+    session.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'older-binding', version: '0.3.0' },
+        model: { id: 'test-model' },
+        instance_id: 'test-instance',
+        capabilities: null as unknown as string[],
+      },
+    });
+
+    expect(session.simulatorInfo?.capabilities).toEqual([]);
+  });
+
   it('commits a state-sync replay once at the end boundary', () => {
     const session = new RendererSession();
     const commits: RendererSessionCommitDetail[] = [];

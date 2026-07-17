@@ -4,6 +4,7 @@ import React, { PropsWithChildren } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Providers } from './Providers';
 import { App } from './App';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 
 import '@tensnap/web-common/styles/global.css';
 import { InBrowserFilePicker, registerWebAdapterLocaleCatalog } from '@tensnap/web-adapter';
@@ -66,9 +67,11 @@ function isDarkMode() {
 
   root.render(
     <React.StrictMode>
-      <Providers>
-        <App />
-      </Providers>
+      <AppErrorBoundary>
+        <Providers>
+          <App />
+        </Providers>
+      </AppErrorBoundary>
     </React.StrictMode>
   );
 })();

@@ -61,15 +61,16 @@ function SceneRestoreDialogContent({
   const [requestId, setRequestId] = useState<string | null>(null);
   const operationAbortRef = useRef<AbortController | null>(null);
   const info = session?.simulatorInfo ?? null;
+  const capabilities = Array.isArray(info?.capabilities) ? info.capabilities : [];
   const connected = session?.isConnected ?? false;
-  const canProject = Boolean(info?.capabilities.includes('scene.restore.projected'));
+  const canProject = capabilities.includes('scene.restore.projected');
   const checkpoint = snapshot?.metadata.checkpoint;
   const identityMatches = Boolean(snapshot && info && snapshotIdentityMatchesLive(snapshot, info));
   const canCheckpoint = Boolean(
     checkpoint
       && frame === firstFrame
       && identityMatches
-      && info?.capabilities.includes('scene.restore.checkpoint'),
+      && capabilities.includes('scene.restore.checkpoint'),
   );
 
   useEffect(() => {
@@ -91,7 +92,7 @@ function SceneRestoreDialogContent({
     if (!session || !preview || preview instanceof Error) return false;
     return projectedRestoreChangesTopology(session.scenario, preview.envs);
   }, [preview, session]);
-  const canRestoreTopology = !requiresTopology || Boolean(info?.capabilities.includes('scene.restore.topology'));
+  const canRestoreTopology = !requiresTopology || capabilities.includes('scene.restore.topology');
 
   const restore = async () => {
     const canRestore = restoreMode === 'checkpoint'

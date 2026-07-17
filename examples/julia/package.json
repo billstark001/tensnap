@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/examples-julia",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Runnable Julia examples for TenSnap.",
   "type": "module",
