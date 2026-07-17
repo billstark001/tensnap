@@ -124,7 +124,14 @@ class Patch(mesa.Agent):  # type: ignore[misc]
 
 
 @trajectory_layer(
-    width=False, agent_layer_id="hunters", z_index=36, length=10, color="#1D4ED8"
+    width=False,
+    agent_layer_id="hunters",
+    z_index=36,
+    length=10,
+    color="#1D4ED8",
+    on_agent_delete="retain",
+    on_state_sync="preserve",
+    on_reset="clear",
 )
 @agent_layer(
     "patches",

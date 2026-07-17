@@ -1,6 +1,7 @@
 package schelling
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
@@ -13,13 +14,30 @@ type itemCreateCall struct {
 	items   []map[string]any
 }
 
+type itemDeleteCall struct {
+	envID   string
+	layerID string
+	items   []any
+}
+
 type recordingEmitter struct {
 	abm.Sink
 	actionCreates   []*protocol.Action
 	actionResults   []*protocol.ActionResultPayload
 	itemCreates     []itemCreateCall
+	itemDeletes     []itemDeleteCall
+	paramUpdates    []any
+	chartOperations []protocol.ChartOperation
+	metadataTimes   []float64
 	stateSyncBegins []string
 	stateSyncEnds   []string
+}
+
+func (e *recordingEmitter) MetadataUpdate(payload *protocol.MetadataUpdatePayload) error {
+	if payload.Time != nil {
+		e.metadataTimes = append(e.metadataTimes, *payload.Time)
+	}
+	return nil
 }
 
 func (e *recordingEmitter) StateSyncBegin(payload *protocol.StateSyncBeginPayload) error {
@@ -64,6 +82,26 @@ func (e *recordingEmitter) ItemCreate(envID, layerID string, items []map[string]
 	return nil
 }
 
+func (e *recordingEmitter) ItemDelete(envID, layerID string, items []any) error {
+	e.itemDeletes = append(e.itemDeletes, itemDeleteCall{
+		envID: envID, layerID: layerID, items: append([]any(nil), items...),
+	})
+	return nil
+}
+
+func (e *recordingEmitter) ParamUpdate(payload any) error {
+	if _, err := json.Marshal(payload); err != nil {
+		return err
+	}
+	e.paramUpdates = append(e.paramUpdates, payload)
+	return nil
+}
+
+func (e *recordingEmitter) ChartUpdate(payload *protocol.ChartUpdatePayload) error {
+	e.chartOperations = append(e.chartOperations, payload.Operations...)
+	return nil
+}
+
 func TestOnStateSyncInitializesFreshModel(t *testing.T) {
 	model := NewVizModel(NewDefaultModel())
 	emitter := &recordingEmitter{}
@@ -92,6 +130,9 @@ func TestOnStateSyncInitializesFreshModel(t *testing.T) {
 	}
 	if actions[ActionIDStart] == nil || actions[protocol.ActionIDStep] == nil || actions[ActionIDReset] == nil {
 		t.Fatalf("expected start/step/reset actions, got %#v", actions)
+	}
+	if actions[protocol.ActionIDInit] != nil {
+		t.Fatalf("init is a lifecycle handshake and must not create a button: %#v", actions[protocol.ActionIDInit])
 	}
 	if actions[ActionIDStart].Continuous == nil || !*actions[ActionIDStart].Continuous {
 		t.Fatal("expected start action to be marked continuous")
@@ -141,6 +182,8 @@ func TestOnActionResetReplaysAndStops(t *testing.T) {
 	}
 
 	beforeCreates := len(emitter.itemCreates)
+	beforeDeletes := len(emitter.itemDeletes)
+	previousAgentCount := len(emitter.itemCreates[beforeCreates-1].items)
 	requestID = "action-reset"
 	continuous := false
 	if err := model.OnAction(emitter, &protocol.ActionInvokePayload{
@@ -151,6 +194,21 @@ func TestOnActionResetReplaysAndStops(t *testing.T) {
 
 	if len(emitter.itemCreates) <= beforeCreates {
 		t.Fatal("expected reset to replay the agent snapshot")
+	}
+	if len(emitter.itemDeletes) <= beforeDeletes {
+		t.Fatal("expected reset to delete the previous agent snapshot")
+	}
+	if got := len(emitter.itemDeletes[len(emitter.itemDeletes)-1].items); got != previousAgentCount {
+		t.Fatalf("expected reset to delete %d previous agents, got %d", previousAgentCount, got)
+	}
+	if len(emitter.paramUpdates) == 0 {
+		t.Fatal("expected reset to publish serializable parameter updates")
+	}
+	if len(emitter.chartOperations) != 2 {
+		t.Fatalf("expected reset to clear both chart groups, got %#v", emitter.chartOperations)
+	}
+	if len(emitter.metadataTimes) == 0 || emitter.metadataTimes[len(emitter.metadataTimes)-1] != 0 {
+		t.Fatalf("expected reset to publish time 0, got %#v", emitter.metadataTimes)
 	}
 	if len(emitter.actionResults) == 0 {
 		t.Fatal("expected reset action to emit action_result")
