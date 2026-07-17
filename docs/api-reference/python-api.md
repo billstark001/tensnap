@@ -1,6 +1,6 @@
 # Python API Reference
 
-This reference describes the current TenSnap Python surface for protocol v0.2.
+This reference describes the current TenSnap Python surface for protocol v0.3.
 
 The recommended workflow is:
 
@@ -110,6 +110,30 @@ if __name__ == "__main__":
 
 These helpers accept classes, instances, modules, or plain dictionaries where that shape makes sense.
 
+### Trajectory lifecycle fields
+
+`trajectory_layer(...)` exposes every v0.3 trajectory metadata field directly:
+
+```python
+@trajectory_layer(
+    agent_layer_id="agents",
+    length=30,
+    width=2,
+    color="#2563EB",
+    z_index=3,
+    on_agent_delete="retain",
+    on_state_sync="preserve",
+    on_reset="clear",
+)
+class Model: ...
+```
+
+The lifecycle defaults are `delete`, `preserve`, and `clear`, respectively.
+`retain` closes an agent's current segment when the agent is deleted; reusing
+that id starts a separate segment. `on_state_sync="preserve"` retains renderer
+history across an authoritative state sync, while `on_reset="preserve"` keeps
+old segments but closes them before the reset state is replayed.
+
 ### Projector field forms
 
 Layer metadata and item fields accept a compact set of forms:
@@ -133,8 +157,18 @@ scenario = SimulationScenario(
     port=8765,
     use_msgpack=False,
     step_interval=0.05,
+    model_id="my.stable.model",
+    state_schema_version="1",
 )
 ```
+
+Before any other simulator frame, each connection receives `simulator_info`
+with protocol/binding versions, the stable `model_id`, a per-process
+`instance_id`, optional model metadata/schema version, and the sorted declared
+capabilities. Keep `model_id` stable across releases of the same model and
+change `state_schema_version` when projected restore/checkpoint data becomes
+incompatible. The `instance_id` remains stable across reconnects and resets but
+changes for a replacement simulator instance.
 
 ### State stores
 
@@ -144,6 +178,10 @@ scenario = SimulationScenario(
 - `scenario.charts`: registered chart getters keyed by chart id.
 
 `SimulationScenario` registers the built-in renderer-driven actions `start`, `step`, and `reset` during construction.
+Reset reconciles action, parameter, environment, layer, chart, and monitor
+definitions with strict CRUD; stable agents are deleted before the reset
+snapshot is created, while stable trajectory configs are diffed so renderer
+`on_reset` policy remains authoritative.
 
 ### Combined registration
 
@@ -182,6 +220,32 @@ scenario = SimulationScenario(
 Automatic parameter discovery excludes private names by default. Pass `BindParametersConfig(include_private=True)` if you want `_private` fields included.
 
 Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in parameter discovery without exposing ordinary attributes. `BoundModelReinitializer` uses this hook for constructor keyword parameters.
+
+### Monitors and scene restore
+
+- `add_monitors(target, dry_run=False)` / `remove_monitors(ids)`
+- `broadcast_monitors(ws=None)`
+- `configure_scene_restore(restore, checkpoint_capture=None, checkpoint_restore=None)`
+- `scene_restore(..., checkpoint_capture=..., checkpoint_restore=...)`
+
+Monitor values are replace-only current state. Metadata changes use
+`monitor_delete` followed by `monitor_create`; `monitor_update` changes only the
+value/revision. Use charts when history is required.
+
+Projected restore is opt-in through `restore(payload)`. Exact checkpoint support
+is advertised only when both checkpoint callbacks are configured. Capture
+returns model data and restore receives decoded model data; TenSnap infers
+`application/octet-stream` for bytes and MessagePack for other protocol data.
+The wire `{encoding, data}` object is never passed to model callbacks.
+Use `restore=None` (for example `@scene_restore(None,
+checkpoint_capture="capture", checkpoint_restore="restore_checkpoint")`) when
+the model supports exact checkpoints but has no projected-state inverse.
+
+Restore validates identity/schema/instance guards before mutation, applies the
+checkpoint before projected fields, replays the complete final declarations,
+environment items, monitor values and time without chart messages, caches each
+`request_id`, and uses a pre-restore checkpoint for rollback when both hooks are
+available.
 
 ### Handlers and runtime
 

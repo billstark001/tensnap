@@ -13,7 +13,6 @@ from typing import (
 
 from typing_extensions import TypedDict
 
-from .bindings.basic.chart import categorize_charts
 from .models import (
     ActionMetadata,
     ChartGroupMetadata,
@@ -274,18 +273,32 @@ def compute_chart_deltas(
     server_charts: dict[str, tuple[ChartGroupMetadata, Any]],
     client_charts: list[ChartMetadataDict],
 ) -> ChartDeltas:
-    # v0.3 state_sync inventory is intentionally flat: chart groups are
-    # simulator-owned definitions, so compare group ids without guessing a
-    # group from one of its series ids.
+    # v0.3 state_sync inventory is intentionally flat. A grouped chart is
+    # reported as its member series, so it cannot be compared with (or rebuilt
+    # from) a complete ChartGroupMetadata descriptor. Keep an existing group
+    # when its owner id is present, and only delete genuinely unknown ids.
     server_dicts = {
         chart.id: cast(ChartGroupMetadataDict, chart.to_dict())
         for chart, _getter in server_charts.values()
     }
     client_ids = {item["id"] for item in client_charts}
     server_ids = set(server_dicts)
+    server_series_ids = server_ids | {
+        series["id"]
+        for chart in server_dicts.values()
+        for series in chart.get("data_list", [chart])
+    }
+    missing_groups = [
+        chart
+        for chart in server_dicts.values()
+        if chart["id"] not in client_ids
+        and not {series["id"] for series in chart.get("data_list", [chart])}.issubset(
+            client_ids
+        )
+    ]
     return ChartDeltas(
-        added=[server_dicts[chart_id] for chart_id in server_ids - client_ids],
-        removed=list(client_ids - server_ids),
+        added=missing_groups,
+        removed=list(client_ids - server_series_ids),
         updated=[],
     )
 
@@ -295,8 +308,7 @@ def compute_monitor_deltas(
     client_monitors: list[dict[str, Any]],
 ) -> MonitorDeltas:
     server_dicts = {
-        monitor.id: monitor.to_dict()
-        for monitor, _getter in server_monitors.values()
+        monitor.id: monitor.to_dict() for monitor, _getter in server_monitors.values()
     }
     client = {item["id"]: item for item in client_monitors if "id" in item}
     server_ids = set(server_dicts)

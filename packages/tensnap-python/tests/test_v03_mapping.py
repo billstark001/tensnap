@@ -19,6 +19,7 @@ from tensnap.bindings import (
     env,
     layer_bindings,
     parameters,
+    trajectory_layer,
 )
 from tensnap.protocol import layer_create_payload
 
@@ -34,7 +35,14 @@ for (const message of JSON.parse(process.argv[2])) SimulatorToRendererMessageSch
 """
     schemas_url = (REPO_ROOT / "packages/protocol/dist/schemas.js").resolve().as_uri()
     subprocess.run(
-        ["node", "--input-type=module", "-e", script, schemas_url, json.dumps(messages)],
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            script,
+            schemas_url,
+            json.dumps(messages),
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -59,7 +67,9 @@ def test_python_mapping_is_exact_and_chart_helpers_never_become_parameters():
         ConstructorConfig(),
         BindParametersConfig(include=["width", "height"], exclude=["height"]),
     )
-    assert [(name, parameter.to_dict()) for name, parameter in constructor_parameters] == [
+    assert [
+        (name, parameter.to_dict()) for name, parameter in constructor_parameters
+    ] == [
         (
             "width",
             {
@@ -105,9 +115,7 @@ def test_python_mapping_is_exact_and_chart_helpers_never_become_parameters():
     model = Model()
     discovered = parameters(
         model,
-        BindParametersConfig(
-            include=["speed", "enabled", "get_tensnap_chart_data_0"]
-        ),
+        BindParametersConfig(include=["speed", "enabled", "get_tensnap_chart_data_0"]),
     )
     assert [(name, parameter.to_dict()) for name, parameter in discovered] == [
         (
@@ -182,6 +190,29 @@ def test_python_mapping_is_exact_and_chart_helpers_never_become_parameters():
     assert bird_layer.build_item_list(aviary) == [
         {"id": "a", "x": 2, "y": 3, "color": "#16A34A"}
     ]
+
+    @trajectory_layer(
+        agent_layer_id="birds",
+        items_projector=lambda _target: [],
+        length=20,
+        width=2,
+        color="#2563EB",
+        on_agent_delete="retain",
+        on_state_sync="preserve",
+        on_reset="clear",
+    )
+    class Trails:
+        pass
+
+    trail_layer = layer_bindings(Trails())[0]
+    assert trail_layer.build_metadata(Trails()) == {
+        "length": 20,
+        "width": 2,
+        "color": "#2563EB",
+        "on_agent_delete": "retain",
+        "on_state_sync": "preserve",
+        "on_reset": "clear",
+    }
 
     layer_payload = layer_create_payload(
         "world",
