@@ -220,6 +220,44 @@ export const parameterValue = style({
   },
 });
 
+export const monitorList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.space.sm,
+});
+
+export const monitorItem = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.space.xs,
+  padding: vars.space.sm,
+  backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  borderRadius: vars.radius.sm,
+  overflow: 'hidden',
+  selectors: {
+    'body[data-theme="dark"] &': {
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    },
+  },
+});
+
+export const monitorLabel = style({
+  fontWeight: '500',
+  color: vars.color.foreground,
+  fontSize: vars.fontSize.sm,
+  selectors: {
+    'body[data-theme="dark"] &': {
+      color: vars.color.darkForeground,
+    },
+  },
+});
+
+export const emptyMonitorNotice = style({
+  margin: 0,
+  color: vars.color.secondary,
+  fontSize: vars.fontSize.sm,
+});
+
 export const environmentList = style({
   display: 'flex',
   flexDirection: 'column',

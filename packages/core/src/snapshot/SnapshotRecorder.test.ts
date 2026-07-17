@@ -115,6 +115,27 @@ describe('SnapshotRecorder', () => {
     expect(new SnapshotPlayer(snapshot).seek(1).charts.getGroup('population')?.data).toEqual([{ time: 1, population: 42 }]);
   });
 
+  it('keeps current-value monitor data out of keyframes and restores it on seek', () => {
+    const scenario = new Scenario();
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({ keyframeEvery: 1 });
+    const create = { type: 'monitor_create' as const, payload: { id: 'health', label: 'Health' } };
+    scenario.apply(create);
+    recorder.recordMessage(create);
+    const update = { type: 'monitor_update' as const, payload: { id: 'health', value: { ready: true }, revision: 1 } };
+    scenario.apply(update);
+    recorder.recordMessage(update);
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.keyframes[0]?.scenario.monitors).toEqual([]);
+    expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
+    expect(new SnapshotPlayer(snapshot).seek(1).monitors.get('health')).toMatchObject({
+      value: { ready: true },
+      revision: 1,
+    });
+  });
+
   it('keeps a seekable suffix when ring-buffer retention is exceeded', () => {
     const scenario = new Scenario();
     const recorder = new SnapshotRecorder(scenario);

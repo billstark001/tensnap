@@ -19,6 +19,7 @@ import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmen
 import { ChartView } from '../components/scenario/ChartView';
 import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
 import { ViewErrorBoundary } from '../components/view/ViewErrorBoundary';
+import { ValueInspector } from '../components/value-inspector';
 import { formatTimestamp } from '@/utils/date';
 import { useSettingsStore } from '@/store/settings';
 import { useToast } from '@/store/toast';
@@ -126,6 +127,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const currentFrame = snapshot.frames.find((candidate) => candidate.index === frame);
   const replay = player.scenario;
   const time = replay.metadata.time ?? '-';
+  const monitors = [...replay.monitors.all.values()];
 
   return <>
     <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
@@ -178,6 +180,18 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
           <h4 className={styles.sectionTitle}><Trans>Parameters</Trans></h4>
           <div className={styles.parameterList}>
             {[...replay.parameters.values()].map((parameter) => <div key={parameter.id} className={styles.parameterItem}><span className={styles.parameterLabel}>{parameter.label}</span><span className={styles.parameterValue}>{String(parameter.value ?? '-')}</span></div>)}
+          </div>
+          <Dialog.Separator />
+          <h4 className={styles.sectionTitle}><Trans>Monitors</Trans></h4>
+          <div className={styles.monitorList}>
+            {monitors.length === 0 ? (
+              <p className={styles.emptyMonitorNotice}><Trans>No monitor data was recorded.</Trans></p>
+            ) : monitors.map((monitor) => (
+              <section key={monitor.id} className={styles.monitorItem}>
+                <span className={styles.monitorLabel}>{monitor.label || monitor.id}</span>
+                <ValueInspector value={monitor.value ?? null} renderHint={monitor.render_hint ?? 'auto'} compact />
+              </section>
+            ))}
           </div>
         </div>
         <Dialog.Separator vertical />

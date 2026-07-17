@@ -185,6 +185,9 @@ function isAppendOnlyStreamMessage(message: SimulatorToRendererMessage): boolean
   return message.type === 'chart_create'
     || message.type === 'chart_update'
     || message.type === 'chart_delete'
+    || message.type === 'monitor_create'
+    || message.type === 'monitor_update'
+    || message.type === 'monitor_delete'
     || message.type === 'asset_metadata'
     || message.type === 'asset_data'
     || message.type === 'asset_delete'
@@ -203,6 +206,7 @@ function loadKeyframe(scenario: Scenario, snapshot: Snapshot, keyframe: Snapshot
   scenario.load({
     ...keyframe.scenario,
     charts: baseline.charts,
+    monitors: baseline.monitors,
     logs: baseline.logs,
     assets: baseline.assets,
   });
@@ -433,6 +437,7 @@ export class SnapshotRecorder {
         timestamp,
         scenario: this.scenario.dump({
           includeCharts: false,
+          includeMonitors: false,
           includeLogs: false,
           includeAssets: false,
         }),

@@ -55,6 +55,8 @@ describe('ProjectStore', () => {
       activeIndex: null,
       activeProject: null,
       activeFilepath: null,
+      tabs: [],
+      pendingCloseProjectId: null,
     });
     mockedSettings.saveFormat = 'json';
     vi.clearAllMocks();
@@ -121,6 +123,35 @@ describe('ProjectStore', () => {
     expect(useProjectStore.getState().tabs).toEqual([
       expect.objectContaining({ name: 'project.json', title: '/test/project.json' }),
     ]);
+  });
+
+  it('defers closing a dirty project until the renderer-owned confirmation resolves', () => {
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'close-confirmation' });
+    useProjectStore.getState().openOfflineSnapshot(snapshot);
+    const project = useProjectStore.getState().activeProject!;
+    project.useScenarioStore.getState().setMainView({
+      ...project.useScenarioStore.getState().mainView,
+      width: 901,
+    });
+    expect(project.useUndoRedoStore.getState().isDirty()).toBe(true);
+
+    useProjectStore.getState().close(0);
+    expect(useProjectStore.getState()).toMatchObject({
+      projects: [expect.objectContaining({ id: project.id })],
+      pendingCloseProjectId: project.id,
+    });
+
+    useProjectStore.getState().cancelClose();
+    expect(useProjectStore.getState().pendingCloseProjectId).toBeNull();
+    expect(useProjectStore.getState().projects).toHaveLength(1);
+
+    useProjectStore.getState().close(0);
+    useProjectStore.getState().confirmClose();
+    expect(useProjectStore.getState()).toMatchObject({
+      projects: [],
+      activeIndex: null,
+      pendingCloseProjectId: null,
+    });
   });
 
   it('migrates legacy one-off snapshots and defaults missing legacy snapshots to an empty list', async () => {

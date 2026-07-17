@@ -174,6 +174,8 @@ export interface ProjectStore {
   activeProject: ProjectContextScheme | null;
   activeFilepath: string | null;
   tabs: { id: string; name: string; title: string }[];
+  /** Project awaiting an explicit renderer-owned discard confirmation. */
+  pendingCloseProjectId: string | null;
 
   setActive: (index: number | null) => void;
   refreshActiveProject: () => void;
@@ -182,6 +184,8 @@ export interface ProjectStore {
   open: (filepath: string, indexHint?: number) => Promise<ProjectOpenResult>;
   save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
+  confirmClose: () => void;
+  cancelClose: () => void;
   changeSource: (index: number, source: ProjectSource) => Promise<void>;
   openOfflineSnapshot: (snapshot: Snapshot, indexHint?: number, frame?: number) => void;
 }
@@ -192,6 +196,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   activeProject: null,
   activeFilepath: null,
   tabs: [],
+  pendingCloseProjectId: null,
 
   refreshActiveProject() {
     const { projects, activeIndex } = get();
@@ -359,30 +364,34 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   close(index) {
-    const { projects, activeIndex, setActive } = get();
+    const { projects } = get();
 
     if (index < 0 || index >= projects.length) {
       throw new Error("Invalid project index");
     }
 
     const history = projects[index].useUndoRedoStore.getState();
-    if (history.isDirty() && typeof globalThis.confirm === 'function') {
-      const confirmed = globalThis.confirm('Close this project and discard renderer edits that have not been saved?');
-      if (!confirmed) return;
+    if (history.isDirty()) {
+      set({ pendingCloseProjectId: projects[index].id });
+      return;
     }
 
-    projects[index].useTransportStore.getState().destroy();
-    projects[index].useScenarioStore.getState().clearAll();
+    closeProject(index, set, get);
+  },
 
-    projects.splice(index, 1);
+  confirmClose() {
+    const { pendingCloseProjectId, projects } = get();
+    if (!pendingCloseProjectId) return;
+    const index = projects.findIndex((project) => project.id === pendingCloseProjectId);
+    if (index === -1) {
+      set({ pendingCloseProjectId: null });
+      return;
+    }
+    closeProject(index, set, get);
+  },
 
-    const newActiveIndex = activeIndex === null || activeIndex < projects.length
-      ? activeIndex
-      : projects.length > 0
-        ? projects.length - 1
-        : null;
-
-    setActive(newActiveIndex);
+  cancelClose() {
+    set({ pendingCloseProjectId: null });
   },
 
   async changeSource(index, nextSource) {
@@ -430,3 +439,28 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     get().refreshActiveProject();
   },
 }));
+
+function closeProject(
+  index: number,
+  set: (partial: Partial<ProjectStore>) => void,
+  get: () => ProjectStore,
+): void {
+  const { projects, activeIndex, setActive } = get();
+  const project = projects[index];
+  if (!project) return;
+
+  project.useTransportStore.getState().destroy();
+  project.useScenarioStore.getState().clearAll();
+  projects.splice(index, 1);
+
+  const newActiveIndex = activeIndex === null || projects.length === 0
+    ? null
+    : index < activeIndex
+      ? activeIndex - 1
+      : index === activeIndex
+        ? Math.min(index, projects.length - 1)
+        : activeIndex;
+
+  set({ pendingCloseProjectId: null });
+  setActive(newActiveIndex);
+}
