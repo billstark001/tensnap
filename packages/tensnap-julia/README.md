@@ -77,10 +77,13 @@ pnpm --dir examples/julia run demo:schelling:makie
 Release preparation is wired through the repository release helper:
 
 ```bash
-pnpm run release:julia -- 0.2.1
+pnpm run release:julia -- 0.3.0
 ```
 
-The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia package tests, commits the version bump if needed, and creates a `packages/tensnap-julia/vX.Y.Z` tag. For Julia General registration from this monorepo layout, use Registrator with:
+The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia
+package tests, commits the version bump if needed, and creates an annotated
+`tensnap-julia-vX.Y.Z` tag. For Julia General registration from this monorepo
+layout, use Registrator with:
 
 ```text
 @JuliaRegistrator register subdir=packages/tensnap-julia

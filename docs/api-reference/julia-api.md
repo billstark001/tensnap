@@ -164,7 +164,7 @@ Helpers:
 - `remove_action!(scenario, id)`
 
 When `continue_on_return=true`, the handler return value controls the
-`action_end.continue` flag.
+`action_result.should_continue` flag.
 
 ### Charts
 
