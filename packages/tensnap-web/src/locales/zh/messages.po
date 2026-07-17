@@ -81,7 +81,7 @@ msgstr "动作标签"
 msgid "Action Timeout"
 msgstr "动作超时时长"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:158
 msgid "Action:"
 msgstr "动作："
 
@@ -89,7 +89,7 @@ msgstr "动作："
 msgid "Adjust Mode"
 msgstr "调整模式"
 
-#: src/dialogs/AgentDetailsDialog.tsx:210
+#: src/dialogs/AgentDetailsDialog.tsx:211
 msgid "Agent Details"
 msgstr "智能体详情"
 
@@ -135,7 +135,7 @@ msgstr "自动"
 msgid "Backend URL"
 msgstr "后端地址"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:54
+#: src/dialogs/SimulatorInfoDialog.tsx:58
 msgid "Binding"
 msgstr "绑定"
 
@@ -160,19 +160,19 @@ msgstr "按钮文本"
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:35
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:75
 #: src/dialogs/edit-views/EditViewDialog.tsx:345
-#: src/dialogs/SceneRestoreDialog.tsx:210
+#: src/dialogs/SceneRestoreDialog.tsx:211
 msgid "Cancel"
 msgstr "取消"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:61
+#: src/dialogs/SnapshotDetailDialog.tsx:62
 msgid "Canvas copied to clipboard!"
 msgstr "画布已复制到剪贴板！"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:57
+#: src/dialogs/SnapshotDetailDialog.tsx:58
 msgid "Canvas not found."
 msgstr "未找到画布。"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:59
+#: src/dialogs/SimulatorInfoDialog.tsx:63
 msgid "Capabilities"
 msgstr "能力"
 
@@ -204,7 +204,7 @@ msgstr "图表组 ID"
 msgid "Chart Group Label"
 msgstr "图表组标签"
 
-#: src/dialogs/SceneRestoreDialog.tsx:199
+#: src/dialogs/SceneRestoreDialog.tsx:200
 msgid "Chart policy"
 msgstr "图表策略"
 
@@ -230,7 +230,7 @@ msgid "Client Message Validation"
 msgstr "客户端信息格式验证"
 
 #: src/dialogs/AboutDialog.tsx:77
-#: src/dialogs/AgentDetailsDialog.tsx:300
+#: src/dialogs/AgentDetailsDialog.tsx:301
 #: src/dialogs/SettingsDialog.tsx:380
 msgid "Close"
 msgstr "关闭"
@@ -240,11 +240,15 @@ msgstr "关闭"
 msgid "Close {0}"
 msgstr "关闭 {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:274
+#: src/dialogs/DiscardProjectChangesDialog.tsx:18
+msgid "Close this project and discard renderer edits that have not been saved?"
+msgstr "关闭此项目并丢弃尚未保存的渲染器编辑？"
+
+#: src/dialogs/AgentDetailsDialog.tsx:275
 msgid "Color:"
 msgstr "颜色："
 
-#: src/components/project/StatusBar.tsx:124
+#: src/components/project/StatusBar.tsx:146
 msgid "Comm:"
 msgstr "通信："
 
@@ -272,15 +276,19 @@ msgstr "确认"
 msgid "Confirm Structural Change"
 msgstr "确认结构变更"
 
-#: src/dialogs/SceneRestoreDialog.tsx:156
+#: src/dialogs/SceneRestoreDialog.tsx:157
 msgid "Connect to a live simulator before restoring a snapshot."
 msgstr "恢复快照前，请先连接到实时模拟器。"
 
-#: src/components/project/StatusBar.tsx:98
+#: src/components/project/StatusBar.tsx:58
 msgid "Connected"
 msgstr "已连接"
 
-#: src/components/project/StatusBar.tsx:85
+#: src/components/project/StatusBar.tsx:56
+msgid "Connecting"
+msgstr "正在连接"
+
+#: src/components/project/StatusBar.tsx:104
 msgid "Connection failed, will retry automatically"
 msgstr "连接失败，将自动重试"
 
@@ -303,7 +311,7 @@ msgstr "连续执行…"
 #: src/components/project/ViewContextMenuRenderer.tsx:136
 #: src/components/project/ViewContextMenuRenderer.tsx:143
 #: src/components/toolbar/MenuBar.tsx:161
-#: src/dialogs/SnapshotDetailDialog.tsx:72
+#: src/dialogs/SnapshotDetailDialog.tsx:73
 msgid "Copy"
 msgstr "复制"
 
@@ -334,7 +342,7 @@ msgstr "当前值"
 #~ msgid "Custom"
 #~ msgstr "自定义"
 
-#: src/dialogs/AgentDetailsDialog.tsx:289
+#: src/dialogs/AgentDetailsDialog.tsx:290
 msgid "Custom Data:"
 msgstr "自定义数据："
 
@@ -354,7 +362,7 @@ msgstr "深色"
 msgid "Data Points"
 msgstr "数据点"
 
-#: src/dialogs/AgentDetailsDialog.tsx:284
+#: src/dialogs/AgentDetailsDialog.tsx:285
 msgid "default"
 msgstr "默认"
 
@@ -362,7 +370,7 @@ msgstr "默认"
 msgid "Delete"
 msgstr "删除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:199
+#: src/dialogs/SnapshotDetailDialog.tsx:213
 msgid "Delete recording"
 msgstr "删除录制"
 
@@ -382,7 +390,15 @@ msgstr "删除录制"
 msgid "Disabled"
 msgstr "已禁用"
 
-#: src/components/project/StatusBar.tsx:98
+#: src/dialogs/DiscardProjectChangesDialog.tsx:19
+msgid "Discard and close"
+msgstr "丢弃并关闭"
+
+#: src/dialogs/DiscardProjectChangesDialog.tsx:17
+msgid "Discard unsaved changes?"
+msgstr "丢弃未保存的更改？"
+
+#: src/components/project/StatusBar.tsx:59
 msgid "Disconnected"
 msgstr "未连接"
 
@@ -473,11 +489,11 @@ msgstr "环境："
 msgid "Error"
 msgstr "错误"
 
-#: src/dialogs/SceneRestoreDialog.tsx:194
+#: src/dialogs/SceneRestoreDialog.tsx:195
 msgid "Exact checkpoint"
 msgstr "精确检查点"
 
-#: src/dialogs/SceneRestoreDialog.tsx:165
+#: src/dialogs/SceneRestoreDialog.tsx:166
 msgid "Exact checkpoints are available only at the recording's initial frame."
 msgstr "精确检查点仅在录制的初始帧可用。"
 
@@ -505,8 +521,8 @@ msgstr "已展开"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "正在导出，请稍候..."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:62
-#: src/dialogs/SnapshotDetailDialog.tsx:64
+#: src/dialogs/SnapshotDetailDialog.tsx:63
+#: src/dialogs/SnapshotDetailDialog.tsx:65
 msgid "Failed to copy canvas to clipboard."
 msgstr "复制画布到剪贴板失败。"
 
@@ -522,7 +538,7 @@ msgstr "无法将监视器数据复制到剪贴板。"
 msgid "Failed to open files"
 msgstr "打开文件失败"
 
-#: src/components/project/StatusBar.tsx:88
+#: src/components/project/StatusBar.tsx:111
 msgid "Failed to reconnect"
 msgstr "重新连接失败"
 
@@ -565,12 +581,12 @@ msgstr "文件"
 msgid "File saved"
 msgstr "文件已保存"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:158
-#: src/dialogs/SnapshotDetailDialog.tsx:158
+#: src/dialogs/SnapshotDetailDialog.tsx:160
+#: src/dialogs/SnapshotDetailDialog.tsx:160
 msgid "First frame"
 msgstr "第一帧"
 
-#: src/dialogs/AgentDetailsDialog.tsx:245
+#: src/dialogs/AgentDetailsDialog.tsx:246
 msgid "Follow agent"
 msgstr "跟随智能体"
 
@@ -582,7 +598,7 @@ msgstr "跟随智能体"
 #~ msgid "Force hidden"
 #~ msgstr "强制隐藏"
 
-#: src/components/project/StatusBar.tsx:140
+#: src/components/project/StatusBar.tsx:162
 msgid "Force reconnect to server"
 msgstr "强制重新连接到服务器"
 
@@ -590,11 +606,11 @@ msgstr "强制重新连接到服务器"
 #~ msgid "Force visible"
 #~ msgstr "强制显示"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:155
+#: src/dialogs/SnapshotDetailDialog.tsx:157
 msgid "Frame updates:"
 msgstr "帧更新："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:153
+#: src/dialogs/SnapshotDetailDialog.tsx:155
 msgid "Frame:"
 msgstr "帧："
 
@@ -634,34 +650,34 @@ msgstr "高度"
 msgid "Help"
 msgstr "帮助"
 
-#: src/components/project/StatusBar.tsx:192
+#: src/components/project/StatusBar.tsx:214
 msgid "Hide Bottom Panel"
 msgstr "隐藏底部面板"
 
-#: src/components/project/StatusBar.tsx:183
+#: src/components/project/StatusBar.tsx:205
 msgid "Hide Right Panel"
 msgstr "隐藏右侧面板"
 
-#: src/dialogs/AgentDetailsDialog.tsx:266
+#: src/dialogs/AgentDetailsDialog.tsx:267
 msgid "Icon:"
 msgstr "图标："
 
 #: src/dialogs/edit-views/BaseViewEditor.tsx:17
-#: src/dialogs/SimulatorInfoDialog.tsx:48
+#: src/dialogs/SimulatorInfoDialog.tsx:52
 msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:152
-#: src/dialogs/AgentDetailsDialog.tsx:259
-#: src/dialogs/SnapshotDetailDialog.tsx:151
+#: src/dialogs/AgentDetailsDialog.tsx:260
+#: src/dialogs/SnapshotDetailDialog.tsx:153
 msgid "ID:"
 msgstr "ID："
 
-#: src/components/project/StatusBar.tsx:159
+#: src/components/project/StatusBar.tsx:181
 msgid "Info"
 msgstr "信息"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:134
+#: src/dialogs/SnapshotDetailDialog.tsx:136
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "离线查看此录制。打开后将创建一个断开连接的副本。"
 
@@ -669,7 +685,7 @@ msgstr "离线查看此录制。打开后将创建一个断开连接的副本。
 msgid "Inspector"
 msgstr "检查器"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:52
+#: src/dialogs/SimulatorInfoDialog.tsx:56
 msgid "Instance"
 msgstr "实例"
 
@@ -685,7 +701,11 @@ msgstr "无效的 JSON"
 msgid "Invalid locale"
 msgstr "无效的语言区域"
 
-#: src/dialogs/SceneRestoreDialog.tsx:202
+#: src/dialogs/DiscardProjectChangesDialog.tsx:20
+msgid "Keep editing"
+msgstr "继续编辑"
+
+#: src/dialogs/SceneRestoreDialog.tsx:203
 msgid "Keep live charts"
 msgstr "保留实时图表"
 
@@ -750,11 +770,15 @@ msgstr "MIME："
 msgid "Minimum Value"
 msgstr "最小值"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:46
+#: src/dialogs/SimulatorInfoDialog.tsx:50
 msgid "Model"
 msgstr "模型"
 
-#: src/components/project/StatusBar.tsx:119
+#: src/components/project/StatusBar.tsx:54
+msgid "Model mismatch"
+msgstr "模型不匹配"
+
+#: src/components/project/StatusBar.tsx:141
 msgid "Model:"
 msgstr "模型："
 
@@ -771,20 +795,24 @@ msgstr "已将监视器数据复制到剪贴板。"
 msgid "Monitor not found."
 msgstr "未找到监视器。"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:185
+msgid "Monitors"
+msgstr "监视器"
+
 #: src/components/toolbar/ToolGroups.tsx:184
 msgid "More Actions"
 msgstr "更多操作"
 
-#: src/components/project/StatusBar.tsx:115
+#: src/components/project/StatusBar.tsx:137
 msgid "MSPT:"
 msgstr "MSPT："
 
-#: src/dialogs/SimulatorInfoDialog.tsx:49
+#: src/dialogs/SimulatorInfoDialog.tsx:53
 msgid "Name"
 msgstr "名称"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:248
+#: src/dialogs/AgentDetailsDialog.tsx:249
 msgid "Neighbors: {0}"
 msgstr "邻居：{0}"
 
@@ -846,6 +874,10 @@ msgstr "没有主视图。"
 msgid "No metadata on this layer."
 msgstr "此图层没有元数据。"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:188
+msgid "No monitor data was recorded."
+msgstr "未记录任何监视器数据。"
+
 #: src/dialogs/edit-views/MonitorViewEditor.tsx:38
 msgid "No monitors are currently published by the simulator."
 msgstr "模拟器当前未发布任何监视器。"
@@ -878,7 +910,7 @@ msgstr "没有快照。"
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "暂无快照。点击\"拍摄快照\"创建一个。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:255
+#: src/dialogs/AgentDetailsDialog.tsx:256
 msgid "No spatial context is available for this agent."
 msgstr "此智能体没有可用的空间上下文。"
 
@@ -886,7 +918,7 @@ msgstr "此智能体没有可用的空间上下文。"
 msgid "No view tree is available."
 msgstr "没有可用的视图树。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:290
+#: src/dialogs/AgentDetailsDialog.tsx:291
 msgid "None"
 msgstr "无"
 
@@ -903,7 +935,7 @@ msgstr "对象 ID"
 msgid "Off"
 msgstr "关"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:176
+#: src/dialogs/SnapshotDetailDialog.tsx:178
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "为符合录制预算，较早的帧已被移除。"
 
@@ -911,7 +943,7 @@ msgstr "为符合录制预算，较早的帧已被移除。"
 msgid "Only start, step, stop, and reset are available for a snapshot source."
 msgstr "快照来源仅提供开始、步进、停止和重置操作。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:201
+#: src/dialogs/SnapshotDetailDialog.tsx:215
 msgid "Open as offline copy"
 msgstr "作为离线副本打开"
 
@@ -926,7 +958,7 @@ msgstr "打开文件"
 #~ msgstr "打开文件夹"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:123
-#: src/dialogs/SnapshotDetailDialog.tsx:70
+#: src/dialogs/SnapshotDetailDialog.tsx:71
 msgid "Options"
 msgstr "选项"
 
@@ -962,7 +994,7 @@ msgstr "参数标签"
 msgid "Parameter Type"
 msgstr "参数类型"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:178
+#: src/dialogs/SnapshotDetailDialog.tsx:180
 msgid "Parameters"
 msgstr "参数"
 
@@ -974,8 +1006,8 @@ msgstr "参数："
 msgid "Paste"
 msgstr "粘贴"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:159
-#: src/dialogs/SnapshotDetailDialog.tsx:159
+#: src/dialogs/SnapshotDetailDialog.tsx:161
+#: src/dialogs/SnapshotDetailDialog.tsx:161
 msgid "Pause"
 msgstr "暂停"
 
@@ -983,8 +1015,8 @@ msgstr "暂停"
 msgid "Pending"
 msgstr "待处理"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:159
-#: src/dialogs/SnapshotDetailDialog.tsx:159
+#: src/dialogs/SnapshotDetailDialog.tsx:161
+#: src/dialogs/SnapshotDetailDialog.tsx:161
 msgid "Play"
 msgstr "播放"
 
@@ -1032,11 +1064,11 @@ msgstr "项目来源已更新"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "项目 URL 更新成功"
 
-#: src/dialogs/SceneRestoreDialog.tsx:195
+#: src/dialogs/SceneRestoreDialog.tsx:196
 msgid "Projected scene"
 msgstr "投影场景"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:53
+#: src/dialogs/SimulatorInfoDialog.tsx:57
 msgid "Protocol"
 msgstr "协议"
 
@@ -1045,7 +1077,7 @@ msgstr "协议"
 msgid "Protocol {0}"
 msgstr "协议 {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:227
+#: src/dialogs/AgentDetailsDialog.tsx:228
 msgid "Radius"
 msgstr "半径"
 
@@ -1053,11 +1085,11 @@ msgstr "半径"
 msgid "Ready"
 msgstr "就绪"
 
-#: src/components/project/StatusBar.tsx:150
+#: src/components/project/StatusBar.tsx:172
 msgid "Reconnect"
 msgstr "重新连接"
 
-#: src/components/project/StatusBar.tsx:82
+#: src/components/project/StatusBar.tsx:101
 msgid "Reconnected successfully"
 msgstr "重新连接成功"
 
@@ -1065,11 +1097,11 @@ msgstr "重新连接成功"
 msgid "Record this run"
 msgstr "记录此次运行"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:152
+#: src/dialogs/SnapshotDetailDialog.tsx:154
 msgid "Recorded:"
 msgstr "录制时间："
 
-#: src/dialogs/SceneRestoreDialog.tsx:184
+#: src/dialogs/SceneRestoreDialog.tsx:185
 msgid "Recording frame: {frame}"
 msgstr "录制帧：{frame}"
 
@@ -1090,7 +1122,7 @@ msgstr "渲染触发器"
 #~ msgid "Renderer Overrides"
 #~ msgstr "渲染器覆盖"
 
-#: src/dialogs/SceneRestoreDialog.tsx:201
+#: src/dialogs/SceneRestoreDialog.tsx:202
 msgid "Replace with snapshot charts"
 msgstr "替换为快照图表"
 
@@ -1118,15 +1150,15 @@ msgstr "重置视图"
 msgid "Reset Zoom"
 msgstr "重置缩放"
 
-#: src/dialogs/SceneRestoreDialog.tsx:180
+#: src/dialogs/SceneRestoreDialog.tsx:181
 msgid "Restore an exact checkpoint or projected parameters, environments, and time. Chart history stays local."
 msgstr "恢复精确检查点，或恢复投影后的参数、环境与时间。图表历史保留在本地。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:192
+#: src/dialogs/SceneRestoreDialog.tsx:193
 msgid "Restore method"
 msgstr "恢复方式"
 
-#: src/dialogs/SceneRestoreDialog.tsx:211
+#: src/dialogs/SceneRestoreDialog.tsx:212
 msgid "Restore snapshot"
 msgstr "恢复快照"
 
@@ -1134,15 +1166,15 @@ msgstr "恢复快照"
 #~ msgid "Restore Snapshot"
 #~ msgstr "恢复快照"
 
-#: src/dialogs/SceneRestoreDialog.tsx:179
+#: src/dialogs/SceneRestoreDialog.tsx:180
 msgid "Restore snapshot to simulator"
 msgstr "将快照恢复到模拟器"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:200
+#: src/dialogs/SnapshotDetailDialog.tsx:214
 msgid "Restore to live simulator"
 msgstr "恢复到实时模拟器"
 
-#: src/dialogs/SceneRestoreDialog.tsx:211
+#: src/dialogs/SceneRestoreDialog.tsx:212
 msgid "Restoring…"
 msgstr "正在恢复…"
 
@@ -1162,7 +1194,7 @@ msgstr "根"
 msgid "Run one step"
 msgstr "单步执行"
 
-#: src/components/project/StatusBar.tsx:106
+#: src/components/project/StatusBar.tsx:128
 msgid "Run:"
 msgstr "运行："
 
@@ -1177,7 +1209,7 @@ msgid "Save As"
 msgstr "另存为"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:129
-#: src/dialogs/SnapshotDetailDialog.tsx:71
+#: src/dialogs/SnapshotDetailDialog.tsx:72
 msgid "Save As CSV"
 msgstr "以CSV格式保存"
 
@@ -1189,7 +1221,7 @@ msgstr "另存为..."
 msgid "Save Format"
 msgstr "存储格式"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:65
+#: src/dialogs/SimulatorInfoDialog.tsx:69
 msgid "Scenario metadata"
 msgstr "场景元数据"
 
@@ -1218,19 +1250,19 @@ msgstr "序列 ID 已存在。"
 msgid "Server Message Validation"
 msgstr "服务器信息格式验证"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:42
+#: src/dialogs/SimulatorInfoDialog.tsx:46
 msgid "Session identity, capabilities, and current model metadata."
 msgstr "会话标识、能力和当前模型元数据。"
 
-#: src/components/project/StatusBar.tsx:164
-#: src/components/project/StatusBar.tsx:167
+#: src/components/project/StatusBar.tsx:186
+#: src/components/project/StatusBar.tsx:189
 #: src/components/toolbar/MenuBar.tsx:219
 #: src/components/toolbar/ToolGroups.tsx:316
 #: src/dialogs/SettingsDialog.tsx:119
 msgid "Settings"
 msgstr "设置"
 
-#: src/components/project/StatusBar.tsx:192
+#: src/components/project/StatusBar.tsx:214
 msgid "Show Bottom Panel"
 msgstr "显示底部面板"
 
@@ -1238,7 +1270,7 @@ msgstr "显示底部面板"
 msgid "Show Grid"
 msgstr "显示网格"
 
-#: src/components/project/StatusBar.tsx:183
+#: src/components/project/StatusBar.tsx:205
 msgid "Show Right Panel"
 msgstr "显示右侧面板"
 
@@ -1250,23 +1282,23 @@ msgstr "显示右侧面板"
 #~ msgid "Sim:"
 #~ msgstr "模拟："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:154
+#: src/dialogs/SnapshotDetailDialog.tsx:156
 msgid "Simulation time:"
 msgstr "模拟时间："
 
-#: src/components/project/StatusBar.tsx:156
-#: src/dialogs/SimulatorInfoDialog.tsx:41
+#: src/components/project/StatusBar.tsx:178
+#: src/dialogs/SimulatorInfoDialog.tsx:45
 msgid "Simulator information"
 msgstr "模拟器信息"
 
 #. placeholder {0}: result.status
-#: src/dialogs/SceneRestoreDialog.tsx:120
-#: src/dialogs/SceneRestoreDialog.tsx:138
+#: src/dialogs/SceneRestoreDialog.tsx:121
+#: src/dialogs/SceneRestoreDialog.tsx:139
 msgid "Simulator returned {0}."
 msgstr "模拟器返回：{0}。"
 
 #: src/components/project/RightPanel.tsx:160
-#: src/dialogs/AgentDetailsDialog.tsx:283
+#: src/dialogs/AgentDetailsDialog.tsx:284
 msgid "Size:"
 msgstr "大小："
 
@@ -1278,7 +1310,7 @@ msgstr "快照"
 #~ msgid "Snapshot Details"
 #~ msgstr "快照详情"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:138
+#: src/dialogs/SnapshotDetailDialog.tsx:140
 msgid "Snapshot name"
 msgstr "快照名称"
 
@@ -1292,15 +1324,15 @@ msgstr "快照回放"
 msgid "Snapshot playback FPS"
 msgstr "快照播放帧率"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:133
+#: src/dialogs/SnapshotDetailDialog.tsx:135
 msgid "Snapshot replay"
 msgstr "快照回放"
 
-#: src/dialogs/SceneRestoreDialog.tsx:145
+#: src/dialogs/SceneRestoreDialog.tsx:146
 msgid "Snapshot restore failed"
 msgstr "快照恢复失败"
 
-#: src/dialogs/SceneRestoreDialog.tsx:141
+#: src/dialogs/SceneRestoreDialog.tsx:142
 msgid "Snapshot restored"
 msgstr "快照已恢复"
 
@@ -1316,7 +1348,7 @@ msgstr "快照"
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "部分数据无效。已加载有效数据；请检查项目并另存为新的副本。"
 
-#: src/components/project/StatusBar.tsx:130
+#: src/components/project/StatusBar.tsx:152
 msgid "Srv Render:"
 msgstr "服务器渲染："
 
@@ -1336,7 +1368,7 @@ msgstr "开始录制"
 #~ msgid "Start/Stop"
 #~ msgstr "开始/停止"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:51
+#: src/dialogs/SimulatorInfoDialog.tsx:55
 msgid "State schema"
 msgstr "状态模式"
 
@@ -1402,11 +1434,11 @@ msgstr "按钮可以保持此绑定，但没有可编辑的注册动作。"
 msgid "The chart group ID could not be changed."
 msgstr "无法更改图表组 ID。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:167
+#: src/dialogs/SceneRestoreDialog.tsx:168
 msgid "The connected simulator does not declare scene.restore.checkpoint."
 msgstr "已连接的模拟器未声明 scene.restore.checkpoint。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:170
+#: src/dialogs/SceneRestoreDialog.tsx:171
 msgid "The connected simulator does not declare scene.restore.projected."
 msgstr "已连接模拟器未声明 scene.restore.projected 能力。"
 
@@ -1430,7 +1462,7 @@ msgstr "无法更改参数 ID。"
 #~ msgid "The simulator receives projected parameters, environments, and time. Chart history is kept local."
 #~ msgstr "模拟器将接收投影后的参数、环境和时间。图表历史保留在本地。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:206
+#: src/dialogs/SceneRestoreDialog.tsx:207
 msgid "The simulator will restore the exact checkpoint captured for this snapshot."
 msgstr "模拟器将恢复此快照捕获时的精确检查点。"
 
@@ -1467,7 +1499,7 @@ msgstr "此显示偏好仅作用于本地视图，不会修改模拟器监视器
 msgid "This ID is already used by another registered object."
 msgstr "此 ID 已被另一个已注册对象使用。"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:60
+#: src/dialogs/SimulatorInfoDialog.tsx:64
 msgid "This model has not declared optional capabilities."
 msgstr "该模型未声明可选能力。"
 
@@ -1475,15 +1507,15 @@ msgstr "该模型未声明可选能力。"
 msgid "This project runs a local JavaScript simulator in the browser."
 msgstr "此项目在浏览器中运行本地 JavaScript 模拟器。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:172
+#: src/dialogs/SceneRestoreDialog.tsx:173
 msgid "This snapshot changes environment topology, but the simulator does not declare scene.restore.topology."
 msgstr "此快照会改变环境拓扑，但模拟器未声明 scene.restore.topology 能力。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:163
+#: src/dialogs/SceneRestoreDialog.tsx:164
 msgid "This snapshot does not contain an exact checkpoint."
 msgstr "此快照不包含精确检查点。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:160
+#: src/dialogs/SceneRestoreDialog.tsx:161
 msgid "This snapshot was created by a different model or state schema and cannot be restored to the connected simulator."
 msgstr "此快照由不同的模型或状态架构创建，无法恢复到当前连接的模拟器。"
 
@@ -1500,7 +1532,7 @@ msgid "This view can keep its binding, but there is no registered parameter to e
 msgstr "视图可以保持此绑定，但没有可编辑的注册参数。"
 
 #: src/components/project/RightPanel.tsx:256
-#: src/components/project/StatusBar.tsx:101
+#: src/components/project/StatusBar.tsx:123
 msgid "Time Step:"
 msgstr "时间步："
 
@@ -1532,7 +1564,7 @@ msgstr "工具"
 msgid "Top"
 msgstr "上"
 
-#: src/components/project/StatusBar.tsx:111
+#: src/components/project/StatusBar.tsx:133
 msgid "TPS:"
 msgstr "TPS："
 
@@ -1544,7 +1576,7 @@ msgstr "TPS："
 msgid "Tree"
 msgstr "树状"
 
-#: src/dialogs/SceneRestoreDialog.tsx:203
+#: src/dialogs/SceneRestoreDialog.tsx:204
 msgid "Truncate live charts at restore time"
 msgstr "在恢复时间截断实时图表"
 
@@ -1617,7 +1649,7 @@ msgid "Value path"
 msgstr "值路径"
 
 #: src/dialogs/AboutDialog.tsx:25
-#: src/dialogs/SimulatorInfoDialog.tsx:50
+#: src/dialogs/SimulatorInfoDialog.tsx:54
 msgid "Version"
 msgstr "版本"
 
@@ -1629,7 +1661,7 @@ msgstr "视图"
 #~ msgid "View and manage snapshot"
 #~ msgstr "查看和管理快照"
 
-#: src/dialogs/AgentDetailsDialog.tsx:213
+#: src/dialogs/AgentDetailsDialog.tsx:214
 msgid "View detailed information about the selected agent"
 msgstr "查看所选智能体的详细信息"
 
@@ -1637,11 +1669,11 @@ msgstr "查看所选智能体的详细信息"
 msgid "View Docs"
 msgstr "查看文档"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:44
+#: src/dialogs/SimulatorInfoDialog.tsx:48
 msgid "Waiting for a simulator_info handshake."
 msgstr "正在等待 simulator_info 握手。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:158
+#: src/dialogs/SceneRestoreDialog.tsx:159
 msgid "Waiting for simulator information before restoring a snapshot."
 msgstr "正在等待模拟器信息，然后再恢复快照。"
 
@@ -1669,7 +1701,7 @@ msgstr "宽度"
 #. placeholder {0}: preview.parameters.length
 #. placeholder {1}: preview.envs.length
 #. placeholder {2}: preview.time === undefined ? '' : ` at time ${preview.time}`
-#: src/dialogs/SceneRestoreDialog.tsx:207
+#: src/dialogs/SceneRestoreDialog.tsx:208
 msgid "Will restore {0} parameters and {1} environments{2}."
 msgstr "将恢复 {0} 个参数和 {1} 个环境{2}。"
 

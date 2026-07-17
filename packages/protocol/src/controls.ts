@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** Canonical v0.3 parameter definitions. */
+/** Canonical parameter kinds used by parameter definitions. */
 export const ParameterTypeSchema = z.enum(['number', 'enum', 'boolean', 'string']);
 export type ParameterType = z.infer<typeof ParameterTypeSchema>;
 
@@ -74,7 +74,7 @@ export const ActionKwargDefinitionSchema = z.object({
   type: z.enum(['number', 'integer', 'string', 'boolean', 'enum', 'json']),
   /** Required arguments cannot declare a default. */
   required: z.boolean().optional(),
-  /** Simulator-applied value when an optional argument is absent. */
+  /** Simulator-applied value when an optional argument is absent; renderers do not inject it. */
   default: z.unknown().optional(),
   /** Optional numeric lower bound. */
   min: z.number().optional(),
@@ -104,7 +104,7 @@ export const ActionSchema = z.object({
   scope: ActionScopeSchema.optional(),
   /** Typed simulator-owned arguments accepted by the action. */
   kwargs: z.array(ActionKwargDefinitionSchema).optional(),
-  /** Enables renderer-driven repeated invocation after `should_continue: true`. */
+  /** Permits renderer-driven repetition; it never starts a simulator-owned loop. */
   continuous: z.boolean().optional(),
 }).strict().superRefine((value, ctx) => {
   const names = new Set<string>();

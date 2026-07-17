@@ -18,7 +18,7 @@ In this tutorial, you will:
 
 - Python 3.10+
 - TenSnap installed from PyPI, or this repository checked out locally
-- If you are running from this repository, Node.js 18+ and `pnpm` for `pnpm dev:web`
+- If you are running from this repository, Node.js 24+ and pnpm 11+ for `pnpm dev:web`
 
 ## What We Are Building
 
@@ -140,7 +140,7 @@ class RandomWalkSimulation:
 - `@agent_layer("walkers")` defaults to serializing `self.walkers` because the layer id and model field have the same name.
 - `@env()` attaches the environment binding itself.
 
-Together, these decorators let `SimulationScenario.add_all(model, ...)` build a canonical `2d` environment plus explicit layers under protocol v0.2.
+Together, these decorators let `SimulationScenario.add_all(model, ...)` build a canonical `2d` environment plus explicit layers under protocol v0.3.
 
 ## Step 2: Create the Visualization Entry Point
 

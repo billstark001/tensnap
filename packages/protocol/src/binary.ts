@@ -19,6 +19,7 @@ function getGlobalBuffer(): BufferLike | undefined {
   return (globalThis as { Buffer?: BufferLike }).Buffer;
 }
 
+/** Encode bytes as unprefixed base64 for storage or an enclosing data URL. */
 export function encodeBytesAsBase64(bytes: Uint8Array): string {
   const buffer = getGlobalBuffer();
   if (buffer) {
@@ -36,6 +37,7 @@ export function encodeBytesAsBase64(bytes: Uint8Array): string {
   throw new Error('No base64 encoder is available in this runtime.');
 }
 
+/** Encode bytes as the JSON wire representation for a binary protocol field. */
 export function encodeBytesAsDataUrl(
   bytes: Uint8Array,
   mime = 'application/octet-stream',
@@ -43,6 +45,7 @@ export function encodeBytesAsDataUrl(
   return `data:${mime};base64,${encodeBytesAsBase64(bytes)}`;
 }
 
+/** Decode an unprefixed base64 string or base64 data URL into semantic bytes. */
 export function decodeBinaryString(value: string): DecodedBinaryString {
   const decoded = tryDecodeBinaryString(value);
   if (!decoded) {
@@ -51,6 +54,7 @@ export function decodeBinaryString(value: string): DecodedBinaryString {
   return decoded;
 }
 
+/** Whether a string is a valid unprefixed base64 value or base64 data URL. */
 export function isEncodedBinaryString(value: string): boolean {
   return tryDecodeBinaryString(value) !== null;
 }

@@ -19,12 +19,12 @@ This guide covers different ways to install and run TenSnap depending on your us
 
 ### For Web Interface Development
 
-- **Node.js 18.0 or higher**
-- **pnpm 8.0 or higher** (preferred package manager)
+- **Node.js 24.0 or higher**
+- **pnpm 11.0.0 or higher** (preferred package manager)
 
 ### For Desktop Application
 
-- **Rust 1.77.2 or later and Cargo** (for building Tauri)
+- **Rust 1.88 or later and Cargo** (for building Tauri)
 - All prerequisites for Web Interface Development
 
 ## Installation Methods
@@ -317,10 +317,11 @@ Docker support is planned for easier deployment. Watch the repository for update
 
 ### Issue: `pnpm: command not found`
 
-**Solution**: Install pnpm globally:
+**Solution**: Enable Corepack and activate the workspace's pinned pnpm version:
 
 ```bash
-npm install -g pnpm
+corepack enable
+corepack install
 ```
 
 ### Issue: Python version mismatch
@@ -334,7 +335,7 @@ pyenv local 3.10
 
 ### Issue: Tauri build fails
 
-**Solution**: Ensure all system dependencies are installed. Check the [Tauri documentation](https://tauri.app/v1/guides/getting-started/prerequisites) for platform-specific requirements.
+**Solution**: Ensure all system dependencies are installed. Check the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for platform-specific requirements.
 
 ### Issue: Port 8765 already in use
 

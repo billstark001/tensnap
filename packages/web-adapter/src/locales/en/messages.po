@@ -19,17 +19,18 @@ msgstr "Action menu"
 
 #. placeholder {0}: entry.name
 #: src/file-system/FileSystemBrowser.tsx:222
-msgid "Are you sure you want to delete \"{0}\"?"
-msgstr "Are you sure you want to delete \"{0}\"?"
+#~ msgid "Are you sure you want to delete \"{0}\"?"
+#~ msgstr "Are you sure you want to delete \"{0}\"?"
 
 #. placeholder {0}: entry.name
 #: src/file-system/FileSystemBrowser.tsx:221
-msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
-msgstr "Are you sure you want to delete \"{0}\"? This will delete all nested content."
+#~ msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
+#~ msgstr "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 
 #: src/file-system/CreateDialog.tsx:67
 #: src/file-system/ExportDialog.tsx:163
 #: src/file-system/FilePickerProvider.tsx:201
+#: src/file-system/FileSystemBrowser.tsx:334
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -55,19 +56,25 @@ msgid "Current directory: {currentDirectory}"
 msgstr "Current directory: {currentDirectory}"
 
 #: src/file-system/FileItem.tsx:76
+#: src/file-system/FileSystemBrowser.tsx:333
 msgid "Delete"
 msgstr "Delete"
+
+#. placeholder {0}: pendingDeleteEntry?.name ?? ''
+#: src/file-system/FileSystemBrowser.tsx:329
+msgid "Delete \"{0}\"?"
+msgstr "Delete \"{0}\"?"
 
 #: src/file-system/CreateDialog.tsx:51
 #: src/file-system/FileItem.tsx:42
 msgid "Directory"
 msgstr "Directory"
 
-#: src/file-system/FileSystemBrowser.tsx:293
+#: src/file-system/FileSystemBrowser.tsx:286
 msgid "Directory is empty"
 msgstr "Directory is empty"
 
-#: src/file-system/FileSystemBrowser.tsx:296
+#: src/file-system/FileSystemBrowser.tsx:289
 msgid "Drag files here"
 msgstr "Drag files here"
 
@@ -108,11 +115,11 @@ msgstr "Export path"
 msgid "Exporting, please wait..."
 msgstr "Exporting, please wait..."
 
-#: src/file-system/FileSystemBrowser.tsx:210
+#: src/file-system/FileSystemBrowser.tsx:209
 msgid "Failed to create item"
 msgstr "Failed to create item"
 
-#: src/file-system/FileSystemBrowser.tsx:239
+#: src/file-system/FileSystemBrowser.tsx:228
 msgid "Failed to delete item"
 msgstr "Failed to delete item"
 
@@ -124,11 +131,11 @@ msgstr "Failed to execute export option"
 msgid "Failed to export"
 msgstr "Failed to export"
 
-#: src/file-system/FileSystemBrowser.tsx:283
+#: src/file-system/FileSystemBrowser.tsx:276
 msgid "Failed to load"
 msgstr "Failed to load"
 
-#: src/file-system/FileSystemBrowser.tsx:62
+#: src/file-system/FileSystemBrowser.tsx:63
 msgid "Failed to load directory"
 msgstr "Failed to load directory"
 
@@ -153,7 +160,7 @@ msgstr "Invalid name"
 msgid "JSON Format"
 msgstr "JSON Format"
 
-#: src/file-system/FileSystemBrowser.tsx:278
+#: src/file-system/FileSystemBrowser.tsx:271
 msgid "Loading..."
 msgstr "Loading..."
 
@@ -194,7 +201,7 @@ msgid "Open File"
 msgstr "Open File"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:163
-#: src/file-system/FileSystemBrowser.tsx:297
+#: src/file-system/FileSystemBrowser.tsx:290
 msgid "Or click to browse"
 msgstr "Or click to browse"
 
@@ -210,7 +217,7 @@ msgstr "Previous page"
 msgid "Refresh"
 msgstr "Refresh"
 
-#: src/file-system/FileSystemBrowser.tsx:285
+#: src/file-system/FileSystemBrowser.tsx:278
 msgid "Retry"
 msgstr "Retry"
 
@@ -247,6 +254,14 @@ msgstr "Selected file:"
 #: ../web-common/src/components/ui/EmptyState.tsx:220
 msgid "This directory is empty"
 msgstr "This directory is empty"
+
+#: src/file-system/FileSystemBrowser.tsx:332
+msgid "This file will be permanently deleted."
+msgstr "This file will be permanently deleted."
+
+#: src/file-system/FileSystemBrowser.tsx:331
+msgid "This will delete all nested content."
+msgstr "This will delete all nested content."
 
 #: ../web-common/src/components/ui/EmptyState.tsx:193
 msgid "Try adjusting your search criteria"

@@ -61,7 +61,7 @@ When submitting a bug report, include:
 **Environment:**
 - OS: macOS 13.0
 - Python: 3.10.5
-- TenSnap: 0.1.0
+- TenSnap: 0.3.0
 - Browser: Chrome 120.0
 
 **Steps to Reproduce:**

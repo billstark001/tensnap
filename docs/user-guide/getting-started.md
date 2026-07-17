@@ -7,7 +7,7 @@ The current stable Python surface is `SimulationScenario` plus decorators/readba
 ## What You'll Need
 
 - **Python 3.10 or higher** (for Python bindings)
-- **Node.js 18+ and pnpm 8+** (for web interface development)
+- **Node.js 24+ and pnpm 11+** (for web interface development)
 - A web browser (Chrome, Firefox, Safari, or Edge)
 
 ## Quick Start (Python)

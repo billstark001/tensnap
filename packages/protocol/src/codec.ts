@@ -14,8 +14,11 @@ import type {
 } from './types';
 
 export type ProtocolEncoding = 'json' | 'msgpack';
+/** Strict canonical wire data or the explicit path-aware compatibility adapter. */
 export type ProtocolCodecMode = 'strict' | 'legacy';
+/** Runtime schema parsing policy; independent of encoding and codec mode. */
 export type ProtocolValidationLevel = 'off' | 'warning' | 'error';
+/** Direction selects the complete envelope schema used for a single validation pass. */
 export type ProtocolMessageDirection = 'renderer-to-simulator' | 'simulator-to-renderer' | 'any';
 
 export interface ProtocolValidationIssue {
@@ -32,8 +35,11 @@ export interface ProtocolValidationWarning {
 }
 
 export interface ProtocolValidationOptions {
+  /** Off by default; warning continues and error rejects with ProtocolValidationError. */
   level?: ProtocolValidationLevel;
+  /** Validate against one directional envelope or the union of both directions. */
   direction?: ProtocolMessageDirection;
+  /** Non-fatal observer used only by warning mode. Exceptions from it are ignored. */
   onWarning?: (warning: ProtocolValidationWarning) => void;
 }
 
@@ -63,7 +69,7 @@ export class ProtocolValidationError extends Error {
   }
 }
 
-/** Raised when a peer requests a v0.2 representation that would lose v0.3 data. */
+/** Raised when compatibility mode cannot represent a canonical message without data loss. */
 export class UnsupportedLegacyMessageError extends Error {
   constructor(message: string) {
     super(message);
@@ -84,7 +90,11 @@ export function detectProtocolEncoding(data: string | Uint8Array | ArrayBuffer):
   return typeof data === 'string' ? 'json' : 'msgpack';
 }
 
-/** Compare parsed major/minor numbers, never lexical version strings. */
+/**
+ * Select compatibility for a missing/older peer version and strict mode for
+ * the current contract or newer. Versions are compared by parsed major/minor
+ * numbers, never lexically; callers retain the selection for the session.
+ */
 export function selectProtocolCodecMode(protocolVersion: string | undefined): ProtocolCodecMode {
   if (!protocolVersion) return 'legacy';
   const match = /^(\d+)\.(\d+)/.exec(protocolVersion);
@@ -95,8 +105,12 @@ export function selectProtocolCodecMode(protocolVersion: string | undefined): Pr
 }
 
 /**
- * Session-local protocol codec. Strict v0.3 is the default. Legacy conversion
- * is deliberately opt-in and path-aware: arbitrary user maps are untouched.
+ * Session-local protocol codec. Strict canonical mode is the default. Legacy
+ * conversion is deliberately opt-in, path-aware, and limited to the explicit
+ * message/field aliases implemented below: arbitrary user maps are untouched,
+ * conflicting aliases reject the message, and lossy outbound conversion throws
+ * UnsupportedLegacyMessageError. JSON and MessagePack share the same semantic
+ * normalization and optional validation path.
  */
 export class ProtocolCodec {
   readonly mode: ProtocolCodecMode;
@@ -114,7 +128,7 @@ export class ProtocolCodec {
     };
   }
 
-  /** Update validation policy without recreating a stateful legacy codec. */
+  /** Update validation policy without recreating the session-local compatibility state. */
   setValidation(options: ProtocolValidationOptions): void {
     this.validation = {
       level: options.level ?? 'off',
@@ -193,7 +207,7 @@ export function createProtocolCodec(options: ProtocolCodecOptions = {}): Protoco
   return new ProtocolCodec(options);
 }
 
-/** Canonical v0.3 convenience function; runtime schema validation remains opt-in. */
+/** Canonical convenience encoder; runtime schema validation remains opt-in. */
 export function encodeProtocolMessage(
   message: AnyProtocolMessage,
   encoding: ProtocolEncoding,
@@ -202,7 +216,7 @@ export function encodeProtocolMessage(
   return new ProtocolCodec(options).encode(message, encoding);
 }
 
-/** Canonical v0.3 convenience function; runtime schema validation remains opt-in. */
+/** Canonical convenience decoder; runtime schema validation remains opt-in. */
 export function decodeProtocolMessage(
   data: string | Uint8Array | ArrayBuffer,
   options: ProtocolCodecOptions = {},

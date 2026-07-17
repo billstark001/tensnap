@@ -9,7 +9,11 @@ import {
 import { ActionSchema, ParameterSchema } from './controls';
 import { isEncodedBinaryString } from './binary';
 
-/** A JSON/MessagePack value after the outer codec has decoded bytes. */
+/**
+ * A finite, acyclic JSON/MessagePack value after the outer codec has decoded
+ * bytes. Object keys are always strings; binary data is reserved for fields
+ * with dedicated binary schemas.
+ */
 export type ProtocolValue =
   | null
   | boolean
@@ -18,7 +22,10 @@ export type ProtocolValue =
   | ProtocolValue[]
   | { [key: string]: ProtocolValue };
 
-/** Recursive portable value accepted in ordinary protocol records; binary data uses dedicated fields. */
+/**
+ * Recursive portable value accepted in ordinary protocol records. It excludes
+ * undefined, non-finite numbers, functions, symbols, Map/Set, and binary data.
+ */
 export const ProtocolValueSchema: z.ZodType<ProtocolValue> = z.lazy(() => z.union([
   z.null(),
   z.boolean(),
@@ -56,23 +63,31 @@ export const SimulatorInfoPayloadSchema = z.object({
   protocol_version: z.literal('0.3'),
   /** Binding implementation identity. */
   binding: z.object({
+    /** Published binding/package name. */
     name: NonEmptyStringSchema,
+    /** Published binding/package version. */
     version: NonEmptyStringSchema,
+    /** Optional implementation language for diagnostics. */
     language: z.string().optional(),
   }).strict(),
   /** Stable model kind identity; model mismatch isolates an existing project. */
   model: z.object({
+    /** Opaque identity compared as an exact string and stable across restarts. */
     id: NonEmptyStringSchema,
+    /** Optional human-readable model name. */
     name: z.string().optional(),
+    /** Optional Markdown model description; renderers sanitize rendered output. */
     description: z.string().optional(),
+    /** Optional model release version, independent of protocol version. */
     version: z.string().optional(),
+    /** Optional compatibility guard for projected state and checkpoints. */
     state_schema_version: z.string().optional(),
   }).strict(),
-  /** Identity of this running simulator instance; changes require replace sync. */
+  /** Running-instance identity: stable across reconnect/reset, different after instance replacement. */
   instance_id: NonEmptyStringSchema,
-  /** Explicitly supported optional protocol capabilities. */
+  /** Unique namespaced capabilities explicitly supported by this simulator. */
   capabilities: z.array(NonEmptyStringSchema),
-  /** Binding-defined details for declared capabilities only. */
+  /** Binding-defined limits/details whose keys correspond to declared capabilities. */
   capability_details: ProtocolRecordSchema.optional(),
 }).strict().superRefine((value, ctx) => {
   if (new Set(value.capabilities).size !== value.capabilities.length) {
@@ -80,7 +95,11 @@ export const SimulatorInfoPayloadSchema = z.object({
   }
 });
 
-/** Mutable scenario metadata. Identity and capability fields are not accepted here. */
+/**
+ * Mutable scenario metadata applied as a shallow patch. Omitted keys are
+ * preserved and null is a value, not a deletion marker. Identity and
+ * capability fields are not accepted here.
+ */
 export const MetadataUpdatePayloadSchema = z.object({
   /** Current scenario time; omitted metadata keys retain their prior values. */
   time: FiniteNumberSchema.optional(),
@@ -100,7 +119,7 @@ export const StateSyncBeginPayloadSchema = z.object({
   model_id: NonEmptyStringSchema,
   /** Must match the accepted simulator instance identity. */
   instance_id: NonEmptyStringSchema,
-  /** `replace` starts from empty state; `reconcile` starts from committed state. */
+  /** `replace` starts empty; same-instance `reconcile` starts from committed state. */
   mode: z.enum(['replace', 'reconcile']),
 }).strict();
 
@@ -122,7 +141,10 @@ export const TickTimingBreakdownSchema = z.object({
   render_ms: z.number().nonnegative().finite().optional(),
 }).catchall(z.number().nonnegative().finite());
 
-/** Concrete target required by non-model actions; the binding validates that it exists and matches scope. */
+/**
+ * Concrete target required by non-model actions. The binding validates current
+ * existence, containment, and exact agreement with the action's declared scope.
+ */
 export const ActionTargetSchema = z.union([
   z.object({ type: z.literal('env'), env_id: NonEmptyStringSchema }).strict(),
   z.object({ type: z.literal('layer'), env_id: NonEmptyStringSchema, layer_id: NonEmptyStringSchema }).strict(),
@@ -140,7 +162,7 @@ export const ActionInvokePayloadSchema = z.object({
   id: NonEmptyStringSchema,
   /** Correlation ID echoed by exactly one action_result. */
   request_id: NonEmptyStringSchema,
-  /** Renderer loop intent; it never changes action definition metadata. */
+  /** Renderer loop intent for this call; omission means a single invocation. */
   continuous: z.boolean().optional(),
   /** Optional concrete environment, layer, or agent target. */
   target: ActionTargetSchema.optional(),
@@ -164,7 +186,7 @@ export const ActionResultPayloadSchema = z.object({
   id: NonEmptyStringSchema,
   /** Required correlation ID from action_invoke. */
   request_id: NonEmptyStringSchema,
-  /** Only true permits another renderer-driven continuous invocation. */
+  /** False vetoes the next call in this renderer-driven run; omission does not veto. */
   should_continue: z.boolean().optional(),
   /** Structured execution failure; an error ends the active continuous loop. */
   error: ActionExecutionErrorSchema.optional(),
@@ -256,7 +278,11 @@ export const ChartUpdatePayloadSchema = z.object({
   message: 'chart_update requires updates or operations.',
 });
 
-/** Renderer presentation suggestion for a monitor's current value. */
+/**
+ * Renderer presentation suggestion for a monitor's current value. `auto` or
+ * omission selects tree for records, table for arrays, and text otherwise;
+ * incompatible hints fall back to a bounded text/raw representation.
+ */
 export const MonitorRenderHintSchema = z.enum(['auto', 'tree', 'table', 'text']);
 /** Definition for a current-value monitor; monitor history belongs in charts. */
 export const MonitorMetadataSchema = z.object({
@@ -276,7 +302,10 @@ export const MonitorUpdatePayloadSchema = z.object({
 /** Removes a monitor by ID; missing IDs are idempotent no-ops. */
 export const MonitorDeletePayloadSchema = z.object({ id: NonEmptyStringSchema }).strict();
 
-/** Complete projected state for one environment in a scene restore; omitted item arrays mean empty. */
+/**
+ * Complete projected state for one environment in a scene restore, never a
+ * diff. Omitted item arrays on item-bearing layers mean empty collections.
+ */
 export const RestorableEnvironmentSchema = z.object({
   /** Environment identity to restore. */
   id: NonEmptyStringSchema,
@@ -313,9 +342,9 @@ export const SceneRestorePayloadSchema = z.object({
   checkpoint: CheckpointSchema.optional(),
   /** Explicit replacement scenario time, applied after checkpoint, parameters, and environments. */
   time: FiniteNumberSchema.optional(),
-  /** Parameter values to overlay after an optional checkpoint. */
+  /** Parameter values to overlay after an optional checkpoint; omission preserves all. */
   parameters: z.array(z.object({ id: NonEmptyStringSchema, value: ProtocolValueSchema }).strict()).optional(),
-  /** Projected environment state, applied after parameters. */
+  /** Complete projected environments applied after parameters; omission preserves all. */
   envs: z.array(RestorableEnvironmentSchema).optional(),
 }).strict().superRefine((value, ctx) => {
   if (value.checkpoint === undefined && value.time === undefined && value.parameters === undefined && value.envs === undefined) {
@@ -415,15 +444,15 @@ export const StateSyncRequestSchema = z.object({
   state_revision: z.string().optional(),
   /** Last committed renderer metadata revision, when available. */
   metadata_revision: z.string().optional(),
-  /** Renderer-held parameter definitions; inventory only. */
+  /** Renderer-held parameter definitions and values; read-only inventory only. */
   parameters: z.array(ParameterSchema),
   /** Renderer-held action definitions; inventory only. */
   actions: z.array(ActionSchema),
   /** Renderer-held environment and layer topology; inventory only. */
   envs: z.array(StateSyncEnvironmentSchema),
-  /** Renderer-held chart definitions; history is intentionally excluded. */
+  /** Renderer-held chart definitions; chart history is intentionally excluded. */
   charts: z.array(ChartMetadataSchema),
-  /** Renderer-held monitor definitions; current values are intentionally excluded. */
+  /** Renderer-held monitor definitions; current values return in replay updates. */
   monitors: z.array(MonitorMetadataSchema),
 }).strict();
 /** Renderer optimistic parameter edit; simulators reply only when rejecting or canonicalizing via `param_sync`. */
@@ -481,7 +510,7 @@ const RendererMessageSchemas = [
 ] as const;
 /** Canonical strict envelope union for renderer-originated protocol messages. */
 export const RendererToSimulatorMessageSchema = z.union(RendererMessageSchemas);
-/** Any canonical strict v0.3 protocol message. */
+/** Any canonical strict protocol message in the current contract. */
 export const AnyProtocolMessageSchema = z.union([SimulatorToRendererMessageSchema, RendererToSimulatorMessageSchema]);
 
 /** Retrieve the canonical payload validator for a core protocol type. */

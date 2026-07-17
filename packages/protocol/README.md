@@ -1,14 +1,19 @@
 # @tensnap/protocol
 
-TenSnap renderer/simulator v0.3 contract: strict Zod schemas, inferred types,
+TenSnap's renderer/simulator contract: Zod schemas, inferred TypeScript types,
 JSON/MessagePack codecs, and conformance traces.
 
-- [V0.3-DRAFT.md](./V0.3-DRAFT.md) is the finalized protocol specification.
-- [BEHAVIOR.md](./BEHAVIOR.md) contains only cross-message rules; field
-  semantics live in the Zod schema comments.
-- [conformance/](./conformance/) contains canonical parseable wire traces.
-- `src/codec.ts` owns the only legacy boundary. Normal v0.3 code accepts and
-  emits only canonical snake_case messages.
+- [SPECIFICATION.md](./SPECIFICATION.md) contains the cross-message lifecycle,
+  transaction, ordering, and failure rules that cannot be expressed locally in
+  code.
+- `src/*.ts` contains the payload schemas and their field-level documentation.
+- `dist/protocol-types.md` is the generated schema/type reference.
+- [conformance/](./conformance/) contains canonical, parseable wire traces.
+- `src/codec.ts` owns strict encoding, runtime validation, and the only legacy
+  compatibility boundary.
+
+Renderer persistence, project sources, snapshots, view layout, and painting are
+not wire protocol. Those contracts live in `@tensnap/core` and host packages.
 
 Generate schema-derived type documentation with:
 

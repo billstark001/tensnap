@@ -23,12 +23,12 @@
     "@lingui/core": "^6.5.0",
     "@lingui/react": "^6.5.0",
     "@tauri-apps/api": "^2.11.1",
-    "@tauri-apps/plugin-dialog": "2.4.0",
-    "@tauri-apps/plugin-fs": "2.4.0",
-    "@tauri-apps/plugin-store": "2.4.0",
+    "@tauri-apps/plugin-dialog": "2.7.1",
+    "@tauri-apps/plugin-fs": "2.5.1",
+    "@tauri-apps/plugin-store": "2.4.3",
     "@tensnap/web": "workspace:*",
     "@tensnap/web-common": "workspace:*",
-    "leafer-ui": "^2.1.11",
+    "leafer-ui": "^2.2.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -38,15 +38,15 @@
     "@tauri-apps/cli": "^2.11.4",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
     "@vanilla-extract/css": "^1.21.1",
-    "@vanilla-extract/vite-plugin": "^5.2.4",
+    "@vanilla-extract/vite-plugin": "^5.2.5",
     "@vitejs/plugin-react-swc": "^4.3.1",
-    "eslint": "^10.6.0",
+    "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
-    "typescript": "^6.0.3",
-    "vite": "^8.1.4"
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
   }
 }

@@ -17,6 +17,7 @@ Read only the sources needed for the task, but always locate protocol truth in
 the protocol package rather than old maintainer-guide protocol snapshots.
 
 - Protocol package overview: `packages/protocol/README.md`
+- Normative v0.3 behavior: `packages/protocol/SPECIFICATION.md`
 - Protocol schemas and payload docs: `packages/protocol/src/schemas.ts`
 - Built-in layer contracts: `packages/protocol/src/layers.ts`
 - Protocol type surface: `packages/protocol/src/types.ts`
@@ -57,8 +58,8 @@ the protocol package rather than old maintainer-guide protocol snapshots.
   to a different value. Emit `param_update` for definition changes such as enum
   option or label changes.
 - Action execution should flush visible state mutations before the matching
-  `action_end`. Continuous loops are renderer-driven with `action_start`
-  requests and `action_end` replies.
+  `action_result`. Continuous loops are renderer-driven with `action_invoke`
+  requests and `action_result` replies.
 
 ## Binding Workflow
 

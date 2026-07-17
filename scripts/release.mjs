@@ -96,20 +96,20 @@ function tagExists(tagName) {
   }
 }
 
-function createTag(tagName) {
+function createTag(tagName, message) {
   if (tagExists(tagName)) {
     die(`Tag ${tagName} already exists`);
   }
-  git('tag', tagName);
+  git('tag', '-a', tagName, '-m', message);
 }
 
-function finalizeRelease({ componentLabel, version, filePaths, commitMessage, tagName }) {
+function finalizeRelease({ componentLabel, version, filePaths, commitMessage, tagName, tagMessage }) {
   const committed = commitFilesIfNeeded(filePaths, commitMessage);
   if (!committed) {
     log(`  ${componentLabel} version files already match v${version}; tagging current HEAD.`);
   }
 
-  createTag(tagName);
+  createTag(tagName, tagMessage ?? `${componentLabel} v${version}`);
 
   log(`\nCreated tag ${tagName}`);
   log(`Push with:\n  git push origin main && git push origin ${tagName}`);
@@ -169,7 +169,7 @@ function releaseGo(version) {
   log(`Preparing Go module v${version} release...`);
 
   const tagName = `packages/tensnap-go/v${version}`;
-  createTag(tagName);
+  createTag(tagName, `TenSnap Go binding v${version}`);
 
   log(`\nCreated tag ${tagName}`);
   log(`Push with:\n  git push origin main && git push origin ${tagName}`);
@@ -218,7 +218,8 @@ function releaseJulia(version) {
     version,
     filePaths: [projectPath],
     commitMessage: `Release Julia package v${version}`,
-    tagName: `packages/tensnap-julia/v${version}`,
+    tagName: `tensnap-julia-v${version}`,
+    tagMessage: `TenSnap Julia binding v${version}`,
   });
 
   log('\nFor Julia General registration, comment on the release commit or PR:');

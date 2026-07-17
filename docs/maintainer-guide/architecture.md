@@ -1,6 +1,6 @@
 # TenSnap Architecture
 
-Architecture overview for maintainers working on the 0.2.0 codebase.
+Architecture overview for maintainers working on the 0.3.0 codebase.
 
 ## System Model
 
@@ -11,7 +11,7 @@ TenSnap is organized around a renderer-owned state model.
 - Rendering, snapshots, charts, assets, and UI are all derived from renderer-side state.
 
 ```text
-┌──────────────────────┐     protocol v0.2      ┌──────────────────────┐
+┌──────────────────────┐     protocol v0.3      ┌──────────────────────┐
 │ Simulator runtime    │ <────────────────────> │ Renderer runtime     │
 │                      │   JSON / MessagePack   │                      │
 │ Python / Go / JS /   │                        │ web / tauri / agent  │
@@ -30,8 +30,10 @@ Shared protocol package.
 
 Owns:
 
-- protocol v0.2 message types, schemas, codecs, and transport-independent
+- protocol v0.3 message types, schemas, codecs, and transport-independent
   observable behavior
+- the field-level contract in schema/code comments and the cross-message
+  contract in `SPECIFICATION.md`
 
 ### `packages/core`
 
@@ -163,7 +165,7 @@ Owns:
 - `packages/web-adapter`: browser-side filesystem and integration helpers
 - `packages/benchmark`: benchmark harnesses for render/runtime paths
 
-## Protocol v0.2 Ownership
+## Protocol v0.3 Ownership
 
 `packages/protocol` owns the canonical wire contract and its behavior
 definition. `packages/core` is the reference renderer implementation of that
@@ -171,12 +173,15 @@ contract; it must not redefine protocol behavior.
 
 Important message families:
 
+- handshake: `simulator_info`
 - scenario metadata: `metadata_update`
 - sync transaction: `state_sync`, `state_sync_begin`, `state_sync_end`
 - environments: `env_create`, `env_delete`
 - layers: `env_layer_create`, `env_layer_update`, `env_layer_delete`
 - layer-owned entities: `item_create`, `item_update`, `item_delete`
-- controls: `param_*`, `action_*`
+- controls: `param_*`, `action_invoke`, `action_result`
+- monitors: `monitor_*`
+- scene restore and checkpoint capture: `scene_*`
 - charts: `chart_*`
 - assets: `asset_metadata`, `asset_sync`, `asset_data`, `asset_delete`
 - screenshots: `screenshot_request`, `screenshot_response`
@@ -285,6 +290,15 @@ repeated item/metadata/parameter updates at a frame boundary, inserts adaptive
 keyframes, and enforces frame, duration, and byte budgets. Replays use the
 same `Scenario`/layer registry as a live session; they are offline copies and
 must not be treated as a restore of a still-connected simulator.
+
+Projects select an explicit `websocket`, `inmemory`, or `snapshot` source. A
+snapshot source is an offline renderer event source, not a simulated live
+connection: `start` plays frames, `step` advances one atomic frame, `stop`
+pauses, and `reset` seeks to the initial frame. Custom simulator actions and
+parameter mutation are unavailable. Recorded messages are applied through the
+normal replay path without fabricating a state-sync transaction. Restoring the
+same snapshot into a compatible live simulator is a separate scene-restore
+operation.
 
 For persistence, core turns a `Snapshot` into independently decodable
 MessagePack segments. Each segment carries a base keyframe and lossless

@@ -62,25 +62,28 @@ No setup needed - uses GitHub token automatically.
 
 ```bash
 # Go module
-node scripts/release.mjs go 0.1.0
+node scripts/release.mjs go 0.3.0
 
 # Python package
-node scripts/release.mjs python 0.1.0
+node scripts/release.mjs python 0.3.0
+
+# Julia package
+node scripts/release.mjs julia 0.3.0
 
 # JavaScript bindings package
-node scripts/release.mjs js 0.1.0
+node scripts/release.mjs js 0.3.0
 
 # Protocol package
-node scripts/release.mjs protocol 0.1.0
+node scripts/release.mjs protocol 0.3.0
 
 # Core package
-node scripts/release.mjs core 0.1.0
+node scripts/release.mjs core 0.3.0
 
 # Agent CLI package
-node scripts/release.mjs agent 0.1.0
+node scripts/release.mjs agent 0.3.0
 
 # Tauri desktop app
-node scripts/release.mjs app 0.1.0
+node scripts/release.mjs app 0.3.0
 
 # Web app (automatic on main branch)
 git push origin main
@@ -93,8 +96,9 @@ git push origin main
 - **Protocol**: publish manually from `packages/protocol` after tag `protocol-v*`
 - **Core**: publish manually from `packages/core` after tag `core-v*`
 - **JavaScript Bindings**: publish manually from `packages/tensnap-js` after tag `js-v*`
+- **Julia Bindings**: register from `packages/tensnap-julia` after tag `tensnap-julia-v*`
 - **Agent CLI**: `.github/workflows/agent-publish.yml` (tag `agent-v*`)
 - **Web**: `.github/workflows/web-deploy.yml` (push to `main`)
 - **Tauri**: `.github/workflows/tauri-build.yml` (tag `app-v*`)
 
-See `docs/maintainer-guide/deployment.md` for details.
+The release helper in `scripts/release.mjs` is the canonical detailed workflow.

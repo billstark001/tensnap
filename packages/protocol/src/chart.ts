@@ -51,7 +51,11 @@ const TruncateSelectedChartOperationSchema = z.object({
   inclusive: z.boolean(),
 }).strict();
 
-/** An explicit clear or truncate operation; bare IDs never imply a target kind. */
+/**
+ * An explicit clear or truncate operation; bare IDs never imply a target kind.
+ * Inclusive truncation removes points whose time is at least the boundary;
+ * exclusive truncation removes only points after it.
+ */
 export const ChartUpdateOperationSchema = z.union([
   ClearAllChartOperationSchema,
   ClearSelectedChartOperationSchema,

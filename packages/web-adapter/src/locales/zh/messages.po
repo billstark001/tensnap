@@ -19,17 +19,18 @@ msgstr "操作菜单"
 
 #. placeholder {0}: entry.name
 #: src/file-system/FileSystemBrowser.tsx:222
-msgid "Are you sure you want to delete \"{0}\"?"
-msgstr "你确定要删除\"{0}\"吗？"
+#~ msgid "Are you sure you want to delete \"{0}\"?"
+#~ msgstr "你确定要删除\"{0}\"吗？"
 
 #. placeholder {0}: entry.name
 #: src/file-system/FileSystemBrowser.tsx:221
-msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
-msgstr "你确定要删除\"{0}\"吗？这将删除其中的所有内容。"
+#~ msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
+#~ msgstr "你确定要删除\"{0}\"吗？这将删除其中的所有内容。"
 
 #: src/file-system/CreateDialog.tsx:67
 #: src/file-system/ExportDialog.tsx:163
 #: src/file-system/FilePickerProvider.tsx:201
+#: src/file-system/FileSystemBrowser.tsx:334
 msgid "Cancel"
 msgstr "取消"
 
@@ -55,19 +56,25 @@ msgid "Current directory: {currentDirectory}"
 msgstr "当前目录：{currentDirectory}"
 
 #: src/file-system/FileItem.tsx:76
+#: src/file-system/FileSystemBrowser.tsx:333
 msgid "Delete"
 msgstr "删除"
+
+#. placeholder {0}: pendingDeleteEntry?.name ?? ''
+#: src/file-system/FileSystemBrowser.tsx:329
+msgid "Delete \"{0}\"?"
+msgstr "删除“{0}”？"
 
 #: src/file-system/CreateDialog.tsx:51
 #: src/file-system/FileItem.tsx:42
 msgid "Directory"
 msgstr "文件夹"
 
-#: src/file-system/FileSystemBrowser.tsx:293
+#: src/file-system/FileSystemBrowser.tsx:286
 msgid "Directory is empty"
 msgstr "文件夹为空"
 
-#: src/file-system/FileSystemBrowser.tsx:296
+#: src/file-system/FileSystemBrowser.tsx:289
 msgid "Drag files here"
 msgstr "将文件拖到这里"
 
@@ -108,11 +115,11 @@ msgstr "导出路径"
 msgid "Exporting, please wait..."
 msgstr "正在导出，请稍候..."
 
-#: src/file-system/FileSystemBrowser.tsx:210
+#: src/file-system/FileSystemBrowser.tsx:209
 msgid "Failed to create item"
 msgstr "创建项目失败"
 
-#: src/file-system/FileSystemBrowser.tsx:239
+#: src/file-system/FileSystemBrowser.tsx:228
 msgid "Failed to delete item"
 msgstr "删除项目失败"
 
@@ -124,11 +131,11 @@ msgstr "执行导出选项失败"
 msgid "Failed to export"
 msgstr "导出失败"
 
-#: src/file-system/FileSystemBrowser.tsx:283
+#: src/file-system/FileSystemBrowser.tsx:276
 msgid "Failed to load"
 msgstr "加载失败"
 
-#: src/file-system/FileSystemBrowser.tsx:62
+#: src/file-system/FileSystemBrowser.tsx:63
 msgid "Failed to load directory"
 msgstr "加载目录失败"
 
@@ -153,7 +160,7 @@ msgstr "名称无效"
 msgid "JSON Format"
 msgstr "JSON 格式"
 
-#: src/file-system/FileSystemBrowser.tsx:278
+#: src/file-system/FileSystemBrowser.tsx:271
 msgid "Loading..."
 msgstr "加载中..."
 
@@ -194,7 +201,7 @@ msgid "Open File"
 msgstr "打开文件"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:163
-#: src/file-system/FileSystemBrowser.tsx:297
+#: src/file-system/FileSystemBrowser.tsx:290
 msgid "Or click to browse"
 msgstr "或点击浏览"
 
@@ -210,7 +217,7 @@ msgstr "上一页"
 msgid "Refresh"
 msgstr "刷新"
 
-#: src/file-system/FileSystemBrowser.tsx:285
+#: src/file-system/FileSystemBrowser.tsx:278
 msgid "Retry"
 msgstr "重试"
 
@@ -247,6 +254,14 @@ msgstr "已选择文件："
 #: ../web-common/src/components/ui/EmptyState.tsx:220
 msgid "This directory is empty"
 msgstr "此目录为空"
+
+#: src/file-system/FileSystemBrowser.tsx:332
+msgid "This file will be permanently deleted."
+msgstr "此文件将被永久删除。"
+
+#: src/file-system/FileSystemBrowser.tsx:331
+msgid "This will delete all nested content."
+msgstr "这将删除其中的所有嵌套内容。"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:193
 msgid "Try adjusting your search criteria"

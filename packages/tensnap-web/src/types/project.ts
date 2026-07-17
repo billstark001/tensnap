@@ -297,7 +297,9 @@ function migrateScenarioSnapshot(value: unknown): ScenarioSnapshot {
           if (!record) return [id, metadata];
           // `dataList` belongs to a v0.2 chart-create envelope. A persisted
           // ChartGroup already stores the flattened metadata dictionary.
-          const { dataList: _dataList, data_list: _dataListSnake, ...canonical } = record;
+          const canonical = { ...record };
+          delete canonical.dataList;
+          delete canonical.data_list;
           return [id, canonical];
         })),
       };
@@ -307,7 +309,8 @@ function migrateScenarioSnapshot(value: unknown): ScenarioSnapshot {
     ? source.assets.map((entry) => {
       const asset = asRecord(entry);
       if (!asset || asset.data !== null) return entry;
-      const { data: _data, ...withoutNullData } = asset;
+      const withoutNullData = { ...asset };
+      delete withoutNullData.data;
       return withoutNullData;
     })
     : source.assets;

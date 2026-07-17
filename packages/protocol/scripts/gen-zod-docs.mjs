@@ -5,7 +5,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { basename, dirname, relative, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import ts from 'typescript';
+// zod-to-ts still produces nodes with the pre-v7 JavaScript compiler API.
+import ts from 'typescript-legacy-api';
 import {
   createAuxiliaryTypeStore,
   createTypeAlias,

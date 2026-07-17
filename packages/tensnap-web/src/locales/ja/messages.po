@@ -81,7 +81,7 @@ msgstr "アクションラベル"
 msgid "Action Timeout"
 msgstr "アクションタイムアウト"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:158
 msgid "Action:"
 msgstr "アクション："
 
@@ -89,7 +89,7 @@ msgstr "アクション："
 msgid "Adjust Mode"
 msgstr "調整モード"
 
-#: src/dialogs/AgentDetailsDialog.tsx:210
+#: src/dialogs/AgentDetailsDialog.tsx:211
 msgid "Agent Details"
 msgstr "エージェントの詳細"
 
@@ -135,7 +135,7 @@ msgstr "自動"
 msgid "Backend URL"
 msgstr "バックエンドURL"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:54
+#: src/dialogs/SimulatorInfoDialog.tsx:58
 msgid "Binding"
 msgstr "バインディング"
 
@@ -160,19 +160,19 @@ msgstr "ボタンテキスト"
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:35
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:75
 #: src/dialogs/edit-views/EditViewDialog.tsx:345
-#: src/dialogs/SceneRestoreDialog.tsx:210
+#: src/dialogs/SceneRestoreDialog.tsx:211
 msgid "Cancel"
 msgstr "キャンセル"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:61
+#: src/dialogs/SnapshotDetailDialog.tsx:62
 msgid "Canvas copied to clipboard!"
 msgstr "キャンバスをクリップボードにコピーしました！"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:57
+#: src/dialogs/SnapshotDetailDialog.tsx:58
 msgid "Canvas not found."
 msgstr "キャンバスが見つかりません。"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:59
+#: src/dialogs/SimulatorInfoDialog.tsx:63
 msgid "Capabilities"
 msgstr "機能"
 
@@ -204,7 +204,7 @@ msgstr "チャートグループID"
 msgid "Chart Group Label"
 msgstr "チャートグループラベル"
 
-#: src/dialogs/SceneRestoreDialog.tsx:199
+#: src/dialogs/SceneRestoreDialog.tsx:200
 msgid "Chart policy"
 msgstr "チャート方針"
 
@@ -230,7 +230,7 @@ msgid "Client Message Validation"
 msgstr "クライアントメッセージの検証"
 
 #: src/dialogs/AboutDialog.tsx:77
-#: src/dialogs/AgentDetailsDialog.tsx:300
+#: src/dialogs/AgentDetailsDialog.tsx:301
 #: src/dialogs/SettingsDialog.tsx:380
 msgid "Close"
 msgstr "閉じる"
@@ -240,11 +240,15 @@ msgstr "閉じる"
 msgid "Close {0}"
 msgstr "{0}を閉じる"
 
-#: src/dialogs/AgentDetailsDialog.tsx:274
+#: src/dialogs/DiscardProjectChangesDialog.tsx:18
+msgid "Close this project and discard renderer edits that have not been saved?"
+msgstr "このプロジェクトを閉じ、保存されていないレンダラーの編集内容を破棄しますか？"
+
+#: src/dialogs/AgentDetailsDialog.tsx:275
 msgid "Color:"
 msgstr "色："
 
-#: src/components/project/StatusBar.tsx:124
+#: src/components/project/StatusBar.tsx:146
 msgid "Comm:"
 msgstr "通信："
 
@@ -272,15 +276,19 @@ msgstr "確認"
 msgid "Confirm Structural Change"
 msgstr "構造変更の確認"
 
-#: src/dialogs/SceneRestoreDialog.tsx:156
+#: src/dialogs/SceneRestoreDialog.tsx:157
 msgid "Connect to a live simulator before restoring a snapshot."
 msgstr "スナップショットを復元する前にライブシミュレーターへ接続してください。"
 
-#: src/components/project/StatusBar.tsx:98
+#: src/components/project/StatusBar.tsx:58
 msgid "Connected"
 msgstr "接続済み"
 
-#: src/components/project/StatusBar.tsx:85
+#: src/components/project/StatusBar.tsx:56
+msgid "Connecting"
+msgstr "接続中"
+
+#: src/components/project/StatusBar.tsx:104
 msgid "Connection failed, will retry automatically"
 msgstr "接続に失敗しました。自動的に再試行します"
 
@@ -303,7 +311,7 @@ msgstr "連続実行…"
 #: src/components/project/ViewContextMenuRenderer.tsx:136
 #: src/components/project/ViewContextMenuRenderer.tsx:143
 #: src/components/toolbar/MenuBar.tsx:161
-#: src/dialogs/SnapshotDetailDialog.tsx:72
+#: src/dialogs/SnapshotDetailDialog.tsx:73
 msgid "Copy"
 msgstr "コピー"
 
@@ -334,7 +342,7 @@ msgstr "現在の値"
 #~ msgid "Custom"
 #~ msgstr "カスタム"
 
-#: src/dialogs/AgentDetailsDialog.tsx:289
+#: src/dialogs/AgentDetailsDialog.tsx:290
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
@@ -354,7 +362,7 @@ msgstr "ダーク"
 msgid "Data Points"
 msgstr "データポイント"
 
-#: src/dialogs/AgentDetailsDialog.tsx:284
+#: src/dialogs/AgentDetailsDialog.tsx:285
 msgid "default"
 msgstr "デフォルト"
 
@@ -362,7 +370,7 @@ msgstr "デフォルト"
 msgid "Delete"
 msgstr "削除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:199
+#: src/dialogs/SnapshotDetailDialog.tsx:213
 msgid "Delete recording"
 msgstr "録画を削除"
 
@@ -382,7 +390,15 @@ msgstr "録画を削除"
 msgid "Disabled"
 msgstr "無効"
 
-#: src/components/project/StatusBar.tsx:98
+#: src/dialogs/DiscardProjectChangesDialog.tsx:19
+msgid "Discard and close"
+msgstr "破棄して閉じる"
+
+#: src/dialogs/DiscardProjectChangesDialog.tsx:17
+msgid "Discard unsaved changes?"
+msgstr "保存されていない変更を破棄しますか？"
+
+#: src/components/project/StatusBar.tsx:59
 msgid "Disconnected"
 msgstr "未接続"
 
@@ -473,11 +489,11 @@ msgstr "環境："
 msgid "Error"
 msgstr "エラー"
 
-#: src/dialogs/SceneRestoreDialog.tsx:194
+#: src/dialogs/SceneRestoreDialog.tsx:195
 msgid "Exact checkpoint"
 msgstr "正確なチェックポイント"
 
-#: src/dialogs/SceneRestoreDialog.tsx:165
+#: src/dialogs/SceneRestoreDialog.tsx:166
 msgid "Exact checkpoints are available only at the recording's initial frame."
 msgstr "正確なチェックポイントは記録の最初のフレームでのみ利用できます。"
 
@@ -505,8 +521,8 @@ msgstr "展開済み"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "エクスポート中、お待ちください..."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:62
-#: src/dialogs/SnapshotDetailDialog.tsx:64
+#: src/dialogs/SnapshotDetailDialog.tsx:63
+#: src/dialogs/SnapshotDetailDialog.tsx:65
 msgid "Failed to copy canvas to clipboard."
 msgstr "キャンバスをクリップボードにコピーできませんでした。"
 
@@ -522,7 +538,7 @@ msgstr "モニターデータをクリップボードにコピーできません
 msgid "Failed to open files"
 msgstr "ファイルを開けませんでした"
 
-#: src/components/project/StatusBar.tsx:88
+#: src/components/project/StatusBar.tsx:111
 msgid "Failed to reconnect"
 msgstr "再接続に失敗しました"
 
@@ -565,12 +581,12 @@ msgstr "ファイル"
 msgid "File saved"
 msgstr "ファイルを保存しました"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:158
-#: src/dialogs/SnapshotDetailDialog.tsx:158
+#: src/dialogs/SnapshotDetailDialog.tsx:160
+#: src/dialogs/SnapshotDetailDialog.tsx:160
 msgid "First frame"
 msgstr "最初のフレーム"
 
-#: src/dialogs/AgentDetailsDialog.tsx:245
+#: src/dialogs/AgentDetailsDialog.tsx:246
 msgid "Follow agent"
 msgstr "エージェントを追従"
 
@@ -582,7 +598,7 @@ msgstr "エージェントを追従"
 #~ msgid "Force hidden"
 #~ msgstr "強制的に非表示"
 
-#: src/components/project/StatusBar.tsx:140
+#: src/components/project/StatusBar.tsx:162
 msgid "Force reconnect to server"
 msgstr "サーバーに強制再接続"
 
@@ -590,11 +606,11 @@ msgstr "サーバーに強制再接続"
 #~ msgid "Force visible"
 #~ msgstr "強制的に表示"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:155
+#: src/dialogs/SnapshotDetailDialog.tsx:157
 msgid "Frame updates:"
 msgstr "フレーム更新："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:153
+#: src/dialogs/SnapshotDetailDialog.tsx:155
 msgid "Frame:"
 msgstr "フレーム："
 
@@ -634,34 +650,34 @@ msgstr "高さ"
 msgid "Help"
 msgstr "ヘルプ"
 
-#: src/components/project/StatusBar.tsx:192
+#: src/components/project/StatusBar.tsx:214
 msgid "Hide Bottom Panel"
 msgstr "下部パネルを非表示"
 
-#: src/components/project/StatusBar.tsx:183
+#: src/components/project/StatusBar.tsx:205
 msgid "Hide Right Panel"
 msgstr "右側パネルを非表示"
 
-#: src/dialogs/AgentDetailsDialog.tsx:266
+#: src/dialogs/AgentDetailsDialog.tsx:267
 msgid "Icon:"
 msgstr "アイコン："
 
 #: src/dialogs/edit-views/BaseViewEditor.tsx:17
-#: src/dialogs/SimulatorInfoDialog.tsx:48
+#: src/dialogs/SimulatorInfoDialog.tsx:52
 msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:152
-#: src/dialogs/AgentDetailsDialog.tsx:259
-#: src/dialogs/SnapshotDetailDialog.tsx:151
+#: src/dialogs/AgentDetailsDialog.tsx:260
+#: src/dialogs/SnapshotDetailDialog.tsx:153
 msgid "ID:"
 msgstr "ID："
 
-#: src/components/project/StatusBar.tsx:159
+#: src/components/project/StatusBar.tsx:181
 msgid "Info"
 msgstr "情報"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:134
+#: src/dialogs/SnapshotDetailDialog.tsx:136
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "この録画をオフラインで確認します。開くと接続されていないコピーが作成されます。"
 
@@ -669,7 +685,7 @@ msgstr "この録画をオフラインで確認します。開くと接続され
 msgid "Inspector"
 msgstr "インスペクター"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:52
+#: src/dialogs/SimulatorInfoDialog.tsx:56
 msgid "Instance"
 msgstr "インスタンス"
 
@@ -685,7 +701,11 @@ msgstr "無効な JSON"
 msgid "Invalid locale"
 msgstr "無効なロケール"
 
-#: src/dialogs/SceneRestoreDialog.tsx:202
+#: src/dialogs/DiscardProjectChangesDialog.tsx:20
+msgid "Keep editing"
+msgstr "編集を続ける"
+
+#: src/dialogs/SceneRestoreDialog.tsx:203
 msgid "Keep live charts"
 msgstr "現在のチャートを保持"
 
@@ -750,11 +770,15 @@ msgstr "MIME："
 msgid "Minimum Value"
 msgstr "最小値"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:46
+#: src/dialogs/SimulatorInfoDialog.tsx:50
 msgid "Model"
 msgstr "モデル"
 
-#: src/components/project/StatusBar.tsx:119
+#: src/components/project/StatusBar.tsx:54
+msgid "Model mismatch"
+msgstr "モデルが一致しません"
+
+#: src/components/project/StatusBar.tsx:141
 msgid "Model:"
 msgstr "モデル："
 
@@ -771,20 +795,24 @@ msgstr "モニターデータをクリップボードにコピーしました。
 msgid "Monitor not found."
 msgstr "モニターが見つかりません。"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:185
+msgid "Monitors"
+msgstr "モニター"
+
 #: src/components/toolbar/ToolGroups.tsx:184
 msgid "More Actions"
 msgstr "その他の操作"
 
-#: src/components/project/StatusBar.tsx:115
+#: src/components/project/StatusBar.tsx:137
 msgid "MSPT:"
 msgstr "MSPT："
 
-#: src/dialogs/SimulatorInfoDialog.tsx:49
+#: src/dialogs/SimulatorInfoDialog.tsx:53
 msgid "Name"
 msgstr "名前"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:248
+#: src/dialogs/AgentDetailsDialog.tsx:249
 msgid "Neighbors: {0}"
 msgstr "近傍: {0}"
 
@@ -846,6 +874,10 @@ msgstr "メインビューはありません。"
 msgid "No metadata on this layer."
 msgstr "このレイヤーにメタデータがありません。"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:188
+msgid "No monitor data was recorded."
+msgstr "モニターデータは記録されていません。"
+
 #: src/dialogs/edit-views/MonitorViewEditor.tsx:38
 msgid "No monitors are currently published by the simulator."
 msgstr "シミュレーターは現在モニターを公開していません。"
@@ -878,7 +910,7 @@ msgstr "まだスナップショットがありません。"
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:255
+#: src/dialogs/AgentDetailsDialog.tsx:256
 msgid "No spatial context is available for this agent."
 msgstr "このエージェントには空間コンテキストがありません。"
 
@@ -886,7 +918,7 @@ msgstr "このエージェントには空間コンテキストがありません
 msgid "No view tree is available."
 msgstr "利用可能なビューツリーがありません。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:290
+#: src/dialogs/AgentDetailsDialog.tsx:291
 msgid "None"
 msgstr "なし"
 
@@ -903,7 +935,7 @@ msgstr "オブジェクトID"
 msgid "Off"
 msgstr "オフ"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:176
+#: src/dialogs/SnapshotDetailDialog.tsx:178
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "録画の容量制限に収めるため、古いフレームは削除されました。"
 
@@ -911,7 +943,7 @@ msgstr "録画の容量制限に収めるため、古いフレームは削除さ
 msgid "Only start, step, stop, and reset are available for a snapshot source."
 msgstr "スナップショットソースでは開始、ステップ、停止、リセットのみ使用できます。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:201
+#: src/dialogs/SnapshotDetailDialog.tsx:215
 msgid "Open as offline copy"
 msgstr "オフラインコピーとして開く"
 
@@ -926,7 +958,7 @@ msgstr "ファイルを開く"
 #~ msgstr "フォルダーを開く"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:123
-#: src/dialogs/SnapshotDetailDialog.tsx:70
+#: src/dialogs/SnapshotDetailDialog.tsx:71
 msgid "Options"
 msgstr "オプション"
 
@@ -962,7 +994,7 @@ msgstr "パラメータラベル"
 msgid "Parameter Type"
 msgstr "パラメータタイプ"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:178
+#: src/dialogs/SnapshotDetailDialog.tsx:180
 msgid "Parameters"
 msgstr "パラメータ"
 
@@ -974,8 +1006,8 @@ msgstr "パラメータ："
 msgid "Paste"
 msgstr "貼り付け"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:159
-#: src/dialogs/SnapshotDetailDialog.tsx:159
+#: src/dialogs/SnapshotDetailDialog.tsx:161
+#: src/dialogs/SnapshotDetailDialog.tsx:161
 msgid "Pause"
 msgstr "一時停止"
 
@@ -983,8 +1015,8 @@ msgstr "一時停止"
 msgid "Pending"
 msgstr "保留中"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:159
-#: src/dialogs/SnapshotDetailDialog.tsx:159
+#: src/dialogs/SnapshotDetailDialog.tsx:161
+#: src/dialogs/SnapshotDetailDialog.tsx:161
 msgid "Play"
 msgstr "再生"
 
@@ -1032,11 +1064,11 @@ msgstr "プロジェクトソースを更新しました"
 #~ msgid "Project URL updated successfully"
 #~ msgstr "プロジェクトURLを正常に更新しました"
 
-#: src/dialogs/SceneRestoreDialog.tsx:195
+#: src/dialogs/SceneRestoreDialog.tsx:196
 msgid "Projected scene"
 msgstr "投影されたシーン"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:53
+#: src/dialogs/SimulatorInfoDialog.tsx:57
 msgid "Protocol"
 msgstr "プロトコル"
 
@@ -1045,7 +1077,7 @@ msgstr "プロトコル"
 msgid "Protocol {0}"
 msgstr "プロトコル {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:227
+#: src/dialogs/AgentDetailsDialog.tsx:228
 msgid "Radius"
 msgstr "半径"
 
@@ -1053,11 +1085,11 @@ msgstr "半径"
 msgid "Ready"
 msgstr "準備完了"
 
-#: src/components/project/StatusBar.tsx:150
+#: src/components/project/StatusBar.tsx:172
 msgid "Reconnect"
 msgstr "再接続"
 
-#: src/components/project/StatusBar.tsx:82
+#: src/components/project/StatusBar.tsx:101
 msgid "Reconnected successfully"
 msgstr "再接続に成功しました"
 
@@ -1065,11 +1097,11 @@ msgstr "再接続に成功しました"
 msgid "Record this run"
 msgstr "この実行を記録する"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:152
+#: src/dialogs/SnapshotDetailDialog.tsx:154
 msgid "Recorded:"
 msgstr "録画日時："
 
-#: src/dialogs/SceneRestoreDialog.tsx:184
+#: src/dialogs/SceneRestoreDialog.tsx:185
 msgid "Recording frame: {frame}"
 msgstr "記録フレーム: {frame}"
 
@@ -1090,7 +1122,7 @@ msgstr "レンダートリガー"
 #~ msgid "Renderer Overrides"
 #~ msgstr "レンダラーオーバーライド"
 
-#: src/dialogs/SceneRestoreDialog.tsx:201
+#: src/dialogs/SceneRestoreDialog.tsx:202
 msgid "Replace with snapshot charts"
 msgstr "スナップショットのチャートに置換"
 
@@ -1118,15 +1150,15 @@ msgstr "ビューをリセット"
 msgid "Reset Zoom"
 msgstr "ズームをリセット"
 
-#: src/dialogs/SceneRestoreDialog.tsx:180
+#: src/dialogs/SceneRestoreDialog.tsx:181
 msgid "Restore an exact checkpoint or projected parameters, environments, and time. Chart history stays local."
 msgstr "正確なチェックポイント、または投影されたパラメーター、環境、時刻を復元します。チャート履歴はローカルに保持されます。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:192
+#: src/dialogs/SceneRestoreDialog.tsx:193
 msgid "Restore method"
 msgstr "復元方法"
 
-#: src/dialogs/SceneRestoreDialog.tsx:211
+#: src/dialogs/SceneRestoreDialog.tsx:212
 msgid "Restore snapshot"
 msgstr "スナップショットを復元"
 
@@ -1134,15 +1166,15 @@ msgstr "スナップショットを復元"
 #~ msgid "Restore Snapshot"
 #~ msgstr "スナップショットを復元"
 
-#: src/dialogs/SceneRestoreDialog.tsx:179
+#: src/dialogs/SceneRestoreDialog.tsx:180
 msgid "Restore snapshot to simulator"
 msgstr "スナップショットをシミュレーターへ復元"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:200
+#: src/dialogs/SnapshotDetailDialog.tsx:214
 msgid "Restore to live simulator"
 msgstr "ライブシミュレーターへ復元"
 
-#: src/dialogs/SceneRestoreDialog.tsx:211
+#: src/dialogs/SceneRestoreDialog.tsx:212
 msgid "Restoring…"
 msgstr "復元中…"
 
@@ -1162,7 +1194,7 @@ msgstr "ルート"
 msgid "Run one step"
 msgstr "1ステップ実行"
 
-#: src/components/project/StatusBar.tsx:106
+#: src/components/project/StatusBar.tsx:128
 msgid "Run:"
 msgstr "実行："
 
@@ -1177,7 +1209,7 @@ msgid "Save As"
 msgstr "名前を付けて保存"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:129
-#: src/dialogs/SnapshotDetailDialog.tsx:71
+#: src/dialogs/SnapshotDetailDialog.tsx:72
 msgid "Save As CSV"
 msgstr "CSV形式で保存"
 
@@ -1189,7 +1221,7 @@ msgstr "名前を付けて保存..."
 msgid "Save Format"
 msgstr "保存形式"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:65
+#: src/dialogs/SimulatorInfoDialog.tsx:69
 msgid "Scenario metadata"
 msgstr "シナリオメタデータ"
 
@@ -1218,19 +1250,19 @@ msgstr "この ID の系列は既に存在します。"
 msgid "Server Message Validation"
 msgstr "サーバーメッセージバリデーション"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:42
+#: src/dialogs/SimulatorInfoDialog.tsx:46
 msgid "Session identity, capabilities, and current model metadata."
 msgstr "セッション識別子、機能、現在のモデルメタデータ。"
 
-#: src/components/project/StatusBar.tsx:164
-#: src/components/project/StatusBar.tsx:167
+#: src/components/project/StatusBar.tsx:186
+#: src/components/project/StatusBar.tsx:189
 #: src/components/toolbar/MenuBar.tsx:219
 #: src/components/toolbar/ToolGroups.tsx:316
 #: src/dialogs/SettingsDialog.tsx:119
 msgid "Settings"
 msgstr "設定"
 
-#: src/components/project/StatusBar.tsx:192
+#: src/components/project/StatusBar.tsx:214
 msgid "Show Bottom Panel"
 msgstr "下部パネルを表示"
 
@@ -1238,7 +1270,7 @@ msgstr "下部パネルを表示"
 msgid "Show Grid"
 msgstr "グリッドを表示"
 
-#: src/components/project/StatusBar.tsx:183
+#: src/components/project/StatusBar.tsx:205
 msgid "Show Right Panel"
 msgstr "右側パネルを表示"
 
@@ -1250,23 +1282,23 @@ msgstr "右側パネルを表示"
 #~ msgid "Sim:"
 #~ msgstr "シミュレーション："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:154
+#: src/dialogs/SnapshotDetailDialog.tsx:156
 msgid "Simulation time:"
 msgstr "シミュレーション時刻："
 
-#: src/components/project/StatusBar.tsx:156
-#: src/dialogs/SimulatorInfoDialog.tsx:41
+#: src/components/project/StatusBar.tsx:178
+#: src/dialogs/SimulatorInfoDialog.tsx:45
 msgid "Simulator information"
 msgstr "シミュレーター情報"
 
 #. placeholder {0}: result.status
-#: src/dialogs/SceneRestoreDialog.tsx:120
-#: src/dialogs/SceneRestoreDialog.tsx:138
+#: src/dialogs/SceneRestoreDialog.tsx:121
+#: src/dialogs/SceneRestoreDialog.tsx:139
 msgid "Simulator returned {0}."
 msgstr "シミュレーターは {0} を返しました。"
 
 #: src/components/project/RightPanel.tsx:160
-#: src/dialogs/AgentDetailsDialog.tsx:283
+#: src/dialogs/AgentDetailsDialog.tsx:284
 msgid "Size:"
 msgstr "サイズ："
 
@@ -1278,7 +1310,7 @@ msgstr "スナップショット"
 #~ msgid "Snapshot Details"
 #~ msgstr "スナップショットの詳細"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:138
+#: src/dialogs/SnapshotDetailDialog.tsx:140
 msgid "Snapshot name"
 msgstr "スナップショット名"
 
@@ -1292,15 +1324,15 @@ msgstr "スナップショット再生"
 msgid "Snapshot playback FPS"
 msgstr "スナップショット再生 FPS"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:133
+#: src/dialogs/SnapshotDetailDialog.tsx:135
 msgid "Snapshot replay"
 msgstr "スナップショット再生"
 
-#: src/dialogs/SceneRestoreDialog.tsx:145
+#: src/dialogs/SceneRestoreDialog.tsx:146
 msgid "Snapshot restore failed"
 msgstr "スナップショットの復元に失敗しました"
 
-#: src/dialogs/SceneRestoreDialog.tsx:141
+#: src/dialogs/SceneRestoreDialog.tsx:142
 msgid "Snapshot restored"
 msgstr "スナップショットを復元しました"
 
@@ -1316,7 +1348,7 @@ msgstr "スナップショット"
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "一部のデータが無効でした。有効なデータを読み込みました。プロジェクトを確認し、新しいコピーとして保存してください。"
 
-#: src/components/project/StatusBar.tsx:130
+#: src/components/project/StatusBar.tsx:152
 msgid "Srv Render:"
 msgstr "サーバーレンダリング："
 
@@ -1336,7 +1368,7 @@ msgstr "録画を開始"
 #~ msgid "Start/Stop"
 #~ msgstr "開始/停止"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:51
+#: src/dialogs/SimulatorInfoDialog.tsx:55
 msgid "State schema"
 msgstr "状態スキーマ"
 
@@ -1402,11 +1434,11 @@ msgstr "ボタンはこのバインディングを維持できますが、編集
 msgid "The chart group ID could not be changed."
 msgstr "チャートグループ ID を変更できませんでした。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:167
+#: src/dialogs/SceneRestoreDialog.tsx:168
 msgid "The connected simulator does not declare scene.restore.checkpoint."
 msgstr "接続中のシミュレーターは scene.restore.checkpoint を宣言していません。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:170
+#: src/dialogs/SceneRestoreDialog.tsx:171
 msgid "The connected simulator does not declare scene.restore.projected."
 msgstr "接続中のシミュレーターは scene.restore.projected を宣言していません。"
 
@@ -1430,7 +1462,7 @@ msgstr "パラメータ ID を変更できませんでした。"
 #~ msgid "The simulator receives projected parameters, environments, and time. Chart history is kept local."
 #~ msgstr "シミュレーターは投影済みのパラメーター、環境、時間を受け取ります。チャート履歴はローカルに保持されます。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:206
+#: src/dialogs/SceneRestoreDialog.tsx:207
 msgid "The simulator will restore the exact checkpoint captured for this snapshot."
 msgstr "シミュレーターはこのスナップショットの作成時にキャプチャされた正確なチェックポイントを復元します。"
 
@@ -1467,7 +1499,7 @@ msgstr "この表示設定はビューにのみ適用され、シミュレータ
 msgid "This ID is already used by another registered object."
 msgstr "この ID は別の登録済みオブジェクトによって既に使用されています。"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:60
+#: src/dialogs/SimulatorInfoDialog.tsx:64
 msgid "This model has not declared optional capabilities."
 msgstr "このモデルは任意の機能を宣言していません。"
 
@@ -1475,15 +1507,15 @@ msgstr "このモデルは任意の機能を宣言していません。"
 msgid "This project runs a local JavaScript simulator in the browser."
 msgstr "このプロジェクトはブラウザー内でローカル JavaScript シミュレーターを実行します。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:172
+#: src/dialogs/SceneRestoreDialog.tsx:173
 msgid "This snapshot changes environment topology, but the simulator does not declare scene.restore.topology."
 msgstr "このスナップショットは環境トポロジーを変更しますが、シミュレーターは scene.restore.topology を宣言していません。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:163
+#: src/dialogs/SceneRestoreDialog.tsx:164
 msgid "This snapshot does not contain an exact checkpoint."
 msgstr "このスナップショットには正確なチェックポイントが含まれていません。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:160
+#: src/dialogs/SceneRestoreDialog.tsx:161
 msgid "This snapshot was created by a different model or state schema and cannot be restored to the connected simulator."
 msgstr "このスナップショットは別のモデルまたは状態スキーマで作成されたため、接続中のシミュレーターには復元できません。"
 
@@ -1500,7 +1532,7 @@ msgid "This view can keep its binding, but there is no registered parameter to e
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済みパラメータがありません。"
 
 #: src/components/project/RightPanel.tsx:256
-#: src/components/project/StatusBar.tsx:101
+#: src/components/project/StatusBar.tsx:123
 msgid "Time Step:"
 msgstr "タイムステップ："
 
@@ -1532,7 +1564,7 @@ msgstr "ツール"
 msgid "Top"
 msgstr "上"
 
-#: src/components/project/StatusBar.tsx:111
+#: src/components/project/StatusBar.tsx:133
 msgid "TPS:"
 msgstr "TPS："
 
@@ -1544,7 +1576,7 @@ msgstr "TPS："
 msgid "Tree"
 msgstr "ツリー"
 
-#: src/dialogs/SceneRestoreDialog.tsx:203
+#: src/dialogs/SceneRestoreDialog.tsx:204
 msgid "Truncate live charts at restore time"
 msgstr "復元時刻で現在のチャートを切り詰める"
 
@@ -1617,7 +1649,7 @@ msgid "Value path"
 msgstr "値のパス"
 
 #: src/dialogs/AboutDialog.tsx:25
-#: src/dialogs/SimulatorInfoDialog.tsx:50
+#: src/dialogs/SimulatorInfoDialog.tsx:54
 msgid "Version"
 msgstr "バージョン"
 
@@ -1629,7 +1661,7 @@ msgstr "表示"
 #~ msgid "View and manage snapshot"
 #~ msgstr "スナップショットを表示・管理"
 
-#: src/dialogs/AgentDetailsDialog.tsx:213
+#: src/dialogs/AgentDetailsDialog.tsx:214
 msgid "View detailed information about the selected agent"
 msgstr "選択したエージェントの詳細情報を表示"
 
@@ -1637,11 +1669,11 @@ msgstr "選択したエージェントの詳細情報を表示"
 msgid "View Docs"
 msgstr "ドキュメントを見る"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:44
+#: src/dialogs/SimulatorInfoDialog.tsx:48
 msgid "Waiting for a simulator_info handshake."
 msgstr "simulator_info ハンドシェイクを待機しています。"
 
-#: src/dialogs/SceneRestoreDialog.tsx:158
+#: src/dialogs/SceneRestoreDialog.tsx:159
 msgid "Waiting for simulator information before restoring a snapshot."
 msgstr "スナップショットを復元する前にシミュレーター情報を待機しています。"
 
@@ -1669,7 +1701,7 @@ msgstr "幅"
 #. placeholder {0}: preview.parameters.length
 #. placeholder {1}: preview.envs.length
 #. placeholder {2}: preview.time === undefined ? '' : ` at time ${preview.time}`
-#: src/dialogs/SceneRestoreDialog.tsx:207
+#: src/dialogs/SceneRestoreDialog.tsx:208
 msgid "Will restore {0} parameters and {1} environments{2}."
 msgstr "{0} 個のパラメーターと {1} 個の環境を復元します{2}。"
 

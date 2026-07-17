@@ -19,8 +19,7 @@
   "files": [
     "dist",
     "README.md",
-    "V0.3-DRAFT.md",
-    "BEHAVIOR.md",
+    "SPECIFICATION.md",
     "conformance"
   ],
   "scripts": {
@@ -88,7 +87,8 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "esbuild": "^0.28.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
+    "typescript-legacy-api": "npm:typescript@6.0.3",
     "vitest": "^4.1.10",
     "zod-to-ts": "^2.1.0"
   },

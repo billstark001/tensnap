@@ -3,8 +3,10 @@ import { SnapshotPlayer } from './SnapshotRecorder';
 import type { Snapshot, SnapshotFrame } from './types';
 
 /**
- * The source selected by a project. Snapshots are intentionally a first-class
- * source, rather than a mode layered onto a live simulator connection.
+ * Renderer-local source selected by a project. A WebSocket or in-memory source
+ * produces live protocol events; a snapshot source produces offline replay
+ * events and never impersonates a connected simulator. Creating a project from
+ * a snapshot retains that snapshot's active frame as its initial scene.
  */
 export type ProjectSource =
   | { kind: 'inmemory'; model_id: string }
@@ -13,12 +15,18 @@ export type ProjectSource =
 
 export type SnapshotPlaybackState = 'paused' | 'playing';
 
-/** Built-in controls available to a snapshot-backed project source. */
+/**
+ * Built-in controls synthesized for snapshot playback. `start` plays recorded
+ * frames, `step` advances one atomic frame, `stop` pauses, and `reset` seeks to
+ * the initial frame. Parameter edits and custom actions remain unavailable.
+ */
 export const SNAPSHOT_PLAYBACK_ACTIONS = ['start', 'step', 'stop', 'reset'] as const;
 
 /**
  * Deterministic snapshot source controller. It never sends protocol actions:
- * custom simulator actions are unavailable while a snapshot is the source.
+ * recorded messages use the ordinary replay path, while initial state is
+ * loaded directly from the recording keyframe. Restoring a snapshot into a
+ * live simulator is a separate scene-restore operation.
  */
 export class SnapshotPlaybackSource {
   readonly player: SnapshotPlayer;

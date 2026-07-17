@@ -19,17 +19,18 @@ msgstr "アクションメニュー"
 
 #. placeholder {0}: entry.name
 #: src/file-system/FileSystemBrowser.tsx:222
-msgid "Are you sure you want to delete \"{0}\"?"
-msgstr "\"{0}\"を削除してもよろしいですか？"
+#~ msgid "Are you sure you want to delete \"{0}\"?"
+#~ msgstr "\"{0}\"を削除してもよろしいですか？"
 
 #. placeholder {0}: entry.name
 #: src/file-system/FileSystemBrowser.tsx:221
-msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
-msgstr "\"{0}\"を削除してもよろしいですか？配下の内容もすべて削除されます。"
+#~ msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
+#~ msgstr "\"{0}\"を削除してもよろしいですか？配下の内容もすべて削除されます。"
 
 #: src/file-system/CreateDialog.tsx:67
 #: src/file-system/ExportDialog.tsx:163
 #: src/file-system/FilePickerProvider.tsx:201
+#: src/file-system/FileSystemBrowser.tsx:334
 msgid "Cancel"
 msgstr "キャンセル"
 
@@ -55,19 +56,25 @@ msgid "Current directory: {currentDirectory}"
 msgstr "現在のディレクトリ: {currentDirectory}"
 
 #: src/file-system/FileItem.tsx:76
+#: src/file-system/FileSystemBrowser.tsx:333
 msgid "Delete"
 msgstr "削除"
+
+#. placeholder {0}: pendingDeleteEntry?.name ?? ''
+#: src/file-system/FileSystemBrowser.tsx:329
+msgid "Delete \"{0}\"?"
+msgstr "「{0}」を削除しますか？"
 
 #: src/file-system/CreateDialog.tsx:51
 #: src/file-system/FileItem.tsx:42
 msgid "Directory"
 msgstr "フォルダー"
 
-#: src/file-system/FileSystemBrowser.tsx:293
+#: src/file-system/FileSystemBrowser.tsx:286
 msgid "Directory is empty"
 msgstr "フォルダーは空です"
 
-#: src/file-system/FileSystemBrowser.tsx:296
+#: src/file-system/FileSystemBrowser.tsx:289
 msgid "Drag files here"
 msgstr "ここにファイルをドラッグ"
 
@@ -108,11 +115,11 @@ msgstr "エクスポートパス"
 msgid "Exporting, please wait..."
 msgstr "エクスポート中です。しばらくお待ちください..."
 
-#: src/file-system/FileSystemBrowser.tsx:210
+#: src/file-system/FileSystemBrowser.tsx:209
 msgid "Failed to create item"
 msgstr "項目の作成に失敗しました"
 
-#: src/file-system/FileSystemBrowser.tsx:239
+#: src/file-system/FileSystemBrowser.tsx:228
 msgid "Failed to delete item"
 msgstr "項目の削除に失敗しました"
 
@@ -124,11 +131,11 @@ msgstr "エクスポートオプションの実行に失敗しました"
 msgid "Failed to export"
 msgstr "エクスポートに失敗しました"
 
-#: src/file-system/FileSystemBrowser.tsx:283
+#: src/file-system/FileSystemBrowser.tsx:276
 msgid "Failed to load"
 msgstr "読み込みに失敗しました"
 
-#: src/file-system/FileSystemBrowser.tsx:62
+#: src/file-system/FileSystemBrowser.tsx:63
 msgid "Failed to load directory"
 msgstr "ディレクトリの読み込みに失敗しました"
 
@@ -153,7 +160,7 @@ msgstr "無効な名前です"
 msgid "JSON Format"
 msgstr "JSON 形式"
 
-#: src/file-system/FileSystemBrowser.tsx:278
+#: src/file-system/FileSystemBrowser.tsx:271
 msgid "Loading..."
 msgstr "読み込み中..."
 
@@ -194,7 +201,7 @@ msgid "Open File"
 msgstr "ファイルを開く"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:163
-#: src/file-system/FileSystemBrowser.tsx:297
+#: src/file-system/FileSystemBrowser.tsx:290
 msgid "Or click to browse"
 msgstr "またはクリックして参照"
 
@@ -210,7 +217,7 @@ msgstr "前のページ"
 msgid "Refresh"
 msgstr "更新"
 
-#: src/file-system/FileSystemBrowser.tsx:285
+#: src/file-system/FileSystemBrowser.tsx:278
 msgid "Retry"
 msgstr "再試行"
 
@@ -247,6 +254,14 @@ msgstr "選択したファイル："
 #: ../web-common/src/components/ui/EmptyState.tsx:220
 msgid "This directory is empty"
 msgstr "このディレクトリは空です"
+
+#: src/file-system/FileSystemBrowser.tsx:332
+msgid "This file will be permanently deleted."
+msgstr "このファイルは完全に削除されます。"
+
+#: src/file-system/FileSystemBrowser.tsx:331
+msgid "This will delete all nested content."
+msgstr "配下のすべての内容も削除されます。"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:193
 msgid "Try adjusting your search criteria"
