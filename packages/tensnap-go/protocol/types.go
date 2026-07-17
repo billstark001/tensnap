@@ -265,9 +265,7 @@ type ActionExecutionError struct {
 	Data    any    `json:"data,omitempty"`
 }
 
-// ActionEndPayload retains its Go name for source compatibility. Its JSON
-// contract is the v0.3 action_result payload.
-type ActionEndPayload struct {
+type ActionResultPayload struct {
 	ID             string                `json:"id"`
 	RequestID      string                `json:"request_id"`
 	ShouldContinue *bool                 `json:"should_continue,omitempty"`
@@ -282,6 +280,19 @@ type EnvCreatePayload struct {
 type EnvDeletePayload struct {
 	ID string `json:"id"`
 }
+
+type TrajectoryAgentDeletePolicy string
+type TrajectoryStateSyncPolicy string
+type TrajectoryResetPolicy string
+
+const (
+	TrajectoryAgentDeleteDelete TrajectoryAgentDeletePolicy = "delete"
+	TrajectoryAgentDeleteRetain TrajectoryAgentDeletePolicy = "retain"
+	TrajectoryStateSyncPreserve TrajectoryStateSyncPolicy   = "preserve"
+	TrajectoryStateSyncClear    TrajectoryStateSyncPolicy   = "clear"
+	TrajectoryResetClear        TrajectoryResetPolicy       = "clear"
+	TrajectoryResetPreserve     TrajectoryResetPolicy       = "preserve"
+)
 
 type EnvLayerCreatePayload struct {
 	EnvID              string            `json:"env_id"`
@@ -435,14 +446,13 @@ type ActionTarget struct {
 	LayerID string `json:"layer_id,omitempty"`
 	AgentID any    `json:"agent_id,omitempty"`
 }
-type ActionStartPayload struct {
+type ActionInvokePayload struct {
 	ID         string         `json:"id"`
 	RequestID  string         `json:"request_id"`
 	Continuous *bool          `json:"continuous,omitempty"`
 	Target     *ActionTarget  `json:"target,omitempty"`
 	Kwargs     map[string]any `json:"kwargs,omitempty"`
 }
-type ActionInvokePayload = ActionStartPayload
 
 type MonitorMetadata struct {
 	ID         string  `json:"id"`
@@ -458,12 +468,19 @@ type MonitorDeletePayload struct {
 	ID string `json:"id"`
 }
 
+// Checkpoint is the opaque v0.3 wire envelope. Binding APIs infer this
+// envelope and expose only decoded model data to capture/restore callbacks.
+type Checkpoint struct {
+	Encoding string `json:"encoding"`
+	Data     any    `json:"data"`
+}
+
 type SceneRestorePayload struct {
 	RequestID          string           `json:"request_id"`
 	ModelID            string           `json:"model_id"`
 	StateSchemaVersion *string          `json:"state_schema_version,omitempty"`
 	ExpectedInstanceID *string          `json:"expected_instance_id,omitempty"`
-	Checkpoint         any              `json:"checkpoint,omitempty"`
+	Checkpoint         *Checkpoint      `json:"checkpoint,omitempty"`
 	Time               *float64         `json:"time,omitempty"`
 	Parameters         []map[string]any `json:"parameters,omitempty"`
 	Envs               []any            `json:"envs,omitempty"`
@@ -480,10 +497,10 @@ type SceneCapturePayload struct {
 	RequestID string `json:"request_id"`
 }
 type SceneCaptureResultPayload struct {
-	RequestID          string  `json:"request_id"`
-	ModelID            string  `json:"model_id"`
-	StateSchemaVersion *string `json:"state_schema_version,omitempty"`
-	Checkpoint         any     `json:"checkpoint"`
+	RequestID          string     `json:"request_id"`
+	ModelID            string     `json:"model_id"`
+	StateSchemaVersion *string    `json:"state_schema_version,omitempty"`
+	Checkpoint         Checkpoint `json:"checkpoint"`
 }
 
 type AssetSyncPayload struct {

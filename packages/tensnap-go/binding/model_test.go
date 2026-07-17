@@ -26,19 +26,22 @@ type testModel struct {
 
 type testEmitter struct {
 	abm.Sink
-	params      []any
-	paramSyncs  []protocol.ParamSyncPayload
-	actions     []*protocol.Action
-	layers      []*protocol.EnvLayerCreatePayload
-	itemCreates []itemCall
-	itemUpdates []itemCall
-	itemDeletes []deleteCall
-	actionEnds  []*protocol.ActionEndPayload
-	chartValues []protocol.ChartUpdateEntry
-	monitors    []*protocol.MonitorMetadata
-	monitorVals []*protocol.MonitorUpdatePayload
-	restoreEnds []*protocol.SceneRestoreEndPayload
-	captures    []*protocol.SceneCaptureResultPayload
+	params       []any
+	paramUpdates []any
+	paramSyncs   []protocol.ParamSyncPayload
+	actions      []*protocol.Action
+	layers       []*protocol.EnvLayerCreatePayload
+	itemCreates  []itemCall
+	itemUpdates  []itemCall
+	itemDeletes  []deleteCall
+	actionEnds   []*protocol.ActionResultPayload
+	chartValues  []protocol.ChartUpdateEntry
+	chartOps     []protocol.ChartOperation
+	monitors     []*protocol.MonitorMetadata
+	monitorVals  []*protocol.MonitorUpdatePayload
+	monitorDels  []string
+	restoreEnds  []*protocol.SceneRestoreEndPayload
+	captures     []*protocol.SceneCaptureResultPayload
 }
 
 type itemCall struct {
@@ -55,6 +58,11 @@ type deleteCall struct {
 
 func (e *testEmitter) ParamCreate(param any) error {
 	e.params = append(e.params, param)
+	return nil
+}
+
+func (e *testEmitter) ParamUpdate(param any) error {
+	e.paramUpdates = append(e.paramUpdates, param)
 	return nil
 }
 
@@ -90,7 +98,7 @@ func (e *testEmitter) ItemDelete(envID, layerID string, items []any) error {
 	return nil
 }
 
-func (e *testEmitter) ActionResult(payload *protocol.ActionEndPayload) error {
+func (e *testEmitter) ActionResult(payload *protocol.ActionResultPayload) error {
 	copy := *payload
 	e.actionEnds = append(e.actionEnds, &copy)
 	return nil
@@ -98,6 +106,7 @@ func (e *testEmitter) ActionResult(payload *protocol.ActionEndPayload) error {
 
 func (e *testEmitter) ChartUpdate(payload *protocol.ChartUpdatePayload) error {
 	e.chartValues = append(e.chartValues, payload.Updates...)
+	e.chartOps = append(e.chartOps, payload.Operations...)
 	return nil
 }
 
@@ -110,6 +119,11 @@ func (e *testEmitter) MonitorCreate(payload *protocol.MonitorMetadata) error {
 func (e *testEmitter) MonitorUpdate(payload *protocol.MonitorUpdatePayload) error {
 	copy := *payload
 	e.monitorVals = append(e.monitorVals, &copy)
+	return nil
+}
+
+func (e *testEmitter) MonitorDelete(id string) error {
+	e.monitorDels = append(e.monitorDels, id)
 	return nil
 }
 
@@ -170,6 +184,20 @@ func TestDeclarativeModelReplaysAndDiffsOwnedState(t *testing.T) {
 	}
 	if len(emitter.itemCreates) != 1 || emitter.itemCreates[0].items[0]["id"] != "a" {
 		t.Fatalf("expected initial item create, got %#v", emitter.itemCreates)
+	}
+	startContinuous := false
+	for _, action := range emitter.actions {
+		if action.ID == ActionIDStart && action.Continuous != nil && *action.Continuous {
+			startContinuous = true
+		}
+	}
+	if !startContinuous {
+		t.Fatalf("start action must be declared continuous: %#v", emitter.actions)
+	}
+	for _, action := range emitter.actions {
+		if action.ID == protocol.ActionIDInit {
+			t.Fatalf("init must remain dispatchable without creating a renderer action: %#v", emitter.actions)
+		}
 	}
 
 	if err := model.OnParamChange(emitter, "speed", 2.5); err != nil {
@@ -264,11 +292,14 @@ func TestDeclarativeMonitorsAndRestoreHooks(t *testing.T) {
 		}).Hint("tree")),
 		WithSceneRestore(func(model *testModel, payload *protocol.SceneRestorePayload) error {
 			restored = true
-			model.speed = payload.Checkpoint.(float64)
 			return nil
 		}),
 		WithCheckpointCapture(func(model *testModel) (any, error) {
 			return model.speed, nil
+		}),
+		WithCheckpointRestore(func(model *testModel, data any) error {
+			model.speed = data.(float64)
+			return nil
 		}),
 	)
 	emitter := &testEmitter{}
@@ -287,8 +318,12 @@ func TestDeclarativeMonitorsAndRestoreHooks(t *testing.T) {
 		t.Fatalf("unexpected capabilities: %#v", got)
 	}
 	time := 7.0
+	checkpoint, err := encodeCheckpoint(9.0)
+	if err != nil {
+		t.Fatalf("encodeCheckpoint returned error: %v", err)
+	}
 	if err := model.OnSceneRestore(emitter, &protocol.SceneRestorePayload{
-		RequestID: "restore-1", ModelID: "monitor-model", StateSchemaVersion: &schema, Time: &time, Checkpoint: 9.0,
+		RequestID: "restore-1", ModelID: "monitor-model", StateSchemaVersion: &schema, Time: &time, Checkpoint: &checkpoint,
 	}); err != nil {
 		t.Fatalf("OnSceneRestore returned error: %v", err)
 	}
@@ -298,8 +333,113 @@ func TestDeclarativeMonitorsAndRestoreHooks(t *testing.T) {
 	if err := model.OnSceneCapture(emitter, &protocol.SceneCapturePayload{RequestID: "capture-1"}); err != nil {
 		t.Fatalf("OnSceneCapture returned error: %v", err)
 	}
-	if len(emitter.captures) != 1 || emitter.captures[0].Checkpoint != 9.0 {
+	if len(emitter.captures) != 1 || emitter.captures[0].Checkpoint.Encoding != "application/json" {
 		t.Fatalf("unexpected capture: %#v", emitter.captures)
+	}
+	capturedData, err := decodeCheckpoint(&emitter.captures[0].Checkpoint)
+	if err != nil || capturedData != 9.0 {
+		t.Fatalf("unexpected decoded capture: %#v (%v)", capturedData, err)
+	}
+}
+
+func TestCheckpointOnlyRestore(t *testing.T) {
+	raw := &testModel{speed: 2}
+	model := NewModel(
+		raw,
+		WithSimulatorInfo[*testModel](protocol.SimulatorInfoPayload{
+			Model: protocol.ModelInfo{ID: "checkpoint-only"},
+		}),
+		WithCheckpointCapture(func(model *testModel) (any, error) {
+			return model.speed, nil
+		}),
+		WithCheckpointRestore(func(model *testModel, data any) error {
+			model.speed = data.(float64)
+			return nil
+		}),
+	)
+	capabilities := model.SimulatorInfo().Capabilities
+	if len(capabilities) != 1 || capabilities[0] != "scene.restore.checkpoint" {
+		t.Fatalf("unexpected checkpoint-only capabilities: %#v", capabilities)
+	}
+
+	checkpoint, err := encodeCheckpoint(7.0)
+	if err != nil {
+		t.Fatalf("encodeCheckpoint returned error: %v", err)
+	}
+	emitter := &testEmitter{}
+	if err := model.OnSceneRestore(emitter, &protocol.SceneRestorePayload{
+		RequestID: "restore-only", ModelID: "checkpoint-only", Checkpoint: &checkpoint,
+	}); err != nil {
+		t.Fatalf("OnSceneRestore returned error: %v", err)
+	}
+	if raw.speed != 7 || len(emitter.restoreEnds) != 1 || emitter.restoreEnds[0].Status != "ok" {
+		t.Fatalf("unexpected checkpoint-only restore: speed=%v ends=%#v", raw.speed, emitter.restoreEnds)
+	}
+}
+
+func TestResetUsesUpdatesAndRecreatesAgentState(t *testing.T) {
+	raw := &testModel{speed: 2}
+	initCalls := 0
+	model := NewModel(
+		raw,
+		WithInit(func(model *testModel) error {
+			initCalls++
+			x := 4.0
+			if initCalls > 1 {
+				x = 0
+			}
+			model.agents = []testAgent{{id: "a", x: x}}
+			return nil
+		}),
+		WithEnvs(NewEnv("world",
+			NewAgentLayer[*testModel, testAgent]("agents").
+				Items(func(model *testModel) []testAgent { return model.agents }).
+				Project(func(_ *testModel, agent testAgent) map[string]any {
+					return map[string]any{"id": agent.id, "x": agent.x, "y": 0.0}
+				}),
+		)),
+		WithParams(NumberParam("speed", "Speed",
+			func(model *testModel) float64 { return model.speed },
+			func(model *testModel, value float64) error {
+				model.speed = value
+				return nil
+			},
+		).Build()),
+		WithCharts(NewChart("speed", "Speed", "#2563EB", func(model *testModel) any { return model.speed })),
+		WithMonitors(NewMonitor("status", "Status", func(model *testModel) any { return model.speed })),
+	)
+	emitter := &testEmitter{}
+	if err := model.Setup(emitter); err != nil {
+		t.Fatalf("Setup returned error: %v", err)
+	}
+	initialMonitorCreates := len(emitter.monitors)
+	continuous := false
+	if err := model.OnAction(emitter, &protocol.ActionInvokePayload{
+		ID: ActionIDReset, RequestID: "reset-1", Continuous: &continuous,
+	}); err != nil {
+		t.Fatalf("OnAction(reset) returned error: %v", err)
+	}
+
+	if len(emitter.monitors) != initialMonitorCreates {
+		t.Fatalf("reset emitted duplicate monitor_create: %#v", emitter.monitors)
+	}
+	if len(emitter.itemCreates) != 2 || emitter.itemCreates[1].items[0]["x"] != 0.0 {
+		t.Fatalf("reset did not recreate current agent state: %#v", emitter.itemCreates)
+	}
+	if len(emitter.itemDeletes) != 1 || len(emitter.itemDeletes[0].items) != 1 || emitter.itemDeletes[0].items[0] != "a" {
+		t.Fatalf("reset did not delete the previous agent state before recreating it: %#v", emitter.itemDeletes)
+	}
+	if len(emitter.paramUpdates) != 1 {
+		t.Fatalf("reset did not emit a protocol parameter definition: %#v", emitter.paramUpdates)
+	}
+	if _, ok := emitter.paramUpdates[0].(protocol.NumberParameter); !ok {
+		t.Fatalf("reset emitted internal parameter metadata instead of a protocol payload: %T", emitter.paramUpdates[0])
+	}
+	if len(emitter.chartOps) != 1 || emitter.chartOps[0].Operation != "clear" {
+		t.Fatalf("reset did not clear charts explicitly: %#v", emitter.chartOps)
+	}
+	if len(emitter.monitorVals) < 2 || len(emitter.actionEnds) == 0 {
+		t.Fatalf("reset did not replay current values/result: monitors=%#v results=%#v", emitter.monitorVals, emitter.actionEnds)
 	}
 }
 
@@ -387,7 +527,11 @@ func TestTrajectoryAndBackgroundLayerCreatePayloads(t *testing.T) {
 		AgentLayer("agents").
 		Data(func(*testModel) map[string]any {
 			return map[string]any{"length": 25, "color": "#f00"}
-		})
+		}).
+		Width(2).
+		OnAgentDelete(protocol.TrajectoryAgentDeleteRetain).
+		OnStateSync(protocol.TrajectoryStateSyncPreserve).
+		OnReset(protocol.TrajectoryResetClear)
 	background := NewBackgroundLayer[*testModel]("background").
 		Data(func(*testModel) map[string]any {
 			return map[string]any{"background": "asset://map", "interpolation": "nearest"}
@@ -399,6 +543,9 @@ func TestTrajectoryAndBackgroundLayerCreatePayloads(t *testing.T) {
 	}
 	if trailPayload.Data["length"] != 25 {
 		t.Fatalf("unexpected trajectory metadata: %#v", trailPayload.Data)
+	}
+	if trailPayload.Data["width"] != 2.0 || trailPayload.Data["on_agent_delete"] != protocol.TrajectoryAgentDeleteRetain || trailPayload.Data["on_state_sync"] != protocol.TrajectoryStateSyncPreserve || trailPayload.Data["on_reset"] != protocol.TrajectoryResetClear {
+		t.Fatalf("unexpected trajectory lifecycle metadata: %#v", trailPayload.Data)
 	}
 	backgroundPayload := background.CreatePayload(raw, "world")
 	if backgroundPayload.LayerType != "background" || backgroundPayload.Data["background"] != "asset://map" {

@@ -100,7 +100,7 @@ func (b *Base) OnAction(e Emitter, payload *protocol.ActionInvokePayload) error 
 		err = fmt.Errorf("tensnap: unhandled action %q", payload.ID)
 	}
 	f := false
-	result := &protocol.ActionEndPayload{ID: payload.ID, RequestID: payload.RequestID, ShouldContinue: &f}
+	result := &protocol.ActionResultPayload{ID: payload.ID, RequestID: payload.RequestID, ShouldContinue: &f}
 	if err != nil {
 		result.Error = &protocol.ActionExecutionError{Code: "handler_error", Message: err.Error()}
 	}
@@ -144,9 +144,8 @@ func (b *Base) OnStateSync(e Emitter, p *protocol.StateSyncPayload) error {
 		return fmt.Errorf("tensnap: state_sync model_id mismatch")
 	}
 	mode := "replace"
-	if p.InstanceID != nil && *p.InstanceID == info.InstanceID {
-		mode = "reconcile"
-	}
+	// Base performs an authoritative full create replay. Keep it in replace
+	// mode so create frames are never misused as monitor/chart/object upserts.
 	if err := e.StateSyncBegin(&protocol.StateSyncBeginPayload{
 		RequestID: p.RequestID, ModelID: info.Model.ID, InstanceID: info.InstanceID, Mode: mode,
 	}); err != nil {
@@ -265,6 +264,14 @@ func (b *Base) ReplayScenario(e Emitter) error {
 		return nil
 	}
 	return b.scenario.Replay(e)
+}
+
+// ReplayScenarioForRestore replays registered state without chart messages.
+func (b *Base) ReplayScenarioForRestore(e Emitter) error {
+	if b.scenario == nil {
+		return nil
+	}
+	return b.scenario.ReplayForRestore(e)
 }
 
 // SetActionRouter installs the action router used by Base.OnAction.
