@@ -1,19 +1,29 @@
 # tensnap/examples/flock.py
-"""Pure flocking simulation without any visualization dependencies"""
+"""Pure flocking simulation without any visualization dependencies."""
 
-import random
+import json
 import math
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
+import random
+from dataclasses import asdict, dataclass, fields
+from typing import Any, Dict, List, Optional
 
 from tensnap import (
     agent,
-    env,
     agent_layer,
+    env,
     grid_layer,
+    monitor,
     params,
+    scene_restore,
     trajectory_layer,
 )
+
+
+def _nested_tuple(value: Any) -> Any:
+    """Rebuild tuple-based ``random.Random`` state after JSON decoding."""
+    if isinstance(value, list):
+        return tuple(_nested_tuple(item) for item in value)
+    return value
 
 
 @params(exclude=r"world_.+")
@@ -47,6 +57,26 @@ class Bird:
         self.vx = math.cos(self.heading) * random.uniform(0.2, 0.6)
         self.vy = math.sin(self.heading) * random.uniform(0.2, 0.6)
 
+    @classmethod
+    def from_snapshot(
+        cls,
+        bird_id: str,
+        x: float,
+        y: float,
+        heading: float,
+        vx: float,
+        vy: float,
+    ) -> "Bird":
+        """Rebuild a bird without consuming RNG state during restore."""
+        bird = cls.__new__(cls)
+        bird.id = bird_id
+        bird.x = x
+        bird.y = y
+        bird.heading = heading
+        bird.vx = vx
+        bird.vy = vy
+        return bird
+
     def get_speed(self) -> float:
         """Get current speed of the bird"""
         return math.sqrt(self.vx * self.vx + self.vy * self.vy)
@@ -70,6 +100,11 @@ class Bird:
         }
 
 
+@scene_restore(
+    "restore_scene",
+    checkpoint_capture="capture_checkpoint",
+    checkpoint_restore="restore_checkpoint",
+)
 @trajectory_layer(
     agent_layer_id="birds",
     width=False,
@@ -113,6 +148,116 @@ class FlockSimulation:
             y = center_y + random.uniform(-spawn_radius, spawn_radius)
             bird = Bird(f"bird_{i}", x, y)
             self.birds.append(bird)
+
+    @monitor("flock_status", "Flock Status", render_hint="tree")
+    def flock_status(self) -> Dict[str, Any]:
+        """Expose the latest model-wide diagnostics without chart history."""
+        return {
+            "step": self.time_step,
+            "birds": len(self.birds),
+            "average_speed": self.get_average_speed(),
+            "order_parameter": self.get_order_parameter(),
+        }
+
+    def capture_checkpoint(self) -> bytes:
+        """Capture exact model-private state for v0.3 snapshot restore."""
+        checkpoint = {
+            "config": asdict(self.config),
+            "time_step": self.time_step,
+            "birds": [
+                {
+                    "id": bird.id,
+                    "x": bird.x,
+                    "y": bird.y,
+                    "heading": bird.heading,
+                    "vx": bird.vx,
+                    "vy": bird.vy,
+                }
+                for bird in self.birds
+            ],
+            "random_state": random.getstate(),
+        }
+        return json.dumps(checkpoint, separators=(",", ":")).encode("utf-8")
+
+    def restore_checkpoint(self, checkpoint: bytes) -> None:
+        """Restore a checkpoint produced by :meth:`capture_checkpoint`."""
+        if not isinstance(checkpoint, (bytes, bytearray, memoryview)):
+            raise TypeError("flock checkpoint must be bytes")
+
+        state = json.loads(bytes(checkpoint).decode("utf-8"))
+        config_state = state["config"]
+        for field in fields(FlockConfig):
+            setattr(self.config, field.name, config_state[field.name])
+
+        birds: List[Bird] = []
+        seen_ids: set[str] = set()
+        for item in state["birds"]:
+            bird_id = str(item["id"])
+            if bird_id in seen_ids:
+                raise ValueError(f"duplicate bird id in checkpoint: {bird_id}")
+            seen_ids.add(bird_id)
+            bird = Bird.from_snapshot(
+                bird_id,
+                float(item["x"]),
+                float(item["y"]),
+                float(item["heading"]),
+                float(item["vx"]),
+                float(item["vy"]),
+            )
+            birds.append(bird)
+
+        self.birds = birds
+        self.time_step = int(state["time_step"])
+        random.setstate(_nested_tuple(state["random_state"]))
+
+    def restore_scene(self, payload: Dict[str, Any]) -> None:
+        """Overlay complete renderer-visible v0.3 projected snapshot state."""
+        parameter_fields = {field.name for field in fields(FlockConfig)}
+        for parameter in payload.get("parameters", []):
+            parameter_id = parameter["id"]
+            if parameter_id not in parameter_fields:
+                raise ValueError(f"unknown flock parameter: {parameter_id}")
+            setattr(self.config, parameter_id, parameter["value"])
+
+        envs = payload.get("envs", [])
+        if envs:
+            if len(envs) != 1 or envs[0].get("id") != "main":
+                raise ValueError(
+                    "flock restore requires the complete 'main' environment"
+                )
+            bird_layer = next(
+                (
+                    layer
+                    for layer in envs[0].get("layers", [])
+                    if layer.get("layer_id") == "birds"
+                    and layer.get("layer_type") == "agent"
+                ),
+                None,
+            )
+            if bird_layer is None:
+                raise ValueError("flock restore is missing the 'birds' agent layer")
+
+            birds: List[Bird] = []
+            seen_ids: set[str] = set()
+            for item in bird_layer.get("items", []):
+                bird_id = str(item["id"])
+                if bird_id in seen_ids:
+                    raise ValueError(f"duplicate bird id in snapshot: {bird_id}")
+                seen_ids.add(bird_id)
+                data = item.get("data") or {}
+                bird = Bird.from_snapshot(
+                    bird_id,
+                    float(item["x"]),
+                    float(item["y"]),
+                    float(item["heading"]),
+                    float(data["vx"]),
+                    float(data["vy"]),
+                )
+                birds.append(bird)
+            self.birds = birds
+
+        if "time" in payload:
+            self.time_step = int(payload["time"])
 
     def update_bird(self, bird: Bird) -> None:
         """Update a single bird using flocking rules"""
