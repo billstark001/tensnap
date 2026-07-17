@@ -20,6 +20,7 @@ type Scenario struct {
 	Actions     []*protocol.Action
 	Envs        []ScenarioEnvironment
 	Charts      []*protocol.ChartGroupMetadata
+	Monitors    []*protocol.MonitorMetadata
 	ReplayState func(e Emitter) error
 
 	paramByID map[string]*ParamMetadata
@@ -54,6 +55,12 @@ func (s *Scenario) WithEnvs(envs ...ScenarioEnvironment) *Scenario {
 // WithCharts appends chart declarations.
 func (s *Scenario) WithCharts(charts ...*protocol.ChartGroupMetadata) *Scenario {
 	s.Charts = append(s.Charts, charts...)
+	return s
+}
+
+// WithMonitors appends renderer-visible monitor declarations.
+func (s *Scenario) WithMonitors(monitors ...*protocol.MonitorMetadata) *Scenario {
+	s.Monitors = append(s.Monitors, monitors...)
 	return s
 }
 
@@ -180,6 +187,11 @@ func (s *Scenario) Replay(e Emitter) error {
 	}
 	for _, chart := range s.Charts {
 		if err := e.ChartCreate(chart); err != nil {
+			return err
+		}
+	}
+	for _, monitor := range s.Monitors {
+		if err := e.MonitorCreate(monitor); err != nil {
 			return err
 		}
 	}

@@ -148,7 +148,7 @@ func (t *ItemDiffTracker[T]) Compute(
 // Use [NewNaiveItemDiffTracker] to create an instance.
 type NaiveItemDiffTracker struct {
 	keyFields []string
-	prev      map[string]ItemSnapshot
+	prev      map[any]ItemSnapshot
 }
 
 // NewNaiveItemDiffTracker returns a tracker keyed by the given field names.
@@ -159,19 +159,26 @@ func NewNaiveItemDiffTracker(keyFields ...string) *NaiveItemDiffTracker {
 	}
 	return &NaiveItemDiffTracker{
 		keyFields: keyFields,
-		prev:      make(map[string]ItemSnapshot),
+		prev:      make(map[any]ItemSnapshot),
 	}
 }
 
 // Reset clears the tracker's internal state.
 func (t *NaiveItemDiffTracker) Reset() {
-	t.prev = make(map[string]ItemSnapshot)
+	t.prev = make(map[any]ItemSnapshot)
 }
 
-// itemKey builds a stable string key from the item's key fields.
-func (t *NaiveItemDiffTracker) itemKey(item ItemSnapshot) string {
+// itemKey keeps the overwhelmingly common one-field scalar key as-is, rather
+// than formatting it into a throwaway string for every item on every tick.
+func (t *NaiveItemDiffTracker) itemKey(item ItemSnapshot) any {
 	if len(t.keyFields) == 1 {
-		return fmt.Sprintf("%v", item[t.keyFields[0]])
+		value := item[t.keyFields[0]]
+		switch value.(type) {
+		case nil, bool, string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+			return value
+		default:
+			return fmt.Sprintf("%T:%v", value, value)
+		}
 	}
 	parts := make([]string, len(t.keyFields))
 	for i, f := range t.keyFields {
@@ -196,7 +203,7 @@ func (t *NaiveItemDiffTracker) itemDeleteKey(item ItemSnapshot) any {
 // the first subsequent Compute call produces correct incremental diffs instead of
 // treating every existing item as newly created.
 func (t *NaiveItemDiffTracker) Seed(projected []ItemSnapshot) {
-	t.prev = make(map[string]ItemSnapshot, len(projected))
+	t.prev = make(map[any]ItemSnapshot, len(projected))
 	for _, item := range projected {
 		key := t.itemKey(item)
 		snap := make(ItemSnapshot, len(item))
@@ -217,7 +224,7 @@ func (t *NaiveItemDiffTracker) Seed(projected []ItemSnapshot) {
 func (t *NaiveItemDiffTracker) Compute(
 	projected []ItemSnapshot,
 ) (created, updated []ItemSnapshot, deleted []any) {
-	currentKeys := make(map[string]struct{}, len(projected))
+	currentKeys := make(map[any]struct{}, len(projected))
 
 	for _, item := range projected {
 		key := t.itemKey(item)

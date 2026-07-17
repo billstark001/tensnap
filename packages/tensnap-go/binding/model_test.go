@@ -35,6 +35,10 @@ type testEmitter struct {
 	itemDeletes []deleteCall
 	actionEnds  []*protocol.ActionEndPayload
 	chartValues []protocol.ChartUpdateEntry
+	monitors    []*protocol.MonitorMetadata
+	monitorVals []*protocol.MonitorUpdatePayload
+	restoreEnds []*protocol.SceneRestoreEndPayload
+	captures    []*protocol.SceneCaptureResultPayload
 }
 
 type itemCall struct {
@@ -86,7 +90,7 @@ func (e *testEmitter) ItemDelete(envID, layerID string, items []any) error {
 	return nil
 }
 
-func (e *testEmitter) ActionEnd(payload *protocol.ActionEndPayload) error {
+func (e *testEmitter) ActionResult(payload *protocol.ActionEndPayload) error {
 	copy := *payload
 	e.actionEnds = append(e.actionEnds, &copy)
 	return nil
@@ -94,6 +98,30 @@ func (e *testEmitter) ActionEnd(payload *protocol.ActionEndPayload) error {
 
 func (e *testEmitter) ChartUpdate(payload *protocol.ChartUpdatePayload) error {
 	e.chartValues = append(e.chartValues, payload.Updates...)
+	return nil
+}
+
+func (e *testEmitter) MonitorCreate(payload *protocol.MonitorMetadata) error {
+	copy := *payload
+	e.monitors = append(e.monitors, &copy)
+	return nil
+}
+
+func (e *testEmitter) MonitorUpdate(payload *protocol.MonitorUpdatePayload) error {
+	copy := *payload
+	e.monitorVals = append(e.monitorVals, &copy)
+	return nil
+}
+
+func (e *testEmitter) SceneRestoreEnd(payload *protocol.SceneRestoreEndPayload) error {
+	copy := *payload
+	e.restoreEnds = append(e.restoreEnds, &copy)
+	return nil
+}
+
+func (e *testEmitter) SceneCaptureResult(payload *protocol.SceneCaptureResultPayload) error {
+	copy := *payload
+	e.captures = append(e.captures, &copy)
 	return nil
 }
 
@@ -151,7 +179,10 @@ func TestDeclarativeModelReplaysAndDiffsOwnedState(t *testing.T) {
 		t.Fatalf("speed = %v, want 2.5", raw.speed)
 	}
 
-	if err := model.OnAction(emitter, ActionIDStart, nil, true); err != nil {
+	continuous := true
+	if err := model.OnAction(emitter, &protocol.ActionInvokePayload{
+		ID: ActionIDStart, RequestID: "action-1", Continuous: &continuous,
+	}); err != nil {
 		t.Fatalf("OnAction(start) returned error: %v", err)
 	}
 	if len(emitter.itemUpdates) != 1 {
@@ -161,7 +192,7 @@ func TestDeclarativeModelReplaysAndDiffsOwnedState(t *testing.T) {
 		t.Fatalf("updated x = %#v, want 3.5", got)
 	}
 	if len(emitter.actionEnds) == 0 || emitter.actionEnds[len(emitter.actionEnds)-1].ID != ActionIDStart {
-		t.Fatalf("expected start action_end, got %#v", emitter.actionEnds)
+		t.Fatalf("expected start action_result, got %#v", emitter.actionEnds)
 	}
 	if len(emitter.chartValues) == 0 || emitter.chartValues[len(emitter.chartValues)-1].ID != "count" {
 		t.Fatalf("expected chart update, got %#v", emitter.chartValues)
@@ -216,6 +247,59 @@ func TestChartGroupMetadataAndUpdates(t *testing.T) {
 		if update.Time == nil || *update.Time != 4 {
 			t.Fatalf("unexpected chart update time: %#v", update)
 		}
+	}
+}
+
+func TestDeclarativeMonitorsAndRestoreHooks(t *testing.T) {
+	raw := &testModel{speed: 2}
+	schema := "1"
+	restored := false
+	model := NewModel(
+		raw,
+		WithSimulatorInfo[*testModel](protocol.SimulatorInfoPayload{
+			Model: protocol.ModelInfo{ID: "monitor-model", StateSchemaVersion: &schema},
+		}),
+		WithMonitors(NewMonitor("status", "Status", func(model *testModel) any {
+			return map[string]any{"speed": model.speed}
+		}).Hint("tree")),
+		WithSceneRestore(func(model *testModel, payload *protocol.SceneRestorePayload) error {
+			restored = true
+			model.speed = payload.Checkpoint.(float64)
+			return nil
+		}),
+		WithCheckpointCapture(func(model *testModel) (any, error) {
+			return model.speed, nil
+		}),
+	)
+	emitter := &testEmitter{}
+
+	if err := model.Setup(emitter); err != nil {
+		t.Fatalf("Setup returned error: %v", err)
+	}
+	if len(emitter.monitors) != 1 || emitter.monitors[0].RenderHint == nil || *emitter.monitors[0].RenderHint != "tree" {
+		t.Fatalf("unexpected monitor metadata: %#v", emitter.monitors)
+	}
+	if len(emitter.monitorVals) != 1 || emitter.monitorVals[0].Value.(map[string]any)["speed"] != 2.0 {
+		t.Fatalf("unexpected monitor value: %#v", emitter.monitorVals)
+	}
+	info := model.SimulatorInfo()
+	if got := info.Capabilities; len(got) != 3 || got[0] != "monitor" || got[1] != "scene.restore.checkpoint" || got[2] != "scene.restore.projected" {
+		t.Fatalf("unexpected capabilities: %#v", got)
+	}
+	time := 7.0
+	if err := model.OnSceneRestore(emitter, &protocol.SceneRestorePayload{
+		RequestID: "restore-1", ModelID: "monitor-model", StateSchemaVersion: &schema, Time: &time, Checkpoint: 9.0,
+	}); err != nil {
+		t.Fatalf("OnSceneRestore returned error: %v", err)
+	}
+	if !restored || raw.speed != 9 || model.Tick() != 7 || len(emitter.restoreEnds) != 1 || emitter.restoreEnds[0].Status != "ok" {
+		t.Fatalf("unexpected restore state: restored=%v speed=%v tick=%d ends=%#v", restored, raw.speed, model.Tick(), emitter.restoreEnds)
+	}
+	if err := model.OnSceneCapture(emitter, &protocol.SceneCapturePayload{RequestID: "capture-1"}); err != nil {
+		t.Fatalf("OnSceneCapture returned error: %v", err)
+	}
+	if len(emitter.captures) != 1 || emitter.captures[0].Checkpoint != 9.0 {
+		t.Fatalf("unexpected capture: %#v", emitter.captures)
 	}
 }
 

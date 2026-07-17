@@ -66,21 +66,26 @@ func NewChartFunc[T any](id, label, color string, getter func(T) (any, error)) *
 }
 
 func (c *Chart[T]) Metadata() *protocol.ChartGroupMetadata {
-	color := c.Color
 	meta := &protocol.ChartGroupMetadata{
 		ID:    c.ID,
 		Label: c.Label,
-		Color: &color,
+	}
+	if c.Color != "" {
+		color := c.Color
+		meta.Color = &color
 	}
 	if len(c.series) > 0 {
 		meta.DataList = make([]protocol.ChartMetadata, 0, len(c.series))
 		for _, series := range c.series {
-			seriesColor := series.Color
-			meta.DataList = append(meta.DataList, protocol.ChartMetadata{
+			item := protocol.ChartMetadata{
 				ID:    series.ID,
 				Label: series.Label,
-				Color: &seriesColor,
-			})
+			}
+			if series.Color != "" {
+				seriesColor := series.Color
+				item.Color = &seriesColor
+			}
+			meta.DataList = append(meta.DataList, item)
 		}
 	}
 	return meta
@@ -133,12 +138,15 @@ func (c *Chart[T]) Updates(target T, tick float64) ([]protocol.ChartUpdateEntry,
 }
 
 func (s ChartSeries[T]) Metadata() protocol.ChartMetadata {
-	color := s.Color
-	return protocol.ChartMetadata{
+	metadata := protocol.ChartMetadata{
 		ID:    s.ID,
 		Label: s.Label,
-		Color: &color,
 	}
+	if s.Color != "" {
+		color := s.Color
+		metadata.Color = &color
+	}
+	return metadata
 }
 
 func (s ChartSeries[T]) Value(target T) (any, error) {

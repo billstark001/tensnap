@@ -1,4 +1,4 @@
-// Package protocol defines all TenSnap v0.2 wire types and constants.
+// Package protocol defines the canonical TenSnap v0.3 wire types and constants.
 // No external dependencies. Safe to import anywhere.
 package protocol
 
@@ -19,34 +19,44 @@ func NewMessage(msgType string, payload any) *Message {
 // #region Simulator → Renderer message types
 
 const (
+	TypeSimulatorInfo  = "simulator_info"
 	TypeMetadataUpdate = "metadata_update"
 	TypeStateSyncBegin = "state_sync_begin"
 	TypeStateSyncEnd   = "state_sync_end"
-	TypeActionEnd      = "action_end"
-	TypeActionCreate   = "action_create"
-	TypeActionUpdate   = "action_update"
-	TypeActionDelete   = "action_delete"
-	TypeEnvCreate      = "env_create"
-	TypeEnvDelete      = "env_delete"
-	TypeEnvLayerCreate = "env_layer_create"
-	TypeEnvLayerUpdate = "env_layer_update"
-	TypeEnvLayerDelete = "env_layer_delete"
-	TypeItemCreate     = "item_create"
-	TypeItemUpdate     = "item_update"
-	TypeItemDelete     = "item_delete"
-	TypeParamCreate    = "param_create"
-	TypeParamUpdate    = "param_update"
-	TypeParamDelete    = "param_delete"
-	TypeParamSync      = "param_sync"
-	TypeChartCreate    = "chart_create"
-	TypeChartUpdate    = "chart_update"
-	TypeChartDelete    = "chart_delete"
-	TypeAssetMeta      = "asset_meta"
-	TypeAssetData      = "asset_data"
-	TypeAssetDelete    = "asset_delete"
-	TypeScreenshotReq  = "screenshot_request"
-	TypeLog            = "log"
-	TypeError          = "error"
+	TypeActionResult   = "action_result"
+	// TypeActionEnd is source-compatible only; canonical v0.3 emits action_result.
+	TypeActionEnd          = TypeActionResult
+	TypeActionCreate       = "action_create"
+	TypeActionUpdate       = "action_update"
+	TypeActionDelete       = "action_delete"
+	TypeEnvCreate          = "env_create"
+	TypeEnvDelete          = "env_delete"
+	TypeEnvLayerCreate     = "env_layer_create"
+	TypeEnvLayerUpdate     = "env_layer_update"
+	TypeEnvLayerDelete     = "env_layer_delete"
+	TypeItemCreate         = "item_create"
+	TypeItemUpdate         = "item_update"
+	TypeItemDelete         = "item_delete"
+	TypeParamCreate        = "param_create"
+	TypeParamUpdate        = "param_update"
+	TypeParamDelete        = "param_delete"
+	TypeParamSync          = "param_sync"
+	TypeChartCreate        = "chart_create"
+	TypeChartUpdate        = "chart_update"
+	TypeChartDelete        = "chart_delete"
+	TypeAssetMetadata      = "asset_metadata"
+	TypeAssetMeta          = TypeAssetMetadata
+	TypeAssetData          = "asset_data"
+	TypeAssetDelete        = "asset_delete"
+	TypeScreenshotReq      = "screenshot_request"
+	TypeLog                = "log"
+	TypeError              = "error"
+	TypeMonitorCreate      = "monitor_create"
+	TypeMonitorUpdate      = "monitor_update"
+	TypeMonitorDelete      = "monitor_delete"
+	TypeSceneRestoreBegin  = "scene_restore_begin"
+	TypeSceneRestoreEnd    = "scene_restore_end"
+	TypeSceneCaptureResult = "scene_capture_result"
 )
 
 // #endregion
@@ -54,11 +64,15 @@ const (
 // #region Renderer → Simulator message types
 
 const (
-	TypeStateSync          = "state_sync"
-	TypeParamChange        = "param_change"
-	TypeActionStart        = "action_start"
+	TypeStateSync    = "state_sync"
+	TypeParamChange  = "param_change"
+	TypeActionInvoke = "action_invoke"
+	// TypeActionStart is source-compatible only; canonical v0.3 accepts action_invoke.
+	TypeActionStart        = TypeActionInvoke
 	TypeAssetSync          = "asset_sync"
 	TypeScreenshotResponse = "screenshot_response"
+	TypeSceneRestore       = "scene_restore"
+	TypeSceneCapture       = "scene_capture"
 )
 
 // Reserved action IDs.
@@ -93,7 +107,7 @@ type NumberParameter struct {
 	Min                float64 `json:"min"`
 	Max                float64 `json:"max"`
 	Step               float64 `json:"step"`
-	AllowRuntimeChange *bool   `json:"allowRuntimeChange,omitempty"`
+	AllowRuntimeChange *bool   `json:"allow_runtime_change,omitempty"`
 }
 
 type EnumParameter struct {
@@ -103,7 +117,7 @@ type EnumParameter struct {
 	Value              string            `json:"value"`
 	Options            []string          `json:"options"`
 	Labels             map[string]string `json:"labels,omitempty"`
-	AllowRuntimeChange *bool             `json:"allowRuntimeChange,omitempty"`
+	AllowRuntimeChange *bool             `json:"allow_runtime_change,omitempty"`
 }
 
 type BooleanParameter struct {
@@ -111,7 +125,7 @@ type BooleanParameter struct {
 	Type               string `json:"type"` // "boolean"
 	Label              string `json:"label"`
 	Value              bool   `json:"value"`
-	AllowRuntimeChange *bool  `json:"allowRuntimeChange,omitempty"`
+	AllowRuntimeChange *bool  `json:"allow_runtime_change,omitempty"`
 }
 
 type StringParameter struct {
@@ -119,7 +133,7 @@ type StringParameter struct {
 	Type               string `json:"type"` // "string"
 	Label              string `json:"label"`
 	Value              string `json:"value"`
-	AllowRuntimeChange *bool  `json:"allowRuntimeChange,omitempty"`
+	AllowRuntimeChange *bool  `json:"allow_runtime_change,omitempty"`
 }
 
 // #endregion
@@ -127,10 +141,23 @@ type StringParameter struct {
 // #region Action
 
 type Action struct {
-	ID                 string `json:"id"`
-	Label              string `json:"label"`
-	Continuous         *bool  `json:"continuous,omitempty"`
-	AllowRuntimeChange *bool  `json:"allowRuntimeChange,omitempty"`
+	ID         string                  `json:"id"`
+	Label      string                  `json:"label"`
+	Scope      *string                 `json:"scope,omitempty"`
+	Kwargs     []ActionKwargDefinition `json:"kwargs,omitempty"`
+	Continuous *bool                   `json:"continuous,omitempty"`
+}
+
+type ActionKwargDefinition struct {
+	Name     string   `json:"name"`
+	Label    *string  `json:"label,omitempty"`
+	Type     string   `json:"type"`
+	Required *bool    `json:"required,omitempty"`
+	Default  any      `json:"default,omitempty"`
+	Min      *float64 `json:"min,omitempty"`
+	Max      *float64 `json:"max,omitempty"`
+	Step     *float64 `json:"step,omitempty"`
+	Options  []string `json:"options,omitempty"`
 }
 
 // #endregion
@@ -147,7 +174,7 @@ type ChartGroupMetadata struct {
 	ID       string          `json:"id"`
 	Label    string          `json:"label"`
 	Color    *string         `json:"color,omitempty"`
-	DataList []ChartMetadata `json:"dataList,omitempty"`
+	DataList []ChartMetadata `json:"data_list,omitempty"`
 }
 
 // #endregion
@@ -177,21 +204,75 @@ type ScreenshotRequestPayload struct {
 type MetadataUpdatePayload struct {
 	Time *float64 `json:"time,omitempty"`
 }
-type StateSyncBracketPayload struct {
-	RequestID *string `json:"request_id,omitempty"`
+type BindingInfo struct {
+	Name     string  `json:"name"`
+	Version  string  `json:"version"`
+	Language *string `json:"language,omitempty"`
+}
+type ModelInfo struct {
+	ID                 string  `json:"id"`
+	Name               *string `json:"name,omitempty"`
+	Description        *string `json:"description,omitempty"`
+	Version            *string `json:"version,omitempty"`
+	StateSchemaVersion *string `json:"state_schema_version,omitempty"`
+}
+type SimulatorInfoPayload struct {
+	ProtocolVersion   string         `json:"protocol_version"`
+	Binding           BindingInfo    `json:"binding"`
+	Model             ModelInfo      `json:"model"`
+	InstanceID        string         `json:"instance_id"`
+	Capabilities      []string       `json:"capabilities"`
+	CapabilityDetails map[string]any `json:"capability_details,omitempty"`
 }
 
-type ActionEndTimings struct {
+// NormalizeSimulatorInfo preserves the required v0.3 collection shape when a
+// caller builds a handshake with Go's zero values. In particular, a nil slice
+// encodes as JSON null while an empty capability list must encode as [].
+func NormalizeSimulatorInfo(info *SimulatorInfoPayload) *SimulatorInfoPayload {
+	if info == nil {
+		return nil
+	}
+	normalized := *info
+	if info.Capabilities == nil {
+		normalized.Capabilities = []string{}
+	} else {
+		normalized.Capabilities = append([]string(nil), info.Capabilities...)
+	}
+	return &normalized
+}
+
+type StateSyncBeginPayload struct {
+	RequestID  string `json:"request_id"`
+	ModelID    string `json:"model_id"`
+	InstanceID string `json:"instance_id"`
+	Mode       string `json:"mode"`
+}
+type StateSyncEndPayload struct {
+	RequestID     string `json:"request_id"`
+	StateRevision string `json:"state_revision"`
+}
+
+type ActionResultTimings struct {
 	SimulateMS    *float64 `json:"simulate_ms,omitempty"`
 	CommunicateMS *float64 `json:"communicate_ms,omitempty"`
 	RenderMS      *float64 `json:"render_ms,omitempty"`
 }
 
+type ActionEndTimings = ActionResultTimings
+type ActionExecutionError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+}
+
+// ActionEndPayload retains its Go name for source compatibility. Its JSON
+// contract is the v0.3 action_result payload.
 type ActionEndPayload struct {
-	ID       string            `json:"id"`
-	TickID   *string           `json:"tick_id,omitempty"`
-	Continue *bool             `json:"continue,omitempty"`
-	Timings  *ActionEndTimings `json:"timings,omitempty"`
+	ID             string                `json:"id"`
+	RequestID      string                `json:"request_id"`
+	ShouldContinue *bool                 `json:"should_continue,omitempty"`
+	Error          *ActionExecutionError `json:"error,omitempty"`
+	Timings        *ActionResultTimings  `json:"timings,omitempty"`
 }
 
 type EnvCreatePayload struct {
@@ -207,13 +288,13 @@ type EnvLayerCreatePayload struct {
 	LayerID            string            `json:"layer_id"`
 	LayerType          string            `json:"layer_type"`
 	DependencyLayerIDs map[string]string `json:"dependency_layer_ids,omitempty"`
-	Data               map[string]any    `json:"data,omitempty"`
+	Data               map[string]any    `json:"metadata,omitempty"`
 }
 
 type EnvLayerUpdatePayload struct {
 	EnvID   string         `json:"env_id"`
 	LayerID string         `json:"layer_id"`
-	Data    map[string]any `json:"data"`
+	Data    map[string]any `json:"metadata"`
 }
 
 type EnvLayerDeletePayload struct {
@@ -254,8 +335,11 @@ type ChartUpdateEntry struct {
 }
 
 type ChartOperation struct {
-	ID        string `json:"id"`
-	Operation string `json:"operation"` // "clear"
+	ID        string   `json:"id,omitempty"`
+	Kind      string   `json:"kind"`
+	Operation string   `json:"operation"` // "clear" or "truncate"
+	Time      *float64 `json:"time,omitempty"`
+	Inclusive *bool    `json:"inclusive,omitempty"`
 }
 
 type ChartUpdatePayload struct {
@@ -264,7 +348,8 @@ type ChartUpdatePayload struct {
 }
 
 type ChartDeletePayload struct {
-	ID string `json:"id"`
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
 }
 type AssetMetaPayload struct {
 	Assets []AssetDescriptor `json:"assets"`
@@ -300,7 +385,12 @@ type LogPayload struct {
 }
 
 type ErrorPayload struct {
-	Error string `json:"error"`
+	Code      string  `json:"code"`
+	Message   string  `json:"message"`
+	RequestID *string `json:"request_id,omitempty"`
+	Path      *string `json:"path,omitempty"`
+	Retryable *bool   `json:"retryable,omitempty"`
+	Data      any     `json:"data,omitempty"`
 }
 type ActionDeletePayload struct {
 	ID string `json:"id"`
@@ -322,11 +412,16 @@ type StateSyncEnv struct {
 }
 
 type StateSyncPayload struct {
-	RequestID  *string         `json:"request_id,omitempty"`
-	Parameters []any           `json:"parameters"`
-	Actions    []Action        `json:"actions"`
-	Envs       []StateSyncEnv  `json:"envs"`
-	Charts     []ChartMetadata `json:"charts"`
+	RequestID        string            `json:"request_id"`
+	ModelID          string            `json:"model_id"`
+	InstanceID       *string           `json:"instance_id,omitempty"`
+	StateRevision    *string           `json:"state_revision,omitempty"`
+	MetadataRevision *string           `json:"metadata_revision,omitempty"`
+	Parameters       []any             `json:"parameters"`
+	Actions          []Action          `json:"actions"`
+	Envs             []StateSyncEnv    `json:"envs"`
+	Charts           []ChartMetadata   `json:"charts"`
+	Monitors         []MonitorMetadata `json:"monitors"`
 }
 
 type ParamChangePayload struct {
@@ -334,10 +429,61 @@ type ParamChangePayload struct {
 	Value any    `json:"value"`
 }
 
+type ActionTarget struct {
+	Type    string `json:"type"`
+	EnvID   string `json:"env_id"`
+	LayerID string `json:"layer_id,omitempty"`
+	AgentID any    `json:"agent_id,omitempty"`
+}
 type ActionStartPayload struct {
+	ID         string         `json:"id"`
+	RequestID  string         `json:"request_id"`
+	Continuous *bool          `json:"continuous,omitempty"`
+	Target     *ActionTarget  `json:"target,omitempty"`
+	Kwargs     map[string]any `json:"kwargs,omitempty"`
+}
+type ActionInvokePayload = ActionStartPayload
+
+type MonitorMetadata struct {
 	ID         string  `json:"id"`
-	TickID     *string `json:"tick_id,omitempty"`
-	Continuous *bool   `json:"continuous,omitempty"`
+	Label      string  `json:"label"`
+	RenderHint *string `json:"render_hint,omitempty"`
+}
+type MonitorUpdatePayload struct {
+	ID       string `json:"id"`
+	Value    any    `json:"value"`
+	Revision any    `json:"revision,omitempty"`
+}
+type MonitorDeletePayload struct {
+	ID string `json:"id"`
+}
+
+type SceneRestorePayload struct {
+	RequestID          string           `json:"request_id"`
+	ModelID            string           `json:"model_id"`
+	StateSchemaVersion *string          `json:"state_schema_version,omitempty"`
+	ExpectedInstanceID *string          `json:"expected_instance_id,omitempty"`
+	Checkpoint         any              `json:"checkpoint,omitempty"`
+	Time               *float64         `json:"time,omitempty"`
+	Parameters         []map[string]any `json:"parameters,omitempty"`
+	Envs               []any            `json:"envs,omitempty"`
+}
+type SceneRestoreBeginPayload struct {
+	RequestID string `json:"request_id"`
+}
+type SceneRestoreEndPayload struct {
+	RequestID string                `json:"request_id"`
+	Status    string                `json:"status"`
+	Error     *ActionExecutionError `json:"error,omitempty"`
+}
+type SceneCapturePayload struct {
+	RequestID string `json:"request_id"`
+}
+type SceneCaptureResultPayload struct {
+	RequestID          string  `json:"request_id"`
+	ModelID            string  `json:"model_id"`
+	StateSchemaVersion *string `json:"state_schema_version,omitempty"`
+	Checkpoint         any     `json:"checkpoint"`
 }
 
 type AssetSyncPayload struct {
