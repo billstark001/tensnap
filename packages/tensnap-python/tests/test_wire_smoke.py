@@ -68,10 +68,12 @@ async def _collect_state_sync_messages(
             "type": "state_sync",
             "payload": {
                 "request_id": request_id,
+                "model_id": "tensnap.python.model",
                 "parameters": [],
                 "actions": [],
                 "envs": [],
                 "charts": [],
+                "monitors": [],
             },
         }
         await ws.send(
@@ -118,10 +120,12 @@ async def _sync_and_run_action(
             "type": "state_sync",
             "payload": {
                 "request_id": request_id,
+                "model_id": "tensnap.python.model",
                 "parameters": [],
                 "actions": [],
                 "envs": [],
                 "charts": [],
+                "monitors": [],
             },
         }
         await ws.send(
@@ -154,7 +158,10 @@ async def _sync_and_run_action(
                 "Timed out waiting for state_sync before action dispatch"
             )
 
-        action_request = {"type": "action_start", "payload": {"id": action_id}}
+        action_request = {
+            "type": "action_invoke",
+            "payload": {"id": action_id, "request_id": "action-smoke"},
+        }
         await ws.send(
             cast(
                 Any,
@@ -175,12 +182,12 @@ async def _sync_and_run_action(
             decoded = _decode_message(message)
             action_messages.append(decoded)
             if (
-                decoded.get("type") == "action_end"
+                decoded.get("type") == "action_result"
                 and decoded.get("payload", {}).get("id") == action_id
             ):
                 return sync_messages, action_messages
 
-    raise AssertionError(f"Timed out waiting for action_end for '{action_id}'")
+    raise AssertionError(f"Timed out waiting for action_result for '{action_id}'")
 
 
 async def _stop_process(proc: asyncio.subprocess.Process) -> None:
@@ -226,14 +233,14 @@ async def test_graph_example_emits_canonical_layered_wire_output():
         if msg["type"] == "item_create" and msg["payload"].get("layer_id") == "edges"
     )
 
-    assert messages[0] == {
-        "type": "state_sync_begin",
-        "payload": {"request_id": "sync-smoke"},
-    }
-    assert messages[-1] == {
-        "type": "state_sync_end",
-        "payload": {"request_id": "sync-smoke"},
-    }
+    assert messages[0]["type"] == "simulator_info"
+    assert messages[0]["payload"]["protocol_version"] == "0.3"
+    assert messages[1]["type"] == "state_sync_begin"
+    assert messages[1]["payload"]["request_id"] == "sync-smoke"
+    assert messages[1]["payload"]["mode"] == "replace"
+    assert messages[-1]["type"] == "state_sync_end"
+    assert messages[-1]["payload"]["request_id"] == "sync-smoke"
+    assert "state_revision" in messages[-1]["payload"]
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "sirs_graph"
     assert {msg["payload"]["layer_type"] for msg in layer_creates} >= {"agent", "edge"}
@@ -299,14 +306,11 @@ async def test_mesa_example_emits_canonical_grid_layer_wire_output():
         if msg["type"] == "env_layer_create" and msg["payload"]["layer_id"] == "cells"
     )
 
-    assert messages[0] == {
-        "type": "state_sync_begin",
-        "payload": {"request_id": "sync-smoke"},
-    }
-    assert messages[-1] == {
-        "type": "state_sync_end",
-        "payload": {"request_id": "sync-smoke"},
-    }
+    assert messages[0]["type"] == "simulator_info"
+    assert messages[1]["type"] == "state_sync_begin"
+    assert messages[1]["payload"]["request_id"] == "sync-smoke"
+    assert messages[-1]["type"] == "state_sync_end"
+    assert messages[-1]["payload"]["request_id"] == "sync-smoke"
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "cgol_grid"
     assert cell_layer["payload"]["env_id"] == "cgol_grid"
@@ -347,14 +351,9 @@ async def test_mushroom_example_emits_patch_resource_layer():
         if msg["type"] == "item_create" and msg["payload"].get("layer_id") == "patches"
     )
 
-    assert messages[0] == {
-        "type": "state_sync_begin",
-        "payload": {"request_id": "sync-smoke"},
-    }
-    assert messages[-1] == {
-        "type": "state_sync_end",
-        "payload": {"request_id": "sync-smoke"},
-    }
+    assert messages[0]["type"] == "simulator_info"
+    assert messages[1]["type"] == "state_sync_begin"
+    assert messages[-1]["type"] == "state_sync_end"
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "main"
     assert patch_layer["payload"]["layer_type"] == "agent"
@@ -393,14 +392,9 @@ async def test_sugarscape_example_emits_sugar_resource_layer():
         if msg["type"] == "item_create" and msg["payload"].get("layer_id") == "sugar"
     )
 
-    assert messages[0] == {
-        "type": "state_sync_begin",
-        "payload": {"request_id": "sync-smoke"},
-    }
-    assert messages[-1] == {
-        "type": "state_sync_end",
-        "payload": {"request_id": "sync-smoke"},
-    }
+    assert messages[0]["type"] == "simulator_info"
+    assert messages[1]["type"] == "state_sync_begin"
+    assert messages[-1]["type"] == "state_sync_end"
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "sugarscape_env"
     assert sugar_layer["payload"]["layer_type"] == "agent"

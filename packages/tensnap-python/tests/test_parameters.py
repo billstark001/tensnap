@@ -75,7 +75,7 @@ class TestParameterClasses:
         assert param.value == "test"
 
     def test_action_metadata(self):
-        """Test ActionMetadata creation (v0.2 standalone action)"""
+        """Action metadata serializes to the strict v0.3 shape."""
         metadata = ActionMetadata(id="start", label="Start Simulation")
 
         assert metadata.id == "start"
@@ -86,8 +86,9 @@ class TestParameterClasses:
         wire = metadata.to_dict()
         assert wire["id"] == "start"
         assert wire["label"] == "Start Simulation"
-        assert "continuous" in wire
-        assert "allowRuntimeChange" in wire
+        assert "continuous" not in wire
+        assert "allowRuntimeChange" not in wire
+        assert "allow_runtime_change" not in wire
 
     def test_parameter_label_auto_generation(self):
         """Test automatic label generation from ID"""

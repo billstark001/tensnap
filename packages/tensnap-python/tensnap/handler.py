@@ -8,7 +8,6 @@ from .helper import broadcast_env_update
 from .models import (
     EnvironmentState,
     clone_environment_metadata_state,
-    clone_environment_state,
 )
 from .server import ServerToClientMessageType as MT
 from .utils.func import call_function
@@ -107,7 +106,7 @@ class DefaultSimulationHandler(SimulationHandler):
         for env_id, environment in s.environments.items():
             for layer in environment.layers.values():
                 layer.reset_diff_state()
-            curr = clone_environment_state(environment.build_state())
+            curr = environment.build_state()
             environment.seed_item_deltas_from_state(curr)
             next_states[env_id] = clone_environment_metadata_state(curr)
         self._last_env_states = next_states
@@ -119,9 +118,7 @@ class DefaultSimulationHandler(SimulationHandler):
         next_states: dict[str, EnvironmentState] = {}
         for env_id, environment in s.environments.items():
             prev = None if replace_all else self._last_env_states.get(env_id)
-            curr = clone_environment_state(
-                environment.build_state(include_items=prev is None)
-            )
+            curr = environment.build_state(include_items=prev is None)
             await broadcast_env_update(s.server, environment, curr, prev)
             next_states[env_id] = clone_environment_metadata_state(curr)
         for removed_id in self._last_env_states.keys() - next_states.keys():
@@ -145,6 +142,7 @@ class DefaultSimulationHandler(SimulationHandler):
             step_result = await call_function(self.model_step)
         await s.server.broadcast_metadata_update({"time": step})
         await self._push_env_updates()
+        await s.broadcast_monitors()
         await s.broadcast_charts(step)
         return None if step_result is None else bool(step_result)
 

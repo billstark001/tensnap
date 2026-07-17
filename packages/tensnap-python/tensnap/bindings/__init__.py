@@ -10,11 +10,14 @@ from tensnap.models.action import ActionMetadata as _ActionMetadata
 from tensnap.models.chart import ChartGroupMetadata as _ChartGroupMetadata
 from tensnap.models.environment import EnvironmentBinding
 from tensnap.models.layer import LayerBinding
+from tensnap.models.monitor import MonitorMetadata
 from tensnap.models.parameter import Parameter
 
 from .basic import *  # noqa: F403
 from .basic.action import get_action_metadata_from_namespace
 from .basic.chart import get_chart_metadata_from_namespace
+from .basic.monitor import get_monitor_metadata_from_namespace
+from .basic.restore import get_scene_restore_binding
 from .basic.layer import BindLayerConfig
 from .basic.parameter import (
     BindParametersConfig,
@@ -102,6 +105,27 @@ def charts(
         bound = (lambda target=value, f=func: f(target)) if func is not None else None
         discovered.append((name, bound, metadata))
     return discovered
+
+
+def monitors(
+    value: dict[str, Any] | ModuleType | object,
+) -> list[tuple[str, Any, MonitorMetadata]]:
+    if isinstance(value, dict):
+        return get_monitor_metadata_from_namespace(value)
+    if isinstance(value, ModuleType) or isinstance(value, type):
+        return get_monitor_metadata_from_namespace(dict(vars(value)))
+
+    discovered: list[tuple[str, Any, MonitorMetadata]] = []
+    for name, func, metadata in get_monitor_metadata_from_namespace(
+        dict(vars(value.__class__))
+    ):
+        discovered.append((name, lambda target=value, f=func: f(target), metadata))
+    return discovered
+
+
+def scene_restore_binding(value: Any) -> Any:
+    """Read a model class's opt-in projected/checkpoint restore declaration."""
+    return get_scene_restore_binding(value)
 
 
 def parameters(

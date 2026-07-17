@@ -21,6 +21,9 @@ def action(
     label: str | None = None,
     continuous: bool = False,
     allow_runtime_change: bool = True,
+    *,
+    scope: str | None = None,
+    kwargs: list[dict[str, Any]] | None = None,
 ) -> Callable[[F], F]:
     """Decorator to mark a function as a TenSnap action button."""
     orig_id = id
@@ -52,6 +55,8 @@ def action(
             label=label or "",
             continuous=continuous,
             allow_runtime_change=allow_runtime_change,
+            scope=scope,
+            kwargs=kwargs,
         )
 
         cast(Any, wrapped_func)._tensnap_action = metadata

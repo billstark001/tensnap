@@ -14,7 +14,9 @@ from tensnap.bindings import (
     chart,
     env,
     grid_layer,
+    monitor,
     params,
+    scene_restore,
 )
 from tensnap.models import EnvironmentBinding, LayerBinding
 from tensnap.scenario import DefaultSimulationHandler, SimulationScenario
@@ -152,6 +154,46 @@ class TestSimulationScenario:
 
         scenario._action_handlers["tick"]()
         assert model.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_declarative_monitors_and_restore_hooks(self, scenario: SimulationScenario):
+        @scene_restore("restore", checkpoint_capture="capture")
+        class Model:
+            def __init__(self):
+                self.value = 2
+                self.restored = None
+
+            @monitor("status", "Status", render_hint="tree")
+            def status(self):
+                return {"value": self.value}
+
+            def restore(self, payload):
+                self.restored = payload
+
+            def capture(self):
+                return {"value": self.value}
+
+        model = Model()
+        changes = scenario.add_all(model)
+
+        assert changes["monitors"] == ["status"]
+        assert scenario.server.simulator_info_payload["capabilities"] == [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected",
+        ]
+        assert scenario._scene_restore is not None
+        scenario._scene_restore({"time": 4})
+        assert model.restored == {"time": 4}
+
+        ws = object()
+        scenario.server.send = AsyncMock()  # type: ignore[method-assign]
+        await scenario.broadcast_monitors(ws)
+        scenario.server.send.assert_awaited_once_with(
+            ws,
+            MT.MONITOR_UPDATE,
+            {"id": "status", "value": {"value": 2}},
+        )
 
     def test_add_all_returns_changes_and_accepts_targets_without_environment(
         self, scenario: SimulationScenario
@@ -438,14 +480,14 @@ class TestSimulationScenario:
         scenario.server.send_action_end = AsyncMock()
 
         await asyncio.gather(
-            scenario._on_action_start(object(), {"id": "slow", "tick_id": "a"}),
-            scenario._on_action_start(object(), {"id": "slow", "tick_id": "b"}),
+            scenario._on_action_invoke(object(), {"id": "slow", "request_id": "a"}),
+            scenario._on_action_invoke(object(), {"id": "slow", "request_id": "b"}),
         )
 
         assert model.calls == 2
         assert model.max_active == 1
         assert [
-            call.kwargs["tick_id"]
+            call.kwargs["request_id"]
             for call in scenario.server.send_action_end.await_args_list
         ] == ["a", "b"]
 

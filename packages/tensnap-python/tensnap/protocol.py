@@ -22,6 +22,7 @@ from .models import (
     EnvironmentLayerState,
     EnvironmentRegistrationProtocol,
     EnvironmentState,
+    MonitorMetadata,
     Parameter,
     ParameterState,
     clone_environment_state,
@@ -46,6 +47,12 @@ class ChartDeltas(TypedDict):
     added: list[ChartGroupMetadataDict]
     removed: list[str]
     updated: list[ChartGroupMetadataDict]
+
+
+class MonitorDeltas(TypedDict):
+    added: list[dict[str, Any]]
+    removed: list[str]
+    updated: list[dict[str, Any]]
 
 
 class EnvironmentDeltas(TypedDict):
@@ -77,7 +84,7 @@ def layer_create_payload(env_id: str, layer: "EnvironmentLayerState") -> dict[st
         payload["dependency_layer_ids"] = dep_ids
     meta = layer_metadata(layer)
     if meta:
-        payload["data"] = meta
+        payload["metadata"] = meta
     return payload
 
 
@@ -214,9 +221,7 @@ def compute_action_deltas(
         for aid in server_ids & client_ids
         if (
             req[aid].get("label") != server_actions[aid].label
-            or req[aid].get("continuous") != server_actions[aid].continuous
-            or req[aid].get("allowRuntimeChange", True)
-            != server_actions[aid].allow_runtime_change
+            or req[aid] != server_actions[aid].to_dict()
         )
     ]
     return ActionDeltas(
@@ -230,21 +235,19 @@ def compute_parameter_deltas(
     server_params: dict[str, Parameter],
     client_params: list[ParameterState],
     get_value: Callable[[Parameter], Any],
-) -> tuple[ParameterDeltas, list[tuple[str, Any]]]:
+) -> ParameterDeltas:
     """
     Compute parameter CUD deltas against the client's reported state.
 
-    Returns:
-        deltas:        Added / removed / updated parameter descriptors.
-        value_updates: ``(param_id, client_value)`` pairs to apply server-side
-                       (client wins on sync for already-known params).
+    State-sync inventory is read-only.  The renderer never writes a parameter
+    back to the model here; a stale renderer value simply makes the simulator
+    re-emit its canonical definition.
     """
     client_ids: set[str] = {x["id"] for x in client_params}
     server_ids = set(server_params)
     req = {x["id"]: x for x in client_params}
 
     updated_ids: set[str] = set()
-    value_updates: list[tuple[str, Any]] = []
 
     for pid in server_ids & client_ids:
         param = server_params[pid]
@@ -258,19 +261,12 @@ def compute_parameter_deltas(
         client_descriptor.pop("value", None)
         if server_descriptor != client_descriptor:
             updated_ids.add(pid)
-        client_val = c.get("value")
-        if client_val is None:
+        if c.get("value") != get_value(param):
             updated_ids.add(pid)
-        elif client_val != get_value(param):
-            value_updates.append((pid, client_val))
-
-    return (
-        ParameterDeltas(
-            added=[server_params[i].to_dict() for i in server_ids - client_ids],
-            removed=list(client_ids - server_ids),
-            updated=[server_params[i].to_dict() for i in updated_ids],
-        ),
-        value_updates,
+    return ParameterDeltas(
+        added=[server_params[i].to_dict() for i in server_ids - client_ids],
+        removed=list(client_ids - server_ids),
+        updated=[server_params[i].to_dict() for i in updated_ids],
     )
 
 
@@ -278,14 +274,41 @@ def compute_chart_deltas(
     server_charts: dict[str, tuple[ChartGroupMetadata, Any]],
     client_charts: list[ChartMetadataDict],
 ) -> ChartDeltas:
-    server_dicts: list[ChartGroupMetadataDict] = [
-        cast(ChartGroupMetadataDict, c[0].to_dict()) for c in server_charts.values()
-    ]
-    result = categorize_charts(client_charts, server_dicts)
+    # v0.3 state_sync inventory is intentionally flat: chart groups are
+    # simulator-owned definitions, so compare group ids without guessing a
+    # group from one of its series ids.
+    server_dicts = {
+        chart.id: cast(ChartGroupMetadataDict, chart.to_dict())
+        for chart, _getter in server_charts.values()
+    }
+    client_ids = {item["id"] for item in client_charts}
+    server_ids = set(server_dicts)
     return ChartDeltas(
-        added=result["added"],
-        removed=result["removed"],
-        updated=result["updated"],
+        added=[server_dicts[chart_id] for chart_id in server_ids - client_ids],
+        removed=list(client_ids - server_ids),
+        updated=[],
+    )
+
+
+def compute_monitor_deltas(
+    server_monitors: dict[str, tuple[MonitorMetadata, Any]],
+    client_monitors: list[dict[str, Any]],
+) -> MonitorDeltas:
+    server_dicts = {
+        monitor.id: monitor.to_dict()
+        for monitor, _getter in server_monitors.values()
+    }
+    client = {item["id"]: item for item in client_monitors if "id" in item}
+    server_ids = set(server_dicts)
+    client_ids = set(client)
+    return MonitorDeltas(
+        added=[server_dicts[mid] for mid in server_ids - client_ids],
+        removed=list(client_ids - server_ids),
+        updated=[
+            server_dicts[mid]
+            for mid in server_ids & client_ids
+            if server_dicts[mid] != client[mid]
+        ],
     )
 
 

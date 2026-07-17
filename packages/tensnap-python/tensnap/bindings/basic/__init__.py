@@ -41,6 +41,7 @@ from .environment import (
 )
 from .layer import *
 from .layer_utils import attr, value
+from .monitor import get_monitor_metadata_from_namespace, monitor
 from .parameter import (
     BindParameterConfig,
     BindParametersConfig,
@@ -57,6 +58,7 @@ from .parameter import (
     param,
     params,
 )
+from .restore import SceneRestoreBinding, get_scene_restore_binding, scene_restore
 
 
 def __getattr__(name: str) -> Any:
