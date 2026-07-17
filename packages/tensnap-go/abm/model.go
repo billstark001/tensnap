@@ -100,7 +100,7 @@ func (b *Base) OnAction(e Emitter, payload *protocol.ActionInvokePayload) error 
 		err = fmt.Errorf("tensnap: unhandled action %q", payload.ID)
 	}
 	f := false
-	result := &protocol.ActionEndPayload{ID: payload.ID, RequestID: payload.RequestID, ShouldContinue: &f}
+	result := &protocol.ActionResultPayload{ID: payload.ID, RequestID: payload.RequestID, ShouldContinue: &f}
 	if err != nil {
 		result.Error = &protocol.ActionExecutionError{Code: "handler_error", Message: err.Error()}
 	}

@@ -265,7 +265,7 @@ func (e *SessionEmitter) StateSyncBegin(p *protocol.StateSyncBeginPayload) error
 func (e *SessionEmitter) StateSyncEnd(p *protocol.StateSyncEndPayload) error {
 	return e.send(protocol.TypeStateSyncEnd, p)
 }
-func (e *SessionEmitter) ActionResult(p *protocol.ActionEndPayload) error {
+func (e *SessionEmitter) ActionResult(p *protocol.ActionResultPayload) error {
 	return e.send(protocol.TypeActionResult, p)
 }
 func (e *SessionEmitter) EnvCreate(id, envType string) error {

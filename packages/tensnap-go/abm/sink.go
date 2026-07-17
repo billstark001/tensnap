@@ -1,4 +1,4 @@
-// Package abm provides the ABM integration layer for TenSnap protocol v0.2.
+// Package abm provides the ABM integration layer for TenSnap protocol v0.3.
 //
 // # Zero-overhead detached operation
 //
@@ -26,7 +26,7 @@ type Emitter interface {
 	MetadataUpdate(p *protocol.MetadataUpdatePayload) error
 	StateSyncBegin(p *protocol.StateSyncBeginPayload) error
 	StateSyncEnd(p *protocol.StateSyncEndPayload) error
-	ActionResult(p *protocol.ActionEndPayload) error
+	ActionResult(p *protocol.ActionResultPayload) error
 
 	EnvCreate(id, envType string) error
 	EnvDelete(id string) error
@@ -77,7 +77,7 @@ func (Sink) SimulatorInfo(_ *protocol.SimulatorInfoPayload) error         { retu
 func (Sink) MetadataUpdate(_ *protocol.MetadataUpdatePayload) error       { return nil }
 func (Sink) StateSyncBegin(_ *protocol.StateSyncBeginPayload) error       { return nil }
 func (Sink) StateSyncEnd(_ *protocol.StateSyncEndPayload) error           { return nil }
-func (Sink) ActionResult(_ *protocol.ActionEndPayload) error              { return nil }
+func (Sink) ActionResult(_ *protocol.ActionResultPayload) error           { return nil }
 func (Sink) EnvCreate(_, _ string) error                                  { return nil }
 func (Sink) EnvDelete(_ string) error                                     { return nil }
 func (Sink) EnvLayerCreate(_ *protocol.EnvLayerCreatePayload) error       { return nil }

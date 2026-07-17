@@ -33,7 +33,7 @@ type testEmitter struct {
 	itemCreates []itemCall
 	itemUpdates []itemCall
 	itemDeletes []deleteCall
-	actionEnds  []*protocol.ActionEndPayload
+	actionEnds  []*protocol.ActionResultPayload
 	chartValues []protocol.ChartUpdateEntry
 	monitors    []*protocol.MonitorMetadata
 	monitorVals []*protocol.MonitorUpdatePayload
@@ -90,7 +90,7 @@ func (e *testEmitter) ItemDelete(envID, layerID string, items []any) error {
 	return nil
 }
 
-func (e *testEmitter) ActionResult(payload *protocol.ActionEndPayload) error {
+func (e *testEmitter) ActionResult(payload *protocol.ActionResultPayload) error {
 	copy := *payload
 	e.actionEnds = append(e.actionEnds, &copy)
 	return nil

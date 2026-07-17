@@ -265,9 +265,7 @@ type ActionExecutionError struct {
 	Data    any    `json:"data,omitempty"`
 }
 
-// ActionEndPayload retains its Go name for source compatibility. Its JSON
-// contract is the v0.3 action_result payload.
-type ActionEndPayload struct {
+type ActionResultPayload struct {
 	ID             string                `json:"id"`
 	RequestID      string                `json:"request_id"`
 	ShouldContinue *bool                 `json:"should_continue,omitempty"`
@@ -435,14 +433,13 @@ type ActionTarget struct {
 	LayerID string `json:"layer_id,omitempty"`
 	AgentID any    `json:"agent_id,omitempty"`
 }
-type ActionStartPayload struct {
+type ActionInvokePayload struct {
 	ID         string         `json:"id"`
 	RequestID  string         `json:"request_id"`
 	Continuous *bool          `json:"continuous,omitempty"`
 	Target     *ActionTarget  `json:"target,omitempty"`
 	Kwargs     map[string]any `json:"kwargs,omitempty"`
 }
-type ActionInvokePayload = ActionStartPayload
 
 type MonitorMetadata struct {
 	ID         string  `json:"id"`

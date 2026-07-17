@@ -1,6 +1,6 @@
 # tensnap-go
 
-Go bindings for the simulator side of the TenSnap protocol v0.2.
+Go bindings for the simulator side of the TenSnap protocol v0.3.
 
 This module is intentionally small. It gives Go simulators four pieces:
 
@@ -26,7 +26,7 @@ replace github.com/billstark001/tensnap/packages/tensnap-go => ../tensnap/packag
 This repository uses a nested Go module. To publish a version that `go get` can resolve as a tagged release, the Git tag must use the submodule prefix:
 
 ```bash
-git tag packages/tensnap-go/v0.2.0
+git tag packages/tensnap-go/v0.3.0
 ```
 
 ## Minimal Usage
@@ -41,13 +41,7 @@ type MyModel struct {
 
 func (m *MyModel) Step(e abm.Emitter) error {
     tick := float64(m.NextTick())
-    if err := e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick}); err != nil {
-        return err
-    }
-    return e.ActionEnd(&protocol.ActionEndPayload{
-        ID:       protocol.ActionIDStep,
-        Continue: abm.BoolPtr(true),
-    })
+    return e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick})
 }
 
 func main() {
@@ -167,12 +161,12 @@ The server currently decodes these renderer-to-simulator messages:
 
 - `state_sync` -> `Model.OnStateSync`
 - `param_change` -> `Model.OnParamChange`
-- `action_start` -> `Model.OnAction`
+- `action_invoke` -> `Model.OnAction`
 - `asset_sync` -> optional `abm.AssetSyncHandler`
 - `screenshot_response` -> optional `abm.ScreenshotResponseHandler`
 - `error` -> converted into `log(level=error)` on the emitter
 
-The `Emitter` exposes the simulator-to-renderer families used by protocol v0.2, including:
+The `Emitter` exposes the simulator-to-renderer families used by protocol v0.3, including:
 
 - `metadata_update`
 - `state_sync_begin` and `state_sync_end`

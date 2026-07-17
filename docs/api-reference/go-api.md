@@ -1,6 +1,6 @@
 # Go API Reference
 
-This reference describes the current TenSnap Go surface for protocol v0.2.
+This reference describes the current TenSnap Go surface for protocol v0.3.
 
 The recommended workflow is:
 
@@ -58,31 +58,17 @@ func NewCounterModel() *CounterModel {
                 },
             }).
             WithActions(
-                &protocol.Action{ID: "start", Label: "Start", Continuous: abm.BoolPtr(true)},
                 &protocol.Action{ID: protocol.ActionIDStep, Label: "Step"},
             ),
-    )
-
-    model.SetActionRouter(
-        abm.NewActionRouter().Handle("start", func(e abm.Emitter, tickID *string, _ bool) error {
-            return model.step(e, "start", tickID)
-        }),
     )
 
     return model
 }
 
 func (m *CounterModel) Step(e abm.Emitter) error {
-    return m.step(e, protocol.ActionIDStep, nil)
-}
-
-func (m *CounterModel) step(e abm.Emitter, actionID string, tickID *string) error {
     m.value += m.ParamFloat("stepSize")
     tick := float64(m.NextTick())
-    if err := e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick}); err != nil {
-        return err
-    }
-    return e.ActionEnd(&protocol.ActionEndPayload{ID: actionID, TickID: tickID, Continue: abm.BoolPtr(true)})
+    return e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick})
 }
 
 func main() {
@@ -106,7 +92,7 @@ Important types:
 - `protocol.Action`
 - `protocol.EnvLayerCreatePayload`
 - `protocol.ChartGroupMetadata`
-- `protocol.ActionEndPayload`
+- `protocol.ActionResultPayload`
 
 ### `abm`
 
@@ -204,21 +190,12 @@ When a `Scenario` is registered, `Base.OnParamChange` uses its `ParamMetadata` e
 
 ## `abm.ActionRouter`
 
-`ActionRouter` is the lightweight action dispatch table.
-
-```go
-router := abm.NewActionRouter().
-    Handle("start", func(e abm.Emitter, tickID *string, continuous bool) error {
-        return model.step(e, "start", tickID)
-    }).
-    Handle("reset", func(e abm.Emitter, tickID *string, continuous bool) error {
-        return model.reset(e, "reset", tickID)
-    })
-
-model.SetActionRouter(router)
-```
-
-`Base.OnAction` checks the router first. If no handler matches, it falls back to built-in handling for `protocol.ActionIDInit` and `protocol.ActionIDStep`.
+`ActionRouter` is the low-level `Dispatch(Emitter, *ActionInvokePayload)`
+interface. `Base.OnAction` checks an installed router first, then falls back to
+the built-in `init` and `step` actions. Most models should use
+`binding.NewAction`, `binding.NewContinuousAction`, or the lifecycle options on
+`binding.NewModel`; implement `ActionRouter` directly only for an imperative
+dispatcher that needs full access to targets, kwargs, and request IDs.
 
 ## `binding.NewModel`
 
@@ -311,7 +288,7 @@ The adapter owns only the pieces registered through its options:
 
 By default it registers `start`, `step`, and `reset`, replays owned scenario
 pieces during setup/state-sync, computes item diffs for declared agent layers,
-updates charts, emits metadata time, and sends `action_end`.
+updates charts, emits metadata time, and sends `action_result`.
 
 For mixed imperative code, embed or store the bound model and call small helpers:
 

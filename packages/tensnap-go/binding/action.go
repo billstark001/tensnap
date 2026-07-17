@@ -77,7 +77,7 @@ func (a *Action[T]) Targeted(scope string, kwargs []protocol.ActionKwargDefiniti
 	return a
 }
 
-func fireActionRaw[T any](e abm.Emitter, action *Action[T], target T, payload *protocol.ActionInvokePayload) (*protocol.ActionEndPayload, error) {
+func fireActionRaw[T any](e abm.Emitter, action *Action[T], target T, payload *protocol.ActionInvokePayload) (*protocol.ActionResultPayload, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("nil action payload")
 	}
@@ -85,12 +85,12 @@ func fireActionRaw[T any](e abm.Emitter, action *Action[T], target T, payload *p
 	var err error
 	if action.Scope != nil && *action.Scope != "model" {
 		if payload.Target == nil || payload.Target.Type != *action.Scope {
-			return &protocol.ActionEndPayload{ID: action.ID, RequestID: payload.RequestID, Error: &protocol.ActionExecutionError{Code: "invalid_target", Message: "action target does not match declared scope"}}, nil
+			return &protocol.ActionResultPayload{ID: action.ID, RequestID: payload.RequestID, Error: &protocol.ActionExecutionError{Code: "invalid_target", Message: "action target does not match declared scope"}}, nil
 		}
 	}
 	kwargs, validationErr := validateKwargs(action.Kwargs, payload.Kwargs)
 	if validationErr != nil {
-		return &protocol.ActionEndPayload{ID: action.ID, RequestID: payload.RequestID, Error: validationErr}, nil
+		return &protocol.ActionResultPayload{ID: action.ID, RequestID: payload.RequestID, Error: validationErr}, nil
 	}
 	if action.TargetedInvoker != nil {
 		result, err = action.TargetedInvoker(target, payload.Target, kwargs, e)
@@ -98,19 +98,19 @@ func fireActionRaw[T any](e abm.Emitter, action *Action[T], target T, payload *p
 		result, err = action.Invoker(target, e)
 	}
 	if err != nil {
-		return &protocol.ActionEndPayload{ID: action.ID, RequestID: payload.RequestID, Error: &protocol.ActionExecutionError{Code: "handler_error", Message: err.Error()}}, nil
+		return &protocol.ActionResultPayload{ID: action.ID, RequestID: payload.RequestID, Error: &protocol.ActionExecutionError{Code: "handler_error", Message: err.Error()}}, nil
 	}
 	if payload.Continuous == nil || !*payload.Continuous {
 		result = false
 	}
-	return &protocol.ActionEndPayload{
+	return &protocol.ActionResultPayload{
 		ID:             action.ID,
 		RequestID:      payload.RequestID,
 		ShouldContinue: &result,
 	}, nil
 }
 
-func fireTimedActionRaw[T any](e abm.Emitter, action *Action[T], target T, payload *protocol.ActionInvokePayload) (*protocol.ActionEndPayload, error) {
+func fireTimedActionRaw[T any](e abm.Emitter, action *Action[T], target T, payload *protocol.ActionInvokePayload) (*protocol.ActionResultPayload, error) {
 	started := time.Now()
 	ret, err := fireActionRaw(e, action, target, payload)
 	if err != nil {
