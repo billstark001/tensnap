@@ -5,8 +5,13 @@ import { getFileSystemState } from './file-system/provider';
 import { createSingleSnapshot } from '@tensnap/core/snapshot';
 import { uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
 import { decode, encode } from '@msgpack/msgpack';
+import { archiveProjectFileContent, parseProjectFileContent, PROJECT_FILE_VERSION, recoverProjectFileContent } from '@/types/project';
 
-const mockedSettings = vi.hoisted(() => ({ saveFormat: 'json' as 'json' | 'msgpack' }));
+const mockedSettings = vi.hoisted(() => ({
+  saveFormat: 'json' as 'json' | 'msgpack',
+  clientMessageValidation: 'off' as const,
+  serverMessageValidation: 'off' as const,
+}));
 
 const emptyScenario = () => ({
   metadata: {},
@@ -14,6 +19,7 @@ const emptyScenario = () => ({
   parameters: [],
   environments: [],
   charts: [],
+  monitors: [],
   logs: [],
   assets: [],
 });
@@ -38,6 +44,7 @@ vi.mock('./file-system/provider', () => ({
 vi.mock('./settings', () => ({
   useSettingsStore: {
     getState: () => mockedSettings,
+    subscribe: vi.fn(() => () => undefined),
   },
 }));
 
@@ -48,6 +55,8 @@ describe('ProjectStore', () => {
       activeIndex: null,
       activeProject: null,
       activeFilepath: null,
+      tabs: [],
+      pendingCloseProjectId: null,
     });
     mockedSettings.saveFormat = 'json';
     vi.clearAllMocks();
@@ -62,9 +71,14 @@ describe('ProjectStore', () => {
 
     // Setup a project with snapshots
     const store = useProjectStore.getState();
-    store.new('http://localhost:8080');
+    store.new({ kind: 'websocket', url: 'ws://localhost:8080' });
 
     const activeProject = useProjectStore.getState().activeProject!;
+    activeProject.useScenarioStore.getState().session.setExpectedSimulatorIdentity({
+      model_id: 'saved-model',
+      state_schema_version: '2',
+      instance_id: 'saved-instance',
+    });
 
     // Add a dummy snapshot
     const dummySnapshot = createSingleSnapshot({
@@ -73,6 +87,7 @@ describe('ProjectStore', () => {
       parameters: [],
       environments: [],
       charts: [],
+      monitors: [],
       logs: [],
       assets: [],
     }, { id: 'snapshot-1' });
@@ -96,12 +111,47 @@ describe('ProjectStore', () => {
     expect(savedContent).toHaveProperty('snapshots');
     expect(savedContent.snapshots).toHaveLength(1);
     expect(savedContent.snapshots[0].metadata.id).toBe('snapshot-1');
-    expect(savedContent.version).toBe(2);
+    expect(savedContent.version).toBe(3);
+    expect(savedContent.source).toEqual({ kind: 'websocket', url: 'ws://localhost:8080' });
+    expect(savedContent.model_identity).toEqual({
+      model_id: 'saved-model',
+      state_schema_version: '2',
+      instance_id: 'saved-instance',
+    });
     expect(savedContent.snapshots[0].segments).toHaveLength(1);
     expect(activeProject.useUndoRedoStore.getState().isDirty()).toBe(false);
     expect(useProjectStore.getState().tabs).toEqual([
       expect.objectContaining({ name: 'project.json', title: '/test/project.json' }),
     ]);
+  });
+
+  it('defers closing a dirty project until the renderer-owned confirmation resolves', () => {
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'close-confirmation' });
+    useProjectStore.getState().openOfflineSnapshot(snapshot);
+    const project = useProjectStore.getState().activeProject!;
+    project.useScenarioStore.getState().setMainView({
+      ...project.useScenarioStore.getState().mainView,
+      width: 901,
+    });
+    expect(project.useUndoRedoStore.getState().isDirty()).toBe(true);
+
+    useProjectStore.getState().close(0);
+    expect(useProjectStore.getState()).toMatchObject({
+      projects: [expect.objectContaining({ id: project.id })],
+      pendingCloseProjectId: project.id,
+    });
+
+    useProjectStore.getState().cancelClose();
+    expect(useProjectStore.getState().pendingCloseProjectId).toBeNull();
+    expect(useProjectStore.getState().projects).toHaveLength(1);
+
+    useProjectStore.getState().close(0);
+    useProjectStore.getState().confirmClose();
+    expect(useProjectStore.getState()).toMatchObject({
+      projects: [],
+      activeIndex: null,
+      pendingCloseProjectId: null,
+    });
   });
 
   it('migrates legacy one-off snapshots and defaults missing legacy snapshots to an empty list', async () => {
@@ -145,6 +195,155 @@ describe('ProjectStore', () => {
       .toMatchObject([{ metadata: { id: 'legacy-recording' }, initial: { scenario: legacySnapshot } }]);
   });
 
+  it('honors the v1 and v2 project migration promise and normalizes both to v3', () => {
+    const recording = createSingleSnapshot(emptyScenario(), { id: 'legacy-recording' });
+    const versionOne = parseProjectFileContent({
+      version: 1,
+      url: 'inmemory:legacy-v1',
+      mainView,
+      scenario: emptyScenario(),
+      snapshots: [recording],
+    });
+    expect(versionOne).toMatchObject({
+      version: PROJECT_FILE_VERSION,
+      source: { kind: 'inmemory', model_id: 'legacy-v1' },
+      snapshots: [{ metadata: { id: 'legacy-recording' } }],
+    });
+    expect(archiveProjectFileContent(versionOne)).toMatchObject({
+      version: PROJECT_FILE_VERSION,
+      source: { kind: 'inmemory', model_id: 'legacy-v1' },
+    });
+
+    const currentArchive = archiveProjectFileContent({
+      version: PROJECT_FILE_VERSION,
+      source: { kind: 'websocket', url: 'ws://unused-current-source' },
+      mainView,
+      scenario: emptyScenario(),
+      snapshots: [recording],
+    });
+    const versionTwo = parseProjectFileContent({
+      ...currentArchive,
+      version: 2,
+      url: 'ws://legacy-v2.example',
+    });
+    expect(versionTwo).toMatchObject({
+      version: PROJECT_FILE_VERSION,
+      source: { kind: 'websocket', url: 'ws://legacy-v2.example' },
+      snapshots: [{ metadata: { id: 'legacy-recording' } }],
+    });
+
+    const versionOneWebSocket = parseProjectFileContent({
+      version: 1,
+      url: 'http://legacy-v1.example',
+      mainView,
+      scenario: emptyScenario(),
+      snapshots: [recording],
+    });
+    expect(versionOneWebSocket.source).toEqual({ kind: 'websocket', url: 'ws://legacy-v1.example' });
+  });
+
+  it('migrates genuine v0.2 scenario and recording semantics before snapshot validation', () => {
+    const legacyScenario = {
+      ...emptyScenario(),
+      actions: [{ id: 'step', label: 'Step', allowRuntimeChange: true }],
+      parameters: [{
+        id: 'density', label: 'Density', type: 'number', value: 2, min: 0, max: 10, step: 1,
+        allowRuntimeChange: true,
+      }],
+    };
+    const legacyRecording = {
+      version: 1,
+      metadata: { id: 'v02-recording', createdAt: 1, endedAt: 2 },
+      initial: { frame: 0, timestamp: 1, scenario: legacyScenario },
+      keyframes: [],
+      frames: [{
+        index: 1,
+        timestamp: 2,
+        messages: [
+          { type: 'action_end', payload: { id: 'step', tick_id: 'tick-1', continue: false } },
+          { type: 'error', payload: { error: 'The old model failed.' } },
+        ],
+        controls: [{ type: 'action_start', payload: { id: 'step', tick_id: 'tick-1' } }],
+        action: { id: 'step', tick_id: 'tick-1', continue: false },
+        kind: 'action',
+      }],
+      layerCodecs: {},
+      byteLength: 0,
+      truncated: false,
+    };
+
+    const migrated = parseProjectFileContent({
+      version: 1,
+      url: 'ws://legacy-v02.example',
+      mainView,
+      scenario: legacyScenario,
+      snapshots: [legacyRecording],
+    });
+    const snapshot = migrated.snapshots[0]!;
+    const frame = snapshot.frames[0]!;
+
+    expect(migrated.scenario.monitors).toEqual([]);
+    expect(migrated.scenario.actions[0]).not.toHaveProperty('allowRuntimeChange');
+    expect(migrated.scenario.parameters[0]).toMatchObject({ allow_runtime_change: true });
+    expect(snapshot.metadata.protocol_version).toBe('0.3');
+    expect(frame.controls).toEqual([{ type: 'action_invoke', payload: { id: 'step', request_id: 'tick-1' } }]);
+    expect(frame.messages).toEqual([
+      { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
+      { type: 'error', payload: { code: 'legacy_error', message: 'The old model failed.' } },
+    ]);
+    expect(frame.action).toEqual({ id: 'step', request_id: 'tick-1', should_continue: false });
+
+    const archived = archiveProjectFileContent({
+      version: PROJECT_FILE_VERSION,
+      source: { kind: 'websocket', url: 'ws://placeholder.example' },
+      mainView,
+      scenario: legacyScenario as any,
+      snapshots: [legacyRecording as any],
+    });
+    const migratedArchive = parseProjectFileContent({
+      ...archived,
+      version: 2,
+      url: 'ws://legacy-v02-archive.example',
+    });
+    expect(migratedArchive.snapshots[0]?.frames[0]?.messages[0]).toEqual(
+      { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
+    );
+  });
+
+  it('rejects malformed current sources and dangling snapshot sources before opening a project', () => {
+    const recording = createSingleSnapshot(emptyScenario(), { id: 'available-recording' });
+    const archive = archiveProjectFileContent({
+      version: PROJECT_FILE_VERSION,
+      source: { kind: 'websocket', url: 'ws://valid.example' },
+      mainView,
+      scenario: emptyScenario(),
+      snapshots: [recording],
+    });
+
+    expect(() => parseProjectFileContent({
+      ...archive,
+      source: { kind: 'websocket', url: 'http://invalid.example' },
+    })).toThrow(/ws:\/\//);
+    expect(() => parseProjectFileContent({
+      ...archive,
+      source: { kind: 'websocket', url: '' },
+    })).toThrow(/ws:\/\//);
+    expect(() => parseProjectFileContent({
+      ...archive,
+      source: { kind: 'snapshot', snapshot_id: 'missing-recording' },
+    })).toThrow(/does not exist/);
+
+    const recovered = recoverProjectFileContent({
+      version: 1,
+      url: 'not-a-websocket-url',
+      mainView,
+      scenario: emptyScenario(),
+      snapshots: [recording],
+    });
+    expect(recovered?.content.source).toEqual({ kind: 'snapshot', snapshot_id: 'available-recording' });
+    expect(recovered?.warnings).toContain('The first recovered snapshot was opened as the offline project source.');
+  });
+
   it('serializes and deserializes snapshot recordings in MessagePack project files', async () => {
     let savedContent: ArrayBuffer | string | undefined;
     (getFileSystemState as any).mockReturnValue({
@@ -157,7 +356,7 @@ describe('ProjectStore', () => {
     });
 
     mockedSettings.saveFormat = 'msgpack';
-    useProjectStore.getState().new('http://localhost:8080');
+    useProjectStore.getState().new({ kind: 'websocket', url: 'ws://localhost:8080' });
     const snapshot = createSingleSnapshot(emptyScenario(), { id: 'recording-round-trip' });
     useProjectStore.getState().activeProject!.useScenarioStore.setState({ snapshots: [snapshot] });
 
@@ -203,12 +402,12 @@ describe('ProjectStore', () => {
   it('rejects unsupported project versions and malformed current project files before loading them', async () => {
     (getFileSystemState as any).mockReturnValue({
       readFile: vi.fn()
-          .mockResolvedValueOnce({ content: JSON.stringify({ version: 3 }) })
+          .mockResolvedValueOnce({ content: JSON.stringify({ version: 4 }) })
         .mockResolvedValueOnce({ content: JSON.stringify({ version: 1, url: 'http://broken.example' }) }),
     });
 
     await expect(useProjectStore.getState().open('/future.json'))
-      .rejects.toThrow('Unsupported project file version: 3.');
+      .rejects.toThrow('Unsupported project file version: 4.');
     await expect(useProjectStore.getState().open('/malformed.json')).rejects.toThrow();
     expect(useProjectStore.getState().projects).toHaveLength(0);
   });
@@ -228,7 +427,7 @@ describe('ProjectStore', () => {
 
     // 1. Create a project and add trajectory data
     const store = useProjectStore.getState();
-    store.new('http://localhost:8080');
+    store.new({ kind: 'websocket', url: 'ws://localhost:8080' });
 
     const activeProject = useProjectStore.getState().activeProject!;
     const scenarioStore = activeProject.useScenarioStore.getState();
@@ -286,7 +485,7 @@ describe('ProjectStore', () => {
     });
 
     const store = useProjectStore.getState();
-    store.new('http://localhost:8080');
+    store.new({ kind: 'websocket', url: 'ws://localhost:8080' });
     const scenario = useProjectStore.getState().activeProject!.useScenarioStore.getState().scenario;
 
     scenario.apply({ type: 'env_create', payload: { id: 'env1', type: '2d' } });
@@ -297,7 +496,7 @@ describe('ProjectStore', () => {
         layer_id: 'trail-layer',
         layer_type: 'trajectory',
         dependency_layer_ids: { agent: 'agent-layer' },
-        data: { length: 0 } // Unbounded
+        metadata: { length: 0 } // Unbounded
       }
     });
 
@@ -333,7 +532,7 @@ describe('ProjectStore', () => {
       data: 'data:image/png;base64,AQID',
     };
     const scenario = { ...emptyScenario(), assets: [asset] };
-    useProjectStore.getState().new('http://assets.example');
+    useProjectStore.getState().new({ kind: 'websocket', url: 'ws://assets.example' });
     const project = useProjectStore.getState().activeProject!;
     project.useScenarioStore.getState().load(scenario);
     project.useScenarioStore.setState({ snapshots: [createSingleSnapshot(scenario, { id: 'asset-recording' })] });
@@ -352,5 +551,56 @@ describe('ProjectStore', () => {
     const opened = useProjectStore.getState().projects[1]!.useScenarioStore.getState();
     expect(opened.dump().assets[0]?.data).toBe(asset.data);
     expect(opened.snapshots[0]?.initial.scenario.assets[0]?.data).toBe(asset.data);
+  });
+
+  it('persists an offline snapshot as a first-class playback source', async () => {
+    const mockWriteFile = vi.fn().mockResolvedValue(undefined);
+    (getFileSystemState as any).mockReturnValue({ writeFile: mockWriteFile });
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'offline-source' });
+
+    useProjectStore.getState().openOfflineSnapshot(snapshot);
+    const project = useProjectStore.getState().activeProject!;
+    expect(project.source).toEqual({ kind: 'snapshot', snapshot_id: 'offline-source' });
+    expect(project.snapshotPlayback).toBeDefined();
+
+    await useProjectStore.getState().save(0, '/offline-source.json');
+    expect(JSON.parse(mockWriteFile.mock.calls[0][1]).source).toEqual({ kind: 'snapshot', snapshot_id: 'offline-source' });
+  });
+
+  it('protects the recording used by an active snapshot source', () => {
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'protected-source' });
+    useProjectStore.getState().openOfflineSnapshot(snapshot);
+    const project = useProjectStore.getState().activeProject!;
+
+    expect(() => project.useScenarioStore.getState().removeSnapshot('protected-source'))
+      .toThrow(/active project source/);
+    expect(() => project.useScenarioStore.getState().clearSnapshots())
+      .toThrow(/active project source/);
+    expect(project.useScenarioStore.getState().snapshots).toHaveLength(1);
+    expect(project.source).toEqual({ kind: 'snapshot', snapshot_id: 'protected-source' });
+  });
+
+  it('leaves a snapshot project unchanged when its replacement source is invalid', async () => {
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'stable-source' });
+    useProjectStore.getState().openOfflineSnapshot(snapshot);
+    const project = useProjectStore.getState().activeProject!;
+    const originalPlayback = project.snapshotPlayback;
+
+    await expect(useProjectStore.getState().changeSource(0, { kind: 'snapshot', snapshot_id: 'missing' }))
+      .rejects.toThrow(/was not found/);
+
+    expect(project.source).toEqual({ kind: 'snapshot', snapshot_id: 'stable-source' });
+    expect(project.snapshotPlayback).toBe(originalPlayback);
+    expect(project.useScenarioStore.getState().snapshots).toHaveLength(1);
+  });
+
+  it('rejects invalid source URLs before mutating the active project', async () => {
+    useProjectStore.getState().new({ kind: 'websocket', url: 'ws://stable.example' });
+    const project = useProjectStore.getState().activeProject!;
+
+    await expect(useProjectStore.getState().changeSource(0, { kind: 'websocket', url: 'http://invalid.example' } as any))
+      .rejects.toThrow(/ws:\/\//);
+
+    expect(project.source).toEqual({ kind: 'websocket', url: 'ws://stable.example' });
   });
 });

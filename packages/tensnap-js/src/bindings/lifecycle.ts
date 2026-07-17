@@ -9,19 +9,21 @@ export function defineLifecycleActions(
     {
       id: 'start',
       label: labels.start ?? 'Start',
-      allowRuntimeChange: true,
       continuous: true,
     },
     {
       id: 'step',
       label: labels.step ?? 'Step',
-      allowRuntimeChange: true,
+      continuous: false,
+    },
+    {
+      id: 'stop',
+      label: labels.stop ?? 'Stop',
       continuous: false,
     },
     {
       id: 'reset',
       label: labels.reset ?? 'Reset',
-      allowRuntimeChange: true,
       continuous: false,
     },
   );

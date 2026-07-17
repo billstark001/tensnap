@@ -70,7 +70,15 @@ class Bird:
         }
 
 
-@trajectory_layer(agent_layer_id="birds", width=False, length=5, color="#2563EB")
+@trajectory_layer(
+    agent_layer_id="birds",
+    width=False,
+    length=5,
+    color="#2563EB",
+    on_agent_delete="retain",
+    on_state_sync="preserve",
+    on_reset="clear",
+)
 @agent_layer("birds", coord_offset="float")
 @grid_layer()
 @env()

@@ -21,6 +21,30 @@
 	@test delta.deletes == [2]
 end
 
+@testset "auto agent projection follows environment type" begin
+	model = ToyModel([ToyAgent(1, 2.0, 3.0)], 2, 0)
+	uniform_layer = agents_layer("agents", m -> m.agents;
+		projector = autoagentprojector(data_fields = [:id]),
+	)
+	uniform_env = environment("uniform"; type = "uniform", layers = [uniform_layer])
+	uniform_item = only(TenSnap._layer_items(uniform_layer, model))
+
+	@test uniform_layer.environment_type == "uniform"
+	@test !haskey(uniform_item, "x")
+	@test !haskey(uniform_item, "y")
+	@test !haskey(uniform_item, "heading")
+	@test uniform_item["data"] == Dict("id" => 1)
+
+	spatial_layer = agents_layer("agents", m -> m.agents; projector = autoagentprojector())
+	spatial_env = environment("spatial"; type = "2d")
+	add_layer!(spatial_env, spatial_layer)
+	spatial_item = only(TenSnap._layer_items(spatial_layer, model))
+
+	@test spatial_layer.environment_type == "2d"
+	@test spatial_item["x"] == 2.0
+	@test spatial_item["y"] == 3.0
+end
+
 @testset "layer metadata diffing" begin
 	model = ToyModel([ToyAgent(1, 0.0, 0.0)], 2, 0)
 	scenario = Scenario()
@@ -41,10 +65,19 @@ end
 end
 
 @testset "built-in layer constructor coverage" begin
-	trails = trajectory_layer("trails"; data = _ -> Dict("length" => 12))
+	trails = trajectory_layer("trails"; length = 12, width = 2, color = "#2563EB",
+		on_agent_delete = "retain", on_state_sync = "preserve", on_reset = "clear")
 	@test trails.type == "trajectory"
 	@test trails.dependency_layer_ids["agent"] == "agents"
 	@test trails.item_key_fields == ["id"]
+	@test TenSnap._layer_data(trails, nothing) == Dict(
+		"length" => 12,
+		"width" => 2,
+		"color" => "#2563EB",
+		"on_agent_delete" => "retain",
+		"on_state_sync" => "preserve",
+		"on_reset" => "clear",
+	)
 
 	background = background_layer("background"; data = _ -> Dict("background" => "asset://map"))
 	@test background.type == "background"

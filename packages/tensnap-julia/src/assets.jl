@@ -14,7 +14,7 @@ _asset_data_payload(asset::Asset; use_msgpack = false) = Dict("id" => asset.id, 
 function _send_asset_meta(s::Scenario, ws = nothing)
 	isempty(s.assets) && return nothing
 	payload = Dict("assets" => [_asset_meta(asset) for asset in values(s.assets)])
-	_send_or_broadcast(s, ws, "asset_meta", payload)
+	_send_or_broadcast(s, ws, "asset_metadata", payload)
 	return payload
 end
 

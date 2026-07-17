@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { ChevronDown, ChevronRight, Square, Container, Pyramid, Earth, ChartArea } from 'lucide-react';
+import { ChevronDown, ChevronRight, Square, Container, Pyramid, Earth, ChartArea, Activity } from 'lucide-react';
 import { ContainerView, AnyView } from '@/types/ui';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
@@ -127,6 +127,12 @@ export const ContainerViewComponent: React.FC<ContainerViewComponentProps> = ({
       >
         <ChartArea />
         <Trans>Chart</Trans>
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        onSelect={(e) => handleCreateView('monitor', e as any)}
+      >
+        <Activity />
+        <Trans>Monitor</Trans>
       </ContextMenu.Item>
       <ContextMenu.Item
         onSelect={(e) => handleCreateView('container', e as any)}

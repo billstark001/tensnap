@@ -20,19 +20,23 @@ msgstr "(No options available)"
 #. placeholder {0}: filteredAgents.length
 #. placeholder {1}: agentsList.length
 #: src/components/scenario/UniformEnvironmentView.tsx:159
-msgid "{0} / {1} agents"
-msgstr "{0} / {1} agents"
+#~ msgid "{0} / {1} agents"
+#~ msgstr "{0} / {1} agents"
 
 #: src/dialogs/AgentDetailsDialog.tsx:109
 #~ msgid "{0} points recorded"
 #~ msgstr "{0} points recorded"
 
+#: src/components/scenario/UniformEnvironmentView.tsx:205
+msgid "{matchingAgentCount} / {totalAgentCount} agents"
+msgstr "{matchingAgentCount} / {totalAgentCount} agents"
+
 #: src/dialogs/AboutDialog.tsx:70
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap Contributors"
 
-#: src/dialogs/SettingsDialog.tsx:231
-#: src/dialogs/SettingsDialog.tsx:249
+#: src/dialogs/SettingsDialog.tsx:238
+#: src/dialogs/SettingsDialog.tsx:256
 msgid "0 means unlimited"
 msgstr "0 means unlimited"
 
@@ -40,32 +44,32 @@ msgstr "0 means unlimited"
 msgid "2D Layer Metadata"
 msgstr "2D Layer Metadata"
 
-#: src/components/project/view-edit-hooks.ts:372
+#: src/components/project/view-edit-hooks.ts:381
 msgid "A chart group with this ID already exists."
 msgstr "A chart group with this ID already exists."
 
-#: src/components/project/view-edit-hooks.ts:346
+#: src/components/project/view-edit-hooks.ts:355
 msgid "A parameter with this ID already exists."
 msgstr "A parameter with this ID already exists."
 
-#: src/components/toolbar/ToolGroups.tsx:295
+#: src/components/toolbar/ToolGroups.tsx:311
 msgid "About"
 msgstr "About"
 
-#: src/components/toolbar/MenuBar.tsx:224
+#: src/components/toolbar/MenuBar.tsx:248
 #: src/dialogs/AboutDialog.tsx:14
 msgid "About TenSnap"
 msgstr "About TenSnap"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:62
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:66
 msgid "Action"
 msgstr "Action"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:31
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:34
 msgid "Action ID"
 msgstr "Action ID"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:64
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:68
 msgid "Action Label"
 msgstr "Action Label"
 
@@ -73,19 +77,19 @@ msgstr "Action Label"
 #~ msgid "Action Role"
 #~ msgstr "Action Role"
 
-#: src/dialogs/SettingsDialog.tsx:275
+#: src/dialogs/SettingsDialog.tsx:282
 msgid "Action Timeout"
 msgstr "Action Timeout"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:150
+#: src/dialogs/SnapshotDetailDialog.tsx:158
 msgid "Action:"
 msgstr "Action:"
 
-#: src/components/toolbar/ToolGroups.tsx:232
+#: src/components/toolbar/ToolGroups.tsx:249
 msgid "Adjust Mode"
 msgstr "Adjust Mode"
 
-#: src/dialogs/AgentDetailsDialog.tsx:207
+#: src/dialogs/AgentDetailsDialog.tsx:211
 msgid "Agent Details"
 msgstr "Agent Details"
 
@@ -93,66 +97,90 @@ msgstr "Agent Details"
 #~ msgid "Agents:"
 #~ msgstr "Agents:"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:82
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:404
 msgid "Allow Runtime Change"
 msgstr "Allow Runtime Change"
 
-#: src/components/project/view-edit-hooks.ts:333
+#: src/components/project/view-edit-hooks.ts:342
 msgid "An action with this ID already exists."
 msgstr "An action with this ID already exists."
 
-#: src/components/project/view-edit-hooks.ts:359
+#: src/components/project/view-edit-hooks.ts:368
 msgid "An environment with this ID already exists."
 msgstr "An environment with this ID already exists."
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:341
+#: src/dialogs/SettingsDialog.tsx:370
 msgid "Apply"
 msgstr "Apply"
 
-#: src/components/project/RightPanel.tsx:168
+#: src/components/project/RightPanel.tsx:189
 msgid "Assets"
 msgstr "Assets"
 
-#: src/components/project/RightPanel.tsx:271
+#: src/components/project/RightPanel.tsx:294
 msgid "Assets sent by adapters will appear here."
 msgstr "Assets sent by adapters will appear here."
 
-#: src/dialogs/SettingsDialog.tsx:207
+#: src/dialogs/SettingsDialog.tsx:214
 msgid "Auto"
 msgstr "Auto"
 
-#: src/dialogs/CreateNewProjectDialog.tsx:67
-#: src/dialogs/SettingsDialog.tsx:316
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:45
+msgid "Automatic"
+msgstr "Automatic"
+
+#: src/dialogs/CreateNewProjectDialog.tsx:69
+#: src/dialogs/SettingsDialog.tsx:338
 msgid "Backend URL"
 msgstr "Backend URL"
+
+#: src/dialogs/SimulatorInfoDialog.tsx:58
+msgid "Binding"
+msgstr "Binding"
+
+#: src/dialogs/SettingsDialog.tsx:333
+msgid "Built-in browser model"
+msgstr "Built-in browser model"
+
+#: src/dialogs/SettingsDialog.tsx:343
+msgid "Built-in model"
+msgstr "Built-in model"
 
 #: src/components/view/ContainerViewComponent.tsx:111
 msgid "Button"
 msgstr "Button"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:37
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:40
 msgid "Button Text"
 msgstr "Button Text"
 
 #: src/dialogs/ContinuousRunDialog.tsx:111
-#: src/dialogs/CreateNewProjectDialog.tsx:100
+#: src/dialogs/CreateNewProjectDialog.tsx:102
 #: src/dialogs/edit-views/ConfirmEditDialog.tsx:35
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:75
-#: src/dialogs/edit-views/EditViewDialog.tsx:342
+#: src/dialogs/edit-views/EditViewDialog.tsx:345
+#: src/dialogs/SceneRestoreDialog.tsx:211
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:59
+#: src/dialogs/SnapshotDetailDialog.tsx:62
 msgid "Canvas copied to clipboard!"
 msgstr "Canvas copied to clipboard!"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:55
+#: src/dialogs/SnapshotDetailDialog.tsx:58
 msgid "Canvas not found."
 msgstr "Canvas not found."
 
-#: src/dialogs/SettingsDialog.tsx:324
+#: src/dialogs/SimulatorInfoDialog.tsx:63
+msgid "Capabilities"
+msgstr "Capabilities"
+
+#: src/components/project/RightPanel.tsx:213
+msgid "Capturing…"
+msgstr "Capturing…"
+
+#: src/dialogs/SettingsDialog.tsx:340
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "Change the WebSocket server URL for the current project. The connection will be reestablished."
 
@@ -176,30 +204,34 @@ msgstr "Chart Group ID"
 msgid "Chart Group Label"
 msgstr "Chart Group Label"
 
+#: src/dialogs/SceneRestoreDialog.tsx:200
+msgid "Chart policy"
+msgstr "Chart policy"
+
 #: src/dialogs/edit-views/ChartViewEditor.tsx:291
 msgid "Chart Series"
 msgstr "Chart Series"
 
-#: src/components/project/RightPanel.tsx:200
+#: src/components/project/RightPanel.tsx:223
 msgid "Clear All"
 msgstr "Clear All"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:196
-#: src/components/scenario/UniformEnvironmentView.tsx:71
+#: src/components/scenario/UniformEnvironmentView.tsx:89
 msgid "Clear search"
 msgstr "Clear search"
 
-#: src/components/project/RightPanel.tsx:211
+#: src/components/project/RightPanel.tsx:234
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "Click \"Take Snapshot\" to create one."
 
-#: src/dialogs/SettingsDialog.tsx:169
+#: src/dialogs/SettingsDialog.tsx:176
 msgid "Client Message Validation"
 msgstr "Client Message Validation"
 
 #: src/dialogs/AboutDialog.tsx:77
-#: src/dialogs/AgentDetailsDialog.tsx:299
-#: src/dialogs/SettingsDialog.tsx:351
+#: src/dialogs/AgentDetailsDialog.tsx:301
+#: src/dialogs/SettingsDialog.tsx:380
 msgid "Close"
 msgstr "Close"
 
@@ -208,15 +240,19 @@ msgstr "Close"
 msgid "Close {0}"
 msgstr "Close {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:271
+#: src/dialogs/DiscardProjectChangesDialog.tsx:18
+msgid "Close this project and discard renderer edits that have not been saved?"
+msgstr "Close this project and discard renderer edits that have not been saved?"
+
+#: src/dialogs/AgentDetailsDialog.tsx:275
 msgid "Color:"
 msgstr "Color:"
 
-#: src/components/project/StatusBar.tsx:120
+#: src/components/project/StatusBar.tsx:146
 msgid "Comm:"
 msgstr "Comm:"
 
-#: src/components/toolbar/ToolGroups.tsx:144
+#: src/components/toolbar/ToolGroups.tsx:159
 msgid "Conditional Run…"
 msgstr "Conditional Run…"
 
@@ -224,7 +260,7 @@ msgstr "Conditional Run…"
 msgid "Configure a bounded continuous run for action {actionId}."
 msgstr "Configure a bounded continuous run for action {actionId}."
 
-#: src/dialogs/SettingsDialog.tsx:114
+#: src/dialogs/SettingsDialog.tsx:121
 msgid "Configure application and project settings."
 msgstr "Configure application and project settings."
 
@@ -236,23 +272,31 @@ msgstr "Confirm"
 #~ msgid "Confirm Changes"
 #~ msgstr "Confirm Changes"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:363
+#: src/dialogs/edit-views/EditViewDialog.tsx:366
 msgid "Confirm Structural Change"
 msgstr "Confirm Structural Change"
 
-#: src/components/project/StatusBar.tsx:94
+#: src/dialogs/SceneRestoreDialog.tsx:157
+msgid "Connect to a live simulator before restoring a snapshot."
+msgstr "Connect to a live simulator before restoring a snapshot."
+
+#: src/components/project/StatusBar.tsx:58
 msgid "Connected"
 msgstr "Connected"
 
-#: src/components/project/StatusBar.tsx:81
+#: src/components/project/StatusBar.tsx:56
+msgid "Connecting"
+msgstr "Connecting"
+
+#: src/components/project/StatusBar.tsx:104
 msgid "Connection failed, will retry automatically"
 msgstr "Connection failed, will retry automatically"
 
-#: src/components/view/ContainerViewComponent.tsx:135
+#: src/components/view/ContainerViewComponent.tsx:141
 msgid "Container"
 msgstr "Container"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:46
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:49
 msgid "Continuous"
 msgstr "Continuous"
 
@@ -260,13 +304,14 @@ msgstr "Continuous"
 msgid "Continuous run"
 msgstr "Continuous run"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:118
+#: src/components/project/ViewContextMenuRenderer.tsx:152
 msgid "Continuous run…"
 msgstr "Continuous run…"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:109
-#: src/components/toolbar/MenuBar.tsx:133
-#: src/dialogs/SnapshotDetailDialog.tsx:70
+#: src/components/project/ViewContextMenuRenderer.tsx:136
+#: src/components/project/ViewContextMenuRenderer.tsx:143
+#: src/components/toolbar/MenuBar.tsx:161
+#: src/dialogs/SnapshotDetailDialog.tsx:73
 msgid "Copy"
 msgstr "Copy"
 
@@ -274,7 +319,7 @@ msgstr "Copy"
 #~ msgid "Copy As Bitmap"
 #~ msgstr "Copy As Bitmap"
 
-#: src/dialogs/CreateNewProjectDialog.tsx:107
+#: src/dialogs/CreateNewProjectDialog.tsx:109
 msgid "Create"
 msgstr "Create"
 
@@ -282,7 +327,7 @@ msgstr "Create"
 #~ msgid "Create New Item"
 #~ msgstr "Create New Item"
 
-#: src/dialogs/CreateNewProjectDialog.tsx:63
+#: src/dialogs/CreateNewProjectDialog.tsx:65
 msgid "Create New Project"
 msgstr "Create New Project"
 
@@ -297,15 +342,19 @@ msgstr "Current Value"
 #~ msgid "Custom"
 #~ msgstr "Custom"
 
-#: src/dialogs/AgentDetailsDialog.tsx:286
+#: src/dialogs/AgentDetailsDialog.tsx:290
 msgid "Custom Data:"
 msgstr "Custom Data:"
 
-#: src/components/toolbar/MenuBar.tsx:130
+#: src/hooks/useButtonControls.ts:200
+msgid "Custom simulator actions are unavailable for a snapshot source."
+msgstr "Custom simulator actions are unavailable for a snapshot source."
+
+#: src/components/toolbar/MenuBar.tsx:158
 msgid "Cut"
 msgstr "Cut"
 
-#: src/dialogs/SettingsDialog.tsx:135
+#: src/dialogs/SettingsDialog.tsx:142
 msgid "Dark"
 msgstr "Dark"
 
@@ -313,15 +362,15 @@ msgstr "Dark"
 msgid "Data Points"
 msgstr "Data Points"
 
-#: src/dialogs/AgentDetailsDialog.tsx:281
+#: src/dialogs/AgentDetailsDialog.tsx:285
 msgid "default"
 msgstr "default"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:141
+#: src/components/project/ViewContextMenuRenderer.tsx:175
 msgid "Delete"
 msgstr "Delete"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:193
+#: src/dialogs/SnapshotDetailDialog.tsx:213
 msgid "Delete recording"
 msgstr "Delete recording"
 
@@ -341,15 +390,27 @@ msgstr "Delete recording"
 msgid "Disabled"
 msgstr "Disabled"
 
-#: src/components/project/StatusBar.tsx:94
+#: src/dialogs/DiscardProjectChangesDialog.tsx:19
+msgid "Discard and close"
+msgstr "Discard and close"
+
+#: src/dialogs/DiscardProjectChangesDialog.tsx:17
+msgid "Discard unsaved changes?"
+msgstr "Discard unsaved changes?"
+
+#: src/components/project/StatusBar.tsx:59
 msgid "Disconnected"
 msgstr "Disconnected"
+
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:43
+msgid "Display"
+msgstr "Display"
 
 #: src/dialogs/edit-views/EnvironmentViewEditor.tsx:192
 msgid "Display Type"
 msgstr "Display Type"
 
-#: src/components/toolbar/MenuBar.tsx:214
+#: src/components/toolbar/MenuBar.tsx:238
 msgid "Documentation"
 msgstr "Documentation"
 
@@ -365,8 +426,8 @@ msgstr "Documentation:"
 msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:133
-#: src/components/toolbar/MenuBar.tsx:107
+#: src/components/project/ViewContextMenuRenderer.tsx:167
+#: src/components/toolbar/MenuBar.tsx:135
 msgid "Edit"
 msgstr "Edit"
 
@@ -374,16 +435,16 @@ msgstr "Edit"
 msgid "Edit ID"
 msgstr "Edit ID"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:349
+#: src/dialogs/edit-views/EditViewDialog.tsx:352
 msgid "Edit Object ID"
 msgstr "Edit Object ID"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:325
+#: src/dialogs/edit-views/EditViewDialog.tsx:328
 msgid "Edit View"
 msgstr "Edit View"
 
-#: src/dialogs/CreateNewProjectDialog.tsx:72
-#: src/dialogs/SettingsDialog.tsx:321
+#: src/dialogs/CreateNewProjectDialog.tsx:74
+#: src/dialogs/SettingsDialog.tsx:339
 msgid "Enter backend WebSocket server address"
 msgstr "Enter backend WebSocket server address"
 
@@ -419,16 +480,24 @@ msgstr "Environment Type"
 #~ msgid "Environments"
 #~ msgstr "Environments"
 
-#: src/components/project/RightPanel.tsx:239
+#: src/components/project/RightPanel.tsx:262
 msgid "Environments:"
 msgstr "Environments:"
 
-#: src/dialogs/SettingsDialog.tsx:179
-#: src/dialogs/SettingsDialog.tsx:196
+#: src/dialogs/SettingsDialog.tsx:186
+#: src/dialogs/SettingsDialog.tsx:203
 msgid "Error"
 msgstr "Error"
 
-#: src/components/toolbar/MenuBar.tsx:98
+#: src/dialogs/SceneRestoreDialog.tsx:195
+msgid "Exact checkpoint"
+msgstr "Exact checkpoint"
+
+#: src/dialogs/SceneRestoreDialog.tsx:166
+msgid "Exact checkpoints are available only at the recording's initial frame."
+msgstr "Exact checkpoints are available only at the recording's initial frame."
+
+#: src/components/toolbar/MenuBar.tsx:124
 msgid "Exit"
 msgstr "Exit"
 
@@ -452,10 +521,14 @@ msgstr "Expanded"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "Exporting, please wait..."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:60
-#: src/dialogs/SnapshotDetailDialog.tsx:62
+#: src/dialogs/SnapshotDetailDialog.tsx:63
+#: src/dialogs/SnapshotDetailDialog.tsx:65
 msgid "Failed to copy canvas to clipboard."
 msgstr "Failed to copy canvas to clipboard."
+
+#: src/components/project/ViewContextMenuRenderer.tsx:103
+msgid "Failed to copy monitor data to clipboard."
+msgstr "Failed to copy monitor data to clipboard."
 
 #: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:270
 #~ msgid "Failed to load: {error}"
@@ -465,7 +538,7 @@ msgstr "Failed to copy canvas to clipboard."
 msgid "Failed to open files"
 msgstr "Failed to open files"
 
-#: src/components/project/StatusBar.tsx:84
+#: src/components/project/StatusBar.tsx:111
 msgid "Failed to reconnect"
 msgstr "Failed to reconnect"
 
@@ -474,12 +547,16 @@ msgstr "Failed to reconnect"
 msgid "Failed to save file"
 msgstr "Failed to save file"
 
-#: src/dialogs/SettingsDialog.tsx:88
-msgid "Failed to update project URL"
-msgstr "Failed to update project URL"
+#: src/dialogs/SettingsDialog.tsx:95
+msgid "Failed to update project source"
+msgstr "Failed to update project source"
 
-#: src/components/project/view-edit-hooks.ts:250
-#: src/components/project/view-edit-hooks.ts:256
+#: src/dialogs/SettingsDialog.tsx:88
+#~ msgid "Failed to update project URL"
+#~ msgstr "Failed to update project URL"
+
+#: src/components/project/view-edit-hooks.ts:259
+#: src/components/project/view-edit-hooks.ts:265
 msgid "Failed to update view"
 msgstr "Failed to update view"
 
@@ -487,7 +564,7 @@ msgstr "Failed to update view"
 #~ msgid "Fallback Background Color"
 #~ msgstr "Fallback Background Color"
 
-#: src/components/toolbar/MenuBar.tsx:62
+#: src/components/toolbar/MenuBar.tsx:86
 msgid "File"
 msgstr "File"
 
@@ -504,12 +581,12 @@ msgstr "File"
 msgid "File saved"
 msgstr "File saved"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:152
-#: src/dialogs/SnapshotDetailDialog.tsx:152
+#: src/dialogs/SnapshotDetailDialog.tsx:160
+#: src/dialogs/SnapshotDetailDialog.tsx:160
 msgid "First frame"
 msgstr "First frame"
 
-#: src/dialogs/AgentDetailsDialog.tsx:242
+#: src/dialogs/AgentDetailsDialog.tsx:246
 msgid "Follow agent"
 msgstr "Follow agent"
 
@@ -521,7 +598,7 @@ msgstr "Follow agent"
 #~ msgid "Force hidden"
 #~ msgstr "Force hidden"
 
-#: src/components/project/StatusBar.tsx:136
+#: src/components/project/StatusBar.tsx:162
 msgid "Force reconnect to server"
 msgstr "Force reconnect to server"
 
@@ -529,19 +606,19 @@ msgstr "Force reconnect to server"
 #~ msgid "Force visible"
 #~ msgstr "Force visible"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:149
+#: src/dialogs/SnapshotDetailDialog.tsx:157
 msgid "Frame updates:"
 msgstr "Frame updates:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:147
+#: src/dialogs/SnapshotDetailDialog.tsx:155
 msgid "Frame:"
 msgstr "Frame:"
 
-#: src/components/project/RightPanel.tsx:247
+#: src/components/project/RightPanel.tsx:270
 msgid "Frames:"
 msgstr "Frames:"
 
-#: src/components/toolbar/MenuBar.tsx:174
+#: src/components/toolbar/MenuBar.tsx:198
 msgid "Fullscreen"
 msgstr "Fullscreen"
 
@@ -557,11 +634,11 @@ msgstr "Fullscreen"
 #~ msgid "Grid Width"
 #~ msgstr "Grid Width"
 
-#: src/components/project/RightPanel.tsx:143
+#: src/components/project/RightPanel.tsx:164
 msgid "Hash:"
 msgstr "Hash:"
 
-#: src/dialogs/AgentDetailsDialog.tsx:142
+#: src/dialogs/AgentDetailsDialog.tsx:145
 msgid "Heading:"
 msgstr "Heading:"
 
@@ -569,39 +646,48 @@ msgstr "Heading:"
 msgid "Height"
 msgstr "Height"
 
-#: src/components/toolbar/MenuBar.tsx:206
+#: src/components/toolbar/MenuBar.tsx:230
 msgid "Help"
 msgstr "Help"
 
-#: src/components/project/StatusBar.tsx:180
+#: src/components/project/StatusBar.tsx:214
 msgid "Hide Bottom Panel"
 msgstr "Hide Bottom Panel"
 
-#: src/components/project/StatusBar.tsx:171
+#: src/components/project/StatusBar.tsx:205
 msgid "Hide Right Panel"
 msgstr "Hide Right Panel"
 
-#: src/dialogs/AgentDetailsDialog.tsx:263
+#: src/dialogs/AgentDetailsDialog.tsx:267
 msgid "Icon:"
 msgstr "Icon:"
 
 #: src/dialogs/edit-views/BaseViewEditor.tsx:17
+#: src/dialogs/SimulatorInfoDialog.tsx:52
 msgid "ID"
 msgstr "ID"
 
-#: src/components/project/RightPanel.tsx:131
-#: src/dialogs/AgentDetailsDialog.tsx:256
-#: src/dialogs/SnapshotDetailDialog.tsx:145
+#: src/components/project/RightPanel.tsx:152
+#: src/dialogs/AgentDetailsDialog.tsx:260
+#: src/dialogs/SnapshotDetailDialog.tsx:153
 msgid "ID:"
 msgstr "ID:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:128
+#: src/components/project/StatusBar.tsx:181
+msgid "Info"
+msgstr "Info"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:136
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "Inspect this recording offline. Opening it creates a disconnected copy."
 
-#: src/components/project/RightPanel.tsx:154
+#: src/components/project/RightPanel.tsx:175
 msgid "Inspector"
 msgstr "Inspector"
+
+#: src/dialogs/SimulatorInfoDialog.tsx:56
+msgid "Instance"
+msgstr "Instance"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:36
 msgid "Invalid ID"
@@ -611,11 +697,19 @@ msgstr "Invalid ID"
 msgid "Invalid JSON"
 msgstr "Invalid JSON"
 
-#: src/dialogs/SettingsDialog.tsx:103
+#: src/dialogs/SettingsDialog.tsx:110
 msgid "Invalid locale"
 msgstr "Invalid locale"
 
-#: src/components/toolbar/MenuBar.tsx:217
+#: src/dialogs/DiscardProjectChangesDialog.tsx:20
+msgid "Keep editing"
+msgstr "Keep editing"
+
+#: src/dialogs/SceneRestoreDialog.tsx:203
+msgid "Keep live charts"
+msgstr "Keep live charts"
+
+#: src/components/toolbar/MenuBar.tsx:241
 msgid "Keyboard Shortcuts"
 msgstr "Keyboard Shortcuts"
 
@@ -624,7 +718,7 @@ msgstr "Keyboard Shortcuts"
 #~ msgid "Label"
 #~ msgstr "Label"
 
-#: src/dialogs/SettingsDialog.tsx:142
+#: src/dialogs/SettingsDialog.tsx:149
 msgid "Language"
 msgstr "Language"
 
@@ -636,7 +730,7 @@ msgstr "Left"
 msgid "License:"
 msgstr "License:"
 
-#: src/dialogs/SettingsDialog.tsx:135
+#: src/dialogs/SettingsDialog.tsx:142
 msgid "Light"
 msgstr "Light"
 
@@ -644,15 +738,15 @@ msgstr "Light"
 #~ msgid "Loading..."
 #~ msgstr "Loading..."
 
-#: src/dialogs/SettingsDialog.tsx:238
+#: src/dialogs/SettingsDialog.tsx:245
 msgid "Max FPS"
 msgstr "Max FPS"
 
-#: src/dialogs/SettingsDialog.tsx:220
+#: src/dialogs/SettingsDialog.tsx:227
 msgid "Max TPS"
 msgstr "Max TPS"
 
-#: src/dialogs/SettingsDialog.tsx:268
+#: src/dialogs/SettingsDialog.tsx:275
 msgid "Maximum 120 FPS"
 msgstr "Maximum 120 FPS"
 
@@ -668,7 +762,7 @@ msgstr "Maximum steps must be an integer from 1 to 1,000,000."
 msgid "Maximum Value"
 msgstr "Maximum Value"
 
-#: src/components/project/RightPanel.tsx:135
+#: src/components/project/RightPanel.tsx:156
 msgid "MIME:"
 msgstr "MIME:"
 
@@ -676,32 +770,57 @@ msgstr "MIME:"
 msgid "Minimum Value"
 msgstr "Minimum Value"
 
-#: src/components/project/StatusBar.tsx:115
+#: src/dialogs/SimulatorInfoDialog.tsx:50
+msgid "Model"
+msgstr "Model"
+
+#: src/components/project/StatusBar.tsx:54
+msgid "Model mismatch"
+msgstr "Model mismatch"
+
+#: src/components/project/StatusBar.tsx:141
 msgid "Model:"
 msgstr "Model:"
 
-#: src/components/toolbar/ToolGroups.tsx:171
+#: src/components/view/ContainerViewComponent.tsx:135
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:33
+msgid "Monitor"
+msgstr "Monitor"
+
+#: src/components/project/ViewContextMenuRenderer.tsx:100
+msgid "Monitor data copied to clipboard."
+msgstr "Monitor data copied to clipboard."
+
+#: src/components/project/ViewContextMenuRenderer.tsx:91
+msgid "Monitor not found."
+msgstr "Monitor not found."
+
+#: src/dialogs/SnapshotDetailDialog.tsx:185
+msgid "Monitors"
+msgstr "Monitors"
+
+#: src/components/toolbar/ToolGroups.tsx:184
 msgid "More Actions"
 msgstr "More Actions"
 
-#: src/components/project/StatusBar.tsx:111
+#: src/components/project/StatusBar.tsx:137
 msgid "MSPT:"
 msgstr "MSPT:"
 
-#: ../tensnap-web-utils/src/file-system/CreateDialog.tsx:59
-#~ msgid "Name"
-#~ msgstr "Name"
+#: src/dialogs/SimulatorInfoDialog.tsx:53
+msgid "Name"
+msgstr "Name"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:245
+#: src/dialogs/AgentDetailsDialog.tsx:249
 msgid "Neighbors: {0}"
 msgstr "Neighbors: {0}"
 
-#: src/components/toolbar/MenuBar.tsx:73
+#: src/components/toolbar/MenuBar.tsx:97
 msgid "New"
 msgstr "New"
 
-#: src/components/toolbar/ToolGroups.tsx:57
+#: src/components/toolbar/ToolGroups.tsx:61
 msgid "New File"
 msgstr "New File"
 
@@ -717,23 +836,27 @@ msgstr "New View"
 msgid "Next page"
 msgstr "Next page"
 
+#: src/components/value-inspector/ValueInspector.tsx:193
+msgid "Next value rows"
+msgstr "Next value rows"
+
 #: ../web-common/src/components/ui/EmptyState.tsx:209
 msgid "No {itemName} available"
 msgstr "No {itemName} available"
 
-#: src/dialogs/SettingsDialog.tsx:75
+#: src/dialogs/SettingsDialog.tsx:82
 msgid "No active project"
 msgstr "No active project"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:68
+#: src/components/scenario/UniformEnvironmentView.tsx:86
 msgid "No agents found matching your search"
 msgstr "No agents found matching your search"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:69
+#: src/components/scenario/UniformEnvironmentView.tsx:87
 msgid "No agents in this environment"
 msgstr "No agents in this environment"
 
-#: src/components/project/RightPanel.tsx:270
+#: src/components/project/RightPanel.tsx:293
 msgid "No assets registered."
 msgstr "No assets registered."
 
@@ -750,6 +873,14 @@ msgstr "No main view available."
 #: src/dialogs/edit-views/EnvironmentViewEditor.tsx:263
 msgid "No metadata on this layer."
 msgstr "No metadata on this layer."
+
+#: src/dialogs/SnapshotDetailDialog.tsx:188
+msgid "No monitor data was recorded."
+msgstr "No monitor data was recorded."
+
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:38
+msgid "No monitors are currently published by the simulator."
+msgstr "No monitors are currently published by the simulator."
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:64
 msgid "No object is registered for the current ID; the view binding will be updated."
@@ -771,7 +902,7 @@ msgstr "No results found"
 msgid "No series available"
 msgstr "No series available"
 
-#: src/components/project/RightPanel.tsx:210
+#: src/components/project/RightPanel.tsx:233
 msgid "No snapshots yet."
 msgstr "No snapshots yet."
 
@@ -779,19 +910,19 @@ msgstr "No snapshots yet."
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "No snapshots yet. Click \"Take Snapshot\" to create one."
 
-#: src/dialogs/AgentDetailsDialog.tsx:252
+#: src/dialogs/AgentDetailsDialog.tsx:256
 msgid "No spatial context is available for this agent."
 msgstr "No spatial context is available for this agent."
 
-#: src/components/project/view-edit-hooks.ts:294
+#: src/components/project/view-edit-hooks.ts:303
 msgid "No view tree is available."
 msgstr "No view tree is available."
 
-#: src/dialogs/AgentDetailsDialog.tsx:287
+#: src/dialogs/AgentDetailsDialog.tsx:291
 msgid "None"
 msgstr "None"
 
-#: src/dialogs/AgentDetailsDialog.tsx:137
+#: src/dialogs/AgentDetailsDialog.tsx:140
 msgid "Not positioned"
 msgstr "Not positioned"
 
@@ -799,21 +930,25 @@ msgstr "Not positioned"
 msgid "Object ID"
 msgstr "Object ID"
 
-#: src/dialogs/SettingsDialog.tsx:173
-#: src/dialogs/SettingsDialog.tsx:190
+#: src/dialogs/SettingsDialog.tsx:180
+#: src/dialogs/SettingsDialog.tsx:197
 msgid "Off"
 msgstr "Off"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:170
+#: src/dialogs/SnapshotDetailDialog.tsx:178
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "Older frames were removed to stay within the recording budget."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:194
+#: src/hooks/useButtonControls.ts:105
+msgid "Only start, step, stop, and reset are available for a snapshot source."
+msgstr "Only start, step, stop, and reset are available for a snapshot source."
+
+#: src/dialogs/SnapshotDetailDialog.tsx:215
 msgid "Open as offline copy"
 msgstr "Open as offline copy"
 
-#: src/components/toolbar/MenuBar.tsx:79
-#: src/components/toolbar/ToolGroups.tsx:63
+#: src/components/toolbar/MenuBar.tsx:103
+#: src/components/toolbar/ToolGroups.tsx:67
 #: src/components/toolbar/useFileOperations.ts:58
 msgid "Open File"
 msgstr "Open File"
@@ -822,8 +957,8 @@ msgstr "Open File"
 #~ msgid "Open Folder"
 #~ msgstr "Open Folder"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:96
-#: src/dialogs/SnapshotDetailDialog.tsx:68
+#: src/components/project/ViewContextMenuRenderer.tsx:123
+#: src/dialogs/SnapshotDetailDialog.tsx:71
 msgid "Options"
 msgstr "Options"
 
@@ -831,7 +966,7 @@ msgstr "Options"
 msgid "Or click to browse"
 msgstr "Or click to browse"
 
-#: src/dialogs/CreateNewProjectDialog.tsx:83
+#: src/dialogs/CreateNewProjectDialog.tsx:85
 msgid "Or select a built-in model that runs in the browser:"
 msgstr "Or select a built-in model that runs in the browser:"
 
@@ -859,29 +994,29 @@ msgstr "Parameter Label"
 msgid "Parameter Type"
 msgstr "Parameter Type"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:172
+#: src/dialogs/SnapshotDetailDialog.tsx:180
 msgid "Parameters"
 msgstr "Parameters"
 
-#: src/components/project/RightPanel.tsx:253
+#: src/components/project/RightPanel.tsx:276
 msgid "Parameters:"
 msgstr "Parameters:"
 
-#: src/components/toolbar/MenuBar.tsx:136
+#: src/components/toolbar/MenuBar.tsx:164
 msgid "Paste"
 msgstr "Paste"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:153
-#: src/dialogs/SnapshotDetailDialog.tsx:153
+#: src/dialogs/SnapshotDetailDialog.tsx:161
+#: src/dialogs/SnapshotDetailDialog.tsx:161
 msgid "Pause"
 msgstr "Pause"
 
-#: src/components/project/RightPanel.tsx:104
+#: src/components/project/RightPanel.tsx:125
 msgid "Pending"
 msgstr "Pending"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:153
-#: src/dialogs/SnapshotDetailDialog.tsx:153
+#: src/dialogs/SnapshotDetailDialog.tsx:161
+#: src/dialogs/SnapshotDetailDialog.tsx:161
 msgid "Play"
 msgstr "Play"
 
@@ -889,7 +1024,7 @@ msgstr "Play"
 msgid "Please create or open a project to get started."
 msgstr "Please create or open a project to get started."
 
-#: src/dialogs/AgentDetailsDialog.tsx:134
+#: src/dialogs/AgentDetailsDialog.tsx:137
 msgid "Position:"
 msgstr "Position:"
 
@@ -897,7 +1032,11 @@ msgstr "Position:"
 msgid "Previous page"
 msgstr "Previous page"
 
-#: src/dialogs/SettingsDialog.tsx:302
+#: src/components/value-inspector/ValueInspector.tsx:192
+msgid "Previous value rows"
+msgstr "Previous value rows"
+
+#: src/dialogs/SettingsDialog.tsx:309
 msgid "Project File"
 msgstr "Project File"
 
@@ -909,27 +1048,48 @@ msgstr "Project recovered with warnings"
 msgid "Project saved successfully."
 msgstr "Project saved successfully."
 
-#: src/dialogs/SettingsDialog.tsx:297
+#: src/dialogs/SettingsDialog.tsx:304
 msgid "Project Settings"
 msgstr "Project Settings"
 
-#: src/dialogs/SettingsDialog.tsx:81
-msgid "Project URL updated successfully"
-msgstr "Project URL updated successfully"
+#: src/dialogs/SettingsDialog.tsx:323
+msgid "Project Source"
+msgstr "Project Source"
 
-#: src/dialogs/AgentDetailsDialog.tsx:224
+#: src/dialogs/SettingsDialog.tsx:88
+msgid "Project source updated successfully"
+msgstr "Project source updated successfully"
+
+#: src/dialogs/SettingsDialog.tsx:81
+#~ msgid "Project URL updated successfully"
+#~ msgstr "Project URL updated successfully"
+
+#: src/dialogs/SceneRestoreDialog.tsx:196
+msgid "Projected scene"
+msgstr "Projected scene"
+
+#: src/dialogs/SimulatorInfoDialog.tsx:57
+msgid "Protocol"
+msgstr "Protocol"
+
+#. placeholder {0}: model.protocolVersion
+#: src/dialogs/CreateNewProjectDialog.tsx:27
+msgid "Protocol {0}"
+msgstr "Protocol {0}"
+
+#: src/dialogs/AgentDetailsDialog.tsx:228
 msgid "Radius"
 msgstr "Radius"
 
-#: src/components/project/RightPanel.tsx:104
+#: src/components/project/RightPanel.tsx:125
 msgid "Ready"
 msgstr "Ready"
 
-#: src/components/project/StatusBar.tsx:146
+#: src/components/project/StatusBar.tsx:172
 msgid "Reconnect"
 msgstr "Reconnect"
 
-#: src/components/project/StatusBar.tsx:78
+#: src/components/project/StatusBar.tsx:101
 msgid "Reconnected successfully"
 msgstr "Reconnected successfully"
 
@@ -937,12 +1097,16 @@ msgstr "Reconnected successfully"
 msgid "Record this run"
 msgstr "Record this run"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:146
+#: src/dialogs/SnapshotDetailDialog.tsx:154
 msgid "Recorded:"
 msgstr "Recorded:"
 
-#: src/components/toolbar/MenuBar.tsx:126
-#: src/components/toolbar/ToolGroups.tsx:90
+#: src/dialogs/SceneRestoreDialog.tsx:185
+msgid "Recording frame: {frame}"
+msgstr "Recording frame: {frame}"
+
+#: src/components/toolbar/MenuBar.tsx:154
+#: src/components/toolbar/ToolGroups.tsx:94
 msgid "Redo"
 msgstr "Redo"
 
@@ -950,7 +1114,7 @@ msgstr "Redo"
 #~ msgid "Refresh"
 #~ msgstr "Refresh"
 
-#: src/dialogs/SettingsDialog.tsx:203
+#: src/dialogs/SettingsDialog.tsx:210
 msgid "Render Trigger"
 msgstr "Render Trigger"
 
@@ -958,13 +1122,17 @@ msgstr "Render Trigger"
 #~ msgid "Renderer Overrides"
 #~ msgstr "Renderer Overrides"
 
+#: src/dialogs/SceneRestoreDialog.tsx:202
+msgid "Replace with snapshot charts"
+msgstr "Replace with snapshot charts"
+
 #: src/dialogs/AboutDialog.tsx:41
 msgid "Repository:"
 msgstr "Repository:"
 
-#: src/components/toolbar/ToolGroups.tsx:156
-#: src/dialogs/edit-views/EditViewDialog.tsx:336
-#: src/dialogs/SettingsDialog.tsx:334
+#: src/components/toolbar/ToolGroups.tsx:171
+#: src/dialogs/edit-views/EditViewDialog.tsx:339
+#: src/dialogs/SettingsDialog.tsx:363
 msgid "Reset"
 msgstr "Reset"
 
@@ -978,33 +1146,61 @@ msgstr "Reset View"
 #~ msgid "Reset View"
 #~ msgstr "Reset View"
 
-#: src/components/toolbar/MenuBar.tsx:163
+#: src/components/toolbar/MenuBar.tsx:191
 msgid "Reset Zoom"
 msgstr "Reset Zoom"
+
+#: src/dialogs/SceneRestoreDialog.tsx:181
+msgid "Restore an exact checkpoint or projected parameters, environments, and time. Chart history stays local."
+msgstr "Restore an exact checkpoint or projected parameters, environments, and time. Chart history stays local."
+
+#: src/dialogs/SceneRestoreDialog.tsx:193
+msgid "Restore method"
+msgstr "Restore method"
+
+#: src/dialogs/SceneRestoreDialog.tsx:212
+msgid "Restore snapshot"
+msgstr "Restore snapshot"
 
 #: src/dialogs/SnapshotDetailDialog.tsx:180
 #~ msgid "Restore Snapshot"
 #~ msgstr "Restore Snapshot"
 
+#: src/dialogs/SceneRestoreDialog.tsx:180
+msgid "Restore snapshot to simulator"
+msgstr "Restore snapshot to simulator"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:214
+msgid "Restore to live simulator"
+msgstr "Restore to live simulator"
+
+#: src/dialogs/SceneRestoreDialog.tsx:212
+msgid "Restoring…"
+msgstr "Restoring…"
+
 #: ../tensnap-web-utils/src/file-system/FileSystemBrowser.tsx:272
 #~ msgid "Retry"
 #~ msgstr "Retry"
+
+#: src/components/value-inspector/ValueInspector.tsx:160
+msgid "root"
+msgstr "root"
 
 #: src/dialogs/edit-views/ButtonViewEditor.tsx:80
 #~ msgid "Run"
 #~ msgstr "Run"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:122
+#: src/components/project/ViewContextMenuRenderer.tsx:156
 msgid "Run one step"
 msgstr "Run one step"
 
-#: src/components/project/StatusBar.tsx:102
+#: src/components/project/StatusBar.tsx:128
 msgid "Run:"
 msgstr "Run:"
 
-#: src/components/toolbar/MenuBar.tsx:86
-#: src/components/toolbar/ToolGroups.tsx:68
-#: src/dialogs/edit-views/EditViewDialog.tsx:339
+#: src/components/toolbar/MenuBar.tsx:110
+#: src/components/toolbar/ToolGroups.tsx:72
+#: src/dialogs/edit-views/EditViewDialog.tsx:342
 msgid "Save"
 msgstr "Save"
 
@@ -1012,28 +1208,32 @@ msgstr "Save"
 msgid "Save As"
 msgstr "Save As"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:102
-#: src/dialogs/SnapshotDetailDialog.tsx:69
+#: src/components/project/ViewContextMenuRenderer.tsx:129
+#: src/dialogs/SnapshotDetailDialog.tsx:72
 msgid "Save As CSV"
 msgstr "Save As CSV"
 
-#: src/components/toolbar/MenuBar.tsx:93
+#: src/components/toolbar/MenuBar.tsx:117
 msgid "Save As..."
 msgstr "Save As..."
 
-#: src/dialogs/SettingsDialog.tsx:155
+#: src/dialogs/SettingsDialog.tsx:162
 msgid "Save Format"
 msgstr "Save Format"
+
+#: src/dialogs/SimulatorInfoDialog.tsx:69
+msgid "Scenario metadata"
+msgstr "Scenario metadata"
 
 #: src/components/project/RightPanel.tsx:20
 #~ msgid "Scenario Properties"
 #~ msgstr "Scenario Properties"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:165
+#: src/components/scenario/UniformEnvironmentView.tsx:211
 msgid "Search agents by ID, color, or icon..."
 msgstr "Search agents by ID, color, or icon..."
 
-#: src/components/toolbar/MenuBar.tsx:140
+#: src/components/toolbar/MenuBar.tsx:168
 msgid "Select All"
 msgstr "Select All"
 
@@ -1046,64 +1246,101 @@ msgstr "Select All"
 msgid "Series ID already exists."
 msgstr "Series ID already exists."
 
-#: src/dialogs/SettingsDialog.tsx:186
+#: src/dialogs/SettingsDialog.tsx:193
 msgid "Server Message Validation"
 msgstr "Server Message Validation"
 
-#: src/components/project/StatusBar.tsx:152
-#: src/components/project/StatusBar.tsx:155
-#: src/components/toolbar/MenuBar.tsx:195
-#: src/components/toolbar/ToolGroups.tsx:300
-#: src/dialogs/SettingsDialog.tsx:112
+#: src/dialogs/SimulatorInfoDialog.tsx:46
+msgid "Session identity, capabilities, and current model metadata."
+msgstr "Session identity, capabilities, and current model metadata."
+
+#: src/components/project/StatusBar.tsx:186
+#: src/components/project/StatusBar.tsx:189
+#: src/components/toolbar/MenuBar.tsx:219
+#: src/components/toolbar/ToolGroups.tsx:316
+#: src/dialogs/SettingsDialog.tsx:119
 msgid "Settings"
 msgstr "Settings"
 
-#: src/components/project/StatusBar.tsx:180
+#: src/components/project/StatusBar.tsx:214
 msgid "Show Bottom Panel"
 msgstr "Show Bottom Panel"
 
-#: src/components/toolbar/MenuBar.tsx:167
+#: src/components/toolbar/MenuBar.tsx:195
 msgid "Show Grid"
 msgstr "Show Grid"
 
-#: src/components/project/StatusBar.tsx:171
+#: src/components/project/StatusBar.tsx:205
 msgid "Show Right Panel"
 msgstr "Show Right Panel"
 
 #: src/components/toolbar/MenuBar.tsx:170
-msgid "Show Toolbar"
-msgstr "Show Toolbar"
+#~ msgid "Show Toolbar"
+#~ msgstr "Show Toolbar"
 
 #: src/components/project/StatusBar.tsx:90
 #~ msgid "Sim:"
 #~ msgstr "Sim:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:148
+#: src/dialogs/SnapshotDetailDialog.tsx:156
 msgid "Simulation time:"
 msgstr "Simulation time:"
 
-#: src/components/project/RightPanel.tsx:139
-#: src/dialogs/AgentDetailsDialog.tsx:280
+#: src/components/project/StatusBar.tsx:178
+#: src/dialogs/SimulatorInfoDialog.tsx:45
+msgid "Simulator information"
+msgstr "Simulator information"
+
+#. placeholder {0}: result.status
+#: src/dialogs/SceneRestoreDialog.tsx:121
+#: src/dialogs/SceneRestoreDialog.tsx:139
+msgid "Simulator returned {0}."
+msgstr "Simulator returned {0}."
+
+#: src/components/project/RightPanel.tsx:160
+#: src/dialogs/AgentDetailsDialog.tsx:284
 msgid "Size:"
 msgstr "Size:"
+
+#: src/dialogs/SettingsDialog.tsx:350
+msgid "Snapshot"
+msgstr "Snapshot"
 
 #: src/dialogs/SnapshotDetailDialog.tsx:80
 #~ msgid "Snapshot Details"
 #~ msgstr "Snapshot Details"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:132
+#: src/dialogs/SnapshotDetailDialog.tsx:140
 msgid "Snapshot name"
 msgstr "Snapshot name"
 
-#: src/dialogs/SettingsDialog.tsx:256
+#: src/dialogs/SettingsDialog.tsx:334
+#: src/hooks/useButtonControls.ts:105
+#: src/hooks/useButtonControls.ts:200
+msgid "Snapshot playback"
+msgstr "Snapshot playback"
+
+#: src/dialogs/SettingsDialog.tsx:263
 msgid "Snapshot playback FPS"
 msgstr "Snapshot playback FPS"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:127
+#: src/dialogs/SnapshotDetailDialog.tsx:135
 msgid "Snapshot replay"
 msgstr "Snapshot replay"
 
-#: src/components/project/RightPanel.tsx:161
+#: src/dialogs/SceneRestoreDialog.tsx:146
+msgid "Snapshot restore failed"
+msgstr "Snapshot restore failed"
+
+#: src/dialogs/SceneRestoreDialog.tsx:142
+msgid "Snapshot restored"
+msgstr "Snapshot restored"
+
+#: src/dialogs/SettingsDialog.tsx:354
+msgid "Snapshot sources are disconnected and permit playback controls only."
+msgstr "Snapshot sources are disconnected and permit playback controls only."
+
+#: src/components/project/RightPanel.tsx:182
 msgid "Snapshots"
 msgstr "Snapshots"
 
@@ -1111,7 +1348,7 @@ msgstr "Snapshots"
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 
-#: src/components/project/StatusBar.tsx:126
+#: src/components/project/StatusBar.tsx:152
 msgid "Srv Render:"
 msgstr "Srv Render:"
 
@@ -1123,7 +1360,7 @@ msgstr "Srv Render:"
 msgid "Start continuous run"
 msgstr "Start continuous run"
 
-#: src/components/project/RightPanel.tsx:181
+#: src/components/project/RightPanel.tsx:203
 msgid "Start recording"
 msgstr "Start recording"
 
@@ -1131,7 +1368,11 @@ msgstr "Start recording"
 #~ msgid "Start/Stop"
 #~ msgstr "Start/Stop"
 
-#: src/components/toolbar/ToolGroups.tsx:150
+#: src/dialogs/SimulatorInfoDialog.tsx:55
+msgid "State schema"
+msgstr "State schema"
+
+#: src/components/toolbar/ToolGroups.tsx:165
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:126
 msgid "Step"
 msgstr "Step"
@@ -1140,7 +1381,7 @@ msgstr "Step"
 #~ msgid "Stop"
 #~ msgstr "Stop"
 
-#: src/components/project/ViewContextMenuRenderer.tsx:118
+#: src/components/project/ViewContextMenuRenderer.tsx:152
 msgid "Stop continuous run"
 msgstr "Stop continuous run"
 
@@ -1148,20 +1389,28 @@ msgstr "Stop continuous run"
 msgid "Stop expression (optional)"
 msgstr "Stop expression (optional)"
 
-#: src/components/project/RightPanel.tsx:181
+#: src/components/project/RightPanel.tsx:203
 msgid "Stop recording"
 msgstr "Stop recording"
 
-#: src/components/toolbar/ToolGroups.tsx:251
+#: src/components/value-inspector/ValueInspector.tsx:157
+msgid "Structured value inspector"
+msgstr "Structured value inspector"
+
+#: src/components/toolbar/ToolGroups.tsx:269
 msgid "Synchronize State"
 msgstr "Synchronize State"
 
-#: src/dialogs/SettingsDialog.tsx:120
+#: src/dialogs/SettingsDialog.tsx:127
 msgid "System Settings"
 msgstr "System Settings"
 
-#: src/components/project/RightPanel.tsx:190
-#: src/components/toolbar/ToolGroups.tsx:246
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:47
+msgid "Table"
+msgstr "Table"
+
+#: src/components/project/RightPanel.tsx:213
+#: src/components/toolbar/ToolGroups.tsx:263
 msgid "Take Snapshot"
 msgstr "Take Snapshot"
 
@@ -1169,39 +1418,59 @@ msgstr "Take Snapshot"
 msgid "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 msgstr "TenSnap is an interactive simulation toolset for agent-based models, designed to help researchers and students understand complex systems through interactive simulations and visualizations."
 
-#: src/components/project/view-edit-hooks.ts:334
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:48
+msgid "Text"
+msgstr "Text"
+
+#: src/components/project/view-edit-hooks.ts:343
 msgid "The action ID could not be changed."
 msgstr "The action ID could not be changed."
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:88
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:79
 msgid "The button can keep this binding, but there is no registered action to edit."
 msgstr "The button can keep this binding, but there is no registered action to edit."
 
-#: src/components/project/view-edit-hooks.ts:373
+#: src/components/project/view-edit-hooks.ts:382
 msgid "The chart group ID could not be changed."
 msgstr "The chart group ID could not be changed."
+
+#: src/dialogs/SceneRestoreDialog.tsx:168
+msgid "The connected simulator does not declare scene.restore.checkpoint."
+msgstr "The connected simulator does not declare scene.restore.checkpoint."
+
+#: src/dialogs/SceneRestoreDialog.tsx:171
+msgid "The connected simulator does not declare scene.restore.projected."
+msgstr "The connected simulator does not declare scene.restore.projected."
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:62
 msgid "The current object will be renamed when this edit is saved."
 msgstr "The current object will be renamed when this edit is saved."
 
-#: src/components/project/view-edit-hooks.ts:360
+#: src/components/project/view-edit-hooks.ts:369
 msgid "The environment ID could not be changed."
 msgstr "The environment ID could not be changed."
 
-#: src/dialogs/SettingsDialog.tsx:312
+#: src/dialogs/SettingsDialog.tsx:319
 msgid "The full path is shown here and is not editable."
 msgstr "The full path is shown here and is not editable."
 
-#: src/components/project/view-edit-hooks.ts:347
+#: src/components/project/view-edit-hooks.ts:356
 msgid "The parameter ID could not be changed."
 msgstr "The parameter ID could not be changed."
 
-#: src/components/project/view-edit-hooks.ts:299
+#: src/dialogs/SceneRestoreDialog.tsx:117
+#~ msgid "The simulator receives projected parameters, environments, and time. Chart history is kept local."
+#~ msgstr "The simulator receives projected parameters, environments, and time. Chart history is kept local."
+
+#: src/dialogs/SceneRestoreDialog.tsx:207
+msgid "The simulator will restore the exact checkpoint captured for this snapshot."
+msgstr "The simulator will restore the exact checkpoint captured for this snapshot."
+
+#: src/components/project/view-edit-hooks.ts:308
 msgid "The view no longer exists."
 msgstr "The view no longer exists."
 
-#: src/dialogs/SettingsDialog.tsx:124
+#: src/dialogs/SettingsDialog.tsx:131
 msgid "Theme"
 msgstr "Theme"
 
@@ -1209,7 +1478,11 @@ msgstr "Theme"
 #~ msgid "These values are local renderer overrides. They do not modify simulator metadata."
 #~ msgstr "These values are local renderer overrides. They do not modify simulator metadata."
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:365
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:60
+msgid "This button’s continuous setting controls renderer scheduling and differs from the simulator action declaration. It is allowed, but verify the action is safe to repeat."
+msgstr "This button’s continuous setting controls renderer scheduling and differs from the simulator action declaration. It is allowed, but verify the action is safe to repeat."
+
+#: src/dialogs/edit-views/EditViewDialog.tsx:368
 msgid "This change may alter how the object is interpreted. Existing data will be preserved where possible."
 msgstr "This change may alter how the object is interpreted. Existing data will be preserved where possible."
 
@@ -1218,9 +1491,33 @@ msgstr "This change may alter how the object is interpreted. Existing data will 
 msgid "This directory is empty"
 msgstr "This directory is empty"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:213
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:50
+msgid "This display preference is local to the view and does not modify the simulator monitor."
+msgstr "This display preference is local to the view and does not modify the simulator monitor."
+
+#: src/dialogs/edit-views/EditViewDialog.tsx:214
 msgid "This ID is already used by another registered object."
 msgstr "This ID is already used by another registered object."
+
+#: src/dialogs/SimulatorInfoDialog.tsx:64
+msgid "This model has not declared optional capabilities."
+msgstr "This model has not declared optional capabilities."
+
+#: src/dialogs/SettingsDialog.tsx:347
+msgid "This project runs a local JavaScript simulator in the browser."
+msgstr "This project runs a local JavaScript simulator in the browser."
+
+#: src/dialogs/SceneRestoreDialog.tsx:173
+msgid "This snapshot changes environment topology, but the simulator does not declare scene.restore.topology."
+msgstr "This snapshot changes environment topology, but the simulator does not declare scene.restore.topology."
+
+#: src/dialogs/SceneRestoreDialog.tsx:164
+msgid "This snapshot does not contain an exact checkpoint."
+msgstr "This snapshot does not contain an exact checkpoint."
+
+#: src/dialogs/SceneRestoreDialog.tsx:161
+msgid "This snapshot was created by a different model or state schema and cannot be restored to the connected simulator."
+msgstr "This snapshot was created by a different model or state schema and cannot be restored to the connected simulator."
 
 #: src/dialogs/edit-views/ChartViewEditor.tsx:329
 msgid "This view can keep its binding, but there is no registered chart group to edit."
@@ -1234,8 +1531,8 @@ msgstr "This view can keep its binding, but there is no registered environment t
 msgid "This view can keep its binding, but there is no registered parameter to edit."
 msgstr "This view can keep its binding, but there is no registered parameter to edit."
 
-#: src/components/project/RightPanel.tsx:233
-#: src/components/project/StatusBar.tsx:97
+#: src/components/project/RightPanel.tsx:256
+#: src/components/project/StatusBar.tsx:123
 msgid "Time Step:"
 msgstr "Time Step:"
 
@@ -1246,19 +1543,20 @@ msgstr "Time Step:"
 #: src/dialogs/edit-views/ChartViewEditor.tsx:249
 #: src/dialogs/edit-views/ContainerViewEditor.tsx:16
 #: src/dialogs/edit-views/EnvironmentViewEditor.tsx:160
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:40
 #: src/dialogs/edit-views/ParameterViewEditor.tsx:356
 msgid "Title"
 msgstr "Title"
 
-#: src/components/toolbar/ToolGroups.tsx:281
+#: src/components/toolbar/ToolGroups.tsx:297
 msgid "Toggle theme"
 msgstr "Toggle theme"
 
-#: src/components/toolbar/ToolGroups.tsx:288
+#: src/components/toolbar/ToolGroups.tsx:304
 msgid "Toggle Theme"
 msgstr "Toggle Theme"
 
-#: src/components/toolbar/MenuBar.tsx:183
+#: src/components/toolbar/MenuBar.tsx:207
 msgid "Tools"
 msgstr "Tools"
 
@@ -1266,13 +1564,21 @@ msgstr "Tools"
 msgid "Top"
 msgstr "Top"
 
-#: src/components/project/StatusBar.tsx:107
+#: src/components/project/StatusBar.tsx:133
 msgid "TPS:"
 msgstr "TPS:"
 
 #: src/dialogs/AgentDetailsDialog.tsx:108
 #~ msgid "Trajectory:"
 #~ msgstr "Trajectory:"
+
+#: src/dialogs/edit-views/MonitorViewEditor.tsx:46
+msgid "Tree"
+msgstr "Tree"
+
+#: src/dialogs/SceneRestoreDialog.tsx:204
+msgid "Truncate live charts at restore time"
+msgstr "Truncate live charts at restore time"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:193
 msgid "Try adjusting your search criteria"
@@ -1282,12 +1588,38 @@ msgstr "Try adjusting your search criteria"
 msgid "Type"
 msgstr "Type"
 
-#: src/components/toolbar/MenuBar.tsx:119
-#: src/components/toolbar/ToolGroups.tsx:84
+#: src/components/toolbar/ToolGroups.tsx:239
+msgid "Unable to capture snapshot"
+msgstr "Unable to capture snapshot"
+
+#: src/hooks/useButtonControls.ts:195
+msgid "Unable to reset"
+msgstr "Unable to reset"
+
+#: src/dialogs/SceneRestoreDialog.tsx:99
+#~ msgid "Unable to restore snapshot"
+#~ msgstr "Unable to restore snapshot"
+
+#: src/hooks/useButtonControls.ts:134
+#: src/hooks/useButtonControls.ts:150
+#: src/hooks/useButtonControls.ts:164
+msgid "Unable to run action"
+msgstr "Unable to run action"
+
+#: src/hooks/useButtonControls.ts:208
+msgid "Unable to run model action"
+msgstr "Unable to run model action"
+
+#: src/hooks/useButtonControls.ts:182
+msgid "Unable to step"
+msgstr "Unable to step"
+
+#: src/components/toolbar/MenuBar.tsx:147
+#: src/components/toolbar/ToolGroups.tsx:88
 msgid "Undo"
 msgstr "Undo"
 
-#: src/components/scenario/UniformEnvironmentView.tsx:157
+#: src/components/scenario/UniformEnvironmentView.tsx:203
 msgid "Uniform Environment"
 msgstr "Uniform Environment"
 
@@ -1295,8 +1627,8 @@ msgstr "Uniform Environment"
 msgid "Uniform Layer Metadata"
 msgstr "Uniform Layer Metadata"
 
-#: src/dialogs/SettingsDialog.tsx:308
-#: src/dialogs/SettingsDialog.tsx:309
+#: src/dialogs/SettingsDialog.tsx:315
+#: src/dialogs/SettingsDialog.tsx:316
 msgid "Unsaved project"
 msgstr "Unsaved project"
 
@@ -1304,7 +1636,7 @@ msgstr "Unsaved project"
 msgid "Update the object ID used by this view."
 msgstr "Update the object ID used by this view."
 
-#: src/components/toolbar/ToolGroups.tsx:259
+#: src/components/toolbar/ToolGroups.tsx:275
 msgid "Update View Layout"
 msgstr "Update View Layout"
 
@@ -1312,11 +1644,16 @@ msgstr "Update View Layout"
 #~ msgid "Upload Files"
 #~ msgstr "Upload Files"
 
+#: src/components/value-inspector/ValueInspector.tsx:159
+msgid "Value path"
+msgstr "Value path"
+
 #: src/dialogs/AboutDialog.tsx:25
+#: src/dialogs/SimulatorInfoDialog.tsx:54
 msgid "Version"
 msgstr "Version"
 
-#: src/components/toolbar/MenuBar.tsx:149
+#: src/components/toolbar/MenuBar.tsx:177
 msgid "View"
 msgstr "View"
 
@@ -1324,13 +1661,21 @@ msgstr "View"
 #~ msgid "View and manage snapshot"
 #~ msgstr "View and manage snapshot"
 
-#: src/dialogs/AgentDetailsDialog.tsx:210
+#: src/dialogs/AgentDetailsDialog.tsx:214
 msgid "View detailed information about the selected agent"
 msgstr "View detailed information about the selected agent"
 
 #: src/dialogs/AboutDialog.tsx:60
 msgid "View Docs"
 msgstr "View Docs"
+
+#: src/dialogs/SimulatorInfoDialog.tsx:48
+msgid "Waiting for a simulator_info handshake."
+msgstr "Waiting for a simulator_info handshake."
+
+#: src/dialogs/SceneRestoreDialog.tsx:159
+msgid "Waiting for simulator information before restoring a snapshot."
+msgstr "Waiting for simulator information before restoring a snapshot."
 
 #: src/dialogs/ContinuousRunDialog.tsx:106
 msgid "Wall-clock limit must be a positive number of milliseconds."
@@ -1340,21 +1685,32 @@ msgstr "Wall-clock limit must be a positive number of milliseconds."
 msgid "Wall-clock limit, ms (optional)"
 msgstr "Wall-clock limit, ms (optional)"
 
-#: src/dialogs/SettingsDialog.tsx:176
-#: src/dialogs/SettingsDialog.tsx:193
+#: src/dialogs/SettingsDialog.tsx:183
+#: src/dialogs/SettingsDialog.tsx:200
 msgid "Warning"
 msgstr "Warning"
+
+#: src/dialogs/SettingsDialog.tsx:332
+msgid "WebSocket simulator"
+msgstr "WebSocket simulator"
 
 #: src/dialogs/edit-views/BaseViewEditor.tsx:57
 msgid "Width"
 msgstr "Width"
 
-#: src/components/toolbar/MenuBar.tsx:157
-#: src/components/toolbar/ToolGroups.tsx:238
+#. placeholder {0}: preview.parameters.length
+#. placeholder {1}: preview.envs.length
+#. placeholder {2}: preview.time === undefined ? '' : ` at time ${preview.time}`
+#: src/dialogs/SceneRestoreDialog.tsx:208
+msgid "Will restore {0} parameters and {1} environments{2}."
+msgstr "Will restore {0} parameters and {1} environments{2}."
+
+#: src/components/toolbar/MenuBar.tsx:185
+#: src/components/toolbar/ToolGroups.tsx:255
 msgid "Zoom In"
 msgstr "Zoom In"
 
-#: src/components/toolbar/MenuBar.tsx:160
-#: src/components/toolbar/ToolGroups.tsx:242
+#: src/components/toolbar/MenuBar.tsx:188
+#: src/components/toolbar/ToolGroups.tsx:259
 msgid "Zoom Out"
 msgstr "Zoom Out"

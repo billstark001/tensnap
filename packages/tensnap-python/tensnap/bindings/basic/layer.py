@@ -993,6 +993,9 @@ class BindTrajectoryLayerConfig(
         width: ProjectorFieldForInit = None,
         color: ProjectorFieldForInit = None,
         z_index: ProjectorFieldForInit = None,
+        on_agent_delete: ProjectorFieldForInit = None,
+        on_state_sync: ProjectorFieldForInit = None,
+        on_reset: ProjectorFieldForInit = None,
         item_iterable_projector: (
             AttrGetter[Any] | ProjectorField | Literal[False] | None
         ) = None,
@@ -1024,6 +1027,9 @@ class BindTrajectoryLayerConfig(
             "width": width,
             "color": color,
             "z_index": z_index,
+            "on_agent_delete": on_agent_delete,
+            "on_state_sync": on_state_sync,
+            "on_reset": on_reset,
         }
         super().__init__(
             layer_id,

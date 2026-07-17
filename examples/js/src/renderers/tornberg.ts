@@ -112,6 +112,7 @@ const builder = modelBuilder({
   id: 'tornberg',
   name: 'Tornberg Partisan Sorting',
   description: 'Digital-media reach, homophily, and network topology amplify partisan sorting in cultural space.',
+  stateSchemaVersion: '1',
 }, {
   defaults: DEFAULT_TORNBERG_CONFIG,
   create(config): TornbergRuntime {
@@ -177,18 +178,18 @@ builder.paramsFromConfig<TornbergConfig>({
 
 builder.env('culture-grid')
   .agentLayer(CULTURE_LAYER, {
-    data: (runtime) => ({ width: runtime.config.width, height: runtime.config.height }),
+    metadata: (runtime) => ({ width: runtime.config.width, height: runtime.config.height }),
     items: (runtime) => createGridAgents(runtime.state),
   });
 
 builder.env('interaction-network')
   .agentLayer(NETWORK_AGENT_LAYER, {
-    data: { coord_offset: 'float', origin_mode: 'center' },
+    metadata: { coord_offset: 'float', origin_mode: 'center' },
     items: (runtime) => createNetworkAgents(runtime.state),
   })
   .edgeLayer(NETWORK_EDGE_LAYER, {
     dependencyLayerIds: { agent: NETWORK_AGENT_LAYER },
-    data: {
+    metadata: {
       link_distance: 2.4,
       charge_strength: -5,
       centering_strength: 0.08,

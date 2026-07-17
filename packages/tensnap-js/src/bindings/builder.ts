@@ -1,6 +1,7 @@
 import type { SimulatorSession } from '../runtime';
 import type { ScenarioDefinition } from '../scenario';
 import { chartBinding, chartGroupBinding } from './charts';
+import { monitorBinding } from './monitors';
 import { buildScenarioDefinition, getCurrentConfig } from './definition';
 import { EnvironmentBuilder } from './layers';
 import {
@@ -29,6 +30,8 @@ import type {
   EnumParameterOptions,
   ModelBuilderOptions,
   ModelMetadata,
+  MonitorBinding,
+  MonitorOptions,
   NumberParameterOptions,
   ParameterBinding,
   ParamsFromConfigOptions,
@@ -44,6 +47,7 @@ export class ModelBuilder<
   private readonly parameters: ParameterBinding<TConfig, TModel>[] = [];
   private readonly environments: EnvironmentBinding<TModel>[] = [];
   private readonly charts: ChartBinding<TConfig, TModel>[] = [];
+  private readonly monitors: MonitorBinding<TConfig, TModel>[] = [];
   private readonly actions: ActionBinding<TConfig, TModel>[] = [];
   private readonly assets: AssetBinding<TConfig, TModel>[] = [];
 
@@ -118,13 +122,19 @@ export class ModelBuilder<
     return this;
   }
 
+  monitor(id: string, options: MonitorOptions<TConfig, TModel>): this {
+    this.monitors.push(monitorBinding(id, options));
+    return this;
+  }
+
   action(id: string, options: ActionOptions<TConfig, TModel>): this {
     this.actions.push({
       metadata: {
         id,
         label: options.label ?? titleFromId(id),
+        scope: options.scope,
+        kwargs: options.kwargs?.map((definition) => ({ ...definition })),
         continuous: options.continuous,
-        allowRuntimeChange: options.runtime ?? true,
       },
       sync: options.sync ?? true,
       run: options.run,
@@ -148,6 +158,7 @@ export class ModelBuilder<
         layers: [...environment.layers],
       })),
       charts: [...this.charts],
+      monitors: [...this.monitors],
       actions: [...this.actions],
       assets: [...this.assets],
     });
@@ -172,6 +183,20 @@ export function buildBinding<
 >(
   binding: BoundModelDefinition<TConfig, TModel> & { metadata: TMetadata },
 ): DeclarativeExampleBinding<TConfig, TMetadata> {
+  const hasRestoreCheckpoint = binding.options.restoreCheckpoint !== undefined;
+  const hasCaptureCheckpoint = binding.options.captureCheckpoint !== undefined;
+  const hasDeclarativeLayerRestore = binding.environments.some((environment) =>
+    environment.layers.some((layer) => layer.restore !== undefined));
+  if (hasRestoreCheckpoint !== hasCaptureCheckpoint) {
+    throw new Error('Checkpoint support requires both restoreCheckpoint and captureCheckpoint.');
+  }
+  if (hasRestoreCheckpoint && !binding.metadata.stateSchemaVersion) {
+    throw new Error('Checkpoint support requires a stable stateSchemaVersion.');
+  }
+  if (binding.options.sceneRestore?.mode === 'imperative' && hasDeclarativeLayerRestore) {
+    throw new Error('Imperative sceneRestore cannot be combined with declarative layer restore. Use sceneRestore.mode "compose".');
+  }
+
   const resolveConfig = (overrides: Partial<TConfig> = {}): TConfig => ({
     ...((binding.options.defaults ?? {}) as TConfig),
     ...overrides,

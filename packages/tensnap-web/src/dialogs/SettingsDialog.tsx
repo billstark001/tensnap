@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
@@ -10,6 +10,8 @@ import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
 import { useToast } from '@/store/toast';
+import type { ProjectSource } from '@tensnap/core/snapshot';
+import { listBuiltinModels } from '@/transport';
 
 import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
@@ -44,31 +46,36 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({
     setActionTimeoutSeconds,
   } = useSettingsStore();
 
-  const { activeProject, activeIndex, changeUrl } = useProjectStore();
+  const { activeProject, activeIndex, changeSource } = useProjectStore();
   const activeProjectId = activeProject?.id ?? null;
-  const currentProjectUrl = activeProject?.useTransportStore.getState().connectionId || '';
+  const currentProjectSource = useMemo<ProjectSource>(
+    () => activeProject?.source ?? { kind: 'websocket', url: 'ws://localhost:8765' },
+    [activeProject?.source],
+  );
+  const builtinModels = useMemo(() => listBuiltinModels(), []);
+  const snapshots = activeProject?.useScenarioStore.getState().snapshots ?? [];
 
   // Project settings local state
   const [projectDraft, setProjectDraft] = useState(() => ({
     projectId: activeProjectId,
-    backendUrl: currentProjectUrl,
+    source: structuredClone(currentProjectSource),
     hasProjectChanges: false,
   }));
 
-  const backendUrl = projectDraft.projectId === activeProjectId
-    ? projectDraft.backendUrl
-    : currentProjectUrl;
+  const projectSource = projectDraft.projectId === activeProjectId
+    ? projectDraft.source
+    : currentProjectSource;
   const hasProjectChanges = projectDraft.projectId === activeProjectId
     ? projectDraft.hasProjectChanges
     : false;
 
-  const handleBackendUrlChange = useCallback((value: string) => {
+  const updateProjectSource = useCallback((source: ProjectSource) => {
     setProjectDraft({
       projectId: activeProjectId,
-      backendUrl: value,
-      hasProjectChanges: value !== currentProjectUrl,
+      source,
+      hasProjectChanges: JSON.stringify(source) !== JSON.stringify(currentProjectSource),
     });
-  }, [activeProjectId, currentProjectUrl]);
+  }, [activeProjectId, currentProjectSource]);
 
   const handleProjectSettingsConfirm = useCallback(async () => {
     if (!activeProject || activeIndex === null) {
@@ -77,26 +84,26 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({
     }
 
     try {
-      await changeUrl(activeIndex, backendUrl);
-      toast.success(_(msg`Project URL updated successfully`));
+      await changeSource(activeIndex, projectSource);
+      toast.success(_(msg`Project source updated successfully`));
       setProjectDraft({
         projectId: activeProjectId,
-        backendUrl,
+        source: structuredClone(projectSource),
         hasProjectChanges: false,
       });
     } catch (error) {
-      toast.error(_(msg`Failed to update project URL`), error instanceof Error ? error.message : String(error));
-      console.error('Failed to update project URL:', error);
+      toast.error(_(msg`Failed to update project source`), error instanceof Error ? error.message : String(error));
+      console.error('Failed to update project source:', error);
     }
-  }, [activeIndex, activeProject, activeProjectId, backendUrl, changeUrl, toast, _]);
+  }, [activeIndex, activeProject, activeProjectId, projectSource, changeSource, toast, _]);
 
   const handleProjectSettingsReset = useCallback(() => {
     setProjectDraft({
       projectId: activeProjectId,
-      backendUrl: currentProjectUrl,
+      source: structuredClone(currentProjectSource),
       hasProjectChanges: false,
     });
-  }, [activeProjectId, currentProjectUrl]);
+  }, [activeProjectId, currentProjectSource]);
 
   const handleLocaleChange = useCallback(async (newLocale: string) => {
     if (!isValidLocale(newLocale)) {
@@ -313,17 +320,39 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({
                   </div>
                 </Form.FieldSet>
                 <Form.FieldSet>
-                  <Form.Label><Trans>Backend URL</Trans></Form.Label>
-                  <Form.Input
-                    type="text"
-                    value={backendUrl}
-                    onChange={(e) => handleBackendUrlChange(e.target.value)}
-                    placeholder={_(msg`Enter backend WebSocket server address`)}
-                  />
-                  <div className={styles.fieldHint}>
-                    <Trans>Change the WebSocket server URL for the current project. The connection will be reestablished.</Trans>
-                  </div>
+                  <Form.Label><Trans>Project Source</Trans></Form.Label>
+                  <Select.Root
+                    value={projectSource.kind}
+                    onValueChange={(kind) => {
+                      if (kind === 'websocket') updateProjectSource({ kind, url: projectSource.kind === 'websocket' ? projectSource.url : 'ws://localhost:8765' });
+                      if (kind === 'inmemory') updateProjectSource({ kind, model_id: projectSource.kind === 'inmemory' ? projectSource.model_id : builtinModels[0]?.id ?? '' });
+                      if (kind === 'snapshot') updateProjectSource({ kind, snapshot_id: projectSource.kind === 'snapshot' ? projectSource.snapshot_id : snapshots[0]?.metadata.id ?? '' });
+                    }}
+                  >
+                    <Select.Item value="websocket"><Trans>WebSocket simulator</Trans></Select.Item>
+                    <Select.Item value="inmemory"><Trans>Built-in browser model</Trans></Select.Item>
+                    <Select.Item value="snapshot" disabled={!snapshots.length}><Trans>Snapshot playback</Trans></Select.Item>
+                  </Select.Root>
                 </Form.FieldSet>
+                {projectSource.kind === 'websocket' && <Form.FieldSet>
+                  <Form.Label><Trans>Backend URL</Trans></Form.Label>
+                  <Form.Input type="text" value={projectSource.url} onChange={(e) => updateProjectSource({ kind: 'websocket', url: e.target.value })} placeholder={_(msg`Enter backend WebSocket server address`)} />
+                  <div className={styles.fieldHint}><Trans>Change the WebSocket server URL for the current project. The connection will be reestablished.</Trans></div>
+                </Form.FieldSet>}
+                {projectSource.kind === 'inmemory' && <Form.FieldSet>
+                  <Form.Label><Trans>Built-in model</Trans></Form.Label>
+                  <Select.Root value={projectSource.model_id} onValueChange={(model_id) => updateProjectSource({ kind: 'inmemory', model_id })}>
+                    {builtinModels.map((model) => <Select.Item key={model.id} value={model.id}>{model.name}</Select.Item>)}
+                  </Select.Root>
+                  <div className={styles.fieldHint}><Trans>This project runs a local JavaScript simulator in the browser.</Trans></div>
+                </Form.FieldSet>}
+                {projectSource.kind === 'snapshot' && <Form.FieldSet>
+                  <Form.Label><Trans>Snapshot</Trans></Form.Label>
+                  <Select.Root value={projectSource.snapshot_id} onValueChange={(snapshot_id) => updateProjectSource({ kind: 'snapshot', snapshot_id })}>
+                    {snapshots.map((snapshot) => <Select.Item key={snapshot.metadata.id} value={snapshot.metadata.id}>{snapshot.metadata.label || snapshot.metadata.id}</Select.Item>)}
+                  </Select.Root>
+                  <div className={styles.fieldHint}><Trans>Snapshot sources are disconnected and permit playback controls only.</Trans></div>
+                </Form.FieldSet>}
               </div>
 
               <div className={styles.projectSettingsFooter}>

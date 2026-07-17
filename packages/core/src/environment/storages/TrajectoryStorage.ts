@@ -20,6 +20,8 @@ export interface TrajectorySnapshotItem {
    */
   points: TrajectoryPoint[];
   segments?: TrajectoryPoint[][];
+  /** True when the source agent disappeared and a reused id must start a new segment. */
+  closed?: boolean;
 }
 
 export interface TrajectoryStorageSnapshot {
@@ -109,6 +111,9 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
         // case, while preserving disjoint segments when an id is reused.
         if (segments.length > 1) {
           item.segments = segments;
+        }
+        if (entry.closed) {
+          item.closed = true;
         }
         return item;
       }),
@@ -271,7 +276,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
   setTrajectories(trajectories: TrajectorySnapshotItem[]): void {
     const map = new Map<AgentId, TrajectoryEntry>();
 
-    for (const { id, points, segments: snapshotSegments } of trajectories) {
+    for (const { id, points, segments: snapshotSegments, closed = false } of trajectories) {
       const sourceSegments = snapshotSegments?.length ? snapshotSegments : [points];
       if (!sourceSegments.some((segment) => segment?.length)) continue;
 
@@ -284,7 +289,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
       map.set(id, {
         activeSegment,
         segments,
-        closed: false,
+        closed,
         limit: resolved.length,
         width: resolved.width,
         defaultColor: resolved.color,

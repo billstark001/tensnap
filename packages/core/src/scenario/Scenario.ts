@@ -8,14 +8,15 @@ import {
   TrajectoryStorage,
 } from '../environment';
 import { sanitizeParameter } from '../parameter';
+import { MonitorStorage } from '../monitor';
 import type {
   Action,
   ActionDeletePayload,
-  ActionEndPayload,
-  ActionStartPayload,
+  ActionResultPayload,
+  ActionInvokePayload,
   AssetDataPayload,
   AssetDeletePayload,
-  AssetMetaPayload,
+  AssetMetadataPayload,
   ChartDeletePayload,
   ChartGroupMetadata,
   ChartUpdatePayload,
@@ -29,6 +30,9 @@ import type {
   ItemUpdatePayload,
   LogPayload,
   MetadataUpdatePayload,
+  MonitorDeletePayload,
+  MonitorMetadata,
+  MonitorUpdatePayload,
   NormalizedLogPayload,
   Parameter,
   ParameterChangePayload,
@@ -38,7 +42,8 @@ import type {
   ScenarioEnvironmentType,
   ScreenshotRequestPayload,
   ScreenshotResponsePayload,
-  StateSyncBoundaryPayload,
+  StateSyncBeginPayload,
+  StateSyncEndPayload,
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '@tensnap/protocol';
@@ -61,6 +66,7 @@ import type {
   ScenarioSnapshot,
 } from './types';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
+import type { DiagnosticEvent } from '../diagnostics';
 
 function cloneValue<T>(value: T): T {
   return structuredClone(value);
@@ -68,6 +74,15 @@ function cloneValue<T>(value: T): T {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function acceptsOptimisticParameterValue(parameter: Parameter, value: ParameterChangePayload['value']): boolean {
+  switch (parameter.type) {
+    case 'number': return typeof value === 'number' && Number.isFinite(value);
+    case 'enum': return typeof value === 'string' && parameter.options.includes(value);
+    case 'boolean': return typeof value === 'boolean';
+    case 'string': return typeof value === 'string';
+  }
 }
 
 // TODO(protocol-v0.3): Read the optional `upsert` field from each create
@@ -88,8 +103,10 @@ export class Scenario extends LazyEventTarget {
   private readonly environmentsState = new Map<string, ScenarioEnvironmentState>();
   private readonly logsState: NormalizedLogPayload[] = [];
   private readonly chartState: ChartStorage;
+  private readonly monitorState = new MonitorStorage();
   private readonly assetState: AssetStore;
   private stateSyncDepth = 0;
+  private resetDepth = 0;
   private metadataRevisionState = 0;
   private parameterRevisionState = 0;
   readonly layerRegistry: LayerRegistryClass;
@@ -134,6 +151,10 @@ export class Scenario extends LazyEventTarget {
     return this.chartState;
   }
 
+  get monitors(): MonitorStorage {
+    return this.monitorState;
+  }
+
   get assets(): AssetStore {
     return this.assetState;
   }
@@ -154,21 +175,42 @@ export class Scenario extends LazyEventTarget {
     return this.actionsState.get(id);
   }
 
+  /**
+   * Apply the renderer's optimistic parameter echo without inventing a
+   * simulator-originated `param_sync` message. A real `param_sync` can still
+   * correct or reject this value when it arrives.
+   */
+  applyOptimisticParameterChange(id: string, value: ParameterChangePayload['value']): ParameterSyncPayload {
+    const parameter = this.parametersState.get(id);
+    if (!parameter) throw new Error(`Unknown parameter: ${id}.`);
+    if (!acceptsOptimisticParameterValue(parameter, value)) {
+      throw new Error(`Invalid value for parameter: ${id}.`);
+    }
+    const previous: ParameterSyncPayload = { id, value: cloneValue(parameter.value) };
+    parameter.value = cloneValue(value) as string | number | boolean;
+    sanitizeParameter(parameter, true);
+    this.parameterRevisionState += 1;
+    this.emit('param:optimistic', { id, value: cloneValue(parameter.value) });
+    return previous;
+  }
+
   apply(message: SimulatorToRendererMessage): void {
     switch (message.type) {
       case 'metadata_update':
         this.applyMetadata(message.payload as MetadataUpdatePayload);
         return;
+      case 'simulator_info':
+        return;
       case 'state_sync_begin':
         this.beginStateSync();
-        this.emit('state_sync:begin', message.payload as StateSyncBoundaryPayload);
+        this.emit('state_sync:begin', message.payload as StateSyncBeginPayload);
         return;
       case 'state_sync_end':
         this.endStateSync();
-        this.emit('state_sync:end', message.payload as StateSyncBoundaryPayload);
+        this.emit('state_sync:end', message.payload as StateSyncEndPayload);
         return;
-      case 'action_end':
-        this.emit('action:end', message.payload as ActionEndPayload);
+      case 'action_result':
+        this.emit('action:result', message.payload as ActionResultPayload);
         return;
       case 'action_create':
         this.createAction(message.payload as Action, UPSERT_CREATE_MESSAGES);
@@ -224,8 +266,17 @@ export class Scenario extends LazyEventTarget {
       case 'chart_delete':
         this.deleteChart(message.payload as ChartDeletePayload);
         return;
-      case 'asset_meta':
-        this.receiveAssetMeta(message.payload as AssetMetaPayload);
+      case 'monitor_create':
+        this.createMonitor(message.payload as MonitorMetadata);
+        return;
+      case 'monitor_update':
+        this.updateMonitor(message.payload as MonitorUpdatePayload);
+        return;
+      case 'monitor_delete':
+        this.deleteMonitor(message.payload as MonitorDeletePayload);
+        return;
+      case 'asset_metadata':
+        this.receiveAssetMeta(message.payload as AssetMetadataPayload);
         return;
       case 'asset_data':
         this.receiveAssetData(message.payload as AssetDataPayload);
@@ -240,20 +291,22 @@ export class Scenario extends LazyEventTarget {
         this.appendLog(message.payload as LogPayload);
         return;
       case 'error':
-        this.appendLog({ level: 'error', message: (message.payload as { error: string }).error });
+        this.appendLog({ level: 'error', message: (message.payload as { message: string }).message });
         return;
       default:
         return;
     }
   }
 
-  createStateSyncMessage(requestId?: string): RendererToSimulatorMessage<StateSyncRequest> {
+  createStateSyncMessage(modelId: string, requestId: string, instanceId?: string): RendererToSimulatorMessage<StateSyncRequest> {
     // Internal state references are safe to include directly: this message is
     // serialized immediately by the caller and never mutated in-process.
     return {
       type: 'state_sync',
       payload: {
         request_id: requestId,
+        model_id: modelId,
+        instance_id: instanceId,
         parameters: [...this.parametersState.values()],
         actions: [...this.actionsState.values()],
         envs: [...this.environmentsState.values()].map((environment) => ({
@@ -265,16 +318,21 @@ export class Scenario extends LazyEventTarget {
           })),
         })),
         charts: this.chartState.getAllMeta(),
+        monitors: this.monitorState.dump().map(({ value: _value, revision: _revision, ...metadata }) => metadata),
       },
     };
   }
 
-  createParamChangeMessage(id: string, value: unknown): RendererToSimulatorMessage<ParameterChangePayload> {
+  createParamChangeMessage(id: string, value: ParameterChangePayload['value']): RendererToSimulatorMessage<ParameterChangePayload> {
     return { type: 'param_change', payload: { id, value } };
   }
 
-  createActionStartMessage(id: string, continuous?: boolean, tickId?: string): RendererToSimulatorMessage<ActionStartPayload> {
-    return { type: 'action_start', payload: { id, continuous, tick_id: tickId } };
+  createActionInvokeMessage(
+    id: string,
+    requestId: string,
+    options: Pick<ActionInvokePayload, 'continuous' | 'target' | 'kwargs'> = {},
+  ): RendererToSimulatorMessage<ActionInvokePayload> {
+    return { type: 'action_invoke', payload: { id, request_id: requestId, ...options } };
   }
 
   createAssetSyncMessage(): RendererToSimulatorMessage<{ assets: Record<string, string> }> {
@@ -292,6 +350,7 @@ export class Scenario extends LazyEventTarget {
       parameters: [...this.parametersState.values()].map(cloneValue),
       environments: [...this.environmentsState.values()].map((environment) => this.snapshotEnvironment(environment)),
       charts: options.includeCharts === false ? [] : this.chartState.dump().map(cloneValue),
+      monitors: options.includeMonitors === false ? [] : this.monitorState.dump(),
       logs: options.includeLogs === false ? [] : this.logsState.map(cloneValue),
       assets: options.includeAssets === false ? [] : this.assetState.dump(),
     };
@@ -337,6 +396,9 @@ export class Scenario extends LazyEventTarget {
     }
 
     this.chartState.load(snapshot.charts.map(cloneValue));
+    // Snapshot v1 predates monitors. Runtime callers may also be loading a
+    // partially migrated archive, so treat an absent collection as empty.
+    this.monitorState.load(snapshot.monitors ?? []);
 
     this.logsState.push(...snapshot.logs.map(cloneValue));
     this.assetState.load(snapshot.assets);
@@ -355,6 +417,8 @@ export class Scenario extends LazyEventTarget {
           && layer.storage instanceof TrajectoryStorage
           && resolveTrajectoryLifecycle(layer.metadata).onReset === 'preserve';
         if (shouldPreserve) {
+          const data = (layer.storage as TrajectoryStorage).getData();
+          (layer.storage as TrajectoryStorage).closeTrajectories(data.trajectories.keys());
           preservedLayers.set(layer.id, layer);
         } else {
           this.disposeLayer(environment, layer);
@@ -377,12 +441,57 @@ export class Scenario extends LazyEventTarget {
       }
     }
     this.stateSyncDepth = 0;
+    this.resetDepth = 0;
     this.metadataRevisionState += 1;
     this.parameterRevisionState += 1;
     this.logsState.splice(0, this.logsState.length);
     this.chartState.load([]);
+    this.monitorState.clear();
     this.assetState.clear();
     this.emit('reset', undefined);
+  }
+
+  /** Apply trajectory policy before the reserved reset action publishes state. */
+  beginResetLifecycle(): void {
+    if (this.resetDepth === 0) {
+      for (const environment of this.environmentsState.values()) {
+        for (const layer of environment.layers.values()) {
+          if (layer.layerType !== 'trajectory' || !(layer.storage instanceof TrajectoryStorage)) continue;
+          if (resolveTrajectoryLifecycle(layer.metadata).onReset === 'preserve') {
+            layer.storage.closeTrajectories(layer.storage.getData().trajectories.keys());
+          } else {
+            layer.storage.clearTrajectories();
+          }
+        }
+      }
+    }
+    this.resetDepth += 1;
+  }
+
+  /** End a reserved reset action boundary without changing model-owned state. */
+  endResetLifecycle(): void {
+    if (this.resetDepth > 0) this.resetDepth -= 1;
+  }
+
+  /**
+   * Carry renderer-owned trace history into the final state-sync topology.
+   * Simulator replay never contains trace points, so final layer metadata owns
+   * the clear/preserve decision for replace and reconcile transactions alike.
+   */
+  applyStateSyncTrajectoryLifecycle(source: Scenario): void {
+    for (const environment of this.environmentsState.values()) {
+      const sourceEnvironment = source.environmentsState.get(environment.id);
+      for (const layer of environment.layers.values()) {
+        if (layer.layerType !== 'trajectory' || !(layer.storage instanceof TrajectoryStorage)) continue;
+        if (resolveTrajectoryLifecycle(layer.metadata).onStateSync === 'clear') {
+          layer.storage.clearTrajectories();
+          continue;
+        }
+        const sourceLayer = sourceEnvironment?.layers.get(layer.id);
+        if (sourceLayer?.layerType !== 'trajectory' || !(sourceLayer.storage instanceof TrajectoryStorage)) continue;
+        layer.storage.setTrajectories(cloneValue(sourceLayer.storage.dump().trajectories));
+      }
+    }
   }
 
   // Payload properties are merged directly into metadataState. No clone needed
@@ -447,7 +556,7 @@ export class Scenario extends LazyEventTarget {
 
   private createLayer(payload: EnvLayerCreatePayload, upsert: boolean): void {
     const environment = this.ensureEnvironment(payload.env_id);
-    const metadata = payload.data ?? {};
+    const metadata = payload.metadata ?? {};
     const dependencyLayerIds = this.normalizeDependencyLayerIds(payload.dependency_layer_ids);
     const existingLayer = environment.layers.get(payload.layer_id);
 
@@ -490,9 +599,12 @@ export class Scenario extends LazyEventTarget {
   private updateLayer(payload: EnvLayerUpdatePayload): void {
     const environment = this.ensureEnvironment(payload.env_id);
     const layer = this.ensureLayer(payload.env_id, payload.layer_id);
-    for (const [key, value] of Object.entries(payload.data)) {
+    for (const [key, value] of Object.entries(payload.metadata)) {
       if (key === 'dependency_layer_ids') {
-        console.warn('env_layer_update cannot mutate dependency_layer_ids; recreate the layer instead.');
+        this.reportDiagnostic('immutable_layer_dependency', 'env_layer_update cannot mutate dependency_layer_ids; recreate the layer instead.', {
+          envId: payload.env_id,
+          layerId: payload.layer_id,
+        });
         continue;
       }
       layer.metadata[key] = value;
@@ -520,7 +632,7 @@ export class Scenario extends LazyEventTarget {
       ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
       : environment?.layers.get(payload.layer_id);
     if (!environment || !layer) {
-      console.warn(`Cannot create items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      this.reportDiagnostic('items_missing_layer', `Cannot create items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`, payload);
       return;
     }
 
@@ -529,7 +641,7 @@ export class Scenario extends LazyEventTarget {
       ? controller.updateItems
       : controller?.createItems;
     if (!controller || !applyItems) {
-      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item creation.`);
+      this.reportDiagnostic('items_create_unsupported', `Layer type ${(expectedLayerType ?? layer.layerType)} does not support item creation.`, payload);
       return;
     }
 
@@ -559,7 +671,7 @@ export class Scenario extends LazyEventTarget {
       this.emit('layer:update', {
         env_id: payload.env_id,
         layer_id: payload.layer_id,
-        data: cloneValue(layer.metadata),
+        metadata: cloneValue(layer.metadata) as EnvLayerUpdatePayload['metadata'],
       });
     }
 
@@ -576,13 +688,13 @@ export class Scenario extends LazyEventTarget {
       ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
       : environment?.layers.get(payload.layer_id);
     if (!environment || !layer) {
-      console.warn(`Cannot update items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      this.reportDiagnostic('items_missing_layer', `Cannot update items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`, payload);
       return;
     }
 
     const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
     if (!controller?.updateItems) {
-      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item updates.`);
+      this.reportDiagnostic('items_update_unsupported', `Layer type ${(expectedLayerType ?? layer.layerType)} does not support item updates.`, payload);
       return;
     }
 
@@ -597,7 +709,7 @@ export class Scenario extends LazyEventTarget {
       this.emit('layer:update', {
         env_id: payload.env_id,
         layer_id: payload.layer_id,
-        data: cloneValue(layer.metadata),
+        metadata: cloneValue(layer.metadata) as EnvLayerUpdatePayload['metadata'],
       });
     }
 
@@ -614,13 +726,13 @@ export class Scenario extends LazyEventTarget {
       ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
       : environment?.layers.get(payload.layer_id);
     if (!environment || !layer) {
-      console.warn(`Cannot delete items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      this.reportDiagnostic('items_missing_layer', `Cannot delete items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`, payload);
       return;
     }
 
     const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
     if (!controller?.deleteItems) {
-      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item deletion.`);
+      this.reportDiagnostic('items_delete_unsupported', `Layer type ${(expectedLayerType ?? layer.layerType)} does not support item deletion.`, payload);
       return;
     }
 
@@ -631,7 +743,7 @@ export class Scenario extends LazyEventTarget {
       this.emit('layer:update', {
         env_id: payload.env_id,
         layer_id: payload.layer_id,
-        data: cloneValue(layer.metadata),
+        metadata: cloneValue(layer.metadata) as EnvLayerUpdatePayload['metadata'],
       });
     }
 
@@ -650,11 +762,22 @@ export class Scenario extends LazyEventTarget {
     for (const dependencyType of requiredDependencyLayerTypes) {
       const dependencyLayerId = layer.dependencyLayerIds[dependencyType];
       if (!dependencyLayerId) {
-        console.warn(`Layer ${layer.id} (${layerType}) is missing required dependency ${dependencyType}.`);
+        this.reportDiagnostic('dependency_missing', `Layer ${layer.id} (${layerType}) is missing required dependency ${dependencyType}.`, {
+          envId,
+          layerId: layer.id,
+          layerType,
+          dependencyType,
+        });
         return false;
       }
       if (!environment.layers.has(dependencyLayerId)) {
-        console.warn(`Layer ${layer.id} (${layerType}) references missing dependency layer ${dependencyLayerId}.`);
+        this.reportDiagnostic('dependency_target_missing', `Layer ${layer.id} (${layerType}) references missing dependency layer ${dependencyLayerId}.`, {
+          envId,
+          layerId: layer.id,
+          layerType,
+          dependencyType,
+          dependencyLayerId,
+        });
         return false;
       }
     }
@@ -673,7 +796,7 @@ export class Scenario extends LazyEventTarget {
         continue;
       }
       if (!this.layerRegistry.has(layerType)) {
-        console.warn(`Ignoring dependency on unknown layer type ${layerType}.`);
+        this.reportDiagnostic('dependency_type_unknown', `Ignoring dependency on unknown layer type ${layerType}.`, { layerType });
         continue;
       }
       result[layerType] = layerId;
@@ -687,7 +810,7 @@ export class Scenario extends LazyEventTarget {
   ): ItemDeletePayload['items'] | null {
     const primaryKeyFields = this.layerRegistry.get(layerType)?.primaryKeyFields;
     if (!primaryKeyFields?.length) {
-      console.warn(`Cannot recreate items for layer type ${layerType} without primary key fields; falling back to create semantics.`);
+      this.reportDiagnostic('missing_primary_key', `Cannot recreate items for layer type ${layerType} without primary key fields; falling back to create semantics.`, { layerType });
       return null;
     }
 
@@ -701,7 +824,7 @@ export class Scenario extends LazyEventTarget {
         return primitiveKeys as Array<string | number>;
       }
     }
-    return objectKeys;
+    return objectKeys as ItemDeletePayload['items'];
   }
 
   // Clone payload once to produce the sanitized parameter stored as internal state.
@@ -736,7 +859,7 @@ export class Scenario extends LazyEventTarget {
     if (parameter) {
       // Clone value only: it may be a complex object that sanitizeParameter
       // mutates in place, so we still need an owned copy.
-      parameter.value = cloneValue(payload.value as string | number | boolean);
+      parameter.value = cloneValue(payload.value) as string | number | boolean;
       sanitizeParameter(parameter, true);
     }
     this.parameterRevisionState += 1;
@@ -753,14 +876,22 @@ export class Scenario extends LazyEventTarget {
   private updateChart(payload: ChartUpdatePayload): void {
     if (payload.updates?.length) {
       // ChartStorage takes ownership; no need to clone an immutable payload array.
-      this.chartState.push(this.time ?? 0, payload.updates);
+      this.chartState.push(this.time ?? 0, payload.updates, (message) => {
+        this.reportDiagnostic('chart_metadata_missing', message, { updates: payload.updates });
+      });
     }
     if (payload.operations?.length) {
       for (const operation of payload.operations) {
         if (operation.operation === 'clear') {
-          this.chartState.hasGroup(operation.id)
-            ? this.chartState.clearGroups([operation.id])
-            : this.chartState.clearMetas([operation.id]);
+          if (operation.kind === 'all') this.chartState.clearAll();
+          else if (operation.kind === 'group') this.chartState.clearGroups([operation.id]);
+          else this.chartState.clearMetas([operation.id]);
+        } else if (operation.kind === 'all') {
+          this.chartState.truncateAll(operation.time, operation.inclusive);
+        } else if (operation.kind === 'group') {
+          this.chartState.truncateGroups([operation.id], operation.time, operation.inclusive);
+        } else {
+          this.chartState.truncateMetas([operation.id], operation.time, operation.inclusive);
         }
       }
     }
@@ -768,15 +899,31 @@ export class Scenario extends LazyEventTarget {
   }
 
   private deleteChart(payload: ChartDeletePayload): void {
-    this.chartState.removeGroup(payload.id);
+    if (payload.kind === 'group') this.chartState.removeGroup(payload.id);
+    else this.chartState.removeMeta(payload.id);
     this.emit('chart:delete', payload);
   }
 
-  private receiveAssetMeta(payload: AssetMetaPayload): void {
+  private createMonitor(payload: MonitorMetadata): void {
+    this.monitorState.create(payload);
+    this.emit('monitor:create', payload);
+  }
+
+  private updateMonitor(payload: MonitorUpdatePayload): void {
+    this.monitorState.update(payload);
+    this.emit('monitor:update', payload);
+  }
+
+  private deleteMonitor(payload: MonitorDeletePayload): void {
+    this.monitorState.delete(payload.id);
+    this.emit('monitor:delete', payload);
+  }
+
+  private receiveAssetMeta(payload: AssetMetadataPayload): void {
     // Pass the array directly: AssetStore takes ownership and payload is never
     // mutated externally, so per-item cloning is unnecessary.
     this.assetState.receiveMetaBatch(payload.assets);
-    this.emit('asset:meta', payload);
+    this.emit('asset:metadata', payload);
   }
 
   private receiveAssetData(payload: AssetDataPayload): void {
@@ -801,6 +948,19 @@ export class Scenario extends LazyEventTarget {
     };
     this.logsState.push(normalized);
     this.emit('log', normalized);
+  }
+
+  private reportDiagnostic(code: string, message: string, details?: unknown): void {
+    this.emit('diagnostic', {
+      timestamp: Date.now(),
+      severity: 'warning',
+      domain: 'runtime',
+      source: 'scenario',
+      code,
+      message,
+      ...(details === undefined ? {} : { details }),
+      dedupeKey: `${code}:${message}`,
+    } satisfies DiagnosticEvent);
   }
 
   private ensureEnvironment(id: string, type: ScenarioEnvironmentType = '2d'): ScenarioEnvironmentState {
@@ -906,6 +1066,12 @@ export class Scenario extends LazyEventTarget {
       assets: this.assetState,
       time: this.time,
       isStateSync: this.stateSyncDepth > 0,
+      isReset: this.resetDepth > 0,
+      reportWarning: (message) => this.reportDiagnostic('malformed_item_delete', message, {
+        envId: environment.id,
+        layerId: layer.id,
+        layerType: layer.layerType,
+      }),
       requireStorage: <TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string) => (
         this.requireStorage(environment, layer, ctor, expectedLayerType)
       ),

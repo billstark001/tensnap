@@ -10,7 +10,7 @@ def test_package_import():
 
 def test_package_version():
     """Test that the package exports the expected version string."""
-    assert tensnap.__version__ == "0.2.3"
+    assert tensnap.__version__ == "0.3.0"
 
 
 def test_quick_start_import_path():

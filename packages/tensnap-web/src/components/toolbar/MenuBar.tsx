@@ -47,7 +47,31 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [history]);
 
-  const { environment, system, isFullscreen } = useContext(MenuBarContext);
+  const {
+    environment,
+    system,
+    isFullscreen,
+    onExit,
+    onToggleFullscreen,
+  } = useContext(MenuBarContext);
+
+  const handleDocumentation = () => {
+    window.open('https://github.com/billstark001/tensnap/tree/main/docs', '_blank', 'noopener,noreferrer');
+  };
+
+  const handleExit = () => {
+    if (!onExit) return;
+    void Promise.resolve(onExit()).catch((error) => {
+      console.error('Failed to exit the Tauri application:', error);
+    });
+  };
+
+  const handleFullscreen = () => {
+    if (!onToggleFullscreen) return;
+    void Promise.resolve(onToggleFullscreen()).catch((error) => {
+      console.error('Failed to toggle fullscreen:', error);
+    });
+  };
 
   return (
     <>
@@ -93,10 +117,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 <Trans>Save As...</Trans>
               </DropdownMenu.Item>
 
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Exit</Trans>
-              </DropdownMenu.Item>
+              {environment === 'tauri' && (
+                <>
+                  <DropdownMenu.Separator className={styles.dropdownSeparator} />
+                  <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleExit}>
+                    <Trans>Exit</Trans>
+                  </DropdownMenu.Item>
+                </>
+              )}
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
@@ -166,11 +194,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <DropdownMenu.Item className={styles.dropdownItem}>
                 <Trans>Show Grid</Trans>
               </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Show Toolbar</Trans>
-              </DropdownMenu.Item>
-
-              <DropdownMenu.Item className={styles.dropdownItem}>
+              <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleFullscreen}>
                 <Trans>Fullscreen</Trans>
               </DropdownMenu.Item>
             </DropdownMenu.Content>
@@ -210,7 +234,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               className={styles.dropdownContent}
               sideOffset={5}
             >
-              <DropdownMenu.Item className={styles.dropdownItem}>
+              <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleDocumentation}>
                 <Trans>Documentation</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem}>

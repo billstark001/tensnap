@@ -1,6 +1,6 @@
 {
   "name": "tensnap",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -50,7 +50,8 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm run test:go:examples && pnpm run test:julia",
+    "test:go:examples": "cd examples/go && go test ./...",
     "clean": "pnpm -r clean && rm -rf node_modules",
     "update-icons": "node scripts/update-icons.mjs",
     "release": "node scripts/release.mjs",
@@ -67,15 +68,15 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.1",
-    "eslint": "^10.6.0",
+    "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
     "sharp": "^0.35.3",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
   }
 }

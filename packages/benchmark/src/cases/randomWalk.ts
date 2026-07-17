@@ -101,7 +101,7 @@ builder.paramsFromConfig<RandomWalkConfig>({
 });
 
 builder.env('main').agentLayer<RandomWalkAgent>('agents', {
-  data: (model) => ({ width: model.config.worldSize, height: model.config.worldSize, coord_offset: 'float' }),
+  metadata: (model) => ({ width: model.config.worldSize, height: model.config.worldSize, coord_offset: 'float' }),
   items: (model) => model.agents,
 });
 

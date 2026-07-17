@@ -14,10 +14,12 @@ import { useProjectStore } from '@/store/project';
 
 export const RightPanel = () => {
   const scenario = useScenarioStore((store) => store.scenario);
+  const session = useScenarioStore((store) => store.session);
   useScenarioStore((store) => store.assetRevision);
 
   const snapshots = useScenarioStore((store) => store.snapshots);
   const addSnapshot = useScenarioStore((store) => store.addSnapshot);
+  const captureSnapshot = useScenarioStore((store) => store.captureSnapshot);
   const clearSnapshots = useScenarioStore((store) => store.clearSnapshots);
   const removeSnapshot = useScenarioStore((store) => store.removeSnapshot);
   const startRecording = useScenarioStore((store) => store.startRecording);
@@ -25,11 +27,17 @@ export const RightPanel = () => {
   const renameSnapshot = useScenarioStore((store) => store.renameSnapshot);
   const isRecording = useScenarioStore((store) => store.isRecording);
   const openOfflineSnapshot = useProjectStore((store) => store.openOfflineSnapshot);
+  const activeSnapshotSourceId = useProjectStore((store) => {
+    const source = store.activeProject?.source;
+    return source?.kind === 'snapshot' ? source.snapshot_id : null;
+  });
+  const isSnapshotSource = activeSnapshotSourceId !== null;
 
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'snapshots' | 'assets'>('snapshots');
   const [assetFilter, setAssetFilter] = useState('');
+  const [isCapturingSnapshot, setIsCapturingSnapshot] = useState(false);
   const toast = useToast();
 
   const assets = [...(scenario?.assets.listMeta() ?? [])].sort((a, b) => a.id.localeCompare(b.id));
@@ -41,8 +49,17 @@ export const RightPanel = () => {
       || asset.mime.toLowerCase().includes(q);
   });
 
-  const handleTakeSnapshot = () => {
-    addSnapshot?.();
+  const handleTakeSnapshot = async () => {
+    if (isCapturingSnapshot) return;
+    setIsCapturingSnapshot(true);
+    try {
+      if (captureSnapshot) await captureSnapshot();
+      else addSnapshot?.();
+    } catch (error) {
+      toast.error('Unable to capture snapshot', error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsCapturingSnapshot(false);
+    }
   };
 
   const handleClearSnapshots = () => {
@@ -56,15 +73,19 @@ export const RightPanel = () => {
 
   const handleDeleteSnapshot = () => {
     if (selectedSnapshot) {
+      if (selectedSnapshot.metadata.id === activeSnapshotSourceId) {
+        toast.warning('Recording is in use', 'This recording is the active project source and cannot be deleted.');
+        return;
+      }
       removeSnapshot?.(getSnapshotIdentity(selectedSnapshot).id);
       setDialogOpen(false);
       setSelectedSnapshot(null);
     }
   };
 
-  const handleOpenOfflineSnapshot = () => {
+  const handleOpenOfflineSnapshot = (frame?: number) => {
     if (!selectedSnapshot) return;
-    openOfflineSnapshot(selectedSnapshot);
+    openOfflineSnapshot(selectedSnapshot, undefined, frame);
     setDialogOpen(false);
     setSelectedSnapshot(null);
   };
@@ -176,6 +197,7 @@ export const RightPanel = () => {
             onClick={() => isRecording ? stopRecording?.() : startRecording?.()}
             title={isRecording ? 'Stop Recording' : 'Start Recording'}
             aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
+            disabled={isSnapshotSource || isCapturingSnapshot}
           >
             {isRecording ? <Square size={16} /> : <Circle size={16} />}
             <span>{isRecording ? <Trans>Stop recording</Trans> : <Trans>Start recording</Trans>}</span>
@@ -185,16 +207,17 @@ export const RightPanel = () => {
             onClick={handleTakeSnapshot}
             title="Take Snapshot"
             aria-label="Take Snapshot"
+            disabled={isSnapshotSource || isCapturingSnapshot}
           >
             <Camera size={16} />
-            <span><Trans>Take Snapshot</Trans></span>
+            <span>{isCapturingSnapshot ? <Trans>Capturing…</Trans> : <Trans>Take Snapshot</Trans>}</span>
           </button>
           <button
             className={styles.headerButton}
             onClick={handleClearSnapshots}
             title="Clear All Snapshots"
             aria-label="Clear All Snapshots"
-            disabled={!snapshots?.length}
+            disabled={isSnapshotSource || !snapshots?.length}
           >
             <Trash2 size={16} />
             <span><Trans>Clear All</Trans></span>
@@ -284,6 +307,7 @@ export const RightPanel = () => {
             </div>
           </>
         ))}
+
       </div>
 
       <SnapshotDetailDialog
@@ -292,8 +316,10 @@ export const RightPanel = () => {
         onOpenChange={setDialogOpen}
         snapshot={selectedSnapshot}
         onDelete={handleDeleteSnapshot}
+        deleteDisabled={selectedSnapshot?.metadata.id === activeSnapshotSourceId}
         onRename={handleRenameSnapshot}
         onOpenOffline={handleOpenOfflineSnapshot}
+        session={session}
       />
     </div>
   );

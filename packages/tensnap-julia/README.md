@@ -57,6 +57,17 @@ TenSnap.jl now covers the core protocol helpers available in the Python and Go b
 - item-level create/update/delete helpers plus automatic incremental layer diffing from `item_key_fields`;
 - asset cache helpers with `publish_asset!` / `delete_asset!`, including renderer `asset_sync` handling;
 - screenshot request plumbing with `request_screenshot!` for connected renderers that support `screenshot_response`.
+- monitor create/value/delete helpers and strict delete-then-create metadata replacement;
+- reset replay with declaration updates, old-agent deletion, chart clearing,
+  and current monitor values;
+- chart-free scene restore with projected hooks, model-data checkpoint hooks,
+  request-id caching, and checkpoint rollback;
+- first-class trajectory `length`, `width`, `color`, `z_index`,
+  `on_agent_delete`, `on_state_sync`, and `on_reset` keywords.
+
+Every connection starts with `simulator_info`. Use stable `model_id` and
+`state_schema_version` values for compatible restores; `instance_id` is managed
+per `Scenario` and survives reconnect/reset.
 
 ## Transport
 
@@ -77,10 +88,13 @@ pnpm --dir examples/julia run demo:schelling:makie
 Release preparation is wired through the repository release helper:
 
 ```bash
-pnpm run release:julia -- 0.2.1
+pnpm run release:julia -- 0.3.0
 ```
 
-The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia package tests, commits the version bump if needed, and creates a `packages/tensnap-julia/vX.Y.Z` tag. For Julia General registration from this monorepo layout, use Registrator with:
+The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia
+package tests, commits the version bump if needed, and creates an annotated
+`tensnap-julia-vX.Y.Z` tag. For Julia General registration from this monorepo
+layout, use Registrator with:
 
 ```text
 @JuliaRegistrator register subdir=packages/tensnap-julia

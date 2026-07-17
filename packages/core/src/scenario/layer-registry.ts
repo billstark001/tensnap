@@ -51,6 +51,10 @@ export interface LayerControllerContext {
   time?: number;
   /** True while a state-sync replay is being applied. */
   isStateSync: boolean;
+  /** True while the reserved model reset action is applying visible state. */
+  isReset: boolean;
+  /** Report malformed canonical payloads to the hosting diagnostic channel. */
+  reportWarning(message: string): void;
   requireStorage<TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string): TStorage;
 }
 
@@ -414,7 +418,7 @@ function isPrimitiveDeleteItems(items: DeleteItems): items is AgentId[] {
   return items.length > 0 && (typeof items[0] === 'string' || typeof items[0] === 'number');
 }
 
-function getAgentIds(items: DeleteItems): AgentId[] | null {
+function getAgentIds(items: DeleteItems, reportWarning: (message: string) => void): AgentId[] | null {
   if (items.length === 0) {
     return [];
   }
@@ -422,7 +426,7 @@ function getAgentIds(items: DeleteItems): AgentId[] | null {
     const ids: AgentId[] = [];
     for (const item of items) {
       if (typeof item !== 'string' && typeof item !== 'number') {
-        console.warn('Agent-like delete arrays cannot mix primitive ids and object keys.');
+        reportWarning('Agent-like delete arrays cannot mix primitive ids and object keys.');
         return null;
       }
       ids.push(item);
@@ -433,7 +437,7 @@ function getAgentIds(items: DeleteItems): AgentId[] | null {
   const ids: AgentId[] = [];
   for (const item of items) {
     if (typeof item === 'string' || typeof item === 'number') {
-      console.warn('Agent-like delete arrays cannot mix primitive ids and object keys.');
+      reportWarning('Agent-like delete arrays cannot mix primitive ids and object keys.');
       return null;
     }
     const id = item.id;
@@ -444,17 +448,17 @@ function getAgentIds(items: DeleteItems): AgentId[] | null {
   return ids;
 }
 
-function getEdgePairs(items: DeleteItems): Array<{ source: AgentId; target: AgentId }> | null {
+function getEdgePairs(items: DeleteItems, reportWarning: (message: string) => void): Array<{ source: AgentId; target: AgentId }> | null {
   if (items.length === 0) {
     return [];
   }
   if (isPrimitiveDeleteItems(items)) {
-    console.warn('Edge delete arrays must use object keys with source/target fields.');
+    reportWarning('Edge delete arrays must use object keys with source/target fields.');
     return null;
   }
   for (const item of items) {
     if (typeof item === 'string' || typeof item === 'number') {
-      console.warn('Edge delete arrays cannot mix primitive ids and object keys.');
+      reportWarning('Edge delete arrays cannot mix primitive ids and object keys.');
       return null;
     }
   }
@@ -563,7 +567,7 @@ const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
     context.requireStorage(AgentStorage, 'agent').updateAgents(items);
   },
   deleteItems: (context, items) => {
-    const ids = getAgentIds(items);
+    const ids = getAgentIds(items, context.reportWarning);
     if (!ids) {
       return;
     }
@@ -598,7 +602,7 @@ const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
     context.requireStorage(EdgeStorage, 'edge').updateEdges(items);
   },
   deleteItems: (context, items) => {
-    const edgePairs = getEdgePairs(items);
+    const edgePairs = getEdgePairs(items, context.reportWarning);
     if (!edgePairs) {
       return;
     }
@@ -653,7 +657,7 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
     context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items);
   },
   deleteItems: (context, items) => {
-    const ids = getAgentIds(items);
+    const ids = getAgentIds(items, context.reportWarning);
     if (!ids) {
       return;
     }
@@ -662,11 +666,18 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
   onDependencyItemsChanged: (context, change) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     if (change.kind === 'delete') {
-      const ids = getAgentIds(change.items);
+      const ids = getAgentIds(change.items as DeleteItems, context.reportWarning);
       if (!ids) {
         return;
       }
       const lifecycle = resolveTrajectoryLifecycle(context.layer.metadata);
+      if (context.isReset) {
+        if (lifecycle.onReset === 'preserve') storage.closeTrajectories(ids);
+        // beginResetLifecycle already cleared or closed the renderer-owned
+        // traces. Keep simulator-owned per-agent configs while the source
+        // agent layer is replaced, regardless of on_agent_delete.
+        return;
+      }
       if (lifecycle.onAgentDelete === 'retain') {
         storage.closeTrajectories(ids);
       } else {

@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { encodeProtocolMessage, decodeProtocolMessage, type AnyProtocolMessage } from '@tensnap/protocol';
-import { normalizeRawData } from './NodeWebSocketTransport';
+import { NodeWebSocketTransport, normalizeRawData } from './NodeWebSocketTransport';
 
 describe('NodeWebSocketTransport', () => {
   it('normalizes JSON text frames delivered as buffers into strings', () => {
@@ -32,5 +32,37 @@ describe('NodeWebSocketTransport', () => {
 
     expect(normalized).toBeInstanceOf(Uint8Array);
     expect(decodeProtocolMessage(normalized)).toEqual(payload);
+  });
+
+  it('emits one warning and continues for invalid inbound messages in warning mode', () => {
+    const transport = new NodeWebSocketTransport('ws://test', 'json', { serverMessages: 'warning' });
+    const warning = vi.fn();
+    const message = vi.fn();
+    transport.on('validation-warning', warning);
+    transport.on('message', message);
+
+    (transport as unknown as { handleMessage(data: string): void }).handleMessage(JSON.stringify({
+      type: 'metadata_update',
+      payload: { time: 'invalid' },
+    }));
+
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(message).toHaveBeenCalledTimes(1);
+  });
+
+  it('emits an error and rejects invalid inbound messages in error mode', () => {
+    const transport = new NodeWebSocketTransport('ws://test', 'json', { serverMessages: 'error' });
+    const error = vi.fn();
+    const message = vi.fn();
+    transport.on('error', error);
+    transport.on('message', message);
+
+    (transport as unknown as { handleMessage(data: string): void }).handleMessage(JSON.stringify({
+      type: 'metadata_update',
+      payload: { time: 'invalid' },
+    }));
+
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(message).not.toHaveBeenCalled();
   });
 });

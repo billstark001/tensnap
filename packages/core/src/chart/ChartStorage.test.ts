@@ -13,7 +13,7 @@ function makeGroup(id: string, label = id, metaIds: string[] = [id]): ChartGroup
   };
 }
 describe('instantiateChartMetadata', () => {
-  it('creates a group with the metadata as the sole entry when dataList is absent', () => {
+  it('creates a group with the metadata as the sole entry when data_list is absent', () => {
     const meta: ChartGroupMetadata = { id: 'a', label: 'A', color: '#f00' };
     const group = instantiateChartMetadata(meta);
     expect(group.id).toBe('a');
@@ -22,11 +22,11 @@ describe('instantiateChartMetadata', () => {
     expect(group.metadataDict).toEqual({ a: meta });
   });
 
-  it('uses dataList entries as the metadataDict when provided', () => {
+  it('uses data_list entries as the metadataDict when provided', () => {
     const meta: ChartGroupMetadata = {
       id: 'g',
       label: 'G',
-      dataList: [
+      data_list: [
         { id: 'm1', label: 'M1' },
         { id: 'm2', label: 'M2' },
       ],

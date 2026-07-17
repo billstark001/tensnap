@@ -139,9 +139,9 @@ Body.displayName = 'Dialog.Body';
 
 export const Separator = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & {
   vertical?: boolean;
-}>((props, ref) => {
+}>(({ vertical, ...props }, ref) => {
   return (
-    <div {...props} ref={ref} className={clsx(dialogStyles.dialogSeparator, props.vertical && 'vertical')} />
+    <div {...props} ref={ref} className={clsx(dialogStyles.dialogSeparator, vertical && 'vertical')} />
   );
 });
 Separator.displayName = 'Dialog.Separator';

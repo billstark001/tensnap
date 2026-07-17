@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { Locale } from '@/i18n';
+import type { ProtocolValidationLevel } from '@tensnap/protocol';
 import { getSettingsPersistence } from './settings-persistence';
 
 export type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 
 export type Theme = 'light' | 'dark';
-type ValidationLevel = 'off' | 'warning' | 'error';
 export const ACTION_TIMEOUT_SECONDS_OPTIONS = [1, 5, 10, 30, 60] as const;
 export const MAX_SNAPSHOT_PLAYBACK_FPS = 120;
 export type ActionTimeoutSeconds = typeof ACTION_TIMEOUT_SECONDS_OPTIONS[number];
@@ -117,35 +117,23 @@ interface SettingsStore {
   snapshotPlaybackFps: number;
   actionTimeoutSeconds: ActionTimeoutSeconds;
   continuousRunProfiles: Record<string, ContinuousRunProfile>;
-  runtimeTps: number | null;
-  runtimeMspt: number | null;
-  simulatorMspt: number | null;
-  simulatorCommMs: number | null;
-  simulatorRenderMs: number | null;
   
   // Validation settings
-  clientMessageValidation: ValidationLevel;
-  serverMessageValidation: ValidationLevel;
+  clientMessageValidation: ProtocolValidationLevel;
+  serverMessageValidation: ProtocolValidationLevel;
   
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
   setSaveFormat: (format: 'json' | 'msgpack') => void;
   setLocale: (locale: Locale) => void;
-  setClientMessageValidation: (level: ValidationLevel) => void;
-  setServerMessageValidation: (level: ValidationLevel) => void;
+  setClientMessageValidation: (level: ProtocolValidationLevel) => void;
+  setServerMessageValidation: (level: ProtocolValidationLevel) => void;
   setRenderTriggerMode: (mode: RenderTriggerMode) => void;
   setMaxTps: (fps: number) => void;
   setMaxRenderFps: (fps: number) => void;
   setSnapshotPlaybackFps: (fps: number) => void;
   setActionTimeoutSeconds: (seconds: number) => void;
   setContinuousRunProfile: (actionId: string, profile: ContinuousRunProfile) => void;
-  setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => void;
-  setSimulatorMetrics: (metrics?: { simulate_ms?: number; communicate_ms?: number; render_ms?: number }) => void;
-  setActionMetrics: (metrics: {
-    runtime: { tps: number; mspt: number };
-    simulator: { simulate_ms?: number; communicate_ms?: number; render_ms?: number };
-  }) => void;
-  clearRuntimeMetrics: () => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -179,12 +167,6 @@ export const useSettingsStore = create<SettingsStore>()(
     actionTimeoutSeconds: 5,
     continuousRunProfiles: {},
 
-    runtimeTps: null,
-    runtimeMspt: null,
-  simulatorMspt: null,
-  simulatorCommMs: null,
-  simulatorRenderMs: null,
-
     clientMessageValidation: 'off',
     serverMessageValidation: 'off',
 
@@ -206,11 +188,11 @@ export const useSettingsStore = create<SettingsStore>()(
       set({ locale });
     },
 
-    setClientMessageValidation: (level: ValidationLevel) => {
+    setClientMessageValidation: (level: ProtocolValidationLevel) => {
       set({ clientMessageValidation: level });
     },
 
-    setServerMessageValidation: (level: ValidationLevel) => {
+    setServerMessageValidation: (level: ProtocolValidationLevel) => {
       set({ serverMessageValidation: level });
     },
 
@@ -251,37 +233,6 @@ export const useSettingsStore = create<SettingsStore>()(
       }));
     },
 
-    setRuntimeMetrics: (metrics: { tps: number | null; mspt: number | null }) => {
-      set({ runtimeTps: metrics.tps, runtimeMspt: metrics.mspt });
-    },
-
-    setSimulatorMetrics: (metrics) => {
-      set({
-        simulatorMspt: metrics?.simulate_ms ?? null,
-        simulatorCommMs: metrics?.communicate_ms ?? null,
-        simulatorRenderMs: metrics?.render_ms ?? null,
-      });
-    },
-
-    setActionMetrics: ({ runtime, simulator }) => {
-      set({
-        runtimeTps: runtime.tps,
-        runtimeMspt: runtime.mspt,
-        simulatorMspt: simulator.simulate_ms ?? null,
-        simulatorCommMs: simulator.communicate_ms ?? null,
-        simulatorRenderMs: simulator.render_ms ?? null,
-      });
-    },
-
-    clearRuntimeMetrics: () => {
-      set({
-        runtimeTps: null,
-        runtimeMspt: null,
-        simulatorMspt: null,
-        simulatorCommMs: null,
-        simulatorRenderMs: null,
-      });
-    },
   }))
 );
 

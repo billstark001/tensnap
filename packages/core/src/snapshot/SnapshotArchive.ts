@@ -62,6 +62,21 @@ function asBytes(value: Uint8Array | string): Uint8Array {
   return typeof value === 'string' ? decodeBinaryString(value).bytes : value;
 }
 
+function jsonSafeMetadata(metadata: SnapshotArchive['metadata']): SnapshotArchive['metadata'] {
+  const next = structuredClone(metadata);
+  if (next.checkpoint && typeof next.checkpoint.data !== 'string') {
+    next.checkpoint.data = encodeBytesAsDataUrl(next.checkpoint.data, next.checkpoint.encoding);
+  }
+  return next;
+}
+
+function decodedMetadata(metadata: SnapshotArchive['metadata']): SnapshotArchive['metadata'] {
+  // Checkpoint strings are already protocol-valid JSON payloads. Keep them
+  // opaque so bindings that use a textual checkpoint encoding survive a
+  // project round trip unchanged.
+  return structuredClone(metadata);
+}
+
 function encodeSegment(payload: SegmentPayload): Pick<SnapshotSegment, 'encoding' | 'compression' | 'data' | 'byteLength'> {
   const raw = encodeMessagePack(payload);
   const compressed = compressRle(raw);
@@ -78,8 +93,40 @@ function encodeSegment(payload: SegmentPayload): Pick<SnapshotSegment, 'encoding
 function decodeSegment(segment: SnapshotSegment): SegmentPayload {
   if (segment.encoding !== 'msgpack') throw new Error(`Unsupported snapshot segment encoding: ${segment.encoding}.`);
   const data = asBytes(segment.data);
+  if (data.byteLength !== segment.byteLength) {
+    throw new Error(`Snapshot segment byteLength mismatch: declared ${segment.byteLength}, received ${data.byteLength}.`);
+  }
   const bytes = segment.compression === 'rle' ? decompressRle(data) : data;
   return decodeMessagePack<SegmentPayload>(bytes);
+}
+
+function validateSegmentPayload(segment: SnapshotSegment, payload: SegmentPayload, previousFrame: number | null): number {
+  if (!payload.base || !Number.isInteger(payload.base.frame) || payload.base.frame < 0) {
+    throw new Error('Snapshot segment has an invalid base keyframe.');
+  }
+  if (!Array.isArray(payload.frames)) throw new Error('Snapshot segment frames must be an array.');
+
+  let firstFrame = payload.base.frame;
+  let lastFrame = payload.base.frame;
+  let priorFrame = previousFrame;
+  for (const [index, frame] of payload.frames.entries()) {
+    if (!frame || !Number.isInteger(frame.index) || frame.index < 0) {
+      throw new Error('Snapshot segment has an invalid frame index.');
+    }
+    if ((index > 0 && frame.index <= lastFrame) || (priorFrame !== null && frame.index <= priorFrame)) {
+      throw new Error(`Snapshot archive frame ${frame.index} is duplicated or out of order.`);
+    }
+    if (index === 0) firstFrame = frame.index;
+    lastFrame = frame.index;
+    priorFrame = frame.index;
+  }
+  if (segment.firstFrame !== payload.base.frame || segment.lastFrame !== lastFrame) {
+    throw new Error('Snapshot segment declared frame range does not match its payload.');
+  }
+  if (previousFrame !== null && firstFrame <= previousFrame) {
+    throw new Error('Snapshot archive segments overlap or are out of order.');
+  }
+  return lastFrame;
 }
 
 /** Actual MessagePack-plus-compression byte cost used by retention accounting. */
@@ -146,7 +193,12 @@ export function encodeSnapshotArchive(snapshot: Snapshot, segmentFrames = 120): 
 export function decodeSnapshotArchive(archive: SnapshotArchive): Snapshot {
   if (archive.version !== 1) throw new Error(`Unsupported snapshot archive version: ${archive.version}.`);
   if (!archive.segments.length) throw new Error('Snapshot archive has no segments.');
-  const decoded = archive.segments.map((segment) => ({ segment, payload: decodeSegment(segment) }));
+  let previousFrame: number | null = null;
+  const decoded = archive.segments.map((segment) => {
+    const payload = decodeSegment(segment);
+    previousFrame = validateSegmentPayload(segment, payload, previousFrame);
+    return { segment, payload };
+  });
   const initial = structuredClone(decoded[0]!.payload.base);
   const keyframes = decoded
     .slice(1)
@@ -159,7 +211,7 @@ export function decodeSnapshotArchive(archive: SnapshotArchive): Snapshot {
     .sort((a, b) => a.index - b.index);
   return {
     version: 1,
-    metadata: structuredClone(archive.metadata),
+    metadata: decodedMetadata(archive.metadata),
     initial,
     keyframes,
     frames,
@@ -173,6 +225,7 @@ export function decodeSnapshotArchive(archive: SnapshotArchive): Snapshot {
 export function snapshotArchiveForJson(archive: SnapshotArchive): SnapshotArchive {
   return {
     ...structuredClone(archive),
+    metadata: jsonSafeMetadata(archive.metadata),
     segments: archive.segments.map((segment) => ({
       ...segment,
       data: typeof segment.data === 'string' ? segment.data : encodeBytesAsDataUrl(segment.data, 'application/x-tensnap-snapshot-segment'),

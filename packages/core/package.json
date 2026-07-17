@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/core",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "type": "module",
   "description": "Core scenario, runtime, and rendering primitives for TenSnap",
   "main": "./src/index.ts",
@@ -20,6 +20,8 @@
     "./environment/utils": "./src/environment/utils/index.ts",
     "./environment/utils/*": "./src/environment/utils/*.ts",
     "./parameter": "./src/parameter/index.ts",
+    "./monitor": "./src/monitor/index.ts",
+    "./value-inspector": "./src/value-inspector/index.ts",
     "./runtime": "./src/runtime/index.ts",
     "./runtime/browser": "./src/runtime/browser.ts",
     "./snapshot": "./src/snapshot/index.ts",
@@ -38,7 +40,7 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@leafer-ui/core": "^2.1.11",
+    "@leafer-ui/core": "^2.2.2",
     "@tensnap/protocol": "workspace:*",
     "d3": "^7.9.0",
     "pure-expr": "0.2.0",
@@ -49,7 +51,7 @@
     "@types/node": "^26.1.1",
     "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^29.1.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "keywords": [

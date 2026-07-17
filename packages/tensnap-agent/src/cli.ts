@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
@@ -14,7 +14,7 @@ import {
   readRuntimeControl,
   type RuntimeContextPaths,
 } from './runtime/context';
-import type { ProtocolEncoding } from '@tensnap/protocol';
+import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 
 interface ParsedArgs {
@@ -64,6 +64,13 @@ function getNumberFlag(parsed: ParsedArgs, key: string): number | undefined {
     throw new Error(`Flag --${key} must be a valid number.`);
   }
   return parsedValue;
+}
+
+function getValidationLevelFlag(parsed: ParsedArgs, key: string): ProtocolValidationLevel | undefined {
+  const value = getStringFlag(parsed, key);
+  if (value === undefined) return undefined;
+  if (value === 'off' || value === 'warning' || value === 'error') return value;
+  throw new Error(`Flag --${key} must be one of: off, warning, error.`);
 }
 
 function parseJsonValue(raw: string): unknown {
@@ -167,6 +174,8 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     host: getStringFlag(parsed, 'host'),
     controlPort: getStringFlag(parsed, 'port') ? Number(getStringFlag(parsed, 'port')) : undefined,
     encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
+    clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
+    serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
     maxRunStepsPolicy: getNumberFlag(parsed, 'max-steps-policy'),
     render: {
       trigger: (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
@@ -199,6 +208,8 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     await runtime.connect({
       simulatorUrl,
       encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
+      clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
+      serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
     });
     await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
   }
@@ -230,9 +241,15 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
     return;
   }
 
-  const scriptPath = fileURLToPath(import.meta.url);
+  const modulePath = fileURLToPath(import.meta.url);
+  const isSourceEntry = modulePath.endsWith('.ts');
+  const scriptPath = isSourceEntry
+    ? fileURLToPath(new URL('./bin.ts', import.meta.url))
+    : modulePath;
   const childArgs = [
-    ...process.execArgv,
+    ...(isSourceEntry
+      ? ['--import', fileURLToPath(new URL('../node_modules/tsx/dist/loader.mjs', import.meta.url))]
+      : process.execArgv),
     scriptPath,
     'daemon',
     'serve',
@@ -272,6 +289,11 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
   const maxStepsPolicy = getStringFlag(parsed, 'max-steps-policy');
   if (maxStepsPolicy) {
     childArgs.push('--max-steps-policy', maxStepsPolicy);
+  }
+
+  for (const key of ['client-message-validation', 'server-message-validation'] as const) {
+    const level = getValidationLevelFlag(parsed, key);
+    if (level !== undefined) childArgs.push(`--${key}`, level);
   }
 
   const child = spawn(process.execPath, childArgs, {
@@ -453,6 +475,55 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
+  if (group === 'scene' && command === 'capture') {
+    const { baseUrl } = await requireRuntime(parsed);
+    const result = await requestJson(baseUrl, '/v1/scene/capture', { method: 'POST' });
+    const outputPath = getStringFlag(parsed, 'output');
+    if (outputPath) {
+      await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+    }
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (group === 'scene' && command === 'restore') {
+    const checkpointPath = getStringFlag(parsed, 'checkpoint');
+    const input: Record<string, unknown> = {};
+    if (checkpointPath) {
+      let parsedCheckpoint: unknown;
+      try {
+        parsedCheckpoint = JSON.parse(await readFile(checkpointPath, 'utf8'));
+      } catch (error) {
+        throw new Error(`Unable to read checkpoint file ${checkpointPath}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (typeof parsedCheckpoint !== 'object' || parsedCheckpoint === null || Array.isArray(parsedCheckpoint)) {
+        throw new Error('Checkpoint file must contain a JSON object.');
+      }
+      const record = parsedCheckpoint as Record<string, unknown>;
+      input.checkpoint = record.checkpoint ?? record;
+    }
+    const time = getNumberFlag(parsed, 'time');
+    if (time !== undefined) input.time = time;
+    const parameters = getStringFlag(parsed, 'parameters');
+    if (parameters !== undefined) input.parameters = parseJsonValue(parameters);
+    const envs = getStringFlag(parsed, 'envs');
+    if (envs !== undefined) input.envs = parseJsonValue(envs);
+    const chartPolicy = getStringFlag(parsed, 'chart-policy');
+    if (chartPolicy !== undefined) input.chartPolicy = chartPolicy;
+    if (Object.keys(input).length === 0) {
+      throw new Error('Usage: tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>]');
+    }
+    const { baseUrl } = await requireRuntime(parsed);
+    console.log(JSON.stringify(
+      await requestJson(baseUrl, '/v1/scene/restore', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+      null,
+    ));
+    return;
+  }
+
   if (group === 'scene' && command === 'sync') {
     const { baseUrl } = await requireRuntime(parsed);
     console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }), null, 2));
@@ -594,11 +665,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   console.log([
     'Usage:',
-    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--background-color <css-color>] [--max-steps-policy <n>]',
+    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
     '  tensnap-agent runtime status',
-    '  tensnap-agent runtime render-trigger manual|action-end',
+    '  tensnap-agent runtime render-trigger manual|action-result',
     '  tensnap-agent scene inspect',
     '  tensnap-agent scene snapshot',
+    '  tensnap-agent scene capture [--output <capture.json>]',
+    '  tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>] [--chart-policy preserve|replace|truncate]',
     '  tensnap-agent scene render [reason] [--env <env-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
     '  tensnap-agent param list',
     '  tensnap-agent param set <parameter-id> <json-value>',

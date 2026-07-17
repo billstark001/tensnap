@@ -1,0 +1,10 @@
+{
+  "name": "projected-scene-restore",
+  "outcome": "restore commits only on ok and never carries charts",
+  "messages": [
+    { "type": "scene_restore", "payload": { "request_id": "restore-1", "model_id": "fixture.model", "time": 12, "envs": [{ "id": "world", "type": "2d", "layers": [{ "layer_id": "agents", "layer_type": "agent", "items": [] }] }] } },
+    { "type": "scene_restore_begin", "payload": { "request_id": "restore-1" } },
+    { "type": "metadata_update", "payload": { "time": 12 } },
+    { "type": "scene_restore_end", "payload": { "request_id": "restore-1", "status": "ok" } }
+  ]
+}

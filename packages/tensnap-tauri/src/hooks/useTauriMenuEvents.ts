@@ -4,6 +4,8 @@ import { useFileOperations } from '@tensnap/web/hooks';
 import { useSettingsStore } from '@tensnap/web/store';
 import { setNativeMenuLocale } from '../adapters/common';
 
+const DOCUMENTATION_URL = 'https://github.com/billstark001/tensnap/tree/main/docs';
+
 export const useTauriMenuEvents = () => {
   const {
     onNewFile,
@@ -44,13 +46,14 @@ export const useTauriMenuEvents = () => {
     unlistenPromises.push(listen('menu:zoom-out', () => console.log('Zoom Out')));
     unlistenPromises.push(listen('menu:reset-zoom', () => console.log('Reset Zoom')));
     unlistenPromises.push(listen('menu:show-grid', () => console.log('Show Grid')));
-    unlistenPromises.push(listen('menu:show-toolbar', () => console.log('Show Toolbar')));
 
     // Tools menu events
     unlistenPromises.push(listen('menu:settings', () => setSettingsDialogOpen(true)));
 
     // Help menu events
-    unlistenPromises.push(listen('menu:documentation', () => console.log('Documentation')));
+    unlistenPromises.push(listen('menu:documentation', () => {
+      window.open(DOCUMENTATION_URL, '_blank', 'noopener,noreferrer');
+    }));
     unlistenPromises.push(listen('menu:keyboard-shortcuts', () => console.log('Keyboard Shortcuts')));
     unlistenPromises.push(listen('menu:about', () => setAboutDialogOpen(true)));
 

@@ -10,6 +10,7 @@ import { ContainerViewEditor } from './ContainerViewEditor';
 import { EnvironmentViewEditor } from './EnvironmentViewEditor';
 import { ParameterViewEditor } from './ParameterViewEditor';
 import { ChartViewEditor } from './ChartViewEditor';
+import { MonitorViewEditor } from './MonitorViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Action, Parameter, ChartGroup, ParameterType } from '@/types/model';
 import { EditObjectIdDialog } from './EditObjectIdDialog';
@@ -314,6 +315,8 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
           onObjectChange={handleObjectChange}
           onEditObjectId={handleEditObjectId}
         />;
+      case 'monitor':
+        return <MonitorViewEditor view={localView as AnchoredView} onChange={handleChange} />;
       default:
         return null;
     }

@@ -1,5 +1,6 @@
 import { Scenario } from '@tensnap/core';
 import type { AgentRenderState, AgentStorage, EdgeStorage, TrajectoryStorage } from '@tensnap/core/environment';
+import type { ProtocolData } from '@tensnap/protocol';
 
 export interface ComponentEnvironment {
   scenario: Scenario;
@@ -23,19 +24,19 @@ export function createComponentEnvironment(options: {
   if (options.grid) {
     scenario.apply({
       type: 'env_layer_create',
-      payload: { env_id: 'main', layer_id: 'grid', layer_type: 'grid', data: { width: options.width, height: options.height } },
+      payload: { env_id: 'main', layer_id: 'grid', layer_type: 'grid', metadata: { width: options.width, height: options.height } },
     });
   }
   scenario.apply({
     type: 'env_layer_create',
     payload: {
       env_id: 'main', layer_id: 'agents', layer_type: 'agent',
-      data: { width: options.width, height: options.height, coord_offset: options.grid ? 'int' : 'float' },
+      metadata: { width: options.width, height: options.height, coord_offset: options.grid ? 'int' : 'float' },
     },
   });
   scenario.apply({
     type: 'item_create',
-    payload: { env_id: 'main', layer_id: 'agents', items: options.agents },
+    payload: { env_id: 'main', layer_id: 'agents', items: options.agents as unknown as Array<Record<string, ProtocolData>> },
   });
   if (options.edges) {
     scenario.apply({
@@ -55,7 +56,7 @@ export function createComponentEnvironment(options: {
       type: 'env_layer_create',
       payload: {
         env_id: 'main', layer_id: 'trails', layer_type: 'trajectory',
-        dependency_layer_ids: { agent: 'agents' }, data: options.trajectory,
+        dependency_layer_ids: { agent: 'agents' }, metadata: options.trajectory,
       },
     });
     scenario.apply({

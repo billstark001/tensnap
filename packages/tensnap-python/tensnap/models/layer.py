@@ -444,7 +444,13 @@ EdgeLayerMetadataFields: TypeAlias = Literal[
     "z_index",
 ]
 TrajectoryLayerMetadataFields: TypeAlias = Literal[
-    "length", "width", "color", "z_index"
+    "length",
+    "width",
+    "color",
+    "z_index",
+    "on_agent_delete",
+    "on_state_sync",
+    "on_reset",
 ]
 GridLayerMetadataFields: TypeAlias = Literal[
     "width",

@@ -10,6 +10,7 @@ import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 import { ExportDialog } from './ExportDialog';
 import { EmptyState } from '@tensnap/web-common/components/ui';
+import { ConfirmDialog } from '@tensnap/web-common/components/ui/AlertDialog';
 
 export interface FileSystemBrowserProps {
   fileSystem: FileSystemAdapter;
@@ -44,6 +45,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<DirectoryEntry | null>(null);
 
   // 加载目录内容
   const loadDirectory = useCallback(async (path: string) => {
@@ -58,7 +60,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       onCurrentDirectoryChange?.(normalizedPath);
       setDirectoryContentsRaw(entries);
     } catch (err) {
-      console.error('Failed to load directory:', err);
       setError((err as Error).message || t`Failed to load directory`);
       setDirectoryContentsRaw([]);
     } finally {
@@ -149,7 +150,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       await Promise.all(uploadPromises);
       await refreshCurrentDirectory();
     } catch (err) {
-      console.error('Failed to upload files:', err);
       setError((err as Error).message || t`Failed to upload files`);
     } finally {
       setLoading(false);
@@ -206,7 +206,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
       await refreshCurrentDirectory();
     } catch (err) {
-      console.error('Failed to create item:', err);
       const errorMsg = (err as Error).message || t`Failed to create item`;
       setError(errorMsg);
       throw err;
@@ -215,16 +214,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     }
   }, [fileSystem, currentDirectory, refreshCurrentDirectory]);
 
-  // 删除操作
-  const handleDeleteItem = useCallback(async (entry: DirectoryEntry) => {
-    const message = entry.type === 'directory'
-      ? t`Are you sure you want to delete "${entry.name}"? This will delete all nested content.`
-      : t`Are you sure you want to delete "${entry.name}"?`;
-
-    if (!confirm(message)) {
-      return;
-    }
-
+  const deleteItem = useCallback(async (entry: DirectoryEntry) => {
     setLoading(true);
     setError(null);
     try {
@@ -235,12 +225,15 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       }
       await refreshCurrentDirectory();
     } catch (err) {
-      console.error('Failed to delete item:', err);
       setError((err as Error).message || t`Failed to delete item`);
     } finally {
       setLoading(false);
     }
   }, [fileSystem, refreshCurrentDirectory]);
+
+  const handleDeleteItem = useCallback((entry: DirectoryEntry) => {
+    setPendingDeleteEntry(entry);
+  }, []);
 
   // 导出操作 - 现在由外部提供
   const handleExportDirectory = useCallback(() => {
@@ -326,6 +319,25 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
         currentPath={currentDirectory}
+      />
+
+      <ConfirmDialog
+        open={pendingDeleteEntry !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteEntry(null);
+        }}
+        title={t`Delete "${pendingDeleteEntry?.name ?? ''}"?`}
+        description={pendingDeleteEntry?.type === 'directory'
+          ? t`This will delete all nested content.`
+          : t`This file will be permanently deleted.`}
+        confirmLabel={t`Delete`}
+        cancelLabel={t`Cancel`}
+        confirmVariant="danger"
+        onConfirm={() => {
+          const entry = pendingDeleteEntry;
+          setPendingDeleteEntry(null);
+          if (entry) void deleteItem(entry);
+        }}
       />
     </div>
   );

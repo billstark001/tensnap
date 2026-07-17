@@ -5,7 +5,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { basename, dirname, relative, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import ts from 'typescript';
+// zod-to-ts still produces nodes with the pre-v7 JavaScript compiler API.
+import ts from 'typescript-legacy-api';
 import {
   createAuxiliaryTypeStore,
   createTypeAlias,
@@ -95,11 +96,14 @@ function collectSourceInfo(paths) {
   const schemaDocs = new Map();
   const schemaOrder = [];
   const typeNameBySchemaName = new Map();
-
-  for (const path of paths) {
+  const sourceFiles = paths.map((path) => {
     const sourceText = readFileSync(path, 'utf8');
-    const sourceFile = ts.createSourceFile(path, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-    collectSchemaDocs(sourceFile, schemaDocs, schemaOrder);
+    return ts.createSourceFile(path, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  });
+  const schemaDeclarations = collectSchemaDeclarations(sourceFiles);
+
+  for (const sourceFile of sourceFiles) {
+    collectSchemaDocs(sourceFile, schemaDocs, schemaOrder, schemaDeclarations);
     collectTypeAliases(sourceFile, typeNameBySchemaName);
   }
 
@@ -111,7 +115,27 @@ function collectSourceInfo(paths) {
   };
 }
 
-function collectSchemaDocs(sourceFile, schemaDocs, schemaOrder) {
+function collectSchemaDeclarations(sourceFiles) {
+  const declarations = new Map();
+
+  for (const sourceFile of sourceFiles) {
+    sourceFile.forEachChild((node) => {
+      if (!ts.isVariableStatement(node)) {
+        return;
+      }
+
+      for (const declaration of node.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name) && declaration.name.text.endsWith('Schema')) {
+          declarations.set(declaration.name.text, { declaration, sourceFile });
+        }
+      }
+    });
+  }
+
+  return declarations;
+}
+
+function collectSchemaDocs(sourceFile, schemaDocs, schemaOrder, schemaDeclarations) {
   sourceFile.forEachChild((node) => {
     if (!ts.isVariableStatement(node) || !hasExportModifier(node)) {
       return;
@@ -131,7 +155,7 @@ function collectSchemaDocs(sourceFile, schemaDocs, schemaOrder) {
 
       schemaDocs.set(schemaName, {
         comment: statementDoc,
-        fieldDocs: collectFieldDocs(declaration, sourceFile),
+        fieldDocs: collectFieldDocs(declaration, sourceFile, schemaDeclarations),
         source: basename(sourceFile.fileName),
       });
       schemaOrder.push(schemaName);
@@ -171,8 +195,19 @@ function findInferredSchemaName(node) {
   return argument.exprName.text;
 }
 
-function collectFieldDocs(declaration, sourceFile) {
+function collectFieldDocs(declaration, sourceFile, schemaDeclarations, seen = new Set()) {
   const fieldDocs = new Map();
+  const baseSchemaName = findExtendedBaseSchemaName(declaration.initializer);
+  if (baseSchemaName && !seen.has(baseSchemaName)) {
+    const base = schemaDeclarations.get(baseSchemaName);
+    if (base) {
+      seen.add(baseSchemaName);
+      for (const [name, comment] of collectFieldDocs(base.declaration, base.sourceFile, schemaDeclarations, seen)) {
+        fieldDocs.set(name, comment);
+      }
+    }
+  }
+
   const objectLiteral = findFirstZodObjectLiteral(declaration.initializer);
   if (!objectLiteral) {
     return fieldDocs;
@@ -189,6 +224,25 @@ function collectFieldDocs(declaration, sourceFile) {
   }
 
   return fieldDocs;
+}
+
+function findExtendedBaseSchemaName(node) {
+  if (!node) {
+    return undefined;
+  }
+  if (ts.isCallExpression(node) && isZodExtendCall(node)) {
+    const expression = node.expression;
+    return ts.isIdentifier(expression.expression) ? expression.expression.text : undefined;
+  }
+
+  for (const child of node.getChildren()) {
+    const name = findExtendedBaseSchemaName(child);
+    if (name) {
+      return name;
+    }
+  }
+
+  return undefined;
 }
 
 function findFirstZodObjectLiteral(node) {
@@ -314,7 +368,9 @@ function renderTypeAlias(schemaName, schema, typeName, typeNameBySchemaValue, fi
   const { node } = zodToTs(schema, {
     auxiliaryTypeStore,
     overrideFunction,
-    unrepresentable: 'throw',
+    // Zod refinements/custom validators are runtime constraints. Their
+    // TypeScript surface is represented by the surrounding inferred type.
+    unrepresentable: 'any',
   });
 
   const primary = markTypeAliasExported(printNode(createTypeAlias(node, typeName)));
@@ -348,6 +404,7 @@ function usesUint8ArrayCustom(schemaName) {
     || schemaName === 'BackgroundLayerMetadataSchema'
     || schemaName === 'BackgroundLayerCreatePayloadSchema'
     || schemaName === 'BuiltinLayerCreatePayloadSchema'
+    || schemaName === 'CheckpointSchema'
   );
 }
 

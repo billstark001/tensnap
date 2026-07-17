@@ -62,13 +62,15 @@ export const agentCount = style({
 });
 
 export const agentsList = style({
-  flex: 1,
+  flex: '1 1 0',
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))',
+  gridAutoRows: 'minmax(64px, max-content)',
+  alignContent: 'start',
   gap: '12px',
   marginBottom: '16px',
-  minHeight: '200px',
-  maxHeight: '400px',
+  minHeight: 0,
+  maxHeight: 'none',
   overflowY: 'auto',
   padding: '8px',
 });
@@ -76,6 +78,7 @@ export const agentsList = style({
 export const agentCard = style({
   display: 'flex',
   alignItems: 'center',
+  minHeight: '64px',
   padding: '12px',
   backgroundColor: vars.color.inputBackground,
   border: `1px solid ${vars.color.inputBorder}`,

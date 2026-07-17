@@ -1,12 +1,14 @@
 import type { ChartGroup } from '../chart';
 import type { AssetSnapshot } from '../asset';
+import type { MonitorState } from '../monitor';
+import type { DiagnosticEvent } from '../diagnostics';
 import type {
   Action,
-  ActionEndPayload,
-  ActionStartPayload,
+  ActionResultPayload,
+  ActionInvokePayload,
   AssetDataPayload,
   AssetDeletePayload,
-  AssetMetaPayload,
+  AssetMetadataPayload,
   ChartDeletePayload,
   ChartGroupMetadata,
   ChartUpdatePayload,
@@ -19,13 +21,17 @@ import type {
   ItemDeletePayload,
   ItemUpdatePayload,
   MetadataUpdatePayload,
+  MonitorDeletePayload,
+  MonitorMetadata,
+  MonitorUpdatePayload,
   NormalizedLogPayload,
   Parameter,
   ParameterChangePayload,
   ParameterSyncPayload,
   ScenarioEnvironmentType,
   ScreenshotRequestPayload,
-  StateSyncBoundaryPayload,
+  StateSyncBeginPayload,
+  StateSyncEndPayload,
   StateSyncRequest,
 } from '@tensnap/protocol';
 
@@ -69,6 +75,7 @@ export interface ScenarioSnapshot {
   parameters: Parameter[];
   environments: ScenarioEnvironmentSnapshot[];
   charts: ChartGroup[];
+  monitors: MonitorState[];
   logs: NormalizedLogPayload[];
   assets: AssetSnapshot[];
 }
@@ -76,15 +83,16 @@ export interface ScenarioSnapshot {
 /** Selective snapshots keep recorder keyframes from copying append-only streams. */
 export interface ScenarioDumpOptions {
   includeCharts?: boolean;
+  includeMonitors?: boolean;
   includeLogs?: boolean;
   includeAssets?: boolean;
 }
 
 export interface ScenarioEventDetailMap {
   'metadata:update': MetadataUpdatePayload;
-  'state_sync:begin': StateSyncBoundaryPayload;
-  'state_sync:end': StateSyncBoundaryPayload;
-  'action:end': ActionEndPayload;
+  'state_sync:begin': StateSyncBeginPayload;
+  'state_sync:end': StateSyncEndPayload;
+  'action:result': ActionResultPayload;
   'action:create': Action;
   'action:update': Action;
   'action:delete': { id: string };
@@ -99,14 +107,21 @@ export interface ScenarioEventDetailMap {
   'param:create': Parameter;
   'param:update': Parameter;
   'param:delete': { id: string };
+  /** Local renderer echo of an accepted `param_change` request. */
+  'param:optimistic': ParameterSyncPayload;
   'param:sync': ParameterSyncPayload;
   'chart:create': ChartGroupMetadata;
   'chart:update': ChartUpdatePayload;
   'chart:delete': ChartDeletePayload;
-  'asset:meta': AssetMetaPayload;
+  'monitor:create': MonitorMetadata;
+  'monitor:update': MonitorUpdatePayload;
+  'monitor:delete': MonitorDeletePayload;
+  'asset:metadata': AssetMetadataPayload;
   'asset:data': AssetDataPayload;
   'asset:delete': AssetDeletePayload;
   'screenshot:request': ScreenshotRequestPayload;
+  /** Runtime validation warnings produced while applying canonical messages. */
+  diagnostic: DiagnosticEvent;
   log: NormalizedLogPayload;
   reset: undefined;
 }
@@ -114,8 +129,12 @@ export interface ScenarioEventDetailMap {
 export type ScenarioEventType = keyof ScenarioEventDetailMap;
 
 export interface ScenarioMessageFactory {
-  createStateSyncMessage(requestId?: string): { type: 'state_sync'; payload: StateSyncRequest };
-  createParamChangeMessage(id: string, value: unknown): { type: 'param_change'; payload: ParameterChangePayload };
-  createActionStartMessage(id: string, continuous?: boolean, tickId?: string): { type: 'action_start'; payload: ActionStartPayload };
+  createStateSyncMessage(modelId: string, requestId: string, instanceId?: string): { type: 'state_sync'; payload: StateSyncRequest };
+  createParamChangeMessage(id: string, value: ParameterChangePayload['value']): { type: 'param_change'; payload: ParameterChangePayload };
+  createActionInvokeMessage(
+    id: string,
+    requestId: string,
+    options?: Pick<ActionInvokePayload, 'continuous' | 'target' | 'kwargs'>,
+  ): { type: 'action_invoke'; payload: ActionInvokePayload };
   createAssetSyncMessage(): { type: 'asset_sync'; payload: { assets: Record<string, string> } };
 }

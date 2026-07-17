@@ -3,6 +3,8 @@ import {
   encodeProtocolMessage,
   type AnyProtocolMessage,
   type ProtocolEncoding,
+  type ProtocolValidationLevel,
+  type ProtocolValidationWarning,
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import WebSocket, {
@@ -54,6 +56,10 @@ export interface WebSocketTransportHostOptions {
   connectionIdFactory?: (socket: WebSocket) => string;
   server?: WebSocketServer;
   serverOptions?: WebSocketServerOptions;
+  rendererMessageValidation?: ProtocolValidationLevel;
+  simulatorMessageValidation?: ProtocolValidationLevel;
+  onValidationWarning?: (warning: ProtocolValidationWarning) => void;
+  onValidationError?: (error: unknown) => void;
 }
 
 export class WebSocketTransportHost {
@@ -62,6 +68,10 @@ export class WebSocketTransportHost {
 
   private readonly connectionIdFactory: (socket: WebSocket) => string;
   private readonly sessionFactory: () => SimulatorSession;
+  private readonly rendererMessageValidation: ProtocolValidationLevel;
+  private readonly simulatorMessageValidation: ProtocolValidationLevel;
+  private readonly onValidationWarning?: (warning: ProtocolValidationWarning) => void;
+  private readonly onValidationError?: (error: unknown) => void;
   private readonly sessions = new Map<WebSocket, SimulatorSession>();
   private closing = false;
 
@@ -70,6 +80,10 @@ export class WebSocketTransportHost {
     this.encoding = options.encoding ?? 'json';
     this.sessionFactory = options.sessionFactory;
     this.connectionIdFactory = options.connectionIdFactory ?? (() => generateConnectionId('ws'));
+    this.rendererMessageValidation = options.rendererMessageValidation ?? 'off';
+    this.simulatorMessageValidation = options.simulatorMessageValidation ?? 'off';
+    this.onValidationWarning = options.onValidationWarning;
+    this.onValidationError = options.onValidationError;
 
     this.server.on('connection', (socket) => {
       void this.handleConnection(socket);
@@ -119,16 +133,45 @@ export class WebSocketTransportHost {
         return;
       }
 
-      const encoded = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding);
+      let encoded: string | Uint8Array;
+      try {
+        encoded = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding, {
+          validation: {
+            level: this.simulatorMessageValidation,
+            direction: 'simulator-to-renderer',
+            onWarning: this.onValidationWarning,
+          },
+        });
+      } catch (error) {
+        this.onValidationError?.(error);
+        throw error;
+      }
       socket.send(typeof encoded === 'string' ? encoded : Buffer.from(encoded));
     }, connectionId);
 
     socket.on('message', (data, isBinary) => {
       const normalized = normalizeWebSocketRawData(data, isBinary);
-      const decoded = decodeProtocolMessage(normalized) as RendererToSimulatorMessage;
+      let decoded: RendererToSimulatorMessage;
+      try {
+        decoded = decodeProtocolMessage(normalized, {
+          validation: {
+            level: this.rendererMessageValidation,
+            direction: 'renderer-to-simulator',
+            onWarning: this.onValidationWarning,
+          },
+        }) as RendererToSimulatorMessage;
+      } catch (error) {
+        this.onValidationError?.(error);
+        void session.emitter.error({
+          code: 'protocol_validation_failed',
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return;
+      }
       void session.dispatch(decoded).catch((error) => {
         void session.emitter.error({
-          error: error instanceof Error ? error.message : String(error),
+          code: 'dispatch_failed',
+          message: error instanceof Error ? error.message : String(error),
         });
       });
     });

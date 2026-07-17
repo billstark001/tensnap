@@ -1,7 +1,7 @@
 # JavaScript API Reference
 
 This reference describes the `@tensnap/js` package. It provides simulator-side
-bindings for protocol v0.2, not renderer widgets.
+bindings for the strict canonical protocol v0.3, not renderer widgets.
 
 The package exports four groups:
 
@@ -39,6 +39,7 @@ const builder = modelBuilder<Config, DemoModel>({
   id: 'demo',
   name: 'Demo',
   description: 'A minimal JavaScript model.',
+  stateSchemaVersion: '1',
 }, {
   defaults: { speed: 1 },
   create(config) {
@@ -111,12 +112,21 @@ Important options:
 - `defaults`: optional default config merged with per-session overrides.
 - `create(config)`: construct the model object for one session.
 - `getConfig(model, initialConfig)`: expose model-normalized config values.
-- `init`, `dispose`, `step`, `reset`: lifecycle callbacks.
+- `init`, `dispose`, `step`, `stop`, `reset`: lifecycle callbacks.
 - `time(model)`: expose simulation time; otherwise time increments after each step.
-- `lifecycleLabels`: optional labels for built-in `start`, `step`, and `reset`.
+- `lifecycleLabels`: optional labels for built-in `start`, `step`, `stop`, and `reset`.
+
+`init` runs only after the first valid `state_sync`; reconnecting the same
+binding session does not reconstruct the model. `stateSchemaVersion` is sent
+in `simulator_info` and gates opt-in checkpoint restore/capture.
 
 The builder registers the renderer-driven lifecycle actions automatically:
-`start`, `step`, and `reset`. Custom actions can be added with `.action(...)`.
+`start`, `step`, `stop`, and `reset`. Custom actions can be added with
+`.action(...)`; they may declare a target `scope` and validated `kwargs`.
+Reset reconciles changed declarations with update or delete-then-create frames,
+deletes the previous non-trajectory item set, clears chart history, and then
+publishes current items and values. Stable monitor/environment/layer creates are
+not replayed as implicit upserts.
 
 ### Parameters
 
@@ -169,10 +179,10 @@ grouped. Use `.done()` only when chaining back to the parent model builder.
 ```ts
 builder.env('main')
   .gridLayer('grid', {
-    data: (model) => ({ width: model.width, height: model.height }),
+    metadata: (model) => ({ width: model.width, height: model.height }),
   })
   .agentLayer('agents', {
-    data: (model) => ({ width: model.width, height: model.height }),
+    metadata: (model) => ({ width: model.width, height: model.height }),
     items: (model) => model.agents,
   })
   .edgeLayer('links', {
@@ -183,6 +193,26 @@ builder.env('main')
 
 Layer `items(...)` returns the current authoritative item list. The binding
 tracks previous records and emits creates, field-level updates, and deletes.
+
+Trajectory layers expose every v0.3 trajectory field directly and normalize
+camelCase builder options to canonical snake_case wire metadata:
+
+```ts
+builder.env('main').trajectoryLayer('trails', {
+  dependencyLayerIds: { agent: 'agents' },
+  length: 30,
+  width: 2,
+  color: '#2563EB',
+  zIndex: 3,
+  onAgentDelete: 'retain',
+  onStateSync: 'preserve',
+  onReset: 'clear',
+});
+```
+
+Defaults are `delete`, `preserve`, and `clear`. Retained agent deletion and
+preserved reset close the current segment so a reused agent id does not connect
+two lifetimes.
 
 For models that already know exact incremental changes, declare `updates(...)`.
 When a layer has `updates(...)`, the binding sends update records after the
@@ -235,6 +265,7 @@ Custom actions:
 ```ts
 builder.action('shuffle', {
   label: 'Shuffle',
+  kwargs: [{ name: 'seed', type: 'integer', required: true }],
   run(model) {
     model.shuffle();
   },
@@ -253,6 +284,68 @@ builder.asset('wolf-sheep:sheep', {
 
 Use `assetIcon(id)` for agent icons that reference declared assets.
 
+### Monitors And Scene Restore
+
+Use `.monitor(...)` for a current protocol value without a chart history:
+
+```ts
+builder.monitor('population', {
+  label: 'Population',
+  renderHint: 'text',
+  get: (model) => model.agents.length,
+});
+```
+
+Projected restore is explicitly opt-in. Use one of two mutually exclusive
+strategies:
+
+```ts
+sceneRestore: {
+  mode: 'compose',
+  restoreTime(model, time) { model.time = time; },
+}
+```
+
+With `compose`, each restorable layer declares `restore: { itemIds?,
+restoreMetadata?, create, update, delete, validate? }`. The binding validates
+the complete input before mutation, applies metadata source-first, deletes
+dependent layers first, then creates and updates source layers. `itemIds` must
+return protocol delete keys (for example `{ id }`), not arbitrary model IDs.
+`beforeApply` / `afterApply` can rebuild model-wide derived state.
+
+For a model that owns every detail itself, use `sceneRestore: { mode:
+'imperative', apply(model, payload, ctx) {} }`. It may not be combined with a
+layer `restore` declaration; this avoids an implicit precedence rule.
+
+The binding replays final declarations, items, time, and monitor values in the
+restore transaction, never chart messages. Exact checkpoint restore/capture is
+advertised only when both `restoreCheckpoint` and `captureCheckpoint` are
+provided with a stable `stateSchemaVersion`; no projected restore hook is
+required for a checkpoint-only model. `captureCheckpoint` returns only
+model data (`ProtocolValue` or `Uint8Array`); the binding automatically emits
+MessagePack or `application/octet-stream`, and `restoreCheckpoint` receives the
+decoded data rather than the wire `{ encoding, data }` envelope.
+
+Restore request IDs are idempotent: duplicates return the cached result without
+reapplying the model mutation. When checkpoint hooks are present, the binding
+captures a pre-restore checkpoint and uses it to roll back a failed projected or
+replay phase.
+
+Monitor metadata/value CRUD remains explicit. Declarative monitors emit create
+and value updates; advanced dynamic code can use `ctx.emitter.monitorCreate`,
+`monitorUpdate`, and `monitorDelete`. A metadata replacement is delete-then-
+create—`monitor_create` is not an upsert.
+
+### `simulator_info`
+
+Every session sends `simulator_info` before state sync or model initialization.
+Builder metadata supplies stable model id/name/description/version and
+`stateSchemaVersion`; the session generates one `instance_id` that survives
+reconnect/reset and changes for a new session. The binding adds monitor,
+targeted-action, kwargs, projected-restore, and paired-checkpoint capabilities
+before the handshake. Keep the model id stable and bump the schema version when
+checkpoint/projected state becomes incompatible.
+
 ## Low-Level Metadata Helpers
 
 The package still exports raw protocol helpers for tests, transport fixtures, and
@@ -262,20 +355,21 @@ advanced integrations that already manage their own session lifecycle:
 - `defineParameters(...parameters)`
 - `defineActions(...actions)`
 - `defineCharts(...charts)`
+- `defineMonitors(...monitors)`
 - `defineLayer(layer)`
 - `defineEnvironment(environment)`
 
 These helpers clone shallow protocol objects so definitions do not share mutable
-metadata by accident. They are not aliases for the model builder and are not the
-recommended authoring API for new examples.
+metadata by accident. They are intended for fixtures and advanced integrations;
+new examples should use `modelBuilder(...)`.
 
-`defineCharts` accepts protocol `dataList` metadata for grouped charts:
+`defineCharts` accepts protocol `data_list` metadata for grouped charts:
 
 ```ts
 const charts = defineCharts({
   id: 'evacuation_counts',
   label: 'Evacuation Counts',
-  dataList: [
+  data_list: [
     { id: 'alive', label: 'Alive', color: '#f59e0b' },
     { id: 'evacuated', label: 'Evacuated', color: '#16a34a' },
     { id: 'dead', label: 'Dead', color: '#9ca3af' },
@@ -291,7 +385,7 @@ Lifecycle callbacks and custom actions receive a context with:
 - `getConfig()` for current config values.
 - `replayDefinition()` and `sync()` for full metadata/state replay.
 - `refreshParameters(ids?)` for parameter create/update/delete after config normalization.
-- `setTime(...)`, `metadata(...)`, `setChartValues(...)`, `updateCharts(...)`, `clearCharts(...)`, and `clearAllCharts()`.
+- `setTime(...)`, `metadata(...)`, `setChartValues(...)`, `updateCharts(...)`, `clearCharts(...)`, `clearAllCharts()`, and `setMonitor(...)`.
 - `createItems(...)`, `updateItems(...)`, `deleteItems(...)`, `syncRecords(...)`, and `syncItems(...)`.
 - `finishAction(...)` for custom action handling.
 - `publishAsset(...)`, `syncAssets(...)`, and `clearPublishedAssets()`.
@@ -315,7 +409,7 @@ Handlers include:
 - `onRendererMessage`
 - `onStateSync`
 - `onParamChange`
-- `onActionStart`
+- `onActionInvoke`, `onSceneRestore`, `onSceneCapture`
 - `onAssetSync`
 - `onScreenshotResponse`
 - `onError`
@@ -325,17 +419,23 @@ Handlers include:
 `SimulatorEmitter` sends simulator-to-renderer protocol messages:
 
 - metadata and state-sync: `metadataUpdate`, `stateSyncBegin`, `stateSyncEnd`
-- controls: `actionCreate`, `actionUpdate`, `actionDelete`, `actionEnd`, `paramCreate`, `paramUpdate`, `paramDelete`, `paramSync`
+- controls: `actionCreate`, `actionUpdate`, `actionDelete`, `actionResult`, `paramCreate`, `paramUpdate`, `paramDelete`, `paramSync`
 - environment state: `envCreate`, `envDelete`, `envLayerCreate`, `envLayerUpdate`, `envLayerDelete`, `itemCreate`, `itemUpdate`, `itemDelete`
-- charts/assets/screenshots/logging: `chartCreate`, `chartUpdate`, `chartDelete`, `assetMeta`, `assetData`, `assetDelete`, `screenshotRequest`, `log`, `error`
+- charts/monitors/assets/scenes/screenshots/logging: `chartCreate`, `chartUpdate`, `chartDelete`, `monitorCreate`, `monitorUpdate`, `monitorDelete`, `assetMetadata`, `assetData`, `assetDelete`, `sceneRestoreBegin`, `sceneRestoreEnd`, `sceneCaptureResult`, `screenshotRequest`, `log`, `error`
 
 ## Scenario Registry
 
 `ScenarioRegistry.from(definition)` stores parameters, actions, environments,
-layers, and charts. `registry.replay(emitter)` emits the corresponding
+layers, charts, and monitors. `registry.replay(emitter)` emits the corresponding
 `*_create` messages. `registry.createSession(...)` creates a low-level session
 whose `state_sync` handler brackets `registry.replay(...)` with
-`state_sync_begin` and `state_sync_end`.
+`state_sync_begin` and `state_sync_end`. `registry.replaySceneRestore(...)`
+omits charts for a `scene_restore` transaction.
+
+Create-only registry/model state replay uses state-sync mode `replace`. This is
+intentional: a full replay cannot safely claim `reconcile`, because monitor,
+chart, environment, layer, item, action, and parameter create frames are not
+upserts.
 
 ## Transport Hosts
 

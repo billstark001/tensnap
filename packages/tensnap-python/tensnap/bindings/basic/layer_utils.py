@@ -93,6 +93,9 @@ _STRING_LITERAL_MATCHERS: dict[str, Callable[[str], bool]] = {
     "style": lambda raw: raw in {"solid", "dashed", "dotted"},
     "icon": lambda raw: raw in _ICON_LITERAL_VALUES or raw.startswith("asset:"),
     "color": is_css_predefined_color_value,
+    "on_agent_delete": lambda raw: raw in {"delete", "retain"},
+    "on_state_sync": lambda raw: raw in {"preserve", "clear"},
+    "on_reset": lambda raw: raw in {"clear", "preserve"},
 }
 _BOOLEAN_LITERAL_FIELDS = frozenset({"directed"})
 

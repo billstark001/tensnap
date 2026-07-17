@@ -5,6 +5,7 @@ import {
   archiveProjectFileContentInWorker,
   parseProjectFileContent,
   PROJECT_FILE_VERSION,
+  ProjectSourceSchema,
   recoverProjectFileContent,
   type ProjectFileContent,
 } from "@/types/project";
@@ -14,31 +15,31 @@ import { createHistoryStore, type HistoryState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
-import { materializeSnapshot, type Snapshot } from '@tensnap/core/snapshot';
+import { materializeSnapshot, SnapshotPlaybackSource, type ProjectSource, type Snapshot, type SnapshotModelIdentity } from '@tensnap/core/snapshot';
 import type { StateSyncRequest } from '@tensnap/protocol';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { getFileSystemState } from "./file-system/provider";
-import { getToastState } from './toast';
-
-export interface ProjectSettings {
-  url: string;
-}
 
 export interface ProjectOpenResult {
   recovered: boolean;
   warnings: string[];
 }
 
-export interface ProjectContextScheme extends ProjectSettings {
+export interface ProjectContextScheme {
   id: string;
   filepath: string | null;
+  source: ProjectSource;
+  modelIdentity?: SnapshotModelIdentity;
+  snapshotPlayback?: SnapshotPlaybackSource;
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useTransportStore: UseBoundStore<StoreApi<TransportStore>>;
   useUndoRedoStore: UseBoundStore<StoreApi<HistoryState>>;
 }
 
 function projectTabName(project: ProjectContextScheme): string {
-  if (!project.filepath) return project.url;
+  if (!project.filepath) return project.source.kind === 'snapshot'
+    ? `Snapshot: ${project.source.snapshot_id}`
+    : projectSourceDisplayName(project.source);
   const normalized = project.filepath.replace(/\\/g, '/').replace(/\/+$/, '');
   return normalized.slice(normalized.lastIndexOf('/') + 1) || project.filepath;
 }
@@ -59,8 +60,10 @@ const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
   return metadata;
 };
 
-export const createStateSyncRequestFromStore = (store?: ScenarioSnapshot): StateSyncRequest => {
-  const { parameters = [], actions = [], environments = [], charts = [] } = store || {};
+export type StateSyncInventory = Pick<StateSyncRequest, 'parameters' | 'actions' | 'envs' | 'charts' | 'monitors'>;
+
+export const createStateSyncRequestFromStore = (store?: ScenarioSnapshot): StateSyncInventory => {
+  const { parameters = [], actions = [], environments = [], charts = [], monitors = [] } = store || {};
   return {
     parameters,
     actions,
@@ -70,29 +73,74 @@ export const createStateSyncRequestFromStore = (store?: ScenarioSnapshot): State
       layers: env.layers.map(layer => ({ layer_id: layer.id, layer_type: layer.layerType })),
     })),
     charts: getAllChartMetadata(charts),
+    monitors: monitors.map((monitor) => ({
+      id: monitor.id,
+      label: monitor.label,
+      ...(monitor.render_hint === undefined ? {} : { render_hint: monitor.render_hint }),
+    })),
   };
 };
 
-const createProject = (url: string, filepath: string | null = null): ProjectContextScheme => {
+export const projectSourceConnectionId = (source: ProjectSource): string | null => {
+  if (source.kind === 'websocket') return source.url;
+  if (source.kind === 'inmemory') return `inmemory:${source.model_id}`;
+  return null;
+};
+
+export const projectSourceDisplayName = (source: ProjectSource): string => projectSourceConnectionId(source) ?? (source.kind === 'snapshot' ? `offline:${source.snapshot_id}` : 'offline');
+
+/** Rebase a recording so a snapshot project starts at the frame the user chose. */
+const snapshotSourceFromFrame = (snapshot: Snapshot, frame?: number): Snapshot => {
+  const initialFrame = frame ?? snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame;
+  const bounded = Math.max(snapshot.initial.frame, Math.min(initialFrame, snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame));
+  if (bounded === snapshot.initial.frame) return structuredClone(snapshot);
+  const frameTimestamp = snapshot.frames.find((entry) => entry.index === bounded)?.timestamp ?? snapshot.initial.timestamp;
+  const rebased = structuredClone(snapshot);
+  rebased.initial = { frame: bounded, timestamp: frameTimestamp, scenario: materializeSnapshot(snapshot, bounded) };
+  rebased.keyframes = rebased.keyframes.filter((keyframe) => keyframe.frame > bounded);
+  rebased.frames = rebased.frames.filter((entry) => entry.index > bounded);
+  return rebased;
+};
+
+const createProject = (
+  source: ProjectSource,
+  filepath: string | null = null,
+  modelIdentity?: SnapshotModelIdentity,
+): ProjectContextScheme => {
+  let project: ProjectContextScheme | null = null;
   const useUndoRedoStore = createHistoryStore({
     maxCommands: 64,
     maxBytes: 4 * 1024 * 1024,
-    onError: (error, command) => getToastState().error(
-      `Unable to ${command.label}`,
-      error instanceof Error ? error.message : String(error),
-    ),
+    onError: (error, command) => project?.useScenarioStore.getState().appendDiagnostic({
+      severity: 'error',
+      domain: 'ui',
+      source: 'undo-redo',
+      code: 'history_command_failed',
+      message: `Unable to ${command.label}: ${error instanceof Error ? error.message : String(error)}`,
+      details: error,
+    }),
   });
-  const useScenarioStore = createScenarioStore(useUndoRedoStore);
+  const useScenarioStore = createScenarioStore(useUndoRedoStore, {
+    assertSnapshotSetAllowed: (snapshots) => {
+      const protectedId = project?.source.kind === 'snapshot' ? project.source.snapshot_id : null;
+      if (protectedId && !snapshots.some((snapshot) => snapshot.metadata.id === protectedId)) {
+        throw new Error(`Snapshot ${protectedId} is the active project source and cannot be removed.`);
+      }
+    },
+  });
+  useScenarioStore.getState().session.setExpectedSimulatorIdentity(modelIdentity);
   const useTransportStore = createTransportStore(useScenarioStore);
 
-  return {
+  project = {
     id: generateUniqueId(),
     filepath,
-    url,
+    source: structuredClone(source),
+    ...(modelIdentity === undefined ? {} : { modelIdentity: structuredClone(modelIdentity) }),
     useScenarioStore,
     useTransportStore,
     useUndoRedoStore,
   };
+  return project;
 };
 
 /**
@@ -126,16 +174,20 @@ export interface ProjectStore {
   activeProject: ProjectContextScheme | null;
   activeFilepath: string | null;
   tabs: { id: string; name: string; title: string }[];
+  /** Project awaiting an explicit renderer-owned discard confirmation. */
+  pendingCloseProjectId: string | null;
 
   setActive: (index: number | null) => void;
   refreshActiveProject: () => void;
 
-  new: (url: string, indexHint?: number) => void;
+  new: (source: ProjectSource, indexHint?: number) => void;
   open: (filepath: string, indexHint?: number) => Promise<ProjectOpenResult>;
   save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
-  changeUrl: (index: number, newUrl: string) => Promise<void>;
-  openOfflineSnapshot: (snapshot: Snapshot, indexHint?: number) => void;
+  confirmClose: () => void;
+  cancelClose: () => void;
+  changeSource: (index: number, source: ProjectSource) => Promise<void>;
+  openOfflineSnapshot: (snapshot: Snapshot, indexHint?: number, frame?: number) => void;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -144,6 +196,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   activeProject: null,
   activeFilepath: null,
   tabs: [],
+  pendingCloseProjectId: null,
 
   refreshActiveProject() {
     const { projects, activeIndex } = get();
@@ -151,7 +204,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       tabs: projects.map(project => ({
         id: project.id,
         name: projectTabName(project),
-        title: project.filepath ?? project.url,
+        title: project.filepath ?? projectSourceDisplayName(project.source),
       })),
       activeProject: activeIndex !== null ? projects[activeIndex] : null,
       activeFilepath: activeIndex !== null ? projects[activeIndex].filepath : null,
@@ -169,16 +222,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     refreshActiveProject();
   },
 
-  new(url, indexHint) {
+  new(sourceInput, indexHint) {
     const { projects, setActive } = get();
-    const newProject = createProject(url);
+    const source = ProjectSourceSchema.parse(sourceInput) as ProjectSource;
+    if (source.kind === 'snapshot') {
+      throw new Error('Create snapshot projects from an existing recording.');
+    }
+    const newProject = createProject(source);
 
     const targetIndex = indexHint ?? projects.length;
     projects.splice(targetIndex, 0, newProject);
 
     setActive(targetIndex);
 
-    newProject.useTransportStore.getState().initialize(url);
+    const connectionId = projectSourceConnectionId(source);
+    if (connectionId) newProject.useTransportStore.getState().initialize(connectionId);
   },
 
   async open(filepath, indexHint) {
@@ -203,11 +261,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       warnings = recovery.warnings;
     }
 
-    const { scenario, mainView, url, snapshots } = parsedContent;
+    const { scenario, mainView, source, snapshots, model_identity } = parsedContent;
 
-    const newProject = createProject(url, filepath);
+    const newProject = createProject(source, filepath, model_identity);
     newProject.useScenarioStore.setState({ mainView, snapshots });
-    newProject.useScenarioStore.getState().load(scenario);
+    if (source.kind === 'snapshot') {
+      const snapshot = snapshots.find((entry) => entry.metadata.id === source.snapshot_id);
+      if (!snapshot) throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
+      newProject.snapshotPlayback = new SnapshotPlaybackSource(snapshot);
+      newProject.useScenarioStore.getState().load(newProject.snapshotPlayback.scenario.dump());
+    } else {
+      newProject.useScenarioStore.getState().load(scenario);
+    }
+    for (const warning of warnings) {
+      newProject.useScenarioStore.getState().appendDiagnostic({
+        severity: 'warning',
+        domain: 'storage',
+        source: 'project-file',
+        code: 'recovered_project_data',
+        message: warning,
+      });
+    }
 
     const { projects, setActive } = get();
     const targetIndex = indexHint ?? projects.length;
@@ -215,9 +289,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     setActive(targetIndex);
 
-    if (url) {
-      newProject.useTransportStore.getState().initialize(url, createStateSyncRequestFromStore(scenario));
-    }
+    const connectionId = projectSourceConnectionId(source);
+    if (connectionId) newProject.useTransportStore.getState().initialize(connectionId, createStateSyncRequestFromStore(scenario));
     return { recovered: warnings.length > 0, warnings };
   },
 
@@ -231,14 +304,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const project = projects[targetIndex];
     const scenarioStore = project.useScenarioStore.getState();
-    const connectionId = project.useTransportStore.getState().connectionId;
-
     const projectFile: ProjectFileContent = {
       version: PROJECT_FILE_VERSION,
       mainView: scenarioStore.mainView,
       scenario: scenarioStore.dump(),
       snapshots: scenarioStore.snapshots,
-      url: connectionId ?? project.url,
+      source: project.source,
+      ...(scenarioStore.session.modelIdentity === null ? {} : { model_identity: scenarioStore.session.modelIdentity }),
     };
 
     const basePath = saveAsPath ?? project.filepath;
@@ -263,52 +335,66 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       : JSON.stringify(archive, null, 2);
 
     await fileSystemState.writeFile(filepath, content);
-    console.log('Project saved to', filepath);
+    scenarioStore.appendDiagnostic({
+      severity: 'info',
+      domain: 'storage',
+      source: 'project-file',
+      code: 'project_saved',
+      message: `Project saved to ${filepath}.`,
+    });
 
     project.filepath = filepath;
+    project.modelIdentity = scenarioStore.session.modelIdentity ?? undefined;
     project.useUndoRedoStore.getState().markClean();
     refreshActiveProject();
   },
 
-  openOfflineSnapshot(snapshot, indexHint) {
+  openOfflineSnapshot(snapshot, indexHint, frame) {
     const { projects, setActive } = get();
-    const identity = snapshot.metadata.id;
-    const project = createProject(`offline:${identity}`);
-    project.useScenarioStore.getState().load(materializeSnapshot(snapshot));
-    project.useScenarioStore.setState({ snapshots: [structuredClone(snapshot)] });
+    const sourceSnapshot = snapshotSourceFromFrame(snapshot, frame);
+    const identity = sourceSnapshot.metadata.id;
+    const source: ProjectSource = { kind: 'snapshot', snapshot_id: identity };
+    const project = createProject(source, null, sourceSnapshot.metadata.model_identity);
+    project.snapshotPlayback = new SnapshotPlaybackSource(sourceSnapshot);
+    project.useScenarioStore.getState().load(sourceSnapshot.initial.scenario);
+    project.useScenarioStore.setState({ snapshots: [sourceSnapshot] });
     const targetIndex = indexHint ?? projects.length;
     projects.splice(targetIndex, 0, project);
     setActive(targetIndex);
   },
 
   close(index) {
-    const { projects, activeIndex, setActive } = get();
+    const { projects } = get();
 
     if (index < 0 || index >= projects.length) {
       throw new Error("Invalid project index");
     }
 
     const history = projects[index].useUndoRedoStore.getState();
-    if (history.isDirty() && typeof globalThis.confirm === 'function') {
-      const confirmed = globalThis.confirm('Close this project and discard renderer edits that have not been saved?');
-      if (!confirmed) return;
+    if (history.isDirty()) {
+      set({ pendingCloseProjectId: projects[index].id });
+      return;
     }
 
-    projects[index].useTransportStore.getState().destroy();
-    projects[index].useScenarioStore.getState().clearAll();
-
-    projects.splice(index, 1);
-
-    const newActiveIndex = activeIndex === null || activeIndex < projects.length
-      ? activeIndex
-      : projects.length > 0
-        ? projects.length - 1
-        : null;
-
-    setActive(newActiveIndex);
+    closeProject(index, set, get);
   },
 
-  async changeUrl(index, newUrl) {
+  confirmClose() {
+    const { pendingCloseProjectId, projects } = get();
+    if (!pendingCloseProjectId) return;
+    const index = projects.findIndex((project) => project.id === pendingCloseProjectId);
+    if (index === -1) {
+      set({ pendingCloseProjectId: null });
+      return;
+    }
+    closeProject(index, set, get);
+  },
+
+  cancelClose() {
+    set({ pendingCloseProjectId: null });
+  },
+
+  async changeSource(index, nextSource) {
     const { projects } = get();
 
     if (index < 0 || index >= projects.length) {
@@ -316,12 +402,65 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     const project = projects[index];
-    const scenarioState = project.useScenarioStore.getState().dump();
-    const stateSyncRequest = createStateSyncRequestFromStore(scenarioState);
+    const source = ProjectSourceSchema.parse(nextSource) as ProjectSource;
+    if ((source.kind === 'websocket' && project.source.kind === 'websocket' && source.url === project.source.url)
+      || (source.kind === 'inmemory' && project.source.kind === 'inmemory' && source.model_id === project.source.model_id)
+      || (source.kind === 'snapshot' && project.source.kind === 'snapshot' && source.snapshot_id === project.source.snapshot_id)) {
+      return;
+    }
+    const scenarioStore = project.useScenarioStore.getState();
 
-    await project.useTransportStore.getState().changeTransport(newUrl, stateSyncRequest);
+    if (source.kind === 'snapshot') {
+      const snapshot = scenarioStore.snapshots.find((entry) => entry.metadata.id === source.snapshot_id);
+      if (!snapshot) throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
+      // Fully materialize the candidate before destroying the current source.
+      // From here on every operation consumes a validated in-memory snapshot.
+      const playback = new SnapshotPlaybackSource(snapshot);
+      const nextScenario = playback.scenario.dump();
+      project.useTransportStore.getState().destroy();
+      scenarioStore.session.resetSimulatorIdentity();
+      scenarioStore.load(nextScenario);
+      project.snapshotPlayback = playback;
+    } else {
+      const connectionId = projectSourceConnectionId(source);
+      if (!connectionId) throw new Error('Project source has no transport connection.');
+      // changeTransport connects and buffers the candidate before replacing
+      // the current transport, so a failure leaves the old source untouched.
+      await project.useTransportStore.getState().changeTransport(
+        connectionId,
+        undefined,
+        { resetSimulatorIdentity: true },
+      );
+      project.snapshotPlayback = undefined;
+    }
 
-    // 更新项目的 URL 属性
-    project.url = newUrl;
+    project.modelIdentity = undefined;
+    project.source = source;
+    get().refreshActiveProject();
   },
 }));
+
+function closeProject(
+  index: number,
+  set: (partial: Partial<ProjectStore>) => void,
+  get: () => ProjectStore,
+): void {
+  const { projects, activeIndex, setActive } = get();
+  const project = projects[index];
+  if (!project) return;
+
+  project.useTransportStore.getState().destroy();
+  project.useScenarioStore.getState().clearAll();
+  projects.splice(index, 1);
+
+  const newActiveIndex = activeIndex === null || projects.length === 0
+    ? null
+    : index < activeIndex
+      ? activeIndex - 1
+      : index === activeIndex
+        ? Math.min(index, projects.length - 1)
+        : activeIndex;
+
+  set({ pendingCloseProjectId: null });
+  setActive(newActiveIndex);
+}

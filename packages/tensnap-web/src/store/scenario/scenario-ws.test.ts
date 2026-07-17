@@ -7,6 +7,7 @@ import type {
 import type {
   AnyProtocolMessage,
   ProtocolEncoding,
+  ProtocolValidationWarning,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
@@ -80,15 +81,89 @@ class MockTransport implements ISimulatorTransport {
       handler(message as AnyProtocolMessage);
     }
   }
+
+  emitValidationWarning(warning: ProtocolValidationWarning): void {
+    for (const handler of this.handlers.get('validation-warning') ?? []) handler(warning);
+  }
+
+  emitError(error: unknown): void {
+    for (const handler of this.handlers.get('error') ?? []) handler(error);
+  }
 }
 
 describe('scenario ws event handlers', () => {
+  it('routes simulator action errors into project diagnostics', () => {
+    const useStore = createScenarioStore();
+    const transport = new MockTransport();
+    registerEventHandlers(transport, useStore);
+    transport.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance',
+        capabilities: [],
+      },
+    });
+
+    transport.emitMessage({
+      type: 'action_result',
+      payload: {
+        id: 'step',
+        request_id: 'step-1',
+        error: { code: 'handler_error', message: 'Bool(::ElFarolModel)' },
+      },
+    });
+
+    expect(useStore.getState().diagnostics).toEqual([
+      expect.objectContaining({
+        severity: 'error',
+        domain: 'simulator',
+        code: 'handler_error',
+        target: 'step',
+        message: 'Bool(::ElFarolModel)',
+      }),
+    ]);
+    unregisterEventHandlers(transport);
+  });
+
+  it('routes validation warnings and transport errors into project diagnostics', () => {
+    const useStore = createScenarioStore();
+    const transport = new MockTransport();
+    registerEventHandlers(transport, useStore);
+
+    transport.emitValidationWarning({
+      level: 'warning',
+      direction: 'simulator-to-renderer',
+      message: 'invalid monitor payload',
+      issues: [],
+    });
+    transport.emitError(new Error('invalid protocol message'));
+
+    expect(useStore.getState().diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ severity: 'warning', code: 'validation_warning', message: 'invalid monitor payload' }),
+      expect.objectContaining({ severity: 'error', code: 'transport_error', message: 'invalid protocol message' }),
+    ]));
+    unregisterEventHandlers(transport);
+  });
+
   it('keeps applying inbound messages while sync is only requested', () => {
     const useStore = createScenarioStore();
     const transport = new MockTransport();
 
     useStore.getState().prepareStateSync('sync-1');
     registerEventHandlers(transport, useStore);
+    transport.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance',
+        capabilities: [],
+      },
+    });
 
     transport.emitMessage({
       type: 'env_create',
@@ -107,16 +182,31 @@ describe('scenario ws event handlers', () => {
 
     useStore.getState().prepareStateSync('sync-1');
     registerEventHandlers(transport, useStore);
-    transport.emitMessage({ type: 'state_sync_begin', payload: { request_id: 'sync-1' } });
+    transport.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance',
+        capabilities: [],
+      },
+    });
+    useStore.getState().session.requestStateSync('sync-1');
+    transport.emitMessage({
+      type: 'state_sync_begin',
+      payload: { request_id: 'sync-1', model_id: 'ws-model', instance_id: 'ws-instance', mode: 'replace' },
+    });
     transport.emitMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
     await Promise.resolve();
 
-    expect(useStore.getState().environments.has('env-1')).toBe(true);
+    expect(useStore.getState().environments.has('env-1')).toBe(false);
     expect(useStore.getState().environmentUpdateTrigger.value).toBe(before);
 
-    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: 'sync-1' } });
+    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: 'sync-1', state_revision: '1' } });
     await Promise.resolve();
 
+    expect(useStore.getState().environments.has('env-1')).toBe(true);
     expect(useStore.getState().environmentUpdateTrigger.value).toBe(before + 1);
     unregisterEventHandlers(transport);
   });

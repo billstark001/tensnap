@@ -24,11 +24,13 @@ export type ButtonView = BaseView<
   }>;
 
 export type AnchoredView = BaseView<
-  'environment' | 'parameter' | 'chart',
+  'environment' | 'parameter' | 'chart' | 'monitor',
   {
     id: string;
     title?: string;
     type?: string;
+    /** Local display override; the simulator-owned monitor metadata remains immutable. */
+    renderHint?: 'auto' | 'tree' | 'table' | 'text';
   }>;
 
 export type ContainerView = BaseView<

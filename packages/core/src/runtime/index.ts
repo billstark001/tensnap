@@ -1,3 +1,4 @@
+export type { ActionRunMetricSnapshot } from './ActionRunMetrics';
 export * from './PipelineRuntime';
 export * from './RendererSession';
 export * from './RunController';

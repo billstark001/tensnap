@@ -46,7 +46,7 @@ describe('TaskQueue – basic enqueue / dispatch', () => {
     q.enqueue('b');
     q.maybeDispatchNext();
     q.takeNextDispatchTask();
-    q.completeTask(id1, { continue: false });
+    q.completeTask(id1, { should_continue: false });
     q.markTaskApplied(id1);
 
     let reEnqueueCalled = false;
@@ -79,7 +79,7 @@ describe('TaskQueue – continuous task deduplication', () => {
     const id = q.enqueue('run', { continuous: true });
     q.maybeDispatchNext();
     q.takeNextDispatchTask();
-    q.completeTask(id, { continue: true });
+    q.completeTask(id, { should_continue: true });
     q.markTaskApplied(id);
 
     let reEnqueueKey: string | null = null;
@@ -102,9 +102,9 @@ describe('TaskQueue – continuous task deduplication', () => {
 describe('TaskQueue – cancel', () => {
   it('removes queued task by key', () => {
     const q = makeQueue();
-    q.enqueue('a', { continuous: true });
+    const id = q.enqueue('a', { continuous: true });
     q.enqueue('b', { continuous: true });
-    q.cancel('a');
+    expect(q.cancel('a')).toEqual([id]);
     q.maybeDispatchNext();
     const task = q.takeNextDispatchTask();
     expect(task!.key).toBe('b');
@@ -112,9 +112,9 @@ describe('TaskQueue – cancel', () => {
 
   it('cancels all queued tasks', () => {
     const q = makeQueue();
-    q.enqueue('a');
-    q.enqueue('b');
-    q.cancel();
+    const first = q.enqueue('a');
+    const second = q.enqueue('b');
+    expect(q.cancel()).toEqual([first, second]);
     q.maybeDispatchNext();
     expect(q.takeNextDispatchTask()).toBeNull();
   });
@@ -130,6 +130,7 @@ describe('TaskQueue – cancelPendingDispatch', () => {
     const result = q.cancelPendingDispatch(id);
     expect(result).toBe(true);
     expect(q.hasActiveTask).toBe(false);
+    expect(q.takeNextDispatchTask()).toBeNull();
   });
 
   it('returns false if task is not the active task', () => {

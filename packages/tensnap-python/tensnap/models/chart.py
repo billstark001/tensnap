@@ -43,9 +43,8 @@ class ChartGroupMetadata(ChartMetadata):
 
     def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
-        data["dataList"] = (
-            [chart.to_dict() for chart in self.data_list] if self.data_list else None
-        )
+        if self.data_list:
+            data["data_list"] = [chart.to_dict() for chart in self.data_list]
         return data
 
 
@@ -56,7 +55,7 @@ class ChartMetadataDict(TypedDict):
 
 
 class ChartGroupMetadataDict(ChartMetadataDict):
-    dataList: NotRequired[list[ChartMetadataDict]]
+    data_list: NotRequired[list[ChartMetadataDict]]
 
 
 SimplifiedChartMetadata = (

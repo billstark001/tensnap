@@ -30,11 +30,8 @@ end
 function _sync_parameters!(s::Scenario, ws, client_params)
 	clients = _payload_map(client_params)
 	server_ids = Set(keys(s.parameters))
-	for (id, client) in clients
-		if haskey(s.parameters, id) && get(client, "type", nothing) == s.parameters[id].type && haskey(client, "value")
-			_set_parameter!(s.parameters[id], client["value"], s.model)
-		end
-	end
+	# state_sync is read-only renderer inventory; never write client parameter
+	# values into the authoritative simulator here.
 	for client_id in keys(clients)
 		client_id in server_ids || _send_to(s, ws, "param_delete", Dict("id" => client_id))
 	end
@@ -89,50 +86,71 @@ function _sync_environments!(s::Scenario, ws, client_envs)
 end
 
 function _chart_meta_ids(c::Chart)
-	return Set(String(item["id"]) for item in c.series)
+	return Set([c.id; String[item["id"] for item in c.series]])
 end
 
 function _sync_charts!(s::Scenario, ws, client_charts)
 	clients = _payload_map(client_charts)
-	server_meta_ids = Set{String}()
-	for c in values(s.charts)
-		union!(server_meta_ids, _chart_meta_ids(c))
-	end
+	# state_sync carries flat series metadata, not complete chart-group
+	# descriptors. Preserve an existing group when its owner id is present and
+	# do not mistake the other series in that group for stale chart groups.
+	server_meta_ids = reduce(union, (_chart_meta_ids(c) for c in values(s.charts)); init = Set{String}())
 	for client_id in keys(clients)
-		client_id in server_meta_ids || _send_to(s, ws, "chart_delete", Dict("id" => client_id))
+		client_id in server_meta_ids || _send_to(s, ws, "chart_delete", Dict("kind" => "group", "id" => client_id))
 	end
 	for c in values(s.charts)
-		needs_create = false
-		for meta in c.series
-			id = String(meta["id"])
-			if !haskey(clients, id) || !_payload_equal(meta, clients[id])
-				needs_create = true
-				break
-			end
+		series_present = all(haskey(clients, String(item["id"])) for item in c.series)
+		if !haskey(clients, c.id) && !series_present
+			_send_to(s, ws, "chart_create", _chart_payload(c))
 		end
-		needs_create && _send_to(s, ws, "chart_create", _chart_payload(c))
+	end
+end
+
+function _sync_monitors!(s::Scenario, ws, client_monitors)
+	clients = _payload_map(client_monitors)
+	server_ids = Set(keys(s.monitors))
+	for client_id in keys(clients)
+		client_id in server_ids || _send_to(s, ws, "monitor_delete", Dict("id" => client_id))
+	end
+	for monitor in values(s.monitors)
+		payload = _monitor_payload(monitor)
+		if !haskey(clients, monitor.id)
+			_send_to(s, ws, "monitor_create", payload)
+		elseif !_payload_equal(payload, clients[monitor.id])
+			_send_to(s, ws, "monitor_delete", Dict("id" => monitor.id))
+			_send_to(s, ws, "monitor_create", payload)
+		end
 	end
 end
 
 function _handle_state_sync(s::Scenario, ws, payload)
-	request_id = get(payload, "request_id", nothing)
-	boundary = request_id === nothing ? Dict{String, Any}() : Dict("request_id" => request_id)
-	_send_to(s, ws, "state_sync_begin", boundary)
+	request_id = String(get(payload, "request_id", uuid4()))
+	if get(payload, "model_id", s.model_id) != s.model_id
+		_send_to(s, ws, "error", Dict("code" => "model_mismatch", "message" => "state_sync model_id does not match this simulator.", "request_id" => request_id))
+		return nothing
+	end
+	mode = get(payload, "instance_id", nothing) == s.instance_id ? "reconcile" : "replace"
+	begin_payload = Dict("request_id" => request_id, "model_id" => s.model_id, "instance_id" => s.instance_id, "mode" => mode)
+	_send_to(s, ws, "state_sync_begin", begin_payload)
 	_ensure_initialized!(s)
+	inventory = mode == "reconcile" ? payload : Dict{String, Any}()
 	try
-		_sync_actions!(s, ws, get(payload, "actions", Any[]))
-		_sync_parameters!(s, ws, get(payload, "parameters", Any[]))
-		_sync_environments!(s, ws, get(payload, "envs", Any[]))
-		_sync_charts!(s, ws, get(payload, "charts", Any[]))
+		_sync_actions!(s, ws, get(inventory, "actions", Any[]))
+		_sync_parameters!(s, ws, get(inventory, "parameters", Any[]))
+		_sync_environments!(s, ws, get(inventory, "envs", Any[]))
+		_sync_charts!(s, ws, get(inventory, "charts", Any[]))
+		_sync_monitors!(s, ws, get(inventory, "monitors", Any[]))
 		_send_asset_meta(s, ws)
 		_send_to(s, ws, "metadata_update", Dict("time" => s.time_step))
 		broadcast_charts!(s, ws)
+		broadcast_monitors!(s, ws)
 	finally
-		_send_to(s, ws, "state_sync_end", boundary)
+		s.state_revision += 1
+		_send_to(s, ws, "state_sync_end", Dict("request_id" => request_id, "state_revision" => string(s.state_revision)))
 	end
 end
 
-function sync!(s::Scenario, ws = nothing)
+function sync!(s::Scenario, ws = nothing; include_charts = true)
 	sink(type, payload) = _send_or_broadcast(s, ws, type, payload)
 	sink("metadata_update", Dict("time" => s.time_step))
 	for a in values(s.actions)
@@ -147,10 +165,52 @@ function sync!(s::Scenario, ws = nothing)
 			_broadcast_layer_full(s, e.id, l; ws = ws)
 		end
 	end
-	for c in values(s.charts)
-		sink("chart_create", _chart_payload(c))
+	if include_charts
+		for c in values(s.charts)
+			sink("chart_create", _chart_payload(c))
+		end
+	end
+	for monitor in values(s.monitors)
+		sink("monitor_create", _monitor_payload(monitor))
 	end
 	_send_asset_meta(s, ws)
-	broadcast_charts!(s, ws)
+	include_charts && broadcast_charts!(s, ws)
+	broadcast_monitors!(s, ws)
+	return s
+end
+
+"""Replay reset state with valid CRUD while preserving stable topology."""
+function _sync_reset!(s::Scenario)
+	for action in values(s.actions)
+		_broadcast(s, "action_update", _action_payload(action))
+	end
+	for parameter in values(s.parameters)
+		_broadcast(s, "param_update", _param_payload(parameter, s.model))
+	end
+	for environment in values(s.environments), layer in _ordered_layers(environment)
+		data = _layer_data(layer, s.model)
+		layer.last_data = data
+		metadata = data isa AbstractDict ? data : Dict{String, Any}()
+		_broadcast(s, "env_layer_update", Dict(
+			"env_id" => environment.id,
+			"layer_id" => layer.id,
+			"metadata" => metadata,
+		))
+		if layer.type == "agent"
+			deletes = [_item_delete_payload(layer, item) for item in values(layer.last_items)]
+			items = _remember_layer_items!(layer, _layer_items(layer, s.model))
+			isempty(deletes) || _broadcast(s, "item_delete", Dict("env_id" => environment.id, "layer_id" => layer.id, "items" => deletes))
+			isempty(items) || _broadcast(s, "item_create", Dict("env_id" => environment.id, "layer_id" => layer.id, "items" => items))
+		else
+			creates, updates, deletes = _layer_item_deltas!(layer, s.model)
+			isempty(deletes) || _broadcast(s, "item_delete", Dict("env_id" => environment.id, "layer_id" => layer.id, "items" => deletes))
+			isempty(creates) || _broadcast(s, "item_create", Dict("env_id" => environment.id, "layer_id" => layer.id, "items" => creates))
+			isempty(updates) || _broadcast(s, "item_update", Dict("env_id" => environment.id, "layer_id" => layer.id, "items" => updates))
+		end
+	end
+	_send_asset_meta(s)
+	_broadcast(s, "metadata_update", Dict("time" => s.time_step))
+	broadcast_charts!(s)
+	broadcast_monitors!(s)
 	return s
 end

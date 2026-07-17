@@ -1,10 +1,10 @@
 import type {
   Action,
   ActionDeletePayload,
-  ActionEndPayload,
+  ActionResultPayload,
   AssetDataPayload,
   AssetDeletePayload,
-  AssetMetaPayload,
+  AssetMetadataPayload,
   ChartDeletePayload,
   ChartGroupMetadata,
   ChartUpdatePayload,
@@ -19,12 +19,20 @@ import type {
   ItemUpdatePayload,
   LogPayload,
   MetadataUpdatePayload,
+  MonitorDeletePayload,
+  MonitorMetadata,
+  MonitorUpdatePayload,
   Parameter,
   ParameterDeletePayload,
   ParameterSyncPayload,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
-  StateSyncBoundaryPayload,
+  SimulatorInfoPayload,
+  SceneCaptureResultPayload,
+  SceneRestoreBeginPayload,
+  SceneRestoreEndPayload,
+  StateSyncBeginPayload,
+  StateSyncEndPayload,
 } from '@tensnap/protocol';
 
 export type SimulatorMessageSender = (
@@ -42,16 +50,20 @@ export class SimulatorEmitter {
     await this.send({ type: 'metadata_update', payload });
   }
 
-  async stateSyncBegin(payload: StateSyncBoundaryPayload = {}): Promise<void> {
+  async simulatorInfo(payload: SimulatorInfoPayload): Promise<void> {
+    await this.send({ type: 'simulator_info', payload });
+  }
+
+  async stateSyncBegin(payload: StateSyncBeginPayload): Promise<void> {
     await this.send({ type: 'state_sync_begin', payload });
   }
 
-  async stateSyncEnd(payload: StateSyncBoundaryPayload = {}): Promise<void> {
+  async stateSyncEnd(payload: StateSyncEndPayload): Promise<void> {
     await this.send({ type: 'state_sync_end', payload });
   }
 
-  async actionEnd(payload: ActionEndPayload): Promise<void> {
-    await this.send({ type: 'action_end', payload });
+  async actionResult(payload: ActionResultPayload): Promise<void> {
+    await this.send({ type: 'action_result', payload });
   }
 
   async actionCreate(payload: Action): Promise<void> {
@@ -126,8 +138,20 @@ export class SimulatorEmitter {
     await this.send({ type: 'chart_delete', payload });
   }
 
-  async assetMeta(payload: AssetMetaPayload): Promise<void> {
-    await this.send({ type: 'asset_meta', payload });
+  async monitorCreate(payload: MonitorMetadata): Promise<void> {
+    await this.send({ type: 'monitor_create', payload });
+  }
+
+  async monitorUpdate(payload: MonitorUpdatePayload): Promise<void> {
+    await this.send({ type: 'monitor_update', payload });
+  }
+
+  async monitorDelete(payload: MonitorDeletePayload): Promise<void> {
+    await this.send({ type: 'monitor_delete', payload });
+  }
+
+  async assetMetadata(payload: AssetMetadataPayload): Promise<void> {
+    await this.send({ type: 'asset_metadata', payload });
   }
 
   async assetData(payload: AssetDataPayload): Promise<void> {
@@ -140,6 +164,18 @@ export class SimulatorEmitter {
 
   async screenshotRequest(payload: ScreenshotRequestPayload): Promise<void> {
     await this.send({ type: 'screenshot_request', payload });
+  }
+
+  async sceneRestoreBegin(payload: SceneRestoreBeginPayload): Promise<void> {
+    await this.send({ type: 'scene_restore_begin', payload });
+  }
+
+  async sceneRestoreEnd(payload: SceneRestoreEndPayload): Promise<void> {
+    await this.send({ type: 'scene_restore_end', payload });
+  }
+
+  async sceneCaptureResult(payload: SceneCaptureResultPayload): Promise<void> {
+    await this.send({ type: 'scene_capture_result', payload });
   }
 
   async log(payload: LogPayload): Promise<void> {

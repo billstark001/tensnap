@@ -21,6 +21,10 @@ Each renderer exports a single example object produced by `modelBuilder(...).bui
 The builder owns session, registry, lifecycle actions, parameter updates, layer
 diffs, chart updates, and asset sync.
 
+Each example declares a stable `stateSchemaVersion` and speaks only canonical
+v0.3 protocol messages; no renderer compatibility conversion is embedded in
+the models.
+
 ```ts
 import {
   modelBuilder,
@@ -35,6 +39,7 @@ const builder = modelBuilder<Config, { tick: number; config: Config }>({
   id: 'demo',
   name: 'Demo',
   description: 'Example description.',
+  stateSchemaVersion: '1',
 }, {
   defaults: { speed: 1 },
   create(config) {

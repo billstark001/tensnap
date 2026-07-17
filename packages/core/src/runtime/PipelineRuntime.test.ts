@@ -13,10 +13,14 @@ describe('PipelineRuntime', () => {
     });
 
     runtime.requestStateSync('sync-1');
+    expect(runtime.requestStateSync('sync-2')).toBe(false);
     runtime.enqueue('start', { continuous: true });
 
     expect(runtime.consumeCommands()).toHaveLength(0);
     expect(runtime.recordStateSyncBoundary('end', { request_id: 'other-sync' })).toBe(false);
+    expect(runtime.consumeCommands()).toHaveLength(0);
+
+    expect(runtime.recordStateSyncBoundary('end', { request_id: 'sync-1' })).toBe(false);
     expect(runtime.consumeCommands()).toHaveLength(0);
 
     expect(runtime.recordStateSyncBoundary('begin', { request_id: 'sync-1' })).toBe(true);
@@ -46,7 +50,7 @@ describe('PipelineRuntime', () => {
     const [firstCommand] = runtime.consumeCommands();
     expect(firstCommand.task.id).toBe('tick-1');
 
-    expect(runtime.completeTask('tick-1', { continue: true, timings: { simulate_ms: 5 } })).toBe(true);
+    expect(runtime.completeTask('tick-1', { should_continue: true, timings: { simulate_ms: 5 } })).toBe(true);
     expect(runtime.consumeCommands()).toHaveLength(0);
 
     expect(runtime.markTaskApplied('tick-1')).toBe(true);
@@ -70,7 +74,7 @@ describe('PipelineRuntime', () => {
     runtime.consumeCommands();
 
     runtime.cancel('start');
-    expect(runtime.completeTask('tick-1', { continue: true })).toBe(true);
+    expect(runtime.completeTask('tick-1', { should_continue: true })).toBe(true);
     expect(runtime.markTaskRendered('tick-1')).toBe(true);
 
     expect(runtime.consumeCommands()).toHaveLength(0);

@@ -6,6 +6,7 @@ import { useProjectStore } from '@/store/project';
 import { TransportStoreProvider } from '@/store/transport';
 import { ScenarioUndoRedoStoreProvider } from '@/store/undo-redo';
 import { CreateNewProjectDialogAnchor } from './dialogs/CreateNewProjectDialogStore';
+import { DiscardProjectChangesDialog } from './dialogs/DiscardProjectChangesDialog';
 import { ToastAnchor } from '@/store/toast';
 
 type ProvidersProps = PropsWithChildren;
@@ -31,6 +32,7 @@ export function Providers({
     <I18nProvider i18n={i18n}>
       {projectProvider}
       <CreateNewProjectDialogAnchor />
+      <DiscardProjectChangesDialog />
       <ToastAnchor />
     </I18nProvider>
   );

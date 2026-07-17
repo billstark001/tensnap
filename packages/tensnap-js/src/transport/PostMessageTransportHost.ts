@@ -92,14 +92,16 @@ export class PostMessageSimulatorHost {
         message,
       } satisfies PostMessageEnvelope);
     }, effectiveConnectionId);
-    await this.session.open(effectiveConnectionId);
-
+    // The renderer sends state_sync in response to simulator_info. Mark the
+    // transport open first so that response cannot be dropped while the
+    // postMessage endpoint is still in its connecting state.
     this.endpoint.postMessage({
       source: '@tensnap/js',
       protocol: 'postmessage/v1',
       kind: 'connected',
       connectionId: effectiveConnectionId,
     } satisfies PostMessageEnvelope);
+    await this.session.open(effectiveConnectionId);
   }
 
   private async handleDisconnect(connectionId?: string): Promise<void> {

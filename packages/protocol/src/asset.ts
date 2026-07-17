@@ -9,6 +9,7 @@ export const AssetIdSchema = z.string();
 
 export type AssetId = z.infer<typeof AssetIdSchema>;
 
+/** Cacheable content-addressed asset descriptor; bytes arrive separately in `asset_data`. */
 export const AssetMetaSchema = z.object({
   id: AssetIdSchema,
   hash: z.string(),

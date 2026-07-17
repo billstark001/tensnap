@@ -24,7 +24,7 @@ function _param_value(p::Parameter, model = nothing)
 end
 
 function _param_payload(p::Parameter, model = nothing)
-	d = Dict{String, Any}("id" => p.id, "label" => p.label, "type" => p.type, "value" => _jsonable(_param_value(p, model)), "allowRuntimeChange" => p.allow_runtime_change)
+	d = Dict{String, Any}("id" => p.id, "label" => p.label, "type" => p.type, "value" => _jsonable(_param_value(p, model)), "allow_runtime_change" => p.allow_runtime_change)
 	p.min !== nothing && (d["min"] = p.min)
 	p.max !== nothing && (d["max"] = p.max)
 	p.step !== nothing && (d["step"] = p.step)
@@ -188,12 +188,21 @@ mutable struct Action
 	handler::Function
 	continuous::Bool
 	continue_on_return::Bool
+	scope::Union{Nothing, String}
+	kwargs::Vector{Dict{String, Any}}
 end
 
-action(id, handler; label = id, continuous = false, continue_on_return = false) =
-	Action(String(id), String(label), handler, Bool(continuous), Bool(continue_on_return))
+action(id, handler; label = id, continuous = false, continue_on_return = false, scope = nothing, kwargs = Dict{String, Any}[]) =
+	Action(String(id), String(label), handler, Bool(continuous), Bool(continue_on_return),
+		scope === nothing ? nothing : String(scope), [Dict{String, Any}(String(k) => v for (k, v) in pairs(item)) for item in kwargs])
 
-_action_payload(a::Action) = Dict("id" => a.id, "label" => a.label, "continuous" => a.continuous, "allowRuntimeChange" => true)
+function _action_payload(a::Action)
+	d = Dict{String, Any}("id" => a.id, "label" => a.label)
+	a.continuous && (d["continuous"] = true)
+	a.scope === nothing || (d["scope"] = a.scope)
+	isempty(a.kwargs) || (d["kwargs"] = a.kwargs)
+	return d
+end
 
 mutable struct Chart
 	id::String
@@ -209,7 +218,46 @@ function chart(id, getter; label = id, color = "#228be6", series = nothing)
 	return Chart(String(id), String(label), String(color), getter, sl)
 end
 
-_chart_payload(c::Chart) = Dict("id" => c.id, "label" => c.label, "color" => c.color, "dataList" => c.series)
+function _chart_payload(c::Chart)
+	d = Dict{String, Any}("id" => c.id, "label" => c.label, "color" => c.color)
+	# A one-series chart is represented by the group itself; data_list is only
+	# for a real group of named series in canonical v0.3.
+	(length(c.series) == 1 && String(c.series[1]["id"]) == c.id) || (d["data_list"] = c.series)
+	return d
+end
+
+"""A declarative renderer monitor and its current-value getter."""
+mutable struct Monitor
+	id::String
+	label::String
+	render_hint::Union{Nothing, String}
+	getter::Function
+end
+
+function monitor(id, getter; label = id, render_hint = nothing)
+	return Monitor(
+		String(id),
+		String(label),
+		render_hint === nothing ? nothing : String(render_hint),
+		getter,
+	)
+end
+
+function _monitor_payload(m::Monitor)
+	payload = Dict{String, Any}("id" => m.id, "label" => m.label)
+	m.render_hint === nothing || (payload["render_hint"] = m.render_hint)
+	return payload
+end
+
+"""Explicit model-specific inverse hooks for scene restore/checkpoints."""
+struct RestoreHooks
+	projected::Union{Nothing, Function}
+	checkpoint_capture::Union{Nothing, Function}
+	checkpoint_restore::Union{Nothing, Function}
+end
+
+restore_hooks(projected = nothing; checkpoint_capture = nothing, checkpoint_restore = nothing) =
+	RestoreHooks(projected, checkpoint_capture, checkpoint_restore)
 
 mutable struct Layer
 	id::String
@@ -222,6 +270,7 @@ mutable struct Layer
 	item_projector::Union{Nothing, Function}
 	item_id::Union{Nothing, Function}
 	item_changed::Union{Nothing, Function}
+	environment_type::Union{Nothing, String}
 	last_items::Dict{Any, Dict{String, Any}}
 	last_data::Any
 end
@@ -231,25 +280,54 @@ function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{Stri
 	return Layer(String(id), String(type), items, data,
 		Dict(String(k) => String(v) for (k, v) in pairs(dependency_layer_ids)),
 		String.(item_key_fields), source_items, projector, item_id, changed,
+		nothing,
 		Dict{Any, Dict{String, Any}}(), _UNSET)
 end
 
 function agents_layer(id, getagents = agents_getter; projector = autoagentprojector(), data = nothing,
 	dependency_layer_ids = Dict{String, String}(), item_key_fields = ["id"],
 	item_id = nothing, changed = nothing)
-	items = model -> [projector(a) for a in getagents(model)]
-	return layer(id, "agent", items; data = data, dependency_layer_ids = dependency_layer_ids,
-		item_key_fields = item_key_fields, source_items = getagents, projector = projector,
-		item_id = item_id, changed = changed)
+	# The containing environment is selected after this layer is built. Keep the
+	# projector context-aware so `autoagentprojector()` follows that environment.
+	l = layer(id, "agent", _empty_layer_items; data = data,
+		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields,
+		source_items = getagents, item_id = item_id, changed = changed)
+	project_item = if projector isa AutoAgentProjector
+		(agent, _model) -> _project_autoagent(projector, agent; spatial = l.environment_type != "uniform")
+	else
+		(agent, model) -> _call1or2(projector, agent, model)
+	end
+	l.items = model -> [project_item(agent, model) for agent in getagents(model)]
+	l.item_projector = project_item
+	return l
 end
 
 grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields)
 patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields)
-edge_layer(id, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = ["source", "target"]) =
+edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"]) =
 	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
 _empty_layer_items(_model = nothing) = Any[]
-trajectory_layer(id, items = _empty_layer_items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"]) =
-	layer(id, "trajectory", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+function trajectory_layer(id, items = _empty_layer_items; data = nothing,
+	length = nothing, width = nothing, color = nothing, z_index = nothing,
+	on_agent_delete = nothing, on_state_sync = nothing, on_reset = nothing,
+	dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"])
+	on_agent_delete ∈ (nothing, "delete", "retain") || error("on_agent_delete must be delete or retain")
+	on_state_sync ∈ (nothing, "preserve", "clear") || error("on_state_sync must be preserve or clear")
+	on_reset ∈ (nothing, "clear", "preserve") || error("on_reset must be clear or preserve")
+	metadata = model -> begin
+		base = data === nothing ? Dict{String, Any}() : Dict{String, Any}(String(k) => v for (k, v) in pairs(_call0or1(data, model)))
+		length === nothing || (base["length"] = length)
+		width === nothing || (base["width"] = width)
+		color === nothing || (base["color"] = color)
+		z_index === nothing || (base["z_index"] = z_index)
+		on_agent_delete === nothing || (base["on_agent_delete"] = on_agent_delete)
+		on_state_sync === nothing || (base["on_state_sync"] = on_state_sync)
+		on_reset === nothing || (base["on_reset"] = on_reset)
+		base
+	end
+	return layer(id, "trajectory", items; data = metadata,
+		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+end
 background_layer(id = "background"; data = nothing) = layer(id, "background", _empty_layer_items; data = data)
 
 mutable struct Environment
@@ -258,7 +336,13 @@ mutable struct Environment
 	layers::Vector{Layer}
 end
 
-environment(id; type = "2d", layers = Layer[]) = Environment(String(id), String(type), collect(layers))
+function environment(id; type = "2d", layers = Layer[])
+	e = Environment(String(id), String(type), collect(layers))
+	for l in e.layers
+		l.environment_type = e.type
+	end
+	return e
+end
 
 mutable struct Asset
 	id::String

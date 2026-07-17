@@ -99,14 +99,18 @@ export const dialogContentXLarge = style([dialogContent, {
 }]);
 
 // 超大尺寸 Dialog Content（如文件浏览器）
-const DIALOG_MARGIN = 120;
+const DIALOG_MARGIN = 32;
 export const dialogContentFull = style([dialogContent, {
+  display: 'flex',
+  flexDirection: 'column',
   width: `calc(100vw - ${DIALOG_MARGIN}px)`,
   maxWidth: `calc(100vw - ${DIALOG_MARGIN}px)`,
   height: `calc(100vh - ${DIALOG_MARGIN}px)`,
   maxHeight: `calc(100vh - ${DIALOG_MARGIN}px)`,
-  minWidth: '600px',
-  minHeight: '400px',
+  // Never let the desktop-sized minimum push a browser picker outside a
+  // narrow viewport. This is especially visible in the save filename row.
+  minWidth: `min(600px, calc(100vw - ${DIALOG_MARGIN}px))`,
+  minHeight: `min(400px, calc(100vh - ${DIALOG_MARGIN}px))`,
 }]);
 
 // Dialog Title 样式
@@ -181,7 +185,12 @@ export const dialogBody = style({
 
   selectors: {
     [`${dialogContentFull} &`]: {
-      height: `calc(100vh - ${DIALOG_MARGIN + 180}px)`,
+      // The save picker adds a current-directory description above the file
+      // list. Let this section consume only the remaining dialog height so
+      // that a taller footer never overflows the viewport.
+      flex: '1 1 0',
+      minHeight: 0,
+      overflow: 'hidden',
     },
   },
 });
@@ -190,10 +199,13 @@ export const dialogBody = style({
 export const dialogFooter = style({
   display: 'flex',
   justifyContent: 'flex-end',
+  alignItems: 'center',
+  flexWrap: 'wrap',
   gap: vars.space.sm,
   marginTop: vars.space.lg,
   paddingTop: vars.space.md,
   borderTop: `1px solid rgba(0, 0, 0, 0.1)`,
+  flexShrink: 0,
   
   selectors: {
     'body[data-theme="dark"] &': {
@@ -293,4 +305,3 @@ export const dialogSeparator = style({
     },
   },
 });
-

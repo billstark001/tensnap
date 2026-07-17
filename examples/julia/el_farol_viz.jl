@@ -27,17 +27,30 @@ add_parameter!(scenario, parameter("capacity";
     setter=(v, m) -> (m.capacity = Int(round(v))),
 ))
 
-add_chart!(scenario, chart("attendance", m -> m.attendance; label="Attendance", color="#1971c2"))
-add_chart!(scenario, chart("capacity", m -> m.capacity; label="Capacity", color="#e03131"))
+add_chart!(scenario, chart("attendance", m -> Dict(
+    "attendance" => m.attendance,
+    "capacity" => m.capacity,
+);
+    label="Attendance and capacity",
+    series=[
+        Dict("id" => "attendance", "label" => "Attendance", "color" => "#1971c2"),
+        Dict("id" => "capacity", "label" => "Capacity", "color" => "#e03131"),
+    ],
+))
+add_monitor!(scenario, monitor("bar_status", m -> Dict(
+    "attending" => m.attendance,
+    "not_attending" => length(m.agents) - m.attendance,
+    "capacity" => m.capacity,
+    "over_capacity" => max(m.attendance - m.capacity, 0),
+); label="Bar status", render_hint="table"))
 
-env = environment("bar"; type="2d")
+env = environment("bar"; type="uniform")
 add_layer!(env, agents_layer("patrons", m -> m.agents;
     projector=autoagentprojector(
         color=a -> a.attending ? "#2f9e44" : "#adb5bd",
         size=a -> a.attending ? 7 : 5,
-        fields=[:expected, :score],
+        data_fields=[:attending, :expected, :score],
     ),
-    data=m -> Dict("width" => 100, "height" => 100),
 ))
 add_environment!(scenario, env)
 

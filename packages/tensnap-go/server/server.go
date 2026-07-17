@@ -95,6 +95,18 @@ func makeHandler(opts Options, factory func() abm.Model) http.HandlerFunc {
 
 		model := factory()
 		em := newSessionEmitter(conn, opts.Codec, opts.WriteTimeout)
+		info := defaultSimulatorInfo()
+		if provider, ok := model.(interface {
+			SimulatorInfo() *protocol.SimulatorInfoPayload
+		}); ok {
+			if candidate := provider.SimulatorInfo(); candidate != nil {
+				info = candidate
+			}
+		}
+		if err := em.SimulatorInfo(info); err != nil {
+			_ = conn.Close()
+			return
+		}
 		readLoop(conn, opts, model, em)
 		conn.Close()
 	}
@@ -111,11 +123,11 @@ func readLoop(conn *websocket.Conn, opts Options, model abm.Model, em *SessionEm
 		}
 		msg, err := opts.Codec.Decode(data)
 		if err != nil {
-			_ = em.Error(fmt.Sprintf("decode: %v", err))
+			_ = em.Error(&protocol.ErrorPayload{Code: "decode_error", Message: fmt.Sprintf("decode: %v", err)})
 			continue
 		}
 		if err := dispatch(msg, model, em); err != nil {
-			_ = em.Error(fmt.Sprintf("handler[%s]: %v", msg.Type, err))
+			_ = em.Error(&protocol.ErrorPayload{Code: "handler_error", Message: fmt.Sprintf("handler[%s]: %v", msg.Type, err)})
 		}
 	}
 }
@@ -136,13 +148,41 @@ func dispatch(msg *protocol.Message, model abm.Model, em abm.Emitter) error {
 		}
 		return model.OnParamChange(em, p.ID, p.Value)
 
-	case protocol.TypeActionStart:
-		var p protocol.ActionStartPayload
+	case protocol.TypeActionInvoke:
+		var p protocol.ActionInvokePayload
 		if err := protocol.DecodePayload(msg, &p); err != nil {
 			return err
 		}
-		cont := p.Continuous != nil && *p.Continuous
-		return model.OnAction(em, p.ID, p.TickID, cont)
+		return model.OnAction(em, &p)
+
+	case protocol.TypeSceneRestore:
+		var p protocol.SceneRestorePayload
+		if err := protocol.DecodePayload(msg, &p); err != nil {
+			return err
+		}
+		handler, ok := model.(abm.SceneRestoreHandler)
+		if !ok {
+			if err := em.SceneRestoreBegin(&protocol.SceneRestoreBeginPayload{RequestID: p.RequestID}); err != nil {
+				return err
+			}
+			return em.SceneRestoreEnd(&protocol.SceneRestoreEndPayload{
+				RequestID: p.RequestID,
+				Status:    "rejected",
+				Error:     &protocol.ActionExecutionError{Code: "unsupported_capability", Message: "Scene restore is not configured."},
+			})
+		}
+		return handler.OnSceneRestore(em, &p)
+
+	case protocol.TypeSceneCapture:
+		var p protocol.SceneCapturePayload
+		if err := protocol.DecodePayload(msg, &p); err != nil {
+			return err
+		}
+		handler, ok := model.(abm.SceneCaptureHandler)
+		if !ok {
+			return em.Error(&protocol.ErrorPayload{Code: "unsupported_capability", Message: "Checkpoint capture is not configured.", RequestID: &p.RequestID})
+		}
+		return handler.OnSceneCapture(em, &p)
 
 	case protocol.TypeAssetSync:
 		var p protocol.AssetSyncPayload
@@ -172,10 +212,10 @@ func dispatch(msg *protocol.Message, model abm.Model, em abm.Emitter) error {
 			return err
 		}
 		lv := protocol.LogLevelError
-		return em.Log(&protocol.LogPayload{Message: "renderer error: " + p.Error, Level: &lv})
+		return em.Log(&protocol.LogPayload{Message: "renderer error: " + p.Message, Level: &lv})
 
 	default:
-		return nil // unknown types silently ignored per spec
+		return fmt.Errorf("unknown core message type %q", msg.Type)
 	}
 }
 
@@ -213,14 +253,20 @@ func (e *SessionEmitter) send(msgType string, payload any) error {
 func (e *SessionEmitter) MetadataUpdate(p *protocol.MetadataUpdatePayload) error {
 	return e.send(protocol.TypeMetadataUpdate, p)
 }
-func (e *SessionEmitter) StateSyncBegin(requestID *string) error {
-	return e.send(protocol.TypeStateSyncBegin, &protocol.StateSyncBracketPayload{RequestID: requestID})
+func (e *SessionEmitter) SimulatorInfo(p *protocol.SimulatorInfoPayload) error {
+	if p == nil {
+		p = defaultSimulatorInfo()
+	}
+	return e.send(protocol.TypeSimulatorInfo, protocol.NormalizeSimulatorInfo(p))
 }
-func (e *SessionEmitter) StateSyncEnd(requestID *string) error {
-	return e.send(protocol.TypeStateSyncEnd, &protocol.StateSyncBracketPayload{RequestID: requestID})
+func (e *SessionEmitter) StateSyncBegin(p *protocol.StateSyncBeginPayload) error {
+	return e.send(protocol.TypeStateSyncBegin, p)
 }
-func (e *SessionEmitter) ActionEnd(p *protocol.ActionEndPayload) error {
-	return e.send(protocol.TypeActionEnd, p)
+func (e *SessionEmitter) StateSyncEnd(p *protocol.StateSyncEndPayload) error {
+	return e.send(protocol.TypeStateSyncEnd, p)
+}
+func (e *SessionEmitter) ActionResult(p *protocol.ActionResultPayload) error {
+	return e.send(protocol.TypeActionResult, p)
 }
 func (e *SessionEmitter) EnvCreate(id, envType string) error {
 	return e.send(protocol.TypeEnvCreate, &protocol.EnvCreatePayload{ID: id, Type: envType})
@@ -269,11 +315,29 @@ func (e *SessionEmitter) ChartCreate(meta *protocol.ChartGroupMetadata) error {
 func (e *SessionEmitter) ChartUpdate(p *protocol.ChartUpdatePayload) error {
 	return e.send(protocol.TypeChartUpdate, p)
 }
-func (e *SessionEmitter) ChartDelete(id string) error {
-	return e.send(protocol.TypeChartDelete, &protocol.ChartDeletePayload{ID: id})
+func (e *SessionEmitter) ChartDelete(kind, id string) error {
+	return e.send(protocol.TypeChartDelete, &protocol.ChartDeletePayload{Kind: kind, ID: id})
+}
+func (e *SessionEmitter) MonitorCreate(p *protocol.MonitorMetadata) error {
+	return e.send(protocol.TypeMonitorCreate, p)
+}
+func (e *SessionEmitter) MonitorUpdate(p *protocol.MonitorUpdatePayload) error {
+	return e.send(protocol.TypeMonitorUpdate, p)
+}
+func (e *SessionEmitter) MonitorDelete(id string) error {
+	return e.send(protocol.TypeMonitorDelete, &protocol.MonitorDeletePayload{ID: id})
+}
+func (e *SessionEmitter) SceneRestoreBegin(p *protocol.SceneRestoreBeginPayload) error {
+	return e.send(protocol.TypeSceneRestoreBegin, p)
+}
+func (e *SessionEmitter) SceneRestoreEnd(p *protocol.SceneRestoreEndPayload) error {
+	return e.send(protocol.TypeSceneRestoreEnd, p)
+}
+func (e *SessionEmitter) SceneCaptureResult(p *protocol.SceneCaptureResultPayload) error {
+	return e.send(protocol.TypeSceneCaptureResult, p)
 }
 func (e *SessionEmitter) AssetMeta(assets []protocol.AssetDescriptor) error {
-	return e.send(protocol.TypeAssetMeta, &protocol.AssetMetaPayload{Assets: assets})
+	return e.send(protocol.TypeAssetMetadata, &protocol.AssetMetaPayload{Assets: assets})
 }
 func (e *SessionEmitter) AssetData(p *protocol.AssetDataPayload) error {
 	return e.send(protocol.TypeAssetData, p)
@@ -287,8 +351,19 @@ func (e *SessionEmitter) ScreenshotRequest(p *protocol.ScreenshotRequestPayload)
 func (e *SessionEmitter) Log(p *protocol.LogPayload) error {
 	return e.send(protocol.TypeLog, p)
 }
-func (e *SessionEmitter) Error(msg string) error {
-	return e.send(protocol.TypeError, &protocol.ErrorPayload{Error: msg})
+func (e *SessionEmitter) Error(p *protocol.ErrorPayload) error {
+	return e.send(protocol.TypeError, p)
+}
+
+func defaultSimulatorInfo() *protocol.SimulatorInfoPayload {
+	language := "go"
+	return &protocol.SimulatorInfoPayload{
+		ProtocolVersion: "0.3",
+		Binding:         protocol.BindingInfo{Name: "tensnap-go", Version: "0.3.0", Language: &language},
+		Model:           protocol.ModelInfo{ID: "tensnap.go.model"},
+		InstanceID:      "server-instance",
+		Capabilities:    []string{},
+	}
 }
 
 // #endregion

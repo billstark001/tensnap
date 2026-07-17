@@ -1,4 +1,11 @@
-import type { ActionEndPayload, RendererToSimulatorMessage, StateSyncBoundaryPayload } from '@tensnap/protocol';
+import type {
+  ActionInvokePayload,
+  ActionResultPayload,
+  RendererToSimulatorMessage,
+  StateSyncBeginPayload,
+  StateSyncEndPayload,
+} from '@tensnap/protocol';
+import { ProtocolValidationError } from '@tensnap/protocol';
 import type { Scenario } from '../scenario';
 import type { RecordingOptions as SnapshotRecordingOptions } from '../snapshot';
 import { PipelineRuntime } from './PipelineRuntime';
@@ -31,7 +38,7 @@ export interface ManualRunSpec {
 
 export type RunRequest = BoundedRunSpec | ManualRunSpec;
 
-export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'render-error' | 'simulator' | 'paused' | 'stopped' | 'disconnected';
+export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'action-error' | 'render-error' | 'validation-error' | 'simulator' | 'paused' | 'stopped' | 'disconnected';
 
 export interface RunStatus {
   id: string;
@@ -58,7 +65,7 @@ export interface RunScheduler {
 }
 
 export interface RunRenderBarrier {
-  wait(task: RuntimeTaskSnapshot, payload: ActionEndPayload): void | Promise<void>;
+  wait(task: RuntimeTaskSnapshot, payload: ActionResultPayload): void | Promise<void>;
 }
 
 export interface RunControllerOptions {
@@ -69,7 +76,7 @@ export interface RunControllerOptions {
   actionTimeoutMs?: number;
   onActionTimeout?: (task: RuntimeTaskSnapshot) => void;
   /** Observability hook for host rendering failures; errors are never left unhandled. */
-  onRenderBarrierError?: (error: unknown, task: RuntimeTaskSnapshot, payload: ActionEndPayload) => void;
+  onRenderBarrierError?: (error: unknown, task: RuntimeTaskSnapshot, payload: ActionResultPayload) => void;
   maxStepsPolicy?: number;
   idFactory?: () => string;
   onStateChange?: (status: RunStatus | null) => void;
@@ -131,6 +138,7 @@ export class RunController {
   private actionTimeoutHandle: unknown | null = null;
   private actionTimeoutTaskId: string | null = null;
   private actionTimeoutMs: number;
+  private readonly invocationByTaskId = new Map<string, Pick<ActionInvokePayload, 'target' | 'kwargs'>>();
 
   constructor(private readonly options: RunControllerOptions) {
     this.scheduler = options.scheduler ?? nativeScheduler;
@@ -155,28 +163,44 @@ export class RunController {
     return this.activeRun?.state === 'paused';
   }
 
+  /** True while any simulator action, including the lifecycle stop hook, is active. */
+  get hasInFlightAction(): boolean {
+    return this.runtime.peekActiveTaskRef() !== null;
+  }
+
   setActionTimeoutMs(timeoutMs: number): void {
     this.actionTimeoutMs = this.normalizeActionTimeout(timeoutMs);
     const activeTask = this.runtime.peekActiveTaskRef();
     if (activeTask?.stage === 'dispatched') this.scheduleActionTimeout(activeTask);
   }
 
-  requestStateSync(requestId?: string): void {
-    this.runtime.requestStateSync(requestId);
+  requestStateSync(requestId: string): boolean {
+    return this.runtime.requestStateSync(requestId);
   }
 
-  recordStateSyncBoundary(phase: 'begin' | 'end', payload: StateSyncBoundaryPayload = {}): boolean {
+  recordStateSyncBoundary(phase: 'begin' | 'end', payload: StateSyncBeginPayload | StateSyncEndPayload): boolean {
     const accepted = this.runtime.recordStateSyncBoundary(phase, payload);
     if (accepted && phase === 'end') this.flushCommands();
     return accepted;
   }
 
-  requestAction(actionId: string, continuous = false): string {
+  abortStateSync(requestId: string): boolean {
+    const accepted = this.runtime.abortStateSync(requestId);
+    if (accepted) this.flushCommands();
+    return accepted;
+  }
+
+  requestAction(
+    actionId: string,
+    continuous = false,
+    invocation: Pick<ActionInvokePayload, 'target' | 'kwargs'> = {},
+  ): string {
     if (!continuous) {
+      this.discardInvocations(this.runtime.cancel());
       this.finish('stopped');
-      this.runtime.cancel();
     }
     const taskId = this.runtime.enqueue(actionId, { continuous });
+    if (invocation.target !== undefined || invocation.kwargs !== undefined) this.invocationByTaskId.set(taskId, invocation);
     this.flushCommands();
     return taskId;
   }
@@ -186,7 +210,7 @@ export class RunController {
     const run = this.activeRun;
     if (!run || run.state !== 'running') return this.status;
     run.pauseRequested = true;
-    this.runtime.cancel(run.spec.actionId);
+    this.discardInvocations(this.runtime.cancel(run.spec.actionId));
     const activeTask = this.runtime.peekActiveTaskRef();
     run.inFlight = activeTask?.key === run.spec.actionId;
     if (!run.inFlight) this.finish('paused');
@@ -242,7 +266,7 @@ export class RunController {
       this.deadlineHandle = this.scheduler.setTimeout(() => this.finish('wall-time'), normalized.maxWallTimeMs);
     }
 
-    this.runtime.cancel();
+    this.discardInvocations(this.runtime.cancel());
     this.runtime.enqueue(normalized.actionId, { continuous: true });
     this.flushCommands();
     status.inFlight = this.runtime.peekActiveTaskRef()?.key === normalized.actionId;
@@ -260,17 +284,20 @@ export class RunController {
     this.finish(reason);
     this.clearActionTimeout();
     this.runtime.reset();
+    this.invocationByTaskId.clear();
+    this.options.scenario.endResetLifecycle();
   }
 
-  observeActionEnd(payload: ActionEndPayload): boolean {
+  observeActionResult(payload: ActionResultPayload): boolean {
     const task = this.matchActiveTask(payload);
     if (!task) return false;
 
     this.clearActionTimeout(task.id);
 
-    if (!this.runtime.completeTask(task.id, { continue: payload.continue, timings: payload.timings })) {
+    if (!this.runtime.completeTask(task.id, { should_continue: payload.should_continue, timings: payload.timings })) {
       return false;
     }
+    if (task.key === 'reset') this.options.scenario.endResetLifecycle();
     this.runtime.markTaskApplied(task.id);
 
     const run = this.activeRun;
@@ -283,13 +310,15 @@ export class RunController {
         this.finish('condition');
       } else if (run.spec.mode === 'bounded' && run.completedSteps >= run.spec.maxSteps) {
         this.finish('max-steps');
-      } else if (payload.continue === false) {
+      } else if (payload.error !== undefined) {
+        this.finish('action-error');
+      } else if (payload.should_continue === false) {
         this.finish('simulator');
       }
     }
 
-    if (payload.continue === false) {
-      this.runtime.cancel(task.key);
+    if (payload.error !== undefined || payload.should_continue === false) {
+      this.discardInvocations(this.runtime.cancel(task.key));
     }
 
     if (this.options.renderBarrier) {
@@ -300,14 +329,15 @@ export class RunController {
     return true;
   }
 
-  markActionRendered(payload: Pick<ActionEndPayload, 'id' | 'tick_id'>): boolean {
+  markActionRendered(payload: Pick<ActionResultPayload, 'id' | 'request_id'>): boolean {
     const task = this.matchActiveTask(payload);
     if (!task) return false;
     const rendered = this.runtime.markTaskRendered(task.id);
     if (rendered) {
+      this.invocationByTaskId.delete(task.id);
       this.flushCommands();
-      if (this.activeRun && this.activeRun.spec.actionId === task.key) {
-        this.activeRun.inFlight = this.runtime.peekActiveTaskRef()?.key === this.activeRun.spec.actionId;
+      if (this.activeRun) {
+        this.activeRun.inFlight = this.hasInFlightAction;
         this.publish();
       }
     }
@@ -315,7 +345,7 @@ export class RunController {
   }
 
   cancelContinuousActions(actionId?: string): void {
-    this.runtime.cancel(actionId);
+    this.discardInvocations(this.runtime.cancel(actionId));
   }
 
   private evaluateCondition(): boolean {
@@ -339,32 +369,50 @@ export class RunController {
       this.deadlineHandle = null;
     }
     this.clearActionTimeout();
-    this.runtime.cancel(run.spec.actionId);
+    this.discardInvocations(this.runtime.cancel(run.spec.actionId));
+    if (reason !== 'disconnected' && reason !== 'validation-error' && this.canInvokeStopHook(run.spec.actionId)) {
+      this.runtime.enqueueFront('stop');
+    }
     run.state = reason === 'paused' ? 'paused' : 'stopped';
     run.stopReason = reason;
     run.stoppedAt = this.scheduler.now();
-    run.inFlight = this.runtime.peekActiveTaskRef()?.key === run.spec.actionId;
+    run.inFlight = this.hasInFlightAction;
     this.condition = null;
     this.publish();
     this.options.onRunStop?.(cloneStatus(run));
+    this.flushCommands();
   }
 
-  private matchActiveTask(payload: Pick<ActionEndPayload, 'id' | 'tick_id'>): RuntimeTaskSnapshot | null {
+  private matchActiveTask(payload: Pick<ActionResultPayload, 'id' | 'request_id'>): RuntimeTaskSnapshot | null {
     const activeTask = this.runtime.peekActiveTaskRef();
     if (!activeTask) return null;
-    if (payload.tick_id) return activeTask.id === payload.tick_id ? activeTask : null;
-    return activeTask.key === payload.id ? activeTask : null;
+    return activeTask.id === payload.request_id ? activeTask : null;
   }
 
   private flushCommands(): void {
     const commands = this.runtime.consumeCommands();
     for (const command of commands) {
       if (command.type !== 'dispatch') continue;
-      this.options.send(this.options.scenario.createActionStartMessage(
-        command.task.key,
-        command.task.continuous,
-        command.task.id,
-      ));
+      const invocation = this.invocationByTaskId.get(command.task.id);
+      this.invocationByTaskId.delete(command.task.id);
+      const isReset = command.task.key === 'reset';
+      if (isReset) this.options.scenario.beginResetLifecycle();
+      try {
+        this.options.send(this.options.scenario.createActionInvokeMessage(
+          command.task.key,
+          command.task.id,
+          { continuous: command.task.continuous, ...invocation },
+        ));
+      } catch (error) {
+        if (isReset) this.options.scenario.endResetLifecycle();
+        // The dispatch never reached the simulator. Release the task instead
+        // of leaving the pipeline wedged until its normal action timeout.
+        this.runtime.cancelPendingDispatch(command.task.id);
+        if (error instanceof ProtocolValidationError) {
+          this.finish('validation-error');
+        }
+        throw error;
+      }
       this.scheduleActionTimeout(command.task);
     }
   }
@@ -379,14 +427,15 @@ export class RunController {
       if (!activeTask || activeTask.id !== task.id || activeTask.stage !== 'dispatched') return;
       this.clearActionTimeout();
       this.options.onActionTimeout?.(activeTask);
-      this.runtime.completeTask(activeTask.id, { continue: false });
+      this.runtime.completeTask(activeTask.id, { should_continue: false });
+      if (activeTask.key === 'reset') this.options.scenario.endResetLifecycle();
       this.runtime.markTaskApplied(activeTask.id);
       if (this.activeRun?.state === 'running' && this.activeRun.spec.actionId === activeTask.key) {
         this.finish('action-timeout');
       } else {
-        this.runtime.cancel(activeTask.key);
+        this.discardInvocations(this.runtime.cancel(activeTask.key));
       }
-      this.runtime.markTaskRendered(activeTask.id);
+      if (this.runtime.markTaskRendered(activeTask.id)) this.invocationByTaskId.delete(activeTask.id);
       this.flushCommands();
     }, this.actionTimeoutMs);
   }
@@ -405,7 +454,19 @@ export class RunController {
     return Math.max(1, Math.floor(value));
   }
 
-  private handleRenderBarrierError(error: unknown, task: RuntimeTaskSnapshot, payload: ActionEndPayload): void {
+  private discardInvocations(taskIds: readonly string[]): void {
+    for (const taskId of taskIds) this.invocationByTaskId.delete(taskId);
+  }
+
+  private canInvokeStopHook(runActionId: string): boolean {
+    if (runActionId === 'stop' || this.runtime.hasContinuousKey('stop')) return false;
+    const stopAction = this.options.scenario.getAction('stop');
+    return stopAction !== undefined
+      && (stopAction.scope === undefined || stopAction.scope === 'model')
+      && !stopAction.kwargs?.some((argument) => argument.required === true);
+  }
+
+  private handleRenderBarrierError(error: unknown, task: RuntimeTaskSnapshot, payload: ActionResultPayload): void {
     try {
       this.options.onRenderBarrierError?.(error, task, payload);
     } catch {

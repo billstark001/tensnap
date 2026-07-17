@@ -21,7 +21,10 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({
   onObjectChange,
   onEditObjectId,
 }) => {
-  const continuous = action?.continuous ?? view.data.continuous ?? false;
+  // A view controls renderer scheduling. Action.continuous only describes
+  // what the simulator accepts; it must not be changed by editing a view.
+  const continuous = view.data.continuous ?? false;
+  const actionContinuous = action?.continuous ?? false;
 
   return (
     <>
@@ -48,14 +51,15 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({
           id="button-continuous"
           type="checkbox"
           checked={continuous}
-          onChange={(e) => {
-            onChange('data.continuous', e.target.checked);
-            if (action) {
-              onObjectChange('continuous', e.target.checked);
-            }
-          }}
+          onChange={(e) => onChange('data.continuous', e.target.checked)}
         />
       </Form.Field>
+
+      {action && continuous !== actionContinuous && (
+        <div className={styles.warningText}>
+          <Trans>This button’s continuous setting controls renderer scheduling and differs from the simulator action declaration. It is allowed, but verify the action is safe to repeat.</Trans>
+        </div>
+      )}
 
       {action ? (
         <div className={styles.objectPanel}>
@@ -69,19 +73,6 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({
               onChange={(e) => onObjectChange('label', e.target.value)}
             />
           </Form.Field>
-
-          <Form.FieldSet>
-            <Form.Label htmlFor="action-runtime-change" className={styles.checkboxLabel}>
-              <input
-                id="action-runtime-change"
-                type="checkbox"
-                checked={action.allowRuntimeChange || false}
-                onChange={(e) => onObjectChange('allowRuntimeChange', e.target.checked)}
-                className={styles.checkboxInput}
-              />
-              <Trans>Allow Runtime Change</Trans>
-            </Form.Label>
-          </Form.FieldSet>
         </div>
       ) : (
         <div className={styles.infoText}>

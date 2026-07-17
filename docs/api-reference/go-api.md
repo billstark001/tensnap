@@ -1,6 +1,6 @@
 # Go API Reference
 
-This reference describes the current TenSnap Go surface for protocol v0.2.
+This reference describes the current TenSnap Go surface for protocol v0.3.
 
 The recommended workflow is:
 
@@ -58,31 +58,17 @@ func NewCounterModel() *CounterModel {
                 },
             }).
             WithActions(
-                &protocol.Action{ID: "start", Label: "Start", Continuous: abm.BoolPtr(true)},
                 &protocol.Action{ID: protocol.ActionIDStep, Label: "Step"},
             ),
-    )
-
-    model.SetActionRouter(
-        abm.NewActionRouter().Handle("start", func(e abm.Emitter, tickID *string, _ bool) error {
-            return model.step(e, "start", tickID)
-        }),
     )
 
     return model
 }
 
 func (m *CounterModel) Step(e abm.Emitter) error {
-    return m.step(e, protocol.ActionIDStep, nil)
-}
-
-func (m *CounterModel) step(e abm.Emitter, actionID string, tickID *string) error {
     m.value += m.ParamFloat("stepSize")
     tick := float64(m.NextTick())
-    if err := e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick}); err != nil {
-        return err
-    }
-    return e.ActionEnd(&protocol.ActionEndPayload{ID: actionID, TickID: tickID, Continue: abm.BoolPtr(true)})
+    return e.MetadataUpdate(&protocol.MetadataUpdatePayload{Time: &tick})
 }
 
 func main() {
@@ -106,7 +92,8 @@ Important types:
 - `protocol.Action`
 - `protocol.EnvLayerCreatePayload`
 - `protocol.ChartGroupMetadata`
-- `protocol.ActionEndPayload`
+- `protocol.ActionResultPayload`
+- `protocol.Checkpoint`, `protocol.SceneRestorePayload`, `protocol.SceneCaptureResultPayload`
 
 ### `abm`
 
@@ -133,6 +120,8 @@ Important helpers:
 - `binding.NewEnv`: environment builder.
 - `binding.NewGridLayer`: grid layer metadata builder.
 - `binding.NewAgentLayer`: agent layer builder with replay and diff support.
+- `binding.NewTrajectoryLayer`: trajectory items plus typed metadata/lifecycle methods.
+- `binding.NewMonitor`: current-value monitor metadata and getter.
 - `binding.ProjectTags` and `AgentLayer.ProjectTagsRequired`: item projectors from scoped struct tags.
 - `binding.MustMetadataFromTags`: environment/layer metadata projector from scoped struct tags.
 - `binding.NewChart`: single-series chart metadata plus getter.
@@ -176,7 +165,9 @@ Attach a scenario with `model.SetScenario(scenario)`.
 Default behavior:
 
 - `Base.Setup` replays the registered `Scenario`.
-- `Base.OnStateSync` sends `state_sync_begin`, replays the registered `Scenario`, then sends `state_sync_end`.
+- `Base.OnStateSync` sends a `replace` `state_sync_begin`, replays the registered
+  `Scenario`, then sends `state_sync_end`. The base replay is create-only and
+  therefore never labels it as reconcile or treats creates as upserts.
 
 If you need to do work before replay, override `Setup` or `OnStateSync`, then call `ReplayScenario` or `Base.OnStateSync`.
 
@@ -204,21 +195,12 @@ When a `Scenario` is registered, `Base.OnParamChange` uses its `ParamMetadata` e
 
 ## `abm.ActionRouter`
 
-`ActionRouter` is the lightweight action dispatch table.
-
-```go
-router := abm.NewActionRouter().
-    Handle("start", func(e abm.Emitter, tickID *string, continuous bool) error {
-        return model.step(e, "start", tickID)
-    }).
-    Handle("reset", func(e abm.Emitter, tickID *string, continuous bool) error {
-        return model.reset(e, "reset", tickID)
-    })
-
-model.SetActionRouter(router)
-```
-
-`Base.OnAction` checks the router first. If no handler matches, it falls back to built-in handling for `protocol.ActionIDInit` and `protocol.ActionIDStep`.
+`ActionRouter` is the low-level `Dispatch(Emitter, *ActionInvokePayload)`
+interface. `Base.OnAction` checks an installed router first, then falls back to
+the built-in `init` and `step` actions. Most models should use
+`binding.NewAction`, `binding.NewContinuousAction`, or the lifecycle options on
+`binding.NewModel`; implement `ActionRouter` directly only for an imperative
+dispatcher that needs full access to targets, kwargs, and request IDs.
 
 ## `binding.NewModel`
 
@@ -308,10 +290,17 @@ The adapter owns only the pieces registered through its options:
 - parameters: optional `WithParams`
 - environments and layers: optional `WithEnvs`
 - charts: optional `WithCharts`
+- monitors: optional `WithMonitors`
+- projected/checkpoint restore: `WithSceneRestore`, `WithCheckpointCapture`, and `WithCheckpointRestore`
 
-By default it registers `start`, `step`, and `reset`, replays owned scenario
-pieces during setup/state-sync, computes item diffs for declared agent layers,
-updates charts, emits metadata time, and sends `action_end`.
+By default it registers continuous `start` plus one-shot `step` and `reset`,
+replays owned scenario pieces during setup/state-sync, computes item diffs for
+declared agent layers, updates charts, emits metadata time, and sends
+`action_result`. Reset keeps stable environment/layer definitions, updates
+mutable declarations, clears chart history, and strictly deletes the previous
+agent set before creating the reset state.
+The reserved `init` invocation remains routable but is intentionally absent
+from action metadata, so it never creates a toolbar button.
 
 For mixed imperative code, embed or store the bound model and call small helpers:
 
@@ -378,6 +367,67 @@ It projects every item each step, then emits:
 - deletes for removed items
 
 Call `Seed(...)` after an initial `ItemCreate(...)` replay so the next `Compute(...)` call produces incremental output.
+
+## Trajectory layers
+
+All v0.3 trajectory fields are available without building an untyped metadata
+map:
+
+```go
+trails := binding.NewEmptyTrajectoryLayer[*Model]("trails").
+    AgentLayer("agents").
+    Length(30).
+    Width(2).
+    Color("#2563EB").
+    ZIndex(3).
+    OnAgentDelete(protocol.TrajectoryAgentDeleteRetain).
+    OnStateSync(protocol.TrajectoryStateSyncPreserve).
+    OnReset(protocol.TrajectoryResetClear)
+```
+
+Defaults are agent-delete `delete`, state-sync `preserve`, and reset `clear`.
+`Data(...)` remains available for model-derived or extension metadata; explicit
+fluent fields take precedence.
+
+## Monitors and scene restore
+
+`WithMonitors(...)` declares current values with `monitor_create` and
+`monitor_update`. Low-level `Emitter` methods provide the complete
+`MonitorCreate`, `MonitorUpdate`, and `MonitorDelete` surface. Metadata
+replacement is delete-then-create; create is not an upsert.
+
+The default reset replay follows the same rule for related objects: it uses
+action/parameter/layer updates for stable definitions, clears chart groups,
+publishes monitor values, and emits `item_delete` for every previous agent
+before the new agent snapshot is created.
+
+Checkpoint callbacks operate only on model data:
+
+```go
+bound := binding.NewModel(raw,
+    binding.WithSceneRestore(projectedRestore),
+    binding.WithCheckpointCapture(func(m *Model) (any, error) { return m.Snapshot(), nil }),
+    binding.WithCheckpointRestore(func(m *Model, data any) error { return m.Restore(data) }),
+)
+```
+
+The JSON binding infers `application/octet-stream` for `[]byte` and
+`application/json` for other values, then owns base64 encoding/decoding. A
+restore validates model/schema/instance guards, applies checkpoint data before
+projected state, emits a complete chart-free final replay, caches request IDs,
+and rolls the model back through the checkpoint hooks if later restore work
+fails. `scene.restore.checkpoint` is advertised only when both checkpoint hooks
+are present; projected restore is independent and optional.
+
+## `simulator_info` handshake
+
+`WithSimulatorInfo(...)` configures the immutable first frame on every
+connection. `protocol_version` and binding defaults are filled automatically;
+provide a stable `Model.ID`, optional model version/name/description, and a
+`Model.StateSchemaVersion` whenever restore data has a compatibility boundary.
+`InstanceID` stays stable for reconnect/reset of one bound model and must change
+for a replacement instance. Capabilities are sorted after binding-owned monitor,
+action, and restore capabilities are added.
 
 ## Detached Execution
 

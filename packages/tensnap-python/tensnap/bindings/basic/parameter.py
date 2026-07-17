@@ -527,6 +527,12 @@ def get_parameter_metadata_from_namespace(
     for name, value in namespace.items():
         if name.startswith("__") and name.endswith("__"):
             continue
+        # Chart descriptors are frequently installed by Mesa's DataCollector
+        # as public ``get_tensnap_chart_data_*`` attributes.  Accessing one on
+        # an instance evaluates it to a scalar, which used to make automatic
+        # parameter discovery expose chart values as editable parameters.
+        if _is_chart_binding_member(value):
+            continue
         if isinstance(value, BindParameterConfig):
             if not BindParametersConfig.evaluate_is_included(
                 cfg_list, name, explicit=True
@@ -638,6 +644,8 @@ def get_parameter_metadata_from_object(
                 continue
             if name in keys_fetched:
                 continue
+            if _is_chart_binding_member(inspect.getattr_static(cls, name, None)):
+                continue
             field_info = init_field_metadata.get(name)
             is_explicit = field_info is not None
             if cfg_list and not BindParametersConfig.evaluate_is_included(
@@ -679,6 +687,19 @@ def get_parameter_metadata_from_object(
         return parameters
 
     raise ValueError("Unsupported object type for parameter metadata extraction")
+
+
+def _is_chart_binding_member(value: Any) -> bool:
+    """Return true for direct or property-wrapped TenSnap chart descriptors.
+
+    This intentionally relies only on the marker used by the chart decorator,
+    avoiding an import cycle from parameter discovery into chart bindings.
+    """
+    if getattr(value, "_tensnap_chart", None) is not None:
+        return True
+    return isinstance(value, property) and value.fget is not None and getattr(
+        value.fget, "_tensnap_chart", None
+    ) is not None
 
 
 # endregion

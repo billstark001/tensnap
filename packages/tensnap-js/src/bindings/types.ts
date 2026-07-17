@@ -1,12 +1,18 @@
 import type {
   Action,
-  ActionStartPayload,
+  ActionInvokePayload,
+  ActionKwargDefinition,
   AssetSyncPayload,
   ChartGroupMetadata,
   ChartUpdatePayload,
   MetadataUpdatePayload,
+  MonitorMetadata,
   Parameter,
   ParameterChangePayload,
+  ProtocolValue,
+  RestorableEnvironment,
+  SceneRestorePayload,
+  TrajectoryLayerMetadata,
 } from '@tensnap/protocol';
 import type { SimulatorEmitter, SimulatorSession } from '../runtime';
 import type { ScenarioDefinition, ScenarioEnvironmentDefinition, ScenarioRegistry } from '../scenario';
@@ -19,6 +25,9 @@ export type ItemRecord = Record<string, unknown>;
 export type PrimitiveItemKey = string | number;
 export type ItemDeleteKey = PrimitiveItemKey | ItemRecord;
 export type ChartValueInput = unknown | { value: unknown; time?: number };
+/** Model-owned checkpoint data. The binding chooses its canonical wire encoding. */
+export type CheckpointData = ProtocolValue | Uint8Array;
+export type RestorableLayer = RestorableEnvironment['layers'][number];
 export type ItemKeySelector<TItem> =
   | keyof TItem
   | readonly (keyof TItem | string)[]
@@ -48,6 +57,7 @@ export interface ResolvedItemKey {
 export interface LifecycleActionLabels {
   start?: string;
   step?: string;
+  stop?: string;
   reset?: string;
 }
 
@@ -72,6 +82,7 @@ export interface ModelSessionContext<TConfig extends object> {
   updateCharts(payload: ChartUpdatePayload): Promise<void>;
   clearCharts(...chartIds: string[]): Promise<void>;
   clearAllCharts(): Promise<void>;
+  setMonitor(id: string, value: ProtocolValue, revision?: string | number): Promise<void>;
   createItems<TItem extends object>(
     envId: string,
     layerId: string,
@@ -100,7 +111,7 @@ export interface ModelSessionContext<TConfig extends object> {
     options?: SyncRecordsOptions<TItem>,
   ): Promise<void>;
   finishAction(
-    payload: Pick<ActionStartPayload, 'id' | 'continuous' | 'tick_id'>,
+    payload: Pick<ActionInvokePayload, 'id' | 'continuous' | 'request_id'>,
     shouldContinue?: boolean,
   ): Promise<void>;
   publishAsset(
@@ -131,14 +142,47 @@ export interface ModelBuilderOptions<TConfig extends object, TModel> {
   dispose?(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
   step?(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<boolean | void>;
   reset?(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  stop?(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  /** Projected restore strategy. Imperative and declarative layer restore cannot be mixed implicitly. */
+  sceneRestore?: SceneRestoreOptions<TConfig, TModel>;
+  /** Opt-in exact checkpoint restore. Called before projected state restoration. */
+  restoreCheckpoint?(
+    model: TModel,
+    data: CheckpointData,
+    ctx: ModelSessionContext<TConfig>,
+  ): MaybePromise<void>;
+  /** Opt-in exact checkpoint capture. Return model data; the binding owns wire encoding. */
+  captureCheckpoint?(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<CheckpointData>;
   time?(model: TModel): number;
   lifecycleLabels?: LifecycleActionLabels;
 }
+
+export interface ImperativeSceneRestoreOptions<TConfig extends object, TModel> {
+  mode: 'imperative';
+  validate?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  apply(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+}
+
+export interface ComposedSceneRestoreOptions<TConfig extends object, TModel> {
+  mode: 'compose';
+  validate?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  beforeApply?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  restoreTime?(model: TModel, time: number, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  afterApply?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+}
+
+export type SceneRestoreOptions<TConfig extends object, TModel> =
+  | ImperativeSceneRestoreOptions<TConfig, TModel>
+  | ComposedSceneRestoreOptions<TConfig, TModel>;
 
 export interface ModelMetadata {
   id: string;
   name: string;
   description: string;
+  version?: string;
+  stateSchemaVersion?: string;
+  capabilities?: readonly string[];
+  capabilityDetails?: Record<string, ProtocolValue>;
   [key: string]: unknown;
 }
 
@@ -205,9 +249,25 @@ export interface LayerRuntimeContext {
 export type LayerProjector<TModel, TItem extends object> =
   (model: TModel, item: TItem) => ItemRecord;
 
+/**
+ * Declarative inverse for one complete restorable layer snapshot. The binding
+ * computes C/U/D from stable keys; callbacks mutate only model-owned state.
+ */
+export interface LayerRestoreOptions<TModel> {
+  /** Optional current key inventory. Omitted uses this layer's `items` projection and `key`. */
+  itemIds?(model: TModel): Iterable<ItemDeleteKey>;
+  /** Validate the complete inbound layer before any restore callback mutates the model. */
+  validate?(model: TModel, layer: RestorableLayer): MaybePromise<void>;
+  /** Apply complete layer metadata before item mutations. */
+  restoreMetadata?(model: TModel, metadata: Record<string, ProtocolValue>): MaybePromise<void>;
+  create?(model: TModel, item: Record<string, ProtocolValue>, key: ItemDeleteKey): MaybePromise<void>;
+  update?(model: TModel, key: ItemDeleteKey, item: Record<string, ProtocolValue>): MaybePromise<void>;
+  delete?(model: TModel, key: ItemDeleteKey): MaybePromise<void>;
+}
+
 export interface LayerOptions<TModel, TItem extends object = ItemRecord> {
   type: string;
-  data?: MaybeFactory<TModel, Record<string, unknown> | undefined>;
+  metadata?: MaybeFactory<TModel, Record<string, unknown> | undefined>;
   dependencyLayerIds?: Record<string, string>;
   items?(model: TModel, ctx: LayerRuntimeContext): readonly TItem[];
   updates?(model: TModel, ctx: LayerRuntimeContext): readonly Partial<TItem>[];
@@ -215,6 +275,20 @@ export interface LayerOptions<TModel, TItem extends object = ItemRecord> {
   updateProject?: LayerProjector<TModel, Partial<TItem> & object>;
   key?: ItemKeySelector<TItem>;
   updateKey?: ItemKeySelector<Partial<TItem> & object>;
+  restore?: LayerRestoreOptions<TModel>;
+}
+
+/** Typed first-class trajectory metadata normalized to canonical wire keys. */
+export interface TrajectoryLayerOptions<TModel, TItem extends object = ItemRecord>
+  extends Omit<LayerOptions<TModel, TItem>, 'type' | 'metadata'> {
+  metadata?: MaybeFactory<TModel, TrajectoryLayerMetadata | undefined>;
+  length?: number;
+  width?: number;
+  color?: string;
+  zIndex?: number;
+  onAgentDelete?: TrajectoryLayerMetadata['on_agent_delete'];
+  onStateSync?: TrajectoryLayerMetadata['on_state_sync'];
+  onReset?: TrajectoryLayerMetadata['on_reset'];
 }
 
 export interface LayerBinding<TModel, TItem extends object = ItemRecord>
@@ -246,15 +320,28 @@ export interface ChartBinding<TConfig extends object, TModel> {
   values(model: TModel, config: TConfig): Record<string, unknown>;
 }
 
+export interface MonitorOptions<TConfig extends object, TModel> {
+  label?: string;
+  renderHint?: MonitorMetadata['render_hint'];
+  get(model: TModel, config: TConfig): ProtocolValue;
+}
+
+export interface MonitorBinding<TConfig extends object, TModel> {
+  metadata(): MonitorMetadata;
+  value(model: TModel, config: TConfig): ProtocolValue;
+}
+
 export interface ActionOptions<TConfig extends object, TModel> {
   label?: string;
+  scope?: Action['scope'];
+  kwargs?: readonly ActionKwargDefinition[];
   continuous?: boolean;
   runtime?: boolean;
   sync?: boolean;
   run(
     model: TModel,
     ctx: ModelSessionContext<TConfig>,
-    payload: ActionStartPayload,
+    payload: ActionInvokePayload,
   ): MaybePromise<boolean | void>;
 }
 
@@ -264,7 +351,7 @@ export interface ActionBinding<TConfig extends object, TModel> {
   run(
     model: TModel,
     ctx: ModelSessionContext<TConfig>,
-    payload: ActionStartPayload,
+    payload: ActionInvokePayload,
   ): MaybePromise<boolean | void>;
 }
 
@@ -354,6 +441,7 @@ export interface BoundModelDefinition<TConfig extends object, TModel> {
   parameters: ParameterBinding<TConfig, TModel>[];
   environments: EnvironmentBinding<TModel>[];
   charts: ChartBinding<TConfig, TModel>[];
+  monitors: MonitorBinding<TConfig, TModel>[];
   actions: ActionBinding<TConfig, TModel>[];
   assets: AssetBinding<TConfig, TModel>[];
 }

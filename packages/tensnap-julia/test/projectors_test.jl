@@ -6,6 +6,8 @@
 	@test projected["y"] == 3.5
 	@test projected["color"] == "green"
 	@test projected["score"] == 4
+	with_data = autoagentprojector(data_fields = [:attending, :score])(agent)
+	@test with_data["data"] == Dict("attending" => true, "score" => 4)
 
 	zero_based = autoagentprojector(id = a -> "agent-$(a.id)", x = a -> a.pos[1] - 1, y = a -> a.pos[2] - 1)(agent)
 	@test zero_based["id"] == "agent-7"

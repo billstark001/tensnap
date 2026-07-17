@@ -9,7 +9,7 @@
  * The client deduplicates by (id, hash) so unchanged assets are not re-fetched.
  *
  * Lifecycle:
- *   1. Server sends `asset_meta` → store records metadata + marks as pending.
+ *   1. Server sends `asset_metadata` → store records metadata + marks as pending.
  *   2. Store emits the pending ids via `onNeedData` callback.
  *   3. Caller sends `asset_sync` with its current (id → hash) map.
  *   4. Server sends `asset_data` for missing / outdated assets.
@@ -136,7 +136,7 @@ export class AssetStore {
       source = bytes.slice();
     }
 
-    // Update or create metadata if we didn't receive asset_meta first
+    // Update or create metadata if we didn't receive asset_metadata first
     const meta: AssetMeta = this._meta.get(id) ?? { id, hash, mime, size: bytes.byteLength };
     meta.hash = hash;
     meta.mime = mime;

@@ -1,5 +1,7 @@
 // #region Imports
 import type { Hono } from 'hono';
+import { encodeBytesAsBase64, ProtocolValueSchema } from '@tensnap/protocol';
+import type { RestoreChartPolicy } from '@tensnap/core/runtime';
 import type { AgentRuntime } from '../AgentRuntime';
 
 // #endregion
@@ -18,6 +20,40 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
 
   app.get('/v1/scene/snapshot', (c) => {
     return c.json(runtime.inspectSnapshot());
+  });
+
+  app.post('/v1/scene/capture', async (c) => {
+    try {
+      const result = await runtime.captureScene();
+      return c.json({
+        ...result,
+        checkpoint: {
+          ...result.checkpoint,
+          data: typeof result.checkpoint.data === 'string'
+            ? result.checkpoint.data
+            : encodeBytesAsBase64(result.checkpoint.data),
+        },
+      });
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : String(error) }, 409);
+    }
+  });
+
+  app.post('/v1/scene/restore', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+    const chartPolicy = body.chartPolicy;
+    if (chartPolicy !== undefined && chartPolicy !== 'preserve' && chartPolicy !== 'replace' && chartPolicy !== 'truncate') {
+      return c.json({ error: 'chartPolicy must be preserve, replace, or truncate.' }, 400);
+    }
+    const { chartPolicy: _chartPolicy, ...input } = body;
+    try {
+      const result = await runtime.restoreScene(input, {
+        chartPolicy: chartPolicy as RestoreChartPolicy | undefined,
+      });
+      return c.json(result, result.status === 'ok' ? 200 : 409);
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : String(error) }, 400);
+    }
   });
 
   app.get('/v1/agents/:environmentId/:layerId/:agentId', async (c) => {
@@ -125,7 +161,11 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     }
 
     const body = await c.req.json<{ value: unknown }>();
-    await runtime.setParameter(parameterId, body.value);
+    const parsed = ProtocolValueSchema.safeParse(body.value);
+    if (!parsed.success) {
+      return c.json({ error: 'Parameter value is not a protocol value.' }, 400);
+    }
+    await runtime.setParameter(parameterId, parsed.data);
     return c.json({ parameterId, accepted: true }, 202);
   });
 

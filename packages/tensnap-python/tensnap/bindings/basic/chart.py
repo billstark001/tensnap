@@ -42,12 +42,8 @@ def categorize_charts(
     """
     Categorize server charts into added, removed, and updated groups.
 
-    Added: Groups satisfying:
-        - If the dataList length is 0, then the metadata IDs do not exist in client_charts.
-        - If the length is non-zero, then all metadata IDs in this group do not exist in client_charts.
-    Removed: Metadata IDs that exist in client_charts but do not exist in server_charts.
-        - The definition of “does not exist” is similar to Added, determined by the dataList length.
-    Updated: Groups that some of the metadata IDs in this group do not exist in client_charts.
+    This compatibility helper is kept for callers that compare chart metadata
+    outside state-sync.  It accepts canonical v0.3 ``data_list`` metadata.
 
     Returns:
         dict with keys 'added', 'removed', 'updated'
@@ -59,7 +55,7 @@ def categorize_charts(
     server_ids: Set[str] = set()
 
     for group in server_charts:
-        data_list = group.get("dataList", [])
+        data_list = group.get("data_list", [])
 
         if not data_list:
             server_ids.add(group["id"])

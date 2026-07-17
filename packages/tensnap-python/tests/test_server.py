@@ -85,7 +85,7 @@ class TestTenSnapServer:
         assert sent == {"type": "metadata_update", "payload": {"time": 5}}
 
     @pytest.mark.asyncio
-    async def test_action_end_waits_for_queued_state_updates(
+    async def test_action_result_waits_for_queued_state_updates(
         self, server: TenSnapServer
     ):
         mock_client = AsyncMock()
@@ -105,12 +105,11 @@ class TestTenSnapServer:
         assert [message["type"] for message in sent_messages] == [
             "metadata_update",
             "item_update",
-            "action_end",
+            "action_result",
         ]
         assert sent_messages[-1]["payload"] == {
             "id": "step",
-            "tick_id": "tick-1",
-            "timings": {"simulate_ms": 0.0},
+            "request_id": "tick-1",
         }
 
     @pytest.mark.asyncio
@@ -128,7 +127,7 @@ class TestTenSnapServer:
             json.loads(call.args[0]) for call in mock_client.send.await_args_list
         ]
         assert [message["type"] for message in sent_messages] == [
-            "asset_meta",
+            "asset_metadata",
             "asset_data",
         ]
         assert sent_messages[0]["payload"]["assets"][0]["id"] == "icon"
@@ -144,7 +143,7 @@ class TestTenSnapServer:
         await server.send_asset_meta(mock_ws)
 
         sent = json.loads(mock_ws.send.await_args_list[0].args[0])
-        assert sent["type"] == "asset_meta"
+        assert sent["type"] == "asset_metadata"
         assert sent["payload"]["assets"] == [
             {
                 "id": "icon",

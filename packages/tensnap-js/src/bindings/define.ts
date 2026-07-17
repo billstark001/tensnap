@@ -1,6 +1,7 @@
 import type {
   Action,
   ChartGroupMetadata,
+  MonitorMetadata,
   Parameter,
 } from '@tensnap/protocol';
 import type {
@@ -13,7 +14,7 @@ export function defineLayer<TLayer extends ScenarioLayerDefinition>(layer: TLaye
   return {
     ...layer,
     dependencyLayerIds: { ...(layer.dependencyLayerIds ?? {}) },
-    data: { ...(layer.data ?? {}) },
+    metadata: { ...(layer.metadata ?? {}) },
   };
 }
 
@@ -43,8 +44,14 @@ export function defineCharts<const TCharts extends readonly ChartGroupMetadata[]
 ): TCharts {
   return charts.map((chart) => ({
     ...chart,
-    dataList: chart.dataList?.map((entry: NonNullable<ChartGroupMetadata['dataList']>[number]) => ({ ...entry })),
+    data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
   })) as unknown as TCharts;
+}
+
+export function defineMonitors<const TMonitors extends readonly MonitorMetadata[]>(
+  ...monitors: TMonitors
+): TMonitors {
+  return monitors.map((monitor) => ({ ...monitor })) as unknown as TMonitors;
 }
 
 export function defineScenario<TScenario extends ScenarioDefinition>(
@@ -57,7 +64,8 @@ export function defineScenario<TScenario extends ScenarioDefinition>(
     environments: definition.environments?.map((environment) => defineEnvironment(environment)),
     charts: definition.charts?.map((chart) => ({
       ...chart,
-      dataList: chart.dataList?.map((entry: NonNullable<ChartGroupMetadata['dataList']>[number]) => ({ ...entry })),
+      data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
     })),
+    monitors: definition.monitors?.map((monitor) => ({ ...monitor })),
   };
 }

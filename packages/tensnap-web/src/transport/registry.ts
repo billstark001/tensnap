@@ -4,6 +4,7 @@ export interface BuiltinTransportModel {
   id: string;
   name: string;
   description: string;
+  protocolVersion?: string;
   create: () => ISimulatorTransport;
 }
 
@@ -29,6 +30,10 @@ export function resolveTransport(input: string): ISimulatorTransport | null {
   const id = input.slice(INMEMORY_PREFIX.length);
   const model = modelFactories.get(id);
   return model ? model.create() : null;
+}
+
+export function isInMemoryConnectionId(input: string): boolean {
+  return input.startsWith(INMEMORY_PREFIX);
 }
 
 export function makeInMemoryConnectionId(id: string): string {

@@ -40,6 +40,64 @@
 	@test model.agents[1].x == 0
 end
 
+@testset "model steps may return their mutated model" begin
+	model = ToyModel([ToyAgent(1, 0.0, 0.0)], 2, 0)
+	scenario = Scenario()
+	register_model!(scenario, model; step = identity)
+
+	@test TenSnap._advance_step!(scenario)
+	@test scenario.time_step == 1
+
+	register_model!(scenario, model; step = _ -> false)
+	@test !TenSnap._advance_step!(scenario)
+end
+
+@testset "declarative monitors and restore hooks" begin
+	state = Ref(2)
+	restored = Ref(false)
+	scenario = Scenario(
+		model_id = "monitor-model",
+		state_schema_version = "1",
+		monitors = [monitor("status", _ -> Dict("value" => state[]); label = "Status", render_hint = "tree")],
+		restore_hooks = restore_hooks(payload -> begin
+			restored[] = true
+			haskey(payload, "time") && (state[] = Int(payload["time"]))
+		end; checkpoint_capture = _ -> state[], checkpoint_restore = data -> (state[] = Int(data))),
+	)
+	register_model!(scenario, state)
+
+	@test scenario.monitors["status"].label == "Status"
+	@test TenSnap._monitor_payload(scenario.monitors["status"]) == Dict(
+		"id" => "status", "label" => "Status", "render_hint" => "tree",
+	)
+	info = TenSnap._simulator_info_payload(scenario)
+	@test info["capabilities"] == ["monitor", "scene.restore.checkpoint", "scene.restore.projected"]
+	TenSnap._call0or1(scenario.checkpoint_restore, 5)
+	TenSnap._call0or1(scenario.scene_restore, Dict("time" => 5))
+	@test restored[]
+	@test state[] == 5
+	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 5
+	checkpoint = TenSnap._encode_checkpoint(Dict("value" => 5); use_msgpack = false)
+	@test checkpoint["encoding"] == "application/msgpack"
+	@test TenSnap._decode_checkpoint(checkpoint)["value"] == 5
+end
+
+@testset "checkpoint-only restore hooks" begin
+	state = Ref(2)
+	scenario = Scenario(
+		model_id = "checkpoint-only",
+		restore_hooks = restore_hooks(nothing;
+			checkpoint_capture = _ -> state[],
+			checkpoint_restore = data -> (state[] = Int(data))),
+	)
+	register_model!(scenario, state)
+
+	@test TenSnap._simulator_info_payload(scenario)["capabilities"] == ["scene.restore.checkpoint"]
+	TenSnap._call0or1(scenario.checkpoint_restore, 7)
+	@test state[] == 7
+	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 7
+end
+
 @testset "declarative parameters from fields" begin
 	config = ToyConfig(1.5, true, "fast", [ToyAgent(1, 0.0, 0.0)])
 	scenario = Scenario()
@@ -71,7 +129,7 @@ end
 	@test by_id["speed"].max == 10
 	@test by_id["speed"].step == 0.5
 	@test by_id["speed"].allow_runtime_change == false
-	@test TenSnap._param_payload(by_id["speed"], scenario.model)["allowRuntimeChange"] == false
+	@test TenSnap._param_payload(by_id["speed"], scenario.model)["allow_runtime_change"] == false
 	@test by_id["isEnabled"].type == "boolean"
 	@test by_id["isEnabled"].allow_runtime_change == true
 	@test by_id["label"].type == "string"

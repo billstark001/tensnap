@@ -21,6 +21,7 @@ vi.mock('@lingui/react', async () => {
   return {
     ...actual,
     Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
+    useLingui: () => ({ _: (descriptor: unknown) => typeof descriptor === 'string' ? descriptor : (descriptor as { message?: string; id?: string })?.message ?? (descriptor as { id?: string })?.id ?? '' }),
   };
 });
 
@@ -40,6 +41,18 @@ import { AgentDetailsDialog } from './AgentDetailsDialog';
 import { Scenario } from '@tensnap/core';
 
 describe('AgentDetailsDialog', () => {
+  it('omits the spatial-context notice for uniform agents', () => {
+    render(
+      <AgentDetailsDialog
+        agent={{ id: 'agent-1' }}
+        agentType="uniform"
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('No spatial context is available for this agent.')).toBeNull();
+  });
+
   it('renders empty custom data inline instead of an empty code block', () => {
     render(
       <AgentDetailsDialog
@@ -53,7 +66,7 @@ describe('AgentDetailsDialog', () => {
     expect(document.querySelector('pre')).toBeNull();
   });
 
-  it('keeps populated custom data in the formatted code block', () => {
+  it('keeps populated custom data available through the value inspector', () => {
     render(
       <AgentDetailsDialog
         agent={{ id: 'agent-1', data: { status: 'active' } }}
@@ -62,7 +75,8 @@ describe('AgentDetailsDialog', () => {
     );
 
     expect(screen.queryByText('None')).toBeNull();
-    expect(document.querySelector('pre')?.textContent).toContain('"status": "active"');
+    expect(screen.getByText('status')).toBeInTheDocument();
+    expect(screen.getByText('active')).toBeInTheDocument();
   });
 
   it('allows the radius field to be cleared before normalizing it on blur', () => {

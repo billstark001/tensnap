@@ -11,6 +11,8 @@ const mockState = {
   parameters: new Map(),
   charts: { getGroup: vi.fn() },
   chartRevision: 0,
+  monitorRevision: 0,
+  scenario: { monitors: { get: vi.fn(), getSnapshot: vi.fn(), subscribe: vi.fn(() => () => {}) } },
 };
 
 vi.mock('../../store/scenario/store', () => ({
@@ -31,6 +33,10 @@ vi.mock('./ParameterControl', () => ({
 
 vi.mock('../scenario/ChartView', () => ({
   ChartView: () => <div data-testid="chart-view" />,
+}));
+
+vi.mock('../value-inspector', () => ({
+  ValueInspector: ({ value }: { value: unknown }) => <div data-testid="monitor-view">{JSON.stringify(value)}</div>,
 }));
 
 vi.mock('../view/ViewErrorBoundary', () => ({
@@ -87,5 +93,20 @@ describe('AnchoredViewRenderer', () => {
     );
 
     expect(screen.getByTestId('chart-view')).toBeInTheDocument();
+  });
+
+  it('renders simulator monitors as local anchored views', () => {
+    const monitor = { id: 'population', value: { total: 120 }, render_hint: 'table' };
+    mockState.scenario.monitors.getSnapshot.mockReturnValue(monitor);
+
+    render(
+      <AnchoredViewRenderer
+        type="monitor"
+        id="population"
+        view={{ id: 'view-4', type: 'monitor', data: { id: 'population', renderHint: 'table' } } as any}
+      />,
+    );
+
+    expect(screen.getByTestId('monitor-view')).toHaveTextContent('{"total":120}');
   });
 });

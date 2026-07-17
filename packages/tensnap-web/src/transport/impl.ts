@@ -7,12 +7,13 @@ import type {
 } from '@tensnap/core';
 import {
   decodeProtocolMessage,
-  encodeProtocolMessage,
+  ProtocolCodec,
   type AnyProtocolMessage,
+  type ProtocolCodecMode,
+  type ProtocolValidationLevel,
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
-import { validateClientMessage, validateServerMessage, ValidationLevel } from '@/utils/validation';
 
 
 export class WebSocketManagerImpl implements ISimulatorTransport {
@@ -33,12 +34,20 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private abortController: AbortController | null = null;
   private externalAbortHandler: (() => void) | null = null;
   private isDestroyed: boolean = false;
+  private codec: ProtocolCodec | null = null;
+  private handshakeTimer: ReturnType<typeof setTimeout> | null = null;
+  private selectedProtocolMode: ProtocolCodecMode | null = null;
   
   // Validation settings - can be set externally
-  public clientMessageValidation: ValidationLevel = 'off';
-  public serverMessageValidation: ValidationLevel = 'off';
+  public clientMessageValidation: ProtocolValidationLevel = 'off';
+  public serverMessageValidation: ProtocolValidationLevel = 'off';
 
-  constructor(id: string | null | undefined, url: string, useMsgPack: boolean = false) {
+  constructor(
+    id: string | null | undefined,
+    url: string,
+    useMsgPack: boolean = false,
+    private readonly protocolPreference: 'auto' | ProtocolCodecMode = 'auto',
+  ) {
     this.id = id || generateUniqueId();
     this.url = url;
     this.useMsgPack = useMsgPack;
@@ -83,7 +92,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
         // Listen to abort signal
         const internalAbortHandler = () => {
           if (this.ws) {
-            console.log(`${this.id}: Connection aborted`);
+            this.emitDiagnostic('info', 'connection_aborted', 'Connection attempt aborted.');
             this.manualDisconnect = true;
             this.ws.close();
             this.ws = null;
@@ -110,7 +119,18 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
             settlePromise(() => reject(new WebSocketAbortedError()));
             return;
           }
-          console.log(`${this.id}: WebSocket connected`);
+          this.emitDiagnostic('info', 'connected', 'WebSocket connection established.');
+
+          this.resetProtocolSession();
+          if (this.protocolPreference === 'auto') {
+            this.handshakeTimer = setTimeout(() => {
+              if (this.ws?.readyState === WebSocket.OPEN && this.codec === null) {
+                this.selectProtocolMode('legacy', 'handshake-timeout');
+              }
+            }, 1_000);
+          } else {
+            this.selectProtocolMode(this.protocolPreference, 'configured');
+          }
 
           // Reset reconnection state on successful connection
           this.reconnectAttempts = 0;
@@ -139,13 +159,20 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
         this.ws.onerror = (error) => {
           this.abortController = null;
           this.externalAbortHandler = null;
+          this.emitDiagnostic('error', 'connection_error', 'WebSocket connection failed.', error);
           settlePromise(() => reject(new WebSocketConnectionError(`Failed to connect: ${error}`)));
         };
 
         this.ws.onclose = (event) => {
-          console.log(`${this.id}: WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
+          this.emitDiagnostic(
+            this.manualDisconnect || event.code === 1000 ? 'info' : 'warning',
+            'closed',
+            `WebSocket closed (code ${event.code}${event.reason ? `: ${event.reason}` : ''}).`,
+            { code: event.code, reason: event.reason, wasClean: event.wasClean },
+          );
           this.abortController = null;
           this.externalAbortHandler = null;
+          this.clearHandshakeTimer();
 
           // Only attempt reconnection if not manually disconnected, not destroyed, and within retry limits
           if (!this.isDestroyed && !this.manualDisconnect && this.shouldReconnect(event.code)) {
@@ -169,7 +196,11 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
 
     // Don't reconnect if max attempts reached
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.warn(`${this.id}: Max reconnection attempts (${this.maxReconnectAttempts}) reached`);
+      this.emitDiagnostic(
+        'warning',
+        'reconnect_exhausted',
+        `Stopped reconnecting after ${this.maxReconnectAttempts} attempts.`,
+      );
       return false;
     }
 
@@ -178,20 +209,22 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
 
   private async handleMessage(data: ArrayBuffer | string) {
     try {
-      const message = decodeProtocolMessage(data) as AnyProtocolMessage;
-
-      // Validate server message if validation is enabled
-      if (this.serverMessageValidation !== 'off') {
-        const validation = validateServerMessage(message, this.serverMessageValidation);
-        if (!validation.valid && this.serverMessageValidation === 'error') {
-          console.error(`${this.id}: Server message validation failed`, validation.message);
-          return; // Don't emit invalid messages when in error mode
-        }
+      if (this.codec === null) {
+        const envelope = decodeProtocolMessage(data) as AnyProtocolMessage;
+        this.selectProtocolMode(
+          envelope.type === 'simulator_info' ? 'strict' : 'legacy',
+          envelope.type === 'simulator_info' ? 'simulator-info' : 'legacy-message',
+        );
       }
+      this.codec!.setValidation({
+        level: this.serverMessageValidation,
+        direction: 'simulator-to-renderer',
+        onWarning: (warning) => this.emit('validation-warning', warning),
+      });
+      const message = this.codec!.decode(data) as AnyProtocolMessage;
 
       this.emit('message', message);
     } catch (error) {
-      console.error(`${this.id}: Error handling message:`, error);
       this.emit('error', error);
     }
   }
@@ -203,7 +236,9 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
         try {
           handler(payload);
         } catch (error) {
-          console.error(`${this.id}: Error in event handler:`, error);
+          if (type !== 'diagnostic') {
+            this.emitDiagnostic('error', 'event_handler_error', `A ${String(type)} event handler failed.`, error);
+          }
         }
       });
     }
@@ -233,20 +268,21 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   }
 
   send(message: RendererToSimulatorMessage) {
-    // Validate client message if validation is enabled
-    if (this.clientMessageValidation !== 'off') {
-      const validation = validateClientMessage(message, this.clientMessageValidation);
-      if (!validation.valid && this.clientMessageValidation === 'error') {
-        console.error(`${this.id}: Client message validation failed`, validation.message);
-        return; // Don't send invalid messages when in error mode
-      }
-    }
-
     if (this.ws?.readyState === WebSocket.OPEN) {
-      const encoded = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding);
+      if (this.codec === null) {
+        throw new Error('Protocol handshake has not selected a codec yet.');
+      }
+      this.codec.setValidation({
+        level: this.clientMessageValidation,
+        direction: 'renderer-to-simulator',
+        onWarning: (warning) => this.emit('validation-warning', warning),
+      });
+      const encoded = this.codec.encode(message as AnyProtocolMessage, this.encoding);
       this.ws.send(typeof encoded === 'string' ? encoded : new Uint8Array(encoded));
     } else {
-      console.warn(`${this.id}: WebSocket not connected`);
+      this.emitDiagnostic('warning', 'send_while_disconnected', 'Skipped a protocol message because the WebSocket is not connected.', {
+        messageType: message.type,
+      });
     }
   }
 
@@ -259,13 +295,17 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     const delayIndex = Math.min(this.reconnectAttempts - 1, this.reconnectDelays.length - 1);
     const delay = this.reconnectDelays[delayIndex];
 
-    console.log(`${this.id}: Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+    this.emitDiagnostic(
+      'info',
+      'reconnect_scheduled',
+      `Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} scheduled in ${delay}ms.`,
+    );
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (!this.isDestroyed && !this.manualDisconnect) {
         this.connect().catch(error => {
-          console.error(`${this.id}: Reconnection attempt ${this.reconnectAttempts} failed:`, error);
+          this.emitDiagnostic('warning', 'reconnect_failed', `Reconnect attempt ${this.reconnectAttempts} failed.`, error);
         });
       }
     }, delay);
@@ -288,6 +328,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.clearHandshakeTimer();
 
     // Close WebSocket connection
     if (this.ws) {
@@ -295,7 +336,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       this.ws = null;
     }
 
-    console.log(`${this.id}: WebSocket manually disconnected`);
+    this.emitDiagnostic('info', 'disconnected', 'WebSocket disconnected by request.');
   }
 
   /**
@@ -317,8 +358,9 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     this.ws = null;
     this.abortController = null;
     this.reconnectTimer = null;
+    this.clearHandshakeTimer();
 
-    console.log(`${this.id}: WebSocketManager destroyed`);
+    this.emitDiagnostic('debug', 'destroyed', 'WebSocket transport destroyed.');
   }
 
   /**
@@ -341,6 +383,10 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     return this.useMsgPack ? 'msgpack' : 'json';
   }
 
+  get protocolMode(): ProtocolCodecMode | null {
+    return this.selectedProtocolMode;
+  }
+
   get connectionState(): TransportConnectionState {
     if (this.isDestroyed) return 'destroyed';
     if (!this.ws) return 'closed';
@@ -361,5 +407,49 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       isReconnecting: !!this.reconnectTimer,
       manualDisconnect: this.manualDisconnect
     };
+  }
+
+  private selectProtocolMode(
+    mode: ProtocolCodecMode,
+    reason: 'configured' | 'simulator-info' | 'legacy-message' | 'handshake-timeout',
+  ): void {
+    if (this.codec !== null) return;
+    this.clearHandshakeTimer();
+    this.selectedProtocolMode = mode;
+    this.codec = new ProtocolCodec({
+      mode,
+      onWarning: (warning) => this.emit('codec-warning', warning),
+    });
+    this.emit('protocol-mode', { mode, reason });
+    this.emitDiagnostic('info', 'protocol_mode_selected', `Selected ${mode} protocol codec (${reason}).`, { mode, reason });
+  }
+
+  private resetProtocolSession(): void {
+    this.clearHandshakeTimer();
+    this.codec = null;
+    this.selectedProtocolMode = null;
+  }
+
+  private clearHandshakeTimer(): void {
+    if (this.handshakeTimer !== null) clearTimeout(this.handshakeTimer);
+    this.handshakeTimer = null;
+  }
+
+  private emitDiagnostic(
+    severity: TransportEventMap['diagnostic']['severity'],
+    code: string,
+    message: string,
+    details?: unknown,
+  ): void {
+    this.emit('diagnostic', {
+      timestamp: Date.now(),
+      severity,
+      domain: 'transport',
+      source: 'websocket',
+      code,
+      message,
+      ...(details === undefined ? {} : { details }),
+      dedupeKey: `${code}:${message}`,
+    });
   }
 }

@@ -2,8 +2,8 @@ import type { ChartGroupMetadata } from '@tensnap/protocol';
 import type { ChartGroup } from './types';
 
 export function instantiateChartMetadata(meta: ChartGroupMetadata): ChartGroup {
-  const metadataDict = meta.dataList?.length
-    ? Object.fromEntries(meta.dataList.map(m => [m.id, m]))
+  const metadataDict = meta.data_list?.length
+    ? Object.fromEntries(meta.data_list.map(m => [m.id, m]))
     : { [meta.id]: meta };
 
   return {

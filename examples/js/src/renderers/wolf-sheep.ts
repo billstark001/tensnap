@@ -141,6 +141,7 @@ const builder = modelBuilder({
   id: 'wolf-sheep',
   name: 'Wolf Sheep Predation Model',
   description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
+  stateSchemaVersion: '1',
 }, {
   defaults: DEFAULT_WOLF_SHEEP_CONFIG,
   create(config): WolfSheepRuntime {
@@ -222,7 +223,7 @@ builder.paramsFromConfig<WolfSheepConfig>({
 
 builder.env('main')
   .agentLayer(TERRAIN_LAYER, {
-    data: (runtime) => {
+    metadata: (runtime) => {
       const config = getEffectiveConfig(runtime);
       return { width: config.gridWidth, height: config.gridHeight };
     },
@@ -230,13 +231,13 @@ builder.env('main')
     updates: (runtime) => buildTerrainUpdates(runtime),
   })
   .gridLayer(GRID_LAYER, {
-    data: (runtime) => {
+    metadata: (runtime) => {
       const config = getEffectiveConfig(runtime);
       return { width: config.gridWidth, height: config.gridHeight };
     },
   })
   .agentLayer(ANIMAL_LAYER, {
-    data: (runtime) => {
+    metadata: (runtime) => {
       const config = getEffectiveConfig(runtime);
       return { width: config.gridWidth, height: config.gridHeight };
     },

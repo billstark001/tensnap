@@ -1,4 +1,4 @@
-// Package abm provides the ABM integration layer for TenSnap protocol v0.2.
+// Package abm provides the ABM integration layer for TenSnap protocol v0.3.
 //
 // # Zero-overhead detached operation
 //
@@ -22,10 +22,11 @@ import "github.com/billstark001/tensnap/packages/tensnap-go/protocol"
 // the renderer. Sink makes every call a no-op; SessionEmitter forwards
 // to the WebSocket session.
 type Emitter interface {
+	SimulatorInfo(p *protocol.SimulatorInfoPayload) error
 	MetadataUpdate(p *protocol.MetadataUpdatePayload) error
-	StateSyncBegin(requestID *string) error
-	StateSyncEnd(requestID *string) error
-	ActionEnd(p *protocol.ActionEndPayload) error
+	StateSyncBegin(p *protocol.StateSyncBeginPayload) error
+	StateSyncEnd(p *protocol.StateSyncEndPayload) error
+	ActionResult(p *protocol.ActionResultPayload) error
 
 	EnvCreate(id, envType string) error
 	EnvDelete(id string) error
@@ -48,7 +49,13 @@ type Emitter interface {
 
 	ChartCreate(meta *protocol.ChartGroupMetadata) error
 	ChartUpdate(p *protocol.ChartUpdatePayload) error
-	ChartDelete(id string) error
+	ChartDelete(kind, id string) error
+	MonitorCreate(p *protocol.MonitorMetadata) error
+	MonitorUpdate(p *protocol.MonitorUpdatePayload) error
+	MonitorDelete(id string) error
+	SceneRestoreBegin(p *protocol.SceneRestoreBeginPayload) error
+	SceneRestoreEnd(p *protocol.SceneRestoreEndPayload) error
+	SceneCaptureResult(p *protocol.SceneCaptureResultPayload) error
 
 	AssetMeta(assets []protocol.AssetDescriptor) error
 	AssetData(p *protocol.AssetDataPayload) error
@@ -57,7 +64,7 @@ type Emitter interface {
 	ScreenshotRequest(p *protocol.ScreenshotRequestPayload) error
 
 	Log(p *protocol.LogPayload) error
-	Error(msg string) error
+	Error(p *protocol.ErrorPayload) error
 }
 
 // Sink is the no-op Emitter for standalone / detached operation.
@@ -66,10 +73,11 @@ type Sink struct{}
 
 func NewSink() Emitter { return Sink{} }
 
+func (Sink) SimulatorInfo(_ *protocol.SimulatorInfoPayload) error         { return nil }
 func (Sink) MetadataUpdate(_ *protocol.MetadataUpdatePayload) error       { return nil }
-func (Sink) StateSyncBegin(_ *string) error                               { return nil }
-func (Sink) StateSyncEnd(_ *string) error                                 { return nil }
-func (Sink) ActionEnd(_ *protocol.ActionEndPayload) error                 { return nil }
+func (Sink) StateSyncBegin(_ *protocol.StateSyncBeginPayload) error       { return nil }
+func (Sink) StateSyncEnd(_ *protocol.StateSyncEndPayload) error           { return nil }
+func (Sink) ActionResult(_ *protocol.ActionResultPayload) error           { return nil }
 func (Sink) EnvCreate(_, _ string) error                                  { return nil }
 func (Sink) EnvDelete(_ string) error                                     { return nil }
 func (Sink) EnvLayerCreate(_ *protocol.EnvLayerCreatePayload) error       { return nil }
@@ -87,10 +95,18 @@ func (Sink) ActionUpdate(_ *protocol.Action) error                        { retu
 func (Sink) ActionDelete(_ string) error                                  { return nil }
 func (Sink) ChartCreate(_ *protocol.ChartGroupMetadata) error             { return nil }
 func (Sink) ChartUpdate(_ *protocol.ChartUpdatePayload) error             { return nil }
-func (Sink) ChartDelete(_ string) error                                   { return nil }
+func (Sink) ChartDelete(_, _ string) error                                { return nil }
+func (Sink) MonitorCreate(_ *protocol.MonitorMetadata) error              { return nil }
+func (Sink) MonitorUpdate(_ *protocol.MonitorUpdatePayload) error         { return nil }
+func (Sink) MonitorDelete(_ string) error                                 { return nil }
+func (Sink) SceneRestoreBegin(_ *protocol.SceneRestoreBeginPayload) error { return nil }
+func (Sink) SceneRestoreEnd(_ *protocol.SceneRestoreEndPayload) error     { return nil }
+func (Sink) SceneCaptureResult(_ *protocol.SceneCaptureResultPayload) error {
+	return nil
+}
 func (Sink) AssetMeta(_ []protocol.AssetDescriptor) error                 { return nil }
 func (Sink) AssetData(_ *protocol.AssetDataPayload) error                 { return nil }
 func (Sink) AssetDelete(_ []string) error                                 { return nil }
 func (Sink) ScreenshotRequest(_ *protocol.ScreenshotRequestPayload) error { return nil }
 func (Sink) Log(_ *protocol.LogPayload) error                             { return nil }
-func (Sink) Error(_ string) error                                         { return nil }
+func (Sink) Error(_ *protocol.ErrorPayload) error                         { return nil }

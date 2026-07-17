@@ -6,10 +6,10 @@ Quick guide to set up a development environment for TenSnap.
 
 - **Git**: Version control
 - **Python 3.10+**: For Python backend
-- **Node.js 18+** and **pnpm 8+**: For web frontend
+- **Node.js 24+** and **pnpm 11+**: For the TypeScript 7/Vite 8 workspace
 - **Go 1.22+**: For Go bindings and examples
 - **Julia 1.9+**: For TenSnap.jl and Julia examples
-- **Rust 1.77.2+ & Cargo**: For Tauri desktop app (optional)
+- **Rust 1.88+ & Cargo**: For the current Tauri dependency graph (optional)
 
 ## Setup Steps
 
@@ -26,6 +26,23 @@ cd tensnap
 
 ```bash
 pnpm install  # Installs all workspace packages
+```
+
+The workspace compiles with TypeScript 7. `zod-to-ts` and
+`typescript-eslint` still execute the removed pre-v7 JavaScript compiler API,
+so `.pnpmfile.cjs` gives only those tools a private TypeScript 6 runtime. Do not
+remove that compatibility dependency until both upstream tools support the
+TypeScript 7 APIs; application and library typechecks must continue to resolve
+TypeScript 7.
+
+To refresh the npm toolchain, run both root and workspace updates, then verify
+cross-package tool versions before installing:
+
+```bash
+ncu -u
+ncu -u -w
+pnpm install
+pnpm peers check
 ```
 
 **Python:**
@@ -104,6 +121,11 @@ pnpm run dev:julia:schelling
 ```bash
 pnpm dev:tauri
 ```
+
+Tauri JavaScript and Rust plugins must be upgraded together. Keep
+`@tauri-apps/plugin-*` in `packages/tensnap-tauri/package.json` aligned with
+the corresponding `tauri-plugin-*` crates, run `cargo update` from
+`packages/tensnap-tauri/src-tauri`, and commit that directory's `Cargo.lock`.
 
 ### Project Structure
 

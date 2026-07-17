@@ -48,15 +48,12 @@ class ParameterBinding:
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for communication without getter/setter."""
         d = asdict(self)
-        if "setter" in d:
-            del d["setter"]
-        if "getter" in d:
-            del d["getter"]
-        if "allow_runtime_change" in d:
-            val = d["allow_runtime_change"]
-            del d["allow_runtime_change"]
-            d["allowRuntimeChange"] = val
-        return d
+        d.pop("setter", None)
+        d.pop("getter", None)
+        # A v0.3 binding emits canonical snake_case only.  In particular, do
+        # not leak dataclass ``None`` values: protocol optional fields must be
+        # omitted rather than encoded as JSON null.
+        return {key: value for key, value in d.items() if value is not None}
 
     def instantiate(
         self,

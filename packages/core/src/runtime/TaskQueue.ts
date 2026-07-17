@@ -12,7 +12,7 @@ import type { TickTimingBreakdown } from '@tensnap/protocol';
 export type RuntimeTaskStage = 'queued' | 'dispatched' | 'completed' | 'applied';
 
 export interface RuntimeTaskCompletion {
-  continue?: boolean;
+  should_continue?: boolean;
   timings?: TickTimingBreakdown;
 }
 
@@ -83,6 +83,19 @@ export class TaskQueue {
   // #region Enqueue / Cancel
 
   enqueue(key: string, options: { continuous?: boolean } = {}): string {
+    return this.enqueueAt(key, options, false);
+  }
+
+  /** Queue non-continuous lifecycle work immediately after the active task. */
+  enqueueFront(key: string, options: { continuous?: boolean } = {}): string {
+    return this.enqueueAt(key, options, true);
+  }
+
+  private enqueueAt(
+    key: string,
+    options: { continuous?: boolean },
+    front: boolean,
+  ): string {
     const continuous = options.continuous ?? false;
 
     if (continuous) {
@@ -110,29 +123,38 @@ export class TaskQueue {
     if (continuous) {
       this.continuousTaskByKey.set(key, task);
     }
-    this.queue.push(task);
+    if (front) this.queue.unshift(task);
+    else this.queue.push(task);
     return task.id;
   }
 
-  cancel(key?: string): void {
+  /** Remove queued work and return exactly the task IDs that were removed. */
+  cancel(key?: string): string[] {
+    const cancelledTaskIds: string[] = [];
     if (key !== undefined) {
       this.continuousKeys.delete(key);
       this.continuousTaskByKey.delete(key);
-      for (let i = this.queue.length - 1; i >= 0; i--) {
-        if (this.queue[i].key === key) {
-          this.taskById.delete(this.queue[i].id);
-          this.queue.splice(i, 1);
+      let writeIndex = 0;
+      for (const task of this.queue) {
+        if (task.key === key) {
+          this.taskById.delete(task.id);
+          cancelledTaskIds.push(task.id);
+        } else {
+          this.queue[writeIndex++] = task;
         }
       }
-      return;
+      this.queue.length = writeIndex;
+      return cancelledTaskIds;
     }
 
     this.continuousKeys.clear();
     this.continuousTaskByKey.clear();
     for (let i = 0; i < this.queue.length; i++) {
       this.taskById.delete(this.queue[i].id);
+      cancelledTaskIds.push(this.queue[i].id);
     }
     this.queue.length = 0;
+    return cancelledTaskIds;
   }
 
   reset(): void {
@@ -156,7 +178,7 @@ export class TaskQueue {
 
     task.stage = 'completed';
     task.completedAt = this.now();
-    task.continueRequested = completion.continue ?? null;
+    task.continueRequested = completion.should_continue ?? null;
     if (completion.timings !== undefined) {
       task.timings = { ...completion.timings };
     }
@@ -245,9 +267,9 @@ export class TaskQueue {
   }
 
   consumeCommands(): RuntimeDispatchCommand[] {
-    const commands = this.pendingCommands.map(cloneCommand);
-    this.pendingCommands.length = 0;
-    return commands;
+    // Dispatch commands already own task snapshots, so splicing them out does
+    // not expose the active mutable task. Avoid a second clone on every tick.
+    return this.pendingCommands.splice(0);
   }
 
   takeNextDispatchTask(): RuntimeTaskSnapshot | null {
@@ -259,7 +281,7 @@ export class TaskQueue {
   }
 
   /**
-   * Cancel a 'dispatched' active task whose action_start has NOT been sent.
+   * Cancel a 'dispatched' active task whose action_invoke has NOT been sent.
    */
   cancelPendingDispatch(taskId: string): boolean {
     const task = this.taskById.get(taskId);
@@ -272,6 +294,8 @@ export class TaskQueue {
     }
 
     this.taskById.delete(taskId);
+    const commandIndex = this.pendingCommands.findIndex((command) => command.task.id === taskId);
+    if (commandIndex !== -1) this.pendingCommands.splice(commandIndex, 1);
     if (task.continuous) {
       this.continuousTaskByKey.delete(task.key);
       this.continuousKeys.delete(task.key);

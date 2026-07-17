@@ -1,13 +1,19 @@
 import { EventEmitter } from 'node:events';
 import type {
   Action,
-  ActionEndPayload,
+  ActionResultPayload,
   Parameter,
   ProtocolEncoding,
+  ProtocolData,
+  ProtocolValidationLevel,
+  SceneCaptureResultPayload,
+  SceneRestoreEndPayload,
+  SceneRestorePayload,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
-import { RendererSession, type BoundedRunSpec } from '@tensnap/core/runtime';
+import { SceneRestorePayloadSchema } from '@tensnap/protocol';
+import { RendererSession, type BoundedRunSpec, type SceneRestoreOptions } from '@tensnap/core/runtime';
 import { ScenarioInspector } from '@tensnap/core/scenario';
 import type { AgentInspection, AgentInspectionOptions, AgentRef, ScenarioSnapshot } from '@tensnap/core/scenario';
 import { AgentStorage } from '@tensnap/core/environment';
@@ -40,6 +46,8 @@ export interface AgentRuntimeOptions {
   host?: string;
   controlPort?: number | null;
   encoding?: ProtocolEncoding;
+  clientMessageValidation?: ProtocolValidationLevel;
+  serverMessageValidation?: ProtocolValidationLevel;
   maxRunStepsPolicy?: number;
   render?: Partial<RenderSettings>;
   /** Delay between dirty scene updates and disk checkpoints. */
@@ -99,6 +107,8 @@ export class AgentRuntime extends EventEmitter {
       pid: process.pid,
       phase: 'idle',
       encoding: options.encoding ?? 'msgpack',
+      clientMessageValidation: options.clientMessageValidation ?? 'off',
+      serverMessageValidation: options.serverMessageValidation ?? 'off',
       maxRunStepsPolicy: options.maxRunStepsPolicy ?? 1_000_000,
       render: {
         trigger: options.render?.trigger ?? 'manual',
@@ -122,6 +132,8 @@ export class AgentRuntime extends EventEmitter {
     this.setPhase('connecting');
     this.control.simulatorUrl = options.simulatorUrl;
     this.control.encoding = options.encoding ?? this.control.encoding;
+    this.control.clientMessageValidation = options.clientMessageValidation ?? this.control.clientMessageValidation;
+    this.control.serverMessageValidation = options.serverMessageValidation ?? this.control.serverMessageValidation;
     this.completedStateSyncCount = 0;
     await this.persistStatus();
 
@@ -129,14 +141,20 @@ export class AgentRuntime extends EventEmitter {
       this.destroyTransport();
       this.renderer.scenario.reset();
       this.renderer.run.reset();
-      const transport = new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding);
+      const transport = new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
+        clientMessages: this.control.clientMessageValidation,
+        serverMessages: this.control.serverMessageValidation,
+      });
       this.transport = transport;
       this.renderer.attachTransport(transport);
       await transport.connect();
+      await this.waitForSimulatorInfo();
       this.renderer.requestStateSync();
       await this.log('info', 'runtime', 'Connected to simulator.', {
         simulatorUrl: options.simulatorUrl,
         encoding: this.control.encoding,
+        clientMessageValidation: this.control.clientMessageValidation,
+        serverMessageValidation: this.control.serverMessageValidation,
       });
       return this.getStatus();
     } catch (error) {
@@ -317,11 +335,45 @@ export class AgentRuntime extends EventEmitter {
     await this.waitForStateSync(targetSyncCount);
   }
 
+  /** Capture an exact simulator checkpoint; the protocol result is preserved verbatim. */
+  async captureScene(): Promise<SceneCaptureResultPayload> {
+    this.assertConnected();
+    const result = await this.renderer.captureScene();
+    await this.log('info', 'scene', 'Scene checkpoint captured.', {
+      requestId: result.request_id,
+      encoding: result.checkpoint.encoding,
+    });
+    this.emitRuntimeEvent('scene.capture.completed', { requestId: result.request_id, result });
+    return result;
+  }
+
+  /** Restore an exact and/or projected scene through the normal protocol transaction. */
+  async restoreScene(input: unknown, options: SceneRestoreOptions = {}): Promise<SceneRestoreEndPayload> {
+    this.assertConnected();
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+      throw new Error('scene restore payload must be an object.');
+    }
+    const info = this.renderer.simulatorInfo;
+    if (!info) throw new Error('Wait for simulator_info before restoring a scene.');
+    const requestId = `restore-${crypto.randomUUID()}`;
+    const parsed = SceneRestorePayloadSchema.parse({
+      ...(input as Record<string, unknown>),
+      request_id: requestId,
+      model_id: info.model.id,
+      expected_instance_id: (input as Partial<SceneRestorePayload>).expected_instance_id ?? info.instance_id,
+      state_schema_version: (input as Partial<SceneRestorePayload>).state_schema_version ?? info.model.state_schema_version,
+    });
+    const result = await this.renderer.restoreScene(parsed, options);
+    await this.log(result.status === 'ok' ? 'info' : 'warn', 'scene', 'Scene restore completed.', result);
+    this.emitRuntimeEvent('scene.restore.completed', { requestId, result });
+    return result;
+  }
+
   async waitUntilReady(timeoutMs?: number): Promise<RuntimeStatus> {
     return await this.waitForStateSync(1, timeoutMs);
   }
 
-  async setParameter(id: string, value: unknown): Promise<void> {
+  async setParameter(id: string, value: ProtocolData): Promise<void> {
     this.assertConnected();
     this.renderer.setParameter(id, value);
     await this.log('info', 'param', 'Parameter change requested.', { id, value });
@@ -458,6 +510,11 @@ export class AgentRuntime extends EventEmitter {
       void this.log('error', 'transport', 'Transport error.', { error: message });
       this.emitRuntimeEvent('transport.error', { error: message });
     });
+    this.renderer.addEventListener('transport:validation-warning', (event) => {
+      const warning = (event as CustomEvent<{ message: string; direction: string }>).detail;
+      void this.log('warn', 'transport', 'Protocol validation warning.', warning);
+      this.emitRuntimeEvent('transport.validation-warning', warning);
+    });
     this.renderer.addEventListener('run:status', (event) => {
       const status = (event as CustomEvent<{ state?: string }>).detail;
       if (status?.state === 'stopped') {
@@ -465,10 +522,13 @@ export class AgentRuntime extends EventEmitter {
       }
     });
     this.renderer.addEventListener('message', (event) => {
-      const { message } = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail;
-      void this.handleProtocolMessage(message);
-      if (message.type === 'action_end') {
-        void this.handleActionEnd(message.payload as ActionEndPayload);
+      const { message, origin } = (event as CustomEvent<{
+        message: SimulatorToRendererMessage;
+        origin: 'live' | 'state-sync' | 'scene-restore' | 'replay';
+      }>).detail;
+      void this.handleProtocolMessage(message, origin);
+      if (message.type === 'action_result') {
+        void this.handleActionResult(message.payload as ActionResultPayload);
       }
       if (message.type === 'screenshot_request') {
         void this.handleScreenshotRequest(message.payload as ScreenshotRequestPayload);
@@ -476,7 +536,10 @@ export class AgentRuntime extends EventEmitter {
     });
   }
 
-  private async handleProtocolMessage(message: SimulatorToRendererMessage): Promise<void> {
+  private async handleProtocolMessage(
+    message: SimulatorToRendererMessage,
+    origin: 'live' | 'state-sync' | 'scene-restore' | 'replay',
+  ): Promise<void> {
     this.emitRuntimeEvent('protocol.message', { type: message.type });
 
     if (message.type === 'state_sync_begin') {
@@ -497,28 +560,41 @@ export class AgentRuntime extends EventEmitter {
       return;
     }
 
-    if (message.type !== 'action_end' && message.type !== 'screenshot_request') {
+    if (message.type === 'scene_restore_end') {
+      if ((message.payload as SceneRestoreEndPayload).status === 'ok') {
+        this.markSceneDirty();
+      }
+      return;
+    }
+
+    // A state sync or scene restore is committed as one atomic Scenario
+    // replacement. Its intermediate messages must not publish dirty state.
+    if (origin === 'state-sync' || origin === 'scene-restore') {
+      return;
+    }
+
+    if (message.type !== 'action_result' && message.type !== 'screenshot_request') {
       this.markSceneDirty();
     }
   }
 
-  private async handleActionEnd(payload: ActionEndPayload): Promise<void> {
+  private async handleActionResult(payload: ActionResultPayload): Promise<void> {
     try {
       void this.log('info', 'action', 'Action completed.', payload);
-      this.emitRuntimeEvent('action.end', payload);
+      this.emitRuntimeEvent('action.result', payload);
 
-      if (this.control.render.trigger === 'action-end') {
-        const request = this.createRenderRequest({}, `action-end:${payload.id}`, 'action-end');
+      if (this.control.render.trigger === 'action-result') {
+        const request = this.createRenderRequest({}, `action-result:${payload.id}`, 'action-result');
         const artifacts = await this.runPainters(request);
         await this.checkpointScene(request.snapshot, true);
 
-        void this.log('info', 'render', 'Auto render executed after action_end.', {
+        void this.log('info', 'render', 'Auto render executed after action_result.', {
           actionId: payload.id,
           artifactCount: artifacts.length,
         });
         this.emitRuntimeEvent('render.requested', {
-          reason: `action-end:${payload.id}`,
-          trigger: 'action-end',
+          reason: `action-result:${payload.id}`,
+          trigger: 'action-result',
           painterCount: this.painters.size,
           artifactCount: artifacts.length,
         });
@@ -547,7 +623,7 @@ export class AgentRuntime extends EventEmitter {
       } catch (error) {
         this.renderer.sendScreenshotResponse({
           request_id: payload.request_id,
-          error: error instanceof Error ? error.message : String(error),
+          error: { code: 'render_failed', message: error instanceof Error ? error.message : String(error) },
         });
       }
       return;
@@ -569,7 +645,7 @@ export class AgentRuntime extends EventEmitter {
       if (!artifact?.data?.length) {
         this.renderer.sendScreenshotResponse({
           request_id: payload.request_id,
-          error: 'No environment render artifact was produced for screenshot_request.',
+          error: { code: 'render_missing', message: 'No environment render artifact was produced for screenshot_request.' },
         });
         return;
       }
@@ -583,7 +659,7 @@ export class AgentRuntime extends EventEmitter {
       const message = error instanceof Error ? error.message : String(error);
       this.renderer.sendScreenshotResponse({
         request_id: payload.request_id,
-        error: message,
+        error: { code: 'render_failed', message },
       });
     }
   }
@@ -680,6 +756,38 @@ export class AgentRuntime extends EventEmitter {
       };
 
       this.renderer.addEventListener('message', onMessage);
+      this.renderer.addEventListener('transport:close', onClose);
+      this.renderer.addEventListener('transport:error', onError);
+    });
+  }
+
+  private async waitForSimulatorInfo(timeoutMs = 10_000): Promise<void> {
+    if (this.renderer.simulatorInfo) return;
+    await new Promise<void>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out waiting for simulator_info.'));
+      }, timeoutMs);
+      const onInfo = (): void => {
+        cleanup();
+        resolve();
+      };
+      const onClose = (): void => {
+        cleanup();
+        reject(new Error('Runtime disconnected before simulator_info arrived.'));
+      };
+      const onError = (event: Event): void => {
+        cleanup();
+        const error = (event as CustomEvent<unknown>).detail;
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+      const cleanup = (): void => {
+        clearTimeout(timeoutId);
+        this.renderer.removeEventListener('simulator:info', onInfo);
+        this.renderer.removeEventListener('transport:close', onClose);
+        this.renderer.removeEventListener('transport:error', onError);
+      };
+      this.renderer.addEventListener('simulator:info', onInfo);
       this.renderer.addEventListener('transport:close', onClose);
       this.renderer.addEventListener('transport:error', onError);
     });

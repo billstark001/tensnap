@@ -1,6 +1,6 @@
 # TenSnap User Guide
 
-This guide describes the current protocol v0.2 user-facing workflow, with the
+This guide describes the current protocol v0.3 user-facing workflow, with the
 Python 0.2.2 surface as the primary tutorial path.
 
 If you need runnable Python references, start with `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples, but the examples and Python API reference remain the authoritative source for the current Python release. Go, JavaScript/TypeScript, and Julia users should start from their API references and package READMEs.
@@ -10,7 +10,7 @@ If you need runnable Python references, start with `examples/python/`, `examples
 TenSnap separates three concerns:
 
 1. Your simulation logic.
-2. A simulator/runtime that exposes that logic over protocol v0.2.
+2. A simulator/runtime that exposes that logic over protocol v0.3.
 3. A renderer that owns synchronized state and turns it into an interactive UI.
 
 For Python users, the recommended entry point is `SimulationScenario`.

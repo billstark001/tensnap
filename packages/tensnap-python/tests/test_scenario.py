@@ -14,9 +14,18 @@ from tensnap.bindings import (
     chart,
     env,
     grid_layer,
+    monitor,
     params,
+    scene_restore,
 )
-from tensnap.models import EnvironmentBinding, LayerBinding
+from tensnap.models import (
+    ChartGroupMetadata,
+    ChartMetadata,
+    EnvironmentBinding,
+    LayerBinding,
+    MonitorMetadata,
+)
+from tensnap.protocol import compute_chart_deltas
 from tensnap.scenario import DefaultSimulationHandler, SimulationScenario
 from tensnap.server import ServerToClientMessageType as MT
 
@@ -152,6 +161,144 @@ class TestSimulationScenario:
 
         scenario._action_handlers["tick"]()
         assert model.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_declarative_monitors_and_restore_hooks(
+        self, scenario: SimulationScenario
+    ):
+        @scene_restore(
+            "restore",
+            checkpoint_capture="capture",
+            checkpoint_restore="restore_checkpoint",
+        )
+        class Model:
+            def __init__(self):
+                self.value = 2
+                self.restored = None
+
+            @monitor("status", "Status", render_hint="tree")
+            def status(self):
+                return {"value": self.value}
+
+            def restore(self, payload):
+                self.restored = payload
+
+            def capture(self):
+                return {"value": self.value}
+
+            def restore_checkpoint(self, data):
+                self.value = data["value"]
+
+        model = Model()
+        changes = scenario.add_all(model)
+
+        assert changes["monitors"] == ["status"]
+        assert scenario.server.simulator_info_payload["capabilities"] == [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected",
+        ]
+        assert scenario._scene_restore is not None
+        scenario._scene_restore({"time": 4})
+        assert model.restored == {"time": 4}
+
+        ws = object()
+        scenario.server.send = AsyncMock()  # type: ignore[method-assign]
+        await scenario.broadcast_monitors(ws)
+        scenario.server.send.assert_awaited_once_with(
+            ws,
+            MT.MONITOR_UPDATE,
+            {"id": "status", "value": {"value": 2}},
+        )
+
+        scenario.server.send.reset_mock()
+        await scenario._on_scene_capture(ws, {"request_id": "capture-1"})
+        capture_payload = scenario.server.send.await_args.args[2]
+        assert capture_payload["checkpoint"]["encoding"] == "application/msgpack"
+
+        scenario.server.send.reset_mock()
+        await scenario._on_scene_restore(
+            ws,
+            {
+                "request_id": "restore-1",
+                "model_id": scenario.model_id,
+                "checkpoint": capture_payload["checkpoint"],
+                "time": 7,
+            },
+        )
+        assert model.value == 2
+        assert model.restored["time"] == 7
+        message_types = [call.args[1] for call in scenario.server.send.await_args_list]
+        assert MT.CHART_CREATE not in message_types
+        assert MT.CHART_UPDATE not in message_types
+        assert MT.CHART_DELETE not in message_types
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_only_restore_receives_decoded_model_data(
+        self, scenario: SimulationScenario
+    ):
+        @scene_restore(
+            None,
+            checkpoint_capture="capture",
+            checkpoint_restore="restore_checkpoint",
+        )
+        class Model:
+            def __init__(self):
+                self.value = 2
+
+            def capture(self):
+                return {"value": self.value}
+
+            def restore_checkpoint(self, data):
+                self.value = data["value"]
+
+        model = Model()
+        scenario.add_all(model)
+        assert scenario.server.simulator_info_payload["capabilities"] == [
+            "scene.restore.checkpoint"
+        ]
+
+        scenario.server.send = AsyncMock()  # type: ignore[method-assign]
+        ws = object()
+        await scenario._on_scene_capture(ws, {"request_id": "capture-only"})
+        checkpoint = scenario.server.send.await_args.args[2]["checkpoint"]
+        model.value = 9
+        await scenario._on_scene_restore(
+            ws,
+            {
+                "request_id": "restore-only",
+                "model_id": scenario.model_id,
+                "checkpoint": checkpoint,
+            },
+        )
+
+        assert model.value == 2
+        scenario.server.send.assert_any_await(
+            ws,
+            MT.SCENE_RESTORE_END,
+            {"request_id": "restore-only", "status": "ok"},
+        )
+
+    def test_chart_sync_preserves_flat_group_inventory(self):
+        group = ChartGroupMetadata(
+            id="population-group",
+            label="Population group",
+            data_list=[
+                ChartMetadata(id="population", label="Population"),
+                ChartMetadata(id="happy", label="Happy"),
+            ],
+        )
+
+        deltas = compute_chart_deltas(
+            {"population-group": (group, lambda: None)},
+            [
+                {"id": "population", "label": "old renderer label"},
+                {"id": "happy", "label": "Happy"},
+                {"id": "stale", "label": "Stale"},
+            ],
+        )
+
+        assert deltas == {"added": [], "removed": ["stale"], "updated": []}
 
     def test_add_all_returns_changes_and_accepts_targets_without_environment(
         self, scenario: SimulationScenario
@@ -416,6 +563,124 @@ class TestSimulationScenario:
         scenario.server.send.assert_any_await(ws, MT.METADATA_UPDATE, {"time": 0})
 
     @pytest.mark.asyncio
+    async def test_state_sync_replace_replays_objects_despite_stale_inventory(
+        self, scenario: SimulationScenario
+    ):
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
+        scenario.server.send = AsyncMock()
+        ws = object()
+
+        await scenario._on_state_sync(
+            ws,
+            {
+                "request_id": "sync-replace",
+                "model_id": scenario.model_id,
+                "instance_id": "stale-instance",
+                "actions": [],
+                "parameters": [],
+                "envs": [{"id": "world", "type": "2d", "layers": []}],
+                "charts": [],
+                "monitors": [],
+            },
+        )
+
+        scenario.server.send.assert_any_await(
+            ws,
+            MT.STATE_SYNC_BEGIN,
+            {
+                "request_id": "sync-replace",
+                "model_id": scenario.model_id,
+                "instance_id": scenario.instance_id,
+                "mode": "replace",
+            },
+        )
+        scenario.server.send.assert_any_await(
+            ws, MT.ENV_CREATE, {"id": "world", "type": "2d"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_state_sync_replaces_changed_monitor_metadata(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            @monitor("status", "Status", render_hint="tree")
+            def status(self):
+                return {"ok": True}
+
+        scenario.add_monitors(Model())
+        scenario.server.send = AsyncMock()
+        ws = object()
+        await scenario._on_state_sync(
+            ws,
+            {
+                "request_id": "sync-monitor",
+                "model_id": scenario.model_id,
+                "instance_id": scenario.instance_id,
+                "actions": [action.to_dict() for action in scenario.actions.values()],
+                "parameters": [],
+                "envs": [],
+                "charts": [],
+                "monitors": [{"id": "status", "label": "Old"}],
+            },
+        )
+
+        calls = [
+            (call.args[1], call.args[2])
+            for call in scenario.server.send.await_args_list
+        ]
+        delete_index = calls.index((MT.MONITOR_DELETE, {"id": "status"}))
+        create_index = calls.index(
+            (
+                MT.MONITOR_CREATE,
+                {"id": "status", "label": "Status", "render_hint": "tree"},
+            )
+        )
+        assert delete_index < create_index
+
+    @pytest.mark.asyncio
+    async def test_reset_replaces_changed_monitor_metadata_without_duplicate_create(
+        self, scenario: SimulationScenario
+    ):
+        class Model:
+            @monitor("status", "Status")
+            def status(self):
+                return {"ok": True}
+
+        model = Model()
+        scenario.add_monitors(model)
+        handler = AsyncMock()
+        handler.on_registered = AsyncMock()
+
+        async def replace_monitor() -> None:
+            scenario.monitors["status"] = (
+                MonitorMetadata("status", "Updated", "tree"),
+                model.status,
+            )
+
+        handler.on_reset = AsyncMock(side_effect=replace_monitor)
+        await scenario.register_handler(handler)
+        scenario.server.broadcast = AsyncMock()
+        scenario.server.broadcast_metadata_update = AsyncMock()
+
+        await scenario._fire_reset()
+
+        calls = [
+            (call.args[0], call.args[1])
+            for call in scenario.server.broadcast.await_args_list
+        ]
+        delete_index = calls.index((MT.MONITOR_DELETE, {"id": "status"}))
+        create = (
+            MT.MONITOR_CREATE,
+            {
+                "id": "status",
+                "label": "Updated",
+                "render_hint": "tree",
+            },
+        )
+        assert calls.count(create) == 1
+        assert delete_index < calls.index(create)
+
+    @pytest.mark.asyncio
     async def test_action_start_serializes_action_handlers(
         self, scenario: SimulationScenario
     ):
@@ -438,14 +703,14 @@ class TestSimulationScenario:
         scenario.server.send_action_end = AsyncMock()
 
         await asyncio.gather(
-            scenario._on_action_start(object(), {"id": "slow", "tick_id": "a"}),
-            scenario._on_action_start(object(), {"id": "slow", "tick_id": "b"}),
+            scenario._on_action_invoke(object(), {"id": "slow", "request_id": "a"}),
+            scenario._on_action_invoke(object(), {"id": "slow", "request_id": "b"}),
         )
 
         assert model.calls == 2
         assert model.max_active == 1
         assert [
-            call.kwargs["tick_id"]
+            call.kwargs["request_id"]
             for call in scenario.server.send_action_end.await_args_list
         ] == ["a", "b"]
 

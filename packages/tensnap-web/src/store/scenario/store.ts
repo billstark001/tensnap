@@ -4,7 +4,6 @@ import { createAutoLayout } from '@/utils/view/pack';
 import { createDefaultRootLayout } from '@/utils/view/create-view';
 import { AnyView, ContainerView } from '@/types/ui';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
-import { getToastState } from '../toast';
 import { useSettingsStore } from '../settings';
 import {
   ChartStorage,
@@ -15,19 +14,30 @@ import {
   ScenarioSnapshot,
   sanitizeParameter,
 } from '@tensnap/core';
+import type { DiagnosticEvent } from '@tensnap/core';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
-import { createSingleSnapshot, type RecordingOptions, type Snapshot } from '@tensnap/core/snapshot';
+import type { RendererSessionActionMetricsDetail } from '@tensnap/core/runtime';
+import { createSingleSnapshot, type RecordingOptions, type Snapshot, type SnapshotModelIdentity } from '@tensnap/core/snapshot';
+import { ProtocolValueSchema } from '@tensnap/protocol';
 import type {
   Action,
-  ActionEndPayload,
+  ActionResultPayload,
   MetadataUpdatePayload,
   NormalizedLogPayload,
   Parameter,
-  ScreenshotResponsePayload,
+  ProtocolData,
   SimulatorToRendererMessage,
-  StateSyncBoundaryPayload,
+  StateSyncBeginPayload,
+  StateSyncEndPayload,
 } from '@tensnap/protocol';
-import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft, StateSyncStatus } from './types';
+import {
+  EditableEnvironmentDraft,
+  ProjectDiagnostic,
+  ScenarioStore,
+  ScreenshotCaptureHandler,
+  SnapshotDraft,
+  StateSyncStatus,
+} from './types';
 import {
   createHistoryCommandId,
   estimateHistoryBytes,
@@ -102,6 +112,23 @@ const createIdleStateSyncStatus = (): StateSyncStatus => ({
   autoLayoutOnComplete: false,
 });
 
+const MAX_DIAGNOSTICS = 500;
+const MAX_DIAGNOSTIC_BYTES = 1_000_000;
+let diagnosticIdCounter = 0;
+
+const diagnosticBytes = (diagnostic: ProjectDiagnostic): number => {
+  try {
+    return JSON.stringify(diagnostic).length;
+  } catch {
+    return diagnostic.message.length + 256;
+  }
+};
+
+const diagnosticKey = (diagnostic: Omit<DiagnosticEvent, 'timestamp'>): string => (
+  diagnostic.dedupeKey
+    ?? `${diagnostic.severity}:${diagnostic.domain}:${diagnostic.source}:${diagnostic.code ?? ''}:${diagnostic.message}`
+);
+
 type TimeCorrectionState = {
   minimumRuntimeTime: number;
 };
@@ -122,7 +149,7 @@ const syncTimeCorrectionFromMetadata = (
 const syncTimeCorrectionFromAction = (
   scenario: Scenario,
   correction: TimeCorrectionState,
-  payload: ActionEndPayload,
+  payload: ActionResultPayload,
 ) => {
   if (payload.id === 'reset') {
     resetTimeCorrection(correction);
@@ -181,6 +208,7 @@ const subscribeSession = (
     environmentChanged: boolean;
     parameterChanged: boolean;
     chartChanged: boolean;
+    monitorChanged: boolean;
     assetChanged: boolean;
     logChanged: boolean;
   }) => void,
@@ -192,6 +220,7 @@ const subscribeSession = (
     environmentChanged: false,
     parameterChanged: false,
     chartChanged: false,
+    monitorChanged: false,
     assetChanged: false,
     logChanged: false,
   };
@@ -210,6 +239,7 @@ const subscribeSession = (
       environmentChanged: pending.environmentChanged,
       parameterChanged: pending.parameterChanged,
       chartChanged: pending.chartChanged,
+      monitorChanged: pending.monitorChanged,
       assetChanged: pending.assetChanged,
       logChanged: pending.logChanged,
     });
@@ -219,6 +249,7 @@ const subscribeSession = (
     pending.environmentChanged = false;
     pending.parameterChanged = false;
     pending.chartChanged = false;
+    pending.monitorChanged = false;
     pending.assetChanged = false;
     pending.logChanged = false;
   };
@@ -230,6 +261,7 @@ const subscribeSession = (
       || updates.environmentChanged
       || updates.parameterChanged
       || updates.chartChanged
+      || updates.monitorChanged
       || updates.assetChanged
       || updates.logChanged;
     if (!hasUpdates) return;
@@ -239,6 +271,7 @@ const subscribeSession = (
     if (updates.environmentChanged) pending.environmentChanged = true;
     if (updates.parameterChanged) pending.parameterChanged = true;
     if (updates.chartChanged) pending.chartChanged = true;
+    if (updates.monitorChanged) pending.monitorChanged = true;
     if (updates.assetChanged) pending.assetChanged = true;
     if (updates.logChanged) pending.logChanged = true;
     if (!queued) {
@@ -268,6 +301,7 @@ const subscribeSession = (
       environmentChanged: false,
       parameterChanged: false,
       chartChanged: false,
+      monitorChanged: false,
       assetChanged: false,
       logChanged: false,
     };
@@ -278,8 +312,8 @@ const subscribeSession = (
           syncTimeCorrectionFromMetadata(timeCorrection, message.payload as MetadataUpdatePayload);
           flags.timeChanged = true;
           break;
-        case 'action_end':
-          syncTimeCorrectionFromAction(scenario, timeCorrection, message.payload as ActionEndPayload);
+        case 'action_result':
+          syncTimeCorrectionFromAction(scenario, timeCorrection, message.payload as ActionResultPayload);
           flags.timeChanged = true;
           flags.runChanged = true;
           break;
@@ -312,7 +346,15 @@ const subscribeSession = (
         case 'chart_delete':
           flags.chartChanged = true;
           break;
-        case 'asset_meta':
+        case 'monitor_create':
+        case 'monitor_delete':
+          flags.monitorChanged = true;
+          break;
+        case 'monitor_update':
+          // Monitor values publish independently by ID. Metadata consumers
+          // (layout/editor) do not need a global Zustand refresh per sample.
+          break;
+        case 'asset_metadata':
         case 'asset_data':
         case 'asset_delete':
           flags.assetChanged = true;
@@ -330,21 +372,30 @@ const subscribeSession = (
     schedule(flags);
   };
   const onRunStatus: EventListener = () => schedule({ runChanged: true });
+  const onOptimisticParameter: EventListener = () => schedule({ parameterChanged: true });
 
   session.addEventListener('commit', onCommit);
   session.addEventListener('run:status', onRunStatus);
+  scenario.addEventListener('param:optimistic', onOptimisticParameter);
 
   return () => {
     session.removeEventListener('commit', onCommit);
     session.removeEventListener('run:status', onRunStatus);
+    scenario.removeEventListener('param:optimistic', onOptimisticParameter);
     if (flushTimer !== null) clearTimeout(flushTimer);
   };
 };
 
-const createSnapshot = (snapshot: ScenarioSnapshot, draft?: SnapshotDraft): Snapshot => createSingleSnapshot(snapshot, {
+const createSnapshot = (
+  snapshot: ScenarioSnapshot,
+  draft?: SnapshotDraft,
+  modelIdentity?: SnapshotModelIdentity | null,
+): Snapshot => createSingleSnapshot(snapshot, {
   id: draft?.id,
   label: draft?.label,
   timestamp: draft?.timestamp,
+  modelIdentity: draft?.modelIdentity ?? modelIdentity ?? undefined,
+  checkpoint: draft?.checkpoint,
 });
 
 const appendSnapshot = (snapshots: Snapshot[], snapshot: Snapshot, maxSnapshots: number): Snapshot[] => {
@@ -355,7 +406,15 @@ const appendSnapshot = (snapshots: Snapshot[], snapshot: Snapshot, maxSnapshots:
   return next;
 };
 
-export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<HistoryState>>) => {
+export interface ScenarioStorePolicies {
+  /** Enforces project-level references before a snapshot collection is replaced. */
+  assertSnapshotSetAllowed?: (snapshots: readonly Snapshot[]) => void;
+}
+
+export const createScenarioStore = (
+  historyStore?: UseBoundStore<StoreApi<HistoryState>>,
+  policies: ScenarioStorePolicies = {},
+) => {
   const renderBarrier = new BrowserRunRenderBarrier(() => {
     const { renderTriggerMode, maxTps, maxRenderFps } = useSettingsStore.getState();
     return { mode: renderTriggerMode, maxTps, maxRenderFps };
@@ -400,8 +459,14 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         label,
         scope: 'snapshot',
         byteSize: estimateHistoryBytes(beforePatch, afterPatch),
-        apply: () => set({ snapshots: structuredClone(afterPatch) }),
-        revert: () => set({ snapshots: structuredClone(beforePatch) }),
+        apply: () => {
+          policies.assertSnapshotSetAllowed?.(afterPatch);
+          set({ snapshots: structuredClone(afterPatch) });
+        },
+        revert: () => {
+          policies.assertSnapshotSetAllowed?.(beforePatch);
+          set({ snapshots: structuredClone(beforePatch) });
+        },
       });
     };
 
@@ -410,6 +475,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       environmentChanged?: boolean;
       parameterChanged?: boolean;
       chartChanged?: boolean;
+      monitorChanged?: boolean;
       assetChanged?: boolean;
       logChanged?: boolean;
       runChanged?: boolean;
@@ -417,6 +483,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       set((state) => ({
         actionRevision: flags?.actionChanged ? state.actionRevision + 1 : state.actionRevision,
         chartRevision: flags?.chartChanged ? state.chartRevision + 1 : state.chartRevision,
+        monitorRevision: flags?.monitorChanged ? state.monitorRevision + 1 : state.monitorRevision,
         logRevision: flags?.logChanged ? state.logRevision + 1 : state.logRevision,
         runRevision: flags?.runChanged ? state.runRevision + 1 : state.runRevision,
         assetRevision: flags?.assetChanged ? state.assetRevision + 1 : state.assetRevision,
@@ -437,13 +504,17 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       isRecording: false,
       mainView: createDefaultRootLayout(),
       connected: false,
+      actionMetrics: null,
       stateSync: createIdleStateSyncStatus(),
       actionRevision: 0,
       chartRevision: 0,
+      monitorRevision: 0,
       logRevision: 0,
+      diagnosticRevision: 0,
       runRevision: 0,
       assetRevision: 0,
       currentTime: null,
+      diagnostics: [],
       viewUpdateTrigger: createUpdateTriggerStoreFunction(
         (x) => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })),
         () => get().viewUpdateTrigger,
@@ -462,6 +533,43 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
 
       setConnected: (connected) => set({ connected }),
 
+      appendDiagnostic: (input) => set((state) => {
+        const timestamp = input.timestamp ?? Date.now();
+        const dedupeKey = diagnosticKey(input);
+        const last = state.diagnostics[state.diagnostics.length - 1];
+        if (last && last.dedupeKey === dedupeKey && timestamp - last.lastTimestamp <= 5_000) {
+          const diagnostics = [...state.diagnostics];
+          diagnostics[diagnostics.length - 1] = {
+            ...last,
+            count: last.count + 1,
+            lastTimestamp: timestamp,
+          };
+          return { diagnostics, diagnosticRevision: state.diagnosticRevision + 1 };
+        }
+
+        const next: ProjectDiagnostic = {
+          ...input,
+          id: `diagnostic-${++diagnosticIdCounter}`,
+          timestamp,
+          lastTimestamp: timestamp,
+          count: 1,
+          dedupeKey,
+        };
+        const diagnostics = [...state.diagnostics, next];
+        let byteLength = diagnostics.reduce((total, diagnostic) => total + diagnosticBytes(diagnostic), 0);
+        while (diagnostics.length > MAX_DIAGNOSTICS || byteLength > MAX_DIAGNOSTIC_BYTES) {
+          const removed = diagnostics.shift();
+          if (!removed) break;
+          byteLength -= diagnosticBytes(removed);
+        }
+        return { diagnostics, diagnosticRevision: state.diagnosticRevision + 1 };
+      }),
+
+      clearDiagnostics: () => set((state) => ({
+        diagnostics: [],
+        diagnosticRevision: state.diagnosticRevision + 1,
+      })),
+
       prepareStateSync: (requestId, options) => set({
         stateSync: {
           requestId,
@@ -470,7 +578,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         },
       }),
 
-      handleStateSyncBoundary: (phase, payload: StateSyncBoundaryPayload) => {
+      handleStateSyncBoundary: (phase: 'begin' | 'end', payload: StateSyncBeginPayload | StateSyncEndPayload) => {
         const activeStateSync = get().stateSync;
         if (!matchesActiveStateSync(activeStateSync.requestId, payload.request_id)) {
           return;
@@ -518,21 +626,13 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
           state.scenario.charts.getGroupList(),
           { disableMissingViews: true },
           Array.from(state.scenario.actions.values()),
+          Array.from(state.scenario.monitors.all.values()),
         );
         set({
           mainView: after,
         });
         if (options?.recordHistory !== false) {
           recordMainViewChange('Update view layout', 'layout', before, after);
-        }
-      },
-
-      applyMessage: (message: SimulatorToRendererMessage) => {
-        try {
-          session.handleIncoming(message);
-        } catch (error) {
-          const toast = getToastState();
-          toast.error('Scenario apply failed', error instanceof Error ? error.message : String(error));
         }
       },
 
@@ -544,9 +644,12 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         set((state) => ({
           actionRevision: state.actionRevision + 1,
           chartRevision: state.chartRevision + 1,
+          monitorRevision: state.monitorRevision + 1,
           logRevision: state.logRevision + 1,
+          diagnosticRevision: state.diagnosticRevision + 1,
           runRevision: state.runRevision + 1,
           assetRevision: state.assetRevision + 1,
+          diagnostics: [],
           currentTime: getCurrentTime(scenario, timeCorrection),
           stateSync: createIdleStateSyncStatus(),
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
@@ -559,15 +662,19 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         resetTimeCorrection(timeCorrection);
         set((state) => ({
           connected: false,
+          actionMetrics: null,
           snapshots: [],
           isRecording: false,
           currentTime: null,
           stateSync: createIdleStateSyncStatus(),
           actionRevision: state.actionRevision + 1,
           chartRevision: state.chartRevision + 1,
+          monitorRevision: state.monitorRevision + 1,
           logRevision: state.logRevision + 1,
+          diagnosticRevision: state.diagnosticRevision + 1,
           runRevision: state.runRevision + 1,
           assetRevision: state.assetRevision + 1,
+          diagnostics: [],
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
           parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
         }));
@@ -603,7 +710,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
             const nextChart = {
               id: chart.id,
               label: chart.label,
-              metadataDict: Object.fromEntries((chart.dataList ?? []).map((item) => [item.id, item])),
+              metadataDict: Object.fromEntries((chart.data_list ?? []).map((item) => [item.id, item])),
               data: index >= 0 ? snapshot.charts[index].data : [],
             };
             if (index >= 0) snapshot.charts[index] = nextChart;
@@ -620,6 +727,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
           environmentChanged: true,
           parameterChanged: true,
           chartChanged: true,
+          monitorChanged: true,
           assetChanged: true,
           logChanged: true,
         });
@@ -640,6 +748,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
           environmentChanged: true,
           parameterChanged: true,
           chartChanged: true,
+          monitorChanged: true,
           assetChanged: true,
           logChanged: true,
         });
@@ -718,7 +827,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
               payload: {
                 env_id: id,
                 layer_id: layer.id,
-                data: structuredClone(layerDraft.metadata),
+                metadata: structuredClone(layerDraft.metadata),
               },
             });
             changed = true;
@@ -729,19 +838,19 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         const agentMetaKeys = new Set(['coord_offset']);
 
         for (const layer of environment.layers.values()) {
-          const data: Record<string, unknown> = {};
+          const data: Record<string, ProtocolData> = {};
 
           for (const [key, value] of entries) {
             if (dimensionKeys.has(key)) {
               if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
-                data[key] = structuredClone(value);
+                data[key] = ProtocolValueSchema.parse(structuredClone(value));
               }
               continue;
             }
 
             if (agentMetaKeys.has(key)) {
               if (layer.layerType === 'agent') {
-                data[key] = structuredClone(value);
+                data[key] = ProtocolValueSchema.parse(structuredClone(value));
               }
               continue;
             }
@@ -753,7 +862,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
 
           scenario.apply({
             type: 'env_layer_update',
-            payload: { env_id: id, layer_id: layer.id, data },
+            payload: { env_id: id, layer_id: layer.id, metadata: data },
           });
           changed = true;
         }
@@ -816,12 +925,6 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         return true;
       },
 
-      createStateSyncMessage: (requestId) => scenario.createStateSyncMessage(requestId),
-      createParamChangeMessage: (id, value) => scenario.createParamChangeMessage(id, value),
-      createActionStartMessage: (id, continuous, tickId) => scenario.createActionStartMessage(id, continuous, tickId),
-      createAssetSyncMessage: () => scenario.createAssetSyncMessage(),
-      createScreenshotResponseMessage: (payload: ScreenshotResponsePayload) => scenario.createScreenshotResponseMessage(payload),
-
       registerScreenshotCapture: (id: string, handler: ScreenshotCaptureHandler) => {
         screenshotCaptures.set(id, handler);
       },
@@ -835,11 +938,40 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       },
 
       addSnapshot: (draft) => {
-        const snapshot = createSnapshot(scenario.dump(), draft);
+        const snapshot = createSnapshot(scenario.dump(), draft, session.modelIdentity);
         const before = get().snapshots;
         const after = appendSnapshot(before, snapshot, get().maxSnapshots);
+        policies.assertSnapshotSetAllowed?.(after);
         set({ snapshots: after });
         recordSnapshotChange('Take snapshot', before, after);
+      },
+
+      captureSnapshot: async (draft) => {
+        const info = session.simulatorInfo;
+        if (!Array.isArray(info?.capabilities) || !info.capabilities.includes('scene.restore.checkpoint')) {
+          get().addSnapshot(draft);
+          return;
+        }
+        const result = await session.captureScene();
+        const modelIdentity = {
+          model_id: result.model_id,
+          ...(result.state_schema_version === undefined ? {} : { state_schema_version: result.state_schema_version }),
+          ...(session.modelIdentity?.instance_id === undefined ? {} : { instance_id: session.modelIdentity.instance_id }),
+        };
+        const snapshot = createSnapshot(scenario.dump(), {
+          ...draft,
+          modelIdentity,
+          checkpoint: {
+            ...structuredClone(result.checkpoint),
+            model_id: result.model_id,
+            ...(result.state_schema_version === undefined ? {} : { state_schema_version: result.state_schema_version }),
+          },
+        });
+        const before = get().snapshots;
+        const after = appendSnapshot(before, snapshot, get().maxSnapshots);
+        policies.assertSnapshotSetAllowed?.(after);
+        set({ snapshots: after });
+        recordSnapshotChange('Capture exact snapshot', before, after);
       },
 
       startRecording: (options: RecordingOptions = {}) => {
@@ -874,12 +1006,14 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       removeSnapshot: (id) => {
         const before = get().snapshots;
         const after = before.filter((snapshot) => String(snapshot.metadata.id ?? '') !== id);
+        policies.assertSnapshotSetAllowed?.(after);
         set({ snapshots: after });
         recordSnapshotChange('Delete snapshot', before, after);
       },
 
       clearSnapshots: () => {
         const before = get().snapshots;
+        policies.assertSnapshotSetAllowed?.([]);
         set({ snapshots: [] });
         recordSnapshotChange('Clear snapshots', before, []);
       },
@@ -900,6 +1034,10 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
 
       get charts(): ChartStorage {
         return scenario.charts;
+      },
+
+      get monitors() {
+        return scenario.monitors;
       },
 
       get logs(): readonly NormalizedLogPayload[] {
@@ -923,6 +1061,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
       environmentChanged,
       parameterChanged,
       chartChanged,
+      monitorChanged,
       assetChanged,
       logChanged,
     }) => {
@@ -930,6 +1069,7 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
         const next = {
           actionRevision: actionChanged ? state.actionRevision + 1 : state.actionRevision,
           chartRevision: chartChanged ? state.chartRevision + 1 : state.chartRevision,
+          monitorRevision: monitorChanged ? state.monitorRevision + 1 : state.monitorRevision,
           logRevision: logChanged ? state.logRevision + 1 : state.logRevision,
           runRevision: runChanged ? state.runRevision + 1 : state.runRevision,
           assetRevision: assetChanged ? state.assetRevision + 1 : state.assetRevision,
@@ -946,15 +1086,25 @@ export const createScenarioStore = (historyStore?: UseBoundStore<StoreApi<Histor
     },
   );
   const onRecordingStart: EventListener = () => useStore.setState({ isRecording: true });
+  const onActionMetrics: EventListener = (event) => {
+    const { metrics } = (event as CustomEvent<RendererSessionActionMetricsDetail>).detail;
+    useStore.setState({ actionMetrics: metrics });
+  };
+  const onDiagnostic: EventListener = (event) => {
+    useStore.getState().appendDiagnostic((event as CustomEvent<DiagnosticEvent>).detail);
+  };
   const onRecordingComplete: EventListener = (event) => {
     const snapshot = (event as CustomEvent<{ snapshot: Snapshot }>).detail.snapshot;
-    useStore.setState((state) => ({
-      isRecording: false,
-      snapshots: appendSnapshot(state.snapshots, snapshot, state.maxSnapshots),
-    }));
+    useStore.setState((state) => {
+      const snapshots = appendSnapshot(state.snapshots, snapshot, state.maxSnapshots);
+      policies.assertSnapshotSetAllowed?.(snapshots);
+      return { isRecording: false, snapshots };
+    });
   };
   session.addEventListener('recording:start', onRecordingStart);
   session.addEventListener('recording:complete', onRecordingComplete);
+  session.addEventListener('action:metrics', onActionMetrics);
+  session.addEventListener('diagnostic', onDiagnostic);
   void unsubscribeScenario;
 
   return useStore;

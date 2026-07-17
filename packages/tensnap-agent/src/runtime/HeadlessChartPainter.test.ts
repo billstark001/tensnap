@@ -20,7 +20,7 @@ describe('HeadlessChartPainter', () => {
       reason: 'test',
       trigger: 'explicit',
       snapshot: {
-        metadata: {}, actions: [], parameters: [], environments: [], logs: [], assets: [],
+        metadata: {}, actions: [], parameters: [], environments: [], monitors: [], logs: [], assets: [],
         charts: [{
           id: 'population', label: 'Population',
           metadataDict: { alive: { id: 'alive', label: 'Alive', color: '#22c55e' } },
@@ -53,7 +53,7 @@ describe('HeadlessChartPainter', () => {
       reason: 'test',
       trigger: 'explicit',
       snapshot: {
-        metadata: {}, actions: [], parameters: [], environments: [], logs: [], assets: [],
+        metadata: {}, actions: [], parameters: [], environments: [], monitors: [], logs: [], assets: [],
         charts: [
           { id: 'population', label: 'Population', metadataDict: {}, data: [] },
           { id: 'wealth', label: 'Wealth', metadataDict: {}, data: [] },

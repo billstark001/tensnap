@@ -9,6 +9,7 @@ import type { AgentRenderState } from '@tensnap/core/environment';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
 import { createIconElement } from './AgentIconElement';
+import { ValueInspector } from '../components/value-inspector';
 
 // Union type for all agent types
 
@@ -187,6 +188,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   const assetId = liveAgent.icon?.startsWith('asset:') ? liveAgent.icon.slice('asset:'.length) : null;
   const assetUrl = assetId ? resolveAssetUrl?.(assetId) : undefined;
   const hasCustomData = liveAgent.data !== undefined && Object.keys(liveAgent.data).length > 0;
+  const showUnavailableSpatialContext = agentType !== 'uniform' && inspection?.kind === 'none';
 
   const updateRadius = (value: string) => {
     setRadiusInput(value);
@@ -249,7 +251,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
             </div>
           </div>
         )}
-        {(agentType === 'uniform' || inspection?.kind === 'none') && (
+        {showUnavailableSpatialContext && (
           <div className={styles.noSpatialContext}>
             <Trans>No spatial context is available for this agent.</Trans>
           </div>
@@ -289,9 +291,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
             {!hasCustomData && <span className={styles.dataEmpty}><Trans>None</Trans></span>}
           </div>
           {hasCustomData && (
-            <pre className={styles.dataContent}>
-              {JSON.stringify(liveAgent.data, null, 2)}
-            </pre>
+            <ValueInspector value={liveAgent.data} compact className={styles.dataContent} />
           )}
         </div>
       </Dialog.Body>

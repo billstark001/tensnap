@@ -4,7 +4,7 @@ This reference describes the current `TenSnap.jl` simulator-side binding package
 in `packages/tensnap-julia`.
 
 The Julia binding is a native Julia package with a `Project.toml`; it is not an
-npm workspace package. It exposes protocol v0.2 over WebSocket with JSON and
+npm workspace package. It exposes protocol v0.3 over WebSocket with JSON and
 MessagePack support.
 
 ## Installation
@@ -65,7 +65,9 @@ run!(scenario)
 ## Scenario
 
 ```julia
-Scenario(; host = "localhost", port = 8765, use_msgpack = false, step_interval = 0.05)
+Scenario(; host = "localhost", port = 8765, use_msgpack = false,
+    model_id = "tensnap.julia.model", state_schema_version = nothing,
+    restore_hooks = nothing)
 ```
 
 The scenario owns parameters, actions, charts, environments, assets, screenshot
@@ -79,7 +81,20 @@ clients.
 - `reset`: runs `reset!(scenario)` and returns `continue = false`.
 
 The first simulated tick emitted by `step!` is time `1`; reset returns the
-scenario to time `0`.
+scenario to time `0`. Reset updates stable action/parameter/layer declarations,
+deletes the previous agent set before creating current agents, clears chart
+history, and publishes current monitor values without duplicate create frames.
+
+Each connection receives `simulator_info` before any other simulator message.
+It includes protocol/binding versions, stable `model_id`, optional model/schema
+metadata, a per-scenario `instance_id`, and sorted capabilities. The instance id
+survives reconnect/reset but changes for a replacement `Scenario`. Keep
+`model_id` stable and change `state_schema_version` when projected/checkpoint
+state becomes incompatible.
+
+A model step may return its mutated model or `nothing`; TenSnap treats either
+as a successful step. Return `false` only when the simulator should stop a
+continuous action.
 
 ## Model Lifecycle
 
@@ -160,7 +175,7 @@ Helpers:
 - `remove_action!(scenario, id)`
 
 When `continue_on_return=true`, the handler return value controls the
-`action_end.continue` flag.
+`action_result.should_continue` flag.
 
 ### Charts
 
@@ -195,6 +210,58 @@ Helpers:
 - `add_chart!(scenario, chart)`
 - `remove_chart!(scenario, id)`
 
+### Monitors
+
+Monitors (introduced in protocol v0.3) publish one replace-only current value;
+use charts for history. They are useful for a small structured status summary:
+
+```julia
+add_monitor!(scenario, monitor("bar_status", m -> Dict(
+    "attending" => m.attendance,
+    "capacity" => m.capacity,
+    "over_capacity" => max(m.attendance - m.capacity, 0),
+); label = "Bar status", render_hint = "table"))
+```
+
+Helpers:
+
+- `monitor(id, getter; label=id, render_hint=nothing)`
+- `add_monitor!(scenario, monitor)`
+- `remove_monitor!(scenario, id)`
+
+`render_hint` can be `"auto"`, `"tree"`, `"table"`, or `"text"`.
+
+Replacing monitor metadata emits `monitor_delete` then `monitor_create`;
+`monitor_update` is reserved for current values. Charts, environments, and
+layers use the same strict create semantics rather than treating create as an
+upsert.
+
+### Scene restore and checkpoints
+
+```julia
+hooks = restore_hooks(
+    payload -> restore_projected!(model, payload);
+    checkpoint_capture = _ -> snapshot(model),
+    checkpoint_restore = data -> restore_snapshot!(model, data),
+)
+scenario = Scenario(
+    model_id = "my.stable.model",
+    state_schema_version = "1",
+    restore_hooks = hooks,
+)
+```
+
+Checkpoint callbacks work with model data only. Byte vectors use
+`application/octet-stream`; other protocol data uses MessagePack. JSON clients
+receive a data URL and MessagePack clients receive bytes. Restore validates
+identity/schema/instance guards, applies checkpoint data before projected
+fields, replays actions/parameters/environments/items/monitors/time without any
+chart messages, caches request IDs, and rolls back through checkpoint hooks
+when a later phase fails. `scene.restore.checkpoint` is declared only when both
+checkpoint hooks exist. Projected restore is optional; use
+`restore_hooks(nothing; checkpoint_capture=..., checkpoint_restore=...)` for a
+checkpoint-only model.
+
 ## Environments and Layers
 
 ### Builders
@@ -205,6 +272,13 @@ Helpers:
 - `grid_layer(id, items; data=nothing, item_key_fields=["x", "y"])`
 - `patch_layer(id, items; data=nothing, item_key_fields=["x", "y"])`
 - `edge_layer(id, items; data=nothing, dependency_layer_ids=Dict(), item_key_fields=["source", "target"])`
+- `trajectory_layer(id, items; length=nothing, width=nothing, color=nothing,
+  z_index=nothing, on_agent_delete=nothing, on_state_sync=nothing,
+  on_reset=nothing, data=nothing, dependency_layer_ids=Dict("agent"=>"agents"))`
+
+Trajectory lifecycle defaults are agent-delete `"delete"`, state-sync
+`"preserve"`, and reset `"clear"`. `"retain"` and preserved resets close the
+current segment before later points are appended.
 
 ### Registration Helpers
 
@@ -237,12 +311,16 @@ projection followed by field-level diffing.
 
 - `dictprojector(fields=nothing; rename=Dict())`
 - `propertyprojector(fields...; rename=Dict())`
-- `autoagentprojector(; id=:id, x=:x, y=:y, color=nothing, size=nothing, icon="circle", fields=())`
+- `autoagentprojector(; id=:id, x=:x, y=:y, color=nothing, size=nothing, icon="circle", fields=(), data_fields=())`
 - `agents_getter(model)`
 
 `autoagentprojector()` supports plain structs and common `Agents.jl` conventions:
 `id`, `pos`, `heading`, and optional color/size/icon fields. `Agents.jl` is not
-a package dependency.
+a package dependency. When passed to `agents_layer`, it automatically follows
+the containing environment: a `uniform` environment omits `x`, `y`, and
+`heading`, while a `2d` environment retains them. Use `data_fields` for model
+properties that should appear in the renderer's agent-details `data` object;
+`fields` preserves the existing top-level projection behavior.
 
 ## Assets and Screenshots
 

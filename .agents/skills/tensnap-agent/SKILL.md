@@ -81,7 +81,7 @@ pnpm --filter @tensnap/agent dev -- run stop --context demo
 
 The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and
 `DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first
-dispatch and after every `action_end`. It can read `steps`, `time`, metadata,
+dispatch and after every `action_result`. It can read `steps`, `time`, metadata,
 `parameters`, `charts`, `agent(envId, layerId, id)`, and
 `agentCount(envId, layerId)`; it cannot call arbitrary host functions.
 

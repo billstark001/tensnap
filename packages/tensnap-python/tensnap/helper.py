@@ -173,7 +173,7 @@ async def broadcast_env_update(
         if meta != layer_metadata(prev_layer):
             await server.broadcast(
                 MT.ENV_LAYER_UPDATE,
-                {"env_id": env_id, "layer_id": lid, "data": meta or {}},
+                {"env_id": env_id, "layer_id": lid, "metadata": meta or {}},
             )
 
         creates, updates, deleted_item_ids = registration.build_item_deltas()

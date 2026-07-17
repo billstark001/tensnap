@@ -16,11 +16,13 @@ type ScenarioEnvironment struct {
 // Scenario is a declarative description of a model's stable protocol surface.
 // Base defaults can replay it during Setup and state_sync.
 type Scenario struct {
-	Params      []*ParamMetadata
-	Actions     []*protocol.Action
-	Envs        []ScenarioEnvironment
-	Charts      []*protocol.ChartGroupMetadata
-	ReplayState func(e Emitter) error
+	Params       []*ParamMetadata
+	Actions      []*protocol.Action
+	Envs         []ScenarioEnvironment
+	Charts       []*protocol.ChartGroupMetadata
+	Monitors     []*protocol.MonitorMetadata
+	ReplayState  func(e Emitter) error
+	RestoreState func(e Emitter) error
 
 	paramByID map[string]*ParamMetadata
 	aliasToID map[string]string
@@ -57,9 +59,22 @@ func (s *Scenario) WithCharts(charts ...*protocol.ChartGroupMetadata) *Scenario 
 	return s
 }
 
+// WithMonitors appends renderer-visible monitor declarations.
+func (s *Scenario) WithMonitors(monitors ...*protocol.MonitorMetadata) *Scenario {
+	s.Monitors = append(s.Monitors, monitors...)
+	return s
+}
+
 // WithStateReplay sets the callback used to replay current runtime state.
 func (s *Scenario) WithStateReplay(fn func(e Emitter) error) *Scenario {
 	s.ReplayState = fn
+	return s
+}
+
+// WithRestoreStateReplay sets the chart-free state callback used inside a
+// scene restore transaction.
+func (s *Scenario) WithRestoreStateReplay(fn func(e Emitter) error) *Scenario {
+	s.RestoreState = fn
 	return s
 }
 
@@ -183,8 +198,53 @@ func (s *Scenario) Replay(e Emitter) error {
 			return err
 		}
 	}
+	for _, monitor := range s.Monitors {
+		if err := e.MonitorCreate(monitor); err != nil {
+			return err
+		}
+	}
 	if s.ReplayState != nil {
 		return s.ReplayState(e)
+	}
+	return nil
+}
+
+// ReplayForRestore emits the complete final scenario except charts, whose
+// messages are forbidden inside a v0.3 scene restore transaction.
+func (s *Scenario) ReplayForRestore(e Emitter) error {
+	if s == nil {
+		return nil
+	}
+	if err := s.ensureParamIndex(); err != nil {
+		return err
+	}
+	for _, meta := range s.Params {
+		if err := meta.replay(e); err != nil {
+			return err
+		}
+	}
+	for _, action := range s.Actions {
+		if err := e.ActionCreate(action); err != nil {
+			return err
+		}
+	}
+	for _, env := range s.Envs {
+		if err := e.EnvCreate(env.ID, env.Type); err != nil {
+			return err
+		}
+		for _, layer := range env.Layers {
+			if err := e.EnvLayerCreate(layer); err != nil {
+				return err
+			}
+		}
+	}
+	for _, monitor := range s.Monitors {
+		if err := e.MonitorCreate(monitor); err != nil {
+			return err
+		}
+	}
+	if s.RestoreState != nil {
+		return s.RestoreState(e)
 	}
 	return nil
 }

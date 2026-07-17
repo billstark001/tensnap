@@ -1,5 +1,10 @@
 function add_environment!(s::Scenario, e::Environment)
+	existed = haskey(s.environments, e.id)
 	s.environments[e.id] = e
+	for l in e.layers
+		l.environment_type = e.type
+	end
+	existed && _broadcast(s, "env_delete", Dict("id" => e.id))
 	_broadcast(s, "env_create", Dict("id" => e.id, "type" => e.type))
 	for l in _ordered_layers(e)
 		_broadcast_layer_full(s, e.id, l)
@@ -14,7 +19,7 @@ function remove_environment!(s::Scenario, id)
 	return existed
 end
 
-add_layer!(e::Environment, l::Layer) = (push!(e.layers, l); l)
+add_layer!(e::Environment, l::Layer) = (l.environment_type = e.type; push!(e.layers, l); l)
 
 function _ordered_layers(e::Environment)
 	by_id = Dict(l.id => l for l in e.layers)
@@ -42,10 +47,12 @@ end
 
 function add_layer!(s::Scenario, env_id, l::Layer)
 	e = s.environments[String(env_id)]
+	l.environment_type = e.type
 	existing = findfirst(x -> x.id == l.id, e.layers)
 	if existing === nothing
 		push!(e.layers, l)
 	else
+		_broadcast(s, "env_layer_delete", Dict("env_id" => e.id, "layer_id" => l.id))
 		e.layers[existing] = l
 	end
 	_broadcast_layer_full(s, e.id, l)
@@ -76,11 +83,11 @@ function _layer_data(l::Layer, model)
 	return value isa AbstractDict ? Dict(String(k) => _jsonable(v) for (k, v) in pairs(value)) : value
 end
 
-function _layer_payload(env_id::String, l::Layer, model)
+function _layer_payload(env_id::String, l::Layer, model; data = _UNSET)
 	d = Dict{String, Any}("env_id" => env_id, "layer_id" => l.id, "layer_type" => l.type)
 	isempty(l.dependency_layer_ids) || (d["dependency_layer_ids"] = l.dependency_layer_ids)
-	data = _layer_data(l, model)
-	data === nothing || (d["data"] = data)
+	data === _UNSET && (data = _layer_data(l, model))
+	data === nothing || (d["metadata"] = data)
 	return d
 end
 
@@ -151,28 +158,28 @@ end
 function _layer_item_deltas_incremental!(l::Layer, model)
 	raw_items = _call0or1(l.source_items, model)
 	previous = l.last_items
-	current = Dict{Any, Dict{String, Any}}()
+	seen = Set{Any}()
 	creates = Dict{String, Any}[]
 	updates = Dict{String, Any}[]
 	for item in raw_items
 		key = _incremental_item_key(l, item, model)
+		push!(seen, key)
 		if !haskey(previous, key)
 			projected = _project_incremental_item(l, item, model)
-			current[key] = projected
+			previous[key] = projected
 			push!(creates, projected)
 		elseif Bool(_call1or2(l.item_changed, item, model))
 			projected = _project_incremental_item(l, item, model)
-			current[key] = projected
 			previous[key] != projected && push!(updates, _item_update_payload(l, previous[key], projected))
-		else
-			current[key] = previous[key]
+			previous[key] = projected
 		end
 	end
 	deletes = Any[]
-	for (key, item) in previous
-		haskey(current, key) || push!(deletes, _item_delete_payload(l, item))
+	for key in collect(keys(previous))
+		key in seen && continue
+		push!(deletes, _item_delete_payload(l, previous[key]))
+		delete!(previous, key)
 	end
-	l.last_items = current
 	return creates, updates, deletes
 end
 
@@ -180,29 +187,32 @@ function _layer_item_deltas!(l::Layer, model)
 	_has_incremental_item_source(l) && return _layer_item_deltas_incremental!(l, model)
 	items = _layer_items(l, model)
 	previous = l.last_items
-	current = Dict{Any, Dict{String, Any}}()
+	seen = Set{Any}()
 	creates = Dict{String, Any}[]
 	updates = Dict{String, Any}[]
 	for item in items
 		key = _item_key(l, item)
-		current[key] = item
+		push!(seen, key)
 		if !haskey(previous, key)
 			push!(creates, item)
 		elseif previous[key] != item
 			push!(updates, _item_update_payload(l, previous[key], item))
 		end
+		previous[key] = item
 	end
 	deletes = Any[]
-	for (key, item) in previous
-		haskey(current, key) || push!(deletes, _item_delete_payload(l, item))
+	for key in collect(keys(previous))
+		key in seen && continue
+		push!(deletes, _item_delete_payload(l, previous[key]))
+		delete!(previous, key)
 	end
-	l.last_items = current
 	return creates, updates, deletes
 end
 
 function _broadcast_layer_full(s::Scenario, env_id::String, l::Layer; ws = nothing)
-	_send_or_broadcast(s, ws, "env_layer_create", _layer_payload(env_id, l, s.model))
-	_remember_layer_data!(l, s.model)
+	data = _layer_data(l, s.model)
+	_send_or_broadcast(s, ws, "env_layer_create", _layer_payload(env_id, l, s.model; data = data))
+	l.last_data = data
 	items = _remember_layer_items!(l, _layer_items(l, s.model))
 	isempty(items) || _send_or_broadcast(s, ws, "item_create", Dict("env_id" => env_id, "layer_id" => l.id, "items" => items))
 	return items

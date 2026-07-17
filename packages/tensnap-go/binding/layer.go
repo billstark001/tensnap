@@ -18,6 +18,15 @@ type Layer[T any] interface {
 	Reset()
 }
 
+type resetLayer[T any] interface {
+	ReplayReset(T, string, abm.Emitter) error
+}
+
+type resetPreparedLayer[T any] interface {
+	PrepareReset(T)
+	CancelReset()
+}
+
 func NewEnv[T any](id string, layers ...Layer[T]) *Env[T] {
 	return &Env[T]{
 		ID:     id,
@@ -46,6 +55,52 @@ func (e *Env[T]) Scenario(target T) abm.ScenarioEnvironment {
 func (e *Env[T]) ReplayState(target T, emitter abm.Emitter) error {
 	for _, layer := range e.layers {
 		if err := layer.ReplayState(target, e.ID, emitter); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// PrepareReset captures renderer delete keys before the model mutates.
+func (e *Env[T]) PrepareReset(target T) {
+	for _, layer := range e.layers {
+		if prepared, ok := layer.(resetPreparedLayer[T]); ok {
+			prepared.PrepareReset(target)
+		}
+	}
+}
+
+// CancelReset drops a prepared reset plan after a model reset hook fails.
+func (e *Env[T]) CancelReset() {
+	for _, layer := range e.layers {
+		if prepared, ok := layer.(resetPreparedLayer[T]); ok {
+			prepared.CancelReset()
+		}
+	}
+}
+
+// ReplayReset updates stable layer metadata and replaces current agent items
+// without recreating the environment/layers themselves. That keeps renderer
+// trajectory on_reset policy in control of renderer-owned history.
+func (e *Env[T]) ReplayReset(target T, emitter abm.Emitter) error {
+	for _, layer := range e.layers {
+		payload := layer.CreatePayload(target, e.ID)
+		metadata := payload.Data
+		if metadata == nil {
+			metadata = map[string]any{}
+		}
+		if err := emitter.EnvLayerUpdate(&protocol.EnvLayerUpdatePayload{
+			EnvID: e.ID, LayerID: payload.LayerID, Data: metadata,
+		}); err != nil {
+			return err
+		}
+		var err error
+		if resetter, ok := layer.(resetLayer[T]); ok {
+			err = resetter.ReplayReset(target, e.ID, emitter)
+		} else {
+			err = layer.PushDiffs(target, e.ID, emitter)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -102,6 +157,10 @@ func (l *GridLayer[T]) ReplayState(T, string, abm.Emitter) error {
 	return nil
 }
 
+func (l *GridLayer[T]) ReplayReset(T, string, abm.Emitter) error {
+	return nil
+}
+
 func (l *GridLayer[T]) PushDiffs(T, string, abm.Emitter) error {
 	return nil
 }
@@ -130,6 +189,7 @@ type AgentLayer[T any, I any] struct {
 	tracker  *abm.ItemDiffTracker[I]
 	itemID   func(T, I) any
 	changed  func(T, I) bool
+	resetIDs []any
 }
 
 func NewAgentLayer[T any, I any](id string) *AgentLayer[T, I] {
@@ -213,6 +273,51 @@ func (l *AgentLayer[T, I]) CreatePayload(target T, envID string) *protocol.EnvLa
 }
 
 func (l *AgentLayer[T, I]) ReplayState(target T, envID string, emitter abm.Emitter) error {
+	items := l.itemList(target)
+	snapshots := l.projectItems(target, items)
+	if len(snapshots) > 0 {
+		if err := emitter.ItemCreate(envID, l.ID, snapshots); err != nil {
+			return err
+		}
+	}
+	if l.usesIncrementalDiff() {
+		l.tracker.SeedSnapshots(items, snapshots, func(item I) any {
+			return l.itemID(target, item)
+		})
+	} else {
+		l.diff.Seed(snapshots)
+	}
+	return nil
+}
+
+func (l *AgentLayer[T, I]) PrepareReset(target T) {
+	items := l.itemList(target)
+	ids := make([]any, 0, len(items))
+	if l.itemID != nil {
+		for _, item := range items {
+			ids = append(ids, l.itemID(target, item))
+		}
+	} else {
+		for _, snapshot := range l.projectItems(target, items) {
+			if id, ok := snapshot["id"]; ok {
+				ids = append(ids, id)
+			}
+		}
+	}
+	l.resetIDs = ids
+}
+
+func (l *AgentLayer[T, I]) CancelReset() {
+	l.resetIDs = nil
+}
+
+func (l *AgentLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitter) error {
+	if len(l.resetIDs) > 0 {
+		if err := emitter.ItemDelete(envID, l.ID, l.resetIDs); err != nil {
+			return err
+		}
+	}
+	l.resetIDs = nil
 	items := l.itemList(target)
 	snapshots := l.projectItems(target, items)
 	if len(snapshots) > 0 {
@@ -425,6 +530,10 @@ func (l *EdgeLayer[T, I]) ReplayState(target T, envID string, emitter abm.Emitte
 	return nil
 }
 
+func (l *EdgeLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitter) error {
+	return l.PushDiffs(target, envID, emitter)
+}
+
 func (l *EdgeLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
 	created, updated, deleted := l.computeDiffs(target)
 	if len(created) > 0 {
@@ -502,6 +611,7 @@ func (l *EdgeLayer[T, I]) projectItems(target T, items []I) []map[string]any {
 type TrajectoryLayer[T any, I any] struct {
 	ID                 string
 	metadata           func(T) map[string]any
+	metadataFields     map[string]any
 	dependencyLayerIDs map[string]string
 	items              func(T) []I
 	base               func(T, I) map[string]any
@@ -529,6 +639,42 @@ func NewEmptyTrajectoryLayer[T any](id string) *TrajectoryLayer[T, any] {
 func (l *TrajectoryLayer[T, I]) Data(fn func(T) map[string]any) *TrajectoryLayer[T, I] {
 	l.metadata = fn
 	return l
+}
+
+func (l *TrajectoryLayer[T, I]) metadataField(name string, value any) *TrajectoryLayer[T, I] {
+	if l.metadataFields == nil {
+		l.metadataFields = make(map[string]any)
+	}
+	l.metadataFields[name] = value
+	return l
+}
+
+func (l *TrajectoryLayer[T, I]) Length(value float64) *TrajectoryLayer[T, I] {
+	return l.metadataField("length", value)
+}
+
+func (l *TrajectoryLayer[T, I]) Width(value float64) *TrajectoryLayer[T, I] {
+	return l.metadataField("width", value)
+}
+
+func (l *TrajectoryLayer[T, I]) Color(value string) *TrajectoryLayer[T, I] {
+	return l.metadataField("color", value)
+}
+
+func (l *TrajectoryLayer[T, I]) ZIndex(value float64) *TrajectoryLayer[T, I] {
+	return l.metadataField("z_index", value)
+}
+
+func (l *TrajectoryLayer[T, I]) OnAgentDelete(value protocol.TrajectoryAgentDeletePolicy) *TrajectoryLayer[T, I] {
+	return l.metadataField("on_agent_delete", value)
+}
+
+func (l *TrajectoryLayer[T, I]) OnStateSync(value protocol.TrajectoryStateSyncPolicy) *TrajectoryLayer[T, I] {
+	return l.metadataField("on_state_sync", value)
+}
+
+func (l *TrajectoryLayer[T, I]) OnReset(value protocol.TrajectoryResetPolicy) *TrajectoryLayer[T, I] {
+	return l.metadataField("on_reset", value)
 }
 
 func (l *TrajectoryLayer[T, I]) AgentLayer(layerID string) *TrajectoryLayer[T, I] {
@@ -624,6 +770,10 @@ func (l *TrajectoryLayer[T, I]) ReplayState(target T, envID string, emitter abm.
 	return nil
 }
 
+func (l *TrajectoryLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitter) error {
+	return l.PushDiffs(target, envID, emitter)
+}
+
 func (l *TrajectoryLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
 	created, updated, deleted := l.computeDiffs(target)
 	if len(created) > 0 {
@@ -650,10 +800,19 @@ func (l *TrajectoryLayer[T, I]) Reset() {
 }
 
 func (l *TrajectoryLayer[T, I]) data(target T) map[string]any {
-	if l.metadata == nil {
+	if l.metadata == nil && len(l.metadataFields) == 0 {
 		return nil
 	}
-	return l.metadata(target)
+	result := make(map[string]any, len(l.metadataFields)+4)
+	if l.metadata != nil {
+		for key, value := range l.metadata(target) {
+			result[key] = value
+		}
+	}
+	for key, value := range l.metadataFields {
+		result[key] = value
+	}
+	return result
 }
 
 func (l *TrajectoryLayer[T, I]) usesIncrementalDiff() bool {
@@ -722,6 +881,10 @@ func (l *BackgroundLayer[T]) CreatePayload(target T, envID string) *protocol.Env
 }
 
 func (l *BackgroundLayer[T]) ReplayState(T, string, abm.Emitter) error {
+	return nil
+}
+
+func (l *BackgroundLayer[T]) ReplayReset(T, string, abm.Emitter) error {
 	return nil
 }
 

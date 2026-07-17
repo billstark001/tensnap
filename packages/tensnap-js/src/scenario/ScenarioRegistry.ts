@@ -3,9 +3,12 @@ import type {
   ChartGroupMetadata,
   EnvCreatePayload,
   EnvLayerCreatePayload,
+  MonitorMetadata,
   Parameter,
   ScenarioEnvironmentType,
   StateSyncRequest,
+  ProtocolData,
+  SimulatorInfoPayload,
 } from '@tensnap/protocol';
 import type { SimulatorSessionHandlers } from '../runtime';
 import { SimulatorSession } from '../runtime';
@@ -14,7 +17,7 @@ export interface ScenarioLayerDefinition {
   layerId: string;
   layerType: string;
   dependencyLayerIds?: Record<string, string>;
-  data?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ScenarioEnvironmentDefinition {
@@ -28,6 +31,7 @@ export interface ScenarioDefinition {
   actions?: readonly Action[];
   environments?: readonly ScenarioEnvironmentDefinition[];
   charts?: readonly ChartGroupMetadata[];
+  monitors?: readonly MonitorMetadata[];
 }
 
 export interface ReplayTarget {
@@ -36,9 +40,12 @@ export interface ReplayTarget {
   envCreate(payload: EnvCreatePayload): Promise<void>;
   envLayerCreate(payload: EnvLayerCreatePayload): Promise<void>;
   chartCreate(payload: ChartGroupMetadata): Promise<void>;
+  monitorCreate(payload: MonitorMetadata): Promise<void>;
 }
 
 export interface ScenarioSessionOptions extends SimulatorSessionHandlers {
+  /** Identity emitted as the first message of each created session. */
+  simulatorInfo: SimulatorInfoPayload;
   onStateSync?(payload: StateSyncRequest, session: SimulatorSession): void | Promise<void>;
 }
 
@@ -47,6 +54,7 @@ export class ScenarioRegistry {
   private readonly actions = new Map<string, Action>();
   private readonly environments = new Map<string, ScenarioEnvironmentDefinition>();
   private readonly charts = new Map<string, ChartGroupMetadata>();
+  private readonly monitors = new Map<string, MonitorMetadata>();
 
   static from(definition: ScenarioDefinition): ScenarioRegistry {
     const registry = new ScenarioRegistry();
@@ -62,6 +70,9 @@ export class ScenarioRegistry {
     }
     for (const chart of definition.charts ?? []) {
       registry.registerChart(chart);
+    }
+    for (const monitor of definition.monitors ?? []) {
+      registry.registerMonitor(monitor);
     }
 
     return registry;
@@ -83,7 +94,7 @@ export class ScenarioRegistry {
       layers: environment.layers?.map((layer) => ({
         ...layer,
         dependencyLayerIds: { ...(layer.dependencyLayerIds ?? {}) },
-        data: { ...(layer.data ?? {}) },
+        metadata: { ...(layer.metadata ?? {}) },
       })),
     });
     return this;
@@ -92,27 +103,57 @@ export class ScenarioRegistry {
   registerChart(chart: ChartGroupMetadata): this {
     this.charts.set(chart.id, {
       ...chart,
-      dataList: chart.dataList?.map((entry: NonNullable<ChartGroupMetadata['dataList']>[number]) => ({ ...entry })),
+      data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
     });
     return this;
   }
 
-  createSession(options: ScenarioSessionOptions = {}): SimulatorSession {
+  registerMonitor(monitor: MonitorMetadata): this {
+    this.monitors.set(monitor.id, { ...monitor });
+    return this;
+  }
+
+  createSession(options: ScenarioSessionOptions): SimulatorSession {
     const registry = this;
-    const { onStateSync, ...handlers } = options;
+    const simulatorInfo = structuredClone(options.simulatorInfo);
+    let stateRevision = 0;
+    const { onStateSync, simulatorInfo: _simulatorInfo, ...handlers } = options;
 
     return new SimulatorSession({
       ...handlers,
+      simulatorInfo,
       async onStateSync(payload, session) {
-        await session.emitter.stateSyncBegin({ request_id: payload.request_id });
+        if (payload.model_id !== simulatorInfo.model.id) {
+          await session.emitter.error({
+            code: 'model_mismatch',
+            message: `Expected model ${simulatorInfo.model.id}.`,
+            request_id: payload.request_id,
+          });
+          return;
+        }
+        await session.emitter.stateSyncBegin({
+          request_id: payload.request_id,
+          model_id: payload.model_id,
+          instance_id: simulatorInfo.instance_id,
+          mode: 'replace',
+        });
         await registry.replay(session.emitter);
         await onStateSync?.(payload, session);
-        await session.emitter.stateSyncEnd({ request_id: payload.request_id });
+        await session.emitter.stateSyncEnd({ request_id: payload.request_id, state_revision: String(++stateRevision) });
       },
     });
   }
 
   async replay(target: ReplayTarget): Promise<void> {
+    await this.replayInventory(target, true);
+  }
+
+  /** Replay restorable state without charts, which are forbidden in a restore transaction. */
+  async replaySceneRestore(target: ReplayTarget): Promise<void> {
+    await this.replayInventory(target, false);
+  }
+
+  private async replayInventory(target: ReplayTarget, includeCharts: boolean): Promise<void> {
     for (const parameter of this.parameters.values()) {
       await target.paramCreate({ ...parameter });
     }
@@ -129,16 +170,22 @@ export class ScenarioRegistry {
           layer_id: layer.layerId,
           layer_type: layer.layerType,
           dependency_layer_ids: layer.dependencyLayerIds,
-          data: layer.data,
+          metadata: layer.metadata as Record<string, ProtocolData> | undefined,
         });
       }
     }
 
-    for (const chart of this.charts.values()) {
-      await target.chartCreate({
-        ...chart,
-        dataList: chart.dataList?.map((entry: NonNullable<ChartGroupMetadata['dataList']>[number]) => ({ ...entry })),
-      });
+    if (includeCharts) {
+      for (const chart of this.charts.values()) {
+        await target.chartCreate({
+          ...chart,
+          data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
+        });
+      }
+    }
+
+    for (const monitor of this.monitors.values()) {
+      await target.monitorCreate({ ...monitor });
     }
   }
 
@@ -151,13 +198,14 @@ export class ScenarioRegistry {
         layers: environment.layers?.map((layer) => ({
           ...layer,
           dependencyLayerIds: { ...(layer.dependencyLayerIds ?? {}) },
-          data: { ...(layer.data ?? {}) },
+          metadata: { ...(layer.metadata ?? {}) },
         })),
       })),
       charts: [...this.charts.values()].map((chart) => ({
         ...chart,
-        dataList: chart.dataList?.map((entry: NonNullable<ChartGroupMetadata['dataList']>[number]) => ({ ...entry })),
+        data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
       })),
+      monitors: [...this.monitors.values()].map((monitor) => ({ ...monitor })),
     };
   }
 }

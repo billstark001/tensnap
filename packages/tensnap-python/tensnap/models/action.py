@@ -15,19 +15,28 @@ class ActionMetadata:
     id: str
     label: str = ""
     continuous: bool = False
+    # Kept as an API-only compatibility argument.  v0.3 deliberately removed
+    # this field from ActionSchema; parameter editability is independent.
     allow_runtime_change: bool = True
+    scope: str | None = None
+    kwargs: list[dict[str, Any]] | None = None
 
     def __post_init__(self) -> None:
         if not self.label:
             self.label = infer_label_from_id(self.id)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "id": self.id,
             "label": self.label,
-            "continuous": self.continuous,
-            "allowRuntimeChange": self.allow_runtime_change,
         }
+        if self.continuous:
+            result["continuous"] = True
+        if self.scope is not None:
+            result["scope"] = self.scope
+        if self.kwargs:
+            result["kwargs"] = self.kwargs
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ActionMetadata:
@@ -37,4 +46,6 @@ class ActionMetadata:
             label=data.get("label", ""),
             continuous=data.get("continuous", False),
             allow_runtime_change=allow,
+            scope=data.get("scope"),
+            kwargs=data.get("kwargs"),
         )

@@ -1,5 +1,6 @@
 import type {
-  ActionEndPayload,
+  ActionResultPayload,
+  ProtocolData,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
@@ -184,7 +185,10 @@ function isAppendOnlyStreamMessage(message: SimulatorToRendererMessage): boolean
   return message.type === 'chart_create'
     || message.type === 'chart_update'
     || message.type === 'chart_delete'
-    || message.type === 'asset_meta'
+    || message.type === 'monitor_create'
+    || message.type === 'monitor_update'
+    || message.type === 'monitor_delete'
+    || message.type === 'asset_metadata'
     || message.type === 'asset_data'
     || message.type === 'asset_delete'
     || message.type === 'log'
@@ -202,6 +206,7 @@ function loadKeyframe(scenario: Scenario, snapshot: Snapshot, keyframe: Snapshot
   scenario.load({
     ...keyframe.scenario,
     charts: baseline.charts,
+    monitors: baseline.monitors,
     logs: baseline.logs,
     assets: baseline.assets,
   });
@@ -215,12 +220,20 @@ function loadKeyframe(scenario: Scenario, snapshot: Snapshot, keyframe: Snapshot
 
 export function createSingleSnapshot(
   scenario: ScenarioSnapshot,
-  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp'> = {},
+  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint'> = {},
 ): Snapshot {
   const timestamp = options.timestamp ?? now();
   return {
     version: 1,
-    metadata: { id: options.id ?? createId(), createdAt: timestamp, endedAt: timestamp, label: options.label },
+    metadata: {
+      id: options.id ?? createId(),
+      createdAt: timestamp,
+      endedAt: timestamp,
+      label: options.label,
+      protocol_version: '0.3',
+      ...(options.modelIdentity === undefined ? {} : { model_identity: clone(options.modelIdentity) }),
+      ...(options.checkpoint === undefined ? {} : { checkpoint: clone(options.checkpoint) }),
+    },
     initial: { frame: 0, timestamp, scenario: clone(scenario) },
     keyframes: [],
     frames: [],
@@ -238,7 +251,7 @@ export class SnapshotRecorder {
   private pendingMessages: SimulatorToRendererMessage[] = [];
   private pendingControls: RendererToSimulatorMessage[] = [];
   private flushQueued = false;
-  private awaitingActionEnd = false;
+  private awaitingActionResult = false;
   private retentionExhausted = false;
   /** Incremental accounting keeps recording work constant per frame. */
   private estimatedByteLength = 0;
@@ -277,6 +290,8 @@ export class SnapshotRecorder {
       id: options.id,
       label: options.label,
       timestamp,
+      modelIdentity: options.modelIdentity,
+      checkpoint: options.checkpoint,
     });
     this.nextFrameIndex = this.snapshot.initial.frame + 1;
     this.snapshot.metadata.endedAt = undefined;
@@ -293,7 +308,7 @@ export class SnapshotRecorder {
     });
     this.snapshot.byteLength = this.estimatedByteLength;
     this.bytesSinceKeyframe = 0;
-    this.awaitingActionEnd = false;
+    this.awaitingActionResult = false;
     this.retentionExhausted = false;
     if (this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes) {
       const baseline = this.estimatedByteLength;
@@ -321,7 +336,7 @@ export class SnapshotRecorder {
     this.pendingMessages = [];
     this.pendingControls = [];
     this.flushQueued = false;
-    this.awaitingActionEnd = false;
+    this.awaitingActionResult = false;
     this.retentionExhausted = false;
     this.estimatedByteLength = 0;
     this.initialByteLength = 0;
@@ -335,22 +350,27 @@ export class SnapshotRecorder {
   recordMessage(message: SimulatorToRendererMessage): void {
     if (!this.snapshot || this.retentionExhausted) return;
     this.pendingMessages.push(cloneRecordedMessage(message));
-    if (message.type === 'action_end') {
-      this.flush('action', message.payload as ActionEndPayload);
-      this.awaitingActionEnd = false;
+    if (message.type === 'action_result') {
+      this.flush('action', message.payload as ActionResultPayload);
+      this.awaitingActionResult = false;
     } else if (message.type === 'state_sync_end') {
       this.flush('sync');
-    } else if (!this.awaitingActionEnd) {
+    } else if (!this.awaitingActionResult) {
       this.queueControlFlush();
     }
+  }
+
+  /** Record a successfully committed sync/restore transaction in wire order. */
+  recordMessages(messages: readonly SimulatorToRendererMessage[]): void {
+    for (const message of messages) this.recordMessage(message);
   }
 
   recordControl(message: RendererToSimulatorMessage): void {
     if (!this.snapshot || this.retentionExhausted) return;
     this.pendingControls.push(cloneRecordedMessage(message));
-    if (message.type === 'action_start') {
-      this.awaitingActionEnd = true;
-    } else if (!this.awaitingActionEnd) {
+    if (message.type === 'action_invoke') {
+      this.awaitingActionResult = true;
+    } else if (!this.awaitingActionResult) {
       this.queueControlFlush();
     }
   }
@@ -364,7 +384,7 @@ export class SnapshotRecorder {
     });
   }
 
-  private flush(kind: SnapshotFrame['kind'], action?: ActionEndPayload): void {
+  private flush(kind: SnapshotFrame['kind'], action?: ActionResultPayload): void {
     const target = this.snapshot;
     if (!target || (!this.pendingMessages.length && !this.pendingControls.length)) return;
     const timestamp = now();
@@ -417,6 +437,7 @@ export class SnapshotRecorder {
         timestamp,
         scenario: this.scenario.dump({
           includeCharts: false,
+          includeMonitors: false,
           includeLogs: false,
           includeAssets: false,
         }),
@@ -553,9 +574,37 @@ export function materializeSnapshot(snapshot: Snapshot, frame = snapshot.frames[
   loadKeyframe(scenario, snapshot, keyframe);
   for (const recordedFrame of snapshot.frames) {
     if (recordedFrame.index <= keyframe.frame || recordedFrame.index > bounded) continue;
-    for (const message of recordedFrame.messages) scenario.apply(clone(message));
+    applySnapshotFrame(scenario, recordedFrame);
   }
   return scenario.dump();
+}
+
+export interface ApplySnapshotFrameOptions {
+  /** Uses a host's normal commit path while retaining the shared replay ordering. */
+  applyMessage?: (message: SimulatorToRendererMessage) => void;
+}
+
+/** Apply the renderer-visible effects of one recording frame. */
+export function applySnapshotFrame(
+  scenario: Scenario,
+  frame: SnapshotFrame,
+  options: ApplySnapshotFrameOptions = {},
+): void {
+  // Controls are optimistic UI changes. Apply them before simulator messages
+  // so an in-frame canonical `param_sync` remains authoritative.
+  for (const control of frame.controls) {
+    if (control.type !== 'param_change') continue;
+    const payload = control.payload as { id: string; value: ProtocolData };
+    if (!scenario.getParameter(payload.id)) continue;
+    try {
+      scenario.applyOptimisticParameterChange(payload.id, payload.value);
+    } catch {
+      // A recording can outlive a parameter definition change. Keep replaying
+      // the remaining valid frame data instead of failing the whole snapshot.
+    }
+  }
+  const applyMessage = options.applyMessage ?? ((message: SimulatorToRendererMessage) => scenario.apply(message));
+  for (const message of frame.messages) applyMessage(clone(message));
 }
 
 export function snapshotFrameAt(snapshot: Snapshot, frame: number): SnapshotFrame | undefined {
@@ -594,7 +643,7 @@ export class SnapshotPlayer {
 
     for (const recordedFrame of this.snapshot.frames) {
       if (recordedFrame.index <= this.currentFrame || recordedFrame.index > target) continue;
-      for (const message of recordedFrame.messages) this.scenario.apply(message);
+      applySnapshotFrame(this.scenario, recordedFrame);
       this.currentFrame = recordedFrame.index;
     }
     return this.scenario;

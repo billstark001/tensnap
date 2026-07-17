@@ -1,0 +1,8 @@
+{
+  "name": "targeted-action-error",
+  "outcome": "error is correlated and terminates continuous scheduling",
+  "messages": [
+    { "type": "action_invoke", "payload": { "id": "set_alarm", "request_id": "action-1", "continuous": true, "target": { "type": "agent", "env_id": "world", "layer_id": "agents", "agent_id": 17 }, "kwargs": { "t": 43200 } } },
+    { "type": "action_result", "payload": { "id": "set_alarm", "request_id": "action-1", "should_continue": true, "error": { "code": "target_not_found", "message": "Agent no longer exists." } } }
+  ]
+}
