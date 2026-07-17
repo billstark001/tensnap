@@ -1,6 +1,100 @@
-import { describe, expect, it } from 'vitest';
-import { encodeProtocolMessage, decodeProtocolMessage } from './codec';
-import { AssetDataPayloadSchema, ItemDeletePayloadSchema, ScreenshotResponsePayloadSchema } from './schemas';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  decodeProtocolMessage,
+  encodeProtocolMessage,
+  ProtocolValidationError,
+  type ProtocolValidationWarning,
+} from './codec';
+import {
+  AssetDataPayloadSchema,
+  ItemDeletePayloadSchema,
+  RendererToSimulatorMessageSchema,
+  SimulatorToRendererMessageSchema,
+  ScreenshotResponsePayloadSchema,
+} from './schemas';
+import type { AnyProtocolMessage } from './types';
+
+describe('protocol runtime validation', () => {
+  const invalidRendererMessage = {
+    type: 'action_invoke',
+    payload: { id: 'step' },
+  } as unknown as AnyProtocolMessage;
+
+  it('is disabled by default', () => {
+    expect(() => encodeProtocolMessage(invalidRendererMessage, 'json')).not.toThrow();
+    expect(decodeProtocolMessage(JSON.stringify(invalidRendererMessage))).toEqual(invalidRendererMessage);
+  });
+
+  it('reports one warning and continues in warning mode', () => {
+    const warnings: ProtocolValidationWarning[] = [];
+    const encoded = encodeProtocolMessage(invalidRendererMessage, 'json', {
+      validation: {
+        level: 'warning',
+        direction: 'renderer-to-simulator',
+        onWarning: (warning) => warnings.push(warning),
+      },
+    });
+
+    expect(JSON.parse(encoded as string)).toEqual(invalidRendererMessage);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({
+      level: 'warning',
+      direction: 'renderer-to-simulator',
+    });
+  });
+
+  it('keeps warning observers non-fatal', () => {
+    expect(() => encodeProtocolMessage(invalidRendererMessage, 'json', {
+      validation: {
+        level: 'warning',
+        direction: 'renderer-to-simulator',
+        onWarning: () => { throw new Error('observer failed'); },
+      },
+    })).not.toThrow();
+  });
+
+  it('throws a typed error in error mode', () => {
+    expect(() => encodeProtocolMessage(invalidRendererMessage, 'json', {
+      validation: { level: 'error', direction: 'renderer-to-simulator' },
+    })).toThrow(ProtocolValidationError);
+  });
+
+  it('runs at most one envelope validation per message', () => {
+    const validation = vi.spyOn(RendererToSimulatorMessageSchema, 'safeParse');
+    expect(() => encodeProtocolMessage(invalidRendererMessage, 'json', {
+      validation: { level: 'warning', direction: 'renderer-to-simulator' },
+    })).not.toThrow();
+    expect(validation).toHaveBeenCalledTimes(1);
+
+    validation.mockClear();
+    expect(() => decodeProtocolMessage(JSON.stringify(invalidRendererMessage), {
+      validation: { level: 'warning', direction: 'renderer-to-simulator' },
+    })).not.toThrow();
+    expect(validation).toHaveBeenCalledTimes(1);
+    validation.mockRestore();
+  });
+
+  it('does not re-parse binary payloads during semantic normalization', () => {
+    const envelopeValidation = vi.spyOn(SimulatorToRendererMessageSchema, 'safeParse');
+    const payloadValidation = vi.spyOn(AssetDataPayloadSchema, 'parse');
+    encodeProtocolMessage({
+      type: 'asset_data',
+      payload: {
+        id: 'asset-1',
+        hash: 'hash-1',
+        mime: 'image/png',
+        data: new Uint8Array([0, 1, 2, 3]),
+      },
+    }, 'json', {
+      validation: { level: 'error', direction: 'simulator-to-renderer' },
+    });
+
+    expect(envelopeValidation).toHaveBeenCalledTimes(1);
+    expect(payloadValidation).not.toHaveBeenCalled();
+    envelopeValidation.mockRestore();
+    payloadValidation.mockRestore();
+  });
+});
 
 describe('protocol binary semantic fields', () => {
   it('encodes JSON binary payloads as data URLs and decodes them back to bytes', () => {

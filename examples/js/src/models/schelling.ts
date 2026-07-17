@@ -36,10 +36,17 @@ interface Agent {
   satisfied: boolean;
 }
 
+type AgentChange = {
+  position?: true;
+  appearance?: true;
+};
+
+export type SchellingAgentUpdate = Pick<GridAgentState, 'id'> & Partial<Pick<GridAgentState, 'x' | 'y' | 'size'>>;
+
 export class SchellingModel {
   private config: Required<SchellingConfig>;
   private agents: Agent[] = [];
-  private lastUnsatisfiedAgents: Agent[] | undefined = undefined;
+  private agentChanges = new Map<Agent, AgentChange>();
 
   /**
    * Flat 1D grid: index = y * gridWidth + x.
@@ -124,7 +131,7 @@ export class SchellingModel {
 
   initialize() {
     this.agents = [];
-    this.lastUnsatisfiedAgents = undefined;
+    this.agentChanges.clear();
     this.unsatisfiedSet = new Set();
     this.timeStep = 0;
     this.satisfiedCount = 0;
@@ -163,6 +170,7 @@ export class SchellingModel {
     }
 
     this.updateAllSatisfaction();
+    this.agentChanges.clear();
   }
 
   // ── Neighbour analysis ──────────────────────────────────────────────────────
@@ -201,17 +209,25 @@ export class SchellingModel {
   // ── Satisfaction tracking ───────────────────────────────────────────────────
 
   /** Full O(N) rebuild — only at initialization or similarity-threshold change. */
-  private updateAllSatisfaction(): void {
+  private updateAllSatisfaction(trackChanges = false): void {
     this.satisfiedCount = 0;
     this.unsatisfiedSet.clear();
     for (const agent of this.agents) {
+      const previous = agent.satisfied;
       agent.satisfied = this.calculateSatisfaction(agent);
+      if (trackChanges && previous !== agent.satisfied) this.markAgentChanged(agent, 'appearance');
       if (agent.satisfied) {
         this.satisfiedCount++;
       } else {
         this.unsatisfiedSet.add(agent);
       }
     }
+  }
+
+  private markAgentChanged(agent: Agent, change: keyof AgentChange): void {
+    const changes = this.agentChanges.get(agent) ?? {};
+    changes[change] = true;
+    this.agentChanges.set(agent, changes);
   }
 
   /**
@@ -236,6 +252,7 @@ export class SchellingModel {
         const nowSatisfied = this.calculateSimilarityRatio(agent) >= thresh;
         if (agent.satisfied !== nowSatisfied) {
           agent.satisfied = nowSatisfied;
+          this.markAgentChanged(agent, 'appearance');
           if (nowSatisfied) {
             this.satisfiedCount++;
             this.unsatisfiedSet.delete(agent);
@@ -288,6 +305,7 @@ export class SchellingModel {
     const oldX = agent.x, oldY = agent.y;
     agent.x = newEnc % W;
     agent.y = (newEnc / W) | 0;
+    this.markAgentChanged(agent, 'position');
 
     // O(9) incremental update for each affected neighbourhood
     this.updateSatisfactionAt(oldX, oldY);
@@ -299,7 +317,6 @@ export class SchellingModel {
   // ── Simulation step ─────────────────────────────────────────────────────────
 
   step(): boolean {
-    this.lastUnsatisfiedAgents = undefined;
     this.emit('step_start', { timeStep: this.timeStep });
 
     // O(U) snapshot instead of O(N) filter; satisfaction is maintained incrementally
@@ -317,8 +334,6 @@ export class SchellingModel {
     }
 
     this.segregationIndex = this.calculateSegregationIndex();
-    this.lastUnsatisfiedAgents = this.agents;
-
     this.emit('step_end', { timeStep: this.timeStep });
     this.timeStep++;
     return moved > 0;
@@ -337,24 +352,16 @@ export class SchellingModel {
     return SchellingModel.AGENT_TYPES.find(t => t.type === type)?.color ?? '#000000';
   }
 
-  getAgentUpdates(full = false): {
-    id: string;
-    data: { id: string; x: number; y: number; color: string; icon: 'circle'; size: number };
-    operation: 'create' | 'update';
-  }[] {
-    const agentsToUpdate = full ? this.agents : this.lastUnsatisfiedAgents ?? [];
-    return agentsToUpdate.map(agent => ({
+  takeAgentUpdates(): SchellingAgentUpdate[] {
+    const updates = [...this.agentChanges].map(([agent, changes]) => ({
       id: agent.id,
-      data: {
-        id: agent.id,
-        x: agent.x,
-        y: agent.y,
-        color: this.getAgentColor(agent.type),
-        icon: 'circle',
-        size: agent.satisfied ? this.config.agentSize : this.config.agentSizeUnsatisfied,
-      },
-      operation: full ? 'create' : 'update',
+      ...(changes.position ? { x: agent.x, y: agent.y } : {}),
+      ...(changes.appearance
+        ? { size: agent.satisfied ? this.config.agentSize : this.config.agentSizeUnsatisfied }
+        : {}),
     }));
+    this.agentChanges.clear();
+    return updates;
   }
 
   getEnvironmentState(): SimpleGridEnv {
@@ -380,7 +387,7 @@ export class SchellingModel {
   prepareRestoredAgents(): void {
     const size = this.config.gridWidth * this.config.gridHeight;
     this.agents = [];
-    this.lastUnsatisfiedAgents = undefined;
+    this.agentChanges.clear();
     this.grid = new Array(size).fill(null);
     this.emptySpots = Array.from({ length: size }, (_, index) => index);
     this.emptySpotIndexMap = new Map(this.emptySpots.map((encoded, index) => [encoded, index]));
@@ -470,7 +477,7 @@ export class SchellingModel {
   finishRestoredAgents(): void {
     this.updateAllSatisfaction();
     this.segregationIndex = this.calculateSegregationIndex();
-    this.lastUnsatisfiedAgents = this.agents;
+    this.agentChanges.clear();
   }
 
   restoreTime(time: number): void {
@@ -551,7 +558,7 @@ export class SchellingModel {
     (this.config as any)[id] = typeof value === 'number' && ['similarityThreshold', 'density', 'balance'].includes(id)
       ? SchellingModel.clamp01(value)
       : value;
-    if (id === 'similarityThreshold') this.updateAllSatisfaction();
+    if (id === 'similarityThreshold') this.updateAllSatisfaction(true);
   }
 
   // ── Simulation control ──────────────────────────────────────────────────────
@@ -579,7 +586,7 @@ export class SchellingModel {
   destroy() {
     this.stop();
     this.agents = [];
-    this.lastUnsatisfiedAgents = undefined;
+    this.agentChanges.clear();
     this.grid = [];
     this.emptySpots = [];
     this.emptySpotIndexMap.clear();
@@ -601,6 +608,6 @@ export class SchellingModel {
     if (updates.balance !== undefined) {
       this.config.balance = SchellingModel.clamp01(updates.balance);
     }
-    if ('similarityThreshold' in updates) this.updateAllSatisfaction();
+    if ('similarityThreshold' in updates) this.updateAllSatisfaction(true);
   }
 }

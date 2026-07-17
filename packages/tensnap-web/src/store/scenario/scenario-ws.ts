@@ -14,6 +14,8 @@ type SessionListeners = {
   session: RendererSession;
   message: EventListener;
   protocolError: EventListener;
+  transportError: EventListener;
+  validationWarning: EventListener;
 };
 
 const handlers = new WeakMap<ISimulatorTransport, SessionListeners>();
@@ -24,6 +26,8 @@ export function unregisterEventHandlers(transport: ISimulatorTransport) {
   const session = listeners.session;
   session.removeEventListener('message', listeners.message);
   session.removeEventListener('protocol:error', listeners.protocolError);
+  session.removeEventListener('transport:error', listeners.transportError);
+  session.removeEventListener('transport:validation-warning', listeners.validationWarning);
   if (session.attachedTransport === transport) {
     session.detachTransport();
   }
@@ -120,8 +124,23 @@ export function registerEventHandlers(
     }
   };
 
-  handlers.set(transport, { session, message: handler, protocolError });
+  const transportError: EventListener = (event) => {
+    const error = (event as CustomEvent<unknown>).detail;
+    getToastState().error(
+      'Protocol transport error',
+      error instanceof Error ? error.message : String(error),
+    );
+  };
+
+  const validationWarning: EventListener = (event) => {
+    const warning = (event as CustomEvent<{ message: string }>).detail;
+    getToastState().warning('Protocol validation warning', warning.message);
+  };
+
+  handlers.set(transport, { session, message: handler, protocolError, transportError, validationWarning });
   session.addEventListener('message', handler);
   session.addEventListener('protocol:error', protocolError);
+  session.addEventListener('transport:error', transportError);
+  session.addEventListener('transport:validation-warning', validationWarning);
   session.attachTransport(transport);
 }

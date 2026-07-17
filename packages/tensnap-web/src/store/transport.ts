@@ -3,7 +3,6 @@ import { ScenarioStore } from './scenario/store';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import type { ISimulatorTransport, TransportEventMap } from '@tensnap/core';
-import { SimulatorInfoPayloadSchema } from '@tensnap/protocol';
 import type { SimulatorToRendererMessage, StateSyncRequest } from '@tensnap/protocol';
 import { registerEventHandlers, unregisterEventHandlers } from './scenario/scenario-ws';
 import { WebSocketConnectionError, WebSocketManagerImpl } from '@/transport';
@@ -55,6 +54,7 @@ export const createTransportStore = (
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>,
 ) => create<TransportStore>((set, get) => {
   let pendingSimulatorInfoListener: EventListener | null = null;
+  let unsubscribeValidationSettings: (() => void) | null = null;
 
   const removePendingSimulatorInfoListener = () => {
     if (!pendingSimulatorInfoListener) return;
@@ -93,6 +93,20 @@ export const createTransportStore = (
     }
   };
 
+  const watchTransportValidation = (transport: ISimulatorTransport) => {
+    unsubscribeValidationSettings?.();
+    unsubscribeValidationSettings = useSettingsStore.subscribe((state, previous) => {
+      if (state.clientMessageValidation === previous.clientMessageValidation
+        && state.serverMessageValidation === previous.serverMessageValidation) return;
+      if (get().transport === transport) configureTransportValidation(transport);
+    });
+  };
+
+  const stopWatchingTransportValidation = () => {
+    unsubscribeValidationSettings?.();
+    unsubscribeValidationSettings = null;
+  };
+
   const installConnectedTransport = (
     transport: ISimulatorTransport,
     state: StateSyncInventory | undefined,
@@ -102,6 +116,7 @@ export const createTransportStore = (
   ) => {
     const scenarioStore = useScenarioStore.getState();
     const { transport: currentTransport } = get();
+    stopWatchingTransportValidation();
     removePendingSimulatorInfoListener();
     previousAbort?.abort();
     scenarioStore.setConnected(false);
@@ -150,6 +165,7 @@ export const createTransportStore = (
       connectionError: null,
       abortController: null,
     });
+    watchTransportValidation(transport);
     scenarioStore.setConnected(true);
     for (const message of bufferedMessages) scenarioStore.session.handleIncoming(message);
   };
@@ -176,6 +192,7 @@ export const createTransportStore = (
     if (currentAbort) currentAbort.abort();
     scenarioStore.setConnected(false);
     if (currentTransport) {
+      stopWatchingTransportValidation();
       unregisterEventHandlers(currentTransport);
       currentTransport.destroy();
     }
@@ -221,6 +238,7 @@ export const createTransportStore = (
     scenarioStore.session.addEventListener('simulator:info', onSimulatorInfo);
 
     set({ transport, isConnecting: true, connectionError: null });
+    watchTransportValidation(transport);
 
     try {
       await transport.connect(abortController.signal);
@@ -270,6 +288,7 @@ export const createTransportStore = (
       set({ abortController: null });
     }
     if (transport) {
+      stopWatchingTransportValidation();
       removePendingSimulatorInfoListener();
       unregisterEventHandlers(transport);
       transport.destroy();
@@ -338,7 +357,6 @@ export const createTransportStore = (
       if (bufferedMessages[0]?.type !== 'simulator_info') {
         throw new Error('simulator_info must be the first replacement simulator message.');
       }
-      SimulatorInfoPayloadSchema.parse(bufferedMessages[0].payload);
     } catch (error) {
       transport.off('message', bufferMessage);
       transport.destroy();
@@ -362,6 +380,7 @@ export const createTransportStore = (
   destroy: () => {
     const { transport, abortController } = get();
     removePendingSimulatorInfoListener();
+    stopWatchingTransportValidation();
     if (abortController) abortController.abort();
     if (transport) {
       unregisterEventHandlers(transport);

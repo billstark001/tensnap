@@ -1,5 +1,5 @@
 import type { ISimulatorTransport, TransportConnectionState, TransportEventHandler, TransportEventMap } from '../transport';
-import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
+import { ProtocolValidationError, type ProtocolEncoding, type RendererToSimulatorMessage } from '@tensnap/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RendererSession } from './RendererSession';
 import { compileRunCondition, createRunConditionScope } from './ScenarioConditionScope';
@@ -87,6 +87,49 @@ describe('RunController', () => {
       state: 'stopped',
       completedSteps: 2,
       stopReason: 'max-steps',
+    });
+  });
+
+  it('stops a continuous run immediately when outgoing validation fails', () => {
+    const session = new RendererSession();
+    const transport = createTransport([]);
+    transport.send = () => {
+      throw new ProtocolValidationError('renderer-to-simulator', 'invalid action message', []);
+    };
+    session.attachTransport(transport);
+    announce(session);
+
+    expect(() => session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 10 }))
+      .toThrow(ProtocolValidationError);
+    expect(session.run.status).toMatchObject({
+      state: 'stopped',
+      stopReason: 'validation-error',
+      inFlight: false,
+    });
+  });
+
+  it('stops a continuous run immediately when inbound validation fails', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const handlers = new Map<keyof TransportEventMap, TransportEventHandler<any>>();
+    const transport: ISimulatorTransport = {
+      ...createTransport(sent),
+      on: (type, handler) => handlers.set(type, handler),
+      off: (type) => { handlers.delete(type); },
+    };
+    const session = new RendererSession();
+    session.attachTransport(transport);
+    announce(session);
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 10 });
+
+    handlers.get('error')?.(new ProtocolValidationError(
+      'simulator-to-renderer',
+      'invalid action result',
+      [],
+    ));
+
+    expect(session.run.status).toMatchObject({
+      state: 'stopped',
+      stopReason: 'validation-error',
     });
   });
 

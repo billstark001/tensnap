@@ -28,7 +28,7 @@ describe('codec mode', () => {
   });
 
   it('rejects legacy aliases in strict mode', () => {
-    const codec = new ProtocolCodec();
+    const codec = new ProtocolCodec({ validation: { level: 'error' } });
     expect(() => codec.decode(JSON.stringify({
       type: 'param_create',
       payload: { id: 'size', type: 'number', label: 'Size', value: 10, allowRuntimeChange: true },

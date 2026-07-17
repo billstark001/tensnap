@@ -7,6 +7,7 @@ import type {
   NormalizedLogPayload,
   Parameter,
   ProtocolEncoding,
+  ProtocolValidationLevel,
 } from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 
@@ -47,6 +48,8 @@ export interface RuntimeControlFile {
   phase: RuntimePhase;
   simulatorUrl?: string;
   encoding: ProtocolEncoding;
+  clientMessageValidation: ProtocolValidationLevel;
+  serverMessageValidation: ProtocolValidationLevel;
   maxRunStepsPolicy: number;
   render: RenderSettings;
   painters: string[];
@@ -113,6 +116,8 @@ export interface RuntimeEvent<T = unknown> {
 export interface ConnectOptions {
   simulatorUrl: string;
   encoding?: ProtocolEncoding;
+  clientMessageValidation?: ProtocolValidationLevel;
+  serverMessageValidation?: ProtocolValidationLevel;
 }
 
 export interface SceneRenderOptions {

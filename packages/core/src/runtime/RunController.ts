@@ -5,6 +5,7 @@ import type {
   StateSyncBeginPayload,
   StateSyncEndPayload,
 } from '@tensnap/protocol';
+import { ProtocolValidationError } from '@tensnap/protocol';
 import type { Scenario } from '../scenario';
 import type { RecordingOptions as SnapshotRecordingOptions } from '../snapshot';
 import { PipelineRuntime } from './PipelineRuntime';
@@ -37,7 +38,7 @@ export interface ManualRunSpec {
 
 export type RunRequest = BoundedRunSpec | ManualRunSpec;
 
-export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'action-error' | 'render-error' | 'simulator' | 'paused' | 'stopped' | 'disconnected';
+export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'action-error' | 'render-error' | 'validation-error' | 'simulator' | 'paused' | 'stopped' | 'disconnected';
 
 export interface RunStatus {
   id: string;
@@ -367,7 +368,7 @@ export class RunController {
     }
     this.clearActionTimeout();
     this.discardInvocations(this.runtime.cancel(run.spec.actionId));
-    if (reason !== 'disconnected' && this.canInvokeStopHook(run.spec.actionId)) {
+    if (reason !== 'disconnected' && reason !== 'validation-error' && this.canInvokeStopHook(run.spec.actionId)) {
       this.runtime.enqueueFront('stop');
     }
     run.state = reason === 'paused' ? 'paused' : 'stopped';
@@ -402,6 +403,9 @@ export class RunController {
         // The dispatch never reached the simulator. Release the task instead
         // of leaving the pipeline wedged until its normal action timeout.
         this.runtime.cancelPendingDispatch(command.task.id);
+        if (error instanceof ProtocolValidationError) {
+          this.finish('validation-error');
+        }
         throw error;
       }
       this.scheduleActionTimeout(command.task);

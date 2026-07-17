@@ -9,10 +9,10 @@ import {
   decodeProtocolMessage,
   encodeProtocolMessage,
   type AnyProtocolMessage,
+  type ProtocolValidationLevel,
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
-import { validateClientMessage, validateServerMessage, ValidationLevel } from '@/utils/validation';
 
 
 export class WebSocketManagerImpl implements ISimulatorTransport {
@@ -35,8 +35,8 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private isDestroyed: boolean = false;
   
   // Validation settings - can be set externally
-  public clientMessageValidation: ValidationLevel = 'off';
-  public serverMessageValidation: ValidationLevel = 'off';
+  public clientMessageValidation: ProtocolValidationLevel = 'off';
+  public serverMessageValidation: ProtocolValidationLevel = 'off';
 
   constructor(id: string | null | undefined, url: string, useMsgPack: boolean = false) {
     this.id = id || generateUniqueId();
@@ -178,16 +178,13 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
 
   private async handleMessage(data: ArrayBuffer | string) {
     try {
-      const message = decodeProtocolMessage(data) as AnyProtocolMessage;
-
-      // Validate server message if validation is enabled
-      if (this.serverMessageValidation !== 'off') {
-        const validation = validateServerMessage(message, this.serverMessageValidation);
-        if (!validation.valid && this.serverMessageValidation === 'error') {
-          console.error(`${this.id}: Server message validation failed`, validation.message);
-          return; // Don't emit invalid messages when in error mode
-        }
-      }
+      const message = decodeProtocolMessage(data, {
+        validation: {
+          level: this.serverMessageValidation,
+          direction: 'simulator-to-renderer',
+          onWarning: (warning) => this.emit('validation-warning', warning),
+        },
+      }) as AnyProtocolMessage;
 
       this.emit('message', message);
     } catch (error) {
@@ -233,17 +230,14 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   }
 
   send(message: RendererToSimulatorMessage) {
-    // Validate client message if validation is enabled
-    if (this.clientMessageValidation !== 'off') {
-      const validation = validateClientMessage(message, this.clientMessageValidation);
-      if (!validation.valid && this.clientMessageValidation === 'error') {
-        console.error(`${this.id}: Client message validation failed`, validation.message);
-        return; // Don't send invalid messages when in error mode
-      }
-    }
-
     if (this.ws?.readyState === WebSocket.OPEN) {
-      const encoded = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding);
+      const encoded = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding, {
+        validation: {
+          level: this.clientMessageValidation,
+          direction: 'renderer-to-simulator',
+          onWarning: (warning) => this.emit('validation-warning', warning),
+        },
+      });
       this.ws.send(typeof encoded === 'string' ? encoded : new Uint8Array(encoded));
     } else {
       console.warn(`${this.id}: WebSocket not connected`);

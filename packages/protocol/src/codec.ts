@@ -2,15 +2,40 @@ import { decode, encode } from '@msgpack/msgpack';
 import { decodeBinaryString, encodeBytesAsDataUrl } from './binary';
 import {
   AnyProtocolMessageSchema,
-  AssetDataPayloadSchema,
-  SceneCaptureResultPayloadSchema,
-  SceneRestorePayloadSchema,
-  ScreenshotResponsePayloadSchema,
+  RendererToSimulatorMessageSchema,
+  SimulatorToRendererMessageSchema,
 } from './schemas';
-import type { AnyProtocolMessage } from './types';
+import type {
+  AnyProtocolMessage,
+  AssetDataPayload,
+  SceneCaptureResultPayload,
+  SceneRestorePayload,
+  ScreenshotResponsePayload,
+} from './types';
 
 export type ProtocolEncoding = 'json' | 'msgpack';
 export type ProtocolCodecMode = 'strict' | 'legacy';
+export type ProtocolValidationLevel = 'off' | 'warning' | 'error';
+export type ProtocolMessageDirection = 'renderer-to-simulator' | 'simulator-to-renderer' | 'any';
+
+export interface ProtocolValidationIssue {
+  code: string;
+  path: Array<string | number>;
+  message: string;
+}
+
+export interface ProtocolValidationWarning {
+  level: 'warning';
+  direction: ProtocolMessageDirection;
+  message: string;
+  issues: ProtocolValidationIssue[];
+}
+
+export interface ProtocolValidationOptions {
+  level?: ProtocolValidationLevel;
+  direction?: ProtocolMessageDirection;
+  onWarning?: (warning: ProtocolValidationWarning) => void;
+}
 
 export interface ProtocolCodecWarning {
   code: 'legacy_alias' | 'legacy_discarded' | 'legacy_duplicate';
@@ -22,6 +47,20 @@ export interface ProtocolCodecOptions {
   /** Select once at session setup; it is deliberately immutable afterwards. */
   mode?: ProtocolCodecMode;
   onWarning?: (warning: ProtocolCodecWarning) => void;
+  /** Runtime schema validation is opt-in and performs at most one envelope parse per message. */
+  validation?: ProtocolValidationOptions;
+}
+
+export class ProtocolValidationError extends Error {
+  readonly direction: ProtocolMessageDirection;
+  readonly issues: ProtocolValidationIssue[];
+
+  constructor(direction: ProtocolMessageDirection, message: string, issues: ProtocolValidationIssue[]) {
+    super(message);
+    this.name = 'ProtocolValidationError';
+    this.direction = direction;
+    this.issues = issues;
+  }
 }
 
 /** Raised when a peer requests a v0.2 representation that would lose v0.3 data. */
@@ -62,14 +101,21 @@ export function selectProtocolCodecMode(protocolVersion: string | undefined): Pr
 export class ProtocolCodec {
   readonly mode: ProtocolCodecMode;
   private readonly onWarning?: (warning: ProtocolCodecWarning) => void;
+  private readonly validation: Required<Pick<ProtocolValidationOptions, 'level' | 'direction'>>
+    & Pick<ProtocolValidationOptions, 'onWarning'>;
 
   constructor(options: ProtocolCodecOptions = {}) {
     this.mode = options.mode ?? 'strict';
     this.onWarning = options.onWarning;
+    this.validation = {
+      level: options.validation?.level ?? 'off',
+      direction: options.validation?.direction ?? 'any',
+      onWarning: options.validation?.onWarning,
+    };
   }
 
   encode(message: AnyProtocolMessage, encoding: ProtocolEncoding): string | Uint8Array {
-    const canonical = AnyProtocolMessageSchema.parse(message) as AnyProtocolMessage;
+    const canonical = this.validate(message);
     const semantic = this.mode === 'legacy'
       ? encodeLegacyMessage(canonical)
       : canonical;
@@ -84,8 +130,43 @@ export class ProtocolCodec {
     const normalized = this.mode === 'legacy'
       ? normalizeLegacyMessage(decoded, (warning) => this.onWarning?.(warning))
       : decoded;
-    const canonical = AnyProtocolMessageSchema.parse(normalized) as AnyProtocolMessage;
+    const canonical = this.validate(normalized);
     return normalizeDecodedBinarySemanticMessage(canonical);
+  }
+
+  private validate(message: unknown): AnyProtocolMessage {
+    if (this.validation.level === 'off') return message as AnyProtocolMessage;
+    const schema = this.validation.direction === 'renderer-to-simulator'
+      ? RendererToSimulatorMessageSchema
+      : this.validation.direction === 'simulator-to-renderer'
+        ? SimulatorToRendererMessageSchema
+        : AnyProtocolMessageSchema;
+    const result = schema.safeParse(message);
+    if (result.success) return result.data as AnyProtocolMessage;
+
+    const issues = result.error.issues.map((issue) => ({
+      code: issue.code,
+      path: issue.path.map((segment) => typeof segment === 'symbol' ? String(segment) : segment),
+      message: issue.message,
+    }));
+    const detail = issues
+      .map((issue) => `${issue.path.length > 0 ? issue.path.join('.') : '<message>'}: ${issue.message}`)
+      .join(', ');
+    const validationMessage = `Protocol message validation failed (${this.validation.direction}): ${detail}`;
+    if (this.validation.level === 'warning') {
+      try {
+        this.validation.onWarning?.({
+          level: 'warning',
+          direction: this.validation.direction,
+          message: validationMessage,
+          issues,
+        });
+      } catch {
+        // Warning observers are non-fatal and cannot turn warning mode into error mode.
+      }
+      return message as AnyProtocolMessage;
+    }
+    throw new ProtocolValidationError(this.validation.direction, validationMessage, issues);
   }
 }
 
@@ -93,17 +174,21 @@ export function createProtocolCodec(options: ProtocolCodecOptions = {}): Protoco
   return new ProtocolCodec(options);
 }
 
-/** Strict v0.3 convenience function for stateless transport integrations. */
+/** Canonical v0.3 convenience function; runtime schema validation remains opt-in. */
 export function encodeProtocolMessage(
   message: AnyProtocolMessage,
   encoding: ProtocolEncoding,
+  options: ProtocolCodecOptions = {},
 ): string | Uint8Array {
-  return new ProtocolCodec().encode(message, encoding);
+  return new ProtocolCodec(options).encode(message, encoding);
 }
 
-/** Strict v0.3 convenience function for stateless transport integrations. */
-export function decodeProtocolMessage(data: string | Uint8Array | ArrayBuffer): AnyProtocolMessage {
-  return new ProtocolCodec().decode(data);
+/** Canonical v0.3 convenience function; runtime schema validation remains opt-in. */
+export function decodeProtocolMessage(
+  data: string | Uint8Array | ArrayBuffer,
+  options: ProtocolCodecOptions = {},
+): AnyProtocolMessage {
+  return new ProtocolCodec(options).decode(data);
 }
 
 function normalizeBinarySemanticMessage(
@@ -113,11 +198,11 @@ function normalizeBinarySemanticMessage(
   if (!isRecord(message) || !isRecord(message.payload)) return message;
   switch (message.type) {
     case 'asset_data': {
-      const payload = AssetDataPayloadSchema.parse(message.payload);
+      const payload = message.payload as AssetDataPayload;
       return { ...message, payload: { ...payload, data: normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding) } };
     }
     case 'screenshot_response': {
-      const payload = ScreenshotResponsePayloadSchema.parse(message.payload);
+      const payload = message.payload as ScreenshotResponsePayload;
       return {
         ...message,
         payload: {
@@ -127,7 +212,7 @@ function normalizeBinarySemanticMessage(
       };
     }
     case 'scene_restore': {
-      const payload = SceneRestorePayloadSchema.parse(message.payload);
+      const payload = message.payload as SceneRestorePayload;
       return {
         ...message,
         payload: payload.checkpoint === undefined
@@ -136,7 +221,7 @@ function normalizeBinarySemanticMessage(
       };
     }
     case 'scene_capture_result': {
-      const payload = SceneCaptureResultPayloadSchema.parse(message.payload);
+      const payload = message.payload as SceneCaptureResultPayload;
       return {
         ...message,
         payload: { ...payload, checkpoint: { ...payload.checkpoint, data: normalizeBinaryDataForEncoding(payload.checkpoint.data, undefined, encoding) } },
@@ -151,15 +236,15 @@ function normalizeDecodedBinarySemanticMessage(message: AnyProtocolMessage): Any
   if (!isRecord(message.payload)) return message;
   switch (message.type) {
     case 'asset_data': {
-      const payload = AssetDataPayloadSchema.parse(message.payload);
+      const payload = message.payload as AssetDataPayload;
       return { ...message, payload: { ...payload, data: decodeBinaryValue(payload.data) } } as AnyProtocolMessage;
     }
     case 'screenshot_response': {
-      const payload = ScreenshotResponsePayloadSchema.parse(message.payload);
+      const payload = message.payload as ScreenshotResponsePayload;
       return { ...message, payload: { ...payload, data: payload.data === undefined ? undefined : decodeBinaryValue(payload.data) } } as AnyProtocolMessage;
     }
     case 'scene_restore': {
-      const payload = SceneRestorePayloadSchema.parse(message.payload);
+      const payload = message.payload as SceneRestorePayload;
       return {
         ...message,
         payload: payload.checkpoint === undefined ? payload : {
@@ -169,7 +254,7 @@ function normalizeDecodedBinarySemanticMessage(message: AnyProtocolMessage): Any
       } as AnyProtocolMessage;
     }
     case 'scene_capture_result': {
-      const payload = SceneCaptureResultPayloadSchema.parse(message.payload);
+      const payload = message.payload as SceneCaptureResultPayload;
       return {
         ...message,
         payload: { ...payload, checkpoint: { ...payload.checkpoint, data: decodeBinaryValue(payload.checkpoint.data) } },

@@ -21,6 +21,7 @@ const stopReasonGlyph = {
   'action-timeout': '!',
   'action-error': '!',
   'render-error': '!',
+  'validation-error': '!',
   simulator: '■',
   paused: 'Ⅱ',
   stopped: '■',

@@ -4,6 +4,7 @@ import {
   encodeProtocolMessage,
   type AnyProtocolMessage,
   type ProtocolEncoding,
+  type ProtocolValidationLevel,
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import type {
@@ -46,6 +47,11 @@ export function normalizeRawData(data: RawData, isBinary: boolean): string | Uin
   return data;
 }
 
+export interface NodeWebSocketValidationOptions {
+  clientMessages?: ProtocolValidationLevel;
+  serverMessages?: ProtocolValidationLevel;
+}
+
 export class NodeWebSocketTransport implements ISimulatorTransport {
   readonly connectionId: string;
   readonly transportKind = 'node-ws';
@@ -57,6 +63,7 @@ export class NodeWebSocketTransport implements ISimulatorTransport {
   constructor(
     private readonly url: string,
     readonly encoding: ProtocolEncoding = 'msgpack',
+    private readonly validation: NodeWebSocketValidationOptions = {},
   ) {
     this.connectionId = `ws:${url}`;
   }
@@ -198,13 +205,25 @@ export class NodeWebSocketTransport implements ISimulatorTransport {
       throw new Error('Transport is not connected.');
     }
 
-    const payload = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding);
+    const payload = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding, {
+      validation: {
+        level: this.validation.clientMessages ?? 'off',
+        direction: 'renderer-to-simulator',
+        onWarning: (warning) => this.emitter.emit('validation-warning', warning),
+      },
+    });
     this.socket.send(typeof payload === 'string' ? payload : Buffer.from(payload));
   }
 
   private handleMessage(data: string | Uint8Array | ArrayBuffer): void {
     try {
-      const message = decodeProtocolMessage(data) as AnyProtocolMessage;
+      const message = decodeProtocolMessage(data, {
+        validation: {
+          level: this.validation.serverMessages ?? 'off',
+          direction: 'simulator-to-renderer',
+          onWarning: (warning) => this.emitter.emit('validation-warning', warning),
+        },
+      }) as AnyProtocolMessage;
       this.emitter.emit('message', message);
     } catch (error) {
       this.emitter.emit('error', error);

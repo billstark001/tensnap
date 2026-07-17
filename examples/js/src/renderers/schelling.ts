@@ -86,6 +86,7 @@ builder.env('main')
       return { width: config.gridWidth, height: config.gridHeight };
     },
     items: (model) => model.getEnvironmentState().agents,
+    updates: (model) => model.takeAgentUpdates(),
     restore: {
       validate(model, layer) {
         model.validateRestoredAgents(layer.items ?? [], layer.metadata);

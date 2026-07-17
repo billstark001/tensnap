@@ -7,12 +7,14 @@ import type {
 import type {
   AnyProtocolMessage,
   ProtocolEncoding,
+  ProtocolValidationWarning,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
 import { describe, expect, it } from 'vitest';
 import { createScenarioStore } from './store';
 import { registerEventHandlers, unregisterEventHandlers } from './scenario-ws';
+import { useToastStore } from '../toast';
 
 class MockTransport implements ISimulatorTransport {
   readonly connectionId = 'mock://transport';
@@ -80,9 +82,39 @@ class MockTransport implements ISimulatorTransport {
       handler(message as AnyProtocolMessage);
     }
   }
+
+  emitValidationWarning(warning: ProtocolValidationWarning): void {
+    for (const handler of this.handlers.get('validation-warning') ?? []) handler(warning);
+  }
+
+  emitError(error: unknown): void {
+    for (const handler of this.handlers.get('error') ?? []) handler(error);
+  }
 }
 
 describe('scenario ws event handlers', () => {
+  it('surfaces validation warnings and errors as toasts', () => {
+    const useStore = createScenarioStore();
+    const transport = new MockTransport();
+    useToastStore.getState().closeAll();
+    registerEventHandlers(transport, useStore);
+
+    transport.emitValidationWarning({
+      level: 'warning',
+      direction: 'simulator-to-renderer',
+      message: 'invalid monitor payload',
+      issues: [],
+    });
+    transport.emitError(new Error('invalid protocol message'));
+
+    expect(useToastStore.getState().toasts).toEqual([
+      expect.objectContaining({ status: 'warning', title: 'Protocol validation warning', description: 'invalid monitor payload' }),
+      expect.objectContaining({ status: 'error', title: 'Protocol transport error', description: 'invalid protocol message' }),
+    ]);
+    unregisterEventHandlers(transport);
+    useToastStore.getState().closeAll();
+  });
+
   it('keeps applying inbound messages while sync is only requested', () => {
     const useStore = createScenarioStore();
     const transport = new MockTransport();

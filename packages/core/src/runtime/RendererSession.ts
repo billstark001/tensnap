@@ -15,6 +15,7 @@ import type {
   StateSyncEndPayload,
   StateSyncRequest,
 } from '@tensnap/protocol';
+import { ProtocolValidationError } from '@tensnap/protocol';
 import { Scenario } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
@@ -162,6 +163,9 @@ export class RendererSession extends LazyEventTarget {
     this.dispatch('transport:close', undefined);
   };
   private readonly transportErrorHandler = (error: unknown) => {
+    if (error instanceof ProtocolValidationError) {
+      this.run.reset('validation-error');
+    }
     this.failActiveRequest(
       'transaction_transport_error',
       error instanceof Error ? error.message : String(error),
@@ -170,6 +174,9 @@ export class RendererSession extends LazyEventTarget {
     );
     this.clearActionMetrics();
     this.dispatch('transport:error', error);
+  };
+  private readonly transportValidationWarningHandler = (warning: TransportEventMap['validation-warning']) => {
+    this.dispatch('transport:validation-warning', warning);
   };
 
   constructor(options: RendererSessionOptions = {}) {
@@ -273,6 +280,7 @@ export class RendererSession extends LazyEventTarget {
     transport.on('open', this.transportOpenHandler);
     transport.on('close', this.transportCloseHandler);
     transport.on('error', this.transportErrorHandler);
+    transport.on('validation-warning', this.transportValidationWarningHandler);
   }
 
   detachTransport(): void {
@@ -282,6 +290,7 @@ export class RendererSession extends LazyEventTarget {
       transport.off('open', this.transportOpenHandler);
       transport.off('close', this.transportCloseHandler);
       transport.off('error', this.transportErrorHandler);
+      transport.off('validation-warning', this.transportValidationWarningHandler);
       this.transport = null;
       this.cancelActiveRequest('The renderer session detached from its transport.');
       this.run.reset('disconnected');

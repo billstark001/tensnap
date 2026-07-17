@@ -5,6 +5,7 @@ import type {
   Parameter,
   ProtocolEncoding,
   ProtocolData,
+  ProtocolValidationLevel,
   SceneCaptureResultPayload,
   SceneRestoreEndPayload,
   SceneRestorePayload,
@@ -45,6 +46,8 @@ export interface AgentRuntimeOptions {
   host?: string;
   controlPort?: number | null;
   encoding?: ProtocolEncoding;
+  clientMessageValidation?: ProtocolValidationLevel;
+  serverMessageValidation?: ProtocolValidationLevel;
   maxRunStepsPolicy?: number;
   render?: Partial<RenderSettings>;
   /** Delay between dirty scene updates and disk checkpoints. */
@@ -104,6 +107,8 @@ export class AgentRuntime extends EventEmitter {
       pid: process.pid,
       phase: 'idle',
       encoding: options.encoding ?? 'msgpack',
+      clientMessageValidation: options.clientMessageValidation ?? 'off',
+      serverMessageValidation: options.serverMessageValidation ?? 'off',
       maxRunStepsPolicy: options.maxRunStepsPolicy ?? 1_000_000,
       render: {
         trigger: options.render?.trigger ?? 'manual',
@@ -127,6 +132,8 @@ export class AgentRuntime extends EventEmitter {
     this.setPhase('connecting');
     this.control.simulatorUrl = options.simulatorUrl;
     this.control.encoding = options.encoding ?? this.control.encoding;
+    this.control.clientMessageValidation = options.clientMessageValidation ?? this.control.clientMessageValidation;
+    this.control.serverMessageValidation = options.serverMessageValidation ?? this.control.serverMessageValidation;
     this.completedStateSyncCount = 0;
     await this.persistStatus();
 
@@ -134,7 +141,10 @@ export class AgentRuntime extends EventEmitter {
       this.destroyTransport();
       this.renderer.scenario.reset();
       this.renderer.run.reset();
-      const transport = new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding);
+      const transport = new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
+        clientMessages: this.control.clientMessageValidation,
+        serverMessages: this.control.serverMessageValidation,
+      });
       this.transport = transport;
       this.renderer.attachTransport(transport);
       await transport.connect();
@@ -143,6 +153,8 @@ export class AgentRuntime extends EventEmitter {
       await this.log('info', 'runtime', 'Connected to simulator.', {
         simulatorUrl: options.simulatorUrl,
         encoding: this.control.encoding,
+        clientMessageValidation: this.control.clientMessageValidation,
+        serverMessageValidation: this.control.serverMessageValidation,
       });
       return this.getStatus();
     } catch (error) {
@@ -497,6 +509,11 @@ export class AgentRuntime extends EventEmitter {
       this.setPhase('error');
       void this.log('error', 'transport', 'Transport error.', { error: message });
       this.emitRuntimeEvent('transport.error', { error: message });
+    });
+    this.renderer.addEventListener('transport:validation-warning', (event) => {
+      const warning = (event as CustomEvent<{ message: string; direction: string }>).detail;
+      void this.log('warn', 'transport', 'Protocol validation warning.', warning);
+      this.emitRuntimeEvent('transport.validation-warning', warning);
     });
     this.renderer.addEventListener('run:status', (event) => {
       const status = (event as CustomEvent<{ state?: string }>).detail;

@@ -24,6 +24,44 @@ async function initialize(session: { dispatch(message: { type: 'state_sync'; pay
 }
 
 describe('modelBuilder', () => {
+  it('does not emit updates for unregistered model object classes', async () => {
+    const binding = modelBuilder({
+      id: 'minimal-binding',
+      name: 'Minimal Binding',
+      description: 'no optional model objects',
+    }, {
+      defaults: {},
+      create() {
+        return { tick: 0 };
+      },
+      step(model) {
+        model.tick += 1;
+      },
+      time(model) {
+        return model.tick;
+      },
+    }).build();
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = binding.createSession();
+    session.attach((message) => {
+      messages.push(message);
+    });
+    await session.open();
+    await initialize(session, 'minimal-binding');
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'minimal-step' },
+    });
+
+    expect(messages.map((message) => message.type)).toEqual([
+      'metadata_update',
+      'action_result',
+    ]);
+    await session.close();
+  });
+
   it('maps declarations to exact canonical v0.3 metadata without optional-field aliases', () => {
     const binding = modelBuilder({
       id: 'exact-output',

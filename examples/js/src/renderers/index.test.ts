@@ -4,7 +4,7 @@ import {
   type SimulatorToRendererMessage,
   type StateSyncRequest,
 } from '@tensnap/protocol';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getJsExampleDefinition, getJsExampleDefinitions } from './index';
 
 const emptyStateSync: StateSyncRequest = {
@@ -85,6 +85,74 @@ describe('JS example sessions', () => {
     expect(messages.some((message) => message.type === 'param_update')).toBe(false);
 
     await session.close();
+  });
+
+  it('uses the Schelling incremental projector without snapshot-only item updates', async () => {
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = getJsExampleDefinition('schelling').createSession({
+      similarityThreshold: 0,
+      gridWidth: 20,
+      gridHeight: 20,
+    });
+    session.attach((message) => {
+      messages.push(message);
+    }, 'test-schelling-incremental');
+    await session.open('test-schelling-incremental');
+    await session.dispatch({
+      type: 'state_sync',
+      payload: { ...emptyStateSync, model_id: 'schelling' },
+    });
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'schelling-stable-step' },
+    });
+
+    expect(messages.some((message) => message.type === 'item_update')).toBe(false);
+    expect(messages.some((message) => message.type === 'monitor_update')).toBe(true);
+    await session.close();
+  });
+
+  it('projects only mutable Schelling fields for changed agents', async () => {
+    const values = [0.1, 0.6, 0.2, 0.7, 0.95];
+    let randomIndex = 0;
+    const random = vi.spyOn(Math, 'random').mockImplementation(
+      () => values[randomIndex++ % values.length]!,
+    );
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = getJsExampleDefinition('schelling').createSession({
+      gridWidth: 20,
+      gridHeight: 20,
+    });
+    try {
+      session.attach((message) => {
+        messages.push(message);
+      }, 'test-schelling-projector-fields');
+      await session.open('test-schelling-projector-fields');
+      await session.dispatch({
+        type: 'state_sync',
+        payload: { ...emptyStateSync, model_id: 'schelling' },
+      });
+
+      messages.length = 0;
+      await session.dispatch({
+        type: 'action_invoke',
+        payload: { id: 'step', request_id: 'schelling-changing-step' },
+      });
+
+      const updates = messages.flatMap((message) => message.type === 'item_update'
+        ? (message.payload as { items: Array<Record<string, ProtocolValue>> }).items
+        : []);
+      expect(updates.length).toBeGreaterThan(0);
+      for (const update of updates) {
+        expect(Object.keys(update).every((key) => ['id', 'x', 'y', 'size'].includes(key))).toBe(true);
+        expect(Object.keys(update).some((key) => key !== 'id')).toBe(true);
+      }
+    } finally {
+      await session.close();
+      random.mockRestore();
+    }
   });
 
   it('accepted runtime parameter changes do not echo param_update for wolf-sheep', async () => {

@@ -14,7 +14,7 @@ import {
   readRuntimeControl,
   type RuntimeContextPaths,
 } from './runtime/context';
-import type { ProtocolEncoding } from '@tensnap/protocol';
+import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 
 interface ParsedArgs {
@@ -64,6 +64,13 @@ function getNumberFlag(parsed: ParsedArgs, key: string): number | undefined {
     throw new Error(`Flag --${key} must be a valid number.`);
   }
   return parsedValue;
+}
+
+function getValidationLevelFlag(parsed: ParsedArgs, key: string): ProtocolValidationLevel | undefined {
+  const value = getStringFlag(parsed, key);
+  if (value === undefined) return undefined;
+  if (value === 'off' || value === 'warning' || value === 'error') return value;
+  throw new Error(`Flag --${key} must be one of: off, warning, error.`);
 }
 
 function parseJsonValue(raw: string): unknown {
@@ -167,6 +174,8 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     host: getStringFlag(parsed, 'host'),
     controlPort: getStringFlag(parsed, 'port') ? Number(getStringFlag(parsed, 'port')) : undefined,
     encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
+    clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
+    serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
     maxRunStepsPolicy: getNumberFlag(parsed, 'max-steps-policy'),
     render: {
       trigger: (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
@@ -199,6 +208,8 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     await runtime.connect({
       simulatorUrl,
       encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
+      clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
+      serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
     });
     await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
   }
@@ -278,6 +289,11 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
   const maxStepsPolicy = getStringFlag(parsed, 'max-steps-policy');
   if (maxStepsPolicy) {
     childArgs.push('--max-steps-policy', maxStepsPolicy);
+  }
+
+  for (const key of ['client-message-validation', 'server-message-validation'] as const) {
+    const level = getValidationLevelFlag(parsed, key);
+    if (level !== undefined) childArgs.push(`--${key}`, level);
   }
 
   const child = spawn(process.execPath, childArgs, {
@@ -649,7 +665,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   console.log([
     'Usage:',
-    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--background-color <css-color>] [--max-steps-policy <n>]',
+    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
     '  tensnap-agent runtime status',
     '  tensnap-agent runtime render-trigger manual|action-result',
     '  tensnap-agent scene inspect',

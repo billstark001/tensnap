@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { Locale } from '@/i18n';
+import type { ProtocolValidationLevel } from '@tensnap/protocol';
 import { getSettingsPersistence } from './settings-persistence';
 
 export type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 
 export type Theme = 'light' | 'dark';
-type ValidationLevel = 'off' | 'warning' | 'error';
 export const ACTION_TIMEOUT_SECONDS_OPTIONS = [1, 5, 10, 30, 60] as const;
 export const MAX_SNAPSHOT_PLAYBACK_FPS = 120;
 export type ActionTimeoutSeconds = typeof ACTION_TIMEOUT_SECONDS_OPTIONS[number];
@@ -119,15 +119,15 @@ interface SettingsStore {
   continuousRunProfiles: Record<string, ContinuousRunProfile>;
   
   // Validation settings
-  clientMessageValidation: ValidationLevel;
-  serverMessageValidation: ValidationLevel;
+  clientMessageValidation: ProtocolValidationLevel;
+  serverMessageValidation: ProtocolValidationLevel;
   
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
   setSaveFormat: (format: 'json' | 'msgpack') => void;
   setLocale: (locale: Locale) => void;
-  setClientMessageValidation: (level: ValidationLevel) => void;
-  setServerMessageValidation: (level: ValidationLevel) => void;
+  setClientMessageValidation: (level: ProtocolValidationLevel) => void;
+  setServerMessageValidation: (level: ProtocolValidationLevel) => void;
   setRenderTriggerMode: (mode: RenderTriggerMode) => void;
   setMaxTps: (fps: number) => void;
   setMaxRenderFps: (fps: number) => void;
@@ -188,11 +188,11 @@ export const useSettingsStore = create<SettingsStore>()(
       set({ locale });
     },
 
-    setClientMessageValidation: (level: ValidationLevel) => {
+    setClientMessageValidation: (level: ProtocolValidationLevel) => {
       set({ clientMessageValidation: level });
     },
 
-    setServerMessageValidation: (level: ValidationLevel) => {
+    setServerMessageValidation: (level: ProtocolValidationLevel) => {
       set({ serverMessageValidation: level });
     },
 

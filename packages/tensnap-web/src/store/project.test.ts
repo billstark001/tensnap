@@ -7,7 +7,11 @@ import { uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
 import { decode, encode } from '@msgpack/msgpack';
 import { archiveProjectFileContent, parseProjectFileContent, PROJECT_FILE_VERSION, recoverProjectFileContent } from '@/types/project';
 
-const mockedSettings = vi.hoisted(() => ({ saveFormat: 'json' as 'json' | 'msgpack' }));
+const mockedSettings = vi.hoisted(() => ({
+  saveFormat: 'json' as 'json' | 'msgpack',
+  clientMessageValidation: 'off' as const,
+  serverMessageValidation: 'off' as const,
+}));
 
 const emptyScenario = () => ({
   metadata: {},
@@ -40,6 +44,7 @@ vi.mock('./file-system/provider', () => ({
 vi.mock('./settings', () => ({
   useSettingsStore: {
     getState: () => mockedSettings,
+    subscribe: vi.fn(() => () => undefined),
   },
 }));
 

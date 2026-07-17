@@ -1,6 +1,7 @@
 import type {
   AnyProtocolMessage,
   ProtocolEncoding,
+  ProtocolValidationWarning,
   RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 
@@ -11,6 +12,7 @@ export interface TransportEventMap {
   open: unknown;
   close: unknown;
   error: unknown;
+  'validation-warning': ProtocolValidationWarning;
   message: AnyProtocolMessage;
 }
 

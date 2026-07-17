@@ -12,6 +12,8 @@ import type {
 import { describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './scenario/store';
 import { createTransportStore } from './transport';
+import { useSettingsStore } from './settings';
+import { WebSocketManagerImpl } from '@/transport';
 
 class DeferredTransport implements ISimulatorTransport {
   readonly encoding: ProtocolEncoding = 'json';
@@ -118,6 +120,28 @@ class FailingTransport extends DeferredTransport {
 }
 
 describe('transport store reconnect state', () => {
+  it('applies validation setting changes to the active websocket immediately', async () => {
+    const originalClient = useSettingsStore.getState().clientMessageValidation;
+    const originalServer = useSettingsStore.getState().serverMessageValidation;
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new WebSocketManagerImpl('validation-test', 'ws://unused.test');
+    vi.spyOn(transport, 'connect').mockResolvedValue();
+
+    try {
+      await useTransportStore.getState().initialize(transport);
+      useSettingsStore.getState().setClientMessageValidation('warning');
+      useSettingsStore.getState().setServerMessageValidation('error');
+
+      expect(transport.clientMessageValidation).toBe('warning');
+      expect(transport.serverMessageValidation).toBe('error');
+    } finally {
+      useTransportStore.getState().destroy();
+      useSettingsStore.getState().setClientMessageValidation(originalClient);
+      useSettingsStore.getState().setServerMessageValidation(originalServer);
+    }
+  });
+
   it('keeps the current transport alive until a replacement connects', async () => {
     const useScenarioStore = createScenarioStore();
     const useTransportStore = createTransportStore(useScenarioStore);
