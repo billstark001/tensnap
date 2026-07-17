@@ -37,8 +37,9 @@ assignees: ''
 
 ## Release Steps
 
-- [ ] Create and push tag
-- [ ] Monitor GitHub Actions workflow
+- [ ] Create the tag
+- [ ] Push the release commit, then push each tag in a separate command (`git push origin <tag>`). Do not batch tags: GitHub Actions does not create tag-push events when more than three tags are pushed together.
+- [ ] Monitor the matching GitHub Actions workflow, if the component has one (currently `py-v*` and `agent-v*` only)
 - [ ] Verify deployment/release
 - [ ] Test deployed version
 - [ ] Update GitHub release notes (if applicable)

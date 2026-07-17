@@ -103,6 +103,13 @@ function createTag(tagName, message) {
   git('tag', '-a', tagName, '-m', message);
 }
 
+function logTagPushInstructions(tagName) {
+  log(`\nPush ${tagName} by itself after pushing the release commit:`);
+  log('  git push origin main');
+  log(`  git push origin ${tagName}`);
+  log('Do not batch tags: GitHub Actions does not create tag push events for pushes containing more than three tags.');
+}
+
 function finalizeRelease({ componentLabel, version, filePaths, commitMessage, tagName, tagMessage }) {
   const committed = commitFilesIfNeeded(filePaths, commitMessage);
   if (!committed) {
@@ -112,7 +119,7 @@ function finalizeRelease({ componentLabel, version, filePaths, commitMessage, ta
   createTag(tagName, tagMessage ?? `${componentLabel} v${version}`);
 
   log(`\nCreated tag ${tagName}`);
-  log(`Push with:\n  git push origin main && git push origin ${tagName}`);
+  logTagPushInstructions(tagName);
 }
 
 /**
@@ -172,7 +179,7 @@ function releaseGo(version) {
   createTag(tagName, `TenSnap Go binding v${version}`);
 
   log(`\nCreated tag ${tagName}`);
-  log(`Push with:\n  git push origin main && git push origin ${tagName}`);
+  logTagPushInstructions(tagName);
 }
 
 function releasePython(version) {
