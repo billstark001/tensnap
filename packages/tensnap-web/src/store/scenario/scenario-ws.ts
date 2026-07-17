@@ -1,5 +1,6 @@
 import type { ISimulatorTransport, RendererSession } from '@tensnap/core';
 import type {
+  ActionResultPayload,
   ErrorPayload,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
@@ -17,6 +18,12 @@ type SessionListeners = {
   transportError: EventListener;
   validationWarning: EventListener;
 };
+
+function formatActionError(payload: ActionResultPayload): string {
+  const error = payload.error;
+  if (!error) return 'An unknown action error occurred.';
+  return error.code ? `[${error.code}] ${error.message}` : error.message;
+}
 
 const handlers = new WeakMap<ISimulatorTransport, SessionListeners>();
 
@@ -110,6 +117,12 @@ export function registerEventHandlers(
         useStore.getState().resetStateSync();
       }
       toast.error('Error from server', payload.message || 'An unknown error occurred.');
+    }
+    if (message.type === 'action_result') {
+      const payload = message.payload as ActionResultPayload;
+      if (payload.error) {
+        getToastState().error(`Action "${payload.id}" failed`, formatActionError(payload));
+      }
     }
     if (message.type === 'screenshot_request') {
       void handleScreenshotRequest(useStore, message.payload as ScreenshotRequestPayload);

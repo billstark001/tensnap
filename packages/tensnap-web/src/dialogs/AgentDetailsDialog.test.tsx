@@ -41,6 +41,18 @@ import { AgentDetailsDialog } from './AgentDetailsDialog';
 import { Scenario } from '@tensnap/core';
 
 describe('AgentDetailsDialog', () => {
+  it('omits the spatial-context notice for uniform agents', () => {
+    render(
+      <AgentDetailsDialog
+        agent={{ id: 'agent-1' }}
+        agentType="uniform"
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('No spatial context is available for this agent.')).toBeNull();
+  });
+
   it('renders empty custom data inline instead of an empty code block', () => {
     render(
       <AgentDetailsDialog

@@ -93,6 +93,42 @@ class MockTransport implements ISimulatorTransport {
 }
 
 describe('scenario ws event handlers', () => {
+  it('surfaces simulator action errors as toasts', () => {
+    const useStore = createScenarioStore();
+    const transport = new MockTransport();
+    useToastStore.getState().closeAll();
+    registerEventHandlers(transport, useStore);
+    transport.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance',
+        capabilities: [],
+      },
+    });
+
+    transport.emitMessage({
+      type: 'action_result',
+      payload: {
+        id: 'step',
+        request_id: 'step-1',
+        error: { code: 'handler_error', message: 'Bool(::ElFarolModel)' },
+      },
+    });
+
+    expect(useToastStore.getState().toasts).toEqual([
+      expect.objectContaining({
+        status: 'error',
+        title: 'Action "step" failed',
+        description: '[handler_error] Bool(::ElFarolModel)',
+      }),
+    ]);
+    unregisterEventHandlers(transport);
+    useToastStore.getState().closeAll();
+  });
+
   it('surfaces validation warnings and errors as toasts', () => {
     const useStore = createScenarioStore();
     const transport = new MockTransport();

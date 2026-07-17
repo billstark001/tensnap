@@ -188,6 +188,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   const assetId = liveAgent.icon?.startsWith('asset:') ? liveAgent.icon.slice('asset:'.length) : null;
   const assetUrl = assetId ? resolveAssetUrl?.(assetId) : undefined;
   const hasCustomData = liveAgent.data !== undefined && Object.keys(liveAgent.data).length > 0;
+  const showUnavailableSpatialContext = agentType !== 'uniform' && inspection?.kind === 'none';
 
   const updateRadius = (value: string) => {
     setRadiusInput(value);
@@ -250,7 +251,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
             </div>
           </div>
         )}
-        {(agentType === 'uniform' || inspection?.kind === 'none') && (
+        {showUnavailableSpatialContext && (
           <div className={styles.noSpatialContext}>
             <Trans>No spatial context is available for this agent.</Trans>
           </div>
