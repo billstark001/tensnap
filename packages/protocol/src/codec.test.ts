@@ -223,4 +223,16 @@ describe('legacy session codec', () => {
       payload: { code: 'legacy_error', message: 'Model failed.' },
     });
   });
+
+  it('decodes v0.2 chart clear operations as chart-group operations', () => {
+    const codec = new ProtocolCodec({ mode: 'legacy', validation: { level: 'error', direction: 'simulator-to-renderer' } });
+
+    expect(codec.decode(JSON.stringify({
+      type: 'chart_update',
+      payload: { operations: [{ operation: 'clear', id: 'attendance' }] },
+    }))).toEqual({
+      type: 'chart_update',
+      payload: { operations: [{ operation: 'clear', kind: 'group', id: 'attendance' }] },
+    });
+  });
 });
