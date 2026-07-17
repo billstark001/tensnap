@@ -4,6 +4,8 @@
 	initialize!(model)
 	@test model.attendance == 0
 	@test isempty(model.history)
+	@test !hasproperty(first(model.agents), :x)
+	@test !hasproperty(first(model.agents), :y)
 	advance!(model)
 	@test length(model.history) == 1
 	@test 0 <= model.attendance <= length(model.agents)

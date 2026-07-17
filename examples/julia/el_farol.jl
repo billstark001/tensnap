@@ -7,8 +7,6 @@ using Random
 
 mutable struct Patron
     id::Int
-    x::Float64
-    y::Float64
     attending::Bool
     expected::Float64
     score::Float64
@@ -24,7 +22,7 @@ end
 
 function make_model(; n=100, capacity=60, seed=42)
     rng = MersenneTwister(seed)
-    agents = [Patron(i, rand(rng) * 100, rand(rng) * 100, false, capacity, 0.0) for i in 1:n]
+    agents = [Patron(i, false, capacity, 0.0) for i in 1:n]
     return ElFarolModel(agents, capacity, 0, Int[], rng)
 end
 
