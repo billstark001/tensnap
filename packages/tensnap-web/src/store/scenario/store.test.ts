@@ -255,4 +255,33 @@ describe('scenario store updates preserve assets', () => {
     await Promise.resolve();
     expect(history.getState().past).toHaveLength(commandCount);
   });
+
+  it('deduplicates repeated diagnostics and bounds retained diagnostic history', () => {
+    const useStore = createScenarioStore();
+    const store = useStore.getState();
+
+    store.appendDiagnostic({
+      timestamp: 1_000, severity: 'error', domain: 'transport', source: 'test', code: 'repeated', message: 'Repeated failure',
+    });
+    store.appendDiagnostic({
+      timestamp: 2_000, severity: 'error', domain: 'transport', source: 'test', code: 'repeated', message: 'Repeated failure',
+    });
+
+    expect(useStore.getState().diagnostics).toEqual([
+      expect.objectContaining({ code: 'repeated', count: 2, lastTimestamp: 2_000 }),
+    ]);
+
+    for (let index = 0; index < 550; index += 1) {
+      store.appendDiagnostic({
+        timestamp: 10_000 + index,
+        severity: 'info',
+        domain: 'runtime',
+        source: 'test',
+        code: `event-${index}`,
+        message: `Event ${index}`,
+      });
+    }
+
+    expect(useStore.getState().diagnostics).toHaveLength(500);
+  });
 });

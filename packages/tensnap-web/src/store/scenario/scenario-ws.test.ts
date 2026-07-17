@@ -14,7 +14,6 @@ import type {
 import { describe, expect, it } from 'vitest';
 import { createScenarioStore } from './store';
 import { registerEventHandlers, unregisterEventHandlers } from './scenario-ws';
-import { useToastStore } from '../toast';
 
 class MockTransport implements ISimulatorTransport {
   readonly connectionId = 'mock://transport';
@@ -93,10 +92,9 @@ class MockTransport implements ISimulatorTransport {
 }
 
 describe('scenario ws event handlers', () => {
-  it('surfaces simulator action errors as toasts', () => {
+  it('routes simulator action errors into project diagnostics', () => {
     const useStore = createScenarioStore();
     const transport = new MockTransport();
-    useToastStore.getState().closeAll();
     registerEventHandlers(transport, useStore);
     transport.emitMessage({
       type: 'simulator_info',
@@ -118,21 +116,21 @@ describe('scenario ws event handlers', () => {
       },
     });
 
-    expect(useToastStore.getState().toasts).toEqual([
+    expect(useStore.getState().diagnostics).toEqual([
       expect.objectContaining({
-        status: 'error',
-        title: 'Action "step" failed',
-        description: '[handler_error] Bool(::ElFarolModel)',
+        severity: 'error',
+        domain: 'simulator',
+        code: 'handler_error',
+        target: 'step',
+        message: 'Bool(::ElFarolModel)',
       }),
     ]);
     unregisterEventHandlers(transport);
-    useToastStore.getState().closeAll();
   });
 
-  it('surfaces validation warnings and errors as toasts', () => {
+  it('routes validation warnings and transport errors into project diagnostics', () => {
     const useStore = createScenarioStore();
     const transport = new MockTransport();
-    useToastStore.getState().closeAll();
     registerEventHandlers(transport, useStore);
 
     transport.emitValidationWarning({
@@ -143,12 +141,11 @@ describe('scenario ws event handlers', () => {
     });
     transport.emitError(new Error('invalid protocol message'));
 
-    expect(useToastStore.getState().toasts).toEqual([
-      expect.objectContaining({ status: 'warning', title: 'Protocol validation warning', description: 'invalid monitor payload' }),
-      expect.objectContaining({ status: 'error', title: 'Protocol transport error', description: 'invalid protocol message' }),
-    ]);
+    expect(useStore.getState().diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ severity: 'warning', code: 'validation_warning', message: 'invalid monitor payload' }),
+      expect.objectContaining({ severity: 'error', code: 'transport_error', message: 'invalid protocol message' }),
+    ]));
     unregisterEventHandlers(transport);
-    useToastStore.getState().closeAll();
   });
 
   it('keeps applying inbound messages while sync is only requested', () => {

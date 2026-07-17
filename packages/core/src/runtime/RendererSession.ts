@@ -18,6 +18,7 @@ import type {
 import { ProtocolValidationError } from '@tensnap/protocol';
 import { Scenario } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
+import type { DiagnosticEvent } from '../diagnostics';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
 import { RunController, type RunControllerOptions } from './RunController';
 import { applySnapshotFrame, projectedRestoreChangesTopology, SnapshotRecorder } from '../snapshot';
@@ -199,10 +200,46 @@ export class RendererSession extends LazyEventTarget {
       true,
     );
     this.clearActionMetrics();
+    this.reportDiagnostic({
+      severity: 'error',
+      domain: 'transport',
+      source: 'renderer-session',
+      code: error instanceof ProtocolValidationError ? 'validation_error' : 'transport_error',
+      message: error instanceof Error ? error.message : String(error),
+      details: error,
+    });
     this.dispatch('transport:error', error);
   };
   private readonly transportValidationWarningHandler = (warning: TransportEventMap['validation-warning']) => {
+    this.reportDiagnostic({
+      severity: 'warning',
+      domain: 'protocol',
+      source: 'renderer-session',
+      code: 'validation_warning',
+      message: warning.message,
+      details: warning.issues,
+      dedupeKey: `validation:${warning.direction}:${warning.message}`,
+    });
     this.dispatch('transport:validation-warning', warning);
+  };
+  private readonly transportCodecWarningHandler = (warning: TransportEventMap['codec-warning']) => {
+    this.reportDiagnostic({
+      severity: 'warning',
+      domain: 'protocol',
+      source: 'renderer-session',
+      code: warning.code,
+      message: warning.message,
+      target: warning.path,
+      dedupeKey: `codec:${warning.code}:${warning.path}`,
+    });
+    this.dispatch('transport:codec-warning', warning);
+  };
+  private readonly transportDiagnosticHandler = (diagnostic: TransportEventMap['diagnostic']) => {
+    this.reportDiagnostic(diagnostic);
+    this.dispatch('transport:diagnostic', diagnostic);
+  };
+  private readonly scenarioDiagnosticHandler = (event: Event) => {
+    this.reportDiagnostic((event as CustomEvent<DiagnosticEvent>).detail);
   };
 
   constructor(options: RendererSessionOptions = {}) {
@@ -211,6 +248,7 @@ export class RendererSession extends LazyEventTarget {
       options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS,
     );
     this.scenario = options.scenario ?? new Scenario();
+    this.scenario.addEventListener('diagnostic', this.scenarioDiagnosticHandler);
     this.recorder = new SnapshotRecorder(this.scenario);
     const onRunStateChange = options.run?.onStateChange;
     const onRunStart = options.run?.onRunStart;
@@ -319,7 +357,9 @@ export class RendererSession extends LazyEventTarget {
     transport.on('open', this.transportOpenHandler);
     transport.on('close', this.transportCloseHandler);
     transport.on('error', this.transportErrorHandler);
+    transport.on('diagnostic', this.transportDiagnosticHandler);
     transport.on('validation-warning', this.transportValidationWarningHandler);
+    transport.on('codec-warning', this.transportCodecWarningHandler);
   }
 
   detachTransport(): void {
@@ -329,7 +369,9 @@ export class RendererSession extends LazyEventTarget {
       transport.off('open', this.transportOpenHandler);
       transport.off('close', this.transportCloseHandler);
       transport.off('error', this.transportErrorHandler);
+      transport.off('diagnostic', this.transportDiagnosticHandler);
       transport.off('validation-warning', this.transportValidationWarningHandler);
+      transport.off('codec-warning', this.transportCodecWarningHandler);
       this.transport = null;
       this.cancelActiveRequest('The renderer session detached from its transport.');
       this.run.reset('disconnected');
@@ -339,6 +381,7 @@ export class RendererSession extends LazyEventTarget {
 
   destroy(): void {
     this.detachTransport();
+    this.scenario.removeEventListener('diagnostic', this.scenarioDiagnosticHandler);
   }
 
   /**
@@ -649,7 +692,7 @@ export class RendererSession extends LazyEventTarget {
       this.reportSessionError('invalid_state_sync', 'Rejected unmatched state_sync_begin.');
       return;
     }
-    const staging = new Scenario({ layerRegistry: this.scenario.layerRegistry });
+    const staging = this.createStagingScenario();
     if (payload.mode === 'reconcile') staging.load(this.scenario.dump());
     this.transaction = { kind: 'state-sync', requestId: payload.request_id, scenario: staging, messages: [message] };
     try {
@@ -710,7 +753,7 @@ export class RendererSession extends LazyEventTarget {
       this.reportSessionError('invalid_scene_restore', 'Rejected unmatched scene_restore_begin.');
       return;
     }
-    const staging = new Scenario({ layerRegistry: this.scenario.layerRegistry });
+    const staging = this.createStagingScenario();
     staging.load(this.scenario.dump());
     const options = active.restoreOptions;
     this.transaction = {
@@ -985,7 +1028,29 @@ export class RendererSession extends LazyEventTarget {
       message,
       ...(requestId === undefined ? {} : { request_id: requestId }),
     };
+    this.reportDiagnostic({
+      severity: 'error',
+      domain: 'protocol',
+      source: 'renderer-session',
+      code,
+      message,
+      requestId,
+      dedupeKey: `${code}:${requestId ?? ''}:${message}`,
+    });
     this.dispatch('protocol:error', payload);
+  }
+
+  private reportDiagnostic(event: Omit<DiagnosticEvent, 'timestamp'> & { timestamp?: number }): void {
+    this.dispatch('diagnostic', {
+      ...event,
+      timestamp: event.timestamp ?? Date.now(),
+    } satisfies DiagnosticEvent);
+  }
+
+  private createStagingScenario(): Scenario {
+    const staging = new Scenario({ layerRegistry: this.scenario.layerRegistry });
+    staging.addEventListener('diagnostic', this.scenarioDiagnosticHandler);
+    return staging;
   }
 
   private send(message: RendererToSimulatorMessage): void {

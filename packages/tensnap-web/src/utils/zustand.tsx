@@ -116,12 +116,22 @@ export interface ToastStore {
 }
 
 let toastIdCounter = 0;
+const MAX_VISIBLE_TOASTS = 5;
 
 export const createToastStore = () => {
   const useToastStore = create<ToastStore>((set, get) => ({
     toasts: [],
 
     toast: (options: ToastOptions) => {
+      const existing = get().toasts.find((toast) => (
+        toast.status === options.status
+        && toast.title === options.title
+        && toast.description === options.description
+      ));
+      // Protocol and transport failures belong in project diagnostics. This
+      // guard keeps explicit user-feedback toasts useful if a caller retries.
+      if (existing) return existing.id;
+
       const id = `toast-${++toastIdCounter}`;
       const toast: ToastProps = {
         id,
@@ -132,7 +142,7 @@ export const createToastStore = () => {
       };
       
       set((state) => ({
-        toasts: [...state.toasts, toast],
+        toasts: [...state.toasts, toast].slice(-MAX_VISIBLE_TOASTS),
       }));
       
       return id;

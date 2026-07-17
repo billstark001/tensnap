@@ -29,6 +29,7 @@ export function StatusBar({
   const connected = useScenarioStore((store) => store.connected);
   const currentTime = useScenarioStore((store) => store.currentTime);
   const session = useScenarioStore((store) => store.session);
+  const appendDiagnostic = useScenarioStore((store) => store.appendDiagnostic);
   const scenario = useScenarioStore((store) => store.scenario);
   const isRecording = useScenarioStore((store) => store.isRecording);
   const actionMetrics = useScenarioStore((store) => store.actionMetrics);
@@ -41,10 +42,28 @@ export function StatusBar({
 
   const reconnect = transportStore?.reconnect;
   const isConnecting = transportStore?.isConnecting ?? false;
+  const connectionError = transportStore?.connectionError ?? null;
+  const socketConnected = transportStore?.isConnected?.() ?? false;
   const canReconnect = transportStore?.canReconnect?.() ?? false;
   const reconnectDisabled = isReconnecting || isConnecting || !canReconnect;
   void runRevision;
   const runStatus = session?.run.status;
+  const modelMismatch = session?.identityStatus === 'model-mismatch';
+  const awaitingHandshake = socketConnected && session?.identityStatus === 'awaiting-info';
+  const connectionLabel = modelMismatch
+    ? <Trans>Model mismatch</Trans>
+    : awaitingHandshake || isConnecting
+      ? <Trans>Connecting</Trans>
+      : connected && socketConnected
+        ? <Trans>Connected</Trans>
+        : <Trans>Disconnected</Trans>;
+  const connectionClassName = modelMismatch
+    ? styles.statusRejected
+    : awaitingHandshake || isConnecting
+      ? styles.statusConnecting
+      : connected && socketConnected
+        ? styles.statusConnected
+        : styles.statusDisconnected;
   const runtimeTps = actionMetrics?.runtime.tps ?? null;
   const runtimeMspt = actionMetrics?.runtime.mspt ?? null;
   const simulatorMspt = actionMetrics?.simulator.simulate_ms ?? null;
@@ -85,17 +104,20 @@ export function StatusBar({
         toast.info(_(msg`Connection failed, will retry automatically`));
       }
     } catch (error) {
-      toast.error(_(msg`Failed to reconnect`), error instanceof Error ? error.message : String(error));
-      console.error('Reconnection failed:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      appendDiagnostic?.({
+        severity: 'error', domain: 'transport', source: 'status-bar', code: 'manual_reconnect_failed', message, details: error,
+      });
+      toast.error(_(msg`Failed to reconnect`), message);
     } finally {
       setIsReconnecting(false);
     }
-  }, [reconnect, reconnectDisabled, transportStore, toast, _]);
+  }, [appendDiagnostic, reconnect, reconnectDisabled, transportStore, toast, _]);
 
   return (
     <div className={styles.statusBar}>
-      <span className={connected ? styles.statusConnected : styles.statusDisconnected}>
-        {connected ? <Trans>Connected</Trans> : <Trans>Disconnected</Trans>}
+      <span className={connectionClassName} title={connectionError ?? undefined}>
+        {connectionLabel}
       </span>
       <span className={styles.statusMeta}>
         <span><Trans>Time Step:</Trans></span>

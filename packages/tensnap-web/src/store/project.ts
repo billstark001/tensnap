@@ -19,7 +19,6 @@ import { materializeSnapshot, SnapshotPlaybackSource, type ProjectSource, type S
 import type { StateSyncRequest } from '@tensnap/protocol';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { getFileSystemState } from "./file-system/provider";
-import { getToastState } from './toast';
 
 export interface ProjectOpenResult {
   recovered: boolean;
@@ -108,15 +107,19 @@ const createProject = (
   filepath: string | null = null,
   modelIdentity?: SnapshotModelIdentity,
 ): ProjectContextScheme => {
+  let project: ProjectContextScheme | null = null;
   const useUndoRedoStore = createHistoryStore({
     maxCommands: 64,
     maxBytes: 4 * 1024 * 1024,
-    onError: (error, command) => getToastState().error(
-      `Unable to ${command.label}`,
-      error instanceof Error ? error.message : String(error),
-    ),
+    onError: (error, command) => project?.useScenarioStore.getState().appendDiagnostic({
+      severity: 'error',
+      domain: 'ui',
+      source: 'undo-redo',
+      code: 'history_command_failed',
+      message: `Unable to ${command.label}: ${error instanceof Error ? error.message : String(error)}`,
+      details: error,
+    }),
   });
-  let project: ProjectContextScheme | null = null;
   const useScenarioStore = createScenarioStore(useUndoRedoStore, {
     assertSnapshotSetAllowed: (snapshots) => {
       const protectedId = project?.source.kind === 'snapshot' ? project.source.snapshot_id : null;
@@ -265,6 +268,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } else {
       newProject.useScenarioStore.getState().load(scenario);
     }
+    for (const warning of warnings) {
+      newProject.useScenarioStore.getState().appendDiagnostic({
+        severity: 'warning',
+        domain: 'storage',
+        source: 'project-file',
+        code: 'recovered_project_data',
+        message: warning,
+      });
+    }
 
     const { projects, setActive } = get();
     const targetIndex = indexHint ?? projects.length;
@@ -318,7 +330,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       : JSON.stringify(archive, null, 2);
 
     await fileSystemState.writeFile(filepath, content);
-    console.log('Project saved to', filepath);
+    scenarioStore.appendDiagnostic({
+      severity: 'info',
+      domain: 'storage',
+      source: 'project-file',
+      code: 'project_saved',
+      message: `Project saved to ${filepath}.`,
+    });
 
     project.filepath = filepath;
     project.modelIdentity = scenarioStore.session.modelIdentity ?? undefined;

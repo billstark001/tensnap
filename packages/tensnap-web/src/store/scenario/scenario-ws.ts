@@ -1,7 +1,8 @@
-import type { ISimulatorTransport, RendererSession } from '@tensnap/core';
+import type { DiagnosticSeverity, ISimulatorTransport, RendererSession } from '@tensnap/core';
 import type {
   ActionResultPayload,
   ErrorPayload,
+  NormalizedLogPayload,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
   StateSyncBeginPayload,
@@ -9,21 +10,16 @@ import type {
 } from '@tensnap/protocol';
 import { StoreApi, UseBoundStore } from 'zustand';
 import { ScenarioStore } from './store';
-import { getToastState } from '../toast';
 
 type SessionListeners = {
   session: RendererSession;
   message: EventListener;
   protocolError: EventListener;
-  transportError: EventListener;
-  validationWarning: EventListener;
 };
 
-function formatActionError(payload: ActionResultPayload): string {
-  const error = payload.error;
-  if (!error) return 'An unknown action error occurred.';
-  return error.code ? `[${error.code}] ${error.message}` : error.message;
-}
+const diagnosticSeverityFromLog = (level: NormalizedLogPayload['level']): DiagnosticSeverity => (
+  level === 'critical' ? 'critical' : level
+);
 
 const handlers = new WeakMap<ISimulatorTransport, SessionListeners>();
 
@@ -33,8 +29,6 @@ export function unregisterEventHandlers(transport: ISimulatorTransport) {
   const session = listeners.session;
   session.removeEventListener('message', listeners.message);
   session.removeEventListener('protocol:error', listeners.protocolError);
-  session.removeEventListener('transport:error', listeners.transportError);
-  session.removeEventListener('transport:validation-warning', listeners.validationWarning);
   if (session.attachedTransport === transport) {
     session.detachTransport();
   }
@@ -48,6 +42,10 @@ async function handleScreenshotRequest(
   const store = useStore.getState();
   const targetId = payload.env_id ?? payload.chart_id;
   if (!targetId) {
+    store.appendDiagnostic({
+      severity: 'warning', domain: 'ui', source: 'screenshot', code: 'invalid_screenshot_target',
+      message: 'No screenshot target was specified by the simulator.', requestId: payload.request_id,
+    });
     store.session.sendScreenshotResponse({
       request_id: payload.request_id,
       error: { code: 'invalid_screenshot_target', message: 'No target specified (env_id or chart_id required)' },
@@ -57,6 +55,10 @@ async function handleScreenshotRequest(
 
   const capture = store.getScreenshotCapture(targetId);
   if (!capture) {
+    store.appendDiagnostic({
+      severity: 'warning', domain: 'ui', source: 'screenshot', code: 'screenshot_handler_missing',
+      message: `No screenshot handler is registered for "${targetId}".`, requestId: payload.request_id, target: targetId,
+    });
     store.session.sendScreenshotResponse({
       request_id: payload.request_id,
       error: { code: 'screenshot_handler_missing', message: `No screenshot handler registered for "${targetId}"` },
@@ -83,6 +85,10 @@ async function handleScreenshotRequest(
       mime,
     });
   } catch (err) {
+    store.appendDiagnostic({
+      severity: 'error', domain: 'ui', source: 'screenshot', code: 'screenshot_failed',
+      message: err instanceof Error ? err.message : String(err), requestId: payload.request_id, target: targetId,
+    });
     store.session.sendScreenshotResponse({
       request_id: payload.request_id,
       error: { code: 'screenshot_failed', message: err instanceof Error ? err.message : String(err) },
@@ -110,19 +116,34 @@ export function registerEventHandlers(
     }
 
     if (message.type === 'error') {
-      const toast = getToastState();
       const payload = message.payload as ErrorPayload;
       const stateSync = useStore.getState().stateSync;
       if (stateSync.requestId && payload.request_id === stateSync.requestId) {
         useStore.getState().resetStateSync();
       }
-      toast.error('Error from server', payload.message || 'An unknown error occurred.');
+      useStore.getState().appendDiagnostic({
+        severity: 'error', domain: 'simulator', source: 'simulator', code: payload.code,
+        message: payload.message || 'An unknown simulator error occurred.', requestId: payload.request_id,
+        details: payload.data,
+      });
     }
     if (message.type === 'action_result') {
       const payload = message.payload as ActionResultPayload;
       if (payload.error) {
-        getToastState().error(`Action "${payload.id}" failed`, formatActionError(payload));
+        useStore.getState().appendDiagnostic({
+          severity: 'error', domain: 'simulator', source: 'simulator', code: payload.error.code,
+          message: payload.error.message, requestId: payload.request_id, target: payload.id,
+          details: payload.error.data,
+        });
       }
+    }
+    if (message.type === 'log') {
+      const payload = message.payload as NormalizedLogPayload;
+      useStore.getState().appendDiagnostic({
+        severity: diagnosticSeverityFromLog(payload.level), domain: 'simulator', source: 'simulator',
+        code: 'log', message: payload.message, target: payload.target, details: payload.data,
+        timestamp: payload.timestamp,
+      });
     }
     if (message.type === 'screenshot_request') {
       void handleScreenshotRequest(useStore, message.payload as ScreenshotRequestPayload);
@@ -137,23 +158,8 @@ export function registerEventHandlers(
     }
   };
 
-  const transportError: EventListener = (event) => {
-    const error = (event as CustomEvent<unknown>).detail;
-    getToastState().error(
-      'Protocol transport error',
-      error instanceof Error ? error.message : String(error),
-    );
-  };
-
-  const validationWarning: EventListener = (event) => {
-    const warning = (event as CustomEvent<{ message: string }>).detail;
-    getToastState().warning('Protocol validation warning', warning.message);
-  };
-
-  handlers.set(transport, { session, message: handler, protocolError, transportError, validationWarning });
+  handlers.set(transport, { session, message: handler, protocolError });
   session.addEventListener('message', handler);
   session.addEventListener('protocol:error', protocolError);
-  session.addEventListener('transport:error', transportError);
-  session.addEventListener('transport:validation-warning', validationWarning);
   session.attachTransport(transport);
 }

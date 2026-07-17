@@ -1,6 +1,7 @@
 import type { ChartGroup } from '../chart';
 import type { AssetSnapshot } from '../asset';
 import type { MonitorState } from '../monitor';
+import type { DiagnosticEvent } from '../diagnostics';
 import type {
   Action,
   ActionResultPayload,
@@ -119,6 +120,8 @@ export interface ScenarioEventDetailMap {
   'asset:data': AssetDataPayload;
   'asset:delete': AssetDeletePayload;
   'screenshot:request': ScreenshotRequestPayload;
+  /** Runtime validation warnings produced while applying canonical messages. */
+  diagnostic: DiagnosticEvent;
   log: NormalizedLogPayload;
   reset: undefined;
 }

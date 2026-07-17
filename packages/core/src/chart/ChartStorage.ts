@@ -3,6 +3,7 @@ import type { ChartGroup, ChartSeriesPoint } from './types';
 import { instantiateChartMetadata } from "./utils";
 
 type WarnFn = (msg: string) => void;
+const noopWarn: WarnFn = () => undefined;
 
 // #region Utilities
 
@@ -346,7 +347,7 @@ export class ChartStorage {
     return true;
   }
 
-  renameGroup(oldId: string, newId: string, warn: WarnFn = console.warn): boolean {
+  renameGroup(oldId: string, newId: string, warn: WarnFn = noopWarn): boolean {
     const group = this.groups.get(oldId);
     if (!group) return false;
     if (this.groups.has(newId)) { warn(`Group "${newId}" already exists.`); return false; }
@@ -380,7 +381,7 @@ export class ChartStorage {
     this.touch();
   }
 
-  addMeta(groupId: string, meta: ChartMetadata, warn: WarnFn = console.warn): boolean {
+  addMeta(groupId: string, meta: ChartMetadata, warn: WarnFn = noopWarn): boolean {
     const group = this.groups.get(groupId);
     if (!group) { warn(`Group "${groupId}" not found.`); return false; }
     if (meta.id in group.metadataDict) {
@@ -431,7 +432,7 @@ export class ChartStorage {
     metaId: string,
     groupId: string,
     opts?: { persistData?: boolean; returnData?: boolean },
-    warn: WarnFn = console.warn
+    warn: WarnFn = noopWarn
   ): ChartSeriesPoint[] | null {
     const group = this.groups.get(groupId);
     if (!group) { warn(`Group "${groupId}" not found.`); return null; }
@@ -458,7 +459,7 @@ export class ChartStorage {
     fromGroupId: string,
     toGroupId: string,
     opts?: { copy?: boolean },
-    warn: WarnFn = console.warn
+    warn: WarnFn = noopWarn
   ): boolean {
     const from = this.groups.get(fromGroupId);
     const to = this.groups.get(toGroupId);
@@ -490,7 +491,7 @@ export class ChartStorage {
     oldId: string,
     newId: string,
     groupId?: string,
-    warn: WarnFn = console.warn
+    warn: WarnFn = noopWarn
   ): boolean {
     if (this.metaMap.has(newId)) { warn(`Metadata "${newId}" already exists.`); return false; }
 
@@ -589,7 +590,7 @@ export class ChartStorage {
   // #endregion
   // #region Data mutation 
 
-  push(currentTime: number, points: ChartUpdateData[], warn: WarnFn = console.warn): void {
+  push(currentTime: number, points: ChartUpdateData[], warn: WarnFn = noopWarn): void {
     const touched: Array<[ChartGroup, Map<number, ChartSeriesPoint>]> = [];
 
     for (const { id, time = currentTime, value } of points) {
@@ -614,7 +615,7 @@ export class ChartStorage {
     if (points.length) this.touch();
   }
 
-  pushMany(metaId: string, points: ChartSeriesPoint[], warn: WarnFn = console.warn): void {
+  pushMany(metaId: string, points: ChartSeriesPoint[], warn: WarnFn = noopWarn): void {
     if (!points.length) return;
     const groups = this.metaGroups.get(metaId);
     if (!groups?.length) { warn(`Metadata "${metaId}" not found.`); return; }

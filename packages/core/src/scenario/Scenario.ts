@@ -66,6 +66,7 @@ import type {
   ScenarioSnapshot,
 } from './types';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
+import type { DiagnosticEvent } from '../diagnostics';
 
 function cloneValue<T>(value: T): T {
   return structuredClone(value);
@@ -553,7 +554,10 @@ export class Scenario extends LazyEventTarget {
     const layer = this.ensureLayer(payload.env_id, payload.layer_id);
     for (const [key, value] of Object.entries(payload.metadata)) {
       if (key === 'dependency_layer_ids') {
-        console.warn('env_layer_update cannot mutate dependency_layer_ids; recreate the layer instead.');
+        this.reportDiagnostic('immutable_layer_dependency', 'env_layer_update cannot mutate dependency_layer_ids; recreate the layer instead.', {
+          envId: payload.env_id,
+          layerId: payload.layer_id,
+        });
         continue;
       }
       layer.metadata[key] = value;
@@ -581,7 +585,7 @@ export class Scenario extends LazyEventTarget {
       ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
       : environment?.layers.get(payload.layer_id);
     if (!environment || !layer) {
-      console.warn(`Cannot create items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      this.reportDiagnostic('items_missing_layer', `Cannot create items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`, payload);
       return;
     }
 
@@ -590,7 +594,7 @@ export class Scenario extends LazyEventTarget {
       ? controller.updateItems
       : controller?.createItems;
     if (!controller || !applyItems) {
-      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item creation.`);
+      this.reportDiagnostic('items_create_unsupported', `Layer type ${(expectedLayerType ?? layer.layerType)} does not support item creation.`, payload);
       return;
     }
 
@@ -637,13 +641,13 @@ export class Scenario extends LazyEventTarget {
       ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
       : environment?.layers.get(payload.layer_id);
     if (!environment || !layer) {
-      console.warn(`Cannot update items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      this.reportDiagnostic('items_missing_layer', `Cannot update items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`, payload);
       return;
     }
 
     const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
     if (!controller?.updateItems) {
-      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item updates.`);
+      this.reportDiagnostic('items_update_unsupported', `Layer type ${(expectedLayerType ?? layer.layerType)} does not support item updates.`, payload);
       return;
     }
 
@@ -675,13 +679,13 @@ export class Scenario extends LazyEventTarget {
       ? this.ensureLayer(payload.env_id, payload.layer_id, expectedLayerType)
       : environment?.layers.get(payload.layer_id);
     if (!environment || !layer) {
-      console.warn(`Cannot delete items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`);
+      this.reportDiagnostic('items_missing_layer', `Cannot delete items for missing layer ${payload.layer_id} in environment ${payload.env_id}.`, payload);
       return;
     }
 
     const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
     if (!controller?.deleteItems) {
-      console.warn(`Layer type ${(expectedLayerType ?? layer.layerType)} does not support item deletion.`);
+      this.reportDiagnostic('items_delete_unsupported', `Layer type ${(expectedLayerType ?? layer.layerType)} does not support item deletion.`, payload);
       return;
     }
 
@@ -711,11 +715,22 @@ export class Scenario extends LazyEventTarget {
     for (const dependencyType of requiredDependencyLayerTypes) {
       const dependencyLayerId = layer.dependencyLayerIds[dependencyType];
       if (!dependencyLayerId) {
-        console.warn(`Layer ${layer.id} (${layerType}) is missing required dependency ${dependencyType}.`);
+        this.reportDiagnostic('dependency_missing', `Layer ${layer.id} (${layerType}) is missing required dependency ${dependencyType}.`, {
+          envId,
+          layerId: layer.id,
+          layerType,
+          dependencyType,
+        });
         return false;
       }
       if (!environment.layers.has(dependencyLayerId)) {
-        console.warn(`Layer ${layer.id} (${layerType}) references missing dependency layer ${dependencyLayerId}.`);
+        this.reportDiagnostic('dependency_target_missing', `Layer ${layer.id} (${layerType}) references missing dependency layer ${dependencyLayerId}.`, {
+          envId,
+          layerId: layer.id,
+          layerType,
+          dependencyType,
+          dependencyLayerId,
+        });
         return false;
       }
     }
@@ -734,7 +749,7 @@ export class Scenario extends LazyEventTarget {
         continue;
       }
       if (!this.layerRegistry.has(layerType)) {
-        console.warn(`Ignoring dependency on unknown layer type ${layerType}.`);
+        this.reportDiagnostic('dependency_type_unknown', `Ignoring dependency on unknown layer type ${layerType}.`, { layerType });
         continue;
       }
       result[layerType] = layerId;
@@ -748,7 +763,7 @@ export class Scenario extends LazyEventTarget {
   ): ItemDeletePayload['items'] | null {
     const primaryKeyFields = this.layerRegistry.get(layerType)?.primaryKeyFields;
     if (!primaryKeyFields?.length) {
-      console.warn(`Cannot recreate items for layer type ${layerType} without primary key fields; falling back to create semantics.`);
+      this.reportDiagnostic('missing_primary_key', `Cannot recreate items for layer type ${layerType} without primary key fields; falling back to create semantics.`, { layerType });
       return null;
     }
 
@@ -814,7 +829,9 @@ export class Scenario extends LazyEventTarget {
   private updateChart(payload: ChartUpdatePayload): void {
     if (payload.updates?.length) {
       // ChartStorage takes ownership; no need to clone an immutable payload array.
-      this.chartState.push(this.time ?? 0, payload.updates);
+      this.chartState.push(this.time ?? 0, payload.updates, (message) => {
+        this.reportDiagnostic('chart_metadata_missing', message, { updates: payload.updates });
+      });
     }
     if (payload.operations?.length) {
       for (const operation of payload.operations) {
@@ -884,6 +901,19 @@ export class Scenario extends LazyEventTarget {
     };
     this.logsState.push(normalized);
     this.emit('log', normalized);
+  }
+
+  private reportDiagnostic(code: string, message: string, details?: unknown): void {
+    this.emit('diagnostic', {
+      timestamp: Date.now(),
+      severity: 'warning',
+      domain: 'runtime',
+      source: 'scenario',
+      code,
+      message,
+      ...(details === undefined ? {} : { details }),
+      dedupeKey: `${code}:${message}`,
+    } satisfies DiagnosticEvent);
   }
 
   private ensureEnvironment(id: string, type: ScenarioEnvironmentType = '2d'): ScenarioEnvironmentState {
@@ -989,6 +1019,11 @@ export class Scenario extends LazyEventTarget {
       assets: this.assetState,
       time: this.time,
       isStateSync: this.stateSyncDepth > 0,
+      reportWarning: (message) => this.reportDiagnostic('malformed_item_delete', message, {
+        envId: environment.id,
+        layerId: layer.id,
+        layerType: layer.layerType,
+      }),
       requireStorage: <TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string) => (
         this.requireStorage(environment, layer, ctor, expectedLayerType)
       ),

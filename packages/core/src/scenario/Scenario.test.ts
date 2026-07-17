@@ -314,7 +314,8 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_delete rejects mixed primitive and object keys', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const diagnostics: Array<{ message: string }> = [];
+    s.addEventListener('diagnostic', (event) => diagnostics.push((event as CustomEvent<{ message: string }>).detail));
     s.apply(msg('item_create', {
       env_id: 'env1',
       layer_id: 'layer1',
@@ -330,8 +331,9 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.has('a1')).toBe(true);
     expect(storage.getData().agents.has('a2')).toBe(true);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cannot mix'));
-    warn.mockRestore();
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: expect.stringContaining('cannot mix') }),
+    ]));
   });
 
   it('agent updates append points into dependent trajectory layers', () => {
@@ -583,7 +585,8 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_delete rejects primitive keys for multi-key layers', () => {
     const s = new Scenario();
     setupEnvAndEdgeLayer(s);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const diagnostics: Array<{ message: string }> = [];
+    s.addEventListener('diagnostic', (event) => diagnostics.push((event as CustomEvent<{ message: string }>).detail));
     s.apply(msg('item_create', {
       env_id: 'env1',
       layer_id: 'items',
@@ -598,8 +601,9 @@ describe('Scenario – item_create / item_update / item_delete', () => {
 
     const storage = s.environments.get('env1')!.layers.get('items')!.storage as EdgeStorage;
     expect(storage.findEdge('a', 'b')).toBeDefined();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('object keys'));
-    warn.mockRestore();
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: expect.stringContaining('object keys') }),
+    ]));
   });
 });
 

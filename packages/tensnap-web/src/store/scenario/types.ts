@@ -8,6 +8,7 @@ import {
   ChartGroup,
 } from '@tensnap/core';
 import type { ActionRunMetricSnapshot } from '@tensnap/core/runtime';
+import type { DiagnosticEvent } from '@tensnap/core';
 import type { RecordingOptions, Snapshot, SnapshotCheckpoint, SnapshotModelIdentity } from '@tensnap/core/snapshot';
 import type {
   Action,
@@ -24,6 +25,13 @@ export interface StateSyncStatus {
   requestId: string | null;
   phase: 'idle' | 'requested' | 'receiving';
   autoLayoutOnComplete: boolean;
+}
+
+/** Project-scoped, bounded diagnostics rendered in the bottom panel. */
+export interface ProjectDiagnostic extends DiagnosticEvent {
+  id: string;
+  count: number;
+  lastTimestamp: number;
 }
 
 export interface SnapshotDraft {
@@ -68,13 +76,17 @@ export interface ScenarioStore {
   chartRevision: number;
   monitorRevision: number;
   logRevision: number;
+  diagnosticRevision: number;
   runRevision: number;
   assetRevision: number;
   viewUpdateTrigger: UpdateTriggerState;
   environmentUpdateTrigger: UpdateTriggerState;
   parameterUpdateTrigger: UpdateTriggerState;
+  diagnostics: readonly ProjectDiagnostic[];
 
   setConnected: (connected: boolean) => void;
+  appendDiagnostic: (diagnostic: Omit<DiagnosticEvent, 'timestamp'> & { timestamp?: number }) => void;
+  clearDiagnostics: () => void;
   prepareStateSync: (requestId: string, options?: { autoLayoutOnComplete?: boolean }) => void;
   handleStateSyncBoundary: (
     phase: 'begin' | 'end',

@@ -89,6 +89,22 @@ export const createTransportStore = (
     scenarioStore.session.requestStateSync(requestId, payload);
   };
 
+  const reportConnectionDiagnostic = (
+    severity: 'warning' | 'error',
+    code: string,
+    message: string,
+    details?: unknown,
+  ) => {
+    useScenarioStore.getState().appendDiagnostic({
+      severity,
+      domain: 'transport',
+      source: 'transport-store',
+      code,
+      message,
+      ...(details === undefined ? {} : { details }),
+    });
+  };
+
   const resolveTransportInput = (transportOrUrl: ISimulatorTransport | string): ISimulatorTransport => {
     if (typeof transportOrUrl !== 'string') return transportOrUrl;
     const resolved = resolveTransport(transportOrUrl);
@@ -160,9 +176,12 @@ export const createTransportStore = (
       removePendingSimulatorInfoListener();
       removePendingProtocolModeListener();
       if (scenarioStore.session.identityStatus === 'model-mismatch') {
-        set({ connectionError: scenarioStore.session.isLegacyProtocol
+        const message = scenarioStore.session.isLegacyProtocol
           ? 'The connected legacy simulator cannot be verified against this project.'
-          : 'The connected simulator model does not match this project.' });
+          : 'The connected simulator model does not match this project.';
+        set({ connectionError: message });
+        scenarioStore.setConnected(false);
+        reportConnectionDiagnostic('error', 'model_mismatch', message, scenarioStore.session.simulatorInfo);
         scenarioStore.resetStateSync();
         return;
       }
@@ -171,6 +190,7 @@ export const createTransportStore = (
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         set({ connectionError: message });
+        reportConnectionDiagnostic('error', 'state_sync_failed', message, error);
         scenarioStore.resetStateSync();
       }
     };
@@ -256,9 +276,12 @@ export const createTransportStore = (
       removePendingSimulatorInfoListener();
       removePendingProtocolModeListener();
       if (scenarioStore.session.identityStatus === 'model-mismatch') {
-        set({ connectionError: scenarioStore.session.isLegacyProtocol
+        const message = scenarioStore.session.isLegacyProtocol
           ? 'The connected legacy simulator cannot be verified against this project.'
-          : 'The connected simulator model does not match this project.' });
+          : 'The connected simulator model does not match this project.';
+        set({ connectionError: message });
+        scenarioStore.setConnected(false);
+        reportConnectionDiagnostic('error', 'model_mismatch', message, scenarioStore.session.simulatorInfo);
         scenarioStore.resetStateSync();
         return;
       }
@@ -267,6 +290,7 @@ export const createTransportStore = (
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         set({ connectionError: message });
+        reportConnectionDiagnostic('error', 'state_sync_failed', message, error);
         scenarioStore.resetStateSync();
       }
     };
@@ -305,7 +329,7 @@ export const createTransportStore = (
       scenarioStore.resetStateSync();
 
       if (transport.transportKind === 'websocket' && error instanceof WebSocketConnectionError) {
-        console.log('Initial connection failed, will auto-reconnect');
+        reportConnectionDiagnostic('warning', 'initial_connection_failed', 'Initial connection failed; automatic reconnect remains enabled.', error);
       } else {
         transport.off('open', onOpen);
         transport.off('close', onClose);
@@ -322,7 +346,7 @@ export const createTransportStore = (
   requestStateSync: (currentState) => {
     const { transport } = get();
     if (!transport) {
-      console.warn('Transport not connected');
+      reportConnectionDiagnostic('warning', 'state_sync_while_disconnected', 'Cannot synchronize state without a connected transport.');
       return;
     }
     dispatchStateSync(currentState);

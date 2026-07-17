@@ -335,6 +335,10 @@ describe('transport store reconnect state', () => {
 
     expect(transport.sent.filter((message) => message.type === 'state_sync')).toEqual([]);
     expect(useTransportStore.getState().connectionError).toMatch(/does not match this project/i);
+    expect(useScenarioStore.getState().connected).toBe(false);
+    expect(useScenarioStore.getState().diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'model_mismatch', severity: 'error' }),
+    ]));
   });
 
   it('starts a v0.2 sync after the transport selects legacy mode', async () => {
@@ -375,5 +379,6 @@ describe('transport store reconnect state', () => {
 
     expect(transport.sent.filter((message) => message.type === 'state_sync')).toEqual([]);
     expect(useTransportStore.getState().connectionError).toMatch(/legacy simulator cannot be verified/i);
+    expect(useScenarioStore.getState().connected).toBe(false);
   });
 });

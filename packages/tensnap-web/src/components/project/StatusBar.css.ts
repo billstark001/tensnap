@@ -35,6 +35,16 @@ export const statusDisconnected = style([statusBadge, {
   color: '#ffffff',
 }]);
 
+export const statusConnecting = style([statusBadge, {
+  backgroundColor: vars.color.warning,
+  color: '#000000',
+}]);
+
+export const statusRejected = style([statusBadge, {
+  backgroundColor: vars.color.danger,
+  color: '#ffffff',
+}]);
+
 export const statusMeta = style({
   marginLeft: vars.space.md,
   fontSize: vars.fontSize.sm,

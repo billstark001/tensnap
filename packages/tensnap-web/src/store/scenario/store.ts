@@ -14,6 +14,7 @@ import {
   ScenarioSnapshot,
   sanitizeParameter,
 } from '@tensnap/core';
+import type { DiagnosticEvent } from '@tensnap/core';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
 import type { RendererSessionActionMetricsDetail } from '@tensnap/core/runtime';
 import { createSingleSnapshot, type RecordingOptions, type Snapshot, type SnapshotModelIdentity } from '@tensnap/core/snapshot';
@@ -29,7 +30,14 @@ import type {
   StateSyncBeginPayload,
   StateSyncEndPayload,
 } from '@tensnap/protocol';
-import { EditableEnvironmentDraft, ScenarioStore, ScreenshotCaptureHandler, SnapshotDraft, StateSyncStatus } from './types';
+import {
+  EditableEnvironmentDraft,
+  ProjectDiagnostic,
+  ScenarioStore,
+  ScreenshotCaptureHandler,
+  SnapshotDraft,
+  StateSyncStatus,
+} from './types';
 import {
   createHistoryCommandId,
   estimateHistoryBytes,
@@ -103,6 +111,23 @@ const createIdleStateSyncStatus = (): StateSyncStatus => ({
   phase: 'idle',
   autoLayoutOnComplete: false,
 });
+
+const MAX_DIAGNOSTICS = 500;
+const MAX_DIAGNOSTIC_BYTES = 1_000_000;
+let diagnosticIdCounter = 0;
+
+const diagnosticBytes = (diagnostic: ProjectDiagnostic): number => {
+  try {
+    return JSON.stringify(diagnostic).length;
+  } catch {
+    return diagnostic.message.length + 256;
+  }
+};
+
+const diagnosticKey = (diagnostic: Omit<DiagnosticEvent, 'timestamp'>): string => (
+  diagnostic.dedupeKey
+    ?? `${diagnostic.severity}:${diagnostic.domain}:${diagnostic.source}:${diagnostic.code ?? ''}:${diagnostic.message}`
+);
 
 type TimeCorrectionState = {
   minimumRuntimeTime: number;
@@ -485,9 +510,11 @@ export const createScenarioStore = (
       chartRevision: 0,
       monitorRevision: 0,
       logRevision: 0,
+      diagnosticRevision: 0,
       runRevision: 0,
       assetRevision: 0,
       currentTime: null,
+      diagnostics: [],
       viewUpdateTrigger: createUpdateTriggerStoreFunction(
         (x) => set((y) => ({ viewUpdateTrigger: { ...y.viewUpdateTrigger, ...x } })),
         () => get().viewUpdateTrigger,
@@ -505,6 +532,43 @@ export const createScenarioStore = (
       ),
 
       setConnected: (connected) => set({ connected }),
+
+      appendDiagnostic: (input) => set((state) => {
+        const timestamp = input.timestamp ?? Date.now();
+        const dedupeKey = diagnosticKey(input);
+        const last = state.diagnostics[state.diagnostics.length - 1];
+        if (last && last.dedupeKey === dedupeKey && timestamp - last.lastTimestamp <= 5_000) {
+          const diagnostics = [...state.diagnostics];
+          diagnostics[diagnostics.length - 1] = {
+            ...last,
+            count: last.count + 1,
+            lastTimestamp: timestamp,
+          };
+          return { diagnostics, diagnosticRevision: state.diagnosticRevision + 1 };
+        }
+
+        const next: ProjectDiagnostic = {
+          ...input,
+          id: `diagnostic-${++diagnosticIdCounter}`,
+          timestamp,
+          lastTimestamp: timestamp,
+          count: 1,
+          dedupeKey,
+        };
+        const diagnostics = [...state.diagnostics, next];
+        let byteLength = diagnostics.reduce((total, diagnostic) => total + diagnosticBytes(diagnostic), 0);
+        while (diagnostics.length > MAX_DIAGNOSTICS || byteLength > MAX_DIAGNOSTIC_BYTES) {
+          const removed = diagnostics.shift();
+          if (!removed) break;
+          byteLength -= diagnosticBytes(removed);
+        }
+        return { diagnostics, diagnosticRevision: state.diagnosticRevision + 1 };
+      }),
+
+      clearDiagnostics: () => set((state) => ({
+        diagnostics: [],
+        diagnosticRevision: state.diagnosticRevision + 1,
+      })),
 
       prepareStateSync: (requestId, options) => set({
         stateSync: {
@@ -582,8 +646,10 @@ export const createScenarioStore = (
           chartRevision: state.chartRevision + 1,
           monitorRevision: state.monitorRevision + 1,
           logRevision: state.logRevision + 1,
+          diagnosticRevision: state.diagnosticRevision + 1,
           runRevision: state.runRevision + 1,
           assetRevision: state.assetRevision + 1,
+          diagnostics: [],
           currentTime: getCurrentTime(scenario, timeCorrection),
           stateSync: createIdleStateSyncStatus(),
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
@@ -605,8 +671,10 @@ export const createScenarioStore = (
           chartRevision: state.chartRevision + 1,
           monitorRevision: state.monitorRevision + 1,
           logRevision: state.logRevision + 1,
+          diagnosticRevision: state.diagnosticRevision + 1,
           runRevision: state.runRevision + 1,
           assetRevision: state.assetRevision + 1,
+          diagnostics: [],
           environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
           parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
         }));
@@ -1022,6 +1090,9 @@ export const createScenarioStore = (
     const { metrics } = (event as CustomEvent<RendererSessionActionMetricsDetail>).detail;
     useStore.setState({ actionMetrics: metrics });
   };
+  const onDiagnostic: EventListener = (event) => {
+    useStore.getState().appendDiagnostic((event as CustomEvent<DiagnosticEvent>).detail);
+  };
   const onRecordingComplete: EventListener = (event) => {
     const snapshot = (event as CustomEvent<{ snapshot: Snapshot }>).detail.snapshot;
     useStore.setState((state) => {
@@ -1033,6 +1104,7 @@ export const createScenarioStore = (
   session.addEventListener('recording:start', onRecordingStart);
   session.addEventListener('recording:complete', onRecordingComplete);
   session.addEventListener('action:metrics', onActionMetrics);
+  session.addEventListener('diagnostic', onDiagnostic);
   void unsubscribeScenario;
 
   return useStore;

@@ -105,3 +105,4 @@ export type {
 export { ScenarioInspector } from './scenario';
 
 export * from './transport';
+export type { DiagnosticEvent, DiagnosticSeverity } from './diagnostics';
