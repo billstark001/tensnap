@@ -24,7 +24,7 @@ function _param_value(p::Parameter, model = nothing)
 end
 
 function _param_payload(p::Parameter, model = nothing)
-	d = Dict{String, Any}("id" => p.id, "label" => p.label, "type" => p.type, "value" => _jsonable(_param_value(p, model)), "allowRuntimeChange" => p.allow_runtime_change)
+	d = Dict{String, Any}("id" => p.id, "label" => p.label, "type" => p.type, "value" => _jsonable(_param_value(p, model)), "allow_runtime_change" => p.allow_runtime_change)
 	p.min !== nothing && (d["min"] = p.min)
 	p.max !== nothing && (d["max"] = p.max)
 	p.step !== nothing && (d["step"] = p.step)
@@ -188,12 +188,21 @@ mutable struct Action
 	handler::Function
 	continuous::Bool
 	continue_on_return::Bool
+	scope::Union{Nothing, String}
+	kwargs::Vector{Dict{String, Any}}
 end
 
-action(id, handler; label = id, continuous = false, continue_on_return = false) =
-	Action(String(id), String(label), handler, Bool(continuous), Bool(continue_on_return))
+action(id, handler; label = id, continuous = false, continue_on_return = false, scope = nothing, kwargs = Dict{String, Any}[]) =
+	Action(String(id), String(label), handler, Bool(continuous), Bool(continue_on_return),
+		scope === nothing ? nothing : String(scope), [Dict{String, Any}(String(k) => v for (k, v) in pairs(item)) for item in kwargs])
 
-_action_payload(a::Action) = Dict("id" => a.id, "label" => a.label, "continuous" => a.continuous, "allowRuntimeChange" => true)
+function _action_payload(a::Action)
+	d = Dict{String, Any}("id" => a.id, "label" => a.label)
+	a.continuous && (d["continuous"] = true)
+	a.scope === nothing || (d["scope"] = a.scope)
+	isempty(a.kwargs) || (d["kwargs"] = a.kwargs)
+	return d
+end
 
 mutable struct Chart
 	id::String
@@ -209,7 +218,45 @@ function chart(id, getter; label = id, color = "#228be6", series = nothing)
 	return Chart(String(id), String(label), String(color), getter, sl)
 end
 
-_chart_payload(c::Chart) = Dict("id" => c.id, "label" => c.label, "color" => c.color, "dataList" => c.series)
+function _chart_payload(c::Chart)
+	d = Dict{String, Any}("id" => c.id, "label" => c.label, "color" => c.color)
+	# A one-series chart is represented by the group itself; data_list is only
+	# for a real group of named series in canonical v0.3.
+	(length(c.series) == 1 && String(c.series[1]["id"]) == c.id) || (d["data_list"] = c.series)
+	return d
+end
+
+"""A declarative renderer monitor and its current-value getter."""
+mutable struct Monitor
+	id::String
+	label::String
+	render_hint::Union{Nothing, String}
+	getter::Function
+end
+
+function monitor(id, getter; label = id, render_hint = nothing)
+	return Monitor(
+		String(id),
+		String(label),
+		render_hint === nothing ? nothing : String(render_hint),
+		getter,
+	)
+end
+
+function _monitor_payload(m::Monitor)
+	payload = Dict{String, Any}("id" => m.id, "label" => m.label)
+	m.render_hint === nothing || (payload["render_hint"] = m.render_hint)
+	return payload
+end
+
+"""Explicit model-specific inverse hooks for scene restore/checkpoints."""
+struct RestoreHooks
+	projected::Function
+	checkpoint_capture::Union{Nothing, Function}
+end
+
+restore_hooks(projected; checkpoint_capture = nothing) =
+	RestoreHooks(projected, checkpoint_capture)
 
 mutable struct Layer
 	id::String
@@ -245,7 +292,7 @@ end
 
 grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields)
 patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields)
-edge_layer(id, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = ["source", "target"]) =
+edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"]) =
 	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
 _empty_layer_items(_model = nothing) = Any[]
 trajectory_layer(id, items = _empty_layer_items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"]) =

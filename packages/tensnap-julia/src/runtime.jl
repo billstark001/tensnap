@@ -7,6 +7,14 @@ function broadcast_charts!(s::Scenario, ws = nothing)
 	return updates
 end
 
+function broadcast_monitors!(s::Scenario, ws = nothing)
+	for monitor in values(s.monitors)
+		value = _call0or1(monitor.getter, s.model)
+		_send_or_broadcast(s, ws, "monitor_update", Dict("id" => monitor.id, "value" => value))
+	end
+	return s
+end
+
 function _ensure_initialized!(s::Scenario)
 	if !s.initialized
 		s.time_step = 0
@@ -23,13 +31,14 @@ function _advance_step!(s::Scenario)
 	_broadcast(s, "metadata_update", Dict("time" => s.time_step))
 	for e in values(s.environments), l in e.layers
 		data = _layer_data_delta!(l, s.model)
-		data === nothing || _broadcast(s, "env_layer_update", Dict("env_id" => e.id, "layer_id" => l.id, "data" => data))
+		data === nothing || _broadcast(s, "env_layer_update", Dict("env_id" => e.id, "layer_id" => l.id, "metadata" => data))
 		creates, updates, deletes = _layer_item_deltas!(l, s.model)
 		isempty(creates) || _broadcast(s, "item_create", Dict("env_id" => e.id, "layer_id" => l.id, "items" => creates))
 		isempty(updates) || _broadcast(s, "item_update", Dict("env_id" => e.id, "layer_id" => l.id, "items" => updates))
 		isempty(deletes) || _broadcast(s, "item_delete", Dict("env_id" => e.id, "layer_id" => l.id, "items" => deletes))
 	end
 	broadcast_charts!(s)
+	broadcast_monitors!(s)
 	return step_result === nothing ? true : Bool(step_result)
 end
 
@@ -52,7 +61,7 @@ function reset!(s::Scenario)
 end
 
 function clear_charts!(s::Scenario; ids = collect(keys(s.charts)))
-	operations = [Dict("id" => id, "operation" => "clear") for id in ids]
+	operations = [Dict("id" => id, "kind" => "group", "operation" => "clear") for id in ids]
 	isempty(operations) || _broadcast(s, "chart_update", Dict("operations" => operations))
 	return s
 end
@@ -81,18 +90,12 @@ function _handle_message(s::Scenario, ws, raw)
 		_handle_asset_sync(s, ws, payload)
 	elseif type == "screenshot_response"
 		_handle_screenshot_response(s, payload)
-	elseif type == "action_start"
-		id = String(payload["id"])
-		tick_id = get(payload, "tick_id", nothing)
-		if haskey(s.actions, id)
-			started = time_ns()
-			result = _call0or1(s.actions[id].handler, s.model)
-			simulate_ms = (time_ns() - started) / 1_000_000
-			cont = s.actions[id].continue_on_return ? Bool(result) : false
-			resp = Dict{String, Any}("id" => id, "timings" => Dict("simulate_ms" => simulate_ms), "continue" => cont)
-			tick_id === nothing || (resp["tick_id"] = tick_id)
-			_send_to(s, ws, "action_end", resp)
-		end
+	elseif type == "action_invoke"
+		_handle_action_invoke(s, ws, payload)
+	elseif type == "scene_restore"
+		_handle_scene_restore(s, ws, payload)
+	elseif type == "scene_capture"
+		_handle_scene_capture(s, ws, payload)
 	end
 	return nothing
 end
@@ -103,6 +106,7 @@ function run!(s::Scenario; verbose = true)
 	verbose && @info "TenSnap Julia server listening" host=s.host port=s.port
 	HTTP.WebSockets.listen(_listen_host(s.host), s.port) do ws
 		push!(s.clients, ws)
+		_send_to(s, ws, "simulator_info", _simulator_info_payload(s))
 		_send_asset_meta(s, ws)
 		try
 			for msg in ws
@@ -113,4 +117,163 @@ function run!(s::Scenario; verbose = true)
 			pop!(s.client_encodings, ws, nothing)
 		end
 	end
+end
+
+function _simulator_info_payload(s::Scenario)
+	model = Dict{String, Any}("id" => s.model_id)
+	s.model_name === nothing || (model["name"] = s.model_name)
+	s.model_description === nothing || (model["description"] = s.model_description)
+	s.model_version === nothing || (model["version"] = s.model_version)
+	s.state_schema_version === nothing || (model["state_schema_version"] = s.state_schema_version)
+	payload = Dict{String, Any}(
+		"protocol_version" => "0.3",
+	"binding" => Dict("name" => "tensnap-julia", "version" => "0.3.0", "language" => "julia"),
+		"model" => model,
+		"instance_id" => s.instance_id,
+		"capabilities" => sort!(collect(s.capabilities)),
+	)
+	isempty(s.capability_details) || (payload["capability_details"] = s.capability_details)
+	return payload
+end
+
+function _action_result!(s::Scenario, ws, id, request_id; should_continue = nothing, error = nothing, simulate_ms = nothing)
+	resp = Dict{String, Any}("id" => String(id), "request_id" => String(request_id))
+	should_continue === nothing || (resp["should_continue"] = Bool(should_continue))
+	error === nothing || (resp["error"] = error)
+	simulate_ms === nothing || (resp["timings"] = Dict("simulate_ms" => max(0.0, simulate_ms)))
+	_send_to(s, ws, "action_result", resp)
+end
+
+function _validate_action_target(s::Scenario, a::Action, target)
+	scope = a.scope === nothing ? "model" : a.scope
+	scope == "model" && return target === nothing ? nothing : Dict("code" => "invalid_target", "message" => "This action does not accept a target.")
+	(target isa AbstractDict && get(target, "type", nothing) == scope) || return Dict("code" => "invalid_target", "message" => "Action requires a $(scope) target.")
+	env_id = get(target, "env_id", nothing)
+	haskey(s.environments, String(env_id)) || return Dict("code" => "invalid_target", "message" => "Unknown environment: $(env_id).")
+	scope == "env" && return nothing
+	layer = _find_layer(s, env_id, get(target, "layer_id", ""))
+	layer === nothing && return Dict("code" => "invalid_target", "message" => "Unknown layer.")
+	scope == "layer" && return nothing
+	any(item -> get(item, "id", nothing) == get(target, "agent_id", nothing), _layer_items(layer, s.model)) || return Dict("code" => "invalid_target", "message" => "Unknown agent target.")
+	return nothing
+end
+
+function _validate_action_kwargs(a::Action, supplied)
+	supplied === nothing && (supplied = Dict{String, Any}())
+	supplied isa AbstractDict || return nothing, Dict("code" => "invalid_kwargs", "message" => "Action kwargs must be an object.")
+	defs = Dict(String(def["name"]) => def for def in a.kwargs)
+	for key in keys(supplied)
+		haskey(defs, String(key)) || return nothing, Dict("code" => "invalid_kwargs", "message" => "Unknown action kwarg: $(key).")
+	end
+	result = Dict{String, Any}()
+	for (name, def) in defs
+		if !haskey(supplied, name)
+			get(def, "required", false) && return nothing, Dict("code" => "invalid_kwargs", "message" => "Missing action kwarg: $(name).")
+			haskey(def, "default") && (result[name] = def["default"])
+			continue
+		end
+		value = supplied[name]
+		kind = get(def, "type", "json")
+		valid = kind == "json" || (kind == "string" && value isa AbstractString) || (kind == "boolean" && value isa Bool) ||
+			(kind == "number" && value isa Number && !(value isa Bool)) || (kind == "integer" && value isa Integer) ||
+			(kind == "enum" && value isa AbstractString && value in get(def, "options", Any[]))
+		valid || return nothing, Dict("code" => "invalid_kwargs", "message" => "Invalid action kwarg: $(name).")
+		if kind in ("number", "integer") && ((haskey(def, "min") && value < def["min"]) || (haskey(def, "max") && value > def["max"]))
+			return nothing, Dict("code" => "invalid_kwargs", "message" => "Action kwarg out of range: $(name).")
+		end
+		result[name] = value
+	end
+	return result, nothing
+end
+
+function _invoke_action_handler(a::Action, target, kwargs, model)
+	if a.scope !== nothing && a.scope != "model"
+		applicable(a.handler, target, kwargs, model) && return a.handler(target, kwargs, model)
+		applicable(a.handler, target, kwargs) && return a.handler(target, kwargs)
+	end
+	isempty(kwargs) || (applicable(a.handler, kwargs, model) && return a.handler(kwargs, model))
+	isempty(kwargs) || (applicable(a.handler, kwargs) && return a.handler(kwargs))
+	return _call0or1(a.handler, model)
+end
+
+function _handle_action_invoke(s::Scenario, ws, payload)
+	id = String(get(payload, "id", ""))
+	request_id = String(get(payload, "request_id", uuid4()))
+	if !haskey(s.actions, id)
+		_action_result!(s, ws, id, request_id; error = Dict("code" => "unknown_action", "message" => "No handler for action: $(id)."))
+		return nothing
+	end
+	a = s.actions[id]
+	supplied_target = get(payload, "target", nothing)
+	supplied_kwargs = get(payload, "kwargs", nothing)
+	# Playback actions are the hot path. They normally have no target or kwargs,
+	# so bypass declaration-map construction and dynamic signature probes.
+	if (a.scope === nothing || a.scope == "model") && isempty(a.kwargs) && supplied_target === nothing &&
+		(supplied_kwargs === nothing || (supplied_kwargs isa AbstractDict && isempty(supplied_kwargs)))
+		try
+			result = _call0or1(a.handler, s.model)
+			cont = get(payload, "continuous", false) && a.continue_on_return && Bool(result)
+			_action_result!(s, ws, id, request_id; should_continue = cont)
+		catch error
+			_action_result!(s, ws, id, request_id; error = Dict("code" => "handler_error", "message" => sprint(showerror, error)))
+		end
+		return nothing
+	end
+	target_error = _validate_action_target(s, a, supplied_target)
+	kwargs, kwargs_error = _validate_action_kwargs(a, supplied_kwargs)
+	if target_error !== nothing || kwargs_error !== nothing
+		_action_result!(s, ws, id, request_id; error = target_error === nothing ? kwargs_error : target_error)
+		return nothing
+	end
+	try
+		result = _invoke_action_handler(a, supplied_target, kwargs, s.model)
+		cont = get(payload, "continuous", false) && a.continue_on_return && Bool(result)
+		_action_result!(s, ws, id, request_id; should_continue = cont)
+	catch error
+		_action_result!(s, ws, id, request_id; error = Dict("code" => "handler_error", "message" => sprint(showerror, error)))
+	end
+	return nothing
+end
+
+function _handle_scene_restore(s::Scenario, ws, payload)
+	request_id = String(get(payload, "request_id", uuid4()))
+	_send_to(s, ws, "scene_restore_begin", Dict("request_id" => request_id))
+	if s.scene_restore === nothing
+		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "rejected", "error" => Dict("code" => "unsupported_capability", "message" => "Scene restore is not configured.")))
+		return nothing
+	end
+	if get(payload, "model_id", nothing) != s.model_id
+		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "rejected", "error" => Dict("code" => "model_mismatch", "message" => "scene_restore model_id does not match this simulator.")))
+		return nothing
+	end
+	if s.state_schema_version !== nothing && get(payload, "state_schema_version", nothing) ∉ (nothing, s.state_schema_version)
+		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "rejected", "error" => Dict("code" => "state_schema_mismatch", "message" => "scene_restore state schema is incompatible.")))
+		return nothing
+	end
+	try
+		_call0or1(s.scene_restore, payload)
+		haskey(payload, "time") && (s.time_step = Int(payload["time"]))
+		_send_to(s, ws, "metadata_update", Dict("time" => s.time_step))
+		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "ok"))
+	catch error
+		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "failed", "error" => Dict("code" => "restore_failed", "message" => sprint(showerror, error))))
+	end
+	return nothing
+end
+
+function _handle_scene_capture(s::Scenario, ws, payload)
+	request_id = String(get(payload, "request_id", uuid4()))
+	if s.scene_restore === nothing || s.checkpoint_capture === nothing
+		_send_to(s, ws, "error", Dict("code" => "unsupported_capability", "message" => "Checkpoint capture is not configured.", "request_id" => request_id))
+		return nothing
+	end
+	try
+		checkpoint = _call0or1(s.checkpoint_capture, s.model)
+		result = Dict{String, Any}("request_id" => request_id, "model_id" => s.model_id, "checkpoint" => checkpoint)
+		s.state_schema_version === nothing || (result["state_schema_version"] = s.state_schema_version)
+		_send_to(s, ws, "scene_capture_result", result)
+	catch error
+		_send_to(s, ws, "error", Dict("code" => "capture_failed", "message" => sprint(showerror, error), "request_id" => request_id))
+	end
+	return nothing
 end
