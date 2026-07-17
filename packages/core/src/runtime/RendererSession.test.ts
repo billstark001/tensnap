@@ -82,6 +82,113 @@ describe('RendererSession', () => {
     ]);
   });
 
+  it('preserves renderer-owned trajectory history across replace state sync', () => {
+    const session = new RendererSession();
+    session.attachTransport(createTransport([]));
+    announce(session);
+    const apply = session.scenario.apply.bind(session.scenario);
+    apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    apply({
+      type: 'env_layer_create',
+      payload: {
+        env_id: 'main', layer_id: 'trails', layer_type: 'trajectory',
+        dependency_layer_ids: { agent: 'agents' }, metadata: { on_state_sync: 'preserve' },
+      },
+    });
+    apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } });
+    apply({ type: 'item_update', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] } });
+
+    const requestId = session.requestStateSync('replace-trajectories');
+    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
+    session.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    session.handleIncoming({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    session.handleIncoming({
+      type: 'env_layer_create',
+      payload: {
+        env_id: 'main', layer_id: 'trails', layer_type: 'trajectory',
+        dependency_layer_ids: { agent: 'agents' }, metadata: { on_state_sync: 'preserve' },
+      },
+    });
+    session.handleIncoming({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] } });
+    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '2' } });
+
+    const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!.storage as import('../environment').TrajectoryStorage;
+    expect(storage.dump().trajectories[0]?.points).toEqual([
+      expect.objectContaining({ x: 0, y: 0 }),
+      expect.objectContaining({ x: 1, y: 1 }),
+    ]);
+  });
+
+  it('applies trajectory on_reset policy around the reserved reset action', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    const apply = session.scenario.apply.bind(session.scenario);
+    apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    for (const [layerId, onReset] of [['clear-trails', 'clear'], ['kept-trails', 'preserve']] as const) {
+      apply({
+        type: 'env_layer_create',
+        payload: {
+          env_id: 'main', layer_id: layerId, layer_type: 'trajectory',
+          dependency_layer_ids: { agent: 'agents' }, metadata: { on_reset: onReset },
+        },
+      });
+    }
+    for (const layerId of ['clear-trails', 'kept-trails']) {
+      apply({ type: 'item_create', payload: { env_id: 'main', layer_id: layerId, items: [{ id: 'a', width: 3 }] } });
+    }
+    apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } });
+
+    session.run.requestReset('reset');
+    const requestId = (sent[sent.length - 1]!.payload as { request_id: string }).request_id;
+    apply({ type: 'item_delete', payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } });
+    apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 5, y: 5 }] } });
+    session.handleIncoming({ type: 'action_result', payload: { id: 'reset', request_id: requestId } });
+
+    const clearStorage = session.scenario.getEnvironment('main')!.layers.get('clear-trails')!.storage as import('../environment').TrajectoryStorage;
+    const keptStorage = session.scenario.getEnvironment('main')!.layers.get('kept-trails')!.storage as import('../environment').TrajectoryStorage;
+    expect(clearStorage.dump().trajectories[0]?.points).toEqual([expect.objectContaining({ x: 5, y: 5 })]);
+    expect(keptStorage.dump().trajectories[0]?.segments).toEqual([
+      [expect.objectContaining({ x: 0, y: 0 })],
+      [expect.objectContaining({ x: 5, y: 5 })],
+    ]);
+    expect(clearStorage.dump().configs).toEqual([expect.objectContaining({ id: 'a', width: 3 })]);
+    expect(keptStorage.dump().configs).toEqual([expect.objectContaining({ id: 'a', width: 3 })]);
+  });
+
+  it('ends trajectory reset lifecycle when the reserved reset action times out', async () => {
+    vi.useFakeTimers();
+    try {
+      const sent: RendererToSimulatorMessage[] = [];
+      const session = new RendererSession({ run: { actionTimeoutMs: 10 } });
+      session.attachTransport(createTransport(sent));
+      announce(session);
+      const apply = session.scenario.apply.bind(session.scenario);
+      apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+      apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+      apply({
+        type: 'env_layer_create',
+        payload: {
+          env_id: 'main', layer_id: 'trails', layer_type: 'trajectory',
+          dependency_layer_ids: { agent: 'agents' }, metadata: { on_reset: 'preserve' },
+        },
+      });
+      apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } });
+
+      session.run.requestReset('reset-timeout');
+      await vi.advanceTimersByTimeAsync(10);
+      apply({ type: 'item_delete', payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } });
+
+      const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!.storage as import('../environment').TrajectoryStorage;
+      expect(storage.dump().trajectories).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('releases the transaction gate before flushing actions queued during state sync', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();

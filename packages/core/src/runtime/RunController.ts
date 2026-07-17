@@ -285,6 +285,7 @@ export class RunController {
     this.clearActionTimeout();
     this.runtime.reset();
     this.invocationByTaskId.clear();
+    this.options.scenario.endResetLifecycle();
   }
 
   observeActionResult(payload: ActionResultPayload): boolean {
@@ -296,6 +297,7 @@ export class RunController {
     if (!this.runtime.completeTask(task.id, { should_continue: payload.should_continue, timings: payload.timings })) {
       return false;
     }
+    if (task.key === 'reset') this.options.scenario.endResetLifecycle();
     this.runtime.markTaskApplied(task.id);
 
     const run = this.activeRun;
@@ -393,6 +395,8 @@ export class RunController {
       if (command.type !== 'dispatch') continue;
       const invocation = this.invocationByTaskId.get(command.task.id);
       this.invocationByTaskId.delete(command.task.id);
+      const isReset = command.task.key === 'reset';
+      if (isReset) this.options.scenario.beginResetLifecycle();
       try {
         this.options.send(this.options.scenario.createActionInvokeMessage(
           command.task.key,
@@ -400,6 +404,7 @@ export class RunController {
           { continuous: command.task.continuous, ...invocation },
         ));
       } catch (error) {
+        if (isReset) this.options.scenario.endResetLifecycle();
         // The dispatch never reached the simulator. Release the task instead
         // of leaving the pipeline wedged until its normal action timeout.
         this.runtime.cancelPendingDispatch(command.task.id);
@@ -423,6 +428,7 @@ export class RunController {
       this.clearActionTimeout();
       this.options.onActionTimeout?.(activeTask);
       this.runtime.completeTask(activeTask.id, { should_continue: false });
+      if (activeTask.key === 'reset') this.options.scenario.endResetLifecycle();
       this.runtime.markTaskApplied(activeTask.id);
       if (this.activeRun?.state === 'running' && this.activeRun.spec.actionId === activeTask.key) {
         this.finish('action-timeout');

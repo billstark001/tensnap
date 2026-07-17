@@ -717,6 +717,7 @@ export class RendererSession extends LazyEventTarget {
       return;
     }
     try {
+      transaction.scenario.applyStateSyncTrajectoryLifecycle(this.scenario);
       transaction.scenario.apply(message);
       transaction.messages.push(message);
       this.scenario.load(transaction.scenario.dump());

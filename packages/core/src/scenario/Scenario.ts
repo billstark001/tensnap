@@ -106,6 +106,7 @@ export class Scenario extends LazyEventTarget {
   private readonly monitorState = new MonitorStorage();
   private readonly assetState: AssetStore;
   private stateSyncDepth = 0;
+  private resetDepth = 0;
   private metadataRevisionState = 0;
   private parameterRevisionState = 0;
   readonly layerRegistry: LayerRegistryClass;
@@ -416,6 +417,8 @@ export class Scenario extends LazyEventTarget {
           && layer.storage instanceof TrajectoryStorage
           && resolveTrajectoryLifecycle(layer.metadata).onReset === 'preserve';
         if (shouldPreserve) {
+          const data = (layer.storage as TrajectoryStorage).getData();
+          (layer.storage as TrajectoryStorage).closeTrajectories(data.trajectories.keys());
           preservedLayers.set(layer.id, layer);
         } else {
           this.disposeLayer(environment, layer);
@@ -438,6 +441,7 @@ export class Scenario extends LazyEventTarget {
       }
     }
     this.stateSyncDepth = 0;
+    this.resetDepth = 0;
     this.metadataRevisionState += 1;
     this.parameterRevisionState += 1;
     this.logsState.splice(0, this.logsState.length);
@@ -445,6 +449,49 @@ export class Scenario extends LazyEventTarget {
     this.monitorState.clear();
     this.assetState.clear();
     this.emit('reset', undefined);
+  }
+
+  /** Apply trajectory policy before the reserved reset action publishes state. */
+  beginResetLifecycle(): void {
+    if (this.resetDepth === 0) {
+      for (const environment of this.environmentsState.values()) {
+        for (const layer of environment.layers.values()) {
+          if (layer.layerType !== 'trajectory' || !(layer.storage instanceof TrajectoryStorage)) continue;
+          if (resolveTrajectoryLifecycle(layer.metadata).onReset === 'preserve') {
+            layer.storage.closeTrajectories(layer.storage.getData().trajectories.keys());
+          } else {
+            layer.storage.clearTrajectories();
+          }
+        }
+      }
+    }
+    this.resetDepth += 1;
+  }
+
+  /** End a reserved reset action boundary without changing model-owned state. */
+  endResetLifecycle(): void {
+    if (this.resetDepth > 0) this.resetDepth -= 1;
+  }
+
+  /**
+   * Carry renderer-owned trace history into the final state-sync topology.
+   * Simulator replay never contains trace points, so final layer metadata owns
+   * the clear/preserve decision for replace and reconcile transactions alike.
+   */
+  applyStateSyncTrajectoryLifecycle(source: Scenario): void {
+    for (const environment of this.environmentsState.values()) {
+      const sourceEnvironment = source.environmentsState.get(environment.id);
+      for (const layer of environment.layers.values()) {
+        if (layer.layerType !== 'trajectory' || !(layer.storage instanceof TrajectoryStorage)) continue;
+        if (resolveTrajectoryLifecycle(layer.metadata).onStateSync === 'clear') {
+          layer.storage.clearTrajectories();
+          continue;
+        }
+        const sourceLayer = sourceEnvironment?.layers.get(layer.id);
+        if (sourceLayer?.layerType !== 'trajectory' || !(sourceLayer.storage instanceof TrajectoryStorage)) continue;
+        layer.storage.setTrajectories(cloneValue(sourceLayer.storage.dump().trajectories));
+      }
+    }
   }
 
   // Payload properties are merged directly into metadataState. No clone needed
@@ -1019,6 +1066,7 @@ export class Scenario extends LazyEventTarget {
       assets: this.assetState,
       time: this.time,
       isStateSync: this.stateSyncDepth > 0,
+      isReset: this.resetDepth > 0,
       reportWarning: (message) => this.reportDiagnostic('malformed_item_delete', message, {
         envId: environment.id,
         layerId: layer.id,

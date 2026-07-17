@@ -51,6 +51,8 @@ export interface LayerControllerContext {
   time?: number;
   /** True while a state-sync replay is being applied. */
   isStateSync: boolean;
+  /** True while the reserved model reset action is applying visible state. */
+  isReset: boolean;
   /** Report malformed canonical payloads to the hosting diagnostic channel. */
   reportWarning(message: string): void;
   requireStorage<TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string): TStorage;
@@ -669,6 +671,13 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
         return;
       }
       const lifecycle = resolveTrajectoryLifecycle(context.layer.metadata);
+      if (context.isReset) {
+        if (lifecycle.onReset === 'preserve') storage.closeTrajectories(ids);
+        // beginResetLifecycle already cleared or closed the renderer-owned
+        // traces. Keep simulator-owned per-agent configs while the source
+        // agent layer is replaced, regardless of on_agent_delete.
+        return;
+      }
       if (lifecycle.onAgentDelete === 'retain') {
         storage.closeTrajectories(ids);
       } else {
