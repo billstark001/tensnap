@@ -101,6 +101,10 @@ class DeferredTransport implements ISimulatorTransport {
     for (const handler of group) handler(message);
   }
 
+  selectLegacyProtocol(): void {
+    this.emit('protocol-mode', { mode: 'legacy', reason: 'handshake-timeout' });
+  }
+
   private emit<K extends keyof TransportEventMap>(type: K, payload: TransportEventMap[K]): void {
     const group = this.handlers.get(type);
     if (!group) {
@@ -331,5 +335,45 @@ describe('transport store reconnect state', () => {
 
     expect(transport.sent.filter((message) => message.type === 'state_sync')).toEqual([]);
     expect(useTransportStore.getState().connectionError).toMatch(/does not match this project/i);
+  });
+
+  it('starts a v0.2 sync after the transport selects legacy mode', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new DeferredTransport('mock://legacy');
+
+    const initialized = useTransportStore.getState().initialize(transport, {
+      parameters: [], actions: [], envs: [], charts: [], monitors: [],
+    });
+    transport.open();
+    await initialized;
+    transport.selectLegacyProtocol();
+
+    const sync = transport.sent.find((message) => message.type === 'state_sync');
+    expect(sync).toMatchObject({ payload: { model_id: 'legacy', monitors: [] } });
+    expect(useScenarioStore.getState().session.isLegacyProtocol).toBe(true);
+
+    const requestId = (sync!.payload as { request_id: string }).request_id;
+    transport.receive({
+      type: 'state_sync_begin',
+      payload: { request_id: requestId, model_id: 'legacy', instance_id: 'legacy', mode: 'replace' },
+    });
+    transport.receive({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: 'legacy' } });
+    expect(useScenarioStore.getState().stateSync.requestId).toBeNull();
+  });
+
+  it('does not auto-sync a persisted project into an unverified legacy simulator', async () => {
+    const useScenarioStore = createScenarioStore();
+    useScenarioStore.getState().session.setExpectedSimulatorIdentity({ model_id: 'saved-model' });
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new DeferredTransport('mock://legacy-mismatch');
+
+    const initialized = useTransportStore.getState().initialize(transport);
+    transport.open();
+    await initialized;
+    transport.selectLegacyProtocol();
+
+    expect(transport.sent.filter((message) => message.type === 'state_sync')).toEqual([]);
+    expect(useTransportStore.getState().connectionError).toMatch(/legacy simulator cannot be verified/i);
   });
 });

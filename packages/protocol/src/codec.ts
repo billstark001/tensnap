@@ -101,7 +101,7 @@ export function selectProtocolCodecMode(protocolVersion: string | undefined): Pr
 export class ProtocolCodec {
   readonly mode: ProtocolCodecMode;
   private readonly onWarning?: (warning: ProtocolCodecWarning) => void;
-  private readonly validation: Required<Pick<ProtocolValidationOptions, 'level' | 'direction'>>
+  private validation: Required<Pick<ProtocolValidationOptions, 'level' | 'direction'>>
     & Pick<ProtocolValidationOptions, 'onWarning'>;
 
   constructor(options: ProtocolCodecOptions = {}) {
@@ -114,8 +114,27 @@ export class ProtocolCodec {
     };
   }
 
+  /** Update validation policy without recreating a stateful legacy codec. */
+  setValidation(options: ProtocolValidationOptions): void {
+    this.validation = {
+      level: options.level ?? 'off',
+      direction: options.direction ?? 'any',
+      onWarning: options.onWarning,
+    };
+  }
+
+  /**
+   * v0.2 did not echo a state-sync request id on its boundary messages.  A
+   * codec is session-local so it is the one safe place to retain the one
+   * outstanding legacy transaction correlation id.
+   */
+  private legacyStateSyncRequestId: string | null = null;
+
   encode(message: AnyProtocolMessage, encoding: ProtocolEncoding): string | Uint8Array {
     const canonical = this.validate(message);
+    if (this.mode === 'legacy' && canonical.type === 'state_sync') {
+      this.legacyStateSyncRequestId = (canonical.payload as { request_id: string }).request_id;
+    }
     const semantic = this.mode === 'legacy'
       ? encodeLegacyMessage(canonical)
       : canonical;
@@ -128,7 +147,7 @@ export class ProtocolCodec {
       ? JSON.parse(data) as unknown
       : decode(data instanceof Uint8Array ? data : new Uint8Array(data));
     const normalized = this.mode === 'legacy'
-      ? normalizeLegacyMessage(decoded, (warning) => this.onWarning?.(warning))
+      ? normalizeLegacyMessage(decoded, (warning) => this.onWarning?.(warning), this.legacyStateSyncRequestId)
       : decoded;
     const canonical = this.validate(normalized);
     return normalizeDecodedBinarySemanticMessage(canonical);
@@ -285,6 +304,7 @@ function normalizeBinaryDataForEncoding(
 function normalizeLegacyMessage(
   input: unknown,
   warn: (warning: ProtocolCodecWarning) => void,
+  stateSyncRequestId: string | null,
 ): Record<string, unknown> {
   if (!isRecord(input) || typeof input.type !== 'string' || !isRecord(input.payload)) {
     throw new Error('Legacy protocol message must be an envelope with object payload.');
@@ -318,6 +338,15 @@ function normalizeLegacyMessage(
   if (type === 'state_sync') {
     normalizeLegacyStateSync(payload, warn);
   }
+  if (type === 'state_sync_begin') {
+    normalizeLegacyStateSyncBegin(payload, warn, stateSyncRequestId);
+  }
+  if (type === 'state_sync_end') {
+    normalizeLegacyStateSyncEnd(payload, warn, stateSyncRequestId);
+  }
+  if (type === 'error') {
+    normalizeLegacyError(payload, warn);
+  }
   if (type === 'chart_update') {
     normalizeLegacyChartUpdate(payload, warn);
   }
@@ -347,6 +376,55 @@ function normalizeLegacyStateSync(payload: Record<string, unknown>, warn: (warni
   normalizeParameterArray(payload.parameters, 'payload.parameters', warn);
   normalizeActionArray(payload.actions, 'payload.actions', warn);
   normalizeChartArray(payload.charts, 'payload.charts', warn);
+}
+
+function normalizeLegacyStateSyncBegin(
+  payload: Record<string, unknown>,
+  warn: (warning: ProtocolCodecWarning) => void,
+  stateSyncRequestId: string | null,
+): void {
+  if (typeof payload.request_id !== 'string') {
+    payload.request_id = stateSyncRequestId ?? 'legacy-state-sync';
+    warnLegacy(warn, 'legacy_alias', 'Added legacy state sync request_id.', 'payload.request_id');
+  }
+  if (typeof payload.model_id !== 'string') {
+    payload.model_id = 'legacy';
+    warnLegacy(warn, 'legacy_alias', 'Added opaque legacy model_id.', 'payload.model_id');
+  }
+  if (typeof payload.instance_id !== 'string') {
+    payload.instance_id = 'legacy';
+    warnLegacy(warn, 'legacy_alias', 'Added opaque legacy instance_id.', 'payload.instance_id');
+  }
+  if (payload.mode !== 'replace' && payload.mode !== 'reconcile') {
+    payload.mode = 'replace';
+    warnLegacy(warn, 'legacy_alias', 'Assumed replace mode for legacy state sync.', 'payload.mode');
+  }
+}
+
+function normalizeLegacyStateSyncEnd(
+  payload: Record<string, unknown>,
+  warn: (warning: ProtocolCodecWarning) => void,
+  stateSyncRequestId: string | null,
+): void {
+  if (typeof payload.request_id !== 'string') {
+    payload.request_id = stateSyncRequestId ?? 'legacy-state-sync';
+    warnLegacy(warn, 'legacy_alias', 'Added legacy state sync request_id.', 'payload.request_id');
+  }
+  if (typeof payload.state_revision !== 'string') {
+    payload.state_revision = 'legacy';
+    warnLegacy(warn, 'legacy_alias', 'Added opaque legacy state revision.', 'payload.state_revision');
+  }
+}
+
+function normalizeLegacyError(payload: Record<string, unknown>, warn: (warning: ProtocolCodecWarning) => void): void {
+  if (typeof payload.error !== 'string') return;
+  if (typeof payload.message === 'string' || typeof payload.code === 'string') {
+    throw new Error('Conflicting canonical and legacy error fields at payload.error.');
+  }
+  payload.code = 'legacy_error';
+  payload.message = payload.error;
+  delete payload.error;
+  warnLegacy(warn, 'legacy_alias', 'Translated legacy error string to code/message.', 'payload.error');
 }
 
 function normalizeParameterArray(value: unknown, path: string, warn: (warning: ProtocolCodecWarning) => void): void {
@@ -407,6 +485,21 @@ function encodeLegacyMessage(message: AnyProtocolMessage): Record<string, unknow
     case 'asset_metadata':
       type = 'asset_meta';
       break;
+    case 'state_sync': {
+      const sync = payload as Record<string, unknown>;
+      // v0.2 has no model, instance, revision, or monitor inventory fields.
+      for (const key of ['model_id', 'instance_id', 'state_revision', 'metadata_revision', 'monitors']) delete sync[key];
+      break;
+    }
+    case 'screenshot_response': {
+      const response = payload as Record<string, unknown>;
+      if (isRecord(response.error)) {
+        response.error = typeof response.error.message === 'string'
+          ? response.error.message
+          : 'Screenshot failed.';
+      }
+      break;
+    }
     case 'scene_restore':
     case 'scene_restore_begin':
     case 'scene_restore_end':

@@ -1,5 +1,7 @@
 import type {
   AnyProtocolMessage,
+  ProtocolCodecMode,
+  ProtocolCodecWarning,
   ProtocolEncoding,
   ProtocolValidationWarning,
   RendererToSimulatorMessage,
@@ -8,11 +10,19 @@ import type {
 export type TransportConnectionState = 'connecting' | 'open' | 'closing' | 'closed' | 'destroyed';
 export type TransportEventHandler<T = unknown> = (payload: T) => void;
 
+/** The wire representation selected once for a connected transport session. */
+export interface TransportProtocolModeDetail {
+  mode: ProtocolCodecMode;
+  reason: 'configured' | 'simulator-info' | 'legacy-message' | 'handshake-timeout';
+}
+
 export interface TransportEventMap {
   open: unknown;
   close: unknown;
   error: unknown;
   'validation-warning': ProtocolValidationWarning;
+  'codec-warning': ProtocolCodecWarning;
+  'protocol-mode': TransportProtocolModeDetail;
   message: AnyProtocolMessage;
 }
 

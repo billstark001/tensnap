@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   decodeProtocolMessage,
   encodeProtocolMessage,
+  ProtocolCodec,
   ProtocolValidationError,
   type ProtocolValidationWarning,
 } from './codec';
@@ -177,5 +178,49 @@ describe('protocol binary semantic fields', () => {
     const screenshotPayload = decoded.payload as { data: Uint8Array };
     expect(screenshotPayload.data).toBeInstanceOf(Uint8Array);
     expect(Array.from(screenshotPayload.data)).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe('legacy session codec', () => {
+  it('keeps v0.2 state-sync correlation inside one codec session', () => {
+    const codec = new ProtocolCodec({ mode: 'legacy', validation: { level: 'error' } });
+    const encoded = codec.encode({
+      type: 'state_sync',
+      payload: {
+        request_id: 'legacy-sync-1',
+        model_id: 'legacy',
+        instance_id: 'legacy-instance',
+        state_revision: 'old',
+        metadata_revision: 'old-metadata',
+        parameters: [],
+        actions: [],
+        envs: [],
+        charts: [],
+        monitors: [],
+      },
+    }, 'json') as string;
+
+    expect(JSON.parse(encoded).payload).toEqual({
+      request_id: 'legacy-sync-1', parameters: [], actions: [], envs: [], charts: [],
+    });
+
+    expect(codec.decode(JSON.stringify({ type: 'state_sync_begin', payload: {} }))).toEqual({
+      type: 'state_sync_begin',
+      payload: {
+        request_id: 'legacy-sync-1', model_id: 'legacy', instance_id: 'legacy', mode: 'replace',
+      },
+    });
+    expect(codec.decode(JSON.stringify({ type: 'state_sync_end', payload: {} }))).toEqual({
+      type: 'state_sync_end',
+      payload: { request_id: 'legacy-sync-1', state_revision: 'legacy' },
+    });
+  });
+
+  it('normalizes the legacy error envelope without leaking its old shape', () => {
+    const codec = new ProtocolCodec({ mode: 'legacy', validation: { level: 'error', direction: 'simulator-to-renderer' } });
+    expect(codec.decode(JSON.stringify({ type: 'error', payload: { error: 'Model failed.' } }))).toEqual({
+      type: 'error',
+      payload: { code: 'legacy_error', message: 'Model failed.' },
+    });
   });
 });

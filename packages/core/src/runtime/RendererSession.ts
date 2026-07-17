@@ -141,6 +141,19 @@ const rendererToSimulatorMessageTypes = new Set<string>([
 ]);
 
 /**
+ * v0.2 had no `simulator_info`. This identity is never persisted; it only
+ * lets the existing transactional session machinery run against a legacy
+ * transport after that transport has selected legacy mode.
+ */
+const LEGACY_SIMULATOR_INFO: SimulatorInfoPayload = {
+  protocol_version: '0.3',
+  binding: { name: 'legacy', version: '0.2' },
+  model: { id: 'legacy' },
+  instance_id: 'legacy',
+  capabilities: [],
+};
+
+/**
  * Host-neutral renderer protocol session. It accepts no simulator mutation
  * before `simulator_info`, and applies sync/restore traffic to an isolated
  * Scenario until a successful transaction end atomically replaces live state.
@@ -155,6 +168,7 @@ export class RendererSession extends LazyEventTarget {
   private transaction: IncomingTransaction | null = null;
   private announcedInfo: SimulatorInfoPayload | null = null;
   private committedInfo: SimulatorInfoPayload | null = null;
+  private legacySession = false;
   /** Identity loaded from project storage before the first simulator handshake. */
   private expectedIdentity: SnapshotModelIdentity | null = null;
   private identityStatusState: RendererIdentityStatus = 'awaiting-info';
@@ -241,12 +255,20 @@ export class RendererSession extends LazyEventTarget {
     return this.announcedInfo === null ? null : structuredClone(this.announcedInfo);
   }
 
+  /** True only after the attached transport selected the v0.2 compatibility codec. */
+  get isLegacyProtocol(): boolean {
+    return this.legacySession;
+  }
+
   get identityStatus(): RendererIdentityStatus {
     return this.identityStatusState;
   }
 
   /** The latest durable identity, suitable for project and snapshot persistence. */
   get modelIdentity(): SnapshotModelIdentity | null {
+    if (this.legacySession) {
+      return this.expectedIdentity === null ? null : structuredClone(this.expectedIdentity);
+    }
     const info = this.committedInfo
       ?? (this.expectedIdentity !== null && this.identityStatusState !== 'matching' ? null : this.announcedInfo);
     if (info) {
@@ -261,6 +283,7 @@ export class RendererSession extends LazyEventTarget {
 
   /** Identity to include in a state-sync request before the next sync commits. */
   get stateSyncIdentity(): SnapshotModelIdentity | null {
+    if (this.legacySession) return null;
     if (this.committedInfo) {
       return {
         model_id: this.committedInfo.model.id,
@@ -277,6 +300,10 @@ export class RendererSession extends LazyEventTarget {
    */
   setExpectedSimulatorIdentity(identity: SnapshotModelIdentity | null | undefined): void {
     this.expectedIdentity = identity === null || identity === undefined ? null : structuredClone(identity);
+    if (this.legacySession) {
+      this.identityStatusState = this.expectedIdentity === null ? 'matching' : 'model-mismatch';
+      return;
+    }
     if (!this.announcedInfo) {
       this.identityStatusState = 'awaiting-info';
       return;
@@ -324,6 +351,7 @@ export class RendererSession extends LazyEventTarget {
     this.announcedInfo = null;
     this.committedInfo = null;
     this.expectedIdentity = null;
+    this.legacySession = false;
     this.identityStatusState = 'awaiting-info';
     this.clearActionMetrics();
   }
@@ -342,7 +370,7 @@ export class RendererSession extends LazyEventTarget {
       requestId,
       this.stateSyncIdentity?.instance_id,
     ).payload;
-    if (payload.request_id !== requestId || payload.model_id !== info.model.id) {
+    if (payload.request_id !== requestId || (!this.legacySession && payload.model_id !== info.model.id)) {
       throw new Error('state_sync identity must match the active simulator session.');
     }
     if (!this.run.requestStateSync(requestId)) {
@@ -514,10 +542,14 @@ export class RendererSession extends LazyEventTarget {
 
   handleIncoming(message: SimulatorToRendererMessage): void {
     if (message.type === 'simulator_info') {
+      if (this.legacySession) {
+        this.reportSessionError('protocol_mode_changed', 'A transport session cannot switch from legacy to strict protocol mode.');
+        return;
+      }
       this.acceptSimulatorInfo(message.payload as SimulatorInfoPayload);
       return;
     }
-    if (!this.announcedInfo) {
+    if (!this.announcedInfo && !this.legacySession) {
       this.reportSessionError('handshake_required', 'simulator_info must be the first simulator message.');
       return;
     }
@@ -589,10 +621,31 @@ export class RendererSession extends LazyEventTarget {
     } satisfies RendererIdentityDetail);
   }
 
+  /**
+   * Called by a transport after its handshake grace period selects v0.2.
+   * Existing projects cannot be safely bound because v0.2 has no model
+   * identity, so they remain isolated rather than being auto-synchronised.
+   */
+  beginLegacyProtocol(): void {
+    if (this.legacySession) return;
+    if (this.announcedInfo !== null) {
+      this.reportSessionError('protocol_mode_changed', 'A transport session cannot switch from strict to legacy protocol mode.');
+      return;
+    }
+    this.legacySession = true;
+    this.identityStatusState = this.expectedIdentity === null && this.committedInfo === null
+      ? 'matching'
+      : 'model-mismatch';
+    this.dispatch('simulator:legacy', { status: this.identityStatusState });
+  }
+
   private beginStateSync(payload: StateSyncBeginPayload, message: SimulatorToRendererMessage): void {
-    const info = this.announcedInfo!;
+    const info = this.announcedInfo ?? LEGACY_SIMULATOR_INFO;
     const active = this.activeRequest;
-    if (this.transaction || active?.kind !== 'state-sync' || payload.request_id !== active.requestId || payload.model_id !== info.model.id || payload.instance_id !== info.instance_id || (payload.mode === 'reconcile' && this.stateSyncIdentity?.instance_id !== payload.instance_id)) {
+    const invalidLegacySync = this.legacySession
+      ? this.transaction || active?.kind !== 'state-sync' || payload.request_id !== active.requestId
+      : this.transaction || active?.kind !== 'state-sync' || payload.request_id !== active.requestId || payload.model_id !== info.model.id || payload.instance_id !== info.instance_id || (payload.mode === 'reconcile' && this.stateSyncIdentity?.instance_id !== payload.instance_id);
+    if (invalidLegacySync) {
       this.reportSessionError('invalid_state_sync', 'Rejected unmatched state_sync_begin.');
       return;
     }
@@ -636,8 +689,13 @@ export class RendererSession extends LazyEventTarget {
     }
     this.dispatch('commit', { origin: 'state-sync', messages: transaction.messages } satisfies RendererSessionCommitDetail);
     this.dispatch('message', { message, origin: 'state-sync' } satisfies RendererSessionMessageDetail);
-    this.committedInfo = structuredClone(this.announcedInfo!);
-    this.expectedIdentity = this.modelIdentity;
+    if (this.legacySession) {
+      this.committedInfo = null;
+      this.expectedIdentity = null;
+    } else {
+      this.committedInfo = structuredClone(this.announcedInfo!);
+      this.expectedIdentity = this.modelIdentity;
+    }
     this.identityStatusState = 'matching';
     this.transaction = null;
     this.completeActiveRequest('state-sync');
@@ -879,6 +937,15 @@ export class RendererSession extends LazyEventTarget {
   }
 
   private requireCompatibleSimulator(allowStateSyncRecovery = false): SimulatorInfoPayload {
+    if (this.legacySession) {
+      if (this.identityStatusState === 'model-mismatch') {
+        throw new Error('A legacy simulator cannot be verified against this renderer project. Start a new project before synchronising.');
+      }
+      if (!allowStateSyncRecovery && this.identityStatusState !== 'matching') {
+        throw new Error('Complete a replacement state sync before mutating the simulator.');
+      }
+      return LEGACY_SIMULATOR_INFO;
+    }
     if (!this.announcedInfo) throw new Error('Wait for simulator_info before sending renderer messages.');
     if (this.identityStatusState === 'model-mismatch') {
       throw new Error('The connected simulator model does not match this renderer project.');

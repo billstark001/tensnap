@@ -216,6 +216,41 @@ describe('RendererSession', () => {
     expect(session.scenario.metadata.time).toBeUndefined();
   });
 
+  it('runs a v0.2 state sync only after legacy mode is explicitly selected', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+
+    session.beginLegacyProtocol();
+    expect(session.isLegacyProtocol).toBe(true);
+    expect(session.identityStatus).toBe('matching');
+    expect(session.modelIdentity).toBeNull();
+
+    const requestId = session.requestStateSync('legacy-sync');
+    expect(sent).toContainEqual(expect.objectContaining({
+      type: 'state_sync', payload: expect.objectContaining({ request_id: requestId, model_id: 'legacy' }),
+    }));
+    session.handleIncoming({
+      type: 'state_sync_begin',
+      payload: { request_id: requestId, model_id: 'legacy', instance_id: 'legacy', mode: 'replace' },
+    });
+    session.handleIncoming({ type: 'env_create', payload: { id: 'legacy-world', type: '2d' } });
+    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: 'legacy' } });
+
+    expect(session.scenario.getEnvironment('legacy-world')).toBeDefined();
+    expect(session.modelIdentity).toBeNull();
+  });
+
+  it('does not bind a persisted project to an unverified legacy simulator', () => {
+    const session = new RendererSession();
+    session.setExpectedSimulatorIdentity({ model_id: 'saved-model', instance_id: 'saved-instance' });
+    session.attachTransport(createTransport([]));
+    session.beginLegacyProtocol();
+
+    expect(session.identityStatus).toBe('model-mismatch');
+    expect(() => session.requestStateSync('legacy-blocked')).toThrow(/cannot be verified/);
+  });
+
   it('treats a persisted state-schema mismatch as a model mismatch', () => {
     const session = new RendererSession();
     session.setExpectedSimulatorIdentity({ model_id: 'test-model', state_schema_version: 'old-schema' });

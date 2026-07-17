@@ -2,7 +2,7 @@ import { create, StoreApi, UseBoundStore } from 'zustand';
 import { ScenarioStore } from './scenario/store';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
-import type { ISimulatorTransport, TransportEventMap } from '@tensnap/core';
+import type { ISimulatorTransport, TransportEventHandler, TransportEventMap } from '@tensnap/core';
 import type { SimulatorToRendererMessage, StateSyncRequest } from '@tensnap/protocol';
 import { registerEventHandlers, unregisterEventHandlers } from './scenario/scenario-ws';
 import { WebSocketConnectionError, WebSocketManagerImpl } from '@/transport';
@@ -54,6 +54,8 @@ export const createTransportStore = (
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>,
 ) => create<TransportStore>((set, get) => {
   let pendingSimulatorInfoListener: EventListener | null = null;
+  let pendingProtocolModeListener: TransportEventHandler<TransportEventMap['protocol-mode']> | null = null;
+  let pendingProtocolModeTransport: ISimulatorTransport | null = null;
   let unsubscribeValidationSettings: (() => void) | null = null;
 
   const removePendingSimulatorInfoListener = () => {
@@ -62,12 +64,24 @@ export const createTransportStore = (
     pendingSimulatorInfoListener = null;
   };
 
+  const removePendingProtocolModeListener = () => {
+    if (!pendingProtocolModeListener || !pendingProtocolModeTransport) return;
+    pendingProtocolModeTransport.off('protocol-mode', pendingProtocolModeListener);
+    pendingProtocolModeListener = null;
+    pendingProtocolModeTransport = null;
+  };
+
   const dispatchStateSync = (state?: StateSyncInventory) => {
     const requestId = generateUniqueId();
     const scenarioStore = useScenarioStore.getState();
     const simulatorInfo = scenarioStore.session.simulatorInfo;
-    if (!simulatorInfo) return;
-    const payload = buildStateSyncPayload(state, requestId, simulatorInfo.model.id, scenarioStore.session.stateSyncIdentity?.instance_id);
+    if (!simulatorInfo && !scenarioStore.session.isLegacyProtocol) return;
+    const payload = buildStateSyncPayload(
+      state,
+      requestId,
+      simulatorInfo?.model.id ?? 'legacy',
+      scenarioStore.session.stateSyncIdentity?.instance_id,
+    );
 
     scenarioStore.prepareStateSync(requestId, {
       autoLayoutOnComplete: scenarioStore.isMainViewAutoLayoutCandidate(),
@@ -113,11 +127,13 @@ export const createTransportStore = (
     bufferedMessages: SimulatorToRendererMessage[],
     resetSimulatorIdentity: boolean,
     previousAbort: AbortController | null,
+    protocolMode: 'strict' | 'legacy' | null,
   ) => {
     const scenarioStore = useScenarioStore.getState();
     const { transport: currentTransport } = get();
     stopWatchingTransportValidation();
     removePendingSimulatorInfoListener();
+    removePendingProtocolModeListener();
     previousAbort?.abort();
     scenarioStore.setConnected(false);
     if (currentTransport) {
@@ -139,11 +155,14 @@ export const createTransportStore = (
     transport.on('close', onClose);
     registerEventHandlers(transport, useScenarioStore);
 
-    const onSimulatorInfo: EventListener = () => {
+    const onSimulatorReady = () => {
       if (get().transport !== transport) return;
       removePendingSimulatorInfoListener();
+      removePendingProtocolModeListener();
       if (scenarioStore.session.identityStatus === 'model-mismatch') {
-        set({ connectionError: 'The connected simulator model does not match this project.' });
+        set({ connectionError: scenarioStore.session.isLegacyProtocol
+          ? 'The connected legacy simulator cannot be verified against this project.'
+          : 'The connected simulator model does not match this project.' });
         scenarioStore.resetStateSync();
         return;
       }
@@ -155,8 +174,17 @@ export const createTransportStore = (
         scenarioStore.resetStateSync();
       }
     };
+    const onSimulatorInfo: EventListener = onSimulatorReady;
     pendingSimulatorInfoListener = onSimulatorInfo;
     scenarioStore.session.addEventListener('simulator:info', onSimulatorInfo);
+    const onProtocolMode: TransportEventHandler<TransportEventMap['protocol-mode']> = (detail) => {
+      if (detail.mode !== 'legacy') return;
+      scenarioStore.session.beginLegacyProtocol();
+      onSimulatorReady();
+    };
+    pendingProtocolModeListener = onProtocolMode;
+    pendingProtocolModeTransport = transport;
+    transport.on('protocol-mode', onProtocolMode);
 
     set({
       transport,
@@ -167,6 +195,10 @@ export const createTransportStore = (
     });
     watchTransportValidation(transport);
     scenarioStore.setConnected(true);
+    if (protocolMode === 'legacy') {
+      scenarioStore.session.beginLegacyProtocol();
+      onSimulatorReady();
+    }
     for (const message of bufferedMessages) scenarioStore.session.handleIncoming(message);
   };
 
@@ -189,6 +221,7 @@ export const createTransportStore = (
     const scenarioStore = useScenarioStore.getState();
 
     removePendingSimulatorInfoListener();
+    removePendingProtocolModeListener();
     if (currentAbort) currentAbort.abort();
     scenarioStore.setConnected(false);
     if (currentTransport) {
@@ -218,11 +251,14 @@ export const createTransportStore = (
     transport.on('open', onOpen);
     transport.on('close', onClose);
     registerEventHandlers(transport, useScenarioStore);
-    const onSimulatorInfo: EventListener = () => {
+    const onSimulatorReady = () => {
       if (get().transport !== transport) return;
       removePendingSimulatorInfoListener();
+      removePendingProtocolModeListener();
       if (scenarioStore.session.identityStatus === 'model-mismatch') {
-        set({ connectionError: 'The connected simulator model does not match this project.' });
+        set({ connectionError: scenarioStore.session.isLegacyProtocol
+          ? 'The connected legacy simulator cannot be verified against this project.'
+          : 'The connected simulator model does not match this project.' });
         scenarioStore.resetStateSync();
         return;
       }
@@ -234,8 +270,17 @@ export const createTransportStore = (
         scenarioStore.resetStateSync();
       }
     };
+    const onSimulatorInfo: EventListener = onSimulatorReady;
     pendingSimulatorInfoListener = onSimulatorInfo;
     scenarioStore.session.addEventListener('simulator:info', onSimulatorInfo);
+    const onProtocolMode: TransportEventHandler<TransportEventMap['protocol-mode']> = (detail) => {
+      if (detail.mode !== 'legacy') return;
+      scenarioStore.session.beginLegacyProtocol();
+      onSimulatorReady();
+    };
+    pendingProtocolModeListener = onProtocolMode;
+    pendingProtocolModeTransport = transport;
+    transport.on('protocol-mode', onProtocolMode);
 
     set({ transport, isConnecting: true, connectionError: null });
     watchTransportValidation(transport);
@@ -246,6 +291,7 @@ export const createTransportStore = (
         transport.off('open', onOpen);
         transport.off('close', onClose);
         removePendingSimulatorInfoListener();
+        removePendingProtocolModeListener();
         unregisterEventHandlers(transport);
         transport.destroy();
         set({ transport: null });
@@ -264,6 +310,7 @@ export const createTransportStore = (
         transport.off('open', onOpen);
         transport.off('close', onClose);
         removePendingSimulatorInfoListener();
+        removePendingProtocolModeListener();
         unregisterEventHandlers(transport);
         transport.destroy();
         set({ transport: null });
@@ -290,6 +337,7 @@ export const createTransportStore = (
     if (transport) {
       stopWatchingTransportValidation();
       removePendingSimulatorInfoListener();
+      removePendingProtocolModeListener();
       unregisterEventHandlers(transport);
       transport.destroy();
       set({ transport: null });
@@ -317,21 +365,28 @@ export const createTransportStore = (
     const abortController = new AbortController();
     const bufferedMessages: SimulatorToRendererMessage[] = [];
     let receivedSimulatorInfo = false;
+    let negotiatedProtocolMode: 'strict' | 'legacy' | null = null;
     let resolveSimulatorInfo: (() => void) | null = null;
     const bufferMessage = (message: TransportEventMap['message']) => {
       const simulatorMessage = message as SimulatorToRendererMessage;
       bufferedMessages.push(simulatorMessage);
       if (simulatorMessage.type === 'simulator_info') {
         receivedSimulatorInfo = true;
+        negotiatedProtocolMode = 'strict';
         resolveSimulatorInfo?.();
       }
     };
+    const observeProtocolMode: TransportEventHandler<TransportEventMap['protocol-mode']> = (detail) => {
+      negotiatedProtocolMode = detail.mode;
+      if (detail.mode === 'legacy') resolveSimulatorInfo?.();
+    };
     transport.on('message', bufferMessage);
+    transport.on('protocol-mode', observeProtocolMode);
     set({ isConnecting: true, connectionError: null, abortController });
     try {
       await transport.connect(abortController.signal);
       if (abortController.signal.aborted) throw new Error('Connection was aborted');
-      if (!receivedSimulatorInfo) {
+      if (!receivedSimulatorInfo && negotiatedProtocolMode !== 'legacy') {
         await new Promise<void>((resolve, reject) => {
           resolveSimulatorInfo = resolve;
           const timeout = setTimeout(
@@ -354,11 +409,12 @@ export const createTransportStore = (
           };
         });
       }
-      if (bufferedMessages[0]?.type !== 'simulator_info') {
+      if (negotiatedProtocolMode !== 'legacy' && bufferedMessages[0]?.type !== 'simulator_info') {
         throw new Error('simulator_info must be the first replacement simulator message.');
       }
     } catch (error) {
       transport.off('message', bufferMessage);
+      transport.off('protocol-mode', observeProtocolMode);
       transport.destroy();
       set({
         isConnecting: false,
@@ -368,18 +424,21 @@ export const createTransportStore = (
       throw error;
     }
     transport.off('message', bufferMessage);
+    transport.off('protocol-mode', observeProtocolMode);
     installConnectedTransport(
       transport,
       state,
       bufferedMessages,
       options?.resetSimulatorIdentity ?? false,
       previousAbort,
+      negotiatedProtocolMode,
     );
   },
 
   destroy: () => {
     const { transport, abortController } = get();
     removePendingSimulatorInfoListener();
+    removePendingProtocolModeListener();
     stopWatchingTransportValidation();
     if (abortController) abortController.abort();
     if (transport) {
@@ -401,6 +460,7 @@ export const createTransportStore = (
     const { abortController } = get();
     if (abortController) {
       removePendingSimulatorInfoListener();
+      removePendingProtocolModeListener();
       abortController.abort();
       set({ isConnecting: false, connectionError: 'Connection aborted by user', abortController: null });
       useScenarioStore.getState().resetStateSync();
