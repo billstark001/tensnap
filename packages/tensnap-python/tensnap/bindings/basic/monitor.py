@@ -50,4 +50,4 @@ def get_monitor_metadata_from_namespace(
     return monitors
 
 
-__all__ = ["MonitorMetadata", "monitor", "get_monitor_metadata_from_namespace"]
+__all__ = ["MonitorMetadata", "get_monitor_metadata_from_namespace", "monitor"]

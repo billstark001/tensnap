@@ -1,6 +1,6 @@
 # Python API Reference
 
-This reference describes the current TenSnap Python surface for protocol v0.2.
+This reference describes the current TenSnap Python surface for protocol v0.3.
 
 The recommended workflow is:
 

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     ActionMetadata = _ActionMetadata
 
 
-def action(
+def action(  # noqa: PLR0913
     id: str | None = None,
     label: str | None = None,
     continuous: bool = False,

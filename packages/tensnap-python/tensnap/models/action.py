@@ -26,7 +26,7 @@ class ActionMetadata:
             self.label = infer_label_from_id(self.id)
 
     def to_dict(self) -> dict[str, Any]:
-        result = {
+        result: dict[str, Any] = {
             "id": self.id,
             "label": self.label,
         }

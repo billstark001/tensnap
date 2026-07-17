@@ -1,6 +1,6 @@
 # Tensnap Python Bindings
 
-Python bindings for the Tensnap protocol v0.2 runtime.
+Python bindings for the TenSnap protocol v0.3 runtime.
 
 ## Installation
 

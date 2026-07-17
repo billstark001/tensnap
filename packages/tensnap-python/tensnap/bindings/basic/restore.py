@@ -16,8 +16,14 @@ class SceneRestoreBinding:
     restore: str | Callable[[dict[str, Any]], Any]
     checkpoint_capture: str | Callable[[], Any] | None = None
 
-    def bind(self, target: Any) -> tuple[Callable[[dict[str, Any]], Any], Callable[[], Any] | None]:
-        restore = getattr(target, self.restore) if isinstance(self.restore, str) else self.restore
+    def bind(
+        self, target: Any
+    ) -> tuple[Callable[[dict[str, Any]], Any], Callable[[], Any] | None]:
+        restore = (
+            getattr(target, self.restore)
+            if isinstance(self.restore, str)
+            else self.restore
+        )
         capture = (
             getattr(target, self.checkpoint_capture)
             if isinstance(self.checkpoint_capture, str)
@@ -55,4 +61,4 @@ def get_scene_restore_binding(value: Any) -> SceneRestoreBinding | None:
     return binding if isinstance(binding, SceneRestoreBinding) else None
 
 
-__all__ = ["SceneRestoreBinding", "scene_restore", "get_scene_restore_binding"]
+__all__ = ["SceneRestoreBinding", "get_scene_restore_binding", "scene_restore"]

@@ -13,7 +13,6 @@ from typing import (
 
 from typing_extensions import TypedDict
 
-from .bindings.basic.chart import categorize_charts
 from .models import (
     ActionMetadata,
     ChartGroupMetadata,
