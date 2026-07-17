@@ -347,7 +347,12 @@ describe('modelBuilder', () => {
       })
       .trajectoryLayer('trails', {
         dependencyLayerIds: { agent: 'agents' },
-        metadata: { length: 20 },
+        length: 20,
+        width: 2,
+        color: '#2563EB',
+        onAgentDelete: 'retain',
+        onStateSync: 'preserve',
+        onReset: 'clear',
       });
 
     const messages: AnyProtocolMessage[] = [];
@@ -374,6 +379,14 @@ describe('modelBuilder', () => {
         layer_id: 'trails',
         layer_type: 'trajectory',
         dependency_layer_ids: { agent: 'agents' },
+        metadata: {
+          length: 20,
+          width: 2,
+          color: '#2563EB',
+          on_agent_delete: 'retain',
+          on_state_sync: 'preserve',
+          on_reset: 'clear',
+        },
       }),
     });
 
@@ -662,6 +675,13 @@ describe('modelBuilder', () => {
     await session.dispatch({ type: 'action_invoke', payload: { id: 'reset', request_id: 'reset-1' } });
     expect(initCount).toBe(1);
     expect(messages).toContainEqual({ type: 'action_result', payload: { id: 'reset', request_id: 'reset-1', should_continue: false } });
+    expect(messages.some((message) => [
+      'action_create',
+      'env_create',
+      'env_layer_create',
+      'monitor_create',
+      'param_create',
+    ].includes(message.type))).toBe(false);
 
     messages.length = 0;
     await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-1' } });
@@ -681,6 +701,27 @@ describe('modelBuilder', () => {
     expect(messages[messages.length - 1]).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-1', status: 'ok' } });
     expect(messages).toContainEqual({ type: 'metadata_update', payload: { time: 7 } });
     expect(messages.some((message) => message.type === 'chart_create' || message.type === 'chart_update')).toBe(false);
+
+    messages.length = 0;
+    await session.dispatch({ type: 'scene_restore', payload: { request_id: 'restore-1', model_id: 'scene-binding', state_schema_version: '1', time: 7 } });
+    expect(messages).toEqual([
+      { type: 'scene_restore_begin', payload: { request_id: 'restore-1' } },
+      { type: 'scene_restore_end', payload: { request_id: 'restore-1', status: 'ok' } },
+    ]);
+
+    messages.length = 0;
+    await session.dispatch({ type: 'scene_restore', payload: { request_id: 'restore-empty', model_id: 'scene-binding' } });
+    expect(messages).toEqual([
+      { type: 'scene_restore_begin', payload: { request_id: 'restore-empty' } },
+      {
+        type: 'scene_restore_end',
+        payload: {
+          request_id: 'restore-empty',
+          status: 'rejected',
+          error: expect.objectContaining({ code: 'invalid_scene_restore' }),
+        },
+      },
+    ]);
 
     messages.length = 0;
     await session.dispatch({
@@ -839,6 +880,66 @@ describe('modelBuilder', () => {
       }),
     });
     expect(messages.some((message) => message.type.startsWith('chart_'))).toBe(false);
+    await session.close();
+  });
+
+  it('supports checkpoint restore without a projected-state hook', async () => {
+    const binding = modelBuilder({
+      id: 'checkpoint-only',
+      name: 'Checkpoint Only',
+      description: 'checkpoint-only fixture',
+      stateSchemaVersion: '1',
+    }, {
+      defaults: {},
+      create() { return { value: 2 }; },
+      restoreCheckpoint(model, data) {
+        model.value = data instanceof Uint8Array ? data[0]! : 0;
+      },
+      captureCheckpoint(model) {
+        return new Uint8Array([model.value]);
+      },
+    }).build();
+    const messages: AnyProtocolMessage[] = [];
+    const session = binding.createSession();
+    session.attach((message: SimulatorToRendererMessage) => {
+      messages.push(message as AnyProtocolMessage);
+    });
+    await session.open();
+
+    const info = messages.find((message) => message.type === 'simulator_info');
+    expect(info?.payload.capabilities).toContain('scene.restore.checkpoint');
+    expect(info?.payload.capabilities).not.toContain('scene.restore.projected');
+    await initialize(session, 'checkpoint-only');
+
+    messages.length = 0;
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'checkpoint-only-restore',
+        model_id: 'checkpoint-only',
+        checkpoint: {
+          encoding: 'application/octet-stream',
+          data: new Uint8Array([7]),
+        },
+      },
+    });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end',
+      payload: { request_id: 'checkpoint-only-restore', status: 'ok' },
+    });
+
+    messages.length = 0;
+    await session.dispatch({ type: 'scene_capture', payload: { request_id: 'checkpoint-only-capture' } });
+    expect(messages).toContainEqual({
+      type: 'scene_capture_result',
+      payload: expect.objectContaining({
+        request_id: 'checkpoint-only-capture',
+        checkpoint: {
+          encoding: 'application/octet-stream',
+          data: new Uint8Array([7]),
+        },
+      }),
+    });
     await session.close();
   });
 

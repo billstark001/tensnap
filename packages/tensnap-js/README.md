@@ -82,6 +82,10 @@ The builder registers `start`, `step`, `stop`, and `reset` automatically. `start
 continuous-capable and uses the boolean returned by `step` to decide whether the
 renderer may continue dispatching.
 
+Reset reconciles declarations with strict CRUD, clears chart history, and
+deletes the previous non-trajectory item set before publishing current state;
+stable create-only definitions are not replayed as upserts.
+
 The strict v0.3 binding never translates legacy action or state-sync fields.
 Each session sends `simulator_info` before any other simulator message, then
 waits for a valid `state_sync` before invoking `init`.
@@ -95,10 +99,17 @@ updates source layers before replaying canonical state. Use
 entire projected restore; it cannot be mixed with declarative layer handlers.
 
 Exact checkpoint support still requires matching `restoreCheckpoint(...)` and
-`captureCheckpoint(...)` hooks plus a stable `stateSchemaVersion`. Capture hooks
+`captureCheckpoint(...)` hooks plus a stable `stateSchemaVersion`, but it does
+not require projected restore hooks. Capture hooks
 return only model data (`ProtocolValue` or `Uint8Array`); the binding chooses
 MessagePack or `application/octet-stream` wire encoding automatically. Restore
 hooks receive that decoded model data. Restore replay never sends chart messages.
+
+Trajectory builders expose `length`, `width`, `color`, `zIndex`,
+`onAgentDelete`, `onStateSync`, and `onReset` directly. Restore request IDs are
+cached, and paired checkpoint hooks also provide rollback if a later restore
+phase fails. Create-only state replay is advertised as `replace`, never as a
+false reconcile/upsert transaction.
 
 ## Transport Options
 

@@ -12,6 +12,7 @@ import type {
   ProtocolValue,
   RestorableEnvironment,
   SceneRestorePayload,
+  TrajectoryLayerMetadata,
 } from '@tensnap/protocol';
 import type { SimulatorEmitter, SimulatorSession } from '../runtime';
 import type { ScenarioDefinition, ScenarioEnvironmentDefinition, ScenarioRegistry } from '../scenario';
@@ -275,6 +276,19 @@ export interface LayerOptions<TModel, TItem extends object = ItemRecord> {
   key?: ItemKeySelector<TItem>;
   updateKey?: ItemKeySelector<Partial<TItem> & object>;
   restore?: LayerRestoreOptions<TModel>;
+}
+
+/** Typed first-class trajectory metadata normalized to canonical wire keys. */
+export interface TrajectoryLayerOptions<TModel, TItem extends object = ItemRecord>
+  extends Omit<LayerOptions<TModel, TItem>, 'type' | 'metadata'> {
+  metadata?: MaybeFactory<TModel, TrajectoryLayerMetadata | undefined>;
+  length?: number;
+  width?: number;
+  color?: string;
+  zIndex?: number;
+  onAgentDelete?: TrajectoryLayerMetadata['on_agent_delete'];
+  onStateSync?: TrajectoryLayerMetadata['on_state_sync'];
+  onReset?: TrajectoryLayerMetadata['on_reset'];
 }
 
 export interface LayerBinding<TModel, TItem extends object = ItemRecord>

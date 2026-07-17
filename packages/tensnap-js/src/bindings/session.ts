@@ -9,6 +9,7 @@ import type {
   ProtocolValue,
   RendererToSimulatorMessage,
   SceneCapturePayload,
+  SceneRestoreEndPayload,
   SceneRestorePayload,
 } from '@tensnap/protocol';
 import { decodeBinaryString, decodeMessagePack, encodeMessagePack } from '@tensnap/protocol';
@@ -69,6 +70,7 @@ export function createBoundSession<TConfig extends object, TModel>(
   let stateRevision = 0;
   let activeTransaction: 'state_sync' | 'scene_restore' | undefined;
   let actionInFlight = false;
+  const restoreResults = new Map<string, SceneRestoreEndPayload>();
   const instanceId = crypto.randomUUID();
   const capabilities = new Set(binding.metadata.capabilities ?? []);
   if (binding.monitors.length > 0) capabilities.add('monitor');
@@ -176,8 +178,8 @@ export function createBoundSession<TConfig extends object, TModel>(
     await pushMonitors(ctx);
   };
 
-  /** Reconcile non-chart declarations against restore staging without duplicate creates. */
-  const reconcileRestoreDefinitions = async (previous: ScenarioDefinition): Promise<void> => {
+  /** Reconcile declarations without using create frames as implicit upserts. */
+  const reconcileDefinitions = async (previous: ScenarioDefinition, includeCharts = false): Promise<void> => {
     const previousParameters = new Map((previous.parameters ?? []).map((parameter) => [parameter.id, parameter]));
     const nextParameters = new Map((currentDefinition.parameters ?? []).map((parameter) => [parameter.id, parameter]));
     for (const id of previousParameters.keys()) {
@@ -250,6 +252,23 @@ export function createBoundSession<TConfig extends object, TModel>(
       }
     }
 
+    if (includeCharts) {
+      const previousCharts = new Map((previous.charts ?? []).map((chart) => [chart.id, chart]));
+      const nextCharts = new Map((currentDefinition.charts ?? []).map((chart) => [chart.id, chart]));
+      for (const [id, chart] of previousCharts) {
+        const next = nextCharts.get(id);
+        if (!next || JSON.stringify(next) !== JSON.stringify(chart)) {
+          await session.emitter.chartDelete({ kind: 'group', id });
+        }
+      }
+      for (const [id, chart] of nextCharts) {
+        const prior = previousCharts.get(id);
+        if (!prior || JSON.stringify(prior) !== JSON.stringify(chart)) {
+          await session.emitter.chartCreate(chart);
+        }
+      }
+    }
+
     const previousMonitors = new Map((previous.monitors ?? []).map((monitor) => [monitor.id, monitor]));
     const nextMonitors = new Map((currentDefinition.monitors ?? []).map((monitor) => [monitor.id, monitor]));
     for (const [id, monitor] of previousMonitors) {
@@ -267,18 +286,24 @@ export function createBoundSession<TConfig extends object, TModel>(
   };
 
   const resetSyncedItems = async (): Promise<void> => {
-    for (const { envId, layerId, deleteKeys } of syncedItems.values()) {
+    for (const [layerKey, { envId, layerId, deleteKeys }] of syncedItems) {
+      const layerType = currentDefinition.environments
+        ?.find((environment) => environment.id === envId)
+        ?.layers?.find((layer) => layer.layerId === layerId)?.layerType;
+      // Trajectory items are simulator-owned drawing configs. Resetting their
+      // source agents applies on_reset; deleting the configs themselves would
+      // also erase preserved renderer-owned history.
+      if (layerType === 'trajectory') continue;
       const items = [...deleteKeys.values()];
-      if (items.length === 0) {
-        continue;
+      if (items.length > 0) {
+        await session.emitter.itemDelete({
+          env_id: envId,
+          layer_id: layerId,
+          items: items as Array<string | number> | Array<Record<string, ProtocolData>>,
+        });
       }
-      await session.emitter.itemDelete({
-        env_id: envId,
-        layer_id: layerId,
-        items: items as Array<string | number> | Array<Record<string, ProtocolData>>,
-      });
+      syncedItems.delete(layerKey);
     }
-    syncedItems.clear();
   };
 
   const runSync = async (): Promise<void> => {
@@ -537,6 +562,7 @@ export function createBoundSession<TConfig extends object, TModel>(
     }
 
     if (payload.id === 'reset') {
+      const previousDefinition = currentDefinition;
       await resetSyncedItems();
       await context.clearAllCharts();
       fallbackTime = 0;
@@ -544,7 +570,7 @@ export function createBoundSession<TConfig extends object, TModel>(
         await binding.options.reset(model, context);
       }
       rebuildDefinition();
-      await context.replayDefinition();
+      await reconcileDefinitions(previousDefinition, true);
       await pushState(context, 'reset', true);
       return false;
     }
@@ -573,12 +599,14 @@ export function createBoundSession<TConfig extends object, TModel>(
   };
 
   const rejectRestore = async (payload: SceneRestorePayload, code: string, message: string): Promise<void> => {
-    await session.emitter.sceneRestoreBegin({ request_id: payload.request_id });
-    await session.emitter.sceneRestoreEnd({
+    const result: SceneRestoreEndPayload = {
       request_id: payload.request_id,
       status: 'rejected',
       error: { code, message },
-    });
+    };
+    restoreResults.set(payload.request_id, result);
+    await session.emitter.sceneRestoreBegin({ request_id: payload.request_id });
+    await session.emitter.sceneRestoreEnd(result);
   };
 
   type LayerRestorePlan = {
@@ -902,7 +930,7 @@ export function createBoundSession<TConfig extends object, TModel>(
           request_id: payload.request_id,
           model_id: binding.metadata.id,
           instance_id: instanceId,
-          mode: payload.instance_id === instanceId ? 'reconcile' : 'replace',
+          mode: 'replace',
         });
         await context.replayDefinition();
         await pushState(context, 'sync', true);
@@ -993,6 +1021,12 @@ export function createBoundSession<TConfig extends object, TModel>(
       await context.syncAssets(payload);
     },
     async onSceneRestore(payload) {
+      const cached = restoreResults.get(payload.request_id);
+      if (cached) {
+        await session.emitter.sceneRestoreBegin({ request_id: payload.request_id });
+        await session.emitter.sceneRestoreEnd(structuredClone(cached));
+        return;
+      }
       if (payload.model_id !== binding.metadata.id) {
         await rejectRestore(payload, 'model_mismatch', `Expected model ${binding.metadata.id}.`);
         return;
@@ -1018,6 +1052,10 @@ export function createBoundSession<TConfig extends object, TModel>(
         await rejectRestore(payload, 'unsupported_capability', 'This binding does not provide checkpoint scene restore.');
         return;
       }
+      if (!hasProjectedState && payload.checkpoint === undefined) {
+        await rejectRestore(payload, 'invalid_scene_restore', 'scene_restore contains no restorable state.');
+        return;
+      }
       const validation = hasProjectedState
         ? await validateProjectedRestore(payload)
         : { plan: { layers: [] } };
@@ -1028,7 +1066,30 @@ export function createBoundSession<TConfig extends object, TModel>(
 
       activeTransaction = 'scene_restore';
       try {
+        const previousFallbackTime = fallbackTime;
+        let rollbackData: CheckpointData | undefined;
+        let preparationError: unknown;
+        if (binding.options.captureCheckpoint && binding.options.restoreCheckpoint) {
+          try {
+            rollbackData = await binding.options.captureCheckpoint(model, context);
+          } catch (error) {
+            preparationError = error;
+          }
+        }
         await session.emitter.sceneRestoreBegin({ request_id: payload.request_id });
+        if (preparationError !== undefined) {
+          const result: SceneRestoreEndPayload = {
+            request_id: payload.request_id,
+            status: 'failed',
+            error: {
+              code: 'scene_restore_failed',
+              message: `capture rollback checkpoint: ${preparationError instanceof Error ? preparationError.message : String(preparationError)}`,
+            },
+          };
+          restoreResults.set(payload.request_id, result);
+          await session.emitter.sceneRestoreEnd(result);
+          return;
+        }
         try {
           const previousDefinition = currentDefinition;
           if (payload.checkpoint !== undefined) {
@@ -1036,18 +1097,32 @@ export function createBoundSession<TConfig extends object, TModel>(
           }
           if (hasProjectedState) await applyProjectedRestore(payload, validation.plan!);
           rebuildDefinition();
-          await reconcileRestoreDefinitions(previousDefinition);
+          await reconcileDefinitions(previousDefinition);
           await resetSyncedItems();
           await pushLayerState(context, 'sync', true);
           await context.setTime(currentTime());
           await pushMonitors(context);
-          await session.emitter.sceneRestoreEnd({ request_id: payload.request_id, status: 'ok' });
+          const result: SceneRestoreEndPayload = { request_id: payload.request_id, status: 'ok' };
+          restoreResults.set(payload.request_id, result);
+          await session.emitter.sceneRestoreEnd(result);
         } catch (error) {
-          await session.emitter.sceneRestoreEnd({
+          fallbackTime = previousFallbackTime;
+          let message = error instanceof Error ? error.message : String(error);
+          if (rollbackData !== undefined && binding.options.restoreCheckpoint) {
+            try {
+              await binding.options.restoreCheckpoint(model, rollbackData, context);
+              rebuildDefinition();
+            } catch (rollbackError) {
+              message += `; rollback failed: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`;
+            }
+          }
+          const result: SceneRestoreEndPayload = {
             request_id: payload.request_id,
             status: 'failed',
-            error: { code: 'scene_restore_failed', message: error instanceof Error ? error.message : String(error) },
-          });
+            error: { code: 'scene_restore_failed', message },
+          };
+          restoreResults.set(payload.request_id, result);
+          await session.emitter.sceneRestoreEnd(result);
         }
       } finally {
         activeTransaction = undefined;

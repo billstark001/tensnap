@@ -135,7 +135,7 @@ export class ScenarioRegistry {
           request_id: payload.request_id,
           model_id: payload.model_id,
           instance_id: simulatorInfo.instance_id,
-          mode: payload.instance_id === simulatorInfo.instance_id ? 'reconcile' : 'replace',
+          mode: 'replace',
         });
         await registry.replay(session.emitter);
         await onStateSync?.(payload, session);

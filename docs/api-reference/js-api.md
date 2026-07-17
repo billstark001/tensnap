@@ -123,6 +123,10 @@ in `simulator_info` and gates opt-in checkpoint restore/capture.
 The builder registers the renderer-driven lifecycle actions automatically:
 `start`, `step`, `stop`, and `reset`. Custom actions can be added with
 `.action(...)`; they may declare a target `scope` and validated `kwargs`.
+Reset reconciles changed declarations with update or delete-then-create frames,
+deletes the previous non-trajectory item set, clears chart history, and then
+publishes current items and values. Stable monitor/environment/layer creates are
+not replayed as implicit upserts.
 
 ### Parameters
 
@@ -189,6 +193,26 @@ builder.env('main')
 
 Layer `items(...)` returns the current authoritative item list. The binding
 tracks previous records and emits creates, field-level updates, and deletes.
+
+Trajectory layers expose every v0.3 trajectory field directly and normalize
+camelCase builder options to canonical snake_case wire metadata:
+
+```ts
+builder.env('main').trajectoryLayer('trails', {
+  dependencyLayerIds: { agent: 'agents' },
+  length: 30,
+  width: 2,
+  color: '#2563EB',
+  zIndex: 3,
+  onAgentDelete: 'retain',
+  onStateSync: 'preserve',
+  onReset: 'clear',
+});
+```
+
+Defaults are `delete`, `preserve`, and `clear`. Retained agent deletion and
+preserved reset close the current segment so a reused agent id does not connect
+two lifetimes.
 
 For models that already know exact incremental changes, declare `updates(...)`.
 When a layer has `updates(...)`, the binding sends update records after the
@@ -296,10 +320,31 @@ layer `restore` declaration; this avoids an implicit precedence rule.
 The binding replays final declarations, items, time, and monitor values in the
 restore transaction, never chart messages. Exact checkpoint restore/capture is
 advertised only when both `restoreCheckpoint` and `captureCheckpoint` are
-provided with a stable `stateSchemaVersion`. `captureCheckpoint` returns only
+provided with a stable `stateSchemaVersion`; no projected restore hook is
+required for a checkpoint-only model. `captureCheckpoint` returns only
 model data (`ProtocolValue` or `Uint8Array`); the binding automatically emits
 MessagePack or `application/octet-stream`, and `restoreCheckpoint` receives the
 decoded data rather than the wire `{ encoding, data }` envelope.
+
+Restore request IDs are idempotent: duplicates return the cached result without
+reapplying the model mutation. When checkpoint hooks are present, the binding
+captures a pre-restore checkpoint and uses it to roll back a failed projected or
+replay phase.
+
+Monitor metadata/value CRUD remains explicit. Declarative monitors emit create
+and value updates; advanced dynamic code can use `ctx.emitter.monitorCreate`,
+`monitorUpdate`, and `monitorDelete`. A metadata replacement is delete-then-
+create—`monitor_create` is not an upsert.
+
+### `simulator_info`
+
+Every session sends `simulator_info` before state sync or model initialization.
+Builder metadata supplies stable model id/name/description/version and
+`stateSchemaVersion`; the session generates one `instance_id` that survives
+reconnect/reset and changes for a new session. The binding adds monitor,
+targeted-action, kwargs, projected-restore, and paired-checkpoint capabilities
+before the handshake. Keep the model id stable and bump the schema version when
+checkpoint/projected state becomes incompatible.
 
 ## Low-Level Metadata Helpers
 
@@ -386,6 +431,11 @@ layers, charts, and monitors. `registry.replay(emitter)` emits the corresponding
 whose `state_sync` handler brackets `registry.replay(...)` with
 `state_sync_begin` and `state_sync_end`. `registry.replaySceneRestore(...)`
 omits charts for a `scene_restore` transaction.
+
+Create-only registry/model state replay uses state-sync mode `replace`. This is
+intentional: a full replay cannot safely claim `reconcile`, because monitor,
+chart, environment, layer, item, action, and parameter create frames are not
+upserts.
 
 ## Transport Hosts
 

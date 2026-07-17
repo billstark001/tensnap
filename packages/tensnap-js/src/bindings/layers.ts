@@ -4,6 +4,7 @@ import type {
   ItemRecord,
   LayerOptions,
   LayerProjector,
+  TrajectoryLayerOptions,
 } from './types';
 import { cloneItems } from './utils';
 
@@ -44,9 +45,33 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
 
   trajectoryLayer<TItem extends object = ItemRecord>(
     id: string,
-    options: Omit<LayerOptions<TModel, TItem>, 'type'> = {},
+    options: TrajectoryLayerOptions<TModel, TItem> = {},
   ): this {
-    return this.layer(id, { ...options, type: 'trajectory' });
+    const {
+      metadata,
+      length,
+      width,
+      color,
+      zIndex,
+      onAgentDelete,
+      onStateSync,
+      onReset,
+      ...layerOptions
+    } = options;
+    return this.layer(id, {
+      ...layerOptions,
+      type: 'trajectory',
+      metadata: (model) => ({
+        ...(typeof metadata === 'function' ? metadata(model) : metadata),
+        ...(length === undefined ? {} : { length }),
+        ...(width === undefined ? {} : { width }),
+        ...(color === undefined ? {} : { color }),
+        ...(zIndex === undefined ? {} : { z_index: zIndex }),
+        ...(onAgentDelete === undefined ? {} : { on_agent_delete: onAgentDelete }),
+        ...(onStateSync === undefined ? {} : { on_state_sync: onStateSync }),
+        ...(onReset === undefined ? {} : { on_reset: onReset }),
+      }),
+    });
   }
 
   backgroundLayer(
