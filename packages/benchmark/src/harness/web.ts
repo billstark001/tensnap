@@ -1,9 +1,9 @@
 import type { ISimulatorTransport } from '@tensnap/core';
-import type { BenchmarkCase } from '../types';
+import type { BenchmarkCase } from '../browser-types';
 
 export interface WebScenarioCaseDefinition {
   name: string;
-  category?: 'model' | 'random-walk';
+  category?: 'tensnap';
   variant?: string;
   config: Record<string, unknown>;
   width: number;
@@ -12,11 +12,11 @@ export interface WebScenarioCaseDefinition {
   createTransport(): ISimulatorTransport;
 }
 
-/** Model cases delegate all rendering and execution to the production Web host. */
+/** Mount a workload through the production Web host, rather than a benchmark-only renderer. */
 export function createWebScenarioCase(definition: WebScenarioCaseDefinition): BenchmarkCase {
   return {
     name: definition.name,
-    category: definition.category ?? 'model',
+    category: definition.category ?? 'tensnap',
     variant: definition.variant,
     config: definition.config,
     actionId: definition.actionId ?? 'start',

@@ -152,7 +152,11 @@ export class ProtocolCodec {
     const semantic = this.mode === 'legacy'
       ? encodeLegacyMessage(canonical)
       : canonical;
-    const normalized = normalizeBinarySemanticMessage(semantic, encoding);
+    // JSON.stringify omits undefined object fields. Apply the same canonical
+    // wire normalization to MessagePack so both encodings preserve one
+    // protocol value, including optional schema fields that bindings leave
+    // undefined in object literals.
+    const normalized = stripUndefined(normalizeBinarySemanticMessage(semantic, encoding)) as Record<string, unknown>;
     return encoding === 'json' ? JSON.stringify(normalized) : encode(normalized);
   }
 
@@ -163,7 +167,7 @@ export class ProtocolCodec {
     const normalized = this.mode === 'legacy'
       ? normalizeLegacyMessage(decoded, (warning) => this.onWarning?.(warning), this.legacyStateSyncRequestId)
       : decoded;
-    const canonical = this.validate(normalized);
+    const canonical = this.validate(stripUndefined(normalized));
     return normalizeDecodedBinarySemanticMessage(canonical);
   }
 
@@ -263,6 +267,21 @@ function normalizeBinarySemanticMessage(
     default:
       return message;
   }
+}
+
+/** Align MessagePack object semantics with JSON.stringify for optional fields. */
+function stripUndefined(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    // JSON serializes undefined array entries as null; protocol schemas do not
+    // use such entries, but preserving this behavior prevents codec divergence.
+    return value.map((entry) => entry === undefined ? null : stripUndefined(entry));
+  }
+  if (!isRecord(value)) return value;
+  const normalized: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry !== undefined) normalized[key] = stripUndefined(entry);
+  }
+  return normalized;
 }
 
 function normalizeDecodedBinarySemanticMessage(message: AnyProtocolMessage): AnyProtocolMessage {

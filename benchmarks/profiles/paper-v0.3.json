@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 2,
+  "id": "v0.3-paper",
+  "description": "Submission profile for v0.3 publication, core state, archive, and renderer-control benchmarks.",
+  "suites": ["node", "ws", "browser"],
+  "repetitions": 15,
+  "warmupActions": 25,
+  "measuredActions": 100,
+  "encodings": ["json", "msgpack"],
+  "validation": ["off", "error"],
+  "workloads": [
+    {
+      "module": "../v0.3/random-walk/benchmark.ts",
+      "config": { "agentCount": 1000, "changedAgents": 0, "seed": 20260712 }
+    },
+    {
+      "module": "../v0.3/random-walk/benchmark.ts",
+      "config": { "agentCount": 1000, "changedAgents": 10, "seed": 20260712 }
+    },
+    {
+      "module": "../v0.3/random-walk/benchmark.ts",
+      "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 }
+    },
+    {
+      "module": "../v0.3/core-trace/benchmark.ts",
+      "config": { "agentCount": 10000, "changedAgents": 100, "monitorArrayLength": 64, "seed": 20260712 }
+    },
+    {
+      "module": "../v0.3/state-sync/benchmark.ts",
+      "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 }
+    },
+    {
+      "module": "../v0.3/snapshot-restore/benchmark.ts",
+      "config": { "agentCount": 10000, "changedAgents": 100, "segmentFrames": 30, "seed": 20260712 }
+    },
+    {
+      "module": "../comparisons/random-walk/canvas2d.ts",
+      "config": { "agentCount": 10000, "changedAgents": 1000, "seed": 20260712 }
+    },
+    {
+      "module": "../comparisons/random-walk/leafer.ts",
+      "config": { "agentCount": 10000, "changedAgents": 1000, "seed": 20260712 }
+    },
+    {
+      "module": "../comparisons/random-walk/tensnap.ts",
+      "config": { "agentCount": 10000, "changedAgents": 1000, "seed": 20260712 }
+    }
+  ]
+}

@@ -98,6 +98,34 @@ describe('protocol runtime validation', () => {
 });
 
 describe('protocol binary semantic fields', () => {
+  it('normalizes optional undefined fields identically for JSON and MessagePack', () => {
+    const message: AnyProtocolMessage = {
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test', version: '0.3.0' },
+        model: { id: 'model', version: undefined, state_schema_version: undefined },
+        instance_id: 'instance',
+        capabilities: [],
+        capability_details: undefined,
+      },
+    };
+    const options = { validation: { level: 'error' as const, direction: 'simulator-to-renderer' as const } };
+    const json = decodeProtocolMessage(encodeProtocolMessage(message, 'json', options), options);
+    const messagePack = decodeProtocolMessage(encodeProtocolMessage(message, 'msgpack', options), options);
+    expect(messagePack).toEqual(json);
+    expect(messagePack).toEqual({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test', version: '0.3.0' },
+        model: { id: 'model' },
+        instance_id: 'instance',
+        capabilities: [],
+      },
+    });
+  });
+
   it('encodes JSON binary payloads as data URLs and decodes them back to bytes', () => {
     const source = new Uint8Array([0, 1, 2, 3]);
     const message = {
