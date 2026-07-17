@@ -136,6 +136,30 @@ def test_bind_datacollector_injects_charts_after_model_init_without_handler_magi
     assert getter() == 22
 
 
+def test_bind_datacollector_group_getter_uses_normalized_series_ids():
+    @bind_datacollector(groups={"Population": ["Alive", "Dead"]})
+    class PopulationModel:
+        def __init__(self):
+            self.datacollector = type(
+                "PopulationCollector",
+                (),
+                {
+                    "model_reporters": {"Alive": "alive", "Dead": "dead"},
+                    "model_vars": {"Alive": [4, 5], "Dead": [3, 2]},
+                },
+            )()
+
+    model = PopulationModel()
+    charts = binding_api.charts(model)
+
+    assert len(charts) == 1
+    _, getter, metadata = charts[0]
+    assert metadata.id == "population"
+    assert metadata.data_list is not None
+    assert [series.id for series in metadata.data_list] == ["alive", "dead"]
+    assert getter() == {"alive": 5, "dead": 2}
+
+
 @pytest.mark.asyncio
 async def test_mesa_handler_reset_uses_explicit_reset_hook_when_provided():
     scenario = SimulationScenario()

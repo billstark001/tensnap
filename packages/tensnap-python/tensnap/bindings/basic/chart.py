@@ -181,9 +181,7 @@ def get_chart_metadata_from_namespace(
             if chart_property.group_owner is not None:
                 continue
             if chart_property.has_group_members():
-                callable_attr = (
-                    lambda obj, chart_prop=chart_property: chart_prop.grouped_value(obj)
-                )
+                callable_attr = chart_property.grouped_value
                 param = chart_property.chart
 
         charts.append((name, callable_attr, param))

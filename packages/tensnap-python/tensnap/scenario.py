@@ -975,7 +975,9 @@ class SimulationScenario:
             definition["value"] = self._get_param_value(parameter)
             await self.server.send(ws, MT.PARAM_CREATE, definition)
         for environment in self.environments.values():
-            await send_env_snapshot(ws, self.server, environment.build_state())
+            restored_state = environment.build_state()
+            await send_env_snapshot(ws, self.server, restored_state)
+            environment.seed_item_deltas_from_state(restored_state)
         for monitor, _getter in self.monitors.values():
             await self.server.send(ws, MT.MONITOR_CREATE, monitor.to_dict())
         await self.server.send(ws, MT.METADATA_UPDATE, {"time": self._time_step})

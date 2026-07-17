@@ -52,9 +52,11 @@ def get_registered_agent_collectors(datacollector: Any) -> list[str]:
 def make_latest_data_projector(
     reporter_keys: list[str],
     datacollector_key: str = "datacollector",
+    output_keys: Dict[str, str] | None = None,
 ):
     _closure_datacollector_key = datacollector_key
     _closure_reporter_keys = reporter_keys.copy()
+    _closure_output_keys = dict(output_keys or {})
 
     if len(_closure_reporter_keys) == 1:
         key = _closure_reporter_keys[0]
@@ -74,10 +76,11 @@ def make_latest_data_projector(
         result: Dict[str, Any] = {}
         for key in _closure_reporter_keys:
             values = dc.model_vars.get(key, None)
+            output_key = _closure_output_keys.get(key, key)
             if values:
-                result[key] = values[-1]
+                result[output_key] = values[-1]
             else:
-                result[key] = None
+                result[output_key] = None
         return result
 
     return f
@@ -92,7 +95,6 @@ def _guess_id(name: str) -> str:
 
 
 class BindDataCollectorConfig:
-
     def __init__(
         self,
         collector_key: str = "datacollector",
@@ -178,6 +180,7 @@ class BindDataCollectorConfig:
             func = make_latest_data_projector(
                 reporter_keys=reporters,
                 datacollector_key=self.collector_key,
+                output_keys={reporter: _guess_id(reporter) for reporter in reporters},
             )
             chart_group_metadata = ChartGroupMetadata(
                 id=_guess_id(group_name),

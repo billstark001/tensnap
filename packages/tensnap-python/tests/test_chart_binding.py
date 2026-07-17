@@ -133,6 +133,24 @@ def test_existing_data_list_grouped_chart_still_discovers_one_chart():
     assert [series.id for series in metadata.data_list] == ["alive", "evacuated"]
 
 
+def test_module_level_grouped_chart_getter_does_not_require_instance():
+    @chart("speed", "Flock Dynamics", color="#2ECC71")
+    def speed() -> float:
+        return 0.6
+
+    @speed.group("order", "Order", color="#E74C3C")
+    def order() -> float:
+        return 0.8
+
+    discovered = binding_api.charts({"speed": speed, "order": order})
+
+    assert len(discovered) == 1
+    _, getter, metadata = discovered[0]
+    assert getter() == {"speed": 0.6, "order": 0.8}
+    assert metadata.data_list is not None
+    assert [series.id for series in metadata.data_list] == ["speed", "order"]
+
+
 def test_chart_infers_id_and_supports_both_property_decorator_orders():
     class Model:
         def __init__(self):
@@ -155,7 +173,9 @@ def test_chart_infers_id_and_supports_both_property_decorator_orders():
             return self.evacuated_value
 
     model = Model()
-    discovered = {metadata.id: getter for _, getter, metadata in binding_api.charts(model)}
+    discovered = {
+        metadata.id: getter for _, getter, metadata in binding_api.charts(model)
+    }
 
     assert model.alive_count == 7
     assert model.get_evacuated_count == 2

@@ -11,6 +11,7 @@ from typing_extensions import NotRequired, TypedDict
 from tensnap.utils.object import infer_id_from_func_name, infer_label_from_id
 
 _TENSNAP_CHART_FIELD = "_tensnap_chart"
+_UNBOUND_TARGET = object()
 
 
 @dataclass
@@ -147,13 +148,14 @@ class ChartProperty:
 
         return decorator
 
-    def grouped_value(self, obj: Any) -> Any:
+    def grouped_value(self, obj: Any = _UNBOUND_TARGET) -> Any:
+        args = () if obj is _UNBOUND_TARGET else (obj,)
         if not self._group_members:
-            return self.getter(obj)
+            return self.getter(*args)
 
-        result = {self._owner_series_metadata().id: self.getter(obj)}
+        result = {self._owner_series_metadata().id: self.getter(*args)}
         for member in self._group_members:
-            result[member.chart.id] = member.getter(obj)
+            result[member.chart.id] = member.getter(*args)
         return result
 
     def _attach_group_member(self, member: ChartProperty) -> None:
