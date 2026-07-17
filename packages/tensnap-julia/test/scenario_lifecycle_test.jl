@@ -40,6 +40,18 @@
 	@test model.agents[1].x == 0
 end
 
+@testset "model steps may return their mutated model" begin
+	model = ToyModel([ToyAgent(1, 0.0, 0.0)], 2, 0)
+	scenario = Scenario()
+	register_model!(scenario, model; step = identity)
+
+	@test TenSnap._advance_step!(scenario)
+	@test scenario.time_step == 1
+
+	register_model!(scenario, model; step = _ -> false)
+	@test !TenSnap._advance_step!(scenario)
+end
+
 @testset "declarative monitors and restore hooks" begin
 	state = Ref(2)
 	restored = Ref(false)

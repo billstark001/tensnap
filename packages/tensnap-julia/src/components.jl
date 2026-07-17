@@ -269,6 +269,7 @@ mutable struct Layer
 	item_projector::Union{Nothing, Function}
 	item_id::Union{Nothing, Function}
 	item_changed::Union{Nothing, Function}
+	environment_type::Union{Nothing, String}
 	last_items::Dict{Any, Dict{String, Any}}
 	last_data::Any
 end
@@ -278,16 +279,26 @@ function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{Stri
 	return Layer(String(id), String(type), items, data,
 		Dict(String(k) => String(v) for (k, v) in pairs(dependency_layer_ids)),
 		String.(item_key_fields), source_items, projector, item_id, changed,
+		nothing,
 		Dict{Any, Dict{String, Any}}(), _UNSET)
 end
 
 function agents_layer(id, getagents = agents_getter; projector = autoagentprojector(), data = nothing,
 	dependency_layer_ids = Dict{String, String}(), item_key_fields = ["id"],
 	item_id = nothing, changed = nothing)
-	items = model -> [projector(a) for a in getagents(model)]
-	return layer(id, "agent", items; data = data, dependency_layer_ids = dependency_layer_ids,
-		item_key_fields = item_key_fields, source_items = getagents, projector = projector,
-		item_id = item_id, changed = changed)
+	# The containing environment is selected after this layer is built. Keep the
+	# projector context-aware so `autoagentprojector()` follows that environment.
+	l = layer(id, "agent", _empty_layer_items; data = data,
+		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields,
+		source_items = getagents, item_id = item_id, changed = changed)
+	project_item = if projector isa AutoAgentProjector
+		(agent, _model) -> _project_autoagent(projector, agent; spatial = l.environment_type != "uniform")
+	else
+		(agent, model) -> _call1or2(projector, agent, model)
+	end
+	l.items = model -> [project_item(agent, model) for agent in getagents(model)]
+	l.item_projector = project_item
+	return l
 end
 
 grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields)
@@ -305,7 +316,13 @@ mutable struct Environment
 	layers::Vector{Layer}
 end
 
-environment(id; type = "2d", layers = Layer[]) = Environment(String(id), String(type), collect(layers))
+function environment(id; type = "2d", layers = Layer[])
+	e = Environment(String(id), String(type), collect(layers))
+	for l in e.layers
+		l.environment_type = e.type
+	end
+	return e
+end
 
 mutable struct Asset
 	id::String

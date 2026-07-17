@@ -39,7 +39,10 @@ function _advance_step!(s::Scenario)
 	end
 	broadcast_charts!(s)
 	broadcast_monitors!(s)
-	return step_result === nothing ? true : Bool(step_result)
+	# Julia mutating model steps conventionally return their mutated model. Only
+	# an explicit Bool controls renderer-driven continuation; every other normal
+	# return value means the step completed successfully.
+	return step_result isa Bool ? step_result : true
 end
 
 function step!(s::Scenario)

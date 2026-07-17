@@ -4,7 +4,7 @@ This reference describes the current `TenSnap.jl` simulator-side binding package
 in `packages/tensnap-julia`.
 
 The Julia binding is a native Julia package with a `Project.toml`; it is not an
-npm workspace package. It exposes protocol v0.2 over WebSocket with JSON and
+npm workspace package. It exposes protocol v0.3 over WebSocket with JSON and
 MessagePack support.
 
 ## Installation
@@ -80,6 +80,10 @@ clients.
 
 The first simulated tick emitted by `step!` is time `1`; reset returns the
 scenario to time `0`.
+
+A model step may return its mutated model or `nothing`; TenSnap treats either
+as a successful step. Return `false` only when the simulator should stop a
+continuous action.
 
 ## Model Lifecycle
 
@@ -195,6 +199,27 @@ Helpers:
 - `add_chart!(scenario, chart)`
 - `remove_chart!(scenario, id)`
 
+### Monitors
+
+Monitors (introduced in protocol v0.3) publish one replace-only current value;
+use charts for history. They are useful for a small structured status summary:
+
+```julia
+add_monitor!(scenario, monitor("bar_status", m -> Dict(
+    "attending" => m.attendance,
+    "capacity" => m.capacity,
+    "over_capacity" => max(m.attendance - m.capacity, 0),
+); label = "Bar status", render_hint = "table"))
+```
+
+Helpers:
+
+- `monitor(id, getter; label=id, render_hint=nothing)`
+- `add_monitor!(scenario, monitor)`
+- `remove_monitor!(scenario, id)`
+
+`render_hint` can be `"auto"`, `"tree"`, `"table"`, or `"text"`.
+
 ## Environments and Layers
 
 ### Builders
@@ -237,12 +262,16 @@ projection followed by field-level diffing.
 
 - `dictprojector(fields=nothing; rename=Dict())`
 - `propertyprojector(fields...; rename=Dict())`
-- `autoagentprojector(; id=:id, x=:x, y=:y, color=nothing, size=nothing, icon="circle", fields=())`
+- `autoagentprojector(; id=:id, x=:x, y=:y, color=nothing, size=nothing, icon="circle", fields=(), data_fields=())`
 - `agents_getter(model)`
 
 `autoagentprojector()` supports plain structs and common `Agents.jl` conventions:
 `id`, `pos`, `heading`, and optional color/size/icon fields. `Agents.jl` is not
-a package dependency.
+a package dependency. When passed to `agents_layer`, it automatically follows
+the containing environment: a `uniform` environment omits `x`, `y`, and
+`heading`, while a `2d` environment retains them. Use `data_fields` for model
+properties that should appear in the renderer's agent-details `data` object;
+`fields` preserves the existing top-level projection behavior.
 
 ## Assets and Screenshots
 

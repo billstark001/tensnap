@@ -1,5 +1,8 @@
 function add_environment!(s::Scenario, e::Environment)
 	s.environments[e.id] = e
+	for l in e.layers
+		l.environment_type = e.type
+	end
 	_broadcast(s, "env_create", Dict("id" => e.id, "type" => e.type))
 	for l in _ordered_layers(e)
 		_broadcast_layer_full(s, e.id, l)
@@ -14,7 +17,7 @@ function remove_environment!(s::Scenario, id)
 	return existed
 end
 
-add_layer!(e::Environment, l::Layer) = (push!(e.layers, l); l)
+add_layer!(e::Environment, l::Layer) = (l.environment_type = e.type; push!(e.layers, l); l)
 
 function _ordered_layers(e::Environment)
 	by_id = Dict(l.id => l for l in e.layers)
@@ -42,6 +45,7 @@ end
 
 function add_layer!(s::Scenario, env_id, l::Layer)
 	e = s.environments[String(env_id)]
+	l.environment_type = e.type
 	existing = findfirst(x -> x.id == l.id, e.layers)
 	if existing === nothing
 		push!(e.layers, l)
