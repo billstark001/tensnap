@@ -211,6 +211,74 @@ describe('ProjectStore', () => {
     expect(versionOneWebSocket.source).toEqual({ kind: 'websocket', url: 'ws://legacy-v1.example' });
   });
 
+  it('migrates genuine v0.2 scenario and recording semantics before snapshot validation', () => {
+    const legacyScenario = {
+      ...emptyScenario(),
+      actions: [{ id: 'step', label: 'Step', allowRuntimeChange: true }],
+      parameters: [{
+        id: 'density', label: 'Density', type: 'number', value: 2, min: 0, max: 10, step: 1,
+        allowRuntimeChange: true,
+      }],
+    };
+    const legacyRecording = {
+      version: 1,
+      metadata: { id: 'v02-recording', createdAt: 1, endedAt: 2 },
+      initial: { frame: 0, timestamp: 1, scenario: legacyScenario },
+      keyframes: [],
+      frames: [{
+        index: 1,
+        timestamp: 2,
+        messages: [
+          { type: 'action_end', payload: { id: 'step', tick_id: 'tick-1', continue: false } },
+          { type: 'error', payload: { error: 'The old model failed.' } },
+        ],
+        controls: [{ type: 'action_start', payload: { id: 'step', tick_id: 'tick-1' } }],
+        action: { id: 'step', tick_id: 'tick-1', continue: false },
+        kind: 'action',
+      }],
+      layerCodecs: {},
+      byteLength: 0,
+      truncated: false,
+    };
+
+    const migrated = parseProjectFileContent({
+      version: 1,
+      url: 'ws://legacy-v02.example',
+      mainView,
+      scenario: legacyScenario,
+      snapshots: [legacyRecording],
+    });
+    const snapshot = migrated.snapshots[0]!;
+    const frame = snapshot.frames[0]!;
+
+    expect(migrated.scenario.monitors).toEqual([]);
+    expect(migrated.scenario.actions[0]).not.toHaveProperty('allowRuntimeChange');
+    expect(migrated.scenario.parameters[0]).toMatchObject({ allow_runtime_change: true });
+    expect(snapshot.metadata.protocol_version).toBe('0.3');
+    expect(frame.controls).toEqual([{ type: 'action_invoke', payload: { id: 'step', request_id: 'tick-1' } }]);
+    expect(frame.messages).toEqual([
+      { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
+      { type: 'error', payload: { code: 'legacy_error', message: 'The old model failed.' } },
+    ]);
+    expect(frame.action).toEqual({ id: 'step', request_id: 'tick-1', should_continue: false });
+
+    const archived = archiveProjectFileContent({
+      version: PROJECT_FILE_VERSION,
+      source: { kind: 'websocket', url: 'ws://placeholder.example' },
+      mainView,
+      scenario: legacyScenario as any,
+      snapshots: [legacyRecording as any],
+    });
+    const migratedArchive = parseProjectFileContent({
+      ...archived,
+      version: 2,
+      url: 'ws://legacy-v02-archive.example',
+    });
+    expect(migratedArchive.snapshots[0]?.frames[0]?.messages[0]).toEqual(
+      { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
+    );
+  });
+
   it('rejects malformed current sources and dangling snapshot sources before opening a project', () => {
     const recording = createSingleSnapshot(emptyScenario(), { id: 'available-recording' });
     const archive = archiveProjectFileContent({

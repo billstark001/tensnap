@@ -9,7 +9,7 @@ import {
   type SnapshotArchive,
   type SnapshotModelIdentity,
 } from '@tensnap/core/snapshot';
-import { encodeBytesAsDataUrl } from '@tensnap/protocol';
+import { encodeBytesAsDataUrl, encodeMessagePack, ProtocolCodec } from '@tensnap/protocol';
 import { encodeSnapshotArchivesInWorker } from '@/workers/snapshot-archive';
 import {
   ActionResultPayloadSchema,
@@ -112,6 +112,7 @@ const SnapshotMetadataSchema = z.object({
   // Accept existing files and normalize them back to the optional shape.
   endedAt: z.number().nullable().optional().transform((value) => value ?? undefined),
   label: z.string().nullable().optional().transform((value) => value ?? undefined),
+  protocol_version: z.literal('0.3').optional(),
   model_identity: SnapshotModelIdentitySchema.optional(),
   checkpoint: SnapshotCheckpointSchema.optional(),
 });
@@ -149,10 +150,6 @@ const SnapshotArchiveSchema = z.object({
   byteLength: z.number().nonnegative(),
   truncated: z.boolean(),
 });
-
-// Version-zero projects may contain either their original one-off scenario
-// snapshots or recordings created before the project file version was added.
-const LegacySnapshotSchema = z.union([ScenarioSnapshotSchema, SnapshotSchema]);
 
 const BaseViewSchema = z.object({
   id: z.string(),
@@ -224,7 +221,7 @@ const VersionTwoProjectFileSchema = z.object({
   version: z.literal(2),
   url: z.string(),
   mainView: AnyViewSchema,
-  scenario: ScenarioSnapshotSchema,
+  scenario: z.unknown(),
   snapshots: z.array(z.unknown()),
   assetTable: z.record(z.string(), ProjectAssetBlobSchema),
 });
@@ -233,15 +230,16 @@ const VersionOneProjectFileSchema = z.object({
   version: z.literal(1),
   url: z.string(),
   mainView: AnyViewSchema,
-  scenario: ScenarioSnapshotSchema,
-  snapshots: z.array(SnapshotSchema),
+  scenario: z.unknown(),
+  // Frames are migrated before current v0.3 snapshot validation.
+  snapshots: z.array(z.unknown()),
 });
 
 const LegacyProjectFileSchema = z.object({
   url: z.string(),
   mainView: AnyViewSchema,
-  scenario: ScenarioSnapshotSchema,
-  snapshots: z.array(LegacySnapshotSchema).optional(),
+  scenario: z.unknown(),
+  snapshots: z.array(z.unknown()).optional(),
 });
 
 export interface ProjectFileContent {
@@ -275,6 +273,113 @@ const asRecord = (value: unknown): Record<string, unknown> | null => (
     : null
 );
 
+/**
+ * Normalize a persisted v0.2 Scenario dump before current schemas see it.
+ * This is deliberately a pure migration: malformed historical data fails
+ * here rather than being silently replaced by recovery code later.
+ */
+function migrateScenarioSnapshot(value: unknown): ScenarioSnapshot {
+  const source = asRecord(value);
+  if (!source) throw new Error('Scenario snapshot must be an object.');
+  const codec = new ProtocolCodec({ mode: 'legacy' });
+  const normalizeDefinition = (type: 'action_create' | 'param_create', payload: unknown): unknown => (
+    codec.decode(encodeMessagePack({ type, payload })).payload
+  );
+  const charts = Array.isArray(source.charts)
+    ? source.charts.map((entry) => {
+      const group = asRecord(entry);
+      const metadataDict = group && asRecord(group.metadataDict);
+      if (!group || !metadataDict) return entry;
+      return {
+        ...group,
+        metadataDict: Object.fromEntries(Object.entries(metadataDict).map(([id, metadata]) => {
+          const record = asRecord(metadata);
+          if (!record) return [id, metadata];
+          // `dataList` belongs to a v0.2 chart-create envelope. A persisted
+          // ChartGroup already stores the flattened metadata dictionary.
+          const { dataList: _dataList, data_list: _dataListSnake, ...canonical } = record;
+          return [id, canonical];
+        })),
+      };
+    })
+    : source.charts;
+  const assets = Array.isArray(source.assets)
+    ? source.assets.map((entry) => {
+      const asset = asRecord(entry);
+      if (!asset || asset.data !== null) return entry;
+      const { data: _data, ...withoutNullData } = asset;
+      return withoutNullData;
+    })
+    : source.assets;
+  const migrated = {
+    ...source,
+    actions: Array.isArray(source.actions)
+      ? source.actions.map((action) => normalizeDefinition('action_create', action))
+      : source.actions,
+    parameters: Array.isArray(source.parameters)
+      ? source.parameters.map((parameter) => normalizeDefinition('param_create', parameter))
+      : source.parameters,
+    charts,
+    assets,
+    monitors: Array.isArray(source.monitors) ? source.monitors : [],
+  };
+  return ScenarioSnapshotSchema.parse(migrated) as ScenarioSnapshot;
+}
+
+function migrateRecordedMessage(value: unknown, codec: ProtocolCodec): unknown {
+  if (!asRecord(value)) throw new Error('Snapshot frame message must be a protocol envelope.');
+  // MessagePack retains Uint8Array payloads, unlike JSON.stringify.
+  return codec.decode(encodeMessagePack(value));
+}
+
+function migrateKeyframe(value: unknown): unknown {
+  const keyframe = asRecord(value);
+  if (!keyframe) throw new Error('Snapshot keyframe must be an object.');
+  return { ...keyframe, scenario: migrateScenarioSnapshot(keyframe.scenario) };
+}
+
+/**
+ * Convert a v0.2/v0.3 recording into the one canonical v0.3 replay shape.
+ * We migrate every frame before validation so alias fields never reach the
+ * renderer and old timelines are preserved instead of downgraded to initial.
+ */
+function migrateRecordingSnapshot(value: unknown): Snapshot {
+  const source = asRecord(value);
+  if (!source) throw new Error('Snapshot must be an object.');
+  if (!Object.prototype.hasOwnProperty.call(source, 'initial')) {
+    return createSingleSnapshot(migrateScenarioSnapshot(source));
+  }
+  if (!Array.isArray(source.frames) || !Array.isArray(source.keyframes)) {
+    throw new Error('Recording snapshot frames or keyframes are malformed.');
+  }
+  const codec = new ProtocolCodec({ mode: 'legacy' });
+  const frames = source.frames.map((frame) => {
+    const record = asRecord(frame);
+    if (!record || !Array.isArray(record.messages) || !Array.isArray(record.controls)) {
+      throw new Error('Recording snapshot frame is malformed.');
+    }
+    const action = record.action === undefined || record.action === null
+      ? record.action
+      : (migrateRecordedMessage({ type: 'action_end', payload: record.action }, codec) as { payload: unknown }).payload;
+    return {
+      ...record,
+      messages: record.messages.map((message) => migrateRecordedMessage(message, codec)),
+      controls: record.controls.map((control) => migrateRecordedMessage(control, codec)),
+      ...(action === undefined ? {} : { action }),
+    };
+  });
+  const metadata = asRecord(source.metadata);
+  const migrated = {
+    ...source,
+    version: 1,
+    metadata: { ...metadata, protocol_version: '0.3' },
+    initial: migrateKeyframe(source.initial),
+    keyframes: source.keyframes.map(migrateKeyframe),
+    frames,
+  };
+  return SnapshotSchema.parse(migrated) as Snapshot;
+}
+
 function recoverArray<T>(
   value: unknown,
   schema: z.ZodType<T>,
@@ -297,8 +402,11 @@ function recoverArray<T>(
 }
 
 function recoverScenarioSnapshot(value: unknown, warnings: string[], label: string): ScenarioSnapshot | null {
-  const strict = ScenarioSnapshotSchema.safeParse(value);
-  if (strict.success) return strict.data as ScenarioSnapshot;
+  try {
+    return migrateScenarioSnapshot(value);
+  } catch {
+    // Continue with conservative section-by-section recovery below.
+  }
 
   const source = asRecord(value);
   if (!source) return null;
@@ -322,13 +430,12 @@ function recoverScenarioSnapshot(value: unknown, warnings: string[], label: stri
 }
 
 function recoverRecordingSnapshot(value: unknown, warnings: string[], index: number): Snapshot | null {
-  const recorded = SnapshotSchema.safeParse(value);
-  if (recorded.success) return recorded.data as Snapshot;
-
-  const oneOff = ScenarioSnapshotSchema.safeParse(value);
-  if (oneOff.success) {
-    warnings.push(`Snapshot ${index + 1} used the legacy format and was migrated.`);
-    return createSingleSnapshot(oneOff.data as ScenarioSnapshot);
+  try {
+    const migrated = migrateRecordingSnapshot(value);
+    warnings.push(`Snapshot ${index + 1} was migrated to the current replay format.`);
+    return migrated;
+  } catch {
+    // Recovery is intentionally a last resort after deterministic migration.
   }
 
   const source = asRecord(value);
@@ -473,7 +580,10 @@ export async function archiveProjectFileContentInWorker(
 function decodeProjectArchive(archive: ProjectFileArchive): ProjectFileContent {
   const snapshots = archive.snapshots.map((snapshot, index) => {
     try {
-      return hydrateSnapshotAssets(decodeSnapshotArchive(snapshot), archive.assetTable);
+      const decoded = isSnapshotArchive(snapshot)
+        ? decodeSnapshotArchive(snapshot)
+        : migrateRecordingSnapshot(snapshot);
+      return hydrateSnapshotAssets(migrateRecordingSnapshot(decoded), archive.assetTable);
     } catch (error) {
       throw new Error(
         `Invalid snapshot archive ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
@@ -492,7 +602,7 @@ function decodeProjectArchive(archive: ProjectFileArchive): ProjectFileContent {
     source: archive.source,
     ...(archive.model_identity === undefined ? {} : { model_identity: archive.model_identity }),
     mainView: archive.mainView,
-    scenario: hydrateScenarioAssets(archive.scenario, archive.assetTable),
+    scenario: hydrateScenarioAssets(migrateScenarioSnapshot(archive.scenario), archive.assetTable),
     snapshots,
   };
 }
@@ -614,8 +724,8 @@ export function parseProjectFileContent(value: unknown): ProjectFileContent {
       version: PROJECT_FILE_VERSION,
       source: sourceFromLegacyUrl(versionOne.url),
       mainView: versionOne.mainView as ContainerView,
-      scenario: versionOne.scenario as ScenarioSnapshot,
-      snapshots: versionOne.snapshots as Snapshot[],
+      scenario: migrateScenarioSnapshot(versionOne.scenario),
+      snapshots: versionOne.snapshots.map(migrateRecordingSnapshot),
     };
   }
 
@@ -624,11 +734,7 @@ export function parseProjectFileContent(value: unknown): ProjectFileContent {
     version: PROJECT_FILE_VERSION,
     source: sourceFromLegacyUrl(legacy.url),
     mainView: legacy.mainView as ContainerView,
-    scenario: legacy.scenario as ScenarioSnapshot,
-    snapshots: (legacy.snapshots ?? []).map((snapshot) => (
-      'version' in snapshot && snapshot.version === 1
-        ? snapshot as Snapshot
-        : createSingleSnapshot(snapshot as ScenarioSnapshot)
-    )),
+    scenario: migrateScenarioSnapshot(legacy.scenario),
+    snapshots: (legacy.snapshots ?? []).map(migrateRecordingSnapshot),
   };
 }

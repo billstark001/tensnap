@@ -351,7 +351,11 @@ function normalizeLegacyMessage(
     normalizeLegacyChartUpdate(payload, warn);
   }
   if (type === 'chart_delete' && Object.prototype.hasOwnProperty.call(payload, 'id') && !Object.prototype.hasOwnProperty.call(payload, 'kind')) {
-    throw new UnsupportedLegacyMessageError('Legacy chart_delete requires renderer compatibility resolution and cannot be decoded as canonical v0.3.');
+    // v0.2 ChartStorage.delete(id) addressed chart groups. A series was never
+    // independently deleted on that wire format, so this is a semantic
+    // migration rather than a best-effort guess.
+    payload.kind = 'group';
+    warnLegacy(warn, 'legacy_alias', 'Resolved legacy chart_delete as a chart group deletion.', 'payload.kind');
   }
 
   return { ...input, type, payload };
@@ -453,12 +457,15 @@ function normalizeLegacyChartUpdate(payload: Record<string, unknown>, warn: (war
   for (const [index, operation] of payload.operations.entries()) {
     if (!isRecord(operation)) continue;
     if (operation.operation === 'clear' && typeof operation.id === 'string' && operation.kind === undefined) {
-      throw new UnsupportedLegacyMessageError(
-        `Legacy chart_update.operations[${index}] needs renderer group-first compatibility resolution; decode it through the legacy renderer adapter.`,
+      operation.kind = 'group';
+      warnLegacy(
+        warn,
+        'legacy_alias',
+        `Resolved legacy chart_update.operations[${index}] as a chart group operation.`,
+        `payload.operations[${index}].kind`,
       );
     }
   }
-  void warn;
 }
 
 function encodeLegacyMessage(message: AnyProtocolMessage): Record<string, unknown> {

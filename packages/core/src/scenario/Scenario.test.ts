@@ -768,6 +768,14 @@ describe('Scenario – dump / load', () => {
     s2.load(snap);
     expect(s2.metadata).toMatchObject({ title: 'test', time: 42 });
   });
+
+  it('loads pre-monitor snapshots as an empty monitor collection', () => {
+    const s = new Scenario();
+    const legacySnapshot = s.dump() as unknown as Record<string, unknown>;
+    delete legacySnapshot.monitors;
+
+    expect(() => new Scenario().load(legacySnapshot as any)).not.toThrow();
+  });
 });
 
 // ── reset ─────────────────────────────────────────────────────────────────────

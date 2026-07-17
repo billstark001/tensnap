@@ -34,6 +34,8 @@ export interface SnapshotMetadata {
   createdAt: number;
   endedAt?: number;
   label?: string;
+  /** Wire semantics used by frames before this snapshot was persisted. */
+  protocol_version?: '0.3';
   /** Immutable simulator identity that produced this snapshot. */
   model_identity?: SnapshotModelIdentity;
   /** Optional exact model-state capture for checkpoint-capable simulators. */

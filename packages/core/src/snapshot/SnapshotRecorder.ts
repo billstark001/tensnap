@@ -226,6 +226,7 @@ export function createSingleSnapshot(
       createdAt: timestamp,
       endedAt: timestamp,
       label: options.label,
+      protocol_version: '0.3',
       ...(options.modelIdentity === undefined ? {} : { model_identity: clone(options.modelIdentity) }),
       ...(options.checkpoint === undefined ? {} : { checkpoint: clone(options.checkpoint) }),
     },

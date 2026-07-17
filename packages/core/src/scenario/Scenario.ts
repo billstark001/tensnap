@@ -394,7 +394,9 @@ export class Scenario extends LazyEventTarget {
     }
 
     this.chartState.load(snapshot.charts.map(cloneValue));
-    this.monitorState.load(snapshot.monitors);
+    // Snapshot v1 predates monitors. Runtime callers may also be loading a
+    // partially migrated archive, so treat an absent collection as empty.
+    this.monitorState.load(snapshot.monitors ?? []);
 
     this.logsState.push(...snapshot.logs.map(cloneValue));
     this.assetState.load(snapshot.assets);
