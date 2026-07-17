@@ -61,8 +61,8 @@ end
 		monitors = [monitor("status", _ -> Dict("value" => state[]); label = "Status", render_hint = "tree")],
 		restore_hooks = restore_hooks(payload -> begin
 			restored[] = true
-			state[] = Int(payload["checkpoint"])
-		end; checkpoint_capture = _ -> state[]),
+			haskey(payload, "time") && (state[] = Int(payload["time"]))
+		end; checkpoint_capture = _ -> state[], checkpoint_restore = data -> (state[] = Int(data))),
 	)
 	register_model!(scenario, state)
 
@@ -72,10 +72,30 @@ end
 	)
 	info = TenSnap._simulator_info_payload(scenario)
 	@test info["capabilities"] == ["monitor", "scene.restore.checkpoint", "scene.restore.projected"]
-	TenSnap._call0or1(scenario.scene_restore, Dict("checkpoint" => 5))
+	TenSnap._call0or1(scenario.checkpoint_restore, 5)
+	TenSnap._call0or1(scenario.scene_restore, Dict("time" => 5))
 	@test restored[]
 	@test state[] == 5
 	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 5
+	checkpoint = TenSnap._encode_checkpoint(Dict("value" => 5); use_msgpack = false)
+	@test checkpoint["encoding"] == "application/msgpack"
+	@test TenSnap._decode_checkpoint(checkpoint)["value"] == 5
+end
+
+@testset "checkpoint-only restore hooks" begin
+	state = Ref(2)
+	scenario = Scenario(
+		model_id = "checkpoint-only",
+		restore_hooks = restore_hooks(nothing;
+			checkpoint_capture = _ -> state[],
+			checkpoint_restore = data -> (state[] = Int(data))),
+	)
+	register_model!(scenario, state)
+
+	@test TenSnap._simulator_info_payload(scenario)["capabilities"] == ["scene.restore.checkpoint"]
+	TenSnap._call0or1(scenario.checkpoint_restore, 7)
+	@test state[] == 7
+	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 7
 end
 
 @testset "declarative parameters from fields" begin

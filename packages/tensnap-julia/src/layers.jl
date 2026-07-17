@@ -1,8 +1,10 @@
 function add_environment!(s::Scenario, e::Environment)
+	existed = haskey(s.environments, e.id)
 	s.environments[e.id] = e
 	for l in e.layers
 		l.environment_type = e.type
 	end
+	existed && _broadcast(s, "env_delete", Dict("id" => e.id))
 	_broadcast(s, "env_create", Dict("id" => e.id, "type" => e.type))
 	for l in _ordered_layers(e)
 		_broadcast_layer_full(s, e.id, l)
@@ -50,6 +52,7 @@ function add_layer!(s::Scenario, env_id, l::Layer)
 	if existing === nothing
 		push!(e.layers, l)
 	else
+		_broadcast(s, "env_layer_delete", Dict("env_id" => e.id, "layer_id" => l.id))
 		e.layers[existing] = l
 	end
 	_broadcast_layer_full(s, e.id, l)

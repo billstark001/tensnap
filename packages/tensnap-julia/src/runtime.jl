@@ -59,7 +59,7 @@ function reset!(s::Scenario)
 	end
 	s.initialized = true
 	clear_charts!(s)
-	sync!(s)
+	_sync_reset!(s)
 	return s
 end
 
@@ -240,38 +240,112 @@ end
 
 function _handle_scene_restore(s::Scenario, ws, payload)
 	request_id = String(get(payload, "request_id", uuid4()))
-	_send_to(s, ws, "scene_restore_begin", Dict("request_id" => request_id))
-	if s.scene_restore === nothing
-		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "rejected", "error" => Dict("code" => "unsupported_capability", "message" => "Scene restore is not configured.")))
+	if haskey(s.restore_results, request_id)
+		_send_to(s, ws, "scene_restore_begin", Dict("request_id" => request_id))
+		_send_to(s, ws, "scene_restore_end", s.restore_results[request_id])
 		return nothing
 	end
+	begin_sent = false
+	begin_restore!() = begin
+		if !begin_sent
+			_send_to(s, ws, "scene_restore_begin", Dict("request_id" => request_id))
+			begin_sent = true
+		end
+	end
+	finish(status; code = nothing, message = nothing) = begin
+		begin_restore!()
+		result = Dict{String, Any}("request_id" => request_id, "status" => status)
+		code === nothing || (result["error"] = Dict("code" => code, "message" => message))
+		s.restore_results[request_id] = result
+		_send_to(s, ws, "scene_restore_end", result)
+	end
+	has_projected_state = any(haskey(payload, key) for key in ("time", "parameters", "envs"))
 	if get(payload, "model_id", nothing) != s.model_id
-		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "rejected", "error" => Dict("code" => "model_mismatch", "message" => "scene_restore model_id does not match this simulator.")))
+		finish("rejected"; code = "model_mismatch", message = "scene_restore model_id does not match this simulator.")
+		return nothing
+	end
+	if get(payload, "expected_instance_id", nothing) ∉ (nothing, s.instance_id)
+		finish("rejected"; code = "instance_mismatch", message = "scene_restore expected_instance_id is stale.")
 		return nothing
 	end
 	if s.state_schema_version !== nothing && get(payload, "state_schema_version", nothing) ∉ (nothing, s.state_schema_version)
-		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "rejected", "error" => Dict("code" => "state_schema_mismatch", "message" => "scene_restore state schema is incompatible.")))
+		finish("rejected"; code = "state_schema_mismatch", message = "scene_restore state schema is incompatible.")
 		return nothing
 	end
+	if s.scene_restore === nothing && has_projected_state
+		finish("rejected"; code = "unsupported_capability", message = "Scene restore is not configured.")
+		return nothing
+	end
+	if haskey(payload, "checkpoint") && (s.checkpoint_capture === nothing || s.checkpoint_restore === nothing)
+		finish("rejected"; code = "unsupported_capability", message = "Checkpoint restore is not configured.")
+		return nothing
+	end
+	if !has_projected_state && !haskey(payload, "checkpoint")
+		finish("rejected"; code = "invalid_restore", message = "scene_restore contains no restorable state.")
+		return nothing
+	end
+	previous = Dict(
+		"actions" => collect(keys(s.actions)),
+		"parameters" => collect(keys(s.parameters)),
+		"envs" => collect(keys(s.environments)),
+		"monitors" => collect(keys(s.monitors)),
+	)
+	previous_time = s.time_step
+	has_rollback = s.checkpoint_capture !== nothing && s.checkpoint_restore !== nothing
+	rollback = nothing
+	rollback_captured = false
 	try
-		_call0or1(s.scene_restore, payload)
+		if has_rollback
+			rollback = _call0or1(s.checkpoint_capture, s.model)
+			rollback_captured = true
+		end
+		begin_restore!()
+		if haskey(payload, "checkpoint")
+			_call0or1(s.checkpoint_restore, _decode_checkpoint(payload["checkpoint"]))
+		end
+		if has_projected_state
+			projected = Dict{String, Any}(String(k) => v for (k, v) in pairs(payload) if String(k) != "checkpoint")
+			_call0or1(s.scene_restore, projected)
+		end
 		haskey(payload, "time") && (s.time_step = Int(payload["time"]))
-		_send_to(s, ws, "metadata_update", Dict("time" => s.time_step))
-		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "ok"))
+		for id in previous["monitors"]
+			_send_to(s, ws, "monitor_delete", Dict("id" => id))
+		end
+		for id in previous["actions"]
+			_send_to(s, ws, "action_delete", Dict("id" => id))
+		end
+		for id in previous["parameters"]
+			_send_to(s, ws, "param_delete", Dict("id" => id))
+		end
+		for id in previous["envs"]
+			_send_to(s, ws, "env_delete", Dict("id" => id))
+		end
+		sync!(s, ws; include_charts = false)
+		finish("ok")
 	catch error
-		_send_to(s, ws, "scene_restore_end", Dict("request_id" => request_id, "status" => "failed", "error" => Dict("code" => "restore_failed", "message" => sprint(showerror, error))))
+		s.time_step = previous_time
+		message = sprint(showerror, error)
+		if has_rollback && rollback_captured
+			try
+				_call0or1(s.checkpoint_restore, rollback)
+			catch rollback_error
+				message *= "; rollback failed: " * sprint(showerror, rollback_error)
+			end
+		end
+		finish("failed"; code = "restore_failed", message = message)
 	end
 	return nothing
 end
 
 function _handle_scene_capture(s::Scenario, ws, payload)
 	request_id = String(get(payload, "request_id", uuid4()))
-	if s.scene_restore === nothing || s.checkpoint_capture === nothing
+	if s.checkpoint_capture === nothing || s.checkpoint_restore === nothing
 		_send_to(s, ws, "error", Dict("code" => "unsupported_capability", "message" => "Checkpoint capture is not configured.", "request_id" => request_id))
 		return nothing
 	end
 	try
-		checkpoint = _call0or1(s.checkpoint_capture, s.model)
+		data = _call0or1(s.checkpoint_capture, s.model)
+		checkpoint = _encode_checkpoint(data; use_msgpack = _client_use_msgpack(s, ws))
 		result = Dict{String, Any}("request_id" => request_id, "model_id" => s.model_id, "checkpoint" => checkpoint)
 		s.state_schema_version === nothing || (result["state_schema_version"] = s.state_schema_version)
 		_send_to(s, ws, "scene_capture_result", result)

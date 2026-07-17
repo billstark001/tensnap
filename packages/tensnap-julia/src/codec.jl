@@ -40,6 +40,32 @@ function _decode(s::Scenario, raw)
 	return msg
 end
 
+function _encode_checkpoint(data; use_msgpack = false)
+	encoding, bytes = if data isa AbstractVector{UInt8}
+		("application/octet-stream", Vector{UInt8}(data))
+	else
+		("application/msgpack", Vector{UInt8}(MsgPack.pack(_jsonable(data))))
+	end
+	wire_data = use_msgpack ? bytes : "data:$encoding;base64,$(base64encode(bytes))"
+	return Dict{String, Any}("encoding" => encoding, "data" => wire_data)
+end
+
+function _decode_checkpoint(checkpoint)
+	encoding = String(get(checkpoint, "encoding", ""))
+	data = get(checkpoint, "data", nothing)
+	bytes = if data isa AbstractString
+		encoded = startswith(data, "data:") ? split(data, ','; limit = 2)[2] : data
+		base64decode(encoded)
+	elseif data isa AbstractVector{UInt8}
+		Vector{UInt8}(data)
+	else
+		error("checkpoint.data must be bytes or base64 text")
+	end
+	encoding == "application/octet-stream" && return bytes
+	encoding == "application/msgpack" && return MsgPack.unpack(bytes)
+	error("Unsupported checkpoint encoding: $encoding")
+end
+
 function _send(ws, type::String, payload; use_msgpack = false)
 	type in SERVER_MESSAGE_TYPES || error("unknown TenSnap server message type: $type")
 	HTTP.WebSockets.send(ws, _encode(type, payload; use_msgpack = use_msgpack))

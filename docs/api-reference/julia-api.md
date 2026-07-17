@@ -65,7 +65,9 @@ run!(scenario)
 ## Scenario
 
 ```julia
-Scenario(; host = "localhost", port = 8765, use_msgpack = false, step_interval = 0.05)
+Scenario(; host = "localhost", port = 8765, use_msgpack = false,
+    model_id = "tensnap.julia.model", state_schema_version = nothing,
+    restore_hooks = nothing)
 ```
 
 The scenario owns parameters, actions, charts, environments, assets, screenshot
@@ -79,7 +81,16 @@ clients.
 - `reset`: runs `reset!(scenario)` and returns `continue = false`.
 
 The first simulated tick emitted by `step!` is time `1`; reset returns the
-scenario to time `0`.
+scenario to time `0`. Reset updates stable action/parameter/layer declarations,
+deletes the previous agent set before creating current agents, clears chart
+history, and publishes current monitor values without duplicate create frames.
+
+Each connection receives `simulator_info` before any other simulator message.
+It includes protocol/binding versions, stable `model_id`, optional model/schema
+metadata, a per-scenario `instance_id`, and sorted capabilities. The instance id
+survives reconnect/reset but changes for a replacement `Scenario`. Keep
+`model_id` stable and change `state_schema_version` when projected/checkpoint
+state becomes incompatible.
 
 A model step may return its mutated model or `nothing`; TenSnap treats either
 as a successful step. Return `false` only when the simulator should stop a
@@ -164,7 +175,7 @@ Helpers:
 - `remove_action!(scenario, id)`
 
 When `continue_on_return=true`, the handler return value controls the
-`action_end.continue` flag.
+`action_result.should_continue` flag.
 
 ### Charts
 
@@ -220,6 +231,37 @@ Helpers:
 
 `render_hint` can be `"auto"`, `"tree"`, `"table"`, or `"text"`.
 
+Replacing monitor metadata emits `monitor_delete` then `monitor_create`;
+`monitor_update` is reserved for current values. Charts, environments, and
+layers use the same strict create semantics rather than treating create as an
+upsert.
+
+### Scene restore and checkpoints
+
+```julia
+hooks = restore_hooks(
+    payload -> restore_projected!(model, payload);
+    checkpoint_capture = _ -> snapshot(model),
+    checkpoint_restore = data -> restore_snapshot!(model, data),
+)
+scenario = Scenario(
+    model_id = "my.stable.model",
+    state_schema_version = "1",
+    restore_hooks = hooks,
+)
+```
+
+Checkpoint callbacks work with model data only. Byte vectors use
+`application/octet-stream`; other protocol data uses MessagePack. JSON clients
+receive a data URL and MessagePack clients receive bytes. Restore validates
+identity/schema/instance guards, applies checkpoint data before projected
+fields, replays actions/parameters/environments/items/monitors/time without any
+chart messages, caches request IDs, and rolls back through checkpoint hooks
+when a later phase fails. `scene.restore.checkpoint` is declared only when both
+checkpoint hooks exist. Projected restore is optional; use
+`restore_hooks(nothing; checkpoint_capture=..., checkpoint_restore=...)` for a
+checkpoint-only model.
+
 ## Environments and Layers
 
 ### Builders
@@ -230,6 +272,13 @@ Helpers:
 - `grid_layer(id, items; data=nothing, item_key_fields=["x", "y"])`
 - `patch_layer(id, items; data=nothing, item_key_fields=["x", "y"])`
 - `edge_layer(id, items; data=nothing, dependency_layer_ids=Dict(), item_key_fields=["source", "target"])`
+- `trajectory_layer(id, items; length=nothing, width=nothing, color=nothing,
+  z_index=nothing, on_agent_delete=nothing, on_state_sync=nothing,
+  on_reset=nothing, data=nothing, dependency_layer_ids=Dict("agent"=>"agents"))`
+
+Trajectory lifecycle defaults are agent-delete `"delete"`, state-sync
+`"preserve"`, and reset `"clear"`. `"retain"` and preserved resets close the
+current segment before later points are appended.
 
 ### Registration Helpers
 

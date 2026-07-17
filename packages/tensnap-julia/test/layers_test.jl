@@ -65,10 +65,19 @@ end
 end
 
 @testset "built-in layer constructor coverage" begin
-	trails = trajectory_layer("trails"; data = _ -> Dict("length" => 12))
+	trails = trajectory_layer("trails"; length = 12, width = 2, color = "#2563EB",
+		on_agent_delete = "retain", on_state_sync = "preserve", on_reset = "clear")
 	@test trails.type == "trajectory"
 	@test trails.dependency_layer_ids["agent"] == "agents"
 	@test trails.item_key_fields == ["id"]
+	@test TenSnap._layer_data(trails, nothing) == Dict(
+		"length" => 12,
+		"width" => 2,
+		"color" => "#2563EB",
+		"on_agent_delete" => "retain",
+		"on_state_sync" => "preserve",
+		"on_reset" => "clear",
+	)
 
 	background = background_layer("background"; data = _ -> Dict("background" => "asset://map"))
 	@test background.type == "background"

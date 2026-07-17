@@ -251,12 +251,13 @@ end
 
 """Explicit model-specific inverse hooks for scene restore/checkpoints."""
 struct RestoreHooks
-	projected::Function
+	projected::Union{Nothing, Function}
 	checkpoint_capture::Union{Nothing, Function}
+	checkpoint_restore::Union{Nothing, Function}
 end
 
-restore_hooks(projected; checkpoint_capture = nothing) =
-	RestoreHooks(projected, checkpoint_capture)
+restore_hooks(projected = nothing; checkpoint_capture = nothing, checkpoint_restore = nothing) =
+	RestoreHooks(projected, checkpoint_capture, checkpoint_restore)
 
 mutable struct Layer
 	id::String
@@ -306,8 +307,27 @@ patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id,
 edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"]) =
 	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
 _empty_layer_items(_model = nothing) = Any[]
-trajectory_layer(id, items = _empty_layer_items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"]) =
-	layer(id, "trajectory", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+function trajectory_layer(id, items = _empty_layer_items; data = nothing,
+	length = nothing, width = nothing, color = nothing, z_index = nothing,
+	on_agent_delete = nothing, on_state_sync = nothing, on_reset = nothing,
+	dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"])
+	on_agent_delete ∈ (nothing, "delete", "retain") || error("on_agent_delete must be delete or retain")
+	on_state_sync ∈ (nothing, "preserve", "clear") || error("on_state_sync must be preserve or clear")
+	on_reset ∈ (nothing, "clear", "preserve") || error("on_reset must be clear or preserve")
+	metadata = model -> begin
+		base = data === nothing ? Dict{String, Any}() : Dict{String, Any}(String(k) => v for (k, v) in pairs(_call0or1(data, model)))
+		length === nothing || (base["length"] = length)
+		width === nothing || (base["width"] = width)
+		color === nothing || (base["color"] = color)
+		z_index === nothing || (base["z_index"] = z_index)
+		on_agent_delete === nothing || (base["on_agent_delete"] = on_agent_delete)
+		on_state_sync === nothing || (base["on_state_sync"] = on_state_sync)
+		on_reset === nothing || (base["on_reset"] = on_reset)
+		base
+	end
+	return layer(id, "trajectory", items; data = metadata,
+		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+end
 background_layer(id = "background"; data = nothing) = layer(id, "background", _empty_layer_items; data = data)
 
 mutable struct Environment
