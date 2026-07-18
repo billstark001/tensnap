@@ -76,6 +76,11 @@ export interface ExternalProcessContext {
   readonly measuredActions: number;
 }
 
+export interface ExternalBrowserContext extends ExternalProcessContext {
+  /** Available loopback port selected for this replicate's external server. */
+  readonly port: number;
+}
+
 /** The final JSON object emitted by an external framework on stdout. */
 export interface ExternalBenchmarkResult {
   readonly schemaVersion: 1;
@@ -163,7 +168,7 @@ export interface ExternalBrowserSpec {
 export interface ExternalBrowserBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
   extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'external-browser';
-  createExternalBrowserSpec(config: TConfig, context: ExternalProcessContext): ExternalBrowserSpec;
+  createExternalBrowserSpec(config: TConfig, context: ExternalBrowserContext): ExternalBrowserSpec;
   /**
    * Convert framework-specific state into an independently checkable canonical
    * contract. Returning equal state/expectedState values is permitted only

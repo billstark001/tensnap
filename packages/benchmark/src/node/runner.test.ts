@@ -3,7 +3,9 @@ import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
+  allocateLoopbackPort,
   appendBenchmarkJournalSample,
+  assertArtifactOutputAvailable,
   assertJournalCompatible,
   initializeBenchmarkJournal,
   mergeBenchmarkJournalSamples,
@@ -229,6 +231,7 @@ describe('benchmark artifact schema v2', () => {
       };
       const file = path.join(directory, 'block-1.jsonl');
       await initializeBenchmarkJournal(file, header);
+      await expect(initializeBenchmarkJournal(file, header)).rejects.toThrow(/--resume/);
       await appendBenchmarkJournalSample(file, record);
       const journal = await readBenchmarkJournal(file);
       expect(journal.samples).toEqual([record]);
@@ -251,6 +254,7 @@ describe('benchmark artifact schema v2', () => {
     const output = path.join(directory, 'artifact');
     try {
       await writeArtifact(output, completeNodeArtifact());
+      await expect(assertArtifactOutputAvailable(output)).rejects.toThrow(/immutable/);
       await expect(verifyArtifactFiles(output)).resolves.toBeUndefined();
       const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8')) as BenchmarkArtifact;
       expect(Object.keys(manifest.integrity.filesSha256 ?? {}).sort()).toEqual([
@@ -270,5 +274,11 @@ describe('benchmark artifact schema v2', () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+
+  it('allocates a valid loopback port for each external-browser replicate', async () => {
+    const port = await allocateLoopbackPort();
+    expect(port).toBeGreaterThan(0);
+    expect(port).toBeLessThanOrEqual(65_535);
   });
 });

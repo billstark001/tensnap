@@ -41,7 +41,7 @@
       "module": "../schelling/external-browser.ts",
       "config": {
         "executable": "solara",
-        "args": ["run", "solara.py", "--host", "127.0.0.1", "--port", "8767", "--no-open"],
+        "args": ["run", "solara.py", "--host", "127.0.0.1", "--port", "{port}", "--no-open"],
         "cwd": "benchmarks/schelling/v1/subjects/mesa",
         "env": {
           "TENSNAP_SCHELLING_WIDTH": "50",
@@ -54,7 +54,7 @@
         },
         "timeoutMs": 120000,
         "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a" },
-        "url": "http://127.0.0.1:8767",
+        "url": "http://127.0.0.1:{port}",
         "readySelector": "button:has-text('Step')",
         "actionSelector": "button:has-text('Step')",
         "actionTimeoutMs": 30000,
@@ -81,6 +81,7 @@
           "PYTHONUNBUFFERED": "1",
           "PYTHONPATH": "{repositoryRoot}/packages/tensnap-python",
           "TENSNAP_USE_SOURCE": "1",
+          "TENSNAP_SERVER_PORT": "{port}",
           "TENSNAP_SCHELLING_WIDTH": "50",
           "TENSNAP_SCHELLING_HEIGHT": "50",
           "TENSNAP_SCHELLING_DENSITY": "0.8",
@@ -88,7 +89,7 @@
           "TENSNAP_SCHELLING_THRESHOLD": "0.70",
           "TENSNAP_SCHELLING_SEED": "{seed}"
         },
-        "endpoint": "ws://127.0.0.1:8765",
+        "endpoint": "ws://127.0.0.1:{port}",
         "encoding": "json",
         "width": 900,
         "height": 700,
@@ -116,6 +117,7 @@
           "PYTHONUNBUFFERED": "1",
           "PYTHONPATH": "{repositoryRoot}/packages/tensnap-python",
           "TENSNAP_USE_SOURCE": "1",
+          "TENSNAP_SERVER_PORT": "{port}",
           "TENSNAP_SCHELLING_WIDTH": "50",
           "TENSNAP_SCHELLING_HEIGHT": "50",
           "TENSNAP_SCHELLING_DENSITY": "0.8",
@@ -123,7 +125,7 @@
           "TENSNAP_SCHELLING_THRESHOLD": "0.70",
           "TENSNAP_SCHELLING_SEED": "{seed}"
         },
-        "endpoint": "ws://127.0.0.1:8765",
+        "endpoint": "ws://127.0.0.1:{port}",
         "encoding": "json",
         "width": 900,
         "height": 700,

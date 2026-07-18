@@ -44,8 +44,12 @@ function resolveConfig(overrides: Partial<ExternalBrowserConfig>): ExternalBrows
   };
 }
 
-function interpolate(value: string, config: ExternalBrowserConfig, root: string, replicate: number): string {
-  return value.split('{repositoryRoot}').join(root).split('{seed}').join(String(config.seed + replicate)).split('{replicate}').join(String(replicate));
+function interpolate(value: string, config: ExternalBrowserConfig, root: string, replicate: number, port: number): string {
+  return value
+    .split('{repositoryRoot}').join(root)
+    .split('{seed}').join(String(config.seed + replicate))
+    .split('{replicate}').join(String(replicate))
+    .split('{port}').join(String(port));
 }
 
 export const workload: ExternalBrowserBenchmarkWorkload<ExternalBrowserConfig> = {
@@ -58,7 +62,7 @@ export const workload: ExternalBrowserBenchmarkWorkload<ExternalBrowserConfig> =
   supportedSuites: ['browser'],
   resolveConfig,
   createExternalBrowserSpec(config, context) {
-    const expand = (value: string) => interpolate(value, config, context.repositoryRoot, context.replicate);
+    const expand = (value: string) => interpolate(value, config, context.repositoryRoot, context.replicate, context.port);
     return {
       server: {
         executable: expand(config.executable),

@@ -44,9 +44,9 @@
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "go",
-        "args": ["run", "./tensnap", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "8765"],
+        "args": ["run", "./tensnap", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "{port}"],
         "cwd": "benchmarks/schelling/v1/subjects/go",
-        "endpoint": "ws://127.0.0.1:8765",
+        "endpoint": "ws://127.0.0.1:{port}",
         "encoding": "json",
         "width": 900,
         "height": 700,
@@ -68,9 +68,9 @@
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "go",
-        "args": ["run", "./tensnap", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "8765"],
+        "args": ["run", "./tensnap", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "{port}"],
         "cwd": "benchmarks/schelling/v1/subjects/go",
-        "endpoint": "ws://127.0.0.1:8765",
+        "endpoint": "ws://127.0.0.1:{port}",
         "encoding": "json",
         "width": 900,
         "height": 700,

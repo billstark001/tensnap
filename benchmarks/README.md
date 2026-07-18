@@ -114,7 +114,10 @@ pnpm bench merge --profile benchmarks/profiles/paper-v0.3.json \
 `--block` and `--shard` are mutually exclusive. A submission profile cannot be
 run with a `--suite` subset; diagnostic profiles may opt into subsets. Use
 `--journal PATH` to override the deterministic journal name when an external
-job scheduler owns shard paths.
+job scheduler owns shard paths. Starting without `--resume` never overwrites an
+existing journal; the error points to `--resume` or a new output/journal path.
+The output path is also checked before any replicate starts, so an immutable
+published artifact cannot cause a complete run to be discarded at the end.
 
 ## Artifact contents and verification
 
@@ -214,6 +217,22 @@ The Schelling profiles separate model, framework UI, and TenSnap layers:
 - `schelling-ui-go-v1`: Go kernel and Go + TenSnap;
 - `schelling-ui-js-v1`: JavaScript kernel and JavaScript + TenSnap.
 
+Run the four binding-specific UI profiles directly from the repository root:
+
+```bash
+pnpm bench run --profile benchmarks/profiles/schelling-ui-mesa-v1.json \
+  --out benchmark-results/schelling-ui-mesa-v1
+pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v1.json \
+  --out benchmark-results/schelling-ui-go-v1
+pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v1.json \
+  --out benchmark-results/schelling-ui-js-v1
+pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v1.json \
+  --out benchmark-results/schelling-ui-julia-v1
+```
+
+Each `--out` directory must be new. If a run is interrupted, repeat its exact
+command with `--resume` instead of deleting or overwriting the journal.
+
 Only conditions with the same declared `featureLevel`, dimensions, semantic
 contract, and primary metric belong in a paired comparison. NetLogo remains a
 descriptive kernel result because its statistics instrumentation differs.
@@ -234,6 +253,11 @@ written as one replicate's CPU cost. External command subjects run under
 command. For external browser servers, a portable process-tree CPU value is
 not available and the field is `null` rather than a misleading harness value.
 Latency is the primary publication measurement.
+
+Every external-browser replicate receives a fresh loopback port. On POSIX
+hosts, the runner also terminates the external server's whole process group so
+wrappers such as `go run` cannot leave the compiled server listening after the
+replicate completes.
 
 ## Statistical inference
 

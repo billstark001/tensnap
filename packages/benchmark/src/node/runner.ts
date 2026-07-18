@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { appendFile, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { cpus, platform, release, totalmem, arch, tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -480,6 +481,27 @@ async function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 30
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+/** Returns a currently available loopback port for one external-browser replicate. */
+export async function allocateLoopbackPort(): Promise<number> {
+  const server = createServer();
+  server.unref();
+  return new Promise<number>((resolvePromise, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close();
+        reject(new Error('Could not allocate a numeric loopback port.'));
+        return;
+      }
+      server.close((error) => {
+        if (error) reject(error);
+        else resolvePromise(address.port);
+      });
+    });
+  });
 }
 
 async function closeSocket(socket: WebSocket): Promise<void> {
@@ -1048,12 +1070,47 @@ interface StartedExternalServer {
   stop(): Promise<void>;
 }
 
+function signalExternalProcessTree(child: ReturnType<typeof spawn>, grouped: boolean, signal: NodeJS.Signals): void {
+  if (child.pid === undefined) return;
+  if (grouped) {
+    try {
+      process.kill(-child.pid, signal);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+    }
+    return;
+  }
+  if (child.exitCode === null && child.signalCode === null) child.kill(signal);
+}
+
+function externalProcessTreeRunning(child: ReturnType<typeof spawn>, grouped: boolean): boolean {
+  if (child.pid === undefined) return false;
+  if (!grouped) return child.exitCode === null && child.signalCode === null;
+  try {
+    process.kill(-child.pid, 0);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+async function waitForExternalProcessTree(child: ReturnType<typeof spawn>, grouped: boolean): Promise<void> {
+  while (externalProcessTreeRunning(child, grouped)) {
+    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 25));
+  }
+}
+
 function startExternalServer(command: ExternalCommand): StartedExternalServer {
   let stderr = '';
+  // A detached POSIX child becomes a process-group leader. Stopping the whole
+  // group also terminates wrappers such as `go run` and the server they spawn.
+  const grouped = platform() !== 'win32';
   const child = spawn(command.executable, [...command.args], {
     cwd: command.cwd,
     env: { ...process.env, ...command.env },
     stdio: ['ignore', 'ignore', 'pipe'],
+    detached: grouped,
   });
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (data: string) => { stderr += data; });
@@ -1061,10 +1118,13 @@ function startExternalServer(command: ExternalCommand): StartedExternalServer {
     process: child,
     stderr: () => stderr,
     async stop() {
-      if (child.exitCode !== null) return;
-      child.kill('SIGTERM');
-      await withTimeout(once(child, 'close').then(() => undefined), `External server ${command.executable} shutdown`, 10_000)
-        .catch(() => child.kill('SIGKILL'));
+      signalExternalProcessTree(child, grouped, 'SIGTERM');
+      try {
+        await withTimeout(waitForExternalProcessTree(child, grouped), `External server ${command.executable} shutdown`, 10_000);
+      } catch {
+        signalExternalProcessTree(child, grouped, 'SIGKILL');
+        await withTimeout(waitForExternalProcessTree(child, grouped), `External server ${command.executable} forced shutdown`, 2_000);
+      }
     },
   };
 }
@@ -1224,7 +1284,14 @@ async function runExternalBrowserReplicate(
   browserOptions: ResolvedBrowserBenchmarkRunOptions,
 ): Promise<{ sample: BenchmarkReplicate; browserVersion: string }> {
   const startedAt = startProcessMeasurement();
-  const spec: ExternalBrowserSpec = workload.createExternalBrowserSpec(config, { repositoryRoot, replicate: index, warmupActions, measuredActions });
+  const port = await allocateLoopbackPort();
+  const spec: ExternalBrowserSpec = workload.createExternalBrowserSpec(config, {
+    repositoryRoot,
+    replicate: index,
+    warmupActions,
+    measuredActions,
+    port,
+  });
   for (const [relativePath, expectedHash] of Object.entries(spec.environmentLocks ?? {})) {
     const contents = await readFile(path.resolve(repositoryRoot, relativePath));
     const actualHash = createHash('sha256').update(contents).digest('hex');
@@ -1529,7 +1596,14 @@ export function assertJournalCompatible(expected: BenchmarkJournalHeader, actual
 
 export async function initializeBenchmarkJournal(file: string, header: BenchmarkJournalHeader): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify(header)}\n`, { flag: 'wx' });
+  try {
+    await writeFile(file, `${JSON.stringify(header)}\n`, { flag: 'wx' });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new Error(`Benchmark journal already exists: ${file}. Pass --resume to validate and continue it, or choose a new --out/--journal path.`);
+    }
+    throw error;
+  }
 }
 
 export async function appendBenchmarkJournalSample(file: string, sample: BenchmarkJournalSample): Promise<void> {
@@ -2032,14 +2106,18 @@ async function writeArtifactDirectory(outputDirectory: string, artifact: Benchma
   await verifyArtifactFiles(outputDirectory, persisted);
 }
 
-export async function writeArtifact(outputDirectory: string, artifact: BenchmarkArtifact): Promise<void> {
-  if (!isArtifactComplete(artifact)) throw new Error('Cannot publish an incomplete benchmark artifact; resume or merge all blocks first.');
+export async function assertArtifactOutputAvailable(outputDirectory: string): Promise<void> {
   try {
     await stat(outputDirectory);
-    throw new Error(`Output path already exists: ${outputDirectory}. Choose a new path; published artifacts are immutable.`);
+    throw new Error(`Output path already exists: ${outputDirectory}. Published artifacts are immutable; verify the existing artifact or choose a new --out path.`);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
+}
+
+export async function writeArtifact(outputDirectory: string, artifact: BenchmarkArtifact): Promise<void> {
+  if (!isArtifactComplete(artifact)) throw new Error('Cannot publish an incomplete benchmark artifact; resume or merge all blocks first.');
+  await assertArtifactOutputAvailable(outputDirectory);
   const parent = path.dirname(outputDirectory);
   await mkdir(parent, { recursive: true });
   const staging = await mkdtemp(path.join(parent, `.${path.basename(outputDirectory)}.tmp-`));

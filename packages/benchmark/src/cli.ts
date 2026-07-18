@@ -4,6 +4,7 @@ import process from 'node:process';
 import {
   loadProfileWorkloads,
   appendBenchmarkJournalSample,
+  assertArtifactOutputAvailable,
   assertJournalCompatible,
   createBenchmarkJournalHeader,
   initializeBenchmarkJournal,
@@ -129,6 +130,9 @@ async function main(): Promise<void> {
     }
     const workloads = await loadProfileWorkloads(profilePath, profile);
     const outputDirectory = path.resolve(repositoryRoot, option(args, '--out') ?? defaultOutputDirectory(repositoryRoot));
+    // Fail before creating a journal or running any replicate. The final
+    // write repeats this check to preserve immutability across races.
+    await assertArtifactOutputAvailable(outputDirectory);
     const blockPlan = selectedBlocks(args, profile.repetitions);
     const journalPath = path.resolve(repositoryRoot, option(args, '--journal') ?? `${outputDirectory}${blockPlan.suffix}.journal.jsonl`);
     const runOptions = { repositoryRoot, profile, workloads, suites: selectedSuites } as const;

@@ -3,8 +3,12 @@ import type { ExternalBrowserBenchmarkWorkload } from '@tensnap/benchmark/harnes
 import { browserWorkload, resolveTenSnapWebConfig, type TenSnapWebConfig } from './tensnap-web';
 import { validateSchellingObservation } from './oracle';
 
-function interpolate(value: string, config: TenSnapWebConfig, root: string, replicate: number): string {
-  return value.split('{repositoryRoot}').join(root).split('{seed}').join(String(config.seed + replicate)).split('{replicate}').join(String(replicate));
+function interpolate(value: string, config: TenSnapWebConfig, root: string, replicate: number, port: number): string {
+  return value
+    .split('{repositoryRoot}').join(root)
+    .split('{seed}').join(String(config.seed + replicate))
+    .split('{replicate}').join(String(replicate))
+    .split('{port}').join(String(port));
 }
 
 export const workload: ExternalBrowserBenchmarkWorkload<TenSnapWebConfig> = {
@@ -17,7 +21,7 @@ export const workload: ExternalBrowserBenchmarkWorkload<TenSnapWebConfig> = {
   supportedSuites: ['browser'],
   resolveConfig: resolveTenSnapWebConfig,
   createExternalBrowserSpec(config, context) {
-    const expand = (value: string) => interpolate(value, config, context.repositoryRoot, context.replicate);
+    const expand = (value: string) => interpolate(value, config, context.repositoryRoot, context.replicate, context.port);
     return {
       server: {
         executable: expand(config.executable), args: config.args.map(expand),

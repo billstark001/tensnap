@@ -47,6 +47,7 @@
         "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/tensnap.ts"],
         "cwd": "examples/js",
         "env": {
+          "TENSNAP_SERVER_PORT": "{port}",
           "TENSNAP_SCHELLING_WIDTH": "50",
           "TENSNAP_SCHELLING_HEIGHT": "50",
           "TENSNAP_SCHELLING_DENSITY": "0.8",
@@ -54,7 +55,7 @@
           "TENSNAP_SCHELLING_THRESHOLD": "0.70",
           "TENSNAP_SCHELLING_SEED": "{seed}"
         },
-        "endpoint": "ws://127.0.0.1:8765",
+        "endpoint": "ws://127.0.0.1:{port}",
         "encoding": "json",
         "width": 900,
         "height": 700,
@@ -79,6 +80,7 @@
         "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/tensnap.ts"],
         "cwd": "examples/js",
         "env": {
+          "TENSNAP_SERVER_PORT": "{port}",
           "TENSNAP_SCHELLING_WIDTH": "50",
           "TENSNAP_SCHELLING_HEIGHT": "50",
           "TENSNAP_SCHELLING_DENSITY": "0.8",
@@ -86,7 +88,7 @@
           "TENSNAP_SCHELLING_THRESHOLD": "0.70",
           "TENSNAP_SCHELLING_SEED": "{seed}"
         },
-        "endpoint": "ws://127.0.0.1:8765",
+        "endpoint": "ws://127.0.0.1:{port}",
         "encoding": "json",
         "width": 900,
         "height": 700,
