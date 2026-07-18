@@ -10,8 +10,8 @@ import type { BenchmarkCase } from '../browser-types';
 /** Where an experiment executes. `ws` always means a real loopback WebSocket. */
 export type BenchmarkSuite = 'node' | 'ws' | 'browser';
 export type BenchmarkConfig = Record<string, unknown>;
-export type BenchmarkWorkloadKind = 'protocol' | 'node' | 'browser';
-export type BenchmarkCategory = 'publication' | 'core' | 'snapshot' | 'renderer' | 'comparison';
+export type BenchmarkWorkloadKind = 'protocol' | 'node' | 'browser' | 'external-process' | 'external-browser';
+export type BenchmarkCategory = 'publication' | 'core' | 'snapshot' | 'renderer' | 'comparison' | 'system';
 
 interface BenchmarkWorkloadBase<TConfig extends BenchmarkConfig = BenchmarkConfig> {
   readonly schemaVersion: 2;
@@ -55,10 +55,97 @@ export interface BrowserBenchmarkWorkload<TConfig extends BenchmarkConfig = Benc
   createBrowserCase(options: BrowserCaseOptions<TConfig>): BrowserBenchmarkCase;
 }
 
+/**
+ * A process owned by a framework outside the TypeScript workspace.  The
+ * command is deliberately argv-based: no shell is involved and a manifest
+ * records exactly what was executed.
+ */
+export interface ExternalCommand {
+  readonly executable: string;
+  readonly args: readonly string[];
+  readonly cwd?: string;
+  readonly env?: Readonly<Record<string, string>>;
+  readonly timeoutMs?: number;
+}
+
+export interface ExternalProcessContext {
+  readonly repositoryRoot: string;
+  readonly replicate: number;
+  readonly warmupActions: number;
+  readonly measuredActions: number;
+}
+
+/** The final JSON object emitted by an external framework on stdout. */
+export interface ExternalBenchmarkResult {
+  readonly schemaVersion: 1;
+  readonly timingsMs: readonly number[];
+  readonly metrics?: Readonly<Record<string, number | readonly number[]>>;
+  readonly state?: unknown;
+  readonly expectedState?: unknown;
+  readonly correctness?: {
+    readonly valid: boolean;
+    readonly actionCount: number;
+    readonly state?: unknown;
+    readonly expectedState?: unknown;
+  };
+  /** Optional stage timestamps/durations, e.g. modelMs and actionToFrameMs. */
+  readonly stagesMs?: Readonly<Record<string, number | readonly number[]>>;
+  /** Framework/interpreter versions captured by the adapter, not inferred by the harness. */
+  readonly runtime?: Readonly<Record<string, string>>;
+}
+
+/** A headless system benchmark whose result is a schema-v1 JSON line. */
+export interface ExternalProcessBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
+  extends BenchmarkWorkloadBase<TConfig> {
+  readonly kind: 'external-process';
+  createExternalCommand(config: TConfig, context: ExternalProcessContext): ExternalCommand;
+  /** Validate framework-independent invariants in the external JSON result. */
+  validateExternalResult?(config: TConfig, result: ExternalBenchmarkResult, context: ExternalProcessContext): void;
+}
+
+export interface ExternalBrowserAction {
+  /** A Playwright selector for one deterministic model step. */
+  readonly selector: string;
+  /** Maximum time to wait for the visual checkpoint after each click. */
+  readonly timeoutMs?: number;
+}
+
+export interface ExternalBrowserSpec {
+  readonly server: ExternalCommand;
+  readonly url: string;
+  readonly readySelector: string;
+  readonly action: ExternalBrowserAction;
+  /**
+   * Screenshot checkpoints are written outside the timed interval. A
+   * reference hash makes visual regressions a hard correctness failure.
+   */
+  readonly visualOracle?: {
+    readonly checkpointActions: readonly number[];
+    readonly referenceSha256?: Readonly<Record<string, string>>;
+  };
+  /** Use the production benchmark Web host against an external simulator WS. */
+  readonly tensnapHarness?: {
+    readonly workloadId: string;
+    readonly config: BenchmarkConfig;
+    readonly endpoint: string;
+    readonly encoding: ProtocolEncoding;
+    readonly validation: ProtocolValidationLevel;
+  };
+}
+
+/** A browser-driven external system, such as Mesa/Solara or WGLMakie. */
+export interface ExternalBrowserBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
+  extends BenchmarkWorkloadBase<TConfig> {
+  readonly kind: 'external-browser';
+  createExternalBrowserSpec(config: TConfig, context: ExternalProcessContext): ExternalBrowserSpec;
+}
+
 export type BenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig> =
   | ProtocolBenchmarkWorkload<TConfig>
   | NodeBenchmarkWorkload<TConfig>
-  | BrowserBenchmarkWorkload<TConfig>;
+  | BrowserBenchmarkWorkload<TConfig>
+  | ExternalProcessBenchmarkWorkload<TConfig>
+  | ExternalBrowserBenchmarkWorkload<TConfig>;
 
 export interface ProtocolBrowserCaseOptions<TConfig extends BenchmarkConfig = BenchmarkConfig> {
   config: TConfig;
@@ -101,12 +188,34 @@ export interface BenchmarkProfile {
   readonly measuredActions: number;
   readonly encodings: readonly ProtocolEncoding[];
   readonly validation: readonly ProtocolValidationLevel[];
+  /** Submission profiles require a clean, identifiable implementation. */
+  readonly requireCleanGit?: boolean;
+  /** Publication runs always use a fresh process for every replicate. */
+  readonly processIsolation?: 'required' | 'off';
+  /** Randomly permute systems inside each replicate block. */
+  readonly randomizedBlocks?: boolean;
+  readonly comparisons?: readonly BenchmarkComparison[];
   readonly workloads: readonly BenchmarkProfileWorkload[];
 }
 
 export interface BenchmarkProfileWorkload {
+  /** Stable identifier used by comparison declarations and artifact plans. */
+  readonly id?: string;
+  /** Human-readable implementation/system label. */
+  readonly system?: string;
+  /** Override profile defaults when a system exposes a different trial unit. */
+  readonly warmupActions?: number;
+  /** Override profile defaults when a system exposes a different trial unit. */
+  readonly measuredActions?: number;
   readonly module: string;
   readonly config?: BenchmarkConfig;
+}
+
+export interface BenchmarkComparison {
+  readonly id: string;
+  readonly baseline: string;
+  readonly treatments: readonly string[];
+  readonly metric?: 'cycle';
 }
 
 export interface BenchmarkWireBytes {
@@ -124,11 +233,29 @@ export interface BenchmarkCorrectness {
 
 export interface BenchmarkReplicate {
   readonly index: number;
+  /** The randomized block shared by all systems for a paired replicate. */
+  readonly block: number;
   readonly timingsMs: readonly number[];
   readonly metrics: Readonly<Record<string, readonly number[]>>;
   readonly messageCounts: Readonly<Record<string, number>>;
   readonly wireBytes: BenchmarkWireBytes;
   readonly correctness: BenchmarkCorrectness;
+  readonly process: {
+    readonly isolated: boolean;
+    readonly wallMs: number;
+    readonly userCpuMs: number | null;
+    readonly systemCpuMs: number | null;
+    readonly maxRssBytes: number | null;
+  };
+  readonly stagesMs?: Readonly<Record<string, readonly number[]>>;
+  readonly visual?: {
+    readonly checkpoints: Readonly<Record<string, string>>;
+    /** Relative PNG paths persisted beside the manifest. */
+    readonly files?: Readonly<Record<string, string>>;
+    /** Harness-private source data; stripped before manifest/raw-sample output. */
+    readonly inlinePngBase64?: Readonly<Record<string, string>>;
+  };
+  readonly runtime?: Readonly<Record<string, string>>;
 }
 
 export interface DistributionSummary {
@@ -144,11 +271,31 @@ export interface BenchmarkRunSummary {
   readonly cycle: DistributionSummary;
   readonly replicateMediansMs: readonly number[];
   readonly metrics: Readonly<Record<string, DistributionSummary>>;
+  readonly stages: Readonly<Record<string, DistributionSummary>>;
   readonly wireBytes: BenchmarkWireBytes;
   readonly messageCounts: Readonly<Record<string, number>>;
 }
 
+export interface PairedComparisonSummary {
+  readonly id: string;
+  readonly suite: BenchmarkSuite;
+  readonly baseline: string;
+  readonly treatment: string;
+  readonly pairs: number;
+  /** treatment / baseline. Values below 1 favour the treatment. */
+  readonly medianRatio: number;
+  readonly bootstrapMedianRatioCi95: readonly [number, number];
+  /** treatment - baseline, in milliseconds. */
+  readonly medianDifferenceMs: number;
+  readonly bootstrapMedianDifferenceCi95Ms: readonly [number, number];
+}
+
 export interface BenchmarkRun {
+  readonly id: string;
+  /** Profile-level identity, retained when several systems share one adapter module. */
+  readonly profileWorkloadId?: string;
+  /** Human-readable profile-level system label. */
+  readonly system?: string;
   readonly suite: BenchmarkSuite;
   readonly workload: {
     readonly id: string;
@@ -165,8 +312,8 @@ export interface BenchmarkRun {
     readonly validation?: ProtocolValidationLevel;
     readonly warmupActions: number;
     readonly measuredActions: number;
-    readonly repetitions: number;
-    readonly processIsolated: false;
+      readonly repetitions: number;
+    readonly processIsolated: boolean;
     readonly browser?: {
       readonly name: 'chromium';
       readonly version: string;
@@ -194,6 +341,12 @@ export interface BenchmarkArtifact {
   };
   readonly environment: BenchmarkEnvironment;
   readonly runs: readonly BenchmarkRun[];
+  readonly comparisons: readonly PairedComparisonSummary[];
+  readonly integrity: {
+    readonly profileSha256: string;
+    readonly expectedRunIds: readonly string[];
+    readonly samplesSha256: string | null;
+  };
 }
 
 export interface BenchmarkEnvironment {

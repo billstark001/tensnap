@@ -12,6 +12,9 @@ export type {
   BenchmarkSuite,
   BenchmarkWorkload,
   BrowserBenchmarkWorkload,
+  ExternalBenchmarkResult,
+  ExternalBrowserBenchmarkWorkload,
+  ExternalProcessBenchmarkWorkload,
   NodeBenchmarkWorkload,
   ProtocolBenchmarkWorkload,
   BenchmarkWorkloadKind,
@@ -20,5 +23,8 @@ export type {
   ProtocolBrowserCaseOptions,
   NodeBenchmarkCase,
   NodeBenchmarkIteration,
+  ExternalCommand,
+  ExternalProcessContext,
+  ExternalBrowserSpec,
 } from './types';
 export type { BenchmarkCase, BrowserBenchmarkCase } from '../browser-types';

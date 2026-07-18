@@ -1,6 +1,7 @@
 import canvas2d from './comparisons/random-walk/canvas2d';
 import leafer from './comparisons/random-walk/leafer';
 import tensnapRenderer from './comparisons/random-walk/tensnap';
+import { browserWorkload as externalSchellingTenSnapWeb } from './schelling/tensnap-web';
 import coreTrace from './v0.3/core-trace/benchmark';
 import randomWalk from './v0.3/random-walk/benchmark';
 import snapshotRestore from './v0.3/snapshot-restore/benchmark';
@@ -15,6 +16,7 @@ const workloads = new Map<string, BenchmarkWorkload>([
   [canvas2d.id, canvas2d],
   [leafer.id, leafer],
   [tensnapRenderer.id, tensnapRenderer],
+  [externalSchellingTenSnapWeb.id, externalSchellingTenSnapWeb],
 ]);
 
 export function getBenchmarkWorkload(id: string): BenchmarkWorkload {

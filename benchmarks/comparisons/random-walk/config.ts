@@ -3,6 +3,8 @@ import type { RandomWalkFixtureConfig } from '../../shared/random-walk';
 export interface RendererComparisonConfig extends RandomWalkFixtureConfig, Record<string, unknown> {
   width: number;
   height: number;
+  /** Trace generation happens before mounting and is intentionally outside timed work. */
+  traceFrames: number;
 }
 
 export const rendererComparisonDefaults: RendererComparisonConfig = {
@@ -13,6 +15,7 @@ export const rendererComparisonDefaults: RendererComparisonConfig = {
   seed: 20_260_712,
   width: 900,
   height: 700,
+  traceFrames: 256,
 };
 
 function integer(value: unknown, name: string, minimum: number, maximum?: number): number {
@@ -31,6 +34,7 @@ export function resolveRendererComparisonConfig(overrides: Partial<RendererCompa
     changedAgents: integer(config.changedAgents, 'changedAgents', 0, agentCount),
     width: integer(config.width, 'width', 1),
     height: integer(config.height, 'height', 1),
+    traceFrames: integer(config.traceFrames, 'traceFrames', 1, 10_000),
     worldSize: typeof config.worldSize === 'number' && Number.isFinite(config.worldSize) && config.worldSize > 0 ? config.worldSize : rendererComparisonDefaults.worldSize,
     stepSize: typeof config.stepSize === 'number' && Number.isFinite(config.stepSize) && config.stepSize >= 0 ? config.stepSize : rendererComparisonDefaults.stepSize,
     seed: integer(config.seed, 'seed', 0, 0xffff_ffff),

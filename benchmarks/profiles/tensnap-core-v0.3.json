@@ -8,6 +8,9 @@
   "measuredActions": 30,
   "encodings": ["json", "msgpack"],
   "validation": ["off", "error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
   "workloads": [
     { "module": "../v0.3/random-walk/benchmark.ts", "config": { "agentCount": 1000, "changedAgents": 0, "seed": 20260712 } },
     { "module": "../v0.3/random-walk/benchmark.ts", "config": { "agentCount": 1000, "changedAgents": 10, "seed": 20260712 } },

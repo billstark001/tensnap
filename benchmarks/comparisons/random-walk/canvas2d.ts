@@ -1,10 +1,9 @@
 import type { BenchmarkWorkload } from '@tensnap/benchmark/harness';
 import type { BrowserBenchmarkCase } from '@tensnap/benchmark/harness';
-import { canonicalRandomWalkState, createRandomWalkAgents, expectedRandomWalkState, stepRandomWalk } from '../../shared/random-walk';
-import { createDeterministicRandom } from '../../shared/random';
+import { applyRandomWalkDelta, canonicalRandomWalkState, cloneRandomWalkAgents, createRandomWalkTrace, traceExpectedRandomWalkState } from '../../shared/random-walk';
 import { resolveRendererComparisonConfig, type RendererComparisonConfig } from './config';
 
-function draw(context: CanvasRenderingContext2D, config: RendererComparisonConfig, agents: ReturnType<typeof createRandomWalkAgents>): void {
+function draw(context: CanvasRenderingContext2D, config: RendererComparisonConfig, agents: ReturnType<typeof cloneRandomWalkAgents>): void {
   const scale = config.width / config.worldSize;
   context.clearRect(0, 0, config.width, config.height);
   for (const agent of agents) {
@@ -25,9 +24,8 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
   supportedSuites: ['browser'],
   resolveConfig: resolveRendererComparisonConfig,
   createBrowserCase({ config }): BrowserBenchmarkCase {
-    const random = createDeterministicRandom(config.seed);
-    const agents = createRandomWalkAgents(config, random);
-    let tick = 0;
+    const trace = createRandomWalkTrace(config, config.traceFrames);
+    const agents = cloneRandomWalkAgents(trace.initial);
     return {
       case: {
         name: 'Random walk renderer comparison',
@@ -46,17 +44,20 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
           draw(context, config, agents);
           return {
             kind: 'component',
-            tick() {
-              stepRandomWalk(agents, config, random, tick);
-              tick += 1;
-              draw(context, config, agents);
+            tick(frameIndex) {
+              const delta = trace.frames[frameIndex];
+              if (!delta) throw new Error(`Renderer profile needs trace frame ${frameIndex}; increase traceFrames.`);
+              applyRandomWalkDelta(agents, delta);
+              // Canvas is immediate-mode, so a non-empty delta requires a full
+              // redraw. A zero-delta frame must not manufacture renderer work.
+              if (delta.length > 0) draw(context, config, agents);
             },
             destroy() { canvas.remove(); },
           };
         },
       },
       snapshot() { return canonicalRandomWalkState(agents); },
-      expectedState(totalFrames) { return expectedRandomWalkState(config, totalFrames); },
+      expectedState(totalFrames) { return traceExpectedRandomWalkState(trace, totalFrames); },
     };
   },
 };

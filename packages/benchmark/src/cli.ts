@@ -6,7 +6,7 @@ import {
   renderReport,
   runProfile,
   validateProfile,
-  verifyArtifact,
+  verifyArtifactFiles,
   writeArtifact,
 } from './node/runner';
 import type { BenchmarkArtifact, BenchmarkSuite } from './harness/types';
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
     const input = option(args, '--input');
     if (!input) throw new Error(`${command} requires --input.`);
     const artifact = await readArtifact(path.resolve(repositoryRoot, input));
-    verifyArtifact(artifact);
+    await verifyArtifactFiles(path.resolve(repositoryRoot, input), artifact);
     if (command === 'report') process.stdout.write(renderReport(artifact));
     else process.stdout.write('Benchmark artifact verified.\n');
     return;
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
   throw new Error(`Unknown benchmark command: ${command}`);
 }
 
-void main().catch((error) => {
+await main().catch((error) => {
   process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
   process.exitCode = 1;
 });

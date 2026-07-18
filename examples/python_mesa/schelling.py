@@ -55,6 +55,7 @@ class SchellingModel(Model):
         density: float = DEFAULT_DENSITY,
         balance: float = DEFAULT_BALANCE,
         similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+        collect_data: bool = True,
         rng=None,
     ) -> None:
         if isinstance(rng, str):
@@ -80,6 +81,7 @@ class SchellingModel(Model):
 
         self.initialized = False
         self.last_swapped = 0
+        self.collect_data = collect_data
         self._populate()
         self.initialized = True
 
@@ -96,7 +98,8 @@ class SchellingModel(Model):
                 "y": lambda a: a.cell.coordinate[1],
             },
         )
-        self.datacollector.collect(self)
+        if self.collect_data:
+            self.datacollector.collect(self)
 
     def _populate(self) -> None:
         """Same per-cell probability rule as the Go Populate method."""
@@ -129,7 +132,8 @@ class SchellingModel(Model):
             agent.cell = new_cell
 
         self.last_swapped = swapped
-        self.datacollector.collect(self)
+        if self.collect_data:
+            self.datacollector.collect(self)
         return swapped > 0
 
     def step(self) -> bool:

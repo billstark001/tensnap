@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 2,
+  "id": "schelling-ui-mesa-v1",
+  "description": "Mesa/Schelling UI case study. The headless condition is a separate model baseline; the Solara condition is action-to-first-visibly-updated-frame with screenshot checkpoints.",
+  "suites": ["node", "browser"],
+  "repetitions": 15,
+  "warmupActions": 5,
+  "measuredActions": 20,
+  "encodings": ["json"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "workloads": [
+    {
+      "id": "mesa-headless",
+      "system": "Mesa headless (kernel baseline)",
+      "warmupActions": 0,
+      "measuredActions": 1,
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["schelling_standalone.py", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--instrumentation", "none", "--benchmark-json"],
+        "cwd": "examples/python_mesa",
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 } } }
+      }
+    },
+    {
+      "id": "mesa-solara",
+      "system": "Mesa + Solara (agents + summary)",
+      "module": "../schelling/external-browser.ts",
+      "config": {
+        "executable": "solara",
+        "args": ["run", "schelling_viz_solara.py", "--host", "127.0.0.1", "--port", "8767"],
+        "cwd": "examples/python_mesa",
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "url": "http://127.0.0.1:8767",
+        "readySelector": "button:has-text('Step')",
+        "actionSelector": "button:has-text('Step')",
+        "actionTimeoutMs": 30000,
+        "checkpointActions": [0, 5, 25],
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "mesa-tensnap-web",
+      "system": "Mesa + TenSnap binding + Web host (agents + summary)",
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["schelling_viz.py"],
+        "cwd": "examples/python_mesa",
+        "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "{repositoryRoot}/packages/tensnap-python" },
+        "endpoint": "ws://127.0.0.1:8765",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "seed": 20260718
+      }
+    }
+  ]
+}

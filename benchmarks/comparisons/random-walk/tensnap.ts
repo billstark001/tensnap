@@ -1,8 +1,7 @@
 import { type AgentStorage } from '@tensnap/core/environment';
 import type { BenchmarkWorkload } from '@tensnap/benchmark/harness';
 import type { BrowserBenchmarkCase } from '@tensnap/benchmark/harness';
-import { canonicalRandomWalkState, createRandomWalkAgents, expectedRandomWalkState, stepRandomWalk } from '../../shared/random-walk';
-import { createDeterministicRandom } from '../../shared/random';
+import { applyRandomWalkDelta, canonicalRandomWalkState, cloneRandomWalkAgents, createRandomWalkTrace, traceExpectedRandomWalkState } from '../../shared/random-walk';
 import { createAgentScenario } from '../../shared/scenario';
 import { resolveRendererComparisonConfig, type RendererComparisonConfig } from './config';
 
@@ -16,9 +15,8 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
   supportedSuites: ['browser'],
   resolveConfig: resolveRendererComparisonConfig,
   createBrowserCase({ config }): BrowserBenchmarkCase {
-    const random = createDeterministicRandom(config.seed);
-    const agents = createRandomWalkAgents(config, random);
-    let tick = 0;
+    const trace = createRandomWalkTrace(config, config.traceFrames);
+    const agents = cloneRandomWalkAgents(trace.initial);
     return {
       case: {
         name: 'Random walk renderer comparison',
@@ -41,9 +39,10 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
           });
           return {
             kind: 'component',
-            tick() {
-              const changed = stepRandomWalk(agents, config, random, tick);
-              tick += 1;
+            tick(frameIndex) {
+              const changed = trace.frames[frameIndex];
+              if (!changed) throw new Error(`Renderer profile needs trace frame ${frameIndex}; increase traceFrames.`);
+              applyRandomWalkDelta(agents, changed);
               storage.updateAgents(changed.map(({ id, x, y }) => ({ id, x, y })));
             },
             destroy: mounted.destroy,
@@ -51,7 +50,7 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
         },
       },
       snapshot() { return canonicalRandomWalkState(agents); },
-      expectedState(totalFrames) { return expectedRandomWalkState(config, totalFrames); },
+      expectedState(totalFrames) { return traceExpectedRandomWalkState(trace, totalFrames); },
     };
   },
 };

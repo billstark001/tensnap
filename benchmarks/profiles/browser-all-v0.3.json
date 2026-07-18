@@ -10,8 +10,8 @@
   "validation": ["off", "error"],
   "workloads": [
     { "module": "../v0.3/random-walk/benchmark.ts", "config": { "agentCount": 1000, "changedAgents": 100, "seed": 20260712 } },
-    { "module": "../comparisons/random-walk/canvas2d.ts", "config": { "agentCount": 1000, "changedAgents": 1000, "seed": 20260712 } },
-    { "module": "../comparisons/random-walk/leafer.ts", "config": { "agentCount": 1000, "changedAgents": 1000, "seed": 20260712 } },
-    { "module": "../comparisons/random-walk/tensnap.ts", "config": { "agentCount": 1000, "changedAgents": 1000, "seed": 20260712 } }
+    { "module": "../comparisons/random-walk/canvas2d.ts", "config": { "agentCount": 1000, "changedAgents": 100, "seed": 20260712 } },
+    { "module": "../comparisons/random-walk/leafer.ts", "config": { "agentCount": 1000, "changedAgents": 100, "seed": 20260712 } },
+    { "module": "../comparisons/random-walk/tensnap.ts", "config": { "agentCount": 1000, "changedAgents": 100, "seed": 20260712 } }
   ]
 }

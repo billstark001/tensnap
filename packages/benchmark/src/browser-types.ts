@@ -63,4 +63,6 @@ export interface BrowserBenchmarkStats {
   timings: number[];
   /** Synchronous state mutation time before the browser render barrier. */
   mutationTimings?: number[];
+  /** Explicit timing boundaries; `cycle` must never be interpreted without them. */
+  stageTimings?: Record<string, number[]>;
 }

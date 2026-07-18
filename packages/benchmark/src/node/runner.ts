@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cpus, platform, release, totalmem, arch } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 import { once } from 'node:events';
 import WebSocket, { type RawData } from 'ws';
 import {
@@ -30,13 +31,24 @@ import type {
   BenchmarkWorkload,
   BrowserBenchmarkWorkload,
   DistributionSummary,
+  ExternalBenchmarkResult,
+  ExternalBrowserBenchmarkWorkload,
+  ExternalBrowserSpec,
+  ExternalCommand,
+  ExternalProcessBenchmarkWorkload,
   NodeBenchmarkWorkload,
+  PairedComparisonSummary,
   ProtocolBenchmarkWorkload,
 } from '../harness/types';
 
 const EMPTY_BYTES: BenchmarkWireBytes = { rendererToSimulator: 0, simulatorToRenderer: 0 };
+const benchmarkRequire = createRequire(import.meta.url);
 
 export interface ResolvedProfileWorkload {
+  id: string;
+  system: string;
+  warmupActions: number;
+  measuredActions: number;
   modulePath: string;
   workload: BenchmarkWorkload;
   config: BenchmarkConfig;
@@ -87,6 +99,27 @@ export function validateProfile(value: unknown): BenchmarkProfile {
   if (!Array.isArray(profile.workloads) || profile.workloads.length === 0 || profile.workloads.some((workload) => !workload.module)) {
     throw new Error('Benchmark profile requires at least one workload module.');
   }
+  for (const workload of profile.workloads) {
+    if (workload.warmupActions !== undefined) numberOption(workload.warmupActions, `workload ${workload.id ?? workload.module} warmupActions`, 0);
+    if (workload.measuredActions !== undefined) numberOption(workload.measuredActions, `workload ${workload.id ?? workload.module} measuredActions`, 1);
+  }
+  if (profile.processIsolation !== undefined && profile.processIsolation !== 'required' && profile.processIsolation !== 'off') {
+    throw new Error('processIsolation must be required or off.');
+  }
+  const ids = profile.workloads.map((workload) => workload.id).filter((id): id is string => Boolean(id));
+  if (new Set(ids).size !== ids.length) throw new Error('Benchmark workload ids must be unique.');
+  if (profile.comparisons !== undefined) {
+    if (!Array.isArray(profile.comparisons)) throw new Error('comparisons must be an array.');
+    const declared = new Set(ids);
+    for (const comparison of profile.comparisons) {
+      if (!comparison?.id || !comparison.baseline || !Array.isArray(comparison.treatments) || comparison.treatments.length === 0) {
+        throw new Error('Each comparison requires id, baseline, and treatments.');
+      }
+      if (!declared.has(comparison.baseline) || comparison.treatments.some((id: string) => !declared.has(id))) {
+        throw new Error(`Comparison ${comparison.id} refers to an undeclared workload id.`);
+      }
+    }
+  }
   return profile as BenchmarkProfile;
 }
 
@@ -95,17 +128,39 @@ export async function loadProfileWorkloads(profilePath: string, profile: Benchma
     const modulePath = path.resolve(path.dirname(profilePath), entry.module);
     const imported = await import(pathToFileURL(modulePath).href);
     const workload = (imported.default ?? imported.workload) as BenchmarkWorkload | undefined;
-    if (!workload || workload.schemaVersion !== 2 || !['protocol', 'node', 'browser'].includes(workload.kind)
+    if (!workload || workload.schemaVersion !== 2 || !['protocol', 'node', 'browser', 'external-process', 'external-browser'].includes(workload.kind)
       || !Array.isArray(workload.supportedSuites) || typeof workload.resolveConfig !== 'function') {
       throw new Error(`${modulePath} does not export a schema v2 benchmark workload.`);
     }
     const config = workload.resolveConfig(entry.config ?? {});
-    return { modulePath, workload, config };
+    const id = entry.id ?? `${workload.id}:${sha256(config).slice(0, 12)}`;
+    return {
+      id,
+      system: entry.system ?? workload.id,
+      warmupActions: entry.warmupActions ?? profile.warmupActions,
+      measuredActions: entry.measuredActions ?? profile.measuredActions,
+      modulePath,
+      workload,
+      config,
+    };
   }));
 }
 
 function nowMs(): number {
   return Number(process.hrtime.bigint()) / 1_000_000;
+}
+
+function processMeasurement(startedAt: number, isolated = false): BenchmarkReplicate['process'] {
+  const usage = process.resourceUsage();
+  // Node reports maxRSS in bytes on macOS and KiB on Linux/Windows.
+  const maxRssBytes = platform() === 'darwin' ? usage.maxRSS : usage.maxRSS * 1024;
+  return {
+    isolated,
+    wallMs: nowMs() - startedAt,
+    userCpuMs: usage.userCPUTime / 1_000,
+    systemCpuMs: usage.systemCPUTime / 1_000,
+    maxRssBytes,
+  };
 }
 
 function byteLength(payload: string | Uint8Array | ArrayBuffer): number {
@@ -195,6 +250,7 @@ async function runProtocolNodeReplicate(
   measuredActions: number,
   index: number,
 ): Promise<BenchmarkReplicate> {
+  const processStartedAt = nowMs();
   const validator = workload.createSemanticValidator(config);
   const counts = emptyCounts();
   const metrics = emptyMetrics();
@@ -232,11 +288,13 @@ async function runProtocolNodeReplicate(
     }
     return {
       index,
+      block: index,
       timingsMs,
       metrics,
       messageCounts: counts,
       wireBytes,
       correctness: assertProtocolCorrectness(workload, config, validator, totalActions),
+      process: processMeasurement(processStartedAt),
     };
   } finally {
     await session.close();
@@ -250,6 +308,7 @@ async function runLocalNodeReplicate(
   measuredActions: number,
   index: number,
 ): Promise<BenchmarkReplicate> {
+  const processStartedAt = nowMs();
   const benchmark = workload.createNodeCase(config);
   const timingsMs: number[] = [];
   const metrics = emptyMetrics();
@@ -268,11 +327,13 @@ async function runLocalNodeReplicate(
   if (stateHash !== expectedStateHash) throw new Error(`State hash mismatch: expected ${expectedStateHash}, received ${stateHash}.`);
   return {
     index,
+    block: index,
     timingsMs,
     metrics,
     messageCounts: {},
     wireBytes: { ...EMPTY_BYTES },
     correctness: { valid: true, actionCount: totalActions, stateHash, expectedStateHash },
+    process: processMeasurement(processStartedAt),
   };
 }
 
@@ -302,6 +363,8 @@ interface BrowserServer {
   pageUrl: string;
   close(): Promise<void>;
 }
+
+let browserBundleConfig: string | undefined;
 
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
@@ -334,13 +397,21 @@ async function closeSocket(socket: WebSocket): Promise<void> {
 
 async function startBrowserServer(repositoryRoot: string): Promise<BrowserServer> {
   const configFile = path.join(repositoryRoot, 'packages/benchmark/vite.config.ts');
-  const { build, preview } = await import('vite');
-  await build({ configFile, logLevel: 'error' });
+  const { preview } = await import('vite');
+  // Calling Vite's programmatic build API from TSX fails to resolve Vite's own
+  // modulepreload entry under Rolldown. The CLI is the production build path
+  // used by CI as well, so invoke it once and then serve its immutable output.
+  if (browserBundleConfig !== configFile) {
+    const viteEntry = path.resolve(path.dirname(benchmarkRequire.resolve('vite')), '..', '..', 'bin', 'vite.js');
+    await executeCommand({ executable: process.execPath, args: [viteEntry, 'build', '--config', configFile, '--logLevel', 'error'], cwd: path.dirname(configFile), timeoutMs: 120_000 });
+    browserBundleConfig = configFile;
+  }
   const server = await preview({
     configFile,
     preview: { host: '127.0.0.1', port: 0, open: false },
     logLevel: 'error',
   });
+  if (server.httpServer && !server.httpServer.listening) await once(server.httpServer, 'listening');
   const pageUrl = server.resolvedUrls?.local[0];
   if (!pageUrl) {
     await server.close();
@@ -358,6 +429,7 @@ async function runWsReplicate(
   measuredActions: number,
   index: number,
 ): Promise<BenchmarkReplicate> {
+  const processStartedAt = nowMs();
   const validator = workload.createSemanticValidator(config);
   const counts = emptyCounts();
   const metrics = emptyMetrics();
@@ -430,11 +502,13 @@ async function runWsReplicate(
     }
     return {
       index,
+      block: index,
       timingsMs,
       metrics,
       messageCounts: counts,
       wireBytes,
       correctness: assertProtocolCorrectness(workload, config, validator, totalActions),
+      process: processMeasurement(processStartedAt),
     };
   } finally {
     if (socket) await closeSocket(socket);
@@ -476,7 +550,7 @@ function bootstrapMedianCi(values: readonly number[]): [number, number] {
   return [percentile(medians, 0.025), percentile(medians, 0.975)];
 }
 
-function summarize(values: readonly number[]): DistributionSummary {
+function summarize(values: readonly number[], independentReplicates: readonly number[] = values): DistributionSummary {
   const sorted = [...values].sort((left, right) => left - right);
   const center = median(sorted);
   return {
@@ -485,7 +559,7 @@ function summarize(values: readonly number[]): DistributionSummary {
     medianMs: center,
     p95Ms: percentile(sorted, 0.95),
     madMs: median(sorted.map((value) => Math.abs(value - center))),
-    bootstrapMedianCi95Ms: bootstrapMedianCi(values),
+    bootstrapMedianCi95Ms: bootstrapMedianCi(independentReplicates),
   };
 }
 
@@ -499,18 +573,34 @@ function sumCounts(samples: readonly BenchmarkReplicate[]): Record<string, numbe
 
 function summarizeMetrics(samples: readonly BenchmarkReplicate[]): Record<string, DistributionSummary> {
   const values: Record<string, number[]> = {};
+  const replicateMedians: Record<string, number[]> = {};
   for (const sample of samples) {
-    for (const [name, series] of Object.entries(sample.metrics)) (values[name] ??= []).push(...series);
+    for (const [name, series] of Object.entries(sample.metrics)) {
+      (values[name] ??= []).push(...series);
+      (replicateMedians[name] ??= []).push(median(series));
+    }
   }
-  return Object.fromEntries(Object.entries(values).map(([name, series]) => [name, summarize(series)]));
+  return Object.fromEntries(Object.entries(values).map(([name, series]) => [name, summarize(series, replicateMedians[name] ?? [])]));
+}
+
+function summarizeStages(samples: readonly BenchmarkReplicate[]): Record<string, DistributionSummary> {
+  const values: Record<string, number[]> = {};
+  const replicateMedians: Record<string, number[]> = {};
+  for (const sample of samples) for (const [name, series] of Object.entries(sample.stagesMs ?? {})) {
+    (values[name] ??= []).push(...series);
+    (replicateMedians[name] ??= []).push(median(series));
+  }
+  return Object.fromEntries(Object.entries(values).map(([name, series]) => [name, summarize(series, replicateMedians[name] ?? [])]));
 }
 
 function summarizeRun(samples: readonly BenchmarkReplicate[]): BenchmarkRunSummary {
   const timings = samples.flatMap((sample) => sample.timingsMs);
+  const replicateMedians = samples.map((sample) => median(sample.timingsMs));
   return {
-    cycle: summarize(timings),
-    replicateMediansMs: samples.map((sample) => median(sample.timingsMs)),
+    cycle: summarize(timings, replicateMedians),
+    replicateMediansMs: replicateMedians,
     metrics: summarizeMetrics(samples),
+    stages: summarizeStages(samples),
     wireBytes: samples.reduce<BenchmarkWireBytes>((total, sample) => ({
       rendererToSimulator: total.rendererToSimulator + sample.wireBytes.rendererToSimulator,
       simulatorToRenderer: total.simulatorToRenderer + sample.wireBytes.simulatorToRenderer,
@@ -529,6 +619,7 @@ async function runProtocolBrowserReplicate(
   measuredActions: number,
   index: number,
 ): Promise<{ sample: BenchmarkReplicate; browserVersion: string }> {
+  const processStartedAt = nowMs();
   const validator = workload.createSemanticValidator(config);
   const counts = emptyCounts();
   const simulatorErrors: unknown[] = [];
@@ -583,7 +674,7 @@ async function runProtocolBrowserReplicate(
         warmupActions,
         measuredActions,
       });
-      await page.goto(new URL('browser-runner.html', browserServer.pageUrl).href, { waitUntil: 'domcontentloaded' });
+      await gotoWhenReady(page, new URL('browser-runner.html', browserServer.pageUrl).href, '#benchmark-root', 30_000);
       try {
         await page.waitForFunction(
           () => window.__TENSNAP_BENCHMARK_RESULT__ !== undefined,
@@ -602,7 +693,7 @@ async function runProtocolBrowserReplicate(
       const result = await page.evaluate(() => window.__TENSNAP_BENCHMARK_RESULT__) as {
         ok: boolean;
         error?: string;
-        stats?: { timings: number[]; mutationTimings?: number[]; completedFrames: number; measuredFrames: number; stopReason: string };
+        stats?: { timings: number[]; mutationTimings?: number[]; stageTimings?: Record<string, number[]>; completedFrames: number; measuredFrames: number; stopReason: string };
       };
       if (!result.ok || !result.stats) throw new Error(result.error ?? 'Browser benchmark did not return stats.');
       if (observerError) throw observerError;
@@ -616,11 +707,14 @@ async function runProtocolBrowserReplicate(
         browserVersion: browser.version(),
         sample: {
           index,
+          block: index,
           timingsMs: result.stats.timings,
           metrics: result.stats.mutationTimings ? { browserMutationMs: result.stats.mutationTimings } : {},
           messageCounts: counts,
           wireBytes,
           correctness,
+          process: processMeasurement(processStartedAt, true),
+          ...(result.stats.stageTimings ? { stagesMs: result.stats.stageTimings } : {}),
         },
       };
     } finally {
@@ -639,6 +733,7 @@ async function runBrowserWorkloadReplicate(
   measuredActions: number,
   index: number,
 ): Promise<{ sample: BenchmarkReplicate; browserVersion: string }> {
+  const processStartedAt = nowMs();
   const { chromium } = await import('playwright');
   let browser;
   try {
@@ -658,7 +753,7 @@ async function runBrowserWorkloadReplicate(
       warmupActions,
       measuredActions,
     });
-    await page.goto(new URL('browser-runner.html', browserServer.pageUrl).href, { waitUntil: 'domcontentloaded' });
+    await gotoWhenReady(page, new URL('browser-runner.html', browserServer.pageUrl).href, '#benchmark-root', 30_000);
     try {
       await page.waitForFunction(
         () => window.__TENSNAP_BENCHMARK_RESULT__ !== undefined,
@@ -673,7 +768,7 @@ async function runBrowserWorkloadReplicate(
       error?: string;
       snapshot?: unknown;
       expectedState?: unknown;
-      stats?: { timings: number[]; mutationTimings?: number[]; completedFrames: number; measuredFrames: number; stopReason: string };
+      stats?: { timings: number[]; mutationTimings?: number[]; stageTimings?: Record<string, number[]>; completedFrames: number; measuredFrames: number; stopReason: string };
     };
     if (!result.ok || !result.stats) throw new Error(result.error ?? `Browser workload ${workload.id} failed.`);
     const actionCount = warmupActions + measuredActions;
@@ -690,11 +785,14 @@ async function runBrowserWorkloadReplicate(
       browserVersion: browser.version(),
       sample: {
         index,
+        block: index,
         timingsMs: result.stats.timings,
         metrics: result.stats.mutationTimings ? { browserMutationMs: result.stats.mutationTimings } : {},
         messageCounts: {},
         wireBytes: { ...EMPTY_BYTES },
         correctness: { valid: true, actionCount, stateHash, expectedStateHash },
+        process: processMeasurement(processStartedAt, true),
+        ...(result.stats.stageTimings ? { stagesMs: result.stats.stageTimings } : {}),
       },
     };
   } finally {
@@ -702,63 +800,380 @@ async function runBrowserWorkloadReplicate(
   }
 }
 
-async function runSuite(
-  repositoryRoot: string,
-  suite: BenchmarkSuite,
-  resolved: ResolvedProfileWorkload,
-  encoding: ProtocolEncoding | undefined,
-  validation: ProtocolValidationLevel | undefined,
-  profile: BenchmarkProfile,
-): Promise<BenchmarkRun> {
-  if (!resolved.workload.supportedSuites.includes(suite)) {
-    throw new Error(`${resolved.workload.id} does not support the ${suite} suite.`);
+function flattenExternalSeries(value: number | readonly number[]): number[] {
+  return typeof value === 'number' ? [value] : [...value];
+}
+
+function externalResultSample(
+  result: ExternalBenchmarkResult,
+  index: number,
+  process: BenchmarkReplicate['process'],
+): BenchmarkReplicate {
+  if (result.schemaVersion !== 1 || !Array.isArray(result.timingsMs) || result.timingsMs.some((value) => !Number.isFinite(value))) {
+    throw new Error('External benchmark result must be schema-v1 JSON with finite timingsMs.');
   }
-  const samples: BenchmarkReplicate[] = [];
-  let browserVersion: string | undefined;
-  const browserServer = suite === 'browser' ? await startBrowserServer(repositoryRoot) : undefined;
-  try {
-    for (let index = 0; index < profile.repetitions; index += 1) {
-      if (suite === 'node') {
-        if (resolved.workload.kind === 'browser') throw new Error(`${resolved.workload.id} is browser-only.`);
-        samples.push(await runNodeReplicate(resolved.workload, resolved.config, encoding ?? 'json', validation ?? 'error', profile.warmupActions, profile.measuredActions, index));
-      } else if (suite === 'ws') {
-        if (resolved.workload.kind !== 'protocol' || !encoding || !validation) throw new Error(`${resolved.workload.id} has no WebSocket protocol path.`);
-        samples.push(await runWsReplicate(resolved.workload, resolved.config, encoding, validation, profile.warmupActions, profile.measuredActions, index));
-      } else {
-        if (resolved.workload.kind === 'node') throw new Error(`${resolved.workload.id} is node-only.`);
-        const result = resolved.workload.kind === 'protocol'
-          ? await runProtocolBrowserReplicate(browserServer!, resolved.workload, resolved.config, encoding ?? 'json', validation ?? 'error', profile.warmupActions, profile.measuredActions, index)
-          : await runBrowserWorkloadReplicate(browserServer!, resolved.workload, resolved.config, profile.warmupActions, profile.measuredActions, index);
-        browserVersion = result.browserVersion;
-        samples.push(result.sample);
-      }
-    }
-  } finally {
-    await browserServer?.close();
-  }
+  const state = result.correctness?.state ?? result.state ?? null;
+  const expectedState = result.correctness?.expectedState ?? result.expectedState ?? state;
+  const stateHash = sha256(state);
+  const expectedStateHash = sha256(expectedState);
+  const valid = result.correctness?.valid ?? stateHash === expectedStateHash;
+  if (!valid || stateHash !== expectedStateHash) throw new Error('External benchmark reported a semantic mismatch.');
+  const metrics: Record<string, number[]> = {};
+  for (const [name, value] of Object.entries(result.metrics ?? {})) metrics[name] = flattenExternalSeries(value);
+  const stages: Record<string, number[]> = {};
+  for (const [name, value] of Object.entries(result.stagesMs ?? {})) stages[name] = flattenExternalSeries(value);
   return {
-    suite,
-    workload: {
-      id: resolved.workload.id,
-      version: resolved.workload.version,
-      kind: resolved.workload.kind,
-      category: resolved.workload.category,
-      ...(resolved.workload.kind === 'protocol' ? { protocolVersion: resolved.workload.protocolVersion } : {}),
-      module: path.relative(repositoryRoot, resolved.modulePath),
-      config: resolved.config,
-      configHash: sha256(resolved.config),
+    index,
+    block: index,
+    timingsMs: [...result.timingsMs],
+    metrics,
+    messageCounts: {},
+    wireBytes: { ...EMPTY_BYTES },
+    correctness: {
+      valid: true,
+      actionCount: result.correctness?.actionCount ?? result.timingsMs.length,
+      stateHash,
+      expectedStateHash,
     },
-    execution: {
-      ...(resolved.workload.kind === 'protocol' && encoding && validation ? { encoding, validation } : {}),
-      warmupActions: profile.warmupActions,
-      measuredActions: profile.measuredActions,
-      repetitions: profile.repetitions,
-      processIsolated: false,
-      ...(browserVersion ? { browser: { name: 'chromium' as const, version: browserVersion, viewport: { width: 1280, height: 800, deviceScaleFactor: 1 }, headless: true as const } } : {}),
-    },
-    samples,
-    summary: summarizeRun(samples),
+    process,
+    ...(Object.keys(stages).length > 0 ? { stagesMs: stages } : {}),
+    ...(result.runtime ? { runtime: result.runtime } : {}),
   };
+}
+
+interface CommandOutput {
+  stdout: string;
+  stderr: string;
+  process: BenchmarkReplicate['process'];
+}
+
+async function executeCommand(command: ExternalCommand): Promise<CommandOutput> {
+  const startedAt = nowMs();
+  const child = spawn(command.executable, [...command.args], {
+    cwd: command.cwd,
+    env: { ...process.env, ...command.env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (data: string) => { stdout += data; });
+  child.stderr.on('data', (data: string) => { stderr += data; });
+  const timeoutMs = command.timeoutMs ?? 120_000;
+  const status = await withTimeout(new Promise<number | null>((resolvePromise, reject) => {
+    child.once('error', reject);
+    child.once('close', resolvePromise);
+  }), `${command.executable} external benchmark`, timeoutMs).catch(async (error) => {
+    child.kill('SIGTERM');
+    throw error;
+  });
+  if (status !== 0) {
+    throw new Error(`External benchmark ${command.executable} exited ${status}.\n${stderr.slice(-4_000)}`);
+  }
+  return { stdout, stderr, process: processMeasurement(startedAt, true) };
+}
+
+function parseExternalResult(stdout: string): ExternalBenchmarkResult {
+  for (const line of stdout.split(/\r?\n/).reverse()) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{')) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as ExternalBenchmarkResult;
+      if (parsed.schemaVersion === 1) return parsed;
+    } catch {
+      // Other framework output is allowed; only the final schema-v1 JSON line matters.
+    }
+  }
+  throw new Error(`External benchmark did not emit a schema-v1 JSON result.\n${stdout.slice(-4_000)}`);
+}
+
+async function runExternalProcessReplicate(
+  repositoryRoot: string,
+  workload: ExternalProcessBenchmarkWorkload,
+  config: BenchmarkConfig,
+  warmupActions: number,
+  measuredActions: number,
+  index: number,
+): Promise<BenchmarkReplicate> {
+  const command = workload.createExternalCommand(config, { repositoryRoot, replicate: index, warmupActions, measuredActions });
+  const output = await executeCommand(command);
+  const result = parseExternalResult(output.stdout);
+  workload.validateExternalResult?.(config, result, { repositoryRoot, replicate: index, warmupActions, measuredActions });
+  return externalResultSample(result, index, output.process);
+}
+
+interface StartedExternalServer {
+  readonly process: ReturnType<typeof spawn>;
+  readonly stderr: () => string;
+  stop(): Promise<void>;
+}
+
+function startExternalServer(command: ExternalCommand): StartedExternalServer {
+  let stderr = '';
+  const child = spawn(command.executable, [...command.args], {
+    cwd: command.cwd,
+    env: { ...process.env, ...command.env },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (data: string) => { stderr += data; });
+  return {
+    process: child,
+    stderr: () => stderr,
+    async stop() {
+      if (child.exitCode !== null) return;
+      child.kill('SIGTERM');
+      await withTimeout(once(child, 'close').then(() => undefined), `External server ${command.executable} shutdown`, 10_000)
+        .catch(() => child.kill('SIGKILL'));
+    },
+  };
+}
+
+function sha256Bytes(value: Uint8Array): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function waitForWebSocketEndpoint(endpoint: string, timeoutMs: number): Promise<void> {
+  const deadline = nowMs() + timeoutMs;
+  let lastError = 'not attempted';
+  while (nowMs() < deadline) {
+    try {
+      const socket = new WebSocket(endpoint);
+      await withTimeout(new Promise<void>((resolvePromise, reject) => {
+        socket.once('open', resolvePromise);
+        socket.once('error', reject);
+      }), `External simulator ${endpoint} readiness`, Math.min(2_000, Math.max(250, deadline - nowMs())));
+      await closeSocket(socket);
+      return;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 150));
+    }
+  }
+  throw new Error(`External simulator ${endpoint} did not become ready: ${lastError}`);
+}
+
+async function gotoWhenReady(page: import('playwright').Page, url: string, selector: string, timeoutMs: number): Promise<void> {
+  const deadline = nowMs() + timeoutMs;
+  let lastError = 'not attempted';
+  while (nowMs() < deadline) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: Math.min(10_000, Math.max(500, deadline - nowMs())) });
+      await page.waitForSelector(selector, { timeout: Math.min(10_000, Math.max(500, deadline - nowMs())) });
+      return;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 150));
+    }
+  }
+  throw new Error(`External browser page ${url} did not become ready: ${lastError}`);
+}
+
+async function runExternalBrowserReplicate(
+  repositoryRoot: string,
+  workload: ExternalBrowserBenchmarkWorkload,
+  config: BenchmarkConfig,
+  warmupActions: number,
+  measuredActions: number,
+  index: number,
+): Promise<{ sample: BenchmarkReplicate; browserVersion: string }> {
+  const startedAt = nowMs();
+  const spec: ExternalBrowserSpec = workload.createExternalBrowserSpec(config, { repositoryRoot, replicate: index, warmupActions, measuredActions });
+  const server = startExternalServer(spec.server);
+  try {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+      const page = await context.newPage();
+      if (spec.tensnapHarness) {
+        await waitForWebSocketEndpoint(spec.tensnapHarness.endpoint, spec.server.timeoutMs ?? 120_000);
+        const browserServer = await startBrowserServer(repositoryRoot);
+        try {
+          await page.addInitScript((request) => { window.__TENSNAP_BENCHMARK_REQUEST__ = request; }, {
+            workloadId: spec.tensnapHarness.workloadId,
+            config: spec.tensnapHarness.config,
+            endpoint: spec.tensnapHarness.endpoint,
+            encoding: spec.tensnapHarness.encoding,
+            validation: spec.tensnapHarness.validation,
+            warmupActions,
+            measuredActions,
+          });
+          await page.goto(new URL('browser-runner.html', browserServer.pageUrl).href, { waitUntil: 'domcontentloaded' });
+          await page.waitForFunction(() => window.__TENSNAP_BENCHMARK_RESULT__ !== undefined, undefined, {
+            timeout: spec.server.timeoutMs ?? 120_000,
+          });
+          const result = await page.evaluate(() => window.__TENSNAP_BENCHMARK_RESULT__) as {
+            ok: boolean;
+            error?: string;
+            stats?: { timings: number[]; mutationTimings?: number[]; stageTimings?: Record<string, number[]>; completedFrames: number; measuredFrames: number; stopReason: string };
+          };
+          if (!result.ok || !result.stats) throw new Error(result.error ?? 'External TenSnap browser workload failed.');
+          const actionCount = warmupActions + measuredActions;
+          if (result.stats.completedFrames !== actionCount || result.stats.measuredFrames !== measuredActions) {
+            throw new Error(`External TenSnap browser completed ${result.stats.completedFrames}/${actionCount} actions.`);
+          }
+          const sample = externalResultSample({
+            schemaVersion: 1,
+            timingsMs: result.stats.timings,
+            metrics: { ...(result.stats.mutationTimings ? { browserMutationMs: result.stats.mutationTimings } : {}), actionToRunCompletionMs: result.stats.timings },
+            stagesMs: result.stats.stageTimings ?? { actionToRunCompletionMs: result.stats.timings },
+            correctness: { valid: true, actionCount, state: { actions: actionCount }, expectedState: { actions: actionCount } },
+          }, index, processMeasurement(startedAt, true));
+          return { browserVersion: browser.version(), sample };
+        } finally {
+          await browserServer.close();
+        }
+      }
+      await gotoWhenReady(page, spec.url, spec.readySelector, spec.server.timeoutMs ?? 120_000);
+      const checkpoints: Record<string, string> = {};
+      const inlinePngBase64: Record<string, string> = {};
+      const checkpoint = async (name: string) => {
+        const bytes = await page.screenshot({ type: 'png' });
+        const hash = sha256Bytes(bytes);
+        checkpoints[name] = hash;
+        inlinePngBase64[name] = Buffer.from(bytes).toString('base64');
+        const expected = spec.visualOracle?.referenceSha256?.[name];
+        if (expected && expected !== hash) throw new Error(`Visual oracle mismatch for ${name}: expected ${expected}, received ${hash}.`);
+      };
+      if (spec.visualOracle?.checkpointActions.includes(0)) await checkpoint('initial');
+      const timings: number[] = [];
+      const totalActions = warmupActions + measuredActions;
+      for (let action = 0; action < totalActions; action += 1) {
+        const before = sha256Bytes(await page.screenshot({ type: 'png' }));
+        const actionStarted = nowMs();
+        await page.locator(spec.action.selector).click();
+        const deadline = nowMs() + (spec.action.timeoutMs ?? 30_000);
+        let changed = false;
+        while (nowMs() < deadline) {
+          await page.evaluate(() => new Promise<void>((resolvePromise) => requestAnimationFrame(() => resolvePromise())));
+          if (sha256Bytes(await page.screenshot({ type: 'png' })) !== before) { changed = true; break; }
+        }
+        if (!changed) throw new Error(`External browser action ${action} did not reach a visual frame checkpoint.`);
+        if (action >= warmupActions) timings.push(nowMs() - actionStarted);
+        if (spec.visualOracle?.checkpointActions.includes(action + 1)) await checkpoint(`after-${action + 1}`);
+      }
+      await context.close();
+      const sample = externalResultSample({
+        schemaVersion: 1,
+        timingsMs: timings,
+        metrics: { actionToFrameMs: timings },
+        stagesMs: { actionToFrameMs: timings },
+        correctness: { valid: true, actionCount: totalActions, state: checkpoints, expectedState: checkpoints },
+      }, index, processMeasurement(startedAt, true));
+      return { browserVersion: browser.version(), sample: { ...sample, visual: { checkpoints, inlinePngBase64 } } };
+    } finally {
+      await browser.close();
+    }
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\nExternal server stderr:\n${server.stderr().slice(-4_000)}`);
+  } finally {
+    await server.stop();
+  }
+}
+
+export interface ReplicateRequest {
+  readonly repositoryRoot: string;
+  readonly modulePath: string;
+  readonly config: BenchmarkConfig;
+  readonly suite: BenchmarkSuite;
+  readonly encoding?: ProtocolEncoding;
+  readonly validation?: ProtocolValidationLevel;
+  readonly warmupActions: number;
+  readonly measuredActions: number;
+  readonly index: number;
+}
+
+/** Runs one replicate. Exported for the clean child-process entry point. */
+export async function runReplicateInCurrentProcess(request: ReplicateRequest): Promise<{ sample: BenchmarkReplicate; browserVersion?: string }> {
+  const imported = await import(pathToFileURL(request.modulePath).href);
+  const workload = (imported.default ?? imported.workload) as BenchmarkWorkload;
+  if (!workload || workload.schemaVersion !== 2) throw new Error(`${request.modulePath} is not a benchmark workload.`);
+  if (request.suite === 'node') {
+    if (workload.kind === 'external-process') {
+      return { sample: await runExternalProcessReplicate(request.repositoryRoot, workload, request.config, request.warmupActions, request.measuredActions, request.index) };
+    }
+    if (workload.kind === 'browser' || workload.kind === 'external-browser') throw new Error(`${workload.id} is browser-only.`);
+    return { sample: await runNodeReplicate(workload, request.config, request.encoding ?? 'json', request.validation ?? 'error', request.warmupActions, request.measuredActions, request.index) };
+  }
+  if (request.suite === 'ws') {
+    if (workload.kind !== 'protocol' || !request.encoding || !request.validation) throw new Error(`${workload.id} has no WebSocket protocol path.`);
+    return { sample: await runWsReplicate(workload, request.config, request.encoding, request.validation, request.warmupActions, request.measuredActions, request.index) };
+  }
+  if (workload.kind === 'external-browser') {
+    return runExternalBrowserReplicate(request.repositoryRoot, workload, request.config, request.warmupActions, request.measuredActions, request.index);
+  }
+  if (workload.kind === 'node' || workload.kind === 'external-process') throw new Error(`${workload.id} is node-only.`);
+  const browserServer = await startBrowserServer(request.repositoryRoot);
+  try {
+    return workload.kind === 'protocol'
+      ? await runProtocolBrowserReplicate(browserServer, workload, request.config, request.encoding ?? 'json', request.validation ?? 'error', request.warmupActions, request.measuredActions, request.index)
+      : await runBrowserWorkloadReplicate(browserServer, workload, request.config, request.warmupActions, request.measuredActions, request.index);
+  } finally {
+    await browserServer.close();
+  }
+}
+
+async function runIsolatedReplicate(request: ReplicateRequest): Promise<{ sample: BenchmarkReplicate; browserVersion?: string }> {
+  const childEntry = path.join(request.repositoryRoot, 'packages/benchmark/src/node/replicate-child.ts');
+  const tsxCli = benchmarkRequire.resolve('tsx/cli');
+  const child = spawn(process.execPath, [tsxCli, childEntry], { stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (data: string) => { stdout += data; });
+  child.stderr.on('data', (data: string) => { stderr += data; });
+  child.stdin.end(`${JSON.stringify(request)}\n`);
+  const status = await withTimeout(new Promise<number | null>((resolvePromise, reject) => {
+    child.once('error', reject);
+    child.once('close', resolvePromise);
+  }), `isolated benchmark replicate ${request.modulePath}`, 10 * 60_000).catch(async (error) => {
+    child.kill('SIGTERM');
+    throw error;
+  });
+  if (status !== 0) throw new Error(`Isolated replicate exited ${status}.\n${stderr.slice(-4_000)}`);
+  const payload = JSON.parse(stdout.trim()) as { sample: BenchmarkReplicate; browserVersion?: string };
+  return { ...payload, sample: { ...payload.sample, process: { ...payload.sample.process, isolated: true } } };
+}
+
+interface RunTarget {
+  readonly id: string;
+  readonly resolved: ResolvedProfileWorkload;
+  readonly suite: BenchmarkSuite;
+  readonly encoding?: ProtocolEncoding;
+  readonly validation?: ProtocolValidationLevel;
+  readonly samples: BenchmarkReplicate[];
+  browserVersion?: string;
+}
+
+function targetId(resolved: ResolvedProfileWorkload, suite: BenchmarkSuite, encoding?: ProtocolEncoding, validation?: ProtocolValidationLevel): string {
+  return [resolved.id, suite, encoding ?? '-', validation ?? '-'].join('|');
+}
+
+function createTargets(options: RunProfileOptions): RunTarget[] {
+  const targets: RunTarget[] = [];
+  for (const resolved of options.workloads) for (const suite of options.suites) {
+    if (!resolved.workload.supportedSuites.includes(suite)) continue;
+    if (resolved.workload.kind === 'protocol') {
+      for (const encoding of options.profile.encodings) for (const validation of options.profile.validation) {
+        targets.push({ id: targetId(resolved, suite, encoding, validation), resolved, suite, encoding, validation, samples: [] });
+      }
+    } else {
+      targets.push({ id: targetId(resolved, suite), resolved, suite, samples: [] });
+    }
+  }
+  return targets;
+}
+
+function shuffled<T>(values: readonly T[], random: () => number): T[] {
+  const result = [...values];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const replacement = Math.floor(random() * (index + 1));
+    [result[index], result[replacement]] = [result[replacement]!, result[index]!];
+  }
+  return result;
 }
 
 function git(repositoryRoot: string, args: string[]): string | null {
@@ -782,24 +1197,128 @@ export async function collectEnvironment(): Promise<BenchmarkEnvironment> {
   };
 }
 
+function buildRun(repositoryRoot: string, target: RunTarget, profile: BenchmarkProfile, processIsolated: boolean): BenchmarkRun {
+  const { resolved } = target;
+  return {
+    id: target.id,
+    profileWorkloadId: resolved.id,
+    system: resolved.system,
+    suite: target.suite,
+    workload: {
+      id: resolved.workload.id,
+      version: resolved.workload.version,
+      kind: resolved.workload.kind,
+      category: resolved.workload.category,
+      ...(resolved.workload.kind === 'protocol' ? { protocolVersion: resolved.workload.protocolVersion } : {}),
+      module: path.relative(repositoryRoot, resolved.modulePath),
+      config: resolved.config,
+      configHash: sha256(resolved.config),
+    },
+    execution: {
+      ...(resolved.workload.kind === 'protocol' && target.encoding && target.validation ? { encoding: target.encoding, validation: target.validation } : {}),
+      warmupActions: resolved.warmupActions,
+      measuredActions: resolved.measuredActions,
+      repetitions: profile.repetitions,
+      processIsolated,
+      ...(target.browserVersion ? { browser: { name: 'chromium' as const, version: target.browserVersion, viewport: { width: 1280, height: 800, deviceScaleFactor: 1 }, headless: true as const } } : {}),
+    },
+    samples: target.samples,
+    summary: summarizeRun(target.samples),
+  };
+}
+
+function comparisonSeed(value: string): number {
+  let result = 0x9e3779b9;
+  for (const character of value) result = Math.imul(result ^ character.charCodeAt(0), 0x85ebca6b);
+  return result >>> 0;
+}
+
+function pairedBootstrapMedianCi(values: readonly number[], seed: number): [number, number] {
+  if (values.length < 2) return [median(values), median(values)];
+  const random = seededRandom(seed);
+  const medians: number[] = [];
+  for (let iteration = 0; iteration < 10_000; iteration += 1) {
+    medians.push(median(Array.from({ length: values.length }, () => values[Math.floor(random() * values.length)]!)));
+  }
+  medians.sort((left, right) => left - right);
+  return [percentile(medians, 0.025), percentile(medians, 0.975)];
+}
+
+function pairedComparisons(profile: BenchmarkProfile, runs: readonly BenchmarkRun[]): PairedComparisonSummary[] {
+  const summaries: PairedComparisonSummary[] = [];
+  for (const comparison of profile.comparisons ?? []) for (const treatment of comparison.treatments) {
+    const baselineRuns = runs.filter((run) => run.id.startsWith(`${comparison.baseline}|`));
+    const treatmentRuns = runs.filter((run) => run.id.startsWith(`${treatment}|`));
+    for (const baseline of baselineRuns) {
+      const suffix = baseline.id.slice(comparison.baseline.length);
+      const matched = treatmentRuns.find((run) => run.id.slice(treatment.length) === suffix);
+      if (!matched) continue;
+      const baselineByBlock = new Map(baseline.samples.map((sample) => [sample.block, median(sample.timingsMs)]));
+      const pairs = matched.samples.flatMap((sample) => {
+        const baselineValue = baselineByBlock.get(sample.block);
+        const treatmentValue = median(sample.timingsMs);
+        return baselineValue === undefined || baselineValue <= 0 ? [] : [[baselineValue, treatmentValue] as const];
+      });
+      if (pairs.length === 0) continue;
+      const ratios = pairs.map(([base, value]) => value / base);
+      const differences = pairs.map(([base, value]) => value - base);
+      const id = `${comparison.id}:${baseline.suite}:${baseline.execution.encoding ?? '-'}:${baseline.execution.validation ?? '-'}`;
+      summaries.push({
+        id,
+        suite: baseline.suite,
+        baseline: comparison.baseline,
+        treatment,
+        pairs: pairs.length,
+        medianRatio: median(ratios),
+        bootstrapMedianRatioCi95: pairedBootstrapMedianCi(ratios, comparisonSeed(`${id}:${treatment}:ratio`)),
+        medianDifferenceMs: median(differences),
+        bootstrapMedianDifferenceCi95Ms: pairedBootstrapMedianCi(differences, comparisonSeed(`${id}:${treatment}:difference`)),
+      });
+    }
+  }
+  return summaries;
+}
+
 export async function runProfile(options: RunProfileOptions): Promise<BenchmarkArtifact> {
   const lockfilePath = path.join(options.repositoryRoot, 'pnpm-lock.yaml');
   const lockfileSha256 = await readFile(lockfilePath).then((contents) => createHash('sha256').update(contents).digest('hex')).catch(() => null);
   const packageJson = JSON.parse(await readFile(path.join(options.repositoryRoot, 'packages/benchmark/package.json'), 'utf8')) as { version: string };
-  const runs: BenchmarkRun[] = [];
-  for (const resolved of options.workloads) {
-    for (const suite of options.suites) {
-      if (!resolved.workload.supportedSuites.includes(suite)) continue;
-      if (resolved.workload.kind !== 'protocol') {
-        runs.push(await runSuite(options.repositoryRoot, suite, resolved, undefined, undefined, options.profile));
-        continue;
-      }
-      for (const encoding of options.profile.encodings) for (const validation of options.profile.validation) {
-        runs.push(await runSuite(options.repositoryRoot, suite, resolved, encoding, validation, options.profile));
-      }
+  const status = git(options.repositoryRoot, ['status', '--porcelain']);
+  if (options.profile.requireCleanGit && status !== '') {
+    throw new Error(`Submission profile ${options.profile.id} requires a clean git worktree.`);
+  }
+  const targets = createTargets(options);
+  if (targets.length === 0) throw new Error(`Profile ${options.profile.id} did not resolve any runnable workload/suite pairs.`);
+  const processIsolated = options.profile.processIsolation !== 'off';
+  const random = seededRandom(comparisonSeed(`${options.profile.id}:${sha256(options.profile)}`));
+  for (let block = 0; block < options.profile.repetitions; block += 1) {
+    const order = options.profile.randomizedBlocks === false ? [...targets] : shuffled(targets, random);
+    for (const target of order) {
+      const request: ReplicateRequest = {
+        repositoryRoot: options.repositoryRoot,
+        modulePath: target.resolved.modulePath,
+        config: target.resolved.config,
+        suite: target.suite,
+        ...(target.encoding ? { encoding: target.encoding } : {}),
+        ...(target.validation ? { validation: target.validation } : {}),
+        warmupActions: target.resolved.warmupActions,
+        measuredActions: target.resolved.measuredActions,
+        index: block,
+      };
+      // Browser replicates already create a fresh Chromium process, WebSocket host,
+      // and Vite preview server. Vite's programmatic preview intentionally ends a
+      // TSX child before it can flush stdout, so nesting it in another child would
+      // turn a valid browser run into an empty result. Node/WS still use a fresh
+      // harness process; browser isolation is the fresh browser/server pair.
+      const isolatedByBrowser = target.suite === 'browser';
+      const result = processIsolated && !isolatedByBrowser
+        ? await runIsolatedReplicate(request)
+        : await runReplicateInCurrentProcess(request);
+      target.samples.push({ ...result.sample, index: block, block, process: { ...result.sample.process, isolated: processIsolated || result.sample.process.isolated || isolatedByBrowser } });
+      target.browserVersion ??= result.browserVersion;
     }
   }
-  const status = git(options.repositoryRoot, ['status', '--porcelain']);
+  const runs = targets.map((target) => buildRun(options.repositoryRoot, target, options.profile, processIsolated));
   return {
     schemaVersion: 2,
     generatedAt: new Date().toISOString(),
@@ -808,6 +1327,12 @@ export async function runProfile(options: RunProfileOptions): Promise<BenchmarkA
     implementation: { gitSha: git(options.repositoryRoot, ['rev-parse', 'HEAD']), dirty: status === null ? null : status.length > 0, lockfileSha256 },
     environment: await collectEnvironment(),
     runs,
+    comparisons: pairedComparisons(options.profile, runs),
+    integrity: {
+      profileSha256: sha256(options.profile),
+      expectedRunIds: targets.map((target) => target.id).sort(),
+      samplesSha256: null,
+    },
   };
 }
 
@@ -819,18 +1344,28 @@ export function renderReport(artifact: BenchmarkArtifact): string {
   const rows = artifact.runs.map((run) => {
     const { cycle } = run.summary;
     const [lower, upper] = cycle.bootstrapMedianCi95Ms;
-    const metrics = Object.entries(run.summary.metrics).map(([name, summary]) => `${name}: ${markdownNumber(summary.medianMs)}`).join('<br>') || '-';
-    return `| ${run.suite} | ${run.workload.category} | ${run.workload.id} | ${run.execution.encoding ?? '-'} | ${run.execution.validation ?? '-'} | ${cycle.count} | ${markdownNumber(cycle.medianMs)} | ${markdownNumber(cycle.p95Ms)} | ${markdownNumber(lower)}–${markdownNumber(upper)} | ${metrics} | ${run.summary.wireBytes.rendererToSimulator} / ${run.summary.wireBytes.simulatorToRenderer} |`;
+    const metrics = [
+      ...Object.entries(run.summary.metrics).map(([name, summary]) => `${name}: ${markdownNumber(summary.medianMs)}`),
+      ...Object.entries(run.summary.stages).map(([name, summary]) => `${name}: ${markdownNumber(summary.medianMs)}`),
+    ].join('<br>') || '-';
+    return `| ${run.suite} | ${run.workload.category} | ${run.system ?? run.profileWorkloadId ?? run.workload.id} | ${run.execution.encoding ?? '-'} | ${run.execution.validation ?? '-'} | ${cycle.count} | ${markdownNumber(cycle.medianMs)} | ${markdownNumber(cycle.p95Ms)} | ${markdownNumber(lower)}–${markdownNumber(upper)} | ${metrics} | ${run.summary.wireBytes.rendererToSimulator} / ${run.summary.wireBytes.simulatorToRenderer} |`;
   }).join('\n');
-  return `# TenSnap reproducible benchmark\n\nGenerated: ${artifact.generatedAt}\n\n- Commit: ${artifact.implementation.gitSha ?? 'unavailable'}${artifact.implementation.dirty ? ' (dirty)' : ''}\n- Node: ${artifact.environment.node}; V8: ${artifact.environment.v8}\n- OS: ${artifact.environment.os} ${artifact.environment.release} (${artifact.environment.arch})\n- CPU: ${artifact.environment.cpu[0]?.model ?? 'unavailable'}\n\n| Suite | Category | Workload | Encoding | Validation | Samples | Median ms | P95 ms | Run-median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---:|---:|---:|---:|---|---:|\n${rows}\n\nRaw measurements are in \`samples.jsonl\`; \`manifest.json\` is the machine-readable experiment record.\n`;
+  const comparisons = artifact.comparisons.length === 0 ? '' : `\n## Paired comparisons\n\nRatios are treatment / baseline; values below 1 favour the treatment. Confidence intervals resample paired independent replicates, never individual steps.\n\n| Comparison | Suite | Baseline | Treatment | Pairs | Median ratio (95% CI) | Median difference ms (95% CI) |\n|---|---|---|---|---:|---:|---:|\n${artifact.comparisons.map((comparison) => `| ${comparison.id} | ${comparison.suite} | ${comparison.baseline} | ${comparison.treatment} | ${comparison.pairs} | ${markdownNumber(comparison.medianRatio)} (${markdownNumber(comparison.bootstrapMedianRatioCi95[0])}–${markdownNumber(comparison.bootstrapMedianRatioCi95[1])}) | ${markdownNumber(comparison.medianDifferenceMs)} (${markdownNumber(comparison.bootstrapMedianDifferenceCi95Ms[0])}–${markdownNumber(comparison.bootstrapMedianDifferenceCi95Ms[1])}) |`).join('\n')}\n`;
+  return `# TenSnap reproducible benchmark\n\nGenerated: ${artifact.generatedAt}\n\n- Commit: ${artifact.implementation.gitSha ?? 'unavailable'}${artifact.implementation.dirty ? ' (dirty)' : ''}\n- Node: ${artifact.environment.node}; V8: ${artifact.environment.v8}\n- OS: ${artifact.environment.os} ${artifact.environment.release} (${artifact.environment.arch})\n- CPU: ${artifact.environment.cpu[0]?.model ?? 'unavailable'}\n- Replicates: ${artifact.runs.every((run) => run.execution.processIsolated) ? 'fresh process per replicate' : 'in-process (not suitable for submission)'}\n\n| Suite | Category | Workload | Encoding | Validation | Samples | Median ms | P95 ms | Independent-replicate median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---:|---:|---:|---:|---|---:|\n${rows}${comparisons}\nRaw measurements are in \`samples.jsonl\`; \`manifest.json\` is the machine-readable experiment record.\n`;
 }
 
 export function verifyArtifact(artifact: BenchmarkArtifact): void {
   if (artifact.schemaVersion !== 2) throw new Error('Unsupported artifact schema version.');
   if (artifact.runs.length === 0) throw new Error('Artifact contains no benchmark runs.');
+  if (sha256(artifact.profile) !== artifact.integrity.profileSha256) throw new Error('Artifact profile hash does not match its manifest.');
+  const actualRunIds = artifact.runs.map((run) => run.id).sort();
+  const expectedRunIds = [...artifact.integrity.expectedRunIds].sort();
+  if (stableJson(actualRunIds) !== stableJson(expectedRunIds)) throw new Error('Artifact run matrix does not match the manifest plan.');
   for (const run of artifact.runs) {
     if (run.workload.kind === 'protocol' && run.workload.protocolVersion !== '0.3') throw new Error(`${run.workload.id} is not a v0.3 protocol workload.`);
     if (run.samples.length !== run.execution.repetitions) throw new Error(`${run.workload.id}/${run.suite} has an incomplete repetition set.`);
+    const blocks = new Set(run.samples.map((sample) => sample.block));
+    if (blocks.size !== run.execution.repetitions) throw new Error(`${run.workload.id}/${run.suite} has duplicate or missing replicate blocks.`);
     for (const sample of run.samples) {
       if (!sample.correctness.valid || sample.correctness.stateHash !== sample.correctness.expectedStateHash) {
         throw new Error(`${run.workload.id}/${run.suite} failed semantic verification.`);
@@ -838,20 +1373,73 @@ export function verifyArtifact(artifact: BenchmarkArtifact): void {
       if (sample.timingsMs.length !== run.execution.measuredActions) {
         throw new Error(`${run.workload.id}/${run.suite} has an incomplete timing series.`);
       }
+      if (run.execution.processIsolated && !sample.process.isolated) throw new Error(`${run.workload.id}/${run.suite} was not process isolated.`);
+    }
+  }
+}
+
+function serialiseSamples(artifact: BenchmarkArtifact): string {
+  return `${artifact.runs.flatMap((run) => run.samples.map((sample) => JSON.stringify({
+    runId: run.id,
+    suite: run.suite,
+    workload: run.workload,
+    execution: run.execution,
+    sample,
+  }))).join('\n')}\n`;
+}
+
+function contentSha256(value: string | Uint8Array): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+export async function verifyArtifactFiles(input: string, artifact?: BenchmarkArtifact): Promise<void> {
+  const manifestPath = input.endsWith('.json') ? input : path.join(input, 'manifest.json');
+  const directory = path.dirname(manifestPath);
+  const loaded = artifact ?? JSON.parse(await readFile(manifestPath, 'utf8')) as BenchmarkArtifact;
+  verifyArtifact(loaded);
+  if (!loaded.integrity.samplesSha256) throw new Error('Artifact manifest does not contain a samples.jsonl checksum.');
+  const samples = await readFile(path.join(directory, 'samples.jsonl'));
+  if (contentSha256(samples) !== loaded.integrity.samplesSha256) throw new Error('samples.jsonl checksum mismatch.');
+  if (samples.toString('utf8') !== serialiseSamples(loaded)) throw new Error('samples.jsonl rows do not exactly match manifest runs.');
+  for (const run of loaded.runs) for (const sample of run.samples) {
+    for (const [checkpoint, relativePath] of Object.entries(sample.visual?.files ?? {})) {
+      const bytes = await readFile(path.join(directory, relativePath));
+      const expected = sample.visual?.checkpoints[checkpoint];
+      if (!expected || sha256Bytes(bytes) !== expected) throw new Error(`Visual checkpoint ${checkpoint} does not match ${relativePath}.`);
     }
   }
 }
 
 export async function writeArtifact(outputDirectory: string, artifact: BenchmarkArtifact): Promise<void> {
-  verifyArtifact(artifact);
   await mkdir(outputDirectory, { recursive: true });
-  await writeFile(path.join(outputDirectory, 'manifest.json'), `${JSON.stringify(artifact, null, 2)}\n`);
-  const samples = artifact.runs.flatMap((run) => run.samples.map((sample) => JSON.stringify({
-    suite: run.suite,
-    workload: run.workload,
-    execution: run.execution,
-    sample,
-  }))).join('\n');
-  await writeFile(path.join(outputDirectory, 'samples.jsonl'), `${samples}\n`);
-  await writeFile(path.join(outputDirectory, 'report.md'), renderReport(artifact));
+  const runs = await Promise.all(artifact.runs.map(async (run) => ({
+    ...run,
+    samples: await Promise.all(run.samples.map(async (sample) => {
+      const inline = sample.visual?.inlinePngBase64;
+      if (!inline || Object.keys(inline).length === 0) return sample;
+      const visualDirectory = path.join(outputDirectory, 'screenshots');
+      await mkdir(visualDirectory, { recursive: true });
+      const files: Record<string, string> = {};
+      for (const [checkpoint, encoded] of Object.entries(inline)) {
+        const filename = `${sha256({ run: run.id, block: sample.block, checkpoint }).slice(0, 20)}.png`;
+        const relativePath = path.join('screenshots', filename);
+        await writeFile(path.join(outputDirectory, relativePath), Buffer.from(encoded, 'base64'));
+        files[checkpoint] = relativePath;
+      }
+      return {
+        ...sample,
+        visual: { checkpoints: sample.visual?.checkpoints ?? {}, ...(Object.keys(files).length > 0 ? { files } : {}) },
+      };
+    })),
+  })));
+  const sanitized: BenchmarkArtifact = { ...artifact, runs };
+  const samples = serialiseSamples(sanitized);
+  const persisted: BenchmarkArtifact = {
+    ...sanitized,
+    integrity: { ...sanitized.integrity, samplesSha256: contentSha256(samples) },
+  };
+  verifyArtifact(persisted);
+  await writeFile(path.join(outputDirectory, 'manifest.json'), `${JSON.stringify(persisted, null, 2)}\n`);
+  await writeFile(path.join(outputDirectory, 'samples.jsonl'), samples);
+  await writeFile(path.join(outputDirectory, 'report.md'), renderReport(persisted));
 }

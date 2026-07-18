@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 import time
 from pathlib import Path
 from statistics import mean
@@ -47,6 +49,7 @@ def run_trial(
     steps: int,
     density: float,
     balance: float,
+    mode: str,
 ) -> tuple[float, float, int, int, bool, int]:
     workspace.command(
         " ".join(
@@ -61,7 +64,7 @@ def run_trial(
     workspace.command("setup")
 
     started_ns = time.perf_counter_ns()
-    workspace.command(f"run-scientific-trial {steps}")
+    workspace.command(f"{'run-steady-trial' if mode == 'steady' else 'run-scientific-trial'} {steps}")
     elapsed_ns = time.perf_counter_ns() - started_ns
 
     steps_run = int(float(workspace.report("ticks")))
@@ -85,6 +88,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(Path(__file__).with_name("schelling.nlogox")),
         help="Path to schelling.nlogox.",
     )
+    parser.add_argument("--mode", choices=["steady", "convergence"], default="convergence")
+    parser.add_argument("--benchmark-json", action="store_true", help="Append one schema-v1 JSON result for the benchmark harness.")
     parser.add_argument(
         "--netlogo-home",
         default=None,
@@ -93,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--density", type=float, default=DEFAULT_DENSITY)
     parser.add_argument("--balance", type=float, default=DEFAULT_BALANCE)
     parser.add_argument("--steps", type=int, default=DEFAULT_SCIENTIFIC_STEPS)
+    parser.add_argument("--warmup-steps", type=int, default=0, help="Untimed steps on an independent setup before measurement.")
     parser.add_argument("--seeds", type=int, default=DEFAULT_SCIENTIFIC_SEEDS)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
@@ -107,6 +113,8 @@ def main() -> None:
     args = build_parser().parse_args()
     py_netlogo = import_pynetlogo()
     thresholds = parse_thresholds(args.thresholds)
+    if args.warmup_steps < 0:
+        raise SystemExit("--warmup-steps must be non-negative")
 
     link_kwargs = {"gui": False}
     if args.netlogo_home:
@@ -115,6 +123,8 @@ def main() -> None:
     workspace = py_netlogo.NetLogoLink(**link_kwargs)
     try:
         workspace.load_model(str(Path(args.model_path).resolve()))
+        if args.warmup_steps:
+            run_trial(workspace, threshold=thresholds[0], seed=args.seed, steps=args.warmup_steps, density=args.density, balance=args.balance, mode="steady")
         output_rows: list[str] = []
         total_ticks = 0
         total_elapsed_ns = 0
@@ -127,6 +137,7 @@ def main() -> None:
                     steps=args.steps,
                     density=args.density,
                     balance=args.balance,
+                    mode=args.mode,
                 )
                 for run in range(args.seeds)
             ]
@@ -154,6 +165,32 @@ def main() -> None:
     mspt = 0.0 if total_ticks == 0 else elapsed_ms / total_ticks
     print("performance_metric,total_ticks,elapsed_ms,tpms,mspt")
     print(f"performance,{total_ticks},{elapsed_ms:.3f},{tpms:.6f},{mspt:.6f}")
+    if args.benchmark_json:
+        satisfied = mean(float(row.split(",")[1]) for row in output_rows)
+        segregation = mean(float(row.split(",")[2]) for row in output_rows)
+        last_swapped = mean(float(row.split(",")[3]) for row in output_rows)
+        actual_steps = total_ticks / max(len(thresholds) * args.seeds, 1)
+        semantic_valid = (
+            0 <= satisfied <= 1
+            and 0 <= segregation <= 1
+            and 0 <= last_swapped <= 2500
+            and 1 <= actual_steps <= args.steps
+        )
+        print(json.dumps({
+            "schemaVersion": 1,
+            "timingsMs": [elapsed_ms],
+            "metrics": {"totalTicks": total_ticks, "elapsedMs": elapsed_ms, "msPerTick": mspt},
+            "state": {
+                "mode": args.mode,
+                "instrumentation": "none" if args.mode == "steady" else "scientific",
+                "satisfiedPct": satisfied,
+                "segregationIndex": segregation,
+                "lastSwapped": last_swapped,
+                "actualSteps": actual_steps,
+            },
+            "correctness": {"valid": semantic_valid, "actionCount": 1},
+            "runtime": {"python": sys.version.split()[0], "pynetlogo": getattr(py_netlogo, "__version__", "unknown")},
+        }, sort_keys=True))
 
 
 if __name__ == "__main__":

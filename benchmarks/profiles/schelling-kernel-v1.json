@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 2,
+  "id": "schelling-kernel-v1",
+  "description": "Distributional Schelling kernel case study. Each system executes the v1 steady-state specification in a fresh process; startup, JIT and model time remain separate measurements.",
+  "suites": ["node"],
+  "repetitions": 15,
+  "warmupActions": 0,
+  "measuredActions": 1,
+  "encodings": ["json"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "comparisons": [
+    { "id": "schelling-kernel", "baseline": "mesa", "treatments": ["go", "julia", "netlogo"] }
+  ],
+  "workloads": [
+    {
+      "id": "mesa",
+      "system": "Mesa (Python)",
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["schelling_standalone.py", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--instrumentation", "none", "--benchmark-json"],
+        "cwd": "examples/python_mesa",
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+      }
+    },
+    {
+      "id": "go",
+      "system": "Go reference implementation",
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "go",
+        "args": ["run", "./standalone", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
+        "cwd": "examples/go",
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/go/go.mod": "e756878bb3796cfc640d7a82e9f8b5cb42ea8749d153dbbfddfb9523d1d23358", "examples/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+      }
+    },
+    {
+      "id": "julia",
+      "system": "Agents.jl",
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "julia",
+        "args": ["--project=.", "schelling_standalone.jl", "--width=50", "--height=50", "--density=0.8", "--balance=0.5", "--thresholds=0.70", "--warmup-steps=25", "--steps=200", "--seeds=1", "--seed={seed}", "--mode=steady", "--benchmark-json=true"],
+        "cwd": "examples/julia",
+        "timeoutMs": 180000,
+        "environmentLocks": { "examples/julia/Manifest.toml": "8b3c49dc6a3c00daec28294b54af1c917b30bfbd6569969ebf14d66b4779689b" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+      }
+    },
+    {
+      "id": "netlogo",
+      "system": "NetLogo headless",
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["schelling_netlogo_standalone.py", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--density", "0.8", "--balance", "0.5", "--mode", "steady", "--benchmark-json"],
+        "cwd": "examples/python_mesa",
+        "timeoutMs": 180000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+      }
+    }
+  ]
+}

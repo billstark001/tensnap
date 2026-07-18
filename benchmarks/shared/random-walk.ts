@@ -17,6 +17,12 @@ export interface RandomWalkAgent {
   color: string;
 }
 
+/** A precomputed input trace. Generating model dynamics is never timed as renderer work. */
+export interface RandomWalkTrace {
+  readonly initial: readonly RandomWalkAgent[];
+  readonly frames: readonly (readonly RandomWalkAgent[])[];
+}
+
 export function createRandomWalkAgents(config: RandomWalkFixtureConfig, random = createDeterministicRandom(config.seed)): RandomWalkAgent[] {
   return Array.from({ length: config.agentCount }, (_, index) => ({
     id: `walker_${index}`,
@@ -42,6 +48,40 @@ export function stepRandomWalk(
     changed.push(agent);
   }
   return changed;
+}
+
+export function cloneRandomWalkAgents(agents: readonly RandomWalkAgent[]): RandomWalkAgent[] {
+  return agents.map((agent) => ({ ...agent }));
+}
+
+export function createRandomWalkTrace(config: RandomWalkFixtureConfig, frames: number): RandomWalkTrace {
+  if (!Number.isInteger(frames) || frames < 0) throw new Error('Random-walk trace frame count must be a non-negative integer.');
+  const random = createDeterministicRandom(config.seed);
+  const agents = createRandomWalkAgents(config, random);
+  const deltas: RandomWalkAgent[][] = [];
+  for (let tick = 0; tick < frames; tick += 1) {
+    // Deltas must not retain references to mutable simulation agents.
+    deltas.push(stepRandomWalk(agents, config, random, tick).map((agent) => ({ ...agent })));
+  }
+  // Regenerate the initial state so the precomputation itself cannot leak into a renderer.
+  return { initial: createRandomWalkAgents(config), frames: deltas };
+}
+
+export function applyRandomWalkDelta(agents: RandomWalkAgent[], delta: readonly RandomWalkAgent[]): void {
+  for (const update of delta) {
+    const index = Number(update.id.slice('walker_'.length));
+    const agent = agents[index];
+    if (!agent) throw new Error(`Random-walk delta refers to unknown agent ${update.id}.`);
+    agent.x = update.x;
+    agent.y = update.y;
+  }
+}
+
+export function traceExpectedRandomWalkState(trace: RandomWalkTrace, steps: number): { agents: Array<{ id: string; x: number; y: number }> } {
+  if (steps > trace.frames.length) throw new Error(`Trace has ${trace.frames.length} frames but ${steps} were requested.`);
+  const agents = cloneRandomWalkAgents(trace.initial);
+  for (let index = 0; index < steps; index += 1) applyRandomWalkDelta(agents, trace.frames[index]!);
+  return canonicalRandomWalkState(agents);
 }
 
 export function canonicalRandomWalkState(agents: readonly RandomWalkAgent[]): { agents: Array<{ id: string; x: number; y: number }> } {

@@ -47,6 +47,19 @@ end
 
 
 to advance
+	move-agents
+  update-stats
+  tick
+end
+
+
+to advance-kernel
+	move-agents
+  tick
+end
+
+
+to move-agents
   let unhappy patches with [
     group != 0 and not satisfied?
   ]
@@ -70,9 +83,6 @@ to advance
         set group 0
       ]
     ])
-
-  update-stats
-  tick
 end
 
 
@@ -83,6 +93,14 @@ to run-scientific-trial [max-steps]
       stop
     ]
   ]
+end
+
+
+to run-steady-trial [max-steps]
+  repeat max-steps [
+    advance-kernel
+  ]
+  update-stats
 end
 
 

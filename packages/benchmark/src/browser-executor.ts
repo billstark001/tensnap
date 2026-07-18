@@ -12,6 +12,7 @@ import type {
 interface TimingResult {
   timings: number[];
   mutationTimings?: number[];
+  stageTimings?: Record<string, number[]>;
   completedFrames: number;
   stopReason: string;
 }
@@ -58,7 +59,12 @@ async function measureModelRun(
       const status = (event as CustomEvent<RunStatus | null>).detail;
       if (!status || status.id !== mounted.session.run.status?.id || status.state === 'running' || status.inFlight) return;
       completeActiveCycle(performance.now());
-      settle({ timings, completedFrames: status.completedSteps, stopReason: status.stopReason ?? status.state });
+      settle({
+        timings,
+        stageTimings: { actionToRunCompletionMs: timings },
+        completedFrames: status.completedSteps,
+        stopReason: status.stopReason ?? status.state,
+      });
     }) as EventListener;
     mounted.session.addEventListener('outbound', onOutbound);
     mounted.session.addEventListener('run:status', onRunStatus);
@@ -107,7 +113,13 @@ async function measureComponentRun(
       mutationTimings.push(mutationElapsed);
     }
   }
-  return { timings, mutationTimings, completedFrames: totalFrames, stopReason: 'completed' };
+  return {
+    timings,
+    mutationTimings,
+    stageTimings: { rendererMutationMs: mutationTimings, actionToFrameMs: timings },
+    completedFrames: totalFrames,
+    stopReason: 'completed',
+  };
 }
 
 /** Execute a single browser workload through the production render path. */
@@ -138,6 +150,7 @@ export async function runBrowserBenchmark(
       stopReason: result.stopReason,
       timings: result.timings,
       ...(result.mutationTimings ? { mutationTimings: result.mutationTimings } : {}),
+      ...(result.stageTimings ? { stageTimings: result.stageTimings } : {}),
     };
   } finally {
     mounted.destroy();
