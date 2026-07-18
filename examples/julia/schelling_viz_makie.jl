@@ -11,6 +11,7 @@ function schelling_app()
 	gridwidth = parse_env(Int, "TENSNAP_SCHELLING_WIDTH", DEFAULT_GRID_W)
 	gridheight = parse_env(Int, "TENSNAP_SCHELLING_HEIGHT", DEFAULT_GRID_H)
 	density = parse_env(Float64, "TENSNAP_SCHELLING_DENSITY", DEFAULT_DENSITY)
+	balance = parse_env(Float64, "TENSNAP_SCHELLING_BALANCE", DEFAULT_BALANCE)
 	seed = parse_optional_env(Int, "TENSNAP_SCHELLING_SEED")
 	threshold = Observable(parse_env(Float64, "TENSNAP_SCHELLING_THRESHOLD", DEFAULT_SIMILARITY_THRESHOLD))
 	ticks_per_second = Observable(parse_env(Int, "BONITO_TICKS_PER_SECOND", 5))
@@ -20,6 +21,7 @@ function schelling_app()
 			gridwidth,
 			gridheight,
 			density,
+			balance,
 			similarity_threshold = threshold[],
 			seed,
 		),
@@ -99,6 +101,7 @@ function schelling_app()
 				gridwidth,
 				gridheight,
 				density,
+				balance,
 				similarity_threshold = threshold[],
 				seed,
 			)

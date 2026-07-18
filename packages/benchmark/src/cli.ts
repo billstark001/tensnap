@@ -83,7 +83,13 @@ async function main(): Promise<void> {
       if (!profile.suites.includes(suite)) throw new Error(`${suite} is not enabled by profile ${profile.id}.`);
     }
     const workloads = await loadProfileWorkloads(profilePath, profile);
-    const artifact = await runProfile({ repositoryRoot, profile, workloads, suites: selectedSuites });
+    const artifact = await runProfile({
+      repositoryRoot,
+      profile,
+      workloads,
+      suites: selectedSuites,
+      onProgress: (message) => process.stdout.write(`[benchmark] ${message}\n`),
+    });
     const outputDirectory = path.resolve(repositoryRoot, option(args, '--out') ?? defaultOutputDirectory(repositoryRoot));
     await writeArtifact(outputDirectory, artifact);
     process.stdout.write(`${outputDirectory}\n`);

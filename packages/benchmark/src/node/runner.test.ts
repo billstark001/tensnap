@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sha256, stableJson, validateProfile, verifyArtifact } from './runner';
+import { renderReport, sha256, stableJson, validateProfile, verifyArtifact } from './runner';
 import type { BenchmarkArtifact } from '../harness/types';
 
 describe('benchmark artifact schema v2', () => {
@@ -51,6 +51,31 @@ describe('benchmark artifact schema v2', () => {
       integrity: { profileSha256: sha256(profile), expectedRunIds: ['fixture|browser|-|-'], samplesSha256: null },
     };
     expect(() => verifyArtifact(artifact)).not.toThrow();
+
+    const withoutComparisons = renderReport(artifact);
+    expect(withoutComparisons).toContain('in-process (not suitable for submission)\n\n| Suite');
+    expect(withoutComparisons).toContain('| 0 / 0 |\n\nRaw measurements');
+    expect(withoutComparisons).not.toContain('\n\n\n');
+    expect(withoutComparisons.endsWith('\n')).toBe(true);
+
+    const withComparisons = renderReport({
+      ...artifact,
+      comparisons: [{
+        id: 'fixture:browser:-:-',
+        suite: 'browser',
+        baseline: 'baseline',
+        treatment: 'treatment',
+        pairs: 1,
+        medianRatio: 1,
+        bootstrapMedianRatioCi95: [1, 1],
+        medianDifferenceMs: 0,
+        bootstrapMedianDifferenceCi95Ms: [0, 0],
+      }],
+    });
+    expect(withComparisons).toContain('| 0 / 0 |\n\n## Paired comparisons');
+    expect(withComparisons).toContain('| 0.000 (0.000–0.000) |\n\nRaw measurements');
+    expect(withComparisons).not.toContain('\n\n\n');
+    expect(withComparisons.endsWith('\n')).toBe(true);
   });
 
   it('hashes object records independently of insertion order', () => {

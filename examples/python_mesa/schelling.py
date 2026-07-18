@@ -25,7 +25,7 @@ class SchellingAgent(CellAgent):
 
     def is_satisfied(self: SchellingAgent, threshold: float | None = None) -> bool:
         if threshold is None:
-            threshold = self.model.similarity_threshold
+            threshold = cast(float, self.model.similarity_threshold)
 
         same_group = 0
         occupied_neighbors = 0

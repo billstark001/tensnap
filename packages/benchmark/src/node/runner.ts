@@ -59,6 +59,8 @@ export interface RunProfileOptions {
   profile: BenchmarkProfile;
   workloads: readonly ResolvedProfileWorkload[];
   suites: readonly BenchmarkSuite[];
+  /** Optional CLI-facing progress reporter; omitted for programmatic callers. */
+  onProgress?: (message: string) => void;
 }
 
 export function stableJson(value: unknown): string {
@@ -1291,9 +1293,14 @@ export async function runProfile(options: RunProfileOptions): Promise<BenchmarkA
   if (targets.length === 0) throw new Error(`Profile ${options.profile.id} did not resolve any runnable workload/suite pairs.`);
   const processIsolated = options.profile.processIsolation !== 'off';
   const random = seededRandom(comparisonSeed(`${options.profile.id}:${sha256(options.profile)}`));
+  const totalReplicates = options.profile.repetitions * targets.length;
+  let completedReplicates = 0;
+  options.onProgress?.(`${options.profile.id}: ${options.profile.repetitions} block(s), ${targets.length} target(s), ${totalReplicates} replicate(s).`);
   for (let block = 0; block < options.profile.repetitions; block += 1) {
     const order = options.profile.randomizedBlocks === false ? [...targets] : shuffled(targets, random);
-    for (const target of order) {
+    for (const [targetIndex, target] of order.entries()) {
+      completedReplicates += 1;
+      options.onProgress?.(`${options.profile.id}: block ${block + 1}/${options.profile.repetitions}, target ${targetIndex + 1}/${order.length}, replicate ${completedReplicates}/${totalReplicates}: ${target.resolved.system} (${target.suite}).`);
       const request: ReplicateRequest = {
         repositoryRoot: options.repositoryRoot,
         modulePath: target.resolved.modulePath,
@@ -1318,6 +1325,7 @@ export async function runProfile(options: RunProfileOptions): Promise<BenchmarkA
       target.browserVersion ??= result.browserVersion;
     }
   }
+  options.onProgress?.(`${options.profile.id}: completed ${completedReplicates}/${totalReplicates} replicate(s).`);
   const runs = targets.map((target) => buildRun(options.repositoryRoot, target, options.profile, processIsolated));
   return {
     schemaVersion: 2,
@@ -1350,8 +1358,9 @@ export function renderReport(artifact: BenchmarkArtifact): string {
     ].join('<br>') || '-';
     return `| ${run.suite} | ${run.workload.category} | ${run.system ?? run.profileWorkloadId ?? run.workload.id} | ${run.execution.encoding ?? '-'} | ${run.execution.validation ?? '-'} | ${cycle.count} | ${markdownNumber(cycle.medianMs)} | ${markdownNumber(cycle.p95Ms)} | ${markdownNumber(lower)}–${markdownNumber(upper)} | ${metrics} | ${run.summary.wireBytes.rendererToSimulator} / ${run.summary.wireBytes.simulatorToRenderer} |`;
   }).join('\n');
-  const comparisons = artifact.comparisons.length === 0 ? '' : `\n## Paired comparisons\n\nRatios are treatment / baseline; values below 1 favour the treatment. Confidence intervals resample paired independent replicates, never individual steps.\n\n| Comparison | Suite | Baseline | Treatment | Pairs | Median ratio (95% CI) | Median difference ms (95% CI) |\n|---|---|---|---|---:|---:|---:|\n${artifact.comparisons.map((comparison) => `| ${comparison.id} | ${comparison.suite} | ${comparison.baseline} | ${comparison.treatment} | ${comparison.pairs} | ${markdownNumber(comparison.medianRatio)} (${markdownNumber(comparison.bootstrapMedianRatioCi95[0])}–${markdownNumber(comparison.bootstrapMedianRatioCi95[1])}) | ${markdownNumber(comparison.medianDifferenceMs)} (${markdownNumber(comparison.bootstrapMedianDifferenceCi95Ms[0])}–${markdownNumber(comparison.bootstrapMedianDifferenceCi95Ms[1])}) |`).join('\n')}\n`;
-  return `# TenSnap reproducible benchmark\n\nGenerated: ${artifact.generatedAt}\n\n- Commit: ${artifact.implementation.gitSha ?? 'unavailable'}${artifact.implementation.dirty ? ' (dirty)' : ''}\n- Node: ${artifact.environment.node}; V8: ${artifact.environment.v8}\n- OS: ${artifact.environment.os} ${artifact.environment.release} (${artifact.environment.arch})\n- CPU: ${artifact.environment.cpu[0]?.model ?? 'unavailable'}\n- Replicates: ${artifact.runs.every((run) => run.execution.processIsolated) ? 'fresh process per replicate' : 'in-process (not suitable for submission)'}\n\n| Suite | Category | Workload | Encoding | Validation | Samples | Median ms | P95 ms | Independent-replicate median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---:|---:|---:|---:|---|---:|\n${rows}${comparisons}\nRaw measurements are in \`samples.jsonl\`; \`manifest.json\` is the machine-readable experiment record.\n`;
+  const mainTable = `| Suite | Category | Workload | Encoding | Validation | Samples | Median ms | P95 ms | Independent-replicate median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---:|---:|---:|---:|---|---:|\n${rows}`;
+  const comparisons = artifact.comparisons.length === 0 ? '' : `## Paired comparisons\n\nRatios are treatment / baseline; values below 1 favour the treatment. Confidence intervals resample paired independent replicates, never individual steps.\n\n| Comparison | Suite | Baseline | Treatment | Pairs | Median ratio (95% CI) | Median difference ms (95% CI) |\n|---|---|---|---|---:|---:|---:|\n${artifact.comparisons.map((comparison) => `| ${comparison.id} | ${comparison.suite} | ${comparison.baseline} | ${comparison.treatment} | ${comparison.pairs} | ${markdownNumber(comparison.medianRatio)} (${markdownNumber(comparison.bootstrapMedianRatioCi95[0])}–${markdownNumber(comparison.bootstrapMedianRatioCi95[1])}) | ${markdownNumber(comparison.medianDifferenceMs)} (${markdownNumber(comparison.bootstrapMedianDifferenceCi95Ms[0])}–${markdownNumber(comparison.bootstrapMedianDifferenceCi95Ms[1])}) |`).join('\n')}\n\n`;
+  return `# TenSnap reproducible benchmark\n\nGenerated: ${artifact.generatedAt}\n\n- Commit: ${artifact.implementation.gitSha ?? 'unavailable'}${artifact.implementation.dirty ? ' (dirty)' : ''}\n- Node: ${artifact.environment.node}; V8: ${artifact.environment.v8}\n- OS: ${artifact.environment.os} ${artifact.environment.release} (${artifact.environment.arch})\n- CPU: ${artifact.environment.cpu[0]?.model ?? 'unavailable'}\n- Replicates: ${artifact.runs.every((run) => run.execution.processIsolated) ? 'fresh process per replicate' : 'in-process (not suitable for submission)'}\n\n${mainTable}\n\n${comparisons}Raw measurements are in \`samples.jsonl\`; \`manifest.json\` is the machine-readable experiment record.\n`;
 }
 
 export function verifyArtifact(artifact: BenchmarkArtifact): void {
