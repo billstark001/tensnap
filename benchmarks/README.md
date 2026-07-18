@@ -1,246 +1,253 @@
-# TenSnap benchmark workloads
+# TenSnap reproducible benchmarks
 
-`packages/benchmark` is an execution harness only. This directory owns the
-versioned benchmark models, deterministic fixtures, semantic contracts, and
-publication profiles. Every runnable case is a registered workload; there is
-no interactive benchmark page or unregistered browser case.
+`packages/benchmark` is the generic execution harness. This directory owns the
+versioned benchmark subjects, deterministic fixtures, semantic oracles,
+dependency locks, and publication profiles.
 
-## Run
+## Boundary between examples and benchmark subjects
+
+Files under `examples/` are user-facing examples. They contain the reusable
+scientific model, configuration and small study/server helpers, plus runnable
+teaching entry points. Useful capabilities such as Mesa data collection,
+deterministic seeds, standalone sweeps, JavaScript WebSocket hosting and full
+Go/Julia parameters remain available there. They do not emit benchmark JSON,
+expose hidden DOM revision/state signals, or own artifact validation.
+
+Benchmark-only code lives under
+[`schelling/v1/subjects`](schelling/v1/subjects). A subject may import a clean
+example's model API, but owns all of the following itself:
+
+- fixed profile/environment configuration and scientific-version assertions;
+- benchmark JSON adapters and process timing records;
+- browser revision and canonical-state signals;
+- benchmark-only framework setup and dependency locks;
+- semantic validation required by a publication profile.
+
+All Schelling subjects reuse their language's example model. Where useful they
+also reuse a study, TenSnap scenario/server, or native-UI constructor. The
+subject directories stay thin: Mesa canonical state is projected by the
+adapter and its revision uses the example's ordinary model tick; WGLMakie and
+Solara hidden DOM probes are attached only by benchmark wrappers. See
+[`schelling/v1/README.md`](schelling/v1/README.md) for the exact mapping.
+
+This gives each language three explicit layers:
+
+1. model/config/study code that is useful to learners and researchers;
+2. user-facing standalone or UI entry points;
+3. versioned publication adapters that translate a profile into the shared
+   code and add only harness output, signals and locks.
+
+### Why some example files are split
+
+This partial file split is a repository-level reuse trade-off, not additional
+boilerplate required by TenSnap or by the underlying ABM framework. In the
+Schelling examples, a `*_viz` launcher calls a reusable TenSnap server/scenario
+or native-UI factory because a benchmark subject needs the same binding and
+reset behavior. A `*_standalone` launcher calls a reusable `study` helper
+because the kernel subject needs the same trial loop and statistics. The thin
+launchers remain user-facing commands; the shared helpers prevent the example
+and publication harness from acquiring subtly different dynamics.
+
+A one-off application may keep these pieces in one file. Contributors should
+split them here only when both the teaching entry point and a benchmark adapter
+actually reuse the extracted behavior.
+
+The language implementations intentionally remain independent so they are
+readable examples and do not acquire a cross-language code generator. Within a
+language, model construction, trial loops and server/app setup should not be
+copied into benchmark subjects. Publication stability comes from the immutable
+source commit, profile hash, dependency locks and `SCHELLING_DYNAMICS_VERSION`
+(or its language equivalent), rather than from a second copy of each model.
+
+## Quick start
 
 ```bash
-# Quick protocol/codec/WS check
+# Protocol/codec/WebSocket smoke test.
 pnpm bench run --profile benchmarks/profiles/smoke.json
 
-# Install the pinned browser once, then execute every registered browser case.
+# Install the pinned browser once, then run all registered browser cases.
 pnpm bench:browser:install
 pnpm bench:browser:all
 
-# Submission suites
-pnpm bench run --profile benchmarks/profiles/tensnap-core-v0.3.json --out benchmark-results/core-v0.3
-pnpm bench run --profile benchmarks/profiles/paper-v0.3.json --out benchmark-results/paper-v0.3
+# Submission profiles require a clean commit and all declared suites.
+pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
+  --out benchmark-results/paper-v0.3
 pnpm bench verify --input benchmark-results/paper-v0.3
 pnpm bench report --input benchmark-results/paper-v0.3
-
-# Cross-system Schelling case studies (run only from a clean commit)
-# First activate the Python environment pinned in benchmarks/environments/.
-pnpm bench run --profile benchmarks/profiles/schelling-kernel-v1.json --out benchmark-results/schelling-kernel-v1
-pnpm bench run --profile benchmarks/profiles/schelling-ui-mesa-v1.json --out benchmark-results/schelling-ui-mesa-v1
-pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v1.json --out benchmark-results/schelling-ui-julia-v1
-pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v1.json --out benchmark-results/schelling-ui-go-v1
-pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v1.json --out benchmark-results/schelling-ui-js-v1
 ```
 
-Each run writes `manifest.json`, `samples.jsonl`, and `report.md`. The manifest
-records implementation and harness SHA, dirty state, lockfile hash, machine
-fingerprint, Chromium version, exact configuration, raw samples, wire bytes,
-auxiliary measurements, stage boundaries, runtime versions, and state hashes.
-`samples.jsonl` has a SHA-256 in the manifest; verification also regenerates
-every expected row from the manifest, so an incomplete matrix or modified raw
-file cannot pass. Do not use an artifact whose `verify` command fails.
+An output directory is published only after every planned run and replicate is
+present and verified. It is created through a staging directory and atomic
+rename, and an existing output directory is never overwritten.
 
-Submission profiles require a clean worktree, randomize system order within
-each replicate block, and use a fresh process for Node/WS conditions. Browser
-conditions create a fresh Chromium process, Vite preview server, and simulator
-session per replicate. This separates process startup/JIT resource data from
-the measured steady-state series.
+## Long runs: journal, resume, shard, and merge
 
-## Reproduce a submission benchmark
-
-Use a fresh checkout at the commit that you intend to report. The three
-Schelling profiles reject a dirty worktree, because an artifact without a
-unique implementation SHA is not submission evidence.
+Every completed replicate is appended immediately to a journal. A late crash
+therefore loses at most the active replicate, not the preceding hours of work.
+Resume checks the profile hash, implementation commit and dirty state,
+lockfile, complete execution-environment fingerprint, suite matrix, and run
+matrix before accepting existing samples.
 
 ```bash
-# JavaScript harness and the exact browser used by browser conditions.
+# Resume one interrupted full run.
+pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
+  --out benchmark-results/paper-v0.3 --resume
+
+# Run four deterministic block shards on the same locked execution host; each
+# writes a distinct journal.
+pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
+  --out benchmark-results/paper-v0.3 --shard 1/4
+pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
+  --out benchmark-results/paper-v0.3 --shard 2/4
+pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
+  --out benchmark-results/paper-v0.3 --shard 3/4
+pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
+  --out benchmark-results/paper-v0.3 --shard 4/4
+
+# Merge fails on duplicate samples or an incomplete profile matrix.
+pnpm bench merge --profile benchmarks/profiles/paper-v0.3.json \
+  --input benchmark-results/paper-v0.3.shard-1-of-4.journal.jsonl,benchmark-results/paper-v0.3.shard-2-of-4.journal.jsonl,benchmark-results/paper-v0.3.shard-3-of-4.journal.jsonl,benchmark-results/paper-v0.3.shard-4-of-4.journal.jsonl \
+  --out benchmark-results/paper-v0.3
+```
+
+`--block 1,5,9` is also available for explicit one-based block selection.
+`--block` and `--shard` are mutually exclusive. A submission profile cannot be
+run with a `--suite` subset; diagnostic profiles may opt into subsets. Use
+`--journal PATH` to override the deterministic journal name when an external
+job scheduler owns shard paths.
+
+## Artifact contents and verification
+
+A complete artifact contains:
+
+- `manifest.json`: profile, commit, environment, planned matrix, runs,
+  summaries, comparisons, and checksums;
+- `samples.jsonl`: append-independent raw replicate records;
+- `report.md`: a generated human-readable report;
+- `analysis/runs.csv` and `analysis/comparisons.csv`: publication tables;
+- `analysis/figure-data.json` and `analysis/primary-metrics.svg`: plot data and
+  a directly inspectable figure;
+- `screenshots/`, when a visual checkpoint is requested.
+
+`verify` checks the profile hash and complete run matrix, reconstructs the raw
+JSONL rows, summaries, and paired comparisons, enforces canonical-state
+equivalence groups, regenerates every report/analysis byte, and validates all
+declared SHA-256 checksums. Screenshots are audit evidence and are also hashed;
+they are not used as a substitute for semantic correctness.
+
+```bash
+pnpm bench verify --input benchmark-results/paper-v0.3
+
+# Rebuild analysis files only after manifest, samples, and screenshots pass
+# source verification; the regenerated bytes must match manifest checksums.
+pnpm bench analyze --input benchmark-results/paper-v0.3
+```
+
+Do not publish or interpret an artifact whose verification fails. Preserve the
+whole directory and its journal with the tagged source release.
+
+## UI correctness and timing boundary
+
+Every comparable Schelling UI exposes two independent, machine-readable
+signals: a monotonically increasing render revision and a canonical final
+agent state. Each measured action must advance the revision by exactly one.
+External UIs are timed from click dispatch until the declared revision appears
+and the following `requestAnimationFrame` callback runs. Frameworks may replace
+the signal node; the harness observes the document and re-resolves it.
+
+TenSnap conditions obtain their state from the production renderer's
+`Scenario.dump()` snapshot. Solara and WGLMakie expose the same canonical agent
+fields through hidden benchmark DOM nodes. The oracle validates population,
+unique IDs and positions, grid bounds, positive size, revision count, and
+population conservation. A profile `stateEquivalenceGroup` additionally
+requires byte-equivalent canonical hashes for the same seed and replicate
+block across native UI and TenSnap conditions.
+
+PNG capture happens after the timed action series. The shared primary UI metric
+is `actionToRenderCompleteMs`; old screenshot-polling and self-equality checks
+are not accepted as correctness evidence.
+
+## Reproducing a submission environment
+
+Use a fresh checkout at the commit being reported:
+
+```bash
 pnpm install --frozen-lockfile
 pnpm bench:browser:install
 
-# Mesa, Solara, PyNetLogo, and the direct dependencies of the checkout's
-# TenSnap Python binding. Keep this environment activated for every command
-# below; `python3` must resolve to this interpreter in child processes too.
 python3 -m venv .benchmark-venv
 .benchmark-venv/bin/pip install -r benchmarks/environments/python-mesa.requirements.lock
 export PATH="$PWD/.benchmark-venv/bin:$PATH"
-PYTHONPATH="$PWD/packages/tensnap-python" python -c 'import mesa, solara, tensnap; print(mesa.__version__, solara.__version__)'
+PYTHONPATH="$PWD/packages/tensnap-python" python -c \
+  'import mesa, solara, tensnap; print(mesa.__version__, solara.__version__)'
 
-# The Julia condition is locked by the committed Manifest, rather than the
-# user's global package depot. NetLogo 7.0.4 must be installed so PyNetLogo
-# can launch its headless workspace.
-julia --project=examples/julia -e 'using Agents, Bonito, TenSnap, WGLMakie; println(VERSION)'
-python -c 'import pyNetLogo; print("PyNetLogo ready")'
+julia --project=benchmarks/schelling/v1/environments/julia -e \
+  'using Agents, Bonito, TenSnap, WGLMakie; println(VERSION)'
 
-# Inspect this before executing a submission profile. It must print nothing.
+# Required only for the NetLogo kernel condition. Use NetLogo 7.0.4.
+python -c 'import pynetlogo; print(pynetlogo.__version__)'
+
+# Must print nothing before a submission run.
 git status --short
 ```
 
-If PyNetLogo cannot locate NetLogo, configure its installation according to
-your local PyNetLogo setup, then repeat the preflight command above. Do not
-silently replace the NetLogo condition with a different launcher or version;
-record and lock that change first.
+The Python lock includes Mesa/Solara and their required runtime dependencies.
+The Julia benchmark has a separate committed `Project.toml`/`Manifest.toml`;
+the example directory intentionally does not carry the publication lock. Each
+profile validates declared environment-lock hashes before launching a subject.
+If NetLogo needs a local installation path, configure it without changing the
+recorded version.
 
-Run each profile into a new output directory, then verify before examining or
-sharing the report:
+## Profiles and measured layers
 
-```bash
-pnpm bench run --profile benchmarks/profiles/schelling-kernel-v1.json --out benchmark-results/schelling-kernel-v1
-pnpm bench verify --input benchmark-results/schelling-kernel-v1
-pnpm bench report --input benchmark-results/schelling-kernel-v1
+`paper-v0.3` predeclares stable workload IDs, dimensions, feature levels, and a
+primary metric for every run. Its renderer comparisons use
+`browserMutationMs`, with Canvas as the baseline and direct Leafer/TenSnap as
+treatments for each agent-count/change-rate tuple. Protocol and core workloads
+remain separate from these renderer-only comparisons.
 
-pnpm bench run --profile benchmarks/profiles/schelling-ui-mesa-v1.json --out benchmark-results/schelling-ui-mesa-v1
-pnpm bench verify --input benchmark-results/schelling-ui-mesa-v1
-pnpm bench report --input benchmark-results/schelling-ui-mesa-v1
+The Schelling profiles separate model, framework UI, and TenSnap layers:
 
-pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v1.json --out benchmark-results/schelling-ui-julia-v1
-pnpm bench verify --input benchmark-results/schelling-ui-julia-v1
-pnpm bench report --input benchmark-results/schelling-ui-julia-v1
+- `schelling-kernel-v1`: Mesa, Go, Agents.jl, and descriptive NetLogo kernels;
+- `schelling-ui-mesa-v1`: Mesa kernel, Solara, and Mesa + TenSnap;
+- `schelling-ui-julia-v1`: Agents.jl kernel, WGLMakie, and Agents.jl + TenSnap;
+- `schelling-ui-go-v1`: Go kernel and Go + TenSnap;
+- `schelling-ui-js-v1`: JavaScript kernel and JavaScript + TenSnap.
 
-pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v1.json --out benchmark-results/schelling-ui-go-v1
-pnpm bench verify --input benchmark-results/schelling-ui-go-v1
-pnpm bench report --input benchmark-results/schelling-ui-go-v1
+Only conditions with the same declared `featureLevel`, dimensions, semantic
+contract, and primary metric belong in a paired comparison. NetLogo remains a
+descriptive kernel result because its statistics instrumentation differs.
 
-pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v1.json --out benchmark-results/schelling-ui-js-v1
-pnpm bench verify --input benchmark-results/schelling-ui-js-v1
-pnpm bench report --input benchmark-results/schelling-ui-js-v1
-```
+`browserOptions.renderTriggerMode` records scheduling policy. The default
+`requestAnimationFrame` mode represents presentable frame latency;
+`setTimeout` measures maximum-throughput scheduling as
+`actionToRunCompletionMs`, and `auto` uses production cadence selection. Only
+rAF runs use `actionToRenderCompleteMs` and enter native-UI render-completion
+comparisons; results from different modes are not the same metric.
 
-The profiles use 15 randomized, process-isolated replicate blocks. A trial
-with fewer repetitions is useful only to diagnose setup; it must not be used
-to report confidence intervals or comparative ratios. Preserve the complete
-output directory, including `samples.jsonl`, `manifest.json`, `report.md`, and
-any `screenshots/` files. If verification fails, discard that directory, fix
-the environment or implementation, commit the fix, and run a new profile.
+## Process and CPU measurements
 
-## Workload kinds
-
-`protocol` workloads are the actual TenSnap simulator contract. The v0.3
-random walk checks handshake and transactional synchronization, zero-delta
-steps, sparse update cardinality and fields, and final state. It runs through:
-
-- `node`: binding and independent JSON/MessagePack codec boundaries;
-- `ws`: a real loopback WebSocket with validated endpoints;
-- `browser`: production Vite output, pinned Chromium, production Web host, and
-  real WebSocket transport.
-
-`node` workloads isolate meaningful renderer-core operations without making
-them look like transport performance:
-
-- `core-trace`: sparse item updates, chart append, and structured monitor
-  replacement in `Scenario`;
-- `state-sync`: `RendererSession` staged replacement transaction and commit;
-- `snapshot-restore`: recording, archive encoding/decoding, and materialized
-  restore.
-
-All agent-bearing fixtures reject configurations above 10,000 agents.
-
-`browser` workloads are deterministic renderer experiments. The
-`browser-all-v0.3` profile runs every one by command line, including the
-production TenSnap renderer and the direct Canvas 2D and direct Leafer control
-implementations. They consume one pre-generated seeded delta trace; trace
-generation is outside the timed interval. Leafer and TenSnap receive precisely
-the same sparse changed-agent set, while Canvas redraws its required complete
-immediate-mode scene. They verify the final canonical state hash. Browser
-reports therefore contain explicitly named timing boundaries: renderer mutation,
-action-to-frame for component controls, and action-to-run-completion for the
-protocol host. Do not interpret a 60 Hz frame-bound `cycle` value as model or
-renderer time.
-
-## Interpreting comparisons
-
-The Canvas 2D and direct-Leafer workloads answer a narrow, reproducible
-question: what overhead does TenSnap add over the same state trace and drawing
-backend? They are renderer controls, not claims about a different ABM model.
-The protocol random-walk browser run separately reports complete user-visible
-TenSnap action-to-frame latency including binding, codec, WebSocket, and Web
-state application.
-
-Do not rank a separately implemented Mesa/Solara or NetLogo model beside these
-numbers as a renderer result. Such a study must be an additional system-level
-profile with a locked external environment, a canonical model specification,
-and per-step semantic invariants; it measures model runtime and UI together.
-
-## Schelling system profiles
-
-`schelling-kernel-v1` uses the distributional contract in
-[`schelling/specification-v1.json`](schelling/specification-v1.json): Mesa,
-Go, Agents.jl, and NetLogo use native RNGs, so equality of a numeric seed is
-not misrepresented as trajectory equality. Their adapters emit a final JSONL
-record containing bounded domain invariants, actual step count, elapsed model
-time, and interpreter/framework version. The profile separately warms dispatch
-on an independent model before the timed steady-state model.
-
-The four UI profiles deliberately keep comparison layers separate:
-
-- `schelling-ui-mesa-v1`: Mesa headless, Mesa + Solara, and Mesa + TenSnap
-  binding/Web host.
-- `schelling-ui-julia-v1`: Agents.jl headless, Agents.jl + WGLMakie, and
-  Agents.jl + TenSnap binding/Web host.
-- `schelling-ui-go-v1`: Go headless and Go + TenSnap binding/Web host.
-- `schelling-ui-js-v1`: JavaScript headless and JavaScript + TenSnap
-  binding/Web host.
-
-The Mesa/Solara benchmark invokes `solara run --no-open`; the harness-owned
-headless Chromium is the only browser it launches.
-
-Go and JavaScript do not currently have an independently hosted UI with the
-same functionality as Solara or WGLMakie, so their profiles intentionally do
-not manufacture a third system comparison. Their Web measurements use the same
-production TenSnap host, 50×50 agents/grid state, charts, deterministic seed,
-and action-completion boundary as the other TenSnap conditions.
-
-### Browser scheduling mode
-
-Every profile workload may set `browserOptions`. The default is deliberately
-frame-bound so historical `actionToRunCompletionMs` runs remain comparable:
-
-```json
-"browserOptions": { "renderTriggerMode": "requestAnimationFrame" }
-```
-
-For maximum-throughput measurements, use
-`"renderTriggerMode": "setTimeout"` (and leave `maxTps` and
-`maxRenderFps` at their default `0`). This bypasses the display-frame wait, so
-it measures action throughput rather than presentable frame latency. `auto` is
-also available for the production scheduler's cadence-based choice. The
-resolved settings are recorded in each browser run's manifest
-`execution.browser.runOptions`; do not compare results obtained with different
-scheduling modes as the same latency metric.
-
-Solara/WGLMakie values are click-to-first-changed-frame and write PNG screenshot
-checkpoints plus hashes; TenSnap values use the production Web host against the
-actual external simulator WebSocket. Only equal functionality levels belong in
-one comparison table.
-
-Recreate the Python environment before executing a profile:
-
-```bash
-python3 -m venv .benchmark-venv
-.benchmark-venv/bin/pip install -r benchmarks/environments/python-mesa.requirements.lock
-```
-
-The Mesa + TenSnap condition explicitly imports the checkout's
-`packages/tensnap-python` binding; the lock therefore also pins its direct
-runtime dependencies (`msgpack` and `typing_extensions`). Activate this venv
-before invoking `pnpm bench` so the browser server and headless adapters use
-the same interpreter.
-
-The Julia profile must use its resolved `examples/julia/Manifest.toml`, and the
-NetLogo profile records the local NetLogo/PyNetLogo runtime in each raw sample.
+Node and harness-owned browser process measurements use deltas between
+`process.resourceUsage()` snapshots; cumulative process totals are never
+written as one replicate's CPU cost. External command subjects run under
+`/usr/bin/time -p` on supported Unix hosts so CPU time describes the child
+command. For external browser servers, a portable process-tree CPU value is
+not available and the field is `null` rather than a misleading harness value.
+Latency is the primary publication measurement.
 
 ## Statistical inference
 
-The raw action timings remain available for distribution and tail summaries,
-but every median confidence interval resamples one median per independent
-replicate—not correlated individual steps. A profile can declare a baseline
-and treatments; the report then gives randomized-block paired median ratios
-and differences with paired bootstrap 95% intervals. Ratios below one favour
-the treatment. Never infer a framework result from an unpaired ordering or
-from flattened per-step samples.
+Profiles use 15 randomized, process-isolated replicate blocks. Confidence
+intervals resample one median per independent replicate, never correlated
+individual actions. Declared comparisons use randomized-block paired ratios
+and differences; ratios below one favour the treatment. Diagnostic runs with
+fewer blocks must not be presented as submission confidence intervals.
 
-## Extending the baseline
+## Adding a benchmark
 
-Add a versioned workload under `v0.3/` (or a future protocol directory) and
-register it in `registry.ts`. Choose `protocol`, `node`, or `browser` according
-to the path being measured. A protocol workload requires a semantic validator
-and independent expected state; every local/browser workload requires a
-deterministic state snapshot and expected state. Profiles, not harness code,
-select the cases to publish.
+Add a generally useful model/config/study API under `examples/`, a versioned
+subject adapter and independent oracle under `benchmarks/`, then register the
+workload in a profile. Declare its primary metric, feature level, dimensions,
+environment locks, and—where exact cross-condition equality is valid—a state
+equivalence group. Keep benchmark JSON, hidden DOM signals, profile environment
+parsing and artifact probes out of user entry points.

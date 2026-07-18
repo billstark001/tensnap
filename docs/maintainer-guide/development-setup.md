@@ -85,8 +85,11 @@ pnpm dev:py:flock      # Flocking behavior
 pnpm dev:py:hk         # Hegselmann-Krause opinion dynamics
 pnpm dev:py:sirs:grid  # SIRS epidemic on grid
 pnpm dev:py:cgol       # Conway's Game of Life (Mesa)
+pnpm dev:py:schelling  # Schelling segregation (Mesa + TenSnap)
+pnpm dev:py:schelling:solara # Schelling segregation (Mesa + Solara)
 pnpm dev:py:sugarscape # Sugarscape (Mesa)
 pnpm dev:py:mushroom   # Mushroom foraging (Mesa)
+pnpm standalone:py:schelling # Headless Schelling threshold sweep
 
 # Or run directly from examples directory
 cd examples/python
@@ -100,6 +103,7 @@ python cgol_viz.py
 
 ```bash
 pnpm dev:go:schelling
+pnpm standalone:go:schelling
 ```
 
 **JavaScript simulation examples:**
@@ -107,6 +111,7 @@ pnpm dev:go:schelling
 ```bash
 pnpm dev:js:schelling
 pnpm dev:js:wolf-sheep
+pnpm standalone:js:schelling
 ```
 
 **Julia simulation examples:**
@@ -114,6 +119,8 @@ pnpm dev:js:wolf-sheep
 ```bash
 pnpm run dev:julia:el-farol
 pnpm run dev:julia:schelling
+pnpm run dev:julia:schelling:makie
+pnpm run standalone:julia:schelling
 ```
 
 **Tauri desktop app:**
@@ -131,6 +138,7 @@ the corresponding `tauri-plugin-*` crates, run `cargo update` from
 
 ```
 tensnap/
+├── benchmarks/              # Versioned benchmark subjects, profiles, locks, and oracles
 ├── docs/                    # Documentation
 ├── examples/
 │   ├── js/                  # JavaScript examples and local simulator manifests
@@ -139,7 +147,7 @@ tensnap/
 │   ├── python/              # Python examples (non-Mesa)
 │   └── python_mesa/         # Python examples (Mesa-based)
 ├── packages/
-│   ├── benchmark/           # Benchmarks for render/runtime paths
+│   ├── benchmark/           # Generic reproducible benchmark execution harness
 │   ├── protocol/            # Protocol payload types, schemas, and codecs
 │   ├── core/                # Scenario, runtime, stores, and rendering primitives
 │   ├── tensnap-agent/       # Headless shared-session host and automation CLI
@@ -153,6 +161,13 @@ tensnap/
 │   └── web-common/          # Shared browser UI/types/helpers
 └── package.json             # Workspace root
 ```
+
+Some Schelling launchers are intentionally thin. Visualization commands
+delegate to reusable TenSnap/native-UI factories, and standalone commands
+delegate to reusable study helpers, so the user-facing examples and publication
+harness execute the same reset, trial, and projection behavior. This is a
+repository reuse boundary rather than required application structure; see the
+[benchmark ownership guide](../../benchmarks/README.md).
 
 ## Code Quality
 
