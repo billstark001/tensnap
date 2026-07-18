@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "id": "schelling-ui-mesa-v1",
-  "description": "Mesa/Schelling UI case study. The headless condition is a separate model baseline; the Solara condition is action-to-first-visibly-updated-frame with screenshot checkpoints.",
+  "description": "Mesa/Schelling UI case study. The headless condition is a separate model baseline; Solara measures action-to-first-visibly-updated-frame with screenshot checkpoints; TenSnap measures both rAF frame latency and timeout throughput.",
   "suites": ["node", "browser"],
   "repetitions": 15,
   "warmupActions": 5,
@@ -34,7 +34,7 @@
       "module": "../schelling/external-browser.ts",
       "config": {
         "executable": "solara",
-        "args": ["run", "schelling_viz_solara.py", "--host", "127.0.0.1", "--port", "8767"],
+        "args": ["run", "schelling_viz_solara.py", "--host", "127.0.0.1", "--port", "8767", "--no-open"],
         "cwd": "examples/python_mesa",
         "env": {
           "TENSNAP_SCHELLING_WIDTH": "50",
@@ -56,8 +56,42 @@
       }
     },
     {
-      "id": "mesa-tensnap-web",
-      "system": "Mesa + TenSnap binding + Web host (agents + summary)",
+      "id": "mesa-tensnap-web-raf",
+      "system": "Mesa + TenSnap binding + Web host (rAF frame latency)",
+      "browserOptions": {
+        "renderTriggerMode": "requestAnimationFrame"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["schelling_viz.py"],
+        "cwd": "examples/python_mesa",
+        "env": {
+          "PYTHONUNBUFFERED": "1",
+          "PYTHONPATH": "{repositoryRoot}/packages/tensnap-python",
+          "TENSNAP_USE_SOURCE": "1",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:8765",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "mesa-tensnap-web-timeout",
+      "system": "Mesa + TenSnap binding + Web host (timeout throughput)",
+      "browserOptions": {
+        "renderTriggerMode": "setTimeout"
+      },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "python3",

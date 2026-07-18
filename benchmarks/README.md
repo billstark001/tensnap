@@ -178,6 +178,9 @@ The four UI profiles deliberately keep comparison layers separate:
 - `schelling-ui-js-v1`: JavaScript headless and JavaScript + TenSnap
   binding/Web host.
 
+The Mesa/Solara benchmark invokes `solara run --no-open`; the harness-owned
+headless Chromium is the only browser it launches.
+
 Go and JavaScript do not currently have an independently hosted UI with the
 same functionality as Solara or WGLMakie, so their profiles intentionally do
 not manufacture a third system comparison. Their Web measurements use the same
