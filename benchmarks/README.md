@@ -26,6 +26,8 @@ pnpm bench report --input benchmark-results/paper-v0.3
 pnpm bench run --profile benchmarks/profiles/schelling-kernel-v1.json --out benchmark-results/schelling-kernel-v1
 pnpm bench run --profile benchmarks/profiles/schelling-ui-mesa-v1.json --out benchmark-results/schelling-ui-mesa-v1
 pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v1.json --out benchmark-results/schelling-ui-julia-v1
+pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v1.json --out benchmark-results/schelling-ui-go-v1
+pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v1.json --out benchmark-results/schelling-ui-js-v1
 ```
 
 Each run writes `manifest.json`, `samples.jsonl`, and `report.md`. The manifest
@@ -91,6 +93,14 @@ pnpm bench report --input benchmark-results/schelling-ui-mesa-v1
 pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v1.json --out benchmark-results/schelling-ui-julia-v1
 pnpm bench verify --input benchmark-results/schelling-ui-julia-v1
 pnpm bench report --input benchmark-results/schelling-ui-julia-v1
+
+pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v1.json --out benchmark-results/schelling-ui-go-v1
+pnpm bench verify --input benchmark-results/schelling-ui-go-v1
+pnpm bench report --input benchmark-results/schelling-ui-go-v1
+
+pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v1.json --out benchmark-results/schelling-ui-js-v1
+pnpm bench verify --input benchmark-results/schelling-ui-js-v1
+pnpm bench report --input benchmark-results/schelling-ui-js-v1
 ```
 
 The profiles use 15 randomized, process-isolated replicate blocks. A trial
@@ -158,12 +168,21 @@ record containing bounded domain invariants, actual step count, elapsed model
 time, and interpreter/framework version. The profile separately warms dispatch
 on an independent model before the timed steady-state model.
 
-The two UI profiles deliberately keep comparison layers separate:
+The four UI profiles deliberately keep comparison layers separate:
 
 - `schelling-ui-mesa-v1`: Mesa headless, Mesa + Solara, and Mesa + TenSnap
   binding/Web host.
 - `schelling-ui-julia-v1`: Agents.jl headless, Agents.jl + WGLMakie, and
   Agents.jl + TenSnap binding/Web host.
+- `schelling-ui-go-v1`: Go headless and Go + TenSnap binding/Web host.
+- `schelling-ui-js-v1`: JavaScript headless and JavaScript + TenSnap
+  binding/Web host.
+
+Go and JavaScript do not currently have an independently hosted UI with the
+same functionality as Solara or WGLMakie, so their profiles intentionally do
+not manufacture a third system comparison. Their Web measurements use the same
+production TenSnap host, 50×50 agents/grid state, charts, deterministic seed,
+and action-completion boundary as the other TenSnap conditions.
 
 Solara/WGLMakie values are click-to-first-changed-frame and write PNG screenshot
 checkpoints plus hashes; TenSnap values use the production Web host against the

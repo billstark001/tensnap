@@ -12,6 +12,13 @@ pnpm dev:go:schelling
 
 The server listens on `ws://localhost:8765`.
 
+The visualization accepts the same fixed model settings used by the UI
+benchmark. Each incoming renderer session receives a fresh seeded model:
+
+```bash
+go run ./schelling --width 50 --height 50 --density 0.8 --balance 0.5 --threshold 0.70 --seed 20260718 --port 8765
+```
+
 ## Schelling Standalone Scientific Task
 
 The standalone script runs the same heavy threshold-sweep task as the Python,

@@ -26,6 +26,8 @@ export interface SchellingConfig {
   similarityThreshold: number;
   density: number;
   balance: number;
+  /** Optional deterministic seed for reproducible runs. It is not a UI parameter. */
+  seed?: number;
 }
 
 interface Agent {
@@ -44,7 +46,9 @@ type AgentChange = {
 export type SchellingAgentUpdate = Pick<GridAgentState, 'id'> & Partial<Pick<GridAgentState, 'x' | 'y' | 'size'>>;
 
 export class SchellingModel {
-  private config: Required<SchellingConfig>;
+  private config: Required<Omit<SchellingConfig, 'seed'>>;
+  private readonly seed: number | undefined;
+  private random: () => number = Math.random;
   private agents: Agent[] = [];
   private agentChanges = new Map<Agent, AgentChange>();
 
@@ -77,20 +81,39 @@ export class SchellingModel {
   ] as const;
 
   constructor(config: SchellingConfig) {
+    const { seed, ...modelConfig } = config;
+    this.seed = SchellingModel.normalizeSeed(seed);
     this.config = {
       agentSize: 1,
       agentSizeUnsatisfied: (config.agentSize ?? 1) * 0.6,
-      ...config,
-      gridWidth: Math.max(1, Math.floor(config.gridWidth)),
-      gridHeight: Math.max(1, Math.floor(config.gridHeight)),
-      similarityThreshold: SchellingModel.clamp01(config.similarityThreshold),
-      density: SchellingModel.clamp01(config.density),
-      balance: SchellingModel.clamp01(config.balance),
+      ...modelConfig,
+      gridWidth: Math.max(1, Math.floor(modelConfig.gridWidth)),
+      gridHeight: Math.max(1, Math.floor(modelConfig.gridHeight)),
+      similarityThreshold: SchellingModel.clamp01(modelConfig.similarityThreshold),
+      density: SchellingModel.clamp01(modelConfig.density),
+      balance: SchellingModel.clamp01(modelConfig.balance),
     };
   }
 
   private static clamp01(value: number): number {
     return Math.min(1, Math.max(0, value));
+  }
+
+  private static normalizeSeed(value: number | undefined): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) >>> 0 : undefined;
+  }
+
+  /** Mulberry32 keeps benchmark seeds local instead of changing global Math.random. */
+  private static randomForSeed(seed: number | undefined): () => number {
+    if (seed === undefined) return Math.random;
+    let state = seed;
+    return () => {
+      state = (state + 0x6D2B79F5) >>> 0;
+      let value = state;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+    };
   }
 
   // ── Event handling ──────────────────────────────────────────────────────────
@@ -130,6 +153,7 @@ export class SchellingModel {
   // ── Initialization ──────────────────────────────────────────────────────────
 
   initialize() {
+    this.random = SchellingModel.randomForSeed(this.seed);
     this.agents = [];
     this.agentChanges.clear();
     this.unsatisfiedSet = new Set();
@@ -151,7 +175,7 @@ export class SchellingModel {
     let nextType2 = 0;
 
     for (let enc = 0; enc < size; enc++) {
-      const value = Math.random();
+      const value = this.random();
       if (value >= density) {
         continue;
       }
@@ -341,7 +365,7 @@ export class SchellingModel {
 
   private shuffleArray<T>(array: T[]): void {
     for (let i = array.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
+      const j = (this.random() * (i + 1)) | 0;
       [array[i], array[j]] = [array[j], array[i]];
     }
   }
@@ -536,7 +560,7 @@ export class SchellingModel {
 
   getParameters() {
     const paramDefs: Array<{
-      id: keyof SchellingConfig | string;
+      id: keyof Omit<SchellingConfig, 'seed'> | string;
       type: string;
       label: string;
       value?: any;
@@ -551,7 +575,7 @@ export class SchellingModel {
       { id: 'density', type: 'number', label: 'Density', min: 0, max: 1, step: 0.05, allow_runtime_change: false },
       { id: 'balance', type: 'number', label: 'Balance', min: 0, max: 1, step: 0.05, allow_runtime_change: false },
     ];
-    return paramDefs.map(p => ({ ...p, value: this.config[p.id as keyof SchellingConfig] }));
+    return paramDefs.map(p => ({ ...p, value: this.config[p.id as keyof typeof this.config] }));
   }
 
   updateParameter(id: string, value: any) {

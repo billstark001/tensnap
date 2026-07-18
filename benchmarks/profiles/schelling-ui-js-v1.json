@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "id": "schelling-ui-js-v1",
+  "description": "JavaScript/Schelling UI case study. The headless condition runs the deterministic JS model kernel; the TenSnap condition measures a Step action through completion in the production Web host.",
+  "suites": ["node", "browser"],
+  "repetitions": 15,
+  "warmupActions": 5,
+  "measuredActions": 20,
+  "encodings": ["json"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "workloads": [
+    {
+      "id": "js-headless",
+      "system": "JavaScript headless (kernel baseline)",
+      "warmupActions": 0,
+      "measuredActions": 1,
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "pnpm",
+        "args": ["exec", "tsx", "src/entries/schelling-standalone.ts", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
+        "cwd": "examples/js",
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/js/package.json": "b39b893d02839f2924cffe7a6361f0913e1a59dbb3b8f47875b02d2502b0b7ad", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+      }
+    },
+    {
+      "id": "js-tensnap-web",
+      "system": "JavaScript + TenSnap binding + Web host (agents + charts)",
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "pnpm",
+        "args": ["exec", "tsx", "src/entries/main-ws.ts", "schelling", "--port=8765", "--encoding=json"],
+        "cwd": "examples/js",
+        "env": {
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:8765",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/js/package.json": "b39b893d02839f2924cffe7a6361f0913e1a59dbb3b8f47875b02d2502b0b7ad", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "seed": 20260718
+      }
+    }
+  ]
+}
