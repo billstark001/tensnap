@@ -255,9 +255,10 @@ not available and the field is `null` rather than a misleading harness value.
 Latency is the primary publication measurement.
 
 Every external-browser replicate receives a fresh loopback port. On POSIX
-hosts, the runner also terminates the external server's whole process group so
-wrappers such as `go run` cannot leave the compiled server listening after the
-replicate completes.
+hosts, the runner terminates the external server's whole process group when the
+OS permits it, so wrappers such as `go run` cannot leave the compiled server
+listening after the replicate completes. If group signaling returns `EPERM` or
+`ESRCH`, cleanup falls back to the directly spawned Python/Julia/Node child.
 
 ## Statistical inference
 

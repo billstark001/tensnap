@@ -1070,17 +1070,31 @@ interface StartedExternalServer {
   stop(): Promise<void>;
 }
 
-function signalExternalProcessTree(child: ReturnType<typeof spawn>, grouped: boolean, signal: NodeJS.Signals): void {
-  if (child.pid === undefined) return;
+/**
+ * Signal a detached POSIX process group when possible. Some launchers move
+ * themselves to a group that the parent cannot signal; in that case, fall
+ * back to the directly spawned child instead of failing a completed replicate.
+ * The return value reports whether group-level liveness can still be tracked.
+ */
+export function signalExternalProcessTree(child: ReturnType<typeof spawn>, grouped: boolean, signal: NodeJS.Signals): boolean {
+  if (child.pid === undefined) return false;
   if (grouped) {
     try {
       process.kill(-child.pid, signal);
+      return true;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EPERM' && code !== 'ESRCH') throw error;
+    }
+  }
+  if (child.exitCode === null && child.signalCode === null) {
+    try {
+      child.kill(signal);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
     }
-    return;
   }
-  if (child.exitCode === null && child.signalCode === null) child.kill(signal);
+  return false;
 }
 
 function externalProcessTreeRunning(child: ReturnType<typeof spawn>, grouped: boolean): boolean {
@@ -1091,6 +1105,9 @@ function externalProcessTreeRunning(child: ReturnType<typeof spawn>, grouped: bo
     return true;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
+    if ((error as NodeJS.ErrnoException).code === 'EPERM') {
+      return child.exitCode === null && child.signalCode === null;
+    }
     throw error;
   }
 }
@@ -1118,12 +1135,12 @@ function startExternalServer(command: ExternalCommand): StartedExternalServer {
     process: child,
     stderr: () => stderr,
     async stop() {
-      signalExternalProcessTree(child, grouped, 'SIGTERM');
+      let trackGroup = signalExternalProcessTree(child, grouped, 'SIGTERM');
       try {
-        await withTimeout(waitForExternalProcessTree(child, grouped), `External server ${command.executable} shutdown`, 10_000);
+        await withTimeout(waitForExternalProcessTree(child, trackGroup), `External server ${command.executable} shutdown`, 10_000);
       } catch {
-        signalExternalProcessTree(child, grouped, 'SIGKILL');
-        await withTimeout(waitForExternalProcessTree(child, grouped), `External server ${command.executable} forced shutdown`, 2_000);
+        trackGroup = signalExternalProcessTree(child, trackGroup, 'SIGKILL');
+        await withTimeout(waitForExternalProcessTree(child, trackGroup), `External server ${command.executable} forced shutdown`, 2_000);
       }
     },
   };

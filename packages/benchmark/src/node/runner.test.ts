@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import {
   readBenchmarkJournal,
   renderReport,
   sha256,
+  signalExternalProcessTree,
   stableJson,
   validateProfile,
   verifyArtifact,
@@ -280,5 +281,24 @@ describe('benchmark artifact schema v2', () => {
     const port = await allocateLoopbackPort();
     expect(port).toBeGreaterThan(0);
     expect(port).toBeLessThanOrEqual(65_535);
+  });
+
+  it('falls back to the direct child when process-group signaling returns EPERM', () => {
+    const groupKill = vi.spyOn(process, 'kill').mockImplementation(() => {
+      throw Object.assign(new Error('kill EPERM'), { code: 'EPERM' });
+    });
+    const directKill = vi.fn(() => true);
+    const child = {
+      pid: 12_345,
+      exitCode: null,
+      signalCode: null,
+      kill: directKill,
+    } as unknown as Parameters<typeof signalExternalProcessTree>[0];
+    try {
+      expect(signalExternalProcessTree(child, true, 'SIGTERM')).toBe(false);
+      expect(directKill).toHaveBeenCalledWith('SIGTERM');
+    } finally {
+      groupKill.mockRestore();
+    }
   });
 });
