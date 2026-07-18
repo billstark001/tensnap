@@ -107,15 +107,40 @@ export interface ExternalProcessBenchmarkWorkload<TConfig extends BenchmarkConfi
 export interface ExternalBrowserAction {
   /** A Playwright selector for one deterministic model step. */
   readonly selector: string;
-  /** Maximum time to wait for the visual checkpoint after each click. */
+  /** Maximum time to wait for the post-render revision after each click. */
   readonly timeoutMs?: number;
+}
+
+/** A browser-visible value owned by the benchmark subject, not the harness. */
+export interface ExternalBrowserDomSignal {
+  readonly selector: string;
+  /** Read this attribute; omitted means textContent. */
+  readonly attribute?: string;
+}
+
+export interface ExternalBrowserStateOracle {
+  /** Monotonic integer updated after the framework has committed the visible state. */
+  readonly revision: ExternalBrowserDomSignal;
+  /** JSON-encoded canonical model/renderer state for semantic verification. */
+  readonly state: ExternalBrowserDomSignal;
+}
+
+export interface ExternalBrowserObservation {
+  readonly initialRevision: number;
+  readonly finalRevision: number;
+  readonly initialState: unknown;
+  readonly finalState: unknown;
 }
 
 export interface ExternalBrowserSpec {
   readonly server: ExternalCommand;
+  /** Repository-relative immutable environment files checked before launch. */
+  readonly environmentLocks?: Readonly<Record<string, string>>;
   readonly url: string;
   readonly readySelector: string;
   readonly action: ExternalBrowserAction;
+  /** Required for a comparable action-to-render-complete measurement. */
+  readonly stateOracle?: ExternalBrowserStateOracle;
   /**
    * Screenshot checkpoints are written outside the timed interval. A
    * reference hash makes visual regressions a hard correctness failure.
@@ -139,6 +164,16 @@ export interface ExternalBrowserBenchmarkWorkload<TConfig extends BenchmarkConfi
   extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'external-browser';
   createExternalBrowserSpec(config: TConfig, context: ExternalProcessContext): ExternalBrowserSpec;
+  /**
+   * Convert framework-specific state into an independently checkable canonical
+   * contract. Returning equal state/expectedState values is permitted only
+   * after this callback has validated all declared invariants.
+   */
+  validateExternalBrowserObservation?(
+    config: TConfig,
+    observation: ExternalBrowserObservation,
+    context: ExternalProcessContext,
+  ): { readonly state: unknown; readonly expectedState: unknown };
 }
 
 export type BenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig> =
@@ -210,6 +245,14 @@ export interface BenchmarkProfileWorkload {
   readonly measuredActions?: number;
   /** Browser scheduling for this workload; omitted values use the harness defaults. */
   readonly browserOptions?: BrowserBenchmarkRunOptions;
+  /** Metric used in the primary report and paired comparison. */
+  readonly primaryMetric?: string;
+  /** Renderer-visible functionality included in this condition. */
+  readonly featureLevel?: string;
+  /** Publication-facing independent variables such as agent/change counts. */
+  readonly dimensions?: Readonly<Record<string, string | number | boolean>>;
+  /** Conditions in the same group must produce identical canonical state per block. */
+  readonly stateEquivalenceGroup?: string;
   readonly module: string;
   readonly config?: BenchmarkConfig;
 }
@@ -218,7 +261,8 @@ export interface BenchmarkComparison {
   readonly id: string;
   readonly baseline: string;
   readonly treatments: readonly string[];
-  readonly metric?: 'cycle';
+  /** `cycle`, a metric name, or a stage name. Defaults to each run's primary metric. */
+  readonly metric?: string;
 }
 
 export interface BenchmarkWireBytes {
@@ -281,6 +325,7 @@ export interface BenchmarkRunSummary {
 
 export interface PairedComparisonSummary {
   readonly id: string;
+  readonly metric: string;
   readonly suite: BenchmarkSuite;
   readonly baseline: string;
   readonly treatment: string;
@@ -317,6 +362,10 @@ export interface BenchmarkRun {
     readonly measuredActions: number;
       readonly repetitions: number;
     readonly processIsolated: boolean;
+    readonly primaryMetric: string;
+    readonly featureLevel?: string;
+    readonly dimensions?: Readonly<Record<string, string | number | boolean>>;
+    readonly stateEquivalenceGroup?: string;
     readonly browser?: {
       readonly name: 'chromium';
       readonly version: string;
@@ -351,6 +400,8 @@ export interface BenchmarkArtifact {
     readonly profileSha256: string;
     readonly expectedRunIds: readonly string[];
     readonly samplesSha256: string | null;
+    /** Checksums for every derived publication artifact. */
+    readonly filesSha256?: Readonly<Record<string, string>>;
   };
 }
 

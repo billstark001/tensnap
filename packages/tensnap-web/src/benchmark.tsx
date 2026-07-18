@@ -24,6 +24,7 @@ export interface WebBenchmarkHostOptions {
 
 export interface MountedWebBenchmark {
   session: RendererSession;
+  snapshot(): unknown;
   destroy(): void;
 }
 
@@ -216,6 +217,9 @@ export async function mountWebBenchmark(
 
   return {
     session: scenarioStore.getState().session,
+    snapshot() {
+      return scenarioStore.getState().session.scenario.dump();
+    },
     destroy() {
       transportStore.getState().destroy();
       flushSync(() => root?.unmount());

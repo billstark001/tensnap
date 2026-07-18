@@ -12,19 +12,22 @@
   "processIsolation": "required",
   "randomizedBlocks": true,
   "comparisons": [
-    { "id": "schelling-kernel", "baseline": "mesa", "treatments": ["go", "julia", "netlogo"] }
+    { "id": "schelling-kernel", "metric": "cycle", "baseline": "mesa", "treatments": ["go", "julia"] }
   ],
   "workloads": [
     {
       "id": "mesa",
       "system": "Mesa (Python)",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200, "instrumentation": "none" },
       "module": "../schelling/external-process.ts",
       "config": {
         "executable": "python3",
-        "args": ["schelling_standalone.py", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--instrumentation", "none", "--benchmark-json"],
-        "cwd": "examples/python_mesa",
+        "args": ["kernel.py", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--instrumentation", "none", "--benchmark-json"],
+        "cwd": "benchmarks/schelling/v1/subjects/mesa",
         "timeoutMs": 120000,
-        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a" },
         "seed": 20260718,
         "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
       }
@@ -32,13 +35,16 @@
     {
       "id": "go",
       "system": "Go reference implementation",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200, "instrumentation": "none" },
       "module": "../schelling/external-process.ts",
       "config": {
         "executable": "go",
-        "args": ["run", "./standalone", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
-        "cwd": "examples/go",
+        "args": ["run", "./kernel", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
+        "cwd": "benchmarks/schelling/v1/subjects/go",
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/go/go.mod": "e756878bb3796cfc640d7a82e9f8b5cb42ea8749d153dbbfddfb9523d1d23358", "examples/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
+        "environmentLocks": { "benchmarks/schelling/v1/subjects/go/go.mod": "c6783d3606b5f892938f7159537b972b64318f2efe195c8c81193e1cc91dc8c5", "benchmarks/schelling/v1/subjects/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
         "seed": 20260718,
         "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
       }
@@ -46,13 +52,16 @@
     {
       "id": "julia",
       "system": "Agents.jl",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200, "instrumentation": "none" },
       "module": "../schelling/external-process.ts",
       "config": {
         "executable": "julia",
-        "args": ["--project=.", "schelling_standalone.jl", "--width=50", "--height=50", "--density=0.8", "--balance=0.5", "--thresholds=0.70", "--warmup-steps=25", "--steps=200", "--seeds=1", "--seed={seed}", "--mode=steady", "--benchmark-json=true"],
-        "cwd": "examples/julia",
+        "args": ["--project=benchmarks/schelling/v1/environments/julia", "benchmarks/schelling/v1/subjects/julia/kernel.jl", "--width=50", "--height=50", "--density=0.8", "--balance=0.5", "--thresholds=0.70", "--warmup-steps=25", "--steps=200", "--seeds=1", "--seed={seed}", "--mode=steady", "--benchmark-json=true"],
+        "cwd": ".",
         "timeoutMs": 180000,
-        "environmentLocks": { "examples/julia/Manifest.toml": "8b3c49dc6a3c00daec28294b54af1c917b30bfbd6569969ebf14d66b4779689b" },
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
         "seed": 20260718,
         "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
       }
@@ -60,15 +69,18 @@
     {
       "id": "netlogo",
       "system": "NetLogo headless",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200, "instrumentation": "scientific" },
       "module": "../schelling/external-process.ts",
       "config": {
         "executable": "python3",
-        "args": ["schelling_netlogo_standalone.py", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--density", "0.8", "--balance", "0.5", "--mode", "steady", "--benchmark-json"],
-        "cwd": "examples/python_mesa",
+        "args": ["kernel.py", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--density", "0.8", "--balance", "0.5", "--mode", "steady", "--benchmark-json"],
+        "cwd": "benchmarks/schelling/v1/subjects/netlogo",
         "timeoutMs": 180000,
-        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "52ba8b599309e62d59d8475c395863ce87030df0c6cf00a899f32a94e8459869" },
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a" },
         "seed": 20260718,
-        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "scientific", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
       }
     }
   ]

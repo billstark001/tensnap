@@ -26,5 +26,7 @@ export type {
   ExternalCommand,
   ExternalProcessContext,
   ExternalBrowserSpec,
+  ExternalBrowserObservation,
+  ExternalBrowserStateOracle,
 } from './types';
 export type { BenchmarkCase, BrowserBenchmarkCase, BrowserBenchmarkRunOptions } from '../browser-types';

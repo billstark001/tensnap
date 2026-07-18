@@ -7,9 +7,9 @@
     "./harness": "./src/harness/index.ts"
   },
   "scripts": {
-    "bench": "tsx src/cli.ts",
-    "bench:smoke": "tsx src/cli.ts run --profile benchmarks/profiles/smoke.json",
-    "bench:browser:all": "tsx src/cli.ts run --profile benchmarks/profiles/browser-all-v0.3.json",
+    "bench": "node --import tsx src/cli.ts",
+    "bench:smoke": "node --import tsx src/cli.ts run --profile benchmarks/profiles/smoke.json",
+    "bench:browser:all": "node --import tsx src/cli.ts run --profile benchmarks/profiles/browser-all-v0.3.json",
     "bench:browser:install": "playwright install chromium",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",

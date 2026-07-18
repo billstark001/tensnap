@@ -13,112 +13,228 @@
   "randomizedBlocks": true,
   "workloads": [
     {
+      "id": "tensnap-random-walk-1k-c0",
+      "primaryMetric": "cycle",
+      "featureLevel": "protocol+core+renderer",
+      "dimensions": { "agentCount": 1000, "changedAgents": 0 },
       "module": "../v0.3/random-walk/benchmark.ts",
       "config": { "agentCount": 1000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "tensnap-random-walk-1k-c10",
+      "primaryMetric": "cycle",
+      "featureLevel": "protocol+core+renderer",
+      "dimensions": { "agentCount": 1000, "changedAgents": 10 },
       "module": "../v0.3/random-walk/benchmark.ts",
       "config": { "agentCount": 1000, "changedAgents": 10, "seed": 20260712 }
     },
     {
+      "id": "tensnap-random-walk-1k-c1000",
+      "primaryMetric": "cycle",
+      "featureLevel": "protocol+core+renderer",
+      "dimensions": { "agentCount": 1000, "changedAgents": 1000 },
       "module": "../v0.3/random-walk/benchmark.ts",
       "config": { "agentCount": 1000, "changedAgents": 1000, "seed": 20260712 }
     },
     {
+      "id": "tensnap-random-walk-10k-c100",
+      "primaryMetric": "cycle",
+      "featureLevel": "protocol+core+renderer",
+      "dimensions": { "agentCount": 10000, "changedAgents": 100 },
       "module": "../v0.3/random-walk/benchmark.ts",
       "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 }
     },
     {
+      "id": "tensnap-random-walk-10k-c0",
+      "primaryMetric": "cycle",
+      "featureLevel": "protocol+core+renderer",
+      "dimensions": { "agentCount": 10000, "changedAgents": 0 },
       "module": "../v0.3/random-walk/benchmark.ts",
       "config": { "agentCount": 10000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "tensnap-random-walk-10k-c10000",
+      "primaryMetric": "cycle",
+      "featureLevel": "protocol+core+renderer",
+      "dimensions": { "agentCount": 10000, "changedAgents": 10000 },
       "module": "../v0.3/random-walk/benchmark.ts",
       "config": { "agentCount": 10000, "changedAgents": 10000, "seed": 20260712 }
     },
     {
+      "id": "core-trace-10k-c100",
+      "primaryMetric": "cycle",
+      "featureLevel": "core+chart+monitor",
+      "dimensions": { "agentCount": 10000, "changedAgents": 100, "monitorArrayLength": 64 },
       "module": "../v0.3/core-trace/benchmark.ts",
       "config": { "agentCount": 10000, "changedAgents": 100, "monitorArrayLength": 64, "seed": 20260712 }
     },
     {
+      "id": "state-sync-10k",
+      "primaryMetric": "cycle",
+      "featureLevel": "replace-state-sync",
+      "dimensions": { "agentCount": 10000, "changedAgents": 100 },
       "module": "../v0.3/state-sync/benchmark.ts",
       "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 }
     },
     {
+      "id": "snapshot-restore-10k",
+      "primaryMetric": "cycle",
+      "featureLevel": "archive+restore",
+      "dimensions": { "agentCount": 10000, "changedAgents": 100, "segmentFrames": 30 },
       "module": "../v0.3/snapshot-restore/benchmark.ts",
       "config": { "agentCount": 10000, "changedAgents": 100, "segmentFrames": 30, "seed": 20260712 }
     },
     {
+      "id": "canvas-1k-c0",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 0 },
       "module": "../comparisons/random-walk/canvas2d.ts",
       "config": { "agentCount": 1000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "leafer-1k-c0",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 0 },
       "module": "../comparisons/random-walk/leafer.ts",
       "config": { "agentCount": 1000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "tensnap-renderer-1k-c0",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 0 },
       "module": "../comparisons/random-walk/tensnap.ts",
       "config": { "agentCount": 1000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "canvas-1k-c10",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 10 },
       "module": "../comparisons/random-walk/canvas2d.ts",
       "config": { "agentCount": 1000, "changedAgents": 10, "seed": 20260712 }
     },
     {
+      "id": "leafer-1k-c10",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 10 },
       "module": "../comparisons/random-walk/leafer.ts",
       "config": { "agentCount": 1000, "changedAgents": 10, "seed": 20260712 }
     },
     {
+      "id": "tensnap-renderer-1k-c10",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 10 },
       "module": "../comparisons/random-walk/tensnap.ts",
       "config": { "agentCount": 1000, "changedAgents": 10, "seed": 20260712 }
     },
     {
+      "id": "canvas-1k-c1000",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 1000 },
       "module": "../comparisons/random-walk/canvas2d.ts",
       "config": { "agentCount": 1000, "changedAgents": 1000, "seed": 20260712 }
     },
     {
+      "id": "leafer-1k-c1000",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 1000 },
       "module": "../comparisons/random-walk/leafer.ts",
       "config": { "agentCount": 1000, "changedAgents": 1000, "seed": 20260712 }
     },
     {
+      "id": "tensnap-renderer-1k-c1000",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 1000, "changedAgents": 1000 },
       "module": "../comparisons/random-walk/tensnap.ts",
       "config": { "agentCount": 1000, "changedAgents": 1000, "seed": 20260712 }
     },
     {
+      "id": "canvas-10k-c0",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 0 },
       "module": "../comparisons/random-walk/canvas2d.ts",
       "config": { "agentCount": 10000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "leafer-10k-c0",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 0 },
       "module": "../comparisons/random-walk/leafer.ts",
       "config": { "agentCount": 10000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "tensnap-renderer-10k-c0",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 0 },
       "module": "../comparisons/random-walk/tensnap.ts",
       "config": { "agentCount": 10000, "changedAgents": 0, "seed": 20260712 }
     },
     {
+      "id": "canvas-10k-c100",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 100 },
       "module": "../comparisons/random-walk/canvas2d.ts",
       "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 }
     },
     {
+      "id": "leafer-10k-c100",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 100 },
       "module": "../comparisons/random-walk/leafer.ts",
       "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 }
     },
     {
+      "id": "tensnap-renderer-10k-c100",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 100 },
       "module": "../comparisons/random-walk/tensnap.ts",
       "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 }
     },
     {
+      "id": "canvas-10k-c10000",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 10000 },
       "module": "../comparisons/random-walk/canvas2d.ts",
       "config": { "agentCount": 10000, "changedAgents": 10000, "seed": 20260712 }
     },
     {
+      "id": "leafer-10k-c10000",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 10000 },
       "module": "../comparisons/random-walk/leafer.ts",
       "config": { "agentCount": 10000, "changedAgents": 10000, "seed": 20260712 }
     },
     {
+      "id": "tensnap-renderer-10k-c10000",
+      "primaryMetric": "browserMutationMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "agentCount": 10000, "changedAgents": 10000 },
       "module": "../comparisons/random-walk/tensnap.ts",
       "config": { "agentCount": 10000, "changedAgents": 10000, "seed": 20260712 }
     }
+  ],
+  "comparisons": [
+    { "id": "renderer-1k-c0", "metric": "browserMutationMs", "baseline": "canvas-1k-c0", "treatments": ["leafer-1k-c0", "tensnap-renderer-1k-c0"] },
+    { "id": "renderer-1k-c10", "metric": "browserMutationMs", "baseline": "canvas-1k-c10", "treatments": ["leafer-1k-c10", "tensnap-renderer-1k-c10"] },
+    { "id": "renderer-1k-c1000", "metric": "browserMutationMs", "baseline": "canvas-1k-c1000", "treatments": ["leafer-1k-c1000", "tensnap-renderer-1k-c1000"] },
+    { "id": "renderer-10k-c0", "metric": "browserMutationMs", "baseline": "canvas-10k-c0", "treatments": ["leafer-10k-c0", "tensnap-renderer-10k-c0"] },
+    { "id": "renderer-10k-c100", "metric": "browserMutationMs", "baseline": "canvas-10k-c100", "treatments": ["leafer-10k-c100", "tensnap-renderer-10k-c100"] },
+    { "id": "renderer-10k-c10000", "metric": "browserMutationMs", "baseline": "canvas-10k-c10000", "treatments": ["leafer-10k-c10000", "tensnap-renderer-10k-c10000"] }
   ]
 }

@@ -24,6 +24,7 @@ async function measureModelRun(
   actionId: string,
   frames: number,
   warmupFrames: number,
+  options: ResolvedBrowserBenchmarkRunOptions,
 ): Promise<TimingResult> {
   const totalSteps = frames + warmupFrames;
   const timings: number[] = [];
@@ -61,9 +62,14 @@ async function measureModelRun(
       const status = (event as CustomEvent<RunStatus | null>).detail;
       if (!status || status.id !== mounted.session.run.status?.id || status.state === 'running' || status.inFlight) return;
       completeActiveCycle(performance.now());
+      const completionMetric = options.renderTriggerMode === 'requestAnimationFrame'
+        ? 'actionToRenderCompleteMs'
+        : 'actionToRunCompletionMs';
       settle({
         timings,
-        stageTimings: { actionToRunCompletionMs: timings },
+        // rAF is the comparable next-paint boundary. Timeout/auto are scheduler
+        // completion modes and must not be labelled as visible-frame latency.
+        stageTimings: { [completionMetric]: timings },
         completedFrames: status.completedSteps,
         stopReason: status.stopReason ?? status.state,
       });
@@ -136,7 +142,7 @@ export async function runBrowserBenchmark(
   const mounted = await benchCase.mount(container, options);
   try {
     const result = mounted.kind === 'model'
-      ? await measureModelRun(mounted, benchCase.actionId ?? 'start', measuredFrames, warmupFrames)
+      ? await measureModelRun(mounted, benchCase.actionId ?? 'start', measuredFrames, warmupFrames, options)
       : await measureComponentRun(mounted, measuredFrames, warmupFrames, options);
     return {
       caseName: benchCase.name,
@@ -150,6 +156,7 @@ export async function runBrowserBenchmark(
       timings: result.timings,
       ...(result.mutationTimings ? { mutationTimings: result.mutationTimings } : {}),
       ...(result.stageTimings ? { stageTimings: result.stageTimings } : {}),
+      ...(mounted.kind === 'model' ? { snapshot: mounted.snapshot() } : {}),
     };
   } finally {
     mounted.destroy();

@@ -15,15 +15,18 @@
     {
       "id": "js-headless",
       "system": "JavaScript headless (kernel baseline)",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200 },
       "warmupActions": 0,
       "measuredActions": 1,
       "module": "../schelling/external-process.ts",
       "config": {
-        "executable": "pnpm",
-        "args": ["exec", "tsx", "src/entries/schelling-standalone.ts", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
+        "executable": "node",
+        "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/kernel.ts", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
         "cwd": "examples/js",
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "b39b893d02839f2924cffe7a6361f0913e1a59dbb3b8f47875b02d2502b0b7ad", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "environmentLocks": { "examples/js/package.json": "3200dc24d9100b678e7a925e06eaf101b15b846c279fc0b328e7ef8502d175a0", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
         "seed": 20260718,
         "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
       }
@@ -31,13 +34,17 @@
     {
       "id": "js-tensnap-web-raf",
       "system": "JavaScript + TenSnap binding + Web host (rAF frame latency)",
+      "primaryMetric": "actionToRenderCompleteMs",
+      "featureLevel": "agents+charts+monitor",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "requestAnimationFrame" },
+      "stateEquivalenceGroup": "js-ui-v1",
       "browserOptions": {
         "renderTriggerMode": "requestAnimationFrame"
       },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
-        "executable": "pnpm",
-        "args": ["exec", "tsx", "src/entries/main-ws.ts", "schelling", "--port=8765", "--encoding=json"],
+        "executable": "node",
+        "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/tensnap.ts"],
         "cwd": "examples/js",
         "env": {
           "TENSNAP_SCHELLING_WIDTH": "50",
@@ -52,20 +59,24 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "b39b893d02839f2924cffe7a6361f0913e1a59dbb3b8f47875b02d2502b0b7ad", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "environmentLocks": { "examples/js/package.json": "3200dc24d9100b678e7a925e06eaf101b15b846c279fc0b328e7ef8502d175a0", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
         "seed": 20260718
       }
     },
     {
       "id": "js-tensnap-web-timeout",
       "system": "JavaScript + TenSnap binding + Web host (timeout throughput)",
+      "primaryMetric": "actionToRunCompletionMs",
+      "featureLevel": "agents+charts+monitor",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "setTimeout" },
+      "stateEquivalenceGroup": "js-ui-v1",
       "browserOptions": {
         "renderTriggerMode": "setTimeout"
       },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
-        "executable": "pnpm",
-        "args": ["exec", "tsx", "src/entries/main-ws.ts", "schelling", "--port=8765", "--encoding=json"],
+        "executable": "node",
+        "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/tensnap.ts"],
         "cwd": "examples/js",
         "env": {
           "TENSNAP_SCHELLING_WIDTH": "50",
@@ -80,9 +91,10 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "b39b893d02839f2924cffe7a6361f0913e1a59dbb3b8f47875b02d2502b0b7ad", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "environmentLocks": { "examples/js/package.json": "3200dc24d9100b678e7a925e06eaf101b15b846c279fc0b328e7ef8502d175a0", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
         "seed": 20260718
       }
     }
-  ]
+  ],
+  "comparisons": []
 }

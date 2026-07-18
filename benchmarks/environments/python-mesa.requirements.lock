@@ -1,10 +1,16 @@
 # Recreate with: python3 -m venv .benchmark-venv && .benchmark-venv/bin/pip install -r benchmarks/environments/python-mesa.requirements.lock
 # The profiles require this environment to be activated (or python3 to resolve to it).
 Mesa==3.5.1
+altair==6.1.0
 solara==1.57.3
+starlette==0.52.1
+uvicorn==0.46.0
+anyio==4.13.0
+watchfiles==1.1.1
 pynetlogo==0.5.2
 matplotlib==3.10.9
 numpy==2.4.4
+networkx==3.6.1
 msgpack==1.1.2
 typing_extensions==4.15.0
 websockets==16.0

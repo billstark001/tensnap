@@ -1,0 +1,9 @@
+[deps]
+Agents = "46ada45e-f475-11e8-01d0-f70cc89e6671"
+Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+TenSnap = "c4e6f1a8-4f9e-4b75-a3b4-6f4242cfb20f"
+WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
+
+[compat]
+julia = "1.9"

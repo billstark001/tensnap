@@ -37,7 +37,10 @@ async function main(): Promise<void> {
     window.__TENSNAP_BENCHMARK_RESULT__ = {
       ok: true,
       stats,
-      snapshot: benchmark.snapshot(),
+      // Model cases expose the production renderer Scenario snapshot through
+      // the mounted host. Component controls keep their independent fixture
+      // snapshot supplied by the workload.
+      snapshot: stats.snapshot ?? benchmark.snapshot(),
       expectedState: benchmark.expectedState(request.measuredActions + request.warmupActions),
     };
     return;
@@ -50,7 +53,7 @@ async function main(): Promise<void> {
   }
   const benchCase = workload.createBrowserCase({ config, endpoint: request.endpoint, encoding: request.encoding, validation: request.validation });
   const stats = await runBrowserBenchmark(benchCase, root, request.measuredActions, request.warmupActions, request.browserOptions);
-  window.__TENSNAP_BENCHMARK_RESULT__ = { ok: true, stats };
+  window.__TENSNAP_BENCHMARK_RESULT__ = { ok: true, stats, snapshot: stats.snapshot };
 }
 
 void main().catch((error) => {

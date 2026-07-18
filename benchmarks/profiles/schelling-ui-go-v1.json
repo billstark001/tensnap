@@ -15,15 +15,18 @@
     {
       "id": "go-headless",
       "system": "Go headless (kernel baseline)",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200 },
       "warmupActions": 0,
       "measuredActions": 1,
       "module": "../schelling/external-process.ts",
       "config": {
         "executable": "go",
-        "args": ["run", "./standalone", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
-        "cwd": "examples/go",
+        "args": ["run", "./kernel", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
+        "cwd": "benchmarks/schelling/v1/subjects/go",
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/go/go.mod": "e756878bb3796cfc640d7a82e9f8b5cb42ea8749d153dbbfddfb9523d1d23358", "examples/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
+        "environmentLocks": { "benchmarks/schelling/v1/subjects/go/go.mod": "c6783d3606b5f892938f7159537b972b64318f2efe195c8c81193e1cc91dc8c5", "benchmarks/schelling/v1/subjects/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
         "seed": 20260718,
         "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 }, "elapsedMs": { "min": 0 } }, "state": { "actualSteps": { "min": 200, "max": 200 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
       }
@@ -31,42 +34,51 @@
     {
       "id": "go-tensnap-web-raf",
       "system": "Go + TenSnap binding + Web host (rAF frame latency)",
+      "primaryMetric": "actionToRenderCompleteMs",
+      "featureLevel": "agents+three-statistics",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "requestAnimationFrame" },
+      "stateEquivalenceGroup": "go-ui-v1",
       "browserOptions": {
         "renderTriggerMode": "requestAnimationFrame"
       },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "go",
-        "args": ["run", "./schelling", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "8765"],
-        "cwd": "examples/go",
+        "args": ["run", "./tensnap", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "8765"],
+        "cwd": "benchmarks/schelling/v1/subjects/go",
         "endpoint": "ws://127.0.0.1:8765",
         "encoding": "json",
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/go/go.mod": "e756878bb3796cfc640d7a82e9f8b5cb42ea8749d153dbbfddfb9523d1d23358", "examples/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
+        "environmentLocks": { "benchmarks/schelling/v1/subjects/go/go.mod": "c6783d3606b5f892938f7159537b972b64318f2efe195c8c81193e1cc91dc8c5", "benchmarks/schelling/v1/subjects/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
         "seed": 20260718
       }
     },
     {
       "id": "go-tensnap-web-timeout",
       "system": "Go + TenSnap binding + Web host (timeout throughput)",
+      "primaryMetric": "actionToRunCompletionMs",
+      "featureLevel": "agents+three-statistics",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "setTimeout" },
+      "stateEquivalenceGroup": "go-ui-v1",
       "browserOptions": {
         "renderTriggerMode": "setTimeout"
       },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "go",
-        "args": ["run", "./schelling", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "8765"],
-        "cwd": "examples/go",
+        "args": ["run", "./tensnap", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "8765"],
+        "cwd": "benchmarks/schelling/v1/subjects/go",
         "endpoint": "ws://127.0.0.1:8765",
         "encoding": "json",
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/go/go.mod": "e756878bb3796cfc640d7a82e9f8b5cb42ea8749d153dbbfddfb9523d1d23358", "examples/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
+        "environmentLocks": { "benchmarks/schelling/v1/subjects/go/go.mod": "c6783d3606b5f892938f7159537b972b64318f2efe195c8c81193e1cc91dc8c5", "benchmarks/schelling/v1/subjects/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
         "seed": 20260718
       }
     }
-  ]
+  ],
+  "comparisons": []
 }

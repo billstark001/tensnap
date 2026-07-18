@@ -1,5 +1,6 @@
 import type { BenchmarkConfig, ExternalBrowserBenchmarkWorkload } from '@tensnap/benchmark/harness';
 import path from 'node:path';
+import { validateSchellingObservation } from './oracle';
 
 interface ExternalBrowserConfig extends BenchmarkConfig {
   executable: string;
@@ -15,6 +16,8 @@ interface ExternalBrowserConfig extends BenchmarkConfig {
   checkpointActions?: number[];
   referenceSha256?: Record<string, string>;
   seed: number;
+  revisionSelector?: string;
+  stateSelector?: string;
 }
 
 function string(value: unknown, name: string): string {
@@ -35,6 +38,8 @@ function resolveConfig(overrides: Partial<ExternalBrowserConfig>): ExternalBrows
     ...(overrides.actionTimeoutMs ? { actionTimeoutMs: overrides.actionTimeoutMs } : {}),
     ...(overrides.checkpointActions ? { checkpointActions: overrides.checkpointActions } : {}),
     ...(overrides.referenceSha256 ? { referenceSha256: overrides.referenceSha256 } : {}),
+    revisionSelector: typeof overrides.revisionSelector === 'string' ? overrides.revisionSelector : '#tensnap-benchmark-revision',
+    stateSelector: typeof overrides.stateSelector === 'string' ? overrides.stateSelector : '#tensnap-benchmark-state',
     seed,
   };
 }
@@ -62,11 +67,17 @@ export const workload: ExternalBrowserBenchmarkWorkload<ExternalBrowserConfig> =
         env: Object.fromEntries(Object.entries(config.env ?? {}).map(([key, value]) => [key, expand(value)])),
         timeoutMs: config.timeoutMs,
       },
+      ...(config.environmentLocks ? { environmentLocks: config.environmentLocks } : {}),
       url: expand(config.url), readySelector: config.readySelector,
       action: { selector: config.actionSelector, timeoutMs: config.actionTimeoutMs },
+      stateOracle: {
+        revision: { selector: config.revisionSelector ?? '#tensnap-benchmark-revision' },
+        state: { selector: config.stateSelector ?? '#tensnap-benchmark-state' },
+      },
       ...(config.checkpointActions ? { visualOracle: { checkpointActions: config.checkpointActions, ...(config.referenceSha256 ? { referenceSha256: config.referenceSha256 } : {}) } } : {}),
     };
   },
+  validateExternalBrowserObservation: validateSchellingObservation,
 };
 
 export default workload;

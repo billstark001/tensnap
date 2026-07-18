@@ -32,6 +32,8 @@ export interface MountedComponentBenchmark {
 export interface MountedModelBenchmark {
   kind: 'model';
   session: RendererSession;
+  /** Canonical renderer-owned state after the render barrier has completed. */
+  snapshot(): unknown;
   destroy(): void;
 }
 
@@ -78,4 +80,6 @@ export interface BrowserBenchmarkStats {
   mutationTimings?: number[];
   /** Explicit timing boundaries; `cycle` must never be interpreted without them. */
   stageTimings?: Record<string, number[]>;
+  /** Renderer-owned state captured after the final render-complete barrier. */
+  snapshot?: unknown;
 }
