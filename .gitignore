@@ -29,6 +29,7 @@ __pycache__/
 env/
 venv/
 .venv
+.benchmark-venv/
 *.egg-info/
 .pytest_cache/
 .coverage
@@ -37,7 +38,6 @@ htmlcov/
 
 # Julia
 packages/tensnap-julia/Manifest.toml
-examples/julia/Manifest.toml
 
 # Misc
 *.log
@@ -55,3 +55,6 @@ _instructions
 .tmp
 .tmp/*
 tmp-*
+
+# Locally generated reproducible benchmark artifacts. Workload specifications live in benchmarks/.
+benchmark-results/

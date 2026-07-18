@@ -207,11 +207,12 @@ TenSnap is organized as a monorepo:
 
 ```
 tensnap/
+├── benchmarks/                  # Versioned subjects, profiles, locks, and benchmark oracles
 ├── docs/                        # User and maintainer documentation
 ├── examples/                    # Runnable Go, Python, Julia, JavaScript, and Mesa examples
 │   └── js/                      # Built-in JS examples, manifests, and local transports
 ├── packages/
-│   ├── benchmark/               # Rendering/runtime benchmarks
+│   ├── benchmark/               # Generic reproducible benchmark execution harness
 │   ├── protocol/                # Protocol payload types, schemas, and codecs
 │   ├── core/                    # Scenario, runtime, stores, and rendering primitives
 │   ├── tensnap-agent/           # Headless shared-session host and automation CLI
@@ -237,9 +238,16 @@ tensnap/
 - **tensnap-js**: TypeScript declarative simulator bindings, low-level sessions/emitters, and postMessage/WebSocket hosts.
 - **tensnap-julia**: Julia binding builders, Agents.jl-compatible projectors, JSON/MessagePack WebSocket simulator server, incremental item diffing, and asset helpers.
 - **tensnap-python**: Python binding/decorator surface plus server-side runtime helpers.
-- **examples/js**: Built-in JavaScript models, example manifests, websocket demo entrypoints, and transport-driven benchmark cases.
+- **examples/js**: Built-in JavaScript models, example manifests, and WebSocket demo entrypoints.
 - **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.
-- **benchmark**: Browser component, full-model, and raw/layer/transport comparison performance suites aligned with the production Web host.
+- **benchmark**: Generic runner, journal/resume/merge workflow, artifact verification, statistical summaries, and analysis generation. Versioned subjects and publication profiles live in `benchmarks/`, outside user-facing examples.
+
+Some Schelling example launchers are intentionally thin: visualization
+entrypoints call reusable binding/UI factories and standalone entrypoints call
+reusable study helpers. This split exists so examples and publication subjects
+share model, reset and trial behavior; it is not extra structure required for a
+normal TenSnap integration. See [`benchmarks/README.md`](benchmarks/README.md)
+for the ownership boundary.
 
 ## 🤝 Contributing
 

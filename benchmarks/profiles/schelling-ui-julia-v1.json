@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "id": "schelling-ui-julia-v1",
+  "description": "Agents.jl/Schelling UI case study over shared example factories and thin benchmark probes. WGLMakie and TenSnap expose the same agents-only state and use the same action-to-render-complete boundary.",
+  "suites": ["node", "browser"],
+  "repetitions": 15,
+  "warmupActions": 5,
+  "measuredActions": 20,
+  "encodings": ["msgpack"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "workloads": [
+    {
+      "id": "agents-headless",
+      "system": "Agents.jl headless (kernel baseline)",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200 },
+      "warmupActions": 0,
+      "measuredActions": 1,
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "julia",
+        "args": ["--project=benchmarks/schelling/v1/environments/julia", "benchmarks/schelling/v1/subjects/julia/kernel.jl", "--width=50", "--height=50", "--density=0.8", "--balance=0.5", "--thresholds=0.70", "--warmup-steps=25", "--steps=200", "--seeds=1", "--seed={seed}", "--mode=steady", "--benchmark-json=true"],
+        "cwd": ".",
+        "timeoutMs": 180000,
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 } } }
+      }
+    },
+    {
+      "id": "agents-wglmakie",
+      "system": "Agents.jl + WGLMakie (agents-only)",
+      "primaryMetric": "actionToRenderCompleteMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "requestAnimationFrame" },
+      "stateEquivalenceGroup": "julia-ui-v1",
+      "module": "../schelling/external-browser.ts",
+      "config": {
+        "executable": "julia",
+        "args": ["--project=benchmarks/schelling/v1/environments/julia", "benchmarks/schelling/v1/subjects/julia/wglmakie.jl"],
+        "cwd": ".",
+        "env": {
+          "BONITO_HOST": "127.0.0.1",
+          "BONITO_PORT": "{port}",
+          "BONITO_TICKS_PER_SECOND": "60",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "timeoutMs": 180000,
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "url": "http://127.0.0.1:{port}",
+        "readySelector": "button:has-text('Step')",
+        "actionSelector": "button:has-text('Step')",
+        "actionTimeoutMs": 60000,
+        "checkpointActions": [0, 5, 25],
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "agents-tensnap-web-raf",
+      "system": "Agents.jl + TenSnap binding + Web host (rAF frame latency)",
+      "primaryMetric": "actionToRenderCompleteMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "requestAnimationFrame" },
+      "stateEquivalenceGroup": "julia-ui-v1",
+      "browserOptions": {
+        "renderTriggerMode": "requestAnimationFrame"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "julia",
+        "args": ["--project=benchmarks/schelling/v1/environments/julia", "benchmarks/schelling/v1/subjects/julia/tensnap.jl"],
+        "cwd": ".",
+        "env": {
+          "TENSNAP_SERVER_PORT": "{port}",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:{port}",
+        "encoding": "msgpack",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 180000,
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "agents-tensnap-web-timeout",
+      "system": "Agents.jl + TenSnap binding + Web host (timeout throughput)",
+      "primaryMetric": "actionToRunCompletionMs",
+      "featureLevel": "agents-only",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "setTimeout" },
+      "stateEquivalenceGroup": "julia-ui-v1",
+      "browserOptions": {
+        "renderTriggerMode": "setTimeout"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "julia",
+        "args": ["--project=benchmarks/schelling/v1/environments/julia", "benchmarks/schelling/v1/subjects/julia/tensnap.jl"],
+        "cwd": ".",
+        "env": {
+          "TENSNAP_SERVER_PORT": "{port}",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:{port}",
+        "encoding": "msgpack",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 180000,
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "seed": 20260718
+      }
+    }
+  ],
+  "comparisons": [
+    { "id": "julia-ui-render-complete", "metric": "actionToRenderCompleteMs", "baseline": "agents-wglmakie", "treatments": ["agents-tensnap-web-raf"] }
+  ]
+}

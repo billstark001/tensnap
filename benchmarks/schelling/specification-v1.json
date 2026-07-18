@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "schelling-distributional-v1",
+  "purpose": "A system-level Schelling benchmark. Native implementations need not share an RNG trajectory; they must satisfy the recorded per-run invariants.",
+  "parameters": {
+    "width": 50,
+    "height": 50,
+    "density": 0.8,
+    "balance": 0.5,
+    "similarityThreshold": 0.7,
+    "seed": 20260718
+  },
+  "modes": {
+    "steady": "Execute exactly steps model steps after construction. Report model time only; initialization and process start are separate process metrics.",
+    "convergence": "Execute at most steps model steps and stop at the model's native no-move condition. Report elapsed model time and actual steps."
+  },
+  "invariants": {
+    "satisfiedPct": [0, 1],
+    "segregationIndex": [0, 1],
+    "lastSwapped": [0, 2500],
+    "actualSteps": [1, 1000]
+  },
+  "uiFeatureLevels": {
+    "agents-only": ["agent grid", "step", "reset"],
+    "agents-summary": ["agent grid", "step", "reset", "satisfied percentage", "segregation index", "moved agents"]
+  }
+}

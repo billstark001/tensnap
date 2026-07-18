@@ -78,10 +78,26 @@ Change `USE_SOURCE = False` to `USE_SOURCE = True` in `import_config.py`
 
 ## File Structure
 
-Each example consists of:
+Most examples consist of:
 
 - `{name}.py` - The Mesa model definition
 - `{name}_viz.py` - The visualization setup and TenSnap integration
+
+Schelling is partially split because both the teaching commands and the
+publication harness reuse it:
+
+- `schelling.py` owns model dynamics and generally useful parameters;
+- `schelling_tensnap.py` owns reusable TenSnap binding/reset setup, while
+  `schelling_viz.py` is the user launcher;
+- `schelling_study.py` owns reusable trials and sweeps, while
+  `schelling_standalone.py` is the user CLI;
+- `netlogo_study.py` similarly serves the NetLogo standalone CLI and its thin
+  benchmark adapter.
+
+This is not the minimum file structure required to bind a Mesa model. The
+split prevents the example and harness from copying reset behavior or
+scientific trial loops and then drifting apart; a one-off example can keep
+those pieces together.
 
 ## Schelling Solara
 
@@ -116,6 +132,12 @@ python schelling_standalone.py --steps 1000 --seeds 8
 pnpm standalone:py:schelling
 ```
 
+Mesa data collection is part of the teaching model, not a harness patch. It is
+enabled by default and can be removed from a timing-oriented study with
+`--no-collect-data`; the reusable model constructor accepts
+`collect_data=False` directly. `--mode steady` runs exactly the requested
+steps, while `--mode convergence` stops after a no-movement step.
+
 The NetLogo version uses the same model defaults and can be run headlessly with
 PyNetLogo installed:
 
@@ -126,3 +148,14 @@ python schelling_netlogo_standalone.py --steps 1000 --seeds 8
 # Or from the repository root
 pnpm standalone:netlogo:schelling
 ```
+
+## Benchmark separation
+
+These files are runnable teaching and scientific-task examples. The model,
+study loop and TenSnap binding/server are shared deliberately so a learner sees
+one source of scientific truth. Publication profiles use thin versioned
+subjects in
+`../../benchmarks/schelling/v1/subjects/mesa/` and
+`../../benchmarks/schelling/v1/subjects/netlogo/`. Profile environment parsing,
+canonical-state/revision probes, JSON records and artifact timing adapters
+belong there and are not prerequisites for the examples above.

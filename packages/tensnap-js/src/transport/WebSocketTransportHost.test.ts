@@ -112,6 +112,8 @@ describe('WebSocketTransportHost', () => {
     const onActionInvoke = vi.fn(async (payload, session: SimulatorSession) => {
       await session.emitter.actionResult({ id: payload.id, request_id: payload.request_id, should_continue: false });
     });
+    const onSimulatorMessage = vi.fn();
+    const onRendererMessage = vi.fn();
 
     const host = createWebSocketTransportHost({
       serverOptions: { port: 0 },
@@ -126,6 +128,8 @@ describe('WebSocketTransportHost', () => {
         onActionInvoke,
       }),
       encoding: 'json',
+      onSimulatorMessage,
+      onRendererMessage,
     });
     hosts.push(host);
 
@@ -145,6 +149,14 @@ describe('WebSocketTransportHost', () => {
         type: 'action_result',
         payload: { id: 'step', request_id: 'action-1', should_continue: false },
       });
+      expect(onRendererMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'action_invoke' }),
+        expect.any(Number),
+      );
+      expect(onSimulatorMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'action_result' }),
+        expect.any(Number),
+      );
     });
 
     client.close();

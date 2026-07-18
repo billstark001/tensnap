@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "id": "v0.3-smoke",
+  "description": "Fast deterministic validation of the v0.3 publication benchmark harness.",
+  "suites": ["node", "ws"],
+  "repetitions": 2,
+  "warmupActions": 2,
+  "measuredActions": 5,
+  "encodings": ["json", "msgpack"],
+  "validation": ["off", "error"],
+  "workloads": [
+    {
+      "module": "../v0.3/random-walk/benchmark.ts",
+      "config": {
+        "agentCount": 100,
+        "changedAgents": 10,
+        "seed": 20260712
+      }
+    },
+    {
+      "module": "../v0.3/random-walk/benchmark.ts",
+      "config": {
+        "agentCount": 100,
+        "changedAgents": 0,
+        "seed": 20260712
+      }
+    }
+  ]
+}
