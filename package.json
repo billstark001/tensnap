@@ -40,6 +40,7 @@
     "dev:netlogo:evac-dqn": "open -a '/Applications/NetLogo 7.0.4/NetLogo 7.0.4.app' examples/python_dqn/netlogo/evac_dqn_netlogo.nlogox",
     "dev:go:schelling": "cd examples/go && make run-schelling",
     "standalone:go:schelling": "cd examples/go && make run-standalone",
+    "standalone:js:schelling": "pnpm --filter @tensnap/examples-js standalone:schelling",
     "dev:js:schelling": "pnpm --filter @tensnap/examples-js demo:ws schelling",
     "dev:js:wolf-sheep": "pnpm --filter @tensnap/examples-js demo:ws wolf-sheep",
     "dev:js:axelrod": "pnpm --filter @tensnap/examples-js demo:ws axelrod",

@@ -7,6 +7,8 @@ import (
 )
 
 const (
+	// DynamicsVersion changes only when the scientific transition rules change.
+	DynamicsVersion            = 1
 	defaultGridW               = 50
 	defaultGridH               = 50
 	defaultDensity             = 0.8
@@ -46,13 +48,17 @@ type Model struct {
 }
 
 func NewDefaultModel() *Model {
-	return NewModel(Config{
+	return NewModel(DefaultConfig())
+}
+
+func DefaultConfig() Config {
+	return Config{
 		GridWidth:           defaultGridW,
 		GridHeight:          defaultGridH,
 		SimilarityThreshold: defaultSimilarityThreshold,
 		Density:             defaultDensity,
 		Balance:             defaultBalance,
-	})
+	}
 }
 
 func NewModel(cfg Config) *Model {
@@ -75,6 +81,14 @@ func NewModel(cfg Config) *Model {
 	if model.Config.Balance < 0 || model.Config.Balance > 1 {
 		model.Config.Balance = defaultBalance
 	}
+	model.Initialize()
+	return model
+}
+
+// NewSeededModel constructs a reproducible model ready for stepping.
+func NewSeededModel(cfg Config, seed int64) *Model {
+	model := NewModel(cfg)
+	model.SetSeed(seed)
 	model.Initialize()
 	return model
 }

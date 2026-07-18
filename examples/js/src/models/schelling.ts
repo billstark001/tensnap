@@ -30,6 +30,17 @@ export interface SchellingConfig {
   seed?: number;
 }
 
+/** Increment when the model's scientific transition rules change. */
+export const SCHELLING_DYNAMICS_VERSION = 1;
+
+export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
+  gridWidth: 50,
+  gridHeight: 50,
+  similarityThreshold: 0.7,
+  density: 0.8,
+  balance: 0.5,
+};
+
 interface Agent {
   id: string;
   x: number;
@@ -74,6 +85,7 @@ export class SchellingModel {
   private readonly eventHandlers: { [event: string]: Function[] } = {};
   private satisfiedCount: number = 0;
   private segregationIndex: number = 0;
+  private lastMoved: number = 0;
 
   private static readonly AGENT_TYPES = [
     { type: 1, color: '#3498db', prefix: 'agent1' },
@@ -103,7 +115,7 @@ export class SchellingModel {
     return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) >>> 0 : undefined;
   }
 
-  /** Mulberry32 keeps benchmark seeds local instead of changing global Math.random. */
+  /** Mulberry32 makes optional seeded runs reproducible without changing global Math.random. */
   private static randomForSeed(seed: number | undefined): () => number {
     if (seed === undefined) return Math.random;
     let state = seed;
@@ -160,6 +172,7 @@ export class SchellingModel {
     this.timeStep = 0;
     this.satisfiedCount = 0;
     this.segregationIndex = 0;
+    this.lastMoved = 0;
 
     const { gridWidth: W, gridHeight: H } = this.config;
     const size = W * H;
@@ -358,6 +371,7 @@ export class SchellingModel {
     }
 
     this.segregationIndex = this.calculateSegregationIndex();
+    this.lastMoved = moved;
     this.emit('step_end', { timeStep: this.timeStep });
     this.timeStep++;
     return moved > 0;
@@ -418,6 +432,7 @@ export class SchellingModel {
     this.unsatisfiedSet.clear();
     this.satisfiedCount = 0;
     this.segregationIndex = 0;
+    this.lastMoved = 0;
   }
 
   /** Validate a complete renderer-projected agent layer before it mutates this model. */
@@ -555,6 +570,7 @@ export class SchellingModel {
       satisfiedCount: this.satisfiedCount,
       satisfactionRate: this.agents.length > 0 ? this.satisfiedCount / this.agents.length : 0,
       segregationIndex: this.segregationIndex,
+      lastMoved: this.lastMoved,
     };
   }
 
@@ -615,6 +631,7 @@ export class SchellingModel {
     this.emptySpots = [];
     this.emptySpotIndexMap.clear();
     this.unsatisfiedSet.clear();
+    this.lastMoved = 0;
   }
 
   getIsRunning(): boolean { return this.isRunning; }
