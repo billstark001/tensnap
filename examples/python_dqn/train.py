@@ -10,7 +10,12 @@ from typing import Iterable
 
 from torch.types import Device
 
-from .config import DQNConfig, EnvConfig, TrainingConfig
+from .config import (
+    FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+    DQNConfig,
+    EnvConfig,
+    TrainingConfig,
+)
 from .dqn import DQNAgent
 from .envs import EnvKind, EvacuationEnv, NetLogoEnvConfig, make_evacuation_env
 
@@ -20,6 +25,7 @@ class EpisodeSummary:
     reward: float
     evacuated: int
     dead: int
+    unresolved: int
     steps: int
 
 
@@ -53,6 +59,7 @@ def run_episode(
         reward=total_reward,
         evacuated=env.evacuated_count,
         dead=env.dead_count,
+        unresolved=env.alive_count,
         steps=steps,
     )
 
@@ -72,7 +79,13 @@ def train_dqn(
         netlogo_config=netlogo_config,
     )
     try:
-        agent = DQNAgent(env.state_size, env.action_size, dqn_config, device=device)
+        agent = DQNAgent(
+            env.state_size,
+            env.action_size,
+            dqn_config,
+            device=device,
+            checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+        )
         train_config.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         summaries: list[EpisodeSummary] = []
 
@@ -92,6 +105,7 @@ def train_dqn(
                     f"reward={mean(s.reward for s in recent):.3f} "
                     f"evacuated={mean(s.evacuated for s in recent):.2f} "
                     f"dead={mean(s.dead for s in recent):.2f} "
+                    f"unresolved={mean(s.unresolved for s in recent):.2f} "
                     f"steps={mean(s.steps for s in recent):.2f}"
                 )
             if episode % train_config.checkpoint_every == 0:
@@ -132,5 +146,6 @@ def format_eval(results: Iterable[EpisodeSummary]) -> str:
         f"reward={mean(r.reward for r in items):.3f}, "
         f"evacuated={mean(r.evacuated for r in items):.2f}, "
         f"dead={mean(r.dead for r in items):.2f}, "
+        f"unresolved={mean(r.unresolved for r in items):.2f}, "
         f"steps={mean(r.steps for r in items):.2f}"
     )

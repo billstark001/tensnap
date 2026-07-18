@@ -11,20 +11,35 @@ import random
 import torch
 from torch.types import Device
 
-from .config import DQNConfig, EnvConfig, TrainingConfig, build_evacuation_layout
+from .config import (
+    FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+    DQNConfig,
+    EnvConfig,
+    TrainingConfig,
+    build_evacuation_layout,
+)
 from .dqn import DQNAgent
 from .envs import EnvKind, NetLogoEnvConfig, make_evacuation_env
+from .policies import (
+    NoGuidePolicy,
+    RandomPolicy,
+    SafeExitHeuristicPolicy,
+    evaluate_policy,
+)
 from .train import evaluate, format_eval, run_episode, train_dqn
 
 DEFAULT_CHECKPOINT_DIR = Path(__file__).resolve().parent / "checkpoints"
 
 
 def build_parser() -> argparse.ArgumentParser:
+    defaults = EnvConfig()
     parser = argparse.ArgumentParser(
         description="Grid evacuation demo with Mesa + DQN."
     )
     parser.add_argument(
-        "--mode", choices=("rollout", "train", "eval"), default="rollout"
+        "--mode",
+        choices=("rollout", "train", "eval", "compare"),
+        default="rollout",
     )
     parser.add_argument(
         "--env",
@@ -38,10 +53,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--checkpoint", type=Path, default=DEFAULT_CHECKPOINT_DIR / "dqn_latest.pt"
     )
     parser.add_argument("--checkpoint-dir", type=Path, default=DEFAULT_CHECKPOINT_DIR)
-    parser.add_argument("--width", type=int, default=16)
-    parser.add_argument("--height", type=int, default=16)
-    parser.add_argument("--evacuees", type=int, default=28)
-    parser.add_argument("--max-steps", type=int, default=80)
+    parser.add_argument("--width", type=int, default=defaults.width)
+    parser.add_argument("--height", type=int, default=defaults.height)
+    parser.add_argument("--evacuees", type=int, default=defaults.num_evacuees)
+    parser.add_argument("--max-steps", type=int, default=defaults.max_steps)
     parser.add_argument(
         "--netlogo-model",
         type=Path,
@@ -171,13 +186,85 @@ def main() -> None:
         print(f"eval {format_eval(eval_results)}")
         return
 
+    if args.mode == "compare":
+        env = make_evacuation_env(
+            args.env,
+            env_config,
+            seed=args.seed,
+            netlogo_config=netlogo_config,
+        )
+        agent = DQNAgent(
+            env.state_size,
+            env.action_size,
+            dqn_config,
+            device=device,
+            checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+        )
+        env.close()
+        agent.load(str(args.checkpoint))
+        comparisons = [
+            (
+                "dqn",
+                evaluate_policy(
+                    env_config,
+                    lambda _seed: agent,
+                    args.episodes,
+                    args.seed,
+                    env_kind=args.env,
+                    netlogo_config=netlogo_config,
+                ),
+            ),
+            (
+                "no-guide",
+                evaluate_policy(
+                    env_config,
+                    lambda _seed: NoGuidePolicy(),
+                    args.episodes,
+                    args.seed,
+                    env_kind=args.env,
+                    netlogo_config=netlogo_config,
+                ),
+            ),
+            (
+                "random",
+                evaluate_policy(
+                    env_config,
+                    RandomPolicy,
+                    args.episodes,
+                    args.seed,
+                    env_kind=args.env,
+                    netlogo_config=netlogo_config,
+                ),
+            ),
+            (
+                "safe-heuristic",
+                evaluate_policy(
+                    env_config,
+                    lambda _seed: SafeExitHeuristicPolicy(),
+                    args.episodes,
+                    args.seed,
+                    env_kind=args.env,
+                    netlogo_config=netlogo_config,
+                ),
+            ),
+        ]
+        for name, results in comparisons:
+            print(f"{name}: {format_eval(results)}")
+        return
+
     env = make_evacuation_env(
         args.env,
         env_config,
         seed=args.seed,
         netlogo_config=netlogo_config,
     )
-    agent = DQNAgent(env.state_size, env.action_size, dqn_config, device=device)
+    agent = DQNAgent(
+        env.state_size,
+        env.action_size,
+        dqn_config,
+        device=device,
+        checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+    )
     env.close()
     agent.load(str(args.checkpoint))
     results = evaluate(

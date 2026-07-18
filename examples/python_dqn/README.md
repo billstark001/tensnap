@@ -1,49 +1,15 @@
 # Grid Evacuation Demo (Mesa / NetLogo + PyTorch)
 
-This project is a compact demonstration of combining:
-
-- **ABM (Agent-Based Modeling)** via Mesa, with an optional NetLogo training adapter.
-- **DQN (Deep Q-Network)** via PyTorch.
-
-The environment is a grid-based evacuation scenario:
-
-- A set of evacuee agents try to reach exits.
-- A fire source expands over time.
-- A **guide agent** is controlled by a DQN policy.
-- Nearby evacuees are more likely to follow the guide, so the policy learns where to move in order to reduce congestion and improve evacuation outcomes.
+This directory contains the runnable entry points for a Mesa + PyTorch DQN
+example, with TenSnap, Solara, and NetLogo routes. See [MODEL.md](MODEL.md) for
+the normative model description, ODD specification, reinforcement-learning
+formulation, validation evidence, and limitations.
 
 TenSnap (`evac_viz.py`), Solara (`evac_viz_solara.py`), and NetLogo
 (`netlogo/evac_dqn_netlogo.nlogox`) views are available for comparing the same
 evacuation task across implementations. The TenSnap and Solara visualizations
 use the Mesa model; the training CLI can choose Mesa or NetLogo as the data
 environment.
-
-## Environment summary
-
-- **Grid**: rectangular discrete space.
-- **Agents**:
-  - `EvacueeAgent`: heuristic civilian.
-  - `GuideAgent`: RL-controlled agent.
-- **Hazard**: expanding fire cells.
-- **Exits**: fixed safe cells.
-- **Actions**: `stay`, `up`, `down`, `left`, `right`.
-- **Reward**:
-  - positive reward for evacuations,
-  - negative reward for casualties,
-  - small per-step time penalty,
-  - small congestion penalty,
-  - bonus when the guide helps clustered evacuees.
-
-## State features
-
-The DQN observes a compact vector that includes:
-
-- normalized guide position,
-- normalized fire centroid,
-- counts of alive / evacuated / dead evacuees,
-- local congestion around the guide,
-- distance to nearest exit,
-- occupancy in 6 local sectors around the guide.
 
 ## Install
 
@@ -69,10 +35,10 @@ python -m python_dqn.main --mode rollout --env netlogo --episodes 1 --seed 7
 
 ```bash
 # From the examples/ directory
-python -m python_dqn.main --mode train --episodes 300 --seed 7
+python -m python_dqn.main --mode train --episodes 500 --seed 7
 
 # Train from NetLogo state/reward transitions instead of Mesa:
-python -m python_dqn.main --mode train --env netlogo --episodes 300 --seed 7
+python -m python_dqn.main --mode train --env netlogo --episodes 500 --seed 7
 ```
 
 Checkpoints are written to `examples/python_dqn/checkpoints` by default. You can
@@ -87,6 +53,24 @@ python -m python_dqn.main --mode eval --episodes 20 --checkpoint python_dqn/chec
 # Evaluate the same checkpoint against NetLogo:
 python -m python_dqn.main --mode eval --env netlogo --episodes 20 --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 7
 ```
+
+## Compare against reference policies
+
+`compare` runs the learned policy, no-guide, random, and oracle-like safe-exit
+heuristic on the same episode seeds:
+
+```bash
+# From the examples/ directory
+python -m python_dqn.main --mode compare --episodes 100 \
+  --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 4000
+
+# The same checkpoint can drive NetLogo without retraining:
+python -m python_dqn.main --mode compare --env netlogo --episodes 20 \
+  --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 4000
+```
+
+Interpretation of the reference policies and the expected evidence threshold is
+documented in [MODEL.md](MODEL.md#fitness-for-purpose-and-validation).
 
 ## TenSnap Visualization
 
@@ -181,9 +165,8 @@ read the DQN action with `py:runresult`.
 For training with `--env netlogo`, the Python adapter disables
 `use-python-policy?`, writes `training-action`, calls `go`, and reads the same
 16-value state vector, reward, done flag, and count metrics back from NetLogo.
-The Mesa, TenSnap, Solara, and NetLogo variants now share the same stop
-condition: all evacuees are evacuated or dead, and fire has reached every
-burnable non-wall, non-exit cell.
+The cross-runtime state, action, reward, and scheduling contract is documented
+in [MODEL.md](MODEL.md#process-overview-and-scheduling).
 
 Open it from the repository root with:
 
@@ -208,6 +191,7 @@ Python policy bridge is validated separately with `python_dqn.netlogo_policy`.
 - `model.py`: Mesa model and agent logic.
 - `dqn.py`: replay buffer, Q-network, DQN agent.
 - `train.py`: training and evaluation loops.
+- `policies.py`: no-guide, random, and safe-exit reference policies.
 - `config.py`: typed configuration objects.
 - `evac_viz.py`: TenSnap visualization entrypoint.
 - `evac_viz_solara.py`: Solara visualization entrypoint.
@@ -218,7 +202,8 @@ Python policy bridge is validated separately with `python_dqn.netlogo_policy`.
 
 - The Mesa path avoids extra dependencies beyond `mesa`, `torch`, `tensnap`, and the Python standard library. NetLogo training additionally needs `pynetlogo` and a local NetLogo installation.
 - The environment is intentionally small and readable rather than fully optimized.
-- Because only the guide is controlled by RL, this is a good starting point for explaining **how ABM and DQN interact** in one simulation.
+- Model interpretation and limitations are centralized in
+  [MODEL.md](MODEL.md#scope-and-interpretation).
 
 ## TenSnap design notes
 

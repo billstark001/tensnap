@@ -1,2 +1,3 @@
 *.pt
+!dqn_latest.pt
 *.pth

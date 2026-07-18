@@ -60,12 +60,18 @@ class OptimizationStats:
 
 class DQNAgent:
     def __init__(
-        self, state_dim: int, action_dim: int, config: DQNConfig, device: Device
+        self,
+        state_dim: int,
+        action_dim: int,
+        config: DQNConfig,
+        device: Device,
+        checkpoint_schema: str | None = None,
     ) -> None:
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.config = config
         self.device = device
+        self.checkpoint_schema = checkpoint_schema
         self.policy_net = QNetwork(state_dim, action_dim, config.hidden_dim).to(device)
         self.target_net = QNetwork(state_dim, action_dim, config.hidden_dim).to(device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -73,10 +79,12 @@ class DQNAgent:
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=config.lr)
         self.buffer = ReplayBuffer(config.buffer_size)
         self.total_steps = 0
+        self.optimization_steps = 0
 
     def select_action(self, state: Tensor, greedy: bool = False) -> int:
         epsilon = 0.0 if greedy else self.current_epsilon()
-        self.total_steps += 1
+        if not greedy:
+            self.total_steps += 1
         if random.random() < epsilon:
             return random.randrange(self.action_dim)
         with torch.no_grad():
@@ -112,7 +120,8 @@ class DQNAgent:
 
         current_q = self.policy_net(states).gather(1, actions)
         with torch.no_grad():
-            next_q = self.target_net(next_states).max(dim=1, keepdim=True).values
+            next_actions = self.policy_net(next_states).argmax(dim=1, keepdim=True)
+            next_q = self.target_net(next_states).gather(1, next_actions)
             target_q = rewards + self.config.gamma * next_q * (1.0 - dones)
 
         loss = nn.functional.smooth_l1_loss(current_q, target_q)
@@ -122,8 +131,9 @@ class DQNAgent:
             self.policy_net.parameters(), self.config.gradient_clip_norm
         )
         self.optimizer.step()
+        self.optimization_steps += 1
 
-        if self.total_steps % self.config.target_sync_interval == 0:
+        if self.optimization_steps % self.config.target_sync_interval == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
 
         return OptimizationStats(
@@ -136,7 +146,9 @@ class DQNAgent:
             "target": self.target_net.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "total_steps": self.total_steps,
+            "optimization_steps": self.optimization_steps,
             "config": asdict(self.config),
+            "checkpoint_schema": self.checkpoint_schema,
         }
         torch.save(payload, path)
 
@@ -147,7 +159,19 @@ class DQNAgent:
             )
         except TypeError:
             payload = torch.load(path, map_location=str(self.device))
+        saved_schema = payload.get("checkpoint_schema")
+        if (
+            self.checkpoint_schema is not None
+            and saved_schema != self.checkpoint_schema
+        ):
+            found = saved_schema or "legacy/unspecified"
+            raise ValueError(
+                "Incompatible DQN checkpoint schema: "
+                f"expected '{self.checkpoint_schema}', found '{found}'. Retrain the "
+                "checkpoint for the current evacuation environment."
+            )
         self.policy_net.load_state_dict(payload["policy"])
         self.target_net.load_state_dict(payload["target"])
         self.optimizer.load_state_dict(payload["optimizer"])
         self.total_steps = int(payload.get("total_steps", 0))
+        self.optimization_steps = int(payload.get("optimization_steps", 0))

@@ -26,6 +26,9 @@ class EvacuationEnv(Protocol):
     def state_size(self) -> int: ...
 
     @property
+    def alive_count(self) -> int: ...
+
+    @property
     def evacuated_count(self) -> int: ...
 
     @property
@@ -52,6 +55,10 @@ class MesaEvacuationEnv:
     @property
     def state_size(self) -> int:
         return self.model.state_size
+
+    @property
+    def alive_count(self) -> int:
+        return self.model.alive_count
 
     @property
     def evacuated_count(self) -> int:
@@ -117,7 +124,7 @@ class NetLogoEvacuationEnv:
                 "local NetLogo installation. Install pyNetLogo or use '--env mesa'."
             ) from exc
 
-        kwargs = {"gui": self.netlogo_config.gui}
+        kwargs: dict[str, object] = {"gui": self.netlogo_config.gui}
         if self.netlogo_config.netlogo_home is not None:
             kwargs["netlogo_home"] = str(self.netlogo_config.netlogo_home)
         self._link = pynetlogo.NetLogoLink(**kwargs)
@@ -128,6 +135,10 @@ class NetLogoEvacuationEnv:
         except Exception:
             self.close()
             raise
+
+    @property
+    def alive_count(self) -> int:
+        return int(self._link.report("alive-count"))
 
     @property
     def evacuated_count(self) -> int:
@@ -183,11 +194,14 @@ class NetLogoEvacuationEnv:
             "guide-follow-bias": self.config.guide_follow_bias,
             "random-move-bias": self.config.random_move_bias,
             "fire-spread-interval": self.config.fire_spread_interval,
+            "fire-spread-probability": self.config.fire_spread_probability,
             "evacuation-reward": self.config.evacuation_reward,
             "fire-reward-penalty": self.config.fire_reward_penalty,
             "step-penalty": self.config.step_penalty,
             "congestion-penalty": self.config.congestion_penalty,
-            "clustering-bonus": self.config.clustering_bonus,
+            "progress-reward": self.config.progress_reward,
+            "invalid-action-penalty": self.config.invalid_action_penalty,
+            "unresolved-penalty": self.config.unresolved_penalty,
             "seed": 0 if seed is None else seed,
             "training-action": 0,
             "use-python-policy?": False,
@@ -208,11 +222,13 @@ class NetLogoEvacuationEnv:
             tuple(self.config.exits) != exits
             or tuple(self.config.fire_sources) != fire_sources
             or set(self.config.walls) != set(walls)
+            or not self.config.sample_fire_source
         ):
             raise ValueError(
                 "The NetLogo adapter currently supports the canonical generated "
-                "layout only. Build EnvConfig with build_evacuation_layout(...) "
-                "or use '--env mesa' for custom exits, fire sources, or walls."
+                "single-source layout only. Build EnvConfig with "
+                "build_evacuation_layout(...), keep sample_fire_source enabled, "
+                "or use '--env mesa' for a custom environment."
             )
 
     @staticmethod
