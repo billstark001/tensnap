@@ -58,8 +58,40 @@
       }
     },
     {
-      "id": "agents-tensnap-web",
-      "system": "Agents.jl + TenSnap binding + Web host (agents + charts)",
+      "id": "agents-tensnap-web-raf",
+      "system": "Agents.jl + TenSnap binding + Web host (rAF frame latency)",
+      "browserOptions": {
+        "renderTriggerMode": "requestAnimationFrame"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "julia",
+        "args": ["--project=.", "schelling_viz.jl"],
+        "cwd": "examples/julia",
+        "env": {
+          "TENSNAP_SERVER_PORT": "8765",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:8765",
+        "encoding": "msgpack",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 180000,
+        "environmentLocks": { "examples/julia/Manifest.toml": "8b3c49dc6a3c00daec28294b54af1c917b30bfbd6569969ebf14d66b4779689b" },
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "agents-tensnap-web-timeout",
+      "system": "Agents.jl + TenSnap binding + Web host (timeout throughput)",
+      "browserOptions": {
+        "renderTriggerMode": "setTimeout"
+      },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "julia",

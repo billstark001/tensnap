@@ -184,6 +184,24 @@ not manufacture a third system comparison. Their Web measurements use the same
 production TenSnap host, 50×50 agents/grid state, charts, deterministic seed,
 and action-completion boundary as the other TenSnap conditions.
 
+### Browser scheduling mode
+
+Every profile workload may set `browserOptions`. The default is deliberately
+frame-bound so historical `actionToRunCompletionMs` runs remain comparable:
+
+```json
+"browserOptions": { "renderTriggerMode": "requestAnimationFrame" }
+```
+
+For maximum-throughput measurements, use
+`"renderTriggerMode": "setTimeout"` (and leave `maxTps` and
+`maxRenderFps` at their default `0`). This bypasses the display-frame wait, so
+it measures action throughput rather than presentable frame latency. `auto` is
+also available for the production scheduler's cadence-based choice. The
+resolved settings are recorded in each browser run's manifest
+`execution.browser.runOptions`; do not compare results obtained with different
+scheduling modes as the same latency metric.
+
 Solara/WGLMakie values are click-to-first-changed-frame and write PNG screenshot
 checkpoints plus hashes; TenSnap values use the production Web host against the
 actual external simulator WebSocket. Only equal functionality levels belong in

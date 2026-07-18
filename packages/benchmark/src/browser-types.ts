@@ -4,11 +4,24 @@ import type { RenderTriggerMode } from '@tensnap/web/store';
 export type BrowserBenchmarkCategory = 'tensnap' | 'renderer-control' | 'external';
 export type BenchmarkRuntimeMode = 'production';
 
-export interface BenchmarkHostOptions {
+/** Scheduling policy for the production Web host during a browser benchmark. */
+export interface BrowserBenchmarkRunOptions {
+  /** Defaults to rAF to preserve the original frame-latency measurement. */
+  readonly renderTriggerMode?: RenderTriggerMode;
+  /** Zero means no configured TPS cap. */
+  readonly maxTps?: number;
+  /** Zero means no configured render-FPS cap. */
+  readonly maxRenderFps?: number;
+}
+
+/** Fully normalized options received by a mounted benchmark host. */
+export interface ResolvedBrowserBenchmarkRunOptions {
   renderTriggerMode: RenderTriggerMode;
   maxTps: number;
   maxRenderFps: number;
 }
+
+export type BenchmarkHostOptions = ResolvedBrowserBenchmarkRunOptions;
 
 export interface MountedComponentBenchmark {
   kind: 'component';

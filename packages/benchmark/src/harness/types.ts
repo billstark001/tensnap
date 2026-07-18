@@ -6,6 +6,7 @@ import type {
 } from '@tensnap/protocol';
 import type { BrowserBenchmarkCase } from '../browser-types';
 import type { BenchmarkCase } from '../browser-types';
+import type { BrowserBenchmarkRunOptions, ResolvedBrowserBenchmarkRunOptions } from '../browser-types';
 
 /** Where an experiment executes. `ws` always means a real loopback WebSocket. */
 export type BenchmarkSuite = 'node' | 'ws' | 'browser';
@@ -207,6 +208,8 @@ export interface BenchmarkProfileWorkload {
   readonly warmupActions?: number;
   /** Override profile defaults when a system exposes a different trial unit. */
   readonly measuredActions?: number;
+  /** Browser scheduling for this workload; omitted values use the harness defaults. */
+  readonly browserOptions?: BrowserBenchmarkRunOptions;
   readonly module: string;
   readonly config?: BenchmarkConfig;
 }
@@ -319,6 +322,8 @@ export interface BenchmarkRun {
       readonly version: string;
       readonly viewport: { readonly width: number; readonly height: number; readonly deviceScaleFactor: number };
       readonly headless: true;
+      /** Resolved scheduling policy used for this browser run. */
+      readonly runOptions?: ResolvedBrowserBenchmarkRunOptions;
     };
   };
   readonly samples: readonly BenchmarkReplicate[];

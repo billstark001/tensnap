@@ -40,6 +40,8 @@ import type {
   PairedComparisonSummary,
   ProtocolBenchmarkWorkload,
 } from '../harness/types';
+import { resolveBrowserBenchmarkRunOptions } from '../browser-options';
+import type { ResolvedBrowserBenchmarkRunOptions } from '../browser-types';
 
 const EMPTY_BYTES: BenchmarkWireBytes = { rendererToSimulator: 0, simulatorToRenderer: 0 };
 const benchmarkRequire = createRequire(import.meta.url);
@@ -52,6 +54,7 @@ export interface ResolvedProfileWorkload {
   modulePath: string;
   workload: BenchmarkWorkload;
   config: BenchmarkConfig;
+  browserOptions: ResolvedBrowserBenchmarkRunOptions;
 }
 
 export interface RunProfileOptions {
@@ -144,6 +147,7 @@ export async function loadProfileWorkloads(profilePath: string, profile: Benchma
       modulePath,
       workload,
       config,
+      browserOptions: resolveBrowserBenchmarkRunOptions(entry.browserOptions),
     };
   }));
 }
@@ -620,6 +624,7 @@ async function runProtocolBrowserReplicate(
   warmupActions: number,
   measuredActions: number,
   index: number,
+  browserOptions: ResolvedBrowserBenchmarkRunOptions,
 ): Promise<{ sample: BenchmarkReplicate; browserVersion: string }> {
   const processStartedAt = nowMs();
   const validator = workload.createSemanticValidator(config);
@@ -675,6 +680,7 @@ async function runProtocolBrowserReplicate(
         validation,
         warmupActions,
         measuredActions,
+        browserOptions,
       });
       await gotoWhenReady(page, new URL('browser-runner.html', browserServer.pageUrl).href, '#benchmark-root', 30_000);
       try {
@@ -734,6 +740,7 @@ async function runBrowserWorkloadReplicate(
   warmupActions: number,
   measuredActions: number,
   index: number,
+  browserOptions: ResolvedBrowserBenchmarkRunOptions,
 ): Promise<{ sample: BenchmarkReplicate; browserVersion: string }> {
   const processStartedAt = nowMs();
   const { chromium } = await import('playwright');
@@ -754,6 +761,7 @@ async function runBrowserWorkloadReplicate(
       config,
       warmupActions,
       measuredActions,
+      browserOptions,
     });
     await gotoWhenReady(page, new URL('browser-runner.html', browserServer.pageUrl).href, '#benchmark-root', 30_000);
     try {
@@ -979,6 +987,7 @@ async function runExternalBrowserReplicate(
   warmupActions: number,
   measuredActions: number,
   index: number,
+  browserOptions: ResolvedBrowserBenchmarkRunOptions,
 ): Promise<{ sample: BenchmarkReplicate; browserVersion: string }> {
   const startedAt = nowMs();
   const spec: ExternalBrowserSpec = workload.createExternalBrowserSpec(config, { repositoryRoot, replicate: index, warmupActions, measuredActions });
@@ -1001,6 +1010,7 @@ async function runExternalBrowserReplicate(
             validation: spec.tensnapHarness.validation,
             warmupActions,
             measuredActions,
+            browserOptions,
           });
           await page.goto(new URL('browser-runner.html', browserServer.pageUrl).href, { waitUntil: 'domcontentloaded' });
           await page.waitForFunction(() => window.__TENSNAP_BENCHMARK_RESULT__ !== undefined, undefined, {
@@ -1085,6 +1095,7 @@ export interface ReplicateRequest {
   readonly warmupActions: number;
   readonly measuredActions: number;
   readonly index: number;
+  readonly browserOptions: ResolvedBrowserBenchmarkRunOptions;
 }
 
 /** Runs one replicate. Exported for the clean child-process entry point. */
@@ -1104,14 +1115,40 @@ export async function runReplicateInCurrentProcess(request: ReplicateRequest): P
     return { sample: await runWsReplicate(workload, request.config, request.encoding, request.validation, request.warmupActions, request.measuredActions, request.index) };
   }
   if (workload.kind === 'external-browser') {
-    return runExternalBrowserReplicate(request.repositoryRoot, workload, request.config, request.warmupActions, request.measuredActions, request.index);
+    return runExternalBrowserReplicate(
+      request.repositoryRoot,
+      workload,
+      request.config,
+      request.warmupActions,
+      request.measuredActions,
+      request.index,
+      request.browserOptions,
+    );
   }
   if (workload.kind === 'node' || workload.kind === 'external-process') throw new Error(`${workload.id} is node-only.`);
   const browserServer = await startBrowserServer(request.repositoryRoot);
   try {
     return workload.kind === 'protocol'
-      ? await runProtocolBrowserReplicate(browserServer, workload, request.config, request.encoding ?? 'json', request.validation ?? 'error', request.warmupActions, request.measuredActions, request.index)
-      : await runBrowserWorkloadReplicate(browserServer, workload, request.config, request.warmupActions, request.measuredActions, request.index);
+      ? await runProtocolBrowserReplicate(
+        browserServer,
+        workload,
+        request.config,
+        request.encoding ?? 'json',
+        request.validation ?? 'error',
+        request.warmupActions,
+        request.measuredActions,
+        request.index,
+        request.browserOptions,
+      )
+      : await runBrowserWorkloadReplicate(
+        browserServer,
+        workload,
+        request.config,
+        request.warmupActions,
+        request.measuredActions,
+        request.index,
+        request.browserOptions,
+      );
   } finally {
     await browserServer.close();
   }
@@ -1222,7 +1259,15 @@ function buildRun(repositoryRoot: string, target: RunTarget, profile: BenchmarkP
       measuredActions: resolved.measuredActions,
       repetitions: profile.repetitions,
       processIsolated,
-      ...(target.browserVersion ? { browser: { name: 'chromium' as const, version: target.browserVersion, viewport: { width: 1280, height: 800, deviceScaleFactor: 1 }, headless: true as const } } : {}),
+      ...(target.browserVersion ? {
+        browser: {
+          name: 'chromium' as const,
+          version: target.browserVersion,
+          viewport: { width: 1280, height: 800, deviceScaleFactor: 1 },
+          headless: true as const,
+          runOptions: resolved.browserOptions,
+        },
+      } : {}),
     },
     samples: target.samples,
     summary: summarizeRun(target.samples),
@@ -1311,6 +1356,7 @@ export async function runProfile(options: RunProfileOptions): Promise<BenchmarkA
         warmupActions: target.resolved.warmupActions,
         measuredActions: target.resolved.measuredActions,
         index: block,
+        browserOptions: target.resolved.browserOptions,
       };
       // Browser replicates already create a fresh Chromium process, WebSocket host,
       // and Vite preview server. Vite's programmatic preview intentionally ends a

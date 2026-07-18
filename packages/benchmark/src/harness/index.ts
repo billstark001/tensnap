@@ -27,4 +27,4 @@ export type {
   ExternalProcessContext,
   ExternalBrowserSpec,
 } from './types';
-export type { BenchmarkCase, BrowserBenchmarkCase } from '../browser-types';
+export type { BenchmarkCase, BrowserBenchmarkCase, BrowserBenchmarkRunOptions } from '../browser-types';

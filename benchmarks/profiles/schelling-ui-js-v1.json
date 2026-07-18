@@ -29,8 +29,39 @@
       }
     },
     {
-      "id": "js-tensnap-web",
-      "system": "JavaScript + TenSnap binding + Web host (agents + charts)",
+      "id": "js-tensnap-web-raf",
+      "system": "JavaScript + TenSnap binding + Web host (rAF frame latency)",
+      "browserOptions": {
+        "renderTriggerMode": "requestAnimationFrame"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "pnpm",
+        "args": ["exec", "tsx", "src/entries/main-ws.ts", "schelling", "--port=8765", "--encoding=json"],
+        "cwd": "examples/js",
+        "env": {
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:8765",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/js/package.json": "b39b893d02839f2924cffe7a6361f0913e1a59dbb3b8f47875b02d2502b0b7ad", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "js-tensnap-web-timeout",
+      "system": "JavaScript + TenSnap binding + Web host (timeout throughput)",
+      "browserOptions": {
+        "renderTriggerMode": "setTimeout"
+      },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "pnpm",

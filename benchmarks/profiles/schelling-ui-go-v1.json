@@ -29,8 +29,31 @@
       }
     },
     {
-      "id": "go-tensnap-web",
-      "system": "Go + TenSnap binding + Web host (agents + charts)",
+      "id": "go-tensnap-web-raf",
+      "system": "Go + TenSnap binding + Web host (rAF frame latency)",
+      "browserOptions": {
+        "renderTriggerMode": "requestAnimationFrame"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "go",
+        "args": ["run", "./schelling", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--threshold", "0.70", "--seed", "{seed}", "--port", "8765"],
+        "cwd": "examples/go",
+        "endpoint": "ws://127.0.0.1:8765",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/go/go.mod": "e756878bb3796cfc640d7a82e9f8b5cb42ea8749d153dbbfddfb9523d1d23358", "examples/go/go.sum": "1737d5523b7264df09b253e86e29f96af295a7bd18e0aaa4373c6099317e065f" },
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "go-tensnap-web-timeout",
+      "system": "Go + TenSnap binding + Web host (timeout throughput)",
+      "browserOptions": {
+        "renderTriggerMode": "setTimeout"
+      },
       "module": "../schelling/tensnap-web-external.ts",
       "config": {
         "executable": "go",

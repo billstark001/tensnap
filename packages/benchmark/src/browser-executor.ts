@@ -1,12 +1,14 @@
 import type { RendererSessionOutboundDetail, RunStatus, RuntimeTaskSnapshot } from '@tensnap/core/runtime';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
 import type { ActionInvokePayload } from '@tensnap/protocol';
-import type { RenderTriggerMode } from '@tensnap/web/store';
+import { resolveBrowserBenchmarkRunOptions } from './browser-options';
 import type {
   BenchmarkCase,
+  BrowserBenchmarkRunOptions,
   BrowserBenchmarkStats,
   MountedComponentBenchmark,
   MountedModelBenchmark,
+  ResolvedBrowserBenchmarkRunOptions,
 } from './browser-types';
 
 interface TimingResult {
@@ -80,7 +82,7 @@ async function measureComponentRun(
   mounted: MountedComponentBenchmark,
   frames: number,
   warmupFrames: number,
-  options: { renderTriggerMode: RenderTriggerMode; maxTps: number; maxRenderFps: number },
+  options: ResolvedBrowserBenchmarkRunOptions,
 ): Promise<TimingResult> {
   const barrier = new BrowserRunRenderBarrier(() => ({
     mode: options.renderTriggerMode,
@@ -128,12 +130,9 @@ export async function runBrowserBenchmark(
   container: HTMLElement,
   measuredFrames: number,
   warmupFrames: number,
+  browserOptions?: BrowserBenchmarkRunOptions,
 ): Promise<BrowserBenchmarkStats> {
-  const options = {
-    renderTriggerMode: 'requestAnimationFrame' as const,
-    maxTps: 0,
-    maxRenderFps: 0,
-  };
+  const options = resolveBrowserBenchmarkRunOptions(browserOptions);
   const mounted = await benchCase.mount(container, options);
   try {
     const result = mounted.kind === 'model'

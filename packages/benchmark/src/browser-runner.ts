@@ -2,6 +2,7 @@ import './runtime/leafer-runtime';
 
 import { getBenchmarkWorkload } from '../../../benchmarks/registry';
 import { runBrowserBenchmark } from './browser-executor';
+import type { BrowserBenchmarkRunOptions } from './browser-types';
 import type { ProtocolEncoding } from '@tensnap/protocol';
 import type { ProtocolValidationLevel } from '@tensnap/protocol';
 
@@ -13,6 +14,7 @@ interface BrowserRequest {
   validation?: ProtocolValidationLevel;
   warmupActions: number;
   measuredActions: number;
+  browserOptions?: BrowserBenchmarkRunOptions;
 }
 
 declare global {
@@ -31,7 +33,7 @@ async function main(): Promise<void> {
   const config = workload.resolveConfig(request.config);
   if (workload.kind === 'browser') {
     const benchmark = workload.createBrowserCase({ config });
-    const stats = await runBrowserBenchmark(benchmark.case, root, request.measuredActions, request.warmupActions);
+    const stats = await runBrowserBenchmark(benchmark.case, root, request.measuredActions, request.warmupActions, request.browserOptions);
     window.__TENSNAP_BENCHMARK_RESULT__ = {
       ok: true,
       stats,
@@ -47,7 +49,7 @@ async function main(): Promise<void> {
     throw new Error(`Protocol browser workload ${workload.id} requires endpoint, encoding, and validation.`);
   }
   const benchCase = workload.createBrowserCase({ config, endpoint: request.endpoint, encoding: request.encoding, validation: request.validation });
-  const stats = await runBrowserBenchmark(benchCase, root, request.measuredActions, request.warmupActions);
+  const stats = await runBrowserBenchmark(benchCase, root, request.measuredActions, request.warmupActions, request.browserOptions);
   window.__TENSNAP_BENCHMARK_RESULT__ = { ok: true, stats };
 }
 
