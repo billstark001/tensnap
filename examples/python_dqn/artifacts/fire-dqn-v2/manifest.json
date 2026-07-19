@@ -1,0 +1,184 @@
+{
+  "checkpointSchema": "fire-evacuation-v2",
+  "checkpointsSha256": {
+    "11": "20791070712d41e42885dcc6afa1e01e72071a496f5e6c557f6b95257f6d0d10",
+    "23": "214c4f2ad758f2eb0bcfd4d17a8e8f1ee106f188fba2f74068291e8bc9951f2f",
+    "37": "6ee51aa47d1fdb3b64bc65e3109e843039ad1f644084f223b391534e8a7c5239",
+    "53": "98a01bcd82813ff57569922c841b23d3d03f0c3d8901ba4bf9a1a427fd51579e",
+    "7": "7a961a6aa09e2e9fb6275bd25376698f1d1f86c74a3593fab9c4d42d86e136a8"
+  },
+  "dqnConfig": {
+    "batch_size": 64,
+    "buffer_size": 20000,
+    "epsilon_decay_steps": 8000,
+    "epsilon_end": 0.05,
+    "epsilon_start": 1.0,
+    "gamma": 0.99,
+    "gradient_clip_norm": 5.0,
+    "hidden_dim": 128,
+    "lr": 0.001,
+    "target_sync_interval": 200,
+    "warmup_steps": 250
+  },
+  "envConfig": {
+    "congestion_penalty": -0.01,
+    "evacuation_reward": 3.0,
+    "exits": [
+      [
+        0,
+        6
+      ],
+      [
+        16,
+        6
+      ]
+    ],
+    "fire_reward_penalty": -8.0,
+    "fire_sources": [
+      [
+        5,
+        6
+      ],
+      [
+        11,
+        6
+      ]
+    ],
+    "fire_spread_interval": 2,
+    "fire_spread_probability": 0.2,
+    "guide_follow_bias": 0.9,
+    "guide_influence_radius": 6,
+    "height": 13,
+    "invalid_action_penalty": -0.05,
+    "max_steps": 50,
+    "num_evacuees": 28,
+    "progress_reward": 0.05,
+    "random_move_bias": 0.05,
+    "sample_fire_source": true,
+    "step_penalty": -0.03,
+    "unresolved_penalty": -2.0,
+    "walls": [
+      [
+        4,
+        0
+      ],
+      [
+        12,
+        0
+      ],
+      [
+        4,
+        1
+      ],
+      [
+        12,
+        1
+      ],
+      [
+        4,
+        2
+      ],
+      [
+        12,
+        2
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        12,
+        3
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        12,
+        4
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        12,
+        5
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        12,
+        7
+      ],
+      [
+        4,
+        8
+      ],
+      [
+        12,
+        8
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        12,
+        9
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        12,
+        10
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        12,
+        11
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        12,
+        12
+      ]
+    ],
+    "width": 17
+  },
+  "evaluationSeed": 4000,
+  "filesSha256": {
+    "episodes.jsonl": "0819777ed5c001b781ebd5ca14f94c93ba5acf91756f9d4d7e38cb5415c31ab5",
+    "summary.json": "37b8a4d6d1b525833af1e6dcce7ac84b346a03a373141b727aea23bc1f3f6e05"
+  },
+  "referenceEpisodes": 100,
+  "runtime": {
+    "device": "cpu",
+    "mesa": "3.5.1",
+    "platform": "macOS-15.7.5-arm64-arm-64bit",
+    "python": "3.12.13",
+    "torch": "2.11.0"
+  },
+  "schemaVersion": 1,
+  "sourceCommit": "e2825515d6a7086ffeaa46a33172015e8e519776",
+  "stabilityEpisodes": 500,
+  "trainingEpisodes": 500,
+  "trainingSeeds": [
+    7,
+    11,
+    23,
+    37,
+    53
+  ]
+}
