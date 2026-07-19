@@ -88,6 +88,10 @@ export NETLOGO_HOME='/Applications/NetLogo 7.0.4'
 
 pnpm bench:netlogo:render
 pnpm bench verify --input benchmark-results/schelling-netlogo-render-v1
+
+# Current no-I/O profile: 0.8 threshold, exactly 500 ticks.
+pnpm bench:netlogo:render-memory
+pnpm bench verify --input benchmark-results/schelling-netlogo-render-v2
 ```
 
 NetLogo is not browser based and a running GUI may skip display refreshes. The
@@ -101,11 +105,18 @@ This establishes exact agreement between the authoritative NetLogo patch state
 and the exported native view. It does not establish cell-for-cell equality with
 the independently implemented Mesa/Go/JavaScript/Julia models, whose random
 number generators and scheduling differ. Cross-runtime dynamics remain a
-distributional/specification comparison. The declared `actionToPngMs` metric
-includes model transition, patch recoloring, PNG encoding, and file I/O; the
-artifact also reports those stages separately. It is descriptive evidence and
-must not enter paired comparisons with browser `requestAnimationFrame`
-completion latency.
+distributional/specification comparison. The immutable v1 profile's declared
+`actionToPngMs` metric includes model transition, patch recoloring, PNG
+encoding, and file I/O; the artifact also reports those stages separately.
+
+The v2 profile instead calls the public headless Java API to paint each view
+into a `BufferedImage`. Its `actionToInMemoryViewMs` metric includes model
+transition, patch recoloring, and in-memory view rasterization, but excludes
+PNG encoding and all file I/O. It encodes only the final frame, after timing,
+to retain the same state-to-pixel audit evidence. Both results are descriptive:
+a headless CPU raster is not the same completion boundary as a
+browser-presented `requestAnimationFrame`, so v2 must not enter a paired browser
+latency comparison even though it removes the v1 I/O confound.
 
 An output directory is published only after every planned run and replicate is
 present and verified. It is created through a staging directory and atomic
