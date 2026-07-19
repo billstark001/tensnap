@@ -11,6 +11,7 @@ from python_dqn.config import (
     build_evacuation_layout,
 )
 from python_dqn.dqn import DQNAgent
+from python_dqn.evidence import _derive_summary
 from python_dqn.envs import MesaEvacuationEnv
 from python_dqn.model import EvacuationModel
 from python_dqn.policies import NoGuidePolicy, SafeExitHeuristicPolicy, evaluate_policy
@@ -98,3 +99,50 @@ def test_checkpoint_rejects_an_incompatible_environment_schema(tmp_path) -> None
     )
     with pytest.raises(ValueError, match="Incompatible DQN checkpoint schema"):
         incompatible.load(str(checkpoint))
+
+
+def test_evidence_summary_is_derived_from_episode_rows() -> None:
+    rows = []
+    policies = ("dqn", "no-guide", "random", "safe-heuristic")
+    for policy in policies:
+        for index in range(100):
+            rows.append({
+                "cohort": "reference-100",
+                "policy": policy,
+                "trainingSeed": 7 if policy == "dqn" else None,
+                "reward": 1.0,
+                "evacuated": 20,
+                "dead": 3,
+                "unresolved": 5,
+                "steps": 50,
+            })
+    for seed in (7, 11, 23, 37, 53):
+        for _ in range(500):
+            rows.append({
+                "cohort": "stability-500",
+                "policy": "dqn",
+                "trainingSeed": seed,
+                "reward": 1.0,
+                "evacuated": seed,
+                "dead": 0,
+                "unresolved": 0,
+                "steps": 20,
+            })
+    for policy in ("no-guide", "random", "safe-heuristic"):
+        for _ in range(500):
+            rows.append({
+                "cohort": "stability-500",
+                "policy": policy,
+                "trainingSeed": None,
+                "reward": 1.0,
+                "evacuated": 20,
+                "dead": 3,
+                "unresolved": 5,
+                "steps": 50,
+            })
+
+    summary = _derive_summary(rows)
+
+    assert summary["reference100"]["dqn"]["episodes"] == 100
+    assert summary["stability500"]["dqnByTrainingSeed"]["23"]["evacuated"] == 23
+    assert summary["stability500"]["dqnAcrossTrainingSeeds"]["meanEvacuated"] == 26.2

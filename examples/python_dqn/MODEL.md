@@ -434,12 +434,30 @@ python -m python_dqn.main --mode compare --episodes 100 \
   --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 4000
 ```
 
-During development, five independently trained models (training seeds 7, 11,
-23, 37, and 53) were each evaluated on the same 500 held-out episode seeds. The
-mean across training seeds was 27.65 evacuated, 0.14 dead, and 0.21 unresolved
-out of 28. The range of mean evacuations was 27.45–27.89. On those episode
-seeds, no guide averaged 14.39 evacuated, 4.70 dead, and 8.91 unresolved. The
-safe-exit heuristic averaged 27.87 evacuated, 0.08 dead, and 0.05 unresolved.
+For the archival five-seed matrix and machine-verifiable per-episode evidence:
+
+```bash
+cd examples
+python -m python_dqn.evidence run
+python -m python_dqn.evidence verify
+```
+
+The evidence builder requires a clean Git tree, uses an atomic staging
+directory, and refuses to overwrite an existing artifact. It retains the five
+policy checkpoints, all evaluation episodes, exact configurations and runtime
+versions. Verification reconstructs every aggregate and checks checkpoint/file
+hashes, the declared seed matrix, and population conservation; the paper does
+not depend on copied console text.
+
+The verified artifact trains five models (training seeds 7, 11, 23, 37, and
+53) and evaluates each on the same 500 held-out episode seeds. Mean evacuation
+across training seeds is 27.6524 with sample standard deviation 0.1656; the
+range is 27.448–27.892. On those episode seeds, no guide averages 14.392
+evacuated, random averages 18.768, and the safe-exit heuristic averages 27.872.
+For the bundled seed-7 checkpoint on the smaller 100-scenario reference set,
+DQN, no guide, random, and the heuristic evacuate 27.64, 14.28, 18.65, and
+27.87 people, respectively. The heuristic is a transparent performance ceiling:
+this intentionally simple binary map does not require DQN to solve it.
 
 A smaller cross-runtime smoke comparison used one checkpoint for 10 NetLogo
 episodes: DQN averaged 27.8 evacuated and 0 dead; no guide averaged 14.3

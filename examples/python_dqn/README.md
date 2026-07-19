@@ -54,6 +54,39 @@ python -m python_dqn.main --mode eval --episodes 20 --checkpoint python_dqn/chec
 python -m python_dqn.main --mode eval --env netlogo --episodes 20 --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 7
 ```
 
+## Reproduce the publication evidence
+
+The archival evidence command retrains seeds 7, 11, 23, 37, and 53, evaluates
+them on a common 500-episode holdout, evaluates the four-policy reference
+comparison on 100 holdout episodes, and writes checkpoints plus per-episode
+rows through an atomic staging directory:
+
+```bash
+# From examples/, with the Python dependencies installed.
+python -m python_dqn.evidence run
+python -m python_dqn.evidence verify
+
+# Equivalent repository-root shortcuts:
+pnpm evidence:fire:run
+pnpm evidence:fire:verify
+```
+
+The generated artifact lives under `python_dqn/artifacts/fire-dqn-v2`. Its
+`summary.json` is derived entirely from `episodes.jsonl`; `manifest.json`
+records the source commit, full configurations, runtime versions, and SHA-256
+checksums for every retained checkpoint and evidence file. The verifier checks
+the planned matrix, population conservation, seed mapping, checksums, and exact
+summary reconstruction. A run requires a clean Git tree so `sourceCommit`
+identifies the implementation that produced the retained rows and checkpoints.
+
+The verified reference result is 27.64 evacuated people for DQN, versus 14.28
+for no guide and 18.65 for random over 100 common holdout scenarios. The
+safe-exit heuristic reaches 27.87 and is interpreted as a transparent ceiling.
+Across five training seeds and 500 common holdout scenarios per seed, DQN
+reaches 27.6524 mean evacuations with 0.1656 sample standard deviation. The
+simple binary map therefore demonstrates an auditable RL integration; it is
+not evidence that the scenario needs a learned controller.
+
 ## Compare against reference policies
 
 `compare` runs the learned policy, no-guide, random, and oracle-like safe-exit
