@@ -8,6 +8,9 @@ monitors, and plots. The guide action can come from the Python DQN policy
 through NetLogo's bundled `py` extension, or from the Python training adapter
 via the `training-action` global.
 
+See [../MODEL.md](../MODEL.md) for the model definition, ODD description,
+reinforcement-learning formulation, and Mesa/NetLogo equivalence boundary.
+
 ## Run
 
 ```bash
@@ -54,16 +57,23 @@ The DQN CLI can use NetLogo as the transition source:
 
 ```bash
 cd examples
-python -m python_dqn.main --mode train --env netlogo --episodes 300
+python -m python_dqn.main --mode train --env netlogo --episodes 500
 ```
 
 The adapter uses pyNetLogo to load this model, turns `use-python-policy?` off,
 sets `training-action` before every `go`, and reads `dqn-state-values`,
 `last-reward`, `done?`, and count monitors after the step.
 
-The stop condition is shared with the Mesa/TenSnap implementation: every
-evacuee must be evacuated or dead, and fire must cover every burnable
-non-wall, non-exit patch.
+The shared environment contract is documented in
+[../MODEL.md](../MODEL.md#process-overview-and-scheduling).
+
+To compare a checkpoint with reference policies through this adapter:
+
+```bash
+cd examples
+python -m python_dqn.main --mode compare --env netlogo --episodes 20 \
+  --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 4000
+```
 
 ## Headless Smoke
 

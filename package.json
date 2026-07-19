@@ -38,6 +38,8 @@
     "dev:py:evac-dqn": "cd examples && python -m python_dqn.evac_viz",
     "dev:py:evac-dqn:solara": "cd examples && solara run python_dqn/evac_viz_solara.py",
     "dev:netlogo:evac-dqn": "open -a '/Applications/NetLogo 7.0.4/NetLogo 7.0.4.app' examples/python_dqn/netlogo/evac_dqn_netlogo.nlogox",
+    "evidence:fire:run": "cd examples && python -m python_dqn.evidence run",
+    "evidence:fire:verify": "cd examples && python -m python_dqn.evidence verify",
     "dev:go:schelling": "cd examples/go && make run-schelling",
     "standalone:go:schelling": "cd examples/go && make run-standalone",
     "standalone:js:schelling": "pnpm --filter @tensnap/examples-js standalone:schelling",

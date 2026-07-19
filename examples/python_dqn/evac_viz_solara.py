@@ -31,7 +31,13 @@ if str(EXAMPLES_DIR) not in sys.path:
     sys.path.insert(0, str(EXAMPLES_DIR))
 
 from python_dqn import import_config as import_config  # noqa: F401
-from python_dqn.config import DQNConfig, EnvConfig, Position, build_evacuation_layout
+from python_dqn.config import (
+    FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+    DQNConfig,
+    EnvConfig,
+    Position,
+    build_evacuation_layout,
+)
 from python_dqn.dqn import DQNAgent
 from python_dqn.guide_models import (
     UNTRAINED_GUIDE_MODEL,
@@ -75,19 +81,20 @@ class SolaraEvacuationModel(EvacuationModel):
 
     def __init__(
         self,
-        width: int = 16,
-        height: int = 16,
+        width: int = 17,
+        height: int = 13,
         num_evacuees: int = 28,
-        max_steps: int = 80,
-        guide_influence_radius: int = 3,
-        guide_follow_bias: float = 0.65,
-        random_move_bias: float = 0.12,
-        fire_spread_interval: int = 3,
-        fire_reward_penalty: float = -6.0,
-        evacuation_reward: float = 2.0,
+        max_steps: int = 50,
+        guide_influence_radius: int = 6,
+        guide_follow_bias: float = 0.9,
+        random_move_bias: float = 0.05,
+        fire_spread_interval: int = 2,
+        fire_spread_probability: float = 0.2,
+        fire_reward_penalty: float = -8.0,
+        evacuation_reward: float = 3.0,
         step_penalty: float = -0.03,
         congestion_penalty: float = -0.01,
-        clustering_bonus: float = 0.08,
+        progress_reward: float = 0.05,
         seed: int = 7,
         guide_model: str = UNTRAINED_GUIDE_MODEL,
         checkpoint_dir: str | Path | None = None,
@@ -103,11 +110,12 @@ class SolaraEvacuationModel(EvacuationModel):
             guide_follow_bias=guide_follow_bias,
             random_move_bias=random_move_bias,
             fire_spread_interval=fire_spread_interval,
+            fire_spread_probability=fire_spread_probability,
             fire_reward_penalty=fire_reward_penalty,
             evacuation_reward=evacuation_reward,
             step_penalty=step_penalty,
             congestion_penalty=congestion_penalty,
-            clustering_bonus=clustering_bonus,
+            progress_reward=progress_reward,
             exits=exits,
             fire_sources=fire_sources,
             walls=walls,
@@ -145,6 +153,7 @@ class SolaraEvacuationModel(EvacuationModel):
             self.action_size,
             config=DQNConfig(),
             device=self.device,
+            checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
         )
 
     def _load_guide_model(self) -> None:
@@ -241,21 +250,24 @@ guide_model_dir = guide_model_dir_from_env()
 guide_models = discover_guide_models(guide_model_dir)
 
 model_params = {
-    "width": Slider("Width", 16, 8, 40, 1, dtype=int),
-    "height": Slider("Height", 16, 8, 40, 1, dtype=int),
+    "width": Slider("Width", 17, 8, 40, 1, dtype=int),
+    "height": Slider("Height", 13, 8, 40, 1, dtype=int),
     "num_evacuees": Slider("Evacuees", 28, 5, 120, 1, dtype=int),
-    "max_steps": Slider("Max Steps", 80, 20, 300, 1, dtype=int),
-    "guide_influence_radius": Slider("Guide Radius", 3, 1, 8, 1, dtype=int),
-    "guide_follow_bias": Slider("Guide Follow Bias", 0.65, 0.0, 2.0, 0.05, dtype=float),
-    "random_move_bias": Slider("Random Move Bias", 0.12, 0.0, 0.5, 0.01, dtype=float),
-    "fire_spread_interval": Slider("Fire Spread Interval", 3, 1, 10, 1, dtype=int),
-    "evacuation_reward": Slider("Evacuation Reward", 2.0, 0.0, 10.0, 0.1, dtype=float),
-    "fire_reward_penalty": Slider("Fire Penalty", -6.0, -20.0, 0.0, 0.1, dtype=float),
+    "max_steps": Slider("Max Steps", 50, 20, 300, 1, dtype=int),
+    "guide_influence_radius": Slider("Guide Radius", 6, 1, 8, 1, dtype=int),
+    "guide_follow_bias": Slider("Guide Follow Bias", 0.9, 0.0, 1.0, 0.05, dtype=float),
+    "random_move_bias": Slider("Random Move Bias", 0.05, 0.0, 0.5, 0.01, dtype=float),
+    "fire_spread_interval": Slider("Fire Spread Interval", 2, 1, 10, 1, dtype=int),
+    "fire_spread_probability": Slider(
+        "Fire Spread Probability", 0.2, 0.0, 1.0, 0.01, dtype=float
+    ),
+    "evacuation_reward": Slider("Evacuation Reward", 3.0, 0.0, 10.0, 0.1, dtype=float),
+    "fire_reward_penalty": Slider("Fire Penalty", -8.0, -20.0, 0.0, 0.1, dtype=float),
     "step_penalty": Slider("Step Penalty", -0.03, -1.0, 0.0, 0.01, dtype=float),
     "congestion_penalty": Slider(
         "Congestion Penalty", -0.01, -1.0, 0.0, 0.01, dtype=float
     ),
-    "clustering_bonus": Slider("Clustering Bonus", 0.08, 0.0, 1.0, 0.01, dtype=float),
+    "progress_reward": Slider("Progress Reward", 0.05, 0.0, 1.0, 0.01, dtype=float),
     "seed": {
         "type": "SliderInt",
         "value": 7,
