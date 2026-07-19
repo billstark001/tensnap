@@ -76,6 +76,37 @@ pnpm bench verify --input benchmark-results/paper-v0.3
 pnpm bench report --input benchmark-results/paper-v0.3
 ```
 
+The NetLogo 7 rendering profile is intentionally separate from browser UI
+profiles:
+
+```bash
+python3 -m venv .benchmark-venv
+.benchmark-venv/bin/pip install -r \
+  benchmarks/environments/python-netlogo7-render.requirements.lock
+export PATH="$PWD/.benchmark-venv/bin:$PATH"
+export NETLOGO_HOME='/Applications/NetLogo 7.0.4'
+
+pnpm bench:netlogo:render
+pnpm bench verify --input benchmark-results/schelling-netlogo-render-v1
+```
+
+NetLogo is not browser based and a running GUI may skip display refreshes. The
+adapter avoids an implicit frame-cadence claim by calling NetLogo's built-in
+headless `export-view` after every action. It independently reads the 50x50
+patch `group` state and checks every pixel block in the 400x400 PNG against the
+documented NetLogo white/blue/red palette. The final checksummed PNG is retained
+by the ordinary artifact writer.
+
+This establishes exact agreement between the authoritative NetLogo patch state
+and the exported native view. It does not establish cell-for-cell equality with
+the independently implemented Mesa/Go/JavaScript/Julia models, whose random
+number generators and scheduling differ. Cross-runtime dynamics remain a
+distributional/specification comparison. The declared `actionToPngMs` metric
+includes model transition, patch recoloring, PNG encoding, and file I/O; the
+artifact also reports those stages separately. It is descriptive evidence and
+must not enter paired comparisons with browser `requestAnimationFrame`
+completion latency.
+
 An output directory is published only after every planned run and replicate is
 present and verified. It is created through a staging directory and atomic
 rename, and an existing output directory is never overwritten.

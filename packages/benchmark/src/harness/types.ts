@@ -98,6 +98,15 @@ export interface ExternalBenchmarkResult {
   readonly stagesMs?: Readonly<Record<string, number | readonly number[]>>;
   /** Framework/interpreter versions captured by the adapter, not inferred by the harness. */
   readonly runtime?: Readonly<Record<string, string>>;
+  /**
+   * Optional PNG checkpoints produced by a non-browser framework. Hashes are
+   * public correctness evidence; inline bytes are stripped after the harness
+   * persists them beside the manifest.
+   */
+  readonly visual?: {
+    readonly checkpoints: Readonly<Record<string, string>>;
+    readonly inlinePngBase64?: Readonly<Record<string, string>>;
+  };
 }
 
 /** A headless system benchmark whose result is a schema-v1 JSON line. */

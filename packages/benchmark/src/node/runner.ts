@@ -937,7 +937,45 @@ function flattenExternalSeries(value: number | readonly number[]): number[] {
   return typeof value === 'number' ? [value] : [...value];
 }
 
-function externalResultSample(
+function externalVisualSample(
+  visual: ExternalBenchmarkResult['visual'],
+): BenchmarkReplicate['visual'] | undefined {
+  if (!visual) return undefined;
+  const checkpoints = { ...visual.checkpoints };
+  const inlinePngBase64 = visual.inlinePngBase64
+    ? { ...visual.inlinePngBase64 }
+    : undefined;
+  for (const [name, expectedHash] of Object.entries(checkpoints)) {
+    if (!/^[a-f0-9]{64}$/.test(expectedHash)) {
+      throw new Error(`External visual checkpoint ${name} must declare a SHA-256 hash.`);
+    }
+    const encoded = inlinePngBase64?.[name];
+    if (!encoded) continue;
+    const bytes = Buffer.from(encoded, 'base64');
+    if (bytes.byteLength > 16 * 1024 * 1024) {
+      throw new Error(`External visual checkpoint ${name} exceeds 16 MiB.`);
+    }
+    const pngMagic = [137, 80, 78, 71, 13, 10, 26, 10];
+    if (bytes.byteLength < pngMagic.length || pngMagic.some((value, index) => bytes[index] !== value)) {
+      throw new Error(`External visual checkpoint ${name} is not a PNG.`);
+    }
+    const actualHash = sha256Bytes(bytes);
+    if (actualHash !== expectedHash) {
+      throw new Error(`External visual checkpoint ${name} hash mismatch: expected ${expectedHash}, received ${actualHash}.`);
+    }
+  }
+  for (const name of Object.keys(inlinePngBase64 ?? {})) {
+    if (!(name in checkpoints)) {
+      throw new Error(`External visual checkpoint ${name} has bytes but no declared hash.`);
+    }
+  }
+  return {
+    checkpoints,
+    ...(inlinePngBase64 ? { inlinePngBase64 } : {}),
+  };
+}
+
+export function externalResultSample(
   result: ExternalBenchmarkResult,
   index: number,
   process: BenchmarkReplicate['process'],
@@ -955,6 +993,7 @@ function externalResultSample(
   for (const [name, value] of Object.entries(result.metrics ?? {})) metrics[name] = flattenExternalSeries(value);
   const stages: Record<string, number[]> = {};
   for (const [name, value] of Object.entries(result.stagesMs ?? {})) stages[name] = flattenExternalSeries(value);
+  const visual = externalVisualSample(result.visual);
   return {
     index,
     block: index,
@@ -970,6 +1009,7 @@ function externalResultSample(
     },
     process,
     ...(Object.keys(stages).length > 0 ? { stagesMs: stages } : {}),
+    ...(visual ? { visual } : {}),
     ...(result.runtime ? { runtime: result.runtime } : {}),
   };
 }

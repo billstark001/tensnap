@@ -20,6 +20,7 @@
     "bench:smoke": "pnpm --filter @tensnap/benchmark bench:smoke",
     "bench:browser:install": "pnpm --filter @tensnap/benchmark bench:browser:install",
     "bench:browser:all": "pnpm --filter @tensnap/benchmark bench:browser:all",
+    "bench:netlogo:render": "pnpm bench run --profile benchmarks/profiles/schelling-netlogo-render-v1.json --out benchmark-results/schelling-netlogo-render-v1",
     "dev:tauri": "pnpm --filter @tensnap/tauri dev",
     "build:tauri": "pnpm --filter @tensnap/tauri build",
     "dev:py:random-walk": "cd examples/python && python random_walk_viz.py",

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -7,6 +8,7 @@ import {
   appendBenchmarkJournalSample,
   assertArtifactOutputAvailable,
   assertJournalCompatible,
+  externalResultSample,
   initializeBenchmarkJournal,
   mergeBenchmarkJournalSamples,
   readBenchmarkJournal,
@@ -76,6 +78,27 @@ function completeNodeArtifact(): BenchmarkArtifact {
 }
 
 describe('benchmark artifact schema v2', () => {
+  it('accepts hashed PNG checkpoints from an external process and rejects tampering', () => {
+    const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+    const hash = createHash('sha256').update(png).digest('hex');
+    const process = { isolated: true, wallMs: 1, userCpuMs: 1, systemCpuMs: 0, maxRssBytes: null };
+    const result = {
+      schemaVersion: 1 as const,
+      timingsMs: [2],
+      correctness: { valid: true, actionCount: 1, state: [1], expectedState: [1] },
+      visual: { checkpoints: { final: hash }, inlinePngBase64: { final: png.toString('base64') } },
+    };
+
+    expect(externalResultSample(result, 0, process).visual).toEqual({
+      checkpoints: { final: hash },
+      inlinePngBase64: { final: png.toString('base64') },
+    });
+    expect(() => externalResultSample({
+      ...result,
+      visual: { ...result.visual, checkpoints: { final: '0'.repeat(64) } },
+    }, 0, process)).toThrow(/hash mismatch/);
+  });
+
   it('accepts browser and local-node workloads without pretending they are protocol runs', () => {
     const profile = validateProfile({
       schemaVersion: 2,
