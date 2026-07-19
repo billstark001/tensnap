@@ -1,0 +1,5 @@
+run_id,suite,system,feature_level,dimensions_json,primary_metric,encoding,validation,samples,median_ms,p95_ms,ci95_low_ms,ci95_high_ms
+mesa|node|-|-,node,Mesa (Python),kernel-only,"{""grid"":""50x50"",""instrumentation"":""none"",""similarityThreshold"":0.8,""steps"":500}",cycle,,,15,1199.590667,1242.974834,1190.0035,1211.207208
+go|node|-|-,node,Go reference implementation,kernel-only,"{""grid"":""50x50"",""instrumentation"":""none"",""similarityThreshold"":0.8,""steps"":500}",cycle,,,15,22.07075,22.742875,21.81875,22.401083
+julia|node|-|-,node,Agents.jl,kernel-only,"{""grid"":""50x50"",""instrumentation"":""none"",""similarityThreshold"":0.8,""steps"":500}",cycle,,,15,97.275208,221.437334,96.579,97.780542
+netlogo|node|-|-,node,NetLogo headless,kernel-only,"{""grid"":""50x50"",""instrumentation"":""scientific"",""similarityThreshold"":0.8,""steps"":500}",cycle,,,15,996.281875,1121.744292,981.040459,1012.538625

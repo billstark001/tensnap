@@ -1,0 +1,74 @@
+[
+  {
+    "runId": "js-headless|node|-|-",
+    "system": "JavaScript headless (kernel baseline)",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 303.1160334,
+      "medianMs": 303.34016699999995,
+      "p95Ms": 323.536458,
+      "madMs": 3.7300420000000827,
+      "bootstrapMedianCi95Ms": [
+        301.087292,
+        307.07020900000003
+      ]
+    }
+  },
+  {
+    "runId": "js-tensnap-web-raf|browser|-|-",
+    "system": "JavaScript + TenSnap binding + Web host (rAF frame latency)",
+    "featureLevel": "agents+charts+monitor",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 16.70816161616884,
+      "medianMs": 16.69999998807907,
+      "p95Ms": 17.19999998807907,
+      "madMs": 0.09999999403953552,
+      "bootstrapMedianCi95Ms": [
+        16.69999998807907,
+        16.69999998807907
+      ]
+    }
+  },
+  {
+    "runId": "js-tensnap-web-timeout|browser|-|-",
+    "system": "JavaScript + TenSnap binding + Web host (timeout throughput)",
+    "featureLevel": "agents+charts+monitor",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "setTimeout"
+    },
+    "primaryMetric": "actionToRunCompletionMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 7.7692794612842775,
+      "medianMs": 6.300000011920929,
+      "p95Ms": 11.800000011920929,
+      "madMs": 1.7000000178813934,
+      "bootstrapMedianCi95Ms": [
+        6.100000023841858,
+        6.5
+      ]
+    }
+  }
+]

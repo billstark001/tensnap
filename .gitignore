@@ -57,4 +57,4 @@ _instructions
 tmp-*
 
 # Locally generated reproducible benchmark artifacts. Workload specifications live in benchmarks/.
-benchmark-results/
+/benchmark-results/

@@ -1,0 +1,2 @@
+run_id,suite,system,feature_level,dimensions_json,primary_metric,encoding,validation,samples,median_ms,p95_ms,ci95_low_ms,ci95_high_ms
+netlogo-v7-in-memory-view|node|-|-,node,NetLogo 7.0.4 headless in-memory view,native-view-in-memory-raster,"{""balance"":0.5,""density"":0.8,""finalTick"":500,""grid"":""50x50"",""rendering"":""HeadlessWorkspace.exportView() to BufferedImage after every action; final PNG encoding outside timing; no file I/O"",""threshold"":0.8}",actionToInMemoryViewMs,,,7425,3.80875,10.975333,3.665291,3.914958
