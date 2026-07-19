@@ -533,12 +533,18 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (group === 'scene' && command === 'render') {
     const { baseUrl } = await requireRuntime(parsed);
     const viewport = parseViewportFlag(getStringFlag(parsed, 'viewport'));
+    const envId = getStringFlag(parsed, 'env');
+    const chartId = getStringFlag(parsed, 'chart');
+    if (envId && chartId) {
+      throw new Error('Flags --env and --chart are mutually exclusive.');
+    }
     console.log(JSON.stringify(
       await requestJson(baseUrl, '/v1/scene/render', {
         method: 'POST',
         body: JSON.stringify({
           reason: rest[0] ?? 'manual',
-          envId: getStringFlag(parsed, 'env'),
+          envId,
+          chartId,
           width: getNumberFlag(parsed, 'width'),
           height: getNumberFlag(parsed, 'height'),
           format: getStringFlag(parsed, 'format'),
@@ -673,7 +679,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     '  tensnap-agent scene snapshot',
     '  tensnap-agent scene capture [--output <capture.json>]',
     '  tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>] [--chart-policy preserve|replace|truncate]',
-    '  tensnap-agent scene render [reason] [--env <env-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
+    '  tensnap-agent scene render [reason] [--env <env-id> | --chart <chart-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
     '  tensnap-agent param list',
     '  tensnap-agent param set <parameter-id> <json-value>',
     '  tensnap-agent action list',

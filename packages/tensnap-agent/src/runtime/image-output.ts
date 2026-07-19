@@ -33,3 +33,11 @@ export function buildImageOutputPath(
   const suffix = appendArtifactSuffix ? `-${sanitizeFileName(artifactId)}` : '';
   return join(parsed.dir, `${baseName}${suffix}${parsed.ext || extension}`);
 }
+
+export function appendImageOutputSuffix(
+  explicitOutputPath: string,
+  artifactId: string,
+  format: RenderFormat,
+): string {
+  return buildImageOutputPath('', artifactId, 'scene', format, explicitOutputPath, true);
+}

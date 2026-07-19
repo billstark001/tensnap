@@ -38,6 +38,20 @@ describe('agent CLI', () => {
         return;
       }
 
+      if (request.method === 'POST' && request.url === '/v1/scene/render') {
+        let body = '';
+        request.setEncoding('utf8');
+        request.on('data', (chunk) => {
+          body += chunk;
+        });
+        request.on('end', () => {
+          requests.push(JSON.parse(body));
+          response.writeHead(200, { 'content-type': 'application/json' });
+          response.end('{"artifacts":[]}');
+        });
+        return;
+      }
+
       response.writeHead(404);
       response.end();
     });
@@ -84,19 +98,33 @@ describe('agent CLI', () => {
         '--context', context.contextName,
         '--context-dir', rootDir,
       ]);
+      await main([
+        'scene', 'render', 'test-chart',
+        '--chart', 'population',
+        '--output', '/tmp/population.png',
+        '--context', context.contextName,
+        '--context-dir', rootDir,
+      ]);
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => error ? reject(error) : resolve());
       });
     }
 
-    expect(requests).toEqual([{
-      mode: 'bounded',
-      actionId: 'step',
-      maxSteps: 7,
-      stopWhen: 'time >= 3',
-      maxWallTimeMs: 1500,
-      record: true,
-    }]);
+    expect(requests).toEqual([
+      {
+        mode: 'bounded',
+        actionId: 'step',
+        maxSteps: 7,
+        stopWhen: 'time >= 3',
+        maxWallTimeMs: 1500,
+        record: true,
+      },
+      expect.objectContaining({
+        reason: 'test-chart',
+        chartId: 'population',
+        outputPath: '/tmp/population.png',
+      }),
+    ]);
   });
 });

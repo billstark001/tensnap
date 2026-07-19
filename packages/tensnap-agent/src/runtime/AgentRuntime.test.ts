@@ -154,3 +154,36 @@ describe('AgentRuntime checkpointing', () => {
     }
   });
 });
+
+describe('AgentRuntime rendering', () => {
+  it('disambiguates an untargeted output path across painters', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-render-'));
+    temporaryRoots.push(rootDir);
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+    await runtime.initialize();
+    const outputPaths: string[] = [];
+    runtime.registerPainter({
+      id: 'environment',
+      async render(request) {
+        outputPaths.push(request.options.outputPath!);
+        return [];
+      },
+    });
+    runtime.registerPainter({
+      id: 'chart',
+      async render(request) {
+        outputPaths.push(request.options.outputPath!);
+        return [];
+      },
+    });
+
+    await runtime.requestRender({ outputPath: join(rootDir, 'scene.png') });
+    expect(outputPaths).toEqual([
+      join(rootDir, 'scene-environment.png'),
+      join(rootDir, 'scene-chart.png'),
+    ]);
+    await expect(runtime.requestRender({ envId: 'main', chartId: 'population' }))
+      .rejects.toThrow(/either an environment or a chart/);
+    await runtime.stop();
+  });
+});

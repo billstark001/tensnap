@@ -41,6 +41,7 @@ import {
   writeSceneSnapshot,
 } from './context';
 import { normalizeRenderBackgroundColor, type RenderArtifact, type RenderAssetSource, type RenderRequest, type ScenePainter } from './painter';
+import { appendImageOutputSuffix } from './image-output';
 
 export interface AgentRuntimeOptions {
   host?: string;
@@ -425,6 +426,9 @@ export class AgentRuntime extends EventEmitter {
   }
 
   async requestRender(options: SceneRenderOptions = {}, reason = 'manual'): Promise<RenderArtifact[]> {
+    if (options.envId && options.chartId) {
+      throw new Error('A render request may target either an environment or a chart, not both.');
+    }
     const request = this.createRenderRequest(options, reason, 'explicit');
     const artifacts = await this.runPainters(request);
     await this.checkpointScene(request.snapshot, true);
@@ -434,6 +438,7 @@ export class AgentRuntime extends EventEmitter {
       painterCount: this.painters.size,
       artifactCount: artifacts.length,
       envId: options.envId,
+      chartId: options.chartId,
       outputPath: options.outputPath,
     });
     this.emitRuntimeEvent('render.requested', {
@@ -442,6 +447,7 @@ export class AgentRuntime extends EventEmitter {
       painterCount: this.painters.size,
       artifactCount: artifacts.length,
       envId: options.envId,
+      chartId: options.chartId,
       outputPath: options.outputPath,
     });
     return artifacts;
@@ -449,9 +455,28 @@ export class AgentRuntime extends EventEmitter {
 
   private async runPainters(request: RenderRequest): Promise<RenderArtifact[]> {
     const artifacts: RenderArtifact[] = [];
+    const disambiguateOutput = Boolean(
+      request.options.outputPath
+      && !request.options.envId
+      && !request.options.chartId
+      && this.painters.size > 1,
+    );
     for (const painter of this.painters.values()) {
       try {
-        const result = await painter.render(request);
+        const painterRequest = disambiguateOutput
+          ? {
+            ...request,
+            options: {
+              ...request.options,
+              outputPath: appendImageOutputSuffix(
+                request.options.outputPath!,
+                painter.id,
+                request.options.format ?? 'png',
+              ),
+            },
+          }
+          : request;
+        const result = await painter.render(painterRequest);
         if (result?.length) {
           artifacts.push(...result);
         }
