@@ -20,7 +20,13 @@ const WORKSPACE_ROOT = resolve(ROOT, '..', '..');
 const DIST = resolve(ROOT, 'dist');
 const ROOT_LICENSE = resolve(WORKSPACE_ROOT, 'LICENSE');
 const manifest = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
-const publishedDependencies = resolvePublishedDependencies(manifest.dependencies ?? {});
+const manifestDependencies = manifest.dependencies ?? {};
+const publishedDependencies = resolvePublishedDependencies(manifestDependencies);
+const workspaceDependencies = new Set(
+  Object.entries(manifestDependencies)
+    .filter(([, version]) => typeof version === 'string' && version.startsWith('workspace:'))
+    .map(([name]) => name),
+);
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
@@ -77,6 +83,10 @@ await build({
 
 await build({
   ...sharedBuildOptions,
+  // The executable must also run from a source checkout, where workspace package
+  // exports point at TypeScript. Bundle those packages into the CLI while keeping
+  // native and third-party runtime dependencies external.
+  external: Object.keys(publishedDependencies).filter((name) => !workspaceDependencies.has(name)),
   banner: {
     js: '#!/usr/bin/env node',
   },

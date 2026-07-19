@@ -611,6 +611,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       await requestJson(baseUrl, '/v1/runs', {
         method: 'POST',
         body: JSON.stringify({
+          mode: 'bounded',
           actionId,
           maxSteps,
           stopWhen: getStringFlag(parsed, 'stop-when'),
