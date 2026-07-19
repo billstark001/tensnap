@@ -1,0 +1,7 @@
+# Create and activate .benchmark-venv before running the NetLogo render profile.
+# The NetLogo 7.0.4 application itself is a separate required runtime.
+pynetlogo==0.5.2
+jpype1==1.7.1
+numpy==2.4.4
+pandas==2.3.3
+Pillow==11.3.0

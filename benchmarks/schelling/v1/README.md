@@ -19,7 +19,7 @@ probes remain in this directory.
 | Go | `subjects/go/kernel/`, `subjects/go/tensnap/` | model, study and fresh-session server in `examples/go/internal/schelling` | version assertion, profile flags and JSON result |
 | JavaScript | `subjects/js/kernel.ts`, `subjects/js/tensnap.ts` | model, study, declarative session and WebSocket host in `examples/js` | version assertion, profile environment and JSON result |
 | Julia | `subjects/julia/` | model/config, study, TenSnap scenario and WGLMakie app factories in `examples/julia` | version assertion, profile environment, JSON and hidden WGLMakie probes |
-| NetLogo | `subjects/netlogo/kernel.py` | model and PyNetLogo study helper in `examples/python_mesa` | benchmark JSON/runtime record |
+| NetLogo | `subjects/netlogo/kernel.py`, `subjects/netlogo/render_memory.py` | model and PyNetLogo study helper in `examples/python_mesa` | benchmark JSON/runtime record and audited in-memory native-view raster |
 
 The locked Julia publication environment lives in `environments/julia/`.
 Python dependencies are shared from
