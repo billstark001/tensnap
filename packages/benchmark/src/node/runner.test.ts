@@ -7,6 +7,7 @@ import {
   appendBenchmarkJournalSample,
   assertArtifactOutputAvailable,
   assertJournalCompatible,
+  captureStableExternalBrowserScreenshot,
   initializeBenchmarkJournal,
   mergeBenchmarkJournalSamples,
   readBenchmarkJournal,
@@ -76,6 +77,18 @@ function completeNodeArtifact(): BenchmarkArtifact {
 }
 
 describe('benchmark artifact schema v2', () => {
+  it('waits for three identical screenshots before accepting a visual checkpoint', async () => {
+    const frames = [Buffer.from('loading-1'), Buffer.from('loading-2'), Buffer.from('ready'), Buffer.from('ready'), Buffer.from('ready')];
+    const page = {
+      screenshot: vi.fn(async () => frames.shift() ?? Buffer.from('ready')),
+      waitForTimeout: vi.fn(async () => undefined),
+    };
+
+    await expect(captureStableExternalBrowserScreenshot(page as never, 1_000, 1)).resolves.toEqual(Buffer.from('ready'));
+    expect(page.screenshot).toHaveBeenCalledTimes(5);
+    expect(page.waitForTimeout).toHaveBeenCalledTimes(4);
+  });
+
   it('accepts browser and local-node workloads without pretending they are protocol runs', () => {
     const profile = validateProfile({
       schemaVersion: 2,

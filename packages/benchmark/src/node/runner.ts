@@ -1150,6 +1150,34 @@ function sha256Bytes(value: Uint8Array): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+/**
+ * Capture a browser checkpoint only after the complete page has stopped
+ * changing.  Native UI servers often expose their controls before a remote
+ * canvas, plot, or hydration pass has finished; a single screenshot at that
+ * point can preserve a loading spinner even though the action selector exists.
+ * This runs outside the measured interval and requires three consecutive,
+ * byte-identical PNGs before accepting the checkpoint.
+ */
+export async function captureStableExternalBrowserScreenshot(
+  page: Pick<import('playwright').Page, 'screenshot' | 'waitForTimeout'>,
+  timeoutMs = 15_000,
+  intervalMs = 100,
+): Promise<Uint8Array> {
+  const deadline = nowMs() + timeoutMs;
+  let previousHash: string | undefined;
+  let consecutiveMatches = 0;
+  while (nowMs() < deadline) {
+    const bytes = await page.screenshot({ type: 'png' });
+    const hash = sha256Bytes(bytes);
+    if (hash === previousHash) consecutiveMatches += 1;
+    else consecutiveMatches = 1;
+    if (consecutiveMatches >= 3) return bytes;
+    previousHash = hash;
+    await page.waitForTimeout(Math.min(intervalMs, Math.max(1, deadline - nowMs())));
+  }
+  throw new Error(`External browser did not reach a visually stable frame within ${timeoutMs} ms.`);
+}
+
 function assertExternalServerRunning(server: StartedExternalServer): void {
   if (server.process.exitCode !== null) {
     throw new Error(`External server exited ${server.process.exitCode} before becoming ready.\n${server.stderr().slice(-4_000)}`);
@@ -1382,7 +1410,10 @@ async function runExternalBrowserReplicate(
       const checkpoints: Record<string, string> = {};
       const inlinePngBase64: Record<string, string> = {};
       const checkpoint = async (name: string) => {
-        const bytes = await page.screenshot({ type: 'png' });
+        const bytes = await captureStableExternalBrowserScreenshot(
+          page,
+          Math.min(spec.server.timeoutMs ?? 120_000, spec.action.timeoutMs ?? 30_000),
+        );
         const hash = sha256Bytes(bytes);
         checkpoints[name] = hash;
         inlinePngBase64[name] = Buffer.from(bytes).toString('base64');

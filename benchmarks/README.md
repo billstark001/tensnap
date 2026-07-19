@@ -166,9 +166,13 @@ population conservation. A profile `stateEquivalenceGroup` additionally
 requires byte-equivalent canonical hashes for the same seed and replicate
 block across native UI and TenSnap conditions.
 
-PNG capture happens after the timed action series. The shared primary UI metric
-is `actionToRenderCompleteMs`; old screenshot-polling and self-equality checks
-are not accepted as correctness evidence.
+PNG capture happens outside the timed action series. External native UIs must
+also produce three consecutive byte-identical full-page PNGs before a visual
+checkpoint is accepted. This prevents an early DOM-ready signal from retaining
+a Solara hydration state or a WGLMakie loading canvas as publication evidence.
+The shared primary UI metric is `actionToRenderCompleteMs`; old
+screenshot-polling and self-equality checks are not accepted as correctness
+evidence.
 
 ## Reproducing a submission environment
 
@@ -209,25 +213,28 @@ primary metric for every run. Its renderer comparisons use
 treatments for each agent-count/change-rate tuple. Protocol and core workloads
 remain separate from these renderer-only comparisons.
 
-The Schelling profiles separate model, framework UI, and TenSnap layers:
+The Schelling profiles separate model, framework UI, and TenSnap layers. The
+immutable `v1` profiles retain the original 0.7-threshold evidence. The current
+`v2` profiles use a 0.8 similarity threshold and end every scientific or UI
+trajectory at tick 500 (5 warm-up actions plus 495 measured UI actions):
 
-- `schelling-kernel-v1`: Mesa, Go, Agents.jl, and descriptive NetLogo kernels;
-- `schelling-ui-mesa-v1`: Mesa kernel, Solara, and Mesa + TenSnap;
-- `schelling-ui-julia-v1`: Agents.jl kernel, WGLMakie, and Agents.jl + TenSnap;
-- `schelling-ui-go-v1`: Go kernel and Go + TenSnap;
-- `schelling-ui-js-v1`: JavaScript kernel and JavaScript + TenSnap.
+- `schelling-kernel-v2`: Mesa, Go, Agents.jl, and descriptive NetLogo kernels;
+- `schelling-ui-mesa-v2`: Mesa kernel, Solara, and Mesa + TenSnap;
+- `schelling-ui-julia-v2`: Agents.jl kernel, WGLMakie, and Agents.jl + TenSnap;
+- `schelling-ui-go-v2`: Go kernel and Go + TenSnap;
+- `schelling-ui-js-v2`: JavaScript kernel and JavaScript + TenSnap.
 
 Run the four binding-specific UI profiles directly from the repository root:
 
 ```bash
-pnpm bench run --profile benchmarks/profiles/schelling-ui-mesa-v1.json \
-  --out benchmark-results/schelling-ui-mesa-v1
-pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v1.json \
-  --out benchmark-results/schelling-ui-go-v1
-pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v1.json \
-  --out benchmark-results/schelling-ui-js-v1
-pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v1.json \
-  --out benchmark-results/schelling-ui-julia-v1
+pnpm bench run --profile benchmarks/profiles/schelling-ui-mesa-v2.json \
+  --out benchmark-results/schelling-ui-mesa-v2
+pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v2.json \
+  --out benchmark-results/schelling-ui-go-v2
+pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v2.json \
+  --out benchmark-results/schelling-ui-js-v2
+pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v2.json \
+  --out benchmark-results/schelling-ui-julia-v2
 ```
 
 Each `--out` directory must be new. If a run is interrupted, repeat its exact

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 2,
+  "id": "schelling-ui-js-v2",
+  "description": "JavaScript/Schelling UI case study at similarity threshold 0.8 and final tick 500. The headless condition runs the deterministic JS model kernel; the TenSnap condition measures a Step action through completion in the production Web host.",
+  "suites": ["node", "browser"],
+  "repetitions": 15,
+  "warmupActions": 5,
+  "measuredActions": 495,
+  "encodings": ["json"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "workloads": [
+    {
+      "id": "js-headless",
+      "system": "JavaScript headless (kernel baseline)",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 500, "similarityThreshold": 0.8 },
+      "warmupActions": 0,
+      "measuredActions": 1,
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "node",
+        "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/kernel.ts", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.80", "--warmup-steps", "25", "--steps", "500", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
+        "cwd": "examples/js",
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/js/package.json": "3200dc24d9100b678e7a925e06eaf101b15b846c279fc0b328e7ef8502d175a0", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 500, "max": 500 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 500, "max": 500 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+      }
+    },
+    {
+      "id": "js-tensnap-web-raf",
+      "system": "JavaScript + TenSnap binding + Web host (rAF frame latency)",
+      "primaryMetric": "actionToRenderCompleteMs",
+      "featureLevel": "agents+charts+monitor",
+      "dimensions": { "grid": "50x50", "finalTick": 500, "similarityThreshold": 0.8, "warmupActions": 5, "measuredActions": 495, "renderTrigger": "requestAnimationFrame" },
+      "stateEquivalenceGroup": "js-ui-v2",
+      "browserOptions": {
+        "renderTriggerMode": "requestAnimationFrame"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "node",
+        "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/tensnap.ts"],
+        "cwd": "examples/js",
+        "env": {
+          "TENSNAP_SERVER_PORT": "{port}",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.80",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:{port}",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/js/package.json": "3200dc24d9100b678e7a925e06eaf101b15b846c279fc0b328e7ef8502d175a0", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "js-tensnap-web-timeout",
+      "system": "JavaScript + TenSnap binding + Web host (timeout throughput)",
+      "primaryMetric": "actionToRunCompletionMs",
+      "featureLevel": "agents+charts+monitor",
+      "dimensions": { "grid": "50x50", "finalTick": 500, "similarityThreshold": 0.8, "warmupActions": 5, "measuredActions": 495, "renderTrigger": "setTimeout" },
+      "stateEquivalenceGroup": "js-ui-v2",
+      "browserOptions": {
+        "renderTriggerMode": "setTimeout"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "node",
+        "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/tensnap.ts"],
+        "cwd": "examples/js",
+        "env": {
+          "TENSNAP_SERVER_PORT": "{port}",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.80",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:{port}",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "examples/js/package.json": "3200dc24d9100b678e7a925e06eaf101b15b846c279fc0b328e7ef8502d175a0", "pnpm-lock.yaml": "aff4fbf376c3d599eb689e165631bb6d60d6cf9ac0f0826a877bd37ccad0310e" },
+        "seed": 20260718
+      }
+    }
+  ],
+  "comparisons": []
+}
