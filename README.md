@@ -2,15 +2,17 @@
 
 **TenSnap** (short for "NetLogo Snapshot", with "Net" reversed) is an open-source interactive visualization toolkit for agent-based modeling and simulation (ABM&S). It combines NetLogo's immediacy in visualization with the flexibility and power of modern programming ecosystems.
 
+TenSnap is designed for research workflows that need live observation, experimental control, and reproducible evidence without maintaining a second, outcome-bearing model inside a dashboard. Its bindings and protocol make the boundary between authoritative host state and derived client state explicit and inspectable.
+
 ## ✨ Features
 
-- **🎨 Interactive Visualization**: Real-time visualization of agent-based simulations with immediate feedback
-- **🌐 Language Agnostic**: Connect simulations written in Python, Go, JavaScript/TypeScript, Julia, or directly against the protocol
-- **⚡ Modern Web Interface**: Built with React for a responsive, feature-rich user experience
-- **🎛️ NetLogo-Inspired UI**: Familiar controls (sliders, buttons, charts) with modern enhancements
-- **🔧 Multi-Granularity APIs**: From simple high-level APIs for beginners to low-level protocol access for experts
-- **💻 Dual Deployment**: Run in browser or as desktop app via Tauri
-- **🌍 Internationalization**: Full i18n support with English, Chinese, and Japanese languages
+- **🎨 Interactive Visualization**: Observe environments, inspect agents, adjust controls, and follow charts and monitors as the host simulation runs
+- **🌐 Host-Platform-Independent Protocol**: Connect Python/Mesa, Go, JavaScript/TypeScript, Julia/Agents.jl, or another host that implements the protocol
+- **🎛️ Shared Interactive Objects**: Expose environments, layers, agents, controls, charts, monitors, assets, and lifecycle actions through a common vocabulary
+- **🤝 Human and Automated Operation**: Use the same registered model through the Web workspace, Tauri desktop app, or persistent headless runtime and CLI
+- **📼 Inspectable Evidence Lifecycle**: Capture snapshots, replay seekable recordings, restore projected state, or round-trip host-owned exact checkpoints when supported
+- **🔧 Composable Integration Layers**: Choose high-level mappings, lifecycle hooks, or typed raw-protocol access without moving transition authority out of the host
+- **🌍 Internationalization**: Use the Web and desktop clients in English, Chinese, or Japanese
 
 ![A screenshot of the example S/I/R/S model's visualization](./assets/screenshot_sirs.png)
 ![A screenshot of the example Schelling model's agent inspection & A screenshot of the example Flock model's snapshot recording](./assets/screenshot_inspect_snapshot.png)
@@ -122,6 +124,7 @@ TenSnap aims to:
 2. **Embrace Modern Ecosystems**: Allow researchers to use their preferred programming languages and tools
 3. **Separate Concerns**: Decouple model logic (any language) from visualization (TenSnap)
 4. **Support All Skill Levels**: Provide intuitive APIs for newcomers and powerful tools for experts
+5. **Reuse One Interaction Contract**: Human, automation scripts and LLM agents operate the same registered model and lifecycle
 
 ## 📖 Example
 
@@ -189,7 +192,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Notes on the Current Python Surface
+## Notes on the Current Research Release
+
+TenSnap v0.3.0 is a research release. Its current evidence covers implemented routes and repository models; "platform agnostic" is an architectural scope claim, not a claim that every host is equally easy or fast to support. Likewise, the integrity-preserving boundary reduces opportunities for state, parameter, identity, and timing drift, but does not replace mapping tests or scientific validation.
 
 - `SimulationScenario` is the recommended high-level Python runtime.
 - `abm.Scenario` is the recommended declarative Go surface for simulator-visible state.
@@ -262,14 +267,11 @@ We welcome contributions! Please see our [Contributing Guidelines](./docs/mainta
 
 TenSnap is released under the [MIT License](./LICENSE).
 
-## 🎓 Background
+## 🎓 Research Context
 
-TenSnap was developed to address the gap between NetLogo's excellent interactive visualization and modern programming paradigms. While NetLogo excels at rapid prototyping and visualization, it lacks support for modern features like object-oriented programming, modularity, and asynchronous execution. TenSnap bridges this gap by:
+Integrated environments such as NetLogo make views, controls, inspection, and plots immediately available. General-purpose hosts such as Mesa, Agents.jl, Go, and JavaScript instead give researchers access to broader scientific, AI, data, orchestration, and deployment ecosystems. The difficulty is not visualization alone: a separately maintained dashboard, automation path, or experiment surrogate can diverge from the outcome-bearing simulator in state, parameters, identity, or timing.
 
-- Providing NetLogo-style visualization for any programming language
-- Supporting modern development practices
-- Enabling scalable, industrial-strength simulations
-- Maintaining the ease-of-use that makes NetLogo popular
+TenSnap addresses that systems boundary. A thin binding projects host state and maps controls; the protocol defines interactive objects, identity, state, and lifecycle messages; and shared renderer clients consume only synchronized, derived state. This separation introduces integration and operational costs, so it is most useful when reuse across interactive visualization, automation, and evidence workflows justifies maintaining the boundary.
 
 ## 🔗 Links
 
@@ -288,24 +290,43 @@ TenSnap is built as an open-source initiative to bridge the gap between high-per
 
 If TenSnap has benefited your research—whether by facilitating your agent-based modeling process, aiding in the visualization and debugging of your simulations, or inspiring your methodological design—please consider citing our work. Citing the project not only acknowledges the effort behind its development but also helps us track its impact and secure support for future maintenance.
 
-You can cite our IC2S2 2026 presentation as follows:
+The full paper has been accepted for a long presentation at [CSS 2026](https://computationalsocialscience.org/conferences/css-2026-santa-fe/), the annual conference of the Computational Social Science Society of the Americas. Proceedings metadata is not yet available, so please use the following provisional citation and update it when the Springer Proceedings in Complexity volume is published.
 
 **Plain Text (APA):**
-> Zhao, J., & Chen, Y. (2026). TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol. Extended abstract presented at the International Conference on Computational Social Science (IC2S2 2026).
+> Zhao, J., & Chen, Y. (2026). TenSnap: Platform-agnostic interactive visualization toolkit for high-integrity agent-based simulation [Accepted full paper]. CSS 2026, Computational Social Science Society of the Americas, Santa Fe, NM, United States.
 
 **BibTeX:**
 
 ```bibtex
-@misc{zhao2026tensnap,
-  title={TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol},
-  author={Zhao, Junning and Chen, Yu},
-  howpublished={Parallel talk presented at the International Conference on Computational Social Science (IC2S2)},
-  year={2026},
-  note={Non-archival extended abstract}
+@misc{zhao2026tensnap_css,
+  title        = {TenSnap: Platform-Agnostic Interactive Visualization Toolkit for High-Integrity Agent-Based Simulation},
+  author       = {Zhao, Junning and Chen, Yu},
+  year         = {2026},
+  howpublished = {Accepted full paper for presentation at CSS 2026, Computational Social Science Society of the Americas},
+  address      = {Santa Fe, New Mexico, USA},
+  note         = {Proceedings publication forthcoming},
+  url          = {https://computationalsocialscience.org/conferences/css-2026-santa-fe/}
 }
 ```
 
-(The paper was reviewed under the blinded name "OurFramework" and will be presented at IC2S2 2026)
+### Earlier Non-Archival Presentation
+
+An earlier version of the project was presented as a non-archival extended abstract at IC2S2 2026:
+
+**Plain Text (APA):**
+> Zhao, J., & Chen, Y. (2026). TenSnap: Bridging the performance-usability gap in computational social science modeling via a decoupled interactive protocol. Extended abstract presented at the International Conference on Computational Social Science (IC2S2 2026).
+
+**BibTeX:**
+
+```bibtex
+@misc{zhao2026tensnap_ic2s2,
+  title        = {TenSnap: Bridging the Performance-Usability Gap in Computational Social Science Modeling via a Decoupled Interactive Protocol},
+  author       = {Zhao, Junning and Chen, Yu},
+  year         = {2026},
+  howpublished = {Parallel talk presented at the International Conference on Computational Social Science (IC2S2)},
+  note         = {Non-archival extended abstract}
+}
+```
 
 ## 🌟 Star History
 
