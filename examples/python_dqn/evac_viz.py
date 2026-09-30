@@ -30,7 +30,7 @@ from tensnap import (
     param,
 )
 
-from .config import DQNConfig, EnvConfig
+from .config import FIRE_EVACUATION_CHECKPOINT_SCHEMA, DQNConfig, EnvConfig
 from .dqn import DQNAgent
 from .guide_models import (
     UNTRAINED_GUIDE_MODEL,
@@ -97,6 +97,7 @@ class GuideModelManager:
             self.model.action_size,
             self.dqn_config,
             device=self.device,
+            checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
         )
 
     @action("resetGuideModel", "Reset Guide Model")

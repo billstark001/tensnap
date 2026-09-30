@@ -17,6 +17,11 @@ patches-own [
 evacuees-own [
   alive?
   evacuated?
+  target-exit-x
+]
+
+guides-own [
+  preferred-exit-x
 ]
 
 evacuee-trails-own [
@@ -33,6 +38,9 @@ globals [
   total-reward
   last-reward
   training-action
+  last-guide-valid?
+  movement-progress
+  guided-redirects
 ]
 
 to setup
@@ -44,6 +52,9 @@ to setup
   set dead-count 0
   set fire-size 0
   set training-action 0
+  set last-guide-valid? true
+  set movement-progress 0
+  set guided-redirects 0
   normalize-python-policy-state
   random-seed seed
   ifelse use-python-policy? [
@@ -68,24 +79,26 @@ to go
   age-agent-trails
   let previous-evacuated evacuated-count
   let previous-dead dead-count
-  let guided-neighbors count-guided-neighbors
+  set movement-progress 0
+  set guided-redirects 0
   move-guide guide-action
+  apply-guide-signal
 
   ask evacuees with [alive? and not evacuated?] [
     evacuee-step
   ]
 
-  if ticks mod fire-spread-interval = 0 [
+  if (ticks + 1) mod fire-spread-interval = 0 [
     spread-fire
+    resolve-fire-exposure
   ]
 
   update-counts
+  tick-advance 1
   set last-reward (compute-reward
     (evacuated-count - previous-evacuated)
-    (dead-count - previous-dead)
-    guided-neighbors)
+    (dead-count - previous-dead))
   set total-reward total-reward + last-reward
-  tick-advance 1
   update-metric-plots
 end
 
@@ -198,28 +211,34 @@ to setup-map
   let center-y floor (grid-height / 2)
   ask patch 0 center-y [ set exit? true ]
   ask patch (grid-width - 1) center-y [ set exit? true ]
-  ask patch (floor (grid-width / 2)) center-y [ set fire? true ]
 
-  let left-wall-x max list 1 (floor (grid-width / 3))
-  let right-wall-x min list (grid-width - 2) (floor ((2 * grid-width) / 3))
-  ask patches with [pycor >= 2 and pycor <= grid-height - 3 and pycor != center-y] [
+  let left-wall-x max list 1 (floor (grid-width / 4))
+  let right-wall-x min list (grid-width - 2) (grid-width - 1 - left-wall-x)
+  ask patches with [pycor != center-y] [
     if pxcor = left-wall-x or pxcor = right-wall-x [
       set wall? true
     ]
   ]
+  let fire-candidates (patch-set
+    (patch (min list (grid-width - 2) (left-wall-x + 1)) center-y)
+    (patch (max list 1 (right-wall-x - 1)) center-y))
+  ask one-of fire-candidates [ set fire? true ]
   update-patch-colors
 end
 
 to setup-agents
-  ask one-of open-spawn-patches [
+  let center-x floor (grid-width / 2)
+  let center-y floor (grid-height / 2)
+  ask patch center-x center-y [
     sprout-guides 1 [
       set color blue
       set shape "default"
       set size 1.1
+      set preferred-exit-x -1
     ]
   ]
   repeat num-evacuees [
-    let spawn one-of open-spawn-patches
+    let spawn one-of central-spawn-patches
     if spawn != nobody [
       ask spawn [
         sprout-evacuees 1 [
@@ -228,10 +247,36 @@ to setup-agents
           set color orange
           set shape "default"
           set size 0.75
+          set target-exit-x default-exit-x self
         ]
       ]
     ]
   ]
+end
+
+to-report central-spawn-patches
+  let wall-columns sort remove-duplicates [pxcor] of patches with [wall?]
+  let left-x max list 0 (floor (grid-width / 3))
+  let right-x min list (grid-width - 1) (floor ((2 * grid-width) / 3))
+  if length wall-columns >= 2 [
+    set left-x (first wall-columns) + 1
+    set right-x (last wall-columns) - 1
+  ]
+  let center-y floor (grid-height / 2)
+  report patches with [
+    pxcor >= left-x and pxcor <= right-x
+    and pycor >= max list 0 (center-y - 3)
+    and pycor <= min list (grid-height - 1) (center-y + 3)
+    and not wall? and not exit? and not fire? and not any? turtles-here
+  ]
+end
+
+to-report default-exit-x [agent]
+  let left-distance manhattan-patches ([patch-here] of agent) (left-exit-patch)
+  let right-distance manhattan-patches ([patch-here] of agent) (right-exit-patch)
+  if left-distance < right-distance [ report 0 ]
+  if right-distance < left-distance [ report grid-width - 1 ]
+  report [pxcor] of one-of patches with [exit?]
 end
 
 to-report open-spawn-patches
@@ -242,7 +287,7 @@ end
 
 to-report done?
   report evacuated-count + dead-count = count evacuees
-    and fire-fully-spread?
+    or ticks >= max-steps
 end
 
 to-report fire-fully-spread?
@@ -270,12 +315,34 @@ end
 
 to move-guide [action-code]
   set action-code (normalized-action-code action-code)
+  set last-guide-valid? true
   let deltas [[0 0] [0 -1] [0 1] [-1 0] [1 0]]
   let delta item action-code deltas
   ask guides [
+    if action-code = 3 [ set preferred-exit-x 0 ]
+    if action-code = 4 [ set preferred-exit-x grid-width - 1 ]
     let target patch (xcor + item 0 delta) (ycor + item 1 delta)
-    if valid-target? target [
+    ifelse valid-guide-target? target [
       move-to target
+    ] [
+      if action-code != 0 [ set last-guide-valid? false ]
+    ]
+  ]
+end
+
+to apply-guide-signal
+  if not any? guides [ stop ]
+  let selected-exit [preferred-exit-x] of one-of guides
+  if selected-exit < 0 [ stop ]
+  let gp guide-patch
+  ask evacuees with [
+    alive? and not evacuated?
+    and manhattan-patches patch-here gp <= guide-influence-radius
+    and target-exit-x != selected-exit
+  ] [
+    if random-float 1 <= guide-follow-bias [
+      set target-exit-x selected-exit
+      set guided-redirects guided-redirects + 1
     ]
   ]
 end
@@ -286,7 +353,9 @@ to evacuee-step
     set color gray
   ] [
     let previous-patch patch-here
-    let candidates (patch-set patch-here neighbors4) with [not wall?]
+    let target-patch target-exit-patch self
+    let before-distance route-distance patch-here target-patch
+    let candidates (patch-set patch-here neighbors4) with [not wall? and not fire?]
     if any? candidates [
       let best max-one-of candidates [evacuee-target-score myself self]
       move-to best
@@ -301,6 +370,11 @@ to evacuee-step
     if [fire?] of patch-here [
       set alive? false
       set color gray
+    ]
+    let after-distance route-distance patch-here target-patch
+    if before-distance >= 0 and after-distance >= 0 [
+      set movement-progress movement-progress
+        + max list -1 (min list 1 (before-distance - after-distance))
     ]
   ]
 end
@@ -346,19 +420,18 @@ to age-agent-trails
 end
 
 to-report evacuee-target-score [agent target]
+  let target-exit target-exit-patch agent
+  let route route-distance target target-exit
   let score 0
-  if [fire?] of target [
-    set score score - 100
+  ifelse route < 0 [
+    set score -1000 + 1.2 * distance-to-nearest-fire target
+  ] [
+    set score -3 * route + 0.35 * distance-to-nearest-fire target
   ]
-  set score score - 1.8 * nearest-exit-distance target
-  set score score + 1.3 * distance-to-nearest-fire target
   let occupants ((evacuees-on target) with [alive? and not evacuated?])
   let occupancy count occupants
   if target != [patch-here] of agent [
     set score score - 0.9 * occupancy
-  ]
-  if guide-patch != nobody and manhattan-patches target guide-patch <= guide-influence-radius [
-    set score score + guide-follow-bias * guide-alignment-score target
   ]
   if random-float 1 < random-move-bias [
     set score score + random-float 1 - 0.5
@@ -370,7 +443,7 @@ to spread-fire
   ask patches [ set next-fire? false ]
   ask patches with [fire?] [
     ask neighbors4 with [not wall? and not exit?] [
-      if random-float 1 < 0.25 [
+      if random-float 1 < fire-spread-probability [
         set next-fire? true
       ]
     ]
@@ -379,6 +452,13 @@ to spread-fire
     set fire? true
   ]
   update-patch-colors
+end
+
+to resolve-fire-exposure
+  ask evacuees with [alive? and not evacuated? and [fire?] of patch-here] [
+    set alive? false
+    set color gray
+  ]
 end
 
 to update-patch-colors
@@ -424,24 +504,25 @@ to-report normalized-action-code [raw-action]
   report action-code
 end
 
-to-report compute-reward [evacuated-delta dead-delta guided-neighbors]
-  report evacuated-delta * evacuation-reward
+to-report compute-reward [evacuated-delta dead-delta]
+  let reward evacuated-delta * evacuation-reward
     + dead-delta * fire-reward-penalty
     + step-penalty
     + congestion-penalty * congestion
-    + clustering-bonus * guided-neighbors
+    + progress-reward * movement-progress
+  if not last-guide-valid? [
+    set reward reward + invalid-action-penalty
+  ]
+  if done? and alive-count > 0 [
+    set reward reward + unresolved-penalty * alive-count
+  ]
+  report reward
 end
 
 to-report congestion
-  let total 0
-  foreach sort (evacuees with [alive? and not evacuated?]) [agent ->
-    let occupants ((evacuees-on ([patch-here] of agent)) with [alive? and not evacuated?])
-    let occupancy count occupants
-    if occupancy > 1 [
-      set total total + occupancy - 1
-    ]
-  ]
-  report total
+  report sum [
+    max list 0 ((count (evacuees-here with [alive? and not evacuated?])) - 1)
+  ] of patches
 end
 
 to-report count-guided-neighbors
@@ -463,47 +544,42 @@ to-report dqn-state-values
     set fx mean [pxcor] of fires
     set fy mean [pycor] of fires
   ]
-  let nearest-exit min [manhattan-patches gp self] of patches with [exit?]
-  let local-congestion count evacuees with [
-    alive? and not evacuated? and manhattan-patches patch-here gp <= 2
+  let evacuee-count max list 1 count evacuees
+  let burnable-count max list 1 count burnable-patches
+  let center-x (grid-width - 1) / 2
+  let preferred-exit 0.5
+  if any? guides [
+    let preferred-x [preferred-exit-x] of one-of guides
+    if preferred-x = 0 [ set preferred-exit 0 ]
+    if preferred-x = grid-width - 1 [ set preferred-exit 1 ]
   ]
-  let sectors sector-counts gx gy
-  report sentence
-    (list
-      (gx / max list 1 (grid-width - 1))
-      (gy / max list 1 (grid-height - 1))
-      (fx / max list 1 (grid-width - 1))
-      (fy / max list 1 (grid-height - 1))
-      (alive-count / max list 1 count evacuees)
-      (evacuated-count / max list 1 count evacuees)
-      (dead-count / max list 1 count evacuees)
-      (nearest-exit / max list 1 (grid-width + grid-height))
-      (local-congestion / max list 1 count evacuees)
-      (fire-size / max list 1 (grid-width * grid-height))
-    )
-    map [value -> value / max list 1 count evacuees] sectors
-end
-
-to-report sector-counts [gx gy]
-  let counts [0 0 0 0 0 0]
-  foreach sort (evacuees with [alive? and not evacuated?]) [agent ->
-    let delta-x ([xcor] of agent) - gx
-    let delta-y ([ycor] of agent) - gy
-    if abs delta-x + abs delta-y <= 5 [
-      let index 5
-      if delta-x = 0 and delta-y = 0 [ set index 0 ]
-      if abs delta-x >= abs delta-y and delta-x < 0 [ set index 1 ]
-      if abs delta-x >= abs delta-y and delta-x > 0 [ set index 2 ]
-      if abs delta-y > abs delta-x and delta-y < 0 [ set index 3 ]
-      if abs delta-y > abs delta-x and delta-y > 0 [ set index 4 ]
-      set counts replace-item index counts ((item index counts) + 1)
-    ]
+  let fire-left count fires with [pxcor < center-x]
+  let fire-right count fires with [pxcor > center-x]
+  let target-left count evacuees with [
+    alive? and not evacuated? and target-exit-x = 0
   ]
-  report counts
-end
-
-to-report nearest-exit-distance [target]
-  report min [manhattan-patches target self] of patches with [exit?]
+  let target-right count evacuees with [
+    alive? and not evacuated? and target-exit-x = grid-width - 1
+  ]
+  let guided-neighbors count-guided-neighbors
+  let nearest-fire distance-to-nearest-fire gp
+  report (list
+    (gx / max list 1 (grid-width - 1))
+    (gy / max list 1 (grid-height - 1))
+    (fx / max list 1 (grid-width - 1))
+    (fy / max list 1 (grid-height - 1))
+    (alive-count / evacuee-count)
+    (evacuated-count / evacuee-count)
+    (dead-count / evacuee-count)
+    (ticks / max list 1 max-steps)
+    preferred-exit
+    (fire-left / burnable-count)
+    (fire-right / burnable-count)
+    (target-left / evacuee-count)
+    (target-right / evacuee-count)
+    (guided-neighbors / evacuee-count)
+    (nearest-fire / max list 1 (grid-width + grid-height))
+    (fire-size / burnable-count))
 end
 
 to-report distance-to-nearest-fire [target]
@@ -514,8 +590,42 @@ to-report distance-to-nearest-fire [target]
   report min [manhattan-patches target self] of fires
 end
 
-to-report guide-alignment-score [target]
-  report nearest-exit-distance guide-patch - nearest-exit-distance target
+to-report left-exit-patch
+  report min-one-of patches with [exit?] [pxcor]
+end
+
+to-report right-exit-patch
+  report max-one-of patches with [exit?] [pxcor]
+end
+
+to-report target-exit-patch [agent]
+  if [target-exit-x] of agent = 0 [ report left-exit-patch ]
+  report right-exit-patch
+end
+
+to-report route-distance [start target]
+  if start = target [ report 0 ]
+  let visited (list start)
+  let frontier (list start)
+  let route-steps 0
+  let result -1
+  while [not empty? frontier and result < 0] [
+    set route-steps route-steps + 1
+    let next-frontier []
+    foreach frontier [current ->
+      let candidate-set [neighbors4] of current
+      set candidate-set candidate-set with [not wall? and not fire?]
+      foreach sort candidate-set [candidate ->
+        if not member? candidate visited [
+          if candidate = target [ set result route-steps ]
+          set visited fput candidate visited
+          set next-frontier fput candidate next-frontier
+        ]
+      ]
+    ]
+    set frontier next-frontier
+  ]
+  report result
 end
 
 to-report guide-patch
@@ -523,8 +633,8 @@ to-report guide-patch
   report [patch-here] of one-of guides
 end
 
-to-report valid-target? [target]
-  report target != nobody and not [wall?] of target
+to-report valid-guide-target? [target]
+  report target != nobody and not [wall?] of target and not [fire?] of target
 end
 
 to-report manhattan-patches [a b]
@@ -533,29 +643,32 @@ to-report manhattan-patches [a b]
 end
 ]]></code>
   <widgets>
-    <view x="15" y="15" width="500" height="500" minPxcor="0" maxPxcor="15" minPycor="0" maxPycor="15" patchSize="29.0" wrappingAllowedX="false" wrappingAllowedY="false" frameRate="20.0" updateMode="1" showTickCounter="true" tickCounterLabel="ticks" fontSize="10"></view>
+    <view x="15" y="15" width="500" height="500" minPxcor="0" maxPxcor="16" minPycor="0" maxPycor="12" patchSize="29.0" wrappingAllowedX="false" wrappingAllowedY="false" frameRate="20.0" updateMode="1" showTickCounter="true" tickCounterLabel="ticks" fontSize="10"></view>
     <button x="535" y="15" width="75" height="40" display="setup" kind="Observer" forever="false" disableUntilTicks="false">setup</button>
     <button x="620" y="15" width="70" height="40" display="go" kind="Observer" forever="true" disableUntilTicks="true">go</button>
     <button x="700" y="15" width="150" height="40" display="reset guide model" kind="Observer" forever="false" disableUntilTicks="false">reset-guide-model</button>
-    <slider x="535" y="65" width="220" height="50" display="grid-width" variable="grid-width" min="8.0" max="40.0" default="16.0" step="1.0" direction="Horizontal"></slider>
-    <slider x="535" y="120" width="220" height="50" display="grid-height" variable="grid-height" min="8.0" max="40.0" default="16.0" step="1.0" direction="Horizontal"></slider>
+    <slider x="535" y="65" width="220" height="50" display="grid-width" variable="grid-width" min="8.0" max="40.0" default="17.0" step="1.0" direction="Horizontal"></slider>
+    <slider x="535" y="120" width="220" height="50" display="grid-height" variable="grid-height" min="8.0" max="40.0" default="13.0" step="1.0" direction="Horizontal"></slider>
     <slider x="535" y="175" width="220" height="50" display="num-evacuees" variable="num-evacuees" min="5.0" max="120.0" default="28.0" step="1.0" direction="Horizontal"></slider>
-    <slider x="535" y="230" width="220" height="50" display="max-steps" variable="max-steps" min="20.0" max="300.0" default="80.0" step="1.0" direction="Horizontal"></slider>
-    <slider x="535" y="285" width="220" height="50" display="guide-influence-radius" variable="guide-influence-radius" min="1.0" max="8.0" default="3.0" step="1.0" direction="Horizontal"></slider>
-    <slider x="535" y="340" width="220" height="50" display="guide-follow-bias" variable="guide-follow-bias" min="0.0" max="2.0" default="0.65" step="0.05" direction="Horizontal"></slider>
-    <slider x="535" y="395" width="220" height="50" display="random-move-bias" variable="random-move-bias" min="0.0" max="0.5" default="0.12" step="0.01" direction="Horizontal"></slider>
-    <slider x="535" y="450" width="220" height="50" display="fire-spread-interval" variable="fire-spread-interval" min="1.0" max="10.0" default="3.0" step="1.0" direction="Horizontal"></slider>
+    <slider x="535" y="230" width="220" height="50" display="max-steps" variable="max-steps" min="20.0" max="300.0" default="50.0" step="1.0" direction="Horizontal"></slider>
+    <slider x="535" y="285" width="220" height="50" display="guide-influence-radius" variable="guide-influence-radius" min="1.0" max="8.0" default="6.0" step="1.0" direction="Horizontal"></slider>
+    <slider x="535" y="340" width="220" height="50" display="guide-follow-bias" variable="guide-follow-bias" min="0.0" max="1.0" default="0.9" step="0.05" direction="Horizontal"></slider>
+    <slider x="535" y="395" width="220" height="50" display="random-move-bias" variable="random-move-bias" min="0.0" max="0.5" default="0.05" step="0.01" direction="Horizontal"></slider>
+    <slider x="535" y="450" width="220" height="50" display="fire-spread-interval" variable="fire-spread-interval" min="1.0" max="10.0" default="2.0" step="1.0" direction="Horizontal"></slider>
+    <slider x="535" y="505" width="220" height="50" display="fire-spread-probability" variable="fire-spread-probability" min="0.0" max="1.0" default="0.2" step="0.01" direction="Horizontal"></slider>
     <slider x="780" y="65" width="220" height="50" display="seed" variable="seed" min="0.0" max="10000.0" default="7.0" step="1.0" direction="Horizontal"></slider>
     <input x="780" y="120" width="220" height="45" variable="repo-root" type="string" multiline="false">auto</input>
     <input x="780" y="170" width="220" height="45" variable="python-executable" type="string" multiline="false">auto</input>
     <input x="780" y="220" width="220" height="45" variable="checkpoint-dir" type="string" multiline="false"></input>
     <input x="780" y="270" width="220" height="45" variable="guide-model" type="string" multiline="false">untrained</input>
     <switch x="780" y="320" width="190" height="40" display="use-python-policy?" variable="use-python-policy?" on="true"></switch>
-    <slider x="1015" y="65" width="220" height="50" display="evacuation-reward" variable="evacuation-reward" min="0.0" max="10.0" default="2.0" step="0.1" direction="Horizontal"></slider>
-    <slider x="1015" y="120" width="220" height="50" display="fire-reward-penalty" variable="fire-reward-penalty" min="-20.0" max="0.0" default="-6.0" step="0.1" direction="Horizontal"></slider>
+    <slider x="1015" y="65" width="220" height="50" display="evacuation-reward" variable="evacuation-reward" min="0.0" max="10.0" default="3.0" step="0.1" direction="Horizontal"></slider>
+    <slider x="1015" y="120" width="220" height="50" display="fire-reward-penalty" variable="fire-reward-penalty" min="-20.0" max="0.0" default="-8.0" step="0.1" direction="Horizontal"></slider>
     <slider x="1015" y="175" width="220" height="50" display="step-penalty" variable="step-penalty" min="-1.0" max="0.0" default="-0.03" step="0.01" direction="Horizontal"></slider>
     <slider x="1015" y="230" width="220" height="50" display="congestion-penalty" variable="congestion-penalty" min="-1.0" max="0.0" default="-0.01" step="0.01" direction="Horizontal"></slider>
-    <slider x="1015" y="285" width="220" height="50" display="clustering-bonus" variable="clustering-bonus" min="0.0" max="1.0" default="0.08" step="0.01" direction="Horizontal"></slider>
+    <slider x="1015" y="285" width="220" height="50" display="progress-reward" variable="progress-reward" min="0.0" max="1.0" default="0.05" step="0.01" direction="Horizontal"></slider>
+    <slider x="1245" y="65" width="175" height="50" display="invalid-action-penalty" variable="invalid-action-penalty" min="-1.0" max="0.0" default="-0.05" step="0.01" direction="Horizontal"></slider>
+    <slider x="1245" y="120" width="175" height="50" display="unresolved-penalty" variable="unresolved-penalty" min="-10.0" max="0.0" default="-2.0" step="0.1" direction="Horizontal"></slider>
     <monitor x="780" y="365" width="110" height="50" display="alive" precision="0" fontSize="11">alive-count</monitor>
     <monitor x="895" y="365" width="110" height="50" display="evacuated" precision="0" fontSize="11">evacuated-count</monitor>
     <monitor x="1010" y="365" width="110" height="50" display="dead" precision="0" fontSize="11">dead-count</monitor>
@@ -586,7 +699,7 @@ Click `setup`, then `go`. The `guide-model` input is a checkpoint file name from
 
 If Python cannot import the repo automatically, set `repo-root` to the absolute path of this repository. `python-executable` defaults to `auto`, which tries common project, conda, and Homebrew Python paths before falling back to `python3`.
 
-The model stops when every evacuee is evacuated or dead and fire covers every burnable non-wall, non-exit patch.
+Each episode samples a fire immediately inside one of two doorway corridors. Civilians initially choose the nearest exit. The guide's left/right action broadcasts a preferred exit to nearby civilians, so a useful policy must identify the blocked side and redirect the crowd. The model stops when everyone is resolved or `max-steps` is reached.
 
 ## PYTHON BRIDGE
 
@@ -606,25 +719,28 @@ With `use-python-policy?` on, the model initializes Python once with `py:setup`,
       </metrics>
       <subExperiments>
         <subExperiment>
-        <enumeratedValueSet variable="grid-width"><value value="16"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="grid-height"><value value="16"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="grid-width"><value value="17"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="grid-height"><value value="13"></value></enumeratedValueSet>
         <enumeratedValueSet variable="num-evacuees"><value value="28"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="max-steps"><value value="80"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="guide-influence-radius"><value value="3"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="guide-follow-bias"><value value="0.65"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="random-move-bias"><value value="0.12"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="fire-spread-interval"><value value="3"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="max-steps"><value value="50"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="guide-influence-radius"><value value="6"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="guide-follow-bias"><value value="0.9"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="random-move-bias"><value value="0.05"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="fire-spread-interval"><value value="2"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="fire-spread-probability"><value value="0.2"></value></enumeratedValueSet>
         <enumeratedValueSet variable="seed"><value value="7"></value></enumeratedValueSet>
         <enumeratedValueSet variable="repo-root"><value value="&quot;auto&quot;"></value></enumeratedValueSet>
         <enumeratedValueSet variable="python-executable"><value value="&quot;auto&quot;"></value></enumeratedValueSet>
         <enumeratedValueSet variable="checkpoint-dir"><value value="&quot;&quot;"></value></enumeratedValueSet>
         <enumeratedValueSet variable="guide-model"><value value="&quot;untrained&quot;"></value></enumeratedValueSet>
         <enumeratedValueSet variable="use-python-policy?"><value value="false"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="evacuation-reward"><value value="2"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="fire-reward-penalty"><value value="-6"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="evacuation-reward"><value value="3"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="fire-reward-penalty"><value value="-8"></value></enumeratedValueSet>
         <enumeratedValueSet variable="step-penalty"><value value="-0.03"></value></enumeratedValueSet>
         <enumeratedValueSet variable="congestion-penalty"><value value="-0.01"></value></enumeratedValueSet>
-        <enumeratedValueSet variable="clustering-bonus"><value value="0.08"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="progress-reward"><value value="0.05"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="invalid-action-penalty"><value value="-0.05"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="unresolved-penalty"><value value="-2"></value></enumeratedValueSet>
         </subExperiment>
       </subExperiments>
     </experiment>

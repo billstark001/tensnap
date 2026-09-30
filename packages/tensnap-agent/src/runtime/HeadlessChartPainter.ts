@@ -47,6 +47,7 @@ export class HeadlessChartPainter implements ScenePainter {
   }
 
   async render(request: RenderRequest): Promise<RenderArtifact[]> {
+    if (request.options.envId) return [];
     const charts = request.options.chartId
       ? request.snapshot.charts.filter((group) => group.id === request.options.chartId || request.options.chartId! in group.metadataDict)
       : request.snapshot.charts;

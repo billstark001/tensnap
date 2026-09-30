@@ -1,14 +1,9 @@
 import solara
 
-from mesa.visualization import (
-    Slider,
-    SolaraViz,
-    SpaceRenderer,
-    make_plot_component,
-)
+from mesa.visualization import Slider, SolaraViz, SpaceRenderer, make_plot_component
 from mesa.visualization.components import AgentPortrayalStyle
 
-from schelling import SchellingModel, SchellingAgent
+from schelling import SchellingAgent, SchellingModel
 
 
 def agent_portrayal(agent: SchellingAgent):
@@ -38,32 +33,19 @@ model_params = {
     "similarity_threshold": Slider(
         "Similarity threshold", 0.7, 0.0, 1.0, 0.01, dtype=float  # type: ignore
     ),
-    "rng": {
-        "type": "InputText",
-        "value": 42,
-        "label": "Random seed",
-    },
+    "rng": {"type": "InputText", "value": 42, "label": "Random seed"},
 }
 
 model = SchellingModel()
-
 renderer = SpaceRenderer(model, backend="matplotlib").setup_agents(agent_portrayal)
 renderer.render()
-
 SatisfiedPlot = make_plot_component(
-    {
-        "SatisfiedPct": "tab:green",
-        "SegregationIndex": "tab:purple",
-    }
+    {"SatisfiedPct": "tab:green", "SegregationIndex": "tab:purple"}
 )
-
 page = SolaraViz(
     model,
     renderer,
-    components=[
-        SatisfiedPlot,
-        model_summary,
-    ],  # type: ignore
+    components=[SatisfiedPlot, model_summary],  # type: ignore
     model_params=model_params,
     name="Schelling model: Go-equivalent dynamics",
 )

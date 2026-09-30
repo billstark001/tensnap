@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 2,
+  "id": "schelling-ui-mesa-v1",
+  "description": "Mesa/Schelling UI case study over the shared teaching model and thin publication adapters. Every UI condition validates canonical model state and measures click-to-render-complete; screenshots are audit evidence outside the timed interval.",
+  "suites": ["node", "browser"],
+  "repetitions": 15,
+  "warmupActions": 5,
+  "measuredActions": 20,
+  "encodings": ["json"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "workloads": [
+    {
+      "id": "mesa-headless",
+      "system": "Mesa headless (kernel baseline)",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": { "grid": "50x50", "steps": 200, "instrumentation": "none" },
+      "warmupActions": 0,
+      "measuredActions": 1,
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["kernel.py", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.70", "--warmup-steps", "25", "--steps", "200", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--instrumentation", "none", "--benchmark-json"],
+        "cwd": "benchmarks/schelling/v1/subjects/mesa",
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a" },
+        "seed": 20260718,
+        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 200, "max": 200 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 200, "max": 200 } } }
+      }
+    },
+    {
+      "id": "mesa-solara",
+      "system": "Mesa + Solara (agents + summary)",
+      "primaryMetric": "actionToRenderCompleteMs",
+      "featureLevel": "agents+two-statistics",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "requestAnimationFrame" },
+      "stateEquivalenceGroup": "mesa-ui-v1",
+      "module": "../schelling/external-browser.ts",
+      "config": {
+        "executable": "solara",
+        "args": ["run", "solara.py", "--host", "127.0.0.1", "--port", "{port}", "--no-open"],
+        "cwd": "benchmarks/schelling/v1/subjects/mesa",
+        "env": {
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}",
+          "TENSNAP_SCHELLING_TICKS_PER_SECOND": "60"
+        },
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a" },
+        "url": "http://127.0.0.1:{port}",
+        "readySelector": "button:has-text('Step')",
+        "actionSelector": "button:has-text('Step')",
+        "actionTimeoutMs": 30000,
+        "checkpointActions": [0, 5, 25],
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "mesa-tensnap-web-raf",
+      "system": "Mesa + TenSnap binding + Web host (rAF frame latency)",
+      "primaryMetric": "actionToRenderCompleteMs",
+      "featureLevel": "agents+two-statistics",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "requestAnimationFrame" },
+      "stateEquivalenceGroup": "mesa-ui-v1",
+      "browserOptions": {
+        "renderTriggerMode": "requestAnimationFrame"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["server.py"],
+        "cwd": "benchmarks/schelling/v1/subjects/mesa",
+        "env": {
+          "PYTHONUNBUFFERED": "1",
+          "PYTHONPATH": "{repositoryRoot}/packages/tensnap-python",
+          "TENSNAP_USE_SOURCE": "1",
+          "TENSNAP_SERVER_PORT": "{port}",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:{port}",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a" },
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "mesa-tensnap-web-timeout",
+      "system": "Mesa + TenSnap binding + Web host (timeout throughput)",
+      "primaryMetric": "actionToRunCompletionMs",
+      "featureLevel": "agents+two-statistics",
+      "dimensions": { "grid": "50x50", "warmupActions": 5, "measuredActions": 20, "renderTrigger": "setTimeout" },
+      "stateEquivalenceGroup": "mesa-ui-v1",
+      "browserOptions": {
+        "renderTriggerMode": "setTimeout"
+      },
+      "module": "../schelling/tensnap-web-external.ts",
+      "config": {
+        "executable": "python3",
+        "args": ["server.py"],
+        "cwd": "benchmarks/schelling/v1/subjects/mesa",
+        "env": {
+          "PYTHONUNBUFFERED": "1",
+          "PYTHONPATH": "{repositoryRoot}/packages/tensnap-python",
+          "TENSNAP_USE_SOURCE": "1",
+          "TENSNAP_SERVER_PORT": "{port}",
+          "TENSNAP_SCHELLING_WIDTH": "50",
+          "TENSNAP_SCHELLING_HEIGHT": "50",
+          "TENSNAP_SCHELLING_DENSITY": "0.8",
+          "TENSNAP_SCHELLING_BALANCE": "0.5",
+          "TENSNAP_SCHELLING_THRESHOLD": "0.70",
+          "TENSNAP_SCHELLING_SEED": "{seed}"
+        },
+        "endpoint": "ws://127.0.0.1:{port}",
+        "encoding": "json",
+        "width": 900,
+        "height": 700,
+        "timeoutMs": 120000,
+        "environmentLocks": { "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a" },
+        "seed": 20260718
+      }
+    }
+  ],
+  "comparisons": [
+    { "id": "mesa-ui-render-complete", "metric": "actionToRenderCompleteMs", "baseline": "mesa-solara", "treatments": ["mesa-tensnap-web-raf"] }
+  ]
+}

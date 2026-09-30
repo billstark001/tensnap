@@ -25,7 +25,12 @@ def _load_dependencies():
     try:
         import torch
 
-        from .config import DQNConfig, EnvConfig, build_evacuation_layout
+        from .config import (
+            FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+            DQNConfig,
+            EnvConfig,
+            build_evacuation_layout,
+        )
         from .dqn import DQNAgent
         from .model import EvacuationModel
     except ModuleNotFoundError as exc:
@@ -40,6 +45,7 @@ def _load_dependencies():
         DQNConfig,
         EnvConfig,
         build_evacuation_layout,
+        FIRE_EVACUATION_CHECKPOINT_SCHEMA,
         DQNAgent,
         EvacuationModel,
     )
@@ -56,16 +62,22 @@ def setup(
     checkpoint_dir: str | None = None,
     checkpoint_name: str = UNTRAINED_GUIDE_MODEL,
     seed: int = 0,
-    width: int = 16,
-    height: int = 16,
+    width: int = 17,
+    height: int = 13,
     num_evacuees: int = 28,
-    max_steps: int = 80,
+    max_steps: int = 50,
 ) -> str:
     global _agent, _loaded_model
 
-    torch, DQNConfig, EnvConfig, build_evacuation_layout, DQNAgent, EvacuationModel = (
-        _load_dependencies()
-    )
+    (
+        torch,
+        DQNConfig,
+        EnvConfig,
+        build_evacuation_layout,
+        checkpoint_schema,
+        DQNAgent,
+        EvacuationModel,
+    ) = _load_dependencies()
 
     random.seed(seed)
     torch.manual_seed(seed)
@@ -86,6 +98,7 @@ def setup(
         base_model.action_size,
         DQNConfig(),
         device=_device,
+        checkpoint_schema=checkpoint_schema,
     )
 
     checkpoint_name = checkpoint_name or UNTRAINED_GUIDE_MODEL

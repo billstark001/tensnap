@@ -6,6 +6,18 @@ const DEFAULT_GRID_H = 50
 const DEFAULT_DENSITY = 0.8
 const DEFAULT_BALANCE = 0.5
 const DEFAULT_SIMILARITY_THRESHOLD = 0.7
+const SCHELLING_DYNAMICS_VERSION = 1
+
+Base.@kwdef mutable struct SchellingConfig
+	gridwidth::Int = DEFAULT_GRID_W
+	gridheight::Int = DEFAULT_GRID_H
+	density::Float64 = DEFAULT_DENSITY
+	balance::Float64 = DEFAULT_BALANCE
+	similarity_threshold::Float64 = DEFAULT_SIMILARITY_THRESHOLD
+	seed::Union{Nothing, Int} = nothing
+end
+
+schelling_group_color(group::Int) = group == 1 ? "#3498db" : "#e74c3c"
 
 mutable struct SchellingProperties
 	similarity_threshold::Float64
@@ -143,3 +155,12 @@ function initialize_schelling(;
 
 	return model
 end
+
+initialize_schelling(config::SchellingConfig) = initialize_schelling(;
+	gridwidth = config.gridwidth,
+	gridheight = config.gridheight,
+	density = config.density,
+	balance = config.balance,
+	similarity_threshold = config.similarity_threshold,
+	seed = config.seed,
+)

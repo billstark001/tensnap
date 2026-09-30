@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "id": "schelling-netlogo-render-v2",
+  "description": "NetLogo 7.0.4 in-memory rendering profile at similarity threshold 0.8 and final tick 500. Every action advances the Schelling model, recolors patches, and paints the headless view to a BufferedImage. The final image is validated against NetLogo state and encoded once outside the timed interval; no measured action includes PNG encoding or file I/O.",
+  "suites": ["node"],
+  "repetitions": 15,
+  "warmupActions": 5,
+  "measuredActions": 495,
+  "encodings": ["json"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": false,
+  "workloads": [
+    {
+      "id": "netlogo-v7-in-memory-view",
+      "system": "NetLogo 7.0.4 headless in-memory view",
+      "primaryMetric": "actionToInMemoryViewMs",
+      "featureLevel": "native-view-in-memory-raster",
+      "dimensions": {
+        "grid": "50x50",
+        "density": 0.8,
+        "balance": 0.5,
+        "threshold": 0.8,
+        "finalTick": 500,
+        "rendering": "HeadlessWorkspace.exportView() to BufferedImage after every action; final PNG encoding outside timing; no file I/O"
+      },
+      "module": "../schelling/netlogo-render-memory.ts",
+      "config": {
+        "executable": "python3",
+        "args": [
+          "render_memory.py",
+          "--model-path", "{repositoryRoot}/examples/python_mesa/schelling.nlogox",
+          "--density", "0.8",
+          "--balance", "0.5",
+          "--threshold", "0.8",
+          "--seed", "{seed}",
+          "--warmup-actions", "{warmupActions}",
+          "--measured-actions", "{measuredActions}"
+        ],
+        "cwd": "benchmarks/schelling/v1/subjects/netlogo",
+        "timeoutMs": 180000,
+        "environmentLocks": {
+          "benchmarks/environments/python-netlogo7-render.requirements.lock": "f95974adf0dffaa44700a7db48cff47b3346607d025d3078cb89e5e727d5fa23",
+          "examples/python_mesa/schelling.nlogox": "371526d99d12c8cd798b7a996870031e38ae08760db43c81e73a858be55d02ec"
+        },
+        "seed": 20260718,
+        "netlogoVersion": "7.0.4"
+      }
+    }
+  ]
+}

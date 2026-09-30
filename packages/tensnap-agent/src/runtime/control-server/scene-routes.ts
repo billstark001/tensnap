@@ -104,6 +104,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     const body = await c.req.json<{
       reason?: string;
       envId?: string;
+      chartId?: string;
       width?: number;
       height?: number;
       viewport?: { x: number; y: number; width: number; height: number };
@@ -115,9 +116,14 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       includeData?: boolean;
     }>();
 
+    if (body.envId && body.chartId) {
+      return c.json({ error: 'envId and chartId are mutually exclusive.' }, 400);
+    }
+
     const artifacts = await runtime.requestRender(
       {
         envId: body.envId,
+        chartId: body.chartId,
         width: body.width,
         height: body.height,
         viewport: body.viewport,

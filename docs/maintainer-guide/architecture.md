@@ -160,10 +160,11 @@ Owns:
 
 ### Supporting browser packages
 
-- `examples/js`: built-in TypeScript models, local transport entrypoints, manifests, and benchmark fixtures
+- `examples/js`: built-in TypeScript models, local transport entrypoints, and manifests
 - `packages/web-common`: shared browser-side UI/types/helpers
 - `packages/web-adapter`: browser-side filesystem and integration helpers
-- `packages/benchmark`: benchmark harnesses for render/runtime paths
+- `packages/benchmark`: generic benchmark execution, recovery, verification, statistics, and analysis generation
+- `benchmarks`: versioned subjects, profiles, dependency locks, semantic oracles, and renderer controls
 
 ## Protocol v0.3 Ownership
 
@@ -318,21 +319,28 @@ promise and may discard invalid sections with explicit warnings.
 delta/keyframe behavior for a host-specific layer; the policy label is not a
 claim that the data already has a custom binary codec.
 
-`packages/benchmark` has three explicit suites. Component cases mount production
-Web chart/environment components and update their core storages directly, so
-they measure rendering without transport. Complete-model cases supply bundled
-simulator transports to the benchmark entry point exported by
-`packages/tensnap-web`; that host mounts the production transport store,
-`RendererSession`, Zustand subscriptions, auto-layout, React view tree, and
-canvas renderers. The random-walk comparison runs one seeded workload through
-raw Leafer, core layers without transport, and the full Web transport path.
+`packages/benchmark` has node, WebSocket, and browser suites. Browser model
+cases mount the production host exported by `packages/tensnap-web`; direct
+renderer controls remain explicitly labelled and use the same generated state
+trace. Profiles declare feature level, dimensions, primary metric, and paired
+comparisons so unlike layers cannot silently enter one result table.
 
-All suites use `BrowserRunRenderBarrier` and report complete cycle latency/TPS.
-Direct component/layer cases additionally report synchronous mutation cost.
-Model cases report requested steps, actual completed steps, and their stop
-reason; a simulator-requested early stop is a valid partial result rather than
-a benchmark failure. `assertBenchmarkRegressionGate` compares p95/TPS results
-against the selected machine-class baseline.
+Publication-specific adapters, oracles and probes belong under `benchmarks/`.
+Reusable scientific models, configuration, study loops and UI/server factories
+belong under `examples/` and are imported by thin subjects. The resulting thin
+`viz` and `standalone` launchers are a reuse boundary between examples and the
+publication harness, not a binding API requirement; one-off examples may keep
+those responsibilities together. External UIs expose a render revision and
+canonical state oracle; the harness measures action dispatch to the next paint
+after the declared revision, captures screenshots outside the timed interval,
+and checks exact cross-renderer hashes where a profile declares semantic
+equivalence.
+
+Every replicate is journaled for resume/shard/merge. Complete artifacts include
+raw samples plus regenerated reports, CSV data, figure data, and checksums.
+Verification rebuilds summaries and randomized-block paired comparisons from
+raw samples. The complete workflow and the example/subject ownership boundary
+are documented in `benchmarks/README.md`.
 
 ## Inspection and Trajectory Semantics
 

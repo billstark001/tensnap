@@ -2,18 +2,16 @@ import {
   modelBuilder,
   numberField,
 } from '@tensnap/js/bindings';
-import { SchellingConfig, SchellingModel } from '../models/schelling';
+import {
+  DEFAULT_SCHELLING_CONFIG,
+  SchellingModel,
+  type SchellingConfig,
+} from '../models/schelling';
 
 const AGENT_LAYER = 'agents';
 const GRID_LAYER = 'grid';
 
-export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
-  gridWidth: 50,
-  gridHeight: 50,
-  similarityThreshold: 0.7,
-  density: 0.8,
-  balance: 0.5,
-};
+export { DEFAULT_SCHELLING_CONFIG };
 
 const builder = modelBuilder({
   id: 'schelling',

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "v0.3-browser-smoke",
+  "description": "Fast production-build Chromium check for the v0.3 benchmark harness.",
+  "suites": ["browser"],
+  "repetitions": 1,
+  "warmupActions": 2,
+  "measuredActions": 5,
+  "encodings": ["json", "msgpack"],
+  "validation": ["off", "error"],
+  "workloads": [
+    {
+      "module": "../v0.3/random-walk/benchmark.ts",
+      "config": { "agentCount": 100, "changedAgents": 10, "seed": 20260712 }
+    }
+  ]
+}

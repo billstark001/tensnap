@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "id": "tensnap-core-v0.3",
+  "description": "Deterministic v0.3 protocol publication, core apply, state-sync, and snapshot archive measurements.",
+  "suites": ["node", "ws"],
+  "repetitions": 7,
+  "warmupActions": 10,
+  "measuredActions": 30,
+  "encodings": ["json", "msgpack"],
+  "validation": ["off", "error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "workloads": [
+    { "module": "../v0.3/random-walk/benchmark.ts", "config": { "agentCount": 1000, "changedAgents": 0, "seed": 20260712 } },
+    { "module": "../v0.3/random-walk/benchmark.ts", "config": { "agentCount": 1000, "changedAgents": 10, "seed": 20260712 } },
+    { "module": "../v0.3/random-walk/benchmark.ts", "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 } },
+    { "module": "../v0.3/core-trace/benchmark.ts", "config": { "agentCount": 10000, "changedAgents": 100, "monitorArrayLength": 64, "seed": 20260712 } },
+    { "module": "../v0.3/state-sync/benchmark.ts", "config": { "agentCount": 10000, "changedAgents": 100, "seed": 20260712 } },
+    { "module": "../v0.3/snapshot-restore/benchmark.ts", "config": { "agentCount": 10000, "changedAgents": 100, "segmentFrames": 30, "seed": 20260712 } }
+  ]
+}

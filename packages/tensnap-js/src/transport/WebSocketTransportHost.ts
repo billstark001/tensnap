@@ -6,6 +6,7 @@ import {
   type ProtocolValidationLevel,
   type ProtocolValidationWarning,
   type RendererToSimulatorMessage,
+  type SimulatorToRendererMessage,
 } from '@tensnap/protocol';
 import WebSocket, {
   WebSocketServer,
@@ -60,6 +61,10 @@ export interface WebSocketTransportHostOptions {
   simulatorMessageValidation?: ProtocolValidationLevel;
   onValidationWarning?: (warning: ProtocolValidationWarning) => void;
   onValidationError?: (error: unknown) => void;
+  /** Optional non-invasive frame observer, useful for diagnostics and benchmark instrumentation. */
+  onSimulatorMessage?: (message: SimulatorToRendererMessage, encodedBytes: number) => void;
+  /** Optional non-invasive frame observer, useful for diagnostics and benchmark instrumentation. */
+  onRendererMessage?: (message: RendererToSimulatorMessage, encodedBytes: number) => void;
 }
 
 export class WebSocketTransportHost {
@@ -72,6 +77,8 @@ export class WebSocketTransportHost {
   private readonly simulatorMessageValidation: ProtocolValidationLevel;
   private readonly onValidationWarning?: (warning: ProtocolValidationWarning) => void;
   private readonly onValidationError?: (error: unknown) => void;
+  private readonly onSimulatorMessage?: (message: SimulatorToRendererMessage, encodedBytes: number) => void;
+  private readonly onRendererMessage?: (message: RendererToSimulatorMessage, encodedBytes: number) => void;
   private readonly sessions = new Map<WebSocket, SimulatorSession>();
   private closing = false;
 
@@ -84,6 +91,8 @@ export class WebSocketTransportHost {
     this.simulatorMessageValidation = options.simulatorMessageValidation ?? 'off';
     this.onValidationWarning = options.onValidationWarning;
     this.onValidationError = options.onValidationError;
+    this.onSimulatorMessage = options.onSimulatorMessage;
+    this.onRendererMessage = options.onRendererMessage;
 
     this.server.on('connection', (socket) => {
       void this.handleConnection(socket);
@@ -146,6 +155,7 @@ export class WebSocketTransportHost {
         this.onValidationError?.(error);
         throw error;
       }
+      this.observeFrame(this.onSimulatorMessage, message as SimulatorToRendererMessage, typeof encoded === 'string' ? Buffer.byteLength(encoded) : encoded.byteLength);
       socket.send(typeof encoded === 'string' ? encoded : Buffer.from(encoded));
     }, connectionId);
 
@@ -168,6 +178,7 @@ export class WebSocketTransportHost {
         });
         return;
       }
+      this.observeFrame(this.onRendererMessage, decoded, typeof normalized === 'string' ? Buffer.byteLength(normalized) : normalized.byteLength);
       void session.dispatch(decoded).catch((error) => {
         void session.emitter.error({
           code: 'dispatch_failed',
@@ -192,6 +203,19 @@ export class WebSocketTransportHost {
       this.sessions.delete(socket);
       socket.close();
       throw error;
+    }
+  }
+
+  private observeFrame<TMessage>(
+    observer: ((message: TMessage, encodedBytes: number) => void) | undefined,
+    message: TMessage,
+    encodedBytes: number,
+  ): void {
+    try {
+      observer?.(message, encodedBytes);
+    } catch (error) {
+      // Instrumentation must not change a production transport's delivery semantics.
+      this.onValidationError?.(error);
     }
   }
 }

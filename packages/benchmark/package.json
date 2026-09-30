@@ -3,9 +3,14 @@
   "version": "0.3.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./harness": "./src/harness/index.ts"
+  },
   "scripts": {
-    "dev": "vite",
-    "benchmark": "vite",
+    "bench": "node --import tsx src/cli.ts",
+    "bench:smoke": "node --import tsx src/cli.ts run --profile benchmarks/profiles/smoke.json",
+    "bench:browser:all": "node --import tsx src/cli.ts run --profile benchmarks/profiles/browser-all-v0.3.json",
+    "bench:browser:install": "playwright install chromium",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "pnpm run typecheck",
@@ -18,24 +23,26 @@
     "@leafer-ui/core": "^2.2.2",
     "@lingui/react": "^6.5.0",
     "@tensnap/core": "workspace:*",
-    "@tensnap/examples-js": "workspace:*",
     "@tensnap/js": "workspace:*",
     "@tensnap/protocol": "workspace:*",
     "@tensnap/web": "workspace:*",
-    "@tensnap/web-adapter": "workspace:*",
     "@tensnap/web-common": "workspace:*",
     "leafer-ui": "^2.2.2",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@lingui/swc-plugin": "^6.5.1",
     "@lingui/vite-plugin": "^6.5.0",
-    "@vanilla-extract/vite-plugin": "^5.2.5",
-    "@vitejs/plugin-react-swc": "^4.3.1",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
+    "@vanilla-extract/vite-plugin": "^5.2.5",
+    "@vitejs/plugin-react-swc": "^4.3.1",
+    "playwright": "^1.61.1",
+    "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"

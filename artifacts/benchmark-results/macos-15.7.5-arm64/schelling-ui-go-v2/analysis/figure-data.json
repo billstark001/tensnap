@@ -1,0 +1,74 @@
+[
+  {
+    "runId": "go-headless|node|-|-",
+    "system": "Go headless (kernel baseline)",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 22.0791446,
+      "medianMs": 22.030417,
+      "p95Ms": 22.89175,
+      "madMs": 0.1875,
+      "bootstrapMedianCi95Ms": [
+        21.842917,
+        22.188792
+      ]
+    }
+  },
+  {
+    "runId": "go-tensnap-web-raf|browser|-|-",
+    "system": "Go + TenSnap binding + Web host (rAF frame latency)",
+    "featureLevel": "agents+three-statistics",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 16.726276094275292,
+      "medianMs": 16.69999998807907,
+      "p95Ms": 17.099999994039536,
+      "madMs": 0.09999999403953552,
+      "bootstrapMedianCi95Ms": [
+        16.69999998807907,
+        16.69999998807907
+      ]
+    }
+  },
+  {
+    "runId": "go-tensnap-web-timeout|browser|-|-",
+    "system": "Go + TenSnap binding + Web host (timeout throughput)",
+    "featureLevel": "agents+three-statistics",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "setTimeout"
+    },
+    "primaryMetric": "actionToRunCompletionMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 8.769818181818984,
+      "medianMs": 9.800000011920929,
+      "p95Ms": 12.300000011920929,
+      "madMs": 2.5999999940395355,
+      "bootstrapMedianCi95Ms": [
+        9.799999982118607,
+        9.899999976158142
+      ]
+    }
+  }
+]

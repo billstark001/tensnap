@@ -1,3 +1,5 @@
+// This user launcher delegates to the reset-safe server shared with the
+// benchmark adapter. The split is repository reuse, not Go binding boilerplate.
 package main
 
 import (
@@ -9,27 +11,26 @@ import (
 	"syscall"
 
 	shared "github.com/billstark001/tensnap/examples/go/internal/schelling"
-	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
-	"github.com/billstark001/tensnap/packages/tensnap-go/server"
 )
 
 func main() {
-	gridWidth := flag.Int("grid-width", 50, "Schelling grid width")
-	gridHeight := flag.Int("grid-height", 50, "Schelling grid height")
+	defaults := shared.DefaultConfig()
+	gridWidth := flag.Int("grid-width", defaults.GridWidth, "Schelling grid width")
+	gridHeight := flag.Int("grid-height", defaults.GridHeight, "Schelling grid height")
+	flag.IntVar(gridWidth, "width", defaults.GridWidth, "alias for -grid-width")
+	flag.IntVar(gridHeight, "height", defaults.GridHeight, "alias for -grid-height")
+	density := flag.Float64("density", defaults.Density, "Initial occupied density")
+	balance := flag.Float64("balance", defaults.Balance, "Share of group 1 among occupied cells")
+	threshold := flag.Float64("threshold", defaults.SimilarityThreshold, "Required same-group neighbour ratio")
+	seed := flag.Int64("seed", 7, "Deterministic model seed")
+	port := flag.Int("port", 8765, "WebSocket server port")
 	flag.Parse()
 
-	rawModel := shared.NewDefaultModel()
-	rawModel.Config.GridWidth = *gridWidth
-	rawModel.Config.GridHeight = *gridHeight
-	rawModel.Initialize()
-
+	config := shared.Config{GridWidth: *gridWidth, GridHeight: *gridHeight, SimilarityThreshold: *threshold, Density: *density, Balance: *balance}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	log.Println("TenSnap simulator -> ws://localhost:8765/")
-	if err := server.RunFactory(ctx, server.Options{Addr: ":8765"}, func() abm.Model {
-		return shared.NewVizModel(rawModel)
-	}); err != nil {
+	log.Printf("TenSnap simulator -> ws://localhost:%d/", *port)
+	if err := shared.RunTenSnapServer(ctx, config, *seed, *port); err != nil {
 		log.Fatal(err)
 	}
 }

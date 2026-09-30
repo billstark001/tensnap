@@ -11,10 +11,12 @@
     "./models": "./src/models/index.ts",
     "./manifest": "./src/manifest.ts",
     "./entries/main-ws": "./src/entries/main-ws.ts",
-    "./entries/main-bundle": "./src/entries/main-bundle.ts"
+    "./entries/main-bundle": "./src/entries/main-bundle.ts",
+    "./standalone/schelling-study": "./src/standalone/schelling-study.ts"
   },
   "scripts": {
-    "demo:ws": "tsx src/entries/main-ws.ts",
+    "demo:ws": "node --import tsx src/entries/main-ws.ts",
+    "standalone:schelling": "node --import tsx src/entries/schelling-standalone.ts",
     "build": "pnpm run typecheck",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",

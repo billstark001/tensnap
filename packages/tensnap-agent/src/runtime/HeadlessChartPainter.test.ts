@@ -11,6 +11,23 @@ afterEach(async () => {
 });
 
 describe('HeadlessChartPainter', () => {
+  it('skips an explicitly environment-targeted render', async () => {
+    const painter = new HeadlessChartPainter({ capturesDir: tmpdir() });
+    const artifacts = await painter.render({
+      at: new Date().toISOString(),
+      reason: 'test',
+      trigger: 'explicit',
+      snapshot: {
+        metadata: {}, actions: [], parameters: [], environments: [], monitors: [], logs: [], assets: [],
+        charts: [{ id: 'population', label: 'Population', metadataDict: {}, data: [] }],
+      },
+      options: { envId: 'main', outputPath: join(tmpdir(), 'environment.png') },
+      assets: {},
+    });
+
+    expect(artifacts).toEqual([]);
+  });
+
   it('renders a chart group through the shared ChartScene', async () => {
     const capturesDir = join(tmpdir(), `tensnap-chart-${Date.now()}`);
     paths.push(capturesDir);

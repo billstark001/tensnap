@@ -1,0 +1,76 @@
+{
+  "artifact": "tensnap-agent-cli-smoke-v1",
+  "generatedAt": "2026-07-19T23:57:46.339Z",
+  "sourceCommit": "8328a0a983d4b7d004895e4bcd9330b0c5a7b40c",
+  "environment": {
+    "platform": "darwin",
+    "release": "24.6.0",
+    "architecture": "arm64",
+    "node": "v24.14.1",
+    "pnpm": "11.13.1"
+  },
+  "scenario": {
+    "model": "schelling",
+    "transport": "websocket/msgpack",
+    "validation": {
+      "client": "error",
+      "server": "error"
+    },
+    "seed": 7,
+    "grid": {
+      "width": 20,
+      "height": 16
+    },
+    "density": 0.7,
+    "balance": 0.5,
+    "initialSimilarityThreshold": 0.6,
+    "runtimeSimilarityThreshold": 0.75,
+    "agentCount": 213
+  },
+  "boundedRun": {
+    "actionId": "start",
+    "maxSteps": 20,
+    "stopWhen": "time >= 5",
+    "completedSteps": 5,
+    "stopReason": "condition",
+    "conditionValue": true
+  },
+  "checkpointRoundTrip": {
+    "stateSchemaVersion": "1",
+    "encoding": "application/msgpack",
+    "capturedTime": 5,
+    "advancedTime": 6,
+    "restoredTime": 5,
+    "capturedStateSha256": "9adbfbe781e66e474d3bcf63ff43734e2a4af98af4c9d62e1fa638d4ffc782de",
+    "advancedStateSha256": "dd6bdf3dd285b9ec3492bf5d0c73f9b2cf762d75c24125e546c4853a96bc3e75",
+    "restoredStateSha256": "9adbfbe781e66e474d3bcf63ff43734e2a4af98af4c9d62e1fa638d4ffc782de"
+  },
+  "render": {
+    "width": 640,
+    "height": 480,
+    "bytes": 37739,
+    "sha256": "bc558abee49c4bd64c87d9797a5edcd2b406a41efac08f163ba2a31117588c92"
+  },
+  "retainedFiles": [
+    "results/summary.json",
+    "results/scene.png"
+  ],
+  "discarded": [
+    "daemon context",
+    "checkpoint payload",
+    "raw snapshots",
+    "process logs"
+  ],
+  "checks": {
+    "builtCliConnected": "pass",
+    "strictBidirectionalValidation": "pass",
+    "initialSceneInspected": "pass",
+    "runtimeParameterChanged": "pass",
+    "boundedConditionStop": "pass",
+    "exactCheckpointVersioned": "pass",
+    "advanceChangedState": "pass",
+    "restoreRecoveredState": "pass",
+    "offscreenRenderCreated": "pass",
+    "noRuntimeWarningsOrErrors": "pass"
+  }
+}

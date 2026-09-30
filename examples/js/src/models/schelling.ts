@@ -26,7 +26,20 @@ export interface SchellingConfig {
   similarityThreshold: number;
   density: number;
   balance: number;
+  /** Optional deterministic seed for reproducible runs. It is not a UI parameter. */
+  seed?: number;
 }
+
+/** Increment when the model's scientific transition rules change. */
+export const SCHELLING_DYNAMICS_VERSION = 1;
+
+export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
+  gridWidth: 50,
+  gridHeight: 50,
+  similarityThreshold: 0.7,
+  density: 0.8,
+  balance: 0.5,
+};
 
 interface Agent {
   id: string;
@@ -44,7 +57,9 @@ type AgentChange = {
 export type SchellingAgentUpdate = Pick<GridAgentState, 'id'> & Partial<Pick<GridAgentState, 'x' | 'y' | 'size'>>;
 
 export class SchellingModel {
-  private config: Required<SchellingConfig>;
+  private config: Required<Omit<SchellingConfig, 'seed'>>;
+  private readonly seed: number | undefined;
+  private random: () => number = Math.random;
   private agents: Agent[] = [];
   private agentChanges = new Map<Agent, AgentChange>();
 
@@ -70,6 +85,7 @@ export class SchellingModel {
   private readonly eventHandlers: { [event: string]: Function[] } = {};
   private satisfiedCount: number = 0;
   private segregationIndex: number = 0;
+  private lastMoved: number = 0;
 
   private static readonly AGENT_TYPES = [
     { type: 1, color: '#3498db', prefix: 'agent1' },
@@ -77,20 +93,39 @@ export class SchellingModel {
   ] as const;
 
   constructor(config: SchellingConfig) {
+    const { seed, ...modelConfig } = config;
+    this.seed = SchellingModel.normalizeSeed(seed);
     this.config = {
       agentSize: 1,
       agentSizeUnsatisfied: (config.agentSize ?? 1) * 0.6,
-      ...config,
-      gridWidth: Math.max(1, Math.floor(config.gridWidth)),
-      gridHeight: Math.max(1, Math.floor(config.gridHeight)),
-      similarityThreshold: SchellingModel.clamp01(config.similarityThreshold),
-      density: SchellingModel.clamp01(config.density),
-      balance: SchellingModel.clamp01(config.balance),
+      ...modelConfig,
+      gridWidth: Math.max(1, Math.floor(modelConfig.gridWidth)),
+      gridHeight: Math.max(1, Math.floor(modelConfig.gridHeight)),
+      similarityThreshold: SchellingModel.clamp01(modelConfig.similarityThreshold),
+      density: SchellingModel.clamp01(modelConfig.density),
+      balance: SchellingModel.clamp01(modelConfig.balance),
     };
   }
 
   private static clamp01(value: number): number {
     return Math.min(1, Math.max(0, value));
+  }
+
+  private static normalizeSeed(value: number | undefined): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) >>> 0 : undefined;
+  }
+
+  /** Mulberry32 makes optional seeded runs reproducible without changing global Math.random. */
+  private static randomForSeed(seed: number | undefined): () => number {
+    if (seed === undefined) return Math.random;
+    let state = seed;
+    return () => {
+      state = (state + 0x6D2B79F5) >>> 0;
+      let value = state;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+    };
   }
 
   // ── Event handling ──────────────────────────────────────────────────────────
@@ -130,12 +165,14 @@ export class SchellingModel {
   // ── Initialization ──────────────────────────────────────────────────────────
 
   initialize() {
+    this.random = SchellingModel.randomForSeed(this.seed);
     this.agents = [];
     this.agentChanges.clear();
     this.unsatisfiedSet = new Set();
     this.timeStep = 0;
     this.satisfiedCount = 0;
     this.segregationIndex = 0;
+    this.lastMoved = 0;
 
     const { gridWidth: W, gridHeight: H } = this.config;
     const size = W * H;
@@ -151,7 +188,7 @@ export class SchellingModel {
     let nextType2 = 0;
 
     for (let enc = 0; enc < size; enc++) {
-      const value = Math.random();
+      const value = this.random();
       if (value >= density) {
         continue;
       }
@@ -334,6 +371,7 @@ export class SchellingModel {
     }
 
     this.segregationIndex = this.calculateSegregationIndex();
+    this.lastMoved = moved;
     this.emit('step_end', { timeStep: this.timeStep });
     this.timeStep++;
     return moved > 0;
@@ -341,7 +379,7 @@ export class SchellingModel {
 
   private shuffleArray<T>(array: T[]): void {
     for (let i = array.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
+      const j = (this.random() * (i + 1)) | 0;
       [array[i], array[j]] = [array[j], array[i]];
     }
   }
@@ -394,6 +432,7 @@ export class SchellingModel {
     this.unsatisfiedSet.clear();
     this.satisfiedCount = 0;
     this.segregationIndex = 0;
+    this.lastMoved = 0;
   }
 
   /** Validate a complete renderer-projected agent layer before it mutates this model. */
@@ -531,12 +570,13 @@ export class SchellingModel {
       satisfiedCount: this.satisfiedCount,
       satisfactionRate: this.agents.length > 0 ? this.satisfiedCount / this.agents.length : 0,
       segregationIndex: this.segregationIndex,
+      lastMoved: this.lastMoved,
     };
   }
 
   getParameters() {
     const paramDefs: Array<{
-      id: keyof SchellingConfig | string;
+      id: keyof Omit<SchellingConfig, 'seed'> | string;
       type: string;
       label: string;
       value?: any;
@@ -551,7 +591,7 @@ export class SchellingModel {
       { id: 'density', type: 'number', label: 'Density', min: 0, max: 1, step: 0.05, allow_runtime_change: false },
       { id: 'balance', type: 'number', label: 'Balance', min: 0, max: 1, step: 0.05, allow_runtime_change: false },
     ];
-    return paramDefs.map(p => ({ ...p, value: this.config[p.id as keyof SchellingConfig] }));
+    return paramDefs.map(p => ({ ...p, value: this.config[p.id as keyof typeof this.config] }));
   }
 
   updateParameter(id: string, value: any) {
@@ -591,6 +631,7 @@ export class SchellingModel {
     this.emptySpots = [];
     this.emptySpotIndexMap.clear();
     this.unsatisfiedSet.clear();
+    this.lastMoved = 0;
   }
 
   getIsRunning(): boolean { return this.isRunning; }

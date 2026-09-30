@@ -10,10 +10,20 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vitest/globals"],
+    "types": ["node", "vitest/globals"],
     "paths": {
-      "@/*": ["../tensnap-web/src/*"]
+      "@/*": ["../tensnap-web/src/*"],
+      "@tensnap/benchmark/harness": ["./src/harness/index.ts"],
+      "@tensnap/js/bindings": ["../tensnap-js/src/bindings/index.ts"],
+      "@tensnap/js/runtime": ["../tensnap-js/src/runtime/index.ts"],
+      "@tensnap/web/transport": ["../tensnap-web/src/transport/index.ts"],
+      "@tensnap/web/benchmark": ["../tensnap-web/src/benchmark.tsx"],
+      "@tensnap/core": ["../core/src/index.ts"],
+      "@tensnap/core/*": ["../core/src/*"],
+      "@tensnap/core/environment": ["../core/src/environment/index.ts"],
+      "@tensnap/protocol": ["../protocol/src/index.ts"],
+      "@leafer-ui/core": ["./node_modules/@leafer-ui/core"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../../benchmarks"]
 }
