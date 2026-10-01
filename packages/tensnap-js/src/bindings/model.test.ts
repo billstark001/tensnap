@@ -776,6 +776,40 @@ describe('modelBuilder', () => {
     await session.close();
   });
 
+  it('keeps metadata restore callbacks on their declared layer', async () => {
+    const model = { left: '', right: '' };
+    const binding = modelBuilder({
+      id: 'two-grids', name: 'Two Grids', description: 'layer ownership',
+    }, { defaults: {}, create: () => model })
+      .env('main')
+      .gridLayer('right', {
+        restore: { restoreMetadata(_model, metadata) { model.right = metadata.marker as string; } },
+      })
+      .gridLayer('left', {
+        restore: { restoreMetadata(_model, metadata) { model.left = metadata.marker as string; } },
+      })
+      .done()
+      .build();
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = binding.createSession();
+    session.attach((message) => { messages.push(message); });
+    await session.open();
+    await initialize(session, 'two-grids');
+    messages.length = 0;
+    await session.dispatch({ type: 'scene_restore', payload: {
+      request_id: 'restore-grids', model_id: 'two-grids',
+      envs: [{ id: 'main', type: '2d', layers: [
+        { layer_id: 'left', layer_type: 'grid', metadata: { marker: 'L' }, items: [] },
+        { layer_id: 'right', layer_type: 'grid', metadata: { marker: 'R' }, items: [] },
+      ] }],
+    } });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end', payload: { request_id: 'restore-grids', status: 'ok' },
+    });
+    expect(model).toEqual({ left: 'L', right: 'R' });
+    await session.close();
+  });
+
   it('restores projected model state declaratively with complete layer CUD', async () => {
     const binding = modelBuilder({
       id: 'declarative-restore',
