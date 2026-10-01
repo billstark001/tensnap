@@ -227,6 +227,8 @@ Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in
 - `broadcast_monitors(ws=None)`
 - `configure_scene_restore(restore, checkpoint_capture=None, checkpoint_restore=None)`
 - `scene_restore(..., checkpoint_capture=..., checkpoint_restore=...)`
+- `@layer_restore(create=..., update=..., delete=...)` on a class with a layer binding
+- `@scene_restore(time=...)` and `@checkpoint(capture=..., restore=...)`
 
 Monitor values are replace-only current state. Metadata changes use
 `monitor_delete` followed by `monitor_create`; `monitor_update` changes only the
@@ -245,6 +247,31 @@ Restore validates identity/schema/instance guards before mutation, applies the
 checkpoint before projected fields, replays the complete final declarations,
 environment items, monitor values and time without chart messages, caches each
 `request_id`, and uses a pre-restore checkpoint for rollback when both hooks are
+available.
+
+For a declarative inverse, attach `@layer_restore` to the class that declares
+the layer. The binding uses that layer's ID, item projection, item keys, and
+dependencies to validate and reconcile complete snapshots. If a class declares
+multiple layers, specify `layer_id`. `delete` receives a key record such as `{"id": "a"}`;
+`create` and `update` receive complete projected item records.
+
+```python
+@checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
+@scene_restore(time="restore_time", after_apply="rebuild_indices")
+@layer_restore(create="create_item", update="update_item", delete="delete_item")
+@agent_layer("agents", items_projector=lambda model: model.agent_records())
+@env("main")
+class Model:
+    ...
+```
+
+Use `@layer_restore(replace="restore_items")` for an array-backed layer and
+`@layer_restore(metadata="restore_metadata")` for a metadata-only layer.
+`time` may be omitted when only the scenario owns time. A checkpoint includes
+private RNG, scheduler, and collector state when exact continuation is required.
+If checkpoint import replaces the object registered as a layer target, set
+`target="get_new_target"` on `@layer_restore` so the binding refreshes it.
+The existing whole-payload callback remains available.
 available.
 
 ### Handlers and runtime

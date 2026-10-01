@@ -306,12 +306,16 @@ sceneRestore: {
 }
 ```
 
-With `compose`, each restorable layer declares `restore: { itemIds?,
-restoreMetadata?, create, update, delete, validate? }`. The binding validates
-the complete input before mutation, applies metadata source-first, deletes
-dependent layers first, then creates and updates source layers. `itemIds` must
-return protocol delete keys (for example `{ id }`), not arbitrary model IDs.
+With `compose`, each restorable layer declares `restore: {
+restoreMetadata?, create, update, delete, validate? }`. The binding reads
+current items and keys from the outer layer's `items`, `project`, and `key`
+definitions. It validates the complete input before mutation, applies metadata
+source-first, deletes dependent layers first, then creates and updates source
+layers.
 `beforeApply` / `afterApply` can rebuild model-wide derived state.
+For array-backed layers, use `restore: { replace(model, items) { ... } }` to
+replace the complete collection without item identity callbacks. Metadata-only
+layers can provide `restoreMetadata` alone.
 
 For a model that owns every detail itself, use `sceneRestore: { mode:
 'imperative', apply(model, payload, ctx) {} }`. It may not be combined with a
@@ -325,6 +329,9 @@ required for a checkpoint-only model. `captureCheckpoint` returns only
 model data (`ProtocolValue` or `Uint8Array`); the binding automatically emits
 MessagePack or `application/octet-stream`, and `restoreCheckpoint` receives the
 decoded data rather than the wire `{ encoding, data }` envelope.
+The concise paired form is `checkpoint: { capture(model, ctx) { ... },
+restore(model, data, ctx) { ... } }`; it cannot be mixed with the separate
+callback fields.
 
 Restore request IDs are idempotent: duplicates return the cached result without
 reapplying the model mutation. When checkpoint hooks are present, the binding

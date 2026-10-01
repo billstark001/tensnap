@@ -291,7 +291,7 @@ The adapter owns only the pieces registered through its options:
 - environments and layers: optional `WithEnvs`
 - charts: optional `WithCharts`
 - monitors: optional `WithMonitors`
-- projected/checkpoint restore: `WithSceneRestore`, `WithCheckpointCapture`, and `WithCheckpointRestore`
+- projected/checkpoint restore: layer `Restore` and `WithCheckpoint` (or the existing individual hooks)
 
 By default it registers continuous `start` plus one-shot `step` and `reset`,
 replays owned scenario pieces during setup/state-sync, computes item diffs for
@@ -410,6 +410,31 @@ bound := binding.NewModel(raw,
     binding.WithCheckpointRestore(func(m *Model, data any) error { return m.Restore(data) }),
 )
 ```
+
+For a declarative projected inverse, call `Restore` on the layer builder.
+The binding reads current records through that layer's `Items` and `Project`
+functions and uses its built-in item key fields. `Replace` handles an
+array-backed layer; grid and background layers can restore metadata alone.
+Model-wide hooks are `WithRestoreTime`, `WithRestoreValidation`, and
+`WithAfterRestore`.
+
+```go
+agents := binding.NewAgentLayer[*Model, Agent]("agents").
+    Items(func(m *Model) []Agent { return m.Agents }).
+    Project(projectAgent).
+    Restore(binding.RestoreLayer[*Model]{
+        Create: createAgent, Update: updateAgent, Delete: deleteAgent,
+    })
+bound := binding.NewModel(raw,
+    binding.WithEnvs(binding.NewEnv("main", agents)),
+    binding.WithRestoreTime(restoreTime),
+    binding.WithAfterRestore(rebuildIndices),
+    binding.WithCheckpoint(captureCheckpoint, restoreCheckpoint),
+)
+```
+
+Keep a stable `state_schema_version` for checkpoint compatibility. The older
+`WithSceneRestore` whole-payload callback remains available.
 
 The JSON binding infers `application/octet-stream` for `[]byte` and
 `application/json` for other values, then owns base64 encoding/decoding. A
