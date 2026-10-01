@@ -29,6 +29,54 @@ interface AxelrodRuntime {
   state: AxelrodState;
   stepCount: number;
   lastMetrics: AxelrodMetrics;
+  rng: { state: number };
+}
+
+function nextRandom(rng: { state: number }): number {
+  rng.state = (rng.state + 0x6d2b79f5) >>> 0;
+  let value = Math.imul(rng.state ^ (rng.state >>> 15), 1 | rng.state);
+  value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+  return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+}
+
+function randomize(runtime: AxelrodRuntime): void {
+  runtime.rng.state = Math.floor(Math.random() * 4294967296);
+  runtime.state = initializeAxelrod(runtime.config, () => nextRandom(runtime.rng));
+  runtime.stepCount = 0;
+  runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
+}
+
+function restoreAxelrodCheckpoint(runtime: AxelrodRuntime, data: unknown): void {
+  if (typeof data !== 'object' || data === null) throw new Error('Axelrod checkpoint must be an object.');
+  const record = data as Record<string, unknown>;
+  const config = record.config as AxelrodConfig;
+  const state = record.state as AxelrodState;
+  if (!config || !state || !Array.isArray(state.agents)
+    || !Number.isSafeInteger(record.stepCount) || (record.stepCount as number) < 0
+    || !Number.isSafeInteger(record.rngState) || (record.rngState as number) < 0
+    || (record.rngState as number) > 0xffffffff
+    || !Number.isSafeInteger(state.totalUpdates) || state.totalUpdates < 0
+    || !Number.isSafeInteger(config.width) || !Number.isSafeInteger(config.height)
+    || !Number.isSafeInteger(config.numFeatures) || !Number.isSafeInteger(config.numTraits)
+    || config.width <= 0 || config.height <= 0 || config.numFeatures <= 0 || config.numTraits <= 0
+    || state.agents.length !== config.height
+    || state.agents.some((row, y) => !Array.isArray(row) || row.length !== config.width
+      || row.some((agent, x) => agent.row !== y || agent.col !== x
+        || !Array.isArray(agent.features) || agent.features.length !== config.numFeatures
+        || agent.features.some((feature) => !Number.isInteger(feature) || feature < 0 || feature >= config.numTraits)))) {
+    throw new Error('Axelrod checkpoint has invalid dimensions, cultural traits, or RNG state.');
+  }
+  runtime.config = { ...config };
+  runtime.state = {
+    config: runtime.config,
+    totalUpdates: state.totalUpdates,
+    agents: state.agents.map((row) => row.map((agent) => ({
+      id: agent.id, row: agent.row, col: agent.col, features: [...agent.features],
+    }))),
+  };
+  runtime.stepCount = record.stepCount as number;
+  runtime.rng.state = record.rngState as number;
+  runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
 }
 
 function createCultureAgents(
@@ -83,7 +131,7 @@ function restoreCultureMetadata(runtime: AxelrodRuntime, metadata: Record<string
   }
   runtime.config.width = width;
   runtime.config.height = height;
-  runtime.state = initializeAxelrod(runtime.config);
+  runtime.state = initializeAxelrod(runtime.config, () => 0);
   runtime.state.totalUpdates = totalUpdates ?? 0;
 }
 
@@ -132,32 +180,30 @@ const builder = modelBuilder({
 }, {
   defaults: DEFAULT_AXELROD_CONFIG,
   create(config): AxelrodRuntime {
-    const state = initializeAxelrod(config);
+    const rng = { state: Math.floor(Math.random() * 4294967296) };
+    const state = initializeAxelrod(config, () => nextRandom(rng));
     return {
       config: { ...config },
       state,
       stepCount: 0,
       lastMetrics: computeAxelrodMetrics(state),
+      rng,
     };
   },
   init(runtime) {
-    runtime.state = initializeAxelrod(runtime.config);
-    runtime.stepCount = 0;
-    runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
+    randomize(runtime);
   },
   step(runtime) {
     const updatesPerTick = Math.max(1, Math.floor(runtime.config.updatesPerTick ?? 1));
     for (let i = 0; i < updatesPerTick; i++) {
-      stepAxelrod(runtime.state);
+      stepAxelrod(runtime.state, () => nextRandom(runtime.rng));
     }
     runtime.stepCount += 1;
     runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
     return true;
   },
   reset(runtime) {
-    runtime.state = initializeAxelrod(runtime.config);
-    runtime.stepCount = 0;
-    runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
+    randomize(runtime);
   },
   time(runtime) {
     return runtime.stepCount;
@@ -165,11 +211,29 @@ const builder = modelBuilder({
   getConfig(runtime) {
     return runtime.config;
   },
+  checkpoint: {
+    capture(runtime) {
+      return {
+        config: { ...runtime.config },
+        state: {
+          totalUpdates: runtime.state.totalUpdates,
+          agents: runtime.state.agents.map((row) => row.map((agent) => ({
+            id: agent.id, row: agent.row, col: agent.col, features: [...agent.features],
+          }))),
+        },
+        stepCount: runtime.stepCount,
+        rngState: runtime.rng.state,
+      };
+    },
+    restore(runtime, data) {
+      restoreAxelrodCheckpoint(runtime, data);
+    },
+  },
   sceneRestore: {
     mode: 'compose',
     beforeApply(runtime, payload) {
       if (payload.envs?.some((environment) => environment.layers.some((layer) => layer.layer_id === CULTURE_LAYER))) {
-        runtime.state = initializeAxelrod(runtime.config);
+        runtime.state = initializeAxelrod(runtime.config, () => 0);
       }
     },
     restoreTime(runtime, time) {
@@ -200,7 +264,7 @@ builder.paramsFromConfig<AxelrodConfig>({
       label: 'Updates Per Tick',
       integer: true,
       min: 1,
-      step: 25,
+      step: 1,
     }),
   },
 });
@@ -216,9 +280,6 @@ builder.env('main')
     restore: {
       validate(runtime, layer) {
         validateCultureRestore(runtime, layer);
-      },
-      itemIds(runtime) {
-        return runtime.state.agents.flat().map((agent) => ({ id: `a_${agent.row}_${agent.col}` }));
       },
       restoreMetadata(runtime, metadata) {
         restoreCultureMetadata(runtime, metadata);

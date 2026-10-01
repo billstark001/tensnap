@@ -286,4 +286,38 @@ describe('JS example sessions', () => {
     expect(messages.some((message) => message.type === 'monitor_update')).toBe(true);
     await session.close();
   });
+
+  it('resumes the same Axelrod updates after checkpoint restore', async () => {
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = getJsExampleDefinition('axelrod').createSession({ width: 8, height: 8 });
+    session.attach((message) => { messages.push(message); }, 'test-axelrod-checkpoint');
+    await session.open('test-axelrod-checkpoint');
+    await session.dispatch({ type: 'state_sync', payload: { ...emptyStateSync, model_id: 'axelrod' } });
+    messages.length = 0;
+    await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-axelrod' } });
+    const captured = messages.find((message) => message.type === 'scene_capture_result');
+    expect(captured?.type).toBe('scene_capture_result');
+    const checkpoint = (captured?.payload as { checkpoint: { encoding: 'application/msgpack'; data: Uint8Array } }).checkpoint;
+
+    messages.length = 0;
+    await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'first-step' } });
+    const first = messages.filter((message) => ['env_layer_update', 'item_update', 'chart_update', 'metadata_update'].includes(message.type));
+    expect(first).toContainEqual({
+      type: 'env_layer_update',
+      payload: expect.objectContaining({ env_id: 'main', layer_id: 'culture', metadata: expect.objectContaining({ total_updates: expect.any(Number) }) }),
+    });
+
+    messages.length = 0;
+    await session.dispatch({ type: 'scene_restore', payload: {
+      request_id: 'restore-axelrod-checkpoint', model_id: 'axelrod',
+      state_schema_version: '1', checkpoint: { ...checkpoint, data: new Uint8Array(checkpoint.data) },
+    } });
+    expect(messages.at(-1)).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-axelrod-checkpoint', status: 'ok' } });
+
+    messages.length = 0;
+    await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'second-step' } });
+    const second = messages.filter((message) => ['env_layer_update', 'item_update', 'chart_update', 'metadata_update'].includes(message.type));
+    expect(second).toEqual(first);
+    await session.close();
+  });
 });
