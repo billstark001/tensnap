@@ -2,6 +2,12 @@
 
 Runnable Julia simulator entry points live here, separate from the Julia binding package in `packages/tensnap-julia`.
 
+`el_farol_viz.jl` demonstrates a layer-local `restore=(replace=...,)` inverse
+for patrons and paired `restore_hooks` for an exact checkpoint of history and
+random state. The visualization registers its parameter, chart, monitor, and
+layer with the Julia binding builders; state inverse functions are in
+`el_farol_state.jl`.
+
 ## Commands
 
 ```bash
