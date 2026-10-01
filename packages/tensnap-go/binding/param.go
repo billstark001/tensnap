@@ -290,6 +290,13 @@ func paramFromTagField[T any, R any](root func(T) R, field compiledTagField) (*P
 	if err != nil {
 		return nil, err
 	}
+	fixed, err := parseTagBool(field.options, "fixed", false)
+	if err != nil {
+		return nil, err
+	}
+	if fixed {
+		allowRuntimeChange = false
+	}
 	param := &Param[T]{
 		ID:                 field.name,
 		Label:              label,
@@ -305,6 +312,20 @@ func paramFromTagField[T any, R any](root func(T) R, field compiledTagField) (*P
 		set: func(target T, value any) error {
 			return setFieldAny(root(target), field, value)
 		},
+	}
+	if fixed {
+		param.set = func(target T, value any) error {
+			current, err := fieldAny(root(target), field)
+			if err != nil {
+				return err
+			}
+			currentNumber, currentNumeric := abm.AsFloat64(current)
+			incomingNumber, incomingNumeric := abm.AsFloat64(value)
+			if (currentNumeric && incomingNumeric && currentNumber == incomingNumber) || reflect.DeepEqual(current, value) {
+				return nil
+			}
+			return fmt.Errorf("tensnap: parameter %q is fixed after construction", field.name)
+		}
 	}
 
 	switch numericKind(field.typ) {

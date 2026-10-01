@@ -24,6 +24,25 @@ type testModel struct {
 	speed  float64
 }
 
+func TestTypedCheckpointRestoresDecodedState(t *testing.T) {
+	type state struct{ Speed float64 }
+	raw := &testModel{speed: 2}
+	bound := NewModel(raw, WithTypedCheckpoint(
+		func(m *testModel) state { return state{Speed: m.speed} },
+		func(m *testModel, saved state) error { m.speed = saved.Speed; return nil },
+	))
+	captured, err := bound.checkpointCapture(raw)
+	if err != nil || captured.(state).Speed != 2 {
+		t.Fatalf("capture = %v, error = %v", captured, err)
+	}
+	if err := bound.checkpointRestore(raw, map[string]any{"Speed": 7.0}); err != nil || raw.speed != 7 {
+		t.Fatalf("restore speed = %v, error = %v", raw.speed, err)
+	}
+	if err := bound.checkpointRestore(raw, map[string]any{"Speed": "invalid"}); err == nil || raw.speed != 7 {
+		t.Fatalf("invalid checkpoint changed speed = %v, error = %v", raw.speed, err)
+	}
+}
+
 type testEmitter struct {
 	abm.Sink
 	params       []any

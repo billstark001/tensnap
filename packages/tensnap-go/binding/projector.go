@@ -38,6 +38,15 @@ func compileTagProjector[T any, I any](required []string, options ...TagOption) 
 	if err != nil {
 		return nil, err
 	}
+	var dataFields []compiledTagField
+	if tagOptions.Scope != "data" {
+		dataOptions := tagOptions
+		dataOptions.Scope = "data"
+		dataFields, err = compileTaggedFields(typeOfValue[I](), dataOptions)
+		if err != nil {
+			return nil, err
+		}
+	}
 	seen := make(map[string]struct{}, len(fields))
 	for _, field := range fields {
 		seen[field.name] = struct{}{}
@@ -48,13 +57,24 @@ func compileTagProjector[T any, I any](required []string, options ...TagOption) 
 		}
 	}
 	return func(_ T, item I) map[string]any {
-		out := make(map[string]any, len(fields))
+		out := make(map[string]any, len(fields)+1)
 		for _, field := range fields {
 			value, err := fieldAny(item, field)
 			if err != nil {
 				panic(err)
 			}
 			out[field.name] = value
+		}
+		if len(dataFields) > 0 {
+			data := make(map[string]any, len(dataFields))
+			for _, field := range dataFields {
+				value, err := fieldAny(item, field)
+				if err != nil {
+					panic(err)
+				}
+				data[field.name] = value
+			}
+			out["data"] = data
 		}
 		return out
 	}, nil

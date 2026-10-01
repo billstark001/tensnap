@@ -127,6 +127,8 @@ Important helpers:
 - `binding.NewChart`: single-series chart metadata plus getter.
 - `binding.NewChartSeries` and `binding.NewChartGroup`: grouped chart metadata
   plus per-series getters.
+- `binding.WithTypedCheckpoint`: pair typed snapshot and restore methods while
+  the binding handles the decoded checkpoint's JSON conversion.
 
 Use `binding` when you want Python-style declarations. Use `abm` directly when
 you want full imperative control. Mixed models are expected: an agent layer can
@@ -338,6 +340,19 @@ binding.MustParamsFromTags(
     func(m *MyModel) *Config { return &m.Config },
     binding.TagScope("param"),
 )
+```
+
+Use `fixed=true` on a parameter that must keep its construction-time value.
+The binding marks it as unavailable for runtime edits and accepts that value
+when a projected snapshot restores the parameter list. A different value is
+rejected. An item field tagged with `scope=data` is projected inside the
+agent's `data` record:
+
+```go
+type Person struct {
+    ID    int    `tensnap:"id"`
+    State string `tensnap:"state,scope=data"`
+}
 ```
 
 ## Incremental Item Diffing
