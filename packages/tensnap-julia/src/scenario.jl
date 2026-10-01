@@ -28,6 +28,7 @@ mutable struct Scenario
 	capability_details::Dict{String, Any}
 	state_revision::Int
 	scene_restore::Union{Nothing, Function}
+	restore_plan::Union{Nothing, _ProjectedRestore}
 	checkpoint_capture::Union{Nothing, Function}
 	checkpoint_restore::Union{Nothing, Function}
 	restore_results::Dict{String, Dict{String, Any}}
@@ -48,6 +49,10 @@ function Scenario(; host = "localhost", port = 8765, use_msgpack = false, step_i
 		checkpoint_capture = restore_hooks.checkpoint_capture
 		checkpoint_restore = restore_hooks.checkpoint_restore
 	end
+	(checkpoint_capture === nothing) == (checkpoint_restore === nothing) ||
+		error("checkpoint capture and restore must be declared together")
+	plan = scene_restore isa _ProjectedRestore ? scene_restore : nothing
+	plan === nothing || (scene_restore = nothing)
 	monitor_dict = Dict{String, Monitor}()
 	for item in monitors
 		item isa Monitor || error("monitors must contain Monitor values")
@@ -56,7 +61,7 @@ function Scenario(; host = "localhost", port = 8765, use_msgpack = false, step_i
 	end
 	caps = Set(String.(capabilities))
 	isempty(monitor_dict) || push!(caps, "monitor")
-	scene_restore === nothing || push!(caps, "scene.restore.projected")
+	(scene_restore === nothing && plan === nothing) || push!(caps, "scene.restore.projected")
 	(checkpoint_capture === nothing || checkpoint_restore === nothing) || push!(caps, "scene.restore.checkpoint")
 	s = Scenario(String(host), Int(port), Bool(use_msgpack), Float64(step_interval),
 		Dict{String, Parameter}(), Dict{String, Action}(), Dict{String, Chart}(), monitor_dict,
@@ -65,7 +70,8 @@ function Scenario(; host = "localhost", port = 8765, use_msgpack = false, step_i
 		String(model_id), model_name === nothing ? nothing : String(model_name), model_description === nothing ? nothing : String(model_description),
 		model_version === nothing ? nothing : String(model_version), state_schema_version === nothing ? nothing : String(state_schema_version),
 		string(uuid4()), caps, Dict{String, Any}(String(k) => v for (k, v) in pairs(capability_details)), 0,
-		scene_restore, checkpoint_capture, checkpoint_restore, Dict{String, Dict{String, Any}}())
+		scene_restore, plan, checkpoint_capture, checkpoint_restore, Dict{String, Dict{String, Any}}())
+	plan === nothing || (s.scene_restore = payload -> _apply_projected_restore!(s, payload))
 	add_action!(s, action(ACTION_START, () -> begin
 		_advance_step!(s)
 	end; label = "Start", continuous = true, continue_on_return = true))

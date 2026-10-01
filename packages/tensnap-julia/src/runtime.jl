@@ -284,6 +284,14 @@ function _handle_scene_restore(s::Scenario, ws, payload)
 		finish("rejected"; code = "invalid_restore", message = "scene_restore contains no restorable state.")
 		return nothing
 	end
+	if has_projected_state && s.restore_plan !== nothing
+		try
+			_validate_projected_restore(s, payload)
+		catch error
+			finish("rejected"; code = "invalid_restore", message = sprint(showerror, error))
+			return nothing
+		end
+	end
 	previous = Dict(
 		"actions" => collect(keys(s.actions)),
 		"parameters" => collect(keys(s.parameters)),

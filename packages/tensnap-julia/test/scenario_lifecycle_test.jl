@@ -98,6 +98,34 @@ end
 	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 7
 end
 
+@testset "composed projected restore" begin
+	model = Dict{String, Any}("agents" => Dict("old" => Dict("id" => "old", "x" => 1)), "time" => 0)
+	plan = scene_restore(time = (value, m) -> (m["time"] = value))
+	scenario = Scenario(model_id = "composed", restore_hooks = restore_hooks(plan))
+	register_model!(scenario, model)
+	add_environment!(scenario, environment("main"; layers = [
+		layer("agents", "agent", m -> collect(values(m["agents"])); item_key_fields = ["id"],
+            restore = (create = (item, m) -> (m["agents"][item["id"]] = item),
+                update = (item, m) -> (m["agents"][item["id"]] = item),
+                delete = (item, m) -> delete!(m["agents"], item["id"]))),
+	]))
+	@test "scene.restore.projected" in TenSnap._simulator_info_payload(scenario)["capabilities"]
+	base = Dict{String, Any}("model_id" => "composed", "time" => 7,
+		"envs" => [Dict("id" => "main", "type" => "2d", "layers" => [
+			Dict("layer_id" => "agents", "layer_type" => "agent",
+				"items" => [Dict("id" => "new", "x" => 3)]),
+		])])
+	bad = deepcopy(base)
+	push!(bad["envs"][1]["layers"][1]["items"], Dict("id" => "new", "x" => 4))
+	@test_throws ErrorException TenSnap._validate_projected_restore(scenario, bad)
+	@test haskey(model["agents"], "old")
+	TenSnap._validate_projected_restore(scenario, base)
+	TenSnap._apply_projected_restore!(scenario, base)
+	@test collect(keys(model["agents"])) == ["new"]
+	@test model["agents"]["new"]["x"] == 3
+	@test model["time"] == 7
+end
+
 @testset "declarative parameters from fields" begin
 	config = ToyConfig(1.5, true, "fast", [ToyAgent(1, 0.0, 0.0)])
 	scenario = Scenario()

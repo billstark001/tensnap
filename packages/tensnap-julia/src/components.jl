@@ -251,7 +251,7 @@ end
 
 """Explicit model-specific inverse hooks for scene restore/checkpoints."""
 struct RestoreHooks
-	projected::Union{Nothing, Function}
+	projected::Any
 	checkpoint_capture::Union{Nothing, Function}
 	checkpoint_restore::Union{Nothing, Function}
 end
@@ -266,6 +266,7 @@ mutable struct Layer
 	data::Union{Nothing, Function}
 	dependency_layer_ids::Dict{String, String}
 	item_key_fields::Vector{String}
+	restore::Any
 	source_items::Union{Nothing, Function}
 	item_projector::Union{Nothing, Function}
 	item_id::Union{Nothing, Function}
@@ -276,22 +277,22 @@ mutable struct Layer
 end
 
 function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = String[],
-	source_items = nothing, projector = nothing, item_id = nothing, changed = nothing)
+	source_items = nothing, projector = nothing, item_id = nothing, changed = nothing, restore = nothing)
 	return Layer(String(id), String(type), items, data,
 		Dict(String(k) => String(v) for (k, v) in pairs(dependency_layer_ids)),
-		String.(item_key_fields), source_items, projector, item_id, changed,
+		String.(item_key_fields), _normalize_layer_restore(restore), source_items, projector, item_id, changed,
 		nothing,
 		Dict{Any, Dict{String, Any}}(), _UNSET)
 end
 
 function agents_layer(id, getagents = agents_getter; projector = autoagentprojector(), data = nothing,
 	dependency_layer_ids = Dict{String, String}(), item_key_fields = ["id"],
-	item_id = nothing, changed = nothing)
+	item_id = nothing, changed = nothing, restore = nothing)
 	# The containing environment is selected after this layer is built. Keep the
 	# projector context-aware so `autoagentprojector()` follows that environment.
 	l = layer(id, "agent", _empty_layer_items; data = data,
 		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields,
-		source_items = getagents, item_id = item_id, changed = changed)
+		source_items = getagents, item_id = item_id, changed = changed, restore = restore)
 	project_item = if projector isa AutoAgentProjector
 		(agent, _model) -> _project_autoagent(projector, agent; spatial = l.environment_type != "uniform")
 	else
@@ -302,15 +303,15 @@ function agents_layer(id, getagents = agents_getter; projector = autoagentprojec
 	return l
 end
 
-grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields)
-patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"]) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields)
-edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"]) =
-	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields, restore = restore)
+patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields, restore = restore)
+edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"], restore = nothing) =
+	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore)
 _empty_layer_items(_model = nothing) = Any[]
 function trajectory_layer(id, items = _empty_layer_items; data = nothing,
 	length = nothing, width = nothing, color = nothing, z_index = nothing,
 	on_agent_delete = nothing, on_state_sync = nothing, on_reset = nothing,
-	dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"])
+	dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"], restore = nothing)
 	on_agent_delete ∈ (nothing, "delete", "retain") || error("on_agent_delete must be delete or retain")
 	on_state_sync ∈ (nothing, "preserve", "clear") || error("on_state_sync must be preserve or clear")
 	on_reset ∈ (nothing, "clear", "preserve") || error("on_reset must be clear or preserve")
@@ -326,9 +327,9 @@ function trajectory_layer(id, items = _empty_layer_items; data = nothing,
 		base
 	end
 	return layer(id, "trajectory", items; data = metadata,
-		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields)
+		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore)
 end
-background_layer(id = "background"; data = nothing) = layer(id, "background", _empty_layer_items; data = data)
+background_layer(id = "background"; data = nothing, restore = nothing) = layer(id, "background", _empty_layer_items; data = data, restore = restore)
 
 mutable struct Environment
 	id::String
