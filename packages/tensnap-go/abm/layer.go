@@ -2,6 +2,7 @@ package abm
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -15,7 +16,7 @@ func DictDiff(a, b ItemSnapshot) ItemSnapshot {
 	var diff ItemSnapshot
 	for k, bv := range b {
 		av, ok := a[k]
-		if !ok || av != bv {
+		if !ok || !reflect.DeepEqual(av, bv) {
 			if diff == nil {
 				diff = make(ItemSnapshot)
 			}
