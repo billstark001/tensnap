@@ -24,6 +24,30 @@ async function initialize(session: { dispatch(message: { type: 'state_sync'; pay
 }
 
 describe('modelBuilder', () => {
+  it('publishes changed layer metadata after a step', async () => {
+    const builder = modelBuilder({ id: 'dynamic-layer', name: 'Dynamic Layer', description: 'Layer metadata changes on steps.' }, {
+      defaults: {},
+      create: () => ({ count: 0 }),
+      step(model) { model.count += 1; },
+    });
+    builder.env('main').gridLayer('grid', {
+      metadata: (model) => ({ width: model.count + 1, height: 1 }),
+    });
+    const session = builder.build().createSession();
+    const messages: SimulatorToRendererMessage[] = [];
+    session.attach((message) => { messages.push(message); });
+    await session.open();
+    await initialize(session, 'dynamic-layer');
+
+    messages.length = 0;
+    await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'step-1' } });
+    expect(messages).toContainEqual({
+      type: 'env_layer_update',
+      payload: { env_id: 'main', layer_id: 'grid', metadata: { width: 2, height: 1 } },
+    });
+    await session.close();
+  });
+
   it('does not emit updates for unregistered model object classes', async () => {
     const binding = modelBuilder({
       id: 'minimal-binding',

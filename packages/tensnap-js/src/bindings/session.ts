@@ -274,6 +274,23 @@ export function createBoundSession<TConfig extends object, TModel>(
     }
   };
 
+  const syncChangedLayerMetadata = async (previous: ScenarioDefinition): Promise<void> => {
+    const oldEnvironments = new Map((previous.environments ?? []).map((environment) => [environment.id, environment]));
+    for (const environment of currentDefinition.environments ?? []) {
+      const oldLayers = new Map((oldEnvironments.get(environment.id)?.layers ?? []).map((layer) => [layer.layerId, layer]));
+      for (const layer of environment.layers ?? []) {
+        const old = oldLayers.get(layer.layerId);
+        if (old && JSON.stringify(old.metadata ?? {}) !== JSON.stringify(layer.metadata ?? {})) {
+          await session.emitter.envLayerUpdate({
+            env_id: environment.id,
+            layer_id: layer.layerId,
+            metadata: (layer.metadata ?? {}) as Record<string, ProtocolData>,
+          });
+        }
+      }
+    }
+  };
+
   const resetSyncedItems = async (): Promise<void> => {
     for (const [layerKey, { envId, layerId, deleteKeys }] of syncedItems) {
       const layerType = currentDefinition.environments
@@ -525,11 +542,13 @@ export function createBoundSession<TConfig extends object, TModel>(
 
   const runStep = async (): Promise<boolean> => {
     if (!binding.options.step) return false;
+    const previousDefinition = currentDefinition;
     const result = await binding.options.step(model, context);
     if (!binding.options.time) {
       fallbackTime += 1;
     }
     rebuildDefinition();
+    await syncChangedLayerMetadata(previousDefinition);
     await pushState(context, 'step', false);
     return result ?? true;
   };
@@ -940,6 +959,7 @@ export function createBoundSession<TConfig extends object, TModel>(
         await session.emitter.error({ code: 'unknown_parameter', message: `Unknown parameter: ${payload.id}.` });
         return;
       }
+      const previousDefinition = currentDefinition;
       const previousConfig = getCurrentConfig(binding, model, initialConfig);
       const previous = parameter.metadata(model, previousConfig);
       const result = await parameter.apply(
@@ -951,6 +971,7 @@ export function createBoundSession<TConfig extends object, TModel>(
       const nextConfig = getCurrentConfig(binding, model, initialConfig);
       const next = parameter.metadata(model, nextConfig);
       rebuildDefinition();
+      await syncChangedLayerMetadata(previousDefinition);
 
       if (!result.accepted || !Object.is(next.value, payload.value)) {
         await session.emitter.paramSync({ id: payload.id, value: next.value });
