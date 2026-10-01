@@ -6,9 +6,10 @@ import (
 )
 
 type Env[T any] struct {
-	ID     string
-	Type   string
-	layers []Layer[T]
+	ID               string
+	Type             string
+	layers           []Layer[T]
+	topologyPrepared bool
 }
 
 type Layer[T any] interface {
@@ -41,6 +42,14 @@ func (e *Env[T]) EnvType(envType string) *Env[T] {
 }
 
 func (e *Env[T]) Scenario(target T) abm.ScenarioEnvironment {
+	if !e.topologyPrepared {
+		ordered, err := e.orderedLayers(target)
+		if err != nil {
+			panic(err)
+		}
+		e.layers = ordered
+		e.topologyPrepared = true
+	}
 	layers := make([]*protocol.EnvLayerCreatePayload, 0, len(e.layers))
 	for _, layer := range e.layers {
 		layers = append(layers, layer.CreatePayload(target, e.ID))

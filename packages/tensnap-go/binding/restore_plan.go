@@ -297,36 +297,19 @@ func restoreRecordOrEmpty(value any) (map[string]any, error) {
 }
 
 func orderRestoreLayers[T any](plans []plannedLayer[T]) ([]plannedLayer[T], error) {
-	byName := map[string]plannedLayer[T]{}
-	for _, plan := range plans {
-		byName[plan.name] = plan
+	ids := make([]string, len(plans))
+	dependencies := make([][]string, len(plans))
+	for i, plan := range plans {
+		ids[i] = plan.name
+		dependencies[i] = plan.deps
 	}
-	state := map[string]int{}
+	indices, err := orderLayerDependencies(ids, dependencies)
+	if err != nil {
+		return nil, err
+	}
 	result := make([]plannedLayer[T], 0, len(plans))
-	var visit func(string) error
-	visit = func(name string) error {
-		if state[name] == 2 {
-			return nil
-		}
-		if state[name] == 1 {
-			return fmt.Errorf("cyclic layer dependency: %s", name)
-		}
-		state[name] = 1
-		for _, dep := range byName[name].deps {
-			if _, ok := byName[dep]; ok {
-				if err := visit(dep); err != nil {
-					return err
-				}
-			}
-		}
-		state[name] = 2
-		result = append(result, byName[name])
-		return nil
-	}
-	for _, plan := range plans {
-		if err := visit(plan.name); err != nil {
-			return nil, err
-		}
+	for _, i := range indices {
+		result = append(result, plans[i])
 	}
 	return result, nil
 }
