@@ -1,12 +1,14 @@
 function add_environment!(s::Scenario, e::Environment)
+	ordered = _ordered_layers(e)
 	existed = haskey(s.environments, e.id)
+	e.layers = ordered
 	s.environments[e.id] = e
 	for l in e.layers
 		l.environment_type = e.type
 	end
 	existed && _broadcast(s, "env_delete", Dict("id" => e.id))
 	_broadcast(s, "env_create", Dict("id" => e.id, "type" => e.type))
-	for l in _ordered_layers(e)
+	for l in e.layers
 		_broadcast_layer_full(s, e.id, l)
 	end
 	return e
@@ -22,39 +24,28 @@ end
 add_layer!(e::Environment, l::Layer) = (l.environment_type = e.type; push!(e.layers, l); l)
 
 function _ordered_layers(e::Environment)
-	by_id = Dict(l.id => l for l in e.layers)
-	ordered = Layer[]
-	visiting = Set{String}()
-	visited = Set{String}()
-
-	function visit(l::Layer)
-		l.id in visited && return
-		l.id in visiting && return
-		push!(visiting, l.id)
-		for dep_id in values(l.dependency_layer_ids)
-			haskey(by_id, dep_id) && visit(by_id[dep_id])
-		end
-		delete!(visiting, l.id)
-		push!(visited, l.id)
-		push!(ordered, l)
-	end
-
-	for l in e.layers
-		visit(l)
-	end
-	return ordered
+	return Layer[_order_layer_dependencies(e.layers, l -> l.id,
+		l -> l.dependency_layer_ids, l -> l.type)...]
 end
 
 function add_layer!(s::Scenario, env_id, l::Layer)
 	e = s.environments[String(env_id)]
 	l.environment_type = e.type
 	existing = findfirst(x -> x.id == l.id, e.layers)
+	candidate = copy(e.layers)
+	if existing === nothing
+		push!(candidate, l)
+	else
+		candidate[existing] = l
+	end
+	ordered = _ordered_layers(Environment(e.id, e.type, candidate))
 	if existing === nothing
 		push!(e.layers, l)
 	else
 		_broadcast(s, "env_layer_delete", Dict("env_id" => e.id, "layer_id" => l.id))
 		e.layers[existing] = l
 	end
+	e.layers = ordered
 	_broadcast_layer_full(s, e.id, l)
 	return l
 end
@@ -62,6 +53,10 @@ end
 function remove_layer!(s::Scenario, env_id, layer_id)
 	e = s.environments[String(env_id)]
 	sid = String(layer_id)
+	for layer in e.layers
+		layer.id != sid && sid in values(layer.dependency_layer_ids) &&
+			error("layer $(layer.id) depends on layer $(sid); remove it first")
+	end
 	before = length(e.layers)
 	filter!(l -> l.id != sid, e.layers)
 	existed = length(e.layers) != before

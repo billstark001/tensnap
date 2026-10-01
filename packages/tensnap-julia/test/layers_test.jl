@@ -1,3 +1,41 @@
+@testset "layer topology is compiled at registration" begin
+	scenario = Scenario()
+	agents = agents_layer("agents", _ -> Any[])
+	edges = edge_layer("edges", _ -> Any[])
+	env = environment("graph"; layers = [edges, agents])
+	add_environment!(scenario, env)
+	@test [l.id for l in env.layers] == ["agents", "edges"]
+	@test [l.id for l in TenSnap._ordered_layers(env)] == ["agents", "edges"]
+	siblings = environment("siblings"; layers = [
+		layer("dependent", "grid", _ -> Any[];
+			dependency_layer_ids = Dict("first" => "first", "second" => "second")),
+		grid_layer("second", _ -> Any[]), grid_layer("first", _ -> Any[]),
+	])
+	add_environment!(scenario, siblings)
+	@test [l.id for l in siblings.layers] == ["second", "first", "dependent"]
+
+	missing = environment("missing"; layers = [edge_layer("edges", _ -> Any[])])
+	@test_throws ErrorException add_environment!(scenario, missing)
+	@test !haskey(scenario.environments, "missing")
+
+	wrong = environment("wrong"; layers = [
+		edge_layer("edges", _ -> Any[]), grid_layer("agents", _ -> Any[]),
+	])
+	@test_throws ErrorException add_environment!(scenario, wrong)
+
+	cycle = environment("cycle"; layers = [
+		agents_layer("agents", _ -> Any[]),
+		edge_layer("edges", _ -> Any[]; dependency_layer_ids = Dict("agent" => "agents", "other" => "trails")),
+		trajectory_layer("trails"; dependency_layer_ids = Dict("agent" => "agents", "other" => "edges")),
+	])
+	@test_throws ErrorException add_environment!(scenario, cycle)
+
+	duplicate = environment("duplicate"; layers = [
+		grid_layer("same", _ -> Any[]), grid_layer("same", _ -> Any[]),
+	])
+	@test_throws ErrorException add_environment!(scenario, duplicate)
+end
+
 @testset "incremental layer diffing" begin
 	model = ToyModel([ToyAgent(1, 0.0, 0.0), ToyAgent(2, 2.0, 2.0)], 2, 0)
 	scenario = Scenario()

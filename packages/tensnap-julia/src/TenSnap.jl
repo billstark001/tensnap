@@ -19,6 +19,7 @@ export dictprojector, propertyprojector, autoagentprojector, agents_getter
 include("constants.jl")
 include("utils.jl")
 include("projectors.jl")
+include("topology.jl")
 include("restore_plan.jl")
 include("components.jl")
 include("scenario.jl")

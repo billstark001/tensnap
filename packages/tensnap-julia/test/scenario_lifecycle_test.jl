@@ -126,6 +126,27 @@ end
 	@test model["time"] == 7
 end
 
+@testset "layer restore metadata stays with its declared layer" begin
+	model = Dict{String, Any}("left" => "", "right" => "")
+	scenario = Scenario(model_id = "two-grids", restore_hooks = restore_hooks(scene_restore()))
+	register_model!(scenario, model)
+	add_environment!(scenario, environment("main"; layers = [
+		grid_layer("right", _ -> Any[];
+			restore = (metadata = (data, m) -> (m["right"] = data["marker"]),)),
+		grid_layer("left", _ -> Any[];
+			restore = (metadata = (data, m) -> (m["left"] = data["marker"]),)),
+	]))
+	payload = Dict{String, Any}("model_id" => "two-grids", "envs" => [
+		Dict("id" => "main", "type" => "2d", "layers" => [
+			Dict("layer_id" => "left", "layer_type" => "grid", "metadata" => Dict("marker" => "L")),
+			Dict("layer_id" => "right", "layer_type" => "grid", "metadata" => Dict("marker" => "R")),
+		]),
+	])
+	TenSnap._apply_projected_restore!(scenario, payload)
+	@test model["left"] == "L"
+	@test model["right"] == "R"
+end
+
 @testset "declarative parameters from fields" begin
 	config = ToyConfig(1.5, true, "fast", [ToyAgent(1, 0.0, 0.0)])
 	scenario = Scenario()

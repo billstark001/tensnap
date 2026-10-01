@@ -61,27 +61,10 @@ function _restore_index(items, fields)
 end
 
 function _restore_order(entries)
-	by_name = Dict(entry.name => entry for entry in entries)
-	visited = Set{String}()
-	active = Set{String}()
-	ordered = Any[]
-	function visit(name)
-		name in visited && return
-		name in active && error("cyclic layer dependency: $(name)")
-		push!(active, name)
-		entry = by_name[name]
-		for dependency in values(entry.layer.dependency_layer_ids)
-			other = entry.env_id * "/" * dependency
-			haskey(by_name, other) && visit(other)
-		end
-		delete!(active, name)
-		push!(visited, name)
-		push!(ordered, entry)
-	end
-	for entry in entries
-		visit(entry.name)
-	end
-	return ordered
+	return _order_layer_dependencies(entries, entry -> entry.name,
+		entry -> Dict(role => entry.env_id * "/" * dependency
+			for (role, dependency) in entry.layer.dependency_layer_ids),
+		entry -> entry.layer.type)
 end
 
 function _prepare_projected_restore(s, payload)
