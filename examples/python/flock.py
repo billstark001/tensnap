@@ -5,13 +5,15 @@ import json
 import math
 import random
 from dataclasses import asdict, dataclass, fields
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from tensnap import (
     agent,
     agent_layer,
+    checkpoint,
     env,
     grid_layer,
+    layer_restore,
     monitor,
     params,
     scene_restore,
@@ -45,9 +47,7 @@ class FlockConfig:
 class Bird:
     """A single bird agent in the flock"""
 
-    def __init__(
-        self, bird_id: str, x: float, y: float, heading: Optional[float] = None
-    ):
+    def __init__(self, bird_id: str, x: float, y: float, heading: float | None = None):
         self.id = bird_id
         self.x = x
         self.y = y
@@ -92,7 +92,7 @@ class Bird:
             self.heading = math.atan2(self.vy, self.vx)
 
     @property
-    def data(self) -> Dict[str, Any]:
+    def data(self) -> dict[str, Any]:
         return {
             "vx": self.vx,
             "vy": self.vy,
@@ -100,11 +100,21 @@ class Bird:
         }
 
 
-@scene_restore(
-    "restore_scene",
-    checkpoint_capture="capture_checkpoint",
-    checkpoint_restore="restore_checkpoint",
+@checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
+@scene_restore(time="restore_time")
+@layer_restore(
+    replace="restore_trajectory",
+    metadata="restore_trajectory_metadata",
+    layer_id="trails",
 )
+@layer_restore(
+    create="create_bird",
+    update="update_bird_from_item",
+    delete="delete_bird",
+    metadata="restore_space_metadata",
+    layer_id="birds",
+)
+@layer_restore(metadata="restore_space_metadata", layer_id="grid")
 @trajectory_layer(
     agent_layer_id="birds",
     width=False,
@@ -120,9 +130,9 @@ class Bird:
 class FlockSimulation:
     """Main flocking simulation class"""
 
-    def __init__(self, config: Optional[FlockConfig] = None):
+    def __init__(self, config: FlockConfig | None = None):
         self.config = config or FlockConfig()
-        self.birds: List[Bird] = []
+        self.birds: list[Bird] = []
         self.time_step = 0
 
     @property
@@ -150,7 +160,7 @@ class FlockSimulation:
             self.birds.append(bird)
 
     @monitor("flock_status", "Flock Status", render_hint="tree")
-    def flock_status(self) -> Dict[str, Any]:
+    def flock_status(self) -> dict[str, Any]:
         """Expose the latest model-wide diagnostics without chart history."""
         return {
             "step": self.time_step,
@@ -189,7 +199,7 @@ class FlockSimulation:
         for field in fields(FlockConfig):
             setattr(self.config, field.name, config_state[field.name])
 
-        birds: List[Bird] = []
+        birds: list[Bird] = []
         seen_ids: set[str] = set()
         for item in state["birds"]:
             bird_id = str(item["id"])
@@ -210,54 +220,49 @@ class FlockSimulation:
         self.time_step = int(state["time_step"])
         random.setstate(_nested_tuple(state["random_state"]))
 
-    def restore_scene(self, payload: Dict[str, Any]) -> None:
-        """Overlay complete renderer-visible v0.3 projected snapshot state."""
-        parameter_fields = {field.name for field in fields(FlockConfig)}
-        for parameter in payload.get("parameters", []):
-            parameter_id = parameter["id"]
-            if parameter_id not in parameter_fields:
-                raise ValueError(f"unknown flock parameter: {parameter_id}")
-            setattr(self.config, parameter_id, parameter["value"])
+    def restore_space_metadata(self, metadata: dict[str, Any]) -> None:
+        """Grid and agent dimensions are derived from the restored config."""
+        for key, expected in (("width", self.width), ("height", self.height)):
+            if key in metadata and metadata[key] != expected:
+                raise ValueError(f"flock {key} disagrees with the restored config")
 
-        envs = payload.get("envs", [])
-        if envs:
-            if len(envs) != 1 or envs[0].get("id") != "main":
-                raise ValueError(
-                    "flock restore requires the complete 'main' environment"
-                )
-            bird_layer = next(
-                (
-                    layer
-                    for layer in envs[0].get("layers", [])
-                    if layer.get("layer_id") == "birds"
-                    and layer.get("layer_type") == "agent"
-                ),
-                None,
-            )
-            if bird_layer is None:
-                raise ValueError("flock restore is missing the 'birds' agent layer")
+    def restore_trajectory_metadata(self, metadata: dict[str, Any]) -> None:
+        """The trajectory definition is static; its trace lives in the renderer."""
+        if metadata.get("length", 5) != 5:
+            raise ValueError("flock trajectory length is fixed at 5")
 
-            birds: List[Bird] = []
-            seen_ids: set[str] = set()
-            for item in bird_layer.get("items", []):
-                bird_id = str(item["id"])
-                if bird_id in seen_ids:
-                    raise ValueError(f"duplicate bird id in snapshot: {bird_id}")
-                seen_ids.add(bird_id)
-                data = item.get("data") or {}
-                bird = Bird.from_snapshot(
-                    bird_id,
-                    float(item["x"]),
-                    float(item["y"]),
-                    float(item["heading"]),
-                    float(data["vx"]),
-                    float(data["vy"]),
-                )
-                birds.append(bird)
-            self.birds = birds
+    def restore_trajectory(self, items: list[dict[str, Any]]) -> None:
+        if items:
+            raise ValueError("flock trajectory has no model-owned items")
 
-        if "time" in payload:
-            self.time_step = int(payload["time"])
+    @staticmethod
+    def _bird_from_item(item: dict[str, Any]) -> Bird:
+        data = item.get("data") or {}
+        return Bird.from_snapshot(
+            str(item["id"]),
+            float(item["x"]),
+            float(item["y"]),
+            float(item["heading"]),
+            float(data["vx"]),
+            float(data["vy"]),
+        )
+
+    def create_bird(self, item: dict[str, Any]) -> None:
+        self.birds.append(self._bird_from_item(item))
+
+    def update_bird_from_item(self, item: dict[str, Any]) -> None:
+        replacement = self._bird_from_item(item)
+        for index, bird in enumerate(self.birds):
+            if bird.id == replacement.id:
+                self.birds[index] = replacement
+                return
+        raise ValueError(f"unknown bird: {replacement.id}")
+
+    def delete_bird(self, key: dict[str, Any]) -> None:
+        self.birds = [bird for bird in self.birds if bird.id != key["id"]]
+
+    def restore_time(self, time: float) -> None:
+        self.time_step = int(time)
 
     def update_bird(self, bird: Bird) -> None:
         """Update a single bird using flocking rules"""

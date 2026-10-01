@@ -1,8 +1,12 @@
+import asyncio
 import random
 import sys
 from pathlib import Path
 
 import numpy as np
+
+from tensnap import SimulationScenario
+from tensnap.bindings import scene_restore_binding
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "examples" / "python"))
@@ -17,6 +21,32 @@ def _flock_state(model: FlockSimulation) -> list[tuple]:
         (bird.id, bird.x, bird.y, bird.heading, bird.vx, bird.vy)
         for bird in model.birds
     ]
+
+
+def _projected_env(scenario: SimulationScenario, env_id: str) -> dict:
+    environment = scenario.environments[env_id]
+    return {
+        "id": env_id,
+        "type": environment.type,
+        "layers": [
+            {
+                "layer_id": layer_id,
+                "layer_type": registration.binding.layer_type,
+                "dependency_layer_ids": registration.binding.dependency_layer_ids,
+                "metadata": registration.binding.build_metadata(registration.target),
+                "items": registration.binding.build_item_list(registration.target),
+            }
+            for layer_id, registration in environment.layers.items()
+        ],
+    }
+
+
+def _restore_projected(
+    model: object, scenario: SimulationScenario, payload: dict
+) -> None:
+    restore, _, _ = scene_restore_binding(model).bind(model, scenario)
+    assert restore is not None
+    asyncio.run(restore(payload))
 
 
 def test_flock_checkpoint_restores_exact_next_step() -> None:
@@ -49,32 +79,29 @@ def test_flock_projected_restore_replaces_visible_birds_and_time() -> None:
     restored_time = 12
     restored_max_speed = 0.5
 
-    model.restore_scene(
+    scenario = SimulationScenario(port=8765)
+    scenario.add_all(model)
+    scenario.add_all(model.config)
+    environment = _projected_env(scenario, "main")
+    next(layer for layer in environment["layers"] if layer["layer_id"] == "birds")[
+        "items"
+    ] = [
+        {
+            "id": "restored",
+            "x": 4.0,
+            "y": 7.0,
+            "heading": 0.25,
+            "data": {"vx": 0.3, "vy": -0.1},
+        }
+    ]
+    _restore_projected(
+        model,
+        scenario,
         {
             "time": restored_time,
             "parameters": [{"id": "max_speed", "value": restored_max_speed}],
-            "envs": [
-                {
-                    "id": "main",
-                    "type": "2d",
-                    "layers": [
-                        {
-                            "layer_id": "birds",
-                            "layer_type": "agent",
-                            "items": [
-                                {
-                                    "id": "restored",
-                                    "x": 4.0,
-                                    "y": 7.0,
-                                    "heading": 0.25,
-                                    "data": {"vx": 0.3, "vy": -0.1},
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ],
-        }
+            "envs": [environment],
+        },
     )
 
     assert model.time_step == restored_time
@@ -111,38 +138,21 @@ def test_cgol_projected_restore_replaces_complete_board_and_time() -> None:
     model = GameOfLife(width=4, height=3, seed=29)
     restored_time = 9
     restored_alive = {(0, 0), (1, 1), (2, 1), (3, 2)}
-    items = [
-        {
-            "id": x * model.height + y + 1,
-            "x": x,
-            "y": y,
-            "data": {"alive": (x, y) in restored_alive},
-        }
-        for x in range(model.width)
-        for y in range(model.height)
-    ]
-
-    model.restore_scene(
+    scenario = SimulationScenario(port=8765)
+    scenario.add_all(model)
+    environment = _projected_env(scenario, "cgol_grid")
+    cells = next(
+        layer for layer in environment["layers"] if layer["layer_id"] == "cells"
+    )
+    for item in cells["items"]:
+        item["data"]["alive"] = (item["x"], item["y"]) in restored_alive
+    _restore_projected(
+        model,
+        scenario,
         {
             "time": restored_time,
-            "parameters": [
-                {"id": "width", "value": model.width},
-                {"id": "height", "value": model.height},
-            ],
-            "envs": [
-                {
-                    "id": "cgol_grid",
-                    "type": "2d",
-                    "layers": [
-                        {
-                            "layer_id": "cells",
-                            "layer_type": "agent",
-                            "items": items,
-                        }
-                    ],
-                }
-            ],
-        }
+            "envs": [environment],
+        },
     )
 
     assert model.steps == restored_time

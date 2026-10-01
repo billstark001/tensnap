@@ -4,16 +4,18 @@ from typing import Any
 
 import mesa
 import numpy as np
-
 from tensnap import (
-    agent_layer,
     agent,
+    agent_layer,
     bind_kwargs,
     chart,
+    checkpoint,
     cleanup_mesa_model_step,
     env,
     grid_layer,
+    layer_restore,
     monitor,
+    scene_restore,
 )
 
 
@@ -62,6 +64,15 @@ class Cell(mesa.Agent):
 
 
 @bind_kwargs(exclude=["seed"])
+@checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
+@scene_restore(time="restore_time")
+@layer_restore(
+    replace="restore_cells",
+    validate="validate_cells",
+    metadata="restore_grid_metadata",
+    layer_id="cells",
+)
+@layer_restore(metadata="restore_grid_metadata", layer_id="grid")
 @agent_layer("cells", item_iterable_projector="agents")
 @grid_layer()
 @env(id="cgol_grid")
@@ -174,64 +185,46 @@ class GameOfLife(mesa.Model):
         }
         self.datacollector._collection_steps = list(metadata["collection_steps"])
 
-    def restore_scene(self, payload: dict[str, Any]) -> None:
-        """Overlay a complete projected board for v0.3 scene restore."""
-        dimensions = {"width": self.width, "height": self.height}
-        for parameter in payload.get("parameters", []):
-            parameter_id = parameter["id"]
-            if parameter_id not in dimensions:
-                raise ValueError(f"unknown Game of Life parameter: {parameter_id}")
-            if int(parameter["value"]) != dimensions[parameter_id]:
-                raise ValueError(
-                    "projected Game of Life restore cannot change grid topology"
+    def restore_grid_metadata(self, metadata: dict[str, Any]) -> None:
+        for key, expected in (("width", self.width), ("height", self.height)):
+            if key in metadata and metadata[key] != expected:
+                raise ValueError(f"Game of Life {key} disagrees with the board")
+
+    def validate_cells(self, layer: dict[str, Any]) -> None:
+        items = layer.get("items", [])
+        if len(items) != self.width * self.height:
+            raise ValueError("Game of Life restore requires every grid cell")
+        seen: set[tuple[int, int]] = set()
+        for item in items:
+            pos = (item.get("x"), item.get("y"))
+            if (
+                pos in seen
+                or not all(
+                    isinstance(value, int) and not isinstance(value, bool)
+                    for value in pos
                 )
+                or not (0 <= pos[0] < self.width and 0 <= pos[1] < self.height)
+            ):
+                raise ValueError(f"invalid or duplicate cell position: {pos}")
+            if not isinstance((item.get("data") or {}).get("alive"), bool):
+                raise TypeError(f"cell {pos} is missing boolean data.alive")
+            seen.add(pos)
 
-        envs = payload.get("envs", [])
-        if envs:
-            if len(envs) != 1 or envs[0].get("id") != "cgol_grid":
-                raise ValueError(
-                    "Game of Life restore requires the complete 'cgol_grid' environment"
-                )
-            cell_layer = next(
-                (
-                    layer
-                    for layer in envs[0].get("layers", [])
-                    if layer.get("layer_id") == "cells"
-                    and layer.get("layer_type") == "agent"
-                ),
-                None,
-            )
-            if cell_layer is None:
-                raise ValueError("Game of Life restore is missing the 'cells' layer")
+    def restore_cells(self, items: list[dict[str, Any]]) -> None:
+        alive = np.zeros((self.width, self.height), dtype=np.bool_)
+        for item in items:
+            alive[item["x"], item["y"]] = item["data"]["alive"]
+        self.alive = alive
+        self.alive_count = int(alive.sum())
+        for key, value in (("Alive", self.alive_count), ("Dead", self.dead_count)):
+            values = self.datacollector.model_vars[key]
+            if values:
+                values[-1] = value
+            else:
+                values.append(value)
 
-            items = cell_layer.get("items", [])
-            if len(items) != self.width * self.height:
-                raise ValueError("Game of Life restore requires every grid cell")
-            alive = np.zeros((self.width, self.height), dtype=np.bool_)
-            seen: set[tuple[int, int]] = set()
-            for item in items:
-                pos = (int(item["x"]), int(item["y"]))
-                if pos in seen or not (
-                    0 <= pos[0] < self.width and 0 <= pos[1] < self.height
-                ):
-                    raise ValueError(f"invalid or duplicate cell position: {pos}")
-                data = item.get("data") or {}
-                if not isinstance(data.get("alive"), bool):
-                    raise ValueError(f"cell {pos} is missing boolean data.alive")
-                seen.add(pos)
-                alive[pos] = data["alive"]
-            self.alive = alive
-            self.alive_count = int(alive.sum())
-            latest = {"Alive": self.alive_count, "Dead": self.dead_count}
-            for key, value in latest.items():
-                values = self.datacollector.model_vars[key]
-                if values:
-                    values[-1] = value
-                else:
-                    values.append(value)
-
-        if "time" in payload:
-            self._restore_time(int(payload["time"]), float(payload["time"]))
+    def restore_time(self, time: float) -> None:
+        self._restore_time(int(time), float(time))
 
     def step(self) -> None:
         board = self.alive

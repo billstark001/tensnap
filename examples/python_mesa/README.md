@@ -9,6 +9,9 @@ This directory contains Python examples for TenSnap that use the Mesa agent-base
 - **mushroom** - Mushroom foraging simulation
 - **schelling** - Schelling segregation model with TenSnap, Solara, and a headless scientific sweep
 
+`cgol.py` uses `@layer_restore(replace=...)` for its dense board and paired
+`@checkpoint` hooks for Mesa scheduler, RNG, and collector state.
+
 ## Running Examples
 
 ### Prerequisites
