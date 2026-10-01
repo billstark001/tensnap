@@ -1,11 +1,17 @@
 GO ?= go
 
-.PHONY: build check fmt run run-schelling run-standalone test tidy vet
+.PHONY: build check fmt run run-schelling run-sirs run-forest-fire run-standalone test tidy vet
 
 run: run-schelling
 
 run-schelling:
 	$(GO) run ./schelling
+
+run-sirs:
+	$(GO) run ./sirs
+
+run-forest-fire:
+	$(GO) run ./forest_fire
 
 run-standalone:
 	$(GO) run ./standalone

@@ -1,5 +1,26 @@
 # Go Examples
 
+## SIRS restoration example
+
+`go run ./sirs -seed 7 -port 8765` runs the same grid structure and parameter
+names as `examples/python/sirs.py`: `beta`, `gamma`, `xi`, `initial_infected`,
+`rows`, and `cols`. `model.go` owns the dynamics and `tensnap` field tags;
+`viz.go` declares the grid, agents, parameters, and grouped chart. The
+state inverses live in `state_restore.go`. The complete projected population is
+restored through `Restore.Replace`; `WithTypedCheckpoint` also retains the random
+generator state for exact continuation.
+
+## Forest-fire restoration example
+
+`go run ./forest_fire -seed 7 -port 8765` runs a forest-fire cellular automaton
+with tree growth, lightning, and four-neighbor spread. This model is unique
+among the repository's language examples. Its projected restore replaces the
+complete cell grid; its checkpoint captures the random generator state.
+`viz.go` uses the same tag-based declarations and keeps the state inverses
+in `state_restore.go`. The
+rules are based on the [Drossel–Schwabl forest-fire model](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.69.1629).
+
+
 ## Schelling TenSnap Server
 
 ```bash
