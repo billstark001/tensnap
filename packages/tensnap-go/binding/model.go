@@ -34,6 +34,7 @@ type Model[T any] struct {
 	actionRouter *BindingActionRouter[T]
 
 	sceneRestore      func(T, *protocol.SceneRestorePayload) error
+	restorePlan       *projectedRestore[T]
 	checkpointCapture func(T) (any, error)
 	checkpointRestore func(T, any) error
 	restoreResults    map[string]*protocol.SceneRestoreEndPayload
@@ -78,6 +79,15 @@ func NewModel[T any](target T, opts ...ModelOption[T]) *Model[T] {
 	model.Base.SetActionRouter(model.actionRouter)
 	for _, opt := range opts {
 		opt(model)
+	}
+	if model.sceneRestore == nil {
+		for _, env := range model.envs {
+			for _, layer := range env.layers {
+				if bound, ok := layer.(restoreBinding[T]); ok && bound.restoreDefinition() != nil {
+					model.enableProjectedRestore()
+				}
+			}
+		}
 	}
 	model.refreshCapabilities()
 	model.refreshScenario()
@@ -136,7 +146,51 @@ func WithMonitors[T any](monitors ...*Monitor[T]) ModelOption[T] {
 // WithSceneRestore registers an explicit projected-state inverse. The binding
 // will advertise scene.restore.projected, but never attempts generic restore.
 func WithSceneRestore[T any](restore func(T, *protocol.SceneRestorePayload) error) ModelOption[T] {
-	return func(model *Model[T]) { model.sceneRestore = restore }
+	return func(model *Model[T]) { model.sceneRestore = restore; model.restorePlan = nil }
+}
+
+func (model *Model[T]) enableProjectedRestore() {
+	if model.restorePlan == nil {
+		model.restorePlan = &projectedRestore[T]{}
+	}
+	model.sceneRestore = func(_ T, payload *protocol.SceneRestorePayload) error {
+		return model.restorePlan.apply(model, payload)
+	}
+}
+
+// WithRestoreTime applies the projected snapshot's time to model-owned state.
+func WithRestoreTime[T any](restore func(T, float64) error) ModelOption[T] {
+	return func(model *Model[T]) {
+		model.enableProjectedRestore()
+		model.restorePlan.Time = restore
+	}
+}
+
+// WithRestoreValidation checks model-wide invariants before mutation.
+func WithRestoreValidation[T any](validate func(T, *protocol.SceneRestorePayload) error) ModelOption[T] {
+	return func(model *Model[T]) {
+		model.enableProjectedRestore()
+		model.restorePlan.Validate = validate
+	}
+}
+
+// WithAfterRestore rebuilds model-owned derived state after projected mutation.
+func WithAfterRestore[T any](after func(T) error) ModelOption[T] {
+	return func(model *Model[T]) {
+		model.enableProjectedRestore()
+		model.restorePlan.AfterApply = after
+	}
+}
+
+// WithCheckpoint keeps exact model-private capture and restore paired.
+func WithCheckpoint[T any](capture func(T) (any, error), restore func(T, any) error) ModelOption[T] {
+	if capture == nil || restore == nil {
+		panic("binding.WithCheckpoint requires capture and restore")
+	}
+	return func(model *Model[T]) {
+		model.checkpointCapture = capture
+		model.checkpointRestore = restore
+	}
 }
 
 // WithCheckpointCapture returns model data. The binding infers and owns the
@@ -284,6 +338,11 @@ func (m *Model[T]) OnSceneRestore(e abm.Emitter, payload *protocol.SceneRestoreP
 	}
 	if payload.Checkpoint == nil && !hasProjectedState {
 		return end("rejected", &protocol.ActionExecutionError{Code: "invalid_restore", Message: "scene_restore contains no restorable state."})
+	}
+	if hasProjectedState && m.restorePlan != nil {
+		if err := m.restorePlan.validate(m, payload); err != nil {
+			return end("rejected", &protocol.ActionExecutionError{Code: "invalid_restore", Message: err.Error()})
+		}
 	}
 
 	previousActions := m.actionRouter.BuildState()

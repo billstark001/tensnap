@@ -123,6 +123,7 @@ func (e *Env[T]) Reset() {
 }
 
 type GridLayer[T any] struct {
+	restore  *RestoreLayer[T]
 	ID       string
 	metadata func(T) map[string]any
 }
@@ -141,6 +142,11 @@ func (l *GridLayer[T]) Size(fn func(T) (int, int)) *GridLayer[T] {
 		width, height := fn(target)
 		return map[string]any{"width": width, "height": height}
 	}
+	return l
+}
+
+func (l *GridLayer[T]) Restore(spec RestoreLayer[T]) *GridLayer[T] {
+	l.restore = &spec
 	return l
 }
 
@@ -179,6 +185,7 @@ func (l *GridLayer[T]) data(target T) map[string]any {
 // #region Agent Layer
 
 type AgentLayer[T any, I any] struct {
+	restore  *RestoreLayer[T]
 	ID       string
 	metadata func(T) map[string]any
 	items    func(T) []I
@@ -261,6 +268,11 @@ func (l *AgentLayer[T, I]) rebuildProjector() {
 		return
 	}
 	l.project = composeProjector(l.base, l.fields)
+}
+
+func (l *AgentLayer[T, I]) Restore(spec RestoreLayer[T]) *AgentLayer[T, I] {
+	l.restore = &spec
+	return l
 }
 
 func (l *AgentLayer[T, I]) CreatePayload(target T, envID string) *protocol.EnvLayerCreatePayload {
@@ -410,6 +422,7 @@ func (l *AgentLayer[T, I]) projectItems(target T, items []I) []map[string]any {
 // #region Edge Layer
 
 type EdgeLayer[T any, I any] struct {
+	restore            *RestoreLayer[T]
 	ID                 string
 	metadata           func(T) map[string]any
 	dependencyLayerIDs map[string]string
@@ -500,6 +513,11 @@ func (l *EdgeLayer[T, I]) rebuildProjector() {
 		return
 	}
 	l.project = composeProjector(l.base, l.fields)
+}
+
+func (l *EdgeLayer[T, I]) Restore(spec RestoreLayer[T]) *EdgeLayer[T, I] {
+	l.restore = &spec
+	return l
 }
 
 func (l *EdgeLayer[T, I]) CreatePayload(target T, envID string) *protocol.EnvLayerCreatePayload {
@@ -609,6 +627,7 @@ func (l *EdgeLayer[T, I]) projectItems(target T, items []I) []map[string]any {
 // #region Trajectory Layer
 
 type TrajectoryLayer[T any, I any] struct {
+	restore            *RestoreLayer[T]
 	ID                 string
 	metadata           func(T) map[string]any
 	metadataFields     map[string]any
@@ -742,6 +761,11 @@ func (l *TrajectoryLayer[T, I]) rebuildProjector() {
 	l.project = composeProjector(l.base, l.fields)
 }
 
+func (l *TrajectoryLayer[T, I]) Restore(spec RestoreLayer[T]) *TrajectoryLayer[T, I] {
+	l.restore = &spec
+	return l
+}
+
 func (l *TrajectoryLayer[T, I]) CreatePayload(target T, envID string) *protocol.EnvLayerCreatePayload {
 	return &protocol.EnvLayerCreatePayload{
 		EnvID:              envID,
@@ -858,6 +882,7 @@ func (l *TrajectoryLayer[T, I]) projectItems(target T, items []I) []map[string]a
 // #region Background Layer
 
 type BackgroundLayer[T any] struct {
+	restore  *RestoreLayer[T]
 	ID       string
 	metadata func(T) map[string]any
 }
@@ -868,6 +893,11 @@ func NewBackgroundLayer[T any](id string) *BackgroundLayer[T] {
 
 func (l *BackgroundLayer[T]) Data(fn func(T) map[string]any) *BackgroundLayer[T] {
 	l.metadata = fn
+	return l
+}
+
+func (l *BackgroundLayer[T]) Restore(spec RestoreLayer[T]) *BackgroundLayer[T] {
+	l.restore = &spec
 	return l
 }
 
@@ -902,3 +932,24 @@ func (l *BackgroundLayer[T]) data(target T) map[string]any {
 }
 
 // #endregion Background Layer
+
+func (l *GridLayer[T]) restoreDefinition() *RestoreLayer[T] { return l.restore }
+func (l *GridLayer[T]) restoreCurrent(T) []map[string]any   { return nil }
+
+func (l *AgentLayer[T, I]) restoreDefinition() *RestoreLayer[T] { return l.restore }
+func (l *AgentLayer[T, I]) restoreCurrent(target T) []map[string]any {
+	return l.projectItems(target, l.itemList(target))
+}
+
+func (l *EdgeLayer[T, I]) restoreDefinition() *RestoreLayer[T] { return l.restore }
+func (l *EdgeLayer[T, I]) restoreCurrent(target T) []map[string]any {
+	return l.projectItems(target, l.itemList(target))
+}
+
+func (l *TrajectoryLayer[T, I]) restoreDefinition() *RestoreLayer[T] { return l.restore }
+func (l *TrajectoryLayer[T, I]) restoreCurrent(target T) []map[string]any {
+	return l.projectItems(target, l.itemList(target))
+}
+
+func (l *BackgroundLayer[T]) restoreDefinition() *RestoreLayer[T] { return l.restore }
+func (l *BackgroundLayer[T]) restoreCurrent(T) []map[string]any   { return nil }
