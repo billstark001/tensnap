@@ -41,7 +41,6 @@ import {
   hashAssetData,
   isChartValueEntry,
   resolveItemKey,
-  stableStorageKey,
   textToBytes,
 } from './utils';
 
@@ -707,6 +706,7 @@ export function createBoundSession<TConfig extends object, TModel>(
         const incoming = new Map<string, { item: Record<string, ProtocolValue>; key: ItemDeleteKey }>();
         for (const item of layer.items ?? []) {
           try {
+            if (declaredLayer?.restore?.replace) continue;
             const key = resolveItemKey(
               item as Record<string, ProtocolValue>,
               item as Record<string, ProtocolValue>,
@@ -736,7 +736,8 @@ export function createBoundSession<TConfig extends object, TModel>(
           };
         }
         const itemCud = declaredLayer.items !== undefined || layer.items !== undefined;
-        if (itemCud && (!declaredLayer.restore.create || !declaredLayer.restore.update || !declaredLayer.restore.delete)) {
+        if (itemCud && !declaredLayer.restore.replace
+          && (!declaredLayer.restore.create || !declaredLayer.restore.update || !declaredLayer.restore.delete)) {
           return {
             error: {
               code: 'invalid_scene_restore',
@@ -757,12 +758,8 @@ export function createBoundSession<TConfig extends object, TModel>(
         try {
           if (!itemCud) {
             // Metadata-only layers have no item ownership to reconcile.
-          } else if (declaredLayer.restore.itemIds) {
-            for (const itemKey of declaredLayer.restore.itemIds(model)) {
-              const storageKey = stableStorageKey(itemKey);
-              if (current.has(storageKey)) throw new Error(`Duplicate current item key in ${environment.id}/${layer.layer_id}.`);
-              current.set(storageKey, itemKey);
-            }
+          } else if (declaredLayer.restore.replace) {
+            // A replace callback owns the full collection; no key inventory is needed.
           } else if (declaredLayer.items) {
             const sourceItems = declaredLayer.items(model, { phase: 'sync', full: true });
             const records = projectLayerItems(model, sourceItems, declaredLayer.project);
@@ -772,7 +769,7 @@ export function createBoundSession<TConfig extends object, TModel>(
               current.set(itemKey.storageKey, itemKey.deleteKey);
             });
           } else {
-            throw new Error(`Layer ${environment.id}/${layer.layer_id} must provide restore.itemIds or items for declarative restore.`);
+            throw new Error(`Layer ${environment.id}/${layer.layer_id} must provide items for declarative restore.`);
           }
           await declaredLayer.restore.validate?.(model, layer);
         } catch (error) {
@@ -842,13 +839,17 @@ export function createBoundSession<TConfig extends object, TModel>(
       }
     }
     for (const entry of [...ordered].reverse()) {
-      if (!entry.itemCud) continue;
+      if (!entry.itemCud || entry.restore.replace) continue;
       for (const [storageKey, key] of entry.current) {
         if (!entry.incoming.has(storageKey)) await entry.restore.delete!(model, key);
       }
     }
     for (const entry of ordered) {
       if (!entry.itemCud) continue;
+      if (entry.restore.replace) {
+        await entry.restore.replace(model, (entry.inbound.items ?? []) as Record<string, ProtocolValue>[]);
+        continue;
+      }
       for (const [storageKey, { item, key }] of entry.incoming) {
         if (!entry.current.has(storageKey)) await entry.restore.create!(model, item, key);
       }
@@ -1095,7 +1096,15 @@ export function createBoundSession<TConfig extends object, TModel>(
           if (payload.checkpoint !== undefined) {
             await binding.options.restoreCheckpoint!(model, decodeCheckpoint(payload.checkpoint), context);
           }
-          if (hasProjectedState) await applyProjectedRestore(payload, validation.plan!);
+          if (hasProjectedState) {
+            // Importing a checkpoint may replace the model's collection.
+            // Recompute current keys against that authoritative state.
+            const postCheckpoint = payload.checkpoint === undefined
+              ? validation
+              : await validateProjectedRestore(payload);
+            if (postCheckpoint.error) throw new Error(postCheckpoint.error.message);
+            await applyProjectedRestore(payload, postCheckpoint.plan!);
+          }
           rebuildDefinition();
           await reconcileDefinitions(previousDefinition);
           await resetSyncedItems();

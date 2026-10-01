@@ -183,8 +183,19 @@ export function buildBinding<
 >(
   binding: BoundModelDefinition<TConfig, TModel> & { metadata: TMetadata },
 ): DeclarativeExampleBinding<TConfig, TMetadata> {
-  const hasRestoreCheckpoint = binding.options.restoreCheckpoint !== undefined;
-  const hasCaptureCheckpoint = binding.options.captureCheckpoint !== undefined;
+  if (binding.options.checkpoint && (binding.options.captureCheckpoint || binding.options.restoreCheckpoint)) {
+    throw new Error('Use checkpoint or captureCheckpoint/restoreCheckpoint, not both.');
+  }
+  const normalized: typeof binding = {
+    ...binding,
+    options: {
+      ...binding.options,
+      captureCheckpoint: binding.options.checkpoint?.capture ?? binding.options.captureCheckpoint,
+      restoreCheckpoint: binding.options.checkpoint?.restore ?? binding.options.restoreCheckpoint,
+    },
+  };
+  const hasRestoreCheckpoint = normalized.options.restoreCheckpoint !== undefined;
+  const hasCaptureCheckpoint = normalized.options.captureCheckpoint !== undefined;
   const hasDeclarativeLayerRestore = binding.environments.some((environment) =>
     environment.layers.some((layer) => layer.restore !== undefined));
   if (hasRestoreCheckpoint !== hasCaptureCheckpoint) {
@@ -196,6 +207,14 @@ export function buildBinding<
   if (binding.options.sceneRestore?.mode === 'imperative' && hasDeclarativeLayerRestore) {
     throw new Error('Imperative sceneRestore cannot be combined with declarative layer restore. Use sceneRestore.mode "compose".');
   }
+  for (const environment of binding.environments) {
+    for (const layer of environment.layers) {
+      const restore = layer.restore;
+      if (restore?.replace && (restore.create || restore.update || restore.delete)) {
+        throw new Error(`Layer ${environment.id}/${layer.id} cannot combine restore.replace with item callbacks.`);
+      }
+    }
+  }
 
   const resolveConfig = (overrides: Partial<TConfig> = {}): TConfig => ({
     ...((binding.options.defaults ?? {}) as TConfig),
@@ -206,12 +225,12 @@ export function buildBinding<
     ...binding.metadata,
     createScenario(config: Partial<TConfig> = {}): ScenarioDefinition {
       const initialConfig = resolveConfig(config);
-      const model = binding.options.create(initialConfig);
-      const currentConfig = getCurrentConfig(binding, model, initialConfig);
-      return buildScenarioDefinition(binding, model, currentConfig);
+      const model = normalized.options.create(initialConfig);
+      const currentConfig = getCurrentConfig(normalized, model, initialConfig);
+      return buildScenarioDefinition(normalized, model, currentConfig);
     },
     createSession(config: Partial<TConfig> = {}): SimulatorSession {
-      return createBoundSession(binding, resolveConfig(config));
+      return createBoundSession(normalized, resolveConfig(config));
     },
   };
 }

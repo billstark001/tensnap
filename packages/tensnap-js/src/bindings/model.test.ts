@@ -815,10 +815,8 @@ describe('modelBuilder', () => {
       .env('main')
       .agentLayer('agents', {
         items: (model) => [...model.agents.values()],
+        key: 'id',
         restore: {
-          itemIds(model) {
-            return [...model.agents.keys()].map((id) => ({ id }));
-          },
           create(model, item) {
             model.agents.set(item.id as string, { id: item.id as string, x: item.x as number, y: item.y as number });
           },
@@ -892,11 +890,13 @@ describe('modelBuilder', () => {
     }, {
       defaults: {},
       create() { return { value: 2 }; },
-      restoreCheckpoint(model, data) {
-        model.value = data instanceof Uint8Array ? data[0]! : 0;
-      },
-      captureCheckpoint(model) {
-        return new Uint8Array([model.value]);
+      checkpoint: {
+        restore(model, data) {
+          model.value = data instanceof Uint8Array ? data[0]! : 0;
+        },
+        capture(model) {
+          return new Uint8Array([model.value]);
+        },
       },
     }).build();
     const messages: AnyProtocolMessage[] = [];
@@ -940,6 +940,95 @@ describe('modelBuilder', () => {
         },
       }),
     });
+    await session.close();
+  });
+
+  it('replaces an array-backed layer without item identity callbacks', async () => {
+    let active: { cells: { id: string; alive: boolean }[] } | undefined;
+    const binding = modelBuilder({
+      id: 'replace-layer', name: 'Replace Layer', description: 'array-backed fixture',
+    }, {
+      defaults: {},
+      create() {
+        active = { cells: [{ id: 'old', alive: true }] };
+        return active;
+      },
+      sceneRestore: { mode: 'compose' },
+    }).env('main').agentLayer('cells', {
+      items: (model) => model.cells,
+      restore: {
+        replace(model, items) {
+          model.cells = items.map((item) => ({ id: item.id as string, alive: item.alive as boolean }));
+        },
+      },
+    }).done().build();
+    const messages: AnyProtocolMessage[] = [];
+    const session = binding.createSession();
+    session.attach((message: SimulatorToRendererMessage) => {
+      messages.push(message as AnyProtocolMessage);
+    });
+    await session.open();
+    await initialize(session, 'replace-layer');
+    messages.length = 0;
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'replace', model_id: 'replace-layer',
+        envs: [{ id: 'main', type: '2d', layers: [{
+          layer_id: 'cells', layer_type: 'agent', items: [{ id: 'new', alive: false }],
+        }] }],
+      },
+    });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end', payload: { request_id: 'replace', status: 'ok' },
+    });
+    expect(active?.cells).toEqual([{ id: 'new', alive: false }]);
+    await session.close();
+  });
+
+  it('reconciles against checkpoint-imported entities', async () => {
+    let active: { agents: Map<string, { id: string }> } | undefined;
+    const binding = modelBuilder({
+      id: 'checkpoint-overlay', name: 'Checkpoint Overlay', description: 'import then reconcile',
+      stateSchemaVersion: '1',
+    }, {
+      defaults: {},
+      create() {
+        active = { agents: new Map([['before', { id: 'before' }]]) };
+        return active;
+      },
+      checkpoint: {
+        capture() { return new Uint8Array([1]); },
+        restore(model) { model.agents = new Map([['checkpoint', { id: 'checkpoint' }]]); },
+      },
+      sceneRestore: { mode: 'compose' },
+    }).env('main').agentLayer('agents', {
+      items: (model) => [...model.agents.values()],
+      restore: {
+        create(model, item) { model.agents.set(item.id as string, { id: item.id as string }); },
+        update(model, _key, item) { model.agents.set(item.id as string, { id: item.id as string }); },
+        delete(model, key) { model.agents.delete((key as { id: string }).id); },
+      },
+    }).done().build();
+    const messages: AnyProtocolMessage[] = [];
+    const session = binding.createSession();
+    session.attach((message: SimulatorToRendererMessage) => {
+      messages.push(message as AnyProtocolMessage);
+    });
+    await session.open();
+    await initialize(session, 'checkpoint-overlay');
+    messages.length = 0;
+    await session.dispatch({ type: 'scene_restore', payload: {
+      request_id: 'combined', model_id: 'checkpoint-overlay',
+      checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1]) },
+      envs: [{ id: 'main', type: '2d', layers: [{
+        layer_id: 'agents', layer_type: 'agent', items: [{ id: 'new' }],
+      }] }],
+    } });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end', payload: { request_id: 'combined', status: 'ok' },
+    });
+    expect([...active!.agents.keys()]).toEqual(['new']);
     await session.close();
   });
 
