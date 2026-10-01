@@ -356,12 +356,11 @@ class SimulationScenario:
                 previous_layers = {
                     layer["layer_id"]: layer for layer in previous_env["layers"]
                 }
+                current_layers = {
+                    layer["layer_id"]: layer for layer in current_env["layers"]
+                }
                 for layer_id, registration in environment.layers.items():
-                    current_layer = next(
-                        layer
-                        for layer in current_env["layers"]
-                        if layer["layer_id"] == layer_id
-                    )
+                    current_layer = current_layers[layer_id]
                     previous_layer = previous_layers.get(layer_id)
                     stable_layer = (
                         previous_layer is not None
@@ -1217,6 +1216,7 @@ class SimulationScenario:
             registration.binding = binding
             registration.set_target(target)
             registration.reset_diff_state()
+            environment.invalidate_topology()
         return _registry_change(
             "layers", [_layer_registry_id(env_id, binding.layer_id)]
         )

@@ -9,6 +9,11 @@ from typing import Any
 
 import msgpack
 
+from tensnap.bindings.ownership import (
+    attach_class_metadata,
+    read_class_metadata,
+    require_class,
+)
 from tensnap.utils.codec import msgpack_default
 
 from .layer import _layer_binding_config_objects_name
@@ -90,20 +95,26 @@ def scene_restore(  # noqa: PLR0913 - declarative callbacks are independent phas
     declarative = any(
         value is not None for value in (time, validate, before_apply, after_apply)
     )
+    restore_spec: str | Callable[[dict[str, Any]], Any] | _ProjectedRestore | None = (
+        restore
+    )
     if declarative:
         if restore != "restore_scene":
             raise ValueError(
                 "Declarative scene_restore cannot also name an imperative restore hook"
             )
-        restore = _ProjectedRestore(time, validate, before_apply, after_apply)
-    binding = SceneRestoreBinding(restore, checkpoint_capture, checkpoint_restore)
+        restore_spec = _ProjectedRestore(time, validate, before_apply, after_apply)
+    binding = SceneRestoreBinding(
+        restore_spec, checkpoint_capture, checkpoint_restore
+    )
 
     def decorator(target: type[Any]) -> type[Any]:
+        require_class(target, "@scene_restore")
         previous = get_scene_restore_binding(target)
         if previous is not None and previous.checkpoint_capture is not None:
             if binding.checkpoint_capture is not None:
                 raise ValueError("Checkpoint hooks are already declared")
-            setattr(
+            attach_class_metadata(
                 target,
                 _TENSNAP_SCENE_RESTORE_FIELD,
                 replace(
@@ -113,7 +124,7 @@ def scene_restore(  # noqa: PLR0913 - declarative callbacks are independent phas
                 ),
             )
         else:
-            setattr(target, _TENSNAP_SCENE_RESTORE_FIELD, binding)
+            attach_class_metadata(target, _TENSNAP_SCENE_RESTORE_FIELD, binding)
         return target
 
     return decorator
@@ -125,13 +136,14 @@ def checkpoint(
     """Declare paired model-private checkpoint hooks."""
 
     def decorator(target: type[Any]) -> type[Any]:
+        require_class(target, "@checkpoint")
         previous = get_scene_restore_binding(target) or SceneRestoreBinding(None)
         if (
             previous.checkpoint_capture is not None
             or previous.checkpoint_restore is not None
         ):
             raise ValueError("Checkpoint hooks are already declared")
-        setattr(
+        attach_class_metadata(
             target,
             _TENSNAP_SCENE_RESTORE_FIELD,
             replace(previous, checkpoint_capture=capture, checkpoint_restore=restore),
@@ -168,11 +180,15 @@ def layer_restore(  # noqa: PLR0913 - layer callbacks are independent operations
     spec = _LayerRestore(create, update, delete, replace, metadata, validate, target)
 
     def decorator(owner: type[Any]) -> type[Any]:
-        configs = list(getattr(owner, _layer_binding_config_objects_name, []))
+        require_class(owner, "@layer_restore")
+        # A restore declaration may only modify a layer owned by this class.
+        # Inherited config objects belong to the base class and are mutable.
+        configs = list(vars(owner).get(_layer_binding_config_objects_name, []))
         matches = [
             config
             for config in configs
-            if layer_id is None or config.layer_id == layer_id
+            if config._attached_class is owner
+            and (layer_id is None or config.layer_id == layer_id)
         ]
         if len(matches) != 1:
             raise ValueError(
@@ -189,9 +205,8 @@ def layer_restore(  # noqa: PLR0913 - layer callbacks are independent operations
 
 
 def get_scene_restore_binding(value: Any) -> SceneRestoreBinding | None:
-    owner = value if isinstance(value, type) else value.__class__
-    binding = getattr(owner, _TENSNAP_SCENE_RESTORE_FIELD, None)
-    return binding if isinstance(binding, SceneRestoreBinding) else None
+    """Read class-owned restore metadata from a model class or instance."""
+    return read_class_metadata(value, _TENSNAP_SCENE_RESTORE_FIELD, SceneRestoreBinding)
 
 
 def encode_checkpoint(data: Any, *, use_msgpack: bool) -> dict[str, Any]:

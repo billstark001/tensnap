@@ -1,33 +1,38 @@
 # tensnap/bindings/basic/parameters.py
 """Enhanced parameter decorators and bindings with automatic detection"""
 
-from dataclasses import asdict
 import inspect
+import re
+import types
+from dataclasses import asdict
 from typing import (
     Annotated,
     Any,
     Callable,
-    Optional,
-    Pattern,
     ClassVar,
+    Dict,
     Generic,
     List,
+    Literal,
+    Optional,
+    Pattern,
     Tuple,
+    TypeVar,
+    Union,
     cast,
     get_args,
     get_origin,
     get_type_hints,
     overload,
-    Union,
-    TypeVar,
-    Literal,
-    Dict,
 )
 
-import types
-import re
-
 from tensnap.bindings.mesa.utils import is_mesa_model_class
+from tensnap.bindings.ownership import (
+    append_class_metadata,
+    read_class_metadata,
+    require_class,
+)
+from tensnap.models.chart import ChartGroupMetadata
 from tensnap.models.parameter import (
     BooleanParameter,
     EnumParameter,
@@ -39,6 +44,7 @@ from tensnap.models.parameter import (
     StringParameter,
     create_parameter,
 )
+from tensnap.utils.member_metadata import read_member_metadata
 
 # region Binding Classes
 
@@ -333,9 +339,8 @@ class BindParametersConfig:
         The resolver evaluates the list from back to front, so later-added
         configs override earlier-added configs.
         """
-        configs = list(getattr(cls, self.CONFIG_LIST_ATTR, []))
-        configs.append(self)
-        setattr(cls, self.CONFIG_LIST_ATTR, configs)
+        require_class(cls, "@params")
+        append_class_metadata(cls, self.CONFIG_LIST_ATTR, self)
         return cls
 
     def get_custom_binding(
@@ -355,7 +360,7 @@ class BindParametersConfig:
     @classmethod
     def get_configs(cls, target_cls: type) -> List["BindParametersConfig"]:
         """Return all configs attached to a class."""
-        return list(getattr(target_cls, cls.CONFIG_LIST_ATTR, []))
+        return list(read_class_metadata(target_cls, cls.CONFIG_LIST_ATTR, list) or [])
 
     @staticmethod
     def evaluate_is_included(
@@ -695,11 +700,7 @@ def _is_chart_binding_member(value: Any) -> bool:
     This intentionally relies only on the marker used by the chart decorator,
     avoiding an import cycle from parameter discovery into chart bindings.
     """
-    if getattr(value, "_tensnap_chart", None) is not None:
-        return True
-    return isinstance(value, property) and value.fget is not None and getattr(
-        value.fget, "_tensnap_chart", None
-    ) is not None
+    return read_member_metadata(value, "_tensnap_chart", ChartGroupMetadata) is not None
 
 
 # endregion

@@ -9,6 +9,10 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from warnings import warn
 
 from tensnap.models.action import ActionMetadata as _ActionMetadata
+from tensnap.utils.member_metadata import (
+    attach_member_metadata,
+    read_member_metadata,
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -59,7 +63,7 @@ def action(  # noqa: PLR0913
             kwargs=kwargs,
         )
 
-        cast(Any, wrapped_func)._tensnap_action = metadata
+        attach_member_metadata(wrapped_func, "_tensnap_action", metadata, "@action")
         return cast(F, wrapped_func)
 
     return decorator
@@ -73,10 +77,9 @@ def get_action_metadata_from_namespace(
     for name, attr in namespace.items():
         if name.startswith("__") and name.endswith("__"):
             continue
-        if callable(attr) and hasattr(attr, "_tensnap_action"):
-            metadata = getattr(attr, "_tensnap_action", None)
-            if isinstance(metadata, _ActionMetadata):
-                actions.append((name, attr, metadata))
+        metadata = read_member_metadata(attr, "_tensnap_action", _ActionMetadata)
+        if callable(attr) and metadata is not None:
+            actions.append((name, attr, metadata))
     return actions
 
 

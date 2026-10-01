@@ -12,6 +12,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from tensnap.utils.layer_topology import order_layers
+
 Hook = str | Callable[..., Any]
 
 
@@ -250,34 +252,22 @@ class _BoundProjectedRestore:
                 registration.reset_diff_state()
 
     def _ordered(self, entries: list[Any]) -> list[Any]:
-        by_name = {entry[0]: entry for entry in entries}
-        output: list[Any] = []
-        visited: set[str] = set()
-        active: set[str] = set()
+        def dependencies(entry: Any) -> dict[str, str]:
+            env_id, _ = entry[0].split("/", 1)
+            binding = (
+                self.scenario.environments[env_id].layers[entry[2]["layer_id"]].binding
+            )
+            return {
+                role: f"{env_id}/{dep}"
+                for role, dep in binding.dependency_layer_ids.items()
+            }
 
-        def visit(name: str) -> None:
-            if name in active:
-                raise ValueError(f"cyclic layer dependency: {name}")
-            if name in visited:
-                return
-            active.add(name)
-            entry = by_name[name]
-            env_id, _ = name.split("/", 1)
-            for dep in (
-                self.scenario.environments[env_id]
-                .layers[entry[2]["layer_id"]]
-                .binding.dependency_layer_ids.values()
-            ):
-                dep_name = f"{env_id}/{dep}"
-                if dep_name in by_name:
-                    visit(dep_name)
-            active.remove(name)
-            visited.add(name)
-            output.append(entry)
-
-        for name in by_name:
-            visit(name)
-        return output
+        return order_layers(
+            entries,
+            lambda entry: entry[0],
+            dependencies,
+            lambda entry: entry[2]["layer_type"],
+        )
 
 
 __all__ = []

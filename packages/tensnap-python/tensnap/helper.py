@@ -10,8 +10,7 @@ from .protocol import (
     layer_dependency_layer_ids,
     layer_metadata,
 )
-from .server import ServerToClientMessageType as MT
-from .server import TenSnapServer
+from .server import ServerToClientMessageType as MT, TenSnapServer
 
 if TYPE_CHECKING:
     from websockets.asyncio.server import ServerConnection
@@ -46,66 +45,6 @@ async def send_layer_full(
             )
 
 
-def topologically_order_layer_ids(
-    layer_ids: list[str],
-    dependency_lookup: Callable[[str], list[str]],
-) -> list[str]:
-    """Return layer ids ordered so dependencies are emitted before dependents."""
-    pending = set(layer_ids)
-    resolved: list[str] = []
-
-    while pending:
-        progressed = False
-        for layer_id in layer_ids:
-            if layer_id not in pending:
-                continue
-            deps = [
-                dep
-                for dep in dependency_lookup(layer_id)
-                if dep in pending or dep in resolved
-            ]
-            if all(dep in resolved for dep in deps):
-                resolved.append(layer_id)
-                pending.remove(layer_id)
-                progressed = True
-        if not progressed:
-            # Cycle or malformed dependency graph: preserve remaining original order.
-            resolved.extend([layer_id for layer_id in layer_ids if layer_id in pending])
-            break
-
-    return resolved
-
-
-def ordered_registration_layer_ids(
-    environment: EnvironmentRegistration,
-    current_layers: dict[str, "EnvironmentLayerState"],
-) -> list[str]:
-    layer_ids = list(current_layers.keys())
-    return topologically_order_layer_ids(
-        layer_ids,
-        lambda layer_id: (
-            list(environment.layers[layer_id].binding.dependency_layer_ids.values())
-            if layer_id in environment.layers
-            else []
-        ),
-    )
-
-
-def ordered_state_layers(
-    layers: list["EnvironmentLayerState"],
-) -> list["EnvironmentLayerState"]:
-    by_id = {layer["layer_id"]: layer for layer in layers}
-    ordered_ids = topologically_order_layer_ids(
-        [layer["layer_id"] for layer in layers],
-        lambda layer_id: (
-            list(by_id[layer_id].get("dependency_layer_ids", {}).values())
-            if layer_id in by_id
-            else []
-        ),
-    )
-    return [by_id[layer_id] for layer_id in ordered_ids if layer_id in by_id]
-
-
 async def broadcast_env_update(
     server: TenSnapServer,
     environment: EnvironmentRegistration,
@@ -120,10 +59,8 @@ async def broadcast_env_update(
         await server.broadcast(
             MT.ENV_CREATE, environment.binding.build_create_payload()
         )
-        ordered_layer_ids = ordered_registration_layer_ids(environment, current_layers)
-        for layer_id in ordered_layer_ids:
+        for layer_id, layer in current_layers.items():
             registration = environment.layers[layer_id]
-            layer = current_layers[layer_id]
             registration.reset_diff_state()
             await send_layer_full(None, server, env_id, layer)
             registration.seed_item_deltas_from_state(layer)
@@ -139,7 +76,9 @@ async def broadcast_env_update(
     prev_layers = {layer["layer_id"]: layer for layer in previous_state["layers"]}
     curr_layer_ids = set(current_layers)
 
-    for removed_lid in prev_layers.keys() - curr_layer_ids:
+    for removed_lid in (
+        layer_id for layer_id in reversed(prev_layers) if layer_id not in curr_layer_ids
+    ):
         await server.broadcast(
             MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": removed_lid}
         )
@@ -210,24 +149,15 @@ async def send_env_snapshot(
     if recreate:
         await server.send(ws, MT.ENV_CREATE, {"id": env_id, "type": env_state["type"]})
 
-    client_layer_ids = (
-        {layer["layer_id"] for layer in client_env.get("layers", [])}
-        if client_env
-        else set()
-    )
-    server_layer_ids = {layer["layer_id"] for layer in env_state["layers"]}
-    for removed_lid in client_layer_ids - server_layer_ids:
-        await server.send(
-            ws, MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": removed_lid}
-        )
-
-    for layer in ordered_state_layers(env_state["layers"]):
-        lid = layer["layer_id"]
-        if lid in client_layer_ids:
-            # Destroy the stale layer before recreating.
+    if not recreate and client_env is not None:
+        for layer in reversed(client_env.get("layers", [])):
             await server.send(
-                ws, MT.ENV_LAYER_DELETE, {"env_id": env_id, "layer_id": lid}
+                ws,
+                MT.ENV_LAYER_DELETE,
+                {"env_id": env_id, "layer_id": layer["layer_id"]},
             )
+
+    for layer in env_state["layers"]:
         await send_layer_full(ws, server, env_id, layer)
 
 

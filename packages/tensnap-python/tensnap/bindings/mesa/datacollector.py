@@ -1,14 +1,16 @@
 # tensnap/bindings/mesa/datacollector.py
 """Utility functions for working with Mesa 3 DataCollector"""
 
-from typing import Any, Dict, List, Type, cast
+from typing import Any, Dict, List, Type
 
+from tensnap.bindings.ownership import attach_class_metadata
 from tensnap.models.chart import (
     ChartGroupMetadata,
     ChartMetadata,
     ChartProperty,
 )
 from tensnap.utils.init_hook import OnceInitHookHandle, install_once_init_hook
+from tensnap.utils.member_metadata import attach_member_metadata
 
 
 def get_registered_collectors(datacollector: Any) -> list[str]:
@@ -111,7 +113,7 @@ class BindDataCollectorConfig:
         self.init_hook_handle: OnceInitHookHandle[Any] | None = None
 
     def __call__(self, cls):
-        cast(Any, cls)._tensnap_bind_datacollector_config = self
+        attach_class_metadata(cls, "_tensnap_bind_datacollector_config", self)
         self.bound_class = cls
         self.init_hook_handle = install_once_init_hook(
             cls,
@@ -193,7 +195,9 @@ class BindDataCollectorConfig:
                     for field in reporters
                 ],
             )
-            cast(Any, func)._tensnap_chart = chart_group_metadata
+            attach_member_metadata(
+                func, "_tensnap_chart", chart_group_metadata, "DataCollector chart"
+            )
             chart_property = ChartProperty(chart_group_metadata, func)
 
             func_name = f"get_tensnap_chart_data_{func_id}"
