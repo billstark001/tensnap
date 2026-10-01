@@ -286,6 +286,9 @@ Use `assetIcon(id)` for agent icons that reference declared assets.
 
 ### Monitors And Scene Restore
 
+Binding ownership, layer dependency direction, and one-time topology
+validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+
 Use `.monitor(...)` for a current protocol value without a chart history:
 
 ```ts

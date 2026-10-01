@@ -223,6 +223,9 @@ Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in
 
 ### Monitors and scene restore
 
+Binding ownership, layer dependency direction, and one-time topology
+validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+
 - `add_monitors(target, dry_run=False)` / `remove_monitors(ids)`
 - `broadcast_monitors(ws=None)`
 - `configure_scene_restore(restore, checkpoint_capture=None, checkpoint_restore=None)`

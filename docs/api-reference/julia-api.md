@@ -238,6 +238,9 @@ upsert.
 
 ### Scene restore and checkpoints
 
+Binding ownership, layer dependency direction, and one-time topology
+validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+
 ```julia
 agents = agents_layer("agents", model -> values(model.agents);
     restore = (

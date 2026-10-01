@@ -391,6 +391,9 @@ fluent fields take precedence.
 
 ## Monitors and scene restore
 
+Binding ownership, layer dependency direction, and one-time topology
+validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+
 `WithMonitors(...)` declares current values with `monitor_create` and
 `monitor_update`. Low-level `Emitter` methods provide the complete
 `MonitorCreate`, `MonitorUpdate`, and `MonitorDelete` surface. Metadata
