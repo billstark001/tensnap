@@ -16,3 +16,14 @@
 	@test decoded_msgpack["type"] == "metadata_update"
 	@test decoded_msgpack["payload"]["time"] == 3
 end
+@testset "MessagePack checkpoint bytes" begin
+	bytes = UInt8[0x00, 0x7f, 0xff]
+	message = TenSnap._encode("scene_capture_result", Dict(
+		"request_id" => "capture-1",
+		"model_id" => "test",
+		"checkpoint" => Dict("encoding" => "application/octet-stream", "data" => bytes),
+	); use_msgpack = true)
+	decoded = MsgPack.unpack(message)
+	@test decoded["payload"]["checkpoint"]["data"] == bytes
+	@test decoded["payload"]["checkpoint"]["data"] isa Vector{UInt8}
+end
