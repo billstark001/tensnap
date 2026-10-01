@@ -589,6 +589,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         self.item_projector_names = _normalize_projector_names(item_projector_name)
         self.inferred_item_projector = inferred_item_projector
         self.dependency_layer_ids = dict(dependency_layer_ids or {})
+        self.restore: Any = None
 
         self._attached_class: type[Any] | None = None
         self._metadata_fields: ProjectorDictFilterList[TMetadataKeys] = []
@@ -695,6 +696,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             layer_type=self.layer_type,
             item_keys=self.item_keys or (),
             dependency_layer_ids=self.dependency_layer_ids,
+            restore=self.restore,
             metadata_projector=metadata_projector,
             iterable_getter=iterable_getter,
             item_projector=resolved_item_projector,

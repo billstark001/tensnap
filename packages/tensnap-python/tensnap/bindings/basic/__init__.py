@@ -58,7 +58,7 @@ from .parameter import (
     param,
     params,
 )
-from .restore import SceneRestoreBinding, get_scene_restore_binding, scene_restore
+from .restore import SceneRestoreBinding, checkpoint, get_scene_restore_binding, layer_restore, scene_restore
 
 
 def __getattr__(name: str) -> Any:

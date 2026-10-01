@@ -815,6 +815,24 @@ class SimulationScenario:
         request_id = payload.get("request_id") or uuid4().hex
         cached = self._scene_restore_results.get(request_id)
         if cached is not None:
+            await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
+            await self.server.send(ws, MT.SCENE_RESTORE_END, cached)
+            return
+        if self._action_lock.locked():
+            await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
+            await self.server.send(ws, MT.SCENE_RESTORE_END, {
+                "request_id": request_id,
+                "status": "rejected",
+                "error": {"code": "busy", "message": "Wait for the active operation."},
+            })
+            return
+        async with self._action_lock:
+            await self._perform_scene_restore(ws, payload)
+
+    async def _perform_scene_restore(self, ws: Any, payload: Dict[str, Any]) -> None:
+        request_id = payload.get("request_id") or uuid4().hex
+        cached = self._scene_restore_results.get(request_id)
+        if cached is not None:
             await self.server.send(
                 ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id}
             )
@@ -875,6 +893,26 @@ class SimulationScenario:
             await self.server.send(ws, MT.SCENE_RESTORE_END, result)
             return
 
+        # Composed plans validate the entire inbound projection before the
+        # transaction starts or any model-owned state changes.
+        if has_projected_state and self._scene_restore is not None:
+            prepare = getattr(self._scene_restore, "prepare", None)
+            if prepare is not None:
+                try:
+                    result = prepare(payload)
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception as error:
+                    result_payload = {
+                        "request_id": request_id,
+                        "status": "rejected",
+                        "error": {"code": "invalid_restore", "message": str(error)},
+                    }
+                    self._scene_restore_results[request_id] = result_payload
+                    await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
+                    await self.server.send(ws, MT.SCENE_RESTORE_END, result_payload)
+                    return
+
         previous_ids = {
             "actions": list(self.actions),
             "parameters": list(self.parameters),
@@ -918,12 +956,22 @@ class SimulationScenario:
                 checkpoint_result = self._checkpoint_restore(checkpoint_data)  # type: ignore[misc]
                 if inspect.isawaitable(checkpoint_result):
                     await checkpoint_result
+                rebind = getattr(self._scene_restore, "rebind_targets", None)
+                if rebind is not None:
+                    rebind_result = rebind()
+                    if inspect.isawaitable(rebind_result):
+                        await rebind_result
 
             if has_projected_state:
                 projected = {
                     key: value for key, value in payload.items() if key != "checkpoint"
                 }
                 result = self._scene_restore(projected)  # type: ignore[misc]
+                if inspect.isawaitable(result):
+                    await result
+            rebind = getattr(self._scene_restore, "rebind_targets", None)
+            if rebind is not None:
+                result = rebind()
                 if inspect.isawaitable(result):
                     await result
             if "time" in payload:
@@ -941,6 +989,11 @@ class SimulationScenario:
                     rollback_result = self._checkpoint_restore(rollback_data)  # type: ignore[misc]
                     if inspect.isawaitable(rollback_result):
                         await rollback_result
+                    rebind = getattr(self._scene_restore, "rebind_targets", None)
+                    if rebind is not None:
+                        rebind_result = rebind()
+                        if inspect.isawaitable(rebind_result):
+                            await rebind_result
                 except Exception as caught:
                     rollback_error = caught
                     logger.exception("Scene restore rollback failed")
@@ -985,6 +1038,16 @@ class SimulationScenario:
         await self.server.send_asset_meta(ws)
 
     async def _on_scene_capture(self, ws: Any, payload: Dict[str, Any]) -> None:
+        if self._action_lock.locked():
+            await self.server.send_error(
+                ws, "Wait for the active operation.", code="busy",
+                request_id=payload.get("request_id"),
+            )
+            return
+        async with self._action_lock:
+            await self._perform_scene_capture(ws, payload)
+
+    async def _perform_scene_capture(self, ws: Any, payload: Dict[str, Any]) -> None:
         request_id = payload.get("request_id") or uuid4().hex
         if self._checkpoint_capture is None or self._checkpoint_restore is None:
             await self.server.send_error(
@@ -1348,7 +1411,7 @@ class SimulationScenario:
         binding = binding_api.scene_restore_binding(target)
         if binding is None:
             return False
-        restore, checkpoint_capture, checkpoint_restore = binding.bind(target)
+        restore, checkpoint_capture, checkpoint_restore = binding.bind(target, self)
         self.configure_scene_restore(
             restore,
             checkpoint_capture=checkpoint_capture,
