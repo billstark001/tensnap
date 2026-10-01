@@ -89,9 +89,6 @@ builder.env('main')
       validate(model, layer) {
         model.validateRestoredAgents(layer.items ?? [], layer.metadata);
       },
-      itemIds(model) {
-        return model.getEnvironmentState().agents.map((agent) => ({ id: agent.id }));
-      },
       restoreMetadata(model, metadata) {
         model.restoreGridMetadata(metadata);
       },
