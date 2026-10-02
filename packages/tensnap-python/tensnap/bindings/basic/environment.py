@@ -2,6 +2,7 @@ from typing import (
     Any,
 )
 
+from tensnap.bindings.ownership import attach_class_metadata, require_class
 from tensnap.models.environment import (
     EnvironmentBinding,
     EnvironmentType,
@@ -20,8 +21,11 @@ class BindEnvironmentConfig:
         self.type: EnvironmentType = type
 
     def __call__(self, cls: type[Any]) -> type[Any]:
-        cls._tensnap_environment_binding_config = EnvironmentBinding(
-            id=self.id, type=self.type
+        require_class(cls, "@env")
+        attach_class_metadata(
+            cls,
+            "_tensnap_environment_binding_config",
+            EnvironmentBinding(id=self.id, type=self.type),
         )
         return cls
 

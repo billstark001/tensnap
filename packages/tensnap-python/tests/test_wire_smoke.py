@@ -26,6 +26,12 @@ def _decode_message(message: str | bytes) -> dict:
     return json.loads(message)
 
 
+async def _receive_simulator_info(ws: Any) -> dict:
+    message = _decode_message(await ws.recv())
+    assert message["type"] == "simulator_info"
+    return message
+
+
 async def _start_example(script_path: Path, port: int) -> asyncio.subprocess.Process:
     env = os.environ.copy()
     env["TENSNAP_SERVER_PORT"] = str(port)
@@ -47,8 +53,9 @@ async def _wait_for_server(proc: asyncio.subprocess.Process, port: int) -> None:
     while asyncio.get_running_loop().time() < deadline:
         if proc.returncode is not None:
             stderr = await proc.stderr.read() if proc.stderr else b""
+            details = stderr.decode().strip()
             raise AssertionError(
-                f"Example exited before accepting connections: {stderr.decode().strip()}"
+                f"Example exited before accepting connections: {details}"
             )
         try:
             async with connect(f"ws://127.0.0.1:{port}"):
@@ -64,11 +71,12 @@ async def _collect_state_sync_messages(
 ) -> list[dict]:
     request_id = "sync-smoke"
     async with connect(f"ws://127.0.0.1:{port}") as ws:
+        simulator_info = await _receive_simulator_info(ws)
         message = {
             "type": "state_sync",
             "payload": {
                 "request_id": request_id,
-                "model_id": "tensnap.python.model",
+                "model_id": simulator_info["payload"]["model"]["id"],
                 "parameters": [],
                 "actions": [],
                 "envs": [],
@@ -88,8 +96,8 @@ async def _collect_state_sync_messages(
         )
 
         deadline = asyncio.get_running_loop().time() + 20
-        messages: list[dict] = []
-        saw_target = False
+        messages: list[dict] = [simulator_info]
+        saw_target = until(messages)
         while asyncio.get_running_loop().time() < deadline:
             message = await asyncio.wait_for(
                 ws.recv(),
@@ -116,11 +124,12 @@ async def _sync_and_run_action(
 ) -> tuple[list[dict], list[dict]]:
     request_id = "sync-action"
     async with connect(f"ws://127.0.0.1:{port}") as ws:
+        simulator_info = await _receive_simulator_info(ws)
         sync_request = {
             "type": "state_sync",
             "payload": {
                 "request_id": request_id,
-                "model_id": "tensnap.python.model",
+                "model_id": simulator_info["payload"]["model"]["id"],
                 "parameters": [],
                 "actions": [],
                 "envs": [],
@@ -140,7 +149,7 @@ async def _sync_and_run_action(
         )
 
         deadline = asyncio.get_running_loop().time() + 20
-        sync_messages: list[dict] = []
+        sync_messages: list[dict] = [simulator_info]
         while asyncio.get_running_loop().time() < deadline:
             message = await asyncio.wait_for(
                 ws.recv(),
@@ -279,6 +288,59 @@ async def test_graph_example_initializes_at_time_zero_and_first_step_is_one():
 
 
 @pytest.mark.asyncio
+async def test_flock_example_registers_v03_monitor_restore_and_chart_group():
+    script = REPO_ROOT / "examples" / "python" / "flock_viz.py"
+    port = _get_free_port()
+    proc = await _start_example(script, port)
+
+    try:
+        await _wait_for_server(proc, port)
+        messages = await _collect_state_sync_messages(
+            port,
+            lambda collected: any(
+                msg["type"] == "item_create"
+                and msg["payload"].get("layer_id") == "birds"
+                for msg in collected
+            ),
+        )
+    finally:
+        await _stop_process(proc)
+
+    simulator_info = messages[0]["payload"]
+    assert simulator_info["model"]["id"] == "examples.python.flock"
+    assert set(simulator_info["capabilities"]) >= {
+        "monitor",
+        "scene.restore.checkpoint",
+        "scene.restore.projected",
+    }
+
+    chart = next(msg["payload"] for msg in messages if msg["type"] == "chart_create")
+    assert chart["id"] == "average_speed"
+    assert {series["id"] for series in chart["data_list"]} == {
+        "average_speed",
+        "order_parameter",
+    }
+    assert any(
+        msg["type"] == "monitor_create" and msg["payload"]["id"] == "flock_status"
+        for msg in messages
+    )
+    assert any(
+        msg["type"] == "monitor_update" and msg["payload"]["id"] == "flock_status"
+        for msg in messages
+    )
+    chart_updates = [
+        update
+        for msg in messages
+        if msg["type"] == "chart_update"
+        for update in msg["payload"].get("updates", [])
+    ]
+    assert {update["id"] for update in chart_updates} >= {
+        "average_speed",
+        "order_parameter",
+    }
+
+
+@pytest.mark.asyncio
 async def test_mesa_example_emits_canonical_grid_layer_wire_output():
     script = REPO_ROOT / "examples" / "python_mesa" / "cgol_viz.py"
     port = _get_free_port()
@@ -316,6 +378,27 @@ async def test_mesa_example_emits_canonical_grid_layer_wire_output():
     assert cell_layer["payload"]["env_id"] == "cgol_grid"
     assert cell_layer["payload"]["layer_id"] == "cells"
     assert cell_layer["payload"]["layer_type"] == "agent"
+    assert messages[0]["payload"]["model"]["id"] == "examples.python_mesa.cgol"
+    assert set(messages[0]["payload"]["capabilities"]) >= {
+        "monitor",
+        "scene.restore.checkpoint",
+        "scene.restore.projected",
+    }
+
+    chart = next(msg["payload"] for msg in messages if msg["type"] == "chart_create")
+    assert chart["id"] == "cell_population"
+    assert {series["id"] for series in chart["data_list"]} == {"alive", "dead"}
+    assert any(
+        msg["type"] == "monitor_create" and msg["payload"]["id"] == "board_status"
+        for msg in messages
+    )
+    chart_updates = [
+        update
+        for msg in messages
+        if msg["type"] == "chart_update"
+        for update in msg["payload"].get("updates", [])
+    ]
+    assert {update["id"] for update in chart_updates} >= {"alive", "dead"}
 
 
 @pytest.mark.asyncio
@@ -357,6 +440,7 @@ async def test_mushroom_example_emits_patch_resource_layer():
     assert env_create["payload"]["type"] == "2d"
     assert env_create["payload"]["id"] == "main"
     assert patch_layer["payload"]["layer_type"] == "agent"
+    assert patch_agents["payload"]["env_id"] == "main"
 
 
 @pytest.mark.asyncio

@@ -1,16 +1,29 @@
-from typing import cast
+import json
+from io import BytesIO
+from typing import Any
 
 import mesa
 import numpy as np
-
 from tensnap import (
-    agent_layer,
     agent,
-    bind_datacollector,
+    agent_layer,
     bind_kwargs,
+    chart,
+    checkpoint,
+    cleanup_mesa_model_step,
     env,
     grid_layer,
+    layer_restore,
+    monitor,
+    scene_restore,
 )
+
+
+def _nested_tuple(value: Any) -> Any:
+    """Rebuild tuple-based ``random.Random`` state after JSON decoding."""
+    if isinstance(value, list):
+        return tuple(_nested_tuple(item) for item in value)
+    return value
 
 
 @agent(icon="square")
@@ -33,6 +46,11 @@ class Cell(mesa.Agent):
     def color(self) -> str:
         return "black" if self.alive else "white"
 
+    @property
+    def data(self) -> dict[str, bool]:
+        """Keep projected snapshots independent from presentation colors."""
+        return {"alive": self.alive}
+
     def __init__(self, model: "GameOfLife"):
         super().__init__(model)
 
@@ -46,12 +64,19 @@ class Cell(mesa.Agent):
 
 
 @bind_kwargs(exclude=["seed"])
-@bind_datacollector()
+@checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
+@scene_restore(time="restore_time")
+@layer_restore(
+    replace="restore_cells",
+    validate="validate_cells",
+    metadata="restore_grid_metadata",
+    layer_id="cells",
+)
+@layer_restore(metadata="restore_grid_metadata", layer_id="grid")
 @agent_layer("cells", item_iterable_projector="agents")
 @grid_layer()
 @env(id="cgol_grid")
 class GameOfLife(mesa.Model):
-
     def __init__(self, width: int = 50, height: int = 50, seed=None):
         super().__init__(seed=seed)
 
@@ -72,8 +97,134 @@ class GameOfLife(mesa.Model):
                 self.grid.place_agent(Cell(self), (x, y))
 
         self.datacollector = mesa.DataCollector(
-            model_reporters={"Alive": "alive_count"}
+            model_reporters={"Alive": "alive_count", "Dead": "dead_count"}
         )
+        self.datacollector.collect(self)
+
+    @property
+    def dead_count(self) -> int:
+        return self.width * self.height - self.alive_count
+
+    @monitor("board_status", "Board Status", render_hint="tree")
+    def board_status(self) -> dict[str, int | float]:
+        total = self.width * self.height
+        return {
+            "generation": int(self.steps),
+            "alive": self.alive_count,
+            "dead": self.dead_count,
+            "density": self.alive_count / total if total else 0.0,
+        }
+
+    @chart(
+        "cell_population",
+        "Cell Population",
+        data_list=[
+            ("alive", "#111827", "Alive"),
+            ("dead", "#E5E7EB", "Dead"),
+        ],
+    )
+    def cell_population(self) -> dict[str, int]:
+        return {"alive": self.alive_count, "dead": self.dead_count}
+
+    def _restore_time(self, steps: int, time: float) -> None:
+        """Move Mesa's recurring step event alongside restored model time."""
+        self._default_schedule.pause()
+        self.steps = steps
+        self.time = time
+        self._default_schedule._execution_count = steps
+        self._default_schedule.resume()
+
+    def capture_checkpoint(self) -> bytes:
+        """Capture exact model/RNG state in a pickle-free NumPy archive."""
+        metadata = {
+            "width": self.width,
+            "height": self.height,
+            "seed": self._seed,
+            "steps": self.steps,
+            "time": self._time,
+            "agent_id_counter": self.agent_id_counter,
+            "running": self.running,
+            "rng_state": self.rng.bit_generator.state,
+            "random_state": self.random.getstate(),
+            "model_vars": self.datacollector.model_vars,
+            "collection_steps": self.datacollector._collection_steps,
+        }
+        buffer = BytesIO()
+        np.savez_compressed(
+            buffer,
+            alive=self.alive,
+            metadata=np.asarray(json.dumps(metadata, separators=(",", ":"))),
+        )
+        return buffer.getvalue()
+
+    def restore_checkpoint(self, checkpoint: bytes) -> None:
+        """Restore a checkpoint produced by :meth:`capture_checkpoint`."""
+        if not isinstance(checkpoint, (bytes, bytearray, memoryview)):
+            raise TypeError("Game of Life checkpoint must be bytes")
+
+        with np.load(BytesIO(bytes(checkpoint)), allow_pickle=False) as archive:
+            alive = np.asarray(archive["alive"], dtype=np.bool_).copy()
+            metadata = json.loads(str(archive["metadata"].item()))
+
+        width = int(metadata["width"])
+        height = int(metadata["height"])
+        if alive.shape != (width, height):
+            raise ValueError("checkpoint board shape does not match its dimensions")
+
+        cleanup_mesa_model_step(self)
+        type(self).__init__(self, width=width, height=height, seed=metadata["seed"])
+        self.alive = alive
+        self.alive_count = int(alive.sum())
+        self.rng.bit_generator.state = metadata["rng_state"]
+        self.random.setstate(_nested_tuple(metadata["random_state"]))
+        self._restore_time(int(metadata["steps"]), float(metadata["time"]))
+        self.agent_id_counter = int(metadata["agent_id_counter"])
+        self.running = bool(metadata["running"])
+        self.datacollector.model_vars = {
+            key: list(values) for key, values in metadata["model_vars"].items()
+        }
+        self.datacollector._collection_steps = list(metadata["collection_steps"])
+
+    def restore_grid_metadata(self, metadata: dict[str, Any]) -> None:
+        for key, expected in (("width", self.width), ("height", self.height)):
+            if key in metadata and metadata[key] != expected:
+                raise ValueError(f"Game of Life {key} disagrees with the board")
+
+    def validate_cells(self, layer: dict[str, Any]) -> None:
+        items = layer.get("items", [])
+        if len(items) != self.width * self.height:
+            raise ValueError("Game of Life restore requires every grid cell")
+        seen: set[tuple[int, int]] = set()
+        for item in items:
+            pos = (item.get("x"), item.get("y"))
+            if (
+                pos in seen
+                or not all(
+                    isinstance(value, int) and not isinstance(value, bool)
+                    for value in pos
+                )
+                or not (0 <= pos[0] < self.width and 0 <= pos[1] < self.height)
+            ):
+                raise ValueError(f"invalid or duplicate cell position: {pos}")
+            if not isinstance((item.get("data") or {}).get("alive"), bool):
+                raise TypeError(f"cell {pos} is missing boolean data.alive")
+            seen.add(pos)
+
+    def restore_cells(self, items: list[dict[str, Any]]) -> None:
+        alive = np.zeros((self.width, self.height), dtype=np.bool_)
+        for item in items:
+            alive[item["x"], item["y"]] = item["data"]["alive"]
+        self.alive = alive
+        self.alive_count = int(alive.sum())
+        for key, value in (("Alive", self.alive_count), ("Dead", self.dead_count)):
+            values = self.datacollector.model_vars[key]
+            if values:
+                values[-1] = value
+            else:
+                values.append(value)
+
+    def restore_time(self, time: float) -> None:
+        self._restore_time(int(time), float(time))
 
     def step(self) -> None:
         board = self.alive

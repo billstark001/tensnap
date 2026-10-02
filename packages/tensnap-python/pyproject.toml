@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tensnap"
-version = "0.3.0"
+dynamic = ["version"]
 description = "Agent-based model visualization toolkit - Python bindings"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,6 +33,9 @@ Homepage = "https://github.com/billstark001/tensnap"
 Documentation = "https://github.com/billstark001/tensnap/tree/main/docs"
 Repository = "https://github.com/billstark001/tensnap"
 Issues = "https://github.com/billstark001/tensnap/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "tensnap._version.__version__"}
 
 [project.optional-dependencies]
 dev = [
@@ -93,6 +96,9 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
 "tensnap/__init__.py" = ["F401", "F403"]

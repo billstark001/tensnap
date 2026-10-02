@@ -10,6 +10,10 @@ This directory contains Python examples for TenSnap that don't depend on Mesa.
 - **predator_prey** - Sheep, wolves, and renewable grass on a 2D toroidal world
 - **sirs** - SIRS epidemic model with multiple visualizations (grid and graph)
 
+`flock.py` demonstrates declarative `@layer_restore` callbacks for birds,
+grid metadata, and trajectory configuration. Its paired `@checkpoint` hooks
+retain velocities and RNG state for exact continuation.
+
 ## Running Examples
 
 ### Prerequisites

@@ -45,12 +45,6 @@ function _sync_parameters!(s::Scenario, ws, client_params)
 	end
 end
 
-function _client_layer_ids(client_env)
-	client_env === nothing && return Set{String}()
-	layers = get(client_env, "layers", Any[])
-	return Set(String(get(layer, "layer_id", "")) for layer in layers if haskey(layer, "layer_id"))
-end
-
 function _sync_environment!(s::Scenario, ws, e::Environment, client_env)
 	recreate = client_env === nothing || get(client_env, "type", nothing) != e.type
 	if recreate && client_env !== nothing
@@ -58,18 +52,14 @@ function _sync_environment!(s::Scenario, ws, e::Environment, client_env)
 	end
 	recreate && _send_to(s, ws, "env_create", Dict("id" => e.id, "type" => e.type))
 
-	server_layer_ids = Set(l.id for l in e.layers)
-	client_layer_ids = _client_layer_ids(client_env)
 	if !recreate
-		for layer_id in setdiff(client_layer_ids, server_layer_ids)
-			_send_to(s, ws, "env_layer_delete", Dict("env_id" => e.id, "layer_id" => layer_id))
+		for layer in reverse(get(client_env, "layers", Any[]))
+			haskey(layer, "layer_id") || continue
+			_send_to(s, ws, "env_layer_delete", Dict("env_id" => e.id, "layer_id" => String(layer["layer_id"])))
 		end
 	end
 
-	for layer in _ordered_layers(e)
-		if !recreate && layer.id in client_layer_ids
-			_send_to(s, ws, "env_layer_delete", Dict("env_id" => e.id, "layer_id" => layer.id))
-		end
+	for layer in e.layers
 		_broadcast_layer_full(s, e.id, layer; ws = ws)
 	end
 end
@@ -161,7 +151,7 @@ function sync!(s::Scenario, ws = nothing; include_charts = true)
 	end
 	for e in values(s.environments)
 		sink("env_create", Dict("id" => e.id, "type" => e.type))
-		for l in _ordered_layers(e)
+		for l in e.layers
 			_broadcast_layer_full(s, e.id, l; ws = ws)
 		end
 	end
@@ -187,7 +177,7 @@ function _sync_reset!(s::Scenario)
 	for parameter in values(s.parameters)
 		_broadcast(s, "param_update", _param_payload(parameter, s.model))
 	end
-	for environment in values(s.environments), layer in _ordered_layers(environment)
+	for environment in values(s.environments), layer in environment.layers
 		data = _layer_data(layer, s.model)
 		layer.last_data = data
 		metadata = data isa AbstractDict ? data : Dict{String, Any}()

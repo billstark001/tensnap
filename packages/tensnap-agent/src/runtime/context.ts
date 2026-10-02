@@ -82,7 +82,13 @@ export async function readRuntimeControl(paths: RuntimeContextPaths): Promise<Ru
 
 export async function writeRuntimeControl(paths: RuntimeContextPaths, control: RuntimeControlFile): Promise<void> {
   await ensureRuntimeContext(paths);
-  await writeFile(paths.controlFile, `${JSON.stringify(control, null, 2)}\n`, 'utf8');
+  const temporaryFile = `${paths.controlFile}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporaryFile, `${JSON.stringify(control, null, 2)}\n`, 'utf8');
+    await rename(temporaryFile, paths.controlFile);
+  } finally {
+    await rm(temporaryFile, { force: true });
+  }
 
   if (typeof control.pid === 'number' && control.pid > 0) {
     await writeFile(paths.pidFile, `${control.pid}\n`, 'utf8');

@@ -117,7 +117,7 @@ func TestV03ExactDeclarativeMappingAndOmissions(t *testing.T) {
 	language := "go"
 	parseSimulatorMessagesWithProtocolSchema(t, []any{
 		map[string]any{"type": "simulator_info", "payload": protocol.SimulatorInfoPayload{
-			ProtocolVersion: "0.3", Binding: protocol.BindingInfo{Name: "tensnap-go", Version: "0.3.0", Language: &language},
+			ProtocolVersion: protocol.ProtocolVersion, Binding: protocol.BindingInfo{Name: "tensnap-go", Version: protocol.BindingVersion, Language: &language},
 			Model: protocol.ModelInfo{ID: "mapping.go"}, InstanceID: "instance-1", Capabilities: []string{},
 		}},
 		map[string]any{"type": "param_create", "payload": width},

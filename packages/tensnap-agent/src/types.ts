@@ -105,6 +105,7 @@ export interface SceneSnapshotInspection {
 
 export interface RuntimeStatus extends RuntimeControlFile {
   isConnected: boolean;
+  simulatorCapabilities?: string[];
 }
 
 export interface RuntimeEvent<T = unknown> {

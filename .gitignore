@@ -38,6 +38,8 @@ htmlcov/
 
 # Julia
 packages/tensnap-julia/Manifest.toml
+examples/julia/Manifest.toml
+examples/julia/pnpm-lock.yaml
 
 # Misc
 *.log

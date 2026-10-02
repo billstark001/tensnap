@@ -51,8 +51,10 @@ const builder = modelBuilder({
     restoreTime(model, time) {
       model.restoreTime(time);
     },
-    afterApply(model) {
-      model.finishRestoredAgents();
+    afterApply(model, payload) {
+      if (payload.envs?.some((environment) => environment.layers.some((layer) => layer.layer_id === AGENT_LAYER || layer.layer_id === GRID_LAYER))) {
+        model.finishRestoredAgents();
+      }
     },
   },
   restoreCheckpoint(model, data) {
@@ -88,9 +90,6 @@ builder.env('main')
     restore: {
       validate(model, layer) {
         model.validateRestoredAgents(layer.items ?? [], layer.metadata);
-      },
-      itemIds(model) {
-        return model.getEnvironmentState().agents.map((agent) => ({ id: agent.id }));
       },
       restoreMetadata(model, metadata) {
         model.restoreGridMetadata(metadata);

@@ -358,8 +358,8 @@ func (e *SessionEmitter) Error(p *protocol.ErrorPayload) error {
 func defaultSimulatorInfo() *protocol.SimulatorInfoPayload {
 	language := "go"
 	return &protocol.SimulatorInfoPayload{
-		ProtocolVersion: "0.3",
-		Binding:         protocol.BindingInfo{Name: "tensnap-go", Version: "0.3.0", Language: &language},
+		ProtocolVersion: protocol.ProtocolVersion,
+		Binding:         protocol.BindingInfo{Name: "tensnap-go", Version: protocol.BindingVersion, Language: &language},
 		Model:           protocol.ModelInfo{ID: "tensnap.go.model"},
 		InstanceID:      "server-instance",
 		Capabilities:    []string{},

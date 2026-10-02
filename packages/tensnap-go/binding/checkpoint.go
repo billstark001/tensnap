@@ -55,3 +55,25 @@ func decodeCheckpoint(checkpoint *protocol.Checkpoint) (any, error) {
 		return nil, fmt.Errorf("tensnap: unsupported checkpoint encoding %q", checkpoint.Encoding)
 	}
 }
+
+// WithTypedCheckpoint pairs a model snapshot with its typed restore method.
+// The binding converts the decoded JSON checkpoint back to S before calling restore.
+func WithTypedCheckpoint[T any, S any](capture func(T) S, restore func(T, S) error) ModelOption[T] {
+	if capture == nil || restore == nil {
+		panic("binding.WithTypedCheckpoint requires capture and restore")
+	}
+	return WithCheckpoint(
+		func(target T) (any, error) { return capture(target), nil },
+		func(target T, data any) error {
+			raw, err := json.Marshal(data)
+			if err != nil {
+				return err
+			}
+			var state S
+			if err := json.Unmarshal(raw, &state); err != nil {
+				return err
+			}
+			return restore(target, state)
+		},
+	)
+}

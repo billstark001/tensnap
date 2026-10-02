@@ -12,22 +12,36 @@ assignees: ''
 - [ ] Documentation updated
 - [ ] CHANGELOG.md updated
 - [ ] Version bumped in appropriate files
+- [ ] Current versions and sources checked against `docs/maintainer-guide/versioning.md`
+- [ ] `pnpm run check:versions` passes
+
+### npm Packages and Examples
+
+- [ ] Each affected package's `package.json` version updated once (current patches are `0.3.0` or `0.3.1`)
+- [ ] Protocol wire version remains `0.3` unless the wire contract changes
+
+### Go Binding
+
+- [ ] Binding version updated in `packages/tensnap-go/protocol/version.go` (currently `0.3.1`)
+- [ ] Nested-module tag uses `packages/tensnap-go/vX.Y.Z`
 
 ### Python Package
 
-- [ ] Version updated in `packages/tensnap-python/pyproject.toml`
+- [ ] Version updated in `packages/tensnap-python/tensnap/_version.py` (currently `0.3.1`)
+- [ ] Wheel metadata version matches the Python binding version
 - [ ] PyPI trusted publishing configured
 
 ### Julia Package
 
-- [ ] Version updated in `packages/tensnap-julia/Project.toml`
+- [ ] Version updated in `packages/tensnap-julia/Project.toml` (currently `0.3.1`)
 - [ ] Native Julia package tests passing
 - [ ] Registrator comment prepared with `@JuliaRegistrator register subdir=packages/tensnap-julia`
 
 ### Tauri App
 
 - [ ] Version updated in `packages/tensnap-tauri/package.json`
-- [ ] Version updated in `packages/tensnap-tauri/src-tauri/Cargo.toml`
+- [ ] Cargo version and lockfile match `package.json` (currently `0.3.1`)
+- [ ] `tauri.conf.json` still reads `../package.json`
 - [ ] Tested on all target platforms
 
 ### Web App

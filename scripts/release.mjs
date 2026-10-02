@@ -139,6 +139,25 @@ function patchTomlVersion(filePath, version) {
   return true;
 }
 
+function patchSourceVersion(filePath, pattern, version) {
+  const src = readFileSync(filePath, 'utf8');
+  if (!pattern.test(src)) die(`Could not find a version assignment in ${filePath}`);
+  const patched = src.replace(pattern, (_, prefix) => `${prefix}${version}"`);
+  if (patched === src) return false;
+  writeFileSync(filePath, patched, 'utf8');
+  return true;
+}
+
+function patchCargoLockVersion(filePath, version) {
+  const src = readFileSync(filePath, 'utf8');
+  const pattern = /(name = "tensnap-tauri"\nversion = ")[^"]+"/;
+  if (!pattern.test(src)) die(`Could not find tensnap-tauri in ${filePath}`);
+  const patched = src.replace(pattern, (_, prefix) => `${prefix}${version}"`);
+  if (patched === src) return false;
+  writeFileSync(filePath, patched, 'utf8');
+  return true;
+}
+
 // #endregion
 
 // #region Commands
@@ -175,11 +194,19 @@ function releaseGo(version) {
 
   log(`Preparing Go module v${version} release...`);
 
-  const tagName = `packages/tensnap-go/v${version}`;
-  createTag(tagName, `TenSnap Go binding v${version}`);
+  const versionPath = join(ROOT, 'packages', 'tensnap-go', 'protocol', 'version.go');
+  if (patchSourceVersion(versionPath, /(const BindingVersion = ")[^"]+"/, version)) {
+    log(`  Updated ${toRepoPath(versionPath)}`);
+  }
 
-  log(`\nCreated tag ${tagName}`);
-  logTagPushInstructions(tagName);
+  finalizeRelease({
+    componentLabel: 'Go binding',
+    version,
+    filePaths: [versionPath],
+    commitMessage: `Release Go binding v${version}`,
+    tagName: `packages/tensnap-go/v${version}`,
+    tagMessage: `TenSnap Go binding v${version}`,
+  });
 }
 
 function releasePython(version) {
@@ -187,16 +214,16 @@ function releasePython(version) {
 
   log(`Preparing Python package v${version} release...`);
 
-  const pyprojectPath = join(ROOT, 'packages', 'tensnap-python', 'pyproject.toml');
-  const changed = patchTomlVersion(pyprojectPath, version);
+  const versionPath = join(ROOT, 'packages', 'tensnap-python', 'tensnap', '_version.py');
+  const changed = patchSourceVersion(versionPath, /(__version__ = ")[^"]+"/, version);
   if (changed) {
-    log(`  Updated ${toRepoPath(pyprojectPath)}`);
+    log(`  Updated ${toRepoPath(versionPath)}`);
   }
 
   finalizeRelease({
     componentLabel: 'Python package',
     version,
-    filePaths: [pyprojectPath],
+    filePaths: [versionPath],
     commitMessage: `Release Python package v${version}`,
     tagName: `py-v${version}`,
   });
@@ -354,16 +381,16 @@ function releaseApp(version) {
     log(`  Updated ${toRepoPath(cargoPath)}`);
   }
 
-  // Update tauri.conf.json
-  const tauriConfPath = join(ROOT, 'packages', 'tensnap-tauri', 'src-tauri', 'tauri.conf.json');
-  if (updateJsonVersion(tauriConfPath, version)) {
-    log(`  Updated ${toRepoPath(tauriConfPath)}`);
+  // Keep Cargo's generated lockfile aligned with its manifest.
+  const cargoLockPath = join(ROOT, 'packages', 'tensnap-tauri', 'src-tauri', 'Cargo.lock');
+  if (patchCargoLockVersion(cargoLockPath, version)) {
+    log(`  Updated ${toRepoPath(cargoLockPath)}`);
   }
 
   finalizeRelease({
     componentLabel: 'Tauri app',
     version,
-    filePaths: [pkgPath, cargoPath, tauriConfPath],
+    filePaths: [pkgPath, cargoPath, cargoLockPath],
     commitMessage: `Release Tauri app v${version}`,
     tagName: `app-v${version}`,
   });

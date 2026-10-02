@@ -10,6 +10,11 @@ from typing import (
 )
 
 from tensnap.bindings.mesa.utils import is_mesa_agent_class
+from tensnap.bindings.ownership import (
+    append_class_metadata,
+    attach_class_metadata,
+    require_class,
+)
 from tensnap.models import (
     AgentItemFields,
     AgentLayerMetadataFields,
@@ -254,12 +259,13 @@ class BindItemConfig(Generic[TItemKeys]):
         fields: ProjectorDictFilterList[TItemKeys],
         default_fields: AttrPathMap[TItemKeys],
     ) -> type[TClass]:
+        require_class(cls, "item binding")
         assert not self.attached, "Projector config can only be attached once"
         self._attached_class = cls
         self._fields = list(fields)
         self._default_fields = dict(default_fields)
         self.attached = True
-        setattr(cls, attach_field, self)
+        attach_class_metadata(cls, attach_field, self)
 
         def finalize(
             instance: Any, _args: tuple[Any, ...], _kwargs: dict[str, Any]
@@ -331,7 +337,7 @@ _agent_fields: list[tuple[Callable[[Any], bool], AttrPathMap[AgentItemFields]]] 
 class BindAgentConfig(BindItemConfig[AgentItemFields]):
     binding_name = _binding_name("item", "agent")
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 - Preserve the public decorator signature.
         self,
         id: str | None = None,
         x: ProjectorFieldForInit = None,
@@ -424,7 +430,7 @@ uniform_agent = BindUniformAgentConfig
 class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
     binding_name = _binding_name("item", "edge")
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 - Preserve the public decorator signature.
         self,
         source: str = "source",
         target: str = "target",
@@ -493,7 +499,6 @@ trajectory_item = BindTrajectoryConfigConfig
 
 # region General Layer
 
-_layer_binding_name = _binding_name("layer", "general")
 _layer_binding_configs_name = "_tensnap_layer_binding_configs"
 _layer_binding_config_objects_name = "_tensnap_layer_binding_config_objects"
 
@@ -502,16 +507,7 @@ def _append_layer_binding(
     cls: type[TClass],
     binding: LayerBinding[Any, Any, Any, Any],
 ) -> type[TClass]:
-    bindings = list(
-        getattr(
-            cls,
-            _layer_binding_configs_name,
-            getattr(cls, _layer_binding_name, []),
-        )
-    )
-    bindings.append(binding)
-    setattr(cls, _layer_binding_configs_name, bindings)
-    setattr(cls, _layer_binding_name, bindings)
+    append_class_metadata(cls, _layer_binding_configs_name, binding)
     return cls
 
 
@@ -519,9 +515,7 @@ def _append_layer_config(
     cls: type[TClass],
     config: "BindLayerConfig[Any, Any]",
 ) -> type[TClass]:
-    configs = list(getattr(cls, _layer_binding_config_objects_name, []))
-    configs.append(config)
-    setattr(cls, _layer_binding_config_objects_name, configs)
+    append_class_metadata(cls, _layer_binding_config_objects_name, config)
     return cls
 
 
@@ -589,6 +583,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         self.item_projector_names = _normalize_projector_names(item_projector_name)
         self.inferred_item_projector = inferred_item_projector
         self.dependency_layer_ids = dict(dependency_layer_ids or {})
+        self.restore: Any = None
 
         self._attached_class: type[Any] | None = None
         self._metadata_fields: ProjectorDictFilterList[TMetadataKeys] = []
@@ -695,6 +690,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             layer_type=self.layer_type,
             item_keys=self.item_keys or (),
             dependency_layer_ids=self.dependency_layer_ids,
+            restore=self.restore,
             metadata_projector=metadata_projector,
             iterable_getter=iterable_getter,
             item_projector=resolved_item_projector,
@@ -710,6 +706,7 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         metadata_fields: ProjectorDictFilterList[TMetadataKeys],
         metadata_default_fields: AttrPathMap[TMetadataKeys],
     ) -> type[TClass]:
+        require_class(cls, "layer binding")
         assert not self.attached, "Layer config can only be attached once"
         self._attached_class = cls
         self._metadata_fields = list(metadata_fields)

@@ -8,6 +8,10 @@ from warnings import warn
 
 from typing_extensions import TypedDict
 
+from tensnap.utils.member_metadata import (
+    attach_member_metadata,
+    read_member_metadata,
+)
 from tensnap.models.chart import (
     ChartGroupMetadata as _ChartGroupMetadata,
     ChartGroupMetadataDict as _ChartGroupMetadataDict,
@@ -133,12 +137,7 @@ def chart(
 
         chart_property = _ChartProperty(chart_obj, func)
 
-        try:
-            setattr(func, _TENSNAP_CHART_FIELD, chart_obj)
-        except Exception:
-            pass
-
-        setattr(chart_property, _TENSNAP_CHART_FIELD, chart_obj)
+        attach_member_metadata(func, _TENSNAP_CHART_FIELD, chart_obj, "@chart")
 
         return chart_property
 
@@ -163,15 +162,10 @@ def get_chart_metadata_from_namespace(
         if name.startswith("__") and name.endswith("__"):
             continue
 
-        param = None
-        callable_attr = attr
-
-        if hasattr(attr, _TENSNAP_CHART_FIELD):
-            param = getattr(attr, _TENSNAP_CHART_FIELD)
-        elif isinstance(attr, property) and attr.fget is not None:
-            callable_attr = attr.fget
-            if hasattr(attr.fget, _TENSNAP_CHART_FIELD):
-                param = getattr(attr.fget, _TENSNAP_CHART_FIELD)
+        callable_attr = attr.fget if isinstance(attr, property) else attr
+        param = read_member_metadata(
+            attr, _TENSNAP_CHART_FIELD, _ChartGroupMetadata
+        )
 
         if not isinstance(param, _ChartGroupMetadata):
             continue
@@ -181,9 +175,7 @@ def get_chart_metadata_from_namespace(
             if chart_property.group_owner is not None:
                 continue
             if chart_property.has_group_members():
-                callable_attr = (
-                    lambda obj, chart_prop=chart_property: chart_prop.grouped_value(obj)
-                )
+                callable_attr = chart_property.grouped_value
                 param = chart_property.chart
 
         charts.append((name, callable_attr, param))

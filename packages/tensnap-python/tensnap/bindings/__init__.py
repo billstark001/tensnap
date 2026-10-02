@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 from warnings import warn
 
 from tensnap.models.action import ActionMetadata as _ActionMetadata
@@ -12,6 +12,7 @@ from tensnap.models.environment import EnvironmentBinding
 from tensnap.models.layer import LayerBinding
 from tensnap.models.monitor import MonitorMetadata
 from tensnap.models.parameter import Parameter
+from tensnap.utils.layer_topology import order_layers
 
 from .basic import *  # noqa: F403
 from .basic.action import get_action_metadata_from_namespace
@@ -23,6 +24,7 @@ from .basic.parameter import (
     get_parameter_metadata_from_object,
 )
 from .basic.restore import get_scene_restore_binding
+from .ownership import read_class_metadata
 
 for _deprecated_name in ("ActionMetadata", "ChartGroupMetadata"):
     globals().pop(_deprecated_name, None)
@@ -30,6 +32,7 @@ for _deprecated_name in ("ActionMetadata", "ChartGroupMetadata"):
 _ENVIRONMENT_BINDING_ATTR = "_tensnap_environment_binding_config"
 _LAYER_BINDINGS_ATTR = "_tensnap_layer_binding_configs"
 _LAYER_CONFIGS_ATTR = "_tensnap_layer_binding_config_objects"
+TMetadata = TypeVar("TMetadata")
 
 
 def _binding_owner(value: Any) -> Any:
@@ -40,27 +43,45 @@ def _binding_owner(value: Any) -> Any:
     return value.__class__
 
 
+def _read_owner_metadata(
+    value: Any, name: str, expected: type[TMetadata]
+) -> TMetadata | None:
+    if isinstance(value, ModuleType):
+        metadata = getattr(value, name, None)
+        return metadata if isinstance(metadata, expected) else None
+    return read_class_metadata(value, name, expected)
+
+
 def environment_binding(value: Any) -> EnvironmentBinding | None:
-    owner = _binding_owner(value)
-    binding = getattr(owner, _ENVIRONMENT_BINDING_ATTR, None)
-    return binding if isinstance(binding, EnvironmentBinding) else None
+    return _read_owner_metadata(value, _ENVIRONMENT_BINDING_ATTR, EnvironmentBinding)
 
 
 def layer_bindings(value: Any) -> list[LayerBinding[Any, Any, Any, Any]]:
     owner = _binding_owner(value)
+    bindings: list[LayerBinding[Any, Any, Any, Any]] | None = None
     if not isinstance(value, type) and not isinstance(value, ModuleType):
-        raw_configs = getattr(owner, _LAYER_CONFIGS_ATTR, [])
+        raw_configs = _read_owner_metadata(owner, _LAYER_CONFIGS_ATTR, list)
         if raw_configs:
             configs = cast(list[BindLayerConfig[Any, Any]], raw_configs)
-            return [config.get_binding_for_target(value) for config in configs]
-    raw_bindings = getattr(owner, _LAYER_BINDINGS_ATTR, [])
-    return list(cast(list[LayerBinding[Any, Any, Any, Any]], raw_bindings))
+            bindings = [config.get_binding_for_target(value) for config in configs]
+    if bindings is None:
+        raw_bindings = _read_owner_metadata(owner, _LAYER_BINDINGS_ATTR, list)
+        bindings = list(
+            cast(list[LayerBinding[Any, Any, Any, Any]], raw_bindings or [])
+        )
+    return order_layers(
+        bindings,
+        lambda layer: layer.layer_id,
+        lambda layer: layer.dependency_layer_ids,
+        lambda layer: layer.layer_type,
+        allow_missing=True,
+    )
 
 
 def layer_configs(value: Any) -> list[BindLayerConfig[Any, Any]]:
     owner = _binding_owner(value)
-    raw_configs = getattr(owner, _LAYER_CONFIGS_ATTR, [])
-    return list(cast(list[BindLayerConfig[Any, Any]], raw_configs))
+    raw_configs = _read_owner_metadata(owner, _LAYER_CONFIGS_ATTR, list)
+    return list(cast(list[BindLayerConfig[Any, Any]], raw_configs or []))
 
 
 def bindings(

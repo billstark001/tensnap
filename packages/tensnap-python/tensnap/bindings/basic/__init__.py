@@ -9,20 +9,10 @@ from warnings import warn
 from tensnap.models.action import ActionMetadata as _ActionMetadata
 from tensnap.models.chart import (
     ChartGroupMetadata as _ChartGroupMetadata,
-)
-from tensnap.models.chart import (
     ChartGroupMetadataDict as _ChartGroupMetadataDict,
-)
-from tensnap.models.chart import (
     ChartMetadata as _ChartMetadata,
-)
-from tensnap.models.chart import (
     ChartMetadataDict as _ChartMetadataDict,
-)
-from tensnap.models.chart import (
     ChartProperty as _ChartProperty,
-)
-from tensnap.models.chart import (
     SimplifiedChartMetadata as _SimplifiedChartMetadata,
 )
 
@@ -58,7 +48,13 @@ from .parameter import (
     param,
     params,
 )
-from .restore import SceneRestoreBinding, get_scene_restore_binding, scene_restore
+from .restore import (
+    SceneRestoreBinding,
+    checkpoint,
+    get_scene_restore_binding,
+    layer_restore,
+    scene_restore,
+)
 
 
 def __getattr__(name: str) -> Any:

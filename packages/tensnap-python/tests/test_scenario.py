@@ -279,6 +279,59 @@ class TestSimulationScenario:
             {"request_id": "restore-only", "status": "ok"},
         )
 
+    @pytest.mark.asyncio
+    async def test_restore_reseeds_item_diff_cache_from_restored_state(self):
+        agents = [{"id": "a1", "x": 1}]
+        scenario = SimulationScenario()
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_layer_binding(
+            "world",
+            LayerBinding(
+                layer_id="agents",
+                layer_type="agent",
+                item_keys=("id",),
+                items_projector=lambda target: [dict(item) for item in target],
+            ),
+            agents,
+        )
+
+        def capture():
+            return [dict(item) for item in agents]
+
+        def restore(data):
+            agents[:] = [dict(item) for item in data]
+
+        scenario.configure_scene_restore(
+            None,
+            checkpoint_capture=capture,
+            checkpoint_restore=restore,
+        )
+        registration = scenario.environments["world"].layers["agents"]
+        registration.seed_item_deltas_from_state(registration.build_state())
+
+        scenario.server.send = AsyncMock()  # type: ignore[method-assign]
+        ws = object()
+        await scenario._on_scene_capture(ws, {"request_id": "capture-cache"})
+        checkpoint = scenario.server.send.await_args.args[2]["checkpoint"]
+
+        agents[0] = {"id": "a1", "x": 2}
+        _, pre_restore_updates, _ = registration.build_item_deltas()
+        assert pre_restore_updates == [{"id": "a1", "x": 2}]
+
+        await scenario._on_scene_restore(
+            ws,
+            {
+                "request_id": "restore-cache",
+                "model_id": scenario.model_id,
+                "checkpoint": checkpoint,
+            },
+        )
+        assert agents == [{"id": "a1", "x": 1}]
+
+        agents[0] = {"id": "a1", "x": 2}
+        _, post_restore_updates, _ = registration.build_item_deltas()
+        assert post_restore_updates == [{"id": "a1", "x": 2}]
+
     def test_chart_sync_preserves_flat_group_inventory(self):
         group = ChartGroupMetadata(
             id="population-group",

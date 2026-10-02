@@ -9,7 +9,7 @@ import {
   type SnapshotArchive,
   type SnapshotModelIdentity,
 } from '@tensnap/core/snapshot';
-import { encodeBytesAsDataUrl, encodeMessagePack, ProtocolCodec } from '@tensnap/protocol';
+import { encodeBytesAsDataUrl, encodeMessagePack, PROTOCOL_VERSION, ProtocolCodec } from '@tensnap/protocol';
 import { encodeSnapshotArchivesInWorker } from '@/workers/snapshot-archive';
 import {
   ActionResultPayloadSchema,
@@ -112,7 +112,7 @@ const SnapshotMetadataSchema = z.object({
   // Accept existing files and normalize them back to the optional shape.
   endedAt: z.number().nullable().optional().transform((value) => value ?? undefined),
   label: z.string().nullable().optional().transform((value) => value ?? undefined),
-  protocol_version: z.literal('0.3').optional(),
+  protocol_version: z.literal(PROTOCOL_VERSION).optional(),
   model_identity: SnapshotModelIdentitySchema.optional(),
   checkpoint: SnapshotCheckpointSchema.optional(),
 });
@@ -375,7 +375,7 @@ function migrateRecordingSnapshot(value: unknown): Snapshot {
   const migrated = {
     ...source,
     version: 1,
-    metadata: { ...metadata, protocol_version: '0.3' },
+    metadata: { ...metadata, protocol_version: PROTOCOL_VERSION },
     initial: migrateKeyframe(source.initial),
     keyframes: source.keyframes.map(migrateKeyframe),
     frames,

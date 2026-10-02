@@ -1,19 +1,31 @@
 # tensnap/examples/flock.py
-"""Pure flocking simulation without any visualization dependencies"""
+"""Pure flocking simulation without any visualization dependencies."""
 
-import random
+import json
 import math
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
+import random
+from dataclasses import asdict, dataclass, fields
+from typing import Any
 
 from tensnap import (
     agent,
-    env,
     agent_layer,
+    checkpoint,
+    env,
     grid_layer,
+    layer_restore,
+    monitor,
     params,
+    scene_restore,
     trajectory_layer,
 )
+
+
+def _nested_tuple(value: Any) -> Any:
+    """Rebuild tuple-based ``random.Random`` state after JSON decoding."""
+    if isinstance(value, list):
+        return tuple(_nested_tuple(item) for item in value)
+    return value
 
 
 @params(exclude=r"world_.+")
@@ -35,9 +47,7 @@ class FlockConfig:
 class Bird:
     """A single bird agent in the flock"""
 
-    def __init__(
-        self, bird_id: str, x: float, y: float, heading: Optional[float] = None
-    ):
+    def __init__(self, bird_id: str, x: float, y: float, heading: float | None = None):
         self.id = bird_id
         self.x = x
         self.y = y
@@ -46,6 +56,26 @@ class Bird:
         )
         self.vx = math.cos(self.heading) * random.uniform(0.2, 0.6)
         self.vy = math.sin(self.heading) * random.uniform(0.2, 0.6)
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        bird_id: str,
+        x: float,
+        y: float,
+        heading: float,
+        vx: float,
+        vy: float,
+    ) -> "Bird":
+        """Rebuild a bird without consuming RNG state during restore."""
+        bird = cls.__new__(cls)
+        bird.id = bird_id
+        bird.x = x
+        bird.y = y
+        bird.heading = heading
+        bird.vx = vx
+        bird.vy = vy
+        return bird
 
     def get_speed(self) -> float:
         """Get current speed of the bird"""
@@ -62,7 +92,7 @@ class Bird:
             self.heading = math.atan2(self.vy, self.vx)
 
     @property
-    def data(self) -> Dict[str, Any]:
+    def data(self) -> dict[str, Any]:
         return {
             "vx": self.vx,
             "vy": self.vy,
@@ -70,6 +100,21 @@ class Bird:
         }
 
 
+@checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
+@scene_restore(time="restore_time")
+@layer_restore(
+    replace="restore_trajectory",
+    metadata="restore_trajectory_metadata",
+    layer_id="trails",
+)
+@layer_restore(
+    create="create_bird",
+    update="update_bird_from_item",
+    delete="delete_bird",
+    metadata="restore_space_metadata",
+    layer_id="birds",
+)
+@layer_restore(metadata="restore_space_metadata", layer_id="grid")
 @trajectory_layer(
     agent_layer_id="birds",
     width=False,
@@ -85,9 +130,9 @@ class Bird:
 class FlockSimulation:
     """Main flocking simulation class"""
 
-    def __init__(self, config: Optional[FlockConfig] = None):
+    def __init__(self, config: FlockConfig | None = None):
         self.config = config or FlockConfig()
-        self.birds: List[Bird] = []
+        self.birds: list[Bird] = []
         self.time_step = 0
 
     @property
@@ -113,6 +158,111 @@ class FlockSimulation:
             y = center_y + random.uniform(-spawn_radius, spawn_radius)
             bird = Bird(f"bird_{i}", x, y)
             self.birds.append(bird)
+
+    @monitor("flock_status", "Flock Status", render_hint="tree")
+    def flock_status(self) -> dict[str, Any]:
+        """Expose the latest model-wide diagnostics without chart history."""
+        return {
+            "step": self.time_step,
+            "birds": len(self.birds),
+            "average_speed": self.get_average_speed(),
+            "order_parameter": self.get_order_parameter(),
+        }
+
+    def capture_checkpoint(self) -> bytes:
+        """Capture exact model-private state for v0.3 snapshot restore."""
+        checkpoint = {
+            "config": asdict(self.config),
+            "time_step": self.time_step,
+            "birds": [
+                {
+                    "id": bird.id,
+                    "x": bird.x,
+                    "y": bird.y,
+                    "heading": bird.heading,
+                    "vx": bird.vx,
+                    "vy": bird.vy,
+                }
+                for bird in self.birds
+            ],
+            "random_state": random.getstate(),
+        }
+        return json.dumps(checkpoint, separators=(",", ":")).encode("utf-8")
+
+    def restore_checkpoint(self, checkpoint: bytes) -> None:
+        """Restore a checkpoint produced by :meth:`capture_checkpoint`."""
+        if not isinstance(checkpoint, (bytes, bytearray, memoryview)):
+            raise TypeError("flock checkpoint must be bytes")
+
+        state = json.loads(bytes(checkpoint).decode("utf-8"))
+        config_state = state["config"]
+        for field in fields(FlockConfig):
+            setattr(self.config, field.name, config_state[field.name])
+
+        birds: list[Bird] = []
+        seen_ids: set[str] = set()
+        for item in state["birds"]:
+            bird_id = str(item["id"])
+            if bird_id in seen_ids:
+                raise ValueError(f"duplicate bird id in checkpoint: {bird_id}")
+            seen_ids.add(bird_id)
+            bird = Bird.from_snapshot(
+                bird_id,
+                float(item["x"]),
+                float(item["y"]),
+                float(item["heading"]),
+                float(item["vx"]),
+                float(item["vy"]),
+            )
+            birds.append(bird)
+
+        self.birds = birds
+        self.time_step = int(state["time_step"])
+        random.setstate(_nested_tuple(state["random_state"]))
+
+    def restore_space_metadata(self, metadata: dict[str, Any]) -> None:
+        """Grid and agent dimensions are derived from the restored config."""
+        for key, expected in (("width", self.width), ("height", self.height)):
+            if key in metadata and metadata[key] != expected:
+                raise ValueError(f"flock {key} disagrees with the restored config")
+
+    def restore_trajectory_metadata(self, metadata: dict[str, Any]) -> None:
+        """The trajectory definition is static; its trace lives in the renderer."""
+        if metadata.get("length", 5) != 5:
+            raise ValueError("flock trajectory length is fixed at 5")
+
+    def restore_trajectory(self, items: list[dict[str, Any]]) -> None:
+        if items:
+            raise ValueError("flock trajectory has no model-owned items")
+
+    @staticmethod
+    def _bird_from_item(item: dict[str, Any]) -> Bird:
+        data = item.get("data") or {}
+        return Bird.from_snapshot(
+            str(item["id"]),
+            float(item["x"]),
+            float(item["y"]),
+            float(item["heading"]),
+            float(data["vx"]),
+            float(data["vy"]),
+        )
+
+    def create_bird(self, item: dict[str, Any]) -> None:
+        self.birds.append(self._bird_from_item(item))
+
+    def update_bird_from_item(self, item: dict[str, Any]) -> None:
+        replacement = self._bird_from_item(item)
+        for index, bird in enumerate(self.birds):
+            if bird.id == replacement.id:
+                self.birds[index] = replacement
+                return
+        raise ValueError(f"unknown bird: {replacement.id}")
+
+    def delete_bird(self, key: dict[str, Any]) -> None:
+        self.birds = [bird for bird in self.birds if bird.id != key["id"]]
+
+    def restore_time(self, time: float) -> None:
+        self.time_step = int(time)
 
     def update_bird(self, bird: Bird) -> None:
         """Update a single bird using flocking rules"""

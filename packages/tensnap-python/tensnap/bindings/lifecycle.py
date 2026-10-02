@@ -18,8 +18,10 @@ from .basic.parameter import (
     get_parameter_metadata_from_object,
     unwrap_annotated_type,
 )
-from .mesa.utils import cleanup_mesa_model_step as _cleanup_mesa_model_step
-from .mesa.utils import is_mesa_model_class
+from .mesa.utils import (
+    cleanup_mesa_model_step as _cleanup_mesa_model_step,
+    is_mesa_model_class,
+)
 
 if TYPE_CHECKING:
     from tensnap.scenario import SimulationScenario
@@ -467,7 +469,7 @@ class BoundModelReinitializer:
         *,
         registered: RegistryChanges | None = None,
         register_model: RegisterModelCallback | None = None,
-        cleanup: CleanupCallback | Iterable[CleanupCallback] | None | object = _DEFAULT,
+        cleanup: CleanupCallback | Iterable[CleanupCallback] | object | None = _DEFAULT,
     ) -> None:
         if register_model is None:
 

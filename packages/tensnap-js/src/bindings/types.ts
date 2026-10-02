@@ -145,6 +145,11 @@ export interface ModelBuilderOptions<TConfig extends object, TModel> {
   stop?(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
   /** Projected restore strategy. Imperative and declarative layer restore cannot be mixed implicitly. */
   sceneRestore?: SceneRestoreOptions<TConfig, TModel>;
+  /** Paired exact-state hooks; prefer this over separate legacy callbacks. */
+  checkpoint?: {
+    capture(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<CheckpointData>;
+    restore(model: TModel, data: CheckpointData, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  };
   /** Opt-in exact checkpoint restore. Called before projected state restoration. */
   restoreCheckpoint?(
     model: TModel,
@@ -254,12 +259,12 @@ export type LayerProjector<TModel, TItem extends object> =
  * computes C/U/D from stable keys; callbacks mutate only model-owned state.
  */
 export interface LayerRestoreOptions<TModel> {
-  /** Optional current key inventory. Omitted uses this layer's `items` projection and `key`. */
-  itemIds?(model: TModel): Iterable<ItemDeleteKey>;
   /** Validate the complete inbound layer before any restore callback mutates the model. */
   validate?(model: TModel, layer: RestorableLayer): MaybePromise<void>;
   /** Apply complete layer metadata before item mutations. */
   restoreMetadata?(model: TModel, metadata: Record<string, ProtocolValue>): MaybePromise<void>;
+  /** Replace all model-owned items at once, for array-backed state. */
+  replace?(model: TModel, items: readonly Record<string, ProtocolValue>[]): MaybePromise<void>;
   create?(model: TModel, item: Record<string, ProtocolValue>, key: ItemDeleteKey): MaybePromise<void>;
   update?(model: TModel, key: ItemDeleteKey, item: Record<string, ProtocolValue>): MaybePromise<void>;
   delete?(model: TModel, key: ItemDeleteKey): MaybePromise<void>;

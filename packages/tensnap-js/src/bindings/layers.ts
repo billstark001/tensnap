@@ -40,7 +40,11 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
     id: string,
     options: Omit<LayerOptions<TModel, TItem>, 'type'> = {},
   ): this {
-    return this.layer(id, { ...options, type: 'edge' });
+    return this.layer(id, {
+      ...options,
+      type: 'edge',
+      dependencyLayerIds: { agent: 'agents', ...options.dependencyLayerIds },
+    });
   }
 
   trajectoryLayer<TItem extends object = ItemRecord>(
@@ -61,6 +65,7 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
     return this.layer(id, {
       ...layerOptions,
       type: 'trajectory',
+      dependencyLayerIds: { agent: 'agents', ...layerOptions.dependencyLayerIds },
       metadata: (model) => ({
         ...(typeof metadata === 'function' ? metadata(model) : metadata),
         ...(length === undefined ? {} : { length }),

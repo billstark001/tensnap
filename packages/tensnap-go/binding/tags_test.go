@@ -18,10 +18,11 @@ type taggedModel struct {
 }
 
 type taggedAgent struct {
-	ID string `tensnap:"id"`
-	X  int    `tensnap:"x"`
-	Y  int    `tensnap:"y"`
-	Z  int
+	ID    string `tensnap:"id"`
+	X     int    `tensnap:"x"`
+	Y     int    `tensnap:"y"`
+	State string `tensnap:"state,scope=data"`
+	Z     int
 }
 
 func TestParamsFromTagsUsesScopeAndPointerRoot(t *testing.T) {
@@ -52,15 +53,38 @@ func TestParamsFromTagsUsesScopeAndPointerRoot(t *testing.T) {
 
 func TestProjectTagsUsesDefaultScopeAndIgnoresUntaggedFields(t *testing.T) {
 	project := ProjectTagsRequired[*taggedModel, taggedAgent]([]string{"id", "x", "y"})
-	snapshot := project(&taggedModel{}, taggedAgent{ID: "a", X: 1, Y: 2, Z: 3})
-	if len(snapshot) != 3 {
-		t.Fatalf("snapshot len = %d, want 3: %#v", len(snapshot), snapshot)
+	snapshot := project(&taggedModel{}, taggedAgent{ID: "a", X: 1, Y: 2, State: "infected", Z: 3})
+	if len(snapshot) != 4 {
+		t.Fatalf("snapshot len = %d, want 4: %#v", len(snapshot), snapshot)
 	}
 	if snapshot["id"] != "a" || snapshot["x"] != 1 || snapshot["y"] != 2 {
 		t.Fatalf("unexpected snapshot: %#v", snapshot)
 	}
 	if _, ok := snapshot["z"]; ok {
 		t.Fatalf("untagged field z should not be projected: %#v", snapshot)
+	}
+	if data, ok := snapshot["data"].(map[string]any); !ok || data["state"] != "infected" {
+		t.Fatalf("data-scoped field was not nested: %#v", snapshot)
+	}
+}
+
+func TestFixedTaggedParameterAcceptsOnlyItsCurrentValue(t *testing.T) {
+	type fixedConfig struct {
+		Rows int `tensnap:"id=rows,min=1,max=100,step=1,fixed=true"`
+	}
+	type fixedModel struct{ Config fixedConfig }
+	model := &fixedModel{Config: fixedConfig{Rows: 8}}
+	params := MustParamsFromTags(func(m *fixedModel) *fixedConfig { return &m.Config })
+	metadata := params[0].Metadata(model)
+	definition := metadata.Definition.(protocol.NumberParameter)
+	if definition.AllowRuntimeChange == nil || *definition.AllowRuntimeChange {
+		t.Fatalf("fixed parameter must be marked non-runtime: %#v", definition)
+	}
+	if err := metadata.OnSet(8.0); err != nil {
+		t.Fatalf("current value was rejected: %v", err)
+	}
+	if err := metadata.OnSet(9.0); err == nil || model.Config.Rows != 8 {
+		t.Fatalf("fixed parameter changed: rows=%d, error=%v", model.Config.Rows, err)
 	}
 }
 

@@ -12,6 +12,8 @@ from typing import (
 
 from typing_extensions import NotRequired, TypedDict
 
+from tensnap.utils.layer_topology import order_layers
+
 if TYPE_CHECKING:
     from .layer import LayerRegistration
 
@@ -84,6 +86,7 @@ class EnvironmentRegistration:
     layers: dict[str, LayerRegistration[Any, Any, Any, Any]] = field(
         default_factory=dict
     )
+    _topology_ready: bool = False
 
     @property
     def id(self) -> str:
@@ -95,14 +98,35 @@ class EnvironmentRegistration:
 
     def add_layer(self, layer: LayerRegistration[Any, Any, Any, Any]) -> None:
         self.layers[layer.binding.layer_id] = layer
+        self.invalidate_topology()
 
     def remove_layer(self, layer_id: str) -> None:
         self.layers.pop(layer_id, None)
+        self.invalidate_topology()
 
     def clear_layers(self) -> None:
         self.layers.clear()
+        self.invalidate_topology()
+
+    def invalidate_topology(self) -> None:
+        """Mark compiled order stale after a supported registry mutation."""
+        self._topology_ready = False
+
+    def ensure_topology(self) -> None:
+        """Validate and compile dependency order once per registry change."""
+        if self._topology_ready:
+            return
+        ordered = order_layers(
+            self.layers.values(),
+            lambda layer: layer.binding.layer_id,
+            lambda layer: layer.binding.dependency_layer_ids,
+            lambda layer: layer.binding.layer_type,
+        )
+        self.layers = {layer.binding.layer_id: layer for layer in ordered}
+        self._topology_ready = True
 
     def build_state(self, *, include_items: bool = True) -> EnvironmentState:
+        self.ensure_topology()
         return {
             "id": self.binding.id,
             "type": self.binding.type,

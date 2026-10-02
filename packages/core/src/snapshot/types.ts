@@ -4,6 +4,7 @@ import type {
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
+import type { PROTOCOL_VERSION } from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '../scenario';
 
 /** A complete, directly loadable Scenario state at a point in a recording. */
@@ -35,7 +36,7 @@ export interface SnapshotMetadata {
   endedAt?: number;
   label?: string;
   /** Wire semantics used by frames before this snapshot was persisted. */
-  protocol_version?: '0.3';
+  protocol_version?: typeof PROTOCOL_VERSION;
   /** Immutable simulator identity that produced this snapshot. */
   model_identity?: SnapshotModelIdentity;
   /** Optional exact model-state capture for checkpoint-capable simulators. */

@@ -238,9 +238,22 @@ upsert.
 
 ### Scene restore and checkpoints
 
+Binding ownership, layer dependency direction, and one-time topology
+validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+
 ```julia
+agents = agents_layer("agents", model -> values(model.agents);
+    restore = (
+        create = (item, model) -> create_agent!(model, item),
+        update = (item, model) -> update_agent!(model, item),
+        delete = (item, model) -> delete_agent!(model, item),
+    ))
 hooks = restore_hooks(
-    payload -> restore_projected!(model, payload);
+    scene_restore(
+        time = (value, model) -> (model.time = value),
+        before_apply = (payload, model) -> prepare_model!(model, payload),
+        after_apply = (payload, model) -> rebuild_indices!(model, payload),
+    );
     checkpoint_capture = _ -> snapshot(model),
     checkpoint_restore = data -> restore_snapshot!(model, data),
 )
@@ -249,7 +262,16 @@ scenario = Scenario(
     state_schema_version = "1",
     restore_hooks = hooks,
 )
+add_environment!(scenario, environment("main"; layers = [agents]))
 ```
+
+The layer's existing projection and `item_key_fields` determine current item
+identity. `restore = (replace = (items, model) -> ..., )` restores an array-backed
+layer; `metadata = ...` handles layer metadata. The binding validates topology,
+parameters, and duplicate keys before mutation. Omit `time` if only the
+scenario owns time. `before_apply` and `after_apply` receive the payload and
+model around parameter, layer, and time mutation. A whole-payload function
+remains supported by `restore_hooks`.
 
 Checkpoint callbacks work with model data only. Byte vectors use
 `application/octet-stream`; other protocol data uses MessagePack. JSON clients

@@ -15,7 +15,7 @@ import type {
   StateSyncEndPayload,
   StateSyncRequest,
 } from '@tensnap/protocol';
-import { ProtocolValidationError } from '@tensnap/protocol';
+import { PROTOCOL_VERSION, ProtocolValidationError } from '@tensnap/protocol';
 import { Scenario } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import type { DiagnosticEvent } from '../diagnostics';
@@ -147,7 +147,7 @@ const rendererToSimulatorMessageTypes = new Set<string>([
  * transport after that transport has selected legacy mode.
  */
 const LEGACY_SIMULATOR_INFO: SimulatorInfoPayload = {
-  protocol_version: '0.3',
+  protocol_version: PROTOCOL_VERSION,
   binding: { name: 'legacy', version: '0.2' },
   model: { id: 'legacy' },
   instance_id: 'legacy',

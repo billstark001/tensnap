@@ -14,3 +14,4 @@ const SERVER_MESSAGE_TYPES = Set([
 
 struct _UnsetValue end
 const _UNSET = _UnsetValue()
+const PROTOCOL_VERSION = "0.3"

@@ -71,6 +71,8 @@ end
 		"id" => "status", "label" => "Status", "render_hint" => "tree",
 	)
 	info = TenSnap._simulator_info_payload(scenario)
+	@test info["binding"]["version"] == string(pkgversion(TenSnap))
+	@test info["protocol_version"] == TenSnap.PROTOCOL_VERSION
 	@test info["capabilities"] == ["monitor", "scene.restore.checkpoint", "scene.restore.projected"]
 	TenSnap._call0or1(scenario.checkpoint_restore, 5)
 	TenSnap._call0or1(scenario.scene_restore, Dict("time" => 5))
@@ -96,6 +98,82 @@ end
 	TenSnap._call0or1(scenario.checkpoint_restore, 7)
 	@test state[] == 7
 	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 7
+end
+
+@testset "composed projected restore" begin
+	model = Dict{String, Any}("agents" => Dict("old" => Dict("id" => "old", "x" => 1)), "time" => 0)
+	phases = String[]
+	fail_before = Ref(false)
+	plan = scene_restore(
+		before_apply = (payload, m) -> begin
+			push!(phases, "before")
+			@test payload["time"] == 7
+			@test haskey(m["agents"], "old")
+			fail_before[] && error("before failed")
+		end,
+		time = (value, m) -> begin
+			push!(phases, "time")
+			m["time"] = value
+		end,
+		after_apply = (payload, m) -> begin
+			push!(phases, "after")
+			@test payload["time"] == 7
+			@test haskey(m["agents"], "new")
+			@test m["time"] == 7
+		end,
+	)
+	scenario = Scenario(model_id = "composed", restore_hooks = restore_hooks(plan))
+	register_model!(scenario, model)
+	add_environment!(scenario, environment("main"; layers = [
+		layer("agents", "agent", m -> collect(values(m["agents"])); item_key_fields = ["id"],
+            restore = (create = (item, m) -> (m["agents"][item["id"]] = item),
+                update = (item, m) -> (m["agents"][item["id"]] = item),
+                delete = (item, m) -> delete!(m["agents"], item["id"]))),
+	]))
+	@test "scene.restore.projected" in TenSnap._simulator_info_payload(scenario)["capabilities"]
+	base = Dict{String, Any}("model_id" => "composed", "time" => 7,
+		"envs" => [Dict("id" => "main", "type" => "2d", "layers" => [
+			Dict("layer_id" => "agents", "layer_type" => "agent",
+				"items" => [Dict("id" => "new", "x" => 3)]),
+		])])
+	bad = deepcopy(base)
+	push!(bad["envs"][1]["layers"][1]["items"], Dict("id" => "new", "x" => 4))
+	@test_throws ErrorException TenSnap._validate_projected_restore(scenario, bad)
+	@test haskey(model["agents"], "old")
+	@test isempty(phases)
+	fail_before[] = true
+	@test_throws ErrorException TenSnap._apply_projected_restore!(scenario, base)
+	@test phases == ["before"]
+	@test haskey(model["agents"], "old")
+	fail_before[] = false
+	empty!(phases)
+	TenSnap._validate_projected_restore(scenario, base)
+	TenSnap._apply_projected_restore!(scenario, base)
+	@test collect(keys(model["agents"])) == ["new"]
+	@test model["agents"]["new"]["x"] == 3
+	@test model["time"] == 7
+	@test phases == ["before", "time", "after"]
+end
+
+@testset "layer restore metadata stays with its declared layer" begin
+	model = Dict{String, Any}("left" => "", "right" => "")
+	scenario = Scenario(model_id = "two-grids", restore_hooks = restore_hooks(scene_restore()))
+	register_model!(scenario, model)
+	add_environment!(scenario, environment("main"; layers = [
+		grid_layer("right", _ -> Any[];
+			restore = (metadata = (data, m) -> (m["right"] = data["marker"]),)),
+		grid_layer("left", _ -> Any[];
+			restore = (metadata = (data, m) -> (m["left"] = data["marker"]),)),
+	]))
+	payload = Dict{String, Any}("model_id" => "two-grids", "envs" => [
+		Dict("id" => "main", "type" => "2d", "layers" => [
+			Dict("layer_id" => "left", "layer_type" => "grid", "metadata" => Dict("marker" => "L")),
+			Dict("layer_id" => "right", "layer_type" => "grid", "metadata" => Dict("marker" => "R")),
+		]),
+	])
+	TenSnap._apply_projected_restore!(scenario, payload)
+	@test model["left"] == "L"
+	@test model["right"] == "R"
 end
 
 @testset "declarative parameters from fields" begin

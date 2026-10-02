@@ -6,6 +6,10 @@ from collections.abc import Callable
 from typing import Any, TypeVar, cast
 
 from tensnap.models.monitor import MonitorMetadata
+from tensnap.utils.member_metadata import (
+    attach_member_metadata,
+    read_member_metadata,
+)
 from tensnap.utils.object import infer_id_from_func_name
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -29,7 +33,7 @@ def monitor(
             label=label or "",
             render_hint=render_hint,
         )
-        setattr(getter, _TENSNAP_MONITOR_FIELD, metadata)
+        attach_member_metadata(value, _TENSNAP_MONITOR_FIELD, metadata, "@monitor")
         return value
 
     return decorator
@@ -44,8 +48,8 @@ def get_monitor_metadata_from_namespace(
         if name.startswith("__") and name.endswith("__"):
             continue
         getter = value.fget if isinstance(value, property) else value
-        metadata = getattr(getter, _TENSNAP_MONITOR_FIELD, None)
-        if callable(getter) and isinstance(metadata, MonitorMetadata):
+        metadata = read_member_metadata(value, _TENSNAP_MONITOR_FIELD, MonitorMetadata)
+        if callable(getter) and metadata is not None:
             monitors.append((name, cast(Callable[..., Any], getter), metadata))
     return monitors
 

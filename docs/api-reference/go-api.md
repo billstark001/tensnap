@@ -127,6 +127,8 @@ Important helpers:
 - `binding.NewChart`: single-series chart metadata plus getter.
 - `binding.NewChartSeries` and `binding.NewChartGroup`: grouped chart metadata
   plus per-series getters.
+- `binding.WithTypedCheckpoint`: pair typed snapshot and restore methods while
+  the binding handles the decoded checkpoint's JSON conversion.
 
 Use `binding` when you want Python-style declarations. Use `abm` directly when
 you want full imperative control. Mixed models are expected: an agent layer can
@@ -291,7 +293,7 @@ The adapter owns only the pieces registered through its options:
 - environments and layers: optional `WithEnvs`
 - charts: optional `WithCharts`
 - monitors: optional `WithMonitors`
-- projected/checkpoint restore: `WithSceneRestore`, `WithCheckpointCapture`, and `WithCheckpointRestore`
+- projected/checkpoint restore: layer `Restore` and `WithCheckpoint` (or the existing individual hooks)
 
 By default it registers continuous `start` plus one-shot `step` and `reset`,
 replays owned scenario pieces during setup/state-sync, computes item diffs for
@@ -338,6 +340,19 @@ binding.MustParamsFromTags(
     func(m *MyModel) *Config { return &m.Config },
     binding.TagScope("param"),
 )
+```
+
+Use `fixed=true` on a parameter that must keep its construction-time value.
+The binding marks it as unavailable for runtime edits and accepts that value
+when a projected snapshot restores the parameter list. A different value is
+rejected. An item field tagged with `scope=data` is projected inside the
+agent's `data` record:
+
+```go
+type Person struct {
+    ID    int    `tensnap:"id"`
+    State string `tensnap:"state,scope=data"`
+}
 ```
 
 ## Incremental Item Diffing
@@ -391,6 +406,9 @@ fluent fields take precedence.
 
 ## Monitors and scene restore
 
+Binding ownership, layer dependency direction, and one-time topology
+validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+
 `WithMonitors(...)` declares current values with `monitor_create` and
 `monitor_update`. Low-level `Emitter` methods provide the complete
 `MonitorCreate`, `MonitorUpdate`, and `MonitorDelete` surface. Metadata
@@ -410,6 +428,34 @@ bound := binding.NewModel(raw,
     binding.WithCheckpointRestore(func(m *Model, data any) error { return m.Restore(data) }),
 )
 ```
+
+For a declarative projected inverse, call `Restore` on the layer builder.
+The binding reads current records through that layer's `Items` and `Project`
+functions and uses its built-in item key fields. `Replace` handles an
+array-backed layer; grid and background layers can restore metadata alone.
+Model-wide hooks are `WithRestoreTime`, `WithRestoreValidation`,
+`WithBeforeRestore`, and `WithAfterRestore`. The before/after hooks receive the
+model and restore payload. They run around parameter, layer, and time mutation,
+after the complete payload has been validated.
+
+```go
+agents := binding.NewAgentLayer[*Model, Agent]("agents").
+    Items(func(m *Model) []Agent { return m.Agents }).
+    Project(projectAgent).
+    Restore(binding.RestoreLayer[*Model]{
+        Create: createAgent, Update: updateAgent, Delete: deleteAgent,
+    })
+bound := binding.NewModel(raw,
+    binding.WithEnvs(binding.NewEnv("main", agents)),
+    binding.WithRestoreTime(restoreTime),
+    binding.WithBeforeRestore(prepareModel),
+    binding.WithAfterRestore(rebuildIndices),
+    binding.WithCheckpoint(captureCheckpoint, restoreCheckpoint),
+)
+```
+
+Keep a stable `state_schema_version` for checkpoint compatibility. The older
+`WithSceneRestore` whole-payload callback remains available.
 
 The JSON binding infers `application/octet-stream` for `[]byte` and
 `application/json` for other values, then owns base64 encoding/decoding. A

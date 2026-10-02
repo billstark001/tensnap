@@ -75,6 +75,7 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     layer_type: str
     item_keys: tuple[TItemFieldKeys, ...]
     dependency_layer_ids: dict[str, str] = field(default_factory=dict)
+    restore: Any = field(default=None, kw_only=True)
 
     metadata_projector: AttrProjector[TLayer, TLayerFieldKeys] | None = None
 

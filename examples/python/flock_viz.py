@@ -6,30 +6,38 @@ import os
 
 # Configure import path (pip-installed vs source)
 import import_config  # noqa: F401
-
+from flock import FlockConfig, FlockSimulation
 from tensnap import (
-    chart,
     SimulationScenario,
+    chart,
 )
 
-from flock import FlockSimulation, FlockConfig
-
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
-scenario = SimulationScenario(port=server_port)
+scenario = SimulationScenario(
+    port=server_port,
+    model_id="examples.python.flock",
+    state_schema_version="1",
+)
 
 config = FlockConfig()
 model = FlockSimulation(config)
 
 
-# Chart functions
-@chart("average_speed", "Average Speed", color="#2ECC71")
-def calculate_average_speed() -> float:
-    return model.get_average_speed()
-
-
-@chart("order_parameter", "Flock Order Parameter", color="#E74C3C")
-def calculate_order_parameter() -> float:
-    return model.get_order_parameter()
+# These two model-wide dynamics share a chart group. Returning a dict keyed by
+# series id also keeps this example compatible with older v0.3 installations.
+@chart(
+    "average_speed",
+    "Flock Dynamics",
+    data_list=[
+        ("average_speed", "#2ECC71", "Average Speed"),
+        ("order_parameter", "#E74C3C", "Flock Order Parameter"),
+    ],
+)
+def calculate_flock_dynamics() -> dict[str, float]:
+    return {
+        "average_speed": model.get_average_speed(),
+        "order_parameter": model.get_order_parameter(),
+    }
 
 
 # Main function
@@ -41,7 +49,6 @@ async def main() -> None:
     scenario.add_all(model)
     scenario.add_all(config)
     scenario.add_all(globals())
-
     await scenario.register_model_handler(
         model.initialize,
         model.step,

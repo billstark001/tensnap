@@ -477,18 +477,27 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'scene' && command === 'capture') {
     const { baseUrl } = await requireRuntime(parsed);
-    const result = await requestJson(baseUrl, '/v1/scene/capture', { method: 'POST' });
+    const result = await requestJson(baseUrl, '/v1/scene/capture', { method: 'POST' }) as Record<string, unknown>;
+    const status = await requestJson(baseUrl, '/v1/runtime/status') as { simulatorCapabilities?: string[] };
+    const scene = status.simulatorCapabilities?.includes('scene.restore.projected')
+      ? await requestJson(baseUrl, '/v1/scene/snapshot') as { snapshot?: { metadata?: { time?: unknown } } }
+      : undefined;
+    const capturedTime = scene?.snapshot?.metadata?.time;
+    const capture = typeof capturedTime === 'number' && Number.isFinite(capturedTime)
+      ? { ...result, time: capturedTime }
+      : result;
     const outputPath = getStringFlag(parsed, 'output');
     if (outputPath) {
-      await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+      await writeFile(outputPath, `${JSON.stringify(capture, null, 2)}\n`, 'utf8');
     }
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(capture, null, 2));
     return;
   }
 
   if (group === 'scene' && command === 'restore') {
     const checkpointPath = getStringFlag(parsed, 'checkpoint');
     const input: Record<string, unknown> = {};
+    let capturedTime: number | undefined;
     if (checkpointPath) {
       let parsedCheckpoint: unknown;
       try {
@@ -501,9 +510,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       }
       const record = parsedCheckpoint as Record<string, unknown>;
       input.checkpoint = record.checkpoint ?? record;
+      if (typeof record.time === 'number' && Number.isFinite(record.time)) capturedTime = record.time;
     }
     const time = getNumberFlag(parsed, 'time');
-    if (time !== undefined) input.time = time;
+    if (time !== undefined || capturedTime !== undefined) input.time = time ?? capturedTime;
     const parameters = getStringFlag(parsed, 'parameters');
     if (parameters !== undefined) input.parameters = parseJsonValue(parameters);
     const envs = getStringFlag(parsed, 'envs');

@@ -9,21 +9,22 @@ import type {
   ScenarioEnvironmentDefinition,
   ScenarioLayerDefinition,
 } from '../scenario';
+import { cloneChartGroupMetadata, cloneLayerDefinition } from '../scenario/definitionHelpers';
+import { orderLayers } from '../scenario/layerTopology';
 
 export function defineLayer<TLayer extends ScenarioLayerDefinition>(layer: TLayer): TLayer {
-  return {
-    ...layer,
-    dependencyLayerIds: { ...(layer.dependencyLayerIds ?? {}) },
-    metadata: { ...(layer.metadata ?? {}) },
-  };
+  return cloneLayerDefinition(layer);
 }
 
 export function defineEnvironment<TEnvironment extends ScenarioEnvironmentDefinition>(
   environment: TEnvironment,
 ): TEnvironment {
+  const layers = environment.layers?.map((layer) => defineLayer(layer));
   return {
     ...environment,
-    layers: environment.layers?.map((layer) => defineLayer(layer)),
+    layers: layers && orderLayers(environment.id, layers,
+      (layer) => layer.layerId, (layer) => layer.layerType,
+      (layer) => layer.dependencyLayerIds),
   };
 }
 
@@ -42,10 +43,7 @@ export function defineActions<const TActions extends readonly Action[]>(
 export function defineCharts<const TCharts extends readonly ChartGroupMetadata[]>(
   ...charts: TCharts
 ): TCharts {
-  return charts.map((chart) => ({
-    ...chart,
-    data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
-  })) as unknown as TCharts;
+  return charts.map(cloneChartGroupMetadata) as unknown as TCharts;
 }
 
 export function defineMonitors<const TMonitors extends readonly MonitorMetadata[]>(
@@ -62,10 +60,7 @@ export function defineScenario<TScenario extends ScenarioDefinition>(
     parameters: definition.parameters?.map((parameter) => ({ ...parameter })),
     actions: definition.actions?.map((action) => ({ ...action })),
     environments: definition.environments?.map((environment) => defineEnvironment(environment)),
-    charts: definition.charts?.map((chart) => ({
-      ...chart,
-      data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
-    })),
+    charts: definition.charts?.map(cloneChartGroupMetadata),
     monitors: definition.monitors?.map((monitor) => ({ ...monitor })),
   };
 }

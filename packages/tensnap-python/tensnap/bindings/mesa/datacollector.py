@@ -1,14 +1,16 @@
 # tensnap/bindings/mesa/datacollector.py
 """Utility functions for working with Mesa 3 DataCollector"""
 
-from typing import Any, Dict, List, Type, cast
+from typing import Any, Dict, List, Type
 
+from tensnap.bindings.ownership import attach_class_metadata
 from tensnap.models.chart import (
     ChartGroupMetadata,
     ChartMetadata,
     ChartProperty,
 )
 from tensnap.utils.init_hook import OnceInitHookHandle, install_once_init_hook
+from tensnap.utils.member_metadata import attach_member_metadata
 
 
 def get_registered_collectors(datacollector: Any) -> list[str]:
@@ -52,9 +54,11 @@ def get_registered_agent_collectors(datacollector: Any) -> list[str]:
 def make_latest_data_projector(
     reporter_keys: list[str],
     datacollector_key: str = "datacollector",
+    output_keys: Dict[str, str] | None = None,
 ):
     _closure_datacollector_key = datacollector_key
     _closure_reporter_keys = reporter_keys.copy()
+    _closure_output_keys = dict(output_keys or {})
 
     if len(_closure_reporter_keys) == 1:
         key = _closure_reporter_keys[0]
@@ -74,10 +78,11 @@ def make_latest_data_projector(
         result: Dict[str, Any] = {}
         for key in _closure_reporter_keys:
             values = dc.model_vars.get(key, None)
+            output_key = _closure_output_keys.get(key, key)
             if values:
-                result[key] = values[-1]
+                result[output_key] = values[-1]
             else:
-                result[key] = None
+                result[output_key] = None
         return result
 
     return f
@@ -92,7 +97,6 @@ def _guess_id(name: str) -> str:
 
 
 class BindDataCollectorConfig:
-
     def __init__(
         self,
         collector_key: str = "datacollector",
@@ -109,7 +113,7 @@ class BindDataCollectorConfig:
         self.init_hook_handle: OnceInitHookHandle[Any] | None = None
 
     def __call__(self, cls):
-        cast(Any, cls)._tensnap_bind_datacollector_config = self
+        attach_class_metadata(cls, "_tensnap_bind_datacollector_config", self)
         self.bound_class = cls
         self.init_hook_handle = install_once_init_hook(
             cls,
@@ -178,6 +182,7 @@ class BindDataCollectorConfig:
             func = make_latest_data_projector(
                 reporter_keys=reporters,
                 datacollector_key=self.collector_key,
+                output_keys={reporter: _guess_id(reporter) for reporter in reporters},
             )
             chart_group_metadata = ChartGroupMetadata(
                 id=_guess_id(group_name),
@@ -190,7 +195,9 @@ class BindDataCollectorConfig:
                     for field in reporters
                 ],
             )
-            cast(Any, func)._tensnap_chart = chart_group_metadata
+            attach_member_metadata(
+                func, "_tensnap_chart", chart_group_metadata, "DataCollector chart"
+            )
             chart_property = ChartProperty(chart_group_metadata, func)
 
             func_name = f"get_tensnap_chart_data_{func_id}"

@@ -8,9 +8,21 @@ function _chart_updates(c::Chart, value, t::Int)
 	end
 end
 
+struct _MessagePackBytes
+	data::Vector{UInt8}
+end
+
+MsgPack.msgpack_type(::Type{_MessagePackBytes}) = MsgPack.BinaryType()
+MsgPack.to_msgpack(::MsgPack.BinaryType, bytes::_MessagePackBytes) = bytes.data
+
+_messagepackable(value) = value
+_messagepackable(value::AbstractVector{UInt8}) = _MessagePackBytes(Vector{UInt8}(value))
+_messagepackable(value::AbstractVector) = [_messagepackable(item) for item in value]
+_messagepackable(value::AbstractDict) = Dict(k => _messagepackable(v) for (k, v) in pairs(value))
+
 function _encode(type::String, payload; use_msgpack = false)
 	message = Dict("type" => type, "payload" => _jsonable(payload))
-	return use_msgpack ? MsgPack.pack(message) : JSON3.write(message)
+	return use_msgpack ? MsgPack.pack(_messagepackable(message)) : JSON3.write(message)
 end
 
 function _raw_bytes(raw)

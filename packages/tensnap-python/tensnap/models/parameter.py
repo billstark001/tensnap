@@ -121,7 +121,7 @@ Parameter: TypeAlias = (
 )
 
 
-def create_parameter(
+def create_parameter(  # noqa: PLR0917 - Preserve the public factory signature.
     id: str,
     type: ParameterType,
     label: str | None = None,

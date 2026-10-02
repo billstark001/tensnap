@@ -13,9 +13,13 @@ import type {
   SceneRestorePayload,
 } from '@tensnap/protocol';
 import { decodeBinaryString, decodeMessagePack, encodeMessagePack } from '@tensnap/protocol';
+import { PROTOCOL_VERSION } from '@tensnap/protocol';
+import packageJson from '../../package.json';
 import type { SimulatorSession } from '../runtime';
 import { SimulatorSession as BaseSimulatorSession } from '../runtime';
 import { ScenarioRegistry, type ScenarioDefinition } from '../scenario';
+import { layerCreatePayload } from '../scenario/definitionHelpers';
+import { markCompiledTopology, orderLayers, sameDependencyLayerIds } from '../scenario/layerTopology';
 import { validateActionInvocation } from './actions';
 import { buildScenarioDefinition, getCurrentConfig } from './definition';
 import { projectLayerItems } from './layers';
@@ -41,7 +45,6 @@ import {
   hashAssetData,
   isChartValueEntry,
   resolveItemKey,
-  stableStorageKey,
   textToBytes,
 } from './utils';
 
@@ -211,37 +214,25 @@ export function createBoundSession<TConfig extends object, TModel>(
       if (!prior || prior.type !== environment.type) {
         await session.emitter.envCreate({ id, type: environment.type });
         for (const layer of environment.layers ?? []) {
-          await session.emitter.envLayerCreate({
-            env_id: id,
-            layer_id: layer.layerId,
-            layer_type: layer.layerType,
-            dependency_layer_ids: layer.dependencyLayerIds,
-            metadata: layer.metadata as Record<string, ProtocolData> | undefined,
-          });
+          await session.emitter.envLayerCreate(layerCreatePayload(id, layer));
         }
         continue;
       }
 
       const previousLayers = new Map((prior.layers ?? []).map((layer) => [layer.layerId, layer]));
       const nextLayers = new Map((environment.layers ?? []).map((layer) => [layer.layerId, layer]));
-      for (const [layerId, layer] of previousLayers) {
+      for (const [layerId, layer] of [...previousLayers].reverse()) {
         const next = nextLayers.get(layerId);
         const topologyChanged = next !== undefined && (next.layerType !== layer.layerType
-          || JSON.stringify(next.dependencyLayerIds ?? {}) !== JSON.stringify(layer.dependencyLayerIds ?? {}));
+          || !sameDependencyLayerIds(next.dependencyLayerIds, layer.dependencyLayerIds));
         if (!next || topologyChanged) await session.emitter.envLayerDelete({ env_id: id, layer_id: layerId });
       }
       for (const [layerId, layer] of nextLayers) {
         const priorLayer = previousLayers.get(layerId);
         const topologyChanged = priorLayer !== undefined && (priorLayer.layerType !== layer.layerType
-          || JSON.stringify(priorLayer.dependencyLayerIds ?? {}) !== JSON.stringify(layer.dependencyLayerIds ?? {}));
+          || !sameDependencyLayerIds(priorLayer.dependencyLayerIds, layer.dependencyLayerIds));
         if (!priorLayer || topologyChanged) {
-          await session.emitter.envLayerCreate({
-            env_id: id,
-            layer_id: layerId,
-            layer_type: layer.layerType,
-            dependency_layer_ids: layer.dependencyLayerIds,
-            metadata: layer.metadata as Record<string, ProtocolData> | undefined,
-          });
+          await session.emitter.envLayerCreate(layerCreatePayload(id, layer));
         } else {
           await session.emitter.envLayerUpdate({
             env_id: id,
@@ -281,6 +272,23 @@ export function createBoundSession<TConfig extends object, TModel>(
       const prior = previousMonitors.get(id);
       if (!prior || JSON.stringify(prior) !== JSON.stringify(monitor)) {
         await session.emitter.monitorCreate(monitor);
+      }
+    }
+  };
+
+  const syncChangedLayerMetadata = async (previous: ScenarioDefinition): Promise<void> => {
+    const oldEnvironments = new Map((previous.environments ?? []).map((environment) => [environment.id, environment]));
+    for (const environment of currentDefinition.environments ?? []) {
+      const oldLayers = new Map((oldEnvironments.get(environment.id)?.layers ?? []).map((layer) => [layer.layerId, layer]));
+      for (const layer of environment.layers ?? []) {
+        const old = oldLayers.get(layer.layerId);
+        if (old && JSON.stringify(old.metadata ?? {}) !== JSON.stringify(layer.metadata ?? {})) {
+          await session.emitter.envLayerUpdate({
+            env_id: environment.id,
+            layer_id: layer.layerId,
+            metadata: (layer.metadata ?? {}) as Record<string, ProtocolData>,
+          });
+        }
       }
     }
   };
@@ -339,6 +347,7 @@ export function createBoundSession<TConfig extends object, TModel>(
         ...currentDefinition,
         parameters: nextDefinition.parameters,
       };
+      markCompiledTopology(currentDefinition);
       registry = ScenarioRegistry.from(currentDefinition);
 
       for (const id of targetIds) {
@@ -535,11 +544,13 @@ export function createBoundSession<TConfig extends object, TModel>(
 
   const runStep = async (): Promise<boolean> => {
     if (!binding.options.step) return false;
+    const previousDefinition = currentDefinition;
     const result = await binding.options.step(model, context);
     if (!binding.options.time) {
       fallbackTime += 1;
     }
     rebuildDefinition();
+    await syncChangedLayerMetadata(previousDefinition);
     await pushState(context, 'step', false);
     return result ?? true;
   };
@@ -653,19 +664,10 @@ export function createBoundSession<TConfig extends object, TModel>(
       group.push(plan);
       byEnvironment.set(plan.environmentId, group);
     }
-    for (const group of byEnvironment.values()) {
-      const byLayer = new Map(group.map((plan) => [plan.layerId, plan]));
-      const visited = new Set<string>();
-      const visit = (plan: LayerRestorePlan): void => {
-        if (visited.has(plan.layerId)) return;
-        visited.add(plan.layerId);
-        for (const dependencyId of Object.values(plan.dependencies)) {
-          const dependency = byLayer.get(dependencyId);
-          if (dependency) visit(dependency);
-        }
-        output.push(plan);
-      };
-      for (const plan of group) visit(plan);
+    for (const [environmentId, group] of byEnvironment) {
+      output.push(...orderLayers(environmentId, group,
+        (plan) => plan.layerId, (plan) => plan.inbound.layer_type,
+        (plan) => plan.dependencies));
     }
     return output;
   };
@@ -700,13 +702,14 @@ export function createBoundSession<TConfig extends object, TModel>(
         const declaredLayer = declaredEnvironment?.layers.find((entry) => entry.id === layer.layer_id);
         if (!permitsTopologyChanges && (!declaredLayer
           || declaredLayer.type !== layer.layer_type
-          || JSON.stringify(declaredLayer.dependencyLayerIds ?? {}) !== JSON.stringify(layer.dependency_layer_ids ?? {}))) {
+          || !sameDependencyLayerIds(declaredLayer.dependencyLayerIds, layer.dependency_layer_ids))) {
           return { error: { code: 'invalid_scene_restore', message: `Layer ${environment.id}/${layer.layer_id} does not match the declared topology.` } };
         }
 
         const incoming = new Map<string, { item: Record<string, ProtocolValue>; key: ItemDeleteKey }>();
         for (const item of layer.items ?? []) {
           try {
+            if (declaredLayer?.restore?.replace) continue;
             const key = resolveItemKey(
               item as Record<string, ProtocolValue>,
               item as Record<string, ProtocolValue>,
@@ -735,8 +738,17 @@ export function createBoundSession<TConfig extends object, TModel>(
             },
           };
         }
-        const itemCud = declaredLayer.items !== undefined || layer.items !== undefined;
-        if (itemCud && (!declaredLayer.restore.create || !declaredLayer.restore.update || !declaredLayer.restore.delete)) {
+        const metadataOnly = declaredLayer.type === 'grid' || declaredLayer.type === 'background';
+        if (metadataOnly && (layer.items?.length ?? 0) > 0) {
+          return { error: { code: 'invalid_scene_restore', message: `Metadata-only layer ${environment.id}/${layer.layer_id} has items.` } };
+        }
+        const itemCud = !metadataOnly && (
+          declaredLayer.items !== undefined
+          || (layer.items?.length ?? 0) > 0
+          || ['agent', 'edge', 'trajectory'].includes(declaredLayer.type)
+        );
+        if (itemCud && !declaredLayer.restore.replace
+          && (!declaredLayer.restore.create || !declaredLayer.restore.update || !declaredLayer.restore.delete)) {
           return {
             error: {
               code: 'invalid_scene_restore',
@@ -757,12 +769,8 @@ export function createBoundSession<TConfig extends object, TModel>(
         try {
           if (!itemCud) {
             // Metadata-only layers have no item ownership to reconcile.
-          } else if (declaredLayer.restore.itemIds) {
-            for (const itemKey of declaredLayer.restore.itemIds(model)) {
-              const storageKey = stableStorageKey(itemKey);
-              if (current.has(storageKey)) throw new Error(`Duplicate current item key in ${environment.id}/${layer.layer_id}.`);
-              current.set(storageKey, itemKey);
-            }
+          } else if (declaredLayer.restore.replace) {
+            // A replace callback owns the full collection; no key inventory is needed.
           } else if (declaredLayer.items) {
             const sourceItems = declaredLayer.items(model, { phase: 'sync', full: true });
             const records = projectLayerItems(model, sourceItems, declaredLayer.project);
@@ -772,7 +780,7 @@ export function createBoundSession<TConfig extends object, TModel>(
               current.set(itemKey.storageKey, itemKey.deleteKey);
             });
           } else {
-            throw new Error(`Layer ${environment.id}/${layer.layer_id} must provide restore.itemIds or items for declarative restore.`);
+            throw new Error(`Layer ${environment.id}/${layer.layer_id} must provide items for declarative restore.`);
           }
           await declaredLayer.restore.validate?.(model, layer);
         } catch (error) {
@@ -842,13 +850,17 @@ export function createBoundSession<TConfig extends object, TModel>(
       }
     }
     for (const entry of [...ordered].reverse()) {
-      if (!entry.itemCud) continue;
+      if (!entry.itemCud || entry.restore.replace) continue;
       for (const [storageKey, key] of entry.current) {
         if (!entry.incoming.has(storageKey)) await entry.restore.delete!(model, key);
       }
     }
     for (const entry of ordered) {
       if (!entry.itemCud) continue;
+      if (entry.restore.replace) {
+        await entry.restore.replace(model, (entry.inbound.items ?? []) as Record<string, ProtocolValue>[]);
+        continue;
+      }
       for (const [storageKey, { item, key }] of entry.incoming) {
         if (!entry.current.has(storageKey)) await entry.restore.create!(model, item, key);
       }
@@ -884,8 +896,8 @@ export function createBoundSession<TConfig extends object, TModel>(
 
   session = new BaseSimulatorSession({
     simulatorInfo: {
-      protocol_version: '0.3',
-      binding: { name: 'tensnap-js', version: '0.3.0', language: 'JavaScript' },
+      protocol_version: PROTOCOL_VERSION,
+      binding: { name: 'tensnap-js', version: packageJson.version, language: 'JavaScript' },
       model: {
         id: binding.metadata.id,
         name: binding.metadata.name,
@@ -949,6 +961,7 @@ export function createBoundSession<TConfig extends object, TModel>(
         await session.emitter.error({ code: 'unknown_parameter', message: `Unknown parameter: ${payload.id}.` });
         return;
       }
+      const previousDefinition = currentDefinition;
       const previousConfig = getCurrentConfig(binding, model, initialConfig);
       const previous = parameter.metadata(model, previousConfig);
       const result = await parameter.apply(
@@ -960,6 +973,7 @@ export function createBoundSession<TConfig extends object, TModel>(
       const nextConfig = getCurrentConfig(binding, model, initialConfig);
       const next = parameter.metadata(model, nextConfig);
       rebuildDefinition();
+      await syncChangedLayerMetadata(previousDefinition);
 
       if (!result.accepted || !Object.is(next.value, payload.value)) {
         await session.emitter.paramSync({ id: payload.id, value: next.value });
@@ -1095,7 +1109,15 @@ export function createBoundSession<TConfig extends object, TModel>(
           if (payload.checkpoint !== undefined) {
             await binding.options.restoreCheckpoint!(model, decodeCheckpoint(payload.checkpoint), context);
           }
-          if (hasProjectedState) await applyProjectedRestore(payload, validation.plan!);
+          if (hasProjectedState) {
+            // Importing a checkpoint may replace the model's collection.
+            // Recompute current keys against that authoritative state.
+            const postCheckpoint = payload.checkpoint === undefined
+              ? validation
+              : await validateProjectedRestore(payload);
+            if (postCheckpoint.error) throw new Error(postCheckpoint.error.message);
+            await applyProjectedRestore(payload, postCheckpoint.plan!);
+          }
           rebuildDefinition();
           await reconcileDefinitions(previousDefinition);
           await resetSyncedItems();

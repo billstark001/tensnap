@@ -59,7 +59,7 @@ export type SchellingAgentUpdate = Pick<GridAgentState, 'id'> & Partial<Pick<Gri
 export class SchellingModel {
   private config: Required<Omit<SchellingConfig, 'seed'>>;
   private readonly seed: number | undefined;
-  private random: () => number = Math.random;
+  private rngState = 0;
   private agents: Agent[] = [];
   private agentChanges = new Map<Agent, AgentChange>();
 
@@ -115,17 +115,13 @@ export class SchellingModel {
     return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) >>> 0 : undefined;
   }
 
-  /** Mulberry32 makes optional seeded runs reproducible without changing global Math.random. */
-  private static randomForSeed(seed: number | undefined): () => number {
-    if (seed === undefined) return Math.random;
-    let state = seed;
-    return () => {
-      state = (state + 0x6D2B79F5) >>> 0;
-      let value = state;
-      value = Math.imul(value ^ (value >>> 15), value | 1);
-      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-      return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
-    };
+  /** Mulberry32 keeps both seeded and default runs replayable from a checkpoint. */
+  private random = (): number => {
+    this.rngState = (this.rngState + 0x6D2B79F5) >>> 0;
+    let value = this.rngState;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
   }
 
   // ── Event handling ──────────────────────────────────────────────────────────
@@ -165,7 +161,7 @@ export class SchellingModel {
   // ── Initialization ──────────────────────────────────────────────────────────
 
   initialize() {
-    this.random = SchellingModel.randomForSeed(this.seed);
+    this.rngState = this.seed ?? Math.floor(Math.random() * 4_294_967_296);
     this.agents = [];
     this.agentChanges.clear();
     this.unsatisfiedSet = new Set();
@@ -528,6 +524,10 @@ export class SchellingModel {
       config: this.getConfig() as unknown as Record<string, ProtocolValue>,
       time: this.timeStep,
       agents: this.getEnvironmentState().agents as unknown as ProtocolValue[],
+      rngState: this.rngState,
+      emptySpots: [...this.emptySpots],
+      unsatisfiedIds: [...this.unsatisfiedSet].map((agent) => agent.id),
+      lastMoved: this.lastMoved,
     };
   }
 
@@ -539,6 +539,10 @@ export class SchellingModel {
     const config = checkpoint.config;
     const agents = checkpoint.agents;
     const time = checkpoint.time;
+    const rngState = checkpoint.rngState;
+    const emptySpots = checkpoint.emptySpots;
+    const unsatisfiedIds = checkpoint.unsatisfiedIds;
+    const lastMoved = checkpoint.lastMoved;
     if (typeof config !== 'object' || config === null || Array.isArray(config)
       || !Array.isArray(agents) || typeof time !== 'number' || !Number.isFinite(time)) {
       throw new Error('Schelling checkpoint requires config, finite time, and agents.');
@@ -552,15 +556,54 @@ export class SchellingModel {
     const configPatch = config as Record<string, unknown>;
     const width = configPatch.gridWidth;
     const height = configPatch.gridHeight;
-    if (typeof width !== 'number' || typeof height !== 'number') {
+    if (typeof width !== 'number' || typeof height !== 'number'
+      || !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
       throw new Error('Schelling checkpoint config requires gridWidth and gridHeight.');
     }
-    this.updateConfig(configPatch as Partial<SchellingConfig>);
+    if (rngState !== undefined && (!Number.isSafeInteger(rngState) || (rngState as number) < 0 || (rngState as number) > 0xffffffff)) {
+      throw new Error('Schelling checkpoint RNG state must be an unsigned 32-bit integer.');
+    }
+    if (lastMoved !== undefined && (!Number.isSafeInteger(lastMoved) || (lastMoved as number) < 0)) {
+      throw new Error('Schelling checkpoint lastMoved must be a nonnegative integer.');
+    }
+    if (emptySpots !== undefined && (!Array.isArray(emptySpots)
+      || emptySpots.some((position) => !Number.isSafeInteger(position) || position < 0 || position >= width * height)
+      || new Set(emptySpots).size !== emptySpots.length)) {
+      throw new Error('Schelling checkpoint empty spots must be unique in-bounds positions.');
+    }
+    if (unsatisfiedIds !== undefined && (!Array.isArray(unsatisfiedIds)
+      || unsatisfiedIds.some((id) => typeof id !== 'string')
+      || new Set(unsatisfiedIds).size !== unsatisfiedIds.length)) {
+      throw new Error('Schelling checkpoint unsatisfied IDs must be unique strings.');
+    }
     this.validateRestoredAgents(records, { width, height });
+    const occupied = new Set(records.map((agent) => (agent.y as number) * width + (agent.x as number)));
+    if (emptySpots !== undefined && (emptySpots.length + records.length !== width * height
+      || emptySpots.some((position) => occupied.has(position)))) {
+      throw new Error('Schelling checkpoint empty spots must complement the occupied positions.');
+    }
+    const agentIds = new Set(records.map((agent) => agent.id));
+    if (unsatisfiedIds !== undefined && unsatisfiedIds.some((id) => !agentIds.has(id))) {
+      throw new Error('Schelling checkpoint unsatisfied IDs must refer to agents.');
+    }
+    this.updateConfig(configPatch as Partial<SchellingConfig>);
     this.prepareRestoredAgents();
     for (const agent of records) this.restoreAgent(agent);
     this.restoreTime(time);
     this.finishRestoredAgents();
+    if (emptySpots !== undefined) {
+      this.emptySpots = [...emptySpots];
+      this.emptySpotIndexMap = new Map(this.emptySpots.map((position, index) => [position, index]));
+    }
+    if (unsatisfiedIds !== undefined) {
+      const unsatisfiedById = new Map([...this.unsatisfiedSet].map((agent) => [agent.id, agent]));
+      if (unsatisfiedById.size === unsatisfiedIds.length
+        && unsatisfiedIds.every((id) => unsatisfiedById.has(id))) {
+        this.unsatisfiedSet = new Set(unsatisfiedIds.map((id) => unsatisfiedById.get(id)!));
+      }
+    }
+    if (rngState !== undefined) this.rngState = rngState as number;
+    if (lastMoved !== undefined) this.lastMoved = lastMoved as number;
   }
 
   getStatistics() {

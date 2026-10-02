@@ -8,9 +8,11 @@ from typing import Any, cast
 
 from typing_extensions import NotRequired, TypedDict
 
+from tensnap.utils.member_metadata import attach_member_metadata
 from tensnap.utils.object import infer_id_from_func_name, infer_label_from_id
 
 _TENSNAP_CHART_FIELD = "_tensnap_chart"
+_UNBOUND_TARGET = object()
 
 
 @dataclass
@@ -74,7 +76,7 @@ class ChartProperty:
         group_owner: ChartProperty | None = None,
     ) -> None:
         self.chart = chart
-        setattr(self, _TENSNAP_CHART_FIELD, chart)
+        attach_member_metadata(self, _TENSNAP_CHART_FIELD, chart, "ChartProperty")
         self._has_explicit_data_list = chart.data_list is not None
 
         self._property = getter if isinstance(getter, property) else None
@@ -132,28 +134,26 @@ class ChartProperty:
                 label=label or "",
                 color=color,
             )
+            attach_member_metadata(
+                member, _TENSNAP_CHART_FIELD, member_chart, "@chart.group"
+            )
             chart_property = ChartProperty(
                 member_chart,
                 member,
                 group_owner=self,
             )
-
-            try:
-                setattr(member, _TENSNAP_CHART_FIELD, member_chart)
-            except Exception:
-                pass
-            setattr(chart_property, _TENSNAP_CHART_FIELD, member_chart)
             return chart_property
 
         return decorator
 
-    def grouped_value(self, obj: Any) -> Any:
+    def grouped_value(self, obj: Any = _UNBOUND_TARGET) -> Any:
+        args = () if obj is _UNBOUND_TARGET else (obj,)
         if not self._group_members:
-            return self.getter(obj)
+            return self.getter(*args)
 
-        result = {self._owner_series_metadata().id: self.getter(obj)}
+        result = {self._owner_series_metadata().id: self.getter(*args)}
         for member in self._group_members:
-            result[member.chart.id] = member.getter(obj)
+            result[member.chart.id] = member.getter(*args)
         return result
 
     def _attach_group_member(self, member: ChartProperty) -> None:

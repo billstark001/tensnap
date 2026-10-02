@@ -129,8 +129,8 @@ function _simulator_info_payload(s::Scenario)
 	s.model_version === nothing || (model["version"] = s.model_version)
 	s.state_schema_version === nothing || (model["state_schema_version"] = s.state_schema_version)
 	payload = Dict{String, Any}(
-		"protocol_version" => "0.3",
-	"binding" => Dict("name" => "tensnap-julia", "version" => "0.3.0", "language" => "julia"),
+		"protocol_version" => PROTOCOL_VERSION,
+		"binding" => Dict("name" => "tensnap-julia", "version" => string(pkgversion(@__MODULE__)), "language" => "julia"),
 		"model" => model,
 		"instance_id" => s.instance_id,
 		"capabilities" => sort!(collect(s.capabilities)),
@@ -283,6 +283,14 @@ function _handle_scene_restore(s::Scenario, ws, payload)
 	if !has_projected_state && !haskey(payload, "checkpoint")
 		finish("rejected"; code = "invalid_restore", message = "scene_restore contains no restorable state.")
 		return nothing
+	end
+	if has_projected_state && s.restore_plan !== nothing
+		try
+			_validate_projected_restore(s, payload)
+		catch error
+			finish("rejected"; code = "invalid_restore", message = sprint(showerror, error))
+			return nothing
+		end
 	end
 	previous = Dict(
 		"actions" => collect(keys(s.actions)),

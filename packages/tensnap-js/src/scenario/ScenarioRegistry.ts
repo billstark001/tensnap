@@ -7,11 +7,12 @@ import type {
   Parameter,
   ScenarioEnvironmentType,
   StateSyncRequest,
-  ProtocolData,
   SimulatorInfoPayload,
 } from '@tensnap/protocol';
 import type { SimulatorSessionHandlers } from '../runtime';
 import { SimulatorSession } from '../runtime';
+import { cloneChartGroupMetadata, cloneLayerDefinition, layerCreatePayload } from './definitionHelpers';
+import { hasCompiledTopology, orderLayers } from './layerTopology';
 
 export interface ScenarioLayerDefinition {
   layerId: string;
@@ -66,7 +67,7 @@ export class ScenarioRegistry {
       registry.registerAction(action);
     }
     for (const environment of definition.environments ?? []) {
-      registry.registerEnvironment(environment);
+      registry.storeEnvironment(environment, hasCompiledTopology(definition));
     }
     for (const chart of definition.charts ?? []) {
       registry.registerChart(chart);
@@ -89,22 +90,22 @@ export class ScenarioRegistry {
   }
 
   registerEnvironment(environment: ScenarioEnvironmentDefinition): this {
+    return this.storeEnvironment(environment, false);
+  }
+
+  private storeEnvironment(environment: ScenarioEnvironmentDefinition, topologyValidated: boolean): this {
+    const layers = environment.layers?.map(cloneLayerDefinition);
     this.environments.set(environment.id, {
       ...environment,
-      layers: environment.layers?.map((layer) => ({
-        ...layer,
-        dependencyLayerIds: { ...(layer.dependencyLayerIds ?? {}) },
-        metadata: { ...(layer.metadata ?? {}) },
-      })),
+      layers: layers && (topologyValidated ? layers : orderLayers(environment.id, layers,
+        (layer) => layer.layerId, (layer) => layer.layerType,
+        (layer) => layer.dependencyLayerIds)),
     });
     return this;
   }
 
   registerChart(chart: ChartGroupMetadata): this {
-    this.charts.set(chart.id, {
-      ...chart,
-      data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
-    });
+    this.charts.set(chart.id, cloneChartGroupMetadata(chart));
     return this;
   }
 
@@ -165,22 +166,13 @@ export class ScenarioRegistry {
     for (const environment of this.environments.values()) {
       await target.envCreate({ id: environment.id, type: environment.type });
       for (const layer of environment.layers ?? []) {
-        await target.envLayerCreate({
-          env_id: environment.id,
-          layer_id: layer.layerId,
-          layer_type: layer.layerType,
-          dependency_layer_ids: layer.dependencyLayerIds,
-          metadata: layer.metadata as Record<string, ProtocolData> | undefined,
-        });
+        await target.envLayerCreate(layerCreatePayload(environment.id, layer));
       }
     }
 
     if (includeCharts) {
       for (const chart of this.charts.values()) {
-        await target.chartCreate({
-          ...chart,
-          data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
-        });
+        await target.chartCreate(cloneChartGroupMetadata(chart));
       }
     }
 
@@ -195,16 +187,9 @@ export class ScenarioRegistry {
       actions: [...this.actions.values()].map((action) => ({ ...action })),
       environments: [...this.environments.values()].map((environment) => ({
         ...environment,
-        layers: environment.layers?.map((layer) => ({
-          ...layer,
-          dependencyLayerIds: { ...(layer.dependencyLayerIds ?? {}) },
-          metadata: { ...(layer.metadata ?? {}) },
-        })),
+        layers: environment.layers?.map(cloneLayerDefinition),
       })),
-      charts: [...this.charts.values()].map((chart) => ({
-        ...chart,
-        data_list: chart.data_list?.map((entry: NonNullable<ChartGroupMetadata['data_list']>[number]) => ({ ...entry })),
-      })),
+      charts: [...this.charts.values()].map(cloneChartGroupMetadata),
       monitors: [...this.monitors.values()].map((monitor) => ({ ...monitor })),
     };
   }

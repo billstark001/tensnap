@@ -4,7 +4,7 @@ import type {
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
-import { encodeBytesAsDataUrl } from '@tensnap/protocol';
+import { encodeBytesAsDataUrl, PROTOCOL_VERSION } from '@tensnap/protocol';
 import { Scenario } from '../scenario';
 import type { ScenarioSnapshot } from '../scenario';
 import type {
@@ -230,7 +230,7 @@ export function createSingleSnapshot(
       createdAt: timestamp,
       endedAt: timestamp,
       label: options.label,
-      protocol_version: '0.3',
+      protocol_version: PROTOCOL_VERSION,
       ...(options.modelIdentity === undefined ? {} : { model_identity: clone(options.modelIdentity) }),
       ...(options.checkpoint === undefined ? {} : { checkpoint: clone(options.checkpoint) }),
     },
