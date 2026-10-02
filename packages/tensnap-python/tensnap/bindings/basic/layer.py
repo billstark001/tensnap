@@ -337,7 +337,7 @@ _agent_fields: list[tuple[Callable[[Any], bool], AttrPathMap[AgentItemFields]]] 
 class BindAgentConfig(BindItemConfig[AgentItemFields]):
     binding_name = _binding_name("item", "agent")
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 - Preserve the public decorator signature.
         self,
         id: str | None = None,
         x: ProjectorFieldForInit = None,
@@ -430,7 +430,7 @@ uniform_agent = BindUniformAgentConfig
 class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
     binding_name = _binding_name("item", "edge")
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 - Preserve the public decorator signature.
         self,
         source: str = "source",
         target: str = "target",

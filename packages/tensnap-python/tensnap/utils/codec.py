@@ -217,7 +217,7 @@ def _default_test_serialization(value: Any, library: str) -> str | None:
     return None
 
 
-def _test_and_match(
+def _test_and_match(  # noqa: PLR0917 - Internal recursive visitor parameters.
     value: Any,
     path: str,
     library: str,
