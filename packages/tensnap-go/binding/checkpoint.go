@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/billstark001/tensnap/packages/tensnap-go/protocol"
 )
@@ -34,13 +35,26 @@ func decodeCheckpoint(checkpoint *protocol.Checkpoint) (any, error) {
 	if checkpoint == nil {
 		return nil, nil
 	}
-	encoded, ok := checkpoint.Data.(string)
-	if !ok {
-		return nil, fmt.Errorf("tensnap: checkpoint data must be base64 text")
-	}
-	raw, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("tensnap: decode checkpoint: %w", err)
+	var raw []byte
+	switch data := checkpoint.Data.(type) {
+	case []byte:
+		raw = append([]byte(nil), data...)
+	case string:
+		encoded := data
+		if strings.HasPrefix(encoded, "data:") {
+			marker := strings.Index(encoded, ";base64,")
+			if marker < 0 {
+				return nil, fmt.Errorf("tensnap: checkpoint data URL must contain ;base64,")
+			}
+			encoded = encoded[marker+len(";base64,"):]
+		}
+		var err error
+		raw, err = base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("tensnap: decode checkpoint: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("tensnap: checkpoint data must be base64 text, a data URL, or bytes")
 	}
 	switch checkpoint.Encoding {
 	case "application/octet-stream":
