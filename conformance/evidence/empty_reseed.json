@@ -1,0 +1,162 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "empty_after_step": true,
+          "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+          "old_ids_reused": false,
+          "reseeded_population": 1024
+        },
+        "status": "pass"
+      },
+      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "empty_reseed",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "status": "not tested"
+  },
+  "revision": "d678db68d7745488d390d6d3759eca79b5cdc61c"
+}

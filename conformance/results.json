@@ -1,0 +1,4410 @@
+{
+  "canaries": {
+    "output": "",
+    "status": "pass",
+    "test": "conformance/test_harness_canaries.py"
+  },
+  "client": {
+    "rows": {
+      "atomic_sync": {
+        "detail": "all eight live renderer bridges",
+        "status": "pass"
+      },
+      "reconnect": {
+        "detail": "all eight live renderer bridges",
+        "status": "pass"
+      }
+    },
+    "test": "conformance/renderer-client.ts"
+  },
+  "protocol_traces": {
+    "output": "",
+    "status": "pass",
+    "test": "conformance/validate_traces.ts",
+    "traces": "conformance/traces/*.json"
+  },
+  "protocol_version": "0.3",
+  "revision": "d678db68d7745488d390d6d3759eca79b5cdc61c",
+  "runs": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "metadata_update",
+              "item_create",
+              "item_update",
+              "monitor_update",
+              "monitor_update",
+              "chart_update",
+              "action_result"
+            ],
+            "handler_error": "handler_error",
+            "rejected_error": "unknown_action"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/msgpack",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.checkpoint",
+              "scene.restore.projected"
+            ],
+            "instance_id": "4ae682ed11524b0ba4c66af57b9c2834",
+            "stable_reconnect": "4ae682ed11524b0ba4c66af57b9c2834"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "evidence": {
+            "action_advanced_host_once": true,
+            "clients": 2,
+            "full_digest": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+            "inspection_advanced_host": false,
+            "population": 1025
+          },
+          "status": "pass"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "5efc038bb846463c9ffcee4f8d754d47",
+            "previous_instance": "4ae682ed11524b0ba4c66af57b9c2834",
+            "same_instance_reconnect": "4ae682ed11524b0ba4c66af57b9c2834",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "metadata_update",
+              "item_create",
+              "item_update",
+              "monitor_update",
+              "monitor_update",
+              "chart_update",
+              "action_result"
+            ],
+            "handler_error": "handler_error",
+            "rejected_error": "unknown_action"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/msgpack",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.checkpoint",
+              "scene.restore.projected"
+            ],
+            "instance_id": "db0c84059e07484b9c71dc0a06cc0cd7",
+            "stable_reconnect": "db0c84059e07484b9c71dc0a06cc0cd7"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "evidence": {
+            "action_advanced_host_once": true,
+            "clients": 2,
+            "full_digest": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+            "inspection_advanced_host": false,
+            "population": 1025
+          },
+          "status": "pass"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "9bdde8be82454e73b07241c0be55f30c",
+            "previous_instance": "db0c84059e07484b9c71dc0a06cc0cd7",
+            "same_instance_reconnect": "db0c84059e07484b9c71dc0a06cc0cd7",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "item_create",
+              "item_update",
+              "chart_update",
+              "monitor_update",
+              "monitor_update",
+              "metadata_update",
+              "action_result"
+            ],
+            "handler_error": "handler_error",
+            "rejected_error": "handler_error"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/json",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.checkpoint",
+              "scene.restore.projected"
+            ],
+            "instance_id": "7ea6f633bd2781d9607c7e15360cda85",
+            "stable_reconnect": "7ea6f633bd2781d9607c7e15360cda85"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "evidence": {
+            "action_advanced_host_once": true,
+            "clients": 2,
+            "full_digest": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+            "inspection_advanced_host": false,
+            "population": 1025
+          },
+          "status": "pass"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "a7763f431bc07995ad885194959da13d",
+            "previous_instance": "7ea6f633bd2781d9607c7e15360cda85",
+            "same_instance_reconnect": "7ea6f633bd2781d9607c7e15360cda85",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "item_create",
+              "item_update",
+              "chart_update",
+              "monitor_update",
+              "monitor_update",
+              "metadata_update",
+              "action_result"
+            ],
+            "handler_error": "handler_error",
+            "rejected_error": "handler_error"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14.0
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15.0
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16.0
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17.0
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/json",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4.0
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5.0
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6.0
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.checkpoint",
+              "scene.restore.projected"
+            ],
+            "instance_id": "10b1c971a7240f5ce02256525f6544c7",
+            "stable_reconnect": "10b1c971a7240f5ce02256525f6544c7"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "evidence": {
+            "action_advanced_host_once": true,
+            "clients": 2,
+            "full_digest": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+            "inspection_advanced_host": false,
+            "population": 1025
+          },
+          "status": "pass"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5.0
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "e69f3d8c09a5f6170f4d4845eec684a6",
+            "previous_instance": "10b1c971a7240f5ce02256525f6544c7",
+            "same_instance_reconnect": "10b1c971a7240f5ce02256525f6544c7",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "item_create",
+              "item_update",
+              "metadata_update",
+              "chart_update",
+              "monitor_update",
+              "monitor_update",
+              "action_result"
+            ],
+            "handler_error": "action_failed",
+            "rejected_error": "unknown_action"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/msgpack",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.projected",
+              "scene.restore.checkpoint"
+            ],
+            "instance_id": "ba8e1c9a-0d28-46c2-81f5-4afbf54e49b6",
+            "stable_reconnect": "ba8e1c9a-0d28-46c2-81f5-4afbf54e49b6"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "detail": "JavaScript fixture reuses one session and cannot represent two independent live clients",
+          "status": "not tested"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "a387346c-7716-44b6-918f-ea1920c8c313",
+            "previous_instance": "ba8e1c9a-0d28-46c2-81f5-4afbf54e49b6",
+            "same_instance_reconnect": "ba8e1c9a-0d28-46c2-81f5-4afbf54e49b6",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "item_create",
+              "item_update",
+              "metadata_update",
+              "chart_update",
+              "monitor_update",
+              "monitor_update",
+              "action_result"
+            ],
+            "handler_error": "action_failed",
+            "rejected_error": "unknown_action"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/msgpack",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.projected",
+              "scene.restore.checkpoint"
+            ],
+            "instance_id": "8a11840d-f0f9-4be3-b323-450461af4e34",
+            "stable_reconnect": "8a11840d-f0f9-4be3-b323-450461af4e34"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "detail": "JavaScript fixture reuses one session and cannot represent two independent live clients",
+          "status": "not tested"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "5187507d-42e0-4986-a1f1-bc1bbbebdee5",
+            "previous_instance": "8a11840d-f0f9-4be3-b323-450461af4e34",
+            "same_instance_reconnect": "8a11840d-f0f9-4be3-b323-450461af4e34",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "metadata_update",
+              "item_create",
+              "item_update",
+              "chart_update",
+              "monitor_update",
+              "monitor_update",
+              "action_result"
+            ],
+            "handler_error": "handler_error",
+            "rejected_error": "unknown_action"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/msgpack",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.checkpoint",
+              "scene.restore.projected"
+            ],
+            "instance_id": "3b013b66-b00a-4192-a2b7-7ce8a68e63df",
+            "stable_reconnect": "3b013b66-b00a-4192-a2b7-7ce8a68e63df"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "evidence": {
+            "action_advanced_host_once": true,
+            "clients": 2,
+            "full_digest": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+            "inspection_advanced_host": false,
+            "population": 1025
+          },
+          "status": "pass"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "d17dde3f-7fd8-4750-976a-656b91a76c9b",
+            "previous_instance": "3b013b66-b00a-4192-a2b7-7ce8a68e63df",
+            "same_instance_reconnect": "3b013b66-b00a-4192-a2b7-7ce8a68e63df",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "rows": {
+        "action_correlation": {
+          "evidence": {
+            "accepted_order": [
+              "metadata_update",
+              "item_create",
+              "item_update",
+              "chart_update",
+              "monitor_update",
+              "monitor_update",
+              "action_result"
+            ],
+            "handler_error": "handler_error",
+            "rejected_error": "unknown_action"
+          },
+          "status": "pass"
+        },
+        "atomic_sync": {
+          "evidence": {
+            "disconnect": true,
+            "host_state_unchanged": true,
+            "mismatched_end": true
+          },
+          "status": "pass"
+        },
+        "dense_checkpoint_replay": {
+          "evidence": {
+            "host_sha256": [
+              "2c37439779202d9a9c0af0b89d6ecaa3a356b8f7829b5cd276e6cb962609cf9c",
+              "b8b4fa9dfe60ab85896cea67ebfd37006d0f984524c8feb01c5f6a7439090b80",
+              "668e9673189a352eaf2a77bc8191dbeede54685f0cdc00ed8d820988cb127708",
+              "05a1864521e3ab97db01601eea71fe7f7417aa64336dbeb658018ead685e44e6"
+            ],
+            "observed": [
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  14
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  15
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  16
+                ]
+              },
+              {
+                "position": [
+                  2
+                ],
+                "time": [
+                  17
+                ]
+              }
+            ],
+            "population": 1024,
+            "steps_compared": 4
+          },
+          "status": "pass"
+        },
+        "dense_population": {
+          "evidence": {
+            "host_sha256": "4115d7ff3fe611a05a828e67ed358f830814af132e32471ffc9e592f2a13d691",
+            "payload_items": 1024,
+            "population": 1024
+          },
+          "status": "pass"
+        },
+        "empty_reseed": {
+          "evidence": {
+            "empty_after_step": true,
+            "host_sha256": "4f4a31058401f30958d0831c275f619f7d7016af617d9b771366c8059c363b52",
+            "old_ids_reused": false,
+            "reseeded_population": 1024
+          },
+          "status": "pass"
+        },
+        "exact_checkpoint": {
+          "evidence": {
+            "checkpoint_encoding": "application/msgpack",
+            "full_digest": {
+              "agents": [
+                {
+                  "health": "R",
+                  "id": 1,
+                  "x": 7,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 11,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "health": "S",
+                  "id": 4,
+                  "x": 6,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 1,
+              "deaths": 1,
+              "next_id": 5,
+              "queue": [
+                2,
+                4,
+                6
+              ],
+              "rng": 879,
+              "speed": 0,
+              "steps": 3,
+              "x": 2
+            }
+          },
+          "status": "pass"
+        },
+        "future_replay": {
+          "evidence": {
+            "steps_compared": 3,
+            "trajectory": [
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 9,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 14,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 7,
+                      "y": 8
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 8,
+                      "y": 4
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 5,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    4,
+                    6,
+                    6
+                  ],
+                  "rng": 996,
+                  "speed": 0,
+                  "steps": 4,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    4
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "R",
+                      "id": 1,
+                      "x": 11,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 17,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 8,
+                      "y": 10
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 10,
+                      "y": 6
+                    },
+                    {
+                      "health": "I",
+                      "id": 5,
+                      "x": 8,
+                      "y": 2
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 2,
+                  "deaths": 1,
+                  "next_id": 6,
+                  "queue": [
+                    6,
+                    6,
+                    9
+                  ],
+                  "rng": 991,
+                  "speed": 0,
+                  "steps": 5,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    5
+                  ]
+                }
+              },
+              {
+                "host": {
+                  "agents": [
+                    {
+                      "health": "S",
+                      "id": 2,
+                      "x": 20,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 3,
+                      "x": 9,
+                      "y": 12
+                    },
+                    {
+                      "health": "S",
+                      "id": 4,
+                      "x": 12,
+                      "y": 8
+                    },
+                    {
+                      "health": "R",
+                      "id": 5,
+                      "x": 11,
+                      "y": 4
+                    },
+                    {
+                      "health": "S",
+                      "id": 6,
+                      "x": 6,
+                      "y": 0
+                    }
+                  ],
+                  "base_population": 4,
+                  "births": 3,
+                  "deaths": 2,
+                  "next_id": 7,
+                  "queue": [
+                    6,
+                    9,
+                    12
+                  ],
+                  "rng": 906,
+                  "speed": 0,
+                  "steps": 6,
+                  "x": 2
+                },
+                "observed": {
+                  "position": [
+                    2
+                  ],
+                  "time": [
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "host_only_transition": {
+          "evidence": {
+            "after": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 1,
+                  "y": 2
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 3,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 4,
+                  "y": 2
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                2,
+                3,
+                2
+              ],
+              "rng": 130,
+              "speed": 1,
+              "steps": 1,
+              "x": 1
+            },
+            "before": {
+              "agents": [
+                {
+                  "health": "S",
+                  "id": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "health": "I",
+                  "id": 1,
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 2,
+                  "x": 2,
+                  "y": 0
+                },
+                {
+                  "health": "S",
+                  "id": 3,
+                  "x": 3,
+                  "y": 0
+                }
+              ],
+              "base_population": 4,
+              "births": 0,
+              "deaths": 0,
+              "next_id": 4,
+              "queue": [
+                1,
+                2,
+                3
+              ],
+              "rng": 7,
+              "speed": 1,
+              "steps": 0,
+              "x": 0
+            }
+          },
+          "status": "pass"
+        },
+        "identity_handshake": {
+          "evidence": {
+            "binding_version": "0.3.1",
+            "capabilities": [
+              "monitor",
+              "scene.restore.checkpoint",
+              "scene.restore.projected"
+            ],
+            "instance_id": "c7bd4e29-7955-400f-b894-af37f5dc2309",
+            "stable_reconnect": "c7bd4e29-7955-400f-b894-af37f5dc2309"
+          },
+          "status": "pass"
+        },
+        "multi_client_inspection": {
+          "evidence": {
+            "action_advanced_host_once": true,
+            "clients": 2,
+            "full_digest": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+            "inspection_advanced_host": false,
+            "population": 1025
+          },
+          "status": "pass"
+        },
+        "negative_identity_capability": {
+          "evidence": {
+            "missing_capability": {
+              "capture": "unsupported_capability",
+              "restore": "unsupported_capability"
+            },
+            "restore": [
+              "model_mismatch",
+              "instance_mismatch",
+              "state_schema_mismatch"
+            ],
+            "sync": "model_mismatch"
+          },
+          "status": "pass"
+        },
+        "parameter_control": {
+          "evidence": {
+            "accepted": 2,
+            "normalized": {
+              "id": "speed",
+              "value": 5
+            }
+          },
+          "status": "pass"
+        },
+        "parameter_extremes": {
+          "evidence": {
+            "accepted_bounds": [
+              0,
+              5
+            ],
+            "negative_input_canonical": 0,
+            "zero_speed_advance": 1,
+            "zero_speed_position": 2
+          },
+          "status": "pass"
+        },
+        "population_churn": {
+          "evidence": {
+            "steps_compared": 6,
+            "trajectory": [
+              {
+                "births": 3,
+                "deaths": 2,
+                "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+                "population": 5,
+                "steps": 7
+              },
+              {
+                "births": 4,
+                "deaths": 2,
+                "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+                "population": 6,
+                "steps": 8
+              },
+              {
+                "births": 4,
+                "deaths": 3,
+                "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+                "population": 5,
+                "steps": 9
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+                "population": 6,
+                "steps": 10
+              },
+              {
+                "births": 5,
+                "deaths": 3,
+                "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+                "population": 6,
+                "steps": 11
+              },
+              {
+                "births": 6,
+                "deaths": 4,
+                "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+                "population": 6,
+                "steps": 12
+              }
+            ]
+          },
+          "status": "pass"
+        },
+        "reconnect": {
+          "evidence": {
+            "host_state_unchanged": true,
+            "new_instance": "dc459f96-231f-4352-a1a3-d9668fea72c2",
+            "previous_instance": "c7bd4e29-7955-400f-b894-af37f5dc2309",
+            "same_instance_reconnect": "c7bd4e29-7955-400f-b894-af37f5dc2309",
+            "stale_items_and_chart_cleared": true
+          },
+          "status": "pass"
+        },
+        "spatial_population": {
+          "evidence": {
+            "health": {
+              "infected": 1,
+              "recovered": 0,
+              "susceptible": 3
+            },
+            "host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+            "layers": [
+              "agents",
+              "grid"
+            ],
+            "population": 4
+          },
+          "status": "pass"
+        }
+      },
+      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "test": "conformance/run_matrix.py"
+    }
+  ]
+}

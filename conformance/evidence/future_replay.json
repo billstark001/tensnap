@@ -1,0 +1,1522 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4.0
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5.0
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6.0
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": "conformance/renderer-client.ts",
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 3,
+          "trajectory": [
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 9,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 14,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 7,
+                    "y": 8
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 8,
+                    "y": 4
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 5,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  4,
+                  6,
+                  6
+                ],
+                "rng": 996,
+                "speed": 0,
+                "steps": 4,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  4
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "R",
+                    "id": 1,
+                    "x": 11,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 17,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 8,
+                    "y": 10
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 10,
+                    "y": 6
+                  },
+                  {
+                    "health": "I",
+                    "id": 5,
+                    "x": 8,
+                    "y": 2
+                  }
+                ],
+                "base_population": 4,
+                "births": 2,
+                "deaths": 1,
+                "next_id": 6,
+                "queue": [
+                  6,
+                  6,
+                  9
+                ],
+                "rng": 991,
+                "speed": 0,
+                "steps": 5,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  5
+                ]
+              }
+            },
+            {
+              "host": {
+                "agents": [
+                  {
+                    "health": "S",
+                    "id": 2,
+                    "x": 20,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 3,
+                    "x": 9,
+                    "y": 12
+                  },
+                  {
+                    "health": "S",
+                    "id": 4,
+                    "x": 12,
+                    "y": 8
+                  },
+                  {
+                    "health": "R",
+                    "id": 5,
+                    "x": 11,
+                    "y": 4
+                  },
+                  {
+                    "health": "S",
+                    "id": 6,
+                    "x": 6,
+                    "y": 0
+                  }
+                ],
+                "base_population": 4,
+                "births": 3,
+                "deaths": 2,
+                "next_id": 7,
+                "queue": [
+                  6,
+                  9,
+                  12
+                ],
+                "rng": 906,
+                "speed": 0,
+                "steps": 6,
+                "x": 2
+              },
+              "observed": {
+                "position": [
+                  2
+                ],
+                "time": [
+                  6
+                ]
+              }
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "future_replay",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "status": "not tested"
+  },
+  "revision": "d678db68d7745488d390d6d3759eca79b5cdc61c"
+}
