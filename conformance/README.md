@@ -10,6 +10,7 @@ dependencies:
 
 ```bash
 python conformance/run_matrix.py --check
+pnpm exec tsc --noEmit -p conformance/tsconfig.json
 ```
 
 `--check` reruns every supported binding and encoding, drives the renderer

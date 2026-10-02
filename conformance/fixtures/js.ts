@@ -5,13 +5,21 @@ import { createWebSocketTransportHost } from '../../packages/tensnap-js/src/tran
 import { CounterModel, type Agent, type CounterSnapshot } from './js-model.ts';
 
 const statePath = process.env.TENSNAP_CONFORMANCE_STATE!;
-const persist = (model: CounterModel) => writeFileSync(statePath, JSON.stringify(model.snapshot()));
+const modelPaths = new WeakMap<CounterModel, string>();
+let sessionNumber = 0;
+const persist = (model: CounterModel) => {
+  const path = modelPaths.get(model);
+  if (!path) throw new Error('Conformance model has no sidecar path');
+  writeFileSync(path, JSON.stringify(model.snapshot()));
+};
 const builder = modelBuilder(
   { id: 'conformance.counter', name: 'Conformance counter', description: 'Deterministic protocol fixture', stateSchemaVersion: '1' },
   {
     defaults: { speed: 1 },
     create(config): CounterModel {
       const model = new CounterModel(config.speed);
+      const number = sessionNumber++;
+      modelPaths.set(model, number === 0 ? statePath : `${statePath}.${number}`);
       persist(model);
       return model;
     },
@@ -64,9 +72,9 @@ const definition = builder.chartGroup('health', {
   ],
 }).build();
 
-const session = definition.createSession();
 createWebSocketTransportHost({
   serverOptions: { port: Number(process.env.TENSNAP_CONFORMANCE_PORT), host: '127.0.0.1' },
-  sessionFactory: () => session,
+  // Match the production example host: every connection owns its session.
+  sessionFactory: () => definition.createSession(),
   encoding: process.env.TENSNAP_CONFORMANCE_ENCODING === 'msgpack' ? 'msgpack' : 'json',
 });

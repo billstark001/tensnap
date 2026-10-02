@@ -19,6 +19,9 @@ jobs:
         with:
           version: 11
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir packages/tensnap-agent lint
+      - run: pnpm --dir packages/tensnap-agent test
+      - run: pnpm exec tsc --noEmit -p conformance/tsconfig.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

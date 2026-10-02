@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { decodeProtocolMessage, encodeProtocolMessage, type AnyProtocolMessage, type SimulatorInfoPayload, type SimulatorToRendererMessage, type RendererToSimulatorMessage } from '../packages/protocol/src/index.ts';
 import { RendererSession } from '../packages/core/src/runtime/RendererSession.ts';
 import type { ISimulatorTransport } from '../packages/core/src/transport/index.ts';
+import { runLiveClient } from './renderer-live-client.ts';
 
 type Encoding = 'json' | 'msgpack';
 
@@ -59,7 +60,10 @@ function transport(socket: WebSocket, encoding: Encoding): ISimulatorTransport {
     destroy: () => socket.close(),
     on: () => {},
     off: () => {},
-    send: (message: RendererToSimulatorMessage) => socket.send(encodeProtocolMessage(message as AnyProtocolMessage, encoding)),
+    send: (message: RendererToSimulatorMessage) => {
+      const payload = encodeProtocolMessage(message as AnyProtocolMessage, encoding);
+      socket.send(typeof payload === 'string' ? payload : new Uint8Array(payload));
+    },
   };
 }
 
@@ -122,8 +126,9 @@ async function synchronize(
 }
 
 async function main(): Promise<void> {
-  const [firstPort, secondPort, rawEncoding] = process.argv.slice(2);
+  const [firstPort, secondPort, rawEncoding, binding, statePath] = process.argv.slice(2);
   const encoding = rawEncoding as Encoding;
+  const perConnectionSession = binding === 'js';
   const session = new RendererSession();
   seedStaleState(session, 'pre-sync');
   const first = await connectHost(Number(firstPort));
@@ -144,8 +149,13 @@ async function main(): Promise<void> {
   session.attachTransport(transport(same.socket, encoding));
   const sameInfo = await handshake(session, same.queue);
   const sameInstance = sameInfo.instance_id;
-  assert.deepEqual(sameInfo, firstInfo);
-  assert.equal(sameInstance, firstInstance);
+  assert.deepEqual({ ...sameInfo, instance_id: firstInstance }, firstInfo);
+  if (perConnectionSession) {
+    assert.notEqual(sameInstance, firstInstance);
+    assert.equal(session.identityStatus, 'instance-changed');
+  } else {
+    assert.equal(sameInstance, firstInstance);
+  }
   await synchronize(session, same.queue, 'same-instance-reconnect', 'committed');
   seedStaleState(session, 'old-instance');
   session.detachTransport();
@@ -165,8 +175,9 @@ async function main(): Promise<void> {
   assert.equal(session.identityStatus, 'matching');
   session.detachTransport();
   await closeSocket(second.socket);
-  process.stdout.write(JSON.stringify({ atomic_sync: { status: 'pass', evidence: { mismatched_end: true, disconnect: true } },
-    reconnect: { status: 'pass', evidence: { previous_instance: firstInstance, same_instance_reconnect: sameInstance,
+  const liveRows = await runLiveClient(Number(secondPort), encoding, binding, statePath);
+  process.stdout.write(JSON.stringify({ ...liveRows, atomic_sync: { status: 'pass', evidence: { mismatched_end: true, disconnect: true } },
+    reconnect: { status: 'pass', evidence: { ...liveRows.reconnect.evidence, previous_instance: firstInstance, same_instance_reconnect: sameInstance === firstInstance,
       new_instance: secondInstance,
       stale_items_and_chart_cleared: true } } }));
 }

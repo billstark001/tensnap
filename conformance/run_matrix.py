@@ -54,11 +54,6 @@ FIXTURES = {
 }
 
 
-def expected_statuses(binding: str) -> dict[str, str]:
-    return {row: ("not tested" if row == "multi_client_inspection" and binding == "js" else "pass")
-            for row in ROWS}
-
-
 class ProbeFailure(RuntimeError):
     def __init__(self, row: str, rows: dict[str, dict[str, Any]], cause: Exception):
         super().__init__(f"{row}: {type(cause).__name__}: {cause}")
@@ -110,8 +105,14 @@ def source_digest(binding: str) -> str:
              *fixture_files, manifest, HERE / "run_matrix.py",
              HERE / "test_harness_canaries.py", HERE / "validate_traces.ts",
              ROOT / "packages/protocol/SPECIFICATION.md", ROOT / "packages/core/src/runtime/RendererSession.ts",
+             ROOT / "packages/core/src/runtime/RunController.ts",
+             ROOT / "packages/tensnap-agent/src/session/SimulatorClient.ts",
+             ROOT / "packages/tensnap-agent/src/session/NodeWebSocketTransport.ts",
+             ROOT / "packages/tensnap-agent/src/runtime/AgentRuntime.ts",
              ROOT / "packages/protocol/src/schemas.ts", ROOT / "packages/protocol/src/codec.ts",
-             ROOT / "conformance/renderer-client.ts"]
+             ROOT / "conformance/renderer-client.ts", ROOT / "conformance/renderer-live-client.ts",
+             ROOT / "conformance/renderer-capability-client.ts",
+             ROOT / "conformance/tsconfig.json"]
     digest = hashlib.sha256()
     for path in sorted(set(files)):
         digest.update(str(path.relative_to(ROOT)).encode())
@@ -550,29 +551,37 @@ async def probe(ws: Any, encoding: str, state_path: Path, info: dict[str, Any], 
         baseline = host_state(state_path)
         async with connect(f"ws://127.0.0.1:{port}") as inspector:
             handshake = decode(await asyncio.wait_for(inspector.recv(), 8))
-            assert handshake["type"] == "simulator_info" and handshake["payload"] == info
-            initial = await sync(inspector, encoding, "inspector-initial", info["instance_id"])
-            require_agent_projection(apply_agent_frames({}, initial), baseline)
-            require_population_observations(initial, baseline)
+            assert handshake["type"] == "simulator_info"
+            inspector_info = handshake["payload"]
+            require_identity(inspector_info, binding)
+            isolated = binding == "js"
+            assert (inspector_info["instance_id"] != info["instance_id"]) == isolated
+            inspector_path = Path(f"{state_path}.1") if isolated else state_path
+            inspector_baseline = host_state(inspector_path)
+            initial = await sync(inspector, encoding, "inspector-initial", inspector_info["instance_id"])
+            require_agent_projection(apply_agent_frames({}, initial), inspector_baseline)
+            require_population_observations(initial, inspector_baseline)
             require_full_digest(baseline, host_state(state_path))
+            require_full_digest(inspector_baseline, host_state(inspector_path))
             stepped = await action(ws, encoding, "inspected-step")
             require_action_order(stepped, "inspected-step", accepted=True)
             advanced = host_state(state_path)
             require_one_transition(baseline, advanced)
-            refreshed = await sync(inspector, encoding, "inspector-refresh", info["instance_id"])
+            expected_inspector = inspector_baseline if isolated else advanced
+            require_full_digest(expected_inspector, host_state(inspector_path))
+            refreshed = await sync(inspector, encoding, "inspector-refresh", inspector_info["instance_id"])
             boundary = next(index for index, message in enumerate(refreshed) if message["type"] == "state_sync_begin")
             committed = refreshed[boundary:]
-            require_agent_projection(apply_agent_frames({}, committed), advanced)
-            require_population_observations(committed, advanced)
+            require_agent_projection(apply_agent_frames({}, committed), expected_inspector)
+            require_population_observations(committed, expected_inspector)
             require_full_digest(advanced, host_state(state_path))
-        return {"clients": 2, "inspection_advanced_host": False,
-                "action_advanced_host_once": True, "population": len(advanced["agents"]),
-                "full_digest": state_hash(advanced)}
+            require_full_digest(expected_inspector, host_state(inspector_path))
+        return {"clients": 2, "session_scope": "isolated" if isolated else "shared",
+                "inspection_advanced_host": False, "action_advanced_host_once": True,
+                "first_population": len(advanced["agents"]), "inspector_population": len(expected_inspector["agents"]),
+                "first_host_sha256": state_hash(advanced), "inspector_host_sha256": state_hash(expected_inspector)}
 
-    if binding == "js":
-        results["multi_client_inspection"] = {"status": "not tested", "detail": "JavaScript fixture reuses one session and cannot represent two independent live clients"}
-    else:
-        await check("multi_client_inspection", multi_client_inspection)
+    await check("multi_client_inspection", multi_client_inspection)
     return results
 
 
@@ -623,7 +632,16 @@ async def missing_capability_probe(binding: str, encoding: str) -> dict[str, Any
                     assert rejected[-1]["payload"]["status"] == "rejected", rejected[-1]
                     assert rejected[-1]["payload"]["error"]["code"] == "unsupported_capability", rejected[-1]
                     assert host_state(state_path) == before
-                    return {"capture": capture_error["code"], "restore": rejected[-1]["payload"]["error"]["code"]}
+                    raw_evidence = {"capture": capture_error["code"], "restore": rejected[-1]["payload"]["error"]["code"]}
+                    client_command = ["pnpm", "--dir", "examples/js", "exec", "tsx",
+                                      "../../conformance/renderer-capability-client.ts",
+                                      str(port), encoding, binding, str(state_path)]
+                    client = await asyncio.create_subprocess_exec(*client_command, cwd=ROOT, env=env,
+                                                                  stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                    output, errors = await asyncio.wait_for(client.communicate(), 30)
+                    client_outcome = ({"status": "pass", "evidence": json.loads(output)} if client.returncode == 0 else
+                                      {"status": "fail", "detail": errors.decode()[-3000:]})
+                    return {"raw": raw_evidence, "client": client_outcome}
             finally:
                 if process.returncode is None:
                     process.terminate()
@@ -660,19 +678,18 @@ async def client_bridge(binding: str, encoding: str, first_port: int, first_stat
                         await asyncio.sleep(0.1)
                 bridge_command = ["pnpm", "--dir", "examples/js", "exec", "tsx",
                                   "../../conformance/renderer-client.ts",
-                                  str(first_port), str(second_port), encoding]
+                                  str(first_port), str(second_port), encoding, binding, str(state_path)]
                 first_before = host_state(first_state_path)
-                second_before = host_state(state_path)
                 bridge = await asyncio.create_subprocess_exec(*bridge_command, cwd=ROOT, env=env,
                                                               stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-                stdout, stderr = await asyncio.wait_for(bridge.communicate(), 45)
+                stdout, stderr = await asyncio.wait_for(bridge.communicate(), 120)
                 if bridge.returncode != 0:
                     raise AssertionError(f"renderer bridge failed: {stderr.decode()[-4000:]}; host: {log_path.read_text()[-2000:]}")
                 require_full_digest(first_before, host_state(first_state_path))
-                require_full_digest(second_before, host_state(state_path))
                 rows = json.loads(stdout)
                 for row in ("atomic_sync", "reconnect"):
                     rows[row]["evidence"]["host_state_unchanged"] = True
+                assert set(rows) == set(ROWS), f"renderer client rows missing: {sorted(set(ROWS) - set(rows))}"
                 return rows
             finally:
                 if process.returncode is None:
@@ -718,25 +735,38 @@ async def run_one(binding: str, encoding: str) -> dict[str, Any]:
                         rows[error.row]["detail"] += f"; host: {log_path.read_text()[-3000:]}"
                     except Exception as error:
                         rows = {"_probe": {"status": "fail", "detail": f"{type(error).__name__}: {error}; host: {log_path.read_text()[-3000:]}"}}
+                    capability_client = {"status": "not tested", "detail": "no-checkpoint host was not exercised"}
                     if rows.get("negative_identity_capability", {}).get("status") == "pass":
                         try:
-                            rows["negative_identity_capability"]["evidence"]["missing_capability"] = await missing_capability_probe(binding, encoding)
+                            capability_result = await missing_capability_probe(binding, encoding)
+                            rows["negative_identity_capability"]["evidence"]["missing_capability"] = capability_result["raw"]
+                            capability_client = capability_result["client"]
                         except Exception as error:
                             rows["negative_identity_capability"] = {"status": "fail", "detail": f"missing capability: {type(error).__name__}: {error}"}
+                client_rows = {}
                 if all(rows.get(row, {}).get("status") == "pass" for row in ("identity_handshake", "host_only_transition", "action_correlation", "parameter_control", "negative_identity_capability", "exact_checkpoint", "future_replay")):
                     await asyncio.sleep(0.05)
                     try:
-                        rows.update(await client_bridge(binding, encoding, port, state_path))
+                        client_rows = await client_bridge(binding, encoding, port, state_path)
+                        if capability_client["status"] == "pass":
+                            client_rows["negative_identity_capability"]["evidence"]["missing_capability"] = capability_client["evidence"]
+                        else:
+                            client_rows["negative_identity_capability"] = capability_client
+                        for row in ("atomic_sync", "reconnect"):
+                            rows[row] = client_rows[row]
                         if rows.get("identity_handshake", {}).get("status") == "pass" and rows.get("reconnect", {}).get("status") == "pass":
-                            rows["identity_handshake"]["evidence"]["stable_reconnect"] = rows["reconnect"]["evidence"]["same_instance_reconnect"]
+                            rows["identity_handshake"]["evidence"]["same_host_reconnect"] = rows["reconnect"]["evidence"]["same_instance_reconnect"]
                     except Exception as error:
                         for row in ("atomic_sync", "reconnect"):
                             rows[row] = {"status": "fail", "detail": f"{type(error).__name__}: {error}"}
+                        client_rows = {row: {"status": "fail", "detail": f"{type(error).__name__}: {error}"} for row in ROWS}
                 for row in ROWS:
                     rows.setdefault(row, {"status": "not tested", "detail": "probe stopped after a prior failure"})
                 return {"binding": binding, "encoding": encoding, "binding_version": info["binding"].get("version"),
                         "fixture": FIXTURES[binding], "test": "conformance/run_matrix.py",
-                        "client_test": "conformance/renderer-client.ts", "source_sha256": source_digest(binding), "rows": rows,
+                        "client_test": ["conformance/renderer-client.ts", "conformance/renderer-live-client.ts",
+                                        "conformance/renderer-capability-client.ts"], "client_rows": client_rows,
+                        "source_sha256": source_digest(binding), "rows": rows,
                         "host_log": log_path.read_text()[-2000:] if "_probe" in rows else ""}
             finally:
                 if process.returncode is None:
@@ -779,9 +809,9 @@ def markdown(result: dict[str, Any]) -> str:
         lines.append("| [" + names[row] + "](evidence/" + row + ".json) | " + " | ".join(cells) + " | " + client + " |")
     lines.extend(["", "## Evidence and limits", "",
                   "The [wire probe](run_matrix.py) drives the public WebSocket path of the four [deterministic fixtures](fixtures/). The Python fixture exercises the same binding used by Mesa examples, but it does not instantiate Mesa's scheduler; Mesa-specific scheduler behavior is not established by this matrix. The probe records a full fixture host digest containing position, transition count, RNG state, scheduler queue, canonical parameter value, and the complete agent population. Projected items, grouped health charts, and monitors are checked separately. Results retain the test path, fixture path, binding version, encoding, and source digest.", "",
-                  "A visible Scenario equality check compares renderer-owned projections only. The sidecar digest compares the complete state of this instrumented host, including fields absent from its visible projection. The population cases exercise spatial bounds, births/deaths, stable IDs, zero-population absorption, a 1,024-agent sync, and exact replay after a dense checkpoint. A second client inspects the live population before and after a first client's action without advancing the host. The JavaScript fixture reuses a single session, so its multi-client row is not tested; this does not establish that the binding lacks multi-client support. Each item diff is applied to a local inventory and compared with host state; health chart counts and population monitors are checked independently. These claims apply to the fixture, not automatically to every example model.", "",
-                  "`atomic_sync` and `reconnect` use a [renderer bridge](renderer-client.ts) to feed each binding's live WebSocket frames through `RendererSession`. The bridge injects a mismatched end boundary, disconnects before a valid end, and reconnects to both the same and a new simulator instance with stale items and chart history in committed state. The probe confirms neither host's full sidecar state advances during these synchronizations.", "",
-                  "The [protocol trace test](validate_traces.ts) schema-validates the earlier transport-neutral [trajectories](traces/). The [canary tests](test_harness_canaries.py) deliberately corrupt identity, transition count, action order, parameter correction, private RNG state, and replay state; each must be rejected by an assertion also used in the live probe. The live probe sends wrong model/instance/schema requests, unknown actions, and requests to a host with checkpoint capability disabled. The renderer bridge injects mismatched sync boundaries and stale reconnect state.", "",
+                  "A visible Scenario equality check compares renderer-owned projections only. The sidecar digest compares the complete state of this instrumented host, including fields absent from its visible projection. The population cases exercise spatial bounds, births/deaths, stable IDs, zero-population absorption, a 1,024-agent sync, and exact replay after a dense checkpoint. A second client inspects the live population before and after a first client's action without advancing the host. The JavaScript fixture follows the production example's per-connection session factory; its concurrent sessions have separate model state. Each item diff is applied to a local inventory and compared with host state; health chart counts and population monitors are checked independently. These claims apply to the fixture, not automatically to every example model.", "",
+                  "The [renderer bridge](renderer-client.ts) injects an invalid sync end boundary, disconnects before a valid end, and reconnects with stale items and chart history in committed state. The [live renderer probe](renderer-live-client.ts) uses the public `SimulatorClient` shared with the agent CLI against each binding and encoding. It checks the renderer projection against the host sidecar through parameter changes, actions, population churn, checkpoint replay, and concurrent inspection. A [capability probe](renderer-capability-client.ts) checks client rejection against a real host without checkpoint support. The host sidecar stays unchanged during read-only sync and capture operations.", "",
+                  "The [protocol trace test](validate_traces.ts) schema-validates the earlier transport-neutral [trajectories](traces/). The [canary tests](test_harness_canaries.py) deliberately corrupt identity, transition count, action order, parameter correction, private RNG state, and replay state; each must be rejected by an assertion also used in the wire probe. The wire probe sends wrong model/instance/schema requests and unknown actions. The renderer client checks persisted identity mismatch and rejects checkpoint requests against a host without that capability. The renderer bridge injects mismatched sync boundaries and stale reconnect state.", "",
                   "## Case-study interpretation", "",
                   "| Case study | Existing evidence | Conformance interpretation |", "| --- | --- | --- |",
                   "| [Schelling](../benchmarks/README.md) | [Retained v2 benchmark profiles](../artifacts/benchmark-results/macos-15.7.5-arm64/README.md) cover Mesa, Go, JS, and Julia kernels and UI paths with profile and sample verification. | Feature and semantic coverage. Cross-language trajectories are not byte-identical evidence because implementations use different RNGs and schedulers. No cross-language exact replay claim. |",
@@ -796,7 +826,9 @@ def row_evidence(result: dict[str, Any], row: str) -> dict[str, Any]:
         "protocol_version": result["protocol_version"],
         "revision": result["revision"],
         "bindings": [
-            {key: value for key, value in run.items() if key != "rows"} | {"outcome": run["rows"].get(row, {"status": "not tested"})}
+            {key: value for key, value in run.items() if key not in ("rows", "client_rows")} |
+            {"outcome": run["rows"].get(row, {"status": "not tested"}),
+             "renderer_client_outcome": run.get("client_rows", {}).get(row, {"status": "not tested"})}
             for run in result["runs"]
         ],
         "renderer_client": result["client"]["rows"].get(row, {"status": "not tested"}),
@@ -825,10 +857,11 @@ async def main() -> int:
                 print(f"  {row}: {outcome['status']} {outcome.get('detail', '')}", flush=True)
             runs.append(run)
     client_rows = {}
-    for row in ("atomic_sync", "reconnect"):
-        passed = all(run["rows"].get(row, {}).get("status") == "pass" for run in runs)
-        client_rows[row] = {"status": "pass" if passed else "fail", "detail": "all eight live renderer bridges"}
-    client = {"test": "conformance/renderer-client.ts", "rows": client_rows}
+    for row in ROWS:
+        passed = all(run.get("client_rows", {}).get(row, {}).get("status") == "pass" for run in runs)
+        client_rows[row] = {"status": "pass" if passed else "fail", "detail": "all eight live renderer probes"}
+    client = {"test": ["conformance/renderer-client.ts", "conformance/renderer-live-client.ts",
+                       "conformance/renderer-capability-client.ts"], "rows": client_rows}
     trace_command = ["pnpm", "--dir", "examples/js", "exec", "tsx", "../../conformance/validate_traces.ts"]
     trace_test = subprocess.run(trace_command, cwd=ROOT, capture_output=True, text=True, check=False)
     protocol_traces = {"test": "conformance/validate_traces.ts", "traces": "conformance/traces/*.json",
@@ -845,8 +878,8 @@ async def main() -> int:
     expected = set(ROWS)
     failures += [f"{r['binding']}/{r['encoding']}: missing {sorted(expected - set(r['rows']))}" for r in runs if expected - set(r["rows"])]
     failures += [f"{r['binding']}/{r['encoding']}: {row} unexpectedly {r['rows'][row]['status']}"
-                 for r in runs for row, status in expected_statuses(r["binding"]).items()
-                 if row in r["rows"] and r["rows"][row]["status"] != status]
+                 for r in runs for row in ROWS
+                 if row in r["rows"] and r["rows"][row]["status"] != "pass"]
     if any(value["status"] == "fail" for value in client_rows.values()):
         failures.append("renderer client: one or more live bridges failed")
     if protocol_traces["status"] == "fail":
@@ -870,9 +903,9 @@ async def main() -> int:
             assert (HERE / "evidence" / f"{row}.json").read_text() == json.dumps(row_evidence(retained, row), indent=2, sort_keys=True) + "\n"
         for run in retained["runs"]:
             assert set(run["rows"]) == set(ROWS), f"incomplete retained rows: {run['binding']}/{run['encoding']}"
-            assert all(run["rows"][row]["status"] == status for row, status in expected_statuses(run["binding"]).items()), f"retained run has an unexpected outcome: {run['binding']}/{run['encoding']}"
+            assert all(run["rows"][row]["status"] == "pass" for row in ROWS), f"retained run has an unexpected outcome: {run['binding']}/{run['encoding']}"
             assert run["source_sha256"] == source_digest(run["binding"]), f"stale source digest: {run['binding']}"
-        assert all(retained["client"]["rows"][row]["status"] == "pass" for row in ("atomic_sync", "reconnect")), "retained renderer client failure"
+        assert all(retained["client"]["rows"][row]["status"] == "pass" for row in ROWS), "retained renderer client failure"
         assert retained["protocol_traces"]["status"] == "pass", "retained protocol trace failure"
         assert retained["canaries"]["status"] == "pass", "retained canary failure"
     if failures:
