@@ -56,12 +56,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added class-owned binding metadata, declarative layer inverses, checkpoint
   hooks, and compiled dependency ordering for environment layers.
+- Added model-aware projected time restoration with pre-apply validation, plus
+  a Mesa clock adapter for the default step schedule across Mesa 3.x and 4.0.0a0.
 - Added projected and exact restoration to flocking and Game of Life examples.
+
+### Changed
+
+- Updated Mesa grid examples to use cell-space agents and a typed, example-local
+  import route for Mesa 3.0/3.1 and 3.2+/4.0.
 
 ### Fixed
 
 - Kept layer restore callbacks attached to their declared owner and rejected
   invalid complete-layer restores before model mutation.
+- Restored the pending Mesa step event alongside model time so the next step
+  advances once after a projected restore, and rejected unsupported schedules
+  before changing the model.
 - Resolved Ruff parameter-count findings without changing public decorator or
   factory signatures.
 - Derived package metadata and runtime binding versions from one Python source.
