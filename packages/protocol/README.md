@@ -8,7 +8,8 @@ JSON/MessagePack codecs, and conformance traces.
   code.
 - `src/*.ts` contains the payload schemas and their field-level documentation.
 - `dist/protocol-types.md` is the generated schema/type reference.
-- [conformance/](./conformance/) contains canonical, parseable wire traces.
+- [Root conformance suite](../../conformance/README.md) contains canonical wire
+  traces, executable binding probes, and the cross-binding evidence matrix.
 - `src/codec.ts` owns strict encoding, runtime validation, and the only legacy
   compatibility boundary.
 

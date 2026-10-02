@@ -21,7 +21,7 @@ simulator and a renderer. Its contract is split by concern:
 | Message and payload shapes, field meanings, defaults, and local validation | JSDoc and Zod schemas in `src/*.ts` |
 | JSON/MessagePack encoding, binary normalization, validation policy, and legacy conversion | `src/codec.ts` and `src/binary.ts` |
 | Cross-message ordering, lifecycle, transactions, and failure behavior | This document |
-| Executable protocol trajectories | `conformance/*.json` |
+| Executable protocol trajectories | `../../conformance/traces/*.json` |
 | Generated API reference | `dist/protocol-types.md` |
 
 The generated API reference is derived from the schemas and their comments. It

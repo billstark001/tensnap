@@ -1,22 +1,5 @@
-import { readdir, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ProtocolCodec, selectProtocolCodecMode } from './codec';
-import { AnyProtocolMessageSchema } from './schemas';
-
-const conformanceDirectory = fileURLToPath(new URL('../conformance/', import.meta.url));
-
-describe('v0.3 conformance traces', () => {
-  it('contains only canonical, schema-valid messages', async () => {
-    const files = (await readdir(conformanceDirectory)).filter((file) => file.endsWith('.json'));
-    expect(files.length).toBeGreaterThan(0);
-    for (const file of files) {
-      const trace = JSON.parse(await readFile(resolve(conformanceDirectory, file), 'utf8')) as { messages: unknown[] };
-      for (const message of trace.messages) AnyProtocolMessageSchema.parse(message);
-    }
-  });
-});
 
 describe('codec mode', () => {
   it('compares semantic version components numerically', () => {
