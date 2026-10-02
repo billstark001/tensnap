@@ -46,3 +46,24 @@ func TestProjectedFireLayerRestoresCells(t *testing.T) {
 		}
 	}
 }
+
+func TestFireSpreadsSynchronouslyToCardinalTrees(t *testing.T) {
+	config := DefaultConfig()
+	config.Width, config.Height = 3, 3
+	config.Growth, config.Lightning = 0, 0
+	m := NewModel(config)
+	for id := range m.Cells {
+		m.Cells[id] = empty
+	}
+	m.Cells[4] = burning
+	m.Cells[1] = tree // cardinal neighbor
+	m.Cells[0] = tree // diagonal: not exposed until the following tick
+	m.Step()
+	if m.Cells[4] != empty || m.Cells[1] != burning || m.Cells[0] != tree {
+		t.Fatalf("fire ignored synchronous four-neighbor rules: %v", m.Cells)
+	}
+	m.Step()
+	if m.Cells[1] != empty || m.Cells[0] != burning {
+		t.Fatalf("fire did not propagate on the next tick: %v", m.Cells)
+	}
+}

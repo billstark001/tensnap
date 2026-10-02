@@ -45,3 +45,39 @@ func TestProjectedSIRSLayerRestoresHealthStates(t *testing.T) {
 		}
 	}
 }
+
+func TestSIRSCardinalSpreadAndRecoveryCycle(t *testing.T) {
+	config := DefaultConfig()
+	config.Rows, config.Cols = 3, 3
+	config.InitialInfected = 0
+	config.Beta, config.Gamma, config.Xi = 1, 0, 0
+	m := NewModel(config)
+	m.People[4].State = infected
+	m.Step()
+	for id, person := range m.People {
+		want := susceptible
+		if id == 1 || id == 3 || id == 4 || id == 5 || id == 7 {
+			want = infected
+		}
+		if person.State != want {
+			t.Fatalf("first SIRS step at %d: got %s, want %s", id, person.State, want)
+		}
+	}
+	m.Step()
+	_, infectedCount, recoveredCount := m.Counts()
+	if infectedCount != 9 || recoveredCount != 0 {
+		t.Fatalf("second SIRS step did not infect the corners: I=%d R=%d", infectedCount, recoveredCount)
+	}
+	m.Beta, m.Gamma = 0, 1
+	m.Step()
+	_, infectedCount, recoveredCount = m.Counts()
+	if infectedCount != 0 || recoveredCount != 9 {
+		t.Fatalf("recovery phase failed: I=%d R=%d", infectedCount, recoveredCount)
+	}
+	m.Gamma, m.Xi = 0, 1
+	m.Step()
+	susceptibleCount, infectedCount, recoveredCount := m.Counts()
+	if susceptibleCount != 9 || infectedCount != 0 || recoveredCount != 0 {
+		t.Fatalf("loss-of-immunity phase failed: S=%d I=%d R=%d", susceptibleCount, infectedCount, recoveredCount)
+	}
+}

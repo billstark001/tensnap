@@ -34,3 +34,20 @@ end
     @test Dict(entry["id"] => entry["value"] for entry in values) ==
         Dict("attendance" => 0, "capacity" => 55)
 end
+
+@testset "El Farol checkpoint resumes the same stochastic next step" begin
+    model = ElFarolVizFixture.make_model(n=20, capacity=12, seed=7)
+    ElFarolVizFixture.initialize!(model)
+    for _ in 1:3
+        ElFarolVizFixture.advance!(model)
+    end
+    saved = ElFarolVizFixture.capture_bar(model)
+    ElFarolVizFixture.advance!(model)
+    expected = (attendance=model.attendance, history=copy(model.history),
+        patrons=[(a.id, a.attending, a.expected, a.score) for a in model.agents])
+    @test model.attendance == count(a -> a.attending, model.agents)
+    ElFarolVizFixture.restore_bar!(saved, model)
+    ElFarolVizFixture.advance!(model)
+    @test (attendance=model.attendance, history=model.history,
+        patrons=[(a.id, a.attending, a.expected, a.score) for a in model.agents]) == expected
+end
