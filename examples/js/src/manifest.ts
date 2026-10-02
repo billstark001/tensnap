@@ -1,4 +1,5 @@
 import type { ISimulatorTransport } from '@tensnap/core';
+import { PROTOCOL_VERSION } from '@tensnap/protocol';
 import {
   createBundledExampleTransport,
   type BundledExampleTransportOptions,
@@ -15,7 +16,7 @@ export interface JsExampleEntry {
   name: string;
   description: string;
   /** The bundled examples use the strict canonical v0.3 wire contract. */
-  protocolVersion: '0.3';
+  protocolVersion: typeof PROTOCOL_VERSION;
   defaultTransportMode: JsExampleTransportMode;
   createTransport: (options?: BundledExampleTransportOptions) => ISimulatorTransport;
   startDemoServer: (options?: StartJsExampleWebSocketDemoOptions) => Promise<RunningJsExampleDemo>;
@@ -25,7 +26,7 @@ const jsExampleEntries: JsExampleEntry[] = getJsExampleDefinitions().map((defini
   id: definition.id,
   name: definition.name,
   description: definition.description,
-  protocolVersion: '0.3',
+  protocolVersion: PROTOCOL_VERSION,
   defaultTransportMode: 'inmemory',
   createTransport: (options) => createBundledExampleTransport(definition.id, options),
   startDemoServer: async (options) => {

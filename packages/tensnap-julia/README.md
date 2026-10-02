@@ -88,7 +88,7 @@ pnpm --dir examples/julia run demo:schelling:makie
 Release preparation is wired through the repository release helper:
 
 ```bash
-pnpm run release:julia -- 0.3.1
+pnpm run release:julia -- X.Y.Z
 ```
 
 The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia

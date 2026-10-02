@@ -6,6 +6,7 @@ import {
   type StateSyncRequest,
 } from '@tensnap/protocol';
 import { describe, expect, it, vi } from 'vitest';
+import bindingPackage from '../../../../packages/tensnap-js/package.json';
 import { getJsExampleDefinition, getJsExampleDefinitions } from './index';
 
 const emptyStateSync: StateSyncRequest = {
@@ -33,7 +34,7 @@ describe('JS example sessions', () => {
         type: 'simulator_info',
         payload: expect.objectContaining({
           protocol_version: '0.3',
-          binding: expect.objectContaining({ name: 'tensnap-js', version: '0.3.1', language: 'JavaScript' }),
+          binding: expect.objectContaining({ name: 'tensnap-js', version: bindingPackage.version, language: 'JavaScript' }),
           model: expect.objectContaining({ id: definition.id }),
         }),
       });

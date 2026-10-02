@@ -2,6 +2,7 @@
 """TenSnap - Agent-based model visualization toolkit"""
 
 from . import models as models, protocol as protocol, utils as utils
+from ._version import __version__ as __version__
 from .bindings.basic import *
 from .bindings.lifecycle import *
 from .bindings.mesa import (
@@ -22,5 +23,3 @@ from .models import (
 )
 from .scenario import SimulationScenario as SimulationScenario
 from .server import TenSnapServer as TenSnapServer
-
-__version__ = "0.3.1"

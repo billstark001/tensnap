@@ -13,6 +13,8 @@ import type {
   SceneRestorePayload,
 } from '@tensnap/protocol';
 import { decodeBinaryString, decodeMessagePack, encodeMessagePack } from '@tensnap/protocol';
+import { PROTOCOL_VERSION } from '@tensnap/protocol';
+import packageJson from '../../package.json';
 import type { SimulatorSession } from '../runtime';
 import { SimulatorSession as BaseSimulatorSession } from '../runtime';
 import { ScenarioRegistry, type ScenarioDefinition } from '../scenario';
@@ -894,8 +896,8 @@ export function createBoundSession<TConfig extends object, TModel>(
 
   session = new BaseSimulatorSession({
     simulatorInfo: {
-      protocol_version: '0.3',
-      binding: { name: 'tensnap-js', version: '0.3.1', language: 'JavaScript' },
+      protocol_version: PROTOCOL_VERSION,
+      binding: { name: 'tensnap-js', version: packageJson.version, language: 'JavaScript' },
       model: {
         id: binding.metadata.id,
         name: binding.metadata.name,

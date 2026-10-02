@@ -23,10 +23,12 @@ For local development against this monorepo, use a `replace` directive in your o
 replace github.com/billstark001/tensnap/packages/tensnap-go => ../tensnap/packages/tensnap-go
 ```
 
-This repository uses a nested Go module. To publish a version that `go get` can resolve as a tagged release, the Git tag must use the submodule prefix:
+This repository uses a nested Go module. From the repository root, use the
+release helper to update the binding version and create the required
+`packages/tensnap-go/vX.Y.Z` tag:
 
 ```bash
-git tag packages/tensnap-go/v0.3.1
+pnpm run release -- go X.Y.Z
 ```
 
 ## Minimal Usage

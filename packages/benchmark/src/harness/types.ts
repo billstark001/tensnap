@@ -1,5 +1,6 @@
 import type { SimulatorSession } from '@tensnap/js/runtime';
 import type {
+  PROTOCOL_VERSION,
   ProtocolEncoding,
   ProtocolValidationLevel,
   SimulatorToRendererMessage,
@@ -32,7 +33,7 @@ interface BenchmarkWorkloadBase<TConfig extends BenchmarkConfig = BenchmarkConfi
 export interface ProtocolBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
   extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'protocol';
-  readonly protocolVersion: '0.3';
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
   readonly modelId: string;
   readonly actionId: string;
   readonly actionContinuous: boolean;

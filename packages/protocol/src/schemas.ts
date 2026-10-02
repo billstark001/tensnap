@@ -57,10 +57,13 @@ export const PrimitiveItemKeySchema = z.union([z.string(), FiniteNumberSchema]);
 /** Parsed semantic version used for protocol negotiation. */
 export const ProtocolVersionSchema = z.string().regex(/^\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?$/);
 
+/** Current strict wire-contract version. Independent of package versions. */
+export const PROTOCOL_VERSION = '0.3' as const;
+
 /** Immutable information emitted by a simulator before any other session message. */
 export const SimulatorInfoPayloadSchema = z.object({
   /** Exact wire-contract version selected for this session. */
-  protocol_version: z.literal('0.3'),
+  protocol_version: z.literal(PROTOCOL_VERSION),
   /** Binding implementation identity. */
   binding: z.object({
     /** Published binding/package name. */

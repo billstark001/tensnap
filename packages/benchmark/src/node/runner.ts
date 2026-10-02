@@ -10,6 +10,7 @@ import { once } from 'node:events';
 import WebSocket, { type RawData } from 'ws';
 import {
   createProtocolCodec,
+  PROTOCOL_VERSION,
   type AnyProtocolMessage,
   type ProtocolEncoding,
   type ProtocolValidationLevel,
@@ -2061,7 +2062,7 @@ export function verifyArtifact(artifact: BenchmarkArtifact): void {
   if (stableJson(actualRunIds) !== stableJson(expectedRunIds)) throw new Error('Artifact run matrix does not match the manifest plan.');
   const equivalentStates = new Map<string, { hash: string; runId: string }>();
   for (const run of artifact.runs) {
-    if (run.workload.kind === 'protocol' && run.workload.protocolVersion !== '0.3') throw new Error(`${run.workload.id} is not a v0.3 protocol workload.`);
+    if (run.workload.kind === 'protocol' && run.workload.protocolVersion !== PROTOCOL_VERSION) throw new Error(`${run.workload.id} is not a v${PROTOCOL_VERSION} protocol workload.`);
     if (run.samples.length !== run.execution.repetitions) throw new Error(`${run.workload.id}/${run.suite} has an incomplete repetition set.`);
     const blocks = new Set(run.samples.map((sample) => sample.block));
     if (blocks.size !== run.execution.repetitions) throw new Error(`${run.workload.id}/${run.suite} has duplicate or missing replicate blocks.`);

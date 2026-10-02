@@ -30,6 +30,7 @@ from uuid import uuid4
 
 
 from . import bindings as binding_api
+from ._version import PROTOCOL_VERSION, __version__
 from .bindings import (
     BindParametersConfig,
 )
@@ -173,10 +174,10 @@ class SimulationScenario:
         if state_schema_version is not None:
             model["state_schema_version"] = state_schema_version
         simulator_info: Dict[str, Any] = {
-            "protocol_version": "0.3",
+            "protocol_version": PROTOCOL_VERSION,
             "binding": {
                 "name": "tensnap-python",
-                "version": "0.3.1",
+                "version": __version__,
                 "language": "python",
             },
             "model": model,

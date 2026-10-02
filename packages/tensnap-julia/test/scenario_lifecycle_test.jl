@@ -71,6 +71,8 @@ end
 		"id" => "status", "label" => "Status", "render_hint" => "tree",
 	)
 	info = TenSnap._simulator_info_payload(scenario)
+	@test info["binding"]["version"] == string(pkgversion(TenSnap))
+	@test info["protocol_version"] == TenSnap.PROTOCOL_VERSION
 	@test info["capabilities"] == ["monitor", "scene.restore.checkpoint", "scene.restore.projected"]
 	TenSnap._call0or1(scenario.checkpoint_restore, 5)
 	TenSnap._call0or1(scenario.scene_restore, Dict("time" => 5))

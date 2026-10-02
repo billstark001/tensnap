@@ -22,8 +22,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for a release-line entry that updates the shared **MAJOR**, or the shared **MINOR** while **MAJOR** is `0`.
 - Use `## package-name [MAJOR.MINOR.PATCH] - YYYY-MM-DD` for package-specific patch releases or package-specific releases after the shared **MAJOR** is stable.
 - Prefer exact package names for prefixed entries, such as `## @tensnap/go [0.2.1] - 2026-05-10`, so the changelog remains easy to scan and automate.
+- Keep the dated package version table in `docs/maintainer-guide/versioning.md` aligned with release entries.
 
 ---
+
+## @tensnap/protocol [0.3.1] - 2026-10-02
+
+### Fixed
+
+- Centralized the strict wire protocol version used by the schema and TypeScript consumers.
+
+## @tensnap/core [0.3.1] - 2026-10-02
+
+### Fixed
+
+- Read the protocol version from `@tensnap/protocol` for renderer sessions and snapshots.
+
+## @tensnap/benchmark [0.3.1] - 2026-10-02
+
+### Fixed
+
+- Read benchmark protocol version checks and types from `@tensnap/protocol`.
+
+## @tensnap/tauri [0.3.1] - 2026-10-02
+
+### Fixed
+
+- Read the Tauri app version from `package.json` and check it against Cargo metadata.
 
 ## @tensnap/python [0.3.1] - 2026-10-02
 
@@ -39,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invalid complete-layer restores before model mutation.
 - Resolved Ruff parameter-count findings without changing public decorator or
   factory signatures.
+- Derived package metadata and runtime binding versions from one Python source.
 
 ## @tensnap/go [0.3.1] - 2026-10-02
 
@@ -54,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Validated complete projected layers and rejected ambiguous topology before
   applying model changes.
+- Centralized Go binding and protocol versions used in simulator handshakes.
 
 ## @tensnap/js [0.3.1] - 2026-10-02
 
@@ -65,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Kept metadata and item inverses on their owning layer during restoration.
+- Read the binding version from package metadata and the protocol version from its shared constant.
 
 ## @tensnap/julia [0.3.1] - 2026-10-02
 
@@ -77,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Validated projected topology and layer ownership before applying a restore.
+- Read the binding version from Julia package metadata and centralized the protocol version.
 
 ## @tensnap/agent [0.3.1] - 2026-10-02
 
@@ -93,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Restored snapshot time with exact checkpoints when the simulator declares
   projected restore, preventing a stale renderer or binding clock.
+- Read project snapshot protocol versions from `@tensnap/protocol`.
 
 ## @tensnap/examples-js [0.3.1] - 2026-10-02
 
@@ -107,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   control.
 - Preserved Schelling random state and iteration order across checkpoint
   restoration, including restores that also set simulation time.
+- Read the example manifest protocol version from `@tensnap/protocol`.
 
 ## @tensnap/examples-julia [0.3.1] - 2026-10-02
 
