@@ -198,7 +198,9 @@ The `Emitter` exposes the simulator-to-renderer families used by protocol v0.3, 
 - `ParamMetadata.Normalize` is the default place to clamp or coerce renderer-provided values; `ParamMetadata.OnSet` is where you attach runtime side effects.
 - `ActionRouter` is consulted before the built-in `init` / `step` fallback in `Base.OnAction`.
 - `ItemDiffTracker` and `NaiveItemDiffTracker` cover the two incremental diff modes also exposed by the Python bindings.
-- The bundled codec is JSON only. If you need MessagePack, implement `protocol.Codec` and pass it through `server.Options.Codec`.
+- The bundled codecs are `protocol.JSONCodec` (default, text frames) and
+  `protocol.MsgPackCodec` (binary frames). Select one with `server.Options.Codec`;
+  both use the canonical JSON-tagged wire field names.
 - `server.Run` shares one model instance across connections. `server.RunFactory` is the safer default because it creates one model per renderer session.
 
 Trajectory builders expose typed lifecycle methods for agent deletion,

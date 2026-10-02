@@ -1,8 +1,12 @@
 package protocol
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"sync"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Codec interface {
@@ -30,6 +34,75 @@ func (JSONCodec) Decode(data []byte) (*Message, error) {
 }
 
 func (JSONCodec) TextMode() bool { return true }
+
+// MsgPackCodec uses the same JSON field names as the canonical wire schema.
+// MessagePack binary values remain bytes inside payloads; the shared
+// DecodePayload helper maps the resulting object into typed Go payloads.
+type MsgPackCodec struct{}
+
+const maxPooledMsgPackBuffer = 256 << 10
+
+type msgPackEncoder struct {
+	buffer  bytes.Buffer
+	encoder *msgpack.Encoder
+}
+
+var msgPackEncoderPool = sync.Pool{New: func() any {
+	state := &msgPackEncoder{}
+	state.encoder = msgpack.NewEncoder(&state.buffer)
+	state.encoder.SetCustomStructTag("json")
+	return state
+}}
+
+type msgPackDecoder struct {
+	reader  bytes.Reader
+	decoder *msgpack.Decoder
+}
+
+var msgPackDecoderPool = sync.Pool{New: func() any {
+	state := &msgPackDecoder{}
+	state.decoder = msgpack.NewDecoder(&state.reader)
+	state.decoder.SetCustomStructTag("json")
+	return state
+}}
+
+func (MsgPackCodec) Encode(msg *Message) ([]byte, error) {
+	state := msgPackEncoderPool.Get().(*msgPackEncoder)
+	state.buffer.Reset()
+	state.encoder.ResetWriter(&state.buffer)
+	if err := state.encoder.Encode(msg); err != nil {
+		msgPackEncoderPool.Put(state)
+		return nil, fmt.Errorf("protocol: msgpack encode: %w", err)
+	}
+	// The WebSocket writer owns the returned bytes after this call, so the
+	// pooled buffer cannot be returned directly.
+	data := bytes.Clone(state.buffer.Bytes())
+	if state.buffer.Cap() > maxPooledMsgPackBuffer {
+		state.buffer = bytes.Buffer{}
+	}
+	msgPackEncoderPool.Put(state)
+	return data, nil
+}
+
+func (MsgPackCodec) Decode(data []byte) (*Message, error) {
+	state := msgPackDecoderPool.Get().(*msgPackDecoder)
+	state.reader.Reset(data)
+	state.decoder.ResetReader(&state.reader)
+	var message Message
+	err := state.decoder.Decode(&message)
+	remaining := state.reader.Len()
+	state.reader.Reset(nil)
+	msgPackDecoderPool.Put(state)
+	if err != nil {
+		return nil, fmt.Errorf("protocol: msgpack decode: %w", err)
+	}
+	if remaining != 0 {
+		return nil, fmt.Errorf("protocol: msgpack trailing data")
+	}
+	return &message, nil
+}
+
+func (MsgPackCodec) TextMode() bool { return false }
 
 // DecodePayload unmarshals msg.Payload (json.RawMessage) into dst.
 func DecodePayload(msg *Message, dst any) error {
