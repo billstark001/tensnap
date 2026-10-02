@@ -1,6 +1,7 @@
 import {
   AnyProtocolMessageSchema,
   type ProtocolValue,
+  type SceneCaptureResultPayload,
   type SimulatorToRendererMessage,
   type StateSyncRequest,
 } from '@tensnap/protocol';
@@ -237,6 +238,45 @@ describe('JS example sessions', () => {
     expect(messages.some((message) => message.type === 'monitor_create')).toBe(false);
     expect(messages.some((message) => message.type === 'monitor_update')).toBe(true);
     await session.close();
+  });
+
+  it('continues Schelling exactly after a checkpoint and time restore', async () => {
+    const messages: SimulatorToRendererMessage[] = [];
+    const session = getJsExampleDefinition('schelling').createSession({
+      gridWidth: 10, gridHeight: 10, density: 0.8, balance: 0.5, similarityThreshold: 0.7, seed: 7,
+    });
+    session.attach((message) => { messages.push(message); }, 'test-schelling-continuation');
+    try {
+      await session.open('test-schelling-continuation');
+      await session.dispatch({ type: 'state_sync', payload: { ...emptyStateSync, model_id: 'schelling' } });
+      for (let index = 0; index < 3; index += 1) {
+        await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: `warmup-${index}` } });
+      }
+      messages.length = 0;
+      await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-continuation' } });
+      const capture = messages.find((message) => message.type === 'scene_capture_result');
+      expect(capture?.type).toBe('scene_capture_result');
+      if (capture?.type !== 'scene_capture_result') throw new Error('Schelling checkpoint was not captured.');
+      messages.length = 0;
+      await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'advance' } });
+      const advanced = messages.filter((message) => message.type === 'item_update').map((message) => message.payload);
+      expect(advanced.length).toBeGreaterThan(0);
+      messages.length = 0;
+      await session.dispatch({
+        type: 'scene_restore',
+        payload: {
+          request_id: 'restore-continuation', model_id: 'schelling', state_schema_version: '1',
+          checkpoint: (capture.payload as SceneCaptureResultPayload).checkpoint, time: 3,
+        },
+      });
+      expect(messages).toContainEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-continuation', status: 'ok' } });
+      messages.length = 0;
+      await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'replay' } });
+      const replayed = messages.filter((message) => message.type === 'item_update').map((message) => message.payload);
+      expect(replayed).toEqual(advanced);
+    } finally {
+      await session.close();
+    }
   });
 
   it('restores the complete declarative culture grid in axelrod', async () => {
