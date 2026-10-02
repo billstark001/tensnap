@@ -176,7 +176,7 @@ class SimulationScenario:
             "protocol_version": "0.3",
             "binding": {
                 "name": "tensnap-python",
-                "version": "0.3.0",
+                "version": "0.3.1",
                 "language": "python",
             },
             "model": model,

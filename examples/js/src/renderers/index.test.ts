@@ -33,7 +33,7 @@ describe('JS example sessions', () => {
         type: 'simulator_info',
         payload: expect.objectContaining({
           protocol_version: '0.3',
-          binding: expect.objectContaining({ name: 'tensnap-js', version: '0.3.0', language: 'JavaScript' }),
+          binding: expect.objectContaining({ name: 'tensnap-js', version: '0.3.1', language: 'JavaScript' }),
           model: expect.objectContaining({ id: definition.id }),
         }),
       });

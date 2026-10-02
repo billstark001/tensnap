@@ -23,4 +23,4 @@ from .models import (
 from .scenario import SimulationScenario as SimulationScenario
 from .server import TenSnapServer as TenSnapServer
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"

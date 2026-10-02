@@ -895,7 +895,7 @@ export function createBoundSession<TConfig extends object, TModel>(
   session = new BaseSimulatorSession({
     simulatorInfo: {
       protocol_version: '0.3',
-      binding: { name: 'tensnap-js', version: '0.3.0', language: 'JavaScript' },
+      binding: { name: 'tensnap-js', version: '0.3.1', language: 'JavaScript' },
       model: {
         id: binding.metadata.id,
         name: binding.metadata.name,

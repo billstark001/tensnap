@@ -165,7 +165,7 @@ func (b *Base) SimulatorInfo() *protocol.SimulatorInfoPayload {
 		language := "go"
 		b.info = &protocol.SimulatorInfoPayload{
 			ProtocolVersion: "0.3",
-			Binding:         protocol.BindingInfo{Name: "tensnap-go", Version: "0.3.0", Language: &language},
+			Binding:         protocol.BindingInfo{Name: "tensnap-go", Version: "0.3.1", Language: &language},
 			Model:           protocol.ModelInfo{ID: "tensnap.go.model"},
 			InstanceID:      randomInstanceID(),
 			Capabilities:    []string{},
@@ -184,7 +184,7 @@ func (b *Base) SetSimulatorInfo(info protocol.SimulatorInfoPayload) {
 		info.Binding.Name = "tensnap-go"
 	}
 	if info.Binding.Version == "" {
-		info.Binding.Version = "0.3.0"
+		info.Binding.Version = "0.3.1"
 	}
 	if info.Binding.Language == nil {
 		language := "go"

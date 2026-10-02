@@ -25,6 +25,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/python [0.3.1] - 2026-10-02
+
+### Added
+
+- Added class-owned binding metadata, declarative layer inverses, checkpoint
+  hooks, and compiled dependency ordering for environment layers.
+- Added projected and exact restoration to flocking and Game of Life examples.
+
+### Fixed
+
+- Kept layer restore callbacks attached to their declared owner and rejected
+  invalid complete-layer restores before model mutation.
+- Resolved Ruff parameter-count findings without changing public decorator or
+  factory signatures.
+
+## @tensnap/go [0.3.1] - 2026-10-02
+
+### Added
+
+- Added layer-local restore builders, typed checkpoints, and compiled layer
+  dependency ordering.
+- Added SIRS and forest-fire examples with reversible state and exact random
+  continuation.
+- Added focused SIRS and forest-fire dynamics regression tests.
+
+### Fixed
+
+- Validated complete projected layers and rejected ambiguous topology before
+  applying model changes.
+
+## @tensnap/js [0.3.1] - 2026-10-02
+
+### Added
+
+- Added declarative layer restore composition, exact checkpoint support, and
+  cached layer dependency ordering.
+
+### Fixed
+
+- Kept metadata and item inverses on their owning layer during restoration.
+
+## @tensnap/julia [0.3.1] - 2026-10-02
+
+### Added
+
+- Added layer-local restore callbacks, checkpoint hooks, and registration-time
+  dependency ordering.
+- Added El Farol checkpoint continuation coverage.
+
+### Fixed
+
+- Validated projected topology and layer ownership before applying a restore.
+
+## @tensnap/agent [0.3.1] - 2026-10-02
+
+### Fixed
+
+- Preserved captured simulation time in CLI checkpoint files and restored it
+  with exact checkpoints when projected restore is supported.
+- Wrote runtime control files atomically so CLI startup cannot read a partial
+  status update.
+
+## @tensnap/web [0.3.1] - 2026-10-02
+
+### Fixed
+
+- Restored snapshot time with exact checkpoints when the simulator declares
+  projected restore, preventing a stale renderer or binding clock.
+
+## @tensnap/examples-js [0.3.1] - 2026-10-02
+
+### Added
+
+- Made Axelrod checkpoints retain random state for reproducible continuation.
+- Added Schelling checkpoint continuation regression tests.
+
+### Fixed
+
+- Restored full culture layers and used unit increments for the updates-per-tick
+  control.
+- Preserved Schelling random state and iteration order across checkpoint
+  restoration, including restores that also set simulation time.
+
+## @tensnap/examples-julia [0.3.1] - 2026-10-02
+
+### Added
+
+- Added El Farol patron restoration and exact history/random checkpoints.
+
 ## Workspace [0.3.0] - 2026-07-17
 
 ### Added

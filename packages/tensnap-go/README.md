@@ -26,7 +26,7 @@ replace github.com/billstark001/tensnap/packages/tensnap-go => ../tensnap/packag
 This repository uses a nested Go module. To publish a version that `go get` can resolve as a tagged release, the Git tag must use the submodule prefix:
 
 ```bash
-git tag packages/tensnap-go/v0.3.0
+git tag packages/tensnap-go/v0.3.1
 ```
 
 ## Minimal Usage

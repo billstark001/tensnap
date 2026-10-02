@@ -130,7 +130,7 @@ function _simulator_info_payload(s::Scenario)
 	s.state_schema_version === nothing || (model["state_schema_version"] = s.state_schema_version)
 	payload = Dict{String, Any}(
 		"protocol_version" => "0.3",
-	"binding" => Dict("name" => "tensnap-julia", "version" => "0.3.0", "language" => "julia"),
+	"binding" => Dict("name" => "tensnap-julia", "version" => "0.3.1", "language" => "julia"),
 		"model" => model,
 		"instance_id" => s.instance_id,
 		"capabilities" => sort!(collect(s.capabilities)),
