@@ -513,8 +513,8 @@ class SimulationScenario:
             "instance_id": self.instance_id,
             "mode": mode,
         }
-        await self.server.send(ws, MT.STATE_SYNC_BEGIN, begin)
         await self._ensure_initialized()
+        await self.server.send(ws, MT.STATE_SYNC_BEGIN, begin)
 
         inventory = req if mode == "reconcile" else {}
 
