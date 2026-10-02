@@ -20,11 +20,12 @@ end
 struct _ProjectedRestore
     time::Union{Nothing, Function}
     validate::Union{Nothing, Function}
+    before_apply::Union{Nothing, Function}
     after_apply::Union{Nothing, Function}
 end
 
-scene_restore(; time = nothing, validate = nothing, after_apply = nothing) =
-    _ProjectedRestore(time, validate, after_apply)
+scene_restore(; time = nothing, validate = nothing, before_apply = nothing, after_apply = nothing) =
+    _ProjectedRestore(time, validate, before_apply, after_apply)
 
 function _restore_dict(value)
 	value isa AbstractDict || error("restore entry must be an object")
@@ -144,6 +145,7 @@ _validate_projected_restore(s, payload) = (_prepare_projected_restore(s, payload
 
 function _apply_projected_restore!(s, payload)
 	ordered = _prepare_projected_restore(s, payload)
+	s.restore_plan.before_apply === nothing || _call1or2(s.restore_plan.before_apply, payload, s.model)
 	for raw_change in get(payload, "parameters", Any[])
 		change = _restore_dict(raw_change)
 		_set_parameter!(s.parameters[String(change["id"])], change["value"], s.model)
@@ -180,6 +182,6 @@ function _apply_projected_restore!(s, payload)
 		end
 	end
 	haskey(payload, "time") && s.restore_plan.time !== nothing && _call1or2(s.restore_plan.time, payload["time"], s.model)
-	s.restore_plan.after_apply === nothing || _call0or1(s.restore_plan.after_apply, s.model)
+	s.restore_plan.after_apply === nothing || _call1or2(s.restore_plan.after_apply, payload, s.model)
 	return nothing
 end

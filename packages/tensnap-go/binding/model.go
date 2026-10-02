@@ -174,8 +174,16 @@ func WithRestoreValidation[T any](validate func(T, *protocol.SceneRestorePayload
 	}
 }
 
+// WithBeforeRestore prepares model-owned state after validation and before projected mutation.
+func WithBeforeRestore[T any](before func(T, *protocol.SceneRestorePayload) error) ModelOption[T] {
+	return func(model *Model[T]) {
+		model.enableProjectedRestore()
+		model.restorePlan.BeforeApply = before
+	}
+}
+
 // WithAfterRestore rebuilds model-owned derived state after projected mutation.
-func WithAfterRestore[T any](after func(T) error) ModelOption[T] {
+func WithAfterRestore[T any](after func(T, *protocol.SceneRestorePayload) error) ModelOption[T] {
 	return func(model *Model[T]) {
 		model.enableProjectedRestore()
 		model.restorePlan.AfterApply = after

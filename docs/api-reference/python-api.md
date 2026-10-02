@@ -260,7 +260,7 @@ multiple layers, specify `layer_id`. `delete` receives a key record such as `{"i
 
 ```python
 @checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
-@scene_restore(time="restore_time", after_apply="rebuild_indices")
+@scene_restore(time="restore_time", before_apply="prepare_model", after_apply="rebuild_indices")
 @layer_restore(create="create_item", update="update_item", delete="delete_item")
 @agent_layer("agents", items_projector=lambda model: model.agent_records())
 @env("main")

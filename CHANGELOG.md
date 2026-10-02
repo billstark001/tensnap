@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added layer-local restore builders, typed checkpoints, and compiled layer
   dependency ordering.
+- Added model-wide before/after hooks around declarative projected restore.
 - Added SIRS and forest-fire examples with reversible state and exact random
   continuation.
 - Added focused SIRS and forest-fire dynamics regression tests.
@@ -100,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added layer-local restore callbacks, checkpoint hooks, and registration-time
   dependency ordering.
+- Added model-wide before/after hooks around declarative projected restore.
 - Added El Farol checkpoint continuation coverage.
 
 ### Fixed

@@ -9,7 +9,9 @@ from tensnap.server import ServerToClientMessageType
 
 def test_composed_restore_reconciles_complete_layer_and_rejects_before_mutation():
     @checkpoint(capture="capture", restore="restore_checkpoint")
-    @scene_restore(time="restore_time")
+    @scene_restore(
+        time="restore_time", before_apply="before_apply", after_apply="after_apply"
+    )
     @layer_restore(create="put_bird", update="put_bird", delete="delete_bird")
     @agent_layer("birds", items_projector=lambda birds: list(birds.birds.values()))
     @env("main")
@@ -17,6 +19,13 @@ def test_composed_restore_reconciles_complete_layer_and_rejects_before_mutation(
         def __init__(self):
             self.birds = {"old": {"id": "old", "x": 0}}
             self.time = 0
+            self.phases = []
+
+        def before_apply(self, payload):
+            self.phases.append(("before", payload["request_id"], tuple(self.birds)))
+
+        def after_apply(self, payload):
+            self.phases.append(("after", payload["request_id"], tuple(self.birds)))
 
         def put_bird(self, item):
             self.birds[item["id"]] = dict(item)
@@ -72,11 +81,13 @@ def test_composed_restore_reconciles_complete_layer_and_rejects_before_mutation(
     rejected = asyncio.run(restore("bad", [{"id": "new"}, {"id": "new"}]))
     assert rejected["status"] == "rejected"
     assert model.birds == {"old": {"id": "old", "x": 0}}
+    assert model.phases == []
 
     accepted = asyncio.run(restore("ok", [{"id": "new", "x": 3}]))
     assert accepted["status"] == "ok"
     assert model.birds == {"new": {"id": "new", "x": 3}}
     assert model.time == restored_time
+    assert model.phases == [("before", "ok", ("old",)), ("after", "ok", ("new",))]
 
     saved_checkpoint = encode_checkpoint(
         {"birds": {"checkpoint": {"id": "checkpoint", "x": 4}}, "time": 1},

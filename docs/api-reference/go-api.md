@@ -433,8 +433,10 @@ For a declarative projected inverse, call `Restore` on the layer builder.
 The binding reads current records through that layer's `Items` and `Project`
 functions and uses its built-in item key fields. `Replace` handles an
 array-backed layer; grid and background layers can restore metadata alone.
-Model-wide hooks are `WithRestoreTime`, `WithRestoreValidation`, and
-`WithAfterRestore`.
+Model-wide hooks are `WithRestoreTime`, `WithRestoreValidation`,
+`WithBeforeRestore`, and `WithAfterRestore`. The before/after hooks receive the
+model and restore payload. They run around parameter, layer, and time mutation,
+after the complete payload has been validated.
 
 ```go
 agents := binding.NewAgentLayer[*Model, Agent]("agents").
@@ -446,6 +448,7 @@ agents := binding.NewAgentLayer[*Model, Agent]("agents").
 bound := binding.NewModel(raw,
     binding.WithEnvs(binding.NewEnv("main", agents)),
     binding.WithRestoreTime(restoreTime),
+    binding.WithBeforeRestore(prepareModel),
     binding.WithAfterRestore(rebuildIndices),
     binding.WithCheckpoint(captureCheckpoint, restoreCheckpoint),
 )

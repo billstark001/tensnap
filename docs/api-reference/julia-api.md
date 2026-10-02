@@ -251,7 +251,8 @@ agents = agents_layer("agents", model -> values(model.agents);
 hooks = restore_hooks(
     scene_restore(
         time = (value, model) -> (model.time = value),
-        after_apply = model -> rebuild_indices!(model),
+        before_apply = (payload, model) -> prepare_model!(model, payload),
+        after_apply = (payload, model) -> rebuild_indices!(model, payload),
     );
     checkpoint_capture = _ -> snapshot(model),
     checkpoint_restore = data -> restore_snapshot!(model, data),
@@ -268,8 +269,9 @@ The layer's existing projection and `item_key_fields` determine current item
 identity. `restore = (replace = (items, model) -> ..., )` restores an array-backed
 layer; `metadata = ...` handles layer metadata. The binding validates topology,
 parameters, and duplicate keys before mutation. Omit `time` if only the
-scenario owns time. A whole-payload function remains supported by
-`restore_hooks`.
+scenario owns time. `before_apply` and `after_apply` receive the payload and
+model around parameter, layer, and time mutation. A whole-payload function
+remains supported by `restore_hooks`.
 
 Checkpoint callbacks work with model data only. Byte vectors use
 `application/octet-stream`; other protocol data uses MessagePack. JSON clients

@@ -24,9 +24,10 @@ type RestoreLayer[T any] struct {
 
 // projectedRestore owns the model-wide phases. Layer inverses live on layers.
 type projectedRestore[T any] struct {
-	Time       func(T, float64) error
-	Validate   func(T, *protocol.SceneRestorePayload) error
-	AfterApply func(T) error
+	Time        func(T, float64) error
+	Validate    func(T, *protocol.SceneRestorePayload) error
+	BeforeApply func(T, *protocol.SceneRestorePayload) error
+	AfterApply  func(T, *protocol.SceneRestorePayload) error
 }
 
 type restoreBinding[T any] interface {
@@ -324,6 +325,11 @@ func (p *projectedRestore[T]) apply(m *Model[T], payload *protocol.SceneRestoreP
 	if err != nil {
 		return err
 	}
+	if p.BeforeApply != nil {
+		if err := p.BeforeApply(m.target, payload); err != nil {
+			return err
+		}
+	}
 	for _, change := range payload.Parameters {
 		for _, param := range m.params {
 			if param.ID == change["id"] {
@@ -395,7 +401,7 @@ func (p *projectedRestore[T]) apply(m *Model[T], payload *protocol.SceneRestoreP
 		}
 	}
 	if p.AfterApply != nil {
-		return p.AfterApply(m.target)
+		return p.AfterApply(m.target, payload)
 	}
 	return nil
 }

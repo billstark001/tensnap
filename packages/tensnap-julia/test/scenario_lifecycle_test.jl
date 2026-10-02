@@ -102,7 +102,26 @@ end
 
 @testset "composed projected restore" begin
 	model = Dict{String, Any}("agents" => Dict("old" => Dict("id" => "old", "x" => 1)), "time" => 0)
-	plan = scene_restore(time = (value, m) -> (m["time"] = value))
+	phases = String[]
+	fail_before = Ref(false)
+	plan = scene_restore(
+		before_apply = (payload, m) -> begin
+			push!(phases, "before")
+			@test payload["time"] == 7
+			@test haskey(m["agents"], "old")
+			fail_before[] && error("before failed")
+		end,
+		time = (value, m) -> begin
+			push!(phases, "time")
+			m["time"] = value
+		end,
+		after_apply = (payload, m) -> begin
+			push!(phases, "after")
+			@test payload["time"] == 7
+			@test haskey(m["agents"], "new")
+			@test m["time"] == 7
+		end,
+	)
 	scenario = Scenario(model_id = "composed", restore_hooks = restore_hooks(plan))
 	register_model!(scenario, model)
 	add_environment!(scenario, environment("main"; layers = [
@@ -121,11 +140,19 @@ end
 	push!(bad["envs"][1]["layers"][1]["items"], Dict("id" => "new", "x" => 4))
 	@test_throws ErrorException TenSnap._validate_projected_restore(scenario, bad)
 	@test haskey(model["agents"], "old")
+	@test isempty(phases)
+	fail_before[] = true
+	@test_throws ErrorException TenSnap._apply_projected_restore!(scenario, base)
+	@test phases == ["before"]
+	@test haskey(model["agents"], "old")
+	fail_before[] = false
+	empty!(phases)
 	TenSnap._validate_projected_restore(scenario, base)
 	TenSnap._apply_projected_restore!(scenario, base)
 	@test collect(keys(model["agents"])) == ["new"]
 	@test model["agents"]["new"]["x"] == 3
 	@test model["time"] == 7
+	@test phases == ["before", "time", "after"]
 end
 
 @testset "layer restore metadata stays with its declared layer" begin
