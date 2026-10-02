@@ -100,7 +100,48 @@ describe('SceneRestoreDialog', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
-  it('sends only the opaque checkpoint for an exact compatible restore', () => {
+  it('sends the opaque checkpoint and captured time for an exact compatible restore', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport({
+      ...createSynchronousRestoreTransport(session, 'ok'),
+      send: (message) => sent.push(message),
+    });
+    session.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'dialog-test', version: '0.3.0' },
+        model: { id: 'dialog-model' },
+        instance_id: 'dialog-instance',
+        capabilities: ['scene.restore.checkpoint', 'scene.restore.projected'],
+      },
+    });
+    const checkpointSnapshot = createSingleSnapshot({
+      metadata: { time: 3 }, actions: [], parameters: [], environments: [], charts: [], monitors: [], logs: [], assets: [],
+    }, {
+      id: 'checkpoint-snapshot',
+      modelIdentity: { model_id: 'dialog-model', instance_id: 'dialog-instance' },
+      checkpoint: { model_id: 'dialog-model', encoding: 'application/octet-stream', data: new Uint8Array([1, 2, 3]) },
+    });
+
+    render(<SceneRestoreDialog open onOpenChange={vi.fn()} snapshot={checkpointSnapshot} session={session} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Restore snapshot' }));
+
+    expect(sent).toContainEqual(expect.objectContaining({
+      type: 'scene_restore',
+      payload: expect.objectContaining({
+        model_id: 'dialog-model',
+        checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1, 2, 3]) },
+        time: 3,
+      }),
+    }));
+    const payload = sent.find((message) => message.type === 'scene_restore')!.payload as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('parameters');
+    expect(payload).not.toHaveProperty('envs');
+  });
+
+  it('keeps checkpoint-only simulators free of projected time', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport({
@@ -120,25 +161,15 @@ describe('SceneRestoreDialog', () => {
     const checkpointSnapshot = createSingleSnapshot({
       metadata: { time: 3 }, actions: [], parameters: [], environments: [], charts: [], monitors: [], logs: [], assets: [],
     }, {
-      id: 'checkpoint-snapshot',
+      id: 'checkpoint-only-snapshot',
       modelIdentity: { model_id: 'dialog-model', instance_id: 'dialog-instance' },
-      checkpoint: { model_id: 'dialog-model', encoding: 'application/octet-stream', data: new Uint8Array([1, 2, 3]) },
+      checkpoint: { model_id: 'dialog-model', encoding: 'application/octet-stream', data: new Uint8Array([1]) },
     });
-
     render(<SceneRestoreDialog open onOpenChange={vi.fn()} snapshot={checkpointSnapshot} session={session} />);
     fireEvent.click(screen.getByRole('button', { name: 'Restore snapshot' }));
-
-    expect(sent).toContainEqual(expect.objectContaining({
-      type: 'scene_restore',
-      payload: expect.objectContaining({
-        model_id: 'dialog-model',
-        checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1, 2, 3]) },
-      }),
-    }));
-    const payload = sent.find((message) => message.type === 'scene_restore')!.payload as Record<string, unknown>;
+    const payload = sent.find((message) => message.type === 'scene_restore')?.payload as Record<string, unknown> | undefined;
+    expect(payload).toMatchObject({ model_id: 'dialog-model', checkpoint: { encoding: 'application/octet-stream' } });
     expect(payload).not.toHaveProperty('time');
-    expect(payload).not.toHaveProperty('parameters');
-    expect(payload).not.toHaveProperty('envs');
   });
 
   it('keeps a mismatched snapshot offline-only', () => {

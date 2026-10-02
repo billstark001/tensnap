@@ -195,6 +195,7 @@ export class AgentRuntime extends EventEmitter {
     return {
       ...this.control,
       isConnected: this.renderer.isConnected,
+      simulatorCapabilities: this.renderer.simulatorInfo?.capabilities,
     };
   }
 

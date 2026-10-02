@@ -111,11 +111,13 @@ function SceneRestoreDialogContent({
         : undefined);
       if (restoreMode === 'checkpoint') {
         if (!checkpoint) throw new Error('This snapshot does not contain an exact checkpoint.');
+        const capturedTime = materializeSnapshot(snapshot, frame).metadata.time;
         const result = await session.restoreScene({
           request_id: id,
           ...(identity?.state_schema_version === undefined ? {} : { state_schema_version: identity.state_schema_version }),
           ...(info?.instance_id ? { expected_instance_id: info.instance_id } : {}),
           checkpoint: { encoding: checkpoint.encoding, data: checkpoint.data },
+          ...(canProject && typeof capturedTime === 'number' ? { time: capturedTime } : {}),
         }, { signal: controller.signal });
         if (result.status !== 'ok') {
           throw new Error(result.error?.message ?? _(t`Simulator returned ${result.status}.`));
