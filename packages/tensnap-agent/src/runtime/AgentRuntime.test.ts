@@ -155,6 +155,57 @@ describe('AgentRuntime checkpointing', () => {
   });
 });
 
+describe('AgentRuntime action lifecycle', () => {
+  it('dispatches a second CLI action after the first result without a painter', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-actions-'));
+    temporaryRoots.push(rootDir);
+    const server = new WebSocketServer({ port: 0 });
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP WebSocket test address.');
+    const requestIds: string[] = [];
+    server.on('connection', (socket) => {
+      socket.send(encodeProtocolMessage({
+        type: 'simulator_info',
+        payload: { protocol_version: '0.3', binding: { name: 'test-binding', version: '0.3.0' },
+          model: { id: 'test-model' }, instance_id: 'test-instance', capabilities: [] },
+      }, 'json'));
+      socket.on('message', (raw) => {
+        const message = decodeProtocolMessage(raw.toString());
+        if (message.type === 'state_sync') {
+          socket.send(encodeProtocolMessage({ type: 'state_sync_begin', payload: {
+            request_id: message.payload.request_id, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace',
+          } }, 'json'));
+          socket.send(encodeProtocolMessage({ type: 'state_sync_end', payload: {
+            request_id: message.payload.request_id, state_revision: '1',
+          } }, 'json'));
+        }
+        if (message.type === 'action_invoke') {
+          requestIds.push(message.payload.request_id);
+          socket.send(encodeProtocolMessage({ type: 'action_result', payload: {
+            id: message.payload.id, request_id: message.payload.request_id,
+          } }, 'json'));
+        }
+      });
+    });
+
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), { encoding: 'json' });
+    await runtime.initialize();
+    try {
+      await runtime.connect({ simulatorUrl: `ws://127.0.0.1:${address.port}`, encoding: 'json' });
+      await runtime.waitUntilReady(1_000);
+      await runtime.runAction('step');
+      await vi.waitFor(() => expect(requestIds).toHaveLength(1));
+      await runtime.runAction('step');
+      await vi.waitFor(() => expect(requestIds).toHaveLength(2));
+      expect(requestIds[1]).not.toBe(requestIds[0]);
+    } finally {
+      await runtime.stop();
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+});
+
 describe('AgentRuntime rendering', () => {
   it('disambiguates an untargeted output path across painters', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-render-'));
