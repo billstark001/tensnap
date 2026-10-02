@@ -72,7 +72,7 @@ if mesa is not None:
 
         def __init__(self):
             super().__init__()
-            self.grid = mesa.space.SingleGrid(1, 1, torus=True)
+            self.grid = FakeGrid(1, 1)
 
         def step(self) -> None:
             type(self).step_calls += 1

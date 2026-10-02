@@ -1,26 +1,24 @@
 from typing import Tuple, cast
 
-from mesa import Agent, Model, DataCollector
-from mesa.space import MultiGrid
-
 import numpy as np
-
+from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
+from mesa import DataCollector, Model
 from tensnap import (
     agent,
-    env,
     agent_layer,
+    bind_datacollector,
     bind_kwargs,
+    env,
     grid_layer,
     trajectory_layer,
-    bind_datacollector,
 )
 
 
-@agent()
-class SugarAgent(Agent):
+@agent(x="cell.coordinate[0]", y="cell.coordinate[1]")
+class SugarAgent(CellAgent):
 
     model: "Sugarscape"
-    pos: Tuple[int, int]
+    cell: Cell
 
     @property
     def color(self) -> str:
@@ -31,8 +29,9 @@ class SugarAgent(Agent):
         color = f"#{red:02x}{green:02x}00"
         return color
 
-    def __init__(self, model: "Sugarscape"):
+    def __init__(self, model: "Sugarscape", cell: Cell):
         super().__init__(model)
+        self.cell = cell
         # 使用模型中配置的范围参数
         self.metabolism = float(np.random.uniform(*model.metabolism_range))
         self.vision = int(np.random.randint(*model.vision_range))
@@ -47,35 +46,37 @@ class SugarAgent(Agent):
         }
 
     def move(self):
-        neighbors_sugar = list(
-            self.model.grid.get_neighborhood(self.pos, moore=True, radius=self.vision)
-        )
+        neighbors_sugar = list(self.cell.get_neighborhood(radius=self.vision).cells)
         np.random.shuffle(neighbors_sugar)
-        neighbors = self.model.grid.get_neighborhood(self.pos, moore=True, radius=1)
+        neighbors = list(self.cell.neighborhood.cells)
         max_sugar = max(
-            neighbors_sugar, key=lambda x: self.model.sugar[x], default=None
+            neighbors_sugar,
+            key=lambda cell: self.model.sugar[cell.coordinate],
+            default=None,
         )
-        if not max_sugar:
+        if max_sugar is None:
             return False
 
         possible_moves = [
             cell
             for cell in neighbors
-            if cell in neighbors_sugar and self.model.grid.is_cell_empty(cell)
+            if cell in neighbors_sugar and cell.is_empty
         ]
         np.random.shuffle(possible_moves)
         if not possible_moves:
             return False
         new_pos = min(
             possible_moves,
-            key=lambda x: abs(x[0] - max_sugar[0]) + abs(x[1] - max_sugar[1]),
+            key=lambda cell: abs(cell.coordinate[0] - max_sugar.coordinate[0])
+            + abs(cell.coordinate[1] - max_sugar.coordinate[1]),
         )
-        self.model.grid.move_agent(self, new_pos)
+        self.cell = new_pos
         return True
 
     def dig(self):
-        self.sugar += self.model.sugar[self.pos]
-        self.model.sugar[self.pos] = 0
+        pos = self.cell.coordinate
+        self.sugar += self.model.sugar[pos]
+        self.model.sugar[pos] = 0
         self.sugar -= self.metabolism
 
     def starve(self):
@@ -130,10 +131,8 @@ def sugar_field_random(width: int, height: int):
 
 
 def sugar_field_circular(width: int, height: int):
-    x_coord = np.arange(width)
-    x_coord = np.stack([x_coord] * height, axis=1) / width
-    y_coord = np.arange(height)
-    y_coord = np.stack([y_coord] * width, axis=0) / height
+    x_coord = np.stack([np.arange(width)] * height, axis=1) / width
+    y_coord = np.stack([np.arange(height)] * width, axis=0) / height
     ret = np.zeros((width, height), dtype=int) + 1
     c1 = ((x_coord - 0.25) ** 2 + (y_coord - 0.75) ** 2) ** 0.5
     c2 = ((x_coord - 0.75) ** 2 + (y_coord - 0.25) ** 2) ** 0.5
@@ -175,8 +174,12 @@ class Sugarscape(Model):
         initial_sugar_range: Tuple[float, float] = (5.0, 25.0),
         torus: bool = True,
     ):
-        super().__init__(seed=seed)
-        self.grid = MultiGrid(width, height, torus)
+        super().__init__(rng=seed)
+        self.width = width
+        self.height = height
+        self.grid = OrthogonalMooreGrid(
+            (width, height), torus=torus, capacity=1, random=self.random
+        )
 
         # 根据grid_type选择糖田生成方式
         if grid_type == "random":
@@ -210,13 +213,14 @@ class Sugarscape(Model):
         )
 
     def create_agents(self, agent_count):
-        gw, gh = self.grid.width, self.grid.height
-        sequence = np.random.choice(gw * gh, (agent_count,), replace=False)
+        sequence = np.random.choice(
+            self.width * self.height, (agent_count,), replace=False
+        )
         for w in sequence:
-            x = w % gw
-            y = (w - x) // gw
-            agent = SugarAgent(self)
-            self.grid.place_agent(agent, (x, y))
+            x = int(w % self.width)
+            y = int((w - x) // self.width)
+            position = (x, y)
+            SugarAgent(self, self.grid[position])
 
     def step(self):
         self.agents.shuffle_do("step")

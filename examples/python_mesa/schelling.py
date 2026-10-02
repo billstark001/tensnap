@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 from typing import List, cast
 
+from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from mesa import Model
 from mesa.datacollection import DataCollector
-from mesa.discrete_space import Cell, CellAgent, OrthogonalMooreGrid
 
 DEFAULT_GRID_W = 50
 DEFAULT_GRID_H = 50
@@ -16,10 +17,10 @@ SCHELLING_DYNAMICS_VERSION = 1
 class SchellingAgent(CellAgent):
     """One occupied cell in the Schelling grid."""
 
-    cell: "Cell"
+    cell: Cell
     model: "SchellingModel"
 
-    def __init__(self, model: "SchellingModel", cell, group: int) -> None:
+    def __init__(self, model: "SchellingModel", cell: Cell, group: int) -> None:
         super().__init__(model)
         self.cell = cell
         self.group = group

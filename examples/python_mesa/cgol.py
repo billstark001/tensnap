@@ -4,6 +4,13 @@ from typing import Any
 
 import mesa
 import numpy as np
+from _mesa_space import (
+    Cell as MesaCell,
+)
+from _mesa_space import (
+    CellAgent,
+    OrthogonalMooreGrid,
+)
 from tensnap import (
     agent,
     agent_layer,
@@ -14,9 +21,12 @@ from tensnap import (
     env,
     grid_layer,
     layer_restore,
+    mesa_model_time,
     monitor,
+    restore_mesa_model_time,
     scene_restore,
 )
+from tensnap.bindings.mesa import mesa_clock_restore
 
 
 def _nested_tuple(value: Any) -> Any:
@@ -26,20 +36,22 @@ def _nested_tuple(value: Any) -> Any:
     return value
 
 
-@agent(icon="square")
-class Cell(mesa.Agent):
+@agent(
+    id="cell_id", x="cell.coordinate[0]", y="cell.coordinate[1]", icon="square"
+)
+class Cell(CellAgent):
     model: "GameOfLife"
-    pos: "tuple[int, int]"
+    cell: MesaCell
 
     @property
     def alive(self) -> bool:
         """Expose state for visualization and metadata consumers."""
-        x, y = self.pos
+        x, y = self.cell.coordinate
         return bool(self.model.alive[x, y])
 
     @alive.setter
     def alive(self, value: bool) -> None:
-        x, y = self.pos
+        x, y = self.cell.coordinate
         self.model.alive[x, y] = value
 
     @property
@@ -51,21 +63,16 @@ class Cell(mesa.Agent):
         """Keep projected snapshots independent from presentation colors."""
         return {"alive": self.alive}
 
-    def __init__(self, model: "GameOfLife"):
+    def __init__(self, model: "GameOfLife", cell: MesaCell):
         super().__init__(model)
-
-    # Kept for compatibility with Mesa-style staged activation.
-    # The model step uses a vectorized update instead.
-    def step(self) -> None:
-        pass
-
-    def advance(self) -> None:
-        pass
+        self.cell = cell
+        x, y = cell.coordinate
+        self.cell_id = f"{x}:{y}"
 
 
 @bind_kwargs(exclude=["seed"])
 @checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
-@scene_restore(time="restore_time")
+@scene_restore(time=mesa_clock_restore)
 @layer_restore(
     replace="restore_cells",
     validate="validate_cells",
@@ -78,11 +85,14 @@ class Cell(mesa.Agent):
 @env(id="cgol_grid")
 class GameOfLife(mesa.Model):
     def __init__(self, width: int = 50, height: int = 50, seed=None):
-        super().__init__(seed=seed)
+        super().__init__(rng=seed)
 
+        self.seed = seed
         self.width = width
         self.height = height
-        self.grid = mesa.space.SingleGrid(width, height, torus=True)
+        self.grid = OrthogonalMooreGrid(
+            (width, height), torus=True, capacity=1, random=self.random
+        )
 
         # Store the simulation state in a dense NumPy array.
         # This avoids per-agent neighbor lookups during each step.
@@ -94,7 +104,7 @@ class GameOfLife(mesa.Model):
 
         for x in range(width):
             for y in range(height):
-                self.grid.place_agent(Cell(self), (x, y))
+                Cell(self, self.grid[(x, y)])
 
         self.datacollector = mesa.DataCollector(
             model_reporters={"Alive": "alive_count", "Dead": "dead_count"}
@@ -109,7 +119,7 @@ class GameOfLife(mesa.Model):
     def board_status(self) -> dict[str, int | float]:
         total = self.width * self.height
         return {
-            "generation": int(self.steps),
+            "generation": int(mesa_model_time(self)),
             "alive": self.alive_count,
             "dead": self.dead_count,
             "density": self.alive_count / total if total else 0.0,
@@ -126,28 +136,17 @@ class GameOfLife(mesa.Model):
     def cell_population(self) -> dict[str, int]:
         return {"alive": self.alive_count, "dead": self.dead_count}
 
-    def _restore_time(self, steps: int, time: float) -> None:
-        """Move Mesa's recurring step event alongside restored model time."""
-        self._default_schedule.pause()
-        self.steps = steps
-        self.time = time
-        self._default_schedule._execution_count = steps
-        self._default_schedule.resume()
-
     def capture_checkpoint(self) -> bytes:
         """Capture exact model/RNG state in a pickle-free NumPy archive."""
         metadata = {
             "width": self.width,
             "height": self.height,
-            "seed": self._seed,
-            "steps": self.steps,
-            "time": self._time,
-            "agent_id_counter": self.agent_id_counter,
+            "seed": self.seed,
+            "time": mesa_model_time(self),
             "running": self.running,
             "rng_state": self.rng.bit_generator.state,
             "random_state": self.random.getstate(),
             "model_vars": self.datacollector.model_vars,
-            "collection_steps": self.datacollector._collection_steps,
         }
         buffer = BytesIO()
         np.savez_compressed(
@@ -177,13 +176,11 @@ class GameOfLife(mesa.Model):
         self.alive_count = int(alive.sum())
         self.rng.bit_generator.state = metadata["rng_state"]
         self.random.setstate(_nested_tuple(metadata["random_state"]))
-        self._restore_time(int(metadata["steps"]), float(metadata["time"]))
-        self.agent_id_counter = int(metadata["agent_id_counter"])
+        restore_mesa_model_time(self, metadata["time"])
         self.running = bool(metadata["running"])
         self.datacollector.model_vars = {
             key: list(values) for key, values in metadata["model_vars"].items()
         }
-        self.datacollector._collection_steps = list(metadata["collection_steps"])
 
     def restore_grid_metadata(self, metadata: dict[str, Any]) -> None:
         for key, expected in (("width", self.width), ("height", self.height)):
@@ -222,9 +219,6 @@ class GameOfLife(mesa.Model):
                 values[-1] = value
             else:
                 values.append(value)
-
-    def restore_time(self, time: float) -> None:
-        self._restore_time(int(time), float(time))
 
     def step(self) -> None:
         board = self.alive

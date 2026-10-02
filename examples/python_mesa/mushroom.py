@@ -1,15 +1,16 @@
 # region Imports
 
-from typing import Tuple, List, cast
 import math
 import random
-import mesa
+from typing import List, Tuple, cast
 
+import mesa
+from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from tensnap import (
     agent,
-    env,
     agent_layer,
     bind_kwargs,
+    env,
     grid_layer,
     trajectory_layer,
 )
@@ -74,12 +75,14 @@ class Hunter(mesa.Agent):
             self.time_since_last_found += 1
 
 
-class Patch(mesa.Agent):  # type: ignore[misc]
+class Patch(CellAgent):
     icon = "square"
     size = 1.0
+    cell: Cell
 
-    def __init__(self, model: "ForagingModel") -> None:
+    def __init__(self, model: "ForagingModel", cell: Cell) -> None:
         super().__init__(model)
+        self.cell = cell
         self._color = "white"
         # 优化6：_state 字典只在初始化时构建一次，后续就地更新
         self._state: dict[str, object] = {}
@@ -97,9 +100,8 @@ class Patch(mesa.Agent):  # type: ignore[misc]
             cast(dict[str, object], self._state["data"])["mushroom_state"] = value
 
     def _init_state(self) -> None:
-        """在 Mesa 完成 pos 赋值后，一次性构建状态字典。"""
-        assert self.pos is not None
-        x, y = cast(Tuple[int, int], self.pos)
+        """一次性构建状态字典。"""
+        x, y = self.cell.coordinate
         self._state = {
             "id": f"patch:{x}:{y}",
             "x": x,
@@ -145,8 +147,6 @@ class Patch(mesa.Agent):  # type: ignore[misc]
 @bind_kwargs()
 class ForagingModel(mesa.Model):  # type: ignore[misc]
 
-    grid: "mesa.space.SingleGrid"
-
     def __init__(
         self,
         width: int = 50,
@@ -158,7 +158,9 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
         super().__init__()
         self.width = width
         self.height = height
-        self.grid = mesa.space.SingleGrid(width, height, True)
+        self.grid = OrthogonalMooreGrid(
+            (width, height), torus=True, capacity=1, random=self.random
+        )
         self.num_clusters = num_clusters
         self.running = True
         self.hunters: List[Hunter] = []
@@ -168,19 +170,20 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
         # 创建 patches，同步维护查找表与状态缓存
         for x in range(width):
             for y in range(height):
-                patch = Patch(self)
-                self.grid.place_agent(patch, (x, y))
-                patch._init_state()  # grid.place_agent 已完成 pos 赋值
+                patch = Patch(self, self.grid[(x, y)])
+                patch._init_state()
                 self.patch_map[(x, y)] = patch
 
-        # 种植蘑菇（仅在初始化时调用一次，get_neighbors 开销可接受）
+        # 种植蘑菇，只在初始化时查找环形邻域。
         for _ in range(num_clusters):
             center_x = random.randrange(width)
             center_y = random.randrange(height)
             candidate_patches = cast(
                 List[Patch],
-                self.grid.get_neighbors(
-                    (center_x, center_y), moore=True, include_center=True, radius=5
+                list(
+                    self.grid[(center_x, center_y)]
+                    .get_neighborhood(radius=5, include_center=True)
+                    .agents
                 ),
             )
             selected_patches = random.sample(candidate_patches, patches_per_cluster)
@@ -188,10 +191,10 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
                 patch.color = "red"
 
         # 删除不参与运算的 agent 列表，避免不必要的迭代开销
-        for (x, y), patch in list(self.patch_map.items()):
+        for position, patch in list(self.patch_map.items()):
             if patch.color == "white":
-                self.grid.remove_agent(patch)
-                del self.patch_map[(x, y)]
+                patch.remove()
+                del self.patch_map[position]
             else:
                 self.patches.append(patch)
 

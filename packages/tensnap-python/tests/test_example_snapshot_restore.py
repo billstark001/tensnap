@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tensnap import SimulationScenario
+from tensnap import SimulationScenario, mesa_model_time
 from tensnap.bindings import scene_restore_binding
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -155,8 +155,10 @@ def test_cgol_projected_restore_replaces_complete_board_and_time() -> None:
         },
     )
 
-    assert model.steps == restored_time
+    assert mesa_model_time(model) == restored_time
     assert model.alive_count == len(restored_alive)
     assert model.datacollector.model_vars["Alive"][-1] == len(restored_alive)
+    collected = len(model.datacollector.model_vars["Alive"])
     model.step()
-    assert model.steps == restored_time + 1
+    assert mesa_model_time(model) == restored_time + 1
+    assert len(model.datacollector.model_vars["Alive"]) == collected + 1
