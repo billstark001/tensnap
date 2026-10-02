@@ -55,6 +55,7 @@ from .restore import (
     layer_restore,
     scene_restore,
 )
+from .restore_plan import RestoreValue
 
 
 def __getattr__(name: str) -> Any:

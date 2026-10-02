@@ -232,6 +232,7 @@ validation follow the [binding ownership contract](../maintainer-guide/binding-o
 - `scene_restore(..., checkpoint_capture=..., checkpoint_restore=...)`
 - `@layer_restore(create=..., update=..., delete=...)` on a class with a layer binding
 - `@scene_restore(time=...)` and `@checkpoint(capture=..., restore=...)`
+- `@scene_restore(time=RestoreValue(apply=..., validate=...))` for a model-aware time inverse
 
 Monitor values are replace-only current state. Metadata changes use
 `monitor_delete` followed by `monitor_create`; `monitor_update` changes only the
@@ -272,6 +273,17 @@ Use `@layer_restore(replace="restore_items")` for an array-backed layer and
 `@layer_restore(metadata="restore_metadata")` for a metadata-only layer.
 `time` may be omitted when only the scenario owns time. A checkpoint includes
 private RNG, scheduler, and collector state when exact continuation is required.
+`RestoreValue` gives a time inverse access to the model and an optional
+pre-apply validator. Both callbacks receive `(model, value)` and may be async.
+For a Mesa model using its default one-step schedule, import
+`mesa_clock_restore` from `tensnap.bindings.mesa` and pass it as `time=`. TenSnap validates
+that the projected time is a nonnegative integer and moves Mesa's next step
+event to the following tick. This works with Mesa 3.0 through 4.0.0a0; Mesa
+3.0–3.3 use `steps`, Mesa 3.4 uses `steps` and `time`, and event-backed Mesa
+3.5/4.0 uses `time` plus its default schedule. Models with a separate simulator,
+other pending events, or additional recurring event generators need a model-owned
+checkpoint that restores the complete scheduler state. The generic clock
+adapter rejects those event-backed cases before changing the model.
 If checkpoint import replaces the object registered as a layer target, set
 `target="get_new_target"` on `@layer_restore` so the binding refreshes it.
 The existing whole-payload callback remains available.
@@ -416,6 +428,10 @@ Related generic helpers exported from `tensnap.bindings.lifecycle`:
 Mesa-specific cleanup helpers that remain under `tensnap.bindings.mesa`:
 
 - `cleanup_mesa_model_step(...)`
+- `mesa_clock_restore` for `@scene_restore(time=...)`
+- `mesa_model_time(model)` to read the version-appropriate public clock
+- `validate_mesa_model_time_restore(model, time)` and
+  `restore_mesa_model_time(model, time)` for the default step schedule
 
 `default_cleanup_for_model(...)` is still exported from `tensnap.bindings.lifecycle` and re-exported from the deprecated Mesa compatibility surface for cases where you want to compose it with additional cleanup callbacks explicitly.
 

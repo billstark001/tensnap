@@ -17,7 +17,7 @@ from tensnap.bindings.ownership import (
 from tensnap.utils.codec import msgpack_default
 
 from .layer import _layer_binding_config_objects_name
-from .restore_plan import _LayerRestore, _ProjectedRestore
+from .restore_plan import RestoreValue, _LayerRestore, _ProjectedRestore
 
 _TENSNAP_SCENE_RESTORE_FIELD = "_tensnap_scene_restore"
 
@@ -70,7 +70,7 @@ def scene_restore(  # noqa: PLR0913 - declarative callbacks are independent phas
     *,
     checkpoint_capture: str | Callable[[], Any] | None = None,
     checkpoint_restore: str | Callable[[Any], Any] | None = None,
-    time: str | Callable[[Any], Any] | None = None,
+    time: str | Callable[[Any], Any] | RestoreValue | None = None,
     validate: str | Callable[..., Any] | None = None,
     before_apply: str | Callable[..., Any] | None = None,
     after_apply: str | Callable[..., Any] | None = None,

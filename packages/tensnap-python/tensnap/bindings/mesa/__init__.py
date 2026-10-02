@@ -1,4 +1,4 @@
-"""Mesa 3 bindings for TenSnap."""
+"""Mesa bindings for TenSnap."""
 
 from __future__ import annotations
 
@@ -18,6 +18,12 @@ if TYPE_CHECKING:
         reinitialize_registered_model,
     )
 
+    from .clock import (
+        mesa_clock_restore,
+        mesa_model_time,
+        restore_mesa_model_time,
+        validate_mesa_model_time_restore,
+    )
     from .datacollector import (
         BindDataCollectorConfig,
         bind_datacollector,
@@ -28,6 +34,10 @@ if TYPE_CHECKING:
 
 
 _DIRECT_EXPORTS = {
+    "mesa_clock_restore": (".clock", "mesa_clock_restore"),
+    "mesa_model_time": (".clock", "mesa_model_time"),
+    "restore_mesa_model_time": (".clock", "restore_mesa_model_time"),
+    "validate_mesa_model_time_restore": (".clock", "validate_mesa_model_time_restore"),
     "BindDataCollectorConfig": (".datacollector", "BindDataCollectorConfig"),
     "bind_datacollector": (".datacollector", "bind_datacollector"),
     "get_registered_collectors": (".datacollector", "get_registered_collectors"),
@@ -71,7 +81,11 @@ __all__ = [
     "get_bind_kwargs",
     "get_registered_collectors",
     "merge_registry_changes",
+    "mesa_clock_restore",
+    "mesa_model_time",
     "reinitialize_registered_model",
+    "restore_mesa_model_time",
+    "validate_mesa_model_time_restore",
 ]
 
 

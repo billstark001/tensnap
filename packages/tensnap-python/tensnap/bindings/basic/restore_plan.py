@@ -17,6 +17,18 @@ from tensnap.utils.layer_topology import order_layers
 Hook = str | Callable[..., Any]
 
 
+@dataclass(frozen=True)
+class RestoreValue:
+    """Restore a projected value with access to its owning model.
+
+    Validation runs before any projected state is applied. Both callbacks may
+    be synchronous or asynchronous and receive ``(model, value)``.
+    """
+
+    apply: Callable[[Any, Any], Any]
+    validate: Callable[[Any, Any], Any] | None = None
+
+
 def _resolve(target: Any, hook: Hook | None) -> Callable[..., Any] | None:
     value = getattr(target, hook) if isinstance(hook, str) else hook
     if value is not None and not callable(value):
@@ -54,7 +66,7 @@ class _LayerRestore:
 
 @dataclass(frozen=True)
 class _ProjectedRestore:
-    time: Hook | None = None
+    time: Hook | RestoreValue | None = None
     validate: Hook | None = None
     before_apply: Hook | None = None
     after_apply: Hook | None = None
@@ -193,7 +205,17 @@ class _BoundProjectedRestore:
             elif param.type == "enum" and value not in (param.options or []):
                 raise ValueError(f"parameter {param_id} has an unknown option")
         await _call(_resolve(self.target, self.spec.validate), payload)
+        if isinstance(self.spec.time, RestoreValue) and "time" in payload:
+            await _call(self.spec.time.validate, self.target, payload["time"])
         self._prepared = self._ordered(prepared)
+
+    async def _restore_time(self, payload: dict[str, Any]) -> None:
+        if "time" not in payload:
+            return
+        if isinstance(self.spec.time, RestoreValue):
+            await _call(self.spec.time.apply, self.target, payload["time"])
+        else:
+            await _call(_resolve(self.target, self.spec.time), payload["time"])
 
     async def __call__(self, payload: dict[str, Any]) -> None:
         # An optional checkpoint was imported after initial validation.
@@ -236,8 +258,7 @@ class _BoundProjectedRestore:
                 for key, item in incoming.items():
                     hook = spec.update if key in current else spec.create
                     await _call(_resolve(self.target, hook), item)
-        if "time" in payload:
-            await _call(_resolve(self.target, self.spec.time), payload["time"])
+        await self._restore_time(payload)
         await _call(_resolve(self.target, self.spec.after_apply), payload)
 
     async def rebind_targets(self) -> None:

@@ -1,10 +1,44 @@
 import asyncio
 from unittest.mock import AsyncMock
 
-from tensnap import agent_layer, checkpoint, env, layer_restore, scene_restore
+import pytest
+
+from tensnap import (
+    RestoreValue,
+    agent_layer,
+    checkpoint,
+    env,
+    layer_restore,
+    scene_restore,
+)
+from tensnap.bindings import scene_restore_binding
 from tensnap.bindings.basic.restore import encode_checkpoint
 from tensnap.scenario import SimulationScenario
 from tensnap.server import ServerToClientMessageType
+
+
+def test_restore_value_validates_before_applying_generic_time() -> None:
+    def validate(model, value):
+        if value < 0:
+            raise ValueError("time must be nonnegative")
+
+    def apply(model, value):
+        model.time = value
+
+    @scene_restore(time=RestoreValue(apply=apply, validate=validate))
+    class Model:
+        def __init__(self):
+            self.time = 0
+
+    model = Model()
+    restore, _, _ = scene_restore_binding(model).bind(model)
+    assert restore is not None
+    with pytest.raises(ValueError, match="nonnegative"):
+        asyncio.run(restore({"time": -1}))
+    assert model.time == 0
+    restored_time = 4
+    asyncio.run(restore({"time": restored_time}))
+    assert model.time == restored_time
 
 
 def test_composed_restore_reconciles_complete_layer_and_rejects_before_mutation():

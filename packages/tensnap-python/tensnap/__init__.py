@@ -11,6 +11,9 @@ from .bindings.mesa import (
     bind_datacollector as bind_datacollector,
     cleanup_mesa_model_step as cleanup_mesa_model_step,
     get_registered_collectors as get_registered_collectors,
+    mesa_model_time as mesa_model_time,
+    restore_mesa_model_time as restore_mesa_model_time,
+    validate_mesa_model_time_restore as validate_mesa_model_time_restore,
 )
 from .models import (
     ActionMetadata as ActionMetadata,
