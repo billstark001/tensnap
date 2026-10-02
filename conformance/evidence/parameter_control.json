@@ -3,7 +3,11 @@
     {
       "binding": "python",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "json",
       "fixture": "conformance/fixtures/python.py",
       "host_log": "",
@@ -17,13 +21,25 @@
         },
         "status": "pass"
       },
-      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "9bddc4bd518a5e6e2d50ae6757fb80b7fc6df168898c0af3f7b4bb36be98e193",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "python",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "msgpack",
       "fixture": "conformance/fixtures/python.py",
       "host_log": "",
@@ -37,13 +53,25 @@
         },
         "status": "pass"
       },
-      "source_sha256": "9cd5f85ca5651112a8592abadfa2268a67e341678f5676d300c0f5db3947bf8f",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "9bddc4bd518a5e6e2d50ae6757fb80b7fc6df168898c0af3f7b4bb36be98e193",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "go",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "json",
       "fixture": "conformance/fixtures/go/main.go",
       "host_log": "",
@@ -57,13 +85,25 @@
         },
         "status": "pass"
       },
-      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c8efb136cf6716280d0bed658bd8c8683bda51e6f2c5e689187641eec39b7038",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "go",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "msgpack",
       "fixture": "conformance/fixtures/go/main.go",
       "host_log": "",
@@ -77,13 +117,25 @@
         },
         "status": "pass"
       },
-      "source_sha256": "15b5c902f1d6737304c0b9411f4f598579aad56faaaa4cb9934781e6166ca718",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c8efb136cf6716280d0bed658bd8c8683bda51e6f2c5e689187641eec39b7038",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "js",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "json",
       "fixture": "conformance/fixtures/js.ts",
       "host_log": "",
@@ -97,13 +149,25 @@
         },
         "status": "pass"
       },
-      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "49238cc349f0a1e8975a293eceb97ff55291b676a4b5bdd4a1a08ce9891eadfd",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "js",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "msgpack",
       "fixture": "conformance/fixtures/js.ts",
       "host_log": "",
@@ -117,13 +181,25 @@
         },
         "status": "pass"
       },
-      "source_sha256": "35ea1ec6b805c7a25f0e06068f964c2152a2c4482823f37a610283b5bcdaad1d",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "49238cc349f0a1e8975a293eceb97ff55291b676a4b5bdd4a1a08ce9891eadfd",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "julia",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "json",
       "fixture": "conformance/fixtures/julia.jl",
       "host_log": "",
@@ -137,13 +213,25 @@
         },
         "status": "pass"
       },
-      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4dc63a26c8fc623ba85c5c3f97a6a18b98eadfd4b6675be94666e02e6cf59688",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "julia",
       "binding_version": "0.3.1",
-      "client_test": "conformance/renderer-client.ts",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
       "encoding": "msgpack",
       "fixture": "conformance/fixtures/julia.jl",
       "host_log": "",
@@ -157,14 +245,23 @@
         },
         "status": "pass"
       },
-      "source_sha256": "8cce540e572bdc38da68df872e738b5ae8ad557ef277e950ceb4d3e345124755",
+      "renderer_client_outcome": {
+        "evidence": {
+          "accepted": 2,
+          "normalized": 5,
+          "optimistic": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4dc63a26c8fc623ba85c5c3f97a6a18b98eadfd4b6675be94666e02e6cf59688",
       "test": "conformance/run_matrix.py"
     }
   ],
   "invariant": "parameter_control",
   "protocol_version": "0.3",
   "renderer_client": {
-    "status": "not tested"
+    "detail": "all eight live renderer probes",
+    "status": "pass"
   },
-  "revision": "d678db68d7745488d390d6d3759eca79b5cdc61c"
+  "revision": "115a1cc5ed04aa2e12eecb5b6bb594a15a9f2b79"
 }
