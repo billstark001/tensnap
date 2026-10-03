@@ -13,8 +13,8 @@ export add_parameter!, add_parameters!, update_parameter!, add_action!, add_char
 export remove_parameter!, remove_action!, remove_chart!, remove_monitor!, remove_environment!, remove_layer!
 export create_items!, update_items!, delete_items!, replace_layer_items!, publish_asset!, delete_asset!, request_screenshot!
 export run!, step!, reset!, sync!, clear_charts!, log!
-export parameter, parameters_from_fields, action, chart, monitor, restore_hooks, scene_restore, environment, layer, agents_layer, grid_layer, patch_layer, edge_layer, trajectory_layer, background_layer
-export dictprojector, propertyprojector, autoagentprojector, agents_getter
+export parameter, parameters_from_fields, action, chart, monitor, restore_hooks, scene_restore, environment, layer, agents_layer, map_agent_layer, matrix_agent_layer, grid_layer, patch_layer, edge_layer, trajectory_layer, background_layer
+export dictprojector, propertyprojector, autoagentprojector, agents_getter, literal
 
 include("constants.jl")
 include("utils.jl")
@@ -22,6 +22,7 @@ include("projectors.jl")
 include("topology.jl")
 include("restore_plan.jl")
 include("components.jl")
+include("agent_layers.jl")
 include("scenario.jl")
 include("layers.jl")
 include("assets.jl")

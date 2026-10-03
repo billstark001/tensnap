@@ -63,6 +63,7 @@ export function createBoundSession<TConfig extends object, TModel>(
   const model = binding.options.create(initialConfig);
   const assetRegistry = new Map<string, PublishedAsset>();
   const syncedItems = new Map<string, SyncedLayerState>();
+  const sourceCursors = new Map<string, unknown>();
   const parameterMap = new Map(binding.parameters.map((parameter) => [parameter.id, parameter]));
   const actionMap = new Map(binding.actions.map((action) => [action.metadata.id, action]));
   let currentDefinition = buildScenarioDefinition(binding, model, getCurrentConfig(binding, model, initialConfig));
@@ -126,11 +127,21 @@ export function createBoundSession<TConfig extends object, TModel>(
   ): Promise<void> => {
     for (const environment of binding.environments) {
       for (const layer of environment.layers) {
-        if (full || !layer.updates) {
+        const layerKey = getLayerKey(environment.id, layer.id);
+        if (!full && layer.changes && sourceCursors.has(layerKey)) {
+          const batch = layer.changes(model, sourceCursors.get(layerKey));
+          if (batch) {
+            await ctx.syncRecordChanges(environment.id, layer.id, batch.changes);
+            sourceCursors.set(layerKey, batch.revision);
+            continue;
+          }
+        }
+        if (full || !layer.updates || layer.changes) {
           if (layer.items) {
             const items = layer.items(model, { phase, full });
             const records = projectLayerItems(model, items, layer.project);
             await ctx.syncRecords(environment.id, layer.id, records, { key: layer.key as ItemKeySelector<ItemRecord> });
+            if (layer.revision) sourceCursors.set(layerKey, layer.revision(model));
           }
           continue;
         }
@@ -311,6 +322,7 @@ export function createBoundSession<TConfig extends object, TModel>(
         });
       }
       syncedItems.delete(layerKey);
+      sourceCursors.delete(layerKey);
     }
   };
 
@@ -502,6 +514,45 @@ export function createBoundSession<TConfig extends object, TModel>(
         deleteKeys: currentDeleteKeys,
         keyFields,
       });
+    },
+    async syncRecordChanges(envId, layerId, changes) {
+      const layerKey = getLayerKey(envId, layerId);
+      const previous = syncedItems.get(layerKey);
+      if (!previous) throw new Error(`No source snapshot for ${envId}/${layerId}.`);
+      const items = new Map(previous.items);
+      const deleteKeys = new Map(previous.deleteKeys);
+      const latest = new Map<string, (typeof changes)[number]>();
+      for (const change of changes) latest.set(`id:${typeof change.key}:${String(change.key)}`, change);
+      const creates: ItemRecord[] = [];
+      const updates: ItemRecord[] = [];
+      const deletes: ItemDeleteKey[] = [];
+      for (const [storageKey, change] of latest) {
+        const old = items.get(storageKey);
+        if (change.operation === 'delete') {
+          if (old) {
+            const key = deleteKeys.get(storageKey);
+            if (key !== undefined) deletes.push(key);
+            items.delete(storageKey);
+            deleteKeys.delete(storageKey);
+          }
+          continue;
+        }
+        if (!change.record) throw new Error(`Missing source record for ${storageKey}.`);
+        const record = cloneItem(change.record);
+        const resolved = resolveItemKey(record, record);
+        if (resolved.storageKey !== storageKey) throw new Error(`Source change ID mismatch: ${storageKey}.`);
+        if (!old) creates.push(record);
+        else {
+          const diff = diffItem(old, record, resolved);
+          if (diff) updates.push(diff);
+        }
+        items.set(storageKey, record);
+        deleteKeys.set(storageKey, resolved.deleteKey);
+      }
+      await this.deleteItems(envId, layerId, deletes as ItemRecord[]);
+      await this.createItems(envId, layerId, creates);
+      await this.updateItems(envId, layerId, updates);
+      syncedItems.set(layerKey, { ...previous, items, deleteKeys });
     },
     syncItems(envId, layerId, items, options) {
       return this.syncRecords(envId, layerId, items, options);
@@ -932,12 +983,14 @@ export function createBoundSession<TConfig extends object, TModel>(
           fallbackTime = 0;
           assetRegistry.clear();
           syncedItems.clear();
+          sourceCursors.clear();
           await binding.options.init?.(model, context);
           rebuildDefinition();
           initialized = true;
         }
         rebuildDefinition();
         syncedItems.clear();
+        sourceCursors.clear();
         await session.emitter.stateSyncBegin({
           request_id: payload.request_id,
           model_id: binding.metadata.id,

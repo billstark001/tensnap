@@ -118,6 +118,14 @@ Trajectory layers expose `length`, `width`, `color`, `z_index`,
 `on_agent_delete`, `on_state_sync`, and `on_reset` as first-class decorator
 arguments. See the Python API reference for their lifecycle semantics.
 
+Model-owned mappings, matrices, and indexed columns can use
+`map_agent_layer`, `matrix_agent_layer`, and `indexed_agent_layer` without
+creating visual agent wrappers. Built-in layer metadata goes in direct
+decorator keywords; custom metadata goes in `metadata={...}`. Source layers
+also accept direct `color`, `icon`, and `size` shortcuts. See the
+[Python API reference](../../docs/api-reference/python-api.md#layer-declaration-conventions)
+for the conflict rules, projection forms, and restore behavior.
+
 Monitors use explicit create/update/delete protocol operations. Scene checkpoint
 callbacks work with model data only: provide both `checkpoint_capture` and
 `checkpoint_restore`, and the binding infers the wire encoding. Pass

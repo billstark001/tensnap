@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import (
@@ -20,6 +22,7 @@ from tensnap.utils.object import dict_diff
 
 if TYPE_CHECKING:
     from .environment import EnvironmentLayerState
+    from .source import KeyedSource, SourceDeltaPlan
 
 TObj = TypeVar("TObj")
 TKey = TypeVar("TKey", bound=str)
@@ -34,11 +37,12 @@ TItemFieldKeys = TypeVar("TItemFieldKeys", bound=str)
 DynamicAttrProjector: TypeAlias = Callable[[TLayer, TObj], dict[TKey, Any]]
 ItemsProjector: TypeAlias = Callable[[TLayer], list[dict[TKey, Any]]]
 
-ItemProjectionType: TypeAlias = Literal[0, 1, 2]
+ItemProjectionType: TypeAlias = Literal[0, 1, 2, 3]
 
 _ITEM_PROJ_TYPE_ITEMS: Literal[0] = 0
 _ITEM_PROJ_TYPE_DYNAMIC: Literal[1] = 1
 _ITEM_PROJ_TYPE_STATIC: Literal[2] = 2
+_ITEM_PROJ_TYPE_SOURCE: Literal[3] = 3
 
 
 # region Message Payloads
@@ -87,11 +91,28 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     item_id_getter: AttrGetter[TItem] | None = None
     item_changed_getter: AttrGetter[TItem] | None = None
     items_projector: ItemsProjector[TLayer, TItemFieldKeys] | None = None
+    source: KeyedSource | None = None
 
     item_projection_type: ItemProjectionType = field(init=False)
     has_item_diffing: bool = field(init=False)
 
     def __post_init__(self) -> None:
+        if self.source is not None:
+            if any(
+                value is not None
+                for value in (
+                    self.iterable_getter,
+                    self.item_projector,
+                    self.item_dynamic_projector,
+                    self.items_projector,
+                    self.item_id_getter,
+                    self.item_changed_getter,
+                )
+            ):
+                raise ValueError("source cannot be combined with item projectors")
+            self.item_projection_type = _ITEM_PROJ_TYPE_SOURCE
+            self.has_item_diffing = False
+            return
         has_iterable = self.iterable_getter is not None
         has_item_proj = self.item_projector is not None
         has_dynamic_proj = self.item_dynamic_projector is not None
@@ -151,6 +172,8 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         return self.metadata_projector(layer)
 
     def build_item_list(self, layer: TLayer) -> list[dict[TItemFieldKeys, Any]]:
+        if self.source is not None:
+            return cast(list[dict[TItemFieldKeys, Any]], self.source.snapshot(layer))
         if self.item_projection_type == _ITEM_PROJ_TYPE_ITEMS:
             assert self.items_projector is not None
             return self.items_projector(layer)
@@ -167,6 +190,8 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         return tuple(item.get(key) for key in self.item_keys)
 
     def get_projected_item_cache_key(self, item: dict[TItemFieldKeys, Any]) -> Any:
+        if self.source is not None:
+            return item[cast(TItemFieldKeys, "id")]
         if self.has_item_diffing and len(self.item_keys) == 1:
             return item.get(self.item_keys[0])
         return self.get_item_id_naive(item)
@@ -314,6 +339,9 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
     binding: LayerBinding[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]
     target: TLayer
     last_items: dict[Any, dict[TItemFieldKeys, Any]] = field(default_factory=dict)
+    source_cursor: Any = None
+    source_shape: Any = None
+    _pending_source_plan: SourceDeltaPlan | None = None
 
     @property
     def id(self) -> str:
@@ -328,8 +356,11 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
 
     def reset_diff_state(self) -> None:
         self.last_items.clear()
+        self.source_cursor = None
+        self.source_shape = None
+        self._pending_source_plan = None
 
-    def build_state(self, *, include_items: bool = True) -> "EnvironmentLayerState":
+    def build_state(self, *, include_items: bool = True) -> EnvironmentLayerState:
         layer: dict[str, Any] = {
             "layer_id": self.binding.layer_id,
             "layer_type": self.binding.layer_type,
@@ -348,7 +379,7 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
 
         return cast("EnvironmentLayerState", layer)
 
-    def seed_item_deltas_from_state(self, state: "EnvironmentLayerState") -> None:
+    def seed_item_deltas_from_state(self, state: EnvironmentLayerState) -> None:
         items: list[dict[TItemFieldKeys, Any]] = []
         if "items" in state:
             items = cast(list[dict[TItemFieldKeys, Any]], state["items"])
@@ -360,6 +391,10 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
             self.binding.get_projected_item_cache_key(item): dict(item)
             for item in items
         }
+        if self.binding.source is not None:
+            self.source_cursor = self.binding.source.current_revision(self.target)
+            self.source_shape = self.binding.source.current_shape(self.target)
+            self._pending_source_plan = None
 
     def build_create_payload(
         self, env_id: str
@@ -381,6 +416,19 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         list[dict[TItemFieldKeys, Any]],
         list[Any],
     ]:
+        if self.binding.source is not None:
+            plan = self.binding.source.plan(
+                self.target,
+                cast(dict[Any, dict[str, Any]], self.last_items),
+                self.source_cursor,
+                self.source_shape,
+            )
+            self._pending_source_plan = plan
+            return (
+                cast(list[dict[TItemFieldKeys, Any]], plan.creates),
+                cast(list[dict[TItemFieldKeys, Any]], plan.updates),
+                list(plan.deletes),
+            )
         if self.binding.has_item_diffing:
             created, updated, deleted, current_items = (
                 self.binding.build_item_list_diff(
@@ -401,6 +449,24 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
 
         self.last_items = current_items
         return created, updated, deleted
+
+    def commit_item_deltas(self) -> None:
+        """Advance a source cursor only after all item messages were sent."""
+        plan, self._pending_source_plan = self._pending_source_plan, None
+        if plan is None:
+            return
+        if plan.full:
+            self.last_items = cast(
+                dict[Any, dict[TItemFieldKeys, Any]], plan.replacements
+            )
+        else:
+            for item_id in plan.deletes:
+                self.last_items.pop(item_id, None)
+            self.last_items.update(
+                cast(dict[Any, dict[TItemFieldKeys, Any]], plan.replacements)
+            )
+        self.source_cursor = plan.revision
+        self.source_shape = plan.shape
 
     def build_item_delete_payloads(
         self, deleted_item_ids: list[Any]

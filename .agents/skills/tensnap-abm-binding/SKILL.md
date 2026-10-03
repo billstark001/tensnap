@@ -1,287 +1,143 @@
 ---
 name: tensnap-abm-binding
-description: Use when adding, reviewing, or debugging an agent-based model binding to TenSnap in this repository, including Python/Mesa, Go, Julia, or JS bindings, protocol messages, parameters, charts, actions, layers, and validation.
+description: Use when adding, reviewing, or debugging TenSnap simulator bindings or protocol-visible ABM state in Python/Mesa, Go, Julia, or JS, including layers, parameters, actions, charts, monitors, restore, and replay.
 ---
 
 # TenSnap ABM Binding
 
-Use this skill when work touches simulator bindings, protocol-facing payloads,
-or renderer-visible ABM state. Treat the binding as a contract between a model
-runtime and the TenSnap renderer: stable ids, validated protocol payloads,
-incremental updates, replayable state, and clear ownership boundaries matter
-more than convenience shortcuts.
+Use the binding owned by the model's language. Preserve stable identity, validated
+protocol payloads, current values, incremental updates, replay, and an explicit
+inverse when renderer state can restore model state. Do not force a map or matrix
+binding onto models whose agents already have stable object identities.
 
-## First Read
+## Find the contract
 
-Read only the sources needed for the task, but always locate protocol truth in
-the protocol package rather than old maintainer-guide protocol snapshots.
+Read the files relevant to the task; the protocol package is the wire source of
+truth, not an older maintainer-guide snapshot.
 
-- Protocol package overview: `packages/protocol/README.md`
-- Normative v0.3 behavior: `packages/protocol/SPECIFICATION.md`
-- Protocol schemas and payload docs: `packages/protocol/src/schemas.ts`
-- Built-in layer contracts: `packages/protocol/src/layers.ts`
-- Protocol type surface: `packages/protocol/src/types.ts`
-- Protocol codecs: `packages/protocol/src/codec.ts`
-- Generated protocol reference: run `pnpm --dir packages/protocol export:protocol`
-  to write `packages/protocol/dist/protocol-types.md`, or pass an output path
-  as the first argument.
-- Renderer Scenario and layer registry: `packages/core/src/scenario`
-- Renderer environment/storage behavior: `packages/core/src/environment`
-- Python API: `docs/api-reference/python-api.md`
-- Go API: `docs/api-reference/go-api.md`
-- Julia API: `docs/api-reference/julia-api.md`
-- JS API: `docs/api-reference/js-api.md`
-- Architecture: `docs/maintainer-guide/architecture.md`
-- Runnable examples: `examples/python`, `examples/python_mesa`,
-  `examples/python_dqn`, `examples/go`, `examples/julia`, `examples/js`
+- Wire rules and schemas: `packages/protocol/SPECIFICATION.md`,
+  `packages/protocol/src/schemas.ts`, `packages/protocol/src/layers.ts`, and
+  `packages/protocol/src/types.ts`; inspect `codec.ts` for encoding work.
+- Binding ownership and dependency direction:
+  `docs/maintainer-guide/binding-ownership-and-topology.md`.
+- Language APIs: `docs/api-reference/python-api.md`, `go-api.md`, `julia-api.md`,
+  and `js-api.md` in the same directory.
+- Runtime behavior: `packages/core/src/scenario` and
+  `packages/core/src/environment`.
+- Runnable examples: `examples/python`, `examples/python_mesa`, `examples/go`,
+  `examples/julia`, and `examples/js`.
 
-## Protocol Rules
+Change protocol schemas, core, affected bindings, and generated protocol docs
+together only when the wire contract really changes. Regenerate the reference
+with `pnpm --dir packages/protocol export:protocol` for such a change.
 
-- Do not invent wire shapes in a binding. Add or update schemas in
-  `packages/protocol/src/*`, update core and bindings together, then regenerate
-  protocol docs.
-- Generic messages stay generic: `env_layer_create`, `item_create`,
-  `item_update`, and `item_delete` support custom layer types. Built-in layer
-  specifics live in `packages/protocol/src/layers.ts`.
-- The built-in layer types are `background`, `grid`, `edge`, `trajectory`, and
-  `agent`.
-- Built-in item keys:
-  - agent: `id`
-  - edge: `source` + `target`
-  - trajectory: `id`
-  - grid/background: metadata-only, no item channel
-- Edge and trajectory layers depend on an agent layer through
-  `dependency_layer_ids.agent` at create time. Do not mutate dependencies with
-  `env_layer_update`.
-- `param_change` is optimistic. Accepted values do not trigger `param_sync`.
-  Emit `param_sync` only when the simulator rejects the edit or canonicalizes it
-  to a different value. Emit `param_update` for definition changes such as enum
-  option or label changes.
-- Action execution should flush visible state mutations before the matching
-  `action_result`. Continuous loops are renderer-driven with `action_invoke`
-  requests and `action_result` replies.
+## Choose the binding
 
-## Binding Workflow
+- Use an ordinary agent layer for entities with stable identities. For a
+  model-owned mapping or matrix, use a map/matrix source layer instead of
+  allocating wrapper agents. Python also has `indexed_agent_layer` for stable
+  IDs over columnar storage. These source layers reuse the existing `agent`
+  item messages; they do not require a new protocol layer type.
+- Within each language, prefer the ordinary and source agent builders' direct
+  field selectors, computed fields, and constants for simple projections.
+  Reserve a full `project` callback for projections that need it. String
+  selector versus string literal rules differ by language; check its API page.
+- A map source needs canonical, unique encoded IDs and deterministic snapshot
+  order. Keep a present `false` value distinct from a missing key. A matrix
+  needs a declared axis convention, stable `cell:row:col` IDs, and renderer
+  coordinates derived from its shape. Julia callbacks use 1-based indices;
+  renderer coordinates and the other bindings use zero-based indices.
+- Map/matrix source layers keep the reversible value in `data.value`. Validate complete
+  restore input, including duplicate keys, dimensions, and coordinates, before
+  mutating the model. Use an explicit replacement callback when the source
+  container cannot be changed in place.
+- Built-in renderer layer types are `background`, `grid`, `edge`, `trajectory`,
+  and `agent`. Agent and trajectory items use `id`; edges use the ordered
+  `source`/`target` pair. Grid/background are metadata-only. Edge and trajectory
+  dependencies on an agent layer belong to create-time
+  `dependency_layer_ids.agent`; never put them in mutable metadata.
+- Agent items can carry coordinates, heading, color, icon, size, data, and graph
+  hints. Trajectory items are configuration; trace points are renderer state
+  unless explicitly restored. Custom layer types need namespaced IDs and
+  deliberate item-key semantics.
 
-1. Identify model state, agents/items, environment shape, parameters, actions,
-   charts, assets, reset semantics, and expected replay behavior.
-2. Pick the binding helper for the language instead of hand-writing protocol
-   messages.
-3. Register metadata before runtime stepping. Steps mutate model state; the
-   binding emits deltas.
-4. Keep protocol/runtime payload types in protocol/model modules and keep
-   decorators/builders in binding modules.
-5. Preserve user state during reset by rebuilding the authoritative model and
-   replaying current metadata/items/charts.
-6. Validate registration before visual polish: environment id, layer ids, layer
-   types, dependency ids, item keys, parameter ids, action ids, chart ids, and
-   one step of data.
-7. If protocol docs are relevant to the change, regenerate with
-   `pnpm --dir packages/protocol export:protocol` and inspect the generated
-   Markdown for the changed payloads.
+## Register the rest of the model
 
-## Layers
+- Parameters need stable IDs, labels, types, current values, and setters when
+  runtime edits apply. Automatic discovery should not expose structural
+  configuration accidentally. Accepted `param_change` values are optimistic:
+  send `param_sync` only when rejected or canonicalized; use `param_update` for
+  definition changes such as enum choices.
+- Actions need stable IDs. Flush visible state changes before `action_result`;
+  renderer-driven continuous actions reply to each `action_invoke`.
+- Charts retain history and may contain named series. Monitors publish one
+  replace-only current value, including structured status; choose a chart if
+  history is needed. Declare monitor metadata once, update its value with
+  `monitor_update`, and replace changed metadata with `monitor_delete` then
+  `monitor_create`. A create is not an upsert. Replay current monitor values
+  after sync, reset, and restore. `render_hint` accepts `auto`, `tree`, `table`,
+  or `text`.
+- Assets, screenshots, logs, and model time have their own existing binding or
+  emitter paths. Use `asset:<id>` for asset-backed agent icons after publishing
+  the asset. Check the language API before implementing lower-level emission.
+- Projected scene restore is opt-in and needs a validated inverse; exact
+  checkpoints need paired capture/restore hooks for private state such as RNG.
+  Keep checkpoint callbacks on model data: the binding owns wire encoding.
+  Change `state_schema_version` when saved data becomes incompatible. Restore
+  should replay final declarations, items, monitors, and time; chart history is
+  not reconstructed from a projected scene snapshot. Keep model ownership and
+  layer-local inverses separate.
 
-- Prefer built-in layer builders when the model maps to agent/grid/edge/
-  trajectory/background semantics.
-- Agent items may include `x`, `y`, `heading`, `color`, `icon`, `size`, `data`,
-  and graph-force hints. Renderer graph layers may update positions internally.
-- Edge items must include `source` and `target`; delete payloads for edges must
-  use object keys, not joined strings.
-- Trajectory layer items are per-agent config records. Actual trace points are
-  renderer storage state derived from agent motion unless explicitly restored
-  from snapshots.
-- Grid and background layers are metadata-only. Register/update metadata rather
-  than emitting item messages.
-- Custom layer types should use namespaced ids such as `mypkg.heatmap` and must
-  define key semantics before emitting item diffs.
+## Language entry points
 
-## Parameters
+- **Python/Mesa:** `SimulationScenario.add_all(...)` collects `@env`, layer,
+  `@agent`/`@edge`/`@trajectory_item`, `@params`/`@param`, `@action`, `@chart`,
+  and `@monitor` declarations. Use `@map_agent_layer`,
+  `@matrix_agent_layer`, or `@indexed_agent_layer` for model-owned sources.
+  `@scene_restore`, `@layer_restore`, and `@checkpoint` declare inverses;
+  `BoundModelReinitializer` handles constructor-driven resets. Python's
+  generated projector inlines only source-identifiable, simple expression
+  lambdas; check `inline_diagnostics` when a callable remains a callback.
+- **Go:** `binding.NewModel(...)` with `WithInit`, `WithStep`, `WithReset`,
+  `WithParams`, `WithEnvs`, `WithCharts`, and `WithMonitors`. Use
+  `NewAgentLayer`, `NewMapAgentLayer`, or `NewMatrixAgentLayer`; all three
+  support `Field`, `Select`, and `Const`, and matrix `Flat(shape, at)`
+  adapts flat storage. `RestoreSource` supplies their validated inverse.
+  Use model and layer restore/checkpoint options where needed.
+- **Julia:** `Scenario`, `environment`, `agents_layer`, `map_agent_layer`,
+  `matrix_agent_layer`, `parameter`, `action`, `chart`, and `monitor` with
+  `add_monitor!`. `autoagentprojector` and source-layer `fields` support direct
+  selectors and fixed values; use `literal(...)` for a fixed string inside
+  `fields`. Matrix `orientation` must state whether storage is `:row_col` or
+  `:x_y`. Use `restore_hooks` and layer restore declarations for inverses.
+- **JS/TS:** Prefer `modelBuilder(...).env(...).agentLayer(...)`,
+  `.mapAgentLayer(...)`, or `.matrixAgentLayer(...)`, with direct `fields`,
+  `color`, `icon`, and `size` where appropriate. Add `.monitor(...)` for current
+  values; `defineMonitors(...)` serves the lower-level declarative surface.
+  Use paired `checkpoint` hooks and the documented `sceneRestore` strategy for
+  restoration. `TypedArray` matrix storage needs `shape`, and may provide `at`.
 
-- Parameters need stable ids, labels, types, current values, and setters when
-  runtime edits should mutate model state.
-- Enum parameters may update `options` and `labels` at runtime via full
-  `param_update` payloads.
-- Sliders and other frequently edited controls must not receive a sync echo for
-  every accepted value; doing so makes frontend controls fight the simulator.
-- If a setter fails, rejects, clamps, or normalizes a value, send `param_sync`
-  with the simulator's current canonical value.
-- Avoid exposing structural config fields accidentally. Use explicit include
-  lists or declarative metadata when automatic discovery is available.
+## Validate behavior
 
-## Python
-
-Use `tensnap` decorators and `SimulationScenario`.
-
-Common decorators and helpers:
-
-- `@env(...)`
-- `@grid_layer(...)`
-- `@agent_layer(...)`
-- `@edge_layer(...)`
-- `@trajectory_layer(...)`
-- `@agent(...)`
-- `@edge(...)`
-- `@params(...)` / `BindParametersConfig(...)`
-- `@param(...)` / `BindParameterConfig(...)`
-- `@chart(...)`
-- `@action(...)`
-
-Typical shape:
-
-```python
-scenario = SimulationScenario(port=8765)
-model = MyModel()
-scenario.add_all(model)
-await scenario.register_model_handler(model_init=init, model_step=model.step, model_reset=reset)
-await scenario.run()
-```
-
-For constructor-driven reset/init, use the lifecycle reinitializer APIs. For
-grouped charts, return a dict keyed by series id or a list/tuple aligned with
-`data_list`.
-
-Validate with:
+Start with focused binding tests, then run the relevant package and example
+suites. Check initial sync, a step, reset/reconnect replay, item diffing,
+monitor current values, and restore without partial mutation on invalid input.
+Verify layer keys and dependencies, parameter edits, chart values, action
+ordering, and model time where the task touches them.
 
 ```bash
-cd packages/tensnap-python
-pytest
-```
-
-## Go
-
-Use `packages/tensnap-go/binding` for declarative model binding and
-`packages/tensnap-go/abm` for lower-level model/emitter integration.
-
-Typical pieces:
-
-- `binding.NewModel(...)`
-- `binding.WithInit(...)`
-- `binding.WithStep(...)`
-- `binding.WithReset(...)`
-- `binding.WithParams(...)`
-- `binding.WithEnvs(...)`
-- `binding.WithCharts(...)`
-- layer builders such as agent/grid/edge/trajectory/background
-- tag helpers such as `MustParamsFromTags(...)` and `ProjectTagsRequired(...)`
-
-Validate with:
-
-```bash
-cd packages/tensnap-go
-go test ./...
-```
-
-## Julia
-
-Use explicit builders in `packages/tensnap-julia/src/components.jl`.
-
-Typical pieces:
-
-- `Scenario(...)`
-- `parameter(...)` and `update_parameter!(...)`
-- `action(...)`
-- `chart(...)`
-- `environment(...)`
-- `agents_layer(...)`, `grid_layer(...)`, `edge_layer(...)`,
-  `trajectory_layer(...)`, `background_layer(...)`
-
-Julia charts support `series` for grouped chart metadata.
-
-Validate with:
-
-```bash
+# Python
+(cd packages/tensnap-python && pytest)
+# Go package and examples
+(cd packages/tensnap-go && go test ./...)
+(cd examples/go && go test ./...)
+# Julia package and examples
 pnpm run test:julia
-```
-
-## JS
-
-Use typed declarative definitions and avoid assuming decorator parity with the
-Python API.
-
-Useful helpers:
-
-- `defineScenario(...)`
-- `defineEnvironment(...)`
-- `defineLayer(...)`
-- `defineParameters(...)`
-- `defineActions(...)`
-- `defineCharts(...)`
-
-Validate relevant packages with:
-
-```bash
+# JS binding and examples
 pnpm --filter @tensnap/js test
-pnpm --filter @tensnap/core test
+pnpm --dir examples/js run test
 ```
 
-## Registration Checklist
-
-- Environment metadata is registered once with the expected id and type.
-- Every layer has a stable id, layer type, item identity keys, item projector,
-  and dependency mapping when required.
-- Parameters have labels, types, current values, runtime-change flags, and
-  setters when UI edits should mutate state.
-- Actions are registered with stable ids and complete after their visible state
-  changes have been emitted.
-- Charts have stable group/series ids and emit values after init/reset/step as
-  expected.
-- Reset rebuilds authoritative model state and clears/replays chart and
-  environment state.
-- State sync with an already-connected renderer returns current parameters,
-  actions, env summaries, chart metadata, layer creates, and item snapshots.
-
-## Validation
-
-Run the smallest targeted tests first, then broaden.
-
-TypeScript:
-
-```bash
-pnpm --dir packages/protocol typecheck
-pnpm --dir packages/protocol test
-pnpm --dir packages/core test
-pnpm --dir packages/tensnap-js test
-```
-
-Python:
-
-```bash
-cd packages/tensnap-python
-pytest
-```
-
-Go:
-
-```bash
-cd packages/tensnap-go
-go test ./...
-```
-
-Julia:
-
-```bash
-pnpm run test:julia
-```
-
-End-to-end simulator smoke:
-
-```bash
-pnpm --filter @tensnap/agent dev -- runtime up --context demo --simulator-url ws://localhost:8765
-pnpm --filter @tensnap/agent dev -- scene inspect --context demo
-pnpm --filter @tensnap/agent dev -- action run step --context demo
-pnpm --filter @tensnap/agent dev -- scene render snapshot --context demo
-```
-
-## Pitfalls
-
-- Do not change protocol wire shapes without updating `packages/protocol`,
-  `packages/core`, generated docs, and every affected binding.
-- Do not register the same config object twice.
-- Do not leave long-running simulator or agent sessions active after a smoke
-  check.
-- Do not expose tuple/vector config fields as scalar parameters unless the
-  frontend editor supports them.
-- Do not use compatibility aliases as the solution to a protocol mismatch.
-- Do not treat NetLogo parity as required unless the user explicitly asks for
-  it.
+For a running simulator, use the existing agent CLI to inspect a scene, invoke
+one step, and render a snapshot when visual behavior matters. Stop the smoke
+session afterward. Do not assume NetLogo parity unless requested.

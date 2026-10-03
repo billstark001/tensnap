@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Hashable
+from collections.abc import Callable
 from dataclasses import dataclass
 from numbers import Number
 from typing import Any, Generic, Literal, TypeAlias, TypeVar, cast
@@ -15,9 +15,10 @@ from tensnap.utils.attr import (
     AttrPathMap,
     AttrProjector,
     make_attr_getter,
-    make_attr_projector,
+    validate_attr_path,
 )
 from tensnap.utils.css import is_css_color_literal, is_css_predefined_color_value
+from tensnap.utils.projection import ProjectionPlan, path_expression
 
 TField = TypeVar("TField", bound=str)
 
@@ -27,6 +28,15 @@ ProjectorDictFilterList: TypeAlias = list[
     tuple[Callable[[type[Any]], bool], AttrPathMap[TField]]
 ]
 _JSON_LIKE_MIN_LENGTH = 2
+
+
+def _identity_item_to_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    raise TypeError(
+        "Layer items without an item projector must already be dict objects, "
+        f"got {type(value)!r}."
+    )
 
 
 class ProjectorAuto(ProjectorFieldDirective):
@@ -250,48 +260,18 @@ def resolve_projector_field_specs(
 def make_field_spec_projector(
     field_specs: dict[TField, ResolvedProjectorFieldSpec[TField]],
 ) -> AttrProjector[Any, TField]:
-    selector_mapping: dict[TField, str] = {}
-    hashable_literals: dict[TField, Any] = {}
-    dynamic_literals: dict[TField, Any] = {}
-    callables: dict[TField, Callable[[Any], Any]] = {}
-
+    plan = ProjectionPlan(("obj",))
     for field, spec in field_specs.items():
         if spec.kind == "selector":
-            selector_mapping[field] = cast(str, spec.value)
+            selector = cast(str, spec.value)
+            if not validate_attr_path(selector):
+                raise ValueError(f"Invalid mapped source field name: {selector!r}")
+            plan.expression(field, path_expression("obj", selector))
         elif spec.kind == "callable":
-            callables[field] = cast(Callable[[Any], Any], spec.value)
-        elif isinstance(spec.value, Hashable):
-            hashable_literals[field] = spec.value
+            plan.callable(field, cast(Callable[[Any], Any], spec.value))
         else:
-            dynamic_literals[field] = spec.value
-
-    base_projector: AttrProjector[Any, TField] | None = None
-    if selector_mapping or hashable_literals:
-        base_projector = cast(
-            AttrProjector[Any, TField],
-            make_attr_projector([], selector_mapping, hashable_literals),
-        )
-
-    if not dynamic_literals and not callables:
-        if base_projector is not None:
-            return base_projector
-
-        def empty_projector(_target: Any) -> dict[TField, Any]:
-            return {}
-
-        return empty_projector
-
-    def projector(target: Any) -> dict[TField, Any]:
-        result: dict[TField, Any] = (
-            dict(base_projector(target)) if base_projector is not None else {}
-        )
-        for field, literal in dynamic_literals.items():
-            result[field] = literal
-        for field, getter in callables.items():
-            result[field] = getter(target)
-        return result
-
-    return projector
+            plan.literal(field, spec.value)
+    return cast(AttrProjector[Any, TField], plan.compile())
 
 
 def make_projector_for_target(  # noqa: PLR0913

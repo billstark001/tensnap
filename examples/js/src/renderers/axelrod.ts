@@ -1,4 +1,3 @@
-import type { GridAgentState } from '@tensnap/core/environment';
 import {
   enumField,
   modelBuilder,
@@ -8,6 +7,7 @@ import {
   AxelrodConfig,
   AxelrodMetrics,
   AxelrodState,
+  type Agent,
   computeAxelrodMetrics,
   initializeAxelrod,
   stepAxelrod,
@@ -79,45 +79,33 @@ function restoreAxelrodCheckpoint(runtime: AxelrodRuntime, data: unknown): void 
   runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
 }
 
-function createCultureAgents(
-  state: AxelrodState,
-  config: AxelrodConfig,
-): GridAgentState[] {
-  const max = Math.max(1, config.numTraits - 1);
-  return state.agents.flat().map((agent) => {
-    const [f0 = 0, f1 = 0, f2 = 0] = agent.features;
-    const r = Math.round((f0 / max) * 255);
-    const g = Math.round((f1 / max) * 255);
-    const b = Math.round((f2 / max) * 255);
-
-    return {
-      id: `a_${agent.row}_${agent.col}`,
-      x: agent.col,
-      y: agent.row,
-      heading: 0,
-      icon: 'square',
-      size: 0.92,
-      color: `rgb(${r}, ${g}, ${b})`,
-      data: { features: [...agent.features] },
-    };
-  });
+function cultureColor(runtime: AxelrodRuntime, agent: Agent): string {
+  const max = Math.max(1, runtime.config.numTraits - 1);
+  const [f0 = 0, f1 = 0, f2 = 0] = agent.features;
+  const r = Math.round((f0 / max) * 255);
+  const g = Math.round((f1 / max) * 255);
+  const b = Math.round((f2 / max) * 255);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
-function parseCultureRecord(item: Record<string, unknown>): { row: number; col: number; features: number[] } {
+function parseCultureRecord(item: Record<string, unknown>): { row: number; col: number; agent: Agent } {
   const id = item.id;
-  const col = item.x;
-  const row = item.y;
+  const matched = typeof id === 'string' ? /^cell:(0|[1-9]\d*):(0|[1-9]\d*)$/.exec(id) : null;
+  const row = matched ? Number(matched[1]) : NaN;
+  const col = matched ? Number(matched[2]) : NaN;
   const data = item.data;
-  const features = typeof data === 'object' && data !== null
-    ? (data as Record<string, unknown>).features
+  const agent = typeof data === 'object' && data !== null
+    ? (data as Record<string, unknown>).value
     : undefined;
-  if (typeof id !== 'string' || typeof col !== 'number' || typeof row !== 'number'
-    || !Number.isInteger(col) || !Number.isInteger(row)
-    || id !== `a_${row}_${col}` || !Array.isArray(features)
+  const record = agent as Record<string, unknown> | undefined;
+  const features = record?.features;
+  if (!Number.isSafeInteger(row) || !Number.isSafeInteger(col)
+    || !record || record.row !== row || record.col !== col
+    || !Number.isSafeInteger(record.id) || !Array.isArray(features)
     || features.some((feature) => typeof feature !== 'number' || !Number.isInteger(feature))) {
-    throw new Error('Restored culture agents require canonical IDs, integer coordinates, and data.features integer arrays.');
+    throw new Error('Restored culture agents require canonical matrix IDs and data.value agents.');
   }
-  return { row, col, features: [...features] as number[] };
+  return { row, col, agent: record as unknown as Agent };
 }
 
 function restoreCultureMetadata(runtime: AxelrodRuntime, metadata: Record<string, unknown>): void {
@@ -135,24 +123,13 @@ function restoreCultureMetadata(runtime: AxelrodRuntime, metadata: Record<string
   runtime.state.totalUpdates = totalUpdates ?? 0;
 }
 
-function restoreCultureAgent(runtime: AxelrodRuntime, item: Record<string, unknown>): void {
-  const { row, col, features } = parseCultureRecord(item);
-  if (row < 0 || row >= runtime.config.height || col < 0 || col >= runtime.config.width
-    || features.length !== runtime.config.numFeatures) {
-    throw new Error('Restored culture agent is outside the configured grid or has the wrong feature count.');
-  }
-  runtime.state.agents[row][col] = {
-    id: row * runtime.config.width + col,
-    row,
-    col,
-    features,
-  };
-}
-
 function validateCultureRestore(runtime: AxelrodRuntime, layer: { metadata?: Record<string, unknown>; items?: Array<Record<string, unknown>> }): void {
   const width = layer.metadata?.width ?? runtime.config.width;
   const height = layer.metadata?.height ?? runtime.config.height;
-  if (typeof width !== 'number' || typeof height !== 'number' || !Number.isInteger(width) || !Number.isInteger(height)) {
+  const totalUpdates = layer.metadata?.total_updates;
+  if (typeof width !== 'number' || typeof height !== 'number' || !Number.isInteger(width) || !Number.isInteger(height)
+    || width <= 0 || height <= 0
+    || (totalUpdates !== undefined && (!Number.isSafeInteger(totalUpdates) || (totalUpdates as number) < 0))) {
     throw new Error('Restored culture metadata requires integer width and height.');
   }
   const items = layer.items ?? [];
@@ -161,9 +138,11 @@ function validateCultureRestore(runtime: AxelrodRuntime, layer: { metadata?: Rec
   }
   const occupied = new Set<string>();
   for (const item of items) {
-    const { row, col, features } = parseCultureRecord(item);
-    if (row < 0 || row >= height || col < 0 || col >= width || features.length !== runtime.config.numFeatures
-      || features.some((feature) => feature < 0 || feature >= runtime.config.numTraits)) {
+    const { row, col, agent } = parseCultureRecord(item);
+    if (row < 0 || row >= height || col < 0 || col >= width
+      || item.x !== col || item.y !== height - 1 - row || agent.id !== row * width + col
+      || agent.features.length !== runtime.config.numFeatures
+      || agent.features.some((feature) => feature < 0 || feature >= runtime.config.numTraits)) {
       throw new Error('Restored culture agent is outside the configured grid or has the wrong feature count.');
     }
     const key = `${row}:${col}`;
@@ -172,11 +151,24 @@ function validateCultureRestore(runtime: AxelrodRuntime, layer: { metadata?: Rec
   }
 }
 
+function restoreCultureMatrix(runtime: AxelrodRuntime, values: Agent[][]): void {
+  runtime.state = {
+    config: runtime.config,
+    totalUpdates: runtime.state.totalUpdates,
+    agents: values.map((row, y) => row.map((agent, x) => ({
+      id: y * runtime.config.width + x,
+      row: y,
+      col: x,
+      features: [...agent.features],
+    }))),
+  };
+}
+
 const builder = modelBuilder({
   id: 'axelrod',
   name: 'Axelrod Cultural Dissemination',
   description: 'Local interaction drives convergence and global polarization of cultural traits.',
-  stateSchemaVersion: '1',
+  stateSchemaVersion: '2',
 }, {
   defaults: DEFAULT_AXELROD_CONFIG,
   create(config): AxelrodRuntime {
@@ -270,30 +262,21 @@ builder.paramsFromConfig<AxelrodConfig>({
 });
 
 builder.env('main')
-  .agentLayer(CULTURE_LAYER, {
+  .matrixAgentLayer(CULTURE_LAYER, {
     metadata: (runtime) => ({
-      width: runtime.config.width,
-      height: runtime.config.height,
       total_updates: runtime.state.totalUpdates,
     }),
-    items: (runtime) => createCultureAgents(runtime.state, runtime.config),
-    restore: {
-      validate(runtime, layer) {
-        validateCultureRestore(runtime, layer);
-      },
-      restoreMetadata(runtime, metadata) {
-        restoreCultureMetadata(runtime, metadata);
-      },
-      create(runtime, item) {
-        restoreCultureAgent(runtime, item);
-      },
-      update(runtime, _key, item) {
-        restoreCultureAgent(runtime, item);
-      },
-      delete() {
-        // Validation requires a complete grid, so a successful restore has no missing cells.
-      },
+    source: (runtime) => runtime.state.agents,
+    fields: {
+      heading: 0,
+      data: (_runtime, _row, _col, agent) => ({ features: [...agent.features] }),
     },
+    color: (runtime, _row, _col, agent) => cultureColor(runtime, agent),
+    icon: 'square',
+    size: 0.92,
+    validate: validateCultureRestore,
+    restoreMetadata: restoreCultureMetadata,
+    replace: restoreCultureMatrix,
   });
 
 builder

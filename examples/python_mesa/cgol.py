@@ -4,16 +4,9 @@ from typing import Any
 
 import mesa
 import numpy as np
-from _mesa_space import (
-    Cell as MesaCell,
-)
-from _mesa_space import (
-    CellAgent,
-    OrthogonalMooreGrid,
-)
+from _mesa_space import OrthogonalMooreGrid
+
 from tensnap import (
-    agent,
-    agent_layer,
     bind_kwargs,
     chart,
     checkpoint,
@@ -21,6 +14,7 @@ from tensnap import (
     env,
     grid_layer,
     layer_restore,
+    matrix_agent_layer,
     mesa_model_time,
     monitor,
     restore_mesa_model_time,
@@ -36,40 +30,6 @@ def _nested_tuple(value: Any) -> Any:
     return value
 
 
-@agent(
-    id="cell_id", x="cell.coordinate[0]", y="cell.coordinate[1]", icon="square"
-)
-class Cell(CellAgent):
-    model: "GameOfLife"
-    cell: MesaCell
-
-    @property
-    def alive(self) -> bool:
-        """Expose state for visualization and metadata consumers."""
-        x, y = self.cell.coordinate
-        return bool(self.model.alive[x, y])
-
-    @alive.setter
-    def alive(self, value: bool) -> None:
-        x, y = self.cell.coordinate
-        self.model.alive[x, y] = value
-
-    @property
-    def color(self) -> str:
-        return "black" if self.alive else "white"
-
-    @property
-    def data(self) -> dict[str, bool]:
-        """Keep projected snapshots independent from presentation colors."""
-        return {"alive": self.alive}
-
-    def __init__(self, model: "GameOfLife", cell: MesaCell):
-        super().__init__(model)
-        self.cell = cell
-        x, y = cell.coordinate
-        self.cell_id = f"{x}:{y}"
-
-
 @bind_kwargs(exclude=["seed"])
 @checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
 @scene_restore(time=mesa_clock_restore)
@@ -80,7 +40,13 @@ class Cell(CellAgent):
     layer_id="cells",
 )
 @layer_restore(metadata="restore_grid_metadata", layer_id="grid")
-@agent_layer("cells", item_iterable_projector="agents")
+@matrix_agent_layer(
+    "cells",
+    source=lambda model: model.alive.T[::-1],
+    fields={"data": lambda _model, _key, alive: {"alive": bool(alive)}},
+    color=lambda _model, _row, _col, alive: "black" if alive else "white",
+    restore=False,
+)
 @grid_layer()
 @env(id="cgol_grid")
 class GameOfLife(mesa.Model):
@@ -101,10 +67,6 @@ class GameOfLife(mesa.Model):
             size=(width, height),
         )
         self.alive_count = int(self.alive.sum())
-
-        for x in range(width):
-            for y in range(height):
-                Cell(self, self.grid[(x, y)])
 
         self.datacollector = mesa.DataCollector(
             model_reporters={"Alive": "alive_count", "Dead": "dead_count"}

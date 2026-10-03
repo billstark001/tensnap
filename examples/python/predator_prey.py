@@ -7,7 +7,15 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer, params, value
+from tensnap import (
+    agent,
+    agent_layer,
+    env,
+    grid_layer,
+    matrix_agent_layer,
+    params,
+    value,
+)
 
 SHEEP_ASSET_ID = "wolf-sheep:sheep"
 WOLF_ASSET_ID = "wolf-sheep:wolf"
@@ -34,7 +42,6 @@ class PredatorPreyConfig:
 
 @agent(size=1, color="#F8FAFC", icon=value(SHEEP_ICON))
 class Sheep:
-
     def __init__(self, sheep_id: str, x: int, y: int, energy: float):
         self.id = sheep_id
         self.x = x
@@ -49,7 +56,6 @@ class Sheep:
 
 @agent(size=1, color="#111827", icon=value(WOLF_ICON))
 class Wolf:
-
     def __init__(self, wolf_id: str, x: int, y: int, energy: float):
         self.id = wolf_id
         self.x = x
@@ -64,7 +70,13 @@ class Wolf:
 
 @agent_layer("wolves", z_index=50)
 @agent_layer("sheep", z_index=40)
-@agent_layer("grass", item_iterable_projector="get_grass_layer", z_index=0)
+@matrix_agent_layer(
+    "grass",
+    source="grass_timer",
+    fields={"data": lambda _model, _key, timer: {"regrowth_timer": timer}},
+    color=lambda model, _row, _col, timer: model.grass_color(timer),
+    z_index=0,
+)
 @grid_layer()
 @env(id="predator_prey")
 class PredatorPreySimulation:
@@ -113,7 +125,8 @@ class PredatorPreySimulation:
         self.time_step = 0
         self._next_sheep_id = 0
         self._next_wolf_id = 0
-        self.grass_timer = [[0 for _ in range(self.height)] for _ in range(self.width)]
+        # Rows run from the top of the world down; columns run left to right.
+        self.grass_timer = [[0 for _ in range(self.width)] for _ in range(self.height)]
         self.sheep = []
         self.wolves = []
 
@@ -151,10 +164,10 @@ class PredatorPreySimulation:
         return dx * dx + dy * dy
 
     def _update_grass(self) -> None:
-        for x in range(self.width):
-            for y in range(self.height):
-                if self.grass_timer[x][y] > 0:
-                    self.grass_timer[x][y] -= 1
+        for row in self.grass_timer:
+            for x, timer in enumerate(row):
+                if timer > 0:
+                    row[x] -= 1
 
     def step(self) -> None:
         self._update_grass()
@@ -166,9 +179,10 @@ class PredatorPreySimulation:
             sheep.energy -= self.config.sheep_energy_loss
             sheep.x, sheep.y = self._move_random(sheep.x, sheep.y)
 
-            if self.grass_timer[sheep.x][sheep.y] == 0:
+            grass_row = self.grass_timer[self.height - 1 - sheep.y]
+            if grass_row[sheep.x] == 0:
                 sheep.energy += self.config.sheep_gain_from_food
-                self.grass_timer[sheep.x][sheep.y] = self.config.grass_regrowth_steps
+                grass_row[sheep.x] = self.config.grass_regrowth_steps
 
             if sheep.energy <= 0:
                 continue
@@ -235,27 +249,12 @@ class PredatorPreySimulation:
         self.wolves = next_wolves
         self.time_step += 1
 
-    def get_grass_layer(self) -> list[dict[str, object]]:
-        cells: list[dict[str, object]] = []
-        for x in range(self.width):
-            for y in range(self.height):
-                timer = self.grass_timer[x][y]
-                ratio = 1.0 - min(timer / max(self.config.grass_regrowth_steps, 1), 1.0)
-                green = int(85 + ratio * 140)
-                red = int(45 + ratio * 30)
-                blue = int(25 + ratio * 35)
-                cells.append(
-                    {
-                        "id": f"grass:{x}:{y}",
-                        "x": x,
-                        "y": y,
-                        "icon": "square",
-                        "size": 1.0,
-                        "color": f"#{red:02x}{green:02x}{blue:02x}",
-                        "data": {"regrowth_timer": timer},
-                    }
-                )
-        return cells
+    def grass_color(self, timer: int) -> str:
+        ratio = 1.0 - min(timer / max(self.config.grass_regrowth_steps, 1), 1.0)
+        green = int(85 + ratio * 140)
+        red = int(45 + ratio * 30)
+        blue = int(25 + ratio * 35)
+        return f"#{red:02x}{green:02x}{blue:02x}"
 
     def get_sheep_count(self) -> float:
         return float(len(self.sheep))

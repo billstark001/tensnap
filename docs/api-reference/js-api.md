@@ -99,6 +99,48 @@ console.log(host.url);
 
 ## Declarative Builder
 
+### Model-owned map and matrix layers
+
+```ts
+import { literal } from '@tensnap/js/bindings';
+
+builder.env('main')
+  .mapAgentLayer('flags', {
+    source: (model) => model.flags, // Map<string, boolean> or Record<string, boolean>
+    fields: { label: 'key', heading: 0 },
+    color: (_model, key, alive) => alive ? 'black' : 'white',
+    icon: 'square',
+  })
+  .matrixAgentLayer('cells', {
+    source: (model) => model.cells, // V[][] or TypedArray with shape
+    shape: (model) => [model.height, model.width],
+    fields: { sourceRow: 'row', fixed: literal('cell') },
+    color: (_model, row, col, value) => value ? 'black' : 'white',
+  });
+```
+
+Both produce keyed agent items, preserve `false` values in `data.value`, and use
+the existing item diff path for replay, reset, and steps. Map snapshots sort by
+encoded ID. Matrix IDs are `cell:row:col`; coordinates are `x=col` and
+`y=height-1-row`, with zero-based row and column. For flat arrays, provide
+`shape: (model) => [height,width]` and optionally `at(model,row,col)`.
+In `fields`, strings select paths rooted at `model`, `key`, `value`, `row`, or
+`col`; a bare path selects from the source value. Wrap a fixed string with
+`literal(...)`. Numbers and booleans are direct
+constants. The direct `color`, `icon`, and `size` options treat strings as
+constants. Ordinary `agentLayer` accepts the same `fields` and visual options,
+with field paths relative to each agent. A full `project` callback remains
+available, but cannot be combined with direct field options.
+For sparse updates, declare `revision(model)` and
+`changes(model, previousRevision)` together. Return create/update/delete
+operations keyed by map key or matrix row/column. The binding projects only
+reported entries, retains the current item cache, and falls back to a full
+scan when `changes` returns `null` or the matrix shape changes.
+Projected restore validates the complete source layer before replacing values.
+Pass `replace(model, values)` when the source storage cannot be mutated in place.
+Matrix layers can also provide `validate(model, layer)` for model-specific
+constraints and `restoreMetadata(model, metadata)` for additional metadata.
+
 ### `modelBuilder(metadata, options)`
 
 `modelBuilder(...)` returns a fluent `ModelBuilder`. Calling `build()` returns an
@@ -218,20 +260,19 @@ For models that already know exact incremental changes, declare `updates(...)`.
 When a layer has `updates(...)`, the binding sends update records after the
 initial full sync and reset.
 
-`projectFields(...)` is useful when the model object shape does not match the
-renderer item shape:
+Use direct `fields` when the model object shape does not match the renderer
+item shape. `projectFields(...)` remains available when a standalone projector
+function is needed:
 
 ```ts
-import { literal, projectFields } from '@tensnap/js/bindings';
-
 builder.env('main').agentLayer('agents', {
   items: (model) => model.people,
-  project: projectFields({
+  fields: {
     id: 'id',
     x: 'position.x',
     y: 'position.y',
-    color: literal('#2563eb'),
-  }),
+  },
+  color: '#2563eb',
 });
 ```
 

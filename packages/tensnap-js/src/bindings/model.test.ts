@@ -185,6 +185,8 @@ describe('modelBuilder', () => {
     builder.env('main')
       .agentLayer('agents', {
         items: (model) => [{ id: 'agent-1', x: model.tick, y: 0 }],
+        fields: { id: 'id', x: 'x', y: 'y', heading: 0 },
+        icon: 'circle',
       });
     builder.chart('count', {
       label: 'Count',
@@ -205,6 +207,9 @@ describe('modelBuilder', () => {
     expect(binding.id).toBe('test-binding');
     expect(messages.some((message) => message.type === 'action_create')).toBe(true);
     expect(messages.some((message) => message.type === 'item_create')).toBe(true);
+    expect(messages.some((message) => message.type === 'item_create' &&
+      JSON.stringify(message).includes('"heading":0') &&
+      JSON.stringify(message).includes('"icon":"circle"'))).toBe(true);
     expect(messages.some((message) => message.type === 'metadata_update')).toBe(true);
 
     messages.length = 0;

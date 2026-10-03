@@ -23,6 +23,9 @@ from .models import (
     ChartMetadataDict as ChartMetadataDict,
     ChartProperty as ChartProperty,
     SimplifiedChartMetadata as SimplifiedChartMetadata,
+    SourceBatch as SourceBatch,
+    SourceChange as SourceChange,
+    SourceKeyCodec as SourceKeyCodec,
 )
 from .scenario import SimulationScenario as SimulationScenario
 from .server import TenSnapServer as TenSnapServer

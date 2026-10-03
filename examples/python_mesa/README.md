@@ -9,10 +9,12 @@ This directory contains Python examples for TenSnap that use the Mesa agent-base
 - **mushroom** - Mushroom foraging simulation
 - **schelling** - Schelling segregation model with TenSnap, Solara, and a headless scientific sweep
 
-`cgol.py` uses `@layer_restore(replace=...)` for its dense board,
+`cgol.py` binds its NumPy board directly with `@matrix_agent_layer` and uses
+`@layer_restore(replace=...)` for projected board restore,
 `@scene_restore(time=mesa_clock_restore)` for projected clock restore, and paired
 `@checkpoint` hooks for exact RNG and collector state. Its cells use stable
-coordinate IDs. The grid examples import typed cell-space classes from
+coordinate IDs. `mushroom.py` binds its keyed patch map with `@map_agent_layer`.
+The grid examples import typed cell-space classes from
 `_mesa_space.py` in this directory, which routes to `mesa.discrete_space` on Mesa
 3.2+/4.0 and the experimental `mesa.experimental.cell_space` on Mesa 3.0/3.1.
 

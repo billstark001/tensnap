@@ -6,6 +6,14 @@
 	@test projected["y"] == 3.5
 	@test projected["color"] == "green"
 	@test projected["score"] == 4
+	declarative = autoagentprojector(color = "navy", fields = Dict(
+		"label" => literal("fixed"), "score_copy" => :score, "heading" => 0))(agent)
+	@test declarative["color"] == "navy"
+	@test declarative["label"] == "fixed"
+	@test declarative["score_copy"] == 4
+	@test declarative["heading"] == 0
+	@test autoagentprojector(icon = a -> a.attending ? "square" : "circle",
+		fields = (fixed = literal("yes"),))(agent)["icon"] == "square"
 	with_data = autoagentprojector(data_fields = [:attending, :score])(agent)
 	@test with_data["data"] == Dict("attending" => true, "score" => 4)
 

@@ -6,13 +6,16 @@ from typing import List, Tuple, cast
 
 import mesa
 from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
+
 from tensnap import (
     agent,
     agent_layer,
     bind_kwargs,
     env,
     grid_layer,
+    map_agent_layer,
     trajectory_layer,
+    xy_key_codec,
 )
 
 # endregion
@@ -22,7 +25,6 @@ from tensnap import (
 
 @agent(icon="arrow", color="blue")
 class Hunter(mesa.Agent):
-
     model: "ForagingModel"
     pos: Tuple[float, float]
 
@@ -76,48 +78,12 @@ class Hunter(mesa.Agent):
 
 
 class Patch(CellAgent):
-    icon = "square"
-    size = 1.0
     cell: Cell
 
     def __init__(self, model: "ForagingModel", cell: Cell) -> None:
         super().__init__(model)
         self.cell = cell
-        self._color = "white"
-        # 优化6：_state 字典只在初始化时构建一次，后续就地更新
-        self._state: dict[str, object] = {}
-
-    @property
-    def color(self) -> str:
-        return self._color
-
-    @color.setter
-    def color(self, value: str) -> None:
-        if self._color != value:
-            self._color = value
-            # 就地更新已有字典，而非重新创建
-            self._state["color"] = value
-            cast(dict[str, object], self._state["data"])["mushroom_state"] = value
-
-    def _init_state(self) -> None:
-        """一次性构建状态字典。"""
-        x, y = self.cell.coordinate
-        self._state = {
-            "id": f"patch:{x}:{y}",
-            "x": x,
-            "y": y,
-            "icon": self.icon,
-            "size": self.size,
-            "color": self._color,
-            "data": {"mushroom_state": self._color},
-        }
-
-    def to_agent_state(self) -> dict[str, object]:
-        # Keep the cached shape/id fields, but return a detached snapshot so
-        # layer diffing never retains mutable nested state from the model.
-        state = dict(self._state)
-        state["data"] = dict(cast(dict[str, object], self._state["data"]))
-        return state
+        self.color = "white"
 
 
 # endregion
@@ -132,21 +98,28 @@ class Patch(CellAgent):
     length=10,
     color="#1D4ED8",
     on_agent_delete="retain",
-    on_state_sync="preserve",
-    on_reset="clear",
 )
-@agent_layer(
+@map_agent_layer(
     "patches",
-    item_iterable_projector="get_patch_layer_agents",
+    source="patch_map",
+    key_codec=xy_key_codec("patch"),
+    fields={
+        "x": lambda _model, coord, _patch: coord[0],
+        "y": lambda _model, coord, _patch: coord[1],
+        "data": lambda _model, _coord, patch: {"mushroom_state": patch.color},
+    },
+    color=lambda _model, _coord, patch: patch.color,
+    icon="square",
+    size=1.0,
     z_index=35,
     coord_offset="int",
+    restore=False,
 )
 @agent_layer("hunters", coord_offset="float")
 @grid_layer()
 @env()
 @bind_kwargs()
 class ForagingModel(mesa.Model):  # type: ignore[misc]
-
     def __init__(
         self,
         width: int = 50,
@@ -167,11 +140,10 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
         self.patches: List[Patch] = []
         self.patch_map: dict[Tuple[int, int], Patch] = {}
 
-        # 创建 patches，同步维护查找表与状态缓存
+        # 创建 patches，同步维护查找表
         for x in range(width):
             for y in range(height):
                 patch = Patch(self, self.grid[(x, y)])
-                patch._init_state()
                 self.patch_map[(x, y)] = patch
 
         # 种植蘑菇，只在初始化时查找环形邻域。
@@ -210,10 +182,6 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
         random.shuffle(hunters_copy)
         for hunter in hunters_copy:
             hunter.search()
-
-    def get_patch_layer_agents(self) -> list[dict[str, object]]:
-        """Expose the patch field as a dedicated square-agent layer."""
-        return [patch.to_agent_state() for patch in self.patches]
 
 
 # endregion

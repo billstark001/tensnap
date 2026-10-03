@@ -11,10 +11,11 @@ Current scope:
 - expose bundled in-memory and postMessage transports for browser consumers
 - host declarative example definitions built on native `@tensnap/js` sessions
 
-The Axelrod example combines a declarative culture-layer inverse with the
-paired `checkpoint: { capture, restore }` hooks. Its checkpoint includes the
-private random generator state, so stepping after restore follows the same
-cultural update path.
+The Axelrod example binds its native `agents[row][col]` matrix through
+`.matrixAgentLayer(...)`, including validated scene restore of cell values and
+`total_updates` metadata. It also uses paired `checkpoint: { capture, restore }`
+hooks. The checkpoint includes the private random generator state, so stepping
+after restore follows the same cultural update path.
 
 The package contains model sources, declarative renderer definitions, and
 manifest registration used by the main Web workspace. Publication-only kernel

@@ -196,7 +196,6 @@ describe('JS example sessions', () => {
     });
     expect(initialAgents?.type).toBe('item_create');
     const items = (initialAgents?.payload as { items: Array<Record<string, ProtocolValue>> }).items;
-
     messages.length = 0;
     await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-schelling' } });
     expect(messages).toContainEqual(expect.objectContaining({
@@ -298,6 +297,10 @@ describe('JS example sessions', () => {
     });
     expect(initialAgents?.type).toBe('item_create');
     const items = (initialAgents?.payload as { items: Array<Record<string, ProtocolValue>> }).items;
+    expect(items[0]).toEqual(expect.objectContaining({
+      id: 'cell:0:0', x: 0, y: 39,
+      data: expect.objectContaining({ value: expect.objectContaining({ row: 0, col: 0 }) }),
+    }));
 
     messages.length = 0;
     await session.dispatch({
@@ -305,7 +308,7 @@ describe('JS example sessions', () => {
       payload: {
         request_id: 'restore-axelrod',
         model_id: 'axelrod',
-        state_schema_version: '1',
+        state_schema_version: '2',
         time: 4,
         envs: [{
           id: 'main',
@@ -313,7 +316,7 @@ describe('JS example sessions', () => {
           layers: [{
             layer_id: 'culture',
             layer_type: 'agent',
-            metadata: { width: 40, height: 40, total_updates: 0 },
+            metadata: { width: 40, height: 40, coord_offset: 'int', total_updates: 17 },
             items,
           }],
         }],
@@ -324,7 +327,36 @@ describe('JS example sessions', () => {
     expect(messages).toContainEqual({ type: 'metadata_update', payload: { time: 4 } });
     expect(messages.some((message) => message.type.startsWith('chart_'))).toBe(false);
     expect(messages.some((message) => message.type === 'monitor_create')).toBe(false);
-    expect(messages.some((message) => message.type === 'monitor_update')).toBe(true);
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: 'monitor_update',
+      payload: expect.objectContaining({
+        id: 'summary', value: expect.objectContaining({ successful_updates: 17 }),
+      }),
+    }));
+
+    const invalidItems = structuredClone(items);
+    const firstValue = (invalidItems[0]!.data as { value: { features: number[] } }).value;
+    firstValue.features[0] = -1;
+    messages.length = 0;
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'restore-axelrod-invalid',
+        model_id: 'axelrod',
+        state_schema_version: '2',
+        envs: [{
+          id: 'main', type: '2d', layers: [{
+            layer_id: 'culture', layer_type: 'agent',
+            metadata: { width: 40, height: 40, coord_offset: 'int', total_updates: 17 },
+            items: invalidItems,
+          }],
+        }],
+      },
+    });
+    expect(messages.at(-1)).toEqual(expect.objectContaining({
+      type: 'scene_restore_end',
+      payload: expect.objectContaining({ request_id: 'restore-axelrod-invalid', status: 'rejected' }),
+    }));
     await session.close();
   });
 
@@ -351,7 +383,7 @@ describe('JS example sessions', () => {
     messages.length = 0;
     await session.dispatch({ type: 'scene_restore', payload: {
       request_id: 'restore-axelrod-checkpoint', model_id: 'axelrod',
-      state_schema_version: '1', checkpoint: { ...checkpoint, data: new Uint8Array(checkpoint.data) },
+      state_schema_version: '2', checkpoint: { ...checkpoint, data: new Uint8Array(checkpoint.data) },
     } });
     expect(messages.at(-1)).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-axelrod-checkpoint', status: 'ok' } });
 

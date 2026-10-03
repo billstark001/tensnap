@@ -14,7 +14,22 @@ end
 
 propertyprojector(fields...; rename = Dict{Any, Any}()) = dictprojector(collect(fields); rename = rename)
 
-_projector_value(agent, selector) = selector isa Function ? selector(agent) : _getvalue(agent, selector)
+struct LiteralField
+    value::Any
+end
+
+literal(value) = LiteralField(value)
+
+function _projector_value(agent, selector)
+    selector isa LiteralField && return selector.value
+    selector isa Function && return selector(agent)
+    selector isa Symbol || selector isa AbstractString || return selector
+    current = agent
+    for part in split(String(selector), ".")
+        current = _getvalue(current, part)
+    end
+    return current
+end
 
 function _position_tuple(agent)
 	pos = _getvalue(agent, :pos)
@@ -50,11 +65,17 @@ function _project_autoagent(projector::AutoAgentProjector, agent; spatial = true
 		end
 		out["heading"] = _jsonable(something(_getvalue(agent, :heading), 0))
 	end
-	out["icon"] = projector.icon
-	projector.color !== nothing && (out["color"] = _jsonable(_projector_value(agent, projector.color)))
+	out["icon"] = _jsonable(projector.icon isa AbstractString ? projector.icon : _projector_value(agent, projector.icon))
+	projector.color !== nothing && (out["color"] = _jsonable(projector.color isa AbstractString ? projector.color : _projector_value(agent, projector.color)))
 	projector.size !== nothing && (out["size"] = _jsonable(_projector_value(agent, projector.size)))
-	for field in projector.fields
-		out[String(field)] = _jsonable(_getvalue(agent, field))
+	if projector.fields isa AbstractDict || projector.fields isa NamedTuple
+		for (field, selector) in pairs(projector.fields)
+			out[String(field)] = _jsonable(_projector_value(agent, selector))
+		end
+	else
+		for field in projector.fields
+			out[String(field)] = _jsonable(_getvalue(agent, field))
+		end
 	end
 	if !isempty(projector.data_fields)
 		out["data"] = Dict(String(field) => _jsonable(_getvalue(agent, field)) for field in projector.data_fields)
@@ -70,7 +91,8 @@ environments retain them. Direct projector calls retain the 2d behavior.
 """
 function autoagentprojector(; id = :id, x = :x, y = :y, color = nothing, size = nothing,
 	icon = "circle", fields = (), data_fields = ())
-	return AutoAgentProjector(id, x, y, color, size, icon, collect(fields), collect(data_fields))
+	return AutoAgentProjector(id, x, y, color, size, icon,
+		fields isa AbstractDict || fields isa NamedTuple ? Dict(pairs(fields)) : collect(fields), collect(data_fields))
 end
 
 (projector::AutoAgentProjector)(agent) = _project_autoagent(projector, agent)

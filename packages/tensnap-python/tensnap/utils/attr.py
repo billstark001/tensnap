@@ -302,12 +302,12 @@ def _make_dict_projector_cached(
     filename: str,
 ) -> FunctionType:
     source = make_raw_dict_projector(
-        list(fields),
-        dict(field_mapping),
-        dict(default_values),
-        function_name=function_name,
+        list(fields), dict(field_mapping), {}, function_name=function_name
     )
-    return _compile_function(source, function_name=function_name, filename=filename)
+    source, environment = _inject_projector_defaults(source, default_values)
+    return _compile_function(
+        source, function_name=function_name, filename=filename, globals_ns=environment
+    )
 
 
 @lru_cache(maxsize=_DEFAULT_CACHE_SIZE)
@@ -319,12 +319,28 @@ def _make_attr_projector_cached(
     filename: str,
 ) -> FunctionType:
     source = make_raw_attr_projector(
-        list(fields),
-        dict(field_mapping),
-        dict(default_values),
-        function_name=function_name,
+        list(fields), dict(field_mapping), {}, function_name=function_name
     )
-    return _compile_function(source, function_name=function_name, filename=filename)
+    source, environment = _inject_projector_defaults(source, default_values)
+    return _compile_function(
+        source, function_name=function_name, filename=filename, globals_ns=environment
+    )
+
+
+def _inject_projector_defaults(
+    source: str, defaults: tuple[tuple[str, Any], ...]
+) -> tuple[str, dict[str, Any]]:
+    """Bind objects by identity, never by evaluating their repr."""
+    environment = {
+        f"_default_{index}": value for index, (_, value) in enumerate(defaults)
+    }
+    lines = [
+        f"        {field!r}: _default_{index},  # default: {field}\n"
+        for index, (field, _) in enumerate(defaults)
+    ]
+    return source.replace(
+        "    return {\n", "    return {\n" + "".join(lines), 1
+    ), environment
 
 
 def make_dict_projector(

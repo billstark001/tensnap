@@ -16,8 +16,10 @@ generator state for exact continuation.
 with tree growth, lightning, and four-neighbor spread. This model is unique
 among the repository's language examples. Its projected restore replaces the
 complete cell grid; its checkpoint captures the random generator state.
-`viz.go` uses the same tag-based declarations and keeps the state inverses
-in `state_restore.go`. The
+`viz.go` binds the flat cell array with `NewMatrixAgentLayer.Flat`; matrix items
+use `cell:row:col` IDs and row zero maps to the top of the renderer. The
+state inverse in `state_restore.go` validates cell values and rebuilds the flat
+array. The
 rules are based on the [Drossel–Schwabl forest-fire model](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.69.1629).
 
 

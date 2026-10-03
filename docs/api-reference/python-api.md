@@ -87,6 +87,9 @@ if __name__ == "__main__":
 - `env(...)`: attach environment metadata to a class.
 - `grid_layer(...)`: attach a grid layer config.
 - `agent_layer(...)`: attach an agent layer config.
+- `map_agent_layer(...)`: bind entries of a model-owned mapping as keyed agent items.
+- `matrix_agent_layer(...)`: bind cells of a rectangular, row-indexed matrix as keyed agent items.
+- `indexed_agent_layer(...)`: bind stable IDs to columnar or otherwise indexed model state.
 - `edge_layer(...)`: attach an edge layer config.
 - `trajectory_layer(...)`: attach a trajectory layer config.
 - `background_layer(...)`: attach a background layer config.
@@ -144,6 +147,111 @@ Layer metadata and item fields accept a compact set of forms:
 - pass `value(...)` for non-obvious literal values, `attr(...)` for explicit selectors, `skip()` to suppress a field, or a callable such as `size=lambda agent: agent.radius`
 
 Default layer source discovery follows the same idea: `agent_layer("birds")` reads `model.birds`, while `agent_layer("cells", item_iterable_projector="map_cells")` is only needed when the layer id and source member differ.
+
+### Layer declaration conventions
+
+Use a direct keyword for a built-in layer metadata field, such as
+`@grid_layer("grid", width=20)` or `@map_agent_layer("patches", z_index=3)`.
+Use `metadata={...}` for custom metadata, or when metadata is assembled as a
+mapping. This is the same layer metadata namespace: declaring one key in both
+places raises `TypeError`. Unknown direct options are rejected; custom keys
+belong inside `metadata`. The existing same-name field inference still applies
+to omitted built-in metadata fields. For example, `@grid_layer("grid")` can
+read `model.width` and `model.height`.
+
+```python
+@map_agent_layer("patches", z_index=3, metadata={"temperature": 21})
+@grid_layer("grid", width=20, metadata={"height": 10})
+class Model: ...
+```
+
+Layer metadata describes the layer; visual item fields belong in `fields`,
+`project`, or the source layer's direct `color`, `icon`, and `size` shortcuts.
+Shortcut strings are literal values; strings in `fields` are selectors. A
+fixed string in `fields` can be written as `value("square")`, while numeric
+and boolean constants can be used directly. `attr("value.color")` is an
+explicit selector. This is the same distinction used for ordinary agent
+projector fields.
+shortcut can also be a callback receiving `(model, key, value)` for map and
+indexed layers, or `(model, row, col, value)` for matrix layers. A field cannot
+appear in both `fields` and a shortcut, and `project` cannot be combined with
+either `fields` or a shortcut. These conflicts fail when the layer is declared.
+
+### Model-owned keyed sources
+
+These decorators project model data without allocating agent wrapper objects. They use the existing v0.3 agent item messages and do not change the protocol. `project(model, key, value)` or `fields={...}` supplies visual fields. Matrix `project` instead receives `(model, row, col, value)`. A field selector can start at `model`, `key`, `value`, `row`, or `col`; for example, `"value.color"` follows an attribute path. A bare path such as `"color"` selects from the source value. Selectors are compiled when the layer is registered.
+
+```python
+from tensnap import (
+    SimulationScenario, SourceBatch, SourceChange,
+    env, map_agent_layer, matrix_agent_layer, scene_restore,
+)
+
+@scene_restore(validate=lambda _payload: None)
+@map_agent_layer(
+    "flags",
+    color=lambda _model, _key, value: "#22c55e" if value else "#ef4444",
+    revision="revision", changes="changes_since",
+)
+@matrix_agent_layer(
+    "cells",
+    color=lambda _model, _row, _col, value: "#60a5fa" if value == "water" else "#a3e635",
+)
+@env("world")
+class Model:
+    def __init__(self):
+        self.flags = {"gate": False}
+        self.cells = [["land", "water"], ["water", "land"]]
+        self.revision = 0
+        self.events = []
+
+    def changes_since(self, cursor):
+        return SourceBatch(
+            self.revision,
+            [change for revision, change in self.events if revision > cursor],
+        )
+
+    def open_gate(self):
+        self.flags["gate"] = True
+        self.revision += 1
+        self.events.append((self.revision, SourceChange("update", "gate")))
+
+model = Model()
+scenario = SimulationScenario(model_id="example.keyed-sources")
+scenario.add_all(model)
+```
+
+Map and matrix layers read a model attribute named by the layer id when
+`source` is omitted; supply `source=` when the names differ. Matrix cells
+default to `icon="square"` and `size=1.0`; a projector or direct shortcut can
+override either. Map IDs default to string or JSON-safe integer keys. For
+integer `(x, y)` mapping keys, `key_codec=xy_key_codec("patch")` provides stable
+`patch:x:y` IDs and a checked inverse for restore. Other key types can use a
+`SourceKeyCodec(encode, decode)` or the `encode_key` / `decode_key` pair. An
+entry with value `False` remains an item; only a missing key is absent.
+Matrix IDs have the form `cell:row:col`, where row zero is the top row. Cell
+`x` is the column and cell `y` is `height - 1 - row`. Matrix layer metadata
+derives `width`, `height`, and `coord_offset="int"` from the source; callers
+cannot override these fields. `sparse_default=...` omits cells equal to that
+value; it is distinct from a present cell whose value happens to be false
+unless false is explicitly chosen as the sparse default. A shape change falls
+back to a full scan.
+
+The initial state and reset use full projections; restore consumes a complete projected layer snapshot. Incremental updates use `revision` and `changes` together when available. The change method receives the last published cursor and returns a non-consuming `SourceBatch` of `SourceChange(operation, key)` entries, where `operation` is `"create"`, `"update"`, or `"delete"`. Return `None` if the log no longer covers that cursor; the binding then scans and compares the current source. Without a change method, it always scans and compares. An unchanged item emits no update, and the cursor advances only after item messages are sent. Change logs must record in-place value mutations too.
+
+`map_agent_layer` and `matrix_agent_layer` include `data.value` by default, allowing projected restore to reconstruct the owned mapping or matrix. Use `encode_value` and `decode_value` for values that need a wire representation. Their default inverse replaces a simple model attribute named by `source`; pass `replace=` for a custom setter or `restore=False` for display-only state. A custom visual `project` or `fields` definition can add fields but should not replace `id`, matrix `x`/`y`, or `data.value`. Projected restore validates keys, matrix dimensions, coordinates, duplicates, and missing dense cells before replacing either container. The model must also declare `@scene_restore(validate=...)` to opt into scene restore. `indexed_agent_layer` is display-only by default; use an explicit `@layer_restore` when its storage has an inverse. Exact checkpoint restore for private state such as RNG remains separate.
+
+Field selectors, literal values, and eligible expression lambdas are compiled
+into one projection function. A lambda is inlined only when its source is
+unambiguous and its body uses fixed positional arguments without external
+names, defaults, inner scopes, or assignment expressions. Other callables run
+normally. The generated function's `inline_diagnostics` dictionary gives the
+reason for each callable field. Literal objects are bound in the compiler's
+environment rather than reconstructed from `repr`. Same-line lambda ambiguity
+falls back on Python 3.10; newer interpreters use code-position metadata when
+it is present.
+
+Layer constructor keyword arguments use `Unpack[TypedDict]` typing (PEP 692). Concrete built-in layer option sets are closed and their item projector fields retain the layer's item-key type. Extensible metadata uses a PEP 728 `extra_items` TypedDict; its `Mapping[str, ProjectorFieldForInit]` alternative keeps custom keys usable with mypy until mypy supports `extra_items`. Shared splitters keep same-name metadata inference while rejecting unknown direct options at runtime. Python 3.10 or later is required; `typing-extensions>=4.13.0` provides the PEP 728 runtime support before Python 3.15.
 
 ## `SimulationScenario`
 
@@ -338,6 +446,7 @@ Typical constructor fields:
 - `item_id_getter`
 - `item_changed_getter`
 - `items_projector`
+- `source`
 - `dependency_layer_ids`
 
 `item_id_getter` and `item_changed_getter` are optional. Define them together
@@ -354,6 +463,7 @@ Key methods:
 - `reset_diff_state()`
 - `build_state(include_items=True) -> EnvironmentLayerState`
 - `build_item_deltas()`
+- `commit_item_deltas()`
 - `seed_item_deltas_from_state(...)`
 - `build_item_delete_payloads(...)`
 
