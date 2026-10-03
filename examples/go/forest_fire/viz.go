@@ -5,25 +5,12 @@ import (
 	"github.com/billstark001/tensnap/packages/tensnap-go/protocol"
 )
 
-type Cell struct {
-	ID    int    `tensnap:"id"`
-	State string `tensnap:"state,scope=data"`
-}
-
-func cells(m *Model) []Cell {
-	items := make([]Cell, len(m.Cells))
-	for id, state := range m.Cells {
-		items[id] = Cell{ID: id, State: state}
-	}
-	return items
-}
-
 func NewVizModel(config Config) *binding.Model[*Model] {
 	m := NewModel(config)
 	modelConfig := func(m *Model) *Config { return &m.Config }
 	space := binding.MustMetadataFromTags(modelConfig, binding.TagScope("space"))
 	colors := map[string]string{empty: "#6b7280", tree: "#15803d", burning: "#ef4444"}
-	version := "1"
+	version := "2"
 
 	return binding.NewModel(m,
 		binding.WithSimulatorInfo[*Model](protocol.SimulatorInfoPayload{
@@ -36,14 +23,17 @@ func NewVizModel(config Config) *binding.Model[*Model] {
 		binding.WithEnvs(binding.NewEnv("forest",
 			binding.NewGridLayer[*Model]("grid").Data(space).
 				Restore(binding.RestoreLayer[*Model]{Metadata: validateGrid}),
-			binding.NewAgentLayer[*Model, Cell]("cells").Data(space).
-				Items(cells).ProjectTagsRequired("id").
-				Field("x", func(m *Model, c Cell) any { return c.ID % m.Width }).
-				Field("y", func(m *Model, c Cell) any { return c.ID / m.Width }).
-				Field("icon", binding.Const[*Model, Cell]("square")).
-				Field("size", binding.Const[*Model, Cell](1)).
-				Field("color", func(_ *Model, c Cell) any { return colors[c.State] }).
-				Restore(binding.RestoreLayer[*Model]{Replace: restoreCells, Metadata: validateGrid}),
+			binding.NewMatrixAgentLayer[*Model, string]("cells").
+				Flat(
+					func(m *Model) (int, int) { return m.Height, m.Width },
+					func(m *Model, row, col int) string { return m.Cells[row*m.Width+col] },
+				).
+				Field("color", func(_ *Model, _, _ int, state string) any {
+					return colors[state]
+				}).
+				Const("icon", "square").
+				Const("size", 1).
+				RestoreSource(decodeCellState, restoreCellMatrix),
 		)),
 		binding.WithCharts(binding.NewChartGroup("forest", "Forest state",
 			binding.NewChartSeries("empty", "Empty", colors[empty], func(m *Model) any { return m.Count(empty) }),

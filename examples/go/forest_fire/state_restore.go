@@ -24,32 +24,24 @@ func validateGrid(m *Model, metadata map[string]any) error {
 	return nil
 }
 
-func restoreCells(m *Model, items []map[string]any) error {
-	if len(items) != len(m.Cells) {
-		return fmt.Errorf("forest-fire restore requires every cell")
+func decodeCellState(value any) (string, error) {
+	state, ok := value.(string)
+	if !ok || !cellState(state) {
+		return "", fmt.Errorf("invalid forest-fire cell state: %v", value)
 	}
-	cells := make([]string, len(items))
-	seen := make([]bool, len(items))
-	for _, item := range items {
-		id, ok := abm.AsFloat64(item["id"])
-		if !ok || id < 0 || id >= float64(len(items)) || math.Trunc(id) != id || seen[int(id)] {
-			return fmt.Errorf("invalid or duplicate cell ID: %v", item["id"])
+	return state, nil
+}
+
+func restoreCellMatrix(m *Model, values [][]string) error {
+	if len(values) != m.Height {
+		return fmt.Errorf("forest-fire matrix height disagrees with the model")
+	}
+	cells := make([]string, 0, m.Width*m.Height)
+	for _, row := range values {
+		if len(row) != m.Width {
+			return fmt.Errorf("forest-fire matrix width disagrees with the model")
 		}
-		x, xOK := abm.AsFloat64(item["x"])
-		y, yOK := abm.AsFloat64(item["y"])
-		if !xOK || !yOK || x != float64(int(id)%m.Width) || y != float64(int(id)/m.Width) {
-			return fmt.Errorf("cell %v has noncanonical grid coordinates", id)
-		}
-		data, ok := item["data"].(map[string]any)
-		if !ok {
-			return fmt.Errorf("cell %v lacks state data", id)
-		}
-		state, ok := data["state"].(string)
-		if !ok || !cellState(state) {
-			return fmt.Errorf("invalid state for cell %v", id)
-		}
-		seen[int(id)] = true
-		cells[int(id)] = state
+		cells = append(cells, row...)
 	}
 	m.Cells = cells
 	return nil
