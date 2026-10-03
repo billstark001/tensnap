@@ -168,6 +168,10 @@ class Model: ...
 Layer metadata describes the layer; visual item fields belong in `fields`,
 `project`, or the source layer's direct `color`, `icon`, and `size` shortcuts.
 Shortcut strings are literal values; strings in `fields` are selectors. A
+fixed string in `fields` can be written as `value("square")`, while numeric
+and boolean constants can be used directly. `attr("value.color")` is an
+explicit selector. This is the same distinction used for ordinary agent
+projector fields.
 shortcut can also be a callback receiving `(model, key, value)` for map and
 indexed layers, or `(model, row, col, value)` for matrix layers. A field cannot
 appear in both `fields` and a shortcut, and `project` cannot be combined with
@@ -175,7 +179,7 @@ either `fields` or a shortcut. These conflicts fail when the layer is declared.
 
 ### Model-owned keyed sources
 
-These decorators project model data without allocating agent wrapper objects. They use the existing v0.3 agent item messages and do not change the protocol. `project(model, key, value)` or `fields={...}` supplies visual fields. Matrix `project` instead receives `(model, row, col, value)`. A field selector can start at `model`, `key`, `value`, `row`, or `col`; for example, `"value.color"` follows an attribute path. Selectors are compiled when the layer is registered.
+These decorators project model data without allocating agent wrapper objects. They use the existing v0.3 agent item messages and do not change the protocol. `project(model, key, value)` or `fields={...}` supplies visual fields. Matrix `project` instead receives `(model, row, col, value)`. A field selector can start at `model`, `key`, `value`, `row`, or `col`; for example, `"value.color"` follows an attribute path. A bare path such as `"color"` selects from the source value. Selectors are compiled when the layer is registered.
 
 ```python
 from tensnap import (
@@ -236,6 +240,16 @@ back to a full scan.
 The initial state and reset use full projections; restore consumes a complete projected layer snapshot. Incremental updates use `revision` and `changes` together when available. The change method receives the last published cursor and returns a non-consuming `SourceBatch` of `SourceChange(operation, key)` entries, where `operation` is `"create"`, `"update"`, or `"delete"`. Return `None` if the log no longer covers that cursor; the binding then scans and compares the current source. Without a change method, it always scans and compares. An unchanged item emits no update, and the cursor advances only after item messages are sent. Change logs must record in-place value mutations too.
 
 `map_agent_layer` and `matrix_agent_layer` include `data.value` by default, allowing projected restore to reconstruct the owned mapping or matrix. Use `encode_value` and `decode_value` for values that need a wire representation. Their default inverse replaces a simple model attribute named by `source`; pass `replace=` for a custom setter or `restore=False` for display-only state. A custom visual `project` or `fields` definition can add fields but should not replace `id`, matrix `x`/`y`, or `data.value`. Projected restore validates keys, matrix dimensions, coordinates, duplicates, and missing dense cells before replacing either container. The model must also declare `@scene_restore(validate=...)` to opt into scene restore. `indexed_agent_layer` is display-only by default; use an explicit `@layer_restore` when its storage has an inverse. Exact checkpoint restore for private state such as RNG remains separate.
+
+Field selectors, literal values, and eligible expression lambdas are compiled
+into one projection function. A lambda is inlined only when its source is
+unambiguous and its body uses fixed positional arguments without external
+names, defaults, inner scopes, or assignment expressions. Other callables run
+normally. The generated function's `inline_diagnostics` dictionary gives the
+reason for each callable field. Literal objects are bound in the compiler's
+environment rather than reconstructed from `repr`. Same-line lambda ambiguity
+falls back on Python 3.10; newer interpreters use code-position metadata when
+it is present.
 
 Layer constructor keyword arguments use `Unpack[TypedDict]` typing (PEP 692). Concrete built-in layer option sets are closed and their item projector fields retain the layer's item-key type. Extensible metadata uses a PEP 728 `extra_items` TypedDict; its `Mapping[str, ProjectorFieldForInit]` alternative keeps custom keys usable with mypy until mypy supports `extra_items`. Shared splitters keep same-name metadata inference while rejecting unknown direct options at runtime. Python 3.10 or later is required; `typing-extensions>=4.13.0` provides the PEP 728 runtime support before Python 3.15.
 
