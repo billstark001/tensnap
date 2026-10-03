@@ -1,2 +1,2 @@
-export * from './NodeWebSocketTransport';
-export * from './SimulatorClient';
+export { NodeWebSocketTransport } from './NodeWebSocketTransport';
+export type { NodeWebSocketValidationOptions } from './NodeWebSocketTransport';

@@ -13,11 +13,11 @@ import type {
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
-import { RendererSession, type BoundedRunSpec, type SceneRestoreOptions } from '@tensnap/core/runtime';
+import { RendererClient, RendererSession, type BoundedRunSpec, type SceneRestoreOptions } from '@tensnap/core/runtime';
 import { ScenarioInspector } from '@tensnap/core/scenario';
 import type { AgentInspection, AgentInspectionOptions, AgentRef, ScenarioSnapshot } from '@tensnap/core/scenario';
 import { AgentStorage } from '@tensnap/core/environment';
-import { SimulatorClient } from '../session/SimulatorClient';
+import { NodeWebSocketTransport } from '../session/NodeWebSocketTransport';
 import type {
   ChartSeriesSnapshot,
   ConnectOptions,
@@ -70,8 +70,9 @@ function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneSummary['enviro
   }));
 }
 
+/** Node host for the shared renderer client, headless painting, checkpoints, and control events. */
 export class AgentRuntime extends EventEmitter {
-  private readonly client: SimulatorClient;
+  private readonly client: RendererClient;
   private readonly renderer: RendererSession;
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
@@ -88,7 +89,7 @@ export class AgentRuntime extends EventEmitter {
   ) {
     super();
 
-    this.client = new SimulatorClient({
+    this.client = new RendererClient({
       run: {
         maxStepsPolicy: options.maxRunStepsPolicy,
         renderBarrier: { wait: (_task, payload) => this.renderActionResult(payload) },
@@ -134,6 +135,7 @@ export class AgentRuntime extends EventEmitter {
     await this.log('info', 'runtime', 'Runtime initialized.', { context: this.context.contextName });
   }
 
+  /** Connect to a simulator and start its initial sync; call waitUntilReady before reading the scene. */
   async connect(options: ConnectOptions): Promise<RuntimeStatus> {
     this.setPhase('connecting');
     this.control.simulatorUrl = options.simulatorUrl;
@@ -147,12 +149,10 @@ export class AgentRuntime extends EventEmitter {
       this.client.disconnect();
       this.renderer.scenario.reset();
       this.renderer.run.reset();
-      await this.client.connect({
-        simulatorUrl: options.simulatorUrl,
-        encoding: this.control.encoding,
-        clientMessageValidation: this.control.clientMessageValidation,
-        serverMessageValidation: this.control.serverMessageValidation,
-      });
+      await this.client.connect(new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
+        clientMessages: this.control.clientMessageValidation,
+        serverMessages: this.control.serverMessageValidation,
+      }));
       await this.log('info', 'runtime', 'Connected to simulator.', {
         simulatorUrl: options.simulatorUrl,
         encoding: this.control.encoding,
@@ -328,6 +328,7 @@ export class AgentRuntime extends EventEmitter {
     return [...this.renderer.scenario.actions.values()].map(cloneValue);
   }
 
+  /** Refresh the projected scene and wait until the transaction commits. */
   async syncScene(): Promise<void> {
     const targetSyncCount = this.completedStateSyncCount + 1;
     this.assertConnected();
@@ -343,7 +344,7 @@ export class AgentRuntime extends EventEmitter {
   /** Capture an exact simulator checkpoint; the protocol result is preserved verbatim. */
   async captureScene(): Promise<SceneCaptureResultPayload> {
     this.assertConnected();
-    const result = await this.client.captureScene();
+    const result = await this.renderer.captureScene();
     await this.log('info', 'scene', 'Scene checkpoint captured.', {
       requestId: result.request_id,
       encoding: result.checkpoint.encoding,
@@ -368,23 +369,26 @@ export class AgentRuntime extends EventEmitter {
       expected_instance_id: (input as Partial<SceneRestorePayload>).expected_instance_id ?? info.instance_id,
       state_schema_version: (input as Partial<SceneRestorePayload>).state_schema_version ?? info.model.state_schema_version,
     });
-    const result = await this.client.restoreScene(parsed, options);
+    const result = await this.renderer.restoreScene(parsed, options);
     await this.log(result.status === 'ok' ? 'info' : 'warn', 'scene', 'Scene restore completed.', result);
     this.emitRuntimeEvent('scene.restore.completed', { requestId, result });
     return result;
   }
 
+  /** Wait for the first completed state sync on this connection. */
   async waitUntilReady(timeoutMs?: number): Promise<RuntimeStatus> {
     return await this.waitForStateSync(1, timeoutMs);
   }
 
+  /** Request a parameter change; the simulator may later normalize it with param_sync. */
   async setParameter(id: string, value: ProtocolData): Promise<void> {
     this.assertConnected();
-    this.client.setParameter(id, value);
+    this.renderer.setParameter(id, value);
     await this.log('info', 'param', 'Parameter change requested.', { id, value });
     this.emitRuntimeEvent('param.change.requested', { id, value });
   }
 
+  /** Dispatch one action; completion is reported through runtime events. */
   async runAction(id: string): Promise<void> {
     this.assertConnected();
     this.client.requestAction(id);

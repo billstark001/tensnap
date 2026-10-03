@@ -52,6 +52,7 @@ export interface NodeWebSocketValidationOptions {
   serverMessages?: ProtocolValidationLevel;
 }
 
+/** Node WebSocket adapter for the shared renderer client; protocol framing stays in @tensnap/protocol. */
 export class NodeWebSocketTransport implements ISimulatorTransport {
   readonly connectionId: string;
   readonly transportKind = 'node-ws';
