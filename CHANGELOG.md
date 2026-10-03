@@ -26,6 +26,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## Unreleased
+
+### Added
+
+- **@tensnap/python:** Added model-owned map, matrix, and indexed agent sources
+  with compiled field selectors, revision-based sparse updates, scan fallback,
+  and validated projected restore for map and matrix values.
+- **@tensnap/go:** Added typed map and matrix agent layers with direct field
+  selectors, flat matrix storage, optional sparse change tracking, and
+  validated source restore.
+- **@tensnap/julia:** Added map and matrix agent layers with direct field
+  selectors, explicit matrix orientation, and validated projected restore.
+- **@tensnap/js:** Added map and matrix agent layers for keyed maps and nested
+  or flat matrices, with direct field selectors, sparse change tracking, and
+  validated projected restore.
+
 ## @tensnap/protocol [0.3.1] - 2026-10-02
 
 ### Fixed
