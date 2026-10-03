@@ -204,6 +204,66 @@ describe('AgentRuntime action lifecycle', () => {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
   });
+
+  it('waits for the headless painter before scheduling the next action', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-render-barrier-'));
+    temporaryRoots.push(rootDir);
+    const server = new WebSocketServer({ port: 0 });
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP WebSocket test address.');
+    const requestIds: string[] = [];
+    server.on('connection', (socket) => {
+      socket.send(encodeProtocolMessage({ type: 'simulator_info', payload: {
+        protocol_version: '0.3', binding: { name: 'test-binding', version: '0.3.0' },
+        model: { id: 'test-model' }, instance_id: 'test-instance', capabilities: [],
+      } }, 'json'));
+      socket.on('message', (raw) => {
+        const message = decodeProtocolMessage(raw.toString());
+        if (message.type === 'state_sync') {
+          socket.send(encodeProtocolMessage({ type: 'state_sync_begin', payload: {
+            request_id: message.payload.request_id, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace',
+          } }, 'json'));
+          socket.send(encodeProtocolMessage({ type: 'state_sync_end', payload: {
+            request_id: message.payload.request_id, state_revision: '1',
+          } }, 'json'));
+        }
+        if (message.type === 'action_invoke') {
+          requestIds.push(message.payload.request_id);
+          socket.send(encodeProtocolMessage({ type: 'action_result', payload: {
+            id: message.payload.id, request_id: message.payload.request_id,
+          } }, 'json'));
+        }
+      });
+    });
+
+    let releasePainter = () => {};
+    const painterGate = new Promise<void>((resolve) => { releasePainter = resolve; });
+    const painterStarted = vi.fn();
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+      encoding: 'json', render: { trigger: 'action-result' }, checkpointWriter: async () => {},
+    });
+    runtime.registerPainter({ id: 'slow', async render() {
+      painterStarted();
+      await painterGate;
+      return [];
+    } });
+    await runtime.initialize();
+    try {
+      await runtime.connect({ simulatorUrl: `ws://127.0.0.1:${address.port}`, encoding: 'json' });
+      await runtime.waitUntilReady(1_000);
+      runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
+      await vi.waitFor(() => expect(painterStarted).toHaveBeenCalledTimes(1));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(requestIds).toHaveLength(1);
+      releasePainter();
+      await vi.waitFor(() => expect(requestIds).toHaveLength(2));
+    } finally {
+      releasePainter();
+      await runtime.stop();
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
 });
 
 describe('AgentRuntime rendering', () => {

@@ -79,6 +79,7 @@ export class AgentRuntime extends EventEmitter {
   private readonly checkpointIntervalMs: number;
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpointChain: Promise<void> = Promise.resolve();
+  private statusWriteChain: Promise<void> = Promise.resolve();
   private readonly checkpointWriter: (context: RuntimeContextPaths, snapshot: ScenarioSnapshot) => Promise<void>;
 
   constructor(
@@ -88,7 +89,10 @@ export class AgentRuntime extends EventEmitter {
     super();
 
     this.client = new SimulatorClient({
-      run: { maxStepsPolicy: options.maxRunStepsPolicy },
+      run: {
+        maxStepsPolicy: options.maxRunStepsPolicy,
+        renderBarrier: { wait: (_task, payload) => this.renderActionResult(payload) },
+      },
     });
     this.renderer = this.client.renderer;
     const requestedCheckpointInterval = options.checkpointIntervalMs ?? DEFAULT_CHECKPOINT_INTERVAL_MS;
@@ -552,7 +556,9 @@ export class AgentRuntime extends EventEmitter {
       }>).detail;
       void this.handleProtocolMessage(message, origin);
       if (message.type === 'action_result') {
-        void this.handleActionResult(message.payload as ActionResultPayload);
+        const payload = message.payload as ActionResultPayload;
+        void this.log('info', 'action', 'Action completed.', payload);
+        this.emitRuntimeEvent('action.result', payload);
       }
       if (message.type === 'screenshot_request') {
         void this.handleScreenshotRequest(message.payload as ScreenshotRequestPayload);
@@ -602,33 +608,22 @@ export class AgentRuntime extends EventEmitter {
     }
   }
 
-  private async handleActionResult(payload: ActionResultPayload): Promise<void> {
-    try {
-      void this.log('info', 'action', 'Action completed.', payload);
-      this.emitRuntimeEvent('action.result', payload);
+  private async renderActionResult(payload: ActionResultPayload): Promise<void> {
+    if (this.control.render.trigger !== 'action-result') return;
+    const request = this.createRenderRequest({}, `action-result:${payload.id}`, 'action-result');
+    const artifacts = await this.runPainters(request);
+    await this.checkpointScene(request.snapshot, true);
 
-      if (this.control.render.trigger === 'action-result') {
-        const request = this.createRenderRequest({}, `action-result:${payload.id}`, 'action-result');
-        const artifacts = await this.runPainters(request);
-        await this.checkpointScene(request.snapshot, true);
-
-        void this.log('info', 'render', 'Auto render executed after action_result.', {
-          actionId: payload.id,
-          artifactCount: artifacts.length,
-        });
-        this.emitRuntimeEvent('render.requested', {
-          reason: `action-result:${payload.id}`,
-          trigger: 'action-result',
-          painterCount: this.painters.size,
-          artifactCount: artifacts.length,
-        });
-      }
-    } finally {
-      // RendererSession emits its message event before RunController marks the
-      // task applied. Defer one microtask so removing synchronous disk I/O
-      // does not race the next-tick render barrier.
-      queueMicrotask(() => this.renderer.run.markActionRendered(payload));
-    }
+    void this.log('info', 'render', 'Auto render executed after action_result.', {
+      actionId: payload.id,
+      artifactCount: artifacts.length,
+    });
+    this.emitRuntimeEvent('render.requested', {
+      reason: `action-result:${payload.id}`,
+      trigger: 'action-result',
+      painterCount: this.painters.size,
+      artifactCount: artifacts.length,
+    });
   }
 
   private async handleScreenshotRequest(payload: ScreenshotRequestPayload): Promise<void> {
@@ -780,7 +775,9 @@ export class AgentRuntime extends EventEmitter {
 
   private setPhase(phase: RuntimePhase): void {
     this.control.phase = phase;
-    void this.persistStatus();
+    void this.persistStatus().catch((error) => this.emitRuntimeEvent('runtime.status-write-failed', {
+      error: error instanceof Error ? error.message : String(error),
+    }));
   }
 
   private markSceneDirty(): void {
@@ -841,9 +838,12 @@ export class AgentRuntime extends EventEmitter {
     await appendRuntimeLog(this.context, entry);
   }
 
-  private async persistStatus(): Promise<void> {
+  private persistStatus(): Promise<void> {
     this.control.updatedAt = new Date().toISOString();
     this.control.painters = [...this.painters.keys()];
-    await writeRuntimeControl(this.context, this.control);
+    const snapshot = structuredClone(this.control);
+    const write = this.statusWriteChain.then(() => writeRuntimeControl(this.context, snapshot));
+    this.statusWriteChain = write.catch(() => {});
+    return write;
   }
 }

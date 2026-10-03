@@ -268,7 +268,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   }
 
   send(message: RendererToSimulatorMessage) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       if (this.codec === null) {
         throw new Error('Protocol handshake has not selected a codec yet.');
       }
@@ -283,6 +283,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       this.emitDiagnostic('warning', 'send_while_disconnected', 'Skipped a protocol message because the WebSocket is not connected.', {
         messageType: message.type,
       });
+      throw new Error('WebSocket transport is not connected.');
     }
   }
 
