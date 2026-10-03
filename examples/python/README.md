@@ -7,7 +7,7 @@ This directory contains Python examples for TenSnap that don't depend on Mesa.
 - **random_walk** - Simple 2D random walk with charts and parameter controls
 - **flock** - Flocking behavior simulation (Boids algorithm)
 - **hk** - Hegselmann-Krause opinion dynamics model
-- **predator_prey** - Sheep, wolves, and renewable grass on a 2D toroidal world
+- **predator_prey** - Sheep, wolves, and renewable grass on a 2D toroidal world; the grass matrix uses `@matrix_agent_layer`
 - **sirs** - SIRS epidemic model with multiple visualizations (grid and graph)
 
 `flock.py` demonstrates declarative `@layer_restore` callbacks for birds,
