@@ -22,10 +22,13 @@ export function projectFields<TModel, TItem extends object>(
     for (const [key, selector] of Object.entries(fields)) {
       if (typeof selector === 'function') {
         out[key] = selector(item, model);
-      } else if (typeof selector === 'object' && selector !== null && 'kind' in selector) {
+      } else if (typeof selector === 'object' && selector !== null &&
+        'kind' in selector && selector.kind === 'literal' && 'value' in selector) {
         out[key] = selector.value;
-      } else {
+      } else if (typeof selector === 'string' || typeof selector === 'symbol') {
         out[key] = readPath(item, String(selector));
+      } else {
+        out[key] = selector;
       }
     }
     return out;

@@ -104,6 +104,11 @@ export interface ModelSessionContext<TConfig extends object> {
     items: readonly TItem[],
     options?: SyncRecordsOptions<TItem>,
   ): Promise<void>;
+  syncRecordChanges(
+    envId: string,
+    layerId: string,
+    changes: readonly LayerRecordChange[],
+  ): Promise<void>;
   syncItems<TItem extends object>(
     envId: string,
     layerId: string,
@@ -251,6 +256,17 @@ export interface LayerRuntimeContext {
   full: boolean;
 }
 
+export interface LayerRecordChange {
+  operation: 'create' | 'update' | 'delete';
+  key: PrimitiveItemKey;
+  record?: ItemRecord;
+}
+
+export interface LayerChangeBatch {
+  revision: unknown;
+  changes: readonly LayerRecordChange[];
+}
+
 export type LayerProjector<TModel, TItem extends object> =
   (model: TModel, item: TItem) => ItemRecord;
 
@@ -280,6 +296,8 @@ export interface LayerOptions<TModel, TItem extends object = ItemRecord> {
   updateProject?: LayerProjector<TModel, Partial<TItem> & object>;
   key?: ItemKeySelector<TItem>;
   updateKey?: ItemKeySelector<Partial<TItem> & object>;
+  revision?(model: TModel): unknown;
+  changes?(model: TModel, previousRevision: unknown): LayerChangeBatch | null;
   restore?: LayerRestoreOptions<TModel>;
 }
 
@@ -373,6 +391,10 @@ export interface AssetBinding<TConfig extends object, TModel> extends AssetOptio
 export type FieldSelector<TModel, TItem extends object, TValue = unknown> =
   | keyof TItem
   | string
+  | number
+  | boolean
+  | null
+  | Readonly<Record<string, unknown>>
   | LiteralField<TValue>
   | ((item: TItem, model: TModel) => TValue);
 

@@ -7,6 +7,8 @@ import type {
   TrajectoryLayerOptions,
 } from './types';
 import { cloneItems } from './utils';
+import { agentLayerOptions, mapAgentLayerOptions, matrixAgentLayerOptions } from './agent-layers';
+import type { AgentLayerOptions, MapAgentLayerOptions, MatrixAgentLayerOptions } from './agent-layers';
 
 export class EnvironmentBuilder<TConfig extends object, TModel> {
   constructor(
@@ -24,9 +26,17 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
 
   agentLayer<TItem extends object = ItemRecord>(
     id: string,
-    options: Omit<LayerOptions<TModel, TItem>, 'type'> = {},
+    options: AgentLayerOptions<TModel, TItem> = {},
   ): this {
-    return this.layer(id, { ...options, type: 'agent' });
+    return this.layer(id, agentLayerOptions(options));
+  }
+
+  mapAgentLayer<K, V>(id: string, options: MapAgentLayerOptions<TModel, K, V>): this {
+    return this.layer(id, mapAgentLayerOptions(options));
+  }
+
+  matrixAgentLayer<V>(id: string, options: MatrixAgentLayerOptions<TModel, V>): this {
+    return this.layer(id, matrixAgentLayerOptions(options));
   }
 
   gridLayer(

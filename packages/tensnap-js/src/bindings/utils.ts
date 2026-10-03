@@ -93,7 +93,7 @@ export function resolveItemKey<TItem extends object>(
 
   if (isPrimitiveKey(record.id)) {
     return {
-      storageKey: `id:${record.id}`,
+      storageKey: `id:${typeof record.id}:${record.id}`,
       deleteKey: { id: record.id },
       keyFields: ['id'],
     };
