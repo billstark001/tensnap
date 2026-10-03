@@ -54,6 +54,7 @@ import {
   layerRegistry,
   LayerRegistryClass,
 } from './layer-registry';
+import { createStateSyncInventory } from './state-sync-inventory';
 import type {
   ScenarioEnvironmentSnapshot,
   ScenarioEnvironmentState,
@@ -380,6 +381,7 @@ export class Scenario extends LazyEventTarget {
     }
   }
 
+  /** Advertise the current definitions for a read-only sync; simulator state remains authoritative. */
   createStateSyncMessage(modelId: string, requestId: string, instanceId?: string): RendererToSimulatorMessage<StateSyncRequest> {
     // Internal state references are safe to include directly: this message is
     // serialized immediately by the caller and never mutated in-process.
@@ -389,18 +391,17 @@ export class Scenario extends LazyEventTarget {
         request_id: requestId,
         model_id: modelId,
         instance_id: instanceId,
-        parameters: [...this.parametersState.values()],
-        actions: [...this.actionsState.values()],
-        envs: [...this.environmentsState.values()].map((environment) => ({
-          id: environment.id,
-          type: environment.type,
-          layers: [...environment.layers.values()].map((layer) => ({
-            layer_id: layer.id,
-            layer_type: layer.layerType,
+        ...createStateSyncInventory({
+          parameters: this.parametersState.values(),
+          actions: this.actionsState.values(),
+          environments: [...this.environmentsState.values()].map((environment) => ({
+            id: environment.id,
+            type: environment.type,
+            layers: environment.layers.values(),
           })),
-        })),
-        charts: this.chartState.getAllMeta(),
-        monitors: this.monitorState.dump().map(({ value: _value, revision: _revision, ...metadata }) => metadata),
+          charts: this.chartState.getAllMeta(),
+          monitors: this.monitorState.dump(),
+        }),
       },
     };
   }
