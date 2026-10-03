@@ -559,6 +559,7 @@ export class RendererSession extends LazyEventTarget {
   private beginRecording(options: RecordingOptions, reason: RendererSessionRecordingDetail['reason']): Snapshot {
     const snapshot = this.recorder.start({
       ...options,
+      legacyCreateReplacement: this.legacySession,
       ...(options.modelIdentity === undefined && this.modelIdentity !== null ? { modelIdentity: this.modelIdentity } : {}),
     });
     this.dispatch('recording:start', { snapshot, reason } satisfies RendererSessionRecordingDetail);

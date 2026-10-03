@@ -286,6 +286,7 @@ describe('ProjectStore', () => {
     expect(migrated.scenario.actions[0]).not.toHaveProperty('allowRuntimeChange');
     expect(migrated.scenario.parameters[0]).toMatchObject({ allow_runtime_change: true });
     expect(snapshot.metadata.protocol_version).toBe('0.3');
+    expect(snapshot.metadata.legacy_create_replacement).toBe(true);
     expect(frame.controls).toEqual([{ type: 'action_invoke', payload: { id: 'step', request_id: 'tick-1' } }]);
     expect(frame.messages).toEqual([
       { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
@@ -308,6 +309,7 @@ describe('ProjectStore', () => {
     expect(migratedArchive.snapshots[0]?.frames[0]?.messages[0]).toEqual(
       { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
     );
+    expect(migratedArchive.snapshots[0]?.metadata.legacy_create_replacement).toBe(true);
   });
 
   it('rejects malformed current sources and dangling snapshot sources before opening a project', () => {

@@ -1,9 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { Scenario } from '../scenario';
-import { applySnapshotFrame, SnapshotPlayer, SnapshotRecorder, materializeSnapshot } from './SnapshotRecorder';
+import { applySnapshotFrame, createSingleSnapshot, SnapshotPlayer, SnapshotRecorder, materializeSnapshot } from './SnapshotRecorder';
 import { decodeSnapshotArchive, encodeSnapshotArchive, snapshotArchiveForJson } from './SnapshotArchive';
 
 describe('SnapshotRecorder', () => {
+  it('keeps create replacement for replay frames marked as legacy', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    const snapshot = createSingleSnapshot(scenario.dump(), { legacyCreateReplacement: true });
+    snapshot.frames = [1, 2].map((index) => ({
+      index, timestamp: index, kind: 'action' as const, controls: [],
+      messages: [{ type: 'item_create' as const, payload: {
+        env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: index }],
+      } }],
+    }));
+
+    const player = new SnapshotPlayer(snapshot);
+    player.seek(2);
+    const agents = player.scenario.getEnvironment('main')!.layers.get('agents')!.storage as import('../environment').AgentStorage;
+    expect(agents.getAgent('a')?.x).toBe(2);
+    expect(materializeSnapshot(snapshot).environments[0]?.layers[0]?.storageSnapshot).toMatchObject({
+      agents: [expect.objectContaining({ id: 'a', x: 2 })],
+    });
+    snapshot.metadata.legacy_create_replacement = false;
+    expect(() => new SnapshotPlayer(snapshot).seek(2)).toThrow(/item_create already exists/);
+  });
+
   it('replays coalesced atomic frames to the exact recorded Scenario state', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });

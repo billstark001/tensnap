@@ -220,7 +220,7 @@ function loadKeyframe(scenario: Scenario, snapshot: Snapshot, keyframe: Snapshot
 
 export function createSingleSnapshot(
   scenario: ScenarioSnapshot,
-  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint'> = {},
+  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint' | 'legacyCreateReplacement'> = {},
 ): Snapshot {
   const timestamp = options.timestamp ?? now();
   return {
@@ -231,6 +231,7 @@ export function createSingleSnapshot(
       endedAt: timestamp,
       label: options.label,
       protocol_version: PROTOCOL_VERSION,
+      ...(options.legacyCreateReplacement ? { legacy_create_replacement: true } : {}),
       ...(options.modelIdentity === undefined ? {} : { model_identity: clone(options.modelIdentity) }),
       ...(options.checkpoint === undefined ? {} : { checkpoint: clone(options.checkpoint) }),
     },
@@ -292,6 +293,7 @@ export class SnapshotRecorder {
       timestamp,
       modelIdentity: options.modelIdentity,
       checkpoint: options.checkpoint,
+      legacyCreateReplacement: options.legacyCreateReplacement,
     });
     this.nextFrameIndex = this.snapshot.initial.frame + 1;
     this.snapshot.metadata.endedAt = undefined;
@@ -570,7 +572,7 @@ export function materializeSnapshot(snapshot: Snapshot, frame = snapshot.frames[
   const keyframe = [...snapshot.keyframes, snapshot.initial]
     .filter((candidate) => candidate.frame <= bounded)
     .sort((a, b) => b.frame - a.frame)[0];
-  const scenario = new Scenario();
+  const scenario = new Scenario({ mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict' });
   loadKeyframe(scenario, snapshot, keyframe);
   for (const recordedFrame of snapshot.frames) {
     if (recordedFrame.index <= keyframe.frame || recordedFrame.index > bounded) continue;
@@ -616,10 +618,11 @@ export function snapshotFrameAt(snapshot: Snapshot, frame: number): SnapshotFram
  * a full keyframe load is reserved for random/backward seeks.
  */
 export class SnapshotPlayer {
-  readonly scenario = new Scenario();
+  readonly scenario: Scenario;
   private currentFrame: number;
 
   constructor(readonly snapshot: Snapshot) {
+    this.scenario = new Scenario({ mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict' });
     this.currentFrame = snapshot.initial.frame;
     loadKeyframe(this.scenario, snapshot, snapshot.initial);
   }

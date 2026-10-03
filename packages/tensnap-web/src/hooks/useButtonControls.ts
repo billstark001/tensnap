@@ -47,6 +47,9 @@ export function useButtonControls() {
     if (!snapshotPlayback || !session) return false;
     const frame = snapshotPlayback.stepFrame();
     if (!frame) return false;
+    if (snapshotPlayback.snapshot.metadata.legacy_create_replacement) {
+      session.scenario.enableLegacyMutationRules();
+    }
     session.applyReplayFrame(frame);
     return true;
   }, [session, snapshotPlayback]);
