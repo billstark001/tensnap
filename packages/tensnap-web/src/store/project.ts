@@ -10,13 +10,11 @@ import {
   type ProjectFileContent,
 } from "@/types/project";
 import { decode, encode } from "@msgpack/msgpack";
-import { ChartGroup, ChartMetadata } from "@/types/model";
 import { createHistoryStore, type HistoryState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import { createStateSyncInventoryFromSnapshot } from '@tensnap/core/scenario';
 import { materializeSnapshot, SnapshotPlaybackSource, type ProjectSource, type Snapshot, type SnapshotModelIdentity } from '@tensnap/core/snapshot';
-import type { StateSyncRequest } from '@tensnap/protocol';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { getFileSystemState } from "./file-system/provider";
 
@@ -43,43 +41,6 @@ function projectTabName(project: ProjectContextScheme): string {
   const normalized = project.filepath.replace(/\\/g, '/').replace(/\/+$/, '');
   return normalized.slice(normalized.lastIndexOf('/') + 1) || project.filepath;
 }
-
-const getAllChartMetadata = (chartGroups: ChartGroup[]): ChartMetadata[] => {
-  const seen = new Set<string>();
-  const metadata: ChartMetadata[] = [];
-
-  for (const group of chartGroups) {
-    for (const meta of Object.values(group.metadataDict)) {
-      if (!seen.has(meta.id)) {
-        metadata.push(meta);
-        seen.add(meta.id);
-      }
-    }
-  }
-
-  return metadata;
-};
-
-export type StateSyncInventory = Pick<StateSyncRequest, 'parameters' | 'actions' | 'envs' | 'charts' | 'monitors'>;
-
-export const createStateSyncRequestFromStore = (store?: ScenarioSnapshot): StateSyncInventory => {
-  const { parameters = [], actions = [], environments = [], charts = [], monitors = [] } = store || {};
-  return {
-    parameters,
-    actions,
-    envs: environments.map(env => ({
-      id: env.id,
-      type: env.type,
-      layers: env.layers.map(layer => ({ layer_id: layer.id, layer_type: layer.layerType })),
-    })),
-    charts: getAllChartMetadata(charts),
-    monitors: monitors.map((monitor) => ({
-      id: monitor.id,
-      label: monitor.label,
-      ...(monitor.render_hint === undefined ? {} : { render_hint: monitor.render_hint }),
-    })),
-  };
-};
 
 export const projectSourceConnectionId = (source: ProjectSource): string | null => {
   if (source.kind === 'websocket') return source.url;
@@ -290,7 +251,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     setActive(targetIndex);
 
     const connectionId = projectSourceConnectionId(source);
-    if (connectionId) newProject.useTransportStore.getState().initialize(connectionId, createStateSyncRequestFromStore(scenario));
+    if (connectionId) newProject.useTransportStore.getState().initialize(connectionId, createStateSyncInventoryFromSnapshot(scenario));
     return { recovered: warnings.length > 0, warnings };
   },
 

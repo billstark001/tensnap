@@ -123,6 +123,18 @@ class FailingTransport extends DeferredTransport {
   }
 }
 
+class ImmediateSyncTransport extends DeferredTransport {
+  override send(message: RendererToSimulatorMessage): void {
+    super.send(message);
+    if (message.type !== 'state_sync') return;
+    const requestId = (message.payload as { request_id: string }).request_id;
+    this.receive({ type: 'state_sync_begin', payload: {
+      request_id: requestId, model_id: 'replacement-model', instance_id: 'replacement-instance', mode: 'replace',
+    } });
+    this.receive({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+  }
+}
+
 describe('transport store reconnect state', () => {
   it('applies validation setting changes to the active websocket immediately', async () => {
     const originalClient = useSettingsStore.getState().clientMessageValidation;
@@ -177,6 +189,28 @@ describe('transport store reconnect state', () => {
     expect(useTransportStore.getState().transport).toBe(secondTransport);
     expect(firstTransport.connectionState).toBe('destroyed');
     expect(useScenarioStore.getState().connected).toBe(true);
+  });
+
+  it('replays the replacement handshake once when sync responds synchronously', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const first = new DeferredTransport('mock://first');
+    const initialized = useTransportStore.getState().initialize(first);
+    first.open();
+    await initialized;
+
+    const second = new ImmediateSyncTransport('mock://second');
+    const replacement = useTransportStore.getState().changeTransport(second);
+    second.open();
+    second.receive({ type: 'simulator_info', payload: {
+      protocol_version: '0.3', binding: { name: 'transport-test', version: '0.3.0' },
+      model: { id: 'replacement-model' }, instance_id: 'replacement-instance', capabilities: [],
+    } });
+    await replacement;
+
+    expect(useScenarioStore.getState().stateSync.requestId).toBeNull();
+    expect(useScenarioStore.getState().diagnostics).toEqual([]);
+    useTransportStore.getState().destroy();
   });
 
   it('preserves the current transport when a replacement fails to connect', async () => {
@@ -256,7 +290,7 @@ describe('transport store reconnect state', () => {
 
     expect(useTransportStore.getState().canReconnect()).toBe(false);
 
-    useTransportStore.getState().disconnect();
+    useTransportStore.getState().destroy();
 
     await expect(useTransportStore.getState().reconnect()).resolves.toBeUndefined();
     expect(useTransportStore.getState().transport).toBeNull();
