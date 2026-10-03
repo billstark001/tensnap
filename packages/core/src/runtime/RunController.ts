@@ -65,6 +65,7 @@ export interface RunScheduler {
 }
 
 export interface RunRenderBarrier {
+  /** Resolve only after the host has rendered or persisted this action's visible result. */
   wait(task: RuntimeTaskSnapshot, payload: ActionResultPayload): void | Promise<void>;
 }
 

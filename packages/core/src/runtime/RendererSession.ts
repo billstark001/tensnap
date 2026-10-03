@@ -13,10 +13,9 @@ import type {
   SimulatorToRendererMessage,
   StateSyncBeginPayload,
   StateSyncEndPayload,
-  StateSyncRequest,
 } from '@tensnap/protocol';
 import { PROTOCOL_VERSION, ProtocolValidationError } from '@tensnap/protocol';
-import { Scenario } from '../scenario';
+import { Scenario, type StateSyncInventory } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import type { DiagnosticEvent } from '../diagnostics';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
@@ -349,6 +348,7 @@ export class RendererSession extends LazyEventTarget {
     this.updateIdentityStatus(this.announcedInfo);
   }
 
+  /** Subscribe to a decoded transport; the caller retains ownership of connection and destruction. */
   attachTransport(transport: ISimulatorTransport): void {
     if (this.transport === transport) return;
     this.detachTransport();
@@ -362,6 +362,7 @@ export class RendererSession extends LazyEventTarget {
     transport.on('codec-warning', this.transportCodecWarningHandler);
   }
 
+  /** Stop observing the current transport and cancel any in-flight protocol transaction. */
   detachTransport(): void {
     const transport = this.transport;
     if (transport) {
@@ -405,17 +406,18 @@ export class RendererSession extends LazyEventTarget {
     this.dispatch('action:metrics', { metrics: null } satisfies RendererSessionActionMetricsDetail);
   }
 
-  requestStateSync(requestId = createRequestId('sync'), request?: StateSyncRequest): string {
+  /** Start a state sync using this connection's identity. Omit inventory to advertise the live Scenario. */
+  requestStateSync(requestId = createRequestId('sync'), inventory?: StateSyncInventory): string {
     const info = this.requireCompatibleSimulator(true);
     this.assertNoActiveRequest();
-    const payload = request ?? this.scenario.createStateSyncMessage(
-      info.model.id,
-      requestId,
-      this.stateSyncIdentity?.instance_id,
-    ).payload;
-    if (payload.request_id !== requestId || (!this.legacySession && payload.model_id !== info.model.id)) {
-      throw new Error('state_sync identity must match the active simulator session.');
-    }
+    const payload = inventory === undefined
+      ? this.scenario.createStateSyncMessage(info.model.id, requestId, this.stateSyncIdentity?.instance_id).payload
+      : {
+          request_id: requestId,
+          model_id: info.model.id,
+          ...(this.stateSyncIdentity?.instance_id === undefined ? {} : { instance_id: this.stateSyncIdentity.instance_id }),
+          ...inventory,
+        };
     if (!this.run.requestStateSync(requestId)) {
       throw new Error('Cannot request state sync while another state sync is active.');
     }
