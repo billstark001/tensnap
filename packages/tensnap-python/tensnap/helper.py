@@ -132,6 +132,7 @@ async def broadcast_env_update(
                 MT.ITEM_DELETE,
                 {"env_id": env_id, "layer_id": lid, "items": delete_payloads},
             )
+        registration.commit_item_deltas()
 
 
 async def send_env_snapshot(
