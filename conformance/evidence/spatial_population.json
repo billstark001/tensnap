@@ -34,7 +34,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "e93f872f0f581e8cbdcf71b90953a400a74b4219ac3d2f0803ca0af54fa21cdd",
+      "source_sha256": "d7f1a24e6a0803fc878c47603ceb6b25b299d1a05a90d7ec7f85f09bf56c1361",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -71,7 +71,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "e93f872f0f581e8cbdcf71b90953a400a74b4219ac3d2f0803ca0af54fa21cdd",
+      "source_sha256": "d7f1a24e6a0803fc878c47603ceb6b25b299d1a05a90d7ec7f85f09bf56c1361",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -108,7 +108,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "18a586baef21b2c03d10501272526a1d5d16af24b5aa4830331287c58f557106",
+      "source_sha256": "ea8996166f4c2174a4de19289e25b13f1d8b606cc6741b65d75d31994047229d",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -145,7 +145,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "18a586baef21b2c03d10501272526a1d5d16af24b5aa4830331287c58f557106",
+      "source_sha256": "ea8996166f4c2174a4de19289e25b13f1d8b606cc6741b65d75d31994047229d",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -182,7 +182,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "19d1b1b4f1927a6367e30e0fff81fedecb2ec75301a86005b2d8ab2a6e4987af",
+      "source_sha256": "cb38ae77f5e5000c929df3de3acc836a0d38b312fe6114b01e471ef1dc2cf711",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -219,7 +219,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "19d1b1b4f1927a6367e30e0fff81fedecb2ec75301a86005b2d8ab2a6e4987af",
+      "source_sha256": "cb38ae77f5e5000c929df3de3acc836a0d38b312fe6114b01e471ef1dc2cf711",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -256,7 +256,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "b3122a42eaa1257e40c16d27ce9d537bea928c577d5e8acac982606b98b64819",
+      "source_sha256": "2f91224bd48fe9eefefc062f17709f39ae53eb60a13eaa4fb12c6c827d4a9d71",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -293,7 +293,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "b3122a42eaa1257e40c16d27ce9d537bea928c577d5e8acac982606b98b64819",
+      "source_sha256": "2f91224bd48fe9eefefc062f17709f39ae53eb60a13eaa4fb12c6c827d4a9d71",
       "test": "conformance/run_matrix.py"
     }
   ],
@@ -303,5 +303,5 @@
     "detail": "all eight live renderer probes",
     "status": "pass"
   },
-  "revision": "f7b48481dade446245160d704b783e07b934c8c4"
+  "revision": "cafc6499780ec81a7bda8ff8997de9cca3b8de9f"
 }
