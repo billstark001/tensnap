@@ -94,6 +94,7 @@ export interface ScenarioOptions {
   charts?: ChartStorage;
   assets?: AssetStore;
   layerRegistry?: LayerRegistryClass;
+  mutationRules?: 'strict' | 'legacy';
 }
 
 export class Scenario extends LazyEventTarget {
@@ -109,6 +110,7 @@ export class Scenario extends LazyEventTarget {
   private resetDepth = 0;
   private metadataRevisionState = 0;
   private parameterRevisionState = 0;
+  private mutationRules: 'strict' | 'legacy';
   readonly layerRegistry: LayerRegistryClass;
 
   constructor(options: ScenarioOptions = {}) {
@@ -116,6 +118,12 @@ export class Scenario extends LazyEventTarget {
     this.chartState = options.charts ?? new ChartStorage();
     this.assetState = options.assets ?? new AssetStore();
     this.layerRegistry = options.layerRegistry ?? layerRegistry;
+    this.mutationRules = options.mutationRules ?? 'strict';
+  }
+
+  /** Keep v0.2 replacement semantics only for an explicitly selected legacy transport. */
+  setMutationRules(rules: 'strict' | 'legacy'): void {
+    this.mutationRules = rules;
   }
 
   get metadata(): Record<string, unknown> {
@@ -195,6 +203,7 @@ export class Scenario extends LazyEventTarget {
   }
 
   apply(message: SimulatorToRendererMessage): void {
+    if (this.mutationRules === 'strict') this.validateMutation(message);
     switch (message.type) {
       case 'metadata_update':
         this.applyMetadata(message.payload as MetadataUpdatePayload);
@@ -295,6 +304,84 @@ export class Scenario extends LazyEventTarget {
         return;
       default:
         return;
+    }
+  }
+
+  private validateMutation(message: SimulatorToRendererMessage): void {
+    const payload = message.payload;
+    switch (message.type) {
+      case 'action_create':
+        if (this.actionsState.has((payload as Action).id)) throw new Error(`action_create already exists: ${(payload as Action).id}`);
+        return;
+      case 'action_update':
+        if (!this.actionsState.has((payload as Action).id)) throw new Error(`action_update does not exist: ${(payload as Action).id}`);
+        return;
+      case 'param_create':
+        if (this.parametersState.has((payload as Parameter).id)) throw new Error(`param_create already exists: ${(payload as Parameter).id}`);
+        return;
+      case 'param_update':
+        if (!this.parametersState.has((payload as Parameter).id)) throw new Error(`param_update does not exist: ${(payload as Parameter).id}`);
+        return;
+      case 'env_create':
+        if (this.environmentsState.has((payload as EnvCreatePayload).id)) throw new Error(`env_create already exists: ${(payload as EnvCreatePayload).id}`);
+        return;
+      case 'env_layer_create': {
+        const { env_id, layer_id } = payload as EnvLayerCreatePayload;
+        const environment = this.environmentsState.get(env_id);
+        if (!environment) throw new Error(`env_layer_create missing environment: ${env_id}`);
+        if (environment.layers.has(layer_id)) throw new Error(`env_layer_create already exists: ${env_id}/${layer_id}`);
+        return;
+      }
+      case 'env_layer_update': {
+        const { env_id, layer_id } = payload as EnvLayerUpdatePayload;
+        if (!this.environmentsState.get(env_id)?.layers.has(layer_id)) {
+          throw new Error(`env_layer_update does not exist: ${env_id}/${layer_id}`);
+        }
+        return;
+      }
+      case 'item_create':
+      case 'item_update': {
+        const { env_id, layer_id, items } = payload as ItemCreatePayload | ItemUpdatePayload;
+        const layer = this.environmentsState.get(env_id)?.layers.get(layer_id);
+        if (!layer) throw new Error(`${message.type} missing layer: ${env_id}/${layer_id}`);
+        this.assertUniqueItemKeys(layer.layerType, items, message.type);
+        const controller = this.getLayerController(layer.layerType);
+        if (!controller?.getExistingItemKeys) {
+          throw new Error(`${message.type} cannot check existing identities for layer type ${layer.layerType}`);
+        }
+        const existing = controller.getExistingItemKeys(
+          this.createLayerControllerContext(this.environmentsState.get(env_id)!, layer), items,
+        );
+        if (message.type === 'item_create' && existing.length > 0) {
+          throw new Error(`item_create already exists: ${env_id}/${layer_id}`);
+        }
+        if (message.type === 'item_update' && existing.length !== items.length) {
+          throw new Error(`item_update does not exist: ${env_id}/${layer_id}`);
+        }
+        return;
+      }
+      case 'chart_create':
+        if (this.chartState.hasGroup((payload as ChartGroupMetadata).id)) {
+          throw new Error(`chart_create already exists: ${(payload as ChartGroupMetadata).id}`);
+        }
+        return;
+    }
+  }
+
+  private assertUniqueItemKeys(
+    layerType: string,
+    items: Record<string, unknown>[],
+    operation: 'item_create' | 'item_update',
+  ): void {
+    const fields = this.layerRegistry.get(layerType)?.primaryKeyFields;
+    if (!fields?.length) throw new Error(`${operation} requires primary key fields for layer type ${layerType}`);
+    const seen = new Set<string>();
+    for (const item of items) {
+      const values = fields.map((field) => item[field]);
+      if (values.some((value) => value === undefined)) throw new Error(`${operation} missing primary key for layer type ${layerType}`);
+      const key = JSON.stringify(values);
+      if (seen.has(key)) throw new Error(`${operation} repeats an identity in layer type ${layerType}`);
+      seen.add(key);
     }
   }
 

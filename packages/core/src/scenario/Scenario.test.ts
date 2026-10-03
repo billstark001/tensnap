@@ -16,7 +16,7 @@ function setupEnvAndAgentLayer(s: Scenario, envId = 'env1', layerId = 'layer1') 
   s.apply(msg('env_layer_create', { env_id: envId, layer_id: layerId, layer_type: 'agent' }));
 }
 
-function setupEnvAndEdgeLayer(s: Scenario, envId = 'env1', edgeLayerId = 'items', agentLayerId = 'items') {
+function setupEnvAndEdgeLayer(s: Scenario, envId = 'env1', edgeLayerId = 'items', agentLayerId = 'agents') {
   s.apply(msg('env_create', { id: envId, type: '2d' }));
   s.apply(msg('env_layer_create', { env_id: envId, layer_id: agentLayerId, layer_type: 'agent' }));
   s.apply(msg('env_layer_create', {
@@ -48,13 +48,16 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect(s.environments.has('env1')).toBe(true);
   });
 
-  it('env_create recreates an existing environment by default', () => {
+  it('env_create rejects an existing environment until it is deleted', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
     s.apply(msg('item_create', {
       env_id: 'env1', layer_id: 'layer1', items: [{ id: 'stale' }],
     }));
 
+    expect(() => s.apply(msg('env_create', { id: 'env1', type: 'uniform' }))).toThrow(/env_create already exists/);
+    expect(s.environments.get('env1')!.layers.has('layer1')).toBe(true);
+    s.apply(msg('env_delete', { id: 'env1' }));
     s.apply(msg('env_create', { id: 'env1', type: 'uniform' }));
 
     const environment = s.environments.get('env1')!;
@@ -62,15 +65,15 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect(environment.layers.size).toBe(0);
   });
 
-  it('env_create upsert preserves existing layers', () => {
+  it('a duplicate env_create leaves the existing environment intact', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
     const environment = s.environments.get('env1')!;
 
-    (s as any).createEnvironment({ id: 'env1', type: 'uniform' }, true);
+    expect(() => s.apply(msg('env_create', { id: 'env1', type: 'uniform' }))).toThrow(/env_create already exists/);
 
     expect(s.environments.get('env1')).toBe(environment);
-    expect(environment.type).toBe('uniform');
+    expect(environment.type).toBe('2d');
     expect(environment.layers.has('layer1')).toBe(true);
   });
 
@@ -104,7 +107,7 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect(layer.dependencyLayerIds).toEqual({ agent: 'items' });
   });
 
-  it('recreates storage when env_layer_create targets an existing layer by default', () => {
+  it('recreates layer storage only after an explicit delete', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
 
@@ -118,11 +121,16 @@ describe('Scenario – environment and layer lifecycle', () => {
       items: [{ id: 'a1', x: 1, y: 2 }],
     }));
 
-    s.apply(msg('env_layer_create', {
+    expect(() => s.apply(msg('env_layer_create', {
       env_id: 'env1',
       layer_id: 'layer1',
       layer_type: 'agent',
       metadata: { coord_offset: 'float' },
+    }))).toThrow(/env_layer_create already exists/);
+    expect(env.layers.get('layer1')).toBe(originalLayer);
+    s.apply(msg('env_layer_delete', { env_id: 'env1', layer_id: 'layer1' }));
+    s.apply(msg('env_layer_create', {
+      env_id: 'env1', layer_id: 'layer1', layer_type: 'agent', metadata: { coord_offset: 'float' },
     }));
 
     const refreshedLayer = env.layers.get('layer1')!;
@@ -141,28 +149,28 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect((refreshedLayer.storage as AgentStorage).getData().agents.get('a2')).toMatchObject({ x: 3, y: 4 });
   });
 
-  it('env_layer_create upsert reuses storage', () => {
+  it('env_layer_update reuses storage', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
     const layer = s.environments.get('env1')!.layers.get('layer1')!;
     const storage = layer.storage;
 
-    (s as any).createLayer({
-      env_id: 'env1', layer_id: 'layer1', layer_type: 'agent', metadata: { coord_offset: 'float' },
-    }, true);
+    s.apply(msg('env_layer_update', {
+      env_id: 'env1', layer_id: 'layer1', metadata: { coord_offset: 'float' },
+    }));
 
     expect(s.environments.get('env1')!.layers.get('layer1')).toBe(layer);
     expect(layer.storage).toBe(storage);
     expect(layer.metadata).toEqual({ coord_offset: 'float' });
   });
 
-  it('keeps dependent layers indexed when their source layer is recreated', () => {
+  it('rejects duplicate source layers without disturbing dependents', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
 
-    s.apply(msg('env_layer_create', {
+    expect(() => s.apply(msg('env_layer_create', {
       env_id: 'env1', layer_id: 'items', layer_type: 'agent',
-    }));
+    }))).toThrow(/env_layer_create already exists/);
     s.apply(msg('item_create', {
       env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }],
     }));
@@ -228,7 +236,7 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     expect(storage.getData().agents.get('a1')?.x).toBe(99);
   });
 
-  it('item_create recreates matching identities without removing unrelated items', () => {
+  it('item_create rejects matching identities without removing unrelated items', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
     s.apply(msg('item_create', {
@@ -236,25 +244,28 @@ describe('Scenario – item_create / item_update / item_delete', () => {
       items: [{ id: 'a1', x: 1, y: 2, color: '#f00' }, { id: 'a2', x: 3 }],
     }));
 
-    s.apply(msg('item_create', {
+    expect(() => s.apply(msg('item_create', {
       env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }],
-    }));
+    }))).toThrow(/item_create already exists/);
 
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getAgent('a1')).toMatchObject({ id: 'a1', x: 1, y: 2 });
+    s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'layer1', items: ['a1'] }));
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }] }));
     expect(storage.getAgent('a1')).toEqual({ id: 'a1', x: 10 });
     expect(storage.getAgent('a2')).toMatchObject({ id: 'a2', x: 3 });
   });
 
-  it('item_create upsert merges matching identities', () => {
+  it('item_update merges fields for an existing identity', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
     s.apply(msg('item_create', {
       env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1, y: 2 }],
     }));
 
-    (s as any).createItems({
+    s.apply(msg('item_update', {
       env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }],
-    }, true);
+    }));
 
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getAgent('a1')).toMatchObject({ id: 'a1', x: 10, y: 2 });
@@ -361,12 +372,13 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     expect(points).toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
   });
 
-  it('recreating an agent identity clears its previous trajectory', () => {
+  it('deleting then recreating an agent identity clears its previous trajectory', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
     s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
     s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 1 }] }));
 
+    s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'items', items: ['a1'] }));
     s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 10, y: 10 }] }));
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
@@ -534,6 +546,9 @@ describe('Scenario – item_create / item_update / item_delete', () => {
       dependency_layer_ids: { agent: 'items' },
     }));
 
+    s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }],
+    }));
     s.apply(msg('item_update', {
       env_id: 'env1',
       layer_id: 'items',
@@ -610,27 +625,83 @@ describe('Scenario – item_create / item_update / item_delete', () => {
 // ── Chart create semantics ───────────────────────────────────────────────────
 
 describe('Scenario – chart_create', () => {
-  it('recreates an existing chart and clears its renderer-held history by default', () => {
+  it('requires an explicit delete before recreating a chart', () => {
     const s = new Scenario();
     s.apply(msg('chart_create', { id: 'population', label: 'Population' }));
     s.apply(msg('chart_update', { updates: [{ id: 'population', value: 3 }] }));
     expect(s.charts.getGroup('population')?.data).toHaveLength(1);
 
+    expect(() => s.apply(msg('chart_create', { id: 'population', label: 'Reset population' })))
+      .toThrow(/chart_create already exists/);
+    expect(s.charts.getGroup('population')?.data).toHaveLength(1);
+    s.apply(msg('chart_delete', { kind: 'group', id: 'population' }));
     s.apply(msg('chart_create', { id: 'population', label: 'Reset population' }));
 
     expect(s.charts.getGroup('population')?.label).toBe('Reset population');
     expect(s.charts.getGroup('population')?.data).toEqual([]);
   });
 
-  it('chart_create upsert preserves renderer-held history', () => {
+  it('duplicate chart_create preserves existing metadata and history', () => {
     const s = new Scenario();
     s.apply(msg('chart_create', { id: 'population', label: 'Population' }));
     s.apply(msg('chart_update', { updates: [{ id: 'population', value: 3 }] }));
 
-    (s as any).createChart({ id: 'population', label: 'Updated population' }, true);
+    expect(() => s.apply(msg('chart_create', { id: 'population', label: 'Updated population' })))
+      .toThrow(/chart_create already exists/);
 
-    expect(s.charts.getGroup('population')?.label).toBe('Updated population');
+    expect(s.charts.getGroup('population')?.label).toBe('Population');
     expect(s.charts.getGroup('population')?.data).toHaveLength(1);
+  });
+});
+
+describe('Scenario – protocol identity rules', () => {
+  it('preserves v0.2 create replacement when legacy rules are selected', () => {
+    const s = new Scenario({ mutationRules: 'legacy' });
+    setupEnvAndAgentLayer(s);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1 }] }));
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 2 }] }));
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getAgent('a1')).toEqual({ id: 'a1', x: 2 });
+    s.apply(msg('env_create', { id: 'env1', type: 'uniform' }));
+    expect(s.environments.get('env1')?.layers.size).toBe(0);
+  });
+
+  it('rejects duplicate action and parameter creates and missing updates', () => {
+    const s = new Scenario();
+    const action = { id: 'step', label: 'Step' };
+    const parameter = { id: 'speed', type: 'number', label: 'Speed', value: 1 };
+    s.apply(msg('action_create', action));
+    s.apply(msg('param_create', parameter));
+
+    expect(() => s.apply(msg('action_create', { ...action, label: 'Other' }))).toThrow(/action_create already exists/);
+    expect(() => s.apply(msg('action_update', { id: 'missing', label: 'Missing' }))).toThrow(/action_update does not exist/);
+    expect(() => s.apply(msg('param_create', { ...parameter, value: 2 }))).toThrow(/param_create already exists/);
+    expect(() => s.apply(msg('param_update', { ...parameter, id: 'missing' }))).toThrow(/param_update does not exist/);
+    expect(s.actions.get('step')?.label).toBe('Step');
+    expect(s.parameters.get('speed')?.value).toBe(1);
+  });
+
+  it('rejects missing layer updates and duplicate or missing item identities before mutating a batch', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    expect(() => s.apply(msg('env_layer_update', {
+      env_id: 'env1', layer_id: 'missing', metadata: {},
+    }))).toThrow(/env_layer_update does not exist/);
+    expect(() => s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1' }, { id: 'a1' }],
+    }))).toThrow(/item_create repeats an identity/);
+
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getAgentCount()).toBe(0);
+    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1 }] }));
+    expect(() => s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a2' }, { id: 'a1' }],
+    }))).toThrow(/item_create already exists/);
+    expect(storage.getAgent('a2')).toBeUndefined();
+    expect(() => s.apply(msg('item_update', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 2 }, { id: 'missing', x: 2 }],
+    }))).toThrow(/item_update does not exist/);
+    expect(storage.getAgent('a1')?.x).toBe(1);
   });
 });
 

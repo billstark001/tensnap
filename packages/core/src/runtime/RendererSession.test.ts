@@ -82,6 +82,27 @@ describe('RendererSession', () => {
     ]);
   });
 
+  it('discards the whole state sync after a duplicate create', () => {
+    const session = new RendererSession();
+    const commits = vi.fn();
+    session.addEventListener('commit', commits);
+    session.scenario.apply({ type: 'env_create', payload: { id: 'committed', type: '2d' } });
+    session.attachTransport(createTransport([]));
+    announce(session);
+    const requestId = session.requestStateSync('duplicate-create');
+    session.handleIncoming({ type: 'state_sync_begin', payload: {
+      request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace',
+    } });
+    session.handleIncoming({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
+    session.handleIncoming({ type: 'action_create', payload: { id: 'step', label: 'Duplicate' } });
+    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+
+    expect(commits).not.toHaveBeenCalled();
+    expect(session.scenario.getEnvironment('committed')).toBeDefined();
+    expect(session.scenario.actions.has('step')).toBe(false);
+    expect(session.identityStatus).toBe('sync-required');
+  });
+
   it('preserves renderer-owned trajectory history across replace state sync', () => {
     const session = new RendererSession();
     session.attachTransport(createTransport([]));
@@ -342,9 +363,16 @@ describe('RendererSession', () => {
       payload: { request_id: requestId, model_id: 'legacy', instance_id: 'legacy', mode: 'replace' },
     });
     session.handleIncoming({ type: 'env_create', payload: { id: 'legacy-world', type: '2d' } });
+    session.handleIncoming({ type: 'env_layer_create', payload: { env_id: 'legacy-world', layer_id: 'agents', layer_type: 'agent' } });
+    session.handleIncoming({ type: 'item_create', payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 1 }] } });
+    session.handleIncoming({ type: 'item_create', payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 2 }] } });
     session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: 'legacy' } });
 
     expect(session.scenario.getEnvironment('legacy-world')).toBeDefined();
+    const agents = session.scenario.getEnvironment('legacy-world')!.layers.get('agents')!.storage as import('../environment').AgentStorage;
+    expect(agents.getAgent('a')?.x).toBe(2);
+    session.handleIncoming({ type: 'item_create', payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 3 }] } });
+    expect(agents.getAgent('a')?.x).toBe(3);
     expect(session.modelIdentity).toBeNull();
   });
 

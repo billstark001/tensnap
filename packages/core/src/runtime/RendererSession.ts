@@ -676,6 +676,7 @@ export class RendererSession extends LazyEventTarget {
       return;
     }
     this.legacySession = true;
+    this.scenario.setMutationRules('legacy');
     this.identityStatusState = this.expectedIdentity === null && this.committedInfo === null
       ? 'matching'
       : 'model-mismatch';
@@ -1049,7 +1050,10 @@ export class RendererSession extends LazyEventTarget {
   }
 
   private createStagingScenario(): Scenario {
-    const staging = new Scenario({ layerRegistry: this.scenario.layerRegistry });
+    const staging = new Scenario({
+      layerRegistry: this.scenario.layerRegistry,
+      mutationRules: this.legacySession ? 'legacy' : 'strict',
+    });
     staging.addEventListener('diagnostic', this.scenarioDiagnosticHandler);
     return staging;
   }
