@@ -285,24 +285,6 @@ function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{Stri
 		Dict{Any, Dict{String, Any}}(), _UNSET)
 end
 
-function agents_layer(id, getagents = agents_getter; projector = autoagentprojector(), data = nothing,
-	dependency_layer_ids = Dict{String, String}(), item_key_fields = ["id"],
-	item_id = nothing, changed = nothing, restore = nothing)
-	# The containing environment is selected after this layer is built. Keep the
-	# projector context-aware so `autoagentprojector()` follows that environment.
-	l = layer(id, "agent", _empty_layer_items; data = data,
-		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields,
-		source_items = getagents, item_id = item_id, changed = changed, restore = restore)
-	project_item = if projector isa AutoAgentProjector
-		(agent, _model) -> _project_autoagent(projector, agent; spatial = l.environment_type != "uniform")
-	else
-		(agent, model) -> _call1or2(projector, agent, model)
-	end
-	l.items = model -> [project_item(agent, model) for agent in getagents(model)]
-	l.item_projector = project_item
-	return l
-end
-
 grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields, restore = restore)
 patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields, restore = restore)
 edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"], restore = nothing) =

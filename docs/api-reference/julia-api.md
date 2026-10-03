@@ -62,6 +62,34 @@ add_environment!(scenario, env)
 run!(scenario)
 ```
 
+## Model-owned map and matrix layers
+
+```julia
+map_agent_layer("flags", m -> m.flags;
+    fields = Dict("alive" => "value", "label" => "key", "fixed" => literal("flag")),
+    color = (m, key, value) -> value ? "black" : "white", icon = "square")
+matrix_agent_layer("cells", m -> m.cells; orientation = :row_col,
+    fields = Dict("source_row" => "row"),
+    color = (m, row, col, value) -> value ? "black" : "white")
+```
+
+`map_agent_layer` keeps `false` entries distinct from absent keys and publishes
+entries in encoded-ID order. Keys must be strings or integers unless
+`encode_key`/`decode_key` are supplied. `matrix_agent_layer` requires an explicit
+axis convention: `:row_col` reads `A[row,col]`; `:x_y` reads `A[col,row]`.
+Callbacks receive Julia's 1-based row and column. Item IDs and renderer `x/y`
+use zero-based positions; row 1 appears at the top. Both layers use the agent
+diff and projected-restore machinery, with `data.value` as the reversible value.
+In `fields`, strings and symbols select paths rooted at `model`, `key`, `value`,
+`row`, or `col`; a bare path selects from the source value. `literal(...)`
+marks a fixed string. Other values are constants.
+The direct `color`, `icon`, and `size` options treat strings as constants.
+`autoagentprojector` also accepts field mappings, fixed values, and
+`literal(...)` for ordinary agents.
+Matrix restore checks dimensions, IDs, coordinates, duplicates, and missing
+cells before modifying the model. Pass `replace` to rebuild a container whose
+shape or ownership cannot be changed in place.
+
 ## Scenario
 
 ```julia
