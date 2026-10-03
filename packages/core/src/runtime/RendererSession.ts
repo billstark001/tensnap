@@ -676,7 +676,7 @@ export class RendererSession extends LazyEventTarget {
       return;
     }
     this.legacySession = true;
-    this.scenario.setMutationRules('legacy');
+    this.scenario.enableLegacyMutationRules();
     this.identityStatusState = this.expectedIdentity === null && this.committedInfo === null
       ? 'matching'
       : 'model-mismatch';
