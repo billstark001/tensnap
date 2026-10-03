@@ -57,8 +57,15 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer, params
-
+from tensnap import (
+    agent,
+    agent_layer,
+    env,
+    grid_layer,
+    matrix_agent_layer,
+    params,
+    value,
+)
 
 SHEEP_ASSET_ID = "wolf-sheep:sheep"
 WOLF_ASSET_ID = "wolf-sheep:wolf"
@@ -66,20 +73,7 @@ SHEEP_ICON = f"asset:{SHEEP_ASSET_ID}"
 WOLF_ICON = f"asset:{WOLF_ASSET_ID}"
 
 
-@params(
-    include=[
-        "initial_sheep",
-        "initial_wolves",
-        "sheep_gain_from_food",
-        "wolf_gain_from_food",
-        "sheep_reproduce_rate",
-        "wolf_reproduce_rate",
-        "sheep_energy_loss",
-        "wolf_energy_loss",
-        "wolf_sight_radius",
-        "grass_regrowth_steps",
-    ]
-)
+@params(exclude=["width", "height"])
 @dataclass
 class PredatorPreyConfig:
     width: int = 50
@@ -96,12 +90,8 @@ class PredatorPreyConfig:
     grass_regrowth_steps: int = 30
 
 
-@agent()
+@agent(size=1, color="#F8FAFC", icon=value(SHEEP_ICON))
 class Sheep:
-    size = 1.0
-    color = "#F8FAFC"
-    icon = SHEEP_ICON
-
     def __init__(self, sheep_id: str, x: int, y: int, energy: float):
         self.id = sheep_id
         self.x = x
@@ -114,12 +104,8 @@ class Sheep:
         return {"energy": round(self.energy, 2), "age": self.age, "species": "sheep"}
 
 
-@agent()
+@agent(size=1, color="#111827", icon=value(WOLF_ICON))
 class Wolf:
-    size = 1.0
-    color = "#111827"
-    icon = WOLF_ICON
-
     def __init__(self, wolf_id: str, x: int, y: int, energy: float):
         self.id = wolf_id
         self.x = x
@@ -132,17 +118,19 @@ class Wolf:
         return {"energy": round(self.energy, 2), "age": self.age, "species": "wolf"}
 
 
-@agent_layer("wolves", z_index="z_wolves")
-@agent_layer("sheep", z_index="z_sheep")
-@agent_layer("grass", item_iterable_projector="get_grass_layer", z_index="z_grass")
+@agent_layer("wolves", z_index=50)
+@agent_layer("sheep", z_index=40)
+@matrix_agent_layer(
+    "grass",
+    source="grass_timer",
+    fields={"data": lambda _model, _key, timer: {"regrowth_timer": timer}},
+    color=lambda model, _row, _col, timer: model.grass_color(timer),
+    z_index=0,
+)
 @grid_layer()
 @env(id="predator_prey")
 class PredatorPreySimulation:
     """Simple toroidal predator-prey model with renewable grass."""
-
-    z_grass = 0
-    z_sheep = 40
-    z_wolves = 50
 
     def __init__(self, config: PredatorPreyConfig | None = None):
         self.config = config or PredatorPreyConfig()
@@ -187,7 +175,8 @@ class PredatorPreySimulation:
         self.time_step = 0
         self._next_sheep_id = 0
         self._next_wolf_id = 0
-        self.grass_timer = [[0 for _ in range(self.height)] for _ in range(self.width)]
+        # Rows run from the top of the world down; columns run left to right.
+        self.grass_timer = [[0 for _ in range(self.width)] for _ in range(self.height)]
         self.sheep = []
         self.wolves = []
 
@@ -210,7 +199,9 @@ class PredatorPreySimulation:
         wrapped = -1 if direct > 0 else 1
         return wrapped
 
-    def _move_toward(self, x: int, y: int, target_x: int, target_y: int) -> tuple[int, int]:
+    def _move_toward(
+        self, x: int, y: int, target_x: int, target_y: int
+    ) -> tuple[int, int]:
         dx = self._toroidal_delta(x, target_x, self.width)
         dy = self._toroidal_delta(y, target_y, self.height)
         if abs(target_x - x) > abs(target_y - y):
@@ -223,10 +214,10 @@ class PredatorPreySimulation:
         return dx * dx + dy * dy
 
     def _update_grass(self) -> None:
-        for x in range(self.width):
-            for y in range(self.height):
-                if self.grass_timer[x][y] > 0:
-                    self.grass_timer[x][y] -= 1
+        for row in self.grass_timer:
+            for x, timer in enumerate(row):
+                if timer > 0:
+                    row[x] -= 1
 
     def step(self) -> None:
         self._update_grass()
@@ -238,16 +229,20 @@ class PredatorPreySimulation:
             sheep.energy -= self.config.sheep_energy_loss
             sheep.x, sheep.y = self._move_random(sheep.x, sheep.y)
 
-            if self.grass_timer[sheep.x][sheep.y] == 0:
+            grass_row = self.grass_timer[self.height - 1 - sheep.y]
+            if grass_row[sheep.x] == 0:
                 sheep.energy += self.config.sheep_gain_from_food
-                self.grass_timer[sheep.x][sheep.y] = self.config.grass_regrowth_steps
+                grass_row[sheep.x] = self.config.grass_regrowth_steps
 
             if sheep.energy <= 0:
                 continue
 
             next_sheep.append(sheep)
 
-            if random.random() * 100 < self.config.sheep_reproduce_rate and sheep.energy >= 6.0:
+            if (
+                random.random() * 100 < self.config.sheep_reproduce_rate
+                and sheep.energy >= 6.0
+            ):
                 sheep.energy *= 0.5
                 newborn_sheep.append(self._spawn_sheep(sheep.x, sheep.y, sheep.energy))
 
@@ -272,7 +267,9 @@ class PredatorPreySimulation:
             if visible_sheep:
                 target = min(
                     visible_sheep,
-                    key=lambda sheep: self._distance_sq(wolf.x, wolf.y, sheep.x, sheep.y),
+                    key=lambda sheep: self._distance_sq(
+                        wolf.x, wolf.y, sheep.x, sheep.y
+                    ),
                 )
                 wolf.x, wolf.y = self._move_toward(wolf.x, wolf.y, target.x, target.y)
             else:
@@ -289,7 +286,10 @@ class PredatorPreySimulation:
 
             next_wolves.append(wolf)
 
-            if random.random() * 100 < self.config.wolf_reproduce_rate and wolf.energy >= 14.0:
+            if (
+                random.random() * 100 < self.config.wolf_reproduce_rate
+                and wolf.energy >= 14.0
+            ):
                 wolf.energy *= 0.5
                 newborn_wolves.append(self._spawn_wolf(wolf.x, wolf.y, wolf.energy))
 
@@ -299,27 +299,12 @@ class PredatorPreySimulation:
         self.wolves = next_wolves
         self.time_step += 1
 
-    def get_grass_layer(self) -> list[dict[str, object]]:
-        cells: list[dict[str, object]] = []
-        for x in range(self.width):
-            for y in range(self.height):
-                timer = self.grass_timer[x][y]
-                ratio = 1.0 - min(timer / max(self.config.grass_regrowth_steps, 1), 1.0)
-                green = int(85 + ratio * 140)
-                red = int(45 + ratio * 30)
-                blue = int(25 + ratio * 35)
-                cells.append(
-                    {
-                        "id": f"grass:{x}:{y}",
-                        "x": x,
-                        "y": y,
-                        "icon": "square",
-                        "size": 1.0,
-                        "color": f"#{red:02x}{green:02x}{blue:02x}",
-                        "data": {"regrowth_timer": timer},
-                    }
-                )
-        return cells
+    def grass_color(self, timer: int) -> str:
+        ratio = 1.0 - min(timer / max(self.config.grass_regrowth_steps, 1), 1.0)
+        green = int(85 + ratio * 140)
+        red = int(45 + ratio * 30)
+        blue = int(25 + ratio * 35)
+        return f"#{red:02x}{green:02x}{blue:02x}"
 
     def get_sheep_count(self) -> float:
         return float(len(self.sheep))
@@ -340,7 +325,7 @@ class PredatorPreySimulation:
 - The environment has three explicit agent layers on top of the base grid: `grass`, `sheep`, and `wolves`.
 - Birth and death are modeled by inserting and removing objects from `self.sheep` and `self.wolves`.
 - `@agent()` discovers the sheep and wolf fields, while `@agent_layer("sheep")` and `@agent_layer("wolves")` use same-name model attributes as their item sources.
-- The grass field is exposed as a square-agent layer built from dictionaries, so it can be inspected just like any other synchronized layer.
+- `@matrix_agent_layer` reads the grass timer matrix directly. It derives cell coordinates and dimensions, supplies square icons and unit size, and projects the color and timer without creating grass agent objects.
 - Sheep and wolf icons use asset references (`asset:<id>`), so the same SVGs can be reused across many synchronized items without inlining image data into every agent payload.
 
 ## Step 2: Create the Visualization Entry Point
