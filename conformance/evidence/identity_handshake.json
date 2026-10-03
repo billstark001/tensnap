@@ -19,7 +19,7 @@
             "scene.restore.checkpoint",
             "scene.restore.projected"
           ],
-          "instance_id": "9ea922ca135148c59d1f27808050adbd",
+          "instance_id": "24da3b2d2b974dde922173a4ddb83868",
           "same_host_reconnect": true
         },
         "status": "pass"
@@ -27,11 +27,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "d4eae103cfdd44b5a9aeefb672a65e61"
+          "instance_id": "e3c758017cde4af48123c6c397904891"
         },
         "status": "pass"
       },
-      "source_sha256": "9bddc4bd518a5e6e2d50ae6757fb80b7fc6df168898c0af3f7b4bb36be98e193",
+      "source_sha256": "e93f872f0f581e8cbdcf71b90953a400a74b4219ac3d2f0803ca0af54fa21cdd",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -53,7 +53,7 @@
             "scene.restore.checkpoint",
             "scene.restore.projected"
           ],
-          "instance_id": "a488024b4df04321909f0b672211f04d",
+          "instance_id": "361470bc1b294f32af35a000c07714a1",
           "same_host_reconnect": true
         },
         "status": "pass"
@@ -61,11 +61,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "55151677f06549b69b508641561d91eb"
+          "instance_id": "dc8c4aad5b494619b78fc98599f39bdc"
         },
         "status": "pass"
       },
-      "source_sha256": "9bddc4bd518a5e6e2d50ae6757fb80b7fc6df168898c0af3f7b4bb36be98e193",
+      "source_sha256": "e93f872f0f581e8cbdcf71b90953a400a74b4219ac3d2f0803ca0af54fa21cdd",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -87,7 +87,7 @@
             "scene.restore.checkpoint",
             "scene.restore.projected"
           ],
-          "instance_id": "732d05627b360d3059ea5982887b11fc",
+          "instance_id": "a95994b19b887318dea620935f489022",
           "same_host_reconnect": true
         },
         "status": "pass"
@@ -95,11 +95,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "06f4428ae6f2e002f7330be123ca6a70"
+          "instance_id": "bb01c326de0025244b8fac4065c7def2"
         },
         "status": "pass"
       },
-      "source_sha256": "c8efb136cf6716280d0bed658bd8c8683bda51e6f2c5e689187641eec39b7038",
+      "source_sha256": "18a586baef21b2c03d10501272526a1d5d16af24b5aa4830331287c58f557106",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -121,7 +121,7 @@
             "scene.restore.checkpoint",
             "scene.restore.projected"
           ],
-          "instance_id": "52c320f14ec197cb84abbaf0c8921d81",
+          "instance_id": "b64530fe88c1eff18f73b91ed1e0caac",
           "same_host_reconnect": true
         },
         "status": "pass"
@@ -129,11 +129,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "5f16a5f0680c17e869e9cd675466a85b"
+          "instance_id": "86197bd6d5ff17b1b1c68f7370089727"
         },
         "status": "pass"
       },
-      "source_sha256": "c8efb136cf6716280d0bed658bd8c8683bda51e6f2c5e689187641eec39b7038",
+      "source_sha256": "18a586baef21b2c03d10501272526a1d5d16af24b5aa4830331287c58f557106",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -155,7 +155,7 @@
             "scene.restore.projected",
             "scene.restore.checkpoint"
           ],
-          "instance_id": "ebad6aaf-4f10-4601-8472-ceaa5b3ec171",
+          "instance_id": "45b0b268-b6a7-4427-900a-3a70f1df1676",
           "same_host_reconnect": false
         },
         "status": "pass"
@@ -163,11 +163,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "089e7bb2-9eea-4f10-8ece-d517c28dea7b"
+          "instance_id": "c95491da-ae9b-437e-a2e7-533319daf58f"
         },
         "status": "pass"
       },
-      "source_sha256": "49238cc349f0a1e8975a293eceb97ff55291b676a4b5bdd4a1a08ce9891eadfd",
+      "source_sha256": "19d1b1b4f1927a6367e30e0fff81fedecb2ec75301a86005b2d8ab2a6e4987af",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -189,7 +189,7 @@
             "scene.restore.projected",
             "scene.restore.checkpoint"
           ],
-          "instance_id": "a97ace37-ce2f-4afa-8aa2-84bcbd17410e",
+          "instance_id": "300596ca-bcc0-4308-bdd6-a3b75698944e",
           "same_host_reconnect": false
         },
         "status": "pass"
@@ -197,11 +197,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "8c93ac15-064c-4141-b057-9b6b8920ff2a"
+          "instance_id": "bb4556a7-7a5d-4249-9f80-ceda0118ef84"
         },
         "status": "pass"
       },
-      "source_sha256": "49238cc349f0a1e8975a293eceb97ff55291b676a4b5bdd4a1a08ce9891eadfd",
+      "source_sha256": "19d1b1b4f1927a6367e30e0fff81fedecb2ec75301a86005b2d8ab2a6e4987af",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -223,7 +223,7 @@
             "scene.restore.checkpoint",
             "scene.restore.projected"
           ],
-          "instance_id": "83a5e3b8-9036-4d5e-88c0-46f4e034e4ff",
+          "instance_id": "8e213758-ebe6-4bbd-8354-b2381ca59b4e",
           "same_host_reconnect": true
         },
         "status": "pass"
@@ -231,11 +231,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "76e18b4d-6791-477e-9734-14ba1699db8c"
+          "instance_id": "3335b023-1656-4b32-8e69-b1409645f1ed"
         },
         "status": "pass"
       },
-      "source_sha256": "4dc63a26c8fc623ba85c5c3f97a6a18b98eadfd4b6675be94666e02e6cf59688",
+      "source_sha256": "b3122a42eaa1257e40c16d27ce9d537bea928c577d5e8acac982606b98b64819",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -257,7 +257,7 @@
             "scene.restore.checkpoint",
             "scene.restore.projected"
           ],
-          "instance_id": "3b252444-e948-4eda-a31d-fc94b9188228",
+          "instance_id": "613eebf7-6458-4378-a4fb-05837b2803e7",
           "same_host_reconnect": true
         },
         "status": "pass"
@@ -265,11 +265,11 @@
       "renderer_client_outcome": {
         "evidence": {
           "actual_transport": "NodeWebSocketTransport",
-          "instance_id": "9635092b-04b6-476e-9422-d5d555b22797"
+          "instance_id": "0800d40e-89f5-4068-bf31-1a911e5bb86c"
         },
         "status": "pass"
       },
-      "source_sha256": "4dc63a26c8fc623ba85c5c3f97a6a18b98eadfd4b6675be94666e02e6cf59688",
+      "source_sha256": "b3122a42eaa1257e40c16d27ce9d537bea928c577d5e8acac982606b98b64819",
       "test": "conformance/run_matrix.py"
     }
   ],
@@ -279,5 +279,5 @@
     "detail": "all eight live renderer probes",
     "status": "pass"
   },
-  "revision": "115a1cc5ed04aa2e12eecb5b6bb594a15a9f2b79"
+  "revision": "f7b48481dade446245160d704b783e07b934c8c4"
 }
