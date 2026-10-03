@@ -20,6 +20,15 @@ from .action import (
     action,
     get_action_metadata_from_namespace,
 )
+from .agent_layers import (
+    BindAgentLayerConfig,
+    BindSourceAgentLayerConfig,
+    agent_layer,
+    indexed_agent_layer,
+    map_agent_layer,
+    matrix_agent_layer,
+    xy_key_codec,
+)
 from .chart import (
     categorize_charts,
     chart,

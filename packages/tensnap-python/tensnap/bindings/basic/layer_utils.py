@@ -29,6 +29,15 @@ ProjectorDictFilterList: TypeAlias = list[
 _JSON_LIKE_MIN_LENGTH = 2
 
 
+def _identity_item_to_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    raise TypeError(
+        "Layer items without an item projector must already be dict objects, "
+        f"got {type(value)!r}."
+    )
+
+
 class ProjectorAuto(ProjectorFieldDirective):
     def __repr__(self) -> str:
         return "AUTO"

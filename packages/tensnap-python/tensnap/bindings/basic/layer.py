@@ -9,6 +9,8 @@ from typing import (
     cast,
 )
 
+from typing_extensions import Unpack
+
 from tensnap.bindings.mesa.utils import is_mesa_agent_class
 from tensnap.bindings.ownership import (
     append_class_metadata,
@@ -17,7 +19,6 @@ from tensnap.bindings.ownership import (
 )
 from tensnap.models import (
     AgentItemFields,
-    AgentLayerMetadataFields,
     BackgroundLayerMetadataFields,
     EdgeItemFields,
     EdgeLayerMetadataFields,
@@ -40,10 +41,22 @@ from tensnap.utils.attr import (
 )
 from tensnap.utils.init_hook import install_once_init_hook
 
+from .layer_kwargs import (
+    BackgroundLayerKwargs,
+    EdgeLayerKwargs,
+    GridLayerKwargs,
+    LayerItemProjectorForInit,
+    LayerItemsProjectorForInit,
+    LayerMetadataOptions,
+    TrajectoryLayerKwargs,
+    split_item_layer_kwargs,
+    split_layer_kwargs,
+)
 from .layer_utils import (
     MetadataDictForInit,
     ProjectorDictFilterList,
     ProjectorDictForInit,
+    _identity_item_to_dict,
     make_projector_for_target,
     resolve_layer_getter,
 )
@@ -54,15 +67,6 @@ TClass = TypeVar("TClass")
 
 ProjectorName: TypeAlias = str | tuple[str, ...]
 LayerDependencyIds: TypeAlias = dict[str, str]
-LayerItemProjectorForInit: TypeAlias = (
-    AttrProjector[Any, TItemKeys]
-    | DynamicAttrProjector[Any, Any, TItemKeys]
-    | type[Any]
-    | str
-)
-LayerItemsProjectorForInit: TypeAlias = ItemsProjector[Any, TItemKeys] | str
-
-
 # region Utilities
 
 
@@ -93,15 +97,6 @@ def _normalize_projector_names(projector_name: ProjectorName | None) -> tuple[st
     if isinstance(projector_name, str):
         return (projector_name,)
     return projector_name
-
-
-def _identity_item_to_dict(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    raise TypeError(
-        "Layer items without an item projector must already be dict objects, "
-        f"got {type(value)!r}."
-    )
 
 
 def _edge_item_to_dict(value: Any) -> dict[EdgeItemFields, Any]:
@@ -208,16 +203,15 @@ def _try_resolve_item_projector(
     raw_value: LayerItemProjectorForInit[TItemKeys],
     projector_names: tuple[str, ...],
 ) -> Callable[..., dict[TItemKeys, Any]] | None:
-    # Resolution order: direct callable, registered item class, forward class name,
-    # then class attribute callable.
+    # Classes are callable too; resolve a registered item class first.
+    if isinstance(raw_value, type):
+        registered = _resolve_registered_item_projector(raw_value, projector_names)
+        if registered is not None:
+            return cast(Callable[..., dict[TItemKeys, Any]], registered)
+        return cast(Callable[..., dict[TItemKeys, Any]], raw_value)
+
     if callable(raw_value):
         return raw_value
-
-    if isinstance(raw_value, type):
-        return cast(
-            Callable[..., dict[TItemKeys, Any]] | None,
-            _resolve_registered_item_projector(raw_value, projector_names),
-        )
 
     item_cls = _try_get_class(cls, raw_value)
     if item_cls is not None:
@@ -773,19 +767,19 @@ class BindBackgroundLayerConfig(BindLayerConfig[BackgroundLayerMetadataFields, s
         self,
         layer_id: str = "background",
         *,
-        background: ProjectorFieldForInit = None,
-        interpolation: ProjectorFieldForInit = None,
-        z_index: ProjectorFieldForInit = None,
+        metadata: LayerMetadataOptions[BackgroundLayerMetadataFields] | None = None,
+        **kwargs: Unpack[BackgroundLayerKwargs],
     ) -> None:
+        metadata, _, _ = split_layer_kwargs(
+            kwargs,
+            metadata_keys=("background", "interpolation", "z_index"),
+            metadata_options=metadata,
+        )
         super().__init__(
             layer_id,
             "background",
             None,
-            metadata={
-                "background": background,
-                "interpolation": interpolation,
-                "z_index": z_index,
-            },
+            metadata=metadata,
         )
 
     def __call__(self, cls: type[TClass]) -> type[TClass]:
@@ -804,33 +798,27 @@ class BindGridLayerConfig(BindLayerConfig[GridLayerMetadataFields, str]):
         self,
         layer_id: str = "grid",
         *,
-        width: ProjectorFieldForInit = None,
-        height: ProjectorFieldForInit = None,
-        x_origin: ProjectorFieldForInit = None,
-        x_unit: ProjectorFieldForInit = None,
-        x_interval: ProjectorFieldForInit = None,
-        x_ratio: ProjectorFieldForInit = None,
-        y_origin: ProjectorFieldForInit = None,
-        y_unit: ProjectorFieldForInit = None,
-        y_interval: ProjectorFieldForInit = None,
-        y_ratio: ProjectorFieldForInit = None,
-        stroke_color: ProjectorFieldForInit = None,
-        z_index: ProjectorFieldForInit = None,
+        metadata: LayerMetadataOptions[GridLayerMetadataFields] | None = None,
+        **kwargs: Unpack[GridLayerKwargs],
     ) -> None:
-        metadata_dict: MetadataDictForInit[GridLayerMetadataFields] = {
-            "width": width,
-            "height": height,
-            "x_origin": x_origin,
-            "x_unit": x_unit,
-            "x_interval": x_interval,
-            "x_ratio": x_ratio,
-            "y_origin": y_origin,
-            "y_unit": y_unit,
-            "y_interval": y_interval,
-            "y_ratio": y_ratio,
-            "stroke_color": stroke_color,
-            "z_index": z_index,
-        }
+        metadata_dict, _, _ = split_layer_kwargs(
+            kwargs,
+            metadata_keys=(
+                "width",
+                "height",
+                "x_origin",
+                "x_unit",
+                "x_interval",
+                "x_ratio",
+                "y_origin",
+                "y_unit",
+                "y_interval",
+                "y_ratio",
+                "stroke_color",
+                "z_index",
+            ),
+            metadata_options=metadata,
+        )
         super().__init__(
             layer_id,
             "grid",
@@ -843,71 +831,6 @@ grid_layer = BindGridLayerConfig
 
 # endregion
 
-# region Agent Layer
-
-
-class BindAgentLayerConfig(BindLayerConfig[AgentLayerMetadataFields, AgentItemFields]):
-    def __init__(
-        self,
-        layer_id: str = "agents",
-        *,
-        uniform: bool = False,
-        width: ProjectorFieldForInit = None,
-        height: ProjectorFieldForInit = None,
-        coord_offset: ProjectorFieldForInit = None,
-        z_index: ProjectorFieldForInit = None,
-        item_iterable_projector: (
-            AttrGetter[Any] | ProjectorField | Literal[False] | None
-        ) = None,
-        item_projector: LayerItemProjectorForInit[AgentItemFields] | None = None,
-        item_dynamic_projector: (
-            DynamicAttrProjector[Any, Any, AgentItemFields] | str | None
-        ) = None,
-        item_id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
-        item_changed_getter: (
-            AttrGetter[Any] | ProjectorField | Literal[False] | None
-        ) = None,
-        items_projector: LayerItemsProjectorForInit[AgentItemFields] | None = None,
-    ) -> None:
-        resolved_iterable = item_iterable_projector
-        if resolved_iterable is None and items_projector is None:
-            resolved_iterable = layer_id
-
-        super().__init__(
-            layer_id,
-            "agent",
-            ("id",),
-            metadata={
-                "width": width,
-                "height": height,
-                "coord_offset": coord_offset,
-                "z_index": z_index,
-            },
-            item_iterable_projector=resolved_iterable,
-            item_projector=item_projector,
-            item_dynamic_projector=item_dynamic_projector,
-            item_id_getter=item_id_getter,
-            item_changed_getter=item_changed_getter,
-            items_projector=items_projector,
-            item_projector_name=(
-                BindUniformAgentConfig.binding_name
-                if uniform
-                else BindAgentConfig.binding_name
-            ),
-            inferred_item_projector=cast(
-                Callable[[Any], dict[AgentItemFields, Any]],
-                _identity_item_to_dict,
-            ),
-        )
-
-    def __call__(self, cls: type[TClass]) -> type[TClass]:
-        return self.attach(cls, [], {})
-
-
-agent_layer = BindAgentLayerConfig
-
-# endregion
-
 # region Edge Layer
 
 
@@ -916,51 +839,35 @@ class BindEdgeLayerConfig(BindLayerConfig[EdgeLayerMetadataFields, EdgeItemField
         self,
         layer_id: str = "edges",
         *,
-        link_distance: ProjectorFieldForInit = None,
-        charge_strength: ProjectorFieldForInit = None,
-        centering_strength: ProjectorFieldForInit = None,
-        collision_radius: ProjectorFieldForInit = None,
-        max_component_distance: ProjectorFieldForInit = None,
-        component_spacing: ProjectorFieldForInit = None,
-        z_index: ProjectorFieldForInit = None,
-        item_iterable_projector: (
-            AttrGetter[Any] | ProjectorField | Literal[False] | None
-        ) = None,
-        item_projector: LayerItemProjectorForInit[EdgeItemFields] | None = None,
-        item_dynamic_projector: (
-            DynamicAttrProjector[Any, Any, EdgeItemFields] | str | None
-        ) = None,
-        item_id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
-        item_changed_getter: (
-            AttrGetter[Any] | ProjectorField | Literal[False] | None
-        ) = None,
-        items_projector: LayerItemsProjectorForInit[EdgeItemFields] | None = None,
-        agent_layer_id: str = "agents",
+        metadata: LayerMetadataOptions[EdgeLayerMetadataFields] | None = None,
+        **kwargs: Unpack[EdgeLayerKwargs],
     ) -> None:
-        resolved_iterable = item_iterable_projector
-        if resolved_iterable is None and items_projector is None:
+        metadata, items, controls = split_item_layer_kwargs(
+            kwargs,
+            metadata_keys=(
+                "link_distance",
+                "charge_strength",
+                "centering_strength",
+                "collision_radius",
+                "max_component_distance",
+                "component_spacing",
+                "z_index",
+            ),
+            metadata_options=metadata,
+            control_defaults={"agent_layer_id": "agents"},
+        )
+        resolved_iterable = items.get("item_iterable_projector")
+        if resolved_iterable is None and items.get("items_projector") is None:
             resolved_iterable = layer_id
+        items["item_iterable_projector"] = resolved_iterable
 
         super().__init__(
             layer_id,
             "edge",
             ("source", "target"),
-            metadata={
-                "link_distance": link_distance,
-                "charge_strength": charge_strength,
-                "centering_strength": centering_strength,
-                "collision_radius": collision_radius,
-                "max_component_distance": max_component_distance,
-                "component_spacing": component_spacing,
-                "z_index": z_index,
-            },
-            item_iterable_projector=resolved_iterable,
-            item_projector=item_projector,
-            item_dynamic_projector=item_dynamic_projector,
-            item_id_getter=item_id_getter,
-            item_changed_getter=item_changed_getter,
-            items_projector=items_projector,
-            dependency_layer_ids={"agent": agent_layer_id},
+            metadata=metadata,
+            **items,
+            dependency_layer_ids={"agent": controls["agent_layer_id"]},
             item_projector_name=BindEdgeConfig.binding_name,
             inferred_item_projector=cast(
                 Callable[[Any], dict[EdgeItemFields, Any]],
@@ -986,60 +893,42 @@ class BindTrajectoryLayerConfig(
         self,
         layer_id: str = "trails",
         *,
-        length: ProjectorFieldForInit = None,
-        width: ProjectorFieldForInit = None,
-        color: ProjectorFieldForInit = None,
-        z_index: ProjectorFieldForInit = None,
-        on_agent_delete: ProjectorFieldForInit = None,
-        on_state_sync: ProjectorFieldForInit = None,
-        on_reset: ProjectorFieldForInit = None,
-        item_iterable_projector: (
-            AttrGetter[Any] | ProjectorField | Literal[False] | None
-        ) = None,
-        item_projector: (
-            LayerItemProjectorForInit[TrajectoryConfigItemFields] | None
-        ) = None,
-        item_dynamic_projector: (
-            DynamicAttrProjector[Any, Any, TrajectoryConfigItemFields] | str | None
-        ) = None,
-        item_id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
-        item_changed_getter: (
-            AttrGetter[Any] | ProjectorField | Literal[False] | None
-        ) = None,
-        items_projector: (
-            LayerItemsProjectorForInit[TrajectoryConfigItemFields] | None
-        ) = None,
-        agent_layer_id: str = "agents",
+        metadata: LayerMetadataOptions[TrajectoryLayerMetadataFields] | None = None,
+        **kwargs: Unpack[TrajectoryLayerKwargs],
     ) -> None:
-        resolved_iterable = item_iterable_projector
+        metadata_dict, items, controls = split_item_layer_kwargs(
+            kwargs,
+            metadata_keys=(
+                "length",
+                "width",
+                "color",
+                "z_index",
+                "on_agent_delete",
+                "on_state_sync",
+                "on_reset",
+            ),
+            metadata_options=metadata,
+            control_defaults={"agent_layer_id": "agents"},
+        )
+        resolved_iterable = items.get("item_iterable_projector")
         if (
             resolved_iterable is None
-            and items_projector is None
-            and (item_projector is not None or item_dynamic_projector is not None)
+            and items.get("items_projector") is None
+            and (
+                items.get("item_projector") is not None
+                or items.get("item_dynamic_projector") is not None
+            )
         ):
-            resolved_iterable = agent_layer_id
+            resolved_iterable = controls["agent_layer_id"]
+        items["item_iterable_projector"] = resolved_iterable
 
-        metadata_dict: MetadataDictForInit[TrajectoryLayerMetadataFields] = {
-            "length": length,
-            "width": width,
-            "color": color,
-            "z_index": z_index,
-            "on_agent_delete": on_agent_delete,
-            "on_state_sync": on_state_sync,
-            "on_reset": on_reset,
-        }
         super().__init__(
             layer_id,
             "trajectory",
             ("id",),
             metadata=metadata_dict,
-            item_iterable_projector=resolved_iterable,
-            item_projector=item_projector,
-            item_dynamic_projector=item_dynamic_projector,
-            item_id_getter=item_id_getter,
-            item_changed_getter=item_changed_getter,
-            items_projector=items_projector,
-            dependency_layer_ids={"agent": agent_layer_id},
+            **items,
+            dependency_layer_ids={"agent": controls["agent_layer_id"]},
             item_projector_name=BindTrajectoryConfigConfig.binding_name,
             inferred_item_projector=cast(
                 Callable[[Any], dict[TrajectoryConfigItemFields, Any]],

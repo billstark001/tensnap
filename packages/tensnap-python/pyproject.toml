@@ -19,13 +19,15 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Visualization",
 ]
 dependencies = [
   "numpy>=1.24.0",
   "msgpack>=1.0.5",
   "websockets>=12.0",
-  "typing-extensions>=4.9.0",
+  "typing-extensions>=4.13.0",
 ]
 
 [project.urls]
@@ -43,6 +45,8 @@ dev = [
   "pytest-asyncio>=0.21.0",
   "pytest-cov>=4.1.0",
   "mypy>=1.7.0",
+  "pyright>=1.1.411",
+  "Pillow>=10.0",
   "ruff>=0.1.0",
   "black>=23.0.0",
   "mesa>=3.0.0",
@@ -81,6 +85,7 @@ ignore_errors = true
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+
 extend-exclude = [
   "tensnap/bindings/basic/parameter.py",
   "tensnap/bindings/basic/chart.py",
@@ -94,8 +99,30 @@ extend-exclude = [
   "tensnap/utils/ws.py",
 ]
 
+[tool.pyright]
+pythonVersion = "3.10"
+
 [tool.ruff.lint]
-select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
+select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF", "TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.TypedDict".msg = "Use typing_extensions.TypedDict for generic and PEP 728 support on Python 3.10."
+"typing.NotRequired".msg = "Use typing_extensions.NotRequired for Python 3.10."
+"typing.Required".msg = "Use typing_extensions.Required for Python 3.10."
+"typing.Self".msg = "Use typing_extensions.Self for Python 3.10."
+"typing.Unpack".msg = "Use typing_extensions.Unpack for Python 3.10."
+"typing.TypeVarTuple".msg = "Use typing_extensions.TypeVarTuple for Python 3.10."
+"typing.LiteralString".msg = "Use typing_extensions.LiteralString for Python 3.10."
+"typing.Never".msg = "Use typing_extensions.Never for Python 3.10."
+"typing.assert_type".msg = "Use typing_extensions.assert_type for Python 3.10."
+"typing.assert_never".msg = "Use typing_extensions.assert_never for Python 3.10."
+"typing.reveal_type".msg = "Use typing_extensions.reveal_type for Python 3.10."
+"typing.dataclass_transform".msg = "Use typing_extensions.dataclass_transform for Python 3.10."
+"typing.override".msg = "Use typing_extensions.override for Python 3.10."
+"typing.ReadOnly".msg = "Use typing_extensions.ReadOnly for Python 3.10."
+"typing.TypeIs".msg = "Use typing_extensions.TypeIs for Python 3.10."
+"typing.TypeAliasType".msg = "Use typing_extensions.TypeAliasType for Python 3.10."
+"typing.NoDefault".msg = "Use typing_extensions.NoDefault for Python 3.10."
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
