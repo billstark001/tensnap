@@ -2,6 +2,11 @@
 # and projection semantics have one implementation.
 using TenSnap
 using Agents
+using Serialization
+if !isempty(get(ENV, "TENSNAP_SCHELLING_AUDIT_STATE", ""))
+	# Publication audit only; ordinary example imports skip this module.
+	include("schelling_audit.jl")
+end
 
 """Build a Schelling scenario; callers choose the pedagogical features they need."""
 function create_schelling_scenario(
@@ -15,23 +20,64 @@ function create_schelling_scenario(
 	active_gridheight = Ref(config.gridheight)
 	build_model() = initialize_schelling(config)
 	model_ref = Ref(build_model())
+	audit_path = get(ENV, "TENSNAP_SCHELLING_AUDIT_STATE", "")
+	audit! = _ -> nothing
+	if !isempty(audit_path)
+		audit! = model -> write_schelling_audit!(audit_path, model, config)
+		audit!(model_ref[])
+	end
 
 	function initialize!(ref::Base.RefValue)
 		ref[] = build_model()
 		active_gridwidth[] = config.gridwidth
 		active_gridheight[] = config.gridheight
+		audit!(ref[])
 		return nothing
 	end
-	advance!(ref::Base.RefValue) = schelling_model_step!(ref[])
+	advance! = isempty(audit_path) ?
+		(ref::Base.RefValue) -> schelling_model_step!(ref[]) :
+		(ref::Base.RefValue) -> begin
+			changed = schelling_model_step!(ref[])
+			audit!(ref[])
+			changed
+		end
 	grid_data(_) = Dict("width" => active_gridwidth[], "height" => active_gridheight[])
 
-	scenario = Scenario(port = port, use_msgpack = use_msgpack)
+	function capture_checkpoint(_)
+		# Optional exact replay for the publication experiment. A shorter projected
+		# scene restore could recover visible state, but not necessarily RNG state.
+		io = IOBuffer()
+		serialize(io, (model_ref[], deepcopy(config)))
+		return bytes2hex(take!(io))
+	end
+	function restore_checkpoint(data)
+		data isa AbstractString || error("Schelling checkpoint must be a hex string")
+		model, saved_config = deserialize(IOBuffer(hex2bytes(data)))
+		model isa typeof(model_ref[]) || error("Schelling checkpoint model type mismatch")
+		saved_config isa SchellingConfig || error("Schelling checkpoint config type mismatch")
+		model_ref[] = model
+		for field in fieldnames(SchellingConfig)
+			setfield!(config, field, getfield(saved_config, field))
+		end
+		active_gridwidth[] = config.gridwidth
+		active_gridheight[] = config.gridheight
+		scenario_ref[].time_step = Agents.abmproperties(model).tick
+		audit!(model_ref[])
+		return nothing
+	end
+
+	scenario_ref = Ref{Scenario}()
+	scenario = Scenario(port = port, use_msgpack = use_msgpack,
+		model_id = "examples.schelling", state_schema_version = "2",
+		checkpoint_capture = capture_checkpoint, checkpoint_restore = restore_checkpoint)
+	scenario_ref[] = scenario
 	register_model!(scenario, model_ref; init = initialize!, step = advance!, reset = initialize!)
 
 	if include_parameters
 		function set_similarity_threshold!(value, ref::Base.RefValue)
 			config.similarity_threshold = clamp(Float64(value), 0.0, 1.0)
 			Agents.abmproperties(ref[]).similarity_threshold = config.similarity_threshold
+			audit!(ref[])
 			return config.similarity_threshold
 		end
 		add_parameters!(
@@ -39,7 +85,8 @@ function create_schelling_scenario(
 			parameters_from_fields(model_ref;
 				target = _ -> config,
 				include = [:gridwidth, :gridheight, :similarity_threshold, :density, :balance],
-				rename = Dict(:gridwidth => "gridWidth", :gridheight => "gridHeight"),
+				rename = Dict(:gridwidth => "gridWidth", :gridheight => "gridHeight",
+					:similarity_threshold => "similarityThreshold"),
 				metadata = Dict(
 					:gridwidth => (; label = "Grid Width", min = 10, max = 200, step = 1, allow_runtime_change = false),
 					:gridheight => (; label = "Grid Height", min = 10, max = 200, step = 1, allow_runtime_change = false),

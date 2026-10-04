@@ -22,6 +22,7 @@ schelling_group_color(group::Int) = group == 1 ? "#3498db" : "#e74c3c"
 mutable struct SchellingProperties
 	similarity_threshold::Float64
 	last_swapped::Int
+	tick::Int
 end
 
 @agent struct SchellingAgent(GridAgent{2})
@@ -97,6 +98,7 @@ function schelling_model_step!(model)
 	end
 
 	abmproperties(model).last_swapped = swapped
+	abmproperties(model).tick += 1
 	return swapped > 0
 end
 
@@ -124,7 +126,7 @@ function initialize_schelling(;
 		metric = :chebyshev,
 	)
 
-	properties = SchellingProperties(similarity_threshold, 0)
+	properties = SchellingProperties(similarity_threshold, 0, 0)
 
 	model = StandardABM(
 		SchellingAgent,
