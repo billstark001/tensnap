@@ -4,7 +4,8 @@ Go bindings for the simulator side of the TenSnap protocol v0.3.
 
 This module is intentionally small. It gives Go simulators four pieces:
 
-- `protocol`: wire-level message types, constants, and a default JSON codec.
+- `protocol`: wire-level message types, constants, and JSON/MessagePack codecs
+  (JSON is the default).
 - `abm`: a small model interface, `Base`, `TickCounter`, declarative `Scenario`, `ActionRouter`, `ParamMetadata`, and the `Emitter`/`Sink` abstraction.
 - `binding`: optional declarative builders that translate Go model state into `abm`/`protocol` registrations and runtime diffs.
 - `server`: a WebSocket server that binds a model to a TenSnap renderer session.

@@ -24,8 +24,9 @@ of the following capabilities:
 | `view` | Provide scene bounds and preferred view-metadata sources |
 | `renderer` | Participate in render planning, snapshot extraction, and live layer creation |
 
-Schemas are **advisory** - unknown or invalid data is accepted with a console
-warning, never silently dropped.
+Layer schemas are **advisory**: unknown or invalid metadata/item fields produce
+a warning. Strict protocol identity and transaction rules still reject invalid
+mutations before the controller runs.
 
 If you only need validation, the schema fields are enough. If you want your
 layer to support `item_*`, snapshot replay, or rendering, register the
@@ -77,6 +78,10 @@ class HeatmapStorage implements LayerStorage {
     }
   }
 
+  has(id: string): boolean {
+    return this.cells.has(id);
+  }
+
   remove(ids: string[]): void {
     for (const id of ids) {
       this.cells.delete(id);
@@ -112,6 +117,10 @@ registerLayerType({
     return storage;
   },
   controller: {
+    getItemKeyExists: (context) => {
+      const storage = context.requireStorage(HeatmapStorage, 'mypkg.heatmap');
+      return (key) => typeof key === 'string' && storage.has(key);
+    },
     createItems: (context, items) => {
       context.requireStorage(HeatmapStorage, 'mypkg.heatmap').upsert(items as HeatmapCell[]);
     },
@@ -148,14 +157,16 @@ Once a layer type is registered, the core runtime uses it in these places:
 
 1. `env_layer_create` calls `storageFactory` to create the layer's live storage.
 2. `env_layer_update` calls `controller.applyMetadata`, then reindexes dependencies.
-3. `item_create`, `item_update`, and `item_delete` call the corresponding controller hooks.
+3. Strict `item_create` and `item_update` validate each primary key before
+   calling the controller hook; `item_delete` calls its hook with the delete keys.
 4. Dependency changes call `controller.onDependencyItemsChanged` on dependent layers.
 5. Incoming asset data calls `controller.onAssetDataReceived`.
 6. Snapshot replay uses `fromSnapshot` to rebuild storage.
 7. Render planning uses `view` and `renderer` to compute bounds, ordering, z-index, and host-layer creation.
 
 If a layer type does not register a `controller`, `Scenario` treats it as
-metadata-only and will warn when `item_*` messages target that layer.
+metadata-only. Strict `item_create` and `item_update` reject it; unsupported
+`item_delete` reports a diagnostic.
 
 ---
 
@@ -178,7 +189,7 @@ interface LayerTypeDefinition {
   /** Zod schema for partial item diffs in item_update. */
   itemDiffSchema?: ZodType;
 
-  /** Primary-key fields used by item_delete and diff matching. */
+  /** Primary-key fields used by strict item identity checks, item_delete, and diff matching. */
   primaryKeyFields?: string[];
 
   /** Required upstream layer types keyed through dependency_layer_ids. */
@@ -222,6 +233,8 @@ interface ItemLayerController<
   TUpdateItem extends Record<string, unknown> = TCreateItem,
 > {
   applyMetadata?(context: LayerControllerContext): void;
+  getExistingItemKeys?(context: LayerControllerContext, items: TCreateItem[]): ItemDeletePayload['items'];
+  getItemKeyExists?(context: LayerControllerContext): (key: unknown) => boolean;
   createItems?(context: LayerControllerContext, items: TCreateItem[]): void;
   updateItems?(context: LayerControllerContext, items: TUpdateItem[]): void;
   deleteItems?(context: LayerControllerContext, items: ItemDeletePayload['items']): void;
@@ -233,6 +246,15 @@ interface ItemLayerController<
 
 `LayerControllerContext.requireStorage()` is the normal way to access your
 typed storage inside controller hooks.
+
+For strict `item_create`/`item_update`, provide an identity lookup alongside
+`primaryKeyFields`. `getItemKeyExists` binds storage once and receives a single
+key value for one-field layers, or a tuple in primary-key field order for
+composite keys. It lets the runtime reject duplicate creates and missing
+updates before changing any item in the batch. `getExistingItemKeys` remains
+the fallback for existing custom controllers; it returns the keys already in
+storage for the supplied batch. Legacy protocol sessions retain their explicit
+create-replacement behavior.
 
 ---
 

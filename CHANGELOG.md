@@ -30,6 +30,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Protocol conformance:** Added an executable JSON/MessagePack integrity
+  matrix for Python/Mesa, Go, JavaScript/TypeScript, Julia, and the shared
+  renderer client, with retained evidence, deliberate failure canaries, and CI
+  verification. The matrix distinguishes visible projections from complete
+  fixture host state and deterministic future replay; its case-study limits are
+  recorded alongside the results.
+- **@tensnap/core / @tensnap/agent:** Added a shared `RendererClient` for
+  handshake-safe transport replacement and correlated sync/action waits, used
+  by the browser and headless agent runtime.
+- **@tensnap/go:** Added a bundled MessagePack codec with canonical wire field
+  names and binary WebSocket frames; JSON remains the default.
+- **Schelling audit:** Added a reproducible four-host headless workflow with
+  retained exact-checkpoint, future-replay, and rendered-scene evidence.
 - **@tensnap/python:** Added model-owned map, matrix, and indexed agent sources
   with compiled field selectors, revision-based sparse updates, scan fallback,
   and validated projected restore for map and matrix values.
@@ -41,6 +54,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **@tensnap/js:** Added map and matrix agent layers for keyed maps and nested
   or flat matrices, with direct field selectors, sparse change tracking, and
   validated projected restore.
+
+### Changed
+
+- **@tensnap/core:** Made state synchronization stage changes until its
+  matching end frame, kept legacy create replacement in compatibility/replay
+  paths, and required unique, existing item identities where strict v0.3
+  mutations call for them.
+- **@tensnap/core:** Preserved intermediate updates needed by dependent
+  trajectory layers during recording; improved chart, asset, environment, and
+  snapshot handling for sparse data and repeated scene changes.
+- **@tensnap/web:** Kept project source and transport changes consistent across
+  connection failures, local edits, snapshot playback, and undo/redo.
+- **Runtime performance:** Reduced repeated item-key scans and agent batch
+  copies, reused the continuous-run action watchdog, avoided a deep copy after
+  strict protocol decoding, and cached WebSocket validation settings.
+
+### Fixed
+
+- **Bindings and renderer:** Corrected state-before-result ordering, parameter
+  feedback, checkpoint decoding, failed-send handling, and render-barrier
+  failures in the affected public paths.
 
 ## @tensnap/protocol [0.3.1] - 2026-10-02
 

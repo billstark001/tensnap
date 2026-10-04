@@ -22,8 +22,8 @@ core exposes only renderer-owned storage, layout, and view state.
 
 ## Shared runtime
 
-`RendererSession` is the only renderer-side transport/session implementation
-used by the browser and headless agent hosts. It applies protocol messages to a
+`RendererSession` is the shared renderer-side protocol session used by the
+browser and headless agent hosts. It applies protocol messages to a
 `Scenario`, preserves state-sync as one UI commit at `state_sync_end`, requests
 missing assets, handles screenshot responses, and owns a `RunController`.
 
