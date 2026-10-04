@@ -57,7 +57,15 @@ function state(path: string): HostState {
 
 async function untilState(path: string, key: keyof HostState, value: unknown): Promise<void> {
   for (let i = 0; i < 400; i++) {
-    if (state(path)[key] === value) return;
+    try {
+      if (state(path)[key] === value) return;
+    } catch (error) {
+      // Go and Julia rewrite the diagnostic sidecar in place. A concurrent
+      // read may observe an empty or partial file; wait for the next complete
+      // state rather than treating that transient read as a model failure.
+      if (!(error instanceof SyntaxError)
+        && !(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+    }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`Host ${key} did not become ${String(value)}`);
