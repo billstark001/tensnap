@@ -280,7 +280,7 @@ async function main() {
         })}`,
       ),
       exactCheckpointVersioned: requireCheck(
-        checkpoint.state_schema_version === '1'
+        checkpoint.state_schema_version === '2'
           && checkpoint.checkpoint.encoding === 'application/msgpack',
         'Checkpoint metadata was unexpected.',
       ),

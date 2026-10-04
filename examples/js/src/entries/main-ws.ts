@@ -2,8 +2,10 @@
 // adapter. Keeping the launcher separate avoids a second binding/session path;
 // ordinary applications may combine these responsibilities.
 import type { ProtocolEncoding } from '@tensnap/protocol';
+import { writeFileSync, renameSync } from 'node:fs';
 import { createWebSocketTransportHost } from '@tensnap/js/transport';
 import { DEFAULT_SCHELLING_CONFIG, type SchellingConfig } from '../models/schelling';
+import { setSchellingAuditHook } from '../renderers/schelling';
 import { getJsExampleDefinition } from '../renderers';
 
 export interface StartJsExampleWebSocketDemoOptions {
@@ -23,6 +25,14 @@ export async function startJsExampleWebSocketDemo(
   id: string,
   options: StartJsExampleWebSocketDemoOptions = {},
 ): Promise<RunningJsExampleDemo> {
+  const auditPath = process.env.TENSNAP_SCHELLING_AUDIT_STATE;
+  if (id === 'schelling' && auditPath) {
+    const { schellingAuditState } = await import('./schelling-audit');
+    setSchellingAuditHook((model) => {
+      writeFileSync(`${auditPath}.tmp`, JSON.stringify(schellingAuditState(model)));
+      renameSync(`${auditPath}.tmp`, auditPath);
+    });
+  }
   const definition = getJsExampleDefinition(id);
   const host = createWebSocketTransportHost({
     serverOptions: { port: options.port ?? 8765 },

@@ -13,11 +13,17 @@ const GRID_LAYER = 'grid';
 
 export { DEFAULT_SCHELLING_CONFIG };
 
+// Publication-only observer. With no injected hook, the example does no audit work.
+let auditHook: ((model: SchellingModel) => void) | undefined;
+export function setSchellingAuditHook(hook: ((model: SchellingModel) => void) | undefined): void {
+  auditHook = hook;
+}
+
 const builder = modelBuilder({
   id: 'schelling',
   name: 'Schelling Segregation Model',
   description: 'Local similarity preference causes macro segregation patterns.',
-  stateSchemaVersion: '1',
+  stateSchemaVersion: '2',
 }, {
   defaults: DEFAULT_SCHELLING_CONFIG,
   create(config) {
@@ -25,12 +31,16 @@ const builder = modelBuilder({
   },
   init(model) {
     model.initialize();
+    auditHook?.(model);
   },
   step(model) {
-    return model.step();
+    const advanced = model.step();
+    auditHook?.(model);
+    return advanced;
   },
   reset(model) {
     model.reset();
+    auditHook?.(model);
   },
   dispose(model) {
     model.destroy();
@@ -59,6 +69,7 @@ const builder = modelBuilder({
   },
   restoreCheckpoint(model, data) {
     model.restoreCheckpointData(data);
+    auditHook?.(model);
   },
   captureCheckpoint(model) {
     return model.captureCheckpointData();
@@ -69,6 +80,7 @@ builder.paramsFromConfig<SchellingConfig>({
   get: (model) => model.getConfig(),
   set(model, patch) {
     model.updateConfig(patch);
+    auditHook?.(model);
   },
   fields: {
     gridWidth: numberField({ label: 'Grid Width', integer: true, runtime: false }),
