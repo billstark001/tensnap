@@ -384,7 +384,7 @@ refactor(web): extract chart component logic
 
 ## Versioning and Releases
 
-The current package release line is `0.3`: affected packages are at either `0.3.0` or `0.3.1`, and the strict wire protocol is `0.3`. See the [versioning guide](versioning.md) for the exact package versions, the single source to edit for each language binding, and the release checks. Update the package-specific `CHANGELOG.md` entry when bumping a package.
+The current package release line is `0.3`, and the strict wire protocol is `0.3`. See the [versioning guide](versioning.md) for current package versions, source files, release checks, and the JavaScript package publishing workflow. Update the package-specific `CHANGELOG.md` entry when bumping a package.
 
 ## Pull Request Process
 

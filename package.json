@@ -70,6 +70,7 @@
     "release:protocol": "node scripts/release.mjs protocol",
     "release:core": "node scripts/release.mjs core",
     "release:js": "node scripts/release.mjs js",
+    "release:agent": "node scripts/release.mjs agent",
     "test:julia": "pnpm --dir examples/julia run test",
     "lint:js": "oxlint .",
     "format:js": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}' .pnpmfile.cjs",

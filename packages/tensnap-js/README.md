@@ -2,12 +2,15 @@
 
 JavaScript/TypeScript simulator-side bindings for the strict TenSnap v0.3 protocol.
 
-This package can be published from `packages/tensnap-js` with:
+Prepare a release tag from the repository root:
 
 ```bash
-pnpm build
-pnpm publish
+pnpm release:js X.Y.Z
+git push origin main
+git push origin js-vX.Y.Z
 ```
+
+The `js-publish` GitHub Actions workflow tests, builds, and publishes this package when the tag is pushed. For a batch release, run the workflow manually and select the packages to publish. npm authenticates the workflow through its Trusted Publisher configuration for `js-publish.yml`; see the [versioning guide](../../docs/maintainer-guide/versioning.md).
 
 ## What It Provides
 

@@ -298,9 +298,7 @@ function releaseProtocol(version) {
     tagName: `protocol-v${version}`,
   });
 
-  log('\nPublish from the package directory with:');
-  log('  cd packages/protocol');
-  log('  pnpm publish');
+  log('\nPushing this tag triggers .github/workflows/js-publish.yml for @tensnap/protocol.');
 }
 
 function releaseCore(version) {
@@ -328,9 +326,7 @@ function releaseCore(version) {
     tagName: `core-v${version}`,
   });
 
-  log('\nPublish from the package directory with:');
-  log('  cd packages/core');
-  log('  pnpm publish');
+  log('\nThis tag marks the core release; publish later with a manual js-publish run after npm setup.');
 }
 
 function releaseJs(version) {
@@ -355,9 +351,7 @@ function releaseJs(version) {
     tagName: `js-v${version}`,
   });
 
-  log('\nPublish from the package directory with:');
-  log('  cd packages/tensnap-js');
-  log('  pnpm publish');
+  log('\nPushing this tag triggers .github/workflows/js-publish.yml for @tensnap/js.');
 }
 
 function releaseAgent(version) {
@@ -378,6 +372,8 @@ function releaseAgent(version) {
     commitMessage: `Release agent CLI v${version}`,
     tagName: `agent-v${version}`,
   });
+
+  log('\nThis tag marks the agent release; publish later with a manual js-publish run after npm setup.');
 }
 
 function releaseApp(version) {

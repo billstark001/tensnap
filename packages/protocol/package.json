@@ -3,6 +3,11 @@
   "version": "0.3.2",
   "type": "module",
   "description": "Canonical TenSnap renderer/simulator protocol payload types, schemas, and codecs.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/billstark001/tensnap.git",
+    "directory": "packages/protocol"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

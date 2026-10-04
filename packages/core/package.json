@@ -1,8 +1,24 @@
 {
   "name": "@tensnap/core",
   "version": "0.3.2",
-  "type": "module",
   "description": "Core scenario, runtime, and rendering primitives for TenSnap",
+  "keywords": [
+    "agent-based-modeling",
+    "chart",
+    "state-management",
+    "tensnap",
+    "visualization"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/billstark001/tensnap.git",
+    "directory": "packages/core"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -30,8 +46,107 @@
     "./transport": "./src/transport/index.ts",
     "./utils": "./src/utils/index.ts"
   },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./asset": {
+        "types": "./dist/asset/index.d.ts",
+        "import": "./dist/asset/index.js"
+      },
+      "./chart": {
+        "types": "./dist/chart/index.d.ts",
+        "import": "./dist/chart/index.js"
+      },
+      "./chart/browser": {
+        "types": "./dist/chart/browser.d.ts",
+        "import": "./dist/chart/browser.js"
+      },
+      "./environment": {
+        "types": "./dist/environment/index.d.ts",
+        "import": "./dist/environment/index.js"
+      },
+      "./environment/browser": {
+        "types": "./dist/environment/browser.d.ts",
+        "import": "./dist/environment/browser.js"
+      },
+      "./environment/headless": {
+        "types": "./dist/environment/headless.d.ts",
+        "import": "./dist/environment/headless.js"
+      },
+      "./environment/storages": {
+        "types": "./dist/environment/storages/index.d.ts",
+        "import": "./dist/environment/storages/index.js"
+      },
+      "./environment/storages/*": {
+        "types": "./dist/environment/storages/*.d.ts",
+        "import": "./dist/environment/storages/*.js"
+      },
+      "./environment/types": {
+        "types": "./dist/environment/types/index.d.ts",
+        "import": "./dist/environment/types/index.js"
+      },
+      "./environment/types/*": {
+        "types": "./dist/environment/types/*.d.ts",
+        "import": "./dist/environment/types/*.js"
+      },
+      "./environment/utils": {
+        "types": "./dist/environment/utils/index.d.ts",
+        "import": "./dist/environment/utils/index.js"
+      },
+      "./environment/utils/*": {
+        "types": "./dist/environment/utils/*.d.ts",
+        "import": "./dist/environment/utils/*.js"
+      },
+      "./parameter": {
+        "types": "./dist/parameter/index.d.ts",
+        "import": "./dist/parameter/index.js"
+      },
+      "./monitor": {
+        "types": "./dist/monitor/index.d.ts",
+        "import": "./dist/monitor/index.js"
+      },
+      "./value-inspector": {
+        "types": "./dist/value-inspector/index.d.ts",
+        "import": "./dist/value-inspector/index.js"
+      },
+      "./runtime": {
+        "types": "./dist/runtime/index.d.ts",
+        "import": "./dist/runtime/index.js"
+      },
+      "./runtime/browser": {
+        "types": "./dist/runtime/browser.d.ts",
+        "import": "./dist/runtime/browser.js"
+      },
+      "./snapshot": {
+        "types": "./dist/snapshot/index.d.ts",
+        "import": "./dist/snapshot/index.js"
+      },
+      "./scenario": {
+        "types": "./dist/scenario/index.d.ts",
+        "import": "./dist/scenario/index.js"
+      },
+      "./scenario/browser": {
+        "types": "./dist/scenario/browser.d.ts",
+        "import": "./dist/scenario/browser.js"
+      },
+      "./transport": {
+        "types": "./dist/transport/index.d.ts",
+        "import": "./dist/transport/index.js"
+      },
+      "./utils": {
+        "types": "./dist/utils/index.d.ts",
+        "import": "./dist/utils/index.js"
+      }
+    },
+    "access": "public"
+  },
   "scripts": {
-    "build": "pnpm run typecheck",
+    "build": "node ./scripts/build.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -50,15 +165,9 @@
     "@types/d3": "^7.4.3",
     "@types/node": "^26.6.4",
     "@vitest/coverage-v8": "^5.0.3",
+    "esbuild": "^0.28.2",
     "jsdom": "^30.1.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
-  },
-  "keywords": [
-    "tensnap",
-    "visualization",
-    "agent-based-modeling",
-    "chart",
-    "state-management"
-  ]
+  }
 }

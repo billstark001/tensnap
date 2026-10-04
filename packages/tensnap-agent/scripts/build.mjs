@@ -107,6 +107,7 @@ writeFileSync(
       version: manifest.version,
       type: manifest.type,
       description: manifest.description,
+      repository: manifest.repository,
       main: './index.js',
       exports: {
         '.': './index.js',

@@ -1,0 +1,126 @@
+name: js-publish
+
+on:
+  push:
+    tags:
+      - 'protocol-v*'
+      - 'js-v*'
+  workflow_dispatch:
+    inputs:
+      protocol:
+        description: 'Publish @tensnap/protocol'
+        type: boolean
+        default: false
+      core:
+        description: 'Publish @tensnap/core'
+        type: boolean
+        default: false
+      js:
+        description: 'Publish @tensnap/js'
+        type: boolean
+        default: false
+      agent:
+        description: 'Publish @tensnap/agent'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.selection.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main
+        if: github.event_name == 'push'
+        run: git merge-base --is-ancestor HEAD origin/main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Select release packages
+        id: selection
+        env:
+          INPUT_PROTOCOL: ${{ inputs.protocol }}
+          INPUT_CORE: ${{ inputs.core }}
+          INPUT_JS: ${{ inputs.js }}
+          INPUT_AGENT: ${{ inputs.agent }}
+        run: node scripts/select-js-publish.mjs
+
+      - name: Typecheck and test publishable packages
+        env:
+          PACKAGES: ${{ steps.selection.outputs.packages }}
+        run: |
+          for package in $PACKAGES; do
+            pnpm --dir "packages/$package" typecheck
+            pnpm --dir "packages/$package" test
+          done
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Use npm with trusted publishing support
+        run: npm install --global npm@^11.15.0
+
+      - name: Verify npm release prerequisites
+        env:
+          PACKAGES: ${{ needs.test.outputs.packages }}
+        run: node scripts/verify-js-publish.mjs
+
+      - name: Build publishable packages
+        env:
+          PACKAGES: ${{ needs.test.outputs.packages }}
+        run: |
+          for package in $PACKAGES; do
+            pnpm --dir "packages/$package" build
+          done
+
+      - name: Publish to npm
+        env:
+          PACKAGES: ${{ needs.test.outputs.packages }}
+        run: |
+          for package in $PACKAGES; do
+            if [ "$package" = 'tensnap-agent' ]; then
+              npm publish ./packages/tensnap-agent/dist --access public
+            else
+              tarball="$RUNNER_TEMP/tensnap-$package.tgz"
+              pnpm --dir "packages/$package" pack --out "$tarball"
+              npm publish "$tarball" --access public
+            fi
+          done

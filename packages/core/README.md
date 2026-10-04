@@ -4,6 +4,8 @@ Framework-agnostic renderer state, runtime, and rendering package for TenSnap. I
 
 Runtime bindings stay in consumer packages: browser renderers import `leafer-ui`, and node-side renderers import `@leafer-ui/node`. Import wire-facing layer schemas and item types from `@tensnap/protocol/layers`; core exposes only renderer-owned storage, layout, and view state.
 
+Workspace imports use TypeScript source. `pnpm build` produces ESM and declaration files in `dist/` for npm consumers; the `js-publish` workflow can publish that artifact when core is selected in a manual batch after its first npm publish and Trusted Publisher setup. Pushing `core-vX.Y.Z` alone does not publish it. See the [versioning guide](../../docs/maintainer-guide/versioning.md) for release steps.
+
 ## Modules
 
 | Import path | Contents |

@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated npm publishing for `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, and `@tensnap/agent` into one GitHub Actions workflow with per-package tags, selectable manual batches, and npm Trusted Publishing through GitHub OIDC. Added compiled ESM and declarations to the core package's publish artifact.
 - Replaced ESLint with repository-wide Oxlint and Oxfmt, formatted maintained JavaScript/TypeScript and Markdown, excluded generated artifacts from formatter runs, and kept generated schema prose unwrapped.
 - Updated npm dependencies across the workspace and moved the supported pnpm major to 12 without a minor-version pin.
 

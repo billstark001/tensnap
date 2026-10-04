@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "description": "Scene-centric CLI runtime for TenSnap automation agents.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/billstark001/tensnap.git",
+    "directory": "packages/tensnap-agent"
+  },
   "main": "./dist/index.js",
   "exports": {
     ".": "./dist/index.js",

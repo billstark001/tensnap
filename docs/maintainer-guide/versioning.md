@@ -25,8 +25,30 @@ The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`
 ## Before a release
 
 1. Bump only the packages affected by the change. If a package was already bumped for that release, do not bump it a second time.
-2. Edit each package's source listed above. Use `scripts/release.mjs` for a component release; it updates the relevant source before committing and tagging. For Tauri, the helper keeps Cargo metadata and its lockfile aligned.
+2. Edit each package's source listed above. Use `scripts/release.mjs` for a component release; it updates the relevant source before committing and tagging. The `protocol`, `core`, `js`, and `agent` components each retain their own version and tag. For Tauri, the helper keeps Cargo metadata and its lockfile aligned.
 3. Update `CHANGELOG.md` using its package-specific heading format, and update the dated version snapshot in this guide.
 4. Run `pnpm run check:versions` and the affected package tests before tagging.
 
 The version fields in this dated guide describe the current release state; the files in the table are the sources used by builds and runtime handshakes.
+
+## Publishing JavaScript packages
+
+`.github/workflows/js-publish.yml` publishes `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, and `@tensnap/agent`. Pushing `protocol-vX.Y.Z` or `js-vX.Y.Z` runs tests and publishes the corresponding package after checking that its manifest version matches the tag. `core-vX.Y.Z` and `agent-vX.Y.Z` are release markers only until their npm packages have been bootstrapped and Trusted Publishers configured; they do not trigger a workflow. `pnpm release:protocol`, `pnpm release:core`, `pnpm release:js`, and `pnpm release:agent` prepare those tags; push the release commit first and each tag separately.
+
+For a batch release, run **js-publish** manually from `main` in GitHub Actions and select any combination of the four packages. At least one must be selected. The workflow tests and builds only the selected packages, then publishes them in dependency order: protocol, core, JS bindings, agent. Ensure each package version is bumped and its `CHANGELOG.md` entry is prepared before running it. Before publishing, the workflow checks that selected versions are new and that any omitted workspace dependency already exists on npm at the required version.
+
+The workflow uses GitHub Actions OIDC with npm Trusted Publishing, so it needs no npm token or repository secret. Configure a GitHub Actions Trusted Publisher on npm for each of the four packages: user `billstark001`, repository `tensnap`, workflow filename `js-publish.yml`, and permission to run `npm publish`. The workflow grants `id-token: write` only to the publish job. It uses `pnpm pack` to resolve workspace dependencies in the protocol, core, and JS packages, then runs npm CLI `npm publish` on those tarballs; the agent publishes its generated `dist` directory. Each published manifest names this GitHub repository.
+
+An npm package must already exist before its Trusted Publisher can be configured. `@tensnap/protocol` and `@tensnap/js` already exist; `@tensnap/core` and `@tensnap/agent` need a one-time interactive first publish by an npm maintainer with 2FA, followed by the same Trusted Publisher configuration. First publish protocol at the required version, then bootstrap core, and publish agent only after core exists at the required version. Do not start an automated release for a package until its npm Trusted Publisher is configured.
+
+After the required protocol version is live, a maintainer can bootstrap the two missing packages from a release checkout while signed in to npm:
+
+```bash
+pnpm --dir packages/core build
+pnpm --dir packages/core pack --out /tmp/tensnap-core.tgz
+npm publish /tmp/tensnap-core.tgz --access public
+pnpm --dir packages/tensnap-agent build
+npm publish ./packages/tensnap-agent/dist --access public
+```
+
+The interactive first publish uses the maintainer's npm login and 2FA. Subsequent versions use the GitHub OIDC workflow after each package's Trusted Publisher has been configured.
