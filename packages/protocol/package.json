@@ -29,7 +29,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "pnpm run typecheck",
-    "format": "echo 'No formatter configured'",
+    "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
     "clean": "rm -rf dist node_modules"
   },
   "publishConfig": {

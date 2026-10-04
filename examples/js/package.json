@@ -21,7 +21,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "lint": "pnpm run typecheck",
-    "format": "echo 'No formatter configured'",
+    "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {

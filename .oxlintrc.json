@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "oxc", "react"],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2022": true
+  },
+  "rules": {
+    "no-undef": "off",
+    "typescript/no-explicit-any": "off",
+    "react-hooks/rules-of-hooks": "off",
+    "react-hooks/exhaustive-deps": "off"
+  },
+  "overrides": [
+    {
+      "files": ["packages/{tensnap-web,web-adapter,tensnap-tauri}/**/*.{js,jsx,ts,tsx}"],
+      "rules": {
+        "react/only-export-components": ["warn", { "allowConstantExport": true }],
+        "react-hooks/rules-of-hooks": "error",
+        "react-hooks/exhaustive-deps": "error"
+      }
+    },
+    {
+      "files": ["packages/web-adapter/**/*.{js,jsx,ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@tensnap/web", "@tensnap/web/*"],
+                "message": "web-adapter must not import from @tensnap/web."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

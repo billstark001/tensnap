@@ -24,8 +24,8 @@
     "build": "tsc --noEmit -p tsconfig.json",
     "test": "echo 'No tests'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "echo 'No lint configured'",
-    "format": "echo 'No formatter configured'",
+    "lint": "pnpm run typecheck",
+    "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {

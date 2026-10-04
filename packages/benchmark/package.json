@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "pnpm run typecheck",
     "build": "tsc && vite build",
-    "format": "echo 'No formatter configured'",
+    "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
     "preview": "vite preview",
     "clean": "rm -rf dist node_modules"
   },

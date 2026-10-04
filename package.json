@@ -54,8 +54,8 @@
     "i18n:check": "pnpm -r --if-present i18n:check",
     "i18n:verify": "pnpm i18n:extract && pnpm i18n:check",
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
-    "format": "pnpm -r format",
+    "lint": "pnpm run lint:js && pnpm -r lint",
+    "format": "pnpm run format:js && pnpm run format:md && pnpm --filter @tensnap/go format && pnpm --filter @tensnap/python format",
     "test": "pnpm run check:versions && pnpm -r test && pnpm run test:go:examples && pnpm run test:julia",
     "test:go:examples": "cd examples/go && go test ./...",
     "clean": "pnpm -r clean && rm -rf node_modules",
@@ -70,15 +70,15 @@
     "release:protocol": "node scripts/release.mjs protocol",
     "release:core": "node scripts/release.mjs core",
     "release:js": "node scripts/release.mjs js",
-    "test:julia": "pnpm --dir examples/julia run test"
+    "test:julia": "pnpm --dir examples/julia run test",
+    "lint:js": "oxlint .",
+    "format:js": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}' .pnpmfile.cjs",
+    "format:md": "oxfmt --write '**/*.md' '.agents/**/*.md' '.github/**/*.md'"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.1",
-    "eslint": "^10.7.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.3",
-    "globals": "^17.7.0",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
     "sharp": "^0.35.3",
     "typescript": "^7.0.2"
   },
