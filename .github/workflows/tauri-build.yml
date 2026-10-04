@@ -5,6 +5,11 @@ on:
     tags:
       - 'app-v*'  # Trigger on tags like app-v0.1.0
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing app-v* tag to build and upload to'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -76,9 +81,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: packages/tensnap-tauri
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Tensnap ${{ github.ref_name }}'
+          tagName: ${{ inputs.release_tag || github.ref_name }}
+          releaseName: 'Tensnap ${{ inputs.release_tag || github.ref_name }}'
           releaseBody: 'See the assets to download and install this version.'
           releaseDraft: true
           prerelease: false
+          tauriScript: pnpm exec tauri
           args: ${{ matrix.args }}
