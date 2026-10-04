@@ -15,8 +15,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "142a16c24c5e45d7a0e4728ccfb9b28a",
-          "previous_instance": "4cead2f7b8e945fc92d1bff5e1bac139",
+          "new_instance": "17a0d31717e5460e87eeb7ecb0f11fce",
+          "previous_instance": "a1ec91f0c6d74d619d8a51ee8aa6fc68",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -28,8 +28,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "142a16c24c5e45d7a0e4728ccfb9b28a",
-          "previous_instance": "4cead2f7b8e945fc92d1bff5e1bac139",
+          "new_instance": "17a0d31717e5460e87eeb7ecb0f11fce",
+          "previous_instance": "a1ec91f0c6d74d619d8a51ee8aa6fc68",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -37,7 +37,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "f6530d350a6ce8d4e96f635b5f3688ae6e67695c183a963e895c63d24c228b8d",
+      "source_sha256": "28586cd5dd0cc18bfc74eaf77f0fe286d9334dbd885714569087ba8d782d40f2",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -55,8 +55,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "7b04b74145444f6fb77f6d81cb78a122",
-          "previous_instance": "060b570a95dd4e868dc4a0e6ea47615c",
+          "new_instance": "e9bddc2820bc44be9043dc0758e3a796",
+          "previous_instance": "3ffa41387b7549e8805ed271dd1daf1c",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -68,8 +68,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "7b04b74145444f6fb77f6d81cb78a122",
-          "previous_instance": "060b570a95dd4e868dc4a0e6ea47615c",
+          "new_instance": "e9bddc2820bc44be9043dc0758e3a796",
+          "previous_instance": "3ffa41387b7549e8805ed271dd1daf1c",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -77,7 +77,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "f6530d350a6ce8d4e96f635b5f3688ae6e67695c183a963e895c63d24c228b8d",
+      "source_sha256": "28586cd5dd0cc18bfc74eaf77f0fe286d9334dbd885714569087ba8d782d40f2",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -95,8 +95,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "b00dc3c03a3a0403c8abf3db252de929",
-          "previous_instance": "bc18d173d0ab2a7de8191f9a316ef27e",
+          "new_instance": "d4a54b422125c2247610af79944d692b",
+          "previous_instance": "362637ef93640d4a72c9c03e3577e818",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -108,8 +108,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "b00dc3c03a3a0403c8abf3db252de929",
-          "previous_instance": "bc18d173d0ab2a7de8191f9a316ef27e",
+          "new_instance": "d4a54b422125c2247610af79944d692b",
+          "previous_instance": "362637ef93640d4a72c9c03e3577e818",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -117,7 +117,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "742c8f38125cd4efdbd783ba0eee0f0a2480a17036b560a6b870be8973dd01b8",
+      "source_sha256": "fc5d10f4ad81d326996d2ad0980c8df5b7f912f8164b7d23514e58fc304b8211",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -135,8 +135,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "adc1fd041538f375383c529a6cfa2a66",
-          "previous_instance": "4fe2bceb8410342357ffa3c77b2a4b37",
+          "new_instance": "87ea2b2cac34d4c8822343afe3333d79",
+          "previous_instance": "02fb72a50c0f116cc7c6c44a85f3b5be",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -148,8 +148,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "adc1fd041538f375383c529a6cfa2a66",
-          "previous_instance": "4fe2bceb8410342357ffa3c77b2a4b37",
+          "new_instance": "87ea2b2cac34d4c8822343afe3333d79",
+          "previous_instance": "02fb72a50c0f116cc7c6c44a85f3b5be",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -157,7 +157,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "742c8f38125cd4efdbd783ba0eee0f0a2480a17036b560a6b870be8973dd01b8",
+      "source_sha256": "fc5d10f4ad81d326996d2ad0980c8df5b7f912f8164b7d23514e58fc304b8211",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -175,8 +175,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "6fd1f53f-c168-4e91-b3b9-5c05df7c3b9c",
-          "previous_instance": "3195dd7a-3801-420c-9b10-f935f65ea8ff",
+          "new_instance": "08b17b9c-1e82-478d-acd4-7052377e66d4",
+          "previous_instance": "bcce87be-3d45-49af-b3e1-b648d945819f",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -188,8 +188,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "6fd1f53f-c168-4e91-b3b9-5c05df7c3b9c",
-          "previous_instance": "3195dd7a-3801-420c-9b10-f935f65ea8ff",
+          "new_instance": "08b17b9c-1e82-478d-acd4-7052377e66d4",
+          "previous_instance": "bcce87be-3d45-49af-b3e1-b648d945819f",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -197,7 +197,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "e4daded5b06239789095666bc47818c9ea7c43db7dc2fb0c55ccfc4cd7fea210",
+      "source_sha256": "c924203af6372d6ecb11227c2372f4095b97c6ce1ede348f144a8bac890bf084",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -215,8 +215,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "ced3fe67-a34e-475f-a0c3-07377a96c7ca",
-          "previous_instance": "13a66a5d-e607-4544-9ce4-7549895495b8",
+          "new_instance": "217aa496-a8a2-4a83-a43b-95449667f49f",
+          "previous_instance": "5c23ce0e-40aa-4251-8974-b4d98dbb428f",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -228,8 +228,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "ced3fe67-a34e-475f-a0c3-07377a96c7ca",
-          "previous_instance": "13a66a5d-e607-4544-9ce4-7549895495b8",
+          "new_instance": "217aa496-a8a2-4a83-a43b-95449667f49f",
+          "previous_instance": "5c23ce0e-40aa-4251-8974-b4d98dbb428f",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -237,7 +237,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "e4daded5b06239789095666bc47818c9ea7c43db7dc2fb0c55ccfc4cd7fea210",
+      "source_sha256": "c924203af6372d6ecb11227c2372f4095b97c6ce1ede348f144a8bac890bf084",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -255,8 +255,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "1f3c80cf-61bb-4d09-9845-f772134e2aa6",
-          "previous_instance": "5f204a72-c926-4273-b4ea-acd8e6aed4aa",
+          "new_instance": "45fbcc8c-6f5b-4881-8031-826a1a41f7cb",
+          "previous_instance": "2f3f48d9-6c7c-4d47-b525-155bdb322e78",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -268,8 +268,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "1f3c80cf-61bb-4d09-9845-f772134e2aa6",
-          "previous_instance": "5f204a72-c926-4273-b4ea-acd8e6aed4aa",
+          "new_instance": "45fbcc8c-6f5b-4881-8031-826a1a41f7cb",
+          "previous_instance": "2f3f48d9-6c7c-4d47-b525-155bdb322e78",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -277,7 +277,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "4ab61732132548dc64cf25f5fe909b8241a55a64df428e8d554aa408a849e882",
+      "source_sha256": "5421da7977d19d402cf8df8e57227fc12477b7558caa8460350170f0a7c00d5b",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -295,8 +295,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "338ca3b9-f6a0-4481-8952-fd58291cb578",
-          "previous_instance": "3c233c37-db49-4bc3-b62e-372dc639b916",
+          "new_instance": "448179ed-d059-432b-bdce-2d6e94fae843",
+          "previous_instance": "5d4df7fb-e8e7-4f2a-8750-94cb682bffa0",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -308,8 +308,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "338ca3b9-f6a0-4481-8952-fd58291cb578",
-          "previous_instance": "3c233c37-db49-4bc3-b62e-372dc639b916",
+          "new_instance": "448179ed-d059-432b-bdce-2d6e94fae843",
+          "previous_instance": "5d4df7fb-e8e7-4f2a-8750-94cb682bffa0",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -317,7 +317,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "4ab61732132548dc64cf25f5fe909b8241a55a64df428e8d554aa408a849e882",
+      "source_sha256": "5421da7977d19d402cf8df8e57227fc12477b7558caa8460350170f0a7c00d5b",
       "test": "conformance/run_matrix.py"
     }
   ],
@@ -327,5 +327,5 @@
     "detail": "all eight live renderer probes",
     "status": "pass"
   },
-  "revision": "d6cb2ff0469d9e0484f69305cb4b64294cde31d8"
+  "revision": "25dd4f436d54f6ded63775752519b55ddbdcaebd"
 }
