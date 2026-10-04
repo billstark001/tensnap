@@ -268,9 +268,10 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 
 This keeps loop ownership in the renderer and avoids server-owned hidden timers in the protocol contract.
 
-Every continuous run has a positive `maxSteps`; the default policy limit is
-1,000,000. A `stopWhen` expression is parsed once and runs only before the
-first dispatch and after an `action_result`. It has a read-only incremental scope:
+Bounded runs have a positive `maxSteps`, with a default policy limit of
+1,000,000. Manual runs continue until paused or stopped and do not require
+`maxSteps`. A bounded run's `stopWhen` expression is parsed once and runs only
+before the first dispatch and after an `action_result`. It has a read-only incremental scope:
 `steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`.
 It cannot invoke arbitrary host functions or rely on a full scenario dump.
 The agent CLI can explicitly raise its policy while starting a runtime with
