@@ -125,6 +125,47 @@ describe('ProjectStore', () => {
     ]);
   });
 
+  it('stays dirty when the project changes during an asynchronous save', async () => {
+    let finishWrite!: () => void;
+    const writeFile = vi.fn(() => new Promise<void>((resolve) => { finishWrite = resolve; }));
+    (getFileSystemState as any).mockReturnValue({ writeFile });
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'save-race' });
+    useProjectStore.getState().openOfflineSnapshot(snapshot);
+    const project = useProjectStore.getState().activeProject!;
+
+    const save = useProjectStore.getState().save(0, '/test/save-race.json');
+    await vi.waitFor(() => expect(writeFile).toHaveBeenCalledOnce());
+    project.useScenarioStore.getState().setMainView({
+      ...project.useScenarioStore.getState().mainView,
+      width: 901,
+    });
+    finishWrite();
+    await save;
+
+    expect(project.useUndoRedoStore.getState().isDirty()).toBe(true);
+  });
+
+  it('rejects a MessagePack save that the decoder cannot reopen', async () => {
+    const writeFile = vi.fn().mockResolvedValue(undefined);
+    (getFileSystemState as any).mockReturnValue({ writeFile });
+    mockedSettings.saveFormat = 'msgpack';
+    useProjectStore.getState().new({ kind: 'websocket', url: 'ws://unused' });
+    const scenarioStore = useProjectStore.getState().activeProject!.useScenarioStore.getState();
+    scenarioStore.load({
+      ...emptyScenario(), metadata: Object.fromEntries([['__proto__', 'saved']]),
+    });
+
+    await expect(useProjectStore.getState().save(0, '/test/project.msgpack'))
+      .rejects.toThrow(/MessagePack cannot save the __proto__ key/);
+    expect(writeFile).not.toHaveBeenCalled();
+
+    mockedSettings.saveFormat = 'json';
+    await useProjectStore.getState().save(0, '/test/project.json');
+    const saved = JSON.parse(writeFile.mock.calls[0][1]);
+    expect(Object.prototype.hasOwnProperty.call(saved.scenario.metadata, '__proto__')).toBe(true);
+    expect(saved.scenario.metadata.__proto__).toBe('saved');
+  });
+
   it('defers closing a dirty project until the renderer-owned confirmation resolves', () => {
     const snapshot = createSingleSnapshot(emptyScenario(), { id: 'close-confirmation' });
     useProjectStore.getState().openOfflineSnapshot(snapshot);
@@ -151,6 +192,33 @@ describe('ProjectStore', () => {
       projects: [],
       activeIndex: null,
       pendingCloseProjectId: null,
+    });
+  });
+
+  it('publishes a new project-list reference and rejects invalid tab positions', async () => {
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'tab-position' });
+    const before = useProjectStore.getState().projects;
+    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, -1)).toThrow(/insertion index/);
+    expect(useProjectStore.getState().projects).toBe(before);
+
+    useProjectStore.getState().openOfflineSnapshot(snapshot);
+    const inserted = useProjectStore.getState().projects;
+    expect(inserted).not.toBe(before);
+    expect(() => useProjectStore.getState().setActive(0.5)).toThrow(/Invalid project index/);
+    expect(() => useProjectStore.getState().close(0.5)).toThrow(/Invalid project index/);
+    await expect(useProjectStore.getState().save(0.5, '/invalid.json')).rejects.toThrow(/Invalid project index/);
+    await expect(useProjectStore.getState().changeSource(0.5, { kind: 'websocket', url: 'ws://other' }))
+      .rejects.toThrow(/Invalid project index/);
+    useProjectStore.getState().close(0);
+    expect(useProjectStore.getState().projects).not.toBe(inserted);
+    expect(useProjectStore.getState().projects).toEqual([]);
+  });
+
+  it('reports an unavailable built-in source on the newly created project', async () => {
+    useProjectStore.getState().new({ kind: 'inmemory', model_id: 'missing-project-source-test' });
+    await vi.waitFor(() => {
+      expect(useProjectStore.getState().activeProject?.useScenarioStore.getState().diagnostics)
+        .toEqual(expect.arrayContaining([expect.objectContaining({ code: 'connection_setup_failed' })]));
     });
   });
 
@@ -567,6 +635,29 @@ describe('ProjectStore', () => {
 
     await useProjectStore.getState().save(0, '/offline-source.json');
     expect(JSON.parse(mockWriteFile.mock.calls[0][1]).source).toEqual({ kind: 'snapshot', snapshot_id: 'offline-source' });
+  });
+
+  it('rejects invalid snapshot frame positions before creating a project', () => {
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'invalid-frame' });
+    const before = useProjectStore.getState().projects;
+    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, Number.NaN))
+      .toThrow(/safe integer/);
+    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 0.5))
+      .toThrow(/safe integer/);
+    expect(useProjectStore.getState().projects).toBe(before);
+  });
+
+  it('rebases an offline project to the last recorded frame at or before a requested gap', () => {
+    const snapshot = createSingleSnapshot(emptyScenario(), { id: 'sparse-frames' });
+    snapshot.frames = [1, 5].map((index) => ({
+      index, timestamp: index * 10, messages: [], controls: [], kind: 'action' as const,
+    }));
+
+    useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 3);
+    const playback = useProjectStore.getState().activeProject!.snapshotPlayback!;
+    expect(playback.snapshot.initial.frame).toBe(1);
+    expect(playback.snapshot.initial.timestamp).toBe(10);
+    expect(playback.snapshot.frames.map((entry) => entry.index)).toEqual([5]);
   });
 
   it('protects the recording used by an active snapshot source', () => {

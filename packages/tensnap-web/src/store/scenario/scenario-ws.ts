@@ -1,9 +1,10 @@
-import type { DiagnosticSeverity, ISimulatorTransport, RendererSession } from '@tensnap/core';
+import type { DiagnosticSeverity } from '@tensnap/core';
 import type {
   ActionResultPayload,
   ErrorPayload,
   NormalizedLogPayload,
   ScreenshotRequestPayload,
+  ScreenshotResponsePayload,
   SimulatorToRendererMessage,
   StateSyncBeginPayload,
   StateSyncEndPayload,
@@ -11,42 +12,34 @@ import type {
 import { StoreApi, UseBoundStore } from 'zustand';
 import { ScenarioStore } from './store';
 
-type SessionListeners = {
-  session: RendererSession;
-  message: EventListener;
-  protocolError: EventListener;
-};
-
 const diagnosticSeverityFromLog = (level: NormalizedLogPayload['level']): DiagnosticSeverity => (
   level === 'critical' ? 'critical' : level
 );
-
-const handlers = new WeakMap<ISimulatorTransport, SessionListeners>();
-
-export function unregisterEventHandlers(transport: ISimulatorTransport) {
-  const listeners = handlers.get(transport);
-  if (!listeners) return;
-  const session = listeners.session;
-  session.removeEventListener('message', listeners.message);
-  session.removeEventListener('protocol:error', listeners.protocolError);
-  if (session.attachedTransport === transport) {
-    session.detachTransport();
-  }
-  handlers.delete(transport);
-}
 
 async function handleScreenshotRequest(
   useStore: UseBoundStore<StoreApi<ScenarioStore>>,
   payload: ScreenshotRequestPayload,
 ): Promise<void> {
   const store = useStore.getState();
+  const session = store.session;
+  const sendResponse = (response: ScreenshotResponsePayload) => {
+    if (!session.isConnected) return;
+    try {
+      session.sendScreenshotResponse(response);
+    } catch (error) {
+      store.appendDiagnostic({
+        severity: 'error', domain: 'ui', source: 'screenshot', code: 'screenshot_response_failed',
+        message: error instanceof Error ? error.message : String(error), requestId: payload.request_id,
+      });
+    }
+  };
   const targetId = payload.env_id ?? payload.chart_id;
   if (!targetId) {
     store.appendDiagnostic({
       severity: 'warning', domain: 'ui', source: 'screenshot', code: 'invalid_screenshot_target',
       message: 'No screenshot target was specified by the simulator.', requestId: payload.request_id,
     });
-    store.session.sendScreenshotResponse({
+    sendResponse({
       request_id: payload.request_id,
       error: { code: 'invalid_screenshot_target', message: 'No target specified (env_id or chart_id required)' },
     });
@@ -59,18 +52,22 @@ async function handleScreenshotRequest(
       severity: 'warning', domain: 'ui', source: 'screenshot', code: 'screenshot_handler_missing',
       message: `No screenshot handler is registered for "${targetId}".`, requestId: payload.request_id, target: targetId,
     });
-    store.session.sendScreenshotResponse({
+    sendResponse({
       request_id: payload.request_id,
       error: { code: 'screenshot_handler_missing', message: `No screenshot handler registered for "${targetId}"` },
     });
     return;
   }
 
+  let connectionClosed = false;
+  const onClose = () => { connectionClosed = true; };
+  session.addEventListener('transport:close', onClose);
   try {
     const format = payload.format ?? 'png';
     const blob = await capture(format, payload.quality);
+    if (connectionClosed) return;
     if (!blob) {
-      store.session.sendScreenshotResponse({
+      sendResponse({
         request_id: payload.request_id,
         error: { code: 'screenshot_empty', message: 'Screenshot capture returned empty result' },
       });
@@ -79,29 +76,30 @@ async function handleScreenshotRequest(
 
     const mime = blob.type || (format === 'jpeg' ? 'image/jpeg' : 'image/png');
     const buffer = await blob.arrayBuffer();
-    store.session.sendScreenshotResponse({
+    if (connectionClosed) return;
+    sendResponse({
       request_id: payload.request_id,
       data: new Uint8Array(buffer),
       mime,
     });
   } catch (err) {
+    if (connectionClosed) return;
     store.appendDiagnostic({
       severity: 'error', domain: 'ui', source: 'screenshot', code: 'screenshot_failed',
       message: err instanceof Error ? err.message : String(err), requestId: payload.request_id, target: targetId,
     });
-    store.session.sendScreenshotResponse({
+    sendResponse({
       request_id: payload.request_id,
       error: { code: 'screenshot_failed', message: err instanceof Error ? err.message : String(err) },
     });
+  } finally {
+    session.removeEventListener('transport:close', onClose);
   }
 }
 
 export function registerEventHandlers(
-  transport: ISimulatorTransport,
   useStore: UseBoundStore<StoreApi<ScenarioStore>>,
-) {
-  unregisterEventHandlers(transport);
-
+): () => void {
   const session = useStore.getState().session;
   const handler: EventListener = (event) => {
     const { message } = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail;
@@ -158,8 +156,10 @@ export function registerEventHandlers(
     }
   };
 
-  handlers.set(transport, { session, message: handler, protocolError });
   session.addEventListener('message', handler);
   session.addEventListener('protocol:error', protocolError);
-  session.attachTransport(transport);
+  return () => {
+    session.removeEventListener('message', handler);
+    session.removeEventListener('protocol:error', protocolError);
+  };
 }

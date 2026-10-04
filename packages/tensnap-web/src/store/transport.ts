@@ -2,9 +2,9 @@ import { create, StoreApi, UseBoundStore } from 'zustand';
 import { ScenarioStore } from './scenario/store';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
-import { connectWithHandshake, type ISimulatorTransport, type TransportEventHandler, type TransportEventMap } from '@tensnap/core/transport';
-import type { SimulatorToRendererMessage } from '@tensnap/protocol';
-import { registerEventHandlers, unregisterEventHandlers } from './scenario/scenario-ws';
+import { RendererClient } from '@tensnap/core/runtime';
+import type { ISimulatorTransport, TransportEventHandler, TransportEventMap } from '@tensnap/core/transport';
+import { registerEventHandlers } from './scenario/scenario-ws';
 import { WebSocketConnectionError, WebSocketManagerImpl } from '@/transport';
 import { useSettingsStore } from './settings';
 import { isInMemoryConnectionId, resolveTransport } from '@/transport/registry';
@@ -37,8 +37,11 @@ export interface TransportStore {
 export const createTransportStore = (
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>,
 ) => create<TransportStore>((set, get) => {
+  const client = new RendererClient({ session: useScenarioStore.getState().session });
+  let removeActiveConnectionListeners: (() => void) | null = null;
   let removePendingHandshakeListeners: (() => void) | null = null;
   let unsubscribeValidationSettings: (() => void) | null = null;
+  let operationEpoch = 0;
 
   const stopWaitingForHandshake = () => {
     removePendingHandshakeListeners?.();
@@ -104,33 +107,42 @@ export const createTransportStore = (
     unsubscribeValidationSettings = null;
   };
 
-  const retireTransport = (abortController?: AbortController | null) => {
+  const retireHostTransport = (abortController?: AbortController | null) => {
     stopWatchingTransportValidation();
     stopWaitingForHandshake();
     abortController?.abort();
     const scenarioStore = useScenarioStore.getState();
     scenarioStore.setConnected(false);
-    const active = get().transport;
-    if (active) {
-      unregisterEventHandlers(active);
-      active.destroy();
-    }
+    removeActiveConnectionListeners?.();
+    removeActiveConnectionListeners = null;
     scenarioStore.resetStateSync();
+  };
+
+  const retireTransport = (abortController?: AbortController | null) => {
+    retireHostTransport(abortController);
+    client.disconnect();
   };
 
   const activateTransport = (transport: ISimulatorTransport, state?: StateSyncInventory) => {
     const scenarioStore = useScenarioStore.getState();
     const onOpen = () => {
+      if (get().transport !== transport) return;
       set({ isConnecting: false, connectionError: null, abortController: null });
       scenarioStore.setConnected(true);
     };
     const onClose = () => {
+      if (get().transport !== transport) return;
       scenarioStore.setConnected(false);
       scenarioStore.resetStateSync();
     };
     transport.on('open', onOpen);
     transport.on('close', onClose);
-    registerEventHandlers(transport, useScenarioStore);
+    const stopScenarioEvents = registerEventHandlers(useScenarioStore);
+    removeActiveConnectionListeners = () => {
+      transport.off('open', onOpen);
+      transport.off('close', onClose);
+      stopScenarioEvents();
+    };
 
     const onSimulatorReady = () => {
       if (get().transport !== transport) return;
@@ -167,35 +179,7 @@ export const createTransportStore = (
       transport.off('protocol-mode', onProtocolMode);
     };
     watchTransportValidation(transport);
-    return { onOpen, onClose, onSimulatorReady };
-  };
-
-  const installConnectedTransport = (
-    transport: ISimulatorTransport,
-    state: StateSyncInventory | undefined,
-    bufferedMessages: SimulatorToRendererMessage[],
-    resetSimulatorIdentity: boolean,
-    previousAbort: AbortController | null,
-    protocolMode: 'strict' | 'legacy' | null,
-  ) => {
-    const scenarioStore = useScenarioStore.getState();
-    retireTransport(previousAbort);
-    if (resetSimulatorIdentity) scenarioStore.session.resetSimulatorIdentity();
-
-    set({
-      transport,
-      connectionId: transport.connectionId,
-      isConnecting: false,
-      connectionError: null,
-      abortController: null,
-    });
-    const { onSimulatorReady } = activateTransport(transport, state);
-    scenarioStore.setConnected(true);
-    if (protocolMode === 'legacy') {
-      scenarioStore.session.beginLegacyProtocol();
-      onSimulatorReady();
-    }
-    for (const message of bufferedMessages) scenarioStore.session.handleIncoming(message);
+    return { onSimulatorReady };
   };
 
   return ({
@@ -212,34 +196,27 @@ export const createTransportStore = (
   },
 
   initialize: async (transportOrUrl: ISimulatorTransport | string, state?: StateSyncInventory) => {
+    // Resolve before retiring the current source. An unknown built-in model
+    // identifier is a caller error and must not tear down a live connection.
+    const transport = resolveTransportInput(transportOrUrl);
+    const epoch = ++operationEpoch;
     const { abortController: currentAbort } = get();
     const scenarioStore = useScenarioStore.getState();
 
     retireTransport(currentAbort);
 
     const abortController = new AbortController();
-    const transport = resolveTransportInput(transportOrUrl);
-
-    set({ connectionId: transport.connectionId, isConnecting: true, connectionError: null, abortController });
 
     configureTransportValidation(transport);
-
-    set({ transport, isConnecting: true, connectionError: null });
-    const { onOpen, onClose } = activateTransport(transport, state);
+    set({ transport, connectionId: transport.connectionId, isConnecting: true, connectionError: null, abortController });
+    client.attachTransport(transport);
+    activateTransport(transport, state);
 
     try {
       await transport.connect(abortController.signal);
-      if (abortController.signal.aborted) {
-        transport.off('open', onOpen);
-        transport.off('close', onClose);
-        stopWaitingForHandshake();
-        unregisterEventHandlers(transport);
-        transport.destroy();
-        set({ transport: null });
-        scenarioStore.resetStateSync();
-        throw new Error('Connection was aborted');
-      }
+      if (epoch !== operationEpoch || abortController.signal.aborted) throw new Error('Connection was aborted');
     } catch (error) {
+      if (epoch !== operationEpoch || get().transport !== transport) throw error;
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
       set({ isConnecting: false, connectionError: errorMessage, abortController: null });
       scenarioStore.setConnected(false);
@@ -248,11 +225,7 @@ export const createTransportStore = (
       if (transport.transportKind === 'websocket' && error instanceof WebSocketConnectionError) {
         reportConnectionDiagnostic('warning', 'initial_connection_failed', 'Initial connection failed; automatic reconnect remains enabled.', error);
       } else {
-        transport.off('open', onOpen);
-        transport.off('close', onClose);
-        stopWaitingForHandshake();
-        unregisterEventHandlers(transport);
-        transport.destroy();
+        retireTransport(abortController);
         set({ transport: null });
         throw error;
       }
@@ -261,7 +234,7 @@ export const createTransportStore = (
 
   requestStateSync: (currentState) => {
     const { transport } = get();
-    if (!transport) {
+    if (!transport?.isConnected) {
       reportConnectionDiagnostic('warning', 'state_sync_while_disconnected', 'Cannot synchronize state without a connected transport.');
       return;
     }
@@ -282,34 +255,45 @@ export const createTransportStore = (
   changeTransport: async (transportOrUrl, state, options) => {
     if (typeof transportOrUrl === 'string' && get().connectionId === transportOrUrl) return;
     const transport = resolveTransportInput(transportOrUrl);
+    const epoch = ++operationEpoch;
     configureTransportValidation(transport);
     const previousAbort = get().abortController;
     const abortController = new AbortController();
     set({ isConnecting: true, connectionError: null, abortController });
-    let handshake;
     try {
-      handshake = await connectWithHandshake(transport, abortController.signal);
-    } catch (error) {
-      transport.destroy();
-      set({
-        isConnecting: false,
-        connectionError: error instanceof Error ? error.message : String(error),
-        abortController: previousAbort,
+      await client.replaceTransport(transport, {
+        signal: abortController.signal,
+        requestInitialSync: false,
+        resetSimulatorIdentity: options?.resetSimulatorIdentity ?? false,
+        onActivated: (mode) => {
+          const scenarioStore = useScenarioStore.getState();
+          retireHostTransport(previousAbort);
+          set({
+            transport,
+            connectionId: transport.connectionId,
+            isConnecting: false,
+            connectionError: null,
+            abortController: null,
+          });
+          const { onSimulatorReady } = activateTransport(transport, state);
+          scenarioStore.setConnected(true);
+          if (mode === 'legacy') onSimulatorReady();
+        },
       });
+    } catch (error) {
+      if (epoch === operationEpoch) {
+        set({
+          isConnecting: false,
+          connectionError: error instanceof Error ? error.message : String(error),
+          abortController: previousAbort?.signal.aborted ? null : previousAbort,
+        });
+      }
       throw error;
     }
-    const bufferedMessages = handshake.takeBufferedMessages();
-    installConnectedTransport(
-      transport,
-      state,
-      bufferedMessages,
-      options?.resetSimulatorIdentity ?? false,
-      previousAbort,
-      handshake.mode,
-    );
   },
 
   destroy: () => {
+    operationEpoch += 1;
     retireTransport(get().abortController);
     set({
       transport: null,

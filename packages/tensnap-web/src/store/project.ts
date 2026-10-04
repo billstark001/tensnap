@@ -13,7 +13,7 @@ import { decode, encode } from "@msgpack/msgpack";
 import { createHistoryStore, type HistoryState } from "./undo-redo";
 import { useSettingsStore } from "./settings";
 import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { createStateSyncInventoryFromSnapshot } from '@tensnap/core/scenario';
+import { createStateSyncInventoryFromSnapshot, type StateSyncInventory } from '@tensnap/core/scenario';
 import { materializeSnapshot, SnapshotPlaybackSource, type ProjectSource, type Snapshot, type SnapshotModelIdentity } from '@tensnap/core/snapshot';
 import { createScenarioStore, ScenarioStore } from "./scenario/store";
 import { getFileSystemState } from "./file-system/provider";
@@ -52,14 +52,23 @@ export const projectSourceDisplayName = (source: ProjectSource): string => proje
 
 /** Rebase a recording so a snapshot project starts at the frame the user chose. */
 const snapshotSourceFromFrame = (snapshot: Snapshot, frame?: number): Snapshot => {
+  if (frame !== undefined && !Number.isSafeInteger(frame)) {
+    throw new Error('Snapshot frame must be a safe integer.');
+  }
   const initialFrame = frame ?? snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame;
   const bounded = Math.max(snapshot.initial.frame, Math.min(initialFrame, snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame));
-  if (bounded === snapshot.initial.frame) return structuredClone(snapshot);
-  const frameTimestamp = snapshot.frames.find((entry) => entry.index === bounded)?.timestamp ?? snapshot.initial.timestamp;
+  let selectedFrame = snapshot.initial.frame;
+  let frameTimestamp = snapshot.initial.timestamp;
+  for (const entry of snapshot.frames) {
+    if (entry.index > bounded) break;
+    selectedFrame = entry.index;
+    frameTimestamp = entry.timestamp;
+  }
+  if (selectedFrame === snapshot.initial.frame) return structuredClone(snapshot);
   const rebased = structuredClone(snapshot);
-  rebased.initial = { frame: bounded, timestamp: frameTimestamp, scenario: materializeSnapshot(snapshot, bounded) };
-  rebased.keyframes = rebased.keyframes.filter((keyframe) => keyframe.frame > bounded);
-  rebased.frames = rebased.frames.filter((entry) => entry.index > bounded);
+  rebased.initial = { frame: selectedFrame, timestamp: frameTimestamp, scenario: materializeSnapshot(snapshot, selectedFrame) };
+  rebased.keyframes = rebased.keyframes.filter((keyframe) => keyframe.frame > selectedFrame);
+  rebased.frames = rebased.frames.filter((entry) => entry.index > selectedFrame);
   return rebased;
 };
 
@@ -104,6 +113,25 @@ const createProject = (
   return project;
 };
 
+function startProjectTransport(
+  project: ProjectContextScheme,
+  connectionId: string,
+  inventory?: StateSyncInventory,
+): void {
+  // Project creation/opening is local and does not wait for a remote host.
+  // Surface immediate setup failures through the project's diagnostics.
+  void project.useTransportStore.getState().initialize(connectionId, inventory).catch((error: unknown) => {
+    project.useScenarioStore.getState().appendDiagnostic({
+      severity: 'error',
+      domain: 'transport',
+      source: 'project-source',
+      code: 'connection_setup_failed',
+      message: error instanceof Error ? error.message : String(error),
+      details: error,
+    });
+  });
+}
+
 /**
  * JSON omits undefined object properties, whereas MessagePack writes them as
  * null. Strip them explicitly so both save formats have the same on-disk
@@ -122,7 +150,7 @@ const omitUndefinedObjectProperties = (value: unknown): unknown => {
   }
   if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return value;
 
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null);
   for (const [key, item] of Object.entries(value)) {
     if (item !== undefined) result[key] = omitUndefinedObjectProperties(item);
   }
@@ -151,6 +179,14 @@ export interface ProjectStore {
   openOfflineSnapshot: (snapshot: Snapshot, indexHint?: number, frame?: number) => void;
 }
 
+function projectInsertionIndex(indexHint: number | undefined, count: number): number {
+  const index = indexHint ?? count;
+  if (!Number.isInteger(index) || index < 0 || index > count) {
+    throw new Error('Invalid project insertion index');
+  }
+  return index;
+}
+
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
   activeIndex: null,
@@ -175,7 +211,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setActive(index) {
     const { projects, refreshActiveProject } = get();
 
-    if (index !== null && (index < 0 || index >= projects.length)) {
+    if (index !== null && (!Number.isInteger(index) || index < 0 || index >= projects.length)) {
       throw new Error("Invalid project index");
     }
 
@@ -185,19 +221,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   new(sourceInput, indexHint) {
     const { projects, setActive } = get();
+    const targetIndex = projectInsertionIndex(indexHint, projects.length);
     const source = ProjectSourceSchema.parse(sourceInput) as ProjectSource;
     if (source.kind === 'snapshot') {
       throw new Error('Create snapshot projects from an existing recording.');
     }
     const newProject = createProject(source);
 
-    const targetIndex = indexHint ?? projects.length;
-    projects.splice(targetIndex, 0, newProject);
-
+    const nextProjects = [...projects];
+    nextProjects.splice(targetIndex, 0, newProject);
+    set({ projects: nextProjects });
     setActive(targetIndex);
 
     const connectionId = projectSourceConnectionId(source);
-    if (connectionId) newProject.useTransportStore.getState().initialize(connectionId);
+    if (connectionId) startProjectTransport(newProject, connectionId);
   },
 
   async open(filepath, indexHint) {
@@ -223,6 +260,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     const { scenario, mainView, source, snapshots, model_identity } = parsedContent;
+    const { projects, setActive } = get();
+    const targetIndex = projectInsertionIndex(indexHint, projects.length);
 
     const newProject = createProject(source, filepath, model_identity);
     newProject.useScenarioStore.setState({ mainView, snapshots });
@@ -244,14 +283,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       });
     }
 
-    const { projects, setActive } = get();
-    const targetIndex = indexHint ?? projects.length;
-    projects.splice(targetIndex, 0, newProject);
-
+    const nextProjects = [...projects];
+    nextProjects.splice(targetIndex, 0, newProject);
+    set({ projects: nextProjects });
     setActive(targetIndex);
 
     const connectionId = projectSourceConnectionId(source);
-    if (connectionId) newProject.useTransportStore.getState().initialize(connectionId, createStateSyncInventoryFromSnapshot(scenario));
+    if (connectionId) startProjectTransport(newProject, connectionId, createStateSyncInventoryFromSnapshot(scenario));
     return { recovered: warnings.length > 0, warnings };
   },
 
@@ -259,12 +297,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { projects, activeIndex, refreshActiveProject } = get();
     const targetIndex = index ?? activeIndex;
 
-    if (targetIndex == null || targetIndex < 0 || targetIndex >= projects.length) {
+    if (targetIndex == null || !Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= projects.length) {
       throw new Error("Invalid project index");
     }
 
     const project = projects[targetIndex];
     const scenarioStore = project.useScenarioStore.getState();
+    const savedHistoryStateId = project.useUndoRedoStore.getState().currentStateId;
     const projectFile: ProjectFileContent = {
       version: PROJECT_FILE_VERSION,
       mainView: scenarioStore.mainView,
@@ -306,12 +345,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     project.filepath = filepath;
     project.modelIdentity = scenarioStore.session.modelIdentity ?? undefined;
-    project.useUndoRedoStore.getState().markClean();
+    // A user may edit while archival or filesystem writes are pending. Only
+    // mark the exact state captured above as saved.
+    const history = project.useUndoRedoStore.getState();
+    if (history.currentStateId === savedHistoryStateId) history.markClean();
     refreshActiveProject();
   },
 
   openOfflineSnapshot(snapshot, indexHint, frame) {
     const { projects, setActive } = get();
+    const targetIndex = projectInsertionIndex(indexHint, projects.length);
     const sourceSnapshot = snapshotSourceFromFrame(snapshot, frame);
     const identity = sourceSnapshot.metadata.id;
     const source: ProjectSource = { kind: 'snapshot', snapshot_id: identity };
@@ -319,15 +362,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     project.snapshotPlayback = new SnapshotPlaybackSource(sourceSnapshot);
     project.useScenarioStore.getState().load(sourceSnapshot.initial.scenario);
     project.useScenarioStore.setState({ snapshots: [sourceSnapshot] });
-    const targetIndex = indexHint ?? projects.length;
-    projects.splice(targetIndex, 0, project);
+    const nextProjects = [...projects];
+    nextProjects.splice(targetIndex, 0, project);
+    set({ projects: nextProjects });
     setActive(targetIndex);
   },
 
   close(index) {
     const { projects } = get();
 
-    if (index < 0 || index >= projects.length) {
+    if (!Number.isInteger(index) || index < 0 || index >= projects.length) {
       throw new Error("Invalid project index");
     }
 
@@ -358,7 +402,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   async changeSource(index, nextSource) {
     const { projects } = get();
 
-    if (index < 0 || index >= projects.length) {
+    if (!Number.isInteger(index) || index < 0 || index >= projects.length) {
       throw new Error("Invalid project index");
     }
 
@@ -412,16 +456,17 @@ function closeProject(
 
   project.useTransportStore.getState().destroy();
   project.useScenarioStore.getState().clearAll();
-  projects.splice(index, 1);
+  const nextProjects = [...projects];
+  nextProjects.splice(index, 1);
 
-  const newActiveIndex = activeIndex === null || projects.length === 0
+  const newActiveIndex = activeIndex === null || nextProjects.length === 0
     ? null
     : index < activeIndex
       ? activeIndex - 1
       : index === activeIndex
-        ? Math.min(index, projects.length - 1)
+        ? Math.min(index, nextProjects.length - 1)
         : activeIndex;
 
-  set({ pendingCloseProjectId: null });
+  set({ projects: nextProjects, pendingCloseProjectId: null });
   setActive(newActiveIndex);
 }
