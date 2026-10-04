@@ -515,11 +515,23 @@ function renderSchemaSection(entry) {
     '',
     `Schema: \`${entry.name}\` (${entry.source})`,
     '',
-    entry.comment || 'No schema comment is defined.',
+    entry.comment ? unwrapCommentProse(entry.comment) : 'No schema comment is defined.',
     '',
     '```ts',
     entry.definition,
     '```',
     '',
   ];
+}
+
+function unwrapCommentProse(comment) {
+  return comment
+    .split(/\n\s*\n/)
+    .map((paragraph) =>
+      paragraph
+        .split('\n')
+        .map((line) => line.trim())
+        .join(' '),
+    )
+    .join('\n\n');
 }

@@ -15,3 +15,5 @@ Generate schema-derived type documentation with:
 ```bash
 pnpm --dir packages/protocol export:protocol
 ```
+
+The generated schema descriptions use unwrapped Markdown paragraphs; the TypeScript code blocks retain their source formatting. The output lives in the ignored `dist/` build directory.
