@@ -6,7 +6,8 @@ interface LoadingState {
   
   // Private state for tracking loading processes
   loadingCount: number;
-  loadingProcesses: Set<string>;
+  /** Reference counts allow overlapping work to share a process ID safely. */
+  loadingProcesses: Map<string, number>;
   
   // Actions
   startLoading: (processId?: string) => void;
@@ -20,19 +21,16 @@ interface LoadingState {
 export const useLoadingStore = create<LoadingState>((set, get) => ({
   loading: false,
   loadingCount: 0,
-  loadingProcesses: new Set(),
+  loadingProcesses: new Map(),
 
   startLoading: (processId?: string) => {
     const state = get();
     
-    if (processId) {
-      // If process ID is provided, check if it's already running
-      if (state.loadingProcesses.has(processId)) {
-        return; // Process with this ID is already running
-      }
-      
+    if (processId !== undefined) {
+      const next = new Map(state.loadingProcesses);
+      next.set(processId, (next.get(processId) ?? 0) + 1);
       set({
-        loadingProcesses: new Set([...state.loadingProcesses, processId]),
+        loadingProcesses: next,
         loading: true
       });
     } else {
@@ -47,10 +45,11 @@ export const useLoadingStore = create<LoadingState>((set, get) => ({
   stopLoading: (processId?: string) => {
     const state = get();
     
-    if (processId) {
-      // Remove specific process ID
-      const newProcesses = new Set(state.loadingProcesses);
-      newProcesses.delete(processId);
+    if (processId !== undefined) {
+      const newProcesses = new Map(state.loadingProcesses);
+      const count = newProcesses.get(processId) ?? 0;
+      if (count <= 1) newProcesses.delete(processId);
+      else newProcesses.set(processId, count - 1);
       
       set({
         loadingProcesses: newProcesses,

@@ -52,7 +52,19 @@ const messageOf = (error: unknown) => error instanceof Error ? error.message : S
 export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundStore<StoreApi<HistoryState>> => {
   const maxCommands = options.maxCommands ?? 64;
   const maxBytes = options.maxBytes ?? 4 * 1024 * 1024;
+  if (!Number.isSafeInteger(maxCommands) || maxCommands < 1) {
+    throw new Error('History maxCommands must be a positive safe integer.');
+  }
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    throw new Error('History maxBytes must be a positive safe integer.');
+  }
   const rootStateId = createHistoryCommandId();
+
+  const validateCommandSize = (command: HistoryCommand) => {
+    if (!Number.isFinite(command.byteSize) || command.byteSize < 0) {
+      throw new Error('History command byteSize must be a non-negative finite number.');
+    }
+  };
 
   return create<HistoryState>((set, get) => {
     const retainWithinBudget = (commands: HistoryCommand[]) => {
@@ -65,12 +77,12 @@ export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundS
     };
 
     const recordApplied = (command: HistoryCommand) => {
-      if (!Number.isFinite(command.byteSize) || command.byteSize < 0) {
-        throw new Error('History command byteSize must be a non-negative finite number.');
-      }
+      validateCommandSize(command);
       if (command.byteSize > maxBytes) {
         set({
+          past: [],
           future: [],
+          retainedBytes: 0,
           error: `History command exceeds the ${maxBytes}-byte budget.`,
           currentStateId: createHistoryCommandId(),
         });
@@ -88,6 +100,7 @@ export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundS
       const canMerge = Boolean(
         last?.mergeKey
         && stamped.mergeKey === last.mergeKey
+        && stamped.timestamp! >= (last.timestamp ?? 0)
         && (stamped.timestamp! - (last.timestamp ?? 0)) <= 750,
       );
       const merged = canMerge
@@ -127,6 +140,7 @@ export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundS
         if (get().status !== 'idle') return false;
         set({ status: 'applying', error: undefined });
         try {
+          validateCommandSize(command);
           await command.apply();
           set({ status: 'idle' });
           recordApplied(command);
