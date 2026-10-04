@@ -28,27 +28,127 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## tensnap [0.3.1] - 2026-10-04
+
 ### Added
 
-- **Protocol conformance:** Added an executable JSON/MessagePack integrity matrix for Python/Mesa, Go, JavaScript/TypeScript, Julia, and the shared renderer client, with retained evidence, deliberate failure canaries, and CI verification. The matrix distinguishes visible projections from complete fixture host state and deterministic future replay; its case-study limits are recorded alongside the results.
-- **@tensnap/core / @tensnap/agent:** Added a shared `RendererClient` for handshake-safe transport replacement and correlated sync/action waits, used by the browser and headless agent runtime.
-- **@tensnap/go:** Added a bundled MessagePack codec with canonical wire field names and binary WebSocket frames; JSON remains the default.
-- **Schelling audit:** Added a reproducible four-host headless workflow with retained exact-checkpoint, future-replay, and rendered-scene evidence.
-- **@tensnap/python:** Added model-owned map, matrix, and indexed agent sources with compiled field selectors, revision-based sparse updates, scan fallback, and validated projected restore for map and matrix values.
-- **@tensnap/go:** Added typed map and matrix agent layers with direct field selectors, flat matrix storage, optional sparse change tracking, and validated source restore.
-- **@tensnap/julia:** Added map and matrix agent layers with direct field selectors, explicit matrix orientation, and validated projected restore.
-- **@tensnap/js:** Added map and matrix agent layers for keyed maps and nested or flat matrices, with direct field selectors, sparse change tracking, and validated projected restore.
+- Added the executable JSON/MessagePack conformance matrix for Python/Mesa, Go, JavaScript/TypeScript, Julia, and the shared renderer client, with retained evidence, failure canaries, and CI verification. Its documentation separates visible projections, complete fixture host state, deterministic replay, and case-study limits.
+- Added a four-host Schelling audit workflow with retained checkpoint, future-replay, and rendered-scene evidence.
 
 ### Changed
 
-- **@tensnap/core:** Made state synchronization stage changes until its matching end frame, kept legacy create replacement in compatibility/replay paths, and required unique, existing item identities where strict v0.3 mutations call for them.
-- **@tensnap/core:** Preserved intermediate updates needed by dependent trajectory layers during recording; improved chart, asset, environment, and snapshot handling for sparse data and repeated scene changes.
-- **@tensnap/web:** Kept project source and transport changes consistent across connection failures, local edits, snapshot playback, and undo/redo.
-- **Runtime performance:** Reduced repeated item-key scans and agent batch copies, reused the continuous-run action watchdog, avoided a deep copy after strict protocol decoding, and cached WebSocket validation settings.
+- Replaced ESLint with repository-wide Oxlint and Oxfmt, formatted maintained JavaScript/TypeScript and Markdown, excluded generated artifacts from formatter runs, and kept generated schema prose unwrapped.
+- Updated npm dependencies across the workspace and moved the supported pnpm major to 12 without a minor-version pin.
+
+## @tensnap/protocol [0.3.2] - 2026-10-04
+
+### Changed
+
+- Avoided an extra deep copy after strict protocol decoding.
+- Unwrapped prose in the generated schema reference while retaining TypeScript code-block formatting.
+- Updated npm dependencies.
+
+## @tensnap/core [0.3.2] - 2026-10-04
+
+### Added
+
+- Added a shared `RendererClient` for handshake-safe transport replacement and correlated synchronization and action waits.
+
+### Changed
+
+- Staged state synchronization until its matching end frame, retained legacy create replacement in compatibility and replay paths, and enforced strict item identity rules.
+- Preserved trajectory updates during recording and improved chart, asset, environment, and snapshot handling for sparse data and repeated scene changes.
+- Reduced repeated item-key scans and agent-batch copies, reused the continuous-run action watchdog, and migrated stop-expression validation to the `pure-expr` 0.4 AST and context API.
 
 ### Fixed
 
-- **Bindings and renderer:** Corrected state-before-result ordering, parameter feedback, checkpoint decoding, failed-send handling, and render-barrier failures in the affected public paths.
+- Corrected state-before-result ordering, failed sends, and render-barrier failure handling in renderer paths.
+
+## @tensnap/agent [0.3.2] - 2026-10-04
+
+### Changed
+
+- Adopted the shared `RendererClient` for headless sessions and updated npm dependencies.
+
+## @tensnap/web [0.3.2] - 2026-10-04
+
+### Changed
+
+- Kept project source and transport changes consistent across connection failures, local edits, snapshot playback, and undo/redo.
+- Cached WebSocket validation settings and updated npm dependencies.
+
+## @tensnap/web-adapter [0.3.1] - 2026-10-04
+
+### Changed
+
+- Adopted the shared Oxc tooling and updated npm dependencies.
+
+## @tensnap/web-common [0.3.1] - 2026-10-04
+
+### Changed
+
+- Adopted the shared Oxc tooling and updated npm dependencies.
+
+## @tensnap/benchmark [0.3.2] - 2026-10-04
+
+### Changed
+
+- Retained the multi-host Schelling audit evidence and updated npm dependencies.
+
+## @tensnap/tauri [0.3.2] - 2026-10-04
+
+### Changed
+
+- Updated aligned Tauri JavaScript and Rust plugins and refreshed the compatible Cargo dependency graph.
+
+## @tensnap/python [0.3.2] - 2026-10-04
+
+### Added
+
+- Added model-owned map, matrix, and indexed agent sources with compiled selectors, revision-based sparse updates, scan fallback, and validated projected restore.
+
+### Fixed
+
+- Corrected binding state ordering, parameter feedback, and checkpoint decoding.
+
+## @tensnap/go [0.3.2] - 2026-10-04
+
+### Added
+
+- Added a bundled MessagePack codec with canonical wire field names and binary WebSocket frames; JSON remains the default.
+- Added typed map and matrix agent layers with direct selectors, flat matrix storage, optional sparse tracking, and validated source restore.
+
+### Fixed
+
+- Corrected canonical checkpoint data URL and byte decoding.
+
+## @tensnap/julia [0.3.2] - 2026-10-04
+
+### Added
+
+- Added map and matrix agent layers with direct selectors, explicit matrix orientation, and validated projected restore.
+
+## @tensnap/js [0.3.2] - 2026-10-04
+
+### Added
+
+- Added map and matrix agent layers for keyed maps and nested or flat matrices, with direct selectors, sparse tracking, and validated projected restore.
+
+### Fixed
+
+- Corrected binding state ordering, parameter feedback, and checkpoint decoding.
+
+## @tensnap/examples-js [0.3.2] - 2026-10-04
+
+### Added
+
+- Added exact Schelling replay validation and an optional audit path for retained cross-host evidence.
+
+## @tensnap/examples-julia [0.3.2] - 2026-10-04
+
+### Added
+
+- Added Schelling checkpoint capture and optional audit support.
 
 ## @tensnap/protocol [0.3.1] - 2026-10-02
 
@@ -164,7 +264,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added El Farol patron restoration and exact history/random checkpoints.
 
-## Workspace [0.3.0] - 2026-07-17
+## tensnap [0.3.0] - 2026-07-17
 
 ### Added
 
@@ -326,7 +426,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Made continuous-action buttons leave their visible running state as soon as pause is requested, so one click immediately restores the play icon and paused indicator while the in-flight tick finishes safely.
 
-## Workspace [0.2.1], @tensnap/protocol [0.2.2] - 2026-07-12
+## tensnap [0.2.1], @tensnap/protocol [0.2.2] - 2026-07-12
 
 ### Added
 

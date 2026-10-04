@@ -1,15 +1,15 @@
 # Versioning and release sources
 
-TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-02, the package versions are:
+TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-04, the package versions are:
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |
-| `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, `@tensnap/agent`, `@tensnap/web`, `@tensnap/benchmark`, `@tensnap/tauri` | `0.3.1` | Each package's `package.json` |
-| `@tensnap/examples-js`, `@tensnap/examples-julia` | `0.3.1` | Each example's `package.json` |
-| Go binding | `0.3.1` | `packages/tensnap-go/protocol/version.go` (`BindingVersion`) |
-| Python binding | `0.3.1` | `packages/tensnap-python/tensnap/_version.py` (`__version__`) |
-| Julia binding | `0.3.1` | `packages/tensnap-julia/Project.toml` |
-| `@tensnap/web-adapter`, `@tensnap/web-common`, workspace root `tensnap` | `0.3.0` | Each `package.json` |
+| `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, `@tensnap/agent`, `@tensnap/web`, `@tensnap/benchmark`, `@tensnap/tauri` | `0.3.2` | Each package's `package.json` |
+| `@tensnap/examples-js`, `@tensnap/examples-julia` | `0.3.2` | Each example's `package.json` |
+| Go binding | `0.3.2` | `packages/tensnap-go/protocol/version.go` (`BindingVersion`) |
+| Python binding | `0.3.2` | `packages/tensnap-python/tensnap/_version.py` (`__version__`) |
+| Julia binding | `0.3.2` | `packages/tensnap-julia/Project.toml` |
+| `@tensnap/web-adapter`, `@tensnap/web-common`, workspace root `tensnap` | `0.3.1` | Each `package.json` |
 
 The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`, and `packages/tensnap-julia` have no npm version: they run native build and test commands, while their native sources above define release versions.
 

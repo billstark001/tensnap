@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/core",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "description": "Core scenario, runtime, and rendering primitives for TenSnap",
   "main": "./src/index.ts",
