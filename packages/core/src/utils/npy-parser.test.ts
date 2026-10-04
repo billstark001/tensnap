@@ -291,12 +291,23 @@ describe('NPYParser', () => {
       expect(() => NPYParser.parse(buffer)).toThrow('Fortran order arrays are not currently supported');
     });
 
-    it('should throw error for zero dimensions in shape', () => {
+    it('parses an empty array shape', () => {
       const headerDict = "{'descr': '<f4', 'fortran_order': False, 'shape': (0, 5), }";
       const dataBuffer = new ArrayBuffer(0);
       const buffer = createCustomHeaderBuffer(headerDict, dataBuffer);
       
-      expect(() => NPYParser.parse(buffer)).toThrow('Invalid shape: contains zero dimensions');
+      expect(NPYParser.parse(buffer)).toMatchObject({ shape: [0, 5], data: new Float32Array(0) });
+    });
+
+    it('rejects malformed or unsafe shape dimensions', () => {
+      const malformed = createCustomHeaderBuffer(
+        "{'descr': '<f4', 'fortran_order': False, 'shape': (2junk,), }", new ArrayBuffer(8),
+      );
+      const unsafe = createCustomHeaderBuffer(
+        "{'descr': '<f4', 'fortran_order': False, 'shape': (9007199254740992,), }", new ArrayBuffer(0),
+      );
+      expect(() => NPYParser.parse(malformed)).toThrow(/Invalid dimension in shape/);
+      expect(() => NPYParser.parse(unsafe)).toThrow(/Invalid dimension in shape/);
     });
   });
 
@@ -389,9 +400,16 @@ describe('NPYParser', () => {
       const shape = [1];
       
       const buffer = NPYParser.toBuffer(data, shape);
-      
-      // Check that we can parse it back without issues
+      expect(NPYParser.parseHeader(buffer).headerLength % 64).toBe(0);
       expect(() => NPYParser.parse(buffer)).not.toThrow();
+    });
+
+    it('uses a version-2 header when a shape tuple exceeds the version-1 length', () => {
+      const shape = Array.from({ length: 33_000 }, () => 1);
+      const buffer = NPYParser.toBuffer(new Uint8Array([7]), shape);
+      expect(NPYParser.parseHeader(buffer).majorVersion).toBe(2);
+      expect(NPYParser.parseHeader(buffer).headerLength % 64).toBe(0);
+      expect(NPYParser.parse(buffer).data).toEqual(new Uint8Array([7]));
     });
   });
 

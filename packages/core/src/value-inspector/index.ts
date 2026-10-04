@@ -141,6 +141,7 @@ export function valueInspectorText(value: unknown, maxLength = DEFAULT_VALUE_INS
         }
       }
       if (!truncated) append(']');
+      seen.delete(current);
       return;
     }
     append('{');
@@ -162,6 +163,7 @@ export function valueInspectorText(value: unknown, maxLength = DEFAULT_VALUE_INS
       append('[Unreadable]');
     }
     if (!truncated) append('}');
+    seen.delete(current);
   };
 
   render(value, 0);
@@ -252,6 +254,7 @@ export class ValueInspector {
   }
 
   private columnsForRecords(records: readonly Record<string, ProtocolData>[], maximum: number): string[] {
+    if (maximum <= 0) return [];
     const columns: string[] = [];
     const seen = new Set<string>();
     for (const record of records) {
@@ -337,14 +340,19 @@ export class ValueInspector {
       const recordValues = allRecords ? records as Record<string, ProtocolData>[] : [];
       const recordColumns = allRecords
         ? this.columnsForRecords(recordValues, Math.max(0, this.limits.maxColumns - 1))
-        : ['value'];
-      const columns = ['key', ...recordColumns];
+        : this.limits.maxColumns > 1 ? ['value'] : [];
+      let keyColumn = 'key';
+      if (recordColumns.includes(keyColumn)) {
+        keyColumn = 'entry_key';
+        for (let suffix = 2; recordColumns.includes(keyColumn); suffix++) keyColumn = `entry_key_${suffix}`;
+      }
+      const columns = [keyColumn, ...recordColumns];
       const rows = page.keys.map((key) => {
         const row = value[key]!;
-        if (!allRecords) return { key, value: row };
+        if (!allRecords) return recordColumns.length ? { [keyColumn]: key, value: row } : { [keyColumn]: key };
         const record = row as Record<string, ProtocolData>;
         return Object.fromEntries([
-          ['key', key],
+          [keyColumn, key],
           ...recordColumns.map((column) => [column, record[column] ?? null] as const),
         ]) as Record<string, ProtocolData>;
       });

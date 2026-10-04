@@ -127,8 +127,8 @@ export class NPYParser {
           .map(s => s.trim())
           .filter(s => s !== '')
           .map(s => {
-            const num = parseInt(s, 10);
-            if (isNaN(num) || num < 0) {
+            const num = Number(s);
+            if (!/^\d+$/.test(s) || !Number.isSafeInteger(num)) {
               throw new Error(`Invalid dimension in shape: ${s}`);
             }
             return num;
@@ -159,6 +159,9 @@ export class NPYParser {
     }
     
     const expectedBytes = expectedLength * typeInfo.size;
+    if (!Number.isSafeInteger(expectedBytes)) {
+      throw new Error(`Invalid NPY shape: byte count exceeds the safe integer range`);
+    }
     if (buffer.byteLength < expectedBytes) {
       throw new Error(
         `Insufficient data: expected ${expectedBytes} bytes for ${expectedLength} elements of type ${dtype}, got ${buffer.byteLength} bytes`
@@ -259,9 +262,8 @@ export class NPYParser {
     
     // Calculate expected number of elements
     const totalElements = shape.length === 0 ? 1 : shape.reduce((a, b) => a * b, 1);
-    
-    if (totalElements === 0) {
-      throw new Error('Invalid shape: contains zero dimensions');
+    if (!Number.isSafeInteger(totalElements)) {
+      throw new Error('Invalid NPY shape: element count exceeds the safe integer range');
     }
     
     // Extract data portion
@@ -292,11 +294,14 @@ export class NPYParser {
       throw new Error('Unsupported data type. Must be one of: Uint8Array, Int16Array, Int32Array, BigInt64Array, Float32Array, Float64Array');
     }
     
-    if (shape.some(dim => dim < 0 || !Number.isInteger(dim))) {
+    if (shape.some(dim => dim < 0 || !Number.isSafeInteger(dim))) {
       throw new Error('Shape must contain non-negative integers');
     }
     
     const expectedElements = shape.length === 0 ? 1 : shape.reduce((a, b) => a * b, 1);
+    if (!Number.isSafeInteger(expectedElements)) {
+      throw new Error('Shape element count exceeds the safe integer range');
+    }
     if (data.length !== expectedElements) {
       throw new Error(`Data length (${data.length}) doesn't match shape (${shape.join('×')} = ${expectedElements})`);
     }
@@ -315,13 +320,21 @@ export class NPYParser {
     const shapeStr = shape.length === 0 ? '' : shape.join(', ') + (shape.length === 1 ? ',' : '');
     const headerStr = `{'descr': '${dtype}', 'fortran_order': False, 'shape': (${shapeStr}), }`;
     
-    // Calculate padding to align to 64-byte boundary (NPY specification)
-    const baseHeaderLength = 10 + headerStr.length;
-    const paddingLength = (64 - (baseHeaderLength % 64)) % 64;
-    const paddedHeader = headerStr + ' '.repeat(paddingLength) + '\n';
+    // Include the newline in the aligned header length.
+    const padHeader = (start: number) => {
+      const paddingLength = (64 - ((start + headerStr.length + 1) % 64)) % 64;
+      return headerStr + ' '.repeat(paddingLength) + '\n';
+    };
+    let headerStart = 10;
+    let paddedHeader = padHeader(headerStart);
+    if (paddedHeader.length > 0xffff) {
+      headerStart = 12;
+      paddedHeader = padHeader(headerStart);
+    }
+    if (paddedHeader.length > 0xffffffff) throw new Error('NPY header is too large');
     
     // Create output buffer
-    const totalSize = 10 + paddedHeader.length + data.byteLength;
+    const totalSize = headerStart + paddedHeader.length + data.byteLength;
     const buffer = new ArrayBuffer(totalSize);
     const view = new Uint8Array(buffer);
     
@@ -330,20 +343,21 @@ export class NPYParser {
       view[i] = this.MAGIC.charCodeAt(i);
     }
     
-    // Write version (1.0)
-    view[6] = 1;
+    // Version 2 uses a 32-bit header length for large shape tuples.
+    view[6] = headerStart === 10 ? 1 : 2;
     view[7] = 0;
     
     // Write header length (little-endian)
-    new DataView(buffer, 8, 2).setUint16(0, paddedHeader.length, true);
+    if (headerStart === 10) new DataView(buffer, 8, 2).setUint16(0, paddedHeader.length, true);
+    else new DataView(buffer, 8, 4).setUint32(0, paddedHeader.length, true);
     
     // Write header
     const encoder = new TextEncoder();
     const headerBytes = encoder.encode(paddedHeader);
-    view.set(headerBytes, 10);
+    view.set(headerBytes, headerStart);
     
     // Write data
-    const dataView = new Uint8Array(buffer, 10 + paddedHeader.length);
+    const dataView = new Uint8Array(buffer, headerStart + paddedHeader.length);
     dataView.set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
     
     return buffer;

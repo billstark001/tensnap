@@ -82,6 +82,22 @@ describe('LazyEventTarget', () => {
       t.dispatchEvent(new Event('ev'));
       expect(listener).toHaveBeenCalledTimes(1); // Not called a second time
     });
+
+    it('allows a once listener to register itself again during dispatch', () => {
+      const target = new LazyEventTarget();
+      let calls = 0;
+      const onEvent = () => {
+        calls += 1;
+        if (calls === 1) target.addEventListener('ev', onEvent, { once: true });
+      };
+      target.addEventListener('ev', onEvent, { once: true });
+
+      target.dispatchEvent(new Event('ev'));
+      expect(target.listenerCount('ev')).toBe(1);
+      target.dispatchEvent(new Event('ev'));
+      expect(calls).toBe(2);
+      expect(target.listenerCount('ev')).toBe(0);
+    });
   });
   // #endregion
 

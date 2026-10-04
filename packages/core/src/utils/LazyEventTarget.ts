@@ -9,7 +9,7 @@
  *  1. Deduplication   – adding the same (type, listener, capture) tuple twice
  *                       is silently ignored, mirroring native behaviour.
  *  2. `once` option   – one-shot listeners are cleaned up from our registry
- *                       after the first invocation (the native side removes the
+ *                       before the first invocation (the native side removes the
  *                       listener automatically, but our count would otherwise
  *                       never decrement).
  *  3. `signal` option – when an AbortSignal fires, the native side removes the
@@ -215,7 +215,7 @@ export class LazyEventTarget extends EventTarget {
     if (once) {
       /**
        * Wrap the listener so we can intercept the single invocation and clean
-       * up our tracking immediately after.  The native EventTarget removes the
+       * up our tracking immediately before invoking the callback. Native EventTarget removes the
        * wrapper from its own registry automatically, but it has no way to
        * update ours — hence the explicit teardown inside the wrapper.
        *
@@ -225,11 +225,12 @@ export class LazyEventTarget extends EventTarget {
        */
       const abortCleanupRef: { fn?: () => void } = {};
       const onceWrapper: EventListener = (event: Event) => {
-        invokeListener(listener, event, this);
-        // Remove our tracking entry (native already removed `wrapped`).
+        // Native EventTarget removes a once listener before invocation. Mirror
+        // that order so the callback can register itself again, even if it throws.
         this.#deleteRecord(type, listener, capture);
         this.#decrementCount(type);
         abortCleanupRef.fn?.();
+        invokeListener(listener, event, this);
       };
       wrapped = onceWrapper;
 
