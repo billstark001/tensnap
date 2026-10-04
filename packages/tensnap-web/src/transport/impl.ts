@@ -11,6 +11,7 @@ import {
   type AnyProtocolMessage,
   type ProtocolCodecMode,
   type ProtocolValidationLevel,
+  type ProtocolValidationWarning,
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
@@ -35,6 +36,8 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private externalAbortHandler: (() => void) | null = null;
   private isDestroyed: boolean = false;
   private codec: ProtocolCodec | null = null;
+  private codecValidationLevel: ProtocolValidationLevel = 'off';
+  private codecValidationDirection: 'any' | 'renderer-to-simulator' | 'simulator-to-renderer' = 'any';
   private handshakeTimer: ReturnType<typeof setTimeout> | null = null;
   private selectedProtocolMode: ProtocolCodecMode | null = null;
   
@@ -207,7 +210,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     return true;
   }
 
-  private async handleMessage(data: ArrayBuffer | string) {
+  private handleMessage(data: ArrayBuffer | string): void {
     try {
       if (this.codec === null) {
         const envelope = decodeProtocolMessage(data) as AnyProtocolMessage;
@@ -216,11 +219,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
           envelope.type === 'simulator_info' ? 'simulator-info' : 'legacy-message',
         );
       }
-      this.codec!.setValidation({
-        level: this.serverMessageValidation,
-        direction: 'simulator-to-renderer',
-        onWarning: (warning) => this.emit('validation-warning', warning),
-      });
+      this.configureCodecValidation(this.serverMessageValidation, 'simulator-to-renderer');
       const message = this.codec!.decode(data) as AnyProtocolMessage;
 
       this.emit('message', message);
@@ -272,11 +271,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       if (this.codec === null) {
         throw new Error('Protocol handshake has not selected a codec yet.');
       }
-      this.codec.setValidation({
-        level: this.clientMessageValidation,
-        direction: 'renderer-to-simulator',
-        onWarning: (warning) => this.emit('validation-warning', warning),
-      });
+      this.configureCodecValidation(this.clientMessageValidation, 'renderer-to-simulator');
       const encoded = this.codec.encode(message as AnyProtocolMessage, this.encoding);
       this.ws.send(typeof encoded === 'string' ? encoded : new Uint8Array(encoded));
     } else {
@@ -421,6 +416,8 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       mode,
       onWarning: (warning) => this.emit('codec-warning', warning),
     });
+    this.codecValidationLevel = 'off';
+    this.codecValidationDirection = 'any';
     this.emit('protocol-mode', { mode, reason });
     this.emitDiagnostic('info', 'protocol_mode_selected', `Selected ${mode} protocol codec (${reason}).`, { mode, reason });
   }
@@ -428,7 +425,26 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private resetProtocolSession(): void {
     this.clearHandshakeTimer();
     this.codec = null;
+    this.codecValidationLevel = 'off';
+    this.codecValidationDirection = 'any';
     this.selectedProtocolMode = null;
+  }
+
+  private readonly onValidationWarning = (warning: ProtocolValidationWarning): void => {
+    this.emit('validation-warning', warning);
+  };
+
+  private configureCodecValidation(
+    level: ProtocolValidationLevel,
+    direction: 'renderer-to-simulator' | 'simulator-to-renderer',
+  ): void {
+    // With validation off, direction has no effect. Keep the default codec
+    // configuration across the four incoming frames and the next send.
+    const effectiveDirection = level === 'off' ? 'any' : direction;
+    if (this.codecValidationLevel === level && this.codecValidationDirection === effectiveDirection) return;
+    this.codec!.setValidation({ level, direction: effectiveDirection, onWarning: this.onValidationWarning });
+    this.codecValidationLevel = level;
+    this.codecValidationDirection = effectiveDirection;
   }
 
   private clearHandshakeTimer(): void {
