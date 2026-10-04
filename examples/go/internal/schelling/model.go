@@ -34,6 +34,9 @@ type Config struct {
 
 type Model struct {
 	rng         *rand.Rand
+	rngSource   *countingSource
+	rngSeed     int64
+	StepCount   int
 	Initialized bool
 	Cells       []Cell
 	Config      Config `tensnap:"type=params"`
@@ -63,9 +66,9 @@ func DefaultConfig() Config {
 
 func NewModel(cfg Config) *Model {
 	model := &Model{
-		rng:    rand.New(rand.NewSource(time.Now().UnixNano())),
 		Config: cfg,
 	}
+	model.SetSeed(time.Now().UnixNano())
 	if model.Config.GridWidth <= 0 {
 		model.Config.GridWidth = defaultGridW
 	}
@@ -94,7 +97,9 @@ func NewSeededModel(cfg Config, seed int64) *Model {
 }
 
 func (m *Model) SetSeed(seed int64) {
-	m.rng = rand.New(rand.NewSource(seed))
+	m.rngSeed = seed
+	m.rngSource = &countingSource{source: rand.NewSource(seed)}
+	m.rng = rand.New(m.rngSource)
 }
 
 func (m *Model) Step() int {
@@ -135,6 +140,7 @@ func (m *Model) Step() int {
 		from.AgentID = ""
 	}
 	m.LastSwapped = swapped
+	m.StepCount++
 	return swapped
 }
 
@@ -195,9 +201,26 @@ func (m *Model) SegregationIndex() float64 {
 }
 
 func (m *Model) Initialize() {
+	m.StepCount = 0
 	m.RebuildCells()
 	m.Populate()
 	m.Initialized = true
+}
+
+// Count source reads while retaining Go's existing math/rand sequence.
+type countingSource struct {
+	source rand.Source
+	draws  uint64
+}
+
+func (s *countingSource) Int63() int64 {
+	s.draws++
+	return s.source.Int63()
+}
+
+func (s *countingSource) Seed(seed int64) {
+	s.source.Seed(seed)
+	s.draws = 0
 }
 
 func (m *Model) RebuildCells() {

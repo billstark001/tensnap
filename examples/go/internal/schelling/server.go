@@ -5,6 +5,7 @@ package schelling
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
 	"github.com/billstark001/tensnap/packages/tensnap-go/server"
@@ -21,6 +22,6 @@ func RunTenSnapServer(ctx context.Context, config Config, seed int64, port int) 
 		model.SetSeed(seed)
 		// The binding's init hook performs the one seeded initialization that is
 		// visible to this session.
-		return NewVizModel(model)
+		return NewVizModel(model, auditWriter(os.Getenv("TENSNAP_SCHELLING_AUDIT_STATE")))
 	})
 }
