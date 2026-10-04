@@ -106,7 +106,7 @@ def source_digest(binding: str) -> str:
              HERE / "test_harness_canaries.py", HERE / "validate_traces.ts",
              ROOT / "packages/protocol/SPECIFICATION.md", ROOT / "packages/core/src/runtime/RendererSession.ts",
              ROOT / "packages/core/src/runtime/RunController.ts",
-             ROOT / "packages/tensnap-agent/src/session/SimulatorClient.ts",
+             ROOT / "packages/core/src/runtime/RendererClient.ts",
              ROOT / "packages/tensnap-agent/src/session/NodeWebSocketTransport.ts",
              ROOT / "packages/tensnap-agent/src/runtime/AgentRuntime.ts",
              ROOT / "packages/protocol/src/schemas.ts", ROOT / "packages/protocol/src/codec.ts",
@@ -115,6 +115,8 @@ def source_digest(binding: str) -> str:
              ROOT / "conformance/tsconfig.json"]
     digest = hashlib.sha256()
     for path in sorted(set(files)):
+        if not path.is_file():
+            raise FileNotFoundError(f"conformance source digest for {binding}: missing file {path} (repository root: {ROOT})")
         digest.update(str(path.relative_to(ROOT)).encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()
@@ -810,7 +812,7 @@ def markdown(result: dict[str, Any]) -> str:
     lines.extend(["", "## Evidence and limits", "",
                   "The [wire probe](run_matrix.py) drives the public WebSocket path of the four [deterministic fixtures](fixtures/). The Python fixture exercises the same binding used by Mesa examples, but it does not instantiate Mesa's scheduler; Mesa-specific scheduler behavior is not established by this matrix. The probe records a full fixture host digest containing position, transition count, RNG state, scheduler queue, canonical parameter value, and the complete agent population. Projected items, grouped health charts, and monitors are checked separately. Results retain the test path, fixture path, binding version, encoding, and source digest.", "",
                   "A visible Scenario equality check compares renderer-owned projections only. The sidecar digest compares the complete state of this instrumented host, including fields absent from its visible projection. The population cases exercise spatial bounds, births/deaths, stable IDs, zero-population absorption, a 1,024-agent sync, and exact replay after a dense checkpoint. A second client inspects the live population before and after a first client's action without advancing the host. The JavaScript fixture follows the production example's per-connection session factory; its concurrent sessions have separate model state. Each item diff is applied to a local inventory and compared with host state; health chart counts and population monitors are checked independently. These claims apply to the fixture, not automatically to every example model.", "",
-                  "The [renderer bridge](renderer-client.ts) injects an invalid sync end boundary, disconnects before a valid end, and reconnects with stale items and chart history in committed state. The [live renderer probe](renderer-live-client.ts) uses the public `SimulatorClient` shared with the agent CLI against each binding and encoding. It checks the renderer projection against the host sidecar through parameter changes, actions, population churn, checkpoint replay, and concurrent inspection. A [capability probe](renderer-capability-client.ts) checks client rejection against a real host without checkpoint support. The host sidecar stays unchanged during read-only sync and capture operations.", "",
+                  "The [renderer bridge](renderer-client.ts) injects an invalid sync end boundary, disconnects before a valid end, and reconnects with stale items and chart history in committed state. The [live renderer probe](renderer-live-client.ts) uses the public `RendererClient` shared with the agent CLI against each binding and encoding. It checks the renderer projection against the host sidecar through parameter changes, actions, population churn, checkpoint replay, and concurrent inspection. A [capability probe](renderer-capability-client.ts) checks client rejection against a real host without checkpoint support. The host sidecar stays unchanged during read-only sync and capture operations.", "",
                   "The [protocol trace test](validate_traces.ts) schema-validates the earlier transport-neutral [trajectories](traces/). The [canary tests](test_harness_canaries.py) deliberately corrupt identity, transition count, action order, parameter correction, private RNG state, and replay state; each must be rejected by an assertion also used in the wire probe. The wire probe sends wrong model/instance/schema requests and unknown actions. The renderer client checks persisted identity mismatch and rejects checkpoint requests against a host without that capability. The renderer bridge injects mismatched sync boundaries and stale reconnect state.", "",
                   "## Case-study interpretation", "",
                   "| Case study | Existing evidence | Conformance interpretation |", "| --- | --- | --- |",
@@ -851,7 +853,7 @@ async def main() -> int:
                 run = await run_one(binding, encoding)
             except Exception as error:
                 run = {"binding": binding, "encoding": encoding, "fixture": FIXTURES[binding],
-                       "test": "conformance/run_matrix.py", "rows": {"_startup": {"status": "fail", "detail": repr(error)}} |
+                       "test": "conformance/run_matrix.py", "rows": {"_startup": {"status": "fail", "detail": f"{type(error).__name__}: {error}"}} |
                        {row: {"status": "not tested", "detail": "host failed before probe"} for row in ROWS}}
             for row, outcome in run["rows"].items():
                 print(f"  {row}: {outcome['status']} {outcome.get('detail', '')}", flush=True)
