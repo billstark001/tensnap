@@ -40,19 +40,19 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@leafer-ui/core": "^2.2.2",
+    "@leafer-ui/core": "^2.3.0",
     "@tensnap/protocol": "workspace:*",
     "d3": "^7.9.0",
-    "pure-expr": "0.2.0",
-    "zod": "^4.4.3"
+    "pure-expr": "0.4.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",
-    "@types/node": "^26.1.1",
-    "@vitest/coverage-v8": "^4.1.10",
-    "jsdom": "^29.1.1",
+    "@types/node": "^26.6.4",
+    "@vitest/coverage-v8": "^5.0.3",
+    "jsdom": "^30.1.1",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.3"
   },
   "keywords": [
     "tensnap",

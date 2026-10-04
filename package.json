@@ -76,10 +76,10 @@
     "format:md": "oxfmt --write '**/*.md' '.agents/**/*.md' '.github/**/*.md'"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.6.4",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.5",
     "typescript": "^7.0.2"
   },
   "engines": {

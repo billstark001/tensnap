@@ -1,4 +1,4 @@
-import { compile, type JSExprNode } from 'pure-expr';
+import { compile, type ExpressionNode } from 'pure-expr';
 import { AgentStorage } from '../environment/storages/AgentStorage';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { Scenario } from '../scenario';
@@ -40,7 +40,7 @@ type CachedConditionViews = {
 
 const conditionViews = new WeakMap<Scenario, CachedConditionViews>();
 
-const isNode = (value: unknown): value is JSExprNode =>
+const isNode = (value: unknown): value is ExpressionNode =>
   typeof value === 'object' &&
   value !== null &&
   'type' in value &&
@@ -51,32 +51,30 @@ const isNode = (value: unknown): value is JSExprNode =>
  * condition needs. Keep the public grammar deliberately small and make
  * `agent()` / `agentCount()` the only callable capabilities.
  */
-function validateConditionAst(node: JSExprNode): void {
+function validateConditionAst(node: ExpressionNode): void {
   if (
-    node.type === 'regex' ||
-    node.type === 'arrow-function' ||
-    node.type === 'template' ||
-    node.type === 'pipeline' ||
-    node.type === 'sequence' ||
-    node.type === 'topic' ||
-    node.type === 'spread'
+    (node.type === 'Literal' && 'regex' in node) ||
+    node.type === 'ArrowFunctionExpression' ||
+    node.type === 'TemplateLiteral' ||
+    node.type === 'TaggedTemplateExpression' ||
+    node.type === 'PipelineExpression' ||
+    node.type === 'SequenceExpression' ||
+    node.type === 'TopicReference' ||
+    node.type === 'SpreadElement'
   ) {
     throw new Error(`Unsupported stop expression syntax: ${node.type}.`);
   }
 
-  if (node.type === 'call') {
+  if (node.type === 'CallExpression') {
     if (
-      node.callee.type !== 'identifier' ||
+      node.callee.type !== 'Identifier' ||
       (node.callee.name !== 'agent' && node.callee.name !== 'agentCount')
     ) {
       throw new Error('Only agent(...) and agentCount(...) calls are allowed in stop expressions.');
     }
   }
 
-  if (
-    node.type === 'binary' &&
-    ['=', '+=', '-=', '*=', '/=', '%=', '**=', '&&=', '||=', '??='].includes(node.operator)
-  ) {
+  if (node.type === 'AssignmentExpression' || node.type === 'UpdateExpression') {
     throw new Error('Assignment is not allowed in stop expressions.');
   }
 
@@ -117,7 +115,7 @@ export function compileRunCondition(source: string): CompiledRunCondition {
     // The scope is built here from cloned/frozen renderer data and two
     // capability functions. `copy-plain-data-to-null-prototype` cannot carry
     // those functions, while calls remain explicitly permission-gated below.
-    rootContextMode: 'allow',
+    contextPolicy: { input: 'allow', isolation: 'reference' },
     isCallableAllowed: ({ fn }) => activeCalls[activeCalls.length - 1]?.has(fn) ?? false,
   });
   validateConditionAst(compiled.ast);
