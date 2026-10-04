@@ -139,6 +139,8 @@ export class RunController {
   private condition: CompiledRunCondition | null = null;
   private deadlineHandle: unknown | null = null;
   private actionTimeoutHandle: unknown | null = null;
+  private actionTimeoutScheduledAt: number | null = null;
+  private actionTimeoutDeadlineAt: number | null = null;
   private actionTimeoutTaskId: string | null = null;
   private actionTimeoutMs: number;
   private readonly invocationByTaskId = new Map<string, Pick<ActionInvokePayload, 'target' | 'kwargs'>>();
@@ -301,7 +303,7 @@ export class RunController {
     const task = this.matchActiveTask(payload);
     if (!task) return false;
 
-    this.clearActionTimeout(task.id);
+    this.releaseActionTimeout(task);
 
     if (!this.runtime.completeTask(task.id, { should_continue: payload.should_continue, timings: payload.timings })) {
       return false;
@@ -429,26 +431,64 @@ export class RunController {
   }
 
   private scheduleActionTimeout(task: RuntimeTaskSnapshot): void {
-    this.clearActionTimeout();
-    if (this.actionTimeoutMs <= 0) return;
-    this.actionTimeoutTaskId = task.id;
-    this.actionTimeoutHandle = this.scheduler.setTimeout(() => {
-      if (this.actionTimeoutTaskId !== task.id) return;
-      const activeTask = this.runtime.peekActiveTaskRef();
-      if (!activeTask || activeTask.id !== task.id || activeTask.stage !== 'dispatched') return;
+    if (this.actionTimeoutMs <= 0) {
       this.clearActionTimeout();
-      this.options.onActionTimeout?.(activeTask);
-      this.runtime.completeTask(activeTask.id, { should_continue: false });
-      if (activeTask.key === 'reset') this.options.scenario.endResetLifecycle();
-      this.runtime.markTaskApplied(activeTask.id);
-      if (this.activeRun?.state === 'running' && this.activeRun.spec.actionId === activeTask.key) {
-        this.finish('action-timeout');
-      } else {
-        this.discardInvocations(this.runtime.cancel(activeTask.key));
-      }
-      if (this.runtime.markTaskRendered(activeTask.id)) this.invocationByTaskId.delete(activeTask.id);
-      this.flushCommands();
-    }, this.actionTimeoutMs);
+      return;
+    }
+    this.actionTimeoutTaskId = task.id;
+    this.actionTimeoutDeadlineAt = this.scheduler.now() + this.actionTimeoutMs;
+    this.armActionTimeout(this.actionTimeoutDeadlineAt);
+  }
+
+  private armActionTimeout(deadline: number): void {
+    // During a continuous run, the previous deadline is always no later than
+    // the next action's deadline. Reuse that timer and check the current task
+    // when it fires instead of installing and cancelling one timer per tick.
+    if (this.actionTimeoutHandle !== null && this.actionTimeoutScheduledAt !== null
+      && this.actionTimeoutScheduledAt <= deadline) return;
+    if (this.actionTimeoutHandle !== null) this.scheduler.clearTimeout(this.actionTimeoutHandle);
+    const now = this.scheduler.now();
+    const delay = Math.max(1, deadline - now);
+    this.actionTimeoutScheduledAt = now + delay;
+    this.actionTimeoutHandle = this.scheduler.setTimeout(() => this.checkActionTimeout(), delay);
+  }
+
+  private checkActionTimeout(): void {
+    this.actionTimeoutHandle = null;
+    this.actionTimeoutScheduledAt = null;
+    const taskId = this.actionTimeoutTaskId;
+    const deadline = this.actionTimeoutDeadlineAt;
+    if (taskId === null || deadline === null) return;
+    const activeTask = this.runtime.peekActiveTaskRef();
+    if (!activeTask || activeTask.id !== taskId || activeTask.stage !== 'dispatched') {
+      this.clearActionTimeout();
+      return;
+    }
+    if (this.scheduler.now() < deadline) {
+      this.armActionTimeout(deadline);
+      return;
+    }
+    this.clearActionTimeout();
+    this.options.onActionTimeout?.(activeTask);
+    this.runtime.completeTask(activeTask.id, { should_continue: false });
+    if (activeTask.key === 'reset') this.options.scenario.endResetLifecycle();
+    this.runtime.markTaskApplied(activeTask.id);
+    if (this.activeRun?.state === 'running' && this.activeRun.spec.actionId === activeTask.key) {
+      this.finish('action-timeout');
+    } else {
+      this.discardInvocations(this.runtime.cancel(activeTask.key));
+    }
+    if (this.runtime.markTaskRendered(activeTask.id)) this.invocationByTaskId.delete(activeTask.id);
+    this.flushCommands();
+  }
+
+  private releaseActionTimeout(task: RuntimeTaskSnapshot): void {
+    if (this.actionTimeoutTaskId !== task.id) return;
+    this.actionTimeoutTaskId = null;
+    this.actionTimeoutDeadlineAt = null;
+    if (this.activeRun?.state !== 'running' || this.activeRun.spec.actionId !== task.key) {
+      this.clearActionTimeout();
+    }
   }
 
   private clearActionTimeout(taskId?: string): void {
@@ -457,6 +497,8 @@ export class RunController {
       this.scheduler.clearTimeout(this.actionTimeoutHandle);
       this.actionTimeoutHandle = null;
     }
+    this.actionTimeoutScheduledAt = null;
+    this.actionTimeoutDeadlineAt = null;
     this.actionTimeoutTaskId = null;
   }
 

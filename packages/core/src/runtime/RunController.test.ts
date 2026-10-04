@@ -360,6 +360,56 @@ describe('RunController', () => {
     expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'action-timeout' });
   });
 
+  it('reuses a watchdog during rapid ticks while preserving each tick deadline', async () => {
+    vi.useFakeTimers();
+    const sent: RendererToSimulatorMessage[] = [];
+    const setWatchdog = vi.fn((callback: () => void, delayMs: number) => setTimeout(callback, delayMs));
+    const clearWatchdog = vi.fn((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+    const session = new RendererSession({ run: {
+      actionTimeoutMs: 100,
+      scheduler: { now: () => Date.now(), setTimeout: setWatchdog, clearTimeout: clearWatchdog },
+    } });
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 4 });
+
+    for (let index = 0; index < 3; index += 1) {
+      await vi.advanceTimersByTimeAsync(5);
+      const requestId = tickId(sent[index]!);
+      session.handleIncoming({ type: 'action_result', payload: {
+        id: 'step', request_id: requestId, should_continue: true,
+      } });
+      session.run.markActionRendered({ id: 'step', request_id: requestId });
+    }
+
+    expect(sent).toHaveLength(4);
+    expect(setWatchdog).toHaveBeenCalledTimes(1);
+    expect(clearWatchdog).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(85); // The first tick's former deadline.
+    expect(session.run.status).toMatchObject({ state: 'running', completedSteps: 3 });
+    expect(setWatchdog).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(15); // The fourth tick's own deadline.
+    expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'action-timeout' });
+  });
+
+  it('moves the watchdog earlier when the action timeout is shortened', async () => {
+    vi.useFakeTimers();
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession({ run: { actionTimeoutMs: 100 } });
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.run.start({ mode: 'manual', actionId: 'step' });
+
+    await vi.advanceTimersByTimeAsync(10);
+    session.run.setActionTimeoutMs(20);
+    await vi.advanceTimersByTimeAsync(19);
+    expect(session.run.status?.state).toBe('running');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'action-timeout' });
+  });
+
   it.each([
     ['rejects', () => Promise.reject(new Error('canvas lost'))],
     ['throws', () => { throw new Error('canvas lost'); }],
