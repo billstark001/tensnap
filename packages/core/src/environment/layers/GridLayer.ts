@@ -18,14 +18,14 @@
  *
  * Level-of-detail selection per axis:
  *   The finest level m is the smallest integer where the pixel step
- *   (xUnit · xInterval · xRatio^m · pixelsPerSceneUnit) ≥ THRESHOLD_FINE (20 px).
- *   Levels m, m+1, m+2 are shown, skipping any whose pixel step < THRESHOLD_ANY (4 px).
+ *   (xUnit · xInterval · xRatio^m · pixelsPerSceneUnit) ≥ THRESHOLD_FINE (10 px).
+ *   Levels m, m+1, m+2 are shown, skipping any whose pixel step < THRESHOLD_ANY (2 px).
  *
  * Within each level, lines where `k mod xRatio === 0` coincide with the next
  * coarser level and are omitted (except for the coarsest selected level).
  *
  * Visual style (finest → coarsest):
- *   alpha  : '22' → '55' → 'aa'
+ *   alpha  : '66' → '99' → 'cc'
  *   weight : 0.6 px → 1.0 px → 1.5 px  (normalised to scene-space stroke width)
  *
  * Default z-index: 10
@@ -58,6 +58,7 @@ const LEVEL_WEIGHTS_PX = [0.6, 1.0, 1.5] as const;
 
 /** Extend slightly past the viewport to avoid clipping at the edges. */
 const VIEWPORT_MARGIN_FACTOR = 0.05;
+const MAX_GRID_LINES_PER_LEVEL = 10_000;
 
 // ── Exported interfaces ───────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ export interface GridLayerConfig {
 
 // ── GridLayer ─────────────────────────────────────────────────────────────────
 
+/** Infinite grid renderer with bounded line counts at each visible detail level. */
 export class GridLayer extends BaseLayer {
   readonly defaultZIndex = 10;
 
@@ -122,7 +124,7 @@ export class GridLayer extends BaseLayer {
     );
 
     const levels: number[] = [];
-    for (let dm = 0; dm < 3; dm++) {
+    for (let dm = 0; dm < LEVEL_ALPHAS.length; dm++) {
       const m = mFinest + dm;
       const pixelStep = baseStep * Math.pow(ratio, m) * ppu;
       if (pixelStep >= THRESHOLD_ANY) {
@@ -149,7 +151,10 @@ export class GridLayer extends BaseLayer {
       stroke_color: strokeColor = '#808080',
     } = this._envData;
 
-    if (xRatio <= 1 || yRatio <= 1) return;
+    if (!Number.isInteger(xRatio) || xRatio <= 1 || !Number.isInteger(yRatio) || yRatio <= 1
+      || !Number.isFinite(xUnit) || xUnit <= 0 || !Number.isFinite(yUnit) || yUnit <= 0
+      || !Number.isFinite(xInterval) || xInterval <= 0 || !Number.isFinite(yInterval) || yInterval <= 0
+      || !Number.isFinite(xOrigin) || !Number.isFinite(yOrigin)) return;
 
     const scale = this.calculateViewportScale(this._viewport, this._fitMode);
     // The fitted viewport can be narrower/taller than the physical canvas
@@ -228,11 +233,14 @@ export class GridLayer extends BaseLayer {
       const m = levels[li];
       const isCoarsest = li === levels.length - 1;
       const step = baseStep * Math.pow(ratio, m);
+      if (!Number.isFinite(step) || step <= 0 || !Number.isFinite(ppu) || ppu <= 0) continue;
       const color = this._withAlpha(strokeColor, LEVEL_ALPHAS[li]);
       const weight = LEVEL_WEIGHTS_PX[li] / ppu;   // px → scene units
 
       const kMin = Math.floor((viewMin - origin) / step) - 1;
       const kMax = Math.ceil((viewMax - origin) / step) + 1;
+      if (!Number.isSafeInteger(kMin) || !Number.isSafeInteger(kMax)
+        || kMax - kMin > MAX_GRID_LINES_PER_LEVEL) continue;
 
       for (let k = kMin; k <= kMax; k++) {
         // n = k mod c (with wrap for negative k).
@@ -241,6 +249,7 @@ export class GridLayer extends BaseLayer {
         if (!isCoarsest && n === 0) continue;
 
         const pos = origin + step * k;
+        if (!Number.isFinite(pos)) continue;
         const pts: [number, number, number, number] =
           direction === 'vertical'
             ? [pos, perpMin, pos, perpMax]

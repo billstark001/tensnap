@@ -232,7 +232,7 @@ export class TrajectoryLayer extends BaseLayer {
           typeof point.color === 'string' && point.color.length > 0
         ))?.color;
       }
-      segments.push(...splitTrajectoryPoints(points, this._cfg.worldBounds));
+      for (const segment of splitTrajectoryPoints(points, this._cfg.worldBounds)) segments.push(segment);
     }
     return { segments, firstPointColor };
   }

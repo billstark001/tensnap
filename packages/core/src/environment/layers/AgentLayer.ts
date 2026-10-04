@@ -4,11 +4,11 @@
  * Unified agent rendering layer. Supports:
  *   Grid mode  — x/y are grid-cell coordinates; GridEnvStorage supplies cell
  *                count; heading rotates the shape.
- *   Graph mode — x/y are canvas-pixel coordinates (managed by EdgeLayer's
+ *   Graph mode — x/y are scene coordinates (managed by EdgeLayer's
  *                d3-force simulation); drag interaction via config callbacks.
  *
  * Each agent: one Group containing a shape + optional label.
- * Trajectories live in a sub-group rendered below agents.
+ * Trajectories are rendered by a separate TrajectoryLayer below agents.
  *
  * Default z-index: 40
  * Registered storages: AgentStorage (required), GridEnvStorage (optional)
@@ -40,7 +40,7 @@ import {
   isBuiltinAgentIcon,
 } from '../types';
 import type { AgentIcon, AgentId, BuiltinAgentIcon } from '@tensnap/protocol/layers';
-import { getCoordOffsetValue } from '../utils';
+import { getCoordOffsetValue, resolveAgentSize } from '../utils';
 import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';
 
 // #region Constants & Defaults
@@ -201,8 +201,8 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
 
-    for (const { x = 0, y = 0, size = 1 } of this._cachedAgents.values()) {
-      const h = size / 2;
+    for (const { x = 0, y = 0, size } of this._cachedAgents.values()) {
+      const h = resolveAgentSize(size) / 2;
       if (x - h < minX) minX = x - h;
       if (x + h > maxX) maxX = x + h;
       if (y - h < minY) minY = y - h;
@@ -266,7 +266,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   // #region Coordinate Transform
 
-  /** Cell-center offset in grid mode: 0.5 for 'int', 0 for 'center'. */
+  /** Cell-center offset: 0.5 for integer coordinates, 0 for float coordinates. */
   private get _posOffset(): number {
     return getCoordOffsetValue(this._cfg.coordOffset);
   }
@@ -277,7 +277,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       x: (agent.x ?? 0) + off,
       y: (agent.y ?? 0) + off,
       rotation: agent.heading ? (agent.heading * 180) / Math.PI : 0,
-      size: agent.size ?? 1,
+      size: resolveAgentSize(agent.size),
     };
   }
 

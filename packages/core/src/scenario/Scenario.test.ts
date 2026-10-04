@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Scenario } from './Scenario';
-import { AgentStorage, BaseStorage } from '../environment/storages';
+import { AgentStorage, BackgroundStorage, BaseStorage } from '../environment/storages';
 import { EdgeStorage } from '../environment/storages/EdgeStorage';
 import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
 import { registerLayerType } from './layer-registry';
@@ -895,9 +895,79 @@ describe('Scenario – createStateSyncMessage', () => {
     expect(msg2.payload.request_id).toBe('sync-1');
   });
 
+  it('does not expose live parameter objects through the sync request', () => {
+    const scenario = new Scenario();
+    scenario.apply(msg('param_create', { id: 'rate', type: 'number', label: 'Rate', value: 1 }));
+    const request = scenario.createStateSyncMessage('model-1', 'sync-1');
+    request.payload.parameters[0].value = 99;
+    expect(scenario.getParameter('rate')?.value).toBe(1);
+  });
+
   it('includes a request id for action correlation', () => {
     const s = new Scenario();
     const msg2 = s.createActionInvokeMessage('start', 'action-1', { continuous: true });
     expect(msg2.payload).toEqual({ id: 'start', continuous: true, request_id: 'action-1' });
+  });
+});
+
+describe('Scenario – background assets', () => {
+  it('clears invalidated assets and ignores late old data', async () => {
+    const scenario = new Scenario();
+    scenario.apply(msg('env_create', { id: 'env', type: '2d' }));
+    scenario.apply(msg('env_layer_create', {
+      env_id: 'env', layer_id: 'background', layer_type: 'background',
+      metadata: { background: { asset_id: 'image' } },
+    }));
+    const storage = scenario.getEnvironment('env')!.layers.get('background')!.storage as BackgroundStorage;
+    const metadata = (hash: string) => msg('asset_metadata', { assets: [
+      { id: 'image', hash, mime: 'image/png', size: 3 },
+    ] });
+    const data = (hash: string) => msg('asset_data', {
+      id: 'image', hash, mime: 'image/png', data: new Uint8Array([1, 2, 3]),
+    });
+
+    scenario.apply(metadata('one'));
+    scenario.apply(data('one'));
+    await Promise.resolve();
+    expect(storage.getData()?.kind).toBe('image');
+
+    scenario.apply(metadata('two'));
+    expect(storage.getData()).toBeNull();
+    scenario.apply(data('one'));
+    await Promise.resolve();
+    expect(storage.getData()).toBeNull();
+    scenario.apply(data('two'));
+    await Promise.resolve();
+    expect(storage.getData()?.kind).toBe('image');
+
+    scenario.apply(msg('asset_delete', { ids: ['image'] }));
+    expect(storage.getData()).toBeNull();
+  });
+
+  it('rebinds asset backgrounds after snapshot load and owns layer metadata', async () => {
+    const source = new Scenario();
+    source.apply(msg('env_create', { id: 'env', type: '2d' }));
+    source.apply(msg('env_layer_create', {
+      env_id: 'env', layer_id: 'background', layer_type: 'background',
+      metadata: { background: { asset_id: 'image' } },
+    }));
+    source.apply(msg('asset_metadata', { assets: [
+      { id: 'image', hash: 'one', mime: 'image/png', size: 3 },
+    ] }));
+    source.apply(msg('asset_data', {
+      id: 'image', hash: 'one', mime: 'image/png', data: new Uint8Array([1, 2, 3]),
+    }));
+    await Promise.resolve();
+    const snapshot = source.dump();
+    const restored = new Scenario();
+    restored.load(snapshot);
+    const layer = restored.getEnvironment('env')!.layers.get('background')!;
+    const storage = layer.storage as BackgroundStorage;
+    expect(storage.getData()).toMatchObject({ kind: 'image', url: restored.assets.getUrl('image') });
+
+    (snapshot.environments[0].layers[0].metadata.background as { asset_id: string }).asset_id = 'different';
+    expect(layer.metadata.background).toEqual({ asset_id: 'image' });
+    source.reset();
+    restored.reset();
   });
 });

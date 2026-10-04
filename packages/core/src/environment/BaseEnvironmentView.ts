@@ -3,7 +3,9 @@ import type { IBoundedLayer, SceneBounds, Viewport } from './types';
 import type { EnvironmentLayerHost, EnvironmentSurfaceSize, EnvironmentViewFitMode, IResizableLayer } from './host';
 
 export interface FitToSceneOptions {
+  /** Non-negative margin around the layer bounds; defaults to 10% per side. */
   padding?: number;
+  /** `fraction` scales with each scene extent; `pixels` uses world-space units. */
   paddingUnit?: 'fraction' | 'pixels';
 }
 
@@ -14,6 +16,11 @@ export interface BaseEnvironmentViewOptions {
 }
 
 const MIN_VIEWPORT_EXTENT = 1e-6;
+
+/** Round a canvas extent to a finite positive pixel count. */
+export function normalizeSurfaceDimension(value: number): number {
+  return Number.isFinite(value) ? Math.max(1, Math.round(value)) : 1;
+}
 
 function sanitizeExtent(value: number | undefined, fallback: number): number {
   return Number.isFinite(value) && (value as number) > MIN_VIEWPORT_EXTENT
@@ -51,8 +58,8 @@ export abstract class BaseEnvironmentView implements EnvironmentLayerHost {
   ) {
     this.leafer = leafer;
     this._surfaceSize = {
-      width: Math.max(1, Math.round(surfaceSize.width)),
-      height: Math.max(1, Math.round(surfaceSize.height)),
+      width: normalizeSurfaceDimension(surfaceSize.width),
+      height: normalizeSurfaceDimension(surfaceSize.height),
     };
     this._fitMode = options.fitMode ?? 'contain';
     this._viewport = normalizeViewport(options.initialViewport, this._surfaceSize);
@@ -92,8 +99,8 @@ export abstract class BaseEnvironmentView implements EnvironmentLayerHost {
 
   protected updateSurfaceSize(width: number, height: number): void {
     const next = {
-      width: Math.max(1, Math.round(width)),
-      height: Math.max(1, Math.round(height)),
+      width: normalizeSurfaceDimension(width),
+      height: normalizeSurfaceDimension(height),
     };
     if (next.width === this._surfaceSize.width && next.height === this._surfaceSize.height) {
       return;
@@ -119,6 +126,7 @@ export abstract class BaseEnvironmentView implements EnvironmentLayerHost {
     this._notifyLayers();
   }
 
+  /** Fit all layers with finite scene bounds; invalid bounds do not affect the view. */
   fitToScene({ padding = 0.1, paddingUnit = 'fraction' }: FitToSceneOptions = {}): void {
     const bounds = this.calculateSceneBounds();
 
@@ -134,8 +142,9 @@ export abstract class BaseEnvironmentView implements EnvironmentLayerHost {
     const sceneH = sanitizeExtent(rawSceneH, this._viewport.height);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerY = (bounds.minY + bounds.maxY) / 2;
-    const padX = paddingUnit === 'pixels' ? padding : sceneW * padding;
-    const padY = paddingUnit === 'pixels' ? padding : sceneH * padding;
+    const safePadding = Number.isFinite(padding) ? Math.max(0, padding) : 0;
+    const padX = paddingUnit === 'pixels' ? safePadding : sceneW * safePadding;
+    const padY = paddingUnit === 'pixels' ? safePadding : sceneH * safePadding;
 
     this.setViewport(
       centerX - sceneW / 2 - padX,
@@ -157,7 +166,9 @@ export abstract class BaseEnvironmentView implements EnvironmentLayerHost {
       }
 
       const bounds = (layer as IResizableLayer & IBoundedLayer).getSceneBounds();
-      if (!bounds) {
+      if (!bounds || !Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX)
+        || !Number.isFinite(bounds.minY) || !Number.isFinite(bounds.maxY)
+        || bounds.minX > bounds.maxX || bounds.minY > bounds.maxY) {
         continue;
       }
 
@@ -167,7 +178,7 @@ export abstract class BaseEnvironmentView implements EnvironmentLayerHost {
       if (bounds.maxY > maxY) maxY = bounds.maxY;
     }
 
-    return isFinite(minX) ? { minX, maxX, minY, maxY } : null;
+    return Number.isFinite(minX) ? { minX, maxX, minY, maxY } : null;
   }
 
   addLayer(layer: IResizableLayer): void {

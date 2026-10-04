@@ -2,6 +2,7 @@
  * environment/utils/index.ts
  */
 export * from './color';
+export * from './agent';
 export * from './coords';
 export * from './throttle';
 export * from './shape';

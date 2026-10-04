@@ -29,9 +29,10 @@ export type BackgroundData = BackgroundValue | null;
 // ---------------------------------------------------------------------------
 
 export class BackgroundStorage extends BaseStorage<BackgroundData> {
-  /** Currently active blob URL (if any) — kept so we can revoke it. */
+  /** Blob URL created by this storage; asset URLs belong to AssetStore. */
   private _blobUrl: string | null = null;
-  private _cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly _cleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private _requestGeneration = 0;
 
   constructor() {
     super(null);
@@ -42,7 +43,8 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
   }
 
   override load(snapshot: unknown): void {
-    this.setData((snapshot as BackgroundData) ?? null);
+    this._requestGeneration += 1;
+    this._setResolved((snapshot as BackgroundData) ?? null);
   }
 
   // -------------------------------------------------------------------------
@@ -51,13 +53,15 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
 
   /**
    * Accept raw background input, resolve it asynchronously, and notify.
-   * The caller does not need to await — resolution happens in the background.
+   * Resolves only the latest request; a superseded image cannot replace a
+   * newer background. Rejects when an image cannot be decoded or loaded.
    * @param interpolation Image interpolation mode. Defaults to 'nearest'.
    */
   async setBackground(
     background: string | Uint8Array | undefined,
     interpolation: BackgroundInterpolation = 'nearest',
   ): Promise<void> {
+    const generation = ++this._requestGeneration;
     if (background === undefined || background === null) {
       this._setResolved(null);
       return;
@@ -69,6 +73,7 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
       } else {
         // Image URL (including blob-URLs from AssetStore) — resolve via Image().
         const img = await loadImageAsync(background, interpolation);
+        if (generation !== this._requestGeneration) return;
         const isBlob = background.startsWith('blob:');
         this._setResolved({ kind: 'image', url: img.src, isBlob, interpolation });
       }
@@ -77,19 +82,29 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
 
     // Uint8Array — detect format and decode
     const url = await parseUint8ArrayBackground(background, interpolation);
-    const img = await loadImageAsync(url, interpolation);
-    this._setResolved({ kind: 'image', url: img.src, isBlob: url.startsWith('blob:'), interpolation });
+    const ownedUrl = url.startsWith('blob:') ? url : null;
+    try {
+      if (generation !== this._requestGeneration) return;
+      const img = await loadImageAsync(url, interpolation);
+      if (generation !== this._requestGeneration) return;
+      this._setResolved({ kind: 'image', url: img.src, isBlob: ownedUrl !== null, interpolation }, ownedUrl);
+    } finally {
+      if (ownedUrl && this._blobUrl !== ownedUrl && !this._cleanupTimers.has(ownedUrl)) {
+        URL.revokeObjectURL(ownedUrl);
+      }
+    }
   }
 
   /**
    * Set the background from a pre-resolved asset URL (e.g. a blob-URL from AssetStore).
-   * The URL is treated as already-resolved — no Image() load is performed.
+   * The caller retains ownership of the URL; no Image() load is performed.
    * Pass `undefined` or `null` to clear the background.
    */
   setBackgroundUrl(
     url: string | undefined | null,
     interpolation: BackgroundInterpolation = 'nearest',
   ): void {
+    this._requestGeneration += 1;
     if (!url) {
       this._setResolved(null);
       return;
@@ -99,6 +114,7 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
   }
 
   destroy(): void {
+    this._requestGeneration += 1;
     this._revokePendingBlob();
   }
 
@@ -106,28 +122,29 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
   // Internal
   // -------------------------------------------------------------------------
 
-  private _setResolved(data: BackgroundData): void {
+  private _setResolved(data: BackgroundData, ownedUrl: string | null = null): void {
     const oldBlobUrl = this._blobUrl;
-    this._blobUrl =
-      data?.kind === 'image' && data.isBlob ? data.url : null;
+    this._blobUrl = ownedUrl ?? (data?.kind === 'image' && data.url === oldBlobUrl ? oldBlobUrl : null);
     this.setData(data);
     this._scheduleRevoke(oldBlobUrl);
   }
 
   private _scheduleRevoke(oldUrl: string | null): void {
     if (!oldUrl || oldUrl === this._blobUrl) return;
-    if (this._cleanupTimer !== null) clearTimeout(this._cleanupTimer);
-    this._cleanupTimer = setTimeout(() => {
+    if (this._cleanupTimers.has(oldUrl)) return;
+    const timer = setTimeout(() => {
       URL.revokeObjectURL(oldUrl);
-      this._cleanupTimer = null;
+      this._cleanupTimers.delete(oldUrl);
     }, 200);
+    this._cleanupTimers.set(oldUrl, timer);
   }
 
   private _revokePendingBlob(): void {
-    if (this._cleanupTimer !== null) {
-      clearTimeout(this._cleanupTimer);
-      this._cleanupTimer = null;
+    for (const [url, timer] of this._cleanupTimers) {
+      clearTimeout(timer);
+      URL.revokeObjectURL(url);
     }
+    this._cleanupTimers.clear();
     if (this._blobUrl) {
       URL.revokeObjectURL(this._blobUrl);
       this._blobUrl = null;
@@ -143,7 +160,7 @@ export async function loadImageAsync(
   src: string,
   interpolation: BackgroundInterpolation = 'nearest',
 ): Promise<HTMLImageElement> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     if (interpolation === 'nearest') {
       img.style.imageRendering = 'pixelated';
@@ -153,6 +170,7 @@ export async function loadImageAsync(
     }
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load background image: ${src}`));
     img.src = src;
   });
 }

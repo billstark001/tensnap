@@ -54,7 +54,7 @@ import {
   layerRegistry,
   LayerRegistryClass,
 } from './layer-registry';
-import { createStateSyncInventory } from './state-sync-inventory';
+import { createStateSyncInventory, createStateSyncRequest } from './state-sync-inventory';
 import type {
   ScenarioEnvironmentSnapshot,
   ScenarioEnvironmentState,
@@ -383,26 +383,22 @@ export class Scenario extends LazyEventTarget {
 
   /** Advertise the current definitions for a read-only sync; simulator state remains authoritative. */
   createStateSyncMessage(modelId: string, requestId: string, instanceId?: string): RendererToSimulatorMessage<StateSyncRequest> {
-    // Internal state references are safe to include directly: this message is
-    // serialized immediately by the caller and never mutated in-process.
+    // The inventory projection is cheap; createStateSyncRequest takes its own
+    // copy before returning a public protocol message.
+    const inventory = createStateSyncInventory({
+      parameters: this.parametersState.values(),
+      actions: this.actionsState.values(),
+      environments: [...this.environmentsState.values()].map((environment) => ({
+        id: environment.id,
+        type: environment.type,
+        layers: environment.layers.values(),
+      })),
+      charts: this.chartState.getAllMeta(),
+      monitors: this.monitorState.dump(),
+    });
     return {
       type: 'state_sync',
-      payload: {
-        request_id: requestId,
-        model_id: modelId,
-        instance_id: instanceId,
-        ...createStateSyncInventory({
-          parameters: this.parametersState.values(),
-          actions: this.actionsState.values(),
-          environments: [...this.environmentsState.values()].map((environment) => ({
-            id: environment.id,
-            type: environment.type,
-            layers: environment.layers.values(),
-          })),
-          charts: this.chartState.getAllMeta(),
-          monitors: this.monitorState.dump(),
-        }),
-      },
+      payload: createStateSyncRequest(modelId, requestId, instanceId, inventory),
     };
   }
 
@@ -463,7 +459,7 @@ export class Scenario extends LazyEventTarget {
         dependencyGraph: new Map(),
       };
       for (const layer of environment.layers) {
-        const metadata = layer.metadata ?? {};
+        const metadata = cloneValue(layer.metadata ?? {});
         const storage = this.createStorageForLayer(layer.layerType, metadata);
         storage.load(cloneValue(layer.storageSnapshot));
         restoredEnv.layers.set(layer.id, {
@@ -483,8 +479,11 @@ export class Scenario extends LazyEventTarget {
     // partially migrated archive, so treat an absent collection as empty.
     this.monitorState.load(snapshot.monitors ?? []);
 
-    this.logsState.push(...snapshot.logs.map(cloneValue));
+    for (const log of snapshot.logs) this.logsState.push(cloneValue(log));
     this.assetState.load(snapshot.assets);
+    for (const asset of snapshot.assets) {
+      if (this.assetState.getUrl(asset.meta.id)) this.refreshBackgroundLayersForAsset(asset.meta.id);
+    }
   }
 
   reset(options: { preserveTrajectoryLayers?: boolean } = {}): void {
@@ -973,19 +972,24 @@ export class Scenario extends LazyEventTarget {
   private receiveAssetMeta(payload: AssetMetadataPayload): void {
     // Pass the array directly: AssetStore takes ownership and payload is never
     // mutated externally, so per-item cloning is unnecessary.
-    this.assetState.receiveMetaBatch(payload.assets);
+    const invalidated = this.assetState.receiveMetaBatch(payload.assets);
+    for (const id of invalidated) this.refreshBackgroundLayersForAsset(id);
     this.emit('asset:metadata', payload);
   }
 
   private receiveAssetData(payload: AssetDataPayload): void {
     void this.assetState.receiveData(payload.id, payload.hash, payload.mime, payload.data).then(() => {
+      if (this.assetState.get(payload.id)?.hash !== payload.hash) return;
       this.refreshBackgroundLayersForAsset(payload.id);
       this.emit('asset:data', payload);
+    }).catch((error: unknown) => {
+      this.reportDiagnostic('asset_data_invalid', `Cannot decode asset ${payload.id}: ${error instanceof Error ? error.message : String(error)}`, payload);
     });
   }
 
   private deleteAssets(payload: AssetDeletePayload): void {
     this.assetState.deleteBatch(payload.ids);
+    for (const id of payload.ids) this.refreshBackgroundLayersForAsset(id);
     this.emit('asset:delete', payload);
   }
 

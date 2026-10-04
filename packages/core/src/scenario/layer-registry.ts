@@ -726,7 +726,9 @@ const backgroundLayerController: ItemLayerController = {
       || background === undefined
       || background === null
     ) {
-      void storage.setBackground(background ?? undefined, interpolation);
+      void storage.setBackground(background ?? undefined, interpolation).catch((error: unknown) => {
+        context.reportWarning(`Failed to load background: ${error instanceof Error ? error.message : String(error)}`);
+      });
       return;
     }
     if (isBackgroundAssetReference(background)) {

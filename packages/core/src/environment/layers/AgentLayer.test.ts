@@ -50,4 +50,14 @@ describe('AgentLayer inspection highlight', () => {
     expect(getLeaferProperty(entry.group, 'zIndex')).toBe(1_000);
     layer.destroy();
   });
+
+  it('uses a finite positive marker size when an agent advertises an invalid diameter', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([{ id: 'invalid-size', x: 2, y: 3, size: -4 }]);
+    const layer = new AgentLayer(agents);
+    const entry = getEntry(layer, 'invalid-size') as AgentEntry & { size: number };
+    expect(entry.size).toBe(1);
+    expect(layer.getSceneBounds()).toEqual(expect.objectContaining({ minX: expect.any(Number), maxX: expect.any(Number) }));
+    layer.destroy();
+  });
 });

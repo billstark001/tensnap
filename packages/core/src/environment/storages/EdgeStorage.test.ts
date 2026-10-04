@@ -24,6 +24,35 @@ describe('EdgeStorage – addEdge / addEdges', () => {
     const s = new EdgeStorage([{ source: 'x', target: 'y' }]);
     expect(s.getEdgeCount()).toBe(1);
   });
+
+  it('owns input edges so caller mutations cannot desynchronize indexes', () => {
+    const input = { source: 'a', target: 'b', color: '#f00' };
+    const storage = new EdgeStorage([input]);
+    input.source = 'other';
+    input.color = '#00f';
+    expect(storage.findEdge('a', 'b')).toMatchObject({ source: 'a', target: 'b', color: '#f00' });
+    expect(storage.getEdgesForAgent('other')).toEqual([]);
+
+    const added = { source: 'c', target: 'd', color: '#0f0' };
+    storage.addEdge(added);
+    added.target = 'other';
+    expect(storage.findEdge('c', 'd')).toMatchObject({ target: 'd', color: '#0f0' });
+  });
+
+  it('keeps numeric and string IDs and embedded separators distinct', () => {
+    const s = new EdgeStorage();
+    s.addEdges([
+      { source: 1, target: 2 },
+      { source: '1', target: '2' },
+      { source: 'a\0b', target: 'c' },
+      { source: 'a', target: 'b\0c' },
+    ]);
+    expect(s.getEdgeCount()).toBe(4);
+    expect(s.getEdgesForAgent(1)).toHaveLength(1);
+    expect(s.getEdgesForAgent('1')).toHaveLength(1);
+    expect(s.findEdge('a\0b', 'c')).toBeDefined();
+    expect(s.findEdge('a', 'b\0c')).toBeDefined();
+  });
 });
 
 describe('EdgeStorage – findEdge / getEdgesForAgent', () => {
@@ -76,8 +105,18 @@ describe('EdgeStorage – updateEdge / updateEdges', () => {
 
   it('updateEdge creates edge if it does not exist', () => {
     const s = new EdgeStorage();
+    const listener = vi.fn();
+    s.subscribe(listener);
     s.updateEdge('a', 'b', {});
     expect(s.getEdgeCount()).toBe(1);
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it('does not let attribute updates corrupt endpoint indexes', () => {
+    const s = new EdgeStorage([{ source: 'a', target: 'b' }]);
+    s.updateEdge('a', 'b', { source: 'other', target: 'other' });
+    expect(s.findEdge('a', 'b')).toMatchObject({ source: 'a', target: 'b' });
+    expect(s.getEdgesForAgent('other')).toEqual([]);
   });
 
   it('updateEdges modifies multiple edges', () => {
@@ -144,6 +183,16 @@ describe('EdgeStorage – subscriber notifications', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     const [, delta] = listener.mock.calls[0];
     expect(delta.added).toHaveLength(1);
+  });
+
+  it('classifies an existing edge as updated and skips an empty batch', () => {
+    const s = new EdgeStorage([{ source: 'a', target: 'b' }]);
+    const listener = vi.fn();
+    s.subscribe(listener);
+    s.addEdge({ source: 'a', target: 'b', color: '#123456' });
+    s.addEdges([]);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls[0][1]).toMatchObject({ added: [], updated: [{ color: '#123456' }] });
   });
 
   it('notifies subscriber with removed delta on removeEdge', () => {

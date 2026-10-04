@@ -15,7 +15,7 @@
  *   - onDragMove:  update the pinned fx/fy by accumulated delta.
  *   - onDragEnd:   un-pin the node, cool simulation.
  *
- * Default z-index: 20 (edges render behind agents at z=30).
+ * Default z-index: 20 (edges render behind agents at z=40).
  *
  * Registered storages:
  *   - EdgeStorage   (required)
@@ -33,6 +33,7 @@ import type { AgentId } from '@tensnap/protocol/layers';
 import type { Viewport, GraphEdge } from '../types';
 import { GraphEnvConfig } from '../types/env';
 import { createArrowhead, createEdgeLine } from '../utils/shape';
+import { resolveAgentSize } from '../utils/agent';
 
 // #region Types & Constants
 
@@ -168,10 +169,21 @@ export class EdgeLayer extends BaseLayer {
       const key = this._edgeKey(edge);
       const link = this._simLinkMap.get(key);
       if (link) {
-        Object.assign(link, edge);
+        // Preserve the d3-resolved endpoint objects. The storage edge carries
+        // raw IDs, which would break _tick() if copied onto the SimLink.
+        link.directed = edge.directed;
+        link.style = edge.style;
+        link.width = edge.width;
+        link.color = edge.color;
+        // Stroke, width, style, and directedness live on Leafer shapes, not
+        // on the link force. Rebuild this one shape when those fields change.
+        this._removeEdgeShape(key);
+        this._addEdgeShape(key, link);
       }
     }
-    if (added.length || updated.length) {
+    // Endpoint identity is immutable in EdgeStorage. Appearance-only updates
+    // change Leafer shapes, but need not reindex every d3 link or reheat it.
+    if (added.length) {
       this._syncLinkForce();
       if (!this._readOnlyLayout) {
         this._simulation?.alpha(0.1).restart();
@@ -205,8 +217,15 @@ export class EdgeLayer extends BaseLayer {
       return;
     }
     const agents = this._agentStorage.getData().agents;
-    const sameSet = agents.size === this._simNodes.length &&
-      [...agents.keys()].every(id => this._simNodeMap.has(id));
+    let sameSet = agents.size === this._simNodes.length;
+    if (sameSet) {
+      for (const id of agents.keys()) {
+        if (!this._simNodeMap.has(id)) {
+          sameSet = false;
+          break;
+        }
+      }
+    }
 
     if (sameSet) {
       // Fast path: refresh non-simulation fields in-place; preserve dynamics.
@@ -274,33 +293,33 @@ export class EdgeLayer extends BaseLayer {
 
   /** Rebuild _simLinks from _simLinkMap and push to the link force. */
   private _syncLinkForce(): void {
-      const validLinks: SimLink[] = [];
+    const validLinks: SimLink[] = [];
 
-  for (const [key, link] of this._simLinkMap) {
-    const src = this._simNodeMap.get(link.sourceId);
-    const tgt = this._simNodeMap.get(link.targetId);
+    for (const [key, link] of this._simLinkMap) {
+      const src = this._simNodeMap.get(link.sourceId);
+      const tgt = this._simNodeMap.get(link.targetId);
 
-    if (!src || !tgt) {
-      // valid -> invalid link
-      this._removeEdgeShape(key);
-      continue;
+      if (!src || !tgt) {
+        // valid -> invalid link
+        this._removeEdgeShape(key);
+        continue;
+      }
+
+      link.source = src;
+      link.target = tgt;
+      validLinks.push(link);
+
+      // invalid -> valid link
+      if (!this._edgeShapeMap.has(key)) {
+        this._addEdgeShape(key, link);
+      } else {
+        const entry = this._edgeShapeMap.get(key)!;
+        entry.link = link;
+      }
     }
 
-    link.source = src;
-    link.target = tgt;
-    validLinks.push(link);
-
-    // invalid -> valid link
-    if (!this._edgeShapeMap.has(key)) {
-      this._addEdgeShape(key, link);
-    } else {
-      const entry = this._edgeShapeMap.get(key)!;
-      entry.link = link;
-    }
-  }
-
-  this._simLinks = validLinks;
-  this._linkForce?.links(this._simLinks);
+    this._simLinks = validLinks;
+    this._linkForce?.links(this._simLinks);
   }
 
   // #endregion
@@ -337,10 +356,12 @@ export class EdgeLayer extends BaseLayer {
       const dx = tgt.x - src.x;
       const dy = tgt.y - src.y;
       const dist = Math.hypot(dx, dy) || 1;
-      const x1 = src.x + (dx / dist) * ((src.size ?? 1) / 2);
-      const y1 = src.y + (dy / dist) * ((src.size ?? 1) / 2);
-      const x2 = tgt.x - (dx / dist) * ((tgt.size ?? 1) / 2);
-      const y2 = tgt.y - (dy / dist) * ((tgt.size ?? 1) / 2);
+      const srcRadius = resolveAgentSize(src.size) / 2;
+      const tgtRadius = resolveAgentSize(tgt.size) / 2;
+      const x1 = src.x + (dx / dist) * srcRadius;
+      const y1 = src.y + (dy / dist) * srcRadius;
+      const x2 = tgt.x - (dx / dist) * tgtRadius;
+      const y2 = tgt.y - (dy / dist) * tgtRadius;
 
       line.set({ points: [x1, y1, x2, y2] });
       if (arrowhead) arrowhead.set({ x: x2, y: y2, rotation: Math.atan2(dy, dx) * 180 / Math.PI });
@@ -386,7 +407,11 @@ export class EdgeLayer extends BaseLayer {
       if (arrowhead) this.group.remove(arrowhead);
     }
     this._edgeShapeMap.clear();
-    for (const [key, link] of this._simLinkMap) this._addEdgeShape(key, link);
+    for (const [key, link] of this._simLinkMap) {
+      if (this._simNodeMap.has(link.sourceId) && this._simNodeMap.has(link.targetId)) {
+        this._addEdgeShape(key, link);
+      }
+    }
   }
 
   // #endregion
