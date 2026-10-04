@@ -23,7 +23,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11
+          version: 12
 
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile

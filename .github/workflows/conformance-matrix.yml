@@ -17,7 +17,7 @@ jobs:
           node-version: '24'
       - uses: pnpm/action-setup@v4
         with:
-          version: 11
+          version: 12
       - run: pnpm install --frozen-lockfile
       - run: pnpm --dir packages/tensnap-agent lint
       - run: pnpm --dir packages/tensnap-agent test

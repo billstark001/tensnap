@@ -6,7 +6,7 @@ Quick guide to set up a development environment for TenSnap.
 
 - **Git**: Version control
 - **Python 3.10+**: For Python backend
-- **Node.js 24+** and **pnpm 11+**: For the TypeScript 7/Vite 8 workspace
+- **Node.js 24+** and **pnpm 12.x**: For the TypeScript 7/Vite 8 workspace
 - **Go 1.22+**: For Go bindings and examples
 - **Julia 1.9+**: For TenSnap.jl and Julia examples
 - **Rust 1.88+ & Cargo**: For the current Tauri dependency graph (optional)
@@ -31,6 +31,8 @@ pnpm install  # Installs all workspace packages
 The workspace compiles with TypeScript 7. `zod-to-ts` still executes the removed pre-v7 JavaScript compiler API, so `.pnpmfile.cjs` gives it a private TypeScript 6 runtime. Do not remove that compatibility dependency until upstream supports the TypeScript 7 APIs; application and library typechecks continue to resolve TypeScript 7.
 
 `pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
+
+Oxfmt excludes generated Lingui modules, Tauri schemas, conformance matrix, and retained benchmark reports. Regenerate these files with their owning tools.
 
 To refresh the npm toolchain, run both root and workspace updates, then verify cross-package tool versions before installing:
 

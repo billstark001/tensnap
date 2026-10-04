@@ -18,7 +18,7 @@ In this tutorial, you will:
 
 - Python 3.10+
 - TenSnap installed from PyPI, or this repository checked out locally
-- If you are running from this repository, Node.js 24+ and pnpm 11+ for `pnpm dev:web`
+- If you are running from this repository, Node.js 24+ and pnpm 12.x for `pnpm dev:web`
 
 ## What We Are Building
 
