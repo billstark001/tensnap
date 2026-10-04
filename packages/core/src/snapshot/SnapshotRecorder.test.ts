@@ -52,6 +52,168 @@ describe('SnapshotRecorder', () => {
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
 
+  it('owns incoming messages before coalescing them', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start();
+    const create = { type: 'item_create' as const, payload: {
+      env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }],
+    } };
+    scenario.apply(create);
+    recorder.recordMessage(create);
+    create.payload.items[0].x = 99;
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.frames[0].messages).toContainEqual({ type: 'item_create', payload: {
+      env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }],
+    } });
+  });
+
+  it('keeps numeric and string item ids separate while coalescing a frame', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start();
+    const create = { type: 'item_create' as const, payload: {
+      env_id: 'main', layer_id: 'agents', items: [{ id: 1, x: 1 }, { id: '1', x: 2 }],
+    } };
+    scenario.apply(create);
+    recorder.recordMessage(create);
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
+    expect(snapshot.frames[0].messages).toContainEqual({ type: 'item_create', payload: {
+      env_id: 'main', layer_id: 'agents', items: [{ id: 1, x: 1 }, { id: '1', x: 2 }],
+    } });
+  });
+
+  it('preserves delete then recreate of an existing item in one frame', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 9 }] } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start();
+    const remove = { type: 'item_delete' as const, payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } };
+    const recreate = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2 }] } };
+    scenario.apply(remove);
+    recorder.recordMessage(remove);
+    scenario.apply(recreate);
+    recorder.recordMessage(recreate);
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.frames[0].messages.map((message) => message.type)).toEqual(['item_delete', 'item_create', 'action_result']);
+    expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
+  });
+
+  it('does not move a later recreate into an earlier create batch', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }] } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start();
+    const messages = [
+      { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'b', x: 2 }] } },
+      { type: 'item_delete' as const, payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } },
+      { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 3 }] } },
+    ];
+    for (const message of messages) {
+      scenario.apply(message);
+      recorder.recordMessage(message);
+    }
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.frames[0].messages.map((message) => message.type)).toEqual([
+      'item_create', 'item_delete', 'item_create', 'action_result',
+    ]);
+    expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
+  });
+
+  it('does not merge item mutations across a layer replacement', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }] } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start();
+    const messages = [
+      { type: 'item_update' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2 }] } },
+      { type: 'env_layer_delete' as const, payload: { env_id: 'main', layer_id: 'agents' } },
+      { type: 'env_layer_create' as const, payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } },
+      { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 3 }] } },
+    ];
+    for (const message of messages) {
+      scenario.apply(message);
+      recorder.recordMessage(message);
+    }
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+
+    const snapshot = recorder.stop()!;
+    expect(snapshot.frames[0].messages.map((message) => message.type)).toEqual([
+      'item_update', 'env_layer_delete', 'env_layer_create', 'item_create', 'action_result',
+    ]);
+    expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
+  });
+
+  it('replays varied create, update, and delete bursts exactly', () => {
+    let randomState = 0x5eed;
+    const random = () => ((randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0) / 0x1_0000_0000);
+    for (let burst = 0; burst < 30; burst++) {
+      const scenario = new Scenario();
+      scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+      scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+      const recorder = new SnapshotRecorder(scenario);
+      recorder.start();
+      const live = new Set<string | number>();
+      for (let index = 0; index < 25; index++) {
+        const id = random() < 0.5 ? 1 : '1';
+        const type = live.has(id) ? (random() < 0.45 ? 'item_delete' : 'item_update') : 'item_create';
+        const message = type === 'item_delete'
+          ? { type: 'item_delete' as const, payload: { env_id: 'main', layer_id: 'agents', items: [id] } }
+          : { type: type as 'item_create' | 'item_update', payload: {
+            env_id: 'main', layer_id: 'agents', items: [{ id, x: index }],
+          } };
+        scenario.apply(message);
+        recorder.recordMessage(message);
+        if (type === 'item_delete') live.delete(id);
+        else live.add(id);
+      }
+      recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+      expect(materializeSnapshot(recorder.stop()!)).toEqual(scenario.dump());
+    }
+  });
+
+  it('retains every source update needed by a dependent trajectory layer', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({ type: 'env_layer_create', payload: {
+      env_id: 'main', layer_id: 'trails', layer_type: 'trajectory', dependency_layer_ids: { agent: 'agents' },
+    } });
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start();
+    for (let x = 1; x <= 3; x++) {
+      const message = { type: x === 1 ? 'item_create' as const : 'item_update' as const, payload: {
+        env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x, y: 0 }],
+      } };
+      scenario.apply(message);
+      recorder.recordMessage(message);
+    }
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+    const snapshot = recorder.stop()!;
+
+    expect(snapshot.frames[0].messages.filter((message) => message.type.startsWith('item_'))).toHaveLength(3);
+    expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
+  });
+
   it('records parameter requests and canonical simulator values in one control frame', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });

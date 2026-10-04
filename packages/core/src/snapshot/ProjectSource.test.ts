@@ -40,7 +40,9 @@ describe('SnapshotPlaybackSource', () => {
     expect(frame?.messages).toContainEqual(update);
     expect(source.scenario).toBe(scenarioRef);
     expect(source.scenario.metadata.time).toBe(7);
+    source.start();
     expect(source.stepFrame()).toBeNull();
+    expect(source.playbackState).toBe('paused');
   });
 
   it('continues correctly after an explicit backwards seek', () => {
