@@ -1,4 +1,4 @@
-"""Deterministic Python binding host for the cross-binding wire probe."""
+"""Deterministic Python binding host for the cross-binding matrix."""
 
 import asyncio
 import json

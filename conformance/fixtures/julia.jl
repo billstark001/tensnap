@@ -1,4 +1,4 @@
-# Deterministic Julia binding host for the cross-binding wire probe.
+# Deterministic Julia binding host for the cross-binding matrix.
 using TenSnap
 using JSON3
 

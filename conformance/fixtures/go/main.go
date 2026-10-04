@@ -1,4 +1,4 @@
-// Deterministic Go binding host for the cross-binding wire probe.
+// Deterministic Go binding host for the cross-binding matrix.
 package main
 
 import (

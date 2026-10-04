@@ -1,4 +1,4 @@
-/** Deterministic JS binding host for the cross-binding wire probe. */
+/** Deterministic JS binding host for the cross-binding matrix. */
 import { writeFileSync } from 'node:fs';
 import { modelBuilder } from '../../packages/tensnap-js/src/bindings/index.ts';
 import { createWebSocketTransportHost } from '../../packages/tensnap-js/src/transport/index.ts';
