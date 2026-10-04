@@ -81,6 +81,32 @@ describe('ChartStorage – group operations', () => {
     expect(s.getGroup('g')?.label).toBe('new');
   });
 
+  it('updates latest-value indexes only for metadata affected by a group replacement', () => {
+    const first = makeGroup('first', 'first', ['shared']);
+    first.data = [{ time: 10, shared: 10 }];
+    const second = makeGroup('second', 'second', ['shared', 'other']);
+    second.data = [{ time: 5, shared: 5, other: 50 }];
+    const storage = new ChartStorage([first, second]);
+
+    storage.addGroup(makeGroup('first', 'replacement', ['new']));
+    expect(storage.getLatestValue('shared')).toBe(5);
+    expect(storage.getLatestValue('other')).toBe(50);
+    expect(storage.getLatestValue('new')).toBeUndefined();
+  });
+
+  it('loads all chart groups with one revision change and preserves shared IDs', () => {
+    const storage = new ChartStorage();
+    const groups = Array.from({ length: 100 }, (_, index) => {
+      const group = makeGroup(`group-${index}`, undefined, ['shared']);
+      group.data = [{ time: index, shared: index }];
+      return group;
+    });
+
+    storage.load(groups);
+    expect(storage.revision).toBe(1);
+    expect(storage.getLatestValue('shared')).toBe(99);
+  });
+
   it('removeGroup returns true and deletes the group', () => {
     const s = new ChartStorage([makeGroup('g1')]);
     expect(s.removeGroup('g1')).toBe(true);
@@ -223,6 +249,42 @@ describe('ChartStorage – metadata operations', () => {
     expect(s.getData('new')![0]).toMatchObject({ time: 1, new: 5 });
   });
 
+  it('renameMeta updates only the selected group and keeps shared ids indexed', () => {
+    const s = new ChartStorage([makeGroup('g1', 'g1', ['old']), makeGroup('g2', 'g2', ['old'])]);
+    s.push(1, [{ id: 'old', value: 5 }]);
+    expect(s.renameMeta('old', 'new', 'g1')).toBe(true);
+    expect(s.getGroupsForMeta('old').map((group) => group.id)).toEqual(['g2']);
+    expect(s.getGroupsForMeta('new').map((group) => group.id)).toEqual(['g1']);
+    expect(s.getData('old')).toEqual([{ time: 1, old: 5 }]);
+    expect(s.getData('new')).toEqual([{ time: 1, new: 5 }]);
+    expect(s.updateMeta('old', { label: 'Remaining' })).toBe(true);
+    expect(s.getGroup('g2')?.metadataDict.old.label).toBe('Remaining');
+    expect(s.getGroup('g1')?.metadataDict.new.label).toBe('old');
+  });
+
+  it('moveMeta to the same group leaves its data registered', () => {
+    const s = new ChartStorage([makeGroup('g', 'g', ['m1'])]);
+    s.push(1, [{ id: 'm1', value: 5 }]);
+    expect(s.moveMeta('m1', 'g', 'g')).toBe(true);
+    expect(s.getData('m1')).toEqual([{ time: 1, m1: 5 }]);
+    expect(s.hasGroup('g')).toBe(true);
+  });
+
+  it('moveMeta writes only to the destination when other groups share the metadata id', () => {
+    const source = makeGroup('source', 'source', ['m1']);
+    const target = makeGroup('target', 'target', ['m1']);
+    const other = makeGroup('other', 'other', ['m1']);
+    source.data = [{ time: 1, m1: 11 }];
+    target.data = [{ time: 2, m1: 22 }];
+    other.data = [{ time: 3, m1: 33 }];
+    const s = new ChartStorage([source, target, other]);
+
+    expect(s.moveMeta('m1', 'source', 'target')).toBe(true);
+    expect(s.getGroup('target')?.data).toEqual([{ time: 1, m1: 11 }, { time: 2, m1: 22 }]);
+    expect(s.getGroup('other')?.data).toEqual([{ time: 3, m1: 33 }]);
+    expect(s.getLatestValue('m1')).toBe(33);
+  });
+
   it('renameMeta rejects when new id already exists', () => {
     const s = new ChartStorage([makeGroup('g', 'g', ['m1', 'm2'])]);
     const warn = vi.fn();
@@ -278,6 +340,15 @@ describe('ChartStorage – push / pushMany', () => {
     expect(data.find(d => d.time === 1)!.m1).toBe(99); // overwritten
   });
 
+  it('appends a dense import without exceeding the argument limit', () => {
+    const s = new ChartStorage([makeGroup('g', 'g', ['m1'])]);
+    s.push(0, [{ id: 'm1', value: 0 }]);
+    const points = Array.from({ length: 150_000 }, (_, index) => ({ time: index + 1, m1: index + 1 }));
+    s.pushMany('m1', points);
+    expect(s.getGroup('g')?.data).toHaveLength(150_001);
+    expect(s.getLatestValue('m1')).toBe(150_000);
+  });
+
   it('pushMany warns on unknown metadata id', () => {
     const s = new ChartStorage();
     const warn = vi.fn();
@@ -319,6 +390,22 @@ describe('ChartStorage – getData / getValueAt', () => {
     expect(s.getValueAt('m1', 7)).toBe(10);  // closer to 10
     expect(s.getValueAt('m1', 3)).toBe(0);   // closer to 0
     expect(s.getValueAt('m1', 15)).toBe(10); // equidistant – lower wins per bisect
+  });
+
+  it('getValueAt skips nearby points belonging only to another series', () => {
+    const s = new ChartStorage([makeGroup('g', 'g', ['m1', 'm2'])]);
+    s.push(0, [{ id: 'm1', value: 1 }]);
+    s.push(5, [{ id: 'm2', value: 99 }]);
+    s.push(10, [{ id: 'm1', value: 2 }]);
+    expect(s.getValueAt('m1', 5)).toBe(1);
+    expect(s.getValueAt('m1', 9)).toBe(2);
+    expect(s.getValueAt('m1', Number.NaN)).toBeUndefined();
+  });
+
+  it('preserves nonnumeric chart values in nearest-value queries', () => {
+    const storage = new ChartStorage([makeGroup('g', 'g', ['status'])]);
+    storage.push(2, [{ id: 'status', value: 'ready' }]);
+    expect(storage.getValueAt('status', 3)).toBe('ready');
   });
 
   it('maintains latest values without merging a chart history', () => {
@@ -377,5 +464,28 @@ describe('ChartStorage – clear operations', () => {
     s.clearMetas(['m1', 'm2']); // clears all of g1
     const g1 = s.getGroupList().find(g => g.id === 'g1')!;
     expect(g1.data).toHaveLength(0);
+  });
+});
+
+describe('ChartStorage – truncation', () => {
+  it('leaves untouched group data references and revisions intact', () => {
+    const s = new ChartStorage([makeGroup('g', 'g', ['m1'])]);
+    s.push(1, [{ id: 'm1', value: 1 }]);
+    const data = s.getGroup('g')!.data;
+    const revision = s.revision;
+
+    expect(s.truncateMetas(['other'], 0, true)).toEqual(new Set());
+    expect(s.truncateMetas([], 0, true)).toEqual(new Set());
+    expect(s.getGroup('g')!.data).toBe(data);
+    expect(s.revision).toBe(revision);
+  });
+
+  it('removes only selected metadata values after the cutoff', () => {
+    const s = new ChartStorage([makeGroup('g', 'g', ['m1', 'm2'])]);
+    s.push(1, [{ id: 'm1', value: 1 }, { id: 'm2', value: 2 }]);
+    s.push(2, [{ id: 'm1', value: 3 }, { id: 'm2', value: 4 }]);
+    expect(s.truncateMetas(['m1'], 2, true)).toEqual(new Set(['m1']));
+    expect(s.getGroup('g')?.data).toEqual([{ time: 1, m1: 1, m2: 2 }, { time: 2, m2: 4 }]);
+    expect(s.getLatestValue('m1')).toBe(1);
   });
 });
